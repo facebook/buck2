@@ -1,0 +1,86 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+import "data.proto";
+
+package buck.health_check;
+
+message Empty {};
+
+// Event to update the HealthCheckContext in the server.
+// This is a subset of the data from buck2 daemon events to avoid gRPC
+// overheads.
+message HealthCheckContextEvent {
+  oneof data {
+    buck.data.ParsedTargetPatterns parsed_target_patterns = 1;
+    buck.data.CommandStart command_start = 2;
+    string branched_from_revision = 3;
+    bool has_excess_cache_misses = 4;
+    buck.data.SystemInfo experiment_configurations = 5;
+  }
+}
+
+// Type of health check.
+enum HealthCheckType {
+  MEMORY_PRESSURE = 0;
+  LOW_DISK_SPACE = 1;
+  SLOW_DOWNLOAD_SPEED = 2;
+  VPN_ENABLED = 3;
+  STABLE_REVISION = 4;
+}
+
+// Severity of an issue reported by a health check.
+enum Severity {
+  INFO = 0;
+  WARNING = 1;
+}
+
+/// Remediation for an issue reported by a health check.
+message Remediation {
+  oneof data {
+    // A message to display to the user.
+    string message = 1;
+    // A hyperlink to a page containing more details and remediation.
+    string link = 2;
+  }
+}
+
+message HealthIssue {
+  Severity severity = 1;
+  // A human readable description of the issue.
+  string message = 2;
+  // This is optional because some health checks may not have a remediation.
+  optional Remediation remediation = 3;
+}
+
+// A report that can be displayed to the user, typically on the console.
+message DisplayReport {
+  HealthCheckType health_check_type = 1;
+  optional HealthIssue health_issue = 2;
+}
+
+message Report {
+  optional DisplayReport display_report = 1;
+  optional string tag = 2;
+}
+
+message HealthCheckResult {
+  repeated Report reports = 1;
+}
+
+service HealthCheck {
+  rpc UpdateContext(HealthCheckContextEvent) returns (Empty);
+  // Run health checks and return the result.
+  // Existing health checks do not need any additional data. If necessary, pass
+  // the buck.data.Snapshot or a custom message to this method.
+  rpc RunChecks(Empty) returns (HealthCheckResult);
+}

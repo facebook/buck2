@@ -100,6 +100,7 @@ load(
     "cxx_attr_dep_metadata",
     "cxx_attr_deps",
     "cxx_attr_exported_deps",
+    "cxx_attr_link_style",
     "cxx_attr_linker_flags_all",
     "cxx_attr_preferred_linkage",
     "cxx_inherited_link_info",
@@ -260,7 +261,12 @@ def get_auto_link_group_specs(ctx: AnalysisContext, link_group_info: [LinkGroupI
     return create_shared_lib_link_group_specs(ctx, link_group_info.groups.values())
 
 def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
-    link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)))
+    link_strategy = to_link_strategy(cxx_attr_link_style(ctx))
+    link_group_info = get_link_group_info(
+        ctx,
+        filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)),
+        link_strategy,
+    )
     params = CxxRuleConstructorParams(
         rule_type = "cxx_binary",
         executable_name = ctx.attrs.executable_name,
@@ -721,6 +727,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 shared_libs = shared_libs,
                 linker_flags = linker_flags,
                 can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
+                stub = getattr(ctx.attrs, "stub", False),
             ),
             excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
         ),
@@ -759,7 +766,12 @@ def cxx_precompiled_header_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
 def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
-    link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)))
+    link_strategy = to_link_strategy(cxx_attr_link_style(ctx))
+    link_group_info = get_link_group_info(
+        ctx,
+        filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)),
+        link_strategy,
+    )
 
     # TODO(T110378115): have the runinfo contain the correct test running args
     params = CxxRuleConstructorParams(

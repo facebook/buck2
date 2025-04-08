@@ -56,7 +56,7 @@ impl HealthCheckSubscriber {
             SpanStart(start) => match &start.data {
                 Some(buck2_data::span_start_event::Data::Command(command)) => {
                     self.health_check_client
-                        .update_command_data(command.data.clone())
+                        .update_command_data(command.clone())
                         .await;
                 }
                 _ => {}
@@ -105,7 +105,9 @@ impl HealthCheckSubscriber {
                             .await;
                     }
                     Snapshot(snapshot) => {
-                        self.health_check_client.run_checks(snapshot).await?;
+                        if let Err(e) = self.health_check_client.run_checks(snapshot).await {
+                            tracing::warn!("Failed to run health checks: {e:?}");
+                        }
                     }
                     _ => {}
                 }

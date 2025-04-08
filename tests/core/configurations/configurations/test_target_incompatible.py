@@ -149,21 +149,6 @@ async def check_dep_only_incompatible_soft_err(buck: Buck, args: list[str]) -> N
 
 
 @buck_test(allow_soft_errors=True)
-async def test_dep_only_incompatible_custom_soft_errors(buck: Buck) -> None:
-    args = [
-        "-c",
-        "buck2.dep_only_incompatible_info=//dep_incompatible/dep_only_incompatible_info:dep_only_incompatible_info",
-    ]
-    await buck.cquery("//dep_incompatible:dep_incompatible", *args)
-    result = await buck.log("show")
-    assert "Soft Error: soft_error_one" in result.stdout
-
-    await buck.cquery("//dep_incompatible:transitive_dep_incompatible", *args)
-    result = await buck.log("show")
-    assert "Soft Error: soft_error_two" in result.stdout
-
-
-@buck_test(allow_soft_errors=True)
 async def test_dep_only_incompatible_custom_soft_errors_with_exclusions(
     buck: Buck,
 ) -> None:

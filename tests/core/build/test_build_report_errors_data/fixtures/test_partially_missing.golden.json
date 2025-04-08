@@ -40,7 +40,7 @@
           "action_error": null,
           "cause_index": 1,
           "error_tags": [
-            "INPUT"
+            "MISSING_TARGET"
           ],
           "message_content": "<STRING_HASH>"
         }

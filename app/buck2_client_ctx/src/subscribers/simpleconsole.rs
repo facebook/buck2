@@ -589,7 +589,7 @@ where
     }
 
     fn echo_health_check_warning(&self, report: &DisplayReport) -> buck2_error::Result<()> {
-        if let Some(warning) = &report.warning {
+        if let Some(warning) = &report.health_issue {
             echo_system_warning_exponential(&report.health_check_type, &warning.to_string())?;
         }
         Ok(())

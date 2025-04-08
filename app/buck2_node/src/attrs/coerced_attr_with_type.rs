@@ -38,6 +38,8 @@ use crate::attrs::attr_type::source::SourceAttrType;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use crate::attrs::attr_type::string::StringAttrType;
 use crate::attrs::attr_type::string::StringLiteral;
+use crate::attrs::attr_type::transition_dep::CoercedTransitionDep;
+use crate::attrs::attr_type::transition_dep::TransitionDepAttrType;
 use crate::attrs::attr_type::tuple::TupleAttrType;
 use crate::attrs::attr_type::tuple::TupleLiteral;
 use crate::attrs::attr_type::visibility::VisibilityAttrType;
@@ -96,6 +98,7 @@ pub enum CoercedAttrWithType<'a, 't> {
         &'t ExplicitConfiguredDepAttrType,
     ),
     SplitTransitionDep(&'a ProvidersLabel, &'t SplitTransitionDepAttrType),
+    TransitionDep(&'a CoercedTransitionDep, &'t TransitionDepAttrType),
     ConfiguredDep(&'a DepAttr<ConfiguredProvidersLabel>),
     ConfigurationDep(&'a ProvidersLabel, ConfigurationDepAttrType),
     PluginDep(&'a TargetLabel, &'t PluginDepAttrType),
@@ -149,10 +152,15 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             (CoercedAttr::ExplicitConfiguredDep(d), AttrTypeInner::ConfiguredDep(t)) => {
                 Ok(CoercedAttrWithType::ExplicitConfiguredDep(d, t))
             }
+            (CoercedAttr::TransitionDep(d), AttrTypeInner::TransitionDep(t)) => {
+                Ok(CoercedAttrWithType::TransitionDep(d, t))
+            }
             (CoercedAttr::SplitTransitionDep(d), AttrTypeInner::SplitTransitionDep(t)) => {
                 Ok(CoercedAttrWithType::SplitTransitionDep(d, t))
             }
-            (CoercedAttr::ConfiguredDep(d), _) => Ok(CoercedAttrWithType::ConfiguredDep(d)),
+            (CoercedAttr::ConfiguredDepForForwardNode(d), _) => {
+                Ok(CoercedAttrWithType::ConfiguredDep(d))
+            }
             (CoercedAttr::ConfigurationDep(d), AttrTypeInner::ConfigurationDep(t)) => {
                 Ok(CoercedAttrWithType::ConfigurationDep(d, *t))
             }
@@ -193,6 +201,7 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             | (CoercedAttr::WithinView(_), _)
             | (CoercedAttr::ExplicitConfiguredDep(_), _)
             | (CoercedAttr::SplitTransitionDep(_), _)
+            | (CoercedAttr::TransitionDep(_), _)
             | (CoercedAttr::ConfigurationDep(_), _)
             | (CoercedAttr::PluginDep(_), _)
             | (CoercedAttr::Dep(_), _)
@@ -225,8 +234,9 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             | CoercedAttr::Visibility(_)
             | CoercedAttr::WithinView(_)
             | CoercedAttr::ExplicitConfiguredDep(_)
+            | CoercedAttr::TransitionDep(_)
             | CoercedAttr::SplitTransitionDep(_)
-            | CoercedAttr::ConfiguredDep(_)
+            | CoercedAttr::ConfiguredDepForForwardNode(_)
             | CoercedAttr::ConfigurationDep(_)
             | CoercedAttr::PluginDep(_)
             | CoercedAttr::Dep(_)

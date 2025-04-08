@@ -93,6 +93,12 @@ impl<T> SmallSet<T> {
         Self(SmallMap::with_capacity(n))
     }
 
+    /// Reserve capacity for at least `additional` more elements to be inserted.
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) {
+        self.0.reserve(additional);
+    }
+
     /// Current capacity of the set.
     #[inline]
     pub fn capacity(&self) -> usize {

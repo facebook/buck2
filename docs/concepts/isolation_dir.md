@@ -14,8 +14,10 @@ commands only act in their own specified isolation dir. For example,
 (`v2`). Exceptions to this rule include `buck2 killall` command, which will kill
 all buck2 processes on the machine.
 
-WARNING: Isolation dirs have a very important consequence: `buck2` invocations
-with _different_ isolation dirs **never share _any_ cached artifacts**.
+:::warning Isolation dirs have a very important consequence: `buck2` invocations
+with _different_ isolation dirs **never share _any_ cached artifacts or memory
+cache** with the consequence of potentially sigificantly more use of resources:
+_memory, disk and network usage_.
 
 ## Isolation dir uses
 

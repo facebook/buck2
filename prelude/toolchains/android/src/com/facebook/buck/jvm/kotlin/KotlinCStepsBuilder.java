@@ -96,15 +96,17 @@ public class KotlinCStepsBuilder {
             extraParams.getShouldVerifySourceOnlyAbiConstraints(),
             postKotlinCompilationFailureSteps.build(),
             extraParams.getDepTrackerPlugin(),
-            KotlincModeFactory.create(
-                invokingRule.isSourceOnlyAbi(),
-                buildCellRootPath,
-                outputDirectory.getParent().toAbsolutePath(),
-                CompilerOutputPaths.getKotlinDepFilePath(
-                    parameters.getOutputPaths().getOutputJarDirPath()),
-                extraParams,
-                Optional.ofNullable(actionMetadata),
-                classpathSnapshots),
+            new KotlincModeFactory()
+                .create(
+                    invokingRule.isSourceOnlyAbi(),
+                    buildCellRootPath,
+                    outputDirectory.getParent().toAbsolutePath(),
+                    parameters.getShouldTrackClassUsage(),
+                    CompilerOutputPaths.getKotlinDepFilePath(
+                        parameters.getOutputPaths().getOutputJarDirPath()),
+                    extraParams,
+                    Optional.ofNullable(actionMetadata),
+                    classpathSnapshots),
             kotlinCDAnalytics,
             kotlincLanguageVersion);
     steps.add(kotlincStep);

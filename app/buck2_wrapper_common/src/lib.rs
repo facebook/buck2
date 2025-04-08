@@ -205,7 +205,7 @@ pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
                 printer.failed_to_kill(
                     &process.0,
                     buck2_error::buck2_error!(
-                        buck2_error::ErrorTag::Tier0,
+                        buck2_error::ErrorTag::DaemonWontDieFromKill,
                         "Process still alive after {timeout_secs}s after kill sent"
                     ),
                 );

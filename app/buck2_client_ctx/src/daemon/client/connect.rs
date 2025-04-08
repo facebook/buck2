@@ -34,7 +34,6 @@ use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_error::source_location::SourceLocation;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_util::process::async_background_command;
@@ -259,7 +258,7 @@ pub async fn new_daemon_api_client(
         channel,
         BuckAddAuthTokenInterceptor {
             auth_token: AsciiMetadataValue::try_from(auth_token)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
+                .map_err(|e| from_any_with_tag(e, ErrorTag::InvalidAuthToken))?,
         },
     )
     .max_encoding_message_size(usize::MAX)
@@ -1027,7 +1026,7 @@ async fn get_constraints(
     let status: buck2_cli_proto::StatusResponse = match status {
         CommandOutcome::Success(r) => Ok(r),
         CommandOutcome::Failure(_) => Err(buck2_error!(
-            buck2_error::ErrorTag::Tier0,
+            ErrorTag::DaemonStatus,
             "Unexpected failure message in status()"
         )),
     }?;
@@ -1094,19 +1093,7 @@ async fn daemon_connect_error(
 
     let error = if let Ok(error_report) = error_report {
         // Daemon wrote an error and most likely quit.
-        // (note: not using tags() as a workaround for likely false positive ASAN failure)
-        let tags: Vec<ErrorTag> = error_report
-            .tags
-            .into_iter()
-            .filter_map(|v| buck2_error::ErrorTag::try_from(v).ok())
-            .collect();
-        let daemon_error = buck2_error::Error::new(
-            error_report.message.clone(),
-            *tags.first().unwrap_or(&ErrorTag::Tier0),
-            SourceLocation::new(file!()),
-            None,
-        )
-        .tag(tags);
+        let daemon_error: buck2_error::Error = error_report.into();
         if daemon_error.has_tag(ErrorTag::DaemonStateInitFailed) {
             // If error is in this stage of daemon init, exclude connection error details/workaround message.
             // TODO(ctolliday) always hide connection error details/workaround message if there is a structured error from daemon.

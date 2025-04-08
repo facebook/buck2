@@ -34,7 +34,6 @@ use buck2_client_ctx::subscribers::superconsole::test::span_from_build_failure_c
 use buck2_client_ctx::subscribers::superconsole::test::TestCounterColumn;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::working_dir::AbsWorkingDir;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use superconsole::Line;
@@ -261,11 +260,7 @@ impl StreamingCommand for TestCommand {
         let mut line = Line::default();
         line.push(Span::new_unstyled_lossy("Tests finished: "));
         if listing_failed.count > 0 {
-            line.push(
-                TestCounterColumn::LISTING_FAIL
-                    .to_span_from_test_statuses(statuses)
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
-            );
+            line.push(TestCounterColumn::LISTING_FAIL.to_span_from_test_statuses(statuses)?);
             line.push(Span::new_unstyled_lossy(". "));
         }
         let columns = [
@@ -275,17 +270,12 @@ impl StreamingCommand for TestCommand {
             TestCounterColumn::SKIP,
         ];
         for column in columns {
-            line.push(
-                column
-                    .to_span_from_test_statuses(statuses)
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
-            );
+            line.push(column.to_span_from_test_statuses(statuses)?);
             line.push(Span::new_unstyled_lossy(". "));
         }
-        line.push(
-            span_from_build_failure_count(build_errors.len())
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
-        );
+        line.push(span_from_build_failure_count(
+            build_errors.len().try_into()?,
+        )?);
         eprint_line(&line)?;
 
         print_error_counter(&console, listing_failed, "LISTINGS FAILED", "⚠")?;

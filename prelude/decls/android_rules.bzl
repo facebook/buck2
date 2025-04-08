@@ -247,6 +247,7 @@ android_binary = prelude_rule(
             "native_library_merge_sequence_blocklist": attrs.option(attrs.list(attrs.regex()), default = None),
             "native_library_merge_non_asset_libs": attrs.bool(default = False),
             "native_library_merge_linker_args_all": attrs.list(attrs.arg(), default = [], doc = "Extra linker arguments passed to all merged libraries."),
+            "native_library_pick_first": attrs.list(attrs.string(), default = []),
             "no_auto_add_overlay_resources": attrs.bool(default = False),
             "no_auto_version_resources": attrs.bool(default = False),
             "no_dx": attrs.list(attrs.dep(), default = []),
@@ -945,6 +946,7 @@ android_prebuilt_aar = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "desugar_deps": attrs.list(attrs.dep(), default = []),
+            "dex_weight_factor": attrs.int(default = 1),
             "for_primary_apk": attrs.bool(default = False),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
@@ -1435,7 +1437,10 @@ robolectric_test = prelude_rule(
             "annotation_processor_params": attrs.list(attrs.string(), default = []),
             "annotation_processors": attrs.list(attrs.string(), default = []),
             "contacts": attrs.list(attrs.string(), default = []),
-            "cxx_library_whitelist": attrs.list(attrs.dep(), default = []),
+            "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
+                List of cxx_library targets to build, if use_cxx_libraries is true.
+                This can be useful if some dependencies are Android-only and won't build for the test host platform.
+            """),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),

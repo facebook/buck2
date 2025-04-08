@@ -30,7 +30,6 @@ use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_events::errors::create_error_report;
 use buck2_events::metadata;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
@@ -128,7 +127,7 @@ fn create_result(
         Err(e) => (
             CleanStaleResultKind::Failed,
             CleanStaleStats::default(),
-            Some(create_error_report(&e)),
+            Some((&e).into()),
         ),
     };
     stats.total_duration_s = total_duration_s;
@@ -313,7 +312,7 @@ impl CleanStaleArtifactsCommand {
 
 #[derive(Debug, Clone, buck2_error::Error)]
 #[error("Internal error: materializer state exists (num db entries: {}) but no artifacts were found by clean ({:?}). Not cleaning untracked artifacts.", .db_size, .stats)]
-#[buck2(tag = Tier0)]
+#[buck2(tag = CleanStale)]
 pub(crate) struct CleanStaleError {
     db_size: usize,
     stats: buck2_data::CleanStaleStats,

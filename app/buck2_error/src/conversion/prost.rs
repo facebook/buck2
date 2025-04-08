@@ -11,7 +11,7 @@ impl From<prost::EncodeError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: prost::EncodeError) -> Self {
-        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Prost)
     }
 }
 
@@ -19,6 +19,22 @@ impl From<prost::DecodeError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: prost::DecodeError) -> Self {
-        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Prost)
+    }
+}
+
+impl From<prost_types::DurationError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: prost_types::DurationError) -> Self {
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Prost)
+    }
+}
+
+impl From<prost_types::TimestampError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: prost_types::TimestampError) -> Self {
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Prost)
     }
 }

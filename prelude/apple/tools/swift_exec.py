@@ -107,6 +107,10 @@ def main():
     if should_remove_module_prefixes:
         command.remove("-remove-module-prefixes")
 
+    should_ignore_errors = "-ignore-errors" in command
+    if should_ignore_errors:
+        command.remove("-ignore-errors")
+
     # Use relative paths for debug information and index information,
     # so we generate relocatable files.
     #
@@ -159,10 +163,14 @@ def main():
     if should_remove_module_prefixes:
         _remove_swiftinterface_module_prefixes(command)
 
-    sys.exit(result.returncode)
+    if should_ignore_errors:
+        sys.exit(0)
+    else:
+        sys.exit(result.returncode)
 
 
 _SKIP_INCREMENTAL_OUTPUTS_ARG = "-skip-incremental-outputs"
+_SWIFT_FILES_ARGSFILE = ".swift_files"
 
 
 def _process_skip_incremental_outputs(command):
@@ -183,7 +191,7 @@ def _process_skip_incremental_outputs(command):
         },
     }
 
-    swift_files = [f for f in command if f.endswith(".swift")]
+    swift_files = _get_swift_files_to_compile(command)
     for swift_file in swift_files:
         file_name = swift_file.split("/")[-1]
         output_artifact = f"{output_dir}/__swift_incremental__/objects/{file_name}.o"
@@ -199,6 +207,19 @@ def _process_skip_incremental_outputs(command):
         json.dump(output_file_map_content, f, indent=2)
 
     return command
+
+
+def _get_swift_files_to_compile(command):
+    for arg in command:
+        if arg.endswith(_SWIFT_FILES_ARGSFILE):
+            path = arg[1:]  # Remove leading @
+            with open(path) as swift_files:
+                return [
+                    line.rstrip().strip('"').strip("'")
+                    for line in swift_files.readlines()
+                ]
+
+    raise Exception(f"No {_SWIFT_FILES_ARGSFILE} found!")
 
 
 if __name__ == "__main__":

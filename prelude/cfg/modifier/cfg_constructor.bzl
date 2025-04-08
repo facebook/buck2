@@ -8,7 +8,7 @@
 load("@prelude//utils:graph_utils.bzl", "post_order_traversal")
 load(
     ":common.bzl",
-    "add_to_constraint_setting_to_modifier_infos",
+    "apply_buckconfig_backed_modifiers",
     "get_and_insert_modifier_info",
     "get_constraint_setting_deps",
     "json_to_tagged_modifiers",
@@ -132,16 +132,14 @@ def cfg_constructor_post_constraint_analysis(
     buckconfig_backed_modifiers = getattr(params.extra_data, "buckconfig_backed_modifiers", None)
 
     if buckconfig_backed_modifiers:
-        for conditional_modifier_info in refs[buckconfig_backed_modifiers][BuckconfigBackedModifierInfo].pre_platform_modifiers:
-            add_to_constraint_setting_to_modifier_infos(
-                constraint_setting_to_modifier_infos = constraint_setting_to_modifier_infos,
-                constraint_setting_label = conditional_modifier_info.key,
-                modifier_info = conditional_modifier_info.inner,
-            )
+        apply_buckconfig_backed_modifiers(constraint_setting_to_modifier_infos, refs[buckconfig_backed_modifiers][BuckconfigBackedModifierInfo].pre_platform_modifiers)
 
     if params.legacy_platform:
         for constraint_setting, constraint_value_info in params.legacy_platform.configuration.constraints.items():
             constraint_setting_to_modifier_infos[constraint_setting] = [constraint_value_info]
+
+    if buckconfig_backed_modifiers:
+        apply_buckconfig_backed_modifiers(constraint_setting_to_modifier_infos, refs[buckconfig_backed_modifiers][BuckconfigBackedModifierInfo].post_platform_modifiers)
 
     for tagged_modifiers in params.package_modifiers:
         for modifier in tagged_modifiers.modifiers:
@@ -161,6 +159,9 @@ def cfg_constructor_post_constraint_analysis(
                 modifier = modifier,
                 location = ModifierTargetLocation(),
             )
+
+    if buckconfig_backed_modifiers:
+        apply_buckconfig_backed_modifiers(constraint_setting_to_modifier_infos, refs[buckconfig_backed_modifiers][BuckconfigBackedModifierInfo].pre_cli_modifiers)
 
     for modifier in params.cli_modifiers:
         if modifier:

@@ -181,20 +181,9 @@ impl TargetInfo {
             .iter()
             .filter_map(|flag| flag.strip_prefix("--cfg=").map(str::to_string));
 
-        let mut cfg = feature_cfgs
+        feature_cfgs
             .chain(rustc_flags_cfgs)
-            .collect::<Vec<String>>();
-
-        // Include "test" cfg so rust-analyzer picks up #[cfg(test)] code.
-        cfg.push("test".to_owned());
-
-        #[cfg(fbcode_build)]
-        {
-            // FIXME(JakobDegen): This should be set via a configuration mechanism of some kind.
-            cfg.push("fbcode_build".to_owned());
-        }
-
-        cfg
+            .collect::<Vec<String>>()
     }
 }
 
@@ -275,20 +264,8 @@ fn test_cfg() {
         rustc_flags: vec!["--cfg=foo_cfg".to_owned(), "--other".to_owned()],
     };
 
-    let expected = if cfg!(fbcode_build) {
-        vec![
-            "feature=\"foo_feature\"".to_owned(),
-            "foo_cfg".to_owned(),
-            "test".to_owned(),
-            "fbcode_build".to_owned(),
-        ]
-    } else {
-        vec![
-            "feature=\"foo_feature\"".to_owned(),
-            "foo_cfg".to_owned(),
-            "test".to_owned(),
-        ]
-    };
-
-    assert_eq!(info.cfg(), expected);
+    assert_eq!(
+        info.cfg(),
+        vec!["feature=\"foo_feature\"".to_owned(), "foo_cfg".to_owned()]
+    );
 }

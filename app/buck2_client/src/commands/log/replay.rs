@@ -7,7 +7,9 @@
  * of this source tree.
  */
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::ui::get_console_with_root;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
@@ -15,7 +17,6 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
-use buck2_client_ctx::subscribers::get::get_console_with_root;
 use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
 use buck2_error::buck2_error;
 
@@ -48,8 +49,15 @@ pub struct ReplayCommand {
     console_opts: CommonConsoleOptions,
 }
 
-impl ReplayCommand {
-    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+impl BuckSubcommand for ReplayCommand {
+    const COMMAND_NAME: &'static str = "log-replay";
+
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        mut ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
         let Self {
             event_log,
             speed,
@@ -57,58 +65,56 @@ impl ReplayCommand {
             console_opts,
             override_args: _,
         } = self;
+        let work = async {
+            let (replayer, invocation) =
+                Replayer::new(event_log.get(&ctx).await?, speed, preload).await?;
+            let console = get_console_with_root(
+                invocation.trace_id,
+                console_opts.console_type,
+                ctx.verbosity,
+                true,
+                speed,
+                "(replay)", // Could be better
+                console_opts.superconsole_config(),
+                None,
+            )?;
 
-        ctx.instant_command_no_log("log-replay", |mut ctx| async move {
-            let work = async {
-                let (replayer, invocation) =
-                    Replayer::new(event_log.get(&ctx).await?, speed, preload).await?;
-
-                let console = get_console_with_root(
-                    invocation.trace_id,
-                    console_opts.console_type,
-                    ctx.verbosity,
-                    true,
-                    speed,
-                    "(replay)", // Could be better
-                    console_opts.superconsole_config(),
+            let res = EventsCtx::new(EventSubscribers::new(vec![console]))
+                .unpack_stream::<_, ReplayResult, _>(
+                    &mut NoPartialResultHandler,
+                    Box::pin(replayer),
                     None,
-                )?;
+                    ctx.console_interaction_stream(&console_opts),
+                )
+                .await;
 
-                let res = EventsCtx::new(EventSubscribers::new(vec![console]))
-                    .unpack_stream::<_, ReplayResult, _>(
-                        &mut NoPartialResultHandler,
-                        Box::pin(replayer),
-                        None,
-                        ctx.console_interaction_stream(&console_opts),
-                    )
-                    .await;
-
-                if let Err(e) = &res {
-                    let msg = "request finished without returning a CommandResult";
-                    if e.to_string().contains(msg) {
-                        buck2_client_ctx::eprintln!(
-                            "Warning: Incomplete log. Replay may be inaccurate."
-                        )?;
-                    };
+            if let Err(e) = &res {
+                let msg = "request finished without returning a CommandResult";
+                if e.to_string().contains(msg) {
+                    buck2_client_ctx::eprintln!(
+                        "Warning: Incomplete log. Replay may be inaccurate."
+                    )?;
                 };
-
-                let res = res??;
-                for e in &res.errors {
-                    buck2_client_ctx::eprintln!("{}", e.message)?;
-                }
-
-                // FIXME(JakobDegen)(easy): This should probably return failures if there were errors
-                buck2_error::Ok(())
             };
 
-            with_simple_sigint_handler(work).await.unwrap_or_else(|| {
+            let res = res??;
+            for e in &res.errors {
+                buck2_client_ctx::eprintln!("{}", e.message)?;
+            }
+
+            // FIXME(JakobDegen)(easy): This should probably return failures if there were errors
+            buck2_error::Ok(())
+        };
+
+        with_simple_sigint_handler(work)
+            .await
+            .unwrap_or_else(|| {
                 Err(buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    buck2_error::ErrorTag::LogCmd,
                     "Signal Interrupted"
                 ))
             })
-        })
-        .into()
+            .into()
     }
 }
 

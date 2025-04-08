@@ -46,7 +46,10 @@ load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
-load("@prelude//utils:utils.bzl", "flatten_dict")
+load(
+    "@prelude//utils:utils.bzl",
+    "flatten_dict",
+)
 load(
     ":build_params.bzl",
     "BuildParams",  # @unused Used as a type

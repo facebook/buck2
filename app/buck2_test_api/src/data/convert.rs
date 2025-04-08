@@ -59,7 +59,15 @@ impl TryFrom<buck2_test_proto::TestStage> for TestStage {
 
         let res = match s.item.context("Missing `item`")? {
             Item::Listing(Listing { suite, cacheable }) => Self::Listing { suite, cacheable },
-            Item::Testing(Testing { suite, testcases }) => Self::Testing { suite, testcases },
+            Item::Testing(Testing {
+                suite,
+                testcases,
+                variant,
+            }) => Self::Testing {
+                suite,
+                testcases,
+                variant,
+            },
         };
 
         Ok(res)
@@ -75,7 +83,15 @@ impl TryInto<buck2_test_proto::TestStage> for TestStage {
 
         let item = match self {
             Self::Listing { suite, cacheable } => Item::Listing(Listing { suite, cacheable }),
-            Self::Testing { suite, testcases } => Item::Testing(Testing { suite, testcases }),
+            Self::Testing {
+                suite,
+                testcases,
+                variant,
+            } => Item::Testing(Testing {
+                suite,
+                testcases,
+                variant,
+            }),
         };
 
         Ok(buck2_test_proto::TestStage { item: Some(item) })

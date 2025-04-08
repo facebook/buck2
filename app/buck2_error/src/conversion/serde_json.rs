@@ -17,10 +17,10 @@ impl From<serde_json::Error> for crate::Error {
     fn from(value: serde_json::Error) -> Self {
         let error_tag = match value.classify() {
             Category::Data | Category::Syntax => crate::ErrorTag::Input,
-            Category::Eof => crate::ErrorTag::Tier0,
+            Category::Eof => crate::ErrorTag::SerdeJson,
             Category::Io => match value.io_error_kind() {
                 Some(error_kind) => io_error_kind_to_error_tag(error_kind),
-                None => crate::ErrorTag::Tier0,
+                None => crate::ErrorTag::SerdeJson,
             },
         };
 

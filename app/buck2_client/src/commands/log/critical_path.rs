@@ -261,7 +261,7 @@ fn log_critical_path(
                     LogCommandOutputFormatWithWriter::Csv(writer) => {
                         writer
                             .serialize(critical_path)
-                            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::LogCmd))?;
                     }
                 }
                 Ok(())

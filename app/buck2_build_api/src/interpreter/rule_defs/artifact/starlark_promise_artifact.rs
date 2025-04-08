@@ -23,10 +23,12 @@ use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
 use starlark::collections::StarlarkHasher;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsStatic;
 use starlark::values::list::UnpackList;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Demand;
 use starlark::values::Heap;
@@ -291,9 +293,19 @@ impl CommandLineArgLike for StarlarkPromiseArtifact {
     ) -> buck2_error::Result<()> {
         Ok(())
     }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        match self.artifact.get() {
+            Some(v) => v.get_path().add_to_action_inputs_hash(hasher),
+            None => Ok(false),
+        }
+    }
 }
 
-#[starlark_value(type = "promise_artifact")]
+#[starlark_value(type = "PromiseArtifact")]
 impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
     type Canonical = StarlarkArtifact;
 
@@ -313,4 +325,10 @@ impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_promise_artifact(globals: &mut GlobalsBuilder) {
+    const PromiseArtifact: StarlarkValueAsType<StarlarkPromiseArtifact> =
+        StarlarkValueAsType::new();
 }

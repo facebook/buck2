@@ -10,7 +10,6 @@
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::streaming::BuckSubcommand;
 
 use crate::query::DocsAqueryCommand;
 use crate::query::DocsCqueryCommand;
@@ -51,8 +50,8 @@ impl DocsCommand {
 
         let submatches = matches.unwrap_subcommand();
         match self.docs_kind {
-            DocsKind::Starlark(cmd) => cmd.exec(submatches, ctx),
-            DocsKind::StarlarkBuiltins(cmd) => cmd.exec(submatches, ctx),
+            DocsKind::Starlark(cmd) => ctx.exec(cmd, submatches),
+            DocsKind::StarlarkBuiltins(cmd) => ctx.exec(cmd, submatches),
             DocsKind::Uquery(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Cquery(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Aquery(cmd) => cmd.exec(submatches, ctx),

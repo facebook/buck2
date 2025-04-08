@@ -37,12 +37,25 @@ use crate::soft_error;
 
 impl IoError {
     pub fn new(op: String, e: io::Error) -> Self {
-        Self { op, e }
+        Self {
+            op,
+            e,
+            is_eden: false,
+        }
     }
 
     pub fn new_with_path<P: AsRef<AbsPath>>(op: &str, path: P, e: io::Error) -> Self {
-        let op = format!("{}({})", op, P::as_ref(&path).display());
-        Self { op, e }
+        let path = P::as_ref(&path);
+        #[cfg(fbcode_build)]
+        let is_eden = path
+            .parent()
+            .and_then(|p| detect_eden::is_eden(p.to_path_buf()).ok())
+            .unwrap_or(false);
+        #[cfg(not(fbcode_build))]
+        let is_eden = false;
+
+        let op = format!("{}({})", op, path.display());
+        Self { op, e, is_eden }
     }
 
     pub fn categorize_for_source_file(self) -> buck2_error::Error {
@@ -57,13 +70,27 @@ impl IoError {
     }
 }
 
+fn io_error_tags(e: &io::Error, is_eden: bool) -> Vec<ErrorTag> {
+    let mut tags = vec![ErrorTag::IoSystem];
+    if is_eden {
+        tags.push(ErrorTag::IoEden);
+        // Eden timeouts are most likely caused by network issues.
+        // TODO check network health to be sure.
+        if e.kind() == io::ErrorKind::TimedOut {
+            tags.push(ErrorTag::Environment);
+        }
+    }
+    tags
+}
+
 #[derive(buck2_error::Error, Debug)]
-#[buck2(tag = IoSystem)]
+#[buck2(tags = io_error_tags(e, *is_eden))]
 #[error("{op}")]
 pub struct IoError {
     op: String,
     #[source]
     e: io::Error,
+    is_eden: bool,
 }
 
 fn is_retryable(err: &io::Error) -> bool {
@@ -168,7 +195,7 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
             link.parent()
                 .ok_or_else(|| {
                     buck2_error::buck2_error!(
-                        buck2_error::ErrorTag::Tier0,
+                        buck2_error::ErrorTag::SymlinkParentMissing,
                         "Expected path with a parent in symlink target"
                     )
                 })?
@@ -576,10 +603,8 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<DiskS
         use std::mem::MaybeUninit;
         use std::os::unix::ffi::OsStrExt;
 
-        use buck2_error::conversion::from_any_with_tag;
-
         let path_c = CString::new(path.as_os_str().as_bytes())
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+            .map_err(buck2_error::Error::from)
             .with_buck_error_context(|| format!("Failed to convert path to CString: {:?}", path))?;
         let mut statvfs = unsafe { MaybeUninit::<libc::statvfs>::zeroed().assume_init() };
         unsafe {

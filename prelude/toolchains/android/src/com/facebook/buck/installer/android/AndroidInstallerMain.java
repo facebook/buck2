@@ -40,7 +40,7 @@ public class AndroidInstallerMain {
       parser.parseArgument(args);
       Logger.getLogger("").addHandler(getFileHandler(options.getLogPath()));
       Logger logger = getLogger();
-      installer.run(options, logger);
+      installer.run(options);
       logger.info("server shutdown, exiting");
       System.exit(0);
     } catch (CmdLineException e) {
@@ -61,12 +61,10 @@ public class AndroidInstallerMain {
     return fileHandler;
   }
 
-  private void run(AndroidCommandLineOptions options, Logger logger)
-      throws IOException, InterruptedException {
-    AndroidInstallerManager androidInstallerManager = new AndroidInstallerManager(logger, options);
+  private void run(AndroidCommandLineOptions options) throws IOException, InterruptedException {
+    AndroidInstallerManager androidInstallerManager = new AndroidInstallerManager(options);
     /** Starts the GRPC Server */
-    InstallerServer server =
-        new InstallerServer(androidInstallerManager, logger, options.getTcpPort());
+    InstallerServer server = new InstallerServer(androidInstallerManager, options.getTcpPort());
     server.run();
   }
 }

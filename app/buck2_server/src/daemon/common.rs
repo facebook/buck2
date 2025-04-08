@@ -126,11 +126,7 @@ impl CommandExecutorFactory {
         memory_tracker: Option<Arc<MemoryTracker>>,
         hybrid_execution_memory_limit_gibibytes: Option<u64>,
     ) -> Self {
-        let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new(
-            re_connection
-                .get_client()
-                .with_re_use_case_override(re_use_case_override),
-        ));
+        let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new());
         let local_actions_throttle =
             LocalActionsThrottle::new(memory_tracker, hybrid_execution_memory_limit_gibibytes);
         Self {
@@ -157,17 +153,12 @@ impl CommandExecutorFactory {
         }
     }
 
-    fn get_prepared_re_client(&self) -> ManagedRemoteExecutionClient {
-        self.re_connection
-            .get_client()
-            .with_re_use_case_override(self.re_use_case_override)
-    }
-
-    fn get_prepared_re_use_case(
+    fn get_prepared_re_client(
         &self,
-        re_use_case: RemoteExecutorUseCase,
-    ) -> RemoteExecutorUseCase {
-        self.re_use_case_override.unwrap_or(re_use_case)
+        use_case: RemoteExecutorUseCase,
+    ) -> ManagedRemoteExecutionClient {
+        let use_case = self.re_use_case_override.unwrap_or(use_case);
+        self.re_connection.get_client().with_use_case(use_case)
     }
 }
 
@@ -230,8 +221,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     artifact_fs: artifact_fs.clone(),
                     project_fs: self.project_root.clone(),
                     materializer: self.materializer.dupe(),
-                    re_client: self.get_prepared_re_client(),
-                    re_use_case: self.get_prepared_re_use_case(*re_use_case),
+                    re_client: self.get_prepared_re_client(*re_use_case),
                     re_action_key: re_action_key.clone(),
                     re_max_queue_time_ms: options.re_max_queue_time_ms,
                     re_resource_units: options.re_resource_units,
@@ -288,9 +278,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             Arc::new(RemoteDepFileCacheChecker {
                                 artifact_fs: artifact_fs.clone(),
                                 materializer: self.materializer.dupe(),
-                                re_client: self.get_prepared_re_client(),
-                                re_use_case: self
-                                    .get_prepared_re_use_case(remote_options.re_use_case),
+                                re_client: self.get_prepared_re_client(remote_options.re_use_case),
                                 re_action_key: remote_options.re_action_key.clone(),
                                 upload_all_actions: self.upload_all_actions,
                                 knobs: self.executor_global_knobs.dupe(),
@@ -306,8 +294,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         Arc::new(ActionCacheChecker {
                             artifact_fs: artifact_fs.clone(),
                             materializer: self.materializer.dupe(),
-                            re_client: self.get_prepared_re_client(),
-                            re_use_case: self.get_prepared_re_use_case(remote_options.re_use_case),
+                            re_client: self.get_prepared_re_client(remote_options.re_use_case),
                             re_action_key: remote_options.re_action_key.clone(),
                             upload_all_actions: self.upload_all_actions,
                             knobs: self.executor_global_knobs.dupe(),
@@ -398,8 +385,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     Arc::new(CacheUploader::new(
                         artifact_fs.clone(),
                         self.materializer.dupe(),
-                        self.get_prepared_re_client(),
-                        remote_options.re_use_case,
+                        self.get_prepared_re_client(remote_options.re_use_case),
                         remote_options.re_properties.clone(),
                         None,
                         self.cache_upload_permission_checker.dupe(),
@@ -412,8 +398,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     Arc::new(CacheUploader::new(
                         artifact_fs.clone(),
                         self.materializer.dupe(),
-                        self.get_prepared_re_client(),
-                        remote_options.re_use_case,
+                        self.get_prepared_re_client(remote_options.re_use_case),
                         remote_options.re_properties.clone(),
                         max_bytes,
                         self.cache_upload_permission_checker.dupe(),

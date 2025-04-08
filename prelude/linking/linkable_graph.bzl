@@ -116,6 +116,9 @@ LinkableNode = record(
     # It should be SharedInterfaceInfo | None
     shared_interface_info = field(typing.Any),
 
+    # Should this library only be used for build time linkage
+    stub = field(bool),
+
     # Only allow constructing within this file.
     _private = _DisallowConstruction,
 )
@@ -185,7 +188,8 @@ def create_linkable_node(
         # TODO(mattpayne): This type is incompatible with Autodeps.
         # Once the pyautotargets service is rolled out, we can change it back.
         # It should be SharedInterfaceInfo | None
-        shared_interface_info: typing.Any = None) -> LinkableNode:
+        shared_interface_info: typing.Any = None,
+        stub: bool = False) -> LinkableNode:
     for output_style in _get_required_outputs_for_linkage(preferred_linkage):
         expect(
             output_style in link_infos,
@@ -211,6 +215,7 @@ def create_linkable_node(
         linker_flags = linker_flags,
         ignore_force_static_follows_dependents = ignore_force_static_follows_dependents,
         shared_interface_info = shared_interface_info,
+        stub = stub,
         _private = _DisallowConstruction(),
     )
 

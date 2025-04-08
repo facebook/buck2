@@ -301,9 +301,7 @@ impl BuckConfigBasedCells {
             async fn read_file_lines_if_exists(
                 &mut self,
                 path: &ConfigPath,
-            ) -> buck2_error::Result<
-                Option<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>,
-            > {
+            ) -> buck2_error::Result<Option<Vec<String>>> {
                 let res = self.inner.read_file_lines_if_exists(path).await?;
 
                 if res.is_some() {

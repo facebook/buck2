@@ -83,14 +83,18 @@ async def buck_fixture(  # noqa C901 : "too complex"
     env["BUCK2_TERMINATE_AFTER"] = "650"
     # Timeout Watchman requests because we often see it hang and crash.
     env["BUCK2_WATCHMAN_TIMEOUT"] = "30"
-    # Use little threads. We don't do much work in tests but we do run lots of Bucks.
-    env["BUCK2_RUNTIME_THREADS"] = "2"
+    env["BUCK2_RUNTIME_THREADS"] = "8"
     # Avoid noise in stderr.
     env["BUCK2_IGNORE_VERSION_EXTRACTION_FAILURE"] = "true"
 
+    assert (
+        "BUCK2_RUNTIME_THREADS" in env
+    ), "BUCK2_RUNTIME_THREADS should be set by the test macros"
+    assert (
+        "BUCK2_MAX_BLOCKING_THREADS" in env
+    ), "BUCK2_MAX_BLOCKING_THREADS should be set by the test macros"
     # Windows uses blocking threads for subprocess I/O so we can't do this there.
-    if not is_windows:
-        env["BUCK2_MAX_BLOCKING_THREADS"] = "2"
+    del env["BUCK2_MAX_BLOCKING_THREADS"]
 
     # Filter out some environment variables that may interfere with the
     # running of tests. Notably, since this framework is used to write

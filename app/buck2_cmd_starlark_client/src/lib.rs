@@ -22,7 +22,6 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
@@ -132,8 +131,8 @@ impl StarlarkCommand {
     pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let matches = matches.unwrap_subcommand();
         match self {
-            StarlarkCommand::Opaque(cmd) => cmd.exec(matches, ctx),
-            StarlarkCommand::DebugAttach(cmd) => cmd.exec(matches, ctx),
+            StarlarkCommand::Opaque(cmd) => ctx.exec(cmd, matches),
+            StarlarkCommand::DebugAttach(cmd) => ctx.exec(cmd, matches),
         }
     }
 

@@ -16,7 +16,6 @@ use buck2_action_metadata_proto::REMOTE_DEP_FILE_KEY;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::RePlatformFields;
-use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
@@ -69,7 +68,6 @@ pub struct CacheUploader {
     artifact_fs: ArtifactFs,
     materializer: Arc<dyn Materializer>,
     re_client: ManagedRemoteExecutionClient,
-    re_use_case: RemoteExecutorUseCase,
     platform: RePlatformFields,
     max_bytes: Option<u64>,
     cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
@@ -80,7 +78,6 @@ impl CacheUploader {
         artifact_fs: ArtifactFs,
         materializer: Arc<dyn Materializer>,
         re_client: ManagedRemoteExecutionClient,
-        re_use_case: RemoteExecutorUseCase,
         platform: RePlatformFields,
         max_bytes: Option<u64>,
         cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
@@ -89,7 +86,6 @@ impl CacheUploader {
             artifact_fs,
             materializer,
             re_client,
-            re_use_case,
             platform,
             max_bytes,
             cache_upload_permission_checker,
@@ -143,7 +139,6 @@ impl CacheUploader {
                             vec![],
                             vec![],
                             action_digest_and_blobs.blobs.to_inlined_blobs(),
-                            self.re_use_case,
                         )
                         .await?;
 
@@ -170,12 +165,7 @@ impl CacheUploader {
                     };
 
                     self.re_client
-                        .write_action_result(
-                            digest,
-                            result,
-                            self.re_use_case,
-                            &self.platform.to_re_platform(),
-                        )
+                        .write_action_result(digest, result, &self.platform.to_re_platform())
                         .await?;
 
                     Ok(CacheUploadOutcome::Success(result_for_dep_file))
@@ -254,18 +244,12 @@ impl CacheUploader {
                             vec![],
                             vec![],
                             remote_dep_file_action.blobs.to_inlined_blobs(),
-                            self.re_use_case,
                         )
                         .await?;
 
                     // upload ActionResult to ActionCache
                     self.re_client
-                        .write_action_result(
-                            digest,
-                            action_result,
-                            self.re_use_case,
-                            &self.platform.to_re_platform(),
-                        )
+                        .write_action_result(digest, action_result, &self.platform.to_re_platform())
                         .await?;
 
                     Ok(CacheUploadOutcome::Success(None))
@@ -293,7 +277,7 @@ impl CacheUploader {
     async fn check_upload_permission(&self) -> buck2_error::Result<Result<(), CacheUploadOutcome>> {
         let outcome = if let Err(reason) = self
             .cache_upload_permission_checker
-            .has_permission_to_upload_to_cache(self.re_use_case, &self.platform)
+            .has_permission_to_upload_to_cache(&self.re_client, &self.platform)
             .await?
         {
             Err(CacheUploadOutcome::Rejected(
@@ -351,7 +335,6 @@ impl CacheUploader {
                                 }],
                                 vec![],
                                 vec![],
-                                self.re_use_case,
                             )
                             .await
                     };
@@ -380,7 +363,6 @@ impl CacheUploader {
                                 &action_blobs,
                                 output.path(),
                                 &d.dupe().as_immutable(),
-                                self.re_use_case,
                                 identity,
                                 digest_config,
                             )
@@ -417,7 +399,7 @@ impl CacheUploader {
                 .report
                 .std_streams
                 .clone()
-                .into_re(&self.re_client, self.re_use_case, digest_config)
+                .into_re(&self.re_client, digest_config)
                 .await
                 .buck_error_context("Error accessing std_streams")
         };
@@ -526,7 +508,7 @@ impl CacheUploadOutcome {
         };
         if !self.uploaded() && error_on_cache_upload {
             Err(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Tier0,
+                buck2_error::ErrorTag::CacheUploadFailed,
                 "cache_upload_failed"
             ))
         } else {

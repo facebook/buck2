@@ -142,7 +142,7 @@ pub fn write_starlark_profile(
             };
 
             inferno::flamegraph::from_reader(&mut options, profile.as_bytes(), &mut svg)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Profile))
                 .buck_error_context("writing SVG from profile data")?;
 
             fs_util::write(output.join("flame.src"), &profile)

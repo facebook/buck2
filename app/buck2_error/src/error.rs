@@ -19,6 +19,7 @@ use crate::classify::tag_is_generic;
 use crate::classify::tag_is_hidden;
 use crate::context_value::ContextValue;
 use crate::context_value::StarlarkContext;
+use crate::context_value::StringTag;
 use crate::context_value::TypedContext;
 use crate::format::into_anyhow_for_format;
 use crate::root::ErrorRoot;
@@ -178,15 +179,12 @@ impl Error {
 
         let key_tags = key_tags.into_iter().map(|tag| tag.as_str_name().to_owned());
 
-        let context_key_values = self.iter_context().filter_map(|kind| match kind {
-            ContextValue::Key(val) => Some(val.to_string()),
-            _ => None,
-        });
+        let string_tags = self.string_tags();
 
         let values: Vec<String> = source_location
             .into_iter()
             .chain(key_tags)
-            .chain(context_key_values)
+            .chain(string_tags)
             .collect();
 
         values.join(":").to_owned()
@@ -200,9 +198,11 @@ impl Error {
         Self(Arc::new(ErrorKind::WithContext(context.into(), self)))
     }
 
-    pub fn context_for_key(self, context: &str) -> Self {
+    pub fn string_tag(self, context: &str) -> Self {
         Self(Arc::new(ErrorKind::WithContext(
-            ContextValue::Key(context.into()),
+            ContextValue::StringTag(StringTag {
+                tag: context.into(),
+            }),
             self,
         )))
     }
@@ -257,6 +257,15 @@ impl Error {
             }
             _ => None,
         })
+    }
+
+    pub fn string_tags(&self) -> Vec<String> {
+        self.iter_context()
+            .filter_map(|kind| match kind {
+                ContextValue::StringTag(val) => Some(val.tag.clone()),
+                _ => None,
+            })
+            .collect()
     }
 
     /// Get all the tags that have been added to this error

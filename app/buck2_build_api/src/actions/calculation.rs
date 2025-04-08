@@ -156,6 +156,7 @@ async fn build_action_no_redirect(
         None => None,
     };
 
+    let action_inputs_hash = action.action_inputs_hash();
     let fut = build_action_inner(
         ctx,
         cancellation,
@@ -163,6 +164,7 @@ async fn build_action_no_redirect(
         ensured_inputs,
         action,
         target_rule_type_name,
+        action_inputs_hash,
     );
 
     // boxed() the future so that we don't need to allocate space for it while waiting on input dependencies.
@@ -192,6 +194,7 @@ async fn build_action_inner(
     ensured_inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
     action: &Arc<RegisteredAction>,
     target_rule_type_name: Option<String>,
+    action_inputs_hash: Option<Arc<str>>,
 ) -> (ActionExecutionData, Box<buck2_data::ActionExecutionEnd>) {
     let (execute_result, command_reports) =
         executor.execute(ensured_inputs, action, cancellation).await;
@@ -385,6 +388,7 @@ async fn build_action_inner(
             input_files_bytes,
             invalidation_info,
             target_rule_type_name,
+            action_inputs_hash: action_inputs_hash.map(|s| s.to_string()),
         }),
     )
 }

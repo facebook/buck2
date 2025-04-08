@@ -384,17 +384,7 @@ pub mod testing {
         async fn read_file_lines_if_exists(
             &mut self,
             path: &ConfigPath,
-        ) -> buck2_error::Result<
-            Option<
-                Box<
-                    (
-                        dyn std::iter::Iterator<Item = Result<String, std::io::Error>>
-                            + Send
-                            + 'static
-                    ),
-                >,
-            >,
-        > {
+        ) -> buck2_error::Result<Option<Vec<String>>> {
             let ConfigPath::Project(path) = path else {
                 return Ok(None);
             };
@@ -413,7 +403,13 @@ pub mod testing {
                 }
             }
             let file = std::io::BufReader::new(StringReader(content.to_owned().into_bytes(), 0));
-            Ok(Some(Box::new(file.lines())))
+
+            Ok(Some(
+                file.lines()
+                    .into_iter()
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(buck2_error::Error::from)?,
+            ))
         }
 
         async fn read_dir(

@@ -34,8 +34,8 @@ def _check_late_binding_only(ctx: AnalysisContext):
 def _check_banned_dep_paths(ctx: AnalysisContext):
     for path in ctx.attrs.banned_dep_paths:
         if len(path) > 0:
-            a = path[-1].label
-            b = path[0].label
+            a = path[0].label
+            b = path[-1].label
             m = str(a) + " may not depend on " + str(b) + "! Path:"
             m += "".join(["\n" + str(p.label) for p in path])
             fail(m)

@@ -92,7 +92,8 @@ pub struct UqueryCommand {
 
 #[async_trait]
 impl StreamingCommand for UqueryCommand {
-    const COMMAND_NAME: &'static str = "uquery";
+    // FIXME: Figure out if we can replace this. We used to log this this way in Ingress :/
+    const COMMAND_NAME: &'static str = "query";
 
     async fn exec_impl(
         mut self,
@@ -139,10 +140,5 @@ impl StreamingCommand for UqueryCommand {
 
     fn starlark_opts(&self) -> &CommonStarlarkOptions {
         &self.common_opts.starlark_opts
-    }
-
-    fn logging_name(&self) -> &'static str {
-        // FIXME: Figure out if we can replace this. We used to log this this way in Ingress :/
-        "query"
     }
 }

@@ -292,7 +292,7 @@ fn impl_enum(mut input: Enum) -> TokenStream {
 
 /// Generates the from implementation to buck2_error for a provided error type
 fn get_tags(attrs: &Attrs) -> TokenStream {
-    let tags: Vec<syn::Expr> = attrs
+    let individual_tags: Vec<syn::Expr> = attrs
         .tags
         .iter()
         .map(|tag| match tag {
@@ -303,8 +303,23 @@ fn get_tags(attrs: &Attrs) -> TokenStream {
         })
         .collect();
 
-    quote! {
-        let tags = [#(#tags,)*];
+    let tags_expr: Option<syn::Expr> = match &attrs.tags_expr {
+        Some(OptionStyle::ByExpr(e)) => Some(e.clone()),
+        Some(OptionStyle::Explicit(_)) => unreachable!("tags must be an expression"),
+        None => None,
+    };
+
+    if let Some(tags_expr) = tags_expr {
+        quote! {
+            let mut tags: Vec<buck2_error::ErrorTag> = #tags_expr;
+            for tag in [#(#individual_tags,)*] {
+                tags.push(tag);
+            }
+        }
+    } else {
+        quote! {
+            let tags = [#(#individual_tags,)*];
+        }
     }
 }
 

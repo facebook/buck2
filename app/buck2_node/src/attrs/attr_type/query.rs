@@ -123,8 +123,12 @@ pub struct QueryAttrBase<P: ProvidersLabelMaybeConfigured> {
     pub resolved_literals: ResolvedQueryLiterals<P>,
 }
 
+type OffsetAndLength = (usize, usize);
+
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
-pub struct ResolvedQueryLiterals<P: ProvidersLabelMaybeConfigured>(pub BTreeMap<String, P>);
+pub struct ResolvedQueryLiterals<P: ProvidersLabelMaybeConfigured>(
+    pub BTreeMap<OffsetAndLength, P>,
+);
 
 impl QueryAttrBase<ConfiguredProvidersLabel> {
     pub(crate) fn traverse<'a>(
@@ -151,7 +155,7 @@ impl QueryAttrBase<ProvidersLabel> {
                 self.resolved_literals
                     .0
                     .iter()
-                    .map(|(key, value)| Ok((key.clone(), ctx.configure_target(value))))
+                    .map(|(key, value)| Ok((*key, ctx.configure_target(value))))
                     .collect::<buck2_error::Result<_>>()?,
             ),
         })

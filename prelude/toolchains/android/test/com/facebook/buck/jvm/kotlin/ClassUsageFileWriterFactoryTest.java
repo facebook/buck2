@@ -33,7 +33,7 @@ public class ClassUsageFileWriterFactoryTest {
             KotlinSourceChanges.ToBeCalculated.INSTANCE,
             new ClasspathChanges.NoChanges(ImmutableList.of()),
             AbsPath.get("/"),
-            AbsPath.get("/"));
+            null);
 
     ClassUsageFileWriter classUsageFileWriter = ClassUsageFileWriterFactory.create(mode);
 

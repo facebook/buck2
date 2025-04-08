@@ -30,12 +30,10 @@ use buck2_node::attrs::configurable::AttrIsConfigurable;
 use maplit::hashset;
 use once_cell::sync::Lazy;
 use starlark::typing::Ty;
-use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::query::QueryAttrTypeExt;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
 
 // These are the macros we haven't yet implemented yet, we should make sure not
@@ -63,9 +61,7 @@ impl AttrTypeCoerce for ArgAttrType {
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> buck2_error::Result<CoercedAttr> {
-        let value = value
-            .unpack_str()
-            .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
+        let value = value.unpack_str_err()?;
 
         let mut items = parse_macros(value)?.into_items();
         if let [parser::ArgItem::String(val)] = items.as_mut_slice() {

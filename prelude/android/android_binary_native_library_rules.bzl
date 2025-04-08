@@ -66,7 +66,6 @@ load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:graph_utils.bzl", "post_order_traversal", "pre_order_traversal", "rust_matching_topological_traversal")
-load("@prelude//utils:set.bzl", "set", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "dedupe_by_value")
 
 # Native libraries on Android are built for a particular Application Binary Interface (ABI). We
@@ -97,15 +96,15 @@ def get_android_binary_native_library_info(
         android_packageable_info: AndroidPackageableInfo,
         deps_by_platform: dict[str, list[Dependency]],
         apk_module_graph_file: Artifact | None = None,
-        prebuilt_native_library_dirs_to_exclude: [set_type, None] = None,
-        shared_libraries_to_exclude: [set_type, None] = None) -> AndroidBinaryNativeLibsInfo:
+        prebuilt_native_library_dirs_to_exclude: set[TargetLabel] = set(),
+        shared_libraries_to_exclude: set[TargetLabel] = set()) -> AndroidBinaryNativeLibsInfo:
     ctx = enhance_ctx.ctx
 
     traversed_prebuilt_native_library_dirs = android_packageable_info.prebuilt_native_library_dirs.traverse() if android_packageable_info.prebuilt_native_library_dirs else []
     all_prebuilt_native_library_dirs = [
         native_lib
         for native_lib in traversed_prebuilt_native_library_dirs
-        if not (prebuilt_native_library_dirs_to_exclude and prebuilt_native_library_dirs_to_exclude.contains(native_lib.raw_target))
+        if native_lib.raw_target not in prebuilt_native_library_dirs_to_exclude
     ]
 
     included_shared_lib_targets = []
@@ -450,7 +449,7 @@ def _declare_library_subtargets(
                     sonames.add(soname)
 
         lib_outputs = {}
-        for soname in sonames.list():
+        for soname in sonames:
             output_path = _platform_output_path(soname, platform if len(original_shared_libs_by_platform) > 1 else None)
             lib_output = ctx.actions.declare_output(output_path, dir = True)
             dynamic_outputs.append(lib_output)
@@ -670,6 +669,8 @@ def _get_native_libs_and_assets(
 
     combined_native_libs = ctx.actions.declare_output("combined_native_libs", dir = True)
     native_libs_metadata = ctx.actions.declare_output("native_libs_metadata.txt")
+    native_library_pick_first = getattr(ctx.attrs, "native_library_pick_first", [])
+    native_library_pick_first_arg = ["--pick-first"] + native_library_pick_first if native_library_pick_first else []
     ctx.actions.run(cmd_args([
         ctx.attrs._android_toolchain[AndroidToolchainInfo].combine_native_library_dirs[RunInfo],
         "--output-dir",
@@ -679,7 +680,7 @@ def _get_native_libs_and_assets(
         stripped_linkables.linkables,
         "--metadata-file",
         native_libs_metadata.as_output(),
-    ]), category = "combine_native_libs")
+    ] + native_library_pick_first_arg), category = "combine_native_libs")
 
     combined_native_libs_always_in_primary_apk = ctx.actions.declare_output("combined_native_libs_always_in_primary_apk", dir = True)
     ctx.actions.run(cmd_args([
@@ -838,7 +839,7 @@ def get_default_shared_libs(ctx: AnalysisContext, deps: list[Dependency], shared
     return {
         soname: shared_lib
         for soname, shared_lib in with_unique_str_sonames(traverse_shared_library_info(shared_library_info)).items()
-        if not (shared_libraries_to_exclude and shared_libraries_to_exclude.contains(shared_lib.label.raw_target()))
+        if shared_lib.label.raw_target() not in shared_libraries_to_exclude
     }
 
 _LinkableSharedNode = record(
@@ -940,7 +941,7 @@ def write_merged_library_map(ctx: AnalysisContext, shared_libs_by_platform: dict
 
     lines = []
     for final_soname in sorted(solib_map.keys()):
-        for original_soname in solib_map[final_soname].list():
+        for original_soname in solib_map[final_soname]:
             lines.append("{} {}".format(original_soname, final_soname))
 
     # we wanted it sorted by original_soname
@@ -1706,9 +1707,9 @@ def create_relinker_version_script(actions: AnalysisActions, relinker_allowlist:
             keep_symbol = False
             if symbol in all_needed_symbols:
                 keep_symbol = True
-            elif "JNI_OnLoad" in symbol:
+            elif symbol == "JNI_OnLoad":
                 keep_symbol = True
-            elif "Java_" in symbol:
+            elif symbol.startswith("Java_"):
                 keep_symbol = True
             else:
                 for pattern in relinker_allowlist:

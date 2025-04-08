@@ -22,7 +22,9 @@ use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use cmp_any::PartialEqAny;
 use compact_str::CompactString;
+use dashmap::DashMap;
 use derive_more::Display;
+use dice::UserComputationData;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
 
@@ -112,6 +114,11 @@ impl ReadDirOutput {
     }
 }
 
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Dupe, Allocative)]
+pub struct DirectorySubListingMatchingOutput {
+    pub included: Arc<[SimpleDirEntry]>,
+}
+
 #[derive(Allocative)]
 pub struct FileDigestKind {
     _private: (),
@@ -172,11 +179,14 @@ impl FileDigest {
 
         enum Digest {
             Sha1,
+            Sha256,
             Blake3Keyed,
         }
 
         let digest = if config.as_cas_digest_config().allows_sha1() {
             Digest::Sha1
+        } else if config.as_cas_digest_config().allows_sha256() {
+            Digest::Sha256
         } else if config.as_cas_digest_config().allows_blake3_keyed() {
             Digest::Blake3Keyed
         } else {
@@ -196,6 +206,10 @@ impl FileDigest {
                 .ok()
                 .flatten()
                 .and_then(|v| RawDigest::parse_sha1(&v).ok()),
+            Digest::Sha256 => xattr::get(file.as_maybe_relativized(), "user.sha256")
+                .ok()
+                .flatten()
+                .and_then(|v| RawDigest::parse_sha256(&v).ok()),
             // NOTE: Eden returns *keyed* blake3 in user.blake3, so we use that.
             Digest::Blake3Keyed => xattr::get(file.as_maybe_relativized(), "user.blake3")
                 .ok()
@@ -382,6 +396,42 @@ impl PartialEq for dyn FileOps {
     }
 }
 
+pub struct ReadDirCache(DashMap<CellPath, ReadDirOutput>);
+
+impl ReadDirCache {
+    pub fn get(&self, key: &CellPath) -> Option<ReadDirOutput> {
+        self.0.get(key).map(|entry| entry.clone())
+    }
+}
+
+pub trait HasReadDirCache {
+    fn set_read_dir_cache(&mut self, cache: DashMap<CellPath, ReadDirOutput>);
+
+    fn get_read_dir_cache(&self) -> &ReadDirCache;
+
+    fn update_read_dir_cache(&self, cell_path: CellPath, read_dir_output: &ReadDirOutput);
+}
+
+impl HasReadDirCache for UserComputationData {
+    fn set_read_dir_cache(&mut self, cache: DashMap<CellPath, ReadDirOutput>) {
+        self.data.set(ReadDirCache(cache));
+    }
+
+    fn get_read_dir_cache(&self) -> &ReadDirCache {
+        &self
+            .data
+            .get::<ReadDirCache>()
+            .expect("ReadDirCache is expected to be set.")
+    }
+
+    fn update_read_dir_cache(&self, cell_path: CellPath, read_dir_output: &ReadDirOutput) {
+        let updated_cache = self.get_read_dir_cache();
+        updated_cache
+            .0
+            .insert(cell_path.to_owned(), read_dir_output.clone());
+    }
+}
+
 pub mod testing {
     use std::collections::BTreeMap;
     use std::collections::BTreeSet;
@@ -515,6 +565,7 @@ pub mod testing {
 
         pub fn mock_in_cell(&self, cell: CellName, builder: DiceBuilder) -> DiceBuilder {
             let data = Ok(FileOpsValue(FileOpsDelegateWithIgnores::new(
+                cell,
                 None,
                 Arc::new(TestCellFileOps(
                     cell,

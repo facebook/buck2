@@ -24,7 +24,9 @@ import java.util.Optional
 import java.util.regex.Pattern
 import kotlin.system.measureTimeMillis
 
-class AndroidDeviceImpl(val serial: String) : AndroidDevice {
+class AndroidDeviceImpl(val serial: String, val adbExecutable: String?) : AndroidDevice {
+  val adbUtils: AdbUtils =
+      AdbUtils(adbExecutable ?: throw AndroidInstallException.adbPathNotFound())
 
   override fun installApkOnDevice(
       apk: File,
@@ -115,11 +117,21 @@ class AndroidDeviceImpl(val serial: String) : AndroidDevice {
 
   override fun rmFiles(dirPath: String, filesToDelete: Iterable<String>) {
     val elapsed: Long = measureTimeMillis {
-      for (file in filesToDelete) {
-        executeAdbShellCommandCatching("rm $dirPath/$file", "Failed to delete $dirPath/$file.")
+      val tempFile = File.createTempFile("files_to_delete", ".txt")
+      try {
+        tempFile.writeText(
+            filesToDelete.joinToString("\n") { Paths.get(dirPath).resolve(it).toString() })
+        executeAdbCommand("push -z brotli ${tempFile.absolutePath} /data/local/tmp")
+        executeAdbShellCommand("rm -f @/data/local/tmp/${tempFile.name}")
+      } catch (e: AdbCommandFailedException) {
+        throw AndroidInstallException.adbCommandFailedException(
+            "Failed delete ${filesToDelete.count()} files from $dirPath.", e.message)
+      } finally {
+        tempFile.delete()
+        executeAdbShellCommand("rm -f /data/local/tmp/${tempFile.name}")
       }
     }
-    LOG.info("Deleted ${filesToDelete.count()} files in $dirPath in ${elapsed/1000.0} seconds.")
+    LOG.info("Deleted ${filesToDelete.count()} files from $dirPath in ${elapsed/1000.0} seconds.")
   }
 
   @Throws(Exception::class)
@@ -244,6 +256,13 @@ class AndroidDeviceImpl(val serial: String) : AndroidDevice {
         "find $rootDir -type d -exec chmod a+x {} +", "Failed to fix root dir $rootDir.")
   }
 
+  override fun setDebugAppPackageName(packageName: String?): Boolean {
+    if (packageName != null) {
+      executeAdbShellCommand(adbUtils.getAmSetDebugAppCommand(packageName))
+    }
+    return true
+  }
+
   override fun getInstallerMethodName(): String = "adb_installer"
 
   override fun isEmulator(): Boolean {
@@ -268,10 +287,12 @@ class AndroidDeviceImpl(val serial: String) : AndroidDevice {
   }
 
   override fun deviceStartIntent(intent: AndroidIntent?): String {
+    if (intent == null) {
+      return ""
+    }
+
     try {
-      // Use set-debug-app to silence ANRs while running.
-      AndroidIntent.getAmSetDebugAppCommand(intent)?.let { executeAdbShellCommand(it) }
-      AndroidIntent.getAmStartCommand(intent)?.let { executeAdbShellCommand(it) }
+      executeAdbShellCommand(AndroidIntent.getAmStartCommand(intent))
       return ""
     } catch (e: AdbCommandFailedException) {
       throw AndroidInstallException.adbCommandFailedException("Failed to start intent.", e.message)
@@ -280,7 +301,7 @@ class AndroidDeviceImpl(val serial: String) : AndroidDevice {
 
   private fun executeAdbShellCommandCatching(command: String, message: String): String {
     try {
-      return AdbUtils.executeAdbShellCommand(command, serialNumber)
+      return adbUtils.executeAdbShellCommand(command, serialNumber)
     } catch (e: AdbCommandFailedException) {
       throw AndroidInstallException.adbCommandFailedException(message, e.message)
     }
@@ -288,17 +309,17 @@ class AndroidDeviceImpl(val serial: String) : AndroidDevice {
 
   private fun executeAdbCommandCatching(command: String, message: String): String {
     try {
-      return AdbUtils.executeAdbCommand(command, serialNumber)
+      return adbUtils.executeAdbCommand(command, serialNumber)
     } catch (e: AdbCommandFailedException) {
       throw AndroidInstallException.adbCommandFailedException(message, e.message)
     }
   }
 
   private fun executeAdbShellCommand(command: String): String =
-      AdbUtils.executeAdbShellCommand(command, serialNumber)
+      adbUtils.executeAdbShellCommand(command, serialNumber)
 
   private fun executeAdbCommand(command: String): String =
-      AdbUtils.executeAdbCommand(command, serialNumber)
+      adbUtils.executeAdbCommand(command, serialNumber)
 
   companion object {
     private val LINE_ENDING: Pattern = Pattern.compile("\r?\n")

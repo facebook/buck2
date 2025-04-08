@@ -11,6 +11,7 @@ from enum import Enum
 from typing import Any, Dict, List
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.utils import filter_events, random_string
 
@@ -33,6 +34,29 @@ async def test_discovery_cached_on_dice(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_failed_discovery_not_cached_on_dice(buck: Buck) -> None:
+    args = [
+        "-c",
+        "buck2.cache_test_listings=//:bad",
+        "//:bad",
+    ]
+    await expect_failure(
+        buck.test(*args),
+        stderr_regex="Failed to list tests",
+    )
+    whatran = (await buck.log("what-ran")).stdout
+    assert "test.discovery" in whatran
+    assert "test.run" not in whatran
+
+    await expect_failure(
+        buck.test(*args),
+        stderr_regex="Failed to list tests",
+    )
+    whatran = (await buck.log("what-ran")).stdout
+    assert "test.discovery" in whatran
+
+
+@buck_test()
 async def test_discovery_not_cached_for_not_matching_pattern(buck: Buck) -> None:
     args = [
         "-c",
@@ -50,6 +74,31 @@ async def test_discovery_cache_turned_off(buck: Buck) -> None:
     ]
     await run_test_and_check_discovery_presence(buck, TestDiscovery.EXECUTED, args)
     await run_test_and_check_discovery_presence(buck, TestDiscovery.EXECUTED, args)
+
+
+@buck_test()
+async def test_listing_uncacheable(buck: Buck) -> None:
+    seed = random_string()
+    args = [
+        "-c",
+        "buck2.cache_test_listings=//:listing_uncacheable",
+        "-c",
+        f"test.seed={seed}",
+        "-c",
+        "test.remote_enabled=false",
+        "-c",
+        "test.local_enabled=true",
+        "-c",
+        "test.remote_cache_enabled=true",
+        "//:listing_uncacheable",
+    ]
+    # Check it executed locally consistently
+    await run_test_and_check_discovery_presence(buck, TestDiscovery.EXECUTED, args)
+    await buck.kill()
+    await run_test_and_check_discovery_presence(buck, TestDiscovery.EXECUTED, args)
+    # Check cache is not uploaded
+    cached = await _cache_uploads(buck)
+    assert len(cached) == 0
 
 
 @buck_test()

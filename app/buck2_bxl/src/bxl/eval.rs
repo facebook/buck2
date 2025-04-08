@@ -12,6 +12,7 @@ use std::future::Future;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use allocative::Allocative;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_common::events::HasEvents;
@@ -19,8 +20,6 @@ use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::buck_out_path::BuildArtifactPath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_data::BxlExecutionEnd;
 use buck2_data::BxlExecutionStart;
@@ -67,7 +66,8 @@ use tokio::sync::Semaphore;
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::bxl_function::FrozenBxlFunction;
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
-use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
+use crate::bxl::starlark_defs::context::output::OutputStreamOutcome;
+use crate::bxl::starlark_defs::context::output::OutputStreamState;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
@@ -99,11 +99,48 @@ impl LimitedExecutor {
     }
 }
 
+#[derive(Debug, buck2_error::Error, Allocative, Clone, Dupe)]
+#[error("{error}")]
+#[buck2(tag = Input)]
+pub(crate) struct BxlEvalError {
+    pub(crate) ouput_stream_state: Option<Arc<OutputStreamOutcome>>,
+    pub(crate) error: buck2_error::Error,
+}
+
+pub(crate) type Result<T> = std::result::Result<T, BxlEvalError>;
+
+impl From<buck2_error::Error> for BxlEvalError {
+    fn from(value: buck2_error::Error) -> Self {
+        Self {
+            ouput_stream_state: None,
+            error: value,
+        }
+    }
+}
+
+impl From<starlark::Error> for BxlEvalError {
+    fn from(value: starlark::Error) -> Self {
+        Self {
+            ouput_stream_state: None,
+            error: value.into(),
+        }
+    }
+}
+
+impl From<tokio::task::JoinError> for BxlEvalError {
+    fn from(value: tokio::task::JoinError) -> Self {
+        Self {
+            ouput_stream_state: None,
+            error: value.into(),
+        }
+    }
+}
+
 pub(crate) async fn eval(
     ctx: &mut DiceComputations<'_>,
     key: BxlKey,
     liveness: CancellationObserver,
-) -> buck2_error::Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
+) -> Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
     // Note: because we use `block_in_place`, that will prevent the inner future from being polled
     // and yielded. So, for cancellation observers to work properly within the dice cancellable
     // future context, we need the future that it's attached to the cancellation context can
@@ -125,7 +162,7 @@ pub(crate) async fn eval(
         scope_and_collect_with_dice(ctx, |ctx, s| {
             s.spawn_cancellable(
                 limited_executor.execute(eval_bxl_inner(ctx, dispatcher, key, liveness)),
-                || Err(buck2_error!(buck2_error::ErrorTag::Tier0, "cancelled")),
+                || Err(buck2_error!(buck2_error::ErrorTag::Tier0, "cancelled").into()),
             )
         })
     }
@@ -150,7 +187,7 @@ impl BxlInnerEvaluator {
         self,
         provider: &mut dyn StarlarkEvaluatorProvider,
         dice: &'a mut DiceComputations,
-    ) -> buck2_error::Result<(FrozenModule, BxlResult)> {
+    ) -> Result<(FrozenModule, BxlResult)> {
         let BxlInnerEvaluator {
             data,
             module,
@@ -165,31 +202,9 @@ impl BxlInnerEvaluator {
         let env = Module::new();
         let key = data.key().dupe();
 
-        let output_stream = mk_stream_cache("output", &key);
-        let file_path = data
-            .artifact_fs()
-            .buck_out_path_resolver()
-            .resolve_gen(&output_stream);
+        let (actions, output_stream_outcome) = {
+            let stream_state = OutputStreamState::new();
 
-        let file = Rc::new(RefCell::new(
-            data.project_fs()
-                .create_file(&file_path, false)
-                .buck_error_context("Failed to create output cache for BXL")?,
-        ));
-
-        let error_stream = mk_stream_cache("error", &key);
-        let error_file_path = data
-            .artifact_fs()
-            .buck_out_path_resolver()
-            .resolve_gen(&error_stream);
-
-        let error_file = Rc::new(RefCell::new(
-            data.project_fs()
-                .create_file(&error_file_path, false)
-                .buck_error_context("Failed to create error cache for BXL")?,
-        ));
-
-        let (actions, ensured_artifacts) = {
             let resolved_args = ValueOfUnchecked::<StructRef>::unpack_value_err(
                 env.heap().alloc(AllocStruct(
                     key.cli_args()
@@ -199,7 +214,7 @@ impl BxlInnerEvaluator {
             )?;
 
             let print = EventDispatcherPrintHandler(dispatcher.clone());
-            let extra = BxlEvalExtra::new(bxl_dice.dupe(), data.dupe(), error_file.dupe());
+            let extra = BxlEvalExtra::new(bxl_dice.dupe(), data.dupe(), stream_state.dupe());
 
             let (mut eval, _) = provider.make(&env)?;
             let bxl_function_name = key.label().name.clone();
@@ -213,10 +228,9 @@ impl BxlInnerEvaluator {
             let bxl_ctx = BxlContext::new(
                 eval.heap(),
                 data,
+                stream_state.dupe(),
                 resolved_args,
                 bxl_dice,
-                file,
-                error_file,
                 digest_config,
             )?;
 
@@ -242,6 +256,18 @@ impl BxlInnerEvaluator {
                         },
                     )
                 })
+            })
+            // When eval fails, we want to include the streaming cache file in Error, so
+            // that we can still print out the streaming content even if the bxl is cached.
+            .map_err(|e| match stream_state.take_state() {
+                Ok(stream_outcome) => BxlEvalError {
+                    ouput_stream_state: Some(Arc::new(stream_outcome)),
+                    error: e,
+                },
+                Err(_) => BxlEvalError {
+                    ouput_stream_state: None,
+                    error: e,
+                },
             })?;
 
             BxlContext::take_state(bxl_ctx)?
@@ -256,9 +282,11 @@ impl BxlInnerEvaluator {
         let recorded_values = actions_finalizer(&frozen_module)?;
 
         let bxl_result = BxlResult::new(
-            output_stream,
-            error_stream,
-            ensured_artifacts,
+            output_stream_outcome.output,
+            output_stream_outcome.error,
+            output_stream_outcome.streaming,
+            output_stream_outcome.ensured_artifacts,
+            output_stream_outcome.pending_streaming_outputs,
             recorded_values,
         );
 
@@ -271,7 +299,7 @@ async fn eval_bxl_inner(
     dispatcher: EventDispatcher,
     key: BxlKey,
     liveness: CancellationObserver,
-) -> buck2_error::Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
+) -> Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
     let bxl_module = ctx
         .get_loaded_module(StarlarkModulePath::BxlFile(&key.label().bxl_path))
         .await?;
@@ -296,32 +324,22 @@ async fn eval_bxl_inner(
 
     let eval_kind = key.as_starlark_eval_kind();
     let mut profiler = ctx.get_starlark_profiler(&eval_kind).await?;
-    let (frozen_module, bxl_result) = with_starlark_eval_provider(
+    let result = with_starlark_eval_provider(
         ctx,
         &mut profiler.as_mut(),
         &eval_kind,
-        move |provider, ctx| eval_ctx.do_eval(provider, ctx),
+        // the closure here need return a buck2_error::Result, so we need to wrap the bxl::eval::Result we get from `do_eval` into a buck2_error::Result
+        move |provider, ctx| Ok(eval_ctx.do_eval(provider, ctx)),
     )
-    .await?;
-
-    let profile_data = profiler.finish(Some(&frozen_module))?;
-    Ok((bxl_result, profile_data))
-}
-
-// We use a file as our output/error stream cache. The file is associated with the `BxlDynamicKey` (created from `BxlKey`),
-// which is super important, as it HAS to be the SAME as the DiceKey so that DICE is keeping the output file
-// cache up to date. `BxlDynamicKey` requires an execution platform. We set the execution platform to be unspecified here
-// because BXL functions do not have execution platform resolutions. exec_deps, toolchains, target_platform, and exec_compatible_with
-// are empty here for the same reason.
-pub(crate) fn mk_stream_cache(stream_type: &str, key: &BxlKey) -> BuildArtifactPath {
-    BuildArtifactPath::new(
-        key.dupe()
-            .into_base_deferred_key(BxlExecutionResolution::unspecified()),
-        ForwardRelativePathBuf::unchecked_new(format!(
-            "__bxl_internal__/{}stream_cache",
-            stream_type
-        )),
-    )
+    .await;
+    match result {
+        Ok(eval_result) => {
+            let (frozen_module, bxl_result) = eval_result?;
+            let profile_data = profiler.finish(Some(&frozen_module))?;
+            Ok((bxl_result, profile_data))
+        }
+        Err(e) => Err(e.into()),
+    }
 }
 
 fn eval_bxl<'v>(

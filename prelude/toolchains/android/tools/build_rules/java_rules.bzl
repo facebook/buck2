@@ -7,9 +7,9 @@
 
 """Module containing java macros."""
 
-load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
-load("@fbsource//tools/build_defs/features:feature_decorator.bzl", "consume_feature")
 load("@prelude//:native.bzl", "native")
+# @oss-disable[end= ]: load("@prelude//android/meta_only:android_build_tools_cas_artifact.bzl", "android_build_tools_cas_artifact")
+load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
 load("@prelude//toolchains/android/tools/build_rules:utils.bzl", "add_os_labels", "is_oss_build")
 
 OPEN_JDK_COMPILER_ARGS = [
@@ -131,7 +131,6 @@ def buck_java_graalvm_binary(name, **kwargs):
 def toolchain_prebuilt_jar(name, **kwargs):
     kwargs = _add_labels(**kwargs)
     kwargs = _set_buck2_dex_toolchain(**kwargs)
-    kwargs = consume_feature(kwargs)
     if kwargs.pop("should_generate_snapshot", True) == False:
         kwargs["_prebuilt_jar_toolchain"] = "toolchains//:prebuilt_jar_bootstrap_no_snapshot"
     else:
@@ -333,3 +332,18 @@ def standard_java_test(
             labels = (labels or []) + ["buck2_run_from_cell_root"],
             **kwargs
         )
+
+def buck_prebuilt_artifact(
+        # @oss-disable[end= ]: cas_digest,
+        oss_url,
+        oss_sha1,
+        **kwargs):
+    if is_oss_build():
+        return fb_native.remote_file(
+            sha1 = oss_sha1,
+            url = oss_url,
+            **kwargs
+        )
+    # @oss-disable[end= ]: else:
+        # @oss-disable[end= ]: return android_build_tools_cas_artifact(digest = cas_digest, **kwargs)
+        fail() # @oss-enable

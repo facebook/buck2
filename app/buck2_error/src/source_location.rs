@@ -18,6 +18,30 @@ pub struct SourceLocation {
     source_line: Option<u32>,
 }
 
+impl From<buck2_data::error_report::SourceLocation> for SourceLocation {
+    #[cold]
+    #[track_caller]
+    fn from(value: buck2_data::error_report::SourceLocation) -> Self {
+        SourceLocation {
+            path: value.path,
+            type_name: value.type_name,
+            source_line: value.source_line,
+        }
+    }
+}
+
+impl From<SourceLocation> for buck2_data::error_report::SourceLocation {
+    #[cold]
+    #[track_caller]
+    fn from(value: SourceLocation) -> Self {
+        buck2_data::error_report::SourceLocation {
+            path: value.path,
+            type_name: value.type_name,
+            source_line: value.source_line,
+        }
+    }
+}
+
 impl SourceLocation {
     /// Converts a file path returned by `file!` or `Location::file()` to a value suitable for use as a
     /// `source_location`.

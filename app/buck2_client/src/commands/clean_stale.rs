@@ -55,7 +55,7 @@ pub fn parse_clean_stale_args(
     let arg = match (stale, keep_since_time) {
         (Some(Some(human_duration)), None) => {
             let duration = chrono::Duration::from_std(human_duration.into())
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::InvalidDuration))?;
             Some(KeepSinceArg::Duration(duration))
         }
         (Some(None), None) => Some(KeepSinceArg::Duration(chrono::Duration::weeks(1))),
@@ -115,7 +115,10 @@ impl StreamingCommand for CleanStaleCommand {
                     humantime::format_duration(
                         duration
                             .to_std()
-                            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+                            .map_err(|e| from_any_with_tag(
+                                e,
+                                buck2_error::ErrorTag::InvalidDuration
+                            ))
                             .buck_error_context("Error converting duration")?
                     ),
                 )?;

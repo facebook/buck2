@@ -7,6 +7,11 @@
  * of this source tree.
  */
 
+use std::hash::DefaultHasher;
+use std::hash::Hasher;
+use std::sync::Arc;
+
+use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
@@ -37,10 +42,43 @@ fn create_dir_tree<'v>(
     let inputs = action.inputs();
     let unioned_associated_artifacts = action.unioned_associated_artifacts();
 
+    let mut hasher = DefaultHasher::new();
+    let mut is_hash_valid = true;
+    if this.compute_action_inputs_hash {
+        for input in &inputs {
+            // TODO(ianc) this should also add the keys, but this is good enough for now.
+            match input {
+                ArtifactGroup::Artifact(artifact) => {
+                    if !artifact.get_path().add_to_action_inputs_hash(&mut hasher)? {
+                        is_hash_valid = false;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+    } else {
+        is_hash_valid = false;
+    };
+
+    let action_inputs_hash = if is_hash_valid {
+        Some(Arc::from(format!("{:0>16x}", hasher.finish())))
+    } else {
+        None
+    };
+
     let mut this = this.state()?;
     let (declaration, output_artifact) =
         this.get_or_declare_output(eval, output, OutputType::Directory)?;
-    this.register_action(inputs, indexset![output_artifact], action, None, None)?;
+
+    this.register_action(
+        inputs,
+        indexset![output_artifact],
+        action,
+        None,
+        None,
+        action_inputs_hash,
+    )?;
 
     Ok(declaration.into_declared_artifact(unioned_associated_artifacts))
 }
@@ -57,6 +95,20 @@ fn copy_file_impl<'v>(
 
     let artifact = src.get_artifact_group()?;
     let associated_artifacts = src.get_associated_artifacts();
+
+    let mut hasher = DefaultHasher::new();
+    let action_inputs_hash = if this.compute_action_inputs_hash {
+        match artifact {
+            ArtifactGroup::Artifact(ref artifact) => {
+                artifact.get_path().add_to_action_inputs_hash(&mut hasher)?;
+                Some(Arc::from(format!("{:0>16x}", hasher.finish())))
+            }
+            _ => None,
+        }
+    } else {
+        None
+    };
+
     let mut this = this.state()?;
     let (declaration, output_artifact) = this.get_or_declare_output(eval, dest, output_type)?;
 
@@ -66,6 +118,7 @@ fn copy_file_impl<'v>(
         UnregisteredCopyAction::new(copy),
         None,
         None,
+        action_inputs_hash,
     )?;
 
     Ok(declaration.into_declared_artifact(

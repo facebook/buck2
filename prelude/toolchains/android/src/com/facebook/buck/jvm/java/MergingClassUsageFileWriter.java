@@ -13,6 +13,7 @@ import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
+import com.facebook.buck.jvm.kotlin.compilerplugins.usedclasses.ClassUsageMerger;
 import com.facebook.buck.util.json.ObjectMappers;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.base.Preconditions;
@@ -22,7 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
-import toolchains.android.src.com.facebook.buck.jvm.kotlin.compilerplugins.usedclasses.ClassUsageMerger;
+import java.util.Set;
 
 public final class MergingClassUsageFileWriter extends DefaultClassUsageFileWriter {
 
@@ -34,7 +35,7 @@ public final class MergingClassUsageFileWriter extends DefaultClassUsageFileWrit
 
   @Override
   public void writeFile(
-      ImmutableMap<Path, Map<Path, Integer>> classUsageMap,
+      ImmutableMap<Path, Set<Path>> classUsages,
       RelPath relativePath,
       AbsPath rootPath,
       RelPath configuredBuckOut) {
@@ -50,18 +51,17 @@ public final class MergingClassUsageFileWriter extends DefaultClassUsageFileWrit
           rootPath.resolve(relativePath).toFile(),
           ClassUsageMerger.mergeClassUsageMaps(
               createClassUsageMap(prevClassUsageFile.getPath()),
-              relativizeMap(classUsageMap, rootPath, configuredBuckOut)));
+              relativizeMap(classUsages, rootPath, configuredBuckOut)));
     } catch (IOException e) {
       throw new HumanReadableException(e, "Unable to write used classes file.");
     }
   }
 
-  private static Map<Path, Map<Path, Integer>> createClassUsageMap(Path jsonPath)
-      throws IOException {
+  private static Map<Path, Set<Path>> createClassUsageMap(Path jsonPath) throws IOException {
     if (!Files.exists(jsonPath)) {
       return new HashMap<>();
     }
 
-    return ObjectMappers.readValue(jsonPath, new TypeReference<Map<Path, Map<Path, Integer>>>() {});
+    return ObjectMappers.readValue(jsonPath, new TypeReference<Map<Path, Set<Path>>>() {});
   }
 }

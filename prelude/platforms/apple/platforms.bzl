@@ -39,13 +39,13 @@ _SUPPORTED_MAC_CATALYST_PLATFORMS = [
     mac_catalyst_platforms.MACCATALYST_X86_64,
 ]
 
-_INVERSE_REMAPPED_BUILD_MODES = {v: k for k, v in REMAPPED_BUILD_MODES.items()}
-
 _ANALYSIS_CONSTRAINTS = ["ovr_config//bitcode/constraints:bitcode"]
 _DEFAULT_ANALYSIS_IOS_PLATFORM = ios_platforms.IPHONEOS_ARM64
 _DEFAULT_ANALYSIS_MACOS_PLATFORM = mac_platforms.MACOS_X86_64
 
 DEFAULT_SUPPORTED_CXX_PLATFORMS = _SUPPORTED_IOS_PLATFORMS
+
+INVERSE_REMAPPED_BUILD_MODES = {v: k for k, v in REMAPPED_BUILD_MODES.items()}
 
 def apple_target_platforms(
         base_name,
@@ -132,13 +132,14 @@ def apple_target_platforms(
         deps = deps + [analysis_platform_dep],
     )
 
-def config_backed_apple_target_platform(target_platform = None, platform = None, build_mode = None, supported_build_modes = APPLE_BUILD_MODES):
+def config_backed_apple_target_platform(target_platform = None, platform = None, build_mode = None, supported_build_modes = None):
     platform = _get_default_platform() if platform == None else platform
 
     build_mode = get_build_mode() if build_mode == None else build_mode
+    supported_build_modes = APPLE_BUILD_MODES if supported_build_modes == None else supported_build_modes
     if build_mode not in supported_build_modes:
         # If build_mode is an unsupported build mode, attempt to map it to a supported one using the inverse map
-        build_mode = _INVERSE_REMAPPED_BUILD_MODES.get(build_mode, build_mode)
+        build_mode = INVERSE_REMAPPED_BUILD_MODES.get(build_mode, build_mode)
 
     if target_platform == None:
         return get_default_target_platform_for_platform(platform)
@@ -152,7 +153,7 @@ def get_default_target_platform_for_platform(sdk_arch) -> [str, None]:
 
     return None
 
-def set_apple_platforms(platform, base_config_backed_target_platform, kwargs, supported_build_modes = APPLE_BUILD_MODES):
+def set_apple_platforms(platform, base_config_backed_target_platform, kwargs, supported_build_modes = None):
     def get_supported_platforms():
         if platform in _SUPPORTED_IOS_PLATFORMS:
             return _SUPPORTED_IOS_PLATFORMS
@@ -162,6 +163,8 @@ def set_apple_platforms(platform, base_config_backed_target_platform, kwargs, su
             return _SUPPORTED_MAC_CATALYST_PLATFORMS
         else:
             return None
+
+    supported_build_modes = APPLE_BUILD_MODES if supported_build_modes == None else supported_build_modes
 
     supported_platforms = get_supported_platforms()
     if not supported_platforms:

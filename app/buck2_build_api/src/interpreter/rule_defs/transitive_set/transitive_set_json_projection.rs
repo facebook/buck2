@@ -71,7 +71,7 @@ impl<'v, V: ValueLike<'v>> Display for TransitiveSetJsonProjectionGen<V> {
             ")",
             iter_display_chain(
                 iter::once(projection_name),
-                iter::once(display_pair("transitive_set", "=", &self.transitive_set)),
+                iter::once(display_pair("TransitiveSet", "=", &self.transitive_set)),
             ),
         )
     }
@@ -110,7 +110,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
 
 starlark_complex_value!(pub TransitiveSetJsonProjection);
 
-#[starlark_value(type = "transitive_set_json_projection")]
+#[starlark_value(type = "TransitiveSetJsonProjection")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetJsonProjectionGen<V>
 where
     Self: ProvidesStaticType<'v>,

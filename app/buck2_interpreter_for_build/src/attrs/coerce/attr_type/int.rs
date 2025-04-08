@@ -16,7 +16,6 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
 
 impl AttrTypeCoerce for IntAttrType {
@@ -26,10 +25,7 @@ impl AttrTypeCoerce for IntAttrType {
         _ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> buck2_error::Result<CoercedAttr> {
-        match i64::unpack_value(value)? {
-            Some(x) => Ok(CoercedAttr::Int(x)),
-            None => Err(CoercionError::type_error("int", value).into()),
-        }
+        Ok(CoercedAttr::Int(i64::unpack_value_err(value)?))
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

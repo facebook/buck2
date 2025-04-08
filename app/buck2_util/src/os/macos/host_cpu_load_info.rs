@@ -54,7 +54,7 @@ pub fn host_cpu_load_info() -> buck2_error::Result<HostCpuLoadInfo> {
         );
         if res != libc::KERN_SUCCESS {
             return Err(buck2_error!(
-                buck2_error::ErrorTag::Tier0,
+                buck2_error::ErrorTag::CpuStats,
                 "host_statistics64 failed: {}",
                 mach_error_string(res)
             ));

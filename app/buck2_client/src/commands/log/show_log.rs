@@ -7,8 +7,10 @@
  * of this source tree.
  */
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stdio;
 use tokio_stream::StreamExt;
@@ -22,30 +24,33 @@ pub struct ShowLogCommand {
     event_log: EventLogOptions,
 }
 
-impl ShowLogCommand {
-    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+impl BuckSubcommand for ShowLogCommand {
+    const COMMAND_NAME: &'static str = "log-show";
+
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
         let Self { event_log } = self;
+        let log_path = event_log.get(&ctx).await?;
 
-        ctx.instant_command_no_log("log-show", |ctx| async move {
-            let log_path = event_log.get(&ctx).await?;
+        let (invocation, mut events) = log_path.unpack_stream().await?;
 
-            let (invocation, mut events) = log_path.unpack_stream().await?;
+        let mut buf = Vec::new();
 
-            let mut buf = Vec::new();
+        serde_json::to_writer(&mut buf, &invocation)?;
+        stdio::print_bytes(&buf)?;
+        stdio::print_bytes(b"\n")?;
 
-            serde_json::to_writer(&mut buf, &invocation)?;
+        while let Some(event) = events.try_next().await? {
+            buf.clear();
+            serde_json::to_writer(&mut buf, &event)?;
             stdio::print_bytes(&buf)?;
             stdio::print_bytes(b"\n")?;
+        }
 
-            while let Some(event) = events.try_next().await? {
-                buf.clear();
-                serde_json::to_writer(&mut buf, &event)?;
-                stdio::print_bytes(&buf)?;
-                stdio::print_bytes(b"\n")?;
-            }
-
-            buck2_error::Ok(())
-        })
-        .into()
+        ExitResult::success()
     }
 }

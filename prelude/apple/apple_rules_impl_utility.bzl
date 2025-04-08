@@ -20,6 +20,8 @@ load("@prelude//linking:execution_preference.bzl", "link_execution_preference_at
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 
+AppleFrameworkBundleModuleMapType = ["auto"]
+
 def get_apple_toolchain_attr():
     # FIXME: prelude// should be standalone (not refer to fbcode//)
     return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-default", providers = [AppleToolchainInfo])
@@ -218,7 +220,7 @@ def apple_bundle_extra_attrs():
         "bundle_type": attrs.option(attrs.enum(AppleBundleTypeAttributeType.values()), default = None),
         "copy_public_framework_headers": attrs.option(attrs.bool(), default = None),
         "embed_xctest_frameworks": attrs.bool(default = _embed_xctest_frameworks_default_value()),
-        "module_map": attrs.option(attrs.source(), default = None),
+        "module_map": attrs.option(attrs.one_of(attrs.enum(AppleFrameworkBundleModuleMapType), attrs.source()), default = None),
         "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
         "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
         "selective_debugging": attrs.option(attrs.dep(providers = [AppleSelectiveDebuggingInfo]), default = None),

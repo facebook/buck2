@@ -12,7 +12,7 @@
 -record(test, {
     name :: string(),
     suite :: string(),
-    type :: junit_interfacer:test_result(),
+    type :: string(),
     message :: junit_interfacer:optional(string()),
     stacktrace :: junit_interfacer:optional(string()),
     stdout :: junit_interfacer:optional(string()),

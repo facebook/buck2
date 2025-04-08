@@ -342,13 +342,6 @@ public class RealAndroidDevice implements AndroidDevice {
             }
           };
 
-      // Use set-debug-app to silence ANRs while running.
-      final @Nullable String setDebugAppCommand = AndroidIntent.getAmSetDebugAppCommand(intent);
-      if (setDebugAppCommand != null) {
-        device.executeShellCommand(
-            setDebugAppCommand, receiver, SET_DEBUG_APP_TIMEOUT, TimeUnit.MILLISECONDS);
-      }
-
       device.executeShellCommand(
           AndroidIntent.getAmStartCommand(intent),
           receiver,
@@ -433,6 +426,16 @@ public class RealAndroidDevice implements AndroidDevice {
   @Override
   public String getInstallerMethodName() {
     return "exoagent_ddmlib_installer";
+  }
+
+  @Override
+  public boolean setDebugAppPackageName(String packageName) throws Exception {
+    device.executeShellCommand(
+        "am set-debug-app --persistent " + packageName,
+        new CollectingOutputReceiver(),
+        SET_DEBUG_APP_TIMEOUT,
+        TimeUnit.MILLISECONDS);
+    return true;
   }
 
   @Override

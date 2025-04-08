@@ -3,6 +3,9 @@ id: tutorial
 title: Tutorial
 ---
 
+import { FbInternalOnly, OssOnly } from
+'docusaurus-plugin-internaldocs-fb/internal';
+
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
 In this tutorial, we will use bxl to gather and generate all the index data of a
@@ -21,7 +24,10 @@ This tutorial has 4 parts:
 
 ## Environment
 
-For all following tutorial, we assume you are in `examples/bxl_tutorial` folder.
+For all following tutorial, we assume you are in [`examples/bxl_tutorial`](
+<FbInternalOnly>https://www.internalfb.com/code/fbsource/fbcode/buck2/examples/bxl_tutorial/</FbInternalOnly>
+<OssOnly>https://github.com/facebook/buck2/tree/main/examples/bxl_tutorial</OssOnly>
+) folder.
 
 This folder contains a buck2 [project](../../concepts/glossary/#project) with
 several targets. These targets form this dependency graph:
@@ -212,7 +218,10 @@ We run the bxl script and the output shows our filtered targets:
 Note that `root//:data_a` is no longer in the list, since it's a resource
 target.
 
-You can find the complete code for this tutorial in `part1.bxl`.
+You can find the complete code for this tutorial in [`part1.bxl`](
+<FbInternalOnly>https://www.internalfb.com/code/fbsource/fbcode/buck2/examples/bxl_tutorial/part1.bxl</FbInternalOnly>
+<OssOnly>https://github.com/facebook/buck2/blob/main/examples/bxl_tutorial/part1.bxl</OssOnly>
+).
 
 ## Part 2
 
@@ -273,7 +282,10 @@ You'll see output like this:
 ]
 ```
 
-You can find the complete code for this tutorial in `part2.bxl`.
+You can find the complete code for this tutorial in [`part2.bxl`](
+<FbInternalOnly>https://www.internalfb.com/code/fbsource/fbcode/buck2/examples/bxl_tutorial/part2.bxl</FbInternalOnly>
+<OssOnly>https://github.com/facebook/buck2/blob/main/examples/bxl_tutorial/part2.bxl</OssOnly>
+).
 
 ## Part 3
 
@@ -332,7 +344,10 @@ ctx.output.ensure_multiple(index_outputs)
 
 Now we can confirm these index files are available on our disk.
 
-You can find the complete code for this tutorial in `part3.bxl`.
+You can find the complete code for this tutorial in [`part3.bxl`](
+<FbInternalOnly>https://www.internalfb.com/code/fbsource/fbcode/buck2/examples/bxl_tutorial/part3.bxl</FbInternalOnly>
+<OssOnly>https://github.com/facebook/buck2/blob/main/examples/bxl_tutorial/part3.bxl</OssOnly>
+).
 
 ## Conclusion
 

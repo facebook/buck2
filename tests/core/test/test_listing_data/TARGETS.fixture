@@ -1,7 +1,11 @@
-load(":rules.bzl", "ok_test", "seed")
+load(":rules.bzl", "bad_test", "listing_uncacheable", "ok_test", "seed")
 
 seed_val = read_config("test", "seed", "42")
 
 ok_test(name = "ok", seed = seed_val)
 
+bad_test(name = "bad", seed = seed_val)
+
 seed(name = "test", seed = seed_val)
+
+listing_uncacheable(name = "listing_uncacheable", seed = seed_val)

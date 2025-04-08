@@ -30,5 +30,5 @@ Caused by:
          |
     2: Error coercing attribute `x` of type `attrs.int()`
     3: Error coercing "foobar"
-    4: Expected value of type `int`, got value with type `string` (value was `"foobar"`)
+    4: Expected `int`, but got `string (repr: "foobar")`
 BXL FAILED

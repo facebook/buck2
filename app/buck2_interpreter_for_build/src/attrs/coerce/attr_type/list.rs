@@ -15,11 +15,11 @@ use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::prelude::*;
 use starlark::values::list::ListRef;
 use starlark::values::tuple::TupleRef;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::attr_type::AttrTypeExt;
-use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
 
 impl AttrTypeCoerce for ListAttrType {
@@ -41,11 +41,9 @@ impl AttrTypeCoerce for ListAttrType {
 }
 
 pub(crate) fn coerce_list<'v>(value: Value<'v>) -> buck2_error::Result<&'v [Value<'v>]> {
-    if let Some(list) = ListRef::from_value(value) {
-        Ok(list.content())
-    } else if let Some(list) = TupleRef::from_value(value) {
+    if let Some(list) = TupleRef::from_value(value) {
         Ok(list.content())
     } else {
-        Err(CoercionError::type_error(ListRef::TYPE, value).into())
+        Ok(<&ListRef>::unpack_value_err(value)?.content())
     }
 }

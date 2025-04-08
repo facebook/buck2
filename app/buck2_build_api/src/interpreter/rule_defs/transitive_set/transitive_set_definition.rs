@@ -224,7 +224,7 @@ impl<'v> AllocValue<'v> for TransitiveSetDefinition<'v> {
     }
 }
 
-#[starlark_value(type = "transitive_set_definition")]
+#[starlark_value(type = "TransitiveSetDefinition")]
 impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
     type Canonical = FrozenTransitiveSetDefinition;
 
@@ -274,7 +274,7 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
             let typ = self
                 .exported
                 .get()
-                .map_or("transitive_set_definition", |exported| {
+                .map_or("TransitiveSetDefinition", |exported| {
                     exported.id.name.as_str()
                 });
             Some(heap.alloc(typ))
@@ -324,7 +324,7 @@ impl Serialize for FrozenTransitiveSetDefinition {
     }
 }
 
-#[starlark_value(type = "transitive_set_definition")]
+#[starlark_value(type = "TransitiveSetDefinition")]
 impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition {
     type Canonical = Self;
 

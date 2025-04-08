@@ -27,7 +27,6 @@
 
 pub mod daemon_id;
 pub mod dispatch;
-pub mod errors;
 pub mod metadata;
 pub mod schedule_type;
 pub mod sink;
@@ -285,7 +284,7 @@ pub fn create_source_sink_pair() -> (ChannelEventSource, impl EventSink) {
 
 #[allow(clippy::large_enum_variant)]
 #[derive(buck2_error::Error, Debug)]
-#[buck2(tag = Tier0)]
+#[buck2(tag = InvalidEvent)]
 enum BuckEventError {
     #[error("The `buck2_data::BuckEvent` provided has no `Timestamp`")]
     MissingTimestamp,

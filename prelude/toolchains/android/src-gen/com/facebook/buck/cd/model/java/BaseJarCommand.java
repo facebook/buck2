@@ -33,7 +33,6 @@ private static final long serialVersionUID = 0L;
     resourcesMap_ = java.util.Collections.emptyList();
     buildCellRootPath_ = "";
     pathToClasses_ = "";
-    rootOutput_ = "";
     annotationsPath_ = "";
   }
 
@@ -569,45 +568,6 @@ java.lang.String defaultValue) {
     }
   }
 
-  public static final int ROOTOUTPUT_FIELD_NUMBER = 21;
-  @SuppressWarnings("serial")
-  private volatile java.lang.Object rootOutput_ = "";
-  /**
-   * <code>string rootOutput = 21;</code>
-   * @return The rootOutput.
-   */
-  @java.lang.Override
-  public java.lang.String getRootOutput() {
-    java.lang.Object ref = rootOutput_;
-    if (ref instanceof java.lang.String) {
-      return (java.lang.String) ref;
-    } else {
-      com.google.protobuf.ByteString bs = 
-          (com.google.protobuf.ByteString) ref;
-      java.lang.String s = bs.toStringUtf8();
-      rootOutput_ = s;
-      return s;
-    }
-  }
-  /**
-   * <code>string rootOutput = 21;</code>
-   * @return The bytes for rootOutput.
-   */
-  @java.lang.Override
-  public com.google.protobuf.ByteString
-      getRootOutputBytes() {
-    java.lang.Object ref = rootOutput_;
-    if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
-      rootOutput_ = b;
-      return b;
-    } else {
-      return (com.google.protobuf.ByteString) ref;
-    }
-  }
-
   public static final int ANNOTATIONSPATH_FIELD_NUMBER = 23;
   @SuppressWarnings("serial")
   private volatile java.lang.Object annotationsPath_ = "";
@@ -712,9 +672,6 @@ java.lang.String defaultValue) {
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(pathToClasses_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 20, pathToClasses_);
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(rootOutput_)) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 21, rootOutput_);
-    }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(annotationsPath_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 23, annotationsPath_);
     }
@@ -802,9 +759,6 @@ java.lang.String defaultValue) {
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(pathToClasses_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(20, pathToClasses_);
     }
-    if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(rootOutput_)) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(21, rootOutput_);
-    }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(annotationsPath_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(23, annotationsPath_);
     }
@@ -868,8 +822,6 @@ java.lang.String defaultValue) {
         other.internalGetCompileTimeClasspathSnapshotPaths())) return false;
     if (!getPathToClasses()
         .equals(other.getPathToClasses())) return false;
-    if (!getRootOutput()
-        .equals(other.getRootOutput())) return false;
     if (!getAnnotationsPath()
         .equals(other.getAnnotationsPath())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
@@ -935,8 +887,6 @@ java.lang.String defaultValue) {
     }
     hash = (37 * hash) + PATHTOCLASSES_FIELD_NUMBER;
     hash = (53 * hash) + getPathToClasses().hashCode();
-    hash = (37 * hash) + ROOTOUTPUT_FIELD_NUMBER;
-    hash = (53 * hash) + getRootOutput().hashCode();
     hash = (37 * hash) + ANNOTATIONSPATH_FIELD_NUMBER;
     hash = (53 * hash) + getAnnotationsPath().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
@@ -1151,7 +1101,6 @@ java.lang.String defaultValue) {
       }
       internalGetMutableCompileTimeClasspathSnapshotPaths().clear();
       pathToClasses_ = "";
-      rootOutput_ = "";
       annotationsPath_ = "";
       return this;
     }
@@ -1264,9 +1213,6 @@ java.lang.String defaultValue) {
         result.pathToClasses_ = pathToClasses_;
       }
       if (((from_bitField0_ & 0x00010000) != 0)) {
-        result.rootOutput_ = rootOutput_;
-      }
-      if (((from_bitField0_ & 0x00020000) != 0)) {
         result.annotationsPath_ = annotationsPath_;
       }
       result.bitField0_ |= to_bitField0_;
@@ -1407,14 +1353,9 @@ java.lang.String defaultValue) {
         bitField0_ |= 0x00008000;
         onChanged();
       }
-      if (!other.getRootOutput().isEmpty()) {
-        rootOutput_ = other.rootOutput_;
-        bitField0_ |= 0x00010000;
-        onChanged();
-      }
       if (!other.getAnnotationsPath().isEmpty()) {
         annotationsPath_ = other.annotationsPath_;
-        bitField0_ |= 0x00020000;
+        bitField0_ |= 0x00010000;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -1547,14 +1488,9 @@ java.lang.String defaultValue) {
               bitField0_ |= 0x00008000;
               break;
             } // case 162
-            case 170: {
-              rootOutput_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00010000;
-              break;
-            } // case 170
             case 186: {
               annotationsPath_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00020000;
+              bitField0_ |= 0x00010000;
               break;
             } // case 186
             default: {
@@ -3154,78 +3090,6 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private java.lang.Object rootOutput_ = "";
-    /**
-     * <code>string rootOutput = 21;</code>
-     * @return The rootOutput.
-     */
-    public java.lang.String getRootOutput() {
-      java.lang.Object ref = rootOutput_;
-      if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        rootOutput_ = s;
-        return s;
-      } else {
-        return (java.lang.String) ref;
-      }
-    }
-    /**
-     * <code>string rootOutput = 21;</code>
-     * @return The bytes for rootOutput.
-     */
-    public com.google.protobuf.ByteString
-        getRootOutputBytes() {
-      java.lang.Object ref = rootOutput_;
-      if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        rootOutput_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-    /**
-     * <code>string rootOutput = 21;</code>
-     * @param value The rootOutput to set.
-     * @return This builder for chaining.
-     */
-    public Builder setRootOutput(
-        java.lang.String value) {
-      if (value == null) { throw new NullPointerException(); }
-      rootOutput_ = value;
-      bitField0_ |= 0x00010000;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string rootOutput = 21;</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearRootOutput() {
-      rootOutput_ = getDefaultInstance().getRootOutput();
-      bitField0_ = (bitField0_ & ~0x00010000);
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string rootOutput = 21;</code>
-     * @param value The bytes for rootOutput to set.
-     * @return This builder for chaining.
-     */
-    public Builder setRootOutputBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) { throw new NullPointerException(); }
-      checkByteStringIsUtf8(value);
-      rootOutput_ = value;
-      bitField0_ |= 0x00010000;
-      onChanged();
-      return this;
-    }
-
     private java.lang.Object annotationsPath_ = "";
     /**
      * <code>string annotationsPath = 23;</code>
@@ -3269,7 +3133,7 @@ java.lang.String defaultValue) {
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       annotationsPath_ = value;
-      bitField0_ |= 0x00020000;
+      bitField0_ |= 0x00010000;
       onChanged();
       return this;
     }
@@ -3279,7 +3143,7 @@ java.lang.String defaultValue) {
      */
     public Builder clearAnnotationsPath() {
       annotationsPath_ = getDefaultInstance().getAnnotationsPath();
-      bitField0_ = (bitField0_ & ~0x00020000);
+      bitField0_ = (bitField0_ & ~0x00010000);
       onChanged();
       return this;
     }
@@ -3293,7 +3157,7 @@ java.lang.String defaultValue) {
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       annotationsPath_ = value;
-      bitField0_ |= 0x00020000;
+      bitField0_ |= 0x00010000;
       onChanged();
       return this;
     }

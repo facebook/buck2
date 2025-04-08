@@ -12,10 +12,12 @@ use buck2_execute::digest_config::DigestConfig;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
@@ -45,7 +47,7 @@ pub struct StarlarkDigestConfig {
     pub digest_config: DigestConfig,
 }
 
-#[starlark_value(type = "digest_config", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "DigestConfig", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkDigestConfig {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -76,4 +78,9 @@ fn digest_config_methods(builder: &mut MethodsBuilder) {
     fn allows_blake3_keyed(this: &StarlarkDigestConfig) -> starlark::Result<bool> {
         Ok(this.digest_config.cas_digest_config().allows_blake3_keyed())
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_digest_config_type(globals: &mut GlobalsBuilder) {
+    const DigestConfig: StarlarkValueAsType<StarlarkDigestConfig> = StarlarkValueAsType::new();
 }

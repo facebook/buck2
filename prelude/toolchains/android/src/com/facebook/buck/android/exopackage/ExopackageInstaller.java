@@ -93,7 +93,8 @@ public class ExopackageInstaller {
   }
 
   /** Installs an apk, restarting the running app if necessary. */
-  public void doInstall(IsolatedApkInfo isolatedApkInfo) throws Exception {
+  public void doInstall(IsolatedApkInfo isolatedApkInfo, SetDebugAppMode setDebugAppMode)
+      throws Exception {
     if (exopackageEnabled()) {
       device.mkDirP(dataRoot.toString());
       device.fixRootDir(dataRoot.toString());
@@ -106,6 +107,9 @@ public class ExopackageInstaller {
           AdbHelper.BUILD_METADATA_INSTALL_ROOT, packageName, buck2BuildUuid.get());
     }
     installAndRestartApk(isolatedApkInfo);
+    if (setDebugAppMode == SetDebugAppMode.SET) {
+      device.setDebugAppPackageName(packageName);
+    }
   }
 
   public void installAndRestartApk(IsolatedApkInfo isolatedApkInfo) throws Exception {

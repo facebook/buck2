@@ -259,6 +259,7 @@ get_contacts(Suite) ->
         _:_:_ -> [?FALLBACK_ONCALL]
     end.
 
+-spec extract_attribute(atom(), erl_syntax:forms()) -> [binary()].
 extract_attribute(_, []) ->
     [];
 extract_attribute(Attribute, [?MATCH_STRING(Data) | Forms]) ->

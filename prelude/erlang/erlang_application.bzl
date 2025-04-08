@@ -123,7 +123,14 @@ def build_application(ctx, toolchains, dependencies) -> list[Provider]:
 def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, dependencies: ErlAppDependencies) -> BuildEnvironment:
     name = app_name(ctx)
 
-    build_environment = erlang_build.prepare_build_environment(ctx, toolchain, dependencies)
+    include_info = None
+    if ctx.attrs._includes_target:
+        include_info = ctx.attrs._includes_target[ErlangAppIncludeInfo]
+        if include_info._original_includes != ctx.attrs.includes:
+            fail("includes of the includes_target and direct includes must be the same, got {} and {}".format(include_info._original_includes, ctx.attrs.includes))
+        if include_info.name != name:
+            fail("includes_target must have the same name as the application, got {} and {}".format(include_info.name, name))
+    build_environment = erlang_build.prepare_build_environment(ctx, toolchain, dependencies, include_info)
 
     # build generated inputs
     generated_source_artifacts = erlang_build.build_steps.generated_source_artifacts(ctx, toolchain, name)
@@ -135,26 +142,30 @@ def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, depend
         if erlang_build.utils.is_erl(src) and erlang_build.utils.module_name(src) not in generated_source_artifacts
     ] + generated_source_artifacts.values()
 
-    header_artifacts = ctx.attrs.includes
-
     private_header_artifacts = [header for header in ctx.attrs.srcs if erlang_build.utils.is_hrl(header)]
 
     # build input mapping
+    sources = src_artifacts + private_header_artifacts
+    if not include_info:
+        sources.extend(ctx.attrs.includes)
+
     build_environment = erlang_build.build_steps.generate_input_mapping(
         build_environment,
-        src_artifacts + header_artifacts + private_header_artifacts,
+        sources,
     )
 
     # build output artifacts
 
-    # public includes
-    build_environment = erlang_build.build_steps.generate_include_artifacts(
-        ctx,
-        toolchain,
-        build_environment,
-        name,
-        header_artifacts,
-    )
+    # public includes only triggered if this won't called from erlang_application macro
+    # and includes weren't redirected to the includes_target dependency
+    if not include_info:
+        build_environment = erlang_build.build_steps.generate_include_artifacts(
+            ctx,
+            toolchain,
+            build_environment,
+            name,
+            ctx.attrs.includes,
+        )
 
     # private includes
     build_environment = erlang_build.build_steps.generate_include_artifacts(
@@ -267,7 +278,7 @@ def _generate_app_file(
         toolchain.app_file_script,
         app_build_cmd,
         category = "app_resource",
-        identifier = action_identifier(toolchain, paths.basename(app_file_name)),
+        identifier = action_identifier(toolchain, name),
     )
 
     build_environment.app_files[name] = output

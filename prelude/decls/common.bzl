@@ -62,10 +62,10 @@ def _deps_query_arg():
     return {
         "deps_query": attrs.option(attrs.query(), default = None, doc = """
     Status: **experimental/unstable**.
-     The deps query takes a query string that accepts the following query functions, and appends the
-     output of the query to the declared deps:
+     The deps query takes a query string that accepts the following query 
+     functions, and appends the output of the query to the declared deps:
 
-     * `attrfilter`
+    * `attrfilter`
     * `deps`
     * `except`
     * `intersect`
@@ -74,32 +74,13 @@ def _deps_query_arg():
     * `set`
     * `union`
 
-
-     The macro `$declared_deps` may be used anywhere a target literal pattern is expected
-     in order to refer to the explicit deps of this rule as they appear in the rule's definition.
-     For example, if your build rule declares
+    Some example queries:
 
     ```
-
-      android_library(
-        name = 'lib',
-        deps = ['//foo:foo'],
-        deps_query = '$declared_deps',
-      )
-    ```
-
-     then the macro `$declared_deps` would be expanded to a
-     literal `set(//foo:foo)`.
-     Some example queries:
-
-    ```
-
-      "filter({name_regex}, $declared_deps)".format(name_regex='//.*')
-      "attrfilter(annotation_processors, com.foo.Processor, $declared_deps)"
+      "filter({name_regex}, deps('//foo:foo'))".format(name_regex='//.*')
+      "attrfilter(annotation_processors, com.foo.Processor, deps('//foo:foo'))"
       "deps('//foo:foo', 1)"
     ```
-
-     Note: any targets included in this query must also be present in `deps`.
 """),
     }
 
@@ -107,9 +88,8 @@ def _provided_deps_query_arg():
     return {
         "provided_deps_query": attrs.option(attrs.query(), default = None, doc = """
     Status: **experimental/unstable**.
-     The provided deps query functions in the same way as the deps query, but the referenced deps
-     using `$declared` are the provided deps of the target, and the results of the query
-     are appended to the declared provided deps.
+     The provided deps query functions in the same way as the deps query, but the 
+     results of the query are appended to the declared provided deps.
 """),
     }
 

@@ -21,10 +21,11 @@ use crate::provider::label::ProvidersLabel;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = CompatibilityError)]
 enum CompatibilityErrors {
     /// Target is immediately incompatible with the configuration.
     #[error("{0:#}")]
-    #[buck2(input)]
+    #[buck2(tag = TargetIncompatible)]
     TargetIncompatible(IncompatiblePlatformReason),
     /// Target is compatible but a transitive dependency is not.
     #[error("{0:#}")]

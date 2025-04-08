@@ -442,7 +442,7 @@ internal class KotlinCompilationServiceTest {
           kotlinSourceChanges = KotlinSourceChanges.ToBeCalculated,
           classpathChanges = classPathChanges,
           kotlinClassUsageFile = kotlinDepFile,
-          jvmAbiGenWorkingDir = jvmAbiGenWorkingDir)
+          rebuildReason = null)
 
   private fun getClassModificationTimes(): Map<String, Long> =
       classesDir.path.listDirectoryEntries().associate { path ->

@@ -14,8 +14,7 @@ import com.facebook.buck.jvm.kotlin.cd.analytics.ClasspathChangesParam
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDLoggingContext
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlincModeParam
 import com.facebook.buck.jvm.kotlin.cd.analytics.StepParam
-import com.facebook.buck.jvm.kotlin.cd.logger.KotlinCDLogger
-import com.facebook.buck.jvm.kotlin.cd.logger.model.KotlinCDLogEntry
+import com.facebook.buck.jvm.kotlin.cd.analytics.logger.model.KotlinCDLogEntry
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset

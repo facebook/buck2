@@ -50,7 +50,6 @@ use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_core::pattern::unparsed::UnparsedPatternPredicate;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_events::errors::create_error_report;
 use buck2_events::source::ChannelEventSource;
 use buck2_events::Event;
 use buck2_execute::digest_config::DigestConfig;
@@ -400,6 +399,13 @@ impl BuckdServer {
         Res: Into<command_result::Result> + Send + 'static,
         PartialRes: Into<partial_result::PartialResult> + Send + 'static,
     {
+        if buck2_env!("BUCK2_TEST_FAIL_STREAMING", bool, applicability = testing).unwrap() {
+            Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Injected client streaming error"
+            ))?;
+        }
+
         let client_ctx = req.get_ref().client_context()?;
 
         // This will reset counters incorrectly if commands are running concurrently.
@@ -439,6 +445,8 @@ impl BuckdServer {
                 .optin_vpn_check_targets_regex
                 .clone(),
             enable_stable_revision_check: system_warning_config.enable_stable_revision_check,
+            enable_health_check_process_isolation: system_warning_config
+                .enable_health_check_process_isolation,
         });
 
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here
@@ -574,8 +582,7 @@ fn convert_positive_duration(proto_duration: &prost_types::Duration) -> Result<D
 }
 
 fn error_to_command_result(e: buck2_error::Error) -> CommandResult {
-    let report = create_error_report(&e.into());
-    let errors = vec![report];
+    let errors = vec![buck2_data::ErrorReport::from(&e)];
 
     CommandResult {
         result: Some(command_result::Result::Error(CommandError { errors })),

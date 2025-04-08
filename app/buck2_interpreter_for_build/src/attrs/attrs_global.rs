@@ -207,7 +207,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     fn transition_dep<'v>(
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         providers: UnpackListOrTuple<Value<'v>>,
-        #[starlark(require = named)] cfg: Value<'v>,
+        #[starlark(require = named)] cfg: Option<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -216,11 +216,15 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         let label_coercion_ctx = attr_coercion_context_for_bzl(eval)?;
 
         // FIXME(JakobDegen): Use a proper unpack for this. Easier to do after deleting old API
-        let transition_id = if let Some(s) = StringValue::new(cfg) {
-            let transition_target = label_coercion_ctx.coerce_providers_label(&s)?;
-            Arc::new(TransitionId::Target(transition_target))
+        let transition_id = if let Some(cfg) = cfg {
+            Some(if let Some(s) = StringValue::new(cfg) {
+                let transition_target = label_coercion_ctx.coerce_providers_label(&s)?;
+                Arc::new(TransitionId::Target(transition_target))
+            } else {
+                transition_id_from_value(cfg)?
+            })
         } else {
-            transition_id_from_value(cfg)?
+            None
         };
 
         let coercer = AttrType::transition_dep(required_providers, transition_id);

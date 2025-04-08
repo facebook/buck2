@@ -151,6 +151,8 @@ pub struct SystemWarningConfig {
     pub optin_vpn_check_targets_regex: Option<String>,
     /// Whether to enable the stable revision check.
     pub enable_stable_revision_check: Option<bool>,
+    /// Run the health checks in a separate process.
+    pub enable_health_check_process_isolation: Option<bool>,
 }
 
 impl SystemWarningConfig {
@@ -179,6 +181,10 @@ impl SystemWarningConfig {
             section: "buck2_health_check",
             property: "enable_stable_revision_check",
         })?;
+        let enable_health_check_process_isolation = config.parse(BuckconfigKeyRef {
+            section: "buck2_health_check",
+            property: "enable_health_check_process_isolation",
+        })?;
         Ok(Self {
             memory_pressure_threshold_percent,
             remaining_disk_space_threshold_gb,
@@ -186,6 +192,7 @@ impl SystemWarningConfig {
             avg_re_download_bytes_per_sec_threshold,
             optin_vpn_check_targets_regex,
             enable_stable_revision_check,
+            enable_health_check_process_isolation,
         })
     }
 

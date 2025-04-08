@@ -58,7 +58,7 @@ use tonic::Status;
 const MAX_MESSAGE_SIZE_BYTES: usize = 8 * 1024 * 1024; // 8MB
 
 #[derive(buck2_error::Error, Debug)]
-#[buck2(tag = Tier0)]
+#[buck2(tag = WorkerInit)]
 pub enum WorkerInitError {
     #[error("Worker failed to spawn: {0}")]
     SpawnFailed(String),
@@ -215,7 +215,7 @@ async fn spawn_worker(
     if fs_util::try_exists(&worker_dir).map_err(|e| WorkerInitError::InternalError(e.into()))? {
         return Err(WorkerInitError::InternalError(
             buck2_error!(
-                buck2_error::ErrorTag::Tier0,
+                buck2_error::ErrorTag::WorkerDirectoryExists,
                 "Directory for worker already exists: {:?}",
                 worker_dir
             )
@@ -302,8 +302,11 @@ async fn spawn_worker(
                 }
                 Ok(GatherOutputStatus::Cancelled | GatherOutputStatus::TimedOut(_)) => {
                     WorkerInitError::InternalError(
-                        buck2_error!(buck2_error::ErrorTag::Tier0, "Worker cancelled by buck")
-                            .into(),
+                        buck2_error!(
+                            buck2_error::ErrorTag::WorkerCancelled,
+                            "Worker cancelled by buck"
+                        )
+                        .into(),
                     )
                 }
                 Err(e) => WorkerInitError::InternalError(e.into()),

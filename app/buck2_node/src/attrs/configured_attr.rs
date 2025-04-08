@@ -36,6 +36,7 @@ use crate::attrs::attr_type::one_of::OneOfAttrType;
 use crate::attrs::attr_type::query::QueryAttr;
 use crate::attrs::attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use crate::attrs::attr_type::string::StringLiteral;
+use crate::attrs::attr_type::transition_dep::ConfiguredTransitionDep;
 use crate::attrs::attr_type::tuple::TupleLiteral;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::AttrTypeInner;
@@ -81,6 +82,7 @@ pub enum ConfiguredAttr {
     WithinView(WithinViewSpecification),
     ExplicitConfiguredDep(Box<ConfiguredExplicitConfiguredDep>),
     SplitTransitionDep(Box<ConfiguredSplitTransitionDep>),
+    TransitionDep(Box<ConfiguredTransitionDep>),
     ConfigurationDep(ProvidersLabel),
     // Note: Despite being named `PluginDep`, this doesn't really act like a dep but rather like a
     // label
@@ -134,6 +136,7 @@ impl AttrDisplayWithContext for ConfiguredAttr {
             ConfiguredAttr::WithinView(v) => Display::fmt(v, f),
             ConfiguredAttr::ExplicitConfiguredDep(e) => Display::fmt(e, f),
             ConfiguredAttr::SplitTransitionDep(e) => Display::fmt(e, f),
+            ConfiguredAttr::TransitionDep(e) => Display::fmt(e, f),
             ConfiguredAttr::ConfigurationDep(e) => write!(f, "\"{}\"", e),
             ConfiguredAttr::PluginDep(e, _) => write!(f, "\"{}\"", e),
             ConfiguredAttr::Dep(e) => write!(f, "\"{}\"", e),
@@ -190,6 +193,7 @@ impl ConfiguredAttr {
                 }
                 Ok(())
             }
+            ConfiguredAttr::TransitionDep(dep) => dep.traverse(traversal),
             ConfiguredAttr::ConfigurationDep(dep) => traversal.configuration_dep(dep),
             ConfiguredAttr::PluginDep(dep, kind) => traversal.plugin_dep(dep, kind),
             ConfiguredAttr::Dep(dep) => dep.traverse(traversal),

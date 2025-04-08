@@ -1,0 +1,97 @@
+load(":defs.bzl", "simple_copy", "simple_dynamic", "simple_run", "simple_symlinked_dir", "simple_tset", "simple_write", "simple_write_json", "write_arg")
+
+simple_write(
+    name = "simple_write",
+    string_attr = select({
+        ":constraint1": "hello-platform1",
+        ":constraint2": "hello-platform2",
+        "DEFAULT": "hello",
+    }),
+)
+
+simple_write_json(
+    name = "simple_write_json",
+    string_attr = select({
+        ":constraint1": "hello-platform1",
+        ":constraint2": "hello-platform2",
+        "DEFAULT": "hello",
+    }),
+)
+
+simple_copy(
+    name = "simple_copy",
+    to_copy = ":simple_write",
+)
+
+simple_symlinked_dir(
+    name = "simple_symlinked_dir",
+    inputs = [":simple_write", ":simple_copy"],
+)
+
+simple_run(
+    name = "simple_run",
+    string_attr = select({
+        ":constraint1": "hello-platform1",
+        ":constraint2": "hello-platform2",
+        "DEFAULT": "hello",
+    }),
+)
+
+simple_tset(
+    name = "simple_tset",
+    string_attr = select({
+        ":constraint1": "hello-platform1",
+        ":constraint2": "hello-platform2",
+        "DEFAULT": "hello",
+    }),
+)
+
+simple_dynamic(
+    name = "simple_dynamic",
+)
+
+write_arg(
+    name = "write_arg_dynamic",
+    arg_command = "$(location :simple_dynamic)",
+)
+
+write_arg(
+    name = "write_arg_simple_write",
+    arg_command = "$(location :simple_write)",
+)
+
+platform(
+    name = "default1",
+)
+
+platform(
+    name = "default2",
+)
+
+platform(
+    name = "platform1",
+    constraint_values = [
+        ":constraint1",
+    ],
+)
+
+platform(
+    name = "platform2",
+    constraint_values = [
+        ":constraint2",
+    ],
+)
+
+constraint_setting(
+    name = "constraint_setting",
+)
+
+constraint_value(
+    name = "constraint1",
+    constraint_setting = ":constraint_setting",
+)
+
+constraint_value(
+    name = "constraint2",
+    constraint_setting = ":constraint_setting",
+)

@@ -24,8 +24,20 @@ def preprocessor_info_for_modulemap(
         swift_header: Artifact | None,
         mark_headers_private: bool,
         additional_args: CPreprocessorArgs | None) -> CPreprocessor:
+    preprocessor_info, _ = create_modulemap(ctx, name, module_name, headers, swift_header, mark_headers_private, additional_args)
+    return preprocessor_info
+
+def create_modulemap(
+        ctx: AnalysisContext,
+        name: str,
+        module_name: str,
+        headers: list[CHeader],
+        swift_header: Artifact | None,
+        mark_headers_private: bool,
+        additional_args: CPreprocessorArgs | None,
+        is_framework: bool = False) -> (CPreprocessor, Artifact):
     # We don't want to name this module.modulemap to avoid implicit importing
-    if name == "module":
+    if name == "module" and not is_framework:
         fail("Don't use the name `module` for modulemaps, this will allow for implicit importing.")
 
     # Create a map of header import path to artifact location
@@ -66,8 +78,11 @@ def preprocessor_info_for_modulemap(
             swift_header,
         ])
 
-    if ctx.attrs.use_submodules:
+    if getattr(ctx.attrs, "use_submodules", False):
         cmd.add("--use-submodules")
+
+    if is_framework:
+        cmd.add("--framework")
 
     for hdr in sorted(header_map.keys()):
         # Don't include the Swift header in the mappings, this is handled separately.
@@ -86,7 +101,7 @@ def preprocessor_info_for_modulemap(
         ),
         modular_args = _args_for_modulemap(output, symlink_tree, swift_header),
         modulemap_path = cmd_args(output, hidden = cmd_args(symlink_tree)),
-    )
+    ), output
 
 def _args_for_modulemap(
         modulemap: Artifact,

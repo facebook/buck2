@@ -33,27 +33,27 @@ import java.util.logging.Level;
 import java.util.logging.Logger; // NOPMD
 
 public class InstallerServer extends ServerTransportFilter {
+  private static final Logger LOG = Logger.getLogger(InstallerServer.class.getName());
+
   Server grpcServer;
-  Logger logger;
   boolean clientConnected = false;
 
-  public InstallerServer(InstallCommand installer, Logger logger, int tcpPort) {
+  public InstallerServer(InstallCommand installer, int tcpPort) {
     SettableFuture<Unit> isDone = SettableFuture.create();
-    this.logger = logger;
-    InstallerService installerService = new InstallerService(installer, isDone, logger);
-    this.grpcServer = buildServer(installerService, logger, tcpPort);
+    InstallerService installerService = new InstallerService(installer, isDone);
+    this.grpcServer = buildServer(installerService, tcpPort);
     Futures.addCallback(
         isDone,
         new FutureCallback<>() {
           @Override
           public void onSuccess(Unit unit) {
-            logger.info("Installer Server shutting down...");
+            LOG.info("Installer Server shutting down...");
             stopServer();
           }
 
           @Override
           public void onFailure(Throwable t) {
-            logger.log(Level.WARNING, "Execution exception...", t);
+            LOG.log(Level.WARNING, "Execution exception...", t);
           }
         },
         directExecutor());
@@ -76,16 +76,16 @@ public class InstallerServer extends ServerTransportFilter {
     do {
       try {
         if (!isParentAlive()) {
-          logger.info("Parent process has been killed, shutting down");
+          LOG.info("Parent process has been killed, shutting down");
           stopServer();
         }
         long serverUptime = Duration.between(serverStartTime, Instant.now()).toSeconds();
         if (!this.clientConnected && serverUptime > 20) {
-          logger.info("No client connected for 20 seconds, shutting down");
+          LOG.info("No client connected for 20 seconds, shutting down");
           stopServer();
         }
       } catch (Exception e) {
-        logger.log(Level.SEVERE, "Error checking parent process liveness", e);
+        LOG.log(Level.SEVERE, "Error checking parent process liveness", e);
       }
     } while (!this.grpcServer.awaitTermination(10, TimeUnit.SECONDS));
   }
@@ -93,7 +93,7 @@ public class InstallerServer extends ServerTransportFilter {
   /** Called when buck2 connects */
   public Attributes transportReady(Attributes transportAttrs) {
     if (this.clientConnected) {
-      this.logger.log(
+      this.LOG.log(
           Level.SEVERE,
           "Unexpected state, multiple connections detected. Should be 1 connection per server.");
     }
@@ -103,17 +103,17 @@ public class InstallerServer extends ServerTransportFilter {
 
   /** Called when buck2 disconnects */
   public void transportTerminated(Attributes transportAttrs) {
-    this.logger.log(Level.SEVERE, "Client disconnected, shutting down");
+    this.LOG.log(Level.SEVERE, "Client disconnected, shutting down");
     stopServer();
   }
 
   /** Build an installer server at requested {@code TCP}. */
-  private Server buildServer(InstallerService service, Logger logger, int tcpPort) {
-    logger.info(String.format("Starting Installer Server using TCP on %s", tcpPort));
-    return getTCPServer(service, logger, tcpPort);
+  private Server buildServer(InstallerService service, int tcpPort) {
+    LOG.info(String.format("Starting Installer Server using TCP on %s", tcpPort));
+    return getTCPServer(service, tcpPort);
   }
 
-  private Server getTCPServer(InstallerService service, Logger logger, int tcpPort) {
+  private Server getTCPServer(InstallerService service, int tcpPort) {
     EventLoopGroup group = new NioEventLoopGroup();
     SocketAddress addr = new InetSocketAddress("127.0.0.1", tcpPort); // NOPMD
 
@@ -125,7 +125,7 @@ public class InstallerServer extends ServerTransportFilter {
             .addService(service)
             .addTransportFilter(this)
             .build();
-    logger.info(String.format("Starting server listening on TCP port %s", tcpPort));
+    LOG.info(String.format("Starting server listening on TCP port %s", tcpPort));
     return server;
   }
 

@@ -8,10 +8,8 @@
  */
 
 use std::fmt::Display;
-use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
@@ -20,8 +18,6 @@ use dupe::Dupe;
 use static_assertions::assert_eq_size;
 
 use crate::attrs::attr_type::attr_like::AttrLike;
-use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
-use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
@@ -39,8 +35,6 @@ pub enum DepAttrTransition {
     Exec,
     /// Transition to toolchain.
     Toolchain,
-    /// Transition dependency using given transition function.
-    Transition(Arc<TransitionId>),
 }
 
 /// A dep attribute accepts a target label and will resolve to the provider collection from that label's analysis.
@@ -56,6 +50,8 @@ assert_eq_size!(DepAttrType, [usize; 3]);
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct DepAttr<T: ProvidersLabelMaybeConfigured + AttrLike> {
+    // FIXME(JakobDegen): Storing this on every dep - and then having to box this value as a result
+    // - is a pretty sad waste of memory
     pub attr_type: DepAttrType,
     pub label: T,
 }
@@ -80,7 +76,6 @@ impl DepAttr<ConfiguredProvidersLabel> {
             }
             DepAttrTransition::Exec => traversal.exec_dep(&self.label),
             DepAttrTransition::Toolchain => traversal.toolchain_dep(&self.label),
-            DepAttrTransition::Transition(..) => traversal.dep(&self.label),
         }
     }
 }
@@ -95,15 +90,6 @@ impl DepAttr<ProvidersLabel> {
             DepAttrTransition::Identity(..) => traversal.dep(label),
             DepAttrTransition::Exec => traversal.exec_dep(label),
             DepAttrTransition::Toolchain => traversal.toolchain_dep(label),
-            DepAttrTransition::Transition(tr) => {
-                match &**tr {
-                    TransitionId::MagicObject { .. } => (),
-                    TransitionId::Target(label) => {
-                        traversal.configuration_dep(label, ConfigurationDepKind::Transition)?
-                    }
-                };
-                traversal.transition_dep(label, tr)
-            }
         }
     }
 }
@@ -125,29 +111,10 @@ impl DepAttrType {
             DepAttrTransition::Identity(..) => ctx.configure_target(label),
             DepAttrTransition::Exec => ctx.configure_exec_target(label)?,
             DepAttrTransition::Toolchain => ctx.configure_toolchain_target(label),
-            DepAttrTransition::Transition(tr) => ctx.configure_transition_target(label, tr)?,
         };
         Ok(ConfiguredAttr::Dep(Box::new(DepAttr {
             attr_type: self.dupe(),
             label: configured_label,
         })))
-    }
-}
-
-/// Represents both configured and unconfigured forms.
-pub trait ExplicitConfiguredDepMaybeConfigured: Display + Allocative {
-    fn to_json(&self) -> buck2_error::Result<serde_json::Value>;
-    fn any_matches(
-        &self,
-        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
-    ) -> buck2_error::Result<bool>;
-}
-
-impl ConfiguredExplicitConfiguredDep {
-    pub(crate) fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal,
-    ) -> buck2_error::Result<()> {
-        traversal.dep(&self.label)
     }
 }

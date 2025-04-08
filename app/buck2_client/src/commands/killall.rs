@@ -30,7 +30,7 @@ impl KillallCommand {
             })
             .then_some(())
             .ok_or(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Tier0,
+                buck2_error::ErrorTag::KillAll,
                 "Killall command failed"
             ))
         })

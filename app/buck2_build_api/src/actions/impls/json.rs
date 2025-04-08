@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::hash::Hasher;
 use std::io::sink;
 use std::io::Write;
 use std::sync::Arc;
@@ -15,6 +16,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_interpreter::types::cell_path::StarlarkCellPath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
@@ -35,10 +37,12 @@ use starlark::values::ValueLike;
 use starlark::values::ValueTypedComplex;
 
 use crate::artifact_groups::ArtifactGroup;
+use crate::bxl::select::StarlarkSelectConcat;
+use crate::bxl::select::StarlarkSelectDict;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
-use crate::interpreter::rule_defs::artifact_tagging::TaggedValue;
+use crate::interpreter::rule_defs::artifact_tagging::StarlarkTaggedValue;
 use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
@@ -150,10 +154,13 @@ pub enum JsonUnpack<'v> {
     TransitiveSetJsonProjection(&'v TransitiveSetJsonProjection<'v>),
     TargetLabel(&'v StarlarkTargetLabel),
     ConfiguredProvidersLabel(&'v StarlarkConfiguredProvidersLabel),
+    CellPath(&'v StarlarkCellPath),
     Artifact(JsonArtifact<'v>),
     CommandLine(CommandLineArg<'v>),
     Provider(ValueAsProviderLike<'v>),
-    TaggedValue(&'v TaggedValue<'v>),
+    TaggedValue(&'v StarlarkTaggedValue<'v>),
+    BxlSelectConcat(&'v StarlarkSelectConcat),
+    BxlSelectDict(&'v StarlarkSelectDict),
 }
 
 impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
@@ -191,6 +198,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                 // Users could do this with `str(ctx.label)`, but a bit wasteful
                 x.serialize(serializer)
             }
+            JsonUnpack::CellPath(x) => x.serialize(serializer),
             JsonUnpack::Artifact(x) => {
                 match self.fs {
                     None => {
@@ -243,6 +251,8 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                 serializer.collect_map(x.0.items().iter().map(|(k, v)| (k, self.with_value(*v))))
             }
             JsonUnpack::TaggedValue(x) => self.with_value(*x.value()).serialize(serializer),
+            JsonUnpack::BxlSelectConcat(x) => x.serialize(serializer),
+            JsonUnpack::BxlSelectDict(x) => x.serialize(serializer),
         }
     }
 }
@@ -298,7 +308,10 @@ pub fn visit_json_artifacts(
         | JsonUnpack::Bool(_)
         | JsonUnpack::TargetLabel(_)
         | JsonUnpack::Enum(_)
-        | JsonUnpack::ConfiguredProvidersLabel(_) => {}
+        | JsonUnpack::ConfiguredProvidersLabel(_)
+        | JsonUnpack::BxlSelectConcat(_)
+        | JsonUnpack::BxlSelectDict(_)
+        | JsonUnpack::CellPath(_) => {}
 
         JsonUnpack::List(x) => {
             for x in x.iter() {
@@ -350,4 +363,118 @@ pub fn visit_json_artifacts(
         }
     }
     Ok(())
+}
+
+pub fn add_json_to_action_inputs_hash(
+    v: Value,
+    hasher: &mut dyn Hasher,
+) -> buck2_error::Result<bool> {
+    match JsonUnpack::unpack_value_err(v)? {
+        JsonUnpack::None(_) => {
+            hasher.write(b"None");
+            Ok(true)
+        }
+        JsonUnpack::String(x) => {
+            hasher.write(x.as_bytes());
+            Ok(true)
+        }
+        JsonUnpack::Number(x) => {
+            hasher.write(x.to_string().as_bytes());
+            Ok(true)
+        }
+        JsonUnpack::Bool(x) => {
+            hasher.write(if x { b"True" } else { b"False" });
+            Ok(true)
+        }
+        JsonUnpack::TargetLabel(x) => {
+            hasher.write(x.label().to_string().as_bytes());
+            Ok(true)
+        }
+        JsonUnpack::CellPath(x) => {
+            hasher.write(x.to_string().as_bytes());
+            Ok(true)
+        }
+        JsonUnpack::Enum(_) => {
+            // TODO(ianc) implement this, doesn't matter for experimentation
+            Ok(true)
+        }
+        JsonUnpack::ConfiguredProvidersLabel(_) => {
+            // TODO(ianc) implement this, doesn't matter for experimentation
+            Ok(true)
+        }
+        JsonUnpack::List(x) => {
+            for x in x.iter() {
+                if !add_json_to_action_inputs_hash(x, hasher)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
+        JsonUnpack::Tuple(x) => {
+            for x in x.iter() {
+                if !add_json_to_action_inputs_hash(x, hasher)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
+        JsonUnpack::Dict(x) => {
+            for (k, v) in x.iter() {
+                if !add_json_to_action_inputs_hash(k, hasher)? {
+                    return Ok(false);
+                }
+                if !add_json_to_action_inputs_hash(v, hasher)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
+        JsonUnpack::Struct(x) => {
+            for (k, v) in x.iter() {
+                hasher.write(k.as_bytes());
+                if !add_json_to_action_inputs_hash(v, hasher)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
+        JsonUnpack::Record(x) => {
+            for (k, v) in x.iter() {
+                hasher.write(k.as_bytes());
+                if !add_json_to_action_inputs_hash(v, hasher)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
+        JsonUnpack::TransitiveSetJsonProjection(x) => {
+            let values = x.iter_values()?;
+            for v in values {
+                if !add_json_to_action_inputs_hash(v, hasher)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
+        JsonUnpack::Artifact(_x) => {
+            // The _x function requires that the artifact is already bound, but we may need to visit artifacts
+            // before that happens. Treating it like an opaque command_line works as we want for any artifact
+            // type.
+            ValueAsCommandLineLike::unpack_value_err(v)?
+                .0
+                .add_to_action_inputs_hash(hasher)
+        }
+        JsonUnpack::CommandLine(x) => x.as_command_line_arg().add_to_action_inputs_hash(hasher),
+        JsonUnpack::Provider(x) => {
+            for (k, v) in x.0.items() {
+                hasher.write(k.as_bytes());
+                if !add_json_to_action_inputs_hash(v, hasher)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
+        JsonUnpack::TaggedValue(v) => add_json_to_action_inputs_hash(*v.value(), hasher),
+        JsonUnpack::BxlSelectConcat(_) | JsonUnpack::BxlSelectDict(_) => Ok(true),
+    }
 }

@@ -29,7 +29,7 @@ def _resolve_test_impl(ctx):
         assert_eq(res.int, 42)
         assert_eq(res.string, "a-string")
         assert_eq(res.list_string, ["a", "b", "c"])
-        assert_eq(type(res.dep), "dependency")
+        assert_eq(isinstance(res.dep, Dependency), True)
         assert_eq(res.dep.label.name, "buildable")
         return [DefaultInfo(), ValidateInfo(string = res.string)]
 

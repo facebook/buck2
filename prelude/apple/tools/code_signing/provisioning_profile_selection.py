@@ -330,8 +330,11 @@ def select_best_provisioning_profile(
             raise CodeSignProvisioningError(multiple_profiles_message)
 
     result = (
-        # By definition, we always pick the _last_ matching prov profile
-        all_matching_selected_profile_infos[-1]
+        # If there are multiple matching profiles, pick the one with expiration date furthest in the future
+        max(
+            all_matching_selected_profile_infos,
+            key=lambda profile_info: profile_info.profile.expiration_date,
+        )
         if all_matching_selected_profile_infos
         else None
     )

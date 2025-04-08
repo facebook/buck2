@@ -23,7 +23,6 @@ load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CP
 load("@prelude//android:dex_rules.bzl", "get_multi_dex", "get_single_primary_dex", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
 load("@prelude//android:exopackage.bzl", "get_exopackage_flags")
 load("@prelude//android:preprocess_java_classes.bzl", "get_preprocessed_java_classes")
-load("@prelude//android:proguard.bzl", "get_proguard_output")
 load("@prelude//android:util.bzl", "create_enhancement_context")
 load("@prelude//android:voltron.bzl", "get_target_to_module_mapping")
 load(
@@ -34,6 +33,7 @@ load(
     "get_all_java_packaging_deps",
     "get_all_java_packaging_deps_from_packaging_infos",
 )
+load("@prelude//java:proguard.bzl", "get_proguard_output")
 load("@prelude//utils:expect.bzl", "expect")
 
 AndroidBinaryInfo = record(
@@ -139,12 +139,18 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
             if materialized_artifacts_dir:
                 materialized_artifacts.append(materialized_artifacts_dir)
         if has_proguard_config:
+            additional_proguard_configs = [resources_info.proguard_config_file] if not ctx.attrs.ignore_aapt_proguard_config and resources_info.proguard_config_file else []
+            additional_jars = android_toolchain.android_bootclasspath + android_toolchain.android_optional_jars + [no_dx[DefaultInfo].default_outputs[0] for no_dx in ctx.attrs.no_dx if len(no_dx[DefaultInfo].default_outputs) == 1]
             proguard_output = get_proguard_output(
                 ctx,
                 jars_to_owners,
                 java_packaging_deps,
-                resources_info.proguard_config_file,
-                [no_dx[DefaultInfo].default_outputs[0] for no_dx in ctx.attrs.no_dx if len(no_dx[DefaultInfo].default_outputs) == 1],
+                additional_proguard_configs,
+                additional_jars,
+                ctx.attrs.android_sdk_proguard_config,
+                android_toolchain.proguard_config,
+                android_toolchain.optimized_proguard_config,
+                ctx.attrs.skip_proguard,
             )
             materialized_artifacts.extend(proguard_output.proguard_artifacts)
             jars_to_owners = proguard_output.jars_to_owners
@@ -165,7 +171,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         if ctx.attrs.use_split_dex:
             dex_files_info = get_multi_dex(
                 ctx,
-                ctx.attrs._android_toolchain[AndroidToolchainInfo],
+                android_toolchain,
                 jars_to_owners,
                 ctx.attrs.primary_dex_patterns,
                 proguard_output.proguard_configuration_output_file if proguard_output else None,
@@ -177,7 +183,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         else:
             dex_files_info = get_single_primary_dex(
                 ctx,
-                ctx.attrs._android_toolchain[AndroidToolchainInfo],
+                android_toolchain,
                 jars_to_owners.keys(),
                 is_optimized = has_proguard_config,
             )

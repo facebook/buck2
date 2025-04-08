@@ -42,6 +42,7 @@ use buck2_cli_proto::ConfigOverride;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleDetectorAdapter;
 use buck2_common::dice::cycles::PairDiceCycleDetector;
+use buck2_common::file_ops::HasReadDirCache;
 use buck2_common::http::SetHttpClient;
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::invocation_paths::InvocationPaths;
@@ -92,6 +93,7 @@ use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
+use buck2_server_ctx::bxl::InitBxlStreamingTracker;
 use buck2_server_ctx::concurrency::DiceUpdater;
 use buck2_server_ctx::ctx::DiceAccessor;
 use buck2_server_ctx::ctx::LockedPreviousCommandData;
@@ -105,6 +107,7 @@ use buck2_test::local_resource_registry::InitLocalResourceRegistry;
 use buck2_util::arc_str::ArcS;
 use buck2_util::truncate::truncate_container;
 use buck2_validation::enabled_optional_validations_key::SetEnabledOptionalValidations;
+use dashmap::DashMap;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceTransactionUpdater;
@@ -366,7 +369,6 @@ impl<'a> ServerCommandContext<'a> {
         };
 
         let run_action_knobs = RunActionKnobs {
-            hash_all_commands: self.base_context.daemon.hash_all_commands,
             use_network_action_output_cache: self
                 .base_context
                 .daemon
@@ -715,11 +717,10 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
         })?;
 
         set_fallback_executor_config(&mut data.data, self.executor_config.dupe());
-        data.set_re_client(
-            self.re_connection
-                .get_client()
-                .with_re_use_case_override(override_use_case),
-        );
+        // This client is only used in places that do not use the RE use case specified in the executor config.
+        // They currently use either a usecase specified in actions (cas_artifact), or a global default (buck2.default_remote_execution_use_case).
+        // We should not override the cas_artifact usecase or else the ttl may not match the action declaration.
+        data.set_re_client(self.re_connection.get_client());
         let resource_control_config = ResourceControlConfig::from_config(root_config)?;
         data.set_command_executor(Box::new(CommandExecutorFactory::new(
             self.re_connection.dupe(),
@@ -764,6 +765,8 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
         data.set_keep_going(self.keep_going);
         data.set_critical_path_backend(critical_path_backend);
         data.init_local_resource_registry();
+        data.init_bxl_streaming_tracker();
+        data.set_read_dir_cache(DashMap::new());
         data.spawner = self.cmd_ctx.base_context.daemon.spawner.dupe();
 
         let tags = vec![

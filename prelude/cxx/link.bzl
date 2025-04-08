@@ -35,7 +35,6 @@ load(
     "ArchiveLinkable",
     "ExtraLinkerOutputs",
     "LinkArgs",
-    "LinkOrdering",
     "LinkedObject",
     "ObjectsLinkable",
     "unpack_external_debug_info",
@@ -49,7 +48,6 @@ load(
 load("@prelude//linking:stamp_build_info.bzl", "stamp_build_info")
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//utils:utils.bzl", "map_val", "value_or")
 load(
     ":anon_link.bzl",
     "ANON_ATTRS",
@@ -219,11 +217,7 @@ def cxx_link_into(
         cxx_toolchain_info,
         links_with_linker_map,
         output_short_path = output.short_path,
-        link_ordering = value_or(
-            opts.link_ordering,
-            # Fallback to toolchain default.
-            map_val(LinkOrdering, linker_info.link_ordering),
-        ),
+        link_ordering = opts.link_ordering,
     )
     all_link_args.add(link_args_output.link_args)
 
@@ -299,11 +293,6 @@ def cxx_link_into(
         opts.link_execution_preference,
     )
 
-    # only specify error_handler if one exists
-    error_handler_args = {}
-    if opts.error_handler:
-        error_handler_args["error_handler"] = opts.error_handler
-
     ctx.actions.run(
         command,
         prefer_local = action_execution_properties.prefer_local,
@@ -314,7 +303,7 @@ def cxx_link_into(
         identifier = opts.identifier,
         force_full_hybrid_if_capable = action_execution_properties.full_hybrid,
         allow_cache_upload = opts.allow_cache_upload,
-        **error_handler_args
+        error_handler = opts.error_handler,
     )
     unstripped_output = output
     if opts.strip:

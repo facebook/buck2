@@ -17,7 +17,7 @@ RustProcMacro = plugins.kind()
 
 def _proc_macro_alias_impl(ctx):
     # Test that the `actual` attribute correctly resolved to a target label
-    if type(ctx.attrs.actual) != "target_label":
+    if not isinstance(ctx.attrs.actual, TargetLabel):
         fail("Actual is not a target label: " + type(ctx.attrs.actual))
     return [DefaultInfo(), RustProcMacroMarker(target = ctx.attrs.actual)]
 

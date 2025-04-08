@@ -35,7 +35,7 @@ mod imp {
         }
 
         let prof_enabled: bool = memory::mallctl_read("opt.prof")
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Mallctl))?;
         if !prof_enabled {
             if env::var_os("MALLOC_CONF").is_some() {
                 return Err(buck2_error::buck2_error!(
@@ -52,14 +52,14 @@ mod imp {
 
         eprintln!("dumping heap to: {:?}", filename);
         memory::mallctl_write("prof.dump", filename)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Mallctl))?;
         Ok(())
     }
 
     /// Dump allocator stats from JEMalloc. Intended for debug purposes
     pub fn allocator_stats(options: &str) -> buck2_error::Result<String> {
         allocator_stats::malloc_stats(options)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::MallocStats))
     }
 
     /// Enables background threads for jemalloc. See [here](http://jemalloc.net/jemalloc.3.html#background_thread) for
@@ -70,7 +70,7 @@ mod imp {
     pub fn enable_background_threads() -> buck2_error::Result<()> {
         if memory::is_using_jemalloc() {
             memory::mallctl_write("background_thread", true)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Mallctl))?;
         }
         Ok(())
     }

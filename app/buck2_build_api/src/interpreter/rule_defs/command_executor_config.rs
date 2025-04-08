@@ -66,7 +66,7 @@ pub struct StarlarkCommandExecutorConfig(pub Arc<CommandExecutorConfig>);
 
 starlark_simple_value!(StarlarkCommandExecutorConfig);
 
-#[starlark_value(type = "command_executor_config")]
+#[starlark_value(type = "CommandExecutorConfig")]
 impl<'v> StarlarkValue<'v> for StarlarkCommandExecutorConfig {}
 
 #[starlark_module]
@@ -352,7 +352,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
 pub fn parse_custom_re_image(
     field_name: &'static str,
     value: Value,
-) -> buck2_error::Result<Option<RemoteExecutorCustomImage>> {
+) -> buck2_error::Result<Option<Box<RemoteExecutorCustomImage>>> {
     if value.is_none() {
         return Ok(None);
     }
@@ -423,10 +423,10 @@ pub fn parse_custom_re_image(
         drop_host_mount_globs.push(item.to_str());
     }
 
-    Ok(Some(RemoteExecutorCustomImage {
+    Ok(Some(Box::new(RemoteExecutorCustomImage {
         identifier,
         drop_host_mount_globs,
-    }))
+    })))
 }
 
 fn parse_remote_execution_policy(

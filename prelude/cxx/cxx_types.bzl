@@ -248,4 +248,6 @@ CxxRuleConstructorParams = record(
     export_header_unit_filter = field(list[str], []),
     # Additional behavior for how to handle runtime dependencies
     runtime_dependency_handling = field([RuntimeDependencyHandling, None], None),
+    # Should this library only be used for build time linkage
+    stub = field(bool, False),
 )

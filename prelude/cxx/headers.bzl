@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:compile_types.bzl", "HeadersDepFiles")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerType")
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//utils:expect.bzl", "expect")
@@ -405,3 +406,34 @@ def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)
     )
     ctx.actions.run(cmd, category = "generate_hmap", identifier = name, allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs))
     return output
+
+def add_headers_dep_files(
+        ctx: AnalysisContext,
+        cmd: cmd_args,
+        headers_dep_files: HeadersDepFiles,
+        src: Artifact,
+        filename_base: str,
+        action_dep_files: dict[str, ArtifactTag]) -> cmd_args:
+    dep_file = ctx.actions.declare_output(
+        paths.join("__dep_files__", filename_base),
+    ).as_output()
+    processor_flags, compiler_flags = headers_dep_files.mk_flags(
+        ctx.actions,
+        filename_base,
+        src,
+    )
+    cmd.add(compiler_flags)
+
+    # API: First argument is the dep file source path, second is the
+    # dep file destination path, other arguments are the actual compile
+    # command.
+    cmd = cmd_args([
+        headers_dep_files.processor,
+        headers_dep_files.dep_tracking_mode.value,
+        processor_flags,
+        headers_dep_files.tag.tag_artifacts(dep_file),
+        cmd,
+    ])
+
+    action_dep_files["headers"] = headers_dep_files.tag
+    return cmd

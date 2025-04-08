@@ -10,24 +10,25 @@
 //! Conversion impls for different error types to 'buck2_error::Error'
 
 pub mod clap;
-pub mod dice_error;
-pub mod edenfs_clients;
+pub mod dice;
+pub mod eden;
 pub mod hex;
 pub mod http;
 pub mod hyper;
 pub mod nix;
 pub mod other;
 pub mod prost;
-pub mod prost_types;
 pub mod regex;
 pub mod relative_path;
+pub mod report;
 pub mod rusqlite;
 pub mod serde_json;
 pub mod stds;
+pub mod superconsole;
 pub mod tokio;
 pub mod tonic;
 pub mod uuid;
-pub mod watchman_client;
+pub mod watchman;
 
 use buck2_data::error::ErrorTag;
 

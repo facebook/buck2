@@ -9,6 +9,8 @@
 
 #![cfg(test)]
 
+use buck2_data::error::ErrorTag;
+
 use crate as buck2_error;
 
 #[derive(buck2_error_derive::Error, Debug)]
@@ -89,7 +91,7 @@ struct NoAttrsStruct;
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("Unused")]
-#[buck2(tag = Tier0)]
+#[buck2(tag = TestOnly)]
 enum NoAttrsEnum {
     Variant,
 }
@@ -191,6 +193,32 @@ fn test_error_tags() {
 }
 
 #[test]
+fn test_error_tags_vec_fn() {
+    fn calc_tags(extra_tag: bool) -> Vec<ErrorTag> {
+        if extra_tag {
+            vec![ErrorTag::StarlarkFail]
+        } else {
+            vec![]
+        }
+    }
+
+    #[derive(buck2_error_derive::Error, Debug)]
+    #[error("Unused")]
+    #[buck2(tag = WatchmanTimeout, tags = calc_tags(*extra_tag))]
+    struct TaggedError {
+        extra_tag: bool,
+    }
+
+    let a: crate::Error = TaggedError { extra_tag: true }.into();
+    assert_eq!(
+        &a.tags(),
+        &[ErrorTag::StarlarkFail, ErrorTag::WatchmanTimeout]
+    );
+    let b: crate::Error = TaggedError { extra_tag: false }.into();
+    assert_eq!(&b.tags(), &[ErrorTag::WatchmanTimeout]);
+}
+
+#[test]
 fn test_correct_transparent() {
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("Unused")]
@@ -226,7 +254,7 @@ fn test_recovery_through_transparent_buck2_error() {
 
     #[derive(buck2_error_derive::Error, Debug)]
     #[error(transparent)]
-    #[buck2(tag = Tier0)]
+    #[buck2(tag = TestOnly)]
     enum PartiallyStructured {
         #[error(transparent)]
         Other(buck2_error::Error),
@@ -241,7 +269,7 @@ fn test_recovery_through_transparent_buck2_error() {
         &[
             crate::ErrorTag::Environment,
             crate::ErrorTag::StarlarkFail,
-            crate::ErrorTag::Tier0
+            crate::ErrorTag::TestOnly
         ]
     );
 }

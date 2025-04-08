@@ -19,6 +19,7 @@ use buck2_wrapper_common::invocation_id::TraceId;
 pub struct ProcessContext<'a> {
     pub log_reload_handle: &'a Arc<dyn LogConfigurationReloadHandle>,
     pub stdin: &'a mut Stdin,
+    pub start_time: u64,
     pub working_dir: &'a AbsWorkingDir,
     pub args: &'a [String],
     pub restarter: &'a mut Restarter,

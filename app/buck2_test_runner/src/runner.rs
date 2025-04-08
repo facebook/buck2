@@ -123,6 +123,7 @@ impl Buck2TestRunner {
         let stage = TestStage::Testing {
             suite: spec.target.target,
             testcases: Vec::new(),
+            variant: None,
         };
 
         let config_args = self.config.test_arg.iter().map(|arg| ArgValue {

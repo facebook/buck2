@@ -15,6 +15,7 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
+use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::starlark_value;
@@ -159,9 +160,24 @@ impl<'v> CommandLineArgLike for StarlarkOutputArtifact<'v> {
     ) -> buck2_error::Result<()> {
         Ok(())
     }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        match self.artifact()?.get_path().base_path {
+            Either::Left(build) => {
+                hasher.write(build.path().as_str().as_bytes());
+            }
+            Either::Right(source) => {
+                hasher.write(source.path().as_str().as_bytes());
+            }
+        }
+        Ok(true)
+    }
 }
 
-#[starlark_value(type = "output_artifact")]
+#[starlark_value(type = "OutputArtifact")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkOutputArtifactGen<V>
 where
     Self: ProvidesStaticType<'v> + Display + CommandLineArgLike,
@@ -205,6 +221,21 @@ impl CommandLineArgLike for FrozenStarlarkOutputArtifact {
         _visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> buck2_error::Result<()> {
         Ok(())
+    }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        match self.artifact()?.get_path().base_path {
+            Either::Left(build) => {
+                hasher.write(build.path().as_str().as_bytes());
+            }
+            Either::Right(source) => {
+                hasher.write(source.path().as_str().as_bytes());
+            }
+        }
+        Ok(true)
     }
 }
 

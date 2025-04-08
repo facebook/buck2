@@ -8,9 +8,10 @@
  */
 
 use std::collections::BTreeMap;
-use std::io;
+use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -18,6 +19,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::build::build_report::generate_build_report;
 use buck2_build_api::build::build_report::BuildReportOpts;
 use buck2_build_api::bxl::result::BxlResult;
+use buck2_build_api::bxl::result::PendingStreamingOutput;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::materialize::materialize_and_upload_artifact_group;
 use buck2_build_api::materialize::MaterializationAndUploadContext;
@@ -26,29 +28,25 @@ use buck2_cli_proto::build_request::Uploads;
 use buck2_cli_proto::BxlRequest;
 use buck2_cli_proto::BxlResponse;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::data::HasIoProvider;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::bxl::BxlFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::buck_out_path::BuildArtifactPath;
-use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_core::soft_error;
-use buck2_core::tag_result;
 use buck2_data::BxlEnsureArtifactsEnd;
 use buck2_data::BxlEnsureArtifactsStart;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
-use buck2_events::errors::create_error_report;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
 use buck2_interpreter::paths::module::StarlarkModulePath;
+use buck2_server_ctx::bxl::GetBxlStreamingTracker;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -58,10 +56,13 @@ use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use dupe::IterDupedExt;
+use futures::stream::FuturesUnordered;
 use futures::FutureExt;
+use futures::StreamExt;
 use itertools::Itertools;
 use starlark_map::ordered_map::OrderedMap;
 
+use crate::bxl;
 use crate::bxl::calculation::eval_bxl;
 use crate::bxl::eval::get_bxl_callable;
 use crate::bxl::eval::resolve_cli_args;
@@ -109,13 +110,6 @@ impl ServerCommandTemplate for BxlServerCommand {
             .await
     }
 
-    fn additional_telemetry_errors(
-        &self,
-        response: &Self::Response,
-    ) -> Vec<buck2_data::ErrorReport> {
-        response.errors.clone()
-    }
-
     fn is_success(&self, response: &Self::Response) -> bool {
         response.errors.is_empty()
     }
@@ -125,7 +119,7 @@ impl BxlServerCommand {
     async fn execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
-        stdout: impl Write,
+        mut stdout: impl Write + Send,
         mut dice_ctx: DiceTransaction,
     ) -> buck2_error::Result<buck2_cli_proto::BxlResponse> {
         let bxl_cmd_ctx = self
@@ -144,14 +138,27 @@ impl BxlServerCommand {
             }
         };
 
-        let bxl_result = self.eval_bxl(&bxl_cmd_ctx, &mut dice_ctx, bxl_args).await?;
+        let bxl_eval_result = self.eval_bxl(&bxl_cmd_ctx, &mut dice_ctx, bxl_args).await;
+
+        // If the bxl result is cached, we need to output the streaming outputs to stdout
+        let bxl_result = match bxl_eval_result {
+            Ok(bxl_result) => {
+                self.emit_streaming_output(&mut dice_ctx, bxl_result.streaming(), &mut stdout)?;
+                bxl_result
+            }
+            Err(e) => {
+                if let Some(output) = &e.ouput_stream_state {
+                    self.emit_streaming_output(&mut dice_ctx, &output.streaming, &mut stdout)?;
+                }
+                return Err(e.error);
+            }
+        };
 
         let errors = self
-            .materialize_artifacts(&mut dice_ctx, bxl_result.dupe())
+            .materialize_artifacts(&mut dice_ctx, bxl_result.dupe(), &mut stdout)
             .await;
 
-        self.copy_output(&mut dice_ctx, server_ctx, bxl_result, stdout)
-            .await?;
+        self.emit_outputs(server_ctx, bxl_result, stdout).await?;
 
         let serialized_build_report = self
             .generate_build_report(&bxl_cmd_ctx, &mut dice_ctx, server_ctx)
@@ -239,7 +246,7 @@ impl BxlServerCommand {
         ctx: &BxlCommandContext<'_>,
         dice_ctx: &mut DiceTransaction,
         bxl_args: Arc<OrderedMap<String, CliArgValue>>,
-    ) -> buck2_error::Result<Arc<BxlResult>> {
+    ) -> bxl::eval::Result<Arc<BxlResult>> {
         let bxl_key = BxlKey::new(
             ctx.bxl_label.clone(),
             bxl_args,
@@ -257,10 +264,11 @@ impl BxlServerCommand {
         &self,
         dice_ctx: &mut DiceTransaction,
         bxl_result: Arc<BxlResult>,
+        output: &mut (impl Write + Send),
     ) -> Vec<buck2_data::ErrorReport> {
         let materialization_context = self.create_materialization_context();
 
-        self.ensure_all_artifacts(dice_ctx, &materialization_context, bxl_result.artifacts())
+        self.ensure_all_artifacts(dice_ctx, &materialization_context, bxl_result, output)
             .await
     }
 
@@ -286,16 +294,22 @@ impl BxlServerCommand {
         &self,
         ctx: &mut DiceComputations<'_>,
         materialization_context: &MaterializationAndUploadContext,
-        artifacts: &[ArtifactGroup],
+        bxl_result: Arc<BxlResult>,
+        output: &mut (impl Write + Send),
     ) -> Vec<buck2_data::ErrorReport> {
-        if artifacts.is_empty() {
+        if bxl_result.artifacts().is_empty() {
             return vec![];
         }
 
         let result = get_dispatcher()
             .span_async(BxlEnsureArtifactsStart {}, async move {
                 let result = self
-                    .materialize_collected_artifacts(ctx, materialization_context, artifacts)
+                    .materialize_collected_artifacts(
+                        ctx,
+                        materialization_context,
+                        bxl_result,
+                        output,
+                    )
                     .await;
 
                 (result, BxlEnsureArtifactsEnd {})
@@ -306,7 +320,7 @@ impl BxlServerCommand {
             Ok(_) => vec![],
             Err(errors) => errors
                 .iter()
-                .map(create_error_report)
+                .map(buck2_data::ErrorReport::from)
                 .unique_by(|e| e.message.clone())
                 .collect(),
         }
@@ -319,24 +333,52 @@ impl BxlServerCommand {
         &self,
         ctx: &mut DiceComputations<'_>,
         materialization_context: &MaterializationAndUploadContext,
-        artifacts: &[ArtifactGroup],
+        bxl_result: Arc<BxlResult>,
+        output: &mut (impl Write + Send),
     ) -> Result<(), Vec<buck2_error::Error>> {
-        let artifacts_to_materialize: Vec<_> = artifacts.iter().duped().collect();
-        let mut errors = Vec::new();
+        let artifacts_to_materialize: Vec<_> = bxl_result.artifacts().iter().duped().collect();
 
-        // Materialize all collected artifacts in parallel
-        let materialize_errors = ctx
-            .compute_join(artifacts_to_materialize, |ctx, artifact| {
-                async move {
-                    materialize_and_upload_artifact_group(ctx, &artifact, materialization_context)
-                        .await?;
-                    Ok(())
+        let mut futs: FuturesUnordered<_> = ctx
+            .compute_many(artifacts_to_materialize.into_iter().map(|artifact| {
+                DiceComputations::declare_closure(|ctx| {
+                    async move {
+                        let res = materialize_and_upload_artifact_group(
+                            ctx,
+                            &artifact,
+                            materialization_context,
+                        )
+                        .await;
+                        match res {
+                            Ok(_) => Ok(artifact),
+                            Err(e) => Err(e),
+                        }
+                    }
+                    .boxed()
+                })
+            }))
+            .into_iter()
+            .collect();
+
+        let mut pending_streaming =
+            PendingStreaming::new(bxl_result.pending_streaming_outputs().iter().cloned());
+
+        let mut errors: Vec<buck2_error::Error> = Vec::new();
+        while let Some(res) = futs.next().await {
+            match res {
+                Ok(artifact) => {
+                    let outputs = pending_streaming.next_outputs(&artifact);
+                    for output_msg in outputs {
+                        output.write_all(&output_msg).unwrap_or_else(|e| {
+                            errors.push(e.into());
+                        });
+                    }
+                    output.flush().unwrap_or_else(|e| {
+                        errors.push(e.into());
+                    });
                 }
-                .boxed()
-            })
-            .await;
-
-        errors.extend(materialize_errors.into_iter().filter_map(|v| v.err()));
+                Err(e) => errors.push(e),
+            }
+        }
 
         if errors.is_empty() {
             Ok(())
@@ -345,17 +387,36 @@ impl BxlServerCommand {
         }
     }
 
-    /// We write the stdout and stderr to files in buck-out as cache
-    async fn copy_output(
+    /// Output the outputs from BxlResult to stdout and stderr
+    async fn emit_outputs(
         &self,
-        dice_ctx: &mut DiceTransaction,
         server_ctx: &dyn ServerCommandContextTrait,
         bxl_result: Arc<BxlResult>,
-        stdout: impl Write,
+        mut stdout: impl Write,
     ) -> buck2_error::Result<()> {
-        copy_output(stdout, dice_ctx, bxl_result.output_loc()).await?;
-        copy_output(server_ctx.stderr()?, dice_ctx, bxl_result.error_loc()).await?;
+        stdout.write_all(bxl_result.output())?;
+        server_ctx.stderr()?.write_all(bxl_result.error())?;
         Ok(())
+    }
+
+    /// Output streaming output to stdout if BxlKey is cached.
+    /// Note that when cached, we do not eval the bxl, so we don't get the streaming output in the bxl script.
+    fn emit_streaming_output(
+        &self,
+        dice_ctx: &mut DiceTransaction,
+        streaming_output: &[u8],
+        stdout: &mut impl Write,
+    ) -> buck2_error::Result<()> {
+        let bxl_streaming_tracker = dice_ctx
+            .per_transaction_data()
+            .get_bxl_streaming_tracker()
+            .expect("BXL streaming tracker should be set");
+        if !bxl_streaming_tracker.was_called() {
+            stdout.write_all(streaming_output)?;
+            Ok(())
+        } else {
+            Ok(())
+        }
     }
 
     async fn generate_build_report(
@@ -437,32 +498,6 @@ pub(crate) async fn get_bxl_cli_args(
     resolve_cli_args(bxl_label, &cli_ctx, bxl_args, &frozen_callable).await
 }
 
-async fn copy_output<W: Write>(
-    mut output: W,
-    dice: &mut DiceComputations<'_>,
-    output_loc: &BuildArtifactPath,
-) -> buck2_error::Result<()> {
-    let loc = dice.global_data().get_io_provider().project_root().resolve(
-        &dice
-            .get_artifact_fs()
-            .await?
-            .buck_out_path_resolver()
-            .resolve_gen(output_loc),
-    );
-
-    // we write the output to a file in buck-out as cache so we don't use memory caching it in
-    // DICE. So now we open the file and read it all into the destination stream.
-    let mut file = tag_result!(
-        "bxl_output_missing",
-        fs_util::open_file(loc).map_err(Into::into),
-        quiet: true,
-        daemon_in_memory_state_is_corrupted: true,
-        task: false
-    )?;
-    io::copy(&mut file, &mut output)?;
-    Ok(())
-}
-
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
 enum BxlLabelError {
@@ -514,4 +549,118 @@ pub(crate) fn parse_bxl_label_from_cli(
         bxl_path: BxlFilePath::new(import_path)?,
         name: bxl_fn.to_owned(),
     })
+}
+
+#[derive(Debug)]
+struct PendingStreaming {
+    indexes: HashMap<ArtifactGroup, Vec<Arc<Mutex<PendingStreamingOutput>>>>,
+}
+
+impl PendingStreaming {
+    fn new(pending_streaming_outputs: impl Iterator<Item = PendingStreamingOutput>) -> Self {
+        let mut indexes: HashMap<ArtifactGroup, Vec<Arc<Mutex<PendingStreamingOutput>>>> =
+            HashMap::new();
+
+        let pending_streaming_outputs = pending_streaming_outputs
+            .into_iter()
+            .map(|p| Arc::new(Mutex::new(p)));
+
+        for pending_streaming_output in pending_streaming_outputs {
+            let guard = pending_streaming_output.lock().unwrap();
+            let waits_on = guard.waits_on();
+            for wait_on in waits_on {
+                indexes
+                    .entry(wait_on.dupe())
+                    .or_insert_with(Vec::new)
+                    .push(pending_streaming_output.dupe())
+            }
+        }
+
+        Self { indexes }
+    }
+
+    fn next_outputs(&mut self, artifact: &ArtifactGroup) -> Vec<Vec<u8>> {
+        let mut outputs = vec![];
+        if let Some(pendings) = self.indexes.remove(artifact) {
+            for pending in pendings.iter() {
+                let mut pending_guard = pending.lock().unwrap();
+                pending_guard.remove_wait_on(artifact);
+                if !pending_guard.is_pending() {
+                    outputs.push(pending_guard.output().to_owned());
+                }
+            }
+        }
+        outputs
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_artifact::actions::key::ActionIndex;
+    use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
+    use buck2_artifact::artifact::artifact_type::Artifact;
+    use buck2_artifact::artifact::build_artifact::BuildArtifact;
+    use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+    use indexmap::IndexSet;
+
+    use super::*;
+
+    fn new_test_artifact_group(id: u32) -> ArtifactGroup {
+        let path = format!("a{}", id);
+        let target =
+            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
+        let build_artifact = BuildArtifact::testing_new(target.dupe(), &path, ActionIndex::new(id));
+        let artifact = Artifact::from(build_artifact);
+
+        ArtifactGroup::Artifact(artifact)
+    }
+
+    #[test]
+    fn test_pending_streaming_next_outputs() {
+        let a1 = new_test_artifact_group(1);
+        let a2 = new_test_artifact_group(2);
+        let a3 = new_test_artifact_group(3);
+        let p1 = PendingStreamingOutput::new(
+            IndexSet::from([a1.dupe(), a2.dupe()]),
+            b"output1".to_vec(),
+        );
+        let p2 = PendingStreamingOutput::new(IndexSet::from([a1.dupe()]), b"output2".to_vec());
+        let p3 = PendingStreamingOutput::new(
+            IndexSet::from([a2.dupe(), a3.dupe()]),
+            b"output3".to_vec(),
+        );
+
+        let mut pending_streaming = PendingStreaming::new(vec![p1, p2, p3].into_iter());
+
+        let a4 = new_test_artifact_group(4);
+        let results_after_a4 = pending_streaming.next_outputs(&a4);
+        // a4 is not tracked under any artifact, so it does not produce output.
+        assert_eq!(results_after_a4, Vec::<Vec<u8>>::new());
+
+        // Trigger a1
+        let results_after_a1 = pending_streaming.next_outputs(&a1);
+        // p1 still depends on a2, so it does not produce output yet.
+        // p2 no longer depends on any other artifact, so it produces "output2".
+        // p3 is not tracked under a1, so it is not processed at this point.
+        // Therefore, only "output2" should be returned.
+        assert_eq!(results_after_a1, vec![b"output2".to_vec()]);
+
+        // Trigger a2
+        let results_after_a2 = pending_streaming.next_outputs(&a2);
+        // p1 no longer depends on any other artifact, so it produces "output1".
+        // p3 still needs a3, so it will not produce anything yet.
+        // Therefore, "output1" should be returned.
+        assert_eq!(results_after_a2, vec![b"output1".to_vec()]);
+
+        // Trigger a3
+        let results_after_a3 = pending_streaming.next_outputs(&a3);
+        // p3 no longer depends on any other artifact, so it produces "output3".
+        // Therefore, "output3" should be returned.
+        assert_eq!(results_after_a3, vec![b"output3".to_vec()]);
+
+        // Triggering the same artifact again should produce no additional output.
+        let empty_result = pending_streaming.next_outputs(&a2);
+        assert_eq!(empty_result, Vec::<Vec<u8>>::new());
+    }
 }

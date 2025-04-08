@@ -14,5 +14,6 @@ foo_buildable = rule(
     attrs = {
         "content": attrs.string(default = ""),
         "out": attrs.string(),
+        "srcs": attrs.list(attrs.source()),
     },
 )

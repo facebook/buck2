@@ -27,7 +27,7 @@ use unicode_segmentation::Graphemes;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, thiserror::Error)]
-enum SpanError {
+pub enum SpanError {
     #[error("Word {0} contains non-space whitespace")]
     InvalidWhitespace(String),
 }
@@ -102,7 +102,7 @@ impl Span {
 
     /// Attempt to create a new, unstyled span equivalent to the underlying stringlike.
     /// This will fail if the input string is not [`valid`](Span::valid).
-    pub fn new_unstyled<S: std::fmt::Display>(stringlike: S) -> anyhow::Result<Self> {
+    pub fn new_unstyled<S: std::fmt::Display>(stringlike: S) -> Result<Self, SpanError> {
         let owned = stringlike.to_string();
         if Self::valid(&owned) {
             Ok(Self {
@@ -111,7 +111,7 @@ impl Span {
                 hyperlink: None,
             })
         } else {
-            Err(SpanError::InvalidWhitespace(owned).into())
+            Err(SpanError::InvalidWhitespace(owned))
         }
     }
 
@@ -126,7 +126,7 @@ impl Span {
 
     /// Equivalent to [`new_unstyled`](Span::new_unstyled), except with styling.
     // TODO(brasselsprouts): Does this have to be a `String`? probably not.
-    pub fn new_styled(content: StyledContent<String>) -> anyhow::Result<Self> {
+    pub fn new_styled(content: StyledContent<String>) -> Result<Self, SpanError> {
         if Self::valid(content.content()) {
             Ok(Self {
                 content: Cow::Owned(content.content().clone()),
@@ -134,7 +134,7 @@ impl Span {
                 hyperlink: None,
             })
         } else {
-            Err(SpanError::InvalidWhitespace(content.content().to_owned()).into())
+            Err(SpanError::InvalidWhitespace(content.content().to_owned()))
         }
     }
 
@@ -148,7 +148,7 @@ impl Span {
         }
     }
 
-    pub fn new_colored(text: &str, color: Color) -> anyhow::Result<Self> {
+    pub fn new_colored(text: &str, color: Color) -> Result<Self, SpanError> {
         Self::new_styled(StyledContent::new(
             ContentStyle {
                 foreground_color: Some(color),
@@ -328,7 +328,7 @@ impl Span {
 }
 
 impl TryFrom<String> for Span {
-    type Error = anyhow::Error;
+    type Error = SpanError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::new_unstyled(value)
@@ -336,7 +336,7 @@ impl TryFrom<String> for Span {
 }
 
 impl TryFrom<&str> for Span {
-    type Error = anyhow::Error;
+    type Error = SpanError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         Self::new_unstyled(value)
@@ -344,7 +344,7 @@ impl TryFrom<&str> for Span {
 }
 
 impl TryFrom<StyledContent<String>> for Span {
-    type Error = anyhow::Error;
+    type Error = SpanError;
 
     fn try_from(value: StyledContent<String>) -> Result<Self, Self::Error> {
         Self::new_styled(value)

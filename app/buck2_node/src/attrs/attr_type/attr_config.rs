@@ -15,8 +15,6 @@ use either::Either;
 use serde_json::to_value;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
-use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
-use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -37,6 +35,7 @@ impl ToJsonWithContext for ConfiguredAttr {
             ConfiguredAttr::Visibility(v) => Ok(v.to_json()),
             ConfiguredAttr::WithinView(v) => Ok(v.to_json()),
             ConfiguredAttr::ExplicitConfiguredDep(e) => e.to_json(),
+            ConfiguredAttr::TransitionDep(e) => e.to_json(),
             ConfiguredAttr::SplitTransitionDep(e) => e.to_json(),
             ConfiguredAttr::ConfigurationDep(e) => Ok(to_value(e.to_string())?),
             ConfiguredAttr::PluginDep(e, _) => Ok(to_value(e.to_string())?),
@@ -69,6 +68,7 @@ impl AnyMatches for ConfiguredAttr {
             ConfiguredAttr::Visibility(v) => v.any_matches(filter),
             ConfiguredAttr::WithinView(v) => v.any_matches(filter),
             ConfiguredAttr::ExplicitConfiguredDep(e) => e.any_matches(filter),
+            ConfiguredAttr::TransitionDep(e) => e.any_matches(filter),
             ConfiguredAttr::SplitTransitionDep(e) => e.any_matches(filter),
             ConfiguredAttr::ConfigurationDep(e) => filter(&e.to_string()),
             ConfiguredAttr::PluginDep(e, _) => filter(&e.to_string()),

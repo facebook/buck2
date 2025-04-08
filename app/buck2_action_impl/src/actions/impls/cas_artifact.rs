@@ -201,9 +201,9 @@ impl Action for CasArtifactAction {
             return self.execute_for_offline(ctx).await.map_err(Into::into);
         }
 
-        let expiration = ctx
-            .re_client()
-            .get_digest_expirations(vec![self.inner.digest.to_re()], self.inner.re_use_case)
+        let re_client = ctx.re_client().with_use_case(self.inner.re_use_case);
+        let expiration = re_client
+            .get_digest_expirations(vec![self.inner.digest.to_re()])
             .await
             .with_buck_error_context(|| {
                 CasArtifactActionExecutionError::GetDigestExpirationError(self.inner.digest.dupe())
@@ -227,13 +227,8 @@ impl Action for CasArtifactAction {
         let value = match self.inner.kind {
             ArtifactKind::Directory(directory_kind) => {
                 let tree = match directory_kind {
-                    DirectoryKind::Tree => ctx
-                        .re_client()
-                        .download_typed_blobs::<RE::Tree>(
-                            None,
-                            vec![self.inner.digest.to_re()],
-                            self.inner.re_use_case,
-                        )
+                    DirectoryKind::Tree => re_client
+                        .download_typed_blobs::<RE::Tree>(None, vec![self.inner.digest.to_re()])
                         .await
                         .map_err(buck2_error::Error::from)
                         .and_then(|trees| {
@@ -246,12 +241,10 @@ impl Action for CasArtifactAction {
                             format!("Error downloading tree: {}", self.inner.digest)
                         })?,
                     DirectoryKind::Directory => {
-                        let re_client = ctx.re_client();
                         let root_directory = re_client
                             .download_typed_blobs::<RE::Directory>(
                                 None,
                                 vec![self.inner.digest.to_re()],
-                                self.inner.re_use_case,
                             )
                             .await
                             .map_err(buck2_error::Error::from)
@@ -263,8 +256,7 @@ impl Action for CasArtifactAction {
                             .with_buck_error_context(|| {
                                 format!("Error downloading dir: {}", self.inner.digest)
                             })?;
-                        re_directory_to_re_tree(root_directory, &re_client, self.inner.re_use_case)
-                            .await?
+                        re_directory_to_re_tree(root_directory, &re_client).await?
                     }
                 };
 

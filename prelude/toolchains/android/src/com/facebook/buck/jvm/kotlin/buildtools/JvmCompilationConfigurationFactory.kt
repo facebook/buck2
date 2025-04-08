@@ -50,25 +50,13 @@ internal class JvmCompilationConfigurationFactory(
                       usePreciseCompilationResultsBackup(true)
                       keepIncrementalCompilationCachesInMemory(true)
 
-                      if (mode.kotlinClassUsageFile.toFile().exists().not()) {
+                      val rebuildReason = mode.rebuildReason
+                      if (rebuildReason != null) {
                         LOG.info(
-                            "Non-incremental compilation will be performed: ${mode.kotlinClassUsageFile.fileName} not found")
+                            "Non-incremental compilation will be performed: ${rebuildReason.reason}")
                         kotlinCDLoggingContext.addExtras(
                             JvmCompilationConfigurationFactory::class.java.simpleName,
-                            "Non-incremental compilation will be performed: ${mode.kotlinClassUsageFile.fileName} not found")
-                        forceNonIncrementalMode(true)
-                      }
-
-                      // targets with abi_generation_mode = "source_only" do not use jvm-abi-gen for
-                      // class abi generation so the directory is never created
-                      val jvmAbiGenWorkingDir = mode.jvmAbiGenWorkingDir
-                      if (jvmAbiGenWorkingDir != null &&
-                          jvmAbiGenWorkingDir.toFile().exists().not()) {
-                        LOG.info(
-                            "Non-incremental compilation will be performed: ${jvmAbiGenWorkingDir.fileName} not found")
-                        kotlinCDLoggingContext.addExtras(
-                            JvmCompilationConfigurationFactory::class.java.simpleName,
-                            "Non-incremental compilation will be performed: ${jvmAbiGenWorkingDir.fileName} not found")
+                            "Non-incremental compilation will be performed: ${rebuildReason.reason}")
                         forceNonIncrementalMode(true)
                       }
 

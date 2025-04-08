@@ -9,13 +9,13 @@
 
 package com.facebook.buck.jvm.kotlin;
 
+import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.io.file.FileExtensionMatcher;
 import com.facebook.buck.io.file.PathMatcher;
 import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlinSourceChanges;
-import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +27,7 @@ public class KotlinSourceChangesFactory {
 
   private static final Logger LOG = Logger.get(KotlinSourceChangesFactory.class);
   private static final PathMatcher KT_PATH_MATCHER = FileExtensionMatcher.of("kt");
+  private static final PathMatcher JAVA_PATH_MATCHER = FileExtensionMatcher.of("java");
 
   // TODO(T210694438): use create(ActionMetadata) instead
   @Deprecated
@@ -35,22 +36,21 @@ public class KotlinSourceChangesFactory {
   }
 
   // TODO(ijurcikova): T210694438
-  public static KotlinSourceChanges create(ActionMetadata actionMetadata) {
-    Map<Path, String> previousKotlinSourceFiles =
-        filterKotlinSourceFiles(actionMetadata.getPreviousDigest());
-    Map<Path, String> currentKotlinSourceFiles =
-        filterKotlinSourceFiles(actionMetadata.getCurrentDigest());
+  public static KotlinSourceChanges create(
+      final AbsPath rootProjectDir, final ActionMetadata actionMetadata) {
+    Map<Path, String> previousSourceFiles = filterSourceFiles(actionMetadata.getPreviousDigest());
+    Map<Path, String> currentSourceFiles = filterSourceFiles(actionMetadata.getCurrentDigest());
 
-    List<Path> modifiedFiles =
-        getModifiedFiles(previousKotlinSourceFiles, currentKotlinSourceFiles);
-    List<Path> removedFiles = getRemovedFiles(previousKotlinSourceFiles, currentKotlinSourceFiles);
+    List<Path> modifiedFiles = getModifiedFiles(previousSourceFiles, currentSourceFiles);
+    List<Path> removedFiles = getRemovedFiles(previousSourceFiles, currentSourceFiles);
 
     LOG.debug(
-        "Kotlin source file changes: \n" + "modified files: [%s], \n" + "removed files: [%s]",
+        "Source file changes: \n" + "modified files: [%s], \n" + "removed files: [%s]",
         modifiedFiles, removedFiles);
 
     return new KotlinSourceChanges.Known(
-        ImmutableList.copyOf(modifiedFiles), ImmutableList.copyOf(removedFiles));
+        modifiedFiles.stream().map(rootProjectDir::resolve).collect(Collectors.toList()),
+        removedFiles.stream().map(rootProjectDir::resolve).collect(Collectors.toList()));
   }
 
   private static List<Path> getModifiedFiles(
@@ -84,9 +84,12 @@ public class KotlinSourceChangesFactory {
     return removedFiles;
   }
 
-  private static Map<Path, String> filterKotlinSourceFiles(Map<Path, String> digest) {
+  private static Map<Path, String> filterSourceFiles(Map<Path, String> digest) {
     return digest.entrySet().stream()
-        .filter(pathStringEntry -> KT_PATH_MATCHER.matches(RelPath.of(pathStringEntry.getKey())))
+        .filter(
+            pathStringEntry ->
+                KT_PATH_MATCHER.matches(RelPath.of(pathStringEntry.getKey()))
+                    || JAVA_PATH_MATCHER.matches(RelPath.of(pathStringEntry.getKey())))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }

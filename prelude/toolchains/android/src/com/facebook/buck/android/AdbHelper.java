@@ -23,6 +23,7 @@ import com.facebook.buck.android.exopackage.AndroidDevicesHelper;
 import com.facebook.buck.android.exopackage.AndroidIntent;
 import com.facebook.buck.android.exopackage.ExopackageInstaller;
 import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
+import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.exceptions.BuckUncheckedExecutionException;
 import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
@@ -116,6 +117,7 @@ public class AdbHelper implements AndroidDevicesHelper {
   private final boolean skipMetadataIfNoInstalls;
   private final boolean isZstdCompressionEnabled;
   private final AndroidInstallPrinter androidPrinter;
+  private final SetDebugAppMode setDebugAppMode;
 
   @Nullable private ListeningExecutorService executorService = null;
   private final int maxRetries;
@@ -133,7 +135,8 @@ public class AdbHelper implements AndroidDevicesHelper {
       boolean isZstdCompressionEnabled,
       int agentPortBase,
       int maxRetries,
-      long retryDelayMs) {
+      long retryDelayMs,
+      SetDebugAppMode setDebugAppMode) {
     this.options = adbOptions;
     this.deviceOptions = deviceOptions;
     this.adbExecutionContext = adbExecutionContext;
@@ -147,6 +150,7 @@ public class AdbHelper implements AndroidDevicesHelper {
     this.skipMetadataIfNoInstalls = skipMetadataIfNoInstalls;
     this.isZstdCompressionEnabled = isZstdCompressionEnabled;
     this.nextAgentPort = new AtomicInteger(agentPortBase);
+    this.setDebugAppMode = setDebugAppMode;
   }
 
   @VisibleForTesting
@@ -294,7 +298,13 @@ public class AdbHelper implements AndroidDevicesHelper {
           rootPath, isolatedExopackageInfo, isolatedApkInfo, packageName, quiet, buck2BuildUuid);
     } else {
       installApkDirectly(
-          installViaSd, quiet, isolatedApkInfo, fullyQualifiedName, packageName, buck2BuildUuid);
+          installViaSd,
+          quiet,
+          isolatedApkInfo,
+          fullyQualifiedName,
+          packageName,
+          setDebugAppMode,
+          buck2BuildUuid);
     }
     success.set(true);
   }
@@ -678,7 +688,8 @@ public class AdbHelper implements AndroidDevicesHelper {
             nextAgentPort.getAndIncrement(),
             isZstdCompressionEnabled,
             maxRetries,
-            retryDelayMs);
+            retryDelayMs,
+            adbExecutable.orElse(null));
   }
 
   @VisibleForTesting
@@ -878,7 +889,7 @@ public class AdbHelper implements AndroidDevicesHelper {
                   device,
                   skipMetadataIfNoInstalls,
                   buck2BuildUuid)
-              .doInstall(isolatedApkInfo);
+              .doInstall(isolatedApkInfo, setDebugAppMode);
           return true;
         },
         quiet);
@@ -890,6 +901,7 @@ public class AdbHelper implements AndroidDevicesHelper {
       IsolatedApkInfo isolatedApkInfo,
       String buildTarget,
       String packageName,
+      SetDebugAppMode setDebugAppMode,
       Optional<String> buck2BuildUuid)
       throws InterruptedException {
     File apk = isolatedApkInfo.getApkPath().toFile();
@@ -913,6 +925,9 @@ public class AdbHelper implements AndroidDevicesHelper {
               device.installBuildUuidFile(
                   BUILD_METADATA_INSTALL_ROOT, packageName, buck2BuildUuid.get()),
           true);
+    }
+    if (setDebugAppMode == SetDebugAppMode.SET) {
+      adbCall("set debug app", (device) -> device.setDebugAppPackageName(packageName), true);
     }
   }
 

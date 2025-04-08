@@ -18,7 +18,7 @@ impl From<clap::error::Error> for crate::Error {
         match value.kind() {
             // Io/Format are issues with writing to `stderr`/`stdout`, so it shouldn't be an User Error
             // Perhaps this is more accurate as Environment Error, we can change it based on data later
-            ErrorKind::Io | ErrorKind::Format => from_any_with_tag(value, crate::ErrorTag::Tier0),
+            ErrorKind::Io | ErrorKind::Format => from_any_with_tag(value, crate::ErrorTag::Clap),
             _ => from_any_with_tag(value, crate::ErrorTag::Input),
         }
     }

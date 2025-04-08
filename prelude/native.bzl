@@ -277,10 +277,22 @@ def _prebuilt_cxx_library_macro_stub(
             exported_lang_platform_preprocessor_flags,
             _versioned_param_to_select(versioned_exported_lang_platform_preprocessor_flags),
         ),
-        static_lib = _at_most_one(static_lib, _versioned_param_to_select(versioned_static_lib)),
-        static_pic_lib = _at_most_one(static_pic_lib, _versioned_param_to_select(versioned_static_pic_lib)),
-        shared_lib = _at_most_one(shared_lib, _versioned_param_to_select(versioned_shared_lib)),
-        header_dirs = _at_most_one(header_dirs, _versioned_param_to_select(versioned_header_dirs)),
+        static_lib = selects.apply_n(
+            [static_lib, selects.apply(versioned_static_lib, _versioned_param_to_select)],
+            _at_most_one,
+        ),
+        static_pic_lib = selects.apply_n(
+            [static_pic_lib, selects.apply(versioned_static_pic_lib, _versioned_param_to_select)],
+            _at_most_one,
+        ),
+        shared_lib = selects.apply_n(
+            [shared_lib, selects.apply(versioned_shared_lib, _versioned_param_to_select)],
+            _at_most_one,
+        ),
+        header_dirs = selects.apply_n(
+            [header_dirs, selects.apply(versioned_header_dirs, _versioned_param_to_select)],
+            _at_most_one,
+        ),
         **kwargs
     )
 

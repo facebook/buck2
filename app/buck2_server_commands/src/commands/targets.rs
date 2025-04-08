@@ -231,9 +231,9 @@ async fn targets_with_output(
                     hashing,
                     request.concurrency.as_ref().map(|x| x.concurrency as usize),
                 )
-                .await;
+                .await?;
                 Ok(TargetsResponse {
-                    error_count: res?.errors,
+                    error_count: res.errors,
                     serialized_targets_output: String::new(),
                 })
             } else {

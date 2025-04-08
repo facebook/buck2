@@ -6,6 +6,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# pyre-unsafe
+
 # credits to implementation in https://www.internalfb.com/code/fbsource/fbcode/eden/addons/build-tar.py
 
 import argparse

@@ -15,6 +15,12 @@ stub(
     default_target_platform = ":p_cat",
 )
 
+stub(
+    name = "different_universe",
+    deps = [],
+    default_target_platform = ":p_default",
+)
+
 constraint_setting(
     name = "animal",
 )

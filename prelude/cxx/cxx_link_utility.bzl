@@ -31,6 +31,10 @@ load(
     "create_shlib_symlink_tree",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
+load(
+    "@prelude//utils:utils.bzl",
+    "map_val",
+)
 
 def generates_split_debug(toolchain: CxxToolchainInfo):
     """
@@ -94,6 +98,8 @@ def make_link_args(
 
     linker_info = cxx_toolchain_info.linker_info
     linker_type = linker_info.type
+
+    link_ordering = link_ordering or map_val(LinkOrdering, linker_info.link_ordering)
 
     if linker_type == LinkerType("darwin"):
         # Darwin requires a target triple specified to

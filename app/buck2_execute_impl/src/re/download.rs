@@ -16,7 +16,6 @@ use std::sync::Arc;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::RelativePathBuf;
@@ -70,7 +69,6 @@ pub async fn download_action_results<'a>(
     request: &CommandExecutionRequest,
     materializer: &dyn Materializer,
     re_client: &ManagedRemoteExecutionClient,
-    re_use_case: RemoteExecutorUseCase,
     digest_config: DigestConfig,
     manager: CommandExecutionManager,
     identity: &ReActionIdentity<'_>,
@@ -87,7 +85,7 @@ pub async fn download_action_results<'a>(
     materialize_failed_re_action_outputs: bool,
     additional_message: Option<String>,
 ) -> DownloadResult {
-    let std_streams = response.std_streams(re_client, re_use_case, digest_config);
+    let std_streams = response.std_streams(re_client, digest_config);
     let std_streams = async {
         if request.prefetch_lossy_stderr() {
             std_streams.prefetch_lossy_stderr().await
@@ -116,7 +114,6 @@ pub async fn download_action_results<'a>(
     let downloader = CasDownloader {
         materializer,
         re_client,
-        re_use_case,
         digest_config,
         paranoid,
     };
@@ -213,7 +210,6 @@ pub async fn download_action_results<'a>(
 pub struct CasDownloader<'a> {
     pub materializer: &'a dyn Materializer,
     pub re_client: &'a ManagedRemoteExecutionClient,
-    pub re_use_case: RemoteExecutorUseCase,
     pub digest_config: DigestConfig,
     pub paranoid: Option<&'a ParanoidDownloader>,
 }
@@ -271,7 +267,7 @@ impl CasDownloader<'_> {
                     artifacts.expires,
                     self.digest_config.cas_digest_config(),
                 ),
-                self.re_use_case,
+                self.re_client.use_case,
                 artifacts.now,
                 artifacts.ttl,
             );
@@ -368,7 +364,6 @@ impl CasDownloader<'_> {
                 output_spec
                     .output_directories()
                     .map(|x| x.tree_digest.clone()),
-                self.re_use_case,
             )
             .boxed()
             .await

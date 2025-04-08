@@ -264,18 +264,6 @@ java.lang.String defaultValue);
       getPathToClassesBytes();
 
   /**
-   * <code>string rootOutput = 21;</code>
-   * @return The rootOutput.
-   */
-  java.lang.String getRootOutput();
-  /**
-   * <code>string rootOutput = 21;</code>
-   * @return The bytes for rootOutput.
-   */
-  com.google.protobuf.ByteString
-      getRootOutputBytes();
-
-  /**
    * <code>string annotationsPath = 23;</code>
    * @return The annotationsPath.
    */

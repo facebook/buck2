@@ -80,6 +80,7 @@ use buck2_data::TestSuite;
 use buck2_data::ToProtoMessage;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -546,11 +547,17 @@ impl Key for TestExecutionKey {
                 .boxed()
             })
             .await
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?)
+            .map_err(|e| from_any_with_tag(e, ErrorTag::TestOrchestrator))?)
     }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
         false
+    }
+
+    fn validity(x: &Self::Value) -> bool {
+        // We don't want to cache any failed listings
+        x.as_ref()
+            .is_ok_and(|f| f.status == ExecutionStatus::Finished { exitcode: 0 })
     }
 }
 
@@ -955,19 +962,9 @@ impl<'b> BuckTestOrchestrator<'b> {
         );
         let digest_config = dice.global_data().get_digest_config();
 
-        let mut action_key_suffix = match &stage {
-            TestStage::Listing { .. } => "listing".to_owned(),
-            TestStage::Testing { testcases, .. } => testcases.join(" "),
-        };
-        if action_key_suffix.len() > MAX_SUFFIX_LEN {
-            let truncated = "(truncated)";
-            action_key_suffix.truncate(MAX_SUFFIX_LEN - truncated.len());
-            action_key_suffix += truncated;
-        }
-
         let test_target = TestTarget {
             target: test_target_label.target(),
-            action_key_suffix,
+            action_key_suffix: create_action_key_suffix(&stage),
         };
 
         // For test execution, we currently do not do any cache queries
@@ -986,23 +983,30 @@ impl<'b> BuckTestOrchestrator<'b> {
         // instrument execution with a span.
         // TODO(brasselsprouts): migrate this into the executor to get better accuracy.
         let command_exec_result = match stage {
-            TestStage::Listing { suite, .. } => {
+            TestStage::Listing { suite, cacheable } => {
                 let start = TestDiscoveryStart {
                     suite_name: suite.clone(),
                 };
                 let (result, cached) = events
                     .span_async(start, async move {
-                        let (result, cached) = match executor
-                            .action_cache(manager, &prepared_command, cancellation)
-                            .await
-                        {
-                            ControlFlow::Continue(manager) => {
-                                let result = executor
-                                    .exec_cmd(manager, &prepared_command, cancellation)
-                                    .await;
-                                (result, false)
+                        let (result, cached) = if *cacheable {
+                            match executor
+                                .action_cache(manager, &prepared_command, cancellation)
+                                .await
+                            {
+                                ControlFlow::Continue(manager) => {
+                                    let result = executor
+                                        .exec_cmd(manager, &prepared_command, cancellation)
+                                        .await;
+                                    (result, false)
+                                }
+                                ControlFlow::Break(result) => (result, true),
                             }
-                            ControlFlow::Break(result) => (result, true),
+                        } else {
+                            let result = executor
+                                .exec_cmd(manager, &prepared_command, cancellation)
+                                .await;
+                            (result, false)
                         };
                         let end = TestDiscoveryEnd {
                             suite_name: suite.clone(),
@@ -1012,12 +1016,15 @@ impl<'b> BuckTestOrchestrator<'b> {
                                     .to_command_execution_proto(true, true, false)
                                     .await,
                             ),
-                            re_cache_enabled,
+                            re_cache_enabled: *cacheable && re_cache_enabled,
                         };
                         ((result, cached), end)
                     })
                     .await;
-                if !cached && check_cache_listings_experiment(dice, &test_target_label).await? {
+                if !cached
+                    && *cacheable
+                    && check_cache_listings_experiment(dice, &test_target_label).await?
+                {
                     let info = CacheUploadInfo {
                         target: &test_target as _,
                         digest_config,
@@ -1038,7 +1045,9 @@ impl<'b> BuckTestOrchestrator<'b> {
                 }
                 result
             }
-            TestStage::Testing { suite, testcases } => {
+            TestStage::Testing {
+                suite, testcases, ..
+            } => {
                 let command = executor.exec_cmd(manager, &prepared_command, cancellation);
                 let test_suite = Some(TestSuite {
                     suite_name: suite.clone(),
@@ -1598,7 +1607,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             CommandExecutionStatus::Failure { .. }
             | CommandExecutionStatus::WorkerFailure { .. } => {
                 return Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    ErrorTag::LocalResourceSetup,
                     "Local resource setup command failed with `{}` exit code, stdout:\n{}\nstderr:\n{}\n",
                     exit_code.unwrap_or(1),
                     String::from_utf8_lossy(&std_streams.stdout),
@@ -1607,7 +1616,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             }
             CommandExecutionStatus::TimedOut { duration, .. } => {
                 return Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    ErrorTag::LocalResourceSetup,
                     "Local resource setup command timed out after `{}s`, stdout:\n{}\nstderr:\n{}\n",
                     duration.as_secs(),
                     String::from_utf8_lossy(&std_streams.stdout),
@@ -1619,7 +1628,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             }
             CommandExecutionStatus::Cancelled { .. } => {
                 return Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    ErrorTag::LocalResourceSetup,
                     "Local resource setup command cancelled"
                 )
                 .into());
@@ -1629,10 +1638,10 @@ impl<'b> BuckTestOrchestrator<'b> {
         let string_content = String::from_utf8_lossy(&std_streams.stdout);
         let data: LocalResourcesSetupResult = serde_json::from_str(&string_content)
             .context("Error parsing local resource setup command output")
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, ErrorTag::LocalResourceSetup))?;
         let state = data
             .into_state(context.target.clone(), &context.env_var_mapping)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, ErrorTag::LocalResourceSetup))?;
 
         Ok(state)
     }
@@ -2046,6 +2055,27 @@ async fn check_cache_listings_experiment(
     Ok(false)
 }
 
+fn create_action_key_suffix(stage: &TestStage) -> String {
+    let mut action_key_suffix = match &stage {
+        TestStage::Listing { .. } => "listing".to_owned(),
+        TestStage::Testing {
+            testcases, variant, ..
+        } => {
+            if let Some(variant) = variant {
+                format!("{} {}", variant, testcases.join(" "),)
+            } else {
+                testcases.join(" ")
+            }
+        }
+    };
+    if action_key_suffix.len() > MAX_SUFFIX_LEN {
+        let truncated = "(truncated)";
+        action_key_suffix.truncate(MAX_SUFFIX_LEN - truncated.len());
+        action_key_suffix += truncated;
+    }
+    action_key_suffix
+}
+
 #[derive(Debug)]
 struct LocalResourceTarget<'a> {
     target: &'a ConfiguredTargetLabel,
@@ -2094,7 +2124,7 @@ impl TestExecutor {
 
     pub fn re_dynamic_image(&self) -> Option<RemoteExecutorCustomImage> {
         if let Executor::RemoteEnabled(options) = &self.executor_config.executor {
-            options.custom_image.clone()
+            options.custom_image.clone().map(|image| *image)
         } else {
             None
         }
@@ -2119,6 +2149,7 @@ mod tests {
     use buck2_core::cells::CellResolver;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_test_api::data::TestStage;
     use buck2_test_api::data::TestStatus;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
@@ -2281,5 +2312,47 @@ mod tests {
         drop(channel);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_create_action_key_suffix_listing() {
+        let stage = TestStage::Listing {
+            suite: "test_suite".to_owned(),
+            cacheable: true,
+        };
+        assert_eq!(create_action_key_suffix(&stage), "listing");
+    }
+
+    #[test]
+    fn test_create_action_key_suffix_testing_no_variant() {
+        let stage = TestStage::Testing {
+            suite: "test_suite".to_owned(),
+            testcases: vec!["test1".to_owned(), "test2".to_owned()],
+            variant: None,
+        };
+        assert_eq!(create_action_key_suffix(&stage), "test1 test2");
+    }
+
+    #[test]
+    fn test_create_action_key_suffix_testing_with_variant() {
+        let stage = TestStage::Testing {
+            suite: "test_suite".to_owned(),
+            testcases: vec!["test1".to_owned(), "test2".to_owned()],
+            variant: Some("variant1".to_owned()),
+        };
+        assert_eq!(create_action_key_suffix(&stage), "variant1 test1 test2");
+    }
+
+    #[test]
+    fn test_create_action_key_suffix_truncation() {
+        let long_testcase = "a".repeat(MAX_SUFFIX_LEN + 100);
+        let stage = TestStage::Testing {
+            suite: "test_suite".to_owned(),
+            testcases: vec![long_testcase],
+            variant: None,
+        };
+        let result = create_action_key_suffix(&stage);
+        assert_eq!(result.len(), MAX_SUFFIX_LEN);
+        assert!(result.ends_with("(truncated)"));
     }
 }

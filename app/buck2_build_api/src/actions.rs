@@ -52,12 +52,13 @@ use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::Materializer;
-use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_file_watcher::mergebase::Mergebase;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_http::HttpClient;
 use derivative::Derivative;
 use derive_more::Display;
+use dupe::Dupe;
 use indexmap::indexmap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
@@ -250,7 +251,7 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor;
 
-    fn re_client(&self) -> ManagedRemoteExecutionClient;
+    fn re_client(&self) -> UnconfiguredRemoteExecutionClient;
 
     fn re_platform(&self) -> &remote_execution::Platform;
 
@@ -303,6 +304,9 @@ pub struct RegisteredAction {
     action: Box<dyn Action>,
     #[derivative(Hash = "ignore", PartialEq = "ignore")]
     executor_config: Arc<CommandExecutorConfig>,
+    /// A hash calculation from the inputs to the action, if available.
+    #[derivative(Hash = "ignore", PartialEq = "ignore")]
+    action_inputs_hash: Option<Arc<str>>,
 }
 
 impl RegisteredAction {
@@ -310,11 +314,13 @@ impl RegisteredAction {
         key: ActionKey,
         action: Box<dyn Action>,
         executor_config: Arc<CommandExecutorConfig>,
+        action_inputs_hash: Option<Arc<str>>,
     ) -> Self {
         Self {
             key,
             action,
             executor_config,
+            action_inputs_hash,
         }
     }
 
@@ -328,7 +334,7 @@ impl RegisteredAction {
     }
 
     /// Gets the action key, uniquely identifying this action in a target.
-    pub fn action_key(&self) -> ForwardRelativePathBuf {
+    pub(crate) fn action_key(&self) -> ForwardRelativePathBuf {
         // We want the action key to not cause instability in the RE action.
         // As an artifact can only be bound as an output to one action, we know it uniquely identifies the action and we can
         // derive the scratch path from that and that will be no unstable than the artifact already is.
@@ -346,7 +352,7 @@ impl RegisteredAction {
         &self.key
     }
 
-    pub fn execution_config(&self) -> &CommandExecutorConfig {
+    pub(crate) fn execution_config(&self) -> &CommandExecutorConfig {
         &self.executor_config
     }
 
@@ -356,6 +362,10 @@ impl RegisteredAction {
 
     pub fn identifier(&self) -> Option<&str> {
         self.action.identifier()
+    }
+
+    pub(crate) fn action_inputs_hash(&self) -> Option<Arc<str>> {
+        self.action_inputs_hash.as_ref().map(|hash| hash.dupe())
     }
 }
 
@@ -375,6 +385,7 @@ struct ActionToBeRegistered {
     inputs: IndexSet<ArtifactGroup>,
     outputs: IndexSet<BuildArtifact>,
     action: Box<dyn UnregisteredAction>,
+    action_inputs_hash: Option<Arc<str>>,
 }
 
 impl ActionToBeRegistered {
@@ -383,17 +394,23 @@ impl ActionToBeRegistered {
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         a: A,
+        action_inputs_hash: Option<Arc<str>>,
     ) -> Self {
         Self {
             key,
             inputs,
             outputs,
             action: Box::new(a),
+            action_inputs_hash,
         }
     }
 
-    pub fn key(&self) -> &ActionKey {
+    pub(crate) fn key(&self) -> &ActionKey {
         &self.key
+    }
+
+    pub(crate) fn action_inputs_hash(&self) -> Option<Arc<str>> {
+        self.action_inputs_hash.as_ref().map(|hash| hash.dupe())
     }
 
     fn register(

@@ -280,8 +280,8 @@ def get_language_version(ctx: AnalysisContext) -> str:
     current_language_version = None
     for arg in ctx.attrs.extra_kotlinc_arguments:
         # If `-language-version` is defined multiple times, we use the last one, just like the compiler does
-        if isinstance(arg, str) and "-language-version" in arg:
-            current_language_version = arg.split("=")[1].strip()
+        if "-language-version" in str(arg):
+            current_language_version = str(arg).split("=")[1].strip(' "')
 
     if ctx.attrs.k2 == True and kotlin_toolchain.allow_k2_usage:
         if not current_language_version or current_language_version < "2.0":
@@ -468,11 +468,13 @@ def build_kotlin_library(
                 "srcs": srcs,
                 "target_level": target_level,
             }
+
             outputs, proto = create_jar_artifact_kotlincd(
                 plugin_params = create_plugin_params(ctx, ctx.attrs.plugins),
                 extra_arguments = extra_arguments,
                 actions_identifier = "",
                 incremental = ctx.attrs.incremental,
+                incremental_qe_applied = "incremental_qe_applied" in ctx.attrs.labels,
                 **common_kotlincd_kwargs
             )
 
@@ -506,6 +508,7 @@ def build_kotlin_library(
                         optional_dirs = [nullsafe_info.output.as_output()],
                         is_creating_subtarget = True,
                         incremental = False,
+                        incremental_qe_applied = False,
                         **common_kotlincd_kwargs
                     )
 

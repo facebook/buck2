@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:paths.bzl", "paths")
+load(":erlang_build.bzl", "erlang_build")
 load(":erlang_dependencies.bzl", "check_dependencies", "flatten_dependencies")
 load(":erlang_info.bzl", "ErlangAppInfo")
 load(":erlang_toolchain.bzl", "get_primary", "get_primary_tools")
@@ -76,9 +76,11 @@ def _build_run_info(
 def _shell_config_files(ctx: AnalysisContext) -> list[Artifact]:
     config_files = []
     for config_dep in ctx.attrs.shell_configs:
-        for artifact in config_dep[DefaultInfo].default_outputs + config_dep[DefaultInfo].other_outputs:
-            (_, ext) = paths.split_extension(artifact.short_path)
-            if ext == ".config":
+        for artifact in config_dep[DefaultInfo].default_outputs:
+            if erlang_build.utils.is_config(artifact):
+                config_files.append(artifact)
+        for artifact in config_dep[DefaultInfo].other_outputs:
+            if erlang_build.utils.is_config(artifact):
                 config_files.append(artifact)
     return config_files
 

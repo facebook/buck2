@@ -281,7 +281,7 @@ impl AbsNormPath {
                 .strip_prefix(base.strip_windows_prefix()?)?)
         } else {
             Err(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Tier0,
+                buck2_error::ErrorTag::InvalidAbsPath,
                 "Path is not a prefix"
             ))
         }
@@ -469,7 +469,7 @@ impl AbsNormPath {
         use std::path::Prefix;
 
         match self.0.components().next().ok_or_else(|| {
-            buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "AbsPath is empty.")
+            buck2_error::buck2_error!(buck2_error::ErrorTag::InvalidAbsPath, "AbsPath is empty.")
         })? {
             std::path::Component::Prefix(prefix_component) => match prefix_component.kind() {
                 Prefix::Disk(disk) | Prefix::VerbatimDisk(disk) => {
@@ -483,13 +483,13 @@ impl AbsNormPath {
                 }
                 Prefix::DeviceNS(device) => Ok(device.to_owned()),
                 prefix => Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    buck2_error::ErrorTag::InvalidAbsPath,
                     "Unknown prefix kind: {:?}.",
                     prefix
                 )),
             },
             _ => Err(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Tier0,
+                buck2_error::ErrorTag::InvalidAbsPath,
                 "AbsPath doesn't have prefix."
             )),
         }
@@ -541,7 +541,7 @@ impl AbsNormPath {
     pub fn strip_windows_prefix(&self) -> buck2_error::Result<&Path> {
         let mut iter = self.0.iter();
         let prefix = iter.next().ok_or_else(|| {
-            buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "AbsPath is empty.")
+            buck2_error::buck2_error!(buck2_error::ErrorTag::InvalidAbsPath, "AbsPath is empty.")
         })?;
         let mut prefix = prefix.to_owned();
         // Strip leading path separator as well.

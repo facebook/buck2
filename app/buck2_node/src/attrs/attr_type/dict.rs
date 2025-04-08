@@ -12,6 +12,7 @@ use std::fmt::Formatter;
 use std::ops::Deref;
 
 use allocative::Allocative;
+use buck2_error::buck2_error;
 use buck2_util::arc_str::ArcSlice;
 use display_container::fmt_keyed_container;
 use serde_json::Value;
@@ -98,7 +99,17 @@ impl<C: Eq + ToJsonWithContext> ToJsonWithContext for DictLiteral<C> {
             serde_json::Map::with_capacity(self.len());
         for (k, v) in self.iter() {
             res.insert(
-                k.to_json(ctx)?.as_str().unwrap().to_owned(),
+                k.to_json(ctx)?
+                    .as_str()
+                    .ok_or_else(|| {
+                        // FIXME(JakobDegen): This can't actually error, we need to ban it or
+                        // serialize it somehow
+                        buck2_error!(
+                            buck2_error::ErrorTag::Input,
+                            "Cannot serialize dict attr with non-string key type"
+                        )
+                    })?
+                    .to_owned(),
                 v.to_json(ctx)?,
             );
         }

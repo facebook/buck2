@@ -8,10 +8,12 @@
  */
 
 use std::cell::RefCell;
+use std::cell::RefMut;
 use std::io::Write;
 use std::iter;
-use std::ops::DerefMut;
+use std::ops::Deref;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_build_api::artifact_groups::ArtifactGroup;
@@ -21,17 +23,24 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandL
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
+use buck2_common::events::HasEvents;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::buck2_error;
 use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_error::BuckErrorContext;
 use buck2_execute::path::artifact_path::ArtifactPath;
+use buck2_server_ctx::bxl::BxlStreamingTracker;
+use buck2_server_ctx::bxl::GetBxlStreamingTracker;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
+use either::Either;
 use futures::FutureExt;
 use gazebo::prelude::VecExt;
+use indexmap::IndexSet;
+use itertools::Itertools;
 use serde::ser::SerializeSeq;
 use serde::Serialize;
 use serde::Serializer;
@@ -71,6 +80,51 @@ use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable
 use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 
+/// Represents the internal state of an output stream, including collected artifacts,
+/// standard output buffers, and error buffers.
+#[derive(Default, Derivative, Display, Allocative)]
+#[display("{:?}", self)]
+#[derivative(Debug)]
+struct OutputStreamStateInner {
+    /// The output string bytes where all non-streaming outputs are written to.
+    artifacts_to_ensure: SmallSet<EnsuredArtifactOrGroup>,
+    /// The output string bytes where all non-streaming outputs are written to.
+    output: Vec<u8>,
+    /// The output streaming string bytes where all streaming outputs that not waiting on anything are written to.
+    streaming: Vec<u8>,
+    /// The error string bytes where all errors are written to.
+    pub(crate) error: Vec<u8>,
+    /// Pairs of artifacts set and their corresponding streaming output string.
+    /// Used to track outputs that are waiting for their associated artifacts to be materialized.
+    pending_streaming_outputs: Vec<(SmallSet<EnsuredArtifactOrGroup>, Vec<u8>)>,
+}
+
+#[derive(Derivative, Display, Allocative, Dupe, Clone)]
+#[display("{:?}", self)]
+#[derivative(Debug)]
+pub(crate) struct OutputStreamState {
+    /// Wrapped in Rc<RefCell<Option<...>>> to allow
+    /// - Shared ownership (Rc), we also need to hold it in `BxlEvalExtra`
+    /// - Runtime borrow checking for innter mutability (RefCell)
+    /// - Optional state for take operations (Option)
+    inner: Rc<RefCell<Option<OutputStreamStateInner>>>,
+}
+
+/// Final result container for output stream processing.
+/// This structure is used to construct the final BxlResult.
+#[derive(Derivative, Display, Allocative, Clone)]
+#[display("{:?}", self)]
+#[derivative(Debug)]
+pub(crate) struct OutputStreamOutcome {
+    /// set of artifacts that need to be materialized, flattened from
+    /// the original EnsuredArtifactOrGroup entries.
+    pub(crate) ensured_artifacts: IndexSet<ArtifactGroup>,
+    pub(crate) output: Vec<u8>,
+    pub(crate) streaming: Vec<u8>,
+    pub(crate) error: Vec<u8>,
+    pub(crate) pending_streaming_outputs: Vec<(IndexSet<ArtifactGroup>, Vec<u8>)>,
+}
+
 #[derive(
     ProvidesStaticType,
     Derivative,
@@ -82,16 +136,9 @@ use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 #[display("{:?}", self)]
 #[derivative(Debug)]
 pub(crate) struct OutputStream {
-    #[derivative(Debug = "ignore")]
     #[trace(unsafe_ignore)]
-    #[allocative(skip)]
-    pub(crate) sink: Rc<RefCell<dyn Write>>,
-    #[derivative(Debug = "ignore")]
-    #[trace(unsafe_ignore)]
-    #[allocative(skip)]
-    pub(crate) error_sink: Rc<RefCell<dyn Write>>,
-    #[trace(unsafe_ignore)]
-    artifacts_to_ensure: RefCell<Option<SmallSet<EnsuredArtifactOrGroup>>>,
+    state: OutputStreamState,
+
     #[derivative(Debug = "ignore")]
     pub(crate) project_fs: ProjectRoot,
     #[derivative(Debug = "ignore")]
@@ -101,7 +148,7 @@ pub(crate) struct OutputStream {
 /// We can ensure either an `Artifact` or an `ArtifactGroup`. When we want to ensure a `CommandLineArgLike` object,
 /// the result of visiting its artifacts is a list of `ArtifactGroup`s. It's convenient to preserve the group rather
 /// than extract the individual `Artifact`s from it, for perf/memory optimizations.
-#[derive(Display, Debug, Allocative, Hash, Eq, PartialEq)]
+#[derive(Display, Debug, Allocative, Hash, Eq, PartialEq, Clone, Dupe)]
 pub(crate) enum EnsuredArtifactOrGroup {
     Artifact(EnsuredArtifact),
     ArtifactGroup(ArtifactGroup),
@@ -127,24 +174,209 @@ impl EnsuredArtifactOrGroup {
     }
 }
 
+impl Deref for OutputStream {
+    type Target = OutputStreamState;
+
+    fn deref(&self) -> &Self::Target {
+        &self.state
+    }
+}
+
+impl OutputStreamState {
+    pub(crate) fn new() -> Self {
+        Self {
+            inner: Rc::new(RefCell::new(Some(OutputStreamStateInner::default()))),
+        }
+    }
+
+    pub(crate) fn take_state(&self) -> buck2_error::Result<OutputStreamOutcome> {
+        let state = self.inner.borrow_mut().take().unwrap();
+        let artifacts = state
+            .artifacts_to_ensure
+            .into_iter()
+            .map(EnsuredArtifactOrGroup::into_artifact_groups)
+            .flatten_ok()
+            .collect::<buck2_error::Result<IndexSet<ArtifactGroup>>>()?;
+        let pending_streaming_outputs = state
+            .pending_streaming_outputs
+            .into_iter()
+            .map(|(ensured_artifact_set, output_str)| {
+                let artifacts = ensured_artifact_set
+                    .into_iter()
+                    .map(|ensured_artifact| ensured_artifact.into_artifact_groups())
+                    .flatten_ok()
+                    .collect::<buck2_error::Result<IndexSet<ArtifactGroup>>>()?;
+                Ok((artifacts, output_str))
+            })
+            .collect::<buck2_error::Result<Vec<(IndexSet<ArtifactGroup>, Vec<u8>)>>>()?;
+        Ok(OutputStreamOutcome {
+            ensured_artifacts: artifacts,
+            output: state.output,
+            streaming: state.streaming,
+            error: state.error,
+            pending_streaming_outputs,
+        })
+    }
+
+    fn populate_ensured_artifacts(
+        &self,
+        ensured: EnsuredArtifactOrGroup,
+    ) -> buck2_error::Result<()> {
+        self.inner
+            .borrow_mut()
+            .as_mut()
+            .expect("should not have been taken")
+            .artifacts_to_ensure
+            .insert(ensured);
+        Ok(())
+    }
+
+    fn output(&self) -> RefMut<'_, impl Write> {
+        RefMut::map(self.inner.borrow_mut(), |inner| {
+            &mut inner.as_mut().expect("should not have been taken").output
+        })
+    }
+
+    pub(crate) fn error(&self) -> RefMut<'_, impl Write> {
+        RefMut::map(self.inner.borrow_mut(), |inner| {
+            &mut inner.as_mut().expect("should not have been taken").error
+        })
+    }
+
+    pub(crate) fn streaming(&self) -> RefMut<'_, impl Write> {
+        RefMut::map(self.inner.borrow_mut(), |inner| {
+            &mut inner
+                .as_mut()
+                .expect("should not have been taken")
+                .streaming
+        })
+    }
+
+    fn pending_streaming_outputs(
+        &self,
+    ) -> RefMut<'_, Vec<(SmallSet<EnsuredArtifactOrGroup>, Vec<u8>)>> {
+        RefMut::map(self.inner.borrow_mut(), |inner| {
+            &mut inner
+                .as_mut()
+                .expect("should not have been taken")
+                .pending_streaming_outputs
+        })
+    }
+}
+
+struct BufferPrintOutput<'a, T: Write> {
+    output: RefMut<'a, T>,
+}
+
+impl<'a, T: Write> Write for BufferPrintOutput<'a, T> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.output.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+struct StreamingOutput {
+    wait_on_artifacts: SmallSet<EnsuredArtifactOrGroup>,
+    output_stream_state: OutputStreamState,
+    streaming_writer: BxlStreamingWriter,
+    buffer: Vec<u8>,
+}
+
+impl StreamingOutput {
+    fn new(
+        wait_on: impl Iterator<Item = EnsuredArtifactOrGroup>,
+        output_stream_state: OutputStreamState,
+        streaming_writer: BxlStreamingWriter,
+    ) -> Self {
+        Self {
+            wait_on_artifacts: wait_on.collect(),
+            output_stream_state,
+            buffer: Vec::new(),
+            streaming_writer,
+        }
+    }
+
+    fn insert_pending_streaming_output(&mut self, output: Vec<u8>) {
+        self.output_stream_state
+            .pending_streaming_outputs()
+            .push((self.wait_on_artifacts.clone(), output));
+    }
+}
+
+impl Write for StreamingOutput {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.buffer.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        if !self.wait_on_artifacts.is_empty() {
+            // We record the buffer as the pending message for the artifacts that are waiting to be materialized
+            self.insert_pending_streaming_output(self.buffer.clone());
+        } else {
+            // Streaming output the output through partial result dispatcher
+            self.streaming_writer.write_all(&self.buffer)?;
+
+            // write the buffer to the streaming sink which will be use as the cache
+            self.output_stream_state
+                .streaming()
+                .write_all(&self.buffer)?;
+
+            self.streaming_writer.flush()?;
+        }
+        self.buffer.clear();
+        Ok(())
+    }
+}
+
+struct BxlStreamingWriter {
+    inner: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
+    streaming_tracker: Arc<BxlStreamingTracker>,
+}
+
+impl BxlStreamingWriter {
+    fn new(dice: &dyn BxlDiceComputations) -> Self {
+        let dispatcher = dice.per_transaction_data().get_dispatcher().dupe();
+        let partial_result_dispatcher = PartialResultDispatcher::new(dispatcher);
+        let streaming_tracker = dice
+            .per_transaction_data()
+            .get_bxl_streaming_tracker()
+            .expect("BxlStreamingTracker should be set");
+        Self {
+            inner: partial_result_dispatcher,
+            streaming_tracker,
+        }
+    }
+}
+
+impl Write for BxlStreamingWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.inner.emit(buck2_cli_proto::StdoutBytes {
+            data: buf.to_owned(),
+        });
+        self.streaming_tracker.mark_as_called();
+
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 impl OutputStream {
     pub(crate) fn new(
         project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
-        sink: Rc<RefCell<dyn Write>>,
-        error_sink: Rc<RefCell<dyn Write>>,
+        stream_state: OutputStreamState,
     ) -> Self {
         Self {
-            sink,
-            error_sink,
-            artifacts_to_ensure: RefCell::new(Some(Default::default())),
+            state: stream_state,
             project_fs,
             artifact_fs,
         }
-    }
-
-    pub(crate) fn take_artifacts(&self) -> SmallSet<EnsuredArtifactOrGroup> {
-        self.artifacts_to_ensure.borrow_mut().take().unwrap()
     }
 
     fn print<'v>(
@@ -152,17 +384,24 @@ impl OutputStream {
         args: impl Iterator<Item = Value<'v>>,
         sep: &'v str,
         eval: &mut Evaluator<'v, '_, '_>,
+        mut output: impl Write,
     ) -> buck2_error::Result<()> {
         let mut first = true;
-        let mut write = |d: &dyn Display| -> buck2_error::Result<()> {
-            if !first {
-                write!(self.sink.borrow_mut(), "{}{}", sep, d)?;
+
+        fn write_item(
+            output: &mut impl Write,
+            sep: &str,
+            first: &mut bool,
+            item: &dyn std::fmt::Display,
+        ) -> buck2_error::Result<()> {
+            if !*first {
+                write!(output, "{}{}", sep, item)?;
             } else {
-                write!(self.sink.borrow_mut(), "{}", d)?;
-                first = false;
+                write!(output, "{}", item)?;
+                *first = false;
             }
             Ok(())
-        };
+        }
 
         for arg in args {
             if let Some(ensured) = <&EnsuredArtifact>::unpack_value(arg)? {
@@ -172,7 +411,7 @@ impl OutputStream {
                     &self.project_fs,
                     &self.artifact_fs,
                 )?;
-                write(&path)?;
+                write_item(&mut output, sep, &mut first, &path)?;
             } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(arg)? {
                 BxlEvalExtra::from_context(eval)?
                     .dice
@@ -187,18 +426,20 @@ impl OutputStream {
                                         &self.project_fs,
                                         &self.artifact_fs,
                                     )?;
-                                    write(&path)
+                                    write_item(&mut output, sep, &mut first, &path)
                                 },
                                 dice,
                             )
                             .boxed_local()
                     })?;
             } else {
-                write(&arg.to_str())?;
+                write_item(&mut output, sep, &mut first, &arg.to_str())?;
             }
         }
 
-        writeln!(self.sink.borrow_mut())?;
+        writeln!(output)?;
+
+        output.flush()?;
 
         Ok(())
     }
@@ -208,6 +449,7 @@ impl OutputStream {
         value: Value<'v>,
         pretty: bool,
         eval: &mut Evaluator<'v, '_, '_>,
+        mut output: impl Write,
     ) -> buck2_error::Result<()> {
         /// A wrapper with a Serialize instance so we can pass down the necessary context.
         struct SerializeValue<'a, 'v, 'd> {
@@ -300,8 +542,9 @@ impl OutputStream {
         } else {
             serde_json::to_writer
         };
+
         writer(
-            self.sink.borrow_mut().deref_mut(),
+            &mut output,
             &SerializeValue {
                 value,
                 artifact_fs: &self.artifact_fs,
@@ -311,7 +554,8 @@ impl OutputStream {
         )
         .buck_error_context("Error writing to JSON for `write_json`")?;
 
-        writeln!(self.sink.borrow_mut())?;
+        writeln!(&mut output)?;
+        output.flush()?;
 
         Ok(())
     }
@@ -349,8 +593,14 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     /// Accepts an optional separator that defaults to " ".
     ///
     /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
-    /// and `pprint`. Note that `ctx.output.print()` is intended for simple outputs. For more complex
+    /// and `pprint`.
+    ///
+    /// **Note** that `ctx.output.print()` is intended for simple outputs. For more complex
     /// outputs, the recommendation would be to write them to a file.
+    ///
+    /// **Note** that the output of `ctx.output.print()` will be displayed to stdout at the end of bxl.
+    /// If you want to print something to stdout immediately or the when ensured artifacts are ready and also want this even when the script is cached,
+    /// use `ctx.output.stream()` instead.
     ///
     /// Sample usage:
     /// ```python
@@ -363,7 +613,10 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = " ")] sep: &'v str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
-        this.print(args.into_iter(), sep, eval)?;
+        let buffer_output = BufferPrintOutput {
+            output: this.output(),
+        };
+        this.print(args.into_iter(), sep, eval, buffer_output)?;
 
         Ok(NoneType)
     }
@@ -376,12 +629,16 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
     /// and `pprint`.
     ///
+    /// **Note** that the output of `ctx.output.print_json()` will be displayed to stdout at the end of bxl.
+    /// If you want to print something to stdout immediately or the when ensured artifacts are ready and also want this even when the script is cached,
+    /// use `ctx.output.stream_json()` instead.
+    ///
     /// Sample usage:
     /// ```python
     /// def _impl_print_json(ctx):
     ///     outputs = {}
     ///     outputs.update({"foo": bar})
-    ///     ctx.output.print_json("test")
+    ///     ctx.output.print_json(outputs)
     /// ```
     fn print_json<'v>(
         this: &'v OutputStream,
@@ -389,7 +646,125 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         #[starlark(require=named, default=true)] pretty: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
-        this.print_json(value, pretty, eval)?;
+        let buffer_output = BufferPrintOutput {
+            output: this.output(),
+        };
+
+        this.print_json(value, pretty, eval, buffer_output)?;
+
+        Ok(NoneType)
+    }
+
+    /// Streaming outputs results to the console via stdout **immediately** when it is ready.
+    /// It will be displayed to stdout by buck2 even when the script is cached.
+    /// Accepts an optional separator that defaults to " ".
+    ///
+    /// The streaming behavior is controlled by the `wait_on` parameter:
+    /// - If 'wait_on' is not specified or empty, output is displayed **immediately** during evaluation
+    /// - If 'wait_on' contains artifacts，output is displayed **as soon as all specified artifacts are materialized**
+    ///
+    /// The `wait_on` parameter explicitly specifies artifacts that must be materialized before showing output.
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_print(ctx):
+    ///     # Immediate output during evaluation
+    ///     ctx.output.stream("Starting process...")
+    ///
+    ///     # Output as soon as artifact is materialized
+    ///     artifact = ctx.output.ensure(my_artifact)
+    ///     ctx.output.stream("Artifact ready:", artifact, wait_on=[artifact])
+    ///
+    ///     # Output when both artifacts are materialized
+    ///     artifact1 = ctx.output.ensure(my_artifact1)
+    ///     artifact2 = ctx.output.ensure(my_artifact2)
+    ///     ctx.output.stream("First artifact:", artifact1, wait_on=[artifact1, artifact2])
+    /// ```
+    fn stream<'v>(
+        this: &'v OutputStream,
+        #[starlark(args)] args: UnpackTuple<Value<'v>>,
+        #[starlark(default = " ")] sep: &'v str,
+        #[starlark(require = named, default = UnpackList::default())] wait_on: UnpackList<
+            Either<&'v EnsuredArtifact, &'v EnsuredArtifactGroup>,
+        >,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<NoneType> {
+        let extra = BxlEvalExtra::from_context(eval)?;
+        let streaming_writer = BxlStreamingWriter::new(&*extra.dice.borrow_mut());
+
+        let wait_on = wait_on
+            .into_iter()
+            .map(|wait_on| match wait_on {
+                Either::Left(ensured_artifact) => {
+                    vec![EnsuredArtifactOrGroup::Artifact(ensured_artifact.dupe())]
+                }
+                Either::Right(ensured_group) => ensured_group
+                    .inner()
+                    .iter()
+                    .map(|group| EnsuredArtifactOrGroup::ArtifactGroup(group.dupe()))
+                    .collect(),
+            })
+            .flatten();
+
+        let streaming_output = StreamingOutput::new(wait_on, this.state.dupe(), streaming_writer);
+        this.print(args.into_iter(), sep, eval, streaming_output)?;
+
+        Ok(NoneType)
+    }
+
+    /// Streaming outputs results to the console via stdout as pretty-printed json **immediately** when it is ready.
+    /// Pretty printing can be turned off by the `pretty` keyword-only parameter.
+    /// It will be displayed to stdout by buck2 even when the script is cached.
+    ///
+    /// The streaming behavior is controlled by the `wait_on` parameter:
+    /// - If 'wait_on' is not specified or empty, output is displayed **immediately** during evaluation
+    /// - If 'wait_on' contains artifacts，output is displayed **as soon as all specified artifacts are materialized**
+    ///
+    /// The `wait_on` parameter explicitly specifies artifacts that must be materialized before showing output.
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_print_json(ctx):
+    ///     outputs = {}
+    ///     outputs.update({"foo": bar})
+    ///
+    ///     # Stream JSON output immediately
+    ///     ctx.output.stream_json({"status": "starting"})
+    ///
+    ///     # Stream JSON when artifact is ready
+    ///     artifact = ctx.output.ensure(my_artifact)
+    ///     ctx.output.stream_json({"artifact": artifact}, wait_on=[artifact])
+    ///
+    ///    # Stream JSON waiting on artifact to be ready
+    ///    ctx.output.stream_json({"status": "starting"}, wait_on=[artifact])
+    /// ```
+    fn stream_json<'v>(
+        this: &'v OutputStream,
+        value: Value<'v>,
+        #[starlark(require=named, default=true)] pretty: bool,
+        #[starlark(require = named, default = UnpackList::default())] wait_on: UnpackList<
+            Either<&'v EnsuredArtifact, &'v EnsuredArtifactGroup>,
+        >,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<NoneType> {
+        let extra = BxlEvalExtra::from_context(eval)?;
+        let streaming_writer = BxlStreamingWriter::new(&*extra.dice.borrow_mut());
+        let wait_on = wait_on
+            .into_iter()
+            .map(|wait_on| match wait_on {
+                Either::Left(ensured_artifact) => {
+                    vec![EnsuredArtifactOrGroup::Artifact(ensured_artifact.dupe())]
+                }
+                Either::Right(ensured_group) => ensured_group
+                    .inner()
+                    .iter()
+                    .map(|group| EnsuredArtifactOrGroup::ArtifactGroup(group.dupe()))
+                    .collect(),
+            })
+            .flatten();
+        let streaming_output = StreamingOutput::new(wait_on, this.state.dupe(), streaming_writer);
+
+        this.print_json(value, pretty, eval, streaming_output)?;
 
         Ok(NoneType)
     }
@@ -414,7 +789,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         artifact: ArtifactArg<'v>,
     ) -> starlark::Result<EnsuredArtifact> {
         let artifact = artifact.into_ensured_artifact();
-        populate_ensured_artifacts(this, EnsuredArtifactOrGroup::Artifact(artifact.clone()))?;
+        this.populate_ensured_artifacts(EnsuredArtifactOrGroup::Artifact(artifact.clone()))?;
 
         Ok(artifact)
     }
@@ -446,10 +821,9 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
             EnsureMultipleArtifactsArg::EnsuredArtifactArgs(list) => {
                 let artifacts: Vec<EnsuredArtifact> = list.items.into_try_map(|artifact| {
                     let artifact = artifact.into_ensured_artifact();
-                    populate_ensured_artifacts(
-                        this,
-                        EnsuredArtifactOrGroup::Artifact(artifact.clone()),
-                    )?;
+                    this.populate_ensured_artifacts(EnsuredArtifactOrGroup::Artifact(
+                        artifact.clone(),
+                    ))?;
 
                     Ok::<EnsuredArtifact, buck2_error::Error>(artifact)
                 })?;
@@ -498,10 +872,9 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                 let mut result = Vec::new();
 
                 for artifact_group in &inputs.inputs {
-                    populate_ensured_artifacts(
-                        this,
-                        EnsuredArtifactOrGroup::ArtifactGroup(artifact_group.dupe()),
-                    )?;
+                    this.populate_ensured_artifacts(EnsuredArtifactOrGroup::ArtifactGroup(
+                        artifact_group.dupe(),
+                    ))?;
                     result.push(artifact_group.dupe());
                 }
 
@@ -536,19 +909,6 @@ pub(crate) fn get_artifact_path_display(
     })
 }
 
-fn populate_ensured_artifacts(
-    output_stream: &OutputStream,
-    ensured: EnsuredArtifactOrGroup,
-) -> buck2_error::Result<()> {
-    output_stream
-        .artifacts_to_ensure
-        .borrow_mut()
-        .as_mut()
-        .expect("should not have been taken")
-        .insert(ensured);
-    Ok(())
-}
-
 fn get_artifacts_from_bxl_build_result(
     bxl_build_result: &StarlarkBxlBuildResult,
     output_stream: &OutputStream,
@@ -571,10 +931,9 @@ fn get_artifacts_from_bxl_build_result(
             })
             .flatten()
             .map(|artifact| try {
-                populate_ensured_artifacts(
-                    output_stream,
-                    EnsuredArtifactOrGroup::Artifact(artifact.clone()),
-                )?;
+                output_stream.populate_ensured_artifacts(EnsuredArtifactOrGroup::Artifact(
+                    artifact.clone(),
+                ))?;
                 artifact
             })
             .collect::<buck2_error::Result<_>>(),

@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:paths.bzl", "paths")
 load(":erlang_build.bzl", "BuildEnvironment", "erlang_build")
 load(":erlang_info.bzl", "ErlangAppIncludeInfo")
 load(
@@ -26,9 +25,7 @@ def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
     name = ctx.attrs.app_name
 
     # input mapping
-    input_mapping = {}
-    for input_artifact in ctx.attrs.includes:
-        input_mapping[paths.basename(input_artifact.short_path)] = input_artifact
+    input_mapping = {input_artifact.basename: input_artifact for input_artifact in ctx.attrs.includes}
 
     toolchains = select_toolchains(ctx)
     build_environments = {}
@@ -50,6 +47,7 @@ def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
         include_dir = multidict_projection_key(build_environments, "include_dirs", name),
         deps_files = multidict_projection(build_environments, "deps_files"),
         input_mapping = multidict_projection(build_environments, "input_mapping"),
+        _original_includes = ctx.attrs.includes,
     )
 
     return [

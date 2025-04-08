@@ -26,7 +26,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Map;
+import java.util.Set;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -52,10 +52,10 @@ public class KotlinClassUsageHelperTest {
   public void testReadJsonDepFile() throws IOException {
     AbsPath kotlinTempDepPath =
         generateDummyKotlinTempFile(
-            "dummy.json", ImmutableMap.of(TEST_JAR_PATH, Map.of(Paths.get(FOO_TEST_FILE_NAME), 1)));
+            "dummy.json", ImmutableMap.of(TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME))));
 
     assertEquals(
-        ImmutableMap.of(TEST_JAR_PATH, Map.of(Paths.get(FOO_TEST_FILE_NAME), 1)),
+        ImmutableMap.of(TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME))),
         KotlinClassUsageHelper.readJsonBasedClassUsageReport(kotlinTempDepPath.getPath()));
   }
 
@@ -64,13 +64,12 @@ public class KotlinClassUsageHelperTest {
     AbsPath kotlinTempDepPath =
         generateDummyKotlinTempFile(
             "dummy.json",
-            ImmutableMap.of(TEST_JAR_PATH, Map.of(Paths.get(FOO_TEST_FILE_NAME), 1)),
-            ImmutableMap.of(TEST_JAR_PATH, Map.of(Paths.get(BAR_TEST_FILE_NAME), 1)));
+            ImmutableMap.of(TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME))),
+            ImmutableMap.of(TEST_JAR_PATH, Set.of(Paths.get(BAR_TEST_FILE_NAME))));
 
     assertEquals(
         ImmutableMap.of(
-            TEST_JAR_PATH,
-            Map.of(Paths.get(FOO_TEST_FILE_NAME), 1, Paths.get(BAR_TEST_FILE_NAME), 1)),
+            TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME), Paths.get(BAR_TEST_FILE_NAME))),
         com.facebook.buck.jvm.kotlin.KotlinClassUsageHelper.readNdJsonBasedClassUsageReport(
             kotlinTempDepPath.getPath()));
   }
@@ -87,38 +86,36 @@ public class KotlinClassUsageHelperTest {
 
     assertEquals(
         ImmutableMap.of(
-            TEST_JAR_PATH,
-            Map.of(Paths.get(FOO_TEST_FILE_NAME), 2, Paths.get(BAR_TEST_FILE_NAME), 1)),
+            TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME), Paths.get(BAR_TEST_FILE_NAME))),
         KotlinClassUsageHelper.readUriBasedClassUsageFile(kaptTempDepPath.getPath()));
   }
 
   @Test
   public void testMergeSameEntry() {
     assertEquals(
-        ImmutableMap.of(TEST_JAR_PATH, Map.of(Paths.get(FOO_TEST_FILE_NAME), 2)),
+        ImmutableMap.of(TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME))),
         KotlinClassUsageHelper.merge(
-            ImmutableMap.of(TEST_JAR_PATH, Map.of(Paths.get(FOO_TEST_FILE_NAME), 1)),
-            ImmutableMap.of(TEST_JAR_PATH, Map.of(Paths.get(FOO_TEST_FILE_NAME), 1))));
+            ImmutableMap.of(TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME))),
+            ImmutableMap.of(TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME)))));
   }
 
   @Test
   public void testMergeSameAndDifferentEntries() {
     assertEquals(
         ImmutableMap.of(
-            TEST_JAR_PATH,
-            Map.of(Paths.get(FOO_TEST_FILE_NAME), 2, Paths.get(BAR_TEST_FILE_NAME), 1)),
+            TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME), Paths.get(BAR_TEST_FILE_NAME))),
         KotlinClassUsageHelper.merge(
-            ImmutableMap.of(TEST_JAR_PATH, Map.of(Paths.get(FOO_TEST_FILE_NAME), 1)),
+            ImmutableMap.of(TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME))),
             ImmutableMap.of(
                 TEST_JAR_PATH,
-                Map.of(Paths.get(FOO_TEST_FILE_NAME), 1, Paths.get(BAR_TEST_FILE_NAME), 1))));
+                Set.of(Paths.get(FOO_TEST_FILE_NAME), Paths.get(BAR_TEST_FILE_NAME)))));
   }
 
   @Test
   public void testReadAllKotlinTempDepFiles() throws IOException {
     generateDummyKotlinTempFile(
         getKotlinTempDepFilePath(outputDir).toString(),
-        ImmutableMap.of(TEST_JAR_PATH, Map.of(Paths.get(FOO_TEST_FILE_NAME), 1)));
+        ImmutableMap.of(TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME))));
     generateDummyKaptTempFile(
         getKAPTDepFilePath(outputDir).toString(),
         ImmutableList.of(
@@ -128,18 +125,16 @@ public class KotlinClassUsageHelperTest {
 
     assertEquals(
         ImmutableMap.of(
-            TEST_JAR_PATH,
-            Map.of(Paths.get(FOO_TEST_FILE_NAME), 3, Paths.get(BAR_TEST_FILE_NAME), 1)),
+            TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME), Paths.get(BAR_TEST_FILE_NAME))),
         KotlinClassUsageHelper.getClassUsageData(outputDir, tmp.getRoot()));
   }
 
   private AbsPath generateDummyKotlinTempFile(
-      String fileName, ImmutableMap<Path, Map<Path, Integer>>... dummyClassUsagesJson)
-      throws IOException {
+      String fileName, ImmutableMap<Path, Set<Path>>... dummyClassUsagesJson) throws IOException {
     AbsPath kotlinTempFile = tmp.newFile(fileName);
 
     try (FileWriter writer = new FileWriter(kotlinTempFile.toFile(), true)) {
-      for (ImmutableMap<Path, Map<Path, Integer>> dummyClassUsageJson : dummyClassUsagesJson) {
+      for (ImmutableMap<Path, Set<Path>> dummyClassUsageJson : dummyClassUsagesJson) {
         String json = ObjectMappers.WRITER.writeValueAsString(dummyClassUsageJson);
         writer.write(json);
         writer.write("\n");

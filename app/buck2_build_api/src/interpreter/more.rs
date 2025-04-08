@@ -16,10 +16,15 @@ use crate::actions::error_handler::register_action_error_types;
 use crate::interpreter::rule_defs::artifact::artifact_type::register_artifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_value::register_artifact_value;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::register_output_artifact;
+use crate::interpreter::rule_defs::artifact::starlark_promise_artifact::register_promise_artifact;
 use crate::interpreter::rule_defs::artifact_tagging::artifact_tag::register_artifact_tag;
+use crate::interpreter::rule_defs::artifact_tagging::register_tagged_command_line;
+use crate::interpreter::rule_defs::artifact_tagging::register_tagged_value;
 use crate::interpreter::rule_defs::cmd_args::register_cmd_args;
+use crate::interpreter::rule_defs::cmd_args::register_command_line_inputs;
 use crate::interpreter::rule_defs::command_executor_config::register_command_executor_config;
 use crate::interpreter::rule_defs::context::register_analysis_context;
+use crate::interpreter::rule_defs::digest_config::register_digest_config_type;
 use crate::interpreter::rule_defs::provider::callable::register_provider;
 use crate::interpreter::rule_defs::provider::collection::register_provider_collection;
 use crate::interpreter::rule_defs::provider::dependency::register_dependency;
@@ -47,9 +52,14 @@ fn register_build_api_globals(globals: &mut GlobalsBuilder) {
     register_artifact_tag(globals);
     register_artifact_value(globals);
     register_output_artifact(globals);
+    register_promise_artifact(globals);
     register_action_error_types(globals);
     register_validation_spec(globals);
     register_required_test_local_resource(globals);
+    register_digest_config_type(globals);
+    register_tagged_value(globals);
+    register_tagged_command_line(globals);
+    register_command_line_inputs(globals);
 }
 
 fn register_build_api_internals(globals: &mut GlobalsBuilder) {

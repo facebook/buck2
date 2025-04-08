@@ -94,7 +94,7 @@ async def test_attr_coercion(buck: Buck, tmp_path: Path) -> None:
     errors = record["errors"]
     assert len(errors) == 1
     # Just make sure there's some kind of error metadata
-    assert "CoercionError::TypeError" in errors[0]["source_location"]
+    assert "StarlarkError::Value" in errors[0]["source_location"]
 
 
 @buck_test()
@@ -134,7 +134,7 @@ async def test_starlark_fail_error_categorization(buck: Buck, tmp_path: Path) ->
     errors = record["errors"]
     assert len(errors) == 1
     assert errors[0]["source_location"].endswith("StarlarkError::Fail")
-    assert errors[0]["source_area"] == "STARLARK"
+    assert errors[0]["source_area"] == "BUCK2"
     assert errors[0]["category"] == "USER"
 
 
@@ -155,7 +155,7 @@ async def test_starlark_parse_error_categorization(buck: Buck, tmp_path: Path) -
     assert len(errors) == 1
     assert errors[0]["source_location"].endswith("StarlarkError::Parser")
     assert errors[0]["tags"] == ["STARLARK_PARSER"]
-    assert errors[0]["source_area"] == "STARLARK"
+    assert errors[0]["source_area"] == "BUCK2"
     assert errors[0]["category"] == "USER"
 
 
@@ -176,7 +176,7 @@ async def test_starlark_scope_error_categorization(buck: Buck, tmp_path: Path) -
     assert len(errors) == 1
     assert errors[0]["source_location"].endswith("StarlarkError::Scope")
     assert errors[0]["tags"] == ["STARLARK_SCOPE"]
-    assert errors[0]["source_area"] == "STARLARK"
+    assert errors[0]["source_area"] == "BUCK2"
     assert errors[0]["category"] == "USER"
 
 
@@ -217,12 +217,13 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
     else:
         assert "stream closed because of a broken pipe" in error["message"]
 
-    assert error["tags"] == ["CLIENT_GRPC", "SERVER_PANICKED", "TIER0"]
+    assert error["tags"][0:3] == ["CLIENT_GRPC", "SERVER_PANICKED", "TONIC"]
+    assert error["tags"][3].startswith("crash")
     assert "buckd stderr:\n" in error["message"]
     assert "panicked at" in error["message"]
 
-    assert invocation_record["best_error_tag"] == "SERVER_PANICKED"
-    category_key = invocation_record["best_error_category_key"]
+    assert error["best_tag"] == "SERVER_PANICKED"
+    category_key = error["category_key"]
     assert category_key.startswith("SERVER_PANICKED")
 
     # TODO dump stack trace on windows
@@ -248,7 +249,7 @@ async def test_connection_timeout(buck: Buck, tmp_path: Path) -> None:
     assert record["daemon_connection_failure"] is True
     assert record["daemon_was_started"] is None
 
-    assert record["best_error_tag"] == "SERVER_STDERR_UNKNOWN"
+    assert record["errors"][0]["best_tag"] == "SERVER_STDERR_UNKNOWN"
 
 
 @buck_test()
@@ -265,23 +266,24 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
     assert len(errors) == 1
     [error] = errors
 
-    category_key = invocation_record["best_error_category_key"]
+    category_key = error["category_key"]
 
     if is_running_on_windows():
-        # TODO get windows to dump a stack trace
+        # TODO get windows to dump a stack trace / detect signals
         assert "buckd stderr is empty" in error["message"]
-        assert category_key == "SERVER_STDERR_EMPTY"
-        assert invocation_record["best_error_tag"] == "SERVER_STDERR_EMPTY"
+        assert category_key == "SERVER_STDERR_EMPTY:TONIC"
     else:
         # Messages from folly's signal handler.
         assert "*** Aborted at" in error["message"]
         assert "*** Signal 6 (SIGABRT)" in error["message"]
-        assert category_key.startswith("SERVER_STDERR_UNKNOWN")
-        assert invocation_record["best_error_tag"] == "SERVER_STDERR_UNKNOWN"
+        assert category_key.startswith("SERVER_SIGABRT")
+        assert error["best_tag"] == "SERVER_SIGABRT"
 
     # TODO dump stack trace on mac and windows
     if is_running_on_linux():
         assert "crash(" in category_key
+        # test string tags are in error_tags
+        assert error["tags"][-1].startswith("crash(")
 
 
 @buck_test()
@@ -307,8 +309,9 @@ async def test_build_file_race(buck: Buck, tmp_path: Path) -> None:
         await expect_failure(build)
 
         invocation_record = read_invocation_record(record)
-        assert invocation_record["best_error_tag"] == "IO_MATERIALIZER_FILE_BUSY"
-        assert invocation_record["errors"][0]["category"] == "ENVIRONMENT"
+        best_error = invocation_record["errors"][0]
+        assert best_error["best_tag"] == "IO_MATERIALIZER_FILE_BUSY"
+        assert best_error["category"] == "ENVIRONMENT"
     else:
         await build
 
@@ -330,12 +333,32 @@ async def test_download_failure(buck: Buck, tmp_path: Path) -> None:
         )
     )
     record = read_invocation_record(record_path)
-    category_key = record["best_error_category_key"]
+    category_key = record["errors"][0]["category_key"]
     assert category_key == "RE_NOT_FOUND:UNKNOWN"
     assert (
         "Your build requires materializing an artifact that has expired in the RE CAS and Buck does not have it. This likely happened because your Buck daemon has been online for a long time. This error is currently unrecoverable. To proceed, you should restart Buck using `buck2 killall`."
         in res.stderr
     )
+
+
+@buck_test()
+async def test_re_execute_failure(buck: Buck, tmp_path: Path) -> None:
+    # Upload action if necessary
+    await buck.build("//:run_action", "--remote-only")
+    await buck.clean()
+    record_path = tmp_path / "record.json"
+    await expect_failure(
+        buck.build(
+            "//:run_action",
+            "--unstable-write-invocation-record",
+            str(record_path),
+            "--no-remote-cache",
+            env={"BUCK2_TEST_FAIL_RE_EXECUTE": "true"},
+        )
+    )
+    record = read_invocation_record(record_path)
+    category_key = record["errors"][0]["category_key"]
+    assert category_key == "RE_FAILED_PRECONDITION:UNKNOWN"
 
 
 @buck_test()
@@ -354,9 +377,10 @@ async def test_local_incompatible(buck: Buck, tmp_path: Path) -> None:
     assert "Incompatible executor preferences" in res.stderr
 
     record = read_invocation_record(record_path)
-    assert record["error_category"] == "USER"
+    best_error = record["errors"][0]
+    assert best_error["category"] == "USER"
     assert (
-        record["best_error_category_key"]
+        best_error["category_key"]
         == "IncompatibleExecutorPreferences:ANY_ACTION_EXECUTION"
     )
 
@@ -378,3 +402,46 @@ async def test_daemon_startup_error(buck: Buck, tmp_path: Path) -> None:
 
     assert "DAEMON_CONNECT" in error["tags"]
     assert "DAEMON_STATE_INIT_FAILED" in error["tags"]
+
+
+@buck_test(setup_eden=True, skip_for_os=["windows"])
+async def test_eden_io_error_tagging(buck: Buck, tmp_path: Path) -> None:
+    targets_file = buck.cwd / "TARGETS.fixture"
+
+    # remove file read permissions during test execution, test setup will fail if permissions are set on any fixture earlier
+    targets_file.chmod(0o000)
+
+    # triggers file read IO error
+    record_path = tmp_path / "record.json"
+    await expect_failure(
+        buck.targets(
+            ":",
+            "--unstable-write-invocation-record",
+            str(record_path),
+        )
+    )
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
+    assert len(errors) == 1
+    [error] = errors
+
+    assert "IO_EDEN" in error["tags"]
+    assert error["category_key"] == "IO_EDEN:IO_PERMISSION_DENIED"
+
+
+@buck_test()
+@env("BUCK2_TEST_FAIL_STREAMING", "true")
+async def test_client_streaming_error(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
+    res = await expect_failure(
+        buck.targets(":", "--unstable-write-invocation-record", str(record_path))
+    )
+    assert "Injected client streaming error" in res.stderr
+
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
+
+    assert len(errors) == 1
+    [error] = errors
+
+    assert "Injected client streaming error" in error["message"]

@@ -91,7 +91,7 @@ pub async fn get_channel_uds(
     _chg_dir: bool,
 ) -> buck2_error::Result<Channel> {
     Err(buck2_error::buck2_error!(
-        buck2_error::ErrorTag::Tier0,
+        buck2_error::ErrorTag::WindowsUnsupported,
         "Unix domain sockets are not supported on Windows",
     ))
 }

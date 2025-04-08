@@ -11,7 +11,7 @@ impl From<regex::Error> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: regex::Error) -> Self {
-        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Regex)
     }
 }
 
@@ -19,6 +19,6 @@ impl From<fancy_regex::Error> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: fancy_regex::Error) -> Self {
-        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Regex)
     }
 }

@@ -13,9 +13,8 @@ def _sanity_check_transition_info_provider():
         impl = _transition,
     )
 
-    # FIXME(JakobDegen): Bug
-    if hasattr(i, "impl"):
-        fail("Has `impl` attr")
+    if i.impl == None:
+        fail("impl is none!")
 
 _sanity_check_transition_info_provider()
 
@@ -56,6 +55,13 @@ stub_transition = rule(
     impl = _impl,
     attrs = {
         "dep": attrs.transition_dep(cfg = "//:transition"),
+    },
+)
+
+stub_with_dynamic_outgoing_transition = rule(
+    impl = _impl,
+    attrs = {
+        "dep": attrs.transition_dep(),
     },
 )
 

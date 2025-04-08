@@ -84,7 +84,7 @@ fn mock_analysis_for_tsets(
                 RecordedAnalysisValues::testing_new(
                     DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
                     tsets,
-                    RecordedActions::new(),
+                    RecordedActions::new(0),
                 ),
                 None,
                 HashMap::new(),

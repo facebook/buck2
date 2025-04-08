@@ -13,11 +13,12 @@ use buck2_core::soft_error;
 use regex::Regex;
 
 use crate::health_check_context::HealthCheckContext;
+use crate::interface::HealthCheck;
 use crate::report::DisplayReport;
+use crate::report::HealthIssue;
 use crate::report::Remediation;
 use crate::report::Report;
 use crate::report::Severity;
-use crate::report::Warning;
 
 pub const REMEDIATION_LINK: &str = "https://fburl.com/buck2_vpn_enabled";
 pub const TAG: &str = "vpn_enabled";
@@ -34,7 +35,7 @@ impl VpnCheck {
     }
 
     pub(crate) fn run(&self) -> Option<Report> {
-        let is_vpn_enabled = Self::is_vpn_enabled();
+        let is_vpn_enabled = Self::cisco_iface_connected().unwrap_or(false);
 
         Some(Report {
             display_report: self.generate_display_report(is_vpn_enabled),
@@ -46,7 +47,7 @@ impl VpnCheck {
         self.can_run.unwrap_or(false)
     }
 
-    pub fn try_update_can_run(&mut self, context: &HealthCheckContext) {
+    pub(crate) fn try_update_can_run(&mut self, context: &HealthCheckContext) {
         if self.can_run.is_some() {
             return;
         }
@@ -86,27 +87,50 @@ impl VpnCheck {
     fn generate_display_report(&self, is_vpn_enabled: bool) -> Option<DisplayReport> {
         self.can_run().then(|| DisplayReport {
             health_check_type: crate::interface::HealthCheckType::VpnEnabled,
-            warning: self.generate_warning(is_vpn_enabled),
+            health_issue: self.generate_warning(is_vpn_enabled),
         })
     }
 
-    fn generate_warning(&self, is_vpn_enabled: bool) -> Option<Warning> {
-        is_vpn_enabled.then(|| Warning {
+    fn generate_warning(&self, is_vpn_enabled: bool) -> Option<HealthIssue> {
+        is_vpn_enabled.then(|| HealthIssue {
             severity: Severity::Warning,
             message: "For optimal build speed, consider disconnecting from VPN".to_owned(),
             remediation: Some(Remediation::Link(REMEDIATION_LINK.to_owned())),
         })
     }
 
-    fn is_vpn_enabled() -> bool {
-        if !cfg!(target_os = "macos") {
-            // TODO(rajneeshl): Add support for Windows
-            return false;
-        }
-
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    fn cisco_iface_connected() -> buck2_error::Result<bool> {
         // Brittle check based on Cisco client's current behaviour.
         // Small section copied from https://fburl.com/code/g7ttsdz3
-        std::path::Path::new("/opt/cisco/secureclient/vpn/ac_pf.token").exists()
+        Ok(std::path::Path::new("/opt/cisco/secureclient/vpn/ac_pf.token").exists())
+    }
+
+    #[cfg(target_os = "windows")]
+    fn cisco_iface_connected() -> buck2_error::Result<bool> {
+        let table = buck2_util::os::win::network_interface_table::NetworkInterfaceTable::new()?;
+
+        for interface in table {
+            if interface
+                .description()
+                .contains("Cisco AnyConnect Virtual Miniport Adapter")
+            {
+                // This is a hack for VPN check: The presence of a connected interface with the Cisco name.
+                return Ok(interface.is_connected());
+            }
+        }
+        Ok(false)
+    }
+}
+
+#[async_trait::async_trait]
+impl HealthCheck for VpnCheck {
+    fn run_check(&self) -> buck2_error::Result<Option<Report>> {
+        Ok(self.run())
+    }
+
+    async fn handle_context_update(&mut self, context: &HealthCheckContext) {
+        self.try_update_can_run(context)
     }
 }
 

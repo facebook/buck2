@@ -35,6 +35,10 @@ class AndroidInstallException(val installError: InstallError) :
         AndroidInstallException(
             InstallError("Device ABI is unknown.", AndroidInstallErrorTag.UNKNOWN_DEVICE_ABI))
 
+    fun adbPathNotFound() =
+        AndroidInstallException(
+            InstallError("Adb path not found.", AndroidInstallErrorTag.ADB_NOT_FOUND))
+
     fun adbCommandFailedException(
         message: String,
         exceptionMessage: String?

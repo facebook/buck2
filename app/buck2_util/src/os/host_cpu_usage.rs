@@ -32,7 +32,7 @@ impl HostCpuUsage {
                 })
             } else {
                 Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    buck2_error::ErrorTag::CpuStats,
                     "Error getting host CPU usage"
                 ))
             }
@@ -51,7 +51,7 @@ impl HostCpuUsage {
                 })
             } else {
                 Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    buck2_error::ErrorTag::CpuStats,
                     "Error getting host CPU usage"
                 ))
             }

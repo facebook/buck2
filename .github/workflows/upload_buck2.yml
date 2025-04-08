@@ -6,6 +6,22 @@ on:
       - main
 
 jobs:
+  set_version_info:
+    name: Define the version info for this release
+    runs-on: ubuntu-latest
+    outputs:
+      buck2_version: ${{ steps.define_version_info.outputs.buck2_version }}
+    steps:
+      - name: Define version info
+        id: define_version_info
+        run: |
+          # Specify the release version information
+          commit_date=$(echo "${{ github.event.repository.updated_at }}" | sed 's/T.*//')
+
+          echo "buck2_version=$commit_date-${{ github.sha }}" >> "$GITHUB_OUTPUT"
+      - name: Display version info
+        run: echo ${{ steps.define_version_info.outputs.buck2_version }}
+
   get_prelude_hash:
     name: Get the latest prelude hash
     runs-on: ubuntu-latest
@@ -30,6 +46,7 @@ jobs:
   build:
     needs:
       - get_prelude_hash
+      - set_version_info
     strategy:
       fail-fast: false
       matrix:
@@ -95,6 +112,10 @@ jobs:
       - name: Build
         shell: bash
         env:
+          # BUCK2 prefixed variables used within the build to stamp in a version information
+          # BUCK2_SET_EXPLICIT_VERSION will populate the buck2 --version string
+          BUCK2_RELEASE_TIMESTAMP: ${{ github.event.repository.updated_at }}
+          BUCK2_SET_EXPLICIT_VERSION: ${{ needs.set_version_info.outputs.buck2_version }}
           RUSTFLAGS: "-C strip=debuginfo -C codegen-units=1"
         run: |
           # aarch64-linux builds need JEMALLOC_SYS_WITH_LG_PAGE=16

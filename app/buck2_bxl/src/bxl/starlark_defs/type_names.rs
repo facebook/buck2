@@ -9,6 +9,8 @@
 
 #![allow(non_upper_case_globals)]
 
+use buck2_build_api::bxl::select::StarlarkSelectConcat;
+use buck2_build_api::bxl::select::StarlarkSelectDict;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use starlark::environment::GlobalsBuilder;
@@ -31,14 +33,13 @@ use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 use crate::bxl::starlark_defs::lazy_ctx::lazy_cquery_ctx::StarlarkLazyCqueryCtx;
 use crate::bxl::starlark_defs::lazy_ctx::operation::StarlarkLazy;
 use crate::bxl::starlark_defs::lazy_ctx::StarlarkLazyCtx;
+use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredAttr;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkLazyAttrs;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkLazyResolvedAttrs;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::result::StarlarkError;
 use crate::bxl::starlark_defs::result::StarlarkResult;
-use crate::bxl::starlark_defs::select::StarlarkSelectConcat;
-use crate::bxl::starlark_defs::select::StarlarkSelectDict;
 use crate::bxl::starlark_defs::target_universe::StarlarkTargetUniverse;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
@@ -70,6 +71,7 @@ pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuil
         StarlarkValueAsType::new();
     const ConfiguredTargetSet: StarlarkValueAsType<StarlarkTargetSet<ConfiguredTargetNode>> =
         StarlarkValueAsType::new();
+    const ConfiguredAttr: StarlarkValueAsType<StarlarkConfiguredAttr> = StarlarkValueAsType::new();
     const TargetUniverse: StarlarkValueAsType<StarlarkTargetUniverse> = StarlarkValueAsType::new();
     const OutputStream: StarlarkValueAsType<OutputStream> = StarlarkValueAsType::new();
     const LazyContext: StarlarkValueAsType<StarlarkLazyCtx> = StarlarkValueAsType::new();

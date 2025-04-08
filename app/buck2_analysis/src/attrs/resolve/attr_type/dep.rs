@@ -16,6 +16,8 @@ use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrTransition;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
+use buck2_node::attrs::attr_type::transition_dep::ConfiguredTransitionDep;
+use buck2_node::attrs::attr_type::transition_dep::TransitionDepAttrType;
 use buck2_node::provider_id_set::ProviderIdSet;
 use starlark::environment::Module;
 use starlark::values::FrozenValueTyped;
@@ -144,3 +146,14 @@ pub(crate) trait ExplicitConfiguredDepAttrTypeExt {
 }
 
 impl ExplicitConfiguredDepAttrTypeExt for ExplicitConfiguredDepAttrType {}
+
+pub(crate) trait TransitionDepAttrTypeExt {
+    fn resolve_single<'v>(
+        ctx: &dyn AttrResolutionContext<'v>,
+        dep_attr: &ConfiguredTransitionDep,
+    ) -> buck2_error::Result<Value<'v>> {
+        DepAttrType::resolve_single_impl(ctx, &dep_attr.dep, &dep_attr.required_providers, false)
+    }
+}
+
+impl TransitionDepAttrTypeExt for TransitionDepAttrType {}

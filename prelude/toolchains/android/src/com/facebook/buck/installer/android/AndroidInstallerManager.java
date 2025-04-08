@@ -42,8 +42,8 @@ import java.util.stream.Collectors;
  */
 class AndroidInstallerManager implements InstallCommand {
 
+  private static final Logger LOG = Logger.getLogger(AndroidInstallerManager.class.getName());
   private final AndroidCommandLineOptions options;
-  private final Logger logger;
   private final AndroidInstallErrorClassifier errorClassifier =
       AndroidInstallErrorClassifier.INSTANCE;
   private final Map<InstallId, AndroidArtifacts> installIdToFutureMap = new HashMap<>();
@@ -54,8 +54,7 @@ class AndroidInstallerManager implements InstallCommand {
 
   private final Set<String> ABI_64s = new HashSet<>(Arrays.asList("arm64-v8a", "x86_64"));
 
-  AndroidInstallerManager(Logger logger, AndroidCommandLineOptions options) {
-    this.logger = logger;
+  AndroidInstallerManager(AndroidCommandLineOptions options) {
     this.options = options;
   }
 
@@ -74,6 +73,7 @@ class AndroidInstallerManager implements InstallCommand {
       AndroidArtifacts androidArtifacts = getOrMakeAndroidArtifacts(installId);
       if (artifactName.equals("options")) {
         androidArtifacts.setApkOptions(new AndroidInstallApkOptions(artifactPath));
+        LOG.log(Level.INFO, androidArtifacts.getApkOptions().toString());
       } else if (artifactName.equals("manifest")) {
         androidArtifacts.setAndroidManifestPath(AbsPath.of(artifactPath));
       } else if (artifactName.equals("secondary_dex_exopackage_info_directory")) {
@@ -106,7 +106,7 @@ class AndroidInstallerManager implements InstallCommand {
       return InstallResult.success();
     } catch (Exception err) {
       String errMsg = Throwables.getStackTraceAsString(err);
-      logger.log(
+      LOG.log(
           Level.SEVERE,
           String.format(
               "Error installing %s from %s due to %s", artifactName, artifactPath, errMsg),
@@ -194,7 +194,7 @@ class AndroidInstallerManager implements InstallCommand {
       }
       AndroidInstall androidInstaller =
           new AndroidInstall(
-              logger,
+              LOG,
               AbsPath.of(Paths.get(".").normalize().toAbsolutePath()),
               options,
               androidArtifacts.getApkOptions(),
@@ -207,7 +207,7 @@ class AndroidInstallerManager implements InstallCommand {
 
     } catch (Exception err) {
       String errMsg = Throwables.getStackTraceAsString(err);
-      logger.log(Level.SEVERE, String.format("Install error due to %s", errMsg), err);
+      LOG.log(Level.SEVERE, String.format("Install error due to %s", errMsg), err);
       return InstallResult.error(errorClassifier.fromErrorMessage(errMsg));
     }
   }

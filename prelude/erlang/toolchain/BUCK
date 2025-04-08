@@ -38,27 +38,6 @@ toolchain_utilities(
     utility_modules = [
         "edoc_doclet_chunks.erl",
         "edoc_report.erl",
-        "epp_dodger.erl",
-        "json.erl",
     ],
-    visibility = ["PUBLIC"],
-)
-
-# exported for use in shell & test binary, they have a runtime dependency on json
-# can be removed once we're on OTP 27
-erlang_application(
-    name = "toolchain_json",
-    srcs = ["json.erl"],
-    applications = [
-        "kernel",
-        "stdlib",
-    ],
-    erl_opts = [
-        "+deterministic",
-        "+warnings_as_errors",
-    ],
-    labels = ["otp_compatibility_polyfill_application"],
-    shell_libs = [],
-    use_global_parse_transforms = False,
     visibility = ["PUBLIC"],
 )

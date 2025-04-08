@@ -697,10 +697,29 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         if compiled_srcs.header_unit_preprocessors:
             header_unit_preprocessors = []
             header_unit_sub_targets = []
+            header_unit_clang_traces = []
+
+            def header_unit_clang_trace_sub_target(clang_traces):
+                if impl_params.generate_sub_targets.clang_traces:
+                    return {
+                        "clang-trace": [
+                            DefaultInfo(default_outputs = clang_traces),
+                        ],
+                    }
+                else:
+                    return {}
+
+            def add_header_unit_clang_trace_sub_target(clang_traces):
+                header_unit_clang_traces.extend(clang_traces)
+                return header_unit_clang_trace_sub_target(clang_traces)
+
             for x in compiled_srcs.header_unit_preprocessors:
                 header_unit_preprocessors.append(x)
                 header_unit_sub_targets.append([
-                    DefaultInfo(default_outputs = [h.module for h in x.header_units]),
+                    DefaultInfo(
+                        default_outputs = [h.module for h in x.header_units],
+                        sub_targets = add_header_unit_clang_trace_sub_target(filter(None, [h.clang_trace for h in x.header_units])),
+                    ),
                     cxx_merge_cpreprocessors(
                         ctx,
                         own_exported_preprocessors + header_unit_preprocessors,
@@ -717,7 +736,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     sub_targets = {
                         str(i): x
                         for i, x in enumerate(header_unit_sub_targets)
-                    },
+                    } | header_unit_clang_trace_sub_target(header_unit_clang_traces),
                 ),
                 header_unit_sub_targets[-1][1],
             ]
@@ -878,6 +897,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
                     # We don't want to propagate shared interaces across shared library boundaries.
                     shared_interface_info = None if preferred_linkage == Linkage("shared") else create_shared_interface_info(ctx, exported_symbol_outputs, []),
+                    stub = getattr(ctx.attrs, "stub", False),
                 ),
                 excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
             ),

@@ -107,6 +107,14 @@ impl ExitResult {
         Self::status(ExitCode::Success)
     }
 
+    pub fn is_success(&self) -> bool {
+        if let ExitResultVariant::Status(ExitCode::Success) = &self.variant {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn status(status: ExitCode) -> Self {
         Self {
             variant: ExitResultVariant::Status(status),
@@ -258,14 +266,23 @@ impl ExitResult {
     pub fn write_command_report(
         &self,
         trace_id: TraceId,
-        buck_log_dir: &AbsNormPathBuf,
-        command_report_path: &Option<AbsPathBuf>,
+        buck_log_dir: Option<AbsNormPathBuf>,
+        command_report_path: Option<AbsPathBuf>,
         finalizing_error_messages: Vec<String>,
     ) -> buck2_error::Result<()> {
-        let dir = buck_log_dir.join(ForwardRelativePath::new(&trace_id.to_string())?);
-        fs_util::create_dir_all(&dir)?;
-        // this path is used by the buck wrapper, don't change without updating the wrapper.
-        let path = dir.join(ForwardRelativePath::new("command_report.json")?);
+        let (path, copy_path) = if let Some(buck_log_dir) = buck_log_dir {
+            let dir = buck_log_dir.join(ForwardRelativePath::new(&trace_id.to_string())?);
+            fs_util::create_dir_all(&dir)?;
+            // this path is used by the buck wrapper, don't change without updating the wrapper.
+            let path = dir.join(ForwardRelativePath::new("command_report.json")?);
+            (path.into_abs_path_buf(), command_report_path)
+        } else if let Some(command_report_path) = command_report_path {
+            // If buck_log_dir is not set, we are running outside a repo, write to command_report_path if present.
+            (command_report_path, None)
+        } else {
+            // No buck_log_dir, no command_report_path, do nothing.
+            return Ok(());
+        };
         let file = fs_util::create_file(&path)?;
         let mut file = std::io::BufWriter::new(file);
 
@@ -282,7 +299,7 @@ impl ExitResult {
                     },
                 )?;
 
-                if let Some(report_path) = command_report_path {
+                if let Some(report_path) = copy_path {
                     if let Some(parent) = report_path.parent() {
                         fs_util::create_dir_all(parent)?;
                     }
@@ -421,7 +438,7 @@ impl From<csv::Error> for ClientIoError {
     fn from(error: csv::Error) -> Self {
         match error.kind() {
             csv::ErrorKind::Io(_) => {}
-            _ => return ClientIoError::Other(from_any_with_tag(error, ErrorTag::Tier0)),
+            _ => return ClientIoError::Other(from_any_with_tag(error, ErrorTag::CsvParse)),
         }
         match error.into_kind() {
             csv::ErrorKind::Io(io_error) => ClientIoError::from(io_error),

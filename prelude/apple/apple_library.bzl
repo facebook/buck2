@@ -138,9 +138,9 @@ AppleLibraryAdditionalParams = record(
 AppleLibraryForDistributionInfo = provider(
     fields = {
         "module_name": str,
-        "private_swiftinterface": Artifact,
-        "swiftdoc": Artifact,
-        "swiftinterface": Artifact,
+        "private_swiftinterface": [Artifact, None],
+        "swiftdoc": [Artifact, None],
+        "swiftinterface": [Artifact, None],
         "target_triple": str,
     },
 )
@@ -238,13 +238,11 @@ def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCom
     return index_store
 
 def _make_apple_library_for_distribution_info_provider(ctx: AnalysisContext, swift_library_for_distribution: [None, SwiftLibraryForDistributionOutput]) -> list[AppleLibraryForDistributionInfo]:
-    if not swift_library_for_distribution:
-        return []
     return [AppleLibraryForDistributionInfo(
         target_triple = get_unversioned_target_triple(ctx).replace("macosx", "macos"),
-        swiftinterface = swift_library_for_distribution.swiftinterface,
-        private_swiftinterface = swift_library_for_distribution.private_swiftinterface,
-        swiftdoc = swift_library_for_distribution.swiftdoc,
+        swiftinterface = swift_library_for_distribution.swiftinterface if swift_library_for_distribution else None,
+        private_swiftinterface = swift_library_for_distribution.private_swiftinterface if swift_library_for_distribution else None,
+        swiftdoc = swift_library_for_distribution.swiftdoc if swift_library_for_distribution else None,
         module_name = get_module_name(ctx),
     )]
 

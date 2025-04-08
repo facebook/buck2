@@ -35,20 +35,99 @@ pub enum Tier {
     Tier0,
 }
 
+struct TagMetadata {
+    category: Option<Tier>,
+    rank: u32,
+    // If true and an error includes non-generic tags,
+    // generic tags will be excluded from category key.
+    generic: bool,
+    // Hidden tags are only used to determine category,
+    // they are excluded from both category keys and error_tags
+    // reported externally.
+    // These should be removed/avoided if possible.
+    hidden: bool,
+}
+
+impl TagMetadata {
+    fn generic(self, generic: bool) -> Self {
+        Self { generic, ..self }
+    }
+
+    fn hidden(self) -> Self {
+        Self {
+            hidden: true,
+            ..self
+        }
+    }
+}
+
 macro_rules! rank {
     ( $tier:ident ) => {
         match stringify!($tier) {
-            "environment" => (Some(Tier::Environment), line!()),
-            "tier0" => (Some(Tier::Tier0), line!()),
-            "input" => (Some(Tier::Input), line!()),
-            "unspecified" => (None, line!()),
+            "environment" => TagMetadata {
+                category: Some(Tier::Environment),
+                rank: line!(),
+                generic: false,
+                hidden: false,
+            },
+            "tier0" => TagMetadata {
+                category: Some(Tier::Tier0),
+                rank: line!(),
+                generic: false,
+                hidden: false,
+            },
+            "input" => TagMetadata {
+                category: Some(Tier::Input),
+                rank: line!(),
+                generic: false,
+                hidden: false,
+            },
+            "unspecified" => TagMetadata {
+                category: None,
+                rank: line!(),
+                generic: true,
+                hidden: false,
+            },
             _ => unreachable!(),
         }
     };
 }
 
+#[derive(derive_more::Display, Debug, PartialEq)]
+pub enum ErrorSourceArea {
+    Buck2,
+    Eden,
+    Re,
+    Watchman,
+    TestExecutor,
+    Installer,
+}
+
+pub trait ErrorTagExtra {
+    fn source_area(&self) -> ErrorSourceArea;
+}
+
+impl ErrorTagExtra for ErrorTag {
+    fn source_area(&self) -> ErrorSourceArea {
+        let tag_name = self.as_str_name();
+        if tag_name.starts_with("IO_EDEN") {
+            ErrorSourceArea::Eden
+        } else if tag_name.starts_with("RE") {
+            ErrorSourceArea::Re
+        } else if tag_name.starts_with("WATCHMAN") {
+            ErrorSourceArea::Watchman
+        } else if *self == crate::ErrorTag::Tpx || *self == crate::ErrorTag::TestExecutor {
+            ErrorSourceArea::TestExecutor
+        } else if tag_name.starts_with("INSTALLER") {
+            ErrorSourceArea::Installer
+        } else {
+            ErrorSourceArea::Buck2
+        }
+    }
+}
+
 /// Ordering determines tag rank, more interesting tags first
-pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
+fn tag_metadata(tag: ErrorTag) -> TagMetadata {
     match tag {
         // Environment errors
         ErrorTag::NoValidCerts => rank!(environment),
@@ -64,28 +143,31 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::ServerStderrEmpty => rank!(environment),
         // Note: This is only true internally due to buckwrapper
         ErrorTag::NoBuckRoot => rank!(environment),
-        ErrorTag::InstallerEnvironment => rank!(environment),
+        ErrorTag::InstallerEnvironment => rank!(environment).hidden(),
         ErrorTag::IoNotConnected => rank!(environment), // This typically means eden is not mounted
+        // Typically due to poor network performance and large artifacts.
+        ErrorTag::ReDeadlineExceeded => rank!(environment),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),
         ErrorTag::ServerStackOverflow => rank!(tier0),
         ErrorTag::ServerPanicked => rank!(tier0),
         ErrorTag::ServerSegv => rank!(tier0),
+        ErrorTag::ServerSigbus => rank!(tier0),
+        ErrorTag::ServerSigabrt => rank!(tier0),
         ErrorTag::ServerStderrUnknown => rank!(tier0),
         ErrorTag::InternalError => rank!(tier0),
         ErrorTag::DaemonWontDieFromKill => rank!(tier0),
         ErrorTag::GrpcResponseMessageTooLarge => rank!(tier0),
+        ErrorTag::ReClientCrash => rank!(tier0),
         ErrorTag::ReUnknownTcode => rank!(tier0),
         ErrorTag::ReCancelled => rank!(tier0),
         ErrorTag::ReUnknown => rank!(tier0),
         ErrorTag::ReInvalidArgument => rank!(tier0),
-        ErrorTag::ReDeadlineExceeded => rank!(tier0),
         ErrorTag::ReNotFound => rank!(tier0),
         ErrorTag::ReAlreadyExists => rank!(tier0),
         ErrorTag::RePermissionDenied => rank!(tier0),
         ErrorTag::ReResourceExhausted => rank!(tier0),
-        ErrorTag::ReFailedPrecondition => rank!(tier0),
         ErrorTag::ReAborted => rank!(tier0),
         ErrorTag::ReOutOfRange => rank!(tier0),
         ErrorTag::ReUnimplemented => rank!(tier0),
@@ -98,9 +180,101 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::ReCasArtifactGetDigestExpirationError => rank!(tier0),
         ErrorTag::ReCasArtifactInvalidExpiration => rank!(tier0),
 
+        ErrorTag::Clap => rank!(tier0),
+        ErrorTag::Hex => rank!(tier0),
+        ErrorTag::Hyper => rank!(tier0),
+        ErrorTag::Nix => rank!(tier0),
+        ErrorTag::Prost => rank!(tier0),
+        ErrorTag::Regex => rank!(tier0),
+        ErrorTag::RelativePath => rank!(tier0),
+        ErrorTag::Rusqlite => rank!(tier0),
+        ErrorTag::Tokio => rank!(tier0),
+        ErrorTag::Tonic => rank!(tier0),
+        ErrorTag::Uuid => rank!(tier0),
+        ErrorTag::SerdeJson => rank!(tier0),
+        ErrorTag::StdSlice => rank!(tier0),
+        ErrorTag::StdTime => rank!(tier0),
+        ErrorTag::StdInfallible => rank!(tier0),
+        ErrorTag::StdStripPrefix => rank!(tier0),
+        ErrorTag::ParseNum => rank!(tier0),
+        ErrorTag::ParseBool => rank!(tier0),
+        ErrorTag::IntConversion => rank!(tier0),
+        ErrorTag::StringUtf8 => rank!(tier0),
+        ErrorTag::StringConversion => rank!(tier0),
+        ErrorTag::CstringNul => rank!(tier0),
+
+        ErrorTag::CacheUploadFailed => rank!(tier0),
+        ErrorTag::InstallIdMismatch => rank!(tier0),
+        ErrorTag::SymlinkParentMissing => rank!(tier0),
+
+        ErrorTag::WorkerInit => rank!(tier0),
+        ErrorTag::WorkerDirectoryExists => rank!(tier0),
+        ErrorTag::WorkerCancelled => rank!(tier0),
+
+        ErrorTag::DispatcherUnavailable => rank!(tier0),
+        ErrorTag::DaemonStatus => rank!(tier0),
+        ErrorTag::DaemonRedirect => rank!(tier0),
+        ErrorTag::ReExperimentName => rank!(tier0),
+        ErrorTag::CsvParse => rank!(tier0),
+        ErrorTag::CasBlobCountMismatch => rank!(tier0),
+        ErrorTag::DownloadSizeMismatch => rank!(tier0),
+
+        ErrorTag::DigestTtlMismatch => rank!(tier0),
+        ErrorTag::DigestTtlInvalidResponse => rank!(tier0),
+
+        ErrorTag::Bxl => rank!(tier0),
+        ErrorTag::Certs => rank!(tier0),
+        ErrorTag::LogCmd => rank!(tier0),
+        ErrorTag::HealthCheck => rank!(tier0),
+        ErrorTag::OfflineArchive => rank!(tier0),
+        ErrorTag::Profile => rank!(tier0),
+        ErrorTag::Lsp => rank!(tier0),
+        ErrorTag::CleanStale => rank!(tier0),
+        ErrorTag::Explain => rank!(tier0),
+        ErrorTag::Interpreter => rank!(tier0),
+        ErrorTag::StarlarkServer => rank!(tier0),
+        ErrorTag::KillAll => rank!(tier0),
+
+        ErrorTag::InvalidEvent => rank!(tier0),
+        ErrorTag::InvalidDigest => rank!(tier0),
+        ErrorTag::InvalidDuration => rank!(tier0),
+        ErrorTag::InvalidAuthToken => rank!(tier0),
+        ErrorTag::InvalidUsername => rank!(tier0),
+        ErrorTag::InvalidAbsPath => rank!(tier0),
+        ErrorTag::InvalidBuckOutPath => rank!(tier0),
+        ErrorTag::InvalidErrorReport => rank!(tier0),
+
+        ErrorTag::WindowsUnsupported => rank!(tier0),
+
+        ErrorTag::LocalResourceSetup => rank!(tier0),
+        ErrorTag::TestOrchestrator => rank!(tier0),
+        ErrorTag::TestStatusInvalid => rank!(tier0),
+        ErrorTag::TestStatus => rank!(tier0),
+
+        ErrorTag::CleanOutputs => rank!(tier0),
+        ErrorTag::Sapling => rank!(tier0),
+        ErrorTag::CrashRequested => rank!(tier0),
+        ErrorTag::CpuStats => rank!(tier0),
+        ErrorTag::FailedToKill => rank!(tier0),
+        ErrorTag::CopyOutputs => rank!(tier0),
+        ErrorTag::LogFilter => rank!(tier0),
+        ErrorTag::TestOnly => rank!(tier0),
+
+        ErrorTag::EventLogUpload => rank!(tier0),
+        ErrorTag::EventLog => rank!(tier0),
+
+        ErrorTag::MallocStats => rank!(tier0),
+        ErrorTag::Mallctl => rank!(tier0),
+
+        ErrorTag::SuperConsole => rank!(tier0),
+        ErrorTag::SuperConsoleInvalidWhitespace => rank!(tier0),
+
         ErrorTag::IoConnectionAborted => rank!(tier0),
         ErrorTag::IoTimeout => rank!(tier0),
         ErrorTag::IoEdenMountNotReady => rank!(tier0),
+        ErrorTag::IoEdenConfigError => rank!(tier0),
+        ErrorTag::IoEdenVersionError => rank!(tier0),
+        ErrorTag::IoEdenThriftError => rank!(tier0),
         // TODO(minglunli): Check how often Win32 Errors are actually hit, potentially do the same as POSIX
         ErrorTag::IoEdenWin32Error => rank!(tier0),
         ErrorTag::IoEdenHresultError => rank!(tier0),
@@ -109,6 +283,9 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::IoEdenMountGenerationChanged => rank!(tier0),
         ErrorTag::IoEdenJournalTruncated => rank!(tier0),
         ErrorTag::IoEdenOutOfDateParent => rank!(tier0),
+        ErrorTag::IoEdenListMounts => rank!(tier0),
+        ErrorTag::IoBlockingExecutor => rank!(tier0),
+        ErrorTag::WatchmanClient => rank!(tier0),
         ErrorTag::WatchmanTimeout => rank!(tier0),
         ErrorTag::WatchmanConnectionError => rank!(tier0),
         ErrorTag::WatchmanConnectionLost => rank!(tier0),
@@ -120,6 +297,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::WatchmanSerialize => rank!(tier0),
         ErrorTag::WatchmanConnect => rank!(tier0),
         ErrorTag::WatchmanRequestError => rank!(tier0),
+        ErrorTag::NotifyWatcher => rank!(tier0),
         ErrorTag::HttpServer => rank!(tier0),
         ErrorTag::StarlarkInternal => rank!(tier0),
         ErrorTag::ActionMismatchedOutputs => rank!(tier0),
@@ -130,12 +308,13 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::DiceUnexpectedCycleGuardType => rank!(tier0),
         ErrorTag::DiceDuplicateActivationData => rank!(tier0),
         ErrorTag::InstallerUnknown => rank!(tier0),
-        ErrorTag::InstallerTier0 => rank!(tier0),
+        ErrorTag::InstallerTier0 => rank!(tier0).hidden(),
 
-        ErrorTag::Environment => rank!(environment),
-        ErrorTag::Tier0 => rank!(tier0),
+        ErrorTag::Environment => rank!(environment).hidden(),
+        ErrorTag::Tier0 => rank!(tier0).hidden(),
 
         // Input errors
+        ErrorTag::ReFailedPrecondition => rank!(input),
         // FIXME(JakobDegen): Make this bad experience once that's available. Usually when this
         // happens, it's probably because the user tried to shut down with Ctrl+C and something
         // about that didn't work
@@ -144,12 +323,14 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::DaemonPreempted => rank!(input),
         ErrorTag::ConfigureAttr => rank!(input),
         ErrorTag::DepOnlyIncompatible => rank!(input),
+        ErrorTag::TargetIncompatible => rank!(input),
         ErrorTag::IoEdenCheckoutInProgress => rank!(input), // User switching branches during Eden operation
         ErrorTag::IoExecutableFileBusy => rank!(input),
         ErrorTag::IoStorageFull => rank!(input),
         ErrorTag::IoPermissionDenied => rank!(input),
         ErrorTag::IoEdenMountDoesNotExist => rank!(input),
         ErrorTag::IoEdenFileNotFound => rank!(input), // user likely specified non-existing path
+        ErrorTag::MissingTarget => rank!(input),
         ErrorTag::ActionMissingOutputs => rank!(input),
         ErrorTag::ActionWrongOutputType => rank!(input),
         ErrorTag::ActionCommandFailure => rank!(input),
@@ -165,23 +346,25 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::HttpClient => rank!(input),
         ErrorTag::TestDeadlineExpired => rank!(input),
         ErrorTag::Unimplemented => rank!(input),
-        ErrorTag::InstallerInput => rank!(input),
+        ErrorTag::InstallerInput => rank!(input).hidden(),
         ErrorTag::BuildDeadlineExpired => rank!(input),
 
-        ErrorTag::Input => rank!(input),
+        ErrorTag::Input => rank!(input).hidden(),
 
-        // Generic tags, these can represent:
+        // Tags with unspecified category, these can represent:
         // - Tags not specific enough to determine infra vs user categorization.
         // - Tags not specific enough to usefully disambiguate category keys.
         // - Something that isn't actually an error.
         // - A phase of the build.
+        // By default these are generic (excluded from category keys)
         ErrorTag::ClientGrpc => rank!(unspecified),
+        ErrorTag::CompatibilityError => rank!(unspecified),
         ErrorTag::IoBrokenPipe => rank!(unspecified),
         ErrorTag::IoWindowsSharingViolation => rank!(unspecified),
         ErrorTag::IoNotFound => rank!(unspecified),
         ErrorTag::IoSource => rank!(unspecified),
         ErrorTag::IoSystem => rank!(unspecified),
-        ErrorTag::IoEden => rank!(unspecified),
+        ErrorTag::IoEden => rank!(unspecified).generic(false),
         ErrorTag::IoEdenConnectionError => rank!(unspecified),
         ErrorTag::IoEdenRequestError => rank!(unspecified),
         ErrorTag::IoEdenUnknownField => rank!(unspecified),
@@ -205,23 +388,13 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
 
 /// Errors can be categorized by tags only if they have any non-generic tags.
 pub fn tag_is_generic(tag: &ErrorTag) -> bool {
-    if tag_is_hidden(tag) {
-        return true;
-    }
-    category_and_rank(*tag).0.is_none()
+    let metadata = tag_metadata(*tag);
+    metadata.generic || metadata.hidden
 }
 
 /// Hidden tags only used internally, for categorization.
 pub fn tag_is_hidden(tag: &ErrorTag) -> bool {
-    match tag {
-        ErrorTag::Tier0 => true,
-        ErrorTag::Input => true,
-        ErrorTag::Environment => true,
-        ErrorTag::InstallerTier0 => true,
-        ErrorTag::InstallerInput => true,
-        ErrorTag::InstallerEnvironment => true,
-        _ => false,
-    }
+    tag_metadata(*tag).hidden
 }
 
 pub trait ErrorLike {
@@ -247,7 +420,7 @@ impl ErrorLike for buck2_data::ErrorReport {
 
     fn category(&self) -> Tier {
         self.best_tag()
-            .map(|t| category_and_rank(t).0)
+            .map(|t| tag_metadata(t).category)
             .flatten()
             .unwrap_or(Tier::Tier0)
     }
@@ -267,42 +440,26 @@ pub fn best_tag(tags: impl IntoIterator<Item = ErrorTag>) -> Option<ErrorTag> {
 
 /// Tag rank: smaller is more interesting.
 fn tag_rank(tag: ErrorTag) -> u32 {
-    category_and_rank(tag).1
+    tag_metadata(tag).rank
 }
 
 /// Some tags are known to be either infrastructure or user errors.
 pub(crate) fn error_tag_category(tag: ErrorTag) -> Option<Tier> {
-    category_and_rank(tag).0
+    tag_metadata(tag).category
 }
 
-#[derive(derive_more::Display, Debug, PartialEq)]
-pub enum ErrorSourceArea {
-    Buck2,
-    Eden,
-    Re,
-    Watchman,
-    Starlark,
-    TestExecutor,
-    Installer,
-}
-
-pub fn source_area(tag: ErrorTag) -> ErrorSourceArea {
-    let tag_name = tag.as_str_name();
-    if tag_name.starts_with("IO_EDEN") {
-        ErrorSourceArea::Eden
-    } else if tag_name.starts_with("RE") {
-        ErrorSourceArea::Re
-    } else if tag_name.starts_with("WATCHMAN") {
-        ErrorSourceArea::Watchman
-    } else if tag_name.starts_with("STARLARK") {
-        ErrorSourceArea::Starlark
-    } else if tag == crate::ErrorTag::Tpx || tag == crate::ErrorTag::TestExecutor {
-        ErrorSourceArea::TestExecutor
-    } else if tag_name.starts_with("INSTALLER") {
-        ErrorSourceArea::Installer
-    } else {
-        ErrorSourceArea::Buck2
-    }
+// Buck2 is the fallback/default source area, use the first non-buck2 source area.
+pub fn source_area(tags: impl IntoIterator<Item = ErrorTag>) -> ErrorSourceArea {
+    tags.into_iter()
+        .find_map(|tag| {
+            let area = tag.source_area();
+            if area != ErrorSourceArea::Buck2 {
+                Some(area)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(ErrorSourceArea::Buck2)
 }
 
 #[cfg(test)]
@@ -398,20 +555,20 @@ mod tests {
     #[test]
     fn test_source_area() {
         assert_eq!(
-            source_area(ErrorTag::ServerStderrEmpty),
+            ErrorTag::ServerStderrEmpty.source_area(),
             ErrorSourceArea::Buck2
         );
-        assert_eq!(source_area(ErrorTag::ReAborted), ErrorSourceArea::Re);
+        assert_eq!(ErrorTag::ReAborted.source_area(), ErrorSourceArea::Re);
         assert_eq!(
-            source_area(ErrorTag::WatchmanConnect),
+            ErrorTag::WatchmanConnect.source_area(),
             ErrorSourceArea::Watchman
         );
         assert_eq!(
-            source_area(ErrorTag::IoEdenArgumentError),
+            ErrorTag::IoEdenArgumentError.source_area(),
             ErrorSourceArea::Eden
         );
         assert_eq!(
-            source_area(ErrorTag::TestExecutor),
+            ErrorTag::TestExecutor.source_area(),
             ErrorSourceArea::TestExecutor
         );
     }

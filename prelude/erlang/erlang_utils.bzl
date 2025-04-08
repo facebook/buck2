@@ -36,17 +36,9 @@ def app_file(ctx: AnalysisContext) -> str:
 def beam_dir(ctx: AnalysisContext) -> str:
     return paths.join(ctx.attrs.name, "ebin")
 
-def beam_path(ctx: AnalysisContext, src: Artifact) -> str:
-    return paths.join(beam_dir(ctx), paths.replace_extension(src.basename, ".beam"))
-
-def linktree() -> str:
-    return "linktree"
-
 build_paths = struct(
     app_file = app_file,
     beam_dir = beam_dir,
-    beam_path = beam_path,
-    linktree = linktree,
 )
 
 def convert(data: typing.Any, ignore_artifacts: bool = False) -> cmd_args:

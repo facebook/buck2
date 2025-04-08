@@ -38,7 +38,7 @@ pub(crate) enum SaplingGetStatusResult {
 #[derive(Allocative, Clone)]
 pub(crate) struct MergebaseDetails {
     pub mergebase: String,
-    pub timestamp: u64,
+    pub timestamp: Option<u64>,
     pub global_rev: Option<u64>,
 }
 
@@ -53,7 +53,7 @@ pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
     commit: C,
     mergegase_with: M,
 ) -> buck2_error::Result<Option<MergebaseDetails>> {
-    let output = async_background_command("sl")
+    let output = async_background_command("hg")
         .current_dir(current_dir)
         .env("HGPLAIN", "1")
         .args([
@@ -70,7 +70,7 @@ pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
 
     if !output.status.success() || !output.stderr.is_empty() {
         buck2_error!(
-            buck2_error::ErrorTag::Tier0,
+            buck2_error::ErrorTag::Sapling,
             "Failed to obtain mergebase:\n{}",
             String::from_utf8(output.stderr)
                 .buck_error_context("Failed to stderr reported by get_mergebase.")?
@@ -81,7 +81,7 @@ pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
 }
 
 fn parse_log_output(output: Vec<u8>) -> buck2_error::Result<Option<MergebaseDetails>> {
-    let output = String::from_utf8(output).buck_error_context("Failed to parse sl log output")?;
+    let output = String::from_utf8(output).buck_error_context("Failed to parse hg log output")?;
     if output.is_empty() {
         return Ok(None);
     }
@@ -92,9 +92,8 @@ fn parse_log_output(output: Vec<u8>) -> buck2_error::Result<Option<MergebaseDeta
         .to_string();
     let timestamp = v
         .get(1)
-        .buck_error_context("Failed to parse mergebase timestamp")?
-        .parse::<f64>() // hg returns the fractional seconds
-        .buck_error_context("Failed to parse mergebase timestamp")? as u64;
+        .and_then(|t| t.parse::<f64>().ok())
+        .map(|t| t as u64); // hg returns the fractional seconds
     let global_rev = if let Some(global_rev) = v.get(2) {
         Some(
             global_rev
@@ -127,7 +126,7 @@ pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
         args.push(second.as_ref());
     }
 
-    let mut output = async_background_command("sl")
+    let mut output = async_background_command("hg")
         .current_dir(current_dir)
         .args(args.as_slice())
         .stdout(Stdio::piped())
@@ -136,8 +135,8 @@ pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
 
     let stdout = output.stdout.take().ok_or_else(|| {
         buck2_error!(
-            buck2_error::ErrorTag::Tier0,
-            "Failed to read stdout when invoking 'sl status'."
+            buck2_error::ErrorTag::Sapling,
+            "Failed to read stdout when invoking 'hg status'."
         )
     })?;
     let reader = BufReader::new(stdout);
@@ -190,7 +189,7 @@ fn process_one_status_line(line: &str) -> buck2_error::Result<Option<(SaplingSta
         })
     } else {
         Err(buck2_error!(
-            buck2_error::ErrorTag::Tier0,
+            buck2_error::ErrorTag::Sapling,
             "Invalid status line: {line}"
         ))
     }
@@ -201,7 +200,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_sl_status_line() -> buck2_error::Result<()> {
+    fn test_hg_status_line() -> buck2_error::Result<()> {
         assert_eq!(
             process_one_status_line("M buck2/app/buck2_file_watcher/src/edenfs/sapling.rs")?,
             Some((
@@ -306,7 +305,7 @@ mod tests {
             details.mergebase,
             "71de423b796418e8ff5300dbe9bd9ad3aef63a9c"
         );
-        assert_eq!(details.timestamp, 1739790802);
+        assert_eq!(details.timestamp, Some(1739790802));
         assert_eq!(details.global_rev, Some(1020164040));
         Ok(())
     }
@@ -321,7 +320,7 @@ mod tests {
             "71de423b796418e8ff5300dbe9bd9ad3aef63a9c"
         );
         assert_eq!(details.global_rev, None);
-        assert_eq!(details.timestamp, 1739790802);
+        assert_eq!(details.timestamp, Some(1739790802));
         Ok(())
     }
 }

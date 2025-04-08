@@ -11,7 +11,6 @@ use std::fmt;
 use std::fmt::Debug;
 
 use buck2_common::file_ops::FileDigest;
-use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_error::BuckErrorContext;
 use futures::future;
 use remote_execution::InlinedBlobWithDigest;
@@ -79,7 +78,6 @@ impl ReStdStream {
     pub(crate) async fn to_lossy(
         &self,
         client: &ManagedRemoteExecutionClient,
-        use_case: RemoteExecutorUseCase,
         digest_config: DigestConfig,
     ) -> String {
         // 4MBs seems like a reasonably large volume of output. There is no research or science behind
@@ -89,7 +87,7 @@ impl ReStdStream {
         match self {
             Self::Raw(raw) => String::from_utf8_lossy(raw).into_owned(),
             Self::Digest(digest) if digest.size_in_bytes <= MAX_STREAM_DOWNLOAD_SIZE => {
-                match client.download_blob(digest, use_case).await {
+                match client.download_blob(digest).await {
                     Ok(bytes) => String::from_utf8_lossy(&bytes).to_string(),
                     Err(e) => {
                         tracing::warn!("Failed to download action stderr: {:#}", e);
@@ -114,14 +112,13 @@ impl ReStdStream {
     pub(crate) async fn into_bytes(
         self,
         client: &ManagedRemoteExecutionClient,
-        use_case: RemoteExecutorUseCase,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<Vec<u8>> {
         match self {
             Self::Raw(raw) => Ok(raw),
             Self::Digest(digest) | Self::PrefetchedLossy { digest, .. } => {
                 let bytes = client
-                    .download_blob(&digest, use_case)
+                    .download_blob(&digest)
                     .await
                     .with_buck_error_context(|| {
                         format!(
@@ -139,11 +136,10 @@ impl ReStdStream {
     pub(crate) async fn prefetch_lossy(
         &mut self,
         client: &ManagedRemoteExecutionClient,
-        use_case: RemoteExecutorUseCase,
         digest_config: DigestConfig,
     ) {
         if let Self::Digest(digest) = &self {
-            let data = self.to_lossy(client, use_case, digest_config).await;
+            let data = self.to_lossy(client, digest_config).await;
             *self = Self::PrefetchedLossy {
                 data,
                 digest: digest.clone(),
@@ -239,14 +235,13 @@ impl CommandStdStreams {
     pub async fn into_re(
         self,
         client: &ManagedRemoteExecutionClient,
-        use_case: RemoteExecutorUseCase,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<StdStreamPair<ReStdStream>> {
         match self {
             Self::Local { stdout, stderr } => {
                 let (stdout, stderr) = future::try_join(
-                    maybe_upload_to_re(client, use_case, stdout, digest_config),
-                    maybe_upload_to_re(client, use_case, stderr, digest_config),
+                    maybe_upload_to_re(client, stdout, digest_config),
+                    maybe_upload_to_re(client, stderr, digest_config),
                 )
                 .await?;
 
@@ -256,12 +251,12 @@ impl CommandStdStreams {
                 // TODO (torozco): This assumes that the existing remote outputs we have have the
                 // same re use case as what we passed in. Lots of things make this assumption, but
                 // for the sake of being safe, check it.
-                if remote.use_case() != use_case {
+                if remote.use_case() != client.use_case {
                     return Err(buck2_error::buck2_error!(
                         buck2_error::ErrorTag::Input,
                         "Copying log outputs across RE use cases (from `{}` to `{}`) is not supported",
                         remote.use_case(),
-                        use_case
+                        client.use_case
                     ));
                 }
 
@@ -278,7 +273,6 @@ impl CommandStdStreams {
 
 async fn maybe_upload_to_re(
     client: &ManagedRemoteExecutionClient,
-    use_case: RemoteExecutorUseCase,
     bytes: Vec<u8>,
     digest_config: DigestConfig,
 ) -> buck2_error::Result<ReStdStream> {
@@ -291,6 +285,6 @@ async fn maybe_upload_to_re(
         blob: bytes,
         ..Default::default()
     };
-    let digest = client.upload_blob(inline_blob, use_case).await?;
+    let digest = client.upload_blob(inline_blob).await?;
     Ok(ReStdStream::Digest(digest))
 }

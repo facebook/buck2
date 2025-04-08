@@ -115,9 +115,11 @@ mod fbcode {
 
             Self::prepare_event(&mut proto);
 
+            // TODO T219761949: remove header byte
             // Add a header byte to indicate this is _not_ base64 encoding.
             let mut buf = Vec::with_capacity(proto.encoded_len() + 1);
             buf.push(b'!');
+
             let mut proto_bytes = proto.encode_to_vec();
             buf.append(&mut proto_bytes);
 
@@ -318,7 +320,7 @@ mod fbcode {
         }
     }
 
-    pub fn scribe_category() -> buck2_error::Result<String> {
+    pub(crate) fn scribe_category() -> buck2_error::Result<String> {
         const DEFAULT_SCRIBE_CATEGORY: &str = "buck2_events";
         // Note that both daemon and client are emitting events, and that changing this variable has
         // no effect on the daemon until buckd is restarted but has effect on the client.

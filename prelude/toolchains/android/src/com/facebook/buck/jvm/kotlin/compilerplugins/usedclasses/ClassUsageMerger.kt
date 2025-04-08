@@ -9,36 +9,32 @@
  * of this source tree.
  */
 
-package toolchains.android.src.com.facebook.buck.jvm.kotlin.compilerplugins.usedclasses
+package com.facebook.buck.jvm.kotlin.compilerplugins.usedclasses
 
 import java.nio.file.Path
 
 fun mergeClassUsageMaps(
-    prevClassUsageMap: Map<Path, Map<Path, Int>>,
-    currentClassUsageMap: Map<Path, Map<Path, Int>>
-): Map<Path, Map<Path, Int>> {
-  if (prevClassUsageMap.isEmpty()) {
-    return currentClassUsageMap
+    prevClassUsages: Map<Path, Set<Path>>,
+    currentClassUsages: Map<Path, Set<Path>>
+): Map<Path, Set<Path>> {
+  if (prevClassUsages.isEmpty()) {
+    return currentClassUsages
   }
-  if (currentClassUsageMap.isEmpty()) {
-    return prevClassUsageMap
+  if (currentClassUsages.isEmpty()) {
+    return prevClassUsages
   }
 
-  val mergedClassUsageMap: MutableMap<Path, MutableMap<Path, Int>> =
-      HashMap(prevClassUsageMap.mapValues { (_, map) -> map.toMutableMap() })
+  val mergedClassUsageMap: MutableMap<Path, MutableSet<Path>> =
+      HashMap(prevClassUsages.mapValues { (_, set) -> set.toMutableSet() })
 
-  for ((jarPath, classPathMap) in currentClassUsageMap) {
+  for ((jarPath, classPathMap) in currentClassUsages) {
     if (!mergedClassUsageMap.containsKey(jarPath)) {
-      mergedClassUsageMap[jarPath] = classPathMap.toMutableMap()
+      mergedClassUsageMap[jarPath] = classPathMap.toMutableSet()
       continue
     }
 
-    val mergedClassPathMap = mergedClassUsageMap.getValue(jarPath)
-    for ((key, value) in classPathMap) {
-      if (!mergedClassPathMap.containsKey(key)) {
-        mergedClassPathMap[key] = value
-      }
-    }
+    val mergedClassPathEntry = mergedClassUsageMap.getValue(jarPath)
+    mergedClassPathEntry.addAll(classPathMap)
   }
 
   return mergedClassUsageMap

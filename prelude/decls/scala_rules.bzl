@@ -62,7 +62,10 @@ scala_test = prelude_rule(
             "annotation_processor_params": attrs.list(attrs.string(), default = []),
             "annotation_processors": attrs.list(attrs.string(), default = []),
             "contacts": attrs.list(attrs.string(), default = []),
-            "cxx_library_whitelist": attrs.list(attrs.dep(), default = []),
+            "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
+                List of cxx_library targets to build, if use_cxx_libraries is true.
+                This can be useful if some dependencies are Android-only and won't build for the test host platform.
+            """),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),

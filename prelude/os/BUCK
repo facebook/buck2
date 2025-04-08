@@ -56,9 +56,9 @@ prelude.constraint_value(
 # Rest of Apple's operating systems.
 
 config_setting(
-    name = "ios",
+    name = "iphoneos",
     constraint_values = [
-        "//os/constraints:ios",
+        "//os/constraints:iphoneos",
     ],
     visibility = ["PUBLIC"],
 )

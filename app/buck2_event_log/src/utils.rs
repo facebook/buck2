@@ -16,7 +16,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 #[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Tier0)]
+#[buck2(tag = EventLog)]
 pub(crate) enum EventLogErrors {
     #[error(
         "Trying to write to logfile that hasn't been opened yet - this is an internal error, please report. Unwritten event: {serialized_event}"

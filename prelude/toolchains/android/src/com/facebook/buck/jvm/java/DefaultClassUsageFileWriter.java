@@ -16,17 +16,18 @@ import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
 import com.facebook.buck.util.json.ObjectMappers;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Set;
 
 public class DefaultClassUsageFileWriter implements ClassUsageFileWriter {
-  public static final String ROOT_CELL_IDENTIFIER = "_";
 
   @Override
   public void writeFile(
-      ImmutableMap<Path, Map<Path, Integer>> classUsageMap,
+      ImmutableMap<Path, Set<Path>> classUsages,
       RelPath relativePath,
       AbsPath rootPath,
       RelPath configuredBuckOut) {
@@ -40,20 +41,17 @@ public class DefaultClassUsageFileWriter implements ClassUsageFileWriter {
 
       ObjectMappers.WRITER.writeValue(
           rootPath.resolve(relativePath).toFile(),
-          relativizeMap(classUsageMap, rootPath, configuredBuckOut));
+          relativizeMap(classUsages, rootPath, configuredBuckOut));
     } catch (IOException e) {
       throw new HumanReadableException(e, "Unable to write used classes file.");
     }
   }
 
-  protected static ImmutableSortedMap<Path, Map<Path, Integer>> relativizeMap(
-      ImmutableMap<Path, Map<Path, Integer>> classUsageMap,
-      AbsPath rootPath,
-      RelPath configuredBuckOut) {
-    ImmutableSortedMap.Builder<Path, Map<Path, Integer>> builder =
-        ImmutableSortedMap.naturalOrder();
+  protected static ImmutableSortedMap<Path, Set<Path>> relativizeMap(
+      ImmutableMap<Path, Set<Path>> classUsages, AbsPath rootPath, RelPath configuredBuckOut) {
+    ImmutableSortedMap.Builder<Path, Set<Path>> builder = ImmutableSortedMap.naturalOrder();
 
-    for (Map.Entry<Path, Map<Path, Integer>> jarClassesEntry : classUsageMap.entrySet()) {
+    for (Map.Entry<Path, Set<Path>> jarClassesEntry : classUsages.entrySet()) {
       Path jarAbsolutePath = jarClassesEntry.getKey();
       // Don't include jars that are outside of the project
       // Paths outside the project would make these class usage files problematic for caching.
@@ -67,7 +65,7 @@ public class DefaultClassUsageFileWriter implements ClassUsageFileWriter {
               rootPath, configuredBuckOut, jarAbsolutePath)
           .ifPresent(
               projectPath ->
-                  builder.put(projectPath, ImmutableSortedMap.copyOf(jarClassesEntry.getValue())));
+                  builder.put(projectPath, ImmutableSet.copyOf(jarClassesEntry.getValue())));
     }
 
     return builder.build();

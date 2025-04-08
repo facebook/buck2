@@ -84,7 +84,7 @@ impl<'v, V: ValueLike<'v>> Display for TransitiveSetArgsProjectionGen<V> {
             ")",
             iter_display_chain(
                 iter::once(projection_name),
-                iter::once(display_pair("transitive_set", "=", &self.transitive_set)),
+                iter::once(display_pair("TransitiveSet", "=", &self.transitive_set)),
             ),
         )
     }
@@ -182,6 +182,26 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
                     }
                 }
             }
+
+            fn add_to_action_inputs_hash(
+                &self,
+                hasher: &mut dyn std::hash::Hasher,
+            ) -> buck2_error::Result<bool> {
+                match self {
+                    Impl::Item(v) => v.add_to_action_inputs_hash(hasher),
+                    Impl::List(items) => {
+                        for v in *items {
+                            if !ValueAsCommandLineLike::unpack_value_err(*v)?
+                                .0
+                                .add_to_action_inputs_hash(hasher)?
+                            {
+                                return Ok(false);
+                            }
+                        }
+                        Ok(true)
+                    }
+                }
+            }
         }
 
         let value = v.to_value();
@@ -200,7 +220,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
 
 starlark_complex_value!(pub TransitiveSetArgsProjection);
 
-#[starlark_value(type = "transitive_set_args_projection")]
+#[starlark_value(type = "TransitiveSetArgsProjection")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetArgsProjectionGen<V>
 where
     Self: ProvidesStaticType<'v>,
@@ -273,6 +293,26 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
         // TODO(cjhopman): This seems wrong, there's no verification that the projected
         // values don't have write_to_file_macros in them.
         Ok(())
+    }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        let set = TransitiveSet::from_value(self.transitive_set.get().to_value())
+            .buck_error_context("Invalid transitive_set")?;
+
+        let projection_action_inputs_hash = set
+            .projection_action_inputs_hashes
+            .get(self.projection)
+            .buck_error_context("Invalid projection id")?;
+
+        if let Some(projection_action_inputs_hash) = projection_action_inputs_hash {
+            hasher.write_u64(*projection_action_inputs_hash);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }
 

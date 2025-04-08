@@ -18,6 +18,7 @@ import com.facebook.buck.android.IsolatedApkInfo;
 import com.facebook.buck.android.device.TargetDeviceOptions;
 import com.facebook.buck.android.exopackage.AndroidDeviceInfo;
 import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
+import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.installer.InstallId;
 import com.facebook.buck.installer.InstallResult;
@@ -88,6 +89,10 @@ class AndroidInstall {
             new PrintStream(ByteStreams.nullOutputStream()),
             new PrintStream(stderr),
             Ansi.withoutTty());
+    SetDebugAppMode setDebugAppMode = SetDebugAppMode.SET;
+    if (cliOptions.skipSetDebugApp) {
+      setDebugAppMode = SetDebugAppMode.SKIP;
+    }
     this.adbHelper =
         new AdbHelper(
             adbOptions,
@@ -101,7 +106,8 @@ class AndroidInstall {
             apkOptions.isZstdCompressionEnabled,
             apkOptions.agentPortBase,
             apkOptions.adbMaxRetries,
-            apkOptions.adbRetryDelayMs);
+            apkOptions.adbRetryDelayMs,
+            setDebugAppMode);
   }
 
   /** Uses AdbHelper to do actual install with APK */

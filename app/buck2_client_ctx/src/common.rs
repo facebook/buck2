@@ -145,6 +145,17 @@ impl CommonEventLogOptions {
         };
         &DEFAULT
     }
+
+    pub fn no_event_log_ref() -> &'static Self {
+        static NO_EVENT_LOG: CommonEventLogOptions = CommonEventLogOptions {
+            event_log: None,
+            no_event_log: true,
+            write_build_id: None,
+            command_report_path: None,
+            unstable_write_invocation_record: None,
+        };
+        &NO_EVENT_LOG
+    }
 }
 
 /// Defines options for config and configuration related things. Any command that involves the build

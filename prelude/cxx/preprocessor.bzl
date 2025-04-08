@@ -50,6 +50,7 @@ HeaderUnit = record(
     module = field(Artifact),
     include_dir = field(Artifact),
     import_include = field(str | None),
+    clang_trace = field(Artifact | None),
 )
 
 # Note: Any generic attributes are assumed to be relative.

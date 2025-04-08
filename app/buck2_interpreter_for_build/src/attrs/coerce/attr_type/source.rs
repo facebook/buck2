@@ -12,11 +12,9 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::typing::Ty;
-use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
 
 #[derive(Debug, buck2_error::Error)]
@@ -42,9 +40,7 @@ impl AttrTypeCoerce for SourceAttrType {
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> buck2_error::Result<CoercedAttr> {
-        let source_label = value
-            .unpack_str()
-            .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
+        let source_label = value.unpack_str_err()?;
 
         let label_err = if source_label.contains(':') {
             match ctx.coerce_providers_label(source_label) {

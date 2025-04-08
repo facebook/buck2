@@ -43,7 +43,7 @@ pub fn host_cpu_usage() -> buck2_error::Result<HostCpuUsage> {
         });
     }
     Err(buck2_error!(
-        buck2_error::ErrorTag::Tier0,
+        buck2_error::ErrorTag::CpuStats,
         "Failed to get CPU stats from /proc/stat"
     ))
 }

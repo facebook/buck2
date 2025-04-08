@@ -47,7 +47,6 @@ class BaseJarCommand(
     val buildTargetValue: BuildTargetValue,
     val buckOut: RelPath,
     val pathToClasses: RelPath?,
-    val rootOutput: RelPath?,
     val annotationPath: RelPath?
 ) {
 
@@ -71,7 +70,6 @@ class BaseJarCommand(
           BuildTargetValueSerializer.deserialize(model.buildTargetValue),
           RelPathSerializer.deserialize(model.configuredBuckOut),
           RelPathSerializer.deserialize(model.pathToClasses),
-          RelPathSerializer.deserialize(model.rootOutput),
           RelPathSerializer.deserialize(model.annotationsPath))
     }
   }

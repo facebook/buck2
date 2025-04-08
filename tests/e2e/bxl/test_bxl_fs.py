@@ -16,7 +16,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False, data_dir="bxl/simple", allow_soft_errors=True)
 async def test_bxl_fs_exists(buck: Buck) -> None:
     await buck.bxl("//bxl:fs.bxl:exists", "--", "--root_path", str(buck.cwd))
 
@@ -30,7 +30,7 @@ async def test_bxl_fs_exists_symlink(buck: Buck) -> None:
     await buck.bxl("//bxl:fs.bxl:exists_symlink")
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False, data_dir="bxl/simple", allow_soft_errors=True)
 async def test_bxl_fs_list(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:fs.bxl:list_relative_path",
@@ -89,17 +89,22 @@ async def test_bxl_fs_list(buck: Buck) -> None:
     assert output["//bin"] == expected_output
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False, data_dir="bxl/simple", allow_soft_errors=True)
 async def test_bxl_fs_is_file(buck: Buck) -> None:
     await buck.bxl("//bxl:fs.bxl:is_file", "--", "--root_path", str(buck.cwd))
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False, data_dir="bxl/simple", allow_soft_errors=True)
 async def test_bxl_fs_is_dir(buck: Buck) -> None:
     await buck.bxl("//bxl:fs.bxl:is_dir", "--", "--root_path", str(buck.cwd))
 
 
-@buck_test(inplace=False, data_dir="bxl/simple", skip_for_os=["windows"])
+@buck_test(
+    inplace=False,
+    data_dir="bxl/simple",
+    skip_for_os=["windows"],
+    allow_soft_errors=True,
+)
 async def test_bxl_fs_project_rel_path(buck: Buck) -> None:
     result = await buck.bxl("//bxl:fs.bxl:project_rel_path")
 
@@ -109,7 +114,12 @@ async def test_bxl_fs_project_rel_path(buck: Buck) -> None:
     ]
 
 
-@buck_test(inplace=False, data_dir="bxl/simple", skip_for_os=["windows"])
+@buck_test(
+    inplace=False,
+    data_dir="bxl/simple",
+    skip_for_os=["windows"],
+    allow_soft_errors=True,
+)
 async def test_bxl_fs_abs_path_unsafe(buck: Buck) -> None:
     result = await buck.bxl("//bxl:fs.bxl:abs_path_unsafe")
 
@@ -137,6 +147,11 @@ async def test_bxl_fs_source(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="bxl/simple", skip_for_os=["windows"])
+@buck_test(
+    inplace=False,
+    data_dir="bxl/simple",
+    skip_for_os=["windows"],
+    allow_soft_errors=True,
+)
 async def test_bxl_file_set_ops(buck: Buck) -> None:
     await buck.bxl("//bxl/fs.bxl:file_set_operations")

@@ -305,7 +305,10 @@ async def test_cas_artifact(buck: Buck) -> None:
         buckconfig.write("[buck2]\n")
         buckconfig.write("digest_algorithms = BLAKE3-KEYED,SHA1\n")
 
-    result = await buck.build("//cas_artifact:")
+    # Setting a use case override to test that it is not used.
+    result = await buck.build(
+        "//cas_artifact:", "-c", "buck2_re_client.override_use_case=missing_usecase"
+    )
 
     empty = result.get_build_report().output_for_target("//cas_artifact:empty")
     assert empty.read_text() == ""

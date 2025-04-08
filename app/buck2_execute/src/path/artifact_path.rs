@@ -100,6 +100,37 @@ impl<'a> ArtifactPath<'a> {
 
         Ok(base_path.join(projected_path))
     }
+
+    /// For build artifacts, if the artifact has an action inputs hash, use that
+    /// along with the path itself. Otherwise, we can't add one.
+    /// For source artifacts, we just add the path.
+    pub fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        let ArtifactPath {
+            base_path,
+            projected_path: _,
+            hidden_components_count: _,
+        } = self;
+
+        match base_path {
+            Either::Left(build) => {
+                let action_inputs_hash = build.action_inputs_hash();
+                if let Some(action_inputs_hash) = action_inputs_hash {
+                    hasher.write(action_inputs_hash.as_bytes());
+                    hasher.write(build.path().as_str().as_bytes());
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            }
+            Either::Right(source) => {
+                hasher.write(source.path().as_str().as_bytes());
+                Ok(true)
+            }
+        }
+    }
 }
 
 impl fmt::Display for ArtifactPath<'_> {

@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_error::conversion::from_any_with_tag;
 use buck2_health_check::report::DisplayReport;
 use crossterm::style::Color;
 use crossterm::style::Stylize;
@@ -39,10 +38,7 @@ fn warning_styled(text: &str) -> buck2_error::Result<Line> {
     };
     Ok(Line::from_iter([Span::new_styled(
         text.to_owned().with(orange),
-    )
-    .map_err(|e| {
-        from_any_with_tag(e, buck2_error::ErrorTag::Tier0)
-    })?]))
+    )?]))
 }
 
 impl<'a> Component for SystemWarningComponent<'a> {
@@ -63,7 +59,7 @@ impl<'a> Component for SystemWarningComponent<'a> {
         }
         if let Some(reports) = self.health_check_reports {
             for report in reports {
-                if let Some(warning) = &report.warning {
+                if let Some(warning) = &report.health_issue {
                     lines.push(warning_styled(&warning.to_string())?);
                 }
             }

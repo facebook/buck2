@@ -77,7 +77,7 @@ pub struct TransitiveSetTraversalGen<V: ValueLifetimeless> {
 
 starlark_complex_value!(pub TransitiveSetTraversal);
 
-#[starlark_value(type = "transitive_set_iterator")]
+#[starlark_value(type = "TransitiveSetIterator")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetTraversalGen<V>
 where
     Self: ProvidesStaticType<'v>,
@@ -112,7 +112,7 @@ pub struct TransitiveSetProjectionTraversalGen<V: ValueLifetimeless> {
 
 starlark_complex_value!(pub TransitiveSetProjectionTraversal);
 
-#[starlark_value(type = "transitive_set_args_projection_iterator")]
+#[starlark_value(type = "TransitiveSetArgsProjectionIterator")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetProjectionTraversalGen<V>
 where
     Self: ProvidesStaticType<'v>,

@@ -28,7 +28,6 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_error::BuckErrorContext;
-use buck2_events::errors::create_error_report;
 use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
@@ -453,7 +452,7 @@ impl DaemonCommand {
         if let Err(err) = res.as_ref() {
             fs_util::write(
                 daemon_dir.buckd_error_log(),
-                serde_json::to_string(&create_error_report(err))?,
+                serde_json::to_string(&buck2_data::ErrorReport::from(err))?,
             )?;
         }
         res
@@ -477,7 +476,7 @@ impl DaemonCommand {
             let stderr_fd = libc::open_osfhandle(stderr.as_raw_handle() as isize, libc::O_RDWR);
             if stdout_fd == -1 || stderr_fd == -1 {
                 return Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    buck2_error::ErrorTag::DaemonRedirect,
                     "Can't get file descriptors for output files",
                 ));
             }
@@ -486,7 +485,7 @@ impl DaemonCommand {
             let stderr_exit_code = libc::dup2(stderr_fd, 2);
             if stdout_exit_code == -1 || stderr_exit_code == -1 {
                 return Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    buck2_error::ErrorTag::DaemonRedirect,
                     "Failed to redirect daemon output"
                 ));
             }
@@ -509,7 +508,7 @@ impl DaemonCommand {
     /// Restart current process in detached mode with '--dont-daemonize' flag.
     fn daemonize(_stdout: File, _stderr: File) -> buck2_error::Result<()> {
         Err(buck2_error::buck2_error!(
-            buck2_error::ErrorTag::Tier0,
+            buck2_error::ErrorTag::WindowsUnsupported,
             "Cannot daemonize on Windows"
         ))
     }

@@ -14,6 +14,7 @@ buck2_bundle(
     name = "buck2_bundle",
     buck2 = "//buck2:buck2",
     buck2_client = "//buck2/app/buck2:buck2_client-bin",
+    buck2_health_check = "//buck2/buck2_health_check_cli:buck2_health_check_cli",
     tpx = "//buck2/buck2_tpx_cli:buck2_tpx_cli",
     visibility = ["PUBLIC"],
 )

@@ -20,19 +20,19 @@ struct Aligned<Bytes: ?Sized> {
 
 #[cfg(rust_linkable_symbol_content_str)]
 #[used]
-#[export_name = env!("LINKABLE_SYMBOL")]
+#[unsafe(export_name = env!("LINKABLE_SYMBOL"))]
 pub static LINKABLE_SYMBOL: &str = include_str!("content");
 
 #[cfg(rust_linkable_symbol_content_bytes)]
 #[used]
-#[export_name = env!("LINKABLE_SYMBOL")]
+#[unsafe(export_name = env!("LINKABLE_SYMBOL"))]
 pub static LINKABLE_SYMBOL: &Aligned<[u8]> = &Aligned {
     bytes: *include_bytes!("content"),
 };
 
 #[cfg(rust_linkable_symbol_getter_str)]
 pub fn get() -> &'static str {
-    extern "Rust" {
+    unsafe extern "Rust" {
         #[link_name = env!("LINKABLE_SYMBOL")]
         static LINKABLE_SYMBOL: &'static str;
     }
@@ -41,7 +41,7 @@ pub fn get() -> &'static str {
 
 #[cfg(rust_linkable_symbol_getter_bytes)]
 pub fn get() -> &'static [u8] {
-    extern "Rust" {
+    unsafe extern "Rust" {
         #[link_name = env!("LINKABLE_SYMBOL")]
         static LINKABLE_SYMBOL: &'static Aligned<[u8]>;
     }

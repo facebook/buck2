@@ -1,4 +1,4 @@
-load("@prelude//toolchains/android/tools/build_rules:java_rules.bzl", "buck_java_library", "third_party_aar", "third_party_jar")
+load("@prelude//toolchains/android/tools/build_rules:java_rules.bzl", "buck_java_binary", "buck_java_library", "third_party_aar", "third_party_jar")
 
 oncall("android_devxx")
 
@@ -52,13 +52,13 @@ buck_java_library(
         ":sdklib",
     ],
     exported_deps = [
-        ":common",
+        ":android-common",
         ":sdk-common",
     ],
 )
 
 third_party_jar(
-    name = "common",
+    name = "android-common",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/android/tools/common:common",
     sha1 = "c3df7b51ee1a72acf051e0e5efbeb8023fb4ea57",
     url = "mvn:com.android.tools:common:jar:31.7.3",
@@ -90,7 +90,7 @@ third_party_jar(
     url = "mvn:com.android.tools.ddms:ddmlib:jar:31.7.3",
     visibility = ["PUBLIC"],
     deps = [
-        ":common",
+        ":android-common",
         ":guava",
         ":kxml2",
         ":protobuf",
@@ -811,6 +811,12 @@ third_party_jar(
     visibility = ["PUBLIC"],
 )
 
+alias(
+    name = "kotlin-compiler",
+    actual = ":kotlin-compiler-embeddable",
+    visibility = ["PUBLIC"],
+)
+
 third_party_jar(
     name = "trove",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/jetbrains/intellij/deps/trove4j:trove4j",
@@ -886,6 +892,22 @@ third_party_jar(
     sha1 = "2df03e8b2afdb98dda7b6b0753cd5d9b12b40031",
     url = "mvn:com.squareup:kotlinpoet-jvm:jar:1.16.0",
     visibility = ["PUBLIC"],
+)
+
+buck_java_binary(
+    name = "kotlin-compiler-binary",
+    main_class = "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":guava-jar",
+        ":kotlin-annotations",
+        ":kotlin-compiler-embeddable",
+        ":kotlin-reflect",
+        ":kotlin-script-runtime",
+        ":kotlin-stdlib",
+        ":kotlinx-coroutines-core-jvm",
+        ":trove",
+    ],
 )
 
 # ===   End: kotlin

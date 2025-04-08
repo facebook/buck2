@@ -35,13 +35,27 @@ pub(crate) fn classify_server_stderr(
         ErrorTag::ServerSegv
     } else if stderr.contains("Signal 15 (SIGTERM)") {
         ErrorTag::ServerSigterm
+    } else if stderr.contains("Signal 6 (SIGABRT)") {
+        ErrorTag::ServerSigabrt
+    } else if stderr.contains("(SIGBUS)") {
+        // Signal 7 or Signal 10 depending on OS
+        ErrorTag::ServerSigbus
     } else {
         ErrorTag::ServerStderrUnknown
     };
+    let mut tags = vec![tag];
 
     let error = if let Some(trace) = extract_trace(stderr) {
         if tag != ErrorTag::ServerSigterm {
-            error.context_for_key(&format!("crash({})", trace.trace_key()))
+            if trace
+                .stack_trace_lines
+                .iter()
+                .any(|line| line.contains("remote_execution"))
+            {
+                tags.push(ErrorTag::ReClientCrash);
+            }
+
+            error.string_tag(&format!("crash({})", trace.trace_key()))
         } else if let Some(signal_line) = trace.signal_line {
             // Keep this because the PID that (might have) sent it could be useful.
             // *** Signal 15 (SIGTERM) (0x2b08100000ab5) received by PID 1762297 (pthread TID 0x7f6650339640) (linux TID 1762297) (maybe from PID 2741, UID 176257) (code: 0), stack trace: ***
@@ -53,7 +67,7 @@ pub(crate) fn classify_server_stderr(
         error
     };
 
-    error.tag([tag])
+    error.tag(tags)
 }
 
 //    0: rust_begin_unwind

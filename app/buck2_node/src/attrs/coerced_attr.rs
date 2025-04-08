@@ -45,12 +45,12 @@ use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use crate::attrs::attr_type::dep::DepAttr;
-use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
 use crate::attrs::attr_type::dict::DictLiteral;
 use crate::attrs::attr_type::label::LabelAttrType;
 use crate::attrs::attr_type::list::ListLiteral;
 use crate::attrs::attr_type::query::QueryAttr;
 use crate::attrs::attr_type::string::StringLiteral;
+use crate::attrs::attr_type::transition_dep::CoercedTransitionDep;
 use crate::attrs::attr_type::tuple::TupleLiteral;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr_with_type::CoercedAttrWithType;
@@ -304,8 +304,9 @@ pub enum CoercedAttr {
     Visibility(VisibilitySpecification),
     WithinView(WithinViewSpecification),
     ExplicitConfiguredDep(Box<UnconfiguredExplicitConfiguredDep>),
+    TransitionDep(Box<CoercedTransitionDep>),
     SplitTransitionDep(ProvidersLabel),
-    ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
+    ConfiguredDepForForwardNode(Box<DepAttr<ConfiguredProvidersLabel>>),
     ConfigurationDep(ProvidersLabel),
     PluginDep(TargetLabel),
     Dep(ProvidersLabel),
@@ -350,7 +351,8 @@ impl AttrDisplayWithContext for CoercedAttr {
             CoercedAttr::WithinView(v) => Display::fmt(v, f),
             CoercedAttr::ExplicitConfiguredDep(e) => Display::fmt(e, f),
             CoercedAttr::SplitTransitionDep(e) => Display::fmt(e, f),
-            CoercedAttr::ConfiguredDep(e) => write!(f, "\"{}\"", e),
+            CoercedAttr::TransitionDep(e) => Display::fmt(e, f),
+            CoercedAttr::ConfiguredDepForForwardNode(e) => write!(f, "\"{}\"", e),
             CoercedAttr::ConfigurationDep(e) => write!(f, "\"{}\"", e),
             CoercedAttr::PluginDep(e) => write!(f, "\"{}\"", e),
             CoercedAttr::Dep(e) => write!(f, "\"{}\"", e),
@@ -398,7 +400,8 @@ impl CoercedAttr {
             CoercedAttr::WithinView(v) => Ok(v.to_json()),
             CoercedAttr::ExplicitConfiguredDep(e) => e.to_json(),
             CoercedAttr::SplitTransitionDep(e) => Ok(to_value(e.to_string())?),
-            CoercedAttr::ConfiguredDep(e) => Ok(to_value(e.to_string())?),
+            CoercedAttr::TransitionDep(e) => e.to_json(),
+            CoercedAttr::ConfiguredDepForForwardNode(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::ConfigurationDep(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::PluginDep(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::Dep(e) => Ok(to_value(e.to_string())?),
@@ -510,6 +513,7 @@ impl CoercedAttr {
             CoercedAttrWithType::SplitTransitionDep(dep, t) => {
                 traversal.split_transition_dep(dep, &t.transition)
             }
+            CoercedAttrWithType::TransitionDep(dep, t) => dep.traverse(traversal, t),
             CoercedAttrWithType::ConfiguredDep(dep) => traversal.dep(&dep.label.unconfigured()),
             CoercedAttrWithType::ConfigurationDep(dep, t) => traversal.configuration_dep(dep, t.0),
             CoercedAttrWithType::PluginDep(dep, t) => traversal.plugin_dep(dep, t.kind()),
@@ -715,6 +719,7 @@ impl CoercedAttr {
                 ExplicitConfiguredDepAttrType::configure(ctx, dep)?
             }
             CoercedAttrWithType::SplitTransitionDep(dep, t) => t.configure(dep, ctx)?,
+            CoercedAttrWithType::TransitionDep(dep, t) => t.configure(dep, ctx)?,
             CoercedAttrWithType::ConfiguredDep(dep) => ConfiguredAttr::Dep(Box::new(dep.clone())),
             CoercedAttrWithType::ConfigurationDep(dep, _) => {
                 ConfigurationDepAttrType::configure(ctx, dep)?
@@ -773,8 +778,9 @@ impl CoercedAttr {
             CoercedAttr::Visibility(v) => v.any_matches(filter),
             CoercedAttr::WithinView(v) => v.any_matches(filter),
             CoercedAttr::ExplicitConfiguredDep(e) => e.any_matches(filter),
+            CoercedAttr::TransitionDep(v) => v.any_matches(filter),
             CoercedAttr::SplitTransitionDep(e) => filter(&e.to_string()),
-            CoercedAttr::ConfiguredDep(e) => filter(&e.to_string()),
+            CoercedAttr::ConfiguredDepForForwardNode(e) => filter(&e.to_string()),
             CoercedAttr::ConfigurationDep(e) => filter(&e.to_string()),
             CoercedAttr::PluginDep(e) => filter(&e.to_string()),
             CoercedAttr::Dep(e) => filter(&e.to_string()),

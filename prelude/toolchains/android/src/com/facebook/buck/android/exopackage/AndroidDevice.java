@@ -72,4 +72,6 @@ public interface AndroidDevice {
   String getInstallerMethodName();
 
   default void fixRootDir(String rootDir) {}
+
+  boolean setDebugAppPackageName(String packageName) throws Exception;
 }

@@ -40,4 +40,12 @@ impl CommandLineArgLike for StarlarkCellPath {
     ) -> buck2_error::Result<()> {
         Ok(())
     }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        hasher.write(self.0.as_ref().path().as_str().as_bytes());
+        Ok(true)
+    }
 }

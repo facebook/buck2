@@ -12,6 +12,7 @@ _APPLE_STDERR_ERROR_CATEGORIES = [
     #codesigning issues
     AppleErrorCategories(string_match = "codesignprovisioningerror", categories = ["apple_code_sign_error", "code_sign_provisioning_error"]),
     AppleErrorCategories(string_match = "the timestamp service is not available", categories = ["apple_code_sign_error"]),
+
     #compilation issues
     AppleErrorCategories(string_match = "failed to emit precompiled module", categories = ["apple_compilation_failure", "apple_pcm_compilation_failure"]),
     AppleErrorCategories(string_match = "please rebuild precompiled header", categories = ["apple_compilation_failure", "apple_pcm_compilation_failure"]),
@@ -25,6 +26,7 @@ _APPLE_STDERR_ERROR_CATEGORIES = [
     AppleErrorCategories(string_match = ".modulemap:", categories = ["apple_compilation_failure", "apple_modulemap_compilation_failure"]),
     AppleErrorCategories(string_match = "missing required modules", categories = ["apple_compilation_failure", "apple_missing_required_modules_error"]),
     AppleErrorCategories(string_match = "has a minimum deployment target", categories = ["apple_compilation_failure", "apple_deployment_target_error"]),
+    AppleErrorCategories(string_match = "file not found", categories = ["apple_compilation_failure", "apple_file_not_found_error"]),
 
     #toolchain / genrule issues
     AppleErrorCategories(string_match = "stack dump:", categories = ["apple_binary_execution_failure"]),

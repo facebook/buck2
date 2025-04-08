@@ -39,6 +39,7 @@ use starlark::typing::Ty;
 use starlark::values::list::ListRef;
 use starlark::values::list::UnpackList;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::tuple::UnpackTuple;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocStaticSimple;
@@ -266,6 +267,21 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
                 .visit_write_to_file_macros(visitor)?;
         }
         Ok(())
+    }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        for item in self.0.items().iter().chain(self.0.hidden().iter()) {
+            if !item
+                .as_command_line_arg()
+                .add_to_action_inputs_hash(hasher)?
+            {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 }
 
@@ -526,6 +542,13 @@ impl<'v> CommandLineArgLike for StarlarkCmdArgs<'v> {
     ) -> buck2_error::Result<()> {
         FieldsRef(self.0.borrow(), PhantomData).visit_write_to_file_macros(visitor)
     }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        FieldsRef(self.0.borrow(), PhantomData).add_to_action_inputs_hash(hasher)
+    }
 }
 
 impl CommandLineArgLike for FrozenStarlarkCmdArgs {
@@ -557,6 +580,13 @@ impl CommandLineArgLike for FrozenStarlarkCmdArgs {
         visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> buck2_error::Result<()> {
         FieldsRef(self, PhantomData).visit_write_to_file_macros(visitor)
+    }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        FieldsRef(self, PhantomData).add_to_action_inputs_hash(hasher)
     }
 }
 
@@ -970,7 +1000,7 @@ impl Display for StarlarkCommandLineInputs {
     }
 }
 
-#[starlark_value(type = "command_line_inputs")]
+#[starlark_value(type = "CommandLineInputs")]
 impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
     fn length(&self) -> starlark::Result<i32> {
         self.inputs
@@ -986,4 +1016,10 @@ impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
             Ok(false)
         }
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_command_line_inputs(globals: &mut GlobalsBuilder) {
+    const CommandLineInputs: StarlarkValueAsType<StarlarkCommandLineInputs> =
+        StarlarkValueAsType::new();
 }

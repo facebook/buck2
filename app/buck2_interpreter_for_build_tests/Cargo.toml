@@ -12,6 +12,7 @@ indoc = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 
+dashmap = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 futures = { workspace = true }

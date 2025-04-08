@@ -9,6 +9,7 @@ PythonLibraryManifestsInterface = record(
     # Returns the source manifests for this Python library.
     # [_arglike] of source manifests
     src_manifests = field(typing.Callable),
+    sources_simple = field(typing.Callable),
 
     # Returns the files referenced by source manifests for this Python library.
     # [_arglike] of source artifacts
@@ -42,6 +43,7 @@ PythonLibraryManifestsInterface = record(
     # [_arglike] of resource artifacts
     resource_artifacts = field(typing.Callable),
     resource_artifacts_with_paths = field(typing.Callable),
+    resource_artifacts_simple = field(typing.Callable),
     hidden_resources = field(typing.Callable),
     has_hidden_resources = field(typing.Callable),
 )

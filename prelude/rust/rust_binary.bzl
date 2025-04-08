@@ -72,7 +72,6 @@ load(
     ":link_info.bzl",
     "DEFAULT_STATIC_LINK_STRATEGY",
     "attr_simple_crate_for_filenames",
-    "enable_link_groups",
     "inherited_external_debug_info",
     "inherited_rust_cxx_link_group_info",
     "inherited_shared_libs",
@@ -127,26 +126,25 @@ def _rust_binary_common(
     name = output_filename(simple_crate, Emit("link"), params)
     output = ctx.actions.declare_output(name)
 
-    rust_cxx_link_group_info = None
-    link_group_mappings = {}
-    link_group_libs = {}
-    link_group_preferred_linkage = {}
-    labels_to_links_map = {}
-    targets_consumed_by_link_groups = {}
-    filtered_targets = []
-
-    if enable_link_groups(ctx):
-        rust_cxx_link_group_info = inherited_rust_cxx_link_group_info(
-            ctx,
-            compile_ctx.dep_ctx,
-            link_strategy = link_strategy,
-        )
+    rust_cxx_link_group_info = inherited_rust_cxx_link_group_info(
+        ctx,
+        compile_ctx.dep_ctx,
+        link_strategy = link_strategy,
+    )
+    if rust_cxx_link_group_info != None:
         link_group_mappings = rust_cxx_link_group_info.link_group_info.mappings
         link_group_libs = rust_cxx_link_group_info.link_group_libs
         link_group_preferred_linkage = rust_cxx_link_group_info.link_group_preferred_linkage
         labels_to_links_map = rust_cxx_link_group_info.labels_to_links_map
         targets_consumed_by_link_groups = rust_cxx_link_group_info.targets_consumed_by_link_groups
         filtered_targets = rust_cxx_link_group_info.filtered_targets
+    else:
+        link_group_mappings = {}
+        link_group_libs = {}
+        link_group_preferred_linkage = {}
+        labels_to_links_map = {}
+        targets_consumed_by_link_groups = {}
+        filtered_targets = []
 
     shlib_deps = []
     if link_strategy == LinkStrategy("shared") or rust_cxx_link_group_info != None:

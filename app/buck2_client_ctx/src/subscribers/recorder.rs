@@ -17,7 +17,6 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
-use std::time::Instant;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
@@ -42,6 +41,7 @@ use buck2_error::classify::source_area;
 use buck2_error::classify::ErrorLike;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
 use buck2_error::internal_error;
+use buck2_error::source_location::SourceLocation;
 use buck2_error::BuckErrorContext;
 use buck2_error::Tier;
 use buck2_event_log::ttl::manifold_event_log_ttl;
@@ -49,7 +49,6 @@ use buck2_event_observer::action_stats;
 use buck2_event_observer::cache_hit_rate::total_cache_hit_rate;
 use buck2_event_observer::last_command_execution_kind;
 use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
-use buck2_events::errors::create_error_report;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::BuckEvent;
@@ -70,6 +69,7 @@ use crate::client_metadata::ClientMetadata;
 use crate::common::CommonEventLogOptions;
 use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
+use crate::subscribers::command_response_ext::TestResponseExt;
 use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::system_warning::check_download_speed;
@@ -96,7 +96,7 @@ pub(crate) struct InvocationRecorder {
     cli_args: Vec<String>,
     representative_config_flags: Vec<String>,
     isolation_dir: String,
-    start_time: Instant,
+    start_time: u64,
     build_count_manager: Option<BuildCountManager>,
     trace_id: TraceId,
     command_end: Option<buck2_data::CommandEnd>,
@@ -219,14 +219,6 @@ pub(crate) struct InvocationRecorder {
     health_check_tags: HashSet<String>,
 }
 
-struct ErrorsReport {
-    errors: Vec<ProcessedErrorReport>,
-    best_error_tag: Option<String>,
-    best_error_category_key: Option<String>,
-    best_error_source_area: Option<String>,
-    error_category: Option<String>,
-}
-
 impl InvocationRecorder {
     pub fn new(
         fb: FacebookInit,
@@ -242,6 +234,7 @@ impl InvocationRecorder {
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
         client_metadata: Vec<buck2_data::ClientMetadata>,
         health_check_tags_receiver: Option<Receiver<Vec<String>>>,
+        start_time: u64,
     ) -> Self {
         Self {
             fb,
@@ -250,7 +243,7 @@ impl InvocationRecorder {
             cli_args: sanitized_argv,
             representative_config_flags,
             isolation_dir,
-            start_time: Instant::now(),
+            start_time,
             build_count_manager,
             trace_id,
             command_end: None,
@@ -380,10 +373,6 @@ impl InvocationRecorder {
         }
     }
 
-    pub fn instant_command_outcome(&mut self, is_success: bool) {
-        self.instant_command_is_success = Some(is_success);
-    }
-
     async fn build_count(
         &mut self,
         is_success: bool,
@@ -395,7 +384,7 @@ impl InvocationRecorder {
                     None => {
                         if is_success {
                             return Err(buck2_error!(
-                                buck2_error::ErrorTag::Tier0,
+                                ErrorTag::InvalidEvent,
                                 "successful {} commands should have resolved target patterns",
                                 command_name
                             ));
@@ -422,11 +411,11 @@ impl InvocationRecorder {
         Ok(Default::default())
     }
 
-    fn finalize_errors(&mut self) -> ErrorsReport {
+    fn finalize_errors(&mut self) -> Vec<ProcessedErrorReport> {
         // Add stderr to GRPC connection errors if available
         let connection_errors: Vec<buck2_error::Error> = self
             .client_errors
-            .extract_if(|e| e.has_tag(ErrorTag::ClientGrpc))
+            .extract_if(.., |e| e.has_tag(ErrorTag::ClientGrpc))
             .collect();
 
         for error in connection_errors {
@@ -455,36 +444,12 @@ impl InvocationRecorder {
             self.client_errors.push(error);
         }
 
-        let mut errors =
-            std::mem::take(&mut self.client_errors).into_map(|e| create_error_report(&e));
+        let mut errors = std::mem::take(&mut self.client_errors).into_map(|e| (&e).into());
         let command_errors = std::mem::take(&mut self.command_errors);
         errors.extend(command_errors);
         errors.sort_by_key(|e| e.error_rank());
 
-        let best_error = errors
-            .first()
-            .map(|error| process_error_report(error.clone()));
-        let (best_error_category_key, best_error_tag, error_category, best_error_source_area) =
-            if let Some(best_error) = best_error {
-                (
-                    best_error.category_key,
-                    best_error.best_tag,
-                    best_error.category,
-                    best_error.source_area,
-                )
-            } else {
-                (None, None, None, None)
-            };
-
-        let errors = errors.into_map(process_error_report);
-
-        ErrorsReport {
-            errors,
-            best_error_tag,
-            best_error_category_key,
-            error_category,
-            best_error_source_area,
-        }
+        errors.into_map(process_error_report)
     }
 
     fn create_record_event(&mut self) -> BuckEvent {
@@ -653,15 +618,15 @@ impl InvocationRecorder {
         let mut metadata = Self::default_metadata();
         metadata.strings.extend(std::mem::take(&mut self.metadata));
 
-        let errors_report = self.finalize_errors();
+        let errors = self.finalize_errors();
 
         let record = buck2_data::InvocationRecord {
             command_name: Some(self.command_name.to_owned()),
             command_end: self.command_end.take(),
             command_duration: self.command_duration.take(),
-            client_walltime: self.start_time.elapsed().try_into().ok(),
+            client_walltime: elapsed_since(self.start_time).try_into().ok(),
             wrapper_start_time: buck2_env!(BUCK_WRAPPER_START_TIME_ENV_VAR, type=u64)
-                .unwrap_or(None),
+                .unwrap_or(Some(self.start_time)),
             re_session_id: self.re_session_id.take().unwrap_or_default(),
             re_experiment_name: self.re_experiment_name.take().unwrap_or_default(),
             persistent_cache_mode: self.persistent_cache_mode.clone(),
@@ -774,11 +739,7 @@ impl InvocationRecorder {
             daemon_was_started: self.daemon_was_started.map(|t| t as i32),
             should_restart: Some(self.should_restart),
             client_metadata: std::mem::take(&mut self.client_metadata),
-            errors: errors_report.errors,
-            best_error_tag: errors_report.best_error_tag,
-            best_error_category_key: errors_report.best_error_category_key,
-            best_error_source_area: errors_report.best_error_source_area,
-            error_category: errors_report.error_category,
+            errors,
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
             new_configs_used: Some(self.has_new_buckconfigs),
             re_max_download_speed: self
@@ -906,7 +867,7 @@ impl InvocationRecorder {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.metadata.extend(command.metadata.clone());
-        self.time_to_command_start = Some(self.start_time.elapsed());
+        self.time_to_command_start = Some(elapsed_since(self.start_time));
         Ok(())
     }
 
@@ -915,16 +876,12 @@ impl InvocationRecorder {
         command: &buck2_data::CommandEnd,
         event: &BuckEvent,
     ) -> buck2_error::Result<()> {
-        let mut command = command.clone();
-        self.command_errors
-            .extend(std::mem::take(&mut command.errors));
-
         // Awkwardly unpacks the SpanEnd event so we can read its duration.
         let command_end = match event.data() {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    ErrorTag::InvalidEvent,
                     "handle_command_end was passed a CommandEnd not contained in a SpanEndEvent"
                 ));
             }
@@ -956,7 +913,7 @@ impl InvocationRecorder {
         self.min_attempted_build_count_since_rebase = build_count.attempted_build_count;
         self.min_build_count_since_rebase = build_count.successful_build_count;
 
-        self.command_end = Some(command);
+        self.command_end = Some(command.clone());
         Ok(())
     }
     fn handle_command_critical_start(
@@ -965,7 +922,7 @@ impl InvocationRecorder {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.metadata.extend(command.metadata.clone());
-        self.time_to_command_critical_section = Some(self.start_time.elapsed());
+        self.time_to_command_critical_section = Some(elapsed_since(self.start_time));
         Ok(())
     }
     fn handle_command_critical_end(
@@ -983,7 +940,7 @@ impl InvocationRecorder {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         if self.time_to_first_action_execution.is_none() {
-            self.time_to_first_action_execution = Some(self.start_time.elapsed());
+            self.time_to_first_action_execution = Some(elapsed_since(self.start_time));
         }
         Ok(())
     }
@@ -1033,7 +990,7 @@ impl InvocationRecorder {
             self.run_command_failure_count += 1;
         }
 
-        self.time_to_last_action_execution_end = Some(self.start_time.elapsed());
+        self.time_to_last_action_execution_end = Some(elapsed_since(self.start_time));
 
         Ok(())
     }
@@ -1044,7 +1001,7 @@ impl InvocationRecorder {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.time_to_first_analysis
-            .get_or_insert_with(|| self.start_time.elapsed());
+            .get_or_insert_with(|| elapsed_since(self.start_time));
         Ok(())
     }
 
@@ -1054,7 +1011,7 @@ impl InvocationRecorder {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.time_to_load_first_build_file
-            .get_or_insert_with(|| self.start_time.elapsed());
+            .get_or_insert_with(|| elapsed_since(self.start_time));
         Ok(())
     }
 
@@ -1067,7 +1024,7 @@ impl InvocationRecorder {
             Some(buck2_data::executor_stage_start::Stage::Re(re_stage)) => match &re_stage.stage {
                 Some(buck2_data::re_stage::Stage::Execute(_)) => {
                     self.time_to_first_command_execution_start
-                        .get_or_insert_with(|| self.start_time.elapsed());
+                        .get_or_insert_with(|| elapsed_since(self.start_time));
                 }
                 _ => {}
             },
@@ -1075,7 +1032,7 @@ impl InvocationRecorder {
                 match &local_stage.stage {
                     Some(buck2_data::local_stage::Stage::Execute(_)) => {
                         self.time_to_first_command_execution_start
-                            .get_or_insert_with(|| self.start_time.elapsed());
+                            .get_or_insert_with(|| elapsed_since(self.start_time));
                     }
                     _ => {}
                 }
@@ -1148,7 +1105,7 @@ impl InvocationRecorder {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    ErrorTag::InvalidEvent,
                     "handle_bxl_ensure_artifacts_end was passed a BxlEnsureArtifacts not contained in a SpanEndEvent"
                 ));
             }
@@ -1196,7 +1153,7 @@ impl InvocationRecorder {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.time_to_first_test_discovery
-            .get_or_insert_with(|| self.start_time.elapsed());
+            .get_or_insert_with(|| elapsed_since(self.start_time));
         Ok(())
     }
 
@@ -1206,7 +1163,7 @@ impl InvocationRecorder {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.time_to_first_test_run
-            .get_or_insert_with(|| self.start_time.elapsed());
+            .get_or_insert_with(|| elapsed_since(self.start_time));
         Ok(())
     }
 
@@ -1467,7 +1424,7 @@ impl InvocationRecorder {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    ErrorTag::InvalidEvent,
                     "handle_dice_block_concurrent_command_end was passed a DiceBlockConcurrentCommandEnd not contained in a SpanEndEvent"
                 ));
             }
@@ -1494,7 +1451,7 @@ impl InvocationRecorder {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    ErrorTag::InvalidEvent,
                     "handle_dice_cleanup_end was passed a DiceCleanupEnd not contained in a SpanEndEvent"
                 ));
             }
@@ -1670,7 +1627,6 @@ const INPUT: &str = "USER";
 
 fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::ProcessedErrorReport {
     let best_tag = error.best_tag();
-    let source_area = best_tag.map(|tag| source_area(tag).to_string().to_ascii_uppercase());
     let best_tag = best_tag
         .map_or(
             // If we don't have tags on the errors,
@@ -1685,23 +1641,31 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
         Tier::Environment => ENVIRONMENT.to_owned(),
         Tier::Input => INPUT.to_owned(),
     };
+    let tags = error
+        .tags
+        .iter()
+        .copied()
+        .filter_map(|v| ErrorTag::try_from(v).ok());
+
+    let source_area = source_area(tags.clone()).to_string().to_ascii_uppercase();
+    let tags = tags.map(|t| t.as_str_name().to_owned());
+
+    let string_tags = error.string_tags.iter().map(|t| t.tag.clone());
+    let tags = tags.chain(string_tags).collect();
+
     buck2_data::ProcessedErrorReport {
         tier: None,
         message: error.message,
         telemetry_message: error.telemetry_message,
-        source_location: error.source_location,
-        tags: error
-            .tags
-            .iter()
-            .copied()
-            .filter_map(|v| buck2_data::error::ErrorTag::try_from(v).ok())
-            .map(|t| t.as_str_name().to_owned())
-            .collect(),
+        source_location: error
+            .source_location
+            .map(|s| SourceLocation::from(s).to_string()),
+        tags,
         best_tag: Some(best_tag),
         sub_error_categories: error.sub_error_categories,
         category_key: error.category_key,
         category: Some(category),
-        source_area,
+        source_area: Some(source_area),
     }
 }
 
@@ -1751,15 +1715,28 @@ impl EventSubscriber for InvocationRecorder {
                             .unwrap_or_else(|| "NULL".to_owned())
                     }));
                 self.target_rule_type_names = built_rule_type_names;
+                self.command_errors.extend(res.errors.clone())
             }
             Some(command_result::Result::TestResponse(res)) => {
                 let built_rule_type_names: Vec<String> =
                     unique_and_sorted(res.target_rule_type_names.clone().into_iter());
                 self.target_rule_type_names = built_rule_type_names;
+                self.command_errors
+                    .extend(res.error_report_for_test_errors())
+            }
+            Some(command_result::Result::BxlResponse(res)) => {
+                self.command_errors.extend(res.errors.clone())
+            }
+            Some(command_result::Result::Error(buck2_cli_proto::CommandError { errors })) => {
+                self.command_errors.extend(errors.clone());
             }
             _ => {}
         }
         Ok(())
+    }
+
+    fn handle_instant_command_outcome(&mut self, is_success: bool) {
+        self.instant_command_is_success = Some(is_success);
     }
 
     async fn handle_error(&mut self, error: &buck2_error::Error) -> buck2_error::Result<()> {
@@ -1911,7 +1888,9 @@ pub(crate) fn try_get_invocation_recorder(
         filesystem = "default".to_owned();
     }
 
-    let build_count = paths.map(|p| BuildCountManager::new(p.build_count_dir()));
+    let build_count = paths
+        .map(|p| BuildCountManager::new(p.build_count_dir()))
+        .transpose()?;
 
     let recorder = InvocationRecorder::new(
         ctx.fbinit(),
@@ -1930,6 +1909,7 @@ pub(crate) fn try_get_invocation_recorder(
             .map(ClientMetadata::to_proto)
             .collect(),
         health_check_tags_receiver,
+        ctx.start_time,
     );
     Ok(Box::new(recorder))
 }
@@ -1942,6 +1922,15 @@ fn truncate_stderr(stderr: &str) -> &str {
     let truncate_at = stderr.len().saturating_sub(max_len);
     let truncate_at = stderr.ceil_char_boundary(truncate_at);
     &stderr[truncate_at..]
+}
+
+fn elapsed_since(start_time: u64) -> Duration {
+    let current_time = SystemTime::now();
+    let buck2_start_time = SystemTime::UNIX_EPOCH + Duration::from_millis(start_time);
+
+    current_time
+        .duration_since(buck2_start_time)
+        .unwrap_or_default()
 }
 
 #[cfg(test)]

@@ -8,6 +8,7 @@ rust_unittest(
     crate_root = "src/lib.rs",
     deps = [
         "fbsource//third-party/rust:ctor",
+        "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:serde_json",

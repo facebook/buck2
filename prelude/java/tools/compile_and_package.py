@@ -109,6 +109,11 @@ def _parse_args():
         metavar="additional_compiled_srcs",
         help=".class files that should be packaged into the final jar",
     )
+    parser.add_argument(
+        "--concat_resources",
+        action="store_true",
+        help="if the jar tool should use parallel compression anc doncat intermediary jars",
+    )
 
     return parser.parse_args()
 
@@ -172,6 +177,7 @@ def _run_jar(
     additional_compiled_srcs: pathlib.Path,
     remove_classes_file: pathlib.Path,
     temp_dir: TemporaryDirectory,
+    concat_resources: bool = False,
 ):
     jar_cmd = []
     jar_cmd.extend(utils.shlex_split(jar_builder_tool))
@@ -192,6 +198,8 @@ def _run_jar(
 
     if manifest:
         jar_cmd.extend(["--manifest-file", manifest])
+    if concat_resources:
+        jar_cmd.extend(["--concat-jars"])
 
     if remove_classes_file:
         jar_cmd.extend(["--blocklist-patterns", remove_classes_file])
@@ -222,6 +230,7 @@ def main():
     manifest = args.manifest
     remove_classes_file = args.remove_classes
     additional_compiled_srcs = args.additional_compiled_srcs
+    concat_resources = args.concat_resources
 
     utils.log_message("javac_tool: {}".format(javac_tool))
     utils.log_message("jar_builder_tool: {}".format(jar_builder_tool))
@@ -244,6 +253,8 @@ def main():
         )
     if resources_dir:
         utils.log_message("resources_dir: {}".format(resources_dir))
+    if concat_resources:
+        utils.log_message("concat_resources: {}".format(concat_resources))
     if generated_sources_dir:
         utils.log_message("generated_sources_dir: {}".format(generated_sources_dir))
         if not generated_sources_dir.exists():
@@ -280,6 +291,7 @@ def main():
             additional_compiled_srcs,
             remove_classes_file,
             temp_dir,
+            concat_resources,
         )
 
 

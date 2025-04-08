@@ -10,10 +10,10 @@
 pub(crate) mod build_graph_stats;
 pub(crate) mod build_id_writer;
 pub(crate) mod classify_server_stderr;
+mod command_response_ext;
 pub(crate) mod emit_event;
 pub(crate) mod errorconsole;
 pub mod event_log;
-pub mod get;
 pub(crate) mod health_check_subscriber;
 pub(crate) mod observer;
 pub mod re_log;

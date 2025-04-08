@@ -20,6 +20,7 @@ load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_info.bzl",
+    "LibOutputStyle",
     "LinkArgs",
     "LinkStrategy",
     "get_lib_output_style",
@@ -34,7 +35,12 @@ load(
     "get_linkable_graph_node_map_func",
     get_link_info_for_node = "get_link_info",
 )
-load("@prelude//python:manifest.bzl", "ManifestInfo", "create_manifest_for_entries")
+load(
+    "@prelude//python:manifest.bzl",
+    "ManifestInfo",
+    "create_manifest_for_entries",
+    "create_manifest_for_shared_libs",
+)
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//python:toolchain.bzl", "PythonToolchainInfo")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
@@ -43,6 +49,7 @@ load(
     "@prelude//utils:graph_utils.bzl",
     "depth_first_traversal_by",
 )
+load("@prelude//utils:utils.bzl", "value_or")
 
 def _link_deps(
         link_infos: dict[Label, LinkableNode],
@@ -104,10 +111,12 @@ def _whl_cmd(
 def _rpath(dst, rpath):
     """
     Relative the given `rpath` to `dst`, via `$ORIGIN`.
+    If `rpath` is absolute, return it as-is.
     """
+    if paths.is_absolute(rpath):
+        return rpath
 
     expect(not paths.is_absolute(dst))
-    expect(not paths.is_absolute(rpath))
 
     base = "$ORIGIN"
     dirpath = paths.dirname(dst)
@@ -129,9 +138,11 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
     toolchain_info = get_cxx_toolchain_info(ctx)
+    dist = ctx.attrs.dist or ctx.attrs.name
+    lib_dir = value_or(ctx.attrs.lib_dir, paths.join(dist, "lib"))
 
     # RPATHs to embed in the binary.
-    rpaths = python_toolchain.wheel_rpaths + ctx.attrs.rpaths
+    rpaths = [lib_dir] + ctx.attrs.rpaths + python_toolchain.wheel_rpaths
 
     def maybe_patchelf(dst, src):
         # If there's no rpaths, there's nothing to patch.
@@ -159,6 +170,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     srcs = []
     extensions = {}
+    shared_libs = []
     for dep in libraries.values():
         manifests = dep[PythonLibraryInfo].manifests.value
         if manifests.srcs != None:
@@ -197,6 +209,10 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                     prefer_stripped = ctx.attrs.prefer_stripped_objects,
                 ))
 
+                # Record shared libs we need to package.
+                if output_style == LibOutputStyle("shared_lib"):
+                    shared_libs.extend(node.shared_libs.libraries)
+
             # link the rule
             link_result = cxx_link_shared_library(
                 ctx = ctx,
@@ -217,6 +233,27 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                 ),
             )
             extensions[extension] = link_result.linked_object
+
+    # Add sub-target for extensions.
+    sub_targets["extensions"] = [
+        DefaultInfo(
+            sub_targets = {
+                name: [DefaultInfo(default_output = ext.output)]
+                for name, ext in extensions.items()
+            },
+        ),
+    ]
+
+    # Add shlibs manifest.
+    if shared_libs:
+        srcs.append(
+            create_manifest_for_shared_libs(
+                actions = ctx.actions,
+                name = "shared_libs.txt",
+                shared_libs = shared_libs,
+                lib_dir = lib_dir,
+            ),
+        )
 
     if extensions:
         srcs.append(
@@ -243,7 +280,6 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             ),
         )
 
-    dist = ctx.attrs.dist or ctx.attrs.name
     name_parts = [
         dist,
         ctx.attrs.version,
@@ -349,6 +385,7 @@ python_wheel = rule(
         prefer_stripped_objects = attrs.default_only(attrs.bool(default = False)),
         resources = attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
         rpaths = attrs.list(attrs.string(), default = []),
+        lib_dir = attrs.option(attrs.string(), default = None),
         support_future_python_versions = attrs.bool(default = False),
         labels = attrs.list(attrs.string(), default = []),
         _wheel = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:wheel")),

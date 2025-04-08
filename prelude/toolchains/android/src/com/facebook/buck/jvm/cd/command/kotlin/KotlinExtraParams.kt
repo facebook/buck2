@@ -36,10 +36,12 @@ data class KotlinExtraParams(
     val depTrackerPlugin: Optional<AbsPath>,
     val shouldKotlincRunViaBuildToolsApi: Boolean,
     val shouldKotlincRunIncrementally: Boolean,
+    val shouldIncrementalKotlicRunQe: Boolean,
     val shouldUseStandaloneKosabi: Boolean,
     val incrementalStateDir: Optional<AbsPath>,
     private val languageVersionString: String
 ) : CompileToJarStepFactory.ExtraParams {
+
   val kotlincWorkingDir: Optional<AbsPath> =
       incrementalStateDir.map { dir: AbsPath -> dir.resolve(KOTLINC_WORKING_DIR) }
 

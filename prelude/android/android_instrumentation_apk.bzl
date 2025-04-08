@@ -19,6 +19,7 @@ load("@prelude//java:java_providers.bzl", "create_java_packaging_dep", "get_all_
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
 load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "flatten")
 
 def android_instrumentation_apk_impl(ctx: AnalysisContext):
     # jar preprocessing cannot be used when the jars were dexed already, so we have to disable predex when we want to preprocess the jars.
@@ -26,12 +27,32 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
 
     apk_under_test_info = ctx.attrs.apk[AndroidApkUnderTestInfo]
 
+    expect(
+        ctx.attrs.min_sdk_version == apk_under_test_info.min_sdk_version,
+        """
+Android instrumentation APK must have the same min_sdk_version as the APK-under-test! 
+This is important because the min_sdk_version affects the configuration of all deps. 
+Instrumentation APK min_sdk_version: {}, APK-under-test min_sdk_version: {}""".format(
+            ctx.attrs.min_sdk_version,
+            apk_under_test_info.min_sdk_version,
+        ),
+    )
+
     # android_instrumentation_apk uses the same platforms as the APK-under-test
     unfiltered_deps_by_platform = get_deps_by_platform(ctx)
     for platform in apk_under_test_info.platforms:
         expect(
             platform in unfiltered_deps_by_platform,
             "Android instrumentation APK must have any platforms that are in the APK-under-test!",
+        )
+
+    test_apk_platform_configurations = set([str(x.label.configured_target().config()) for x in flatten(unfiltered_deps_by_platform.values())])
+    for platform_configuration in apk_under_test_info.platform_configurations:
+        expect(
+            platform_configuration in test_apk_platform_configurations,
+            """
+APK-under-test has deps that are configured in a different manner than the Android instrumentation APK! 
+This will lead to overbuilding and is not supported. Configuration {} not found in {}""".format(platform_configuration, test_apk_platform_configurations),
         )
     filtered_deps_by_platform = {platform: deps for platform, deps in unfiltered_deps_by_platform.items() if platform in apk_under_test_info.platforms}
 
@@ -43,7 +64,7 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
     java_packaging_deps = [
         packaging_dep
         for packaging_dep in get_all_java_packaging_deps(ctx, deps)
-        if packaging_dep.dex and (is_self_instrumenting or not apk_under_test_info.java_packaging_deps.contains(packaging_dep.label.raw_target()))
+        if packaging_dep.dex and (is_self_instrumenting or packaging_dep.label.raw_target() not in apk_under_test_info.java_packaging_deps)
     ]
 
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, deps)
@@ -56,8 +77,8 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
         use_proto_format = False,
         referenced_resources_lists = [],
         manifest_entries = apk_under_test_info.manifest_entries,
-        resource_infos_to_exclude = apk_under_test_info.resource_infos if not is_self_instrumenting else None,
-        r_dot_java_packages_to_exclude = apk_under_test_info.r_dot_java_packages.list() if not is_self_instrumenting else [],
+        resource_infos_to_exclude = apk_under_test_info.resource_infos if not is_self_instrumenting else set(),
+        r_dot_java_packages_to_exclude = apk_under_test_info.r_dot_java_packages if not is_self_instrumenting else set(),
     )
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     java_packaging_deps += [
@@ -110,8 +131,8 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
         enhance_ctx,
         android_packageable_info,
         filtered_deps_by_platform,
-        prebuilt_native_library_dirs_to_exclude = apk_under_test_info.prebuilt_native_library_dirs if not is_self_instrumenting else None,
-        shared_libraries_to_exclude = apk_under_test_info.shared_libraries if not is_self_instrumenting else None,
+        prebuilt_native_library_dirs_to_exclude = apk_under_test_info.prebuilt_native_library_dirs if not is_self_instrumenting else set(),
+        shared_libraries_to_exclude = apk_under_test_info.shared_libraries if not is_self_instrumenting else set(),
     )
 
     output_apk = build_apk(

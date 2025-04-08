@@ -149,6 +149,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
                 CategoryRef::new("fake_action").unwrap().to_owned(),
                 None,
             ),
+            None,
         )?;
         Ok(StarlarkDeclaredArtifact::new(
             None,
@@ -217,6 +218,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
                 CategoryRef::new("fake_action").unwrap().to_owned(),
                 None,
             ),
+            None,
         )?;
 
         let value = declaration

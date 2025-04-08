@@ -288,7 +288,7 @@ impl ConfiguredTargetNode {
             ConfiguredTargetNodeData {
                 label: Hashed::new(name.dupe()),
                 target_node: TargetNodeOrForward::Forward(
-                    CoercedAttr::ConfiguredDep(Box::new(DepAttr {
+                    CoercedAttr::ConfiguredDepForForwardNode(Box::new(DepAttr {
                         attr_type: DepAttrType::new(
                             ProviderIdSet::EMPTY,
                             DepAttrTransition::Identity(PluginKindSet::EMPTY),

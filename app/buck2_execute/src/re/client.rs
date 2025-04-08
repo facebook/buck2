@@ -390,7 +390,7 @@ impl RemoteExecutionClient {
             .client
             .client()
             .get_experiment_name()
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::ReExperimentName))
     }
 
     pub fn fill_network_stats(&self, stats: &mut RemoteExecutionClientStats) {
@@ -1012,7 +1012,8 @@ impl RemoteExecutionClientImpl {
                             if let Some(re_queue_threshold) =
                                 re_cancel_on_estimated_queue_time_exceeds_s
                             {
-                                if anticipated_queue_duration.as_secs() >= re_queue_threshold.into()
+                                if anticipated_queue_duration.as_secs()
+                                    >= u64::from(re_queue_threshold)
                                 {
                                     return Ok(ResponseOrStateChange::Cancelled(Cancelled {
                                         reason: Some(CancellationReason::ReQueueTimeout),
@@ -1151,6 +1152,10 @@ impl RemoteExecutionClientImpl {
         knobs: &ExecutorGlobalKnobs,
         meta_internal_extra_params: &MetaInternalExtraParams,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
+        if buck2_env!("BUCK2_TEST_FAIL_RE_EXECUTE", bool, applicability = testing)? {
+            return Err(test_re_error("Injected error", TCode::FAILED_PRECONDITION));
+        }
+
         let metadata = RemoteExecutionMetadata {
             platform: Some(re_platform(platform)),
             do_not_cache: skip_cache_write,
@@ -1265,7 +1270,7 @@ impl RemoteExecutionClientImpl {
         // This shouldn't happen, but we can't just assume the CAS won't ever break
         if blobs.len() != expected_blobs {
             return Err(buck2_error!(
-                buck2_error::ErrorTag::Tier0,
+                buck2_error::ErrorTag::CasBlobCountMismatch,
                 "CAS client returned fewer blobs than expected."
             ));
         }

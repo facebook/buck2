@@ -12,7 +12,6 @@ use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::actions::query::PackageLabelOption;
 use buck2_build_api::actions::query::CONFIGURED_ATTR_TO_VALUE;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use buck2_build_api::interpreter::rule_defs::provider::dependency::DependencyGen;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
@@ -24,6 +23,7 @@ use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
+use buck2_node::attrs::attr_type::transition_dep::TransitionDepAttrType;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::visibility::VisibilityPatternList;
 use buck2_node::visibility::VisibilitySpecification;
@@ -33,12 +33,8 @@ use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use starlark::values::dict::Dict;
 use starlark::values::list::AllocList;
-use starlark::values::list::ListRef;
-use starlark::values::none::NoneType;
 use starlark::values::tuple::AllocTuple;
-use starlark::values::FrozenValue;
 use starlark::values::Heap;
-use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
@@ -46,6 +42,7 @@ use crate::attrs::resolve::attr_type::arg::ConfiguredStringWithMacrosExt;
 use crate::attrs::resolve::attr_type::configuration_dep::ConfigurationDepAttrTypeExt;
 use crate::attrs::resolve::attr_type::dep::DepAttrTypeExt;
 use crate::attrs::resolve::attr_type::dep::ExplicitConfiguredDepAttrTypeExt;
+use crate::attrs::resolve::attr_type::dep::TransitionDepAttrTypeExt;
 use crate::attrs::resolve::attr_type::query::ConfiguredQueryAttrExt;
 use crate::attrs::resolve::attr_type::source::SourceAttrTypeExt;
 use crate::attrs::resolve::attr_type::split_transition_dep::SplitTransitionDepAttrTypeExt;
@@ -70,8 +67,6 @@ pub trait ConfiguredAttrExt {
         pkg: PackageLabel,
         ctx: &dyn AttrResolutionContext<'v>,
     ) -> buck2_error::Result<Value<'v>>;
-
-    fn starlark_type(&self) -> buck2_error::Result<&'static str>;
 
     fn to_value<'v>(
         &self,
@@ -148,6 +143,9 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::ExplicitConfiguredDep(d) => {
                 ExplicitConfiguredDepAttrType::resolve_single(ctx, d.as_ref())
             }
+            ConfiguredAttr::TransitionDep(d) => {
+                TransitionDepAttrType::resolve_single(ctx, d.as_ref())
+            }
             ConfiguredAttr::SplitTransitionDep(d) => {
                 SplitTransitionDepAttrType::resolve_single(ctx, d.as_ref())
             }
@@ -169,48 +167,6 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             )),
             ConfiguredAttr::Metadata(..) => Ok(ctx.heap().alloc(OpaqueMetadata)),
             ConfiguredAttr::TargetModifiers(..) => Ok(ctx.heap().alloc(OpaqueMetadata)),
-        }
-    }
-
-    /// Returns the starlark type of this attr without resolving
-    fn starlark_type(&self) -> buck2_error::Result<&'static str> {
-        match self {
-            ConfiguredAttr::Bool(_) => Ok(starlark::values::bool::BOOL_TYPE),
-            ConfiguredAttr::Int(_) => Ok(starlark::values::int::INT_TYPE),
-            ConfiguredAttr::String(_) | ConfiguredAttr::EnumVariant(_) => {
-                Ok(starlark::values::string::STRING_TYPE)
-            }
-            ConfiguredAttr::List(_) => Ok(starlark::values::list::ListRef::TYPE),
-            ConfiguredAttr::Tuple(_) => Ok(starlark::values::tuple::TupleRef::TYPE),
-            ConfiguredAttr::Dict(_) => Ok(Dict::TYPE),
-            ConfiguredAttr::None => Ok(NoneType::TYPE),
-            ConfiguredAttr::OneOf(box l, _) => l.starlark_type(),
-            ConfiguredAttr::Visibility(..) => Ok(ListRef::TYPE),
-            ConfiguredAttr::WithinView(..) => Ok(ListRef::TYPE),
-            ConfiguredAttr::ExplicitConfiguredDep(_) => {
-                Ok(DependencyGen::<FrozenValue>::get_type_value_static().as_str())
-            }
-            ConfiguredAttr::SplitTransitionDep(_) => Ok(Dict::TYPE),
-            ConfiguredAttr::ConfigurationDep(_) => Ok(starlark::values::string::STRING_TYPE),
-            ConfiguredAttr::PluginDep(..) => {
-                Ok(StarlarkTargetLabel::get_type_value_static().as_str())
-            }
-            ConfiguredAttr::Dep(_) => {
-                Ok(StarlarkConfiguredProvidersLabel::get_type_value_static().as_str())
-            }
-            ConfiguredAttr::SourceLabel(_) => {
-                Ok(StarlarkConfiguredProvidersLabel::get_type_value_static().as_str())
-            }
-            ConfiguredAttr::Label(_) => {
-                Ok(StarlarkConfiguredProvidersLabel::get_type_value_static().as_str())
-            }
-            ConfiguredAttr::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
-            ConfiguredAttr::Query(_) => Ok(starlark::values::string::STRING_TYPE),
-            ConfiguredAttr::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
-            ConfiguredAttr::Metadata(..) => Ok(OpaqueMetadata::get_type_value_static().as_str()),
-            ConfiguredAttr::TargetModifiers(..) => {
-                Ok(OpaqueMetadata::get_type_value_static().as_str())
-            }
         }
     }
 
@@ -263,6 +219,9 @@ fn configured_attr_to_value<'v>(
         ConfiguredAttr::ExplicitConfiguredDep(d) => heap.alloc(
             StarlarkConfiguredProvidersLabel::new(d.as_ref().label.dupe()),
         ),
+        ConfiguredAttr::TransitionDep(t) => {
+            heap.alloc(StarlarkConfiguredProvidersLabel::new(t.dep.dupe()))
+        }
         ConfiguredAttr::SplitTransitionDep(t) => {
             let mut map = SmallMap::with_capacity(t.deps.len());
 

@@ -7,6 +7,7 @@
 ## UnconfiguredTargetNode.get\_attr
 ## UnconfiguredTargetNode.get\_attrs
 ## UnconfiguredTargetNode.has\_attr
+## UnconfiguredTargetNode.inputs
 ## UnconfiguredTargetNode.label
 ## UnconfiguredTargetNode.oncall
 ## UnconfiguredTargetNode.rule\_kind

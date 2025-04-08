@@ -8,6 +8,7 @@
 load("@prelude//:artifacts.bzl", "single_artifact")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//cxx:headers.bzl", "CHeader")
 load(
     "@prelude//linking:link_info.bzl",
     "CxxSanitizerRuntimeInfo",
@@ -40,6 +41,7 @@ load(
     "CxxResourceSpec",  # @unused Used as a type
 )
 load(":apple_resource_utility.bzl", "apple_bundle_destination_from_resource_destination")
+load(":modulemap.bzl", "create_modulemap")
 load(
     ":resource_groups.bzl",
     "create_resource_graph",
@@ -197,11 +199,15 @@ def _copy_swift_library_evolution_support(ctx: AnalysisContext) -> list[AppleBun
         if apple_library_for_distribution_info == None:
             continue
         module_name = apple_library_for_distribution_info.module_name
-        swiftmodule_files.update({
-            apple_library_for_distribution_info.target_triple + ".swiftinterface": apple_library_for_distribution_info.swiftinterface,
-            apple_library_for_distribution_info.target_triple + ".private.swiftinterface": apple_library_for_distribution_info.private_swiftinterface,
-            apple_library_for_distribution_info.target_triple + ".swiftdoc": apple_library_for_distribution_info.swiftdoc,
-        })
+        if apple_library_for_distribution_info.swiftinterface != None:
+            swiftmodule_files.update({
+                apple_library_for_distribution_info.target_triple + ".swiftinterface": apple_library_for_distribution_info.swiftinterface,
+                apple_library_for_distribution_info.target_triple + ".private.swiftinterface": apple_library_for_distribution_info.private_swiftinterface,
+            })
+        if apple_library_for_distribution_info.swiftdoc != None:
+            swiftmodule_files.update({
+                apple_library_for_distribution_info.target_triple + ".swiftdoc": apple_library_for_distribution_info.swiftdoc,
+            })
 
     if len(swiftmodule_files) == 0 or module_name == None:
         return []
@@ -209,6 +215,28 @@ def _copy_swift_library_evolution_support(ctx: AnalysisContext) -> list[AppleBun
     framework_module_dir = ctx.actions.declare_output(module_name + "framework.swiftmodule", dir = True)
     ctx.actions.copied_dir(framework_module_dir.as_output(), swiftmodule_files)
     return [AppleBundlePart(source = framework_module_dir, destination = AppleBundleDestination("modules"), new_name = module_name + ".swiftmodule")]
+
+def _public_headers(ctx: AnalysisContext) -> list[Artifact]:
+    if not ctx.attrs.copy_public_framework_headers:
+        return []
+    binary_deps = getattr(ctx.attrs, "binary")
+    if binary_deps == None:
+        return []
+
+    binary = get_default_binary_dep(binary_deps)
+    apple_library_info = binary.get(AppleLibraryInfo)
+    if apple_library_info == None:
+        return []
+    tset = apple_library_info.public_framework_headers
+
+    headers = []
+    if tset._tset:
+        for public_framework_headers in tset._tset.traverse():
+            for public_framework_header in public_framework_headers:
+                for artifact in public_framework_header.artifacts:
+                    headers.append(artifact)
+
+    return headers
 
 def _copy_public_headers(ctx: AnalysisContext) -> list[AppleBundlePart]:
     if not ctx.attrs.copy_public_framework_headers:
@@ -235,13 +263,44 @@ def _copy_public_headers(ctx: AnalysisContext) -> list[AppleBundlePart]:
 
     return bundle_parts
 
+def _create_framework_module_map(ctx: AnalysisContext) -> Artifact:
+    binary = get_default_binary_dep(ctx.attrs.binary)
+    apple_library_for_distribution_info = binary.get(AppleLibraryForDistributionInfo)
+    if apple_library_for_distribution_info == None:
+        fail("Tried to generate an automatic modulemap for an unsupported binary dep. Please make sure it is a modular apple_library")
+    headers = _public_headers(ctx)
+    cheaders = []
+    for header in headers:
+        cheaders.append(CHeader(
+            artifact = header,
+            name = header.basename,
+            namespace = "",
+            named = False,
+        ))
+
+    module_name = apple_library_for_distribution_info.module_name
+    _, module_map = create_modulemap(
+        ctx,
+        "module",
+        module_name,
+        cheaders,
+        None,
+        False,
+        None,
+        is_framework = True,
+    )
+    return module_map
+
 def _copy_module_map(ctx: AnalysisContext) -> list[AppleBundlePart]:
     extension = get_extension_attr(ctx)
     if not extension == "framework":
         return []
     module_map = ctx.attrs.module_map
-    if not module_map:
+    if module_map == None:
         return []
+    if module_map == "auto":
+        module_map = _create_framework_module_map(ctx)
+
     return [AppleBundlePart(source = module_map, destination = AppleBundleDestination("modules"))]
 
 def _copy_resources(ctx: AnalysisContext, specs: list[AppleResourceSpec]) -> list[AppleBundlePart]:

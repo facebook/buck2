@@ -298,7 +298,9 @@ def compile_swift(
         exported_objc_modulemap_pp_info: [CPreprocessor, None],
         private_objc_modulemap_pp_info: [CPreprocessor, None],
         framework_search_paths_flags: cmd_args,
-        extra_search_paths_flags: list[ArgLike] = []) -> ([SwiftCompilationOutput, None], DefaultInfo):
+        extra_search_paths_flags: list[ArgLike] = [],
+        compile_category = "swift_compile",
+        compile_swiftmodule_category = "swiftmodule_compile") -> ([SwiftCompilationOutput, None], DefaultInfo):
     # If this target imports XCTest we need to pass the search path to its swiftmodule.
     framework_search_paths = cmd_args()
     framework_search_paths.add(_get_xctest_swiftmodule_search_path(ctx))
@@ -368,19 +370,32 @@ def compile_swift(
     if cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
         output_symbols = ctx.actions.declare_output("__tbd__/" + module_name + ".swift_symbols.txt")
 
-    _compile_swiftmodule(
+    # When compiling with WMO (ie, not incrementally), we compile the
+    # swiftmodule seperately. In incremental mode, we generate the swiftmodule
+    # as part of the compile action to make use of incrementality.
+    if not should_build_swift_incrementally(ctx):
+        _compile_swiftmodule(
+            ctx,
+            toolchain,
+            shared_flags,
+            srcs,
+            swiftinterface_output,
+            output_swiftmodule,
+            output_header,
+            output_symbols,
+            swift_framework_output,
+            compile_swiftmodule_category,
+        )
+
+    object_output = _compile_object(
         ctx,
         toolchain,
         shared_flags,
         srcs,
-        swiftinterface_output,
         output_swiftmodule,
         output_header,
-        output_symbols,
-        swift_framework_output,
+        compile_category,
     )
-
-    object_output = _compile_object(ctx, toolchain, shared_flags, srcs)
 
     index_store = _compile_index_store(ctx, toolchain, shared_flags, srcs)
 
@@ -460,7 +475,8 @@ def _compile_swiftmodule(
         output_swiftmodule: Artifact,
         output_header: Artifact,
         output_symbols: Artifact | None,
-        swift_framework_output: SwiftLibraryForDistributionOutput | None) -> CompileArgsfiles:
+        swift_framework_output: SwiftLibraryForDistributionOutput | None,
+        category: str) -> CompileArgsfiles:
     if output_swiftinterface:
         # We compile the interface in two passes:
         #  1. generate the ObjC header and swiftinterface file
@@ -560,7 +576,7 @@ def _compile_swiftmodule(
             output_tbd.as_output(),
         ])
 
-    ret = _compile_with_argsfile(ctx, "swiftmodule_compile", SWIFTMODULE_EXTENSION, argfile_cmd, srcs, cmd, toolchain, num_threads = 1)
+    ret = _compile_with_argsfile(ctx, category, SWIFTMODULE_EXTENSION, argfile_cmd, srcs, cmd, toolchain, num_threads = 1)
 
     if output_tbd != None:
         # Now we have run the TBD action we need to extract the symbols
@@ -580,9 +596,12 @@ def _compile_object(
         ctx: AnalysisContext,
         toolchain: SwiftToolchainInfo,
         shared_flags: cmd_args,
-        srcs: list[CxxSrcWithFlags]) -> SwiftObjectOutput:
-    if should_build_swift_incrementally(ctx, len(srcs)):
-        incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs)
+        srcs: list[CxxSrcWithFlags],
+        output_swiftmodule: Artifact,
+        output_header: Artifact,
+        category: str) -> SwiftObjectOutput:
+    if should_build_swift_incrementally(ctx):
+        incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs, output_swiftmodule, output_header)
         num_threads = incremental_compilation_output.num_threads
         output_map_artifact = incremental_compilation_output.output_map_artifact
         objects = incremental_compilation_output.artifacts
@@ -613,7 +632,7 @@ def _compile_object(
     if _should_compile_with_evolution(ctx):
         cmd.add(["-enable-library-evolution"])
 
-    argsfiles = _compile_with_argsfile(ctx, "swift_compile", SWIFT_EXTENSION, shared_flags, srcs, cmd, toolchain, num_threads = num_threads)
+    argsfiles = _compile_with_argsfile(ctx, category, SWIFT_EXTENSION, shared_flags, srcs, cmd, toolchain, num_threads = num_threads)
 
     return SwiftObjectOutput(
         object_files = objects,
@@ -650,6 +669,7 @@ def _compile_index_store(
         "-c",
         "-disable-batch-mode",
         "-disallow-use-new-driver",
+        "-ignore-errors",
     ])
 
     _compile_with_argsfile(
@@ -677,17 +697,22 @@ def _compile_with_argsfile(
         identifier: str | None = None,
         num_threads: int = 1,
         cacheable: bool = True) -> CompileArgsfiles:
-    shell_quoted_args = cmd_args(shared_flags, quote = "shell")
-    argsfile, _ = ctx.actions.write(extension + "_compile_argsfile", shell_quoted_args, allow_args = True)
-    input_args = [shared_flags]
-    cmd_form = cmd_args(cmd_args(argsfile, format = "@{}", delimiter = ""), hidden = input_args)
-    cmd_form.add([s.file for s in srcs])
-
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
-    cmd.add(cmd_form)
 
-    build_swift_incrementally = should_build_swift_incrementally(ctx, len(srcs))
+    # Assemble argsfile with compiler flags
+    shell_quoted_args = cmd_args(shared_flags, quote = "shell")
+    argsfile, _ = ctx.actions.write(extension + "_compile_argsfile", shell_quoted_args, allow_args = True, with_inputs = True)
+    argsfile_cmd_form = cmd_args(argsfile, format = "@{}", delimiter = "")
+    cmd.add(argsfile_cmd_form)
+
+    # Assemble argsfile with Swift source files
+    swift_quoted_files = cmd_args([s.file for s in srcs], quote = "shell")
+    swift_files, _ = ctx.actions.write(extension + "_files", swift_quoted_files, allow_args = True, with_inputs = True)
+    swift_files_cmd_form = cmd_args(swift_files, format = "@{}", delimiter = "")
+    cmd.add(swift_files_cmd_form)
+
+    build_swift_incrementally = should_build_swift_incrementally(ctx)
     explicit_modules_enabled = uses_explicit_modules(ctx)
 
     # If we prefer to execute locally (e.g., for perf reasons), ensure we upload to the cache,
@@ -727,8 +752,8 @@ def _compile_with_argsfile(
 
     argsfile = CompileArgsfile(
         file = argsfile,
-        cmd_form = cmd_form,
-        input_args = input_args,
+        cmd_form = argsfile_cmd_form,
+        input_args = [shared_flags],
         args = shell_quoted_args,
         args_without_file_prefix_args = shared_flags,
     )
@@ -1183,6 +1208,7 @@ def _create_compilation_database(
 
     cmd.add("--")
     cmd.add(argfile.cmd_form)
+    cmd.add([s.file for s in srcs])
     ctx.actions.run(
         cmd,
         category = "swift_compilation_database",

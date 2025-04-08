@@ -49,7 +49,7 @@ def create_dbg_source_db(
     ))
 
     artifacts.append(dep_manifests.project_as_args("source_artifacts"))
-    ctx.actions.run(cmd, category = "py_dbg_source_db")
+    ctx.actions.run(cmd, category = "py_dbg_source_db", error_handler = python_toolchain.python_error_handler)
 
     return DefaultInfo(default_output = output, other_outputs = artifacts)
 

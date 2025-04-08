@@ -32,13 +32,13 @@ class AppleInstallerManager implements InstallCommand {
   private static final Console CONSOLE =
       new Console(Verbosity.STANDARD_INFORMATION, System.out, System.err, Ansi.withoutTty());
 
+  private static final Logger LOG = Logger.getLogger(AppleInstallerManager.class.getName());
+
   public final Map<InstallId, SettableFuture<AppleInstallAppOptions>> installIdToOptionsMap =
       new HashMap<>();
-  private final Logger logger;
   private final AppleCommandLineOptions options;
 
-  public AppleInstallerManager(Logger logger, AppleCommandLineOptions options) {
-    this.logger = logger;
+  public AppleInstallerManager(AppleCommandLineOptions options) {
     this.options = options;
   }
 
@@ -52,7 +52,7 @@ class AppleInstallerManager implements InstallCommand {
         return InstallResult.success();
       } catch (Exception err) {
         String errMsg = Throwables.getStackTraceAsString(err);
-        logger.log(
+        LOG.log(
             Level.SEVERE,
             String.format(
                 "Error creating AppleInstallAppOptions from `install_apple_data`. Error message:"
@@ -77,7 +77,7 @@ class AppleInstallerManager implements InstallCommand {
               options,
               appleDeviceController,
               appleInstallAppOptions,
-              logger,
+              LOG,
               artifactPath);
       return appleInstall.installAppleBundle(artifactPath);
     } catch (Exception err) {

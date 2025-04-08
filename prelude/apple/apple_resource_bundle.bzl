@@ -48,7 +48,6 @@ _RESOURCE_BUNDLE_FIELDS = [
     "deps",
     "extension",
     "ibtool_flags",
-    "ibtool_module_flag",
     "info_plist",
     "info_plist_substitutions",
     "module_map",

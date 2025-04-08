@@ -267,7 +267,7 @@ pub(crate) async fn explain(
         req.manifold_path.as_deref(),
     )
     .await
-    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Explain))?;
 
     Ok(())
 }

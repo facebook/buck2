@@ -45,6 +45,7 @@ with_artifact_dir(Func) ->
         Dir -> Func(Dir)
     end.
 
+-spec artifact_annotation_dir() -> dir_path().
 artifact_annotation_dir() ->
     ArtifactAnnotationDir = os:getenv("TEST_RESULT_ARTIFACT_ANNOTATIONS_DIR"),
     case ArtifactAnnotationDir of
@@ -75,7 +76,7 @@ prepare(ExecutionDir, TestInfo) ->
                 LogPrivate ->
                     [
                         link_to_artifact_dir(File, LogPrivate, TestInfo)
-                     || File <- filelib:wildcard(filename:join(LogPrivate, "**/*.log")),
+                     || File <- filelib:wildcard(join_paths(LogPrivate, "**/*.log")),
                         filelib:is_regular(File)
                     ]
             end,
@@ -102,7 +103,7 @@ link_to_artifact_dir(File, Root, TestEnv) ->
             FullFileName = lists:flatten(string:replace(RelativePath, "/", ".", all)),
             case filelib:is_file(File) of
                 true ->
-                    file:make_symlink(File, filename:join(ArtifactDir, FullFileName)),
+                    file:make_symlink(File, join_paths(ArtifactDir, FullFileName)),
                     Annotation = artifact_annotations:create_artifact_annotation(FullFileName, TestEnv),
                     dump_annotation(Annotation, FullFileName);
                 _ ->
@@ -134,6 +135,7 @@ link_tar_ball(LogDir) ->
         end
     ).
 
+-spec dump_annotation(artifact_annotations:test_result_artifact_annotations(), file:filename()) -> ok.
 dump_annotation(Annotation, FileName) ->
     with_artifact_annotation_dir(
         fun(ArtifactAnnotationDir) ->
@@ -141,16 +143,25 @@ dump_annotation(Annotation, FileName) ->
             {ok, AnnotationFile} = file:open(
                 filename:join(ArtifactAnnotationDir, AnnotationName), [write]
             ),
-            file:write(AnnotationFile, artifact_annotations:serialize(Annotation))
+            file:write(AnnotationFile, artifact_annotations:serialize(Annotation)),
+            ok
         end
     ).
 
+-spec find_log_private(file:filename()) -> {error, log_private_not_found} | file:filename().
 find_log_private(LogDir) ->
     Candidates = [
         Folder
-     || Folder <- filelib:wildcard(filename:join(LogDir, "**/log_private")), filelib:is_dir(Folder)
+     || Folder <- filelib:wildcard(join_paths(LogDir, "**/log_private")), filelib:is_dir(Folder)
     ],
     case Candidates of
         [] -> {error, log_private_not_found};
         [LogPrivate | _Tail] -> LogPrivate
+    end.
+
+
+-spec join_paths(file:filename(), string()) -> string().
+join_paths(Path, FileName) ->
+    case filename:join(Path, FileName) of
+        NewPath when is_list(NewPath) -> NewPath
     end.

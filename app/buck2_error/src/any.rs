@@ -24,6 +24,11 @@ fn maybe_add_context_from_metadata(mut e: crate::Error, context: &dyn StdError) 
         if !metadata.tags.is_empty() {
             e = e.tag(metadata.tags.iter().copied());
         }
+        if !metadata.string_tags.is_empty() {
+            for tag in metadata.string_tags.iter() {
+                e = e.string_tag(tag);
+            }
+        }
         e
     } else {
         e
@@ -116,6 +121,7 @@ impl StdError for CrateAsStdError {
 #[derive(Clone)]
 pub struct ProvidableMetadata {
     pub tags: Vec<crate::ErrorTag>,
+    pub string_tags: Vec<String>,
     pub source_location: SourceLocation,
     /// The protobuf ActionError, if the root was an action error
     pub action_error: Option<buck2_data::ActionError>,
@@ -214,6 +220,7 @@ mod tests {
                     crate::ErrorTag::StarlarkFail,
                     crate::ErrorTag::WatchmanTimeout,
                 ],
+                string_tags: vec!["StringTag".to_owned()],
             });
         }
     }

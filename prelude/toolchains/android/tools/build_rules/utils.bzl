@@ -10,7 +10,7 @@ load("@prelude//:native.bzl", "native")
 # Returns true if build.is_oss is set to true; this should indicate that the current build is
 # being done for the purpose of an oss release.
 def is_oss_build():
-    return native.read_config("build", "is_oss", "false") == "true"
+    return read_config("build", "is_oss", "false") == "true"
 
 def add_os_labels(**kwargs):
     if "labels" not in kwargs:

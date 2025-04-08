@@ -29,7 +29,6 @@ use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
-use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
@@ -50,7 +49,7 @@ pub enum ProfileCommand {
 impl ProfileCommand {
     pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let submatches = matches.unwrap_subcommand();
-        ProfileSubcommand { subcommand: self }.exec(submatches, ctx)
+        ctx.exec(ProfileSubcommand { subcommand: self }, submatches)
     }
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {

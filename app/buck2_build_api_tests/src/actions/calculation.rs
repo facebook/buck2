@@ -26,6 +26,7 @@ use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
 use buck2_build_api::actions::execute::dice_data::CommandExecutorResponse;
 use buck2_build_api::actions::execute::dice_data::HasCommandExecutor;
 use buck2_build_api::actions::execute::dice_data::SetCommandExecutor;
+use buck2_build_api::actions::execute::dice_data::SetComputeActionInputsHashConfig;
 use buck2_build_api::actions::execute::dice_data::SetInvalidationTrackingConfig;
 use buck2_build_api::actions::execute::dice_data::SetReClient;
 use buck2_build_api::actions::impls::run_action_knobs::RunActionKnobs;
@@ -90,7 +91,7 @@ use buck2_execute::execute::testing_dry_run::DryRunEntry;
 use buck2_execute::execute::testing_dry_run::DryRunExecutor;
 use buck2_execute::materialize::materializer::SetMaterializer;
 use buck2_execute::materialize::nodisk::NoDiskMaterializer;
-use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_file_watcher::mergebase::SetMergebase;
 use buck2_http::HttpClientBuilder;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -126,6 +127,7 @@ fn registered_action(
         build_artifact.key().dupe(),
         action,
         CommandExecutorConfig::testing_local(),
+        None,
     );
     Arc::new(registered_action)
 }
@@ -143,7 +145,7 @@ fn mock_analysis_for_action_resolution(
         action_key.holder_key()
     );
 
-    let mut actions = RecordedActions::new();
+    let mut actions = RecordedActions::new(1);
     actions.insert(action_key.dupe(), registered_action_arc);
 
     dice_builder = dice_builder.mock_and_return(
@@ -194,6 +196,7 @@ async fn make_default_dice_state(
         data.set_testing_io_provider(temp_fs);
         data.set_digest_config(DigestConfig::testing_default());
         data.set_invalidation_tracking_config(true);
+        data.set_compute_action_inputs_hash_config(false);
     });
 
     for mock in mocks.into_iter() {
@@ -228,7 +231,7 @@ async fn make_default_dice_state(
     extra.set_command_executor(Box::new(CommandExecutorProvider { dry_run_tracker }));
     extra.set_blocking_executor(Arc::new(DummyBlockingExecutor { fs }));
     extra.set_materializer(Arc::new(NoDiskMaterializer));
-    extra.set_re_client(ManagedRemoteExecutionClient::testing_new_dummy());
+    extra.set_re_client(UnconfiguredRemoteExecutionClient::testing_new_dummy());
     extra.set_http_client(HttpClientBuilder::https_with_system_roots().await?.build());
     extra.set_mergebase(Default::default());
     extra.data.set(EventDispatcher::null());

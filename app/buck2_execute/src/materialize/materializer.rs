@@ -617,8 +617,6 @@ impl HasMaterializer for UserComputationData {
 
 #[derive(Clone, Copy, Debug, Dupe)]
 pub enum MaterializationMethod {
-    /// Materialize all immediately as they are declared
-    Immediate,
     /// Materialize only when needed
     Deferred,
     /// Materialize only when needed, do not materialize final artifacts
@@ -638,7 +636,6 @@ impl MaterializationMethod {
     pub fn try_new_from_config_value(config_value: Option<&str>) -> buck2_error::Result<Self> {
         match config_value {
             None | Some("") | Some("deferred") => Ok(MaterializationMethod::Deferred),
-            Some("all") => Ok(MaterializationMethod::Immediate),
             Some("deferred_skip_final_artifacts") => {
                 Ok(MaterializationMethod::DeferredSkipFinalArtifacts)
             }

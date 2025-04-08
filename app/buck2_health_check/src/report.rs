@@ -41,10 +41,10 @@ pub struct DisplayReport {
 
     /// An optional warning to display to the user.
     /// When a health check runs but has nothing to report, this field should be None.
-    pub warning: Option<Warning>,
+    pub health_issue: Option<HealthIssue>,
 }
 
-pub struct Warning {
+pub struct HealthIssue {
     /// The severity of the issue reported by the health check.
     pub severity: Severity,
 
@@ -56,7 +56,7 @@ pub struct Warning {
     pub remediation: Option<Remediation>,
 }
 
-impl std::fmt::Display for Warning {
+impl std::fmt::Display for HealthIssue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let remediation = if is_open_source() {
             String::new()
@@ -81,7 +81,7 @@ mod tests {
     use super::*;
     #[test]
     fn test_display_report_with_message_remediation() {
-        let report = Warning {
+        let report = HealthIssue {
             severity: Severity::Warning,
             message: "This is a warning".to_owned(),
             remediation: Some(Remediation::Message("Fix this by doing X".to_owned())),
@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn test_display_report_with_link_remediation() {
-        let report = Warning {
+        let report = HealthIssue {
             severity: Severity::Info,
             message: "Information message".to_owned(),
             remediation: Some(Remediation::Link("https://example.com/help".to_owned())),
@@ -106,7 +106,7 @@ mod tests {
 
     #[test]
     fn test_display_report_without_remediation() {
-        let report = Warning {
+        let report = HealthIssue {
             severity: Severity::Warning,
             message: "Just a message".to_owned(),
             remediation: None,

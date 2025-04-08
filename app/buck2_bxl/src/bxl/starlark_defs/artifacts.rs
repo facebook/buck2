@@ -104,7 +104,7 @@ pub(crate) async fn visit_artifact_path_without_associated_deduped(
     Ok(())
 }
 
-#[derive(Clone, Debug, Trace, ProvidesStaticType, Allocative)]
+#[derive(Clone, Dupe, Debug, Trace, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub(crate) struct EnsuredArtifactGroup<'v> {
     // Have `EnsuredArtifactGroup` be a wrapper around `EnsuredArtifactGroupInner` as a Starlark `Value`
@@ -139,7 +139,7 @@ impl<'v> EnsuredArtifactGroup<'v> {
     }
 }
 
-#[starlark_value(type = "ensured_artifact_group", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "bxl.EnsuredArtifactGroup", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for EnsuredArtifactGroup<'v>
 where
     Self: ProvidesStaticType<'v>,
@@ -156,7 +156,7 @@ where
     }
 }
 
-#[starlark_value(type = "ensured_artifact_group_inner", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "bxl.EnsuredArtifactGroupInner", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for EnsuredArtifactGroupInner
 where
     Self: ProvidesStaticType<'v>,

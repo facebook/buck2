@@ -303,24 +303,30 @@ impl ReConnectionHandle {
     }
 
     /// gets a client that is tied to the scope of this guard
-    pub fn get_client(&self) -> ManagedRemoteExecutionClient {
-        ManagedRemoteExecutionClient {
+    pub fn get_client(&self) -> UnconfiguredRemoteExecutionClient {
+        UnconfiguredRemoteExecutionClient {
             data: Arc::downgrade(&self.connection),
-            re_use_case_override: None,
         }
     }
 }
 
 #[derive(Clone, Dupe)]
-pub struct ManagedRemoteExecutionClient {
+pub struct UnconfiguredRemoteExecutionClient {
     data: Weak<Arc<LazyRemoteExecutionClient>>,
-    re_use_case_override: Option<RemoteExecutorUseCase>,
 }
 
-impl ManagedRemoteExecutionClient {
-    pub fn with_re_use_case_override(mut self, use_case: Option<RemoteExecutorUseCase>) -> Self {
-        self.re_use_case_override = use_case;
-        self
+#[derive(Clone, Dupe)]
+pub struct ManagedRemoteExecutionClient {
+    inner: UnconfiguredRemoteExecutionClient,
+    pub use_case: RemoteExecutorUseCase,
+}
+
+impl UnconfiguredRemoteExecutionClient {
+    pub fn with_use_case(self, use_case: RemoteExecutorUseCase) -> ManagedRemoteExecutionClient {
+        ManagedRemoteExecutionClient {
+            inner: self,
+            use_case,
+        }
     }
 
     fn lock(&self) -> buck2_error::Result<Arc<Arc<LazyRemoteExecutionClient>>> {
@@ -329,17 +335,36 @@ impl ManagedRemoteExecutionClient {
             .buck_error_context("Internal error: the underlying RE connection has terminated because the corresponding guard has been dropped.")
     }
 
+    pub async fn get_session_id(&self) -> buck2_error::Result<String> {
+        let session_id = self.lock()?.get().await?.get_session_id().to_owned();
+        Ok(session_id)
+    }
+
+    // Construct a dummy UnconfiguredRemoteExecutionClient that won't actually work. This is only
+    // remotely useful in tests.
+    pub fn testing_new_dummy() -> Self {
+        Self { data: Weak::new() }
+    }
+}
+
+impl ManagedRemoteExecutionClient {
+    pub async fn get_session_id(&self) -> buck2_error::Result<String> {
+        self.inner.get_session_id().await
+    }
+
+    fn lock(&self) -> buck2_error::Result<Arc<Arc<LazyRemoteExecutionClient>>> {
+        self.inner.lock()
+    }
+
     pub async fn action_cache(
         &self,
         action_digest: ActionDigest,
-        use_case: RemoteExecutorUseCase,
     ) -> buck2_error::Result<Option<ActionResultResponse>> {
-        let use_case = self.re_use_case_override.unwrap_or(use_case);
         Ok(self
             .lock()?
             .get()
             .await?
-            .action_cache(action_digest, use_case)
+            .action_cache(action_digest, self.use_case)
             .await
             .ok()
             .flatten())
@@ -352,11 +377,9 @@ impl ManagedRemoteExecutionClient {
         blobs: &ActionBlobs,
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
-        use_case: RemoteExecutorUseCase,
         identity: Option<&ReActionIdentity<'_>>,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<UploadStats> {
-        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
             .await?
@@ -366,7 +389,7 @@ impl ManagedRemoteExecutionClient {
                 blobs,
                 dir_path,
                 input_dir,
-                use_case,
+                self.use_case,
                 identity,
                 digest_config,
             )
@@ -378,9 +401,7 @@ impl ManagedRemoteExecutionClient {
         files_with_digest: Vec<NamedDigest>,
         directories: Vec<remote_execution::Path>,
         inlined_blobs_with_digest: Vec<InlinedBlobWithDigest>,
-        use_case: RemoteExecutorUseCase,
     ) -> buck2_error::Result<()> {
-        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
             .await?
@@ -388,7 +409,7 @@ impl ManagedRemoteExecutionClient {
                 files_with_digest,
                 directories,
                 inlined_blobs_with_digest,
-                use_case,
+                self.use_case,
             )
             .await
     }
@@ -398,7 +419,6 @@ impl ManagedRemoteExecutionClient {
         action_digest: ActionDigest,
         platform: &RE::Platform,
         dependencies: impl IntoIterator<Item = &'a RemoteExecutorDependency>,
-        use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_>,
         manager: &mut CommandExecutionManager,
         skip_cache_read: bool,
@@ -408,7 +428,6 @@ impl ManagedRemoteExecutionClient {
         knobs: &ExecutorGlobalKnobs,
         meta_internal_extra_params: &MetaInternalExtraParams,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
-        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
             .await?
@@ -416,7 +435,7 @@ impl ManagedRemoteExecutionClient {
                 action_digest,
                 platform,
                 dependencies,
-                use_case,
+                self.use_case,
                 identity,
                 manager,
                 skip_cache_read,
@@ -432,13 +451,11 @@ impl ManagedRemoteExecutionClient {
     pub async fn materialize_files(
         &self,
         files: Vec<NamedDigestWithPermissions>,
-        use_case: RemoteExecutorUseCase,
     ) -> buck2_error::Result<()> {
-        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
             .await?
-            .materialize_files(files, use_case)
+            .materialize_files(files, self.use_case)
             .await
     }
 
@@ -446,48 +463,38 @@ impl ManagedRemoteExecutionClient {
         &self,
         identity: Option<&ReActionIdentity<'_>>,
         digests: Vec<TDigest>,
-        use_case: RemoteExecutorUseCase,
     ) -> buck2_error::Result<Vec<T>> {
-        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
             .await?
-            .download_typed_blobs(identity, digests, use_case)
+            .download_typed_blobs(identity, digests, self.use_case)
             .await
     }
 
-    pub async fn download_blob(
-        &self,
-        digest: &TDigest,
-        use_case: RemoteExecutorUseCase,
-    ) -> buck2_error::Result<Vec<u8>> {
-        let use_case = self.re_use_case_override.unwrap_or(use_case);
+    pub async fn download_blob(&self, digest: &TDigest) -> buck2_error::Result<Vec<u8>> {
         self.lock()?
             .get()
             .await?
-            .download_blob(digest, use_case)
+            .download_blob(digest, self.use_case)
             .await
     }
 
-    pub async fn upload_blob(
-        &self,
-        blob: InlinedBlobWithDigest,
-        use_case: RemoteExecutorUseCase,
-    ) -> buck2_error::Result<TDigest> {
-        let use_case = self.re_use_case_override.unwrap_or(use_case);
-        self.lock()?.get().await?.upload_blob(blob, use_case).await
+    pub async fn upload_blob(&self, blob: InlinedBlobWithDigest) -> buck2_error::Result<TDigest> {
+        self.lock()?
+            .get()
+            .await?
+            .upload_blob(blob, self.use_case)
+            .await
     }
 
     pub async fn get_digest_expirations(
         &self,
         digests: Vec<TDigest>,
-        use_case: RemoteExecutorUseCase,
     ) -> buck2_error::Result<Vec<(TDigest, DateTime<Utc>)>> {
-        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
             .await?
-            .get_digest_expirations(digests, use_case)
+            .get_digest_expirations(digests, self.use_case)
             .await
     }
 
@@ -495,13 +502,11 @@ impl ManagedRemoteExecutionClient {
         &self,
         digests: Vec<TDigest>,
         ttl: Duration,
-        use_case: RemoteExecutorUseCase,
     ) -> buck2_error::Result<()> {
-        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
             .await?
-            .extend_digest_ttl(digests, ttl, use_case)
+            .extend_digest_ttl(digests, ttl, self.use_case)
             .await
     }
 
@@ -509,10 +514,8 @@ impl ManagedRemoteExecutionClient {
         &self,
         digest: ActionDigest,
         result: TActionResult2,
-        use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
     ) -> buck2_error::Result<WriteActionResultResponse> {
-        let use_case = self.re_use_case_override.unwrap_or(use_case);
         if buck2_env!(
             "BUCK2_TEST_SKIP_ACTION_CACHE_WRITE",
             bool,
@@ -526,22 +529,8 @@ impl ManagedRemoteExecutionClient {
             self.lock()?
                 .get()
                 .await?
-                .write_action_result(digest, result, use_case, platform)
+                .write_action_result(digest, result, self.use_case, platform)
                 .await
-        }
-    }
-
-    pub async fn get_session_id(&self) -> buck2_error::Result<String> {
-        let session_id = self.lock()?.get().await?.get_session_id().to_owned();
-        Ok(session_id)
-    }
-
-    /// Construct a dummy ManagedRemoteExecutionClient that won't actually work. This is only
-    /// remotely useful in tests.
-    pub fn testing_new_dummy() -> Self {
-        Self {
-            data: Weak::new(),
-            re_use_case_override: None,
         }
     }
 }

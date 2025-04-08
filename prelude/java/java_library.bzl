@@ -379,6 +379,9 @@ def _create_jar_artifact(
     javac_tool = javac_tool or derive_javac(java_toolchain.javac)
     jar_out = output or ctx.actions.declare_output(paths.join(actions_identifier or "jar", "{}.jar".format(label.name)))
 
+    # since create_jar_artifact_javacd does not support this, it will not be added to common_compile_kwargs
+    concat_resources = getattr(ctx.attrs, "concat_resources", False)
+
     args = [
         java_toolchain.compile_and_package[RunInfo],
         "--jar_builder_tool",
@@ -396,6 +399,8 @@ def _create_jar_artifact(
     if resources:
         resource_dir = _copy_resources(ctx.actions, actions_identifier, java_toolchain, label.package, resources, resources_root)
         args += ["--resources_dir", resource_dir]
+    if concat_resources:
+        args += ["--concat_resources"]
 
     if manifest_file:
         args += ["--manifest", manifest_file]

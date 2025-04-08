@@ -7,7 +7,7 @@
   },
   {
     "buck.package":"prelude//invalid_type",
-    "buck.error":"Error evaluating build file: `prelude//invalid_type:TARGETS.fixture`\n\nCaused by:\n    0: Traceback (most recent call last):\n         * invalid_type/TARGETS.fixture:1, in <module>\n             stub(name = \"invalid_key\", metadata = 123)\n       \n       error: Error coercing attribute `metadata` of `prelude//invalid_type:invalid_key`\n        --> invalid_type/TARGETS.fixture:1:1\n         |\n       1 | stub(name = \"invalid_key\", metadata = 123)\n         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n         |\n    1: Error coercing attribute `metadata` of type `attrs.metadata(default={})`\n    2: Error coercing 123\n    3: Expected value of type `dict`, got value with type `int` (value was `123`)"
+    "buck.error":"Error evaluating build file: `prelude//invalid_type:TARGETS.fixture`\n\nCaused by:\n    0: Traceback (most recent call last):\n         * invalid_type/TARGETS.fixture:1, in <module>\n             stub(name = \"invalid_key\", metadata = 123)\n       \n       error: Error coercing attribute `metadata` of `prelude//invalid_type:invalid_key`\n        --> invalid_type/TARGETS.fixture:1:1\n         |\n       1 | stub(name = \"invalid_key\", metadata = 123)\n         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n         |\n    1: Error coercing attribute `metadata` of type `attrs.metadata(default={})`\n    2: Error coercing 123\n    3: Expected `dict`, but got `int (repr: 123)`"
   },
   {
     "buck.package":"prelude//ok",

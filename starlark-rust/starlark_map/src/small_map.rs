@@ -398,10 +398,7 @@ impl<K, V> SmallMap<K, V> {
 
     /// Reserve capacity for at least `additional` more elements to be inserted.
     #[inline]
-    pub fn reserve(&mut self, additional: usize)
-    where
-        K: Eq,
-    {
+    pub fn reserve(&mut self, additional: usize) {
         self.entries.reserve(additional);
         if let Some(index) = &mut self.index {
             index.reserve(additional, Self::hasher(&self.entries));

@@ -10,6 +10,7 @@
 use std::collections::BTreeMap;
 
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_error::BuckErrorContext;
 use buck2_node::attrs::attr_type::query::QueryAttr;
 use buck2_node::attrs::attr_type::query::QueryAttrBase;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
@@ -21,11 +22,9 @@ use buck2_node::provider_id_set::ProviderIdSet;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::parse_expr;
 use starlark::typing::Ty;
-use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
 
 pub trait QueryAttrTypeExt {
@@ -43,17 +42,16 @@ impl QueryAttrTypeExt for QueryAttrType {
         // parse the expr to do validation and to extract the literals.
         let parsed_query = parse_expr(&query)?;
 
-        struct Collector<'a> {
-            ctx: &'a dyn AttrCoercionContext,
-            literals: BTreeMap<String, ProvidersLabel>,
+        struct Collector<'q> {
+            ctx: &'q dyn AttrCoercionContext,
+            literals: BTreeMap<&'q str, ProvidersLabel>,
         }
 
-        impl QueryLiteralVisitor for Collector<'_> {
-            fn target_pattern(&mut self, pattern: &str) -> buck2_error::Result<()> {
+        impl<'q> QueryLiteralVisitor<'q> for Collector<'q> {
+            fn target_pattern(&mut self, pattern: &'q str) -> buck2_error::Result<()> {
                 // TODO(cjhopman): We could probably parse the pattern first. This would likely at least give a better error message when the query contains a non-literal target pattern.
                 // We could optimize this to do less work for duplicates, but it's generally not helpful.
                 let label = self.ctx.coerce_providers_label(pattern)?;
-
                 /*
                 if label.name() != &ProvidersName::Default {
                     return Err(
@@ -61,7 +59,7 @@ impl QueryAttrTypeExt for QueryAttrType {
                     );
                 }*/
 
-                self.literals.insert(pattern.to_owned(), label);
+                self.literals.insert(pattern, label);
                 Ok(())
             }
         }
@@ -73,9 +71,21 @@ impl QueryAttrTypeExt for QueryAttrType {
 
         ctx.visit_query_function_literals(&mut collector, &parsed_query, &query)?;
 
+        let resolved_literals = ResolvedQueryLiterals(
+            collector
+                .literals
+                .into_iter()
+                .map(|(l, p)| {
+                    query
+                        .find(l)
+                        .map(|offset| ((offset, l.len()), p))
+                        .internal_error("Not found in query")
+                })
+                .try_collect()?,
+        );
         Ok(QueryAttrBase {
             query,
-            resolved_literals: ResolvedQueryLiterals(collector.literals),
+            resolved_literals,
         })
     }
 }
@@ -87,12 +97,8 @@ impl AttrTypeCoerce for QueryAttrType {
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> buck2_error::Result<CoercedAttr> {
-        let query = value
-            .unpack_str()
-            .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
-
         Ok(CoercedAttr::Query(Box::new(QueryAttr {
-            query: Self::coerce(ctx, query.to_owned())?,
+            query: Self::coerce(ctx, value.unpack_str_err()?.to_owned())?,
             providers: ProviderIdSet::EMPTY,
         })))
     }

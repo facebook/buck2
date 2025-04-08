@@ -36,18 +36,23 @@ _RESERVED_KEYWORDS: FrozenSet[str] = frozenset(
 
 
 class Module:
-    def __init__(self, name: str, mark_headers_private: bool) -> None:
+    def __init__(
+        self, name: str, mark_headers_private: bool, is_framework: bool
+    ) -> None:
         self.name: str = name
         self.headers: List[str] = []
         self.mark_headers_private: bool = mark_headers_private
         self.submodules: Dict[str, Module] = {}
+        self.is_framework: bool = is_framework
 
     def add_header(self, src: str) -> None:
         self.headers.append(src)
 
-    def get_submodule(self, name: str, mark_headers_private: bool) -> "Module":
+    def get_submodule(
+        self, name: str, mark_headers_private: bool, is_framework: bool
+    ) -> "Module":
         if name not in self.submodules:
-            self.submodules[name] = Module(name, mark_headers_private)
+            self.submodules[name] = Module(name, mark_headers_private, is_framework)
 
         return self.submodules[name]
 
@@ -56,7 +61,10 @@ class Module:
         name = self.name
         if name in _RESERVED_KEYWORDS:
             name = f"{name}_"
-        f.write(f"{space}module {name} {{\n")
+        if self.is_framework:
+            f.write(f"{space}framework module {name} {{\n")
+        else:
+            f.write(f"{space}module {name} {{\n")
 
         submodule_names = set()
         for submodule_name in sorted(self.submodules.keys()):
@@ -95,8 +103,9 @@ def _write_single_module(
     headers: Iterable[str],
     path_prefix: str,
     mark_headers_private: bool,
+    is_framework: bool,
 ) -> None:
-    module = Module(name, mark_headers_private)
+    module = Module(name, mark_headers_private, is_framework)
     for h in headers:
         module.add_header(h)
 
@@ -109,9 +118,10 @@ def _write_submodules(
     headers: Iterable[str],
     path_prefix: str,
     mark_headers_private: bool,
+    is_framework: bool,
 ) -> None:
     # Create a tree of nested modules, one for each path component.
-    root_module = Module(name, mark_headers_private)
+    root_module = Module(name, mark_headers_private, is_framework)
     for h in headers:
         module = root_module
         for i, component in enumerate(h.split(os.sep)):
@@ -120,7 +130,9 @@ def _write_submodules(
                 # In this case we add the headers directly to the root module.
                 pass
             else:
-                module = module.get_submodule(component, mark_headers_private)
+                module = module.get_submodule(
+                    component, mark_headers_private, is_framework
+                )
 
         module.add_header(h)
 
@@ -162,21 +174,39 @@ def main() -> None:
         action="store_true",
     )
     parser.add_argument(
+        "--framework",
+        help="This modulemap is for embedding in a framework.",
+        action="store_true",
+    )
+    parser.add_argument(
         "mappings", nargs="*", default=[], help="A list of import paths"
     )
     args = parser.parse_args()
 
     output_dir = os.path.dirname(args.output)
-    path_prefix = os.path.relpath(args.symlink_tree, output_dir)
+    if args.framework:
+        path_prefix = ""
+    else:
+        path_prefix = os.path.relpath(args.symlink_tree, output_dir)
 
     with open(args.output, "w") as f:
         if args.use_submodules:
             _write_submodules(
-                f, args.name, args.mappings, path_prefix, args.mark_headers_private
+                f,
+                args.name,
+                args.mappings,
+                path_prefix,
+                args.mark_headers_private,
+                args.framework,
             )
         else:
             _write_single_module(
-                f, args.name, args.mappings, path_prefix, args.mark_headers_private
+                f,
+                args.name,
+                args.mappings,
+                path_prefix,
+                args.mark_headers_private,
+                args.framework,
             )
 
         if args.swift_header:

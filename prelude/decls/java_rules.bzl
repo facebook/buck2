@@ -274,6 +274,9 @@ java_library = prelude_rule(
                 List of additional arguments to pass into the Java compiler. These
                  arguments follow the ones specified in `.buckconfig`.
             """),
+            "concat_resources": attrs.bool(default = False, doc = """
+                Use parallel compression and concatenation of intermediary jars to speed up jar time generation.
+            """),
         } |
         jvm_common.remove_classes_arg() |
         jvm_common.exported_deps() |
@@ -390,10 +393,9 @@ java_test = prelude_rule(
             "use_cxx_libraries": attrs.option(attrs.bool(), default = None, doc = """
                 Whether or not to build and link against `cxx_library()` dependencies when testing.
             """),
-            "cxx_library_whitelist": attrs.list(attrs.dep(), default = [], doc = """
-                EXPERIMENTAL.
-                 List of cxx\\_libraries to build, if use\\_cxx\\_libraries is true.
-                 This can be useful if some dependencies are Android-only and won't build on the default platform.
+            "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
+                 List of cxx_library targets to build, if use_cxx_libraries is true.
+                 This can be useful if some dependencies are Android-only and won't build for the test host platform.
             """),
             "vm_args": attrs.list(attrs.arg(), default = [], doc = """
                 Runtime arguments to the JVM running the tests.

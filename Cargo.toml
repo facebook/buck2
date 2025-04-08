@@ -41,6 +41,7 @@ members = [
     "app/buck2_external_cells_bundled",
     "app/buck2_grpc",
     "app/buck2_health_check",
+    "app/buck2_health_check_proto",
     "app/buck2_http",
     "app/buck2_install_proto",
     "app/buck2_interpreter",
@@ -391,6 +392,7 @@ buck2_forkserver_proto = { path = "app/buck2_forkserver_proto" }
 buck2_futures = { path = "app/buck2_futures" }
 buck2_grpc = { path = "app/buck2_grpc" }
 buck2_health_check = { path = "app/buck2_health_check" }
+buck2_health_check_proto = { path = "app/buck2_health_check_proto" }
 buck2_http = { path = "app/buck2_http" }
 buck2_install_proto = { path = "app/buck2_install_proto" }
 buck2_interpreter = { path = "app/buck2_interpreter" }

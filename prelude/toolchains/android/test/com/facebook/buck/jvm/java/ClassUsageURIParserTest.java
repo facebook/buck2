@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Map;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
@@ -53,7 +52,6 @@ public class ClassUsageURIParserTest {
   public void testIncrementCountWhenRecordSameURI() {
     parser.parseAndRecordURI(getJarURI(TEST_JAR_URI, SINGLE_FILE_NAME));
     parser.parseAndRecordURI(getJarURI(TEST_JAR_URI, SINGLE_FILE_NAME));
-    assertClassUsageRecordedWithCount(TEST_JAR_PATH, SINGLE_FILE_NAME, 2);
   }
 
   @Test
@@ -127,16 +125,11 @@ public class ClassUsageURIParserTest {
     return URI.create(String.format("jar:file://%s!/%s", jarUri, Paths.get(fileName)));
   }
 
-  private void assertClassUsageRecordedWithCount(Path jarPath, String fileName, int count) {
-    ImmutableMap<Path, Map<Path, Integer>> classUsageMap = parser.getClassUsageMap();
-    assertEquals(Integer.valueOf(count), classUsageMap.get(jarPath).get(Paths.get(fileName)));
-  }
-
   private void assertClassUsagesRecordedExactly(Path jarPath, String... files) {
-    ImmutableMap<Path, Map<Path, Integer>> classUsageMap = parser.getClassUsageMap();
+    ImmutableMap<Path, Set<Path>> classUsageMap = parser.getClassUsageMap();
     assertTrue(
         classUsageMap + "does not contain key" + jarPath, classUsageMap.containsKey(jarPath));
-    Set<Path> paths = classUsageMap.get(jarPath).keySet();
+    Set<Path> paths = classUsageMap.get(jarPath);
     assertEquals(files.length, paths.size());
 
     for (String file : files) {

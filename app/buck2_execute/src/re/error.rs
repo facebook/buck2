@@ -78,7 +78,7 @@ fn re_error(
     };
     let buck2_error: buck2_error::Error = err.clone().into();
 
-    buck2_error.context(err).context_for_key(&group.to_string())
+    buck2_error.context(err).string_tag(&group.to_string())
 }
 
 pub(crate) async fn with_error_handler<T>(

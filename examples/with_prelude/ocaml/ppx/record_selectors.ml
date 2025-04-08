@@ -31,6 +31,7 @@ let accessor_impl (ld : label_declaration) =
                { loc; txt = lident ld.pld_name.txt });
         pvb_attributes = [];
         pvb_loc = loc;
+        pvb_constraint = None;
       };
     ]
 

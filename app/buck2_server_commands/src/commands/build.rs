@@ -45,7 +45,6 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::span_async;
-use buck2_events::errors::create_error_report;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -117,13 +116,6 @@ impl ServerCommandTemplate for BuildServerCommand {
 
     fn is_success(&self, response: &Self::Response) -> bool {
         response.errors.is_empty()
-    }
-
-    fn additional_telemetry_errors(
-        &self,
-        response: &Self::Response,
-    ) -> Vec<buck2_data::ErrorReport> {
-        response.errors.clone()
     }
 }
 
@@ -305,7 +297,7 @@ async fn process_build_result(
         .build_errors
         .errors
         .iter()
-        .map(create_error_report)
+        .map(buck2_data::ErrorReport::from)
         .unique_by(|e| e.message.clone())
         .collect();
 
@@ -376,6 +368,12 @@ fn build_targets_in_universe<'a>(
 ) -> impl Stream<Item = ConfiguredBuildEvent> + Unpin + 'a {
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
     let provider_labels = universe.get_provider_labels(&spec);
+    if provider_labels.is_empty() {
+        console_message(
+            "\nNo targets found inside the specified universe, nothing will be built\n\n"
+                .to_owned(),
+        );
+    }
     provider_labels
         .into_iter()
         .map(|p| {

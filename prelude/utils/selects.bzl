@@ -22,6 +22,45 @@ def _apply(obj, function):
         lambda obj: _apply(obj, function),
     )
 
+def _tie_n_impl_inner(objs, pvals, val):
+    return _tie_n_impl(objs[1:], pvals + [val])
+
+def _tie_n_impl(objs, pvals):
+    if not objs:
+        return tuple(pvals)
+
+    return _apply(
+        objs[0],
+        partial(_tie_n_impl_inner, objs, pvals),
+    )
+
+def _tie_n(*objs):
+    """
+    Combine separate select objects into a single select with all values of
+    the select "tied" into n-tuples.
+
+    Arguments:
+        objs: Objects which may be behind (possible nested) `select`s.
+
+    Returns: A `select` resolving to an n-tuple of the passed in object
+    """
+    return _tie_n_impl(objs, [])
+
+def _apply_n_inner(func, vals):
+    return func(*vals)
+
+def _apply_n(objs, func):
+    """
+    Return a new `select` formed by applying the given function to all possible
+    combinations of the given select objects.
+    """
+    return _apply(
+        _tie_n(*objs),
+        # Unpack n-tuple and call user-suppled function.
+        partial(_apply_n_inner, func),
+    )
+
 selects = struct(
     apply = _apply,
+    apply_n = _apply_n,
 )

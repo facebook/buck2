@@ -42,6 +42,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",  # @unused Used as a type
+    "LinkStrategy",
     "LinkedObject",
 )
 load(
@@ -79,7 +80,12 @@ def _get_root_link_group_specs(
     specs = []
 
     # Add link group specs for dlopen-able libs.
+    found_libs = set()
     for dep in libs:
+        if dep.linkable_graph.label in found_libs:
+            continue
+        else:
+            found_libs.add(dep.linkable_graph.label)
         specs.append(
             LinkGroupLibSpec(
                 name = dep.linkable_root_info.name,
@@ -102,8 +108,14 @@ def _get_root_link_group_specs(
             ),
         )
 
+    found_extensions = set()
+
     # Add link group specs for extensions.
     for name, extension in extensions.items():
+        if extension.linkable_graph.label in found_extensions:
+            continue
+        else:
+            found_extensions.add(extension.linkable_graph.label)
         specs.append(
             LinkGroupLibSpec(
                 name = name,
@@ -173,12 +185,14 @@ def _get_link_group_info(
     link_group_map = ctx.attrs.link_group_map
     definitions = []
 
+    # Native python is only ever used with static-pic linking
+    link_strategy = LinkStrategy("static_pic")
     if isinstance(link_group_map, Dependency):
         if LinkGroupDefinitions in link_group_map:
-            definitions = link_group_map[LinkGroupDefinitions].definitions
+            definitions = link_group_map[LinkGroupDefinitions].definitions(ctx.label, link_strategy)
 
     if not definitions:
-        link_group_info = get_link_group_info(ctx, [d.linkable_graph for d in link_deps])
+        link_group_info = get_link_group_info(ctx, [d.linkable_graph for d in link_deps], link_strategy)
 
         # Add link group specs from user-provided link group info.
         if link_group_info != None:
@@ -327,6 +341,7 @@ def process_native_linking(ctx, deps, python_toolchain, extra, package_style, al
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
+        error_handler = python_toolchain.python_error_handler,
     )
 
     executable_info = cxx_executable(ctx, impl_params)

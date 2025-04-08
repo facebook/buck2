@@ -5,20 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def _impl(ctx: AnalysisContext) -> list[Provider]:
-    return [
-        DefaultInfo(),
-        DepOnlyIncompatibleInfo(custom_soft_errors = ctx.attrs.custom_soft_errors),
-    ]
-
-dep_only_incompatible_info = rule(
-    impl = _impl,
-    attrs = {
-        "custom_soft_errors": attrs.dict(key = attrs.string(), value = attrs.list(attrs.string())),
-    },
-    is_configuration_rule = True,
-)
-
 def _impl_with_exclusions(ctx: AnalysisContext) -> list[Provider]:
     custom_soft_errors = {
         category: DepOnlyIncompatibleRollout(
@@ -34,7 +20,7 @@ def _impl_with_exclusions(ctx: AnalysisContext) -> list[Provider]:
         ),
     ]
 
-dep_only_incompatible_info_with_exclusions = rule(
+dep_only_incompatible_info = rule(
     impl = _impl_with_exclusions,
     attrs = {
         "custom_soft_errors": attrs.dict(attrs.string(), attrs.dict(attrs.string(), attrs.list(attrs.string()))),

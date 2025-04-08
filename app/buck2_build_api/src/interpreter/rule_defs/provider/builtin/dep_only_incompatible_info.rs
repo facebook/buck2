@@ -18,7 +18,6 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
-use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
@@ -26,13 +25,10 @@ use starlark::eval::Evaluator;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::dict::UnpackDictEntries;
-use starlark::values::list::ListRef;
-use starlark::values::list::ListType;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Trace;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
@@ -74,15 +70,8 @@ use crate::interpreter::rule_defs::provider::builtin::dep_only_incompatible_roll
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct DepOnlyIncompatibleInfoGen<V: ValueLifetimeless> {
-    pub custom_soft_errors: ValueOfUncheckedGeneric<
-        V,
-        DictType<
-            String,
-            // We are in process of migrating from list[str] to DepOnlyIncompatibleRollout provider,
-            // so for now accept both. Once migration is done, we can remove ListType<String> variant.
-            Either<ListType<String>, FrozenDepOnlyIncompatibleRollout>,
-        >,
-    >,
+    pub custom_soft_errors:
+        ValueOfUncheckedGeneric<V, DictType<String, FrozenDepOnlyIncompatibleRollout>>,
 }
 
 #[starlark_module]
@@ -91,7 +80,7 @@ fn dep_only_incompatible_info_creator(globals: &mut GlobalsBuilder) {
     fn DepOnlyIncompatibleInfo<'v>(
         #[starlark(require = named)] custom_soft_errors: UnpackDictEntries<
             ValueOf<'v, &'v str>,
-            ValueOf<'v, Either<ListType<&'v str>, &'v DepOnlyIncompatibleRollout<'v>>>,
+            ValueOf<'v, &'v DepOnlyIncompatibleRollout<'v>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<DepOnlyIncompatibleInfo<'v>> {
@@ -157,39 +146,21 @@ impl FrozenDepOnlyIncompatibleInfo {
                 .iter()
                 .map(|(k, v)| {
                     let k = ArcStr::from(k.unpack_str().expect("Type checked to be string"));
-                    let (target_patterns, exclusions) = match Either::<
-                        &ListRef<'_>,
-                        &DepOnlyIncompatibleRollout<'_>,
-                    >::unpack_value(v)?
-                    .expect("Internal error: type checked to be list or provider")
-                    {
-                        Either::Left(v) => {
-                            let target_patterns = v
-                                .iter()
-                                .map(value_to_target_pattern)
-                                .collect::<buck2_error::Result<Vec<_>>>()?;
-                            (
-                                target_patterns.into_boxed_slice(),
-                                vec![].into_boxed_slice(),
-                            )
-                        }
-                        Either::Right(v) => {
-                            let target_patterns = v
-                                .target_patterns()
-                                .iter()
-                                .map(value_to_target_pattern)
-                                .collect::<buck2_error::Result<Vec<_>>>()?;
-                            let exclusions = v
-                                .exclusions()
-                                .iter()
-                                .map(value_to_target_pattern)
-                                .collect::<buck2_error::Result<Vec<_>>>()?;
-                            (
-                                target_patterns.into_boxed_slice(),
-                                exclusions.into_boxed_slice(),
-                            )
-                        }
-                    };
+                    let v = DepOnlyIncompatibleRollout::from_value(v).expect(
+                        "Internal error: type checked to be a DepOnlyIncompatibleRollout provider",
+                    );
+                    let target_patterns = v
+                        .target_patterns()
+                        .iter()
+                        .map(value_to_target_pattern)
+                        .collect::<buck2_error::Result<Vec<_>>>()?
+                        .into_boxed_slice();
+                    let exclusions = v
+                        .exclusions()
+                        .iter()
+                        .map(value_to_target_pattern)
+                        .collect::<buck2_error::Result<Vec<_>>>()?
+                        .into_boxed_slice();
                     let v = DepOnlyIncompatibleRolloutPatterns {
                         target_patterns,
                         exclusions,

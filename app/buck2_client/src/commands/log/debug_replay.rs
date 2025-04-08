@@ -38,6 +38,6 @@ impl DebugReplayCommand {
             DebugReplayCommandError::Deprecated.into(),
             deprecation: true
         )?;
-        self.replay.exec(matches, ctx)
+        ctx.exec(self.replay, matches)
     }
 }

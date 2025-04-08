@@ -19,9 +19,13 @@ pub enum ContextValue {
     Dyn(Arc<str>),
     Tags(SmallVec<[crate::ErrorTag; 1]>),
     Typed(Arc<dyn TypedContext>),
-    // Stable value for category key
-    Key(Arc<str>),
     StarlarkError(StarlarkContext),
+    StringTag(StringTag),
+}
+
+#[derive(allocative::Allocative, Debug, Clone, Eq, PartialEq)]
+pub struct StringTag {
+    pub tag: String,
 }
 
 impl ContextValue {
@@ -31,7 +35,7 @@ impl ContextValue {
             Self::Dyn(..) => true,
             Self::Typed(e) => e.should_display(),
             Self::Tags(_) => false,
-            Self::Key(..) => false,
+            Self::StringTag(..) => false,
             Self::StarlarkError(..) => false,
         }
     }
@@ -48,7 +52,7 @@ impl ContextValue {
             (ContextValue::Typed(left), ContextValue::Typed(right)) => {
                 assert!(left.eq(&**right))
             }
-            (ContextValue::Key(a), ContextValue::Key(b)) => {
+            (ContextValue::StringTag(a), ContextValue::StringTag(b)) => {
                 assert_eq!(a, b);
             }
             (ContextValue::StarlarkError(a), ContextValue::StarlarkError(b)) => {
@@ -65,7 +69,7 @@ impl std::fmt::Display for ContextValue {
             Self::Dyn(v) => f.write_str(v),
             Self::Tags(tags) => write!(f, "{:?}", tags),
             Self::Typed(v) => std::fmt::Display::fmt(v, f),
-            Self::Key(v) => f.write_str(v),
+            Self::StringTag(v) => f.write_str(&v.tag),
             Self::StarlarkError(v) => write!(f, "{}", v),
         }
     }
@@ -145,7 +149,7 @@ mod tests {
 
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("test error")]
-    #[buck2(tag = Tier0)]
+    #[buck2(tag = TestOnly)]
     struct TestError;
 
     #[test]

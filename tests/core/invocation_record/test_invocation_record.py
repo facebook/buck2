@@ -183,7 +183,6 @@ async def test_action_error_message_in_record(buck: Buck, tmp_path: Path) -> Non
 
     record = read_invocation_record(record)
 
-    assert len(record["command_end"]["errors"]) == 0
     assert len(record["errors"]) == 1
     assert (
         record["errors"][0]["message"]
@@ -205,7 +204,6 @@ async def test_non_action_error_message_in_record(buck: Buck, tmp_path: Path) ->
     assert record["errors"][0]["message"].startswith(
         "Unknown target `missing_target` from package `root//`"
     )
-    assert len(record["command_end"]["errors"]) == 0
 
 
 @buck_test(skip_for_os=["windows"])  # TODO(T154836632)

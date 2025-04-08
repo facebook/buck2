@@ -54,6 +54,7 @@ pub(crate) fn to_json_project(
     check_cycles: bool,
     buck2_command: Option<String>,
     include_all_buildfiles: bool,
+    extra_cfgs: &[String],
 ) -> Result<JsonProject, anyhow::Error> {
     let mode = select_mode(None);
     let buck = Buck::new(buck2_command, mode);
@@ -175,7 +176,11 @@ pub(crate) fn to_json_project(
                 include_dirs,
                 exclude_dirs: FxHashSet::default(),
             }),
-            cfg: info.cfg(),
+            cfg: info
+                .cfg()
+                .into_iter()
+                .chain(extra_cfgs.iter().cloned())
+                .collect(),
             env,
             build,
             is_proc_macro: info.proc_macro.unwrap_or(false),

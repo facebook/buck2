@@ -42,3 +42,18 @@ does_not_use_error_handler = rule(
     impl = _does_not_use_error_handler_impl,
     attrs = {},
 )
+
+def _error_handler_nonetype_impl(ctx: AnalysisContext):
+    out = ctx.actions.declare_output("out")
+    ctx.actions.run(
+        cmd_args(["python3", "-c", "import sys; open(sys.argv[1], 'w').write('something')"], out.as_output()),
+        category = "test_doesnt_fail",
+        error_handler = None,
+    )
+
+    return [DefaultInfo(default_output = out)]
+
+error_handler_nonetype_impl = rule(
+    impl = _error_handler_nonetype_impl,
+    attrs = {},
+)

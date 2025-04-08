@@ -66,9 +66,9 @@ public class DeviceRunner {
       System.exit(1);
     }
 
-    String adbPath = System.getenv(ADB_PATH);
+    final String adbPath = System.getenv(ADB_PATH);
     if (adbPath != null && !adbPath.isEmpty()) {
-      adbExecutablePath = System.getenv(PWD) + "/" + adbPath;
+      adbExecutablePath = Paths.get(adbPath).toAbsolutePath().toString();
     }
 
     String buckdeviceSerial = System.getProperty("buck.device.id");

@@ -19,15 +19,13 @@ use buck2_node::metadata::key::MetadataKey;
 use buck2_node::metadata::key::MetadataKeyRef;
 use buck2_node::metadata::map::MetadataMap;
 use buck2_node::metadata::value::MetadataValue;
-use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
-use starlark::values::string::STRING_TYPE;
 use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
 
 #[derive(Debug, buck2_error::Error)]
@@ -52,19 +50,11 @@ impl AttrTypeCoerce for MetadataAttrType {
             return Err(internal_error!("Metadata attribute is not configurable"));
         }
 
-        let dict = match DictRef::from_value(value) {
-            Some(d) => d,
-            None => return Err(CoercionError::type_error(Dict::TYPE, value).into()),
-        };
+        let dict = DictRef::unpack_value_err(value)?;
 
         let mut map = SmallMap::with_capacity(dict.len());
         for (key, value) in dict.iter() {
-            let key = match key.unpack_str() {
-                Some(k) => k,
-                None => return Err(CoercionError::type_error(STRING_TYPE, key).into()),
-            };
-
-            let key = MetadataKeyRef::new(key)?;
+            let key = MetadataKeyRef::new(key.unpack_str_err()?)?;
 
             let value = value
                 .to_json_value()

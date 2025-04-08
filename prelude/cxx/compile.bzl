@@ -51,6 +51,7 @@ load(
     ":headers.bzl",
     "CHeader",
     "CPrecompiledHeaderInfo",
+    "add_headers_dep_files",
 )
 load(":platform.bzl", "cxx_by_platform")
 load(
@@ -228,11 +229,6 @@ def create_compile_cmds(
         argsfile_by_ext[ext.value] = cmd.argsfile
         xcode_argsfile_by_ext[ext.value] = cmd.xcode_argsfile
 
-    # only specify error_handler if one exists
-    error_handler_args = {}
-    if impl_params.error_handler:
-        error_handler_args["error_handler"] = impl_params.error_handler
-
     for src in srcs_with_flags:
         src_args = []
         src_args.extend(src.flags)
@@ -254,7 +250,16 @@ def create_compile_cmds(
             src_args.append("-c")
         src_args.append(src.file)
 
-        src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index, is_header = src.is_header, index_store_factory = impl_params.index_store_factory, **error_handler_args)
+        src_compile_command = CxxSrcCompileCommand(
+            src = src.file,
+            cxx_compile_cmd = cxx_compile_cmd,
+            args = src_args,
+            index = src.index,
+            is_header = src.is_header,
+            index_store_factory = impl_params.index_store_factory,
+            error_handler = impl_params.error_handler,
+        )
+
         if src.is_header:
             hdr_compile_cmds.append(src_compile_command)
         else:
@@ -314,38 +319,35 @@ def _compile_single_cxx(
     )
 
     compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
+
+    # For distributed NVCC compilation we will bind the object in the
+    # cuda_compile function.
+    output_args = None if src_compile_cmd.src.extension == ".cu" else get_output_flags(compiler_type, object)
     cmd = _get_base_compile_cmd(
         bitcode_args = bitcode_args,
         src_compile_cmd = src_compile_cmd,
         pic = pic,
         use_header_units = use_header_units,
-        output_args = get_output_flags(compiler_type, object),
+        output_args = output_args,
     )
     cmd.add(optimization_flags)
 
     action_dep_files = {}
 
     headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
-    if headers_dep_files:
-        dep_file = ctx.actions.declare_output(
-            paths.join("__dep_files__", filename_base),
-        ).as_output()
 
-        processor_flags, compiler_flags = headers_dep_files.mk_flags(ctx.actions, filename_base, src_compile_cmd.src)
-        cmd.add(compiler_flags)
-
-        # API: First argument is the dep file source path, second is the
-        # dep file destination path, other arguments are the actual compile
-        # command.
-        cmd = cmd_args([
-            headers_dep_files.processor,
-            headers_dep_files.dep_tracking_mode.value,
-            processor_flags,
-            headers_dep_files.tag.tag_artifacts(dep_file),
+    # Distributed NVCC compilation doesn't support dep files because we'll
+    # dryrun cmd and the dep files won't be materialized.
+    # TODO (T219249723): investigate if dep files are needed for dist nvcc.
+    if headers_dep_files and src_compile_cmd.src.extension != ".cu":
+        cmd = add_headers_dep_files(
+            ctx,
             cmd,
-        ])
-
-        action_dep_files["headers"] = headers_dep_files.tag
+            headers_dep_files,
+            src_compile_cmd.src,
+            filename_base,
+            action_dep_files,
+        )
 
     clang_remarks = None
     if toolchain.clang_remarks and compiler_type == "clang":
@@ -371,11 +373,6 @@ def _compile_single_cxx(
         )
         cmd.add(cmd_args(hidden = gcno_file.as_output()))
 
-    # only specify error_handler if one exists
-    error_handler_args = {}
-    if src_compile_cmd.error_handler:
-        error_handler_args["error_handler"] = src_compile_cmd.error_handler
-
     external_debug_info = None
     extension_supports_external_debug_info = src_compile_cmd.src.extension not in (".hip")
     use_external_debug_info = getattr(ctx.attrs, "separate_debug_info", False) and toolchain.split_debug_mode == SplitDebugMode("split") and compiler_type == "clang" and extension_supports_external_debug_info
@@ -386,17 +383,21 @@ def _compile_single_cxx(
         )
         cmd.add(cmd_args(external_debug_info.as_output(), format = "--fbcc-create-external-debug-info={}"))
 
-    nvcc_dryrun = None
+    dist_nvcc_dag = None
+    dist_nvcc_env = None
     if src_compile_cmd.src.extension == ".cu":
-        nvcc_dryrun = cuda_compile(
+        cuda_compile_output = cuda_compile(
             ctx,
             cmd,
+            object,
             src_compile_cmd,
             CudaCompileInfo(filename = filename_base, identifier = identifier, output_prefix = folder_name),
             action_dep_files,
             allow_dep_file_cache_upload = False,
-            error_handler_args = error_handler_args,
+            error_handler = src_compile_cmd.error_handler,
         )
+        if cuda_compile_output:
+            dist_nvcc_dag, dist_nvcc_env = cuda_compile_output
     else:
         ctx.actions.run(
             cmd,
@@ -405,7 +406,7 @@ def _compile_single_cxx(
             dep_files = action_dep_files,
             allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
             allow_dep_file_cache_upload = False,
-            **error_handler_args
+            error_handler = src_compile_cmd.error_handler,
         )
 
     # If we're building with split debugging, where the debug info is in the
@@ -460,7 +461,7 @@ def _compile_single_cxx(
             identifier = identifier + " (assembly)",
             allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
             allow_dep_file_cache_upload = False,
-            **error_handler_args
+            error_handler = src_compile_cmd.error_handler,
         )
     else:
         assembly = None
@@ -486,7 +487,7 @@ def _compile_single_cxx(
             identifier = short_path,
             allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
             allow_dep_file_cache_upload = False,
-            **error_handler_args
+            error_handler = src_compile_cmd.error_handler,
         )
     else:
         diagnostics = None
@@ -503,7 +504,7 @@ def _compile_single_cxx(
         identifier = identifier + " (preprocessor)",
         allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
         allow_dep_file_cache_upload = False,
-        **error_handler_args
+        error_handler = src_compile_cmd.error_handler,
     )
 
     return CxxCompileOutput(
@@ -518,7 +519,8 @@ def _compile_single_cxx(
         assembly = assembly,
         diagnostics = diagnostics,
         preproc = preproc,
-        nvcc_dryrun = nvcc_dryrun,
+        nvcc_dag = dist_nvcc_dag,
+        nvcc_env = dist_nvcc_env,
     )
 
 def _get_base_compile_cmd(
@@ -746,6 +748,7 @@ module "{}" {{
 
 def _precompile_single_cxx(
         ctx: AnalysisContext,
+        toolchain: CxxToolchainInfo,
         impl_params: CxxRuleConstructorParams,
         group_name: str,
         src_compile_cmd: CxxSrcPrecompileCommand) -> HeaderUnit:
@@ -762,6 +765,14 @@ def _precompile_single_cxx(
     cmd.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
     cmd.add(src_compile_cmd.args)
     cmd.add(["-o", module.as_output()])
+
+    clang_trace = None
+    if toolchain.clang_trace and toolchain.cxx_compiler_info.compiler_type == "clang":
+        cmd.add(["-ftime-trace"])
+        clang_trace = ctx.actions.declare_output(
+            paths.join("__pcm_files__", "{}.json".format(identifier)),
+        )
+        cmd.add(cmd_args(hidden = clang_trace.as_output()))
 
     action_dep_files = {}
     headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
@@ -804,6 +815,7 @@ def _precompile_single_cxx(
         module = module,
         include_dir = src_compile_cmd.src,
         import_include = _get_import_filename(ctx, group_name) if impl_params.export_header_unit == "preload" else None,
+        clang_trace = clang_trace,
     )
 
 def precompile_cxx(
@@ -837,7 +849,7 @@ def precompile_cxx(
             extra_preprocessors = [],
             cmd = cmd,
         )
-        header_unit = _precompile_single_cxx(ctx, impl_params, "", precompile_cmd)
+        header_unit = _precompile_single_cxx(ctx, toolchain, impl_params, "", precompile_cmd)
         header_unit_preprocessors.append(CPreprocessor(header_units = [header_unit]))
     else:
         # Chain preprocessors in order.
@@ -853,7 +865,7 @@ def precompile_cxx(
                 extra_preprocessors = header_unit_preprocessors,
                 cmd = cmd,
             )
-            header_unit = _precompile_single_cxx(ctx, impl_params, name, precompile_cmd)
+            header_unit = _precompile_single_cxx(ctx, toolchain, impl_params, name, precompile_cmd)
             header_unit_preprocessors.append(CPreprocessor(header_units = [header_unit]))
             i += 1
 
@@ -871,8 +883,10 @@ def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Prov
             sub_targets["assembly"] = [DefaultInfo(obj.assembly)]
         if obj.preproc:
             sub_targets["preprocessed"] = [DefaultInfo(obj.preproc)]
-        if obj.nvcc_dryrun:
-            sub_targets["nvcc-dryrun"] = [DefaultInfo(obj.nvcc_dryrun)]
+        if obj.nvcc_dag:
+            sub_targets["nvcc-dag"] = [DefaultInfo(obj.nvcc_dag)]
+        if obj.nvcc_env:
+            sub_targets["nvcc-env"] = [DefaultInfo(obj.nvcc_env)]
         objects_sub_targets[obj.object.short_path] = [DefaultInfo(
             obj.object,
             sub_targets = sub_targets,

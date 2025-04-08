@@ -953,7 +953,7 @@ message ExpandExternalCellsCommandStart {}
 message CompleteCommandStart {}
 
 message CommandEnd {
-  reserved 3;
+  reserved 3, 4;
   oneof data {
     BuildCommandEnd build = 20;
     TargetsCommandEnd targets = 21;
@@ -981,7 +981,6 @@ message CommandEnd {
   }
 
   bool is_success = 2;
-  repeated ErrorReport errors = 4;
 }
 
 // Marks the exit of the `CommandCriticalStart` event, such that the command has
@@ -1420,6 +1419,8 @@ message ActionExecutionEnd {
 
   // Name of the rule type that was executed by this action
   optional string target_rule_type_name = 41;
+
+  optional string action_inputs_hash = 42;
 }
 
 message CommandInvalidationInfo {
@@ -1992,7 +1993,7 @@ enum DaemonWasStartedReason {
 // This is the origin for every sample in buck2_builds scuba table
 // It's sent from the client to Scribe at the end of each invocation
 message InvocationRecord {
-  reserved 1, 22, 27, 28, 36, 61, 62, 66, 77, 88, 89;
+  reserved 1, 22, 27, 28, 36, 61, 62, 66, 77, 82, 88, 89, 100, 234, 235;
 
   // Optional - present if ever sent to client.
   // Will be missing on a cancelled build.
@@ -2124,9 +2125,6 @@ message InvocationRecord {
   repeated ClientMetadata client_metadata = 76;
   // The errors that occured during the command.
   repeated ProcessedErrorReport errors = 79;
-  // The most interesting error tag that occurred during the command.
-  // Uppercase of `ErrorTag` enum variant, e.g. `STARLARK_FAIL`.
-  optional string best_error_tag = 82;
   // Cache hit rate as it appears in the console
   float cache_hit_rate = 78;
   repeated string target_rule_type_names = 80;
@@ -2163,8 +2161,6 @@ message InvocationRecord {
   uint64 min_attempted_build_count_since_rebase = 98;
   // Metadata about devices installed to by an install command.
   repeated DeviceMetadata install_device_metadata = 99;
-  // The category key for the error with best error tag.
-  optional string best_error_category_key = 100;
   // The list of active network devices
   repeated NetworkKind active_networks_kinds = 102;
   // Configuration used during the build command.
@@ -2199,13 +2195,6 @@ message InvocationRecord {
   optional uint64 hedwig_upload_queries = 232;
   optional uint64 hedwig_upload_bytes = 233;
 
-  // If `errors` is not empty, the category of the error
-  // assumed to have triggered the command failure.
-  optional string error_category = 234;
-
-  // Larger subsystem where the best error originated, derived from best_tag.
-  optional string best_error_source_area = 235;
-
   // Local cache hits and misses stats
   optional int64 local_cache_hits_files = 236;
   optional int64 local_cache_hits_bytes = 237;
@@ -2226,7 +2215,8 @@ message InvocationRecord {
   // CASd persistent cache mode used by the RE client
   optional string persistent_cache_mode = 245;
 
-  // The start time measured by the wrapper (Most accurate start_time we track)
+  // Buck2 binary start time, if invoked through the wrapper, then it will be
+  // the wrapper start time as that'd be more accurate
   optional uint64 wrapper_start_time = 246;
 }
 
@@ -2407,6 +2397,15 @@ message DiceEqualityCheck {
 message NoActiveDiceState {}
 
 message ErrorReport {
+  message SourceLocation {
+    string path = 1;
+    optional string type_name = 2;
+    optional uint32 source_line = 3;
+  }
+  message StringTag {
+    string tag = 1;
+  }
+
   reserved 1, 2;
   // The error message that is shown to users on the CLI
   string message = 3;
@@ -2418,10 +2417,11 @@ message ErrorReport {
   optional string telemetry_message = 4;
   // The location in source code where this error was created. Typically a Rust
   // source file, but the exact format is not guaranteed.
-  optional string source_location = 5;
+  SourceLocation source_location = 5;
   repeated buck.data.error.ErrorTag tags = 6;
   repeated string sub_error_categories = 7;
   optional string category_key = 8;
+  repeated StringTag string_tags = 9;
 }
 
 // Identical to `ErrorReport`, but with the tags converted to strings.
@@ -2572,6 +2572,7 @@ message SystemInfo {
   optional uint64 avg_re_download_bytes_per_sec_threshold = 6;
   optional string optin_vpn_check_targets_regex = 8;
   optional bool enable_stable_revision_check = 9;
+  optional bool enable_health_check_process_isolation = 10;
 }
 
 message CpuCounter {

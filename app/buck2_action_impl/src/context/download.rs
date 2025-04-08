@@ -60,6 +60,7 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] is_deferrable: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+        let compute_action_inputs_hash = this.compute_action_inputs_hash;
         let mut this = this.state()?;
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, OutputType::File)?;
@@ -78,6 +79,14 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
             ),
             None,
             None,
+            if compute_action_inputs_hash {
+                // TODO(ianc) We should take all inputs into account, but this should be enough for experimentation.
+                sha1.into_option()
+                    .or_else(|| sha256.into_option())
+                    .map(Arc::from)
+            } else {
+                None
+            },
         )?;
 
         Ok(declaration.into_declared_artifact(AssociatedArtifacts::new()))
@@ -107,6 +116,7 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] is_directory: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+        let compute_action_inputs_hash = this.compute_action_inputs_hash;
         let mut registry = this.state()?;
 
         let digest = CasDigest::parse_digest(digest, this.digest_config.cas_digest_config())
@@ -145,6 +155,12 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
             },
             None,
             None,
+            if compute_action_inputs_hash {
+                // TODO(ianc) Needs to take other inputs into account, but this will do for experimentation.
+                Some(Arc::from(digest.to_string().as_str()))
+            } else {
+                None
+            },
         )?;
 
         Ok(output_value.into_declared_artifact(AssociatedArtifacts::new()))

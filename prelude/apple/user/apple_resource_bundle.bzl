@@ -8,7 +8,7 @@
 load("@prelude//apple:apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list")
 load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleResourceInfo")
 load("@prelude//apple:apple_common.bzl", "apple_common")
-load("@prelude//apple:apple_rules_impl_utility.bzl", "get_apple_info_plist_build_system_identification_attrs")
+load("@prelude//apple:apple_rules_impl_utility.bzl", "AppleFrameworkBundleModuleMapType", "get_apple_info_plist_build_system_identification_attrs")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
@@ -36,11 +36,10 @@ def _apple_resource_bundle_attrs():
         "deps": attrs.list(attrs.dep(), default = []),
         "extension": attrs.one_of(attrs.enum(AppleBundleExtension), attrs.string()),
         "ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None),
-        "ibtool_module_flag": attrs.option(attrs.bool(), default = None),
         "info_plist": attrs.source(),
         "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
         "labels": attrs.list(attrs.string(), default = []),
-        "module_map": attrs.option(attrs.source(), default = None),
+        "module_map": attrs.option(attrs.one_of(attrs.enum(AppleFrameworkBundleModuleMapType), attrs.source()), default = None),
         "privacy_manifest": attrs.option(attrs.source(), default = None),
         "product_name": attrs.option(attrs.string(), default = None),
         "product_name_from_module_name": attrs.bool(default = False),

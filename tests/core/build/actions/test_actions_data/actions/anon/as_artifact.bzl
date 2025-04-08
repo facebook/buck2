@@ -95,7 +95,7 @@ def _default_output_impl(ctx: AnalysisContext) -> list[Provider]:
 _default_output = rule(impl = _default_output_impl, attrs = {})
 
 def _check_default_output_impl(ctx: AnalysisContext) -> list[Provider]:
-    _assert_eq(type(ctx.attrs.src), "promise_artifact")
+    _assert_eq(isinstance(ctx.attrs.src, PromiseArtifact), True)
     _assert_eq(ctx.attrs.src.short_path, "dir/hello.out")
 
     def check_is_artifact(_artifact: Artifact):
@@ -138,7 +138,7 @@ def _build_multiple_impl(ctx: AnalysisContext) -> list[Provider]:
     artifact1 = all_targets.anon_targets[0].artifact("artifact")
     artifact2 = all_targets.anon_targets[1].artifact("artifact")
     promise = all_targets.promise
-    _assert_eq(type(promise), "promise")
+    _assert_eq(isinstance(promise, Promise), True)
     out1 = ctx.actions.declare_output("output1")
     ctx.actions.run(["cp", artifact1, out1.as_output()], category = "cp", identifier = "cp1")
     out2 = ctx.actions.declare_output("output2")

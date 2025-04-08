@@ -40,10 +40,10 @@ use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_data::ErrorReport;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_error::UniqueRootId;
-use buck2_events::errors::create_error_report;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
@@ -433,7 +433,7 @@ impl<'a> BuildReportCollector<'a> {
             // we initially avoid assigning new cause indexes and instead use a sentinal value.
             // This is to make sure that we can be deterministic
             let root = e.root_id();
-            let error_report = create_error_report(e);
+            let error_report: ErrorReport = e.into();
             let message = if let Some(telemetry_message) = error_report.telemetry_message {
                 telemetry_message
             } else {

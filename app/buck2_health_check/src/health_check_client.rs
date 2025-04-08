@@ -9,7 +9,10 @@
 
 #![allow(dead_code)] // TODO(rajneeshl): Remove this when the health checks are moved to the server.
 
+use buck2_core::is_open_source;
 use buck2_core::soft_error;
+use buck2_health_check_proto::health_check_context_event;
+use buck2_health_check_proto::HealthCheckContextEvent;
 use tokio::sync::mpsc::error::TrySendError;
 use tokio::sync::mpsc::Sender;
 
@@ -18,6 +21,8 @@ use crate::health_check_context::HealthCheckContext;
 use crate::health_checks::facebook::warm_revision::warm_revision_check::WarmRevisionCheck;
 use crate::health_checks::vpn_check::VpnCheck;
 use crate::report::DisplayReport;
+#[cfg(fbcode_build)]
+use crate::rpc::health_check_rpc_client::HealthCheckRpcClient;
 
 /// This client maintains the context and make requests to the health check server.
 pub struct HealthCheckClient {
@@ -29,10 +34,12 @@ pub struct HealthCheckClient {
     warm_revision_check: Option<WarmRevisionCheck>,
     vpn_check: VpnCheck,
     // Writer to send tags to be logged to scuba.
-    // TODO(rajneeshl): Make this required when the event_observer reference is removed.
     tags_sender: Option<Sender<Vec<String>>>,
     // Writer to send health check reports to be displayed to the user.
     display_reports_sender: Option<Sender<Vec<DisplayReport>>>,
+    #[cfg(fbcode_build)]
+    rpc_client: HealthCheckRpcClient,
+    run_server_out_of_process: bool,
 }
 
 impl HealthCheckClient {
@@ -51,45 +58,84 @@ impl HealthCheckClient {
             vpn_check: VpnCheck::new(),
             tags_sender,
             display_reports_sender,
+            #[cfg(fbcode_build)]
+            rpc_client: HealthCheckRpcClient::new(),
+            run_server_out_of_process: !is_open_source(),
         }
     }
 
-    pub async fn update_command_data(
-        &mut self,
-        command_data: Option<buck2_data::command_start::Data>,
-    ) {
-        self.health_check_context.command_data = command_data;
-        self.try_update_warm_revision_check().await;
+    pub async fn update_command_data(&mut self, command_start: buck2_data::CommandStart) {
+        if self.run_server_out_of_process {
+            let event = HealthCheckContextEvent {
+                data: Some(health_check_context_event::Data::CommandStart(
+                    command_start,
+                )),
+            };
+            self.update_context(event).await;
+        } else {
+            self.health_check_context.command_data = command_start.data;
+            self.try_update_warm_revision_check().await;
+        }
     }
 
     pub async fn update_parsed_target_patterns(
         &mut self,
         parsed_target_patterns: &buck2_data::ParsedTargetPatterns,
     ) {
-        self.health_check_context.parsed_target_patterns = Some(parsed_target_patterns.clone());
-        self.vpn_check
-            .try_update_can_run(&self.health_check_context);
-        self.try_update_warm_revision_check().await;
+        if self.run_server_out_of_process {
+            let event = HealthCheckContextEvent {
+                data: Some(health_check_context_event::Data::ParsedTargetPatterns(
+                    parsed_target_patterns.clone(),
+                )),
+            };
+            self.update_context(event).await;
+        } else {
+            self.health_check_context.parsed_target_patterns = Some(parsed_target_patterns.clone());
+            self.vpn_check
+                .try_update_can_run(&self.health_check_context);
+            self.try_update_warm_revision_check().await;
+        }
     }
 
     pub async fn update_branched_from_revision(&mut self, branched_from_revision: &str) {
-        self.health_check_context.branched_from_revision = Some(branched_from_revision.to_owned());
-        self.try_update_warm_revision_check().await;
+        if self.run_server_out_of_process {
+            let event = HealthCheckContextEvent {
+                data: Some(health_check_context_event::Data::BranchedFromRevision(
+                    branched_from_revision.to_owned(),
+                )),
+            };
+            self.update_context(event).await;
+        } else {
+            self.health_check_context.branched_from_revision =
+                Some(branched_from_revision.to_owned());
+            self.try_update_warm_revision_check().await;
+        }
     }
 
     pub async fn update_excess_cache_misses(
         &mut self,
         action_end: &buck2_data::ActionExecutionEnd,
     ) {
-        // Action stats are currently only used for cache misses. If we need more data, store an aggregated action stats.
-        if self.health_check_context.has_excess_cache_misses {
-            // If we already know that we have excess cache misses, we don't need updates again.
-            return;
-        }
-        if let Some(v) = &action_end.invalidation_info {
-            if v.changed_file.is_none() {
-                self.health_check_context.has_excess_cache_misses = true;
-                self.try_update_warm_revision_check().await;
+        if self.run_server_out_of_process {
+            if let Some(v) = &action_end.invalidation_info {
+                if v.changed_file.is_none() {
+                    let event = HealthCheckContextEvent {
+                        data: Some(health_check_context_event::Data::HasExcessCacheMisses(true)),
+                    };
+                    self.update_context(event).await;
+                }
+            }
+        } else {
+            // Action stats are currently only used for cache misses. If we need more data, store an aggregated action stats.
+            if self.health_check_context.has_excess_cache_misses {
+                // If we already know that we have excess cache misses, we don't need updates again.
+                return;
+            }
+            if let Some(v) = &action_end.invalidation_info {
+                if v.changed_file.is_none() {
+                    self.health_check_context.has_excess_cache_misses = true;
+                    self.try_update_warm_revision_check().await;
+                }
             }
         }
     }
@@ -98,11 +144,23 @@ impl HealthCheckClient {
         &mut self,
         experiment_configurations: &buck2_data::SystemInfo,
     ) {
-        self.health_check_context.experiment_configurations =
-            Some(experiment_configurations.clone());
-        self.vpn_check
-            .try_update_can_run(&self.health_check_context);
-        self.try_update_warm_revision_check().await;
+        let process_isolation = experiment_configurations.enable_health_check_process_isolation();
+        self.run_server_out_of_process = self.run_server_out_of_process && process_isolation;
+
+        if self.run_server_out_of_process {
+            let event = HealthCheckContextEvent {
+                data: Some(health_check_context_event::Data::ExperimentConfigurations(
+                    experiment_configurations.clone(),
+                )),
+            };
+            self.update_context(event).await;
+        } else {
+            self.health_check_context.experiment_configurations =
+                Some(experiment_configurations.clone());
+            self.vpn_check
+                .try_update_can_run(&self.health_check_context);
+            self.try_update_warm_revision_check().await;
+        }
     }
 
     async fn try_update_warm_revision_check(&mut self) {
@@ -116,6 +174,17 @@ impl HealthCheckClient {
         }
     }
 
+    #[allow(unused_variables)] // event unused in OSS
+    async fn update_context(&self, event: HealthCheckContextEvent) {
+        #[cfg(fbcode_build)]
+        {
+            if let Err(e) = self.rpc_client.update_context(event).await {
+                let _ignored =
+                    soft_error!("health_check_context_update_error", e.into(), quiet: true);
+            }
+        }
+    }
+
     pub async fn run_checks(
         &mut self,
         _snapshot: &buck2_data::Snapshot,
@@ -124,26 +193,38 @@ impl HealthCheckClient {
         {
             let mut tags: Vec<String> = Vec::new();
             let mut display_reports: Vec<DisplayReport> = Vec::new();
+            if self.run_server_out_of_process {
+                for report in self.rpc_client.run_checks().await? {
+                    if let Some(tag) = report.tag {
+                        tags.push(tag);
+                    }
 
-            if let Some(report) = self
-                .warm_revision_check
-                .as_ref()
-                .map(|check| check.run())
-                .flatten()
-            {
-                if let Some(tag) = report.tag {
-                    tags.push(tag);
+                    if let Some(display_report) = report.display_report {
+                        display_reports.push(display_report);
+                    }
                 }
-                if let Some(display_report) = report.display_report {
-                    display_reports.push(display_report);
+            } else {
+                // TODO(rajneeshl): Call the health check executor directly here.
+                if let Some(report) = self
+                    .warm_revision_check
+                    .as_ref()
+                    .map(|check| check.run())
+                    .flatten()
+                {
+                    if let Some(tag) = report.tag {
+                        tags.push(tag);
+                    }
+                    if let Some(display_report) = report.display_report {
+                        display_reports.push(display_report);
+                    }
                 }
-            }
-            if let Some(report) = self.vpn_check.run() {
-                if let Some(tag) = report.tag {
-                    tags.push(tag);
-                }
-                if let Some(display_report) = report.display_report {
-                    display_reports.push(display_report);
+                if let Some(report) = self.vpn_check.run() {
+                    if let Some(tag) = report.tag {
+                        tags.push(tag);
+                    }
+                    if let Some(display_report) = report.display_report {
+                        display_reports.push(display_report);
+                    }
                 }
             }
             self.send_tags(tags);
@@ -173,13 +254,6 @@ impl HealthCheckClient {
 
     fn send_display_reports(&mut self, display_reports: Vec<DisplayReport>) {
         // Even if there are no reports, publish an empty list to signify that we have run the health checks.
-
-        // TODO(rajneeshl): Move this description of reporting to a HealthCheck trait when that is ready.
-        // There are 3 ways a health check can report back to the console:
-        // All OK: With a valid DisplayReport with `warning` field being None.
-        // User warning: With a valid DisplayReport with `warning` field set to user message and remediation.
-        // Cannot run: When a health check cannot run it will return an empty Report e.g. target-specific checks.
-
         if let Some(display_reports_sender) = &mut self.display_reports_sender {
             match display_reports_sender.try_send(display_reports) {
                 Err(TrySendError::Closed(_)) => {
@@ -197,55 +271,5 @@ impl HealthCheckClient {
                 _ => {}
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use buck2_data::*;
-
-    use crate::health_check_client::HealthCheckClient;
-
-    #[tokio::test]
-    async fn test_excess_cache_miss_with_no_invalidation_source() -> buck2_error::Result<()> {
-        let action_execution_end = ActionExecutionEnd {
-            invalidation_info: Some(buck2_data::CommandInvalidationInfo {
-                changed_file: None,
-                changed_any: None,
-            }),
-            ..Default::default()
-        };
-        let mut client = HealthCheckClient::new("test".to_owned(), None, None);
-        client
-            .update_excess_cache_misses(&action_execution_end)
-            .await;
-        assert!(client.health_check_context.has_excess_cache_misses);
-
-        // Second update should not change the value.
-        client
-            .update_excess_cache_misses(&action_execution_end)
-            .await;
-        assert!(client.health_check_context.has_excess_cache_misses);
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_excess_cache_miss_with_invalidation_source() -> buck2_error::Result<()> {
-        let action_execution_end = ActionExecutionEnd {
-            invalidation_info: Some(buck2_data::CommandInvalidationInfo {
-                changed_file: Some(command_invalidation_info::InvalidationSource {}),
-                changed_any: None,
-            }),
-            ..Default::default()
-        };
-        let mut client = HealthCheckClient::new("test".to_owned(), None, None);
-        client
-            .update_excess_cache_misses(&action_execution_end)
-            .await;
-        assert!(!client.health_check_context.has_excess_cache_misses);
-
-        Ok(())
     }
 }

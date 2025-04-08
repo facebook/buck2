@@ -108,7 +108,7 @@ pub fn inline_fbs(
     }
     if !html_in.contains(HTML_PLACEHOLDER) {
         return Err(buck2_error::buck2_error!(
-            buck2_error::ErrorTag::Tier0,
+            buck2_error::ErrorTag::Explain,
             "HTML template is not valid"
         ));
     }
