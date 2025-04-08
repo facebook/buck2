@@ -58,6 +58,7 @@ AndroidToolchainInfo = provider(
         "package_meta_inf_version_files": provider_field(typing.Any, default = None),
         "package_strings_as_assets": provider_field(typing.Any, default = None),
         "proguard_config": provider_field(typing.Any, default = None),
+        "proguard_jar": provider_field(typing.Any, default = None),
         "r_dot_java_weight_factor": provider_field(typing.Any, default = None),
         "replace_application_id_placeholders": provider_field(typing.Any, default = None),
         "secondary_dex_compression_command": provider_field(typing.Any, default = None),

@@ -150,6 +150,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
                 ctx.attrs.android_sdk_proguard_config,
                 android_toolchain.proguard_config,
                 android_toolchain.optimized_proguard_config,
+                android_toolchain.proguard_jar,
                 ctx.attrs.skip_proguard,
             )
             materialized_artifacts.extend(proguard_output.proguard_artifacts)

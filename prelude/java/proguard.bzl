@@ -76,6 +76,7 @@ def _get_proguard_command_line_args(
 def run_proguard(
         ctx: AnalysisContext,
         java_toolchain: JavaToolchainInfo,
+        proguard_jar: Artifact,
         command_line_args_file: Artifact,
         command_line_args: cmd_args,
         mapping_file: Artifact,
@@ -88,7 +89,7 @@ def run_proguard(
         ctx.attrs.proguard_jvm_args,
         "-Xmx{}".format(java_toolchain.proguard_max_heap_size),
         "-jar",
-        java_toolchain.proguard_jar,
+        proguard_jar,
     )
     run_proguard_cmd.add(
         cmd_args(command_line_args_file, format = "@{}", hidden = command_line_args),
@@ -138,6 +139,7 @@ def get_proguard_output(
         sdk_proguard_config_mode: str | None,
         sdk_proguard_config: Artifact | None,
         sdk_optimized_proguard_config: Artifact | None,
+        proguard_jar: Artifact,
         skip_proguard: bool = False) -> ProguardOutput:
     proguard_configs = [packaging_dep.proguard_config for packaging_dep in java_packaging_deps if packaging_dep.proguard_config]
     if ctx.attrs.proguard_config:
@@ -187,6 +189,7 @@ def get_proguard_output(
         run_proguard(
             ctx,
             ctx.attrs._java_toolchain[JavaToolchainInfo],
+            proguard_jar,
             command_line_args_file,
             command_line_args,
             mapping,
