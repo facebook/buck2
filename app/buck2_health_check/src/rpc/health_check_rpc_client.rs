@@ -99,6 +99,11 @@ impl HealthCheckRpcClient {
     }
 
     fn get_cli_path() -> buck2_error::Result<String> {
+        if let Ok(overridden_path) = std::env::var("BUCK2_HEALTH_CHECK_CLI_PATH") {
+            // If there is a custom CLI path, use it. This is useful for testing new health checks and CLI changes.
+            return Ok(overridden_path);
+        }
+
         let exe = AbsPathBuf::new(
             std::env::current_exe().buck_error_context("Cannot get Buck2 executable")?,
         )?;
