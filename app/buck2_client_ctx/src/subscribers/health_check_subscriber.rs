@@ -102,9 +102,9 @@ impl HealthCheckSubscriber {
                             .await;
                     }
                     Snapshot(snapshot) => {
-                        if let Err(e) = self.health_check_client.run_checks(snapshot).await {
-                            tracing::warn!("Failed to run health checks: {e:?}");
-                        }
+                        let _ignored = self.health_check_client.run_checks(snapshot).await;
+                        // Capture all errors in the subscribers and don't propagate them any further.
+                        // Health check failures should not affect the command in any way.
                     }
                     _ => {}
                 }
