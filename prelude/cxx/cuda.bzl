@@ -175,6 +175,7 @@ def dist_nvcc(
                 env = subcmd_env,
                 identifier = cuda_compile_info.identifier,
                 allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
+                prefer_remote = True if "preproc" in cmd_node["category"] else False,
             )
 
     ctx.actions.dynamic_output(
