@@ -10,7 +10,6 @@
 #![allow(dead_code)] // TODO(rajneeshl): Remove this when the health checks are moved to the server.
 
 use buck2_core::is_open_source;
-use buck2_core::soft_error;
 use buck2_health_check_proto::health_check_context_event;
 use buck2_health_check_proto::HealthCheckContextEvent;
 use tokio::sync::mpsc::error::TrySendError;
@@ -48,40 +47,46 @@ impl HealthCheckClient {
         }
     }
 
-    pub async fn update_command_data(&mut self, command_start: buck2_data::CommandStart) {
+    pub async fn update_command_data(
+        &mut self,
+        command_start: buck2_data::CommandStart,
+    ) -> buck2_error::Result<()> {
         let event = HealthCheckContextEvent {
             data: Some(health_check_context_event::Data::CommandStart(
                 command_start,
             )),
         };
-        self.update_context(event).await;
+        self.update_context(event).await
     }
 
     pub async fn update_parsed_target_patterns(
         &mut self,
         parsed_target_patterns: &buck2_data::ParsedTargetPatterns,
-    ) {
+    ) -> buck2_error::Result<()> {
         let event = HealthCheckContextEvent {
             data: Some(health_check_context_event::Data::ParsedTargetPatterns(
                 parsed_target_patterns.clone(),
             )),
         };
-        self.update_context(event).await;
+        self.update_context(event).await
     }
 
-    pub async fn update_branched_from_revision(&mut self, branched_from_revision: &str) {
+    pub async fn update_branched_from_revision(
+        &mut self,
+        branched_from_revision: &str,
+    ) -> buck2_error::Result<()> {
         let event = HealthCheckContextEvent {
             data: Some(health_check_context_event::Data::BranchedFromRevision(
                 branched_from_revision.to_owned(),
             )),
         };
-        self.update_context(event).await;
+        self.update_context(event).await
     }
 
     pub async fn update_excess_cache_misses(
         &mut self,
         action_end: &buck2_data::ActionExecutionEnd,
-    ) {
+    ) -> buck2_error::Result<()> {
         let has_excess_cache_miss = action_end
             .invalidation_info
             .as_ref()
@@ -90,35 +95,30 @@ impl HealthCheckClient {
             let event = HealthCheckContextEvent {
                 data: Some(health_check_context_event::Data::HasExcessCacheMisses(true)),
             };
-            self.update_context(event).await;
+            self.update_context(event).await?
         }
+        Ok(())
     }
 
     pub async fn update_experiment_configurations(
         &mut self,
         experiment_configurations: &buck2_data::SystemInfo,
-    ) {
+    ) -> buck2_error::Result<()> {
         let event = HealthCheckContextEvent {
             data: Some(health_check_context_event::Data::ExperimentConfigurations(
                 experiment_configurations.clone(),
             )),
         };
-        self.update_context(event).await;
+        self.update_context(event).await
     }
 
-    async fn update_context(&mut self, event: HealthCheckContextEvent) {
+    async fn update_context(&mut self, event: HealthCheckContextEvent) -> buck2_error::Result<()> {
         if !self.run_server_out_of_process {
-            if let Err(e) = self.health_check_executor.update_context(&event).await {
-                let _ignored =
-                    soft_error!("health_check_context_update_error", e.into(), quiet: true);
-            }
-        } else {
-            #[cfg(fbcode_build)]
-            if let Err(e) = self.rpc_client.update_context(event).await {
-                let _ignored =
-                    soft_error!("health_check_context_update_error", e.into(), quiet: true);
-            }
+            self.health_check_executor.update_context(&event).await?;
         }
+        #[cfg(fbcode_build)]
+        self.rpc_client.update_context(event).await?;
+        Ok(())
     }
 
     pub async fn run_checks(
@@ -144,49 +144,64 @@ impl HealthCheckClient {
                     display_reports.push(display_report);
                 }
             }
-            self.send_tags(tags);
-            self.send_display_reports(display_reports);
+            self.send_tags(tags)?;
+            self.send_display_reports(display_reports)?;
         }
         Ok(())
     }
 
-    fn send_tags(&mut self, tags: Vec<String>) {
+    fn send_tags(&mut self, tags: Vec<String>) -> buck2_error::Result<()> {
         if tags.is_empty() {
             // Since tags are aggregated and written to logs only once, we don't need to publish empty lists.
-            return;
+            return Ok(());
         }
         if let Some(tags_sender) = &mut self.tags_sender {
             match tags_sender.try_send(tags) {
                 Err(TrySendError::Closed(_)) => {
                     // If the receiver is dropped, drop the sender to stop sending next time.
                     self.tags_sender = None;
+                    return Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::HealthCheck,
+                        "Health check tags listener closed."
+                    ));
                 }
-                _ => {
-                    // No error or TrySendError::Full
-                    // If the channel is full, skip sending these tags rather than OOMing due to huge buffers.
+                Err(TrySendError::Full(_)) => {
+                    return Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::HealthCheck,
+                        "Health check tags channel full. Dropping tags."
+                    ));
                 }
+                _ => {}
             }
         }
+        Ok(())
     }
 
-    fn send_display_reports(&mut self, display_reports: Vec<DisplayReport>) {
+    fn send_display_reports(
+        &mut self,
+        display_reports: Vec<DisplayReport>,
+    ) -> buck2_error::Result<()> {
         // Even if there are no reports, publish an empty list to signify that we have run the health checks.
         if let Some(display_reports_sender) = &mut self.display_reports_sender {
             match display_reports_sender.try_send(display_reports) {
                 Err(TrySendError::Closed(_)) => {
                     // If the receiver is dropped, drop the sender to stop sending next time.
                     self.display_reports_sender = None;
+                    return Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::HealthCheck,
+                        "Health check display reports listener closed."
+                    ));
                 }
                 Err(TrySendError::Full(_)) => {
                     // If the channel is full, skip sending these reports rather than OOMing due to huge buffers.
-                    let _ignored = soft_error!(
-                        "health_check_report_publish_error",
-                        buck2_error::buck2_error!(buck2_error::ErrorTag::ClientGrpc, "Buffer full while publishing health check reports"),
-                        quiet: true
-                    );
+                    return Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::HealthCheck,
+                        "Health check diplay reports channel full. Dropping reports."
+                    ));
                 }
                 _ => {}
             }
         }
+        Ok(())
     }
 }

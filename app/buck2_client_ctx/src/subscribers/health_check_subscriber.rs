@@ -49,14 +49,17 @@ impl HealthCheckSubscriber {
     }
 
     async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> buck2_error::Result<()> {
-        match event.data() {
+        // Capture all errors in the subscribers and don't propagate them any further.
+        // Health check failures should not affect the command in any way.
+
+        let _res = match event.data() {
             SpanStart(start) => match &start.data {
                 Some(buck2_data::span_start_event::Data::Command(command)) => {
                     self.health_check_client
                         .update_command_data(command.clone())
-                        .await;
+                        .await
                 }
-                _ => {}
+                _ => Ok(()),
             },
             SpanEnd(end) => {
                 use buck2_data::span_end_event::Data::*;
@@ -73,15 +76,17 @@ impl HealthCheckSubscriber {
                         {
                             self.health_check_client
                                 .update_branched_from_revision(&merge_base)
-                                .await;
+                                .await
+                        } else {
+                            Ok(())
                         }
                     }
                     ActionExecution(action_execution_end) => {
                         self.health_check_client
                             .update_excess_cache_misses(action_execution_end)
-                            .await;
+                            .await
                     }
-                    _ => {}
+                    _ => Ok(()),
                 }
             }
             Instant(instant) => {
@@ -94,23 +99,20 @@ impl HealthCheckSubscriber {
                     SystemInfo(system_info) => {
                         self.health_check_client
                             .update_experiment_configurations(&system_info)
-                            .await;
+                            .await
                     }
                     TargetPatterns(target_patterns) => {
                         self.health_check_client
                             .update_parsed_target_patterns(&target_patterns)
-                            .await;
+                            .await
                     }
-                    Snapshot(snapshot) => {
-                        let _ignored = self.health_check_client.run_checks(snapshot).await;
-                        // Capture all errors in the subscribers and don't propagate them any further.
-                        // Health check failures should not affect the command in any way.
-                    }
-                    _ => {}
+                    Snapshot(snapshot) => self.health_check_client.run_checks(snapshot).await,
+                    _ => Ok(()),
                 }
             }
-            _ => {}
-        }
+            _ => Ok(()),
+        };
+
         Ok(())
     }
 }
