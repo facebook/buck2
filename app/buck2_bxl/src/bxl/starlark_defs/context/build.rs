@@ -89,7 +89,7 @@ where
     }
 }
 
-#[starlark_value(type = "bxl_built_artifacts_iterable")]
+#[starlark_value(type = "bxl.BuiltArtifactsIterable")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkProvidersArtifactIterableGen<V>
 where
     Self: ProvidesStaticType<'v>,
