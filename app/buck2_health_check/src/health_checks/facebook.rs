@@ -7,4 +7,4 @@
  * of this source tree.
  */
 
-pub(crate) mod warm_revision;
+pub(crate) mod stable_revision;

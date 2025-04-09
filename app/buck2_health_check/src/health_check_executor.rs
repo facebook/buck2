@@ -16,7 +16,7 @@ use buck2_health_check_proto::HealthCheckContextEvent;
 use crate::health_check_context::HealthCheckContext;
 use crate::health_check_service::HealthCheckService;
 #[cfg(fbcode_build)]
-use crate::health_checks::facebook::warm_revision::warm_revision_check::WarmRevisionCheck;
+use crate::health_checks::facebook::stable_revision::stable_revision_check::StableRevisionCheck;
 use crate::health_checks::vpn_check::VpnCheck;
 use crate::interface::HealthCheck;
 use crate::report::Report;
@@ -43,7 +43,7 @@ impl HealthCheckExecutor {
         #[cfg(fbcode_build)]
         {
             // Facebook-only health checks
-            if let Ok(stable_revision_check) = WarmRevisionCheck::new() {
+            if let Ok(stable_revision_check) = StableRevisionCheck::new() {
                 health_checks.push(Box::new(stable_revision_check));
             }
         }
