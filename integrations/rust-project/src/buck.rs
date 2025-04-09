@@ -52,11 +52,12 @@ pub(crate) fn to_json_project(
     expanded_and_resolved: ExpandedAndResolved,
     aliases: FxHashMap<Target, AliasedTargetInfo>,
     check_cycles: bool,
+    buck2_command: Option<String>,
     include_all_buildfiles: bool,
     extra_cfgs: &[String],
 ) -> Result<JsonProject, anyhow::Error> {
     let mode = select_mode(None);
-    let buck = Buck::new(mode);
+    let buck = Buck::new(buck2_command, mode);
     let project_root = buck.resolve_project_root()?;
 
     let ExpandedAndResolved {
@@ -427,12 +428,16 @@ fn merge_unit_test_targets(
 
 #[derive(Debug, Default)]
 pub(crate) struct Buck {
+    command: String,
     mode: Option<String>,
 }
 
 impl Buck {
-    pub(crate) fn new(mode: Option<String>) -> Self {
-        Buck { mode }
+    pub(crate) fn new(command: Option<String>, mode: Option<String>) -> Self {
+        Buck {
+            command: command.unwrap_or_else(|| "buck2".into()),
+            mode,
+        }
     }
 
     /// Invoke `buck2` with the given subcommands.
@@ -462,7 +467,7 @@ impl Buck {
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
     {
-        let mut cmd = Command::new("buck2");
+        let mut cmd = Command::new(&self.command);
 
         // rust-analyzer invokes the check-on-save command with `RUST_BACKTRACE=short`
         // set. Unfortunately, buck2 doesn't handle that well and becomes extremely

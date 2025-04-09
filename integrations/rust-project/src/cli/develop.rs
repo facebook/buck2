@@ -37,6 +37,7 @@ pub(crate) struct Develop {
     pub(crate) buck: buck::Buck,
     pub(crate) check_cycles: bool,
     pub(crate) invoked_by_ra: bool,
+    pub(crate) buck2_command: Option<String>,
     pub(crate) include_all_buildfiles: bool,
 }
 
@@ -63,6 +64,7 @@ impl Develop {
             pretty,
             mode,
             check_cycles,
+            buck2_command,
             include_all_buildfiles,
             ..
         } = command
@@ -82,13 +84,14 @@ impl Develop {
             };
 
             let mode = select_mode(mode.as_deref());
-            let buck = buck::Buck::new(mode);
+            let buck = buck::Buck::new(buck2_command.clone(), mode);
 
             let develop = Develop {
                 sysroot,
                 buck,
                 check_cycles,
                 invoked_by_ra: false,
+                buck2_command,
                 include_all_buildfiles,
             };
             let out = OutputCfg { out, pretty };
@@ -104,7 +107,10 @@ impl Develop {
         }
 
         if let crate::Command::DevelopJson {
-            sysroot_mode, args, ..
+            sysroot_mode,
+            args,
+            buck2_command,
+            ..
         } = command
         {
             let out = Output::Stdout;
@@ -123,13 +129,14 @@ impl Develop {
                 }
             };
 
-            let buck = buck::Buck::new(mode);
+            let buck = buck::Buck::new(buck2_command.clone(), mode);
 
             let develop = Develop {
                 sysroot,
                 buck,
                 check_cycles: false,
                 invoked_by_ra: true,
+                buck2_command,
                 include_all_buildfiles: false,
             };
             let out = OutputCfg { out, pretty: false };
@@ -229,6 +236,7 @@ impl Develop {
             sysroot,
             buck,
             check_cycles,
+            buck2_command,
             include_all_buildfiles,
             ..
         } = self;
@@ -262,6 +270,7 @@ impl Develop {
             sysroot,
             exclude_workspaces,
             *check_cycles,
+            buck2_command.clone(),
             *include_all_buildfiles,
             extra_cfgs,
         )
