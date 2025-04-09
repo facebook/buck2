@@ -47,6 +47,7 @@
     ]
   },
   "resolutions": {
+    "estree-util-value-to-estree": "^3.3.3",
     "image-size": "^1.2.1",
     "shelljs": "^0.8.5",
     "ansi-html": "0.0.8",
