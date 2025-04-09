@@ -15,7 +15,7 @@
 -module(buck_ct_parser).
 -compile(warn_missing_spec_all).
 
--eqwalizer(ignore).
+-import(common_util, [unicode_characters_to_list/1]).
 
 %% Public API
 -export([parse_str/1]).
@@ -25,7 +25,7 @@ parse_str(<<"">>) ->
     [];
 parse_str(StrArgs) ->
     try
-        {ok, Tokens, _} = erl_scan:string(unicode:characters_to_list([StrArgs, "."])),
+        {ok, Tokens, _} = erl_scan:string(unicode_characters_to_list([StrArgs, "."])),
         erl_parse:parse_term(Tokens)
     of
         {ok, Term} ->

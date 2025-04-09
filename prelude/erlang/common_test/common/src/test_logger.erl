@@ -8,8 +8,6 @@
 -module(test_logger).
 -compile(warn_missing_spec_all).
 
--eqwalizer(ignore).
-
 -include_lib("common/include/buck_ct_records.hrl").
 
 -export([set_up_logger/2, set_up_logger/3, flush/0, get_std_out/2, get_log_file/2, configure_logger/1]).
@@ -25,6 +23,8 @@
     config_files = [],
     providers = [],
     ct_opts = [],
+    extra_flags = [],
+    common_app_env = #{},
     erl_cmd = [],
     artifact_annotation_mfa = fun artifact_annotations:default_annotation/1
 }).
@@ -51,7 +51,7 @@ set_up_logger(LogDir, AppName, StandaloneConfig) ->
     configure_logger(Log),
     test_artifact_directory:link_to_artifact_dir(StdOut, LogDir, ?STUB_TEST_ENV).
 
--spec configure_logger(file:filename()) -> ok.
+-spec configure_logger(file:filename_all()) -> ok.
 configure_logger(LogFile) ->
     ok = logger:set_primary_config(#{
         level => all,
@@ -86,10 +86,10 @@ configure_logger(LogFile) ->
 flush() ->
     logger_std_h:filesync(file_handler).
 
--spec get_std_out(file:filename(), atom()) -> file:filename().
+-spec get_std_out(file:filename(), atom()) -> file:filename_all().
 get_std_out(LogDir, AppName) ->
     filename:join(LogDir, io_lib:format("~p.stdout.txt", [AppName])).
 
--spec get_log_file(file:filename(), atom()) -> file:filename().
+-spec get_log_file(file:filename(), atom()) -> file:filename_all().
 get_log_file(LogDir, AppName) ->
     filename:join(LogDir, io_lib:format("~p.log", [AppName])).

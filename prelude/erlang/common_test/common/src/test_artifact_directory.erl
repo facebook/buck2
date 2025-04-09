@@ -18,6 +18,8 @@
 -include_lib("kernel/include/logger.hrl").
 -include_lib("common/include/buck_ct_records.hrl").
 
+-import(common_util, [unicode_characters_to_list/1]).
+
 %% Public API
 -export([prepare/2, link_to_artifact_dir/3]).
 
@@ -84,7 +86,7 @@ prepare(ExecutionDir, TestInfo) ->
         end
     ).
 
--spec link_to_artifact_dir(file:filename(), file:filename(), #test_env{}) -> ok.
+-spec link_to_artifact_dir(file:filename_all(), file:filename_all(), #test_env{}) -> ok.
 link_to_artifact_dir(File, Root, TestEnv) ->
     with_artifact_dir(
         fun(ArtifactDir) ->
@@ -94,13 +96,10 @@ link_to_artifact_dir(File, Root, TestEnv) ->
                         ?LOG_ERROR("~s should be a prefix of ~s", [Root, File]),
                         error(unexpected_path);
                     Suffix ->
-                        String =
-                            case unicode:characters_to_list(Suffix) of
-                                Result when is_list(Result) -> Result
-                            end,
-                        string:strip(String, left, $/)
+                        string:strip(unicode_characters_to_list(Suffix), left, $/)
                 end,
-            FullFileName = lists:flatten(string:replace(RelativePath, "/", ".", all)),
+            FullFileName =
+                unicode_characters_to_list(string:replace(RelativePath, "/", ".", all)),
             case filelib:is_file(File) of
                 true ->
                     file:make_symlink(File, join_paths(ArtifactDir, FullFileName)),
@@ -159,8 +158,7 @@ find_log_private(LogDir) ->
         [LogPrivate | _Tail] -> LogPrivate
     end.
 
-
--spec join_paths(file:filename(), string()) -> string().
+-spec join_paths(file:filename_all(), file:filename_all()) -> string().
 join_paths(Path, FileName) ->
     case filename:join(Path, FileName) of
         NewPath when is_list(NewPath) -> NewPath

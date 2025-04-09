@@ -20,8 +20,6 @@
 -module(artifact_annotations).
 -compile(warn_missing_spec_all).
 
--eqwalizer(ignore).
-
 -include_lib("common/include/buck_ct_records.hrl").
 
 -type generic_blob() :: #{generic_blob := #{}}.
@@ -41,7 +39,7 @@
     test_result_artifact_annotations/0
 ]).
 
--spec serialize(test_result_artifact_annotations()) -> binary().
+-spec serialize(test_result_artifact_annotations()) -> iodata().
 serialize(ArtifactAnnotation) -> json:encode(ArtifactAnnotation).
 
 -spec create_artifact_annotation(file:filename(), #test_env{}) -> test_result_artifact_annotations().
