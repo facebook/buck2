@@ -1,4 +1,4 @@
-load("@prelude//toolchains/android/tools/build_rules:java_rules.bzl", "buck_prebuilt_artifact")
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_prebuilt_artifact")
 
 oncall("android_devxx")
 

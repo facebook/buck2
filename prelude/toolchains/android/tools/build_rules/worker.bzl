@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//toolchains/android/tools/build_rules:java_rules.bzl", "OPEN_JDK_COMPILER_ARGS")
+load("@prelude//toolchains/android/tools:build_rules.bzl", "OPEN_JDK_COMPILER_ARGS")
 
 def _jvm_arg_name_is_specified(arg_name: str, existing_jvm_args: list[str]) -> bool:
     for existing_jvm_arg in existing_jvm_args:
