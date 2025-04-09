@@ -103,7 +103,6 @@ fn error_with_starlark_context(
                 }
 
                 buck2_error = inner.clone();
-                continue;
             }
             _ => return buck2_error,
         }

@@ -156,7 +156,7 @@ impl<'a, 'e: 'a> BeforeStmtFuncDyn<'a, 'e> for DapAdapterEvalHookImpl {
                         self.step = Some((kind, eval.call_stack_count()));
                         break;
                     }
-                    Ok(Next::RemainPaused) => continue,
+                    Ok(Next::RemainPaused) => {}
                     Err(..) => {
                         // DapAdapter has been dropped so we'll continue.
                         break;

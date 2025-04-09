@@ -47,11 +47,10 @@ impl SpanId {
         static NEXT_ID: AtomicU64 = AtomicU64::new(1);
         loop {
             let next_id = NEXT_ID.fetch_add(1, Ordering::AcqRel);
-            match NonZeroU64::new(next_id) {
-                Some(id) => return SpanId(id),
-                // 64-bit wrap around; continue the loop to generate the next non-zero ID.
-                None => continue,
+            if let Some(id) = NonZeroU64::new(next_id) {
+                return SpanId(id);
             }
+            // 64-bit wrap around; continue the loop to generate the next non-zero ID.
         }
     }
 }

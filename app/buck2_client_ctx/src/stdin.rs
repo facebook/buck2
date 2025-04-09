@@ -126,7 +126,6 @@ fn read_and_forward(
                 if n > 0 {
                     tracing::debug!("stdin: {} bytes", n);
                     tx.blocking_send(Ok(Bytes::copy_from_slice(&buff[0..n])))?;
-                    continue;
                 } else {
                     tracing::debug!("eof");
                     break;
@@ -134,7 +133,6 @@ fn read_and_forward(
             }
             Err(e) if e.kind() == io::ErrorKind::Interrupted => {
                 tracing::debug!("interrupted");
-                continue;
             }
             Err(e) => {
                 tracing::debug!("err: {:#}", e);

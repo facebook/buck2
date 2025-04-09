@@ -206,7 +206,6 @@ impl ModuleInternals {
                             }),
                             recorder: TargetsRecorder::new(),
                         });
-                        continue;
                     }
                     State::RecordingTargets(r) => return r,
                 }

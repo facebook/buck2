@@ -1598,7 +1598,6 @@ mod eden_health {
                             }
                             _ => {
                                 tracing::debug!("check determined EdenFS is not hanging");
-                                continue;
                             }
                         }
                     }
@@ -1606,7 +1605,6 @@ mod eden_health {
                     // Ignore this case since it's not related to a hanging Eden daemon.
                     Ok(None) => {
                         tracing::debug!("failed to run check: .eden dir does not exist");
-                        continue;
                     }
                     // Can occur for a number of reasons, including IO into the Eden mount failing.
                     // This _could_ signal a hanging mount, so we'll report a possible hang.

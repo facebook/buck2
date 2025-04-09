@@ -552,7 +552,6 @@ impl BazelContext {
                             }));
                         }
                     }
-                    continue;
                 } else if options.files != FilesystemFileCompletionOptions::None {
                     // Check if it's in the list of allowed extensions. If we have a list, and it
                     // doesn't contain the extension, or the file has no extension, skip this file.

@@ -239,7 +239,6 @@ mod tests {
         // We expect that should_render() will eventually return true.
         while !output.should_render() {
             std::thread::yield_now();
-            continue;
         }
 
         // Likewise, we expect that sending output and finalizing wold fail.

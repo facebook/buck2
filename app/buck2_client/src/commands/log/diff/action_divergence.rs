@@ -75,16 +75,10 @@ async fn get_digest_map(
     let mut out = LinkedHashMap::new();
 
     while let Some(event) = events.try_next().await? {
-        match event {
-            StreamValue::Event(event) => match get_action_execution_data(&event) {
-                Some((key, action_execution_data)) => {
-                    out.insert(key, action_execution_data);
-                }
-                None => {
-                    continue;
-                }
-            },
-            _ => {}
+        if let StreamValue::Event(event) = event {
+            if let Some((key, action_execution_data)) = get_action_execution_data(&event) {
+                out.insert(key, action_execution_data);
+            }
         }
     }
     Ok(out)
