@@ -1176,12 +1176,34 @@ third_party_jar(
     sha1 = "ce5226440c2ee78915716d4ce3d10aed2dbf26fb",
     url = "mvn:org.mockito:mockito-core:jar:4.11.0",
     visibility = [
-        "fbsource//xplat/toolchains/android/sdk/test/...",
+        "PUBLIC",
     ],
     deps = [
         ":byte-buddy",
         ":byte-buddy-agent",
         ":objenesis",
+    ],
+)
+
+third_party_jar(
+    name = "mockito-inline",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/mockito/mockito-inline:mockito-inline",
+    sha1 = "3d1dffee9a8a1998ec782383ca2f818848f2d5f1",
+    url = "mvn:org.mockito:mockito-inline:jar:4.11.0",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":mockito-core",
+    ],
+)
+
+third_party_jar(
+    name = "mockito-kotlin",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/mockito/kotlin/mockito-kotlin:mockito-kotlin",
+    sha1 = "a89352b80ae4a2e3ce15a8046a09c85645fabf89",
+    url = "mvn:org.mockito.kotlin:mockito-kotlin:jar:4.1.0",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":mockito-inline",
     ],
 )
 # ===   End: mockito
