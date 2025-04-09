@@ -766,6 +766,7 @@ def _pex_modules_common_args(
 
     if extra_manifests:
         srcs.extend(extra_manifests)
+        deps.extend(extra_manifests)
 
     deps.extend([a[0] for a in src_artifacts])
 
