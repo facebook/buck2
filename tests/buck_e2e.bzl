@@ -68,13 +68,11 @@ def buck_e2e_test(
     if e2e_flavor == "isolated":
         env["BUCK2_E2E_TEST_FLAVOR"] = "isolated"
         serialize_test_cases = serialize_test_cases or False
-        heavyweight_label = "heavyweight"
-        heavyweight_threads = "4"
     else:
         env["BUCK2_E2E_TEST_FLAVOR"] = "any"
         serialize_test_cases = serialize_test_cases if serialize_test_cases != None else True
-        heavyweight_label = "heavyweight8_experimental"
-        heavyweight_threads = "8"
+    heavyweight_label = "heavyweight8_experimental"
+    heavyweight_threads = "8"
 
     # Running multiple bucks are expensive. This label specifies that each test gets 4 or 8 CPU slots
     # when TPX schedules them. See different possible values for heavyweight label here:
