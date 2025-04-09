@@ -40,13 +40,14 @@ pub(crate) fn equals_slice<E, X1, X2>(
     Ok(true)
 }
 
-pub(crate) fn equals_small_map<E, K1: Eq, K2: Eq, V1, V2>(
+pub(crate) fn equals_small_map<E, K1, K2, V1, V2>(
     x: &SmallMap<K1, V1>,
     y: &SmallMap<K2, V2>,
     f: impl Fn(&V1, &V2) -> Result<bool, E>,
 ) -> Result<bool, E>
 where
-    K1: Equivalent<K2>,
+    K1: Eq + Equivalent<K2>,
+    K2: Eq,
 {
     if x.len() != y.len() {
         return Ok(false);

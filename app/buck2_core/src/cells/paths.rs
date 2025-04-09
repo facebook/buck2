@@ -227,9 +227,9 @@ impl CellRelativePath {
     ///
     /// # buck2_error::Ok(())
     /// ```
-    pub fn strip_prefix<P: ?Sized>(&self, base: &P) -> buck2_error::Result<&ForwardRelativePath>
+    pub fn strip_prefix<P>(&self, base: &P) -> buck2_error::Result<&ForwardRelativePath>
     where
-        P: AsRef<CellRelativePath>,
+        P: ?Sized + AsRef<CellRelativePath>,
     {
         self.0.strip_prefix(&base.as_ref().0)
     }

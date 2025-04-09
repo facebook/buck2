@@ -47,11 +47,7 @@ pub(crate) async fn eval_query<
     }
 }
 
-async fn eval_single_query<
-    F: QueryFunctions<Env = Env>,
-    Env: QueryEnvironment,
-    Fut: Future<Output = buck2_error::Result<Env>>,
->(
+async fn eval_single_query<F, Env, Fut>(
     functions: &F,
     query: &str,
     environment: impl Fn(Vec<String>) -> Fut,

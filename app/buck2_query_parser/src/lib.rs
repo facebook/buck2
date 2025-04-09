@@ -207,12 +207,11 @@ impl Display for BinaryOp {
 }
 
 /// Wraps a parser producing `O` with one producing `Spanned<O>` by marking the output with a span covering all of the consumed input.
-fn spanned<'a, O, E: NomParseError<'a>, F: FnMut(Span<'a>) -> IResult<Span<'a>, O, E>>(
-    mut func: F,
-) -> impl FnMut(Span<'a>) -> IResult<Span<'a>, Spanned<O>, E>
+fn spanned<'a, O, E, F>(mut func: F) -> impl FnMut(Span<'a>) -> IResult<Span<'a>, Spanned<O>, E>
 where
     O: 'a,
-    F: 'a,
+    E: NomParseError<'a>,
+    F: FnMut(Span<'a>) -> IResult<Span<'a>, O, E> + 'a,
 {
     move |original_input| {
         let start = original_input.location_offset();

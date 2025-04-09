@@ -200,9 +200,9 @@ pub fn fmt_container<T: Display, Iter: IntoIterator<Item = T>>(
 }
 
 /// Helper for display implementation of container-y types (like list, tuple).
-pub fn display_container<'a, C: 'a>(prefix: &'a str, suffix: &'a str, items: C) -> impl Display + 'a
+pub fn display_container<'a, C>(prefix: &'a str, suffix: &'a str, items: C) -> impl Display + 'a
 where
-    C: Copy + IntoIterator,
+    C: Copy + IntoIterator + 'a,
     <C as IntoIterator>::Item: Display,
 {
     struct Impl<'a, C> {

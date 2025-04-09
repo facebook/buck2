@@ -31,7 +31,6 @@ CLIPPY_ALLOW = [
     "clippy::match_wild_err_arm",  # Seems reasonable to panic on Err(_)
     "clippy::missing_safety_doc",  # Documentation should be tailored to the reader, not the linter
     "clippy::module_inception",  # Unnecessary restriction.
-    "clippy::multiple_bound_locations",  # FIXME New in 1.78.0
     "clippy::mut_from_ref",  # Tries to check soundness, which Rust already does
     "clippy::mutable_key_type",  # FIXME new in Rust 1.80
     "clippy::naive_bytecount",  # Requires an extra dependency for marginal gains.

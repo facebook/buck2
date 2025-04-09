@@ -678,10 +678,7 @@ fn pump_events(
 
 /// Dispatches a request to the given function and returns a stream of responses, suitable for streaming to a client.
 #[allow(clippy::mut_mut)] // select! does this internally
-fn streaming<
-    Req: Send + Sync + 'static,
-    F: for<'a> FnOnce(Req, &'a CancellationContext) -> BoxFuture<'a, ()>,
->(
+fn streaming<Req, F>(
     req: Request<Req>,
     events: ChannelEventSource,
     state: ActiveCommandStateWriter,
@@ -691,7 +688,8 @@ fn streaming<
     rt: &Handle,
 ) -> Response<ResponseStream>
 where
-    F: Send + 'static,
+    Req: Send + Sync + 'static,
+    F: for<'a> FnOnce(Req, &'a CancellationContext) -> BoxFuture<'a, ()> + Send + 'static,
 {
     // This function is responsible for receiving all events coming into an ChannelEventSource and reacting accordingly.
     // The function `func` is the computation that we are going to run. It communicates its success or failure using

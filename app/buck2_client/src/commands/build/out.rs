@@ -195,14 +195,11 @@ fn copy_symlink<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
 
 /// Recursively copies a directory to the output path, rooted at `dst`.
 #[async_recursion::async_recursion]
-async fn copy_directory<
+async fn copy_directory<P, Q>(src: P, dst: Q, context: &CopyContext) -> buck2_error::Result<()>
+where
     P: AsRef<AbsPath> + std::marker::Send,
     Q: AsRef<AbsPath> + std::marker::Send + std::marker::Copy + std::marker::Sync,
->(
-    src: P,
-    dst: Q,
-    context: &CopyContext,
-) -> buck2_error::Result<()> {
+{
     tokio::fs::create_dir_all(dst.as_ref()).await?;
     let stream = tokio_stream::wrappers::ReadDirStream::new(
         tokio::fs::read_dir(src.as_ref())
