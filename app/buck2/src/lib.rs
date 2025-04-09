@@ -431,8 +431,8 @@ impl CommandKind {
             CommandKind::Test(cmd) => command_ctx.exec(cmd, matches),
             CommandKind::Cquery(cmd) => command_ctx.exec(cmd, matches),
             CommandKind::HelpEnv(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Kill(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Killall(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Kill(cmd) => command_ctx.exec(cmd, matches),
+            CommandKind::Killall(cmd) => command_ctx.exec(cmd, matches),
             CommandKind::Clean(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Root(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Query(cmd) => {

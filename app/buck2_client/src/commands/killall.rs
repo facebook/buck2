@@ -7,12 +7,12 @@
  * of this source tree.
  */
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonEventLogOptions;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_common::argv::Argv;
-use buck2_common::argv::SanitizedArgv;
 use buck2_wrapper_common::is_buck2::WhoIsAsking;
 
 #[derive(Debug, clap::Parser)]
@@ -22,22 +22,27 @@ pub struct KillallCommand {
     pub(crate) event_log_opts: CommonEventLogOptions,
 }
 
-impl KillallCommand {
-    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
-        ctx.instant_command("killall", &self.event_log_opts, |_ctx| async move {
-            buck2_wrapper_common::killall(WhoIsAsking::Buck2, |s| {
-                let _ignored = buck2_client_ctx::eprintln!("{}", s);
-            })
-            .then_some(())
-            .ok_or(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::KillAll,
-                "Killall command failed"
-            ))
+impl BuckSubcommand for KillallCommand {
+    const COMMAND_NAME: &'static str = "killall";
+
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        _ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
+        buck2_wrapper_common::killall(WhoIsAsking::Buck2, |s| {
+            let _ignored = buck2_client_ctx::eprintln!("{}", s);
         })
+        .then_some(())
+        .ok_or(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::KillAll,
+            "Killall command failed"
+        ))
         .into()
     }
 
-    pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
-        argv.no_need_to_sanitize()
+    fn event_log_opts(&self) -> &CommonEventLogOptions {
+        &self.event_log_opts
     }
 }

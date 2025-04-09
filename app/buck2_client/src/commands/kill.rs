@@ -9,14 +9,14 @@
 
 use std::time::Duration;
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
-use buck2_common::argv::Argv;
-use buck2_common::argv::SanitizedArgv;
 use buck2_error::BuckErrorContext;
 
 /// Kill the buck daemon.
@@ -32,28 +32,33 @@ pub struct KillCommand {
     pub(crate) event_log_opts: CommonEventLogOptions,
 }
 
-impl KillCommand {
-    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
-        ctx.instant_command("kill", &self.event_log_opts, |ctx| async move {
-            let daemon_dir = ctx.paths()?.daemon_dir()?;
+impl BuckSubcommand for KillCommand {
+    const COMMAND_NAME: &'static str = "kill";
 
-            let lifecycle_lock = BuckdLifecycleLock::lock_with_timeout(
-                daemon_dir.clone(),
-                StartupDeadline::duration_from_now(Duration::from_secs(10))?,
-            )
-            .await
-            .with_buck_error_context(|| "Error locking buckd lifecycle.lock")?;
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
+        let daemon_dir = ctx.paths()?.daemon_dir()?;
 
-            buck2_client_ctx::daemon::client::kill::kill_command_impl(
-                &lifecycle_lock,
-                "`buck kill` was invoked",
-            )
-            .await
-        })
+        let lifecycle_lock = BuckdLifecycleLock::lock_with_timeout(
+            daemon_dir.clone(),
+            StartupDeadline::duration_from_now(Duration::from_secs(10))?,
+        )
+        .await
+        .with_buck_error_context(|| "Error locking buckd lifecycle.lock")?;
+
+        buck2_client_ctx::daemon::client::kill::kill_command_impl(
+            &lifecycle_lock,
+            "`buck kill` was invoked",
+        )
+        .await
         .into()
     }
 
-    pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
-        argv.no_need_to_sanitize()
+    fn event_log_opts(&self) -> &CommonEventLogOptions {
+        &self.event_log_opts
     }
 }

@@ -45,7 +45,6 @@ use crate::restarter::Restarter;
 use crate::stdin::Stdin;
 use crate::streaming::StreamingCommand;
 use crate::subscribers::recorder::try_get_invocation_recorder;
-use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscribers::EventSubscribers;
 
 pub struct ClientCommandContext<'a> {
@@ -197,43 +196,6 @@ impl<'a> ClientCommandContext<'a> {
             finalizing_errors,
         );
         result
-    }
-
-    pub fn instant_command<Fut, F>(
-        self,
-        command_name: &'static str,
-        event_log_opts: &CommonEventLogOptions,
-        func: F,
-    ) -> buck2_error::Result<()>
-    where
-        Fut: Future<Output = buck2_error::Result<()>> + 'a,
-        F: FnOnce(ClientCommandContext<'a>) -> Fut + 'a,
-    {
-        let mut recorder = try_get_invocation_recorder(
-            &self,
-            &event_log_opts,
-            command_name,
-            std::env::args().collect(),
-            Vec::new(),
-            None,
-            None,
-        )?;
-
-        recorder.update_metadata_from_client_metadata(&self.client_metadata);
-
-        let result = self.with_runtime(async move |ctx| {
-            let result = func(ctx).await;
-            recorder.handle_instant_command_outcome(result.is_ok());
-            // TODO(ctolliday) reuse finalization from streaming commands
-            if tokio::time::timeout(Duration::from_secs(30), recorder.finalize())
-                .await
-                .is_err()
-            {
-                tracing::warn!("Timeout waiting for logging cleanup");
-            }
-            result
-        });
-        result.into()
     }
 
     pub fn stdin(&mut self) -> &mut Stdin {
