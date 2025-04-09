@@ -336,7 +336,7 @@ mod tests {
         assert!(dst_dir.path().join("bar/some_file").is_file());
         assert!(dst_dir.path().join("bar/qux/buzz").is_file());
 
-        let copied_fool_path = std::fs::read_link(&dst_dir.path().join("fool"))?;
+        let copied_fool_path = std::fs::read_link(dst_dir.path().join("fool"))?;
         #[cfg(unix)]
         {
             assert_eq!(PathBuf::from("foo"), copied_fool_path);
@@ -348,7 +348,7 @@ mod tests {
             assert_eq!(dst_dir_canon_path.as_path().join("foo"), copied_fool_path);
         }
 
-        let copied_foo_abs_path = std::fs::read_link(&dst_dir.path().join("foo_abs"))?;
+        let copied_foo_abs_path = std::fs::read_link(dst_dir.path().join("foo_abs"))?;
         #[cfg(unix)]
         {
             assert_eq!(src_dir.path().join("foo"), copied_foo_abs_path);
@@ -363,7 +363,7 @@ mod tests {
             );
         }
 
-        let copied_bax_path = std::fs::read_link(&dst_dir.path().join("bax"))?;
+        let copied_bax_path = std::fs::read_link(dst_dir.path().join("bax"))?;
         #[cfg(unix)]
         {
             assert_eq!(PathBuf::from("bar/qux"), copied_bax_path);
@@ -378,7 +378,7 @@ mod tests {
             );
         }
 
-        let copied_foo_in_bar_path = std::fs::read_link(&dst_dir.path().join("bar/foo_in_bar"))?;
+        let copied_foo_in_bar_path = std::fs::read_link(dst_dir.path().join("bar/foo_in_bar"))?;
         #[cfg(unix)]
         {
             assert_eq!(PathBuf::from("../foo"), copied_foo_in_bar_path);
@@ -437,10 +437,10 @@ mod tests {
 
         // Check both symlinks are valid and are absolute.
 
-        let copied_foo_target = std::fs::read_link(&dst_dir.path().join("qux/foo"))?;
+        let copied_foo_target = std::fs::read_link(dst_dir.path().join("qux/foo"))?;
         assert_eq!(src_path.as_path().join("foo"), copied_foo_target);
 
-        let copied_bar_target = std::fs::read_link(&dst_dir.path().join("qux/bar"))?;
+        let copied_bar_target = std::fs::read_link(dst_dir.path().join("qux/bar"))?;
         assert_eq!(src_path.as_path().join("bar"), copied_bar_target);
 
         Ok(())

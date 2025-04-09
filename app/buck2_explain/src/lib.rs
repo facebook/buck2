@@ -97,7 +97,7 @@ pub fn inline_fbs(
     fbs_dump: Option<&AbsPathBuf>,
     html_in: &str,
 ) -> buck2_error::Result<String> {
-    let base64 = STANDARD.encode(&fbs);
+    let base64 = STANDARD.encode(fbs);
     // For dev purposes, dump the base64 encoded flatbuffer to a file
     if let Some(fbs_dump) = fbs_dump {
         fs::write(fbs_dump, &base64)?;

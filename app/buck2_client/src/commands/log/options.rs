@@ -165,7 +165,7 @@ impl EventLogOptions {
                 (
                     "Curl",
                     async_background_command("curl")
-                        .args(&args)
+                        .args(args)
                         .stdin(Stdio::null())
                         .stdout(Stdio::null())
                         .stderr(Stdio::piped())

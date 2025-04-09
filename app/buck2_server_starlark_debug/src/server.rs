@@ -510,7 +510,7 @@ impl DebugServer for ServerState {
 
             for v in vars_info.locals {
                 let has_children = v.has_children;
-                let var_path = VariablePath::new_local(&v.name.to_string());
+                let var_path = VariablePath::new_local(v.name.to_string());
                 let mut dap_message = v.to_dap();
                 if has_children {
                     let var_id = known_variables.insert(var_path);

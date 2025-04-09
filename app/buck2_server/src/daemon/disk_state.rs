@@ -71,7 +71,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
         // Otherwise, artifacts in buck-out will diverge from the state stored in db.
         io_executor
             .execute_io_inline(|| {
-                fs_util::remove_all(&paths.materializer_state_path())
+                fs_util::remove_all(paths.materializer_state_path())
                     .map_err(buck2_error::Error::from)
             })
             .await?;
@@ -155,7 +155,7 @@ pub(crate) fn delete_unknown_disk_state(
 
                 // known_dir_names is always small, so this contains isn't expensive
                 if !known_dir_names.contains(&filename) || !entry.path().is_dir() {
-                    fs_util::remove_all(&cache_dir_path.join(filename))?;
+                    fs_util::remove_all(cache_dir_path.join(filename))?;
                 }
             }
         }

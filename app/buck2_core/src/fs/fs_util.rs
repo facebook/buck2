@@ -1321,7 +1321,7 @@ mod tests {
     fn test_disk_space_stats() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
-        let disk_space = fs_util::disk_space_stats(&root)?;
+        let disk_space = fs_util::disk_space_stats(root)?;
         assert!(disk_space.total_space > disk_space.free_space);
         Ok(())
     }

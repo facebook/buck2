@@ -34,7 +34,6 @@ CLIPPY_ALLOW = [
     "clippy::mut_from_ref",  # Tries to check soundness, which Rust already does
     "clippy::mutable_key_type",  # FIXME new in Rust 1.80
     "clippy::naive_bytecount",  # Requires an extra dependency for marginal gains.
-    "clippy::needless_borrows_for_generic_args",  # FIXME new in Rust 1.74
     "clippy::needless_collect",  # False positives: doesn't understand lifetimes, or e.g. DoubleEndedIterator.
     "clippy::needless_lifetimes",  # This is throwing false positives
     "clippy::needless_pass_by_ref_mut",  # Mostly identifies cases where we are accepting `&mut T` because we logically accept a mut reference but don't technically require it (i.e. we want the api to enforce the caller has a mut ref, but we don't technically need it).

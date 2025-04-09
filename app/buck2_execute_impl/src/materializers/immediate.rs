@@ -107,7 +107,7 @@ pub async fn cas_download(
                     named_digest: NamedDigest {
                         digest: m.digest.to_re(),
                         name: fs
-                            .resolve(&path.join(entry_path.get()))
+                            .resolve(path.join(entry_path.get()))
                             .as_maybe_relativized_str()?
                             .to_owned(),
                         ..Default::default()
