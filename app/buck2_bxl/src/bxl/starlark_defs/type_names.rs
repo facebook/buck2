@@ -25,6 +25,7 @@ use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
 use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::cli_args::CliArgs;
 use crate::bxl::starlark_defs::context::actions::BxlActions;
+use crate::bxl::starlark_defs::context::build::StarlarkFailedArtifactIterable;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -82,4 +83,6 @@ pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuil
         StarlarkValueAsType::new();
     const SelectDict: StarlarkValueAsType<StarlarkSelectDict> = StarlarkValueAsType::new();
     const SelectConcat: StarlarkValueAsType<StarlarkSelectConcat> = StarlarkValueAsType::new();
+    const FailedArtifactsIterable: StarlarkValueAsType<StarlarkFailedArtifactIterable> =
+        StarlarkValueAsType::new();
 }

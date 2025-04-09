@@ -150,7 +150,7 @@ where
     }
 }
 
-#[starlark_value(type = "bxl_failed_artifacts_iterable")]
+#[starlark_value(type = "bxl.FailedArtifactsIterable")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkFailedArtifactIterableGen<V>
 where
     Self: ProvidesStaticType<'v>,
