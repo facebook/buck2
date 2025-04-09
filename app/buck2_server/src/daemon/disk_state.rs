@@ -112,13 +112,10 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     )
     .await?;
 
-    let materializer_state = match load_result {
-        Ok(s) => Some(s),
-        // We know path not found or version mismatch is normal, but some sqlite failures
-        // are worth logging here. TODO(scottcao): Refine our error types and figure out what
-        // errors to log
-        Err(_e) => None,
-    };
+    // We know path not found or version mismatch is normal, but some sqlite failures
+    // are worth logging here. TODO(scottcao): Refine our error types and figure out what
+    // errors to log
+    let materializer_state = load_result.ok();
     Ok((Some(db), materializer_state))
 }
 

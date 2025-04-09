@@ -110,10 +110,7 @@ impl<'f, T: ?Sized> OwnedRefFrozenRef<'f, T> {
     where
         F: FnOnce(&'f T) -> Option<&'f U>,
     {
-        match self.try_map_result(|x| f(x).ok_or(())) {
-            Ok(x) => Some(x),
-            Err(()) => None,
-        }
+        self.try_map_result(|x| f(x).ok_or(())).ok()
     }
 }
 

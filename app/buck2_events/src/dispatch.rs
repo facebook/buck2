@@ -391,10 +391,7 @@ where
 /// tied to a specific command (e.g. materializer command loop), an ambient dispatcher may not be
 /// available.
 pub fn get_dispatcher_opt() -> Option<EventDispatcher> {
-    match EVENTS.try_with(|dispatcher| dispatcher.dupe()) {
-        Ok(dispatcher) => Some(dispatcher),
-        Err(..) => None,
-    }
+    EVENTS.try_with(|dispatcher| dispatcher.dupe()).ok()
 }
 
 pub fn get_dispatcher() -> EventDispatcher {

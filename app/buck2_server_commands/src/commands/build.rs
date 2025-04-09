@@ -258,10 +258,7 @@ async fn process_build_result(
     for v in build_result.configured.into_values() {
         // We omit skipped targets here.
         let Some(v) = v else { continue };
-        let mut outputs = v.outputs.into_iter().filter_map(|output| match output {
-            Ok(output) => Some(output),
-            _ => None,
-        });
+        let mut outputs = v.outputs.into_iter().filter_map(Result::ok);
         provider_artifacts.extend(&mut outputs);
     }
 

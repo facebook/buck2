@@ -248,13 +248,7 @@ impl Error {
 
     pub fn find_typed_context<T: TypedContext>(&self) -> Option<Arc<T>> {
         self.iter_context().find_map(|kind| match kind {
-            ContextValue::Typed(v) => {
-                if let Ok(typed) = Arc::downcast(v.clone()) {
-                    Some(typed)
-                } else {
-                    None
-                }
-            }
+            ContextValue::Typed(v) => Arc::downcast(v.clone()).ok(),
             _ => None,
         })
     }
