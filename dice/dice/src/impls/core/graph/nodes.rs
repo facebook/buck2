@@ -712,7 +712,7 @@ impl InjectedGraphNode {
     fn data_at(&self, v: VersionNumber) -> Option<(&VersionNumber, &InjectedNodeData)> {
         self.values
             .range((Bound::Unbounded, Bound::Included(v)))
-            .last()
+            .next_back()
     }
 }
 
