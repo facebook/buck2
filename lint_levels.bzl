@@ -18,12 +18,17 @@ CLIPPY_ALLOW = [
     "clippy::comparison_to_empty",  # x == "" is clearer than x.is_empty()
     "clippy::derive_partial_eq_without_eq",  # In generated protobuf code
     "clippy::disallowed_names",  # Not using foo, bar, baz in test data is silly
+    "clippy::doc_overindented_list_items",  # FIXME new in Rust 1.86
+    "clippy::double_ended_iterator_last",  # FIXME new in Rust 1.86
     "clippy::enum_variant_names",  # Sometimes you do want the same prefixes
     "clippy::from_iter_instead_of_collect",  # https://fb.workplace.com/groups/buck2core/posts/835300915330313
     "clippy::implicit_hasher",  # Makes code more complex for little benefit
     "clippy::len_without_is_empty",  # len() == 0 is perfectly clear
+    "clippy::len_zero",  # FIXME new in Rust 1.86
     "clippy::literal_string_with_formatting_args",  # FIXME new in Rust 1.85, fixed in Rust 1.87 (clippy PR 13953)
+    "clippy::manual_ok_err",  # FIXME new in Rust 1.86
     "clippy::manual_range_contains",  # a <= b && b <= c is way clearer than (a..=c).contains(&b)
+    "clippy::manual_repeat_n",  # FIXME new in Rust 1.86
     "clippy::many_single_char_names",  # match(a,b,c,d,e) sometimes makes sense
     "clippy::match_like_matches_macro",  # Using matches! is sometimes clearer, sometimes not
     "clippy::match_wild_err_arm",  # Seems reasonable to panic on Err(_)
@@ -33,6 +38,7 @@ CLIPPY_ALLOW = [
     "clippy::mutable_key_type",  # FIXME new in Rust 1.80
     "clippy::naive_bytecount",  # Requires an extra dependency for marginal gains.
     "clippy::needless_collect",  # False positives: doesn't understand lifetimes, or e.g. DoubleEndedIterator.
+    "clippy::needless_continue",  # FIXME new in Rust 1.86
     "clippy::needless_lifetimes",  # This is throwing false positives
     "clippy::needless_pass_by_ref_mut",  # Mostly identifies cases where we are accepting `&mut T` because we logically accept a mut reference but don't technically require it (i.e. we want the api to enforce the caller has a mut ref, but we don't technically need it).
     "clippy::needless_raw_string_hashes",  # False positives
@@ -45,6 +51,7 @@ CLIPPY_ALLOW = [
     "clippy::too_many_arguments",  # This is an arbitrary limit set on number of arguments and not always useful
     "clippy::type_complexity",  # This is an arbitrary limit set on number of type parameterizations and not always useful
     "clippy::unnecessary_wraps",  # Sometimes unnecessary wraps provide the right API
+    "clippy::unneeded_struct_pattern",  # FIXME new in Rust 1.86
     "clippy::unwrap_or_default",  # Defaults aren't always more clear as it removes the type information when reading code
     "clippy::useless_conversion",  # Removed all obvious but there are some reports I'm unclear how to fix
     "clippy::wrong_self_convention",  # These rules are useless pedantry

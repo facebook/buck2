@@ -10,7 +10,6 @@
 #![feature(error_generic_member_access)]
 #![feature(let_chains)]
 #![feature(trait_alias)]
-#![feature(trait_upcasting)]
 
 pub mod any;
 pub mod classify;

@@ -8,7 +8,6 @@
  */
 
 #![feature(error_generic_member_access)]
-#![feature(trait_upcasting)]
 
 pub mod configuration;
 pub mod cycle;
