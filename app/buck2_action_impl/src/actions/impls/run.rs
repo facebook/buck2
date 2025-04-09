@@ -199,7 +199,7 @@ impl UnregisteredAction for UnregisteredRunAction {
 }
 
 #[derive(Debug, Display, Trace, ProvidesStaticType, NoSerialize, Allocative)]
-#[display("run_action_values")]
+#[display("RunActionValues")]
 pub(crate) struct StarlarkRunActionValues<'v> {
     pub(crate) exe: ValueTyped<'v, StarlarkCmdArgs<'v>>,
     pub(crate) args: ValueTyped<'v, StarlarkCmdArgs<'v>>,
@@ -212,7 +212,7 @@ pub(crate) struct StarlarkRunActionValues<'v> {
 }
 
 #[derive(Debug, Display, Trace, ProvidesStaticType, NoSerialize, Allocative)]
-#[display("run_action_values")]
+#[display("RunActionValues")]
 pub(crate) struct FrozenStarlarkRunActionValues {
     pub(crate) exe: FrozenValueTyped<'static, FrozenStarlarkCmdArgs>,
     pub(crate) args: FrozenValueTyped<'static, FrozenStarlarkCmdArgs>,
@@ -225,10 +225,10 @@ pub(crate) struct FrozenStarlarkRunActionValues {
     pub(crate) outputs_for_error_handler: Vec<FrozenStarlarkOutputArtifact>,
 }
 
-#[starlark_value(type = "run_action_values")]
+#[starlark_value(type = "RunActionValues")]
 impl<'v> StarlarkValue<'v> for StarlarkRunActionValues<'v> {}
 
-#[starlark_value(type = "run_action_values")]
+#[starlark_value(type = "RunActionValues")]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkRunActionValues {
     type Canonical = StarlarkRunActionValues<'v>;
 }
@@ -447,7 +447,7 @@ impl RunAction {
     ) -> buck2_error::Result<Self> {
         let starlark_values = starlark_values
             .downcast_starlark()
-            .internal_error("Must be `run_action_values`")?;
+            .internal_error("Must be `RunActionValues`")?;
 
         Self::unpack(&starlark_values)?;
 
