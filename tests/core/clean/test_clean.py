@@ -93,5 +93,10 @@ def _assert_all_paths_do_not_exist(paths: Iterable[str]) -> None:
         if os.path.exists(f"{path}/buckd.lifecycle"):
             # Clean keeps lifecycle file in daemon dir.
             assert ["buckd.lifecycle"] == os.listdir(path)
+        elif path.endswith("buck-out/v2/log") or (
+            platform.system() == "Windows" and path.endswith("buck-out\\v2\\log")
+        ):
+            # Log dir should contain one entry, for the clean command itself.
+            assert len(os.listdir(path)) == 1
         else:
             assert os.path.exists(path) is False
