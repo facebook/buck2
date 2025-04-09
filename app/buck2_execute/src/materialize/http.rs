@@ -162,7 +162,7 @@ enum HttpDownloadError {
         expected: String,
         obtained: String,
         url: String,
-        debug: MaybeDebugBufferAsUtf8,
+        debug: MaybeResponseDebugInfo,
     },
 
     #[error(
@@ -173,7 +173,7 @@ enum HttpDownloadError {
         want: String,
         got: String,
         url: String,
-        debug: MaybeDebugBufferAsUtf8,
+        debug: MaybeResponseDebugInfo,
     },
 
     #[error(transparent)]
@@ -268,15 +268,17 @@ pub async fn http_download(
             let file = fs_util::create_file(&abs_path)
                 .map_err(|e| HttpDownloadError::IoError(buck2_error::Error::from(e)))?;
 
-            let stream = client
+            let response = client
                 .get(url)
                 .await
-                .map_err(|e| HttpDownloadError::Client(HttpError::Client(e)))?
-                .into_body();
+                .map_err(|e| HttpDownloadError::Client(HttpError::Client(e)))?;
+
+            let (head, stream) = response.into_parts();
             let buf_writer = std::io::BufWriter::new(file);
 
             let digest = copy_and_hash(
                 url,
+                Some(head),
                 &abs_path,
                 stream,
                 buf_writer,
@@ -305,6 +307,7 @@ pub async fn http_download(
 /// Copy a stream into a writer while producing its digest and checksumming it.
 async fn copy_and_hash(
     url: &str,
+    head: Option<http::response::Parts>,
     abs_path: &(impl std::fmt::Display + ?Sized),
     mut stream: impl Stream<Item = Result<Bytes, hyper::Error>> + Unpin,
     mut writer: impl Write,
@@ -382,9 +385,10 @@ async fn copy_and_hash(
         };
 
         if expected != obtained {
-            let debug = MaybeDebugBufferAsUtf8 {
+            let debug = MaybeResponseDebugInfo {
                 bytes_seen: buff.bytes_seen,
                 buff: buff.to_utf8().map(ToOwned::to_owned),
+                head,
                 is_final: false,
             };
 
@@ -455,13 +459,14 @@ impl DebugBuffer {
 
 /// A little helper to avoid showing the debug data in http_retry because that's reall verbose.
 #[derive(Debug)]
-struct MaybeDebugBufferAsUtf8 {
+struct MaybeResponseDebugInfo {
     bytes_seen: u64,
     buff: Option<String>,
+    head: Option<http::response::Parts>,
     is_final: bool,
 }
 
-impl fmt::Display for MaybeDebugBufferAsUtf8 {
+impl fmt::Display for MaybeResponseDebugInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Received {} bytes.", self.bytes_seen)?;
 
@@ -469,12 +474,37 @@ impl fmt::Display for MaybeDebugBufferAsUtf8 {
             return Ok(());
         }
 
-        match &self.buff {
-            Some(text) => write!(f, "\n\nResponse started with:\n\n{}", text),
-            None => {
-                write!(f, "Response is not UTF-8")
+        if let Some(head) = &self.head {
+            let interesting_headers = ["error-mid", "x-fb-debug"]
+                .into_iter()
+                .filter_map(|header| {
+                    head.headers
+                        .get(header)
+                        .and_then(|h| h.to_str().ok())
+                        .map(|header_value| (header, header_value))
+                })
+                .collect::<Vec<_>>();
+
+            write!(f, "\n\nRelevant debug headers:\n")?;
+            if interesting_headers.is_empty() {
+                write!(f, "<none>")?;
+            } else {
+                for (header, header_value) in interesting_headers {
+                    writeln!(f, "{}: {}", header, header_value)?;
+                }
             }
         }
+
+        match &self.buff {
+            Some(text) => {
+                write!(f, "\n\nResponse started with:\n\n{}", text)?;
+            }
+            None => {
+                write!(f, "Response is not UTF-8")?;
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -494,6 +524,7 @@ mod tests {
 
         let digest = copy_and_hash(
             "test",
+            None,
             "test",
             stream::iter(vec![Ok(Bytes::from("foo")), Ok(Bytes::from("bar"))]),
             &mut out,
