@@ -476,8 +476,8 @@ where
         match &self.status {
             CommandStatus::Success { output } => output.to_string(),
             CommandStatus::Failure { error } => error.to_owned(),
-            CommandStatus::Timeout {} => "Timeout".to_owned(),
-            CommandStatus::Skipped {} => "Skipped".to_owned(),
+            CommandStatus::Timeout => "Timeout".to_owned(),
+            CommandStatus::Skipped => "Skipped".to_owned(),
         }
     }
 

@@ -47,7 +47,6 @@ CLIPPY_ALLOW = [
     "clippy::too_many_arguments",  # This is an arbitrary limit set on number of arguments and not always useful
     "clippy::type_complexity",  # This is an arbitrary limit set on number of type parameterizations and not always useful
     "clippy::unnecessary_wraps",  # Sometimes unnecessary wraps provide the right API
-    "clippy::unneeded_struct_pattern",  # FIXME new in Rust 1.86
     "clippy::unwrap_or_default",  # Defaults aren't always more clear as it removes the type information when reading code
     "clippy::useless_conversion",  # Removed all obvious but there are some reports I'm unclear how to fix
     "clippy::wrong_self_convention",  # These rules are useless pedantry

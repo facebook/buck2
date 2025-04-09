@@ -225,7 +225,7 @@ pub fn compute_critical_path_potentials(
             *idx,
             match item {
                 WorkItem::NodeValid { .. } => 0,
-                WorkItem::Compute { .. } => 1,
+                WorkItem::Compute => 1,
             },
         )
     });

@@ -743,13 +743,13 @@ impl StatefulSuperConsoleImpl {
                     })
                     .await?
                 }
-                SuperConsoleToggle::IncrLines { .. } => {
+                SuperConsoleToggle::IncrLines => {
                     self.state.config.max_lines = self.state.config.max_lines.saturating_add(1)
                 }
-                SuperConsoleToggle::DecrLines { .. } => {
+                SuperConsoleToggle::DecrLines => {
                     self.state.config.max_lines = self.state.config.max_lines.saturating_sub(1)
                 }
-                SuperConsoleToggle::Help { .. } => {
+                SuperConsoleToggle::Help => {
                     let help_message = SuperConsoleToggle::iter()
                         .map(|t| format!("`{}` = toggle {}", t.key(), t.description()))
                         .collect::<Vec<_>>()
