@@ -9,6 +9,10 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerType")
 load("@prelude//toolchains:cxx.bzl", "CxxToolsInfo")
 
 def _path_clang_tools_impl(_ctx) -> list[Provider]:
+    if host_info().os.is_windows:
+        archiver = "llvm-ar"
+    else:
+        archiver = "ar"
     return [
         DefaultInfo(),
         CxxToolsInfo(
@@ -19,7 +23,7 @@ def _path_clang_tools_impl(_ctx) -> list[Provider]:
             asm_compiler_type = "clang",
             rc_compiler = None,
             cvtres_compiler = None,
-            archiver = "ar",
+            archiver = archiver,
             archiver_type = "gnu",
             linker = "clang++",
             linker_type = LinkerType("gnu"),
