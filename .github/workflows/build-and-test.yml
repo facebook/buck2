@@ -75,6 +75,9 @@ jobs:
         buildbuddyApiKey: ${{ secrets.BUILDBUDDY_API_KEY }}
     - uses: ./.github/actions/setup_reindeer
     - uses: ./.github/actions/build_bootstrap
+    - uses: ./.github/actions/build_buck2_nativelink
+      with:
+        NATIVELINK_HEADER_RW_KEY_SECRET: ${{ secrets.NATIVELINK_HEADER_RW_KEY_SECRET }}
   windows-build-examples:
     runs-on: windows-8-core
     steps:
