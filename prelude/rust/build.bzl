@@ -453,7 +453,7 @@ def rust_compile(
         incremental_enabled: bool,
         extra_link_args: list[typing.Any] = [],
         predeclared_output: Artifact | None = None,
-        extra_flags: list[[str, ResolvedStringWithMacros]] = [],
+        extra_flags: list[[str, ResolvedStringWithMacros, Artifact]] = [],
         allow_cache_upload: bool = False,
         # Setting this to true causes the diagnostic outputs that are generated
         # from this action to always be successfully generated, even if
@@ -892,7 +892,7 @@ def _lint_flags(compile_ctx: CompileContext, infallible_diagnostics: bool, is_cl
         _lintify("W", is_clippy, toolchain_info.warn_lints),
     )
 
-def _rustc_flags(flags: list[[str, ResolvedStringWithMacros]]) -> list[[str, ResolvedStringWithMacros]]:
+def _rustc_flags(flags: list[[str, ResolvedStringWithMacros, Artifact]]) -> list[[str, ResolvedStringWithMacros, Artifact]]:
     # Rustc's "-g" flag is documented as being exactly equivalent to
     # "-Cdebuginfo=2". Rustdoc supports the latter, it just doesn't have the
     # "-g" shorthand for it.
