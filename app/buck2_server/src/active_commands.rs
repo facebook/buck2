@@ -231,10 +231,10 @@ impl ActiveCommand {
             // Scope the guard so it's locked as little as possible
             let mut active_commands = ACTIVE_COMMANDS.lock();
 
-            let existing_active_commands = if active_commands.len() > 0 {
-                Some(active_commands.clone())
-            } else {
+            let existing_active_commands = if active_commands.is_empty() {
                 None
+            } else {
+                Some(active_commands.clone())
             };
 
             active_commands.insert(

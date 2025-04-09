@@ -130,7 +130,7 @@ impl<'v> CheapCallStack<'v> {
     // * [tokio default stack size is 2MB][1]
     // [1] https://docs.rs/tokio/0.2.1/tokio/runtime/struct.Builder.html#method.thread_stack_size
     pub(crate) fn alloc_if_needed(&mut self, max_size: usize) -> anyhow::Result<()> {
-        if self.stack.len() != 0 {
+        if !self.stack.is_empty() {
             return if self.stack.len() == max_size {
                 Ok(())
             } else {

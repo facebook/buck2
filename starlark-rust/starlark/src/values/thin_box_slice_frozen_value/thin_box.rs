@@ -318,7 +318,7 @@ impl<T: Allocative> Allocative for AllocatedThinBoxSlice<T> {
         let mut visitor = visitor.enter_self_sized::<Self>();
         {
             let ptr_key = allocative::Key::new("ptr");
-            if self.len() == 0 {
+            if self.is_empty() {
                 // Statically allocated data, so just report the pointer itself
                 visitor.visit_simple(ptr_key, mem::size_of_val(&self.ptr));
             } else {
