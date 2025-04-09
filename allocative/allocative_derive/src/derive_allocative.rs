@@ -32,7 +32,7 @@ use syn::Variant;
 const fn hash(s: &str) -> u64 {
     let mut hash = 0xcbf29ce484222325;
     let mut i = 0;
-    while i < s.as_bytes().len() {
+    while i < s.len() {
         let b = s.as_bytes()[i];
         hash ^= b as u64;
         hash = hash.wrapping_mul(0x100000001b3);

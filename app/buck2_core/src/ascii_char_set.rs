@@ -17,7 +17,7 @@ impl AsciiCharSet {
     pub(crate) const fn new(chars: &str) -> AsciiCharSet {
         let mut mask = [false; 0x100];
         let mut i = 0;
-        while i != chars.as_bytes().len() {
+        while i != chars.len() {
             let b = chars.as_bytes()[i];
             assert!(b & 0x80 == 0, "non-ASCII char in set");
 
