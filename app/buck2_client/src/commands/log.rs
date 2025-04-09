@@ -102,20 +102,20 @@ pub enum LogCommand {
 impl LogCommand {
     pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         match self {
-            Self::WhatRan(cmd) => cmd.exec(matches, ctx),
+            Self::WhatRan(cmd) => ctx.exec(cmd, matches),
             Self::WhatFailed(cmd) => cmd.exec(matches, ctx),
             Self::Path(cmd) => ctx.exec(cmd, matches),
             Self::Show(cmd) => ctx.exec(cmd, matches),
             Self::Cmd(cmd) => ctx.exec(cmd, matches),
             Self::WhatUp(cmd) => ctx.exec(cmd, matches),
-            Self::WhatMaterialized(cmd) => cmd.exec(matches, ctx),
-            Self::WhatUploaded(cmd) => cmd.exec(matches, ctx),
-            Self::CriticalPath(cmd) => cmd.exec(matches, ctx),
+            Self::WhatMaterialized(cmd) => ctx.exec(cmd, matches),
+            Self::WhatUploaded(cmd) => ctx.exec(cmd, matches),
+            Self::CriticalPath(cmd) => ctx.exec(cmd, matches),
             Self::Replay(cmd) => ctx.exec(cmd, matches),
             Self::ShowUser(cmd) => ctx.exec(cmd, matches),
             Self::Summary(cmd) => ctx.exec(cmd, matches),
             Self::Diff(cmd) => cmd.exec(matches, ctx),
-            Self::ExternalConfigs(cmd) => cmd.exec(matches, ctx),
+            Self::ExternalConfigs(cmd) => ctx.exec(cmd, matches),
         }
     }
 

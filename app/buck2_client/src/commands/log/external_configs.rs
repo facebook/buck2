@@ -7,8 +7,10 @@
  * of this source tree.
  */
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_data::GlobalExternalConfig;
 use buck2_error::conversion::from_any_with_tag;
@@ -41,41 +43,41 @@ pub struct ExternalConfigsCommand {
     format: LogCommandOutputFormat,
 }
 
-impl ExternalConfigsCommand {
-    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+impl BuckSubcommand for ExternalConfigsCommand {
+    const COMMAND_NAME: &'static str = "log-external-configs";
+
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
         let Self { event_log, format } = self;
 
-        ctx.instant_command_no_log("log-external-configs", |ctx| async move {
-            let log_path = event_log.get(&ctx).await?;
+        let log_path = event_log.get(&ctx).await?;
 
-            let (invocation, mut events) = log_path.unpack_stream().await?;
-            buck2_client_ctx::eprintln!(
-                "Showing external configs from: {}",
-                invocation.display_command_line()
-            )?;
+        let (invocation, mut events) = log_path.unpack_stream().await?;
+        buck2_client_ctx::eprintln!(
+            "Showing external configs from: {}",
+            invocation.display_command_line()
+        )?;
 
-            while let Some(event) = events.try_next().await? {
-                match event {
-                    StreamValue::Event(event) => match event.data {
-                        Some(buck2_data::buck_event::Data::Instant(instant)) => {
-                            match instant.data {
-                                Some(buck2_data::instant_event::Data::BuckconfigInputValues(
-                                    configs,
-                                )) => {
-                                    log_external_configs(&configs.components, format.clone())?;
-                                }
-                                _ => {}
-                            }
+        while let Some(event) = events.try_next().await? {
+            match event {
+                StreamValue::Event(event) => match event.data {
+                    Some(buck2_data::buck_event::Data::Instant(instant)) => match instant.data {
+                        Some(buck2_data::instant_event::Data::BuckconfigInputValues(configs)) => {
+                            log_external_configs(&configs.components, format.clone()).await?;
                         }
                         _ => {}
                     },
                     _ => {}
-                }
+                },
+                _ => {}
             }
+        }
 
-            buck2_error::Ok(())
-        })
-        .into()
+        ExitResult::success()
     }
 }
 
@@ -175,11 +177,11 @@ fn write_config_file(
     Ok(())
 }
 
-fn log_external_configs(
+async fn log_external_configs(
     components: &[buck2_data::BuckconfigComponent],
     format: LogCommandOutputFormat,
 ) -> buck2_error::Result<()> {
-    buck2_client_ctx::stdio::print_with_writer::<buck2_error::Error, _>(|w| {
+    buck2_client_ctx::stdio::print_with_writer::<buck2_error::Error, _>(async move |w| {
         let mut log_writer = transform_format(format, w);
 
         for component in components {
@@ -211,5 +213,5 @@ fn log_external_configs(
             }
         }
         Ok(())
-    })
+    }).await
 }

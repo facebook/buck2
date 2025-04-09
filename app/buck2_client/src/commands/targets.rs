@@ -418,16 +418,17 @@ async fn targets_show_outputs(
         )
         .await??;
 
-    buck2_client_ctx::stdio::print_with_writer::<ClientIoError, _>(|out| {
+    buck2_client_ctx::stdio::print_with_writer::<ClientIoError, _>(async move |w| {
         let root_path = root_path.map(|root| root.to_path_buf());
-        let mut print = PrintOutputs::new(out, root_path, format)?;
+        let mut print = PrintOutputs::new(w, root_path, format)?;
         for target_paths in response.targets_paths {
             for path in target_paths.paths {
                 print.output(&target_paths.target, Some(&path))?;
             }
         }
         print.finish()
-    })?;
+    })
+    .await?;
 
     ExitResult::success()
 }

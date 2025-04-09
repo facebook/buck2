@@ -236,24 +236,6 @@ impl<'a> ClientCommandContext<'a> {
         result.into()
     }
 
-    /// Invoke a command without writing event log.
-    /// (For example, we don't write logs in `buck2 log` command.)
-    pub fn instant_command_no_log<Fut, F>(
-        self,
-        command_name: &'static str,
-        func: F,
-    ) -> buck2_error::Result<()>
-    where
-        Fut: Future<Output = buck2_error::Result<()>> + 'a,
-        F: FnOnce(ClientCommandContext<'a>) -> Fut + 'a,
-    {
-        self.instant_command(
-            command_name,
-            CommonEventLogOptions::no_event_log_ref(),
-            func,
-        )
-    }
-
     pub fn stdin(&mut self) -> &mut Stdin {
         self.stdin
     }

@@ -25,13 +25,15 @@ pub struct WhatFailedCommand {
 
 impl WhatFailedCommand {
     pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
-        WhatRanCommand {
-            common: self.common,
-            failed: true,
-            incomplete: false,
-            show_std_err: false,
-            omit_empty_std_err: false,
-        }
-        .exec(matches, ctx)
+        ctx.exec(
+            WhatRanCommand {
+                common: self.common,
+                failed: true,
+                incomplete: false,
+                show_std_err: false,
+                omit_empty_std_err: false,
+            },
+            matches,
+        )
     }
 }

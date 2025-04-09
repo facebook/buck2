@@ -11,8 +11,10 @@ use std::fmt;
 use std::io::Write;
 use std::time::Duration;
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_error::conversion::from_any_with_tag;
@@ -50,41 +52,41 @@ pub struct CriticalPathCommand {
     format: LogCommandOutputFormat,
 }
 
-impl CriticalPathCommand {
-    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+impl BuckSubcommand for CriticalPathCommand {
+    const COMMAND_NAME: &'static str = "log-critical-path";
+
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
         let Self { event_log, format } = self;
 
-        ctx.instant_command_no_log("log-critical-path", |ctx| async move {
-            let log_path = event_log.get(&ctx).await?;
+        let log_path = event_log.get(&ctx).await?;
 
-            let (invocation, mut events) = log_path.unpack_stream().await?;
-            buck2_client_ctx::eprintln!(
-                "Showing critical path from: {}",
-                invocation.display_command_line()
-            )?;
+        let (invocation, mut events) = log_path.unpack_stream().await?;
+        buck2_client_ctx::eprintln!(
+            "Showing critical path from: {}",
+            invocation.display_command_line()
+        )?;
 
-            while let Some(event) = events.try_next().await? {
-                match event {
-                    StreamValue::Event(event) => match event.data {
-                        Some(buck2_data::buck_event::Data::Instant(instant)) => {
-                            match instant.data {
-                                Some(buck2_data::instant_event::Data::BuildGraphInfo(
-                                    build_graph,
-                                )) => {
-                                    log_critical_path(&build_graph, format.clone())?;
-                                }
-                                _ => {}
-                            }
+        while let Some(event) = events.try_next().await? {
+            match event {
+                StreamValue::Event(event) => match event.data {
+                    Some(buck2_data::buck_event::Data::Instant(instant)) => match instant.data {
+                        Some(buck2_data::instant_event::Data::BuildGraphInfo(build_graph)) => {
+                            log_critical_path(&build_graph, format.clone()).await?;
                         }
                         _ => {}
                     },
                     _ => {}
-                }
+                },
+                _ => {}
             }
+        }
 
-            buck2_error::Ok(())
-        })
-        .into()
+        ExitResult::success()
     }
 }
 
@@ -142,13 +144,13 @@ struct CriticalPathEntry<'a> {
     potential_improvement_duration: OptionalDuration,
 }
 
-fn log_critical_path(
+async fn log_critical_path(
     critical_path: &buck2_data::BuildGraphExecutionInfo,
     format: LogCommandOutputFormat,
 ) -> buck2_error::Result<()> {
     let target_display_options = TargetDisplayOptions::for_log();
 
-    buck2_client_ctx::stdio::print_with_writer::<buck2_error::Error, _>(|w| {
+    buck2_client_ctx::stdio::print_with_writer::<buck2_error::Error, _>(async move |w| {
         let mut log_writer = transform_format(format, w);
 
         for entry in &critical_path.critical_path2 {
@@ -266,8 +268,9 @@ fn log_critical_path(
                 }
                 Ok(())
             };
-            res?;
+            res?
         }
         Ok(())
     })
+    .await
 }

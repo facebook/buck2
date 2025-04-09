@@ -11,8 +11,10 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::Write;
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_data::re_platform::Property;
@@ -114,8 +116,15 @@ struct WhatRanCommandOptions {
     incomplete: bool,
 }
 
-impl WhatRanCommand {
-    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+impl BuckSubcommand for WhatRanCommand {
+    const COMMAND_NAME: &'static str = "log-what-ran";
+
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
         let Self {
             common:
                 WhatRanCommandCommon {
@@ -128,36 +137,35 @@ impl WhatRanCommand {
             show_std_err,
             omit_empty_std_err,
         } = self;
-        buck2_client_ctx::stdio::print_with_writer::<buck2_error::Error, _>(|w| {
+        buck2_client_ctx::stdio::print_with_writer::<buck2_error::Error, _>(async move |w| {
             let mut output = OutputFormatWithWriter {
                 format: transform_format(output, w),
                 include_std_err: show_std_err,
                 omit_empty_std_err,
             };
-            ctx.instant_command_no_log("log-what-ran", |ctx| async move {
-                let log_path = event_log.get(&ctx).await?;
+            let log_path = event_log.get(&ctx).await?;
 
-                let (invocation, events) = log_path.unpack_stream().await?;
+            let (invocation, events) = log_path.unpack_stream().await?;
 
-                buck2_client_ctx::eprintln!(
-                    "Showing commands from: {}{}",
-                    invocation.display_command_line(),
-                    if options.filter_category.is_some() {
-                        ", filtered by action category"
-                    } else {
-                        ""
-                    }
-                )?;
+            buck2_client_ctx::eprintln!(
+                "Showing commands from: {}{}",
+                invocation.display_command_line(),
+                if options.filter_category.is_some() {
+                    ", filtered by action category"
+                } else {
+                    ""
+                }
+            )?;
 
-                let options = WhatRanCommandOptions {
-                    options,
-                    failed,
-                    incomplete,
-                };
-                WhatRanCommandState::execute(events, &mut output, &options).await?;
-                buck2_error::Ok(())
-            })
-        })?;
+            let options = WhatRanCommandOptions {
+                options,
+                failed,
+                incomplete,
+            };
+            WhatRanCommandState::execute(events, &mut output, &options).await?;
+            buck2_error::Ok(())
+        })
+        .await?;
         ExitResult::success()
     }
 }

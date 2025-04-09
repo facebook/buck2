@@ -38,6 +38,6 @@ impl DebugWhatRanCommand {
             DebugWhatRanCommandError::Deprecated.into(),
             deprecation: true
         )?;
-        self.what_ran.exec(matches, ctx)
+        ctx.exec(self.what_ran, matches)
     }
 }
