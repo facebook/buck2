@@ -23,7 +23,7 @@ pub struct StarlarkExecutionPlatformResolution(pub ExecutionPlatformResolution);
 
 starlark_simple_value!(StarlarkExecutionPlatformResolution);
 
-#[starlark_value(type = "execution_platform_resolution")]
+#[starlark_value(type = "ExecutionPlatformResolution")]
 impl<'v> StarlarkValue<'v> for StarlarkExecutionPlatformResolution {}
 
 impl Display for StarlarkExecutionPlatformResolution {
