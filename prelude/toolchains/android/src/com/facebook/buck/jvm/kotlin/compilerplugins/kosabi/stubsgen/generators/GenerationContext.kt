@@ -252,4 +252,11 @@ class GenerationContext {
   private fun List<KtSecondaryConstructor>.superConstructor() = filter {
     !it.hasImplicitDelegationCall() && it.getDelegationCall().calleeExpression?.isThis == false
   }
+
+  fun packageName(): String? {
+    return projectFiles
+        .map { it -> it.packageFqName.asString() }
+        .filter { it -> it.isNotEmpty() }
+        .firstOrNull()
+  }
 }

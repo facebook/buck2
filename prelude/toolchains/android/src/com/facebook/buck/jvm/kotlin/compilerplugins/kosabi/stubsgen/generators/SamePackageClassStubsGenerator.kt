@@ -29,7 +29,7 @@ class SamePackageClassStubsGenerator : StubsGenerator {
 
   override fun generateStubs(context: GenerationContext) {
 
-    val modulePkgName = context.declaredTypes.firstOrNull()?.pkgAsString() ?: return
+    val modulePkgName = context.packageName() ?: return
     val allKnownSymbols = mutableSetOf<String>()
 
     // Kotlin/Java built-in, stdlib types

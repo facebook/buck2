@@ -20,6 +20,7 @@ import com.facebook.kotlin.compilerplugins.kosabi.common.stub.model.KStub
  * Alien Class = Class outside of Project Context.
  */
 class PrimitiveStubsGenerator : StubsGenerator {
+
   override fun generateStubs(context: GenerationContext) {
     val imports: Set<FullTypeQualifier> = context.importedTypes
 
@@ -29,6 +30,9 @@ class PrimitiveStubsGenerator : StubsGenerator {
         .filterDifferentOuterClassIn(context.declaredTypes)
         .filterNot { context.externalTypeReferences.contains(it.outerClassOnlyQualifier()) }
         .map { imp -> imp.pkgAsString() to imp.names.first() }
+        .filterNot { (pkg, name) ->
+          pkg == context.packageName() && name.endsWith(UL_STATIC_CLASS_POSTFIX)
+        }
         .forEach { (pkg, name) ->
           if (name.first().isUpperCase() && context.stubsContainer.find(pkg, name) == null) {
             context.stubsContainer.add(KStub(pkg, name))
@@ -37,6 +41,7 @@ class PrimitiveStubsGenerator : StubsGenerator {
   }
 }
 
+private const val UL_STATIC_CLASS_POSTFIX = "Static"
 private const val KOTLIN_STDLIB_PREFIX = "kotlin"
 private const val JAVA_STDLIB_PREFIX = "java"
 
