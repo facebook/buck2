@@ -19,7 +19,7 @@ use buck2_profile::write_starlark_profile;
 use dice::DiceComputations;
 use futures::FutureExt;
 
-pub(crate) async fn write_query_profile_for_targets<'a>(
+pub(crate) async fn write_query_profile_for_targets(
     ctx: &mut DiceComputations<'_>,
     _profile_mode: buck2_cli_proto::ProfileMode,
     output_path: Option<&str>,
@@ -33,7 +33,7 @@ pub(crate) async fn write_query_profile_for_targets<'a>(
         .await
 }
 
-async fn do_write_query_profile_for_targets<'a>(
+async fn do_write_query_profile_for_targets(
     ctx: &mut DiceComputations<'_>,
     output_path: &AbsPath,
     mut targets: Vec<PackageLabel>,

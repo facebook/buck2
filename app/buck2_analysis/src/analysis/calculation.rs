@@ -208,7 +208,7 @@ pub async fn get_dep_analysis<'v>(
     .await
 }
 
-pub async fn get_loaded_module<'v>(
+pub async fn get_loaded_module(
     ctx: &mut DiceComputations<'_>,
     func: &StarlarkRuleType,
 ) -> buck2_error::Result<LoadedModule> {

@@ -89,7 +89,7 @@ impl TransactionUpdater {
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
-    pub(crate) async fn commit<'a>(self) -> BaseComputeCtx {
+    pub(crate) async fn commit(self) -> BaseComputeCtx {
         let user_data = self.user_data.dupe();
         let dice = self.dice.dupe();
 

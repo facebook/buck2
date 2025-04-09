@@ -249,7 +249,7 @@ impl<'v> StarlarkValue<'v> for StarlarkLazy {
     }
 }
 
-async fn analysis<'v>(
+async fn analysis(
     dice: &mut DiceComputations<'_>,
     label: &ConfiguredProvidersLabel,
 ) -> buck2_error::Result<StarlarkAnalysisResult> {

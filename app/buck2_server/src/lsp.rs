@@ -124,7 +124,7 @@ impl DocsCacheManager {
         dice_ctx.equivalent(&self.valid_at)
     }
 
-    async fn new_docs_cache<'v>(
+    async fn new_docs_cache(
         fs: &ProjectRoot,
         dice_ctx: &mut DiceTransaction,
     ) -> buck2_error::Result<DocsCache> {

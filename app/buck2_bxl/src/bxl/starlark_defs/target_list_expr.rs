@@ -251,7 +251,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
             .collect()
     }
 
-    pub(crate) async fn unpack_opt<'c>(
+    pub(crate) async fn unpack_opt(
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'v>,
@@ -274,7 +274,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         }
     }
 
-    pub(crate) async fn unpack<'c>(
+    pub(crate) async fn unpack(
         // TODO(nga): this does not accept unconfigured targets, so should be narrower type here.
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
@@ -284,7 +284,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         Self::unpack_opt(arg, global_cfg_options, ctx, dice, false).await
     }
 
-    pub(crate) async fn unpack_allow_unconfigured<'c>(
+    pub(crate) async fn unpack_allow_unconfigured(
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'v>,
@@ -345,7 +345,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
 
     // Ideally we refactor the entire unpacking logic for configured targets to make this easier,
     // but let's support keep_going for string literals for now.
-    pub(crate) async fn unpack_keep_going<'c>(
+    pub(crate) async fn unpack_keep_going(
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'v>,
@@ -427,7 +427,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         }
     }
 
-    async fn unpack_iterable<'c>(
+    async fn unpack_iterable(
         value: ValueOf<'v, ConfiguredTargetListArg<'v>>,
         global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
@@ -497,7 +497,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
 }
 
 impl<'v> TargetListExpr<'v, TargetNode> {
-    pub(crate) async fn unpack<'c>(
+    pub(crate) async fn unpack(
         value: TargetListExprArg<'v>,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations<'_>,
@@ -548,7 +548,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
         }
     }
 
-    async fn unpack_iterable<'c>(
+    async fn unpack_iterable(
         value: TargetSetOrTargetList<'v>,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations<'_>,
@@ -604,7 +604,7 @@ impl SingleOrCompatibleConfiguredTargets {
     }
 }
 
-async fn unpack_string_literal<'v>(
+async fn unpack_string_literal(
     val: &str,
     global_cfg_options: &GlobalCfgOptions,
     ctx: &BxlContextCoreData,

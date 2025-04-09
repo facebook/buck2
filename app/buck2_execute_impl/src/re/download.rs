@@ -397,7 +397,7 @@ impl CasDownloader<'_> {
         })
     }
 
-    async fn materialize_outputs<'a>(
+    async fn materialize_outputs(
         &self,
         artifacts: ExtractedArtifacts,
         info: CasDownloadInfo,

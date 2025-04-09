@@ -157,7 +157,7 @@ impl DiceFileComputations {
             .await
     }
 
-    pub async fn buildfiles<'a>(
+    pub async fn buildfiles(
         ctx: &mut DiceComputations<'_>,
         cell: CellName,
     ) -> buck2_error::Result<Arc<[FileNameBuf]>> {

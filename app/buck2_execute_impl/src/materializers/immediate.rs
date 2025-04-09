@@ -71,7 +71,7 @@ pub async fn write_to_disk<'a>(
         .await
 }
 
-pub async fn cas_download<'a, 'b>(
+pub async fn cas_download(
     fs: &ProjectRoot,
     io: &dyn BlockingExecutor,
     re: &ReConnectionManager,

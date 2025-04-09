@@ -117,7 +117,7 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
         async move { expr.span(self.eval_internal(&expr.value).await) }.boxed()
     }
 
-    pub async fn eval_query<'a>(
+    pub async fn eval_query(
         &self,
         query: &str,
     ) -> buck2_error::Result<QueryEvaluationValue<Env::Target>> {

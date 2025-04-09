@@ -338,7 +338,7 @@ impl dyn Materializer {
 
     /// Declares a list of artifacts whose files can be materialized by
     /// downloading from the CAS.
-    pub async fn declare_cas_many<'a, 'b>(
+    pub async fn declare_cas_many(
         &self,
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,

@@ -334,7 +334,7 @@ impl<'c, 'd> InterpreterPackageListingResolver<'c, 'd> {
         Self { ctx }
     }
 
-    pub async fn gather_package_listing<'a>(
+    pub async fn gather_package_listing(
         &mut self,
         root: PackageLabel,
     ) -> Result<PackageListing, GatherPackageListingError> {

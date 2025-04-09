@@ -21,7 +21,6 @@ CLIPPY_ALLOW = [
     "clippy::derive_partial_eq_without_eq",  # In generated protobuf code
     "clippy::disallowed_names",  # Not using foo, bar, baz in test data is silly
     "clippy::enum_variant_names",  # Sometimes you do want the same prefixes
-    "clippy::extra_unused_lifetimes",  # FIXME new in Rust 1.84
     "clippy::from_iter_instead_of_collect",  # https://fb.workplace.com/groups/buck2core/posts/835300915330313
     "clippy::implicit_hasher",  # Makes code more complex for little benefit
     "clippy::len_without_is_empty",  # len() == 0 is perfectly clear
