@@ -202,7 +202,7 @@ fn contains_non_static_lifetime(ty: &Type) -> bool {
         Type::Reference(ty) => ty
             .lifetime
             .as_ref()
-            .map_or(false, |lifetime| lifetime.ident != "static"),
+            .is_some_and(|lifetime| lifetime.ident != "static"),
         _ => false, // maybe implement later if there are common other cases
     }
 }

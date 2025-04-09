@@ -389,7 +389,7 @@ pub(crate) fn print_outputs(
             output
                 .providers
                 .as_ref()
-                .map_or(true, |p| show_all_outputs || (p.default_info && !p.other))
+                .is_none_or(|p| show_all_outputs || (p.default_info && !p.other))
         });
 
         // only print the unconfigured target for now until we migrate everything to support

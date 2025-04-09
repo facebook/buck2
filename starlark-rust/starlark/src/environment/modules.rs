@@ -238,7 +238,7 @@ impl FrozenModule {
             .filter(|n| {
                 // We only want to show public symbols in the documentation
                 self.get_any_visibility_option(n.0.as_str())
-                    .map_or(false, |(_, vis)| vis == Visibility::Public)
+                    .is_some_and(|(_, vis)| vis == Visibility::Public)
             })
             // FIXME(JakobDegen): Throws out information
             .map(|(k, v)| {

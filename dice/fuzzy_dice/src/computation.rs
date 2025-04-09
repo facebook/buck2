@@ -248,7 +248,7 @@ impl Key for EvalVar {
     }
 
     fn validity(x: &Self::Value) -> bool {
-        x.as_ref().map_or(false, |x| !x.is_transient())
+        x.as_ref().is_ok_and(|x| !x.is_transient())
     }
 }
 

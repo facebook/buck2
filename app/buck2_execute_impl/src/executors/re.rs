@@ -126,7 +126,7 @@ impl ReExecutor {
                 let e: buck2_error::Error = e.into();
                 let is_storage_resource_exhausted = e
                     .find_typed_context::<RemoteExecutionError>()
-                    .map_or(false, |re_client_error| {
+                    .is_some_and(|re_client_error| {
                         is_storage_resource_exhausted(re_client_error.as_ref())
                     });
                 let error_type = if is_storage_resource_exhausted {

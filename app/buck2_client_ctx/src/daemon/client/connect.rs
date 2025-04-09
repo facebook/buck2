@@ -195,11 +195,7 @@ impl DaemonConstraintsRequest {
         }
 
         if let Some(r) = &self.reject_materializer_state {
-            if extra
-                .materializer_state_identity
-                .as_ref()
-                .map_or(false, |i| i == r)
-            {
+            if extra.materializer_state_identity.as_ref() == Some(r) {
                 return Err(ConstraintUnsatisfiedReason::MaterializerStateIdentity);
             }
         }
@@ -1139,7 +1135,7 @@ fn is_nested_invocation(
     buck2_daemon_uuid: Option<&String>,
     daemon: &buck2_cli_proto::DaemonConstraints,
 ) -> bool {
-    buck2_daemon_uuid.map_or(false, |uuid| uuid == &daemon.daemon_id)
+    buck2_daemon_uuid == Some(&daemon.daemon_id)
 }
 
 #[cfg(test)]

@@ -389,7 +389,7 @@ impl<'a> ServerCommandContext<'a> {
         let upload_all_actions = self
             .build_options
             .as_ref()
-            .map_or(false, |opts| opts.upload_all_actions);
+            .is_some_and(|opts| opts.upload_all_actions);
 
         let (interpreter_platform, interpreter_architecture, interpreter_xcode_version) =
             host_info::get_host_info(
@@ -412,18 +412,18 @@ impl<'a> ServerCommandContext<'a> {
             keep_going: self
                 .build_options
                 .as_ref()
-                .map_or(false, |opts| opts.keep_going),
+                .is_some_and(|opts| opts.keep_going),
             materialize_failed_inputs: self
                 .build_options
                 .as_ref()
-                .map_or(false, |opts| opts.materialize_failed_inputs),
+                .is_some_and(|opts| opts.materialize_failed_inputs),
             interpreter_platform,
             interpreter_architecture,
             interpreter_xcode_version,
             materialize_failed_outputs: self
                 .build_options
                 .as_ref()
-                .map_or(false, |opts| opts.materialize_failed_outputs),
+                .is_some_and(|opts| opts.materialize_failed_outputs),
         })
     }
 

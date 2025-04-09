@@ -167,7 +167,7 @@ fn duplicate_top_level_assignment(module: &AstModule, res: &mut Vec<LintT<Incomp
             Stmt::Assign(assign) => match (&assign.lhs.node, &assign.rhs.node) {
                 (AssignTarget::Identifier(x), Expr::Identifier(y))
                     if x.node.ident == y.node.ident
-                        && defined.get(x.node.ident.as_str()).map_or(false, |x| x.1)
+                        && defined.get(x.node.ident.as_str()).is_some_and(|x| x.1)
                         && !exported.contains(x.node.ident.as_str()) =>
                 {
                     // Normally this would be an error, but if we load()'d it, this is how we'd reexport through Starlark.

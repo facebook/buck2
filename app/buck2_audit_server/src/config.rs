@@ -132,7 +132,7 @@ impl<'a> Match<'a> {
     ) -> Option<String> {
         if cell == self.cell.unwrap_or(default_cell)
             && section == self.section
-            && self.key.map_or(true, |k| k == key)
+            && self.key.is_none_or(|k| k == key)
         {
             Some(
                 self.spec

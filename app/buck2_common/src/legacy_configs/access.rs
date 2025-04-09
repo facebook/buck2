@@ -48,7 +48,7 @@ impl LegacyBuckConfigSection {
             self.values.iter().all(|(name, value)| other
                 .values
                 .get(name)
-                .map_or(false, |other_val| other_val.as_str() == value.as_str()))
+                .is_some_and(|other_val| other_val.as_str() == value.as_str()))
         )
     }
 
@@ -191,7 +191,7 @@ impl LegacyBuckConfig {
                     .0
                     .values
                     .get(section_name)
-                    .map_or(false, |other_sec| other_sec.compare(section))
+                    .is_some_and(|other_sec| other_sec.compare(section))
             })
         )
     }

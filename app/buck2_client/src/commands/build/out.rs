@@ -72,7 +72,7 @@ pub(super) async fn copy_to_out(
                 output
                     .providers
                     .as_ref()
-                    .map_or(true, |p| p.default_info && !p.other)
+                    .is_none_or(|p| p.default_info && !p.other)
             })
             .collect();
 

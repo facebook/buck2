@@ -87,9 +87,9 @@ fn maybe_dice_dump(
     info: &PanicHookInfo,
     panic_id: &TraceId,
 ) {
-    let is_dice_panic = info.location().map_or(false, |loc| {
-        loc.file().split(&['/', '\\']).any(|x| x == "dice")
-    });
+    let is_dice_panic = info
+        .location()
+        .is_some_and(|loc| loc.file().split(&['/', '\\']).any(|x| x == "dice"));
     if is_dice_panic {
         let dice_dump_folder = get_panic_dump_dir().join(format!("dice-dump-{}", panic_id));
         eprintln!(

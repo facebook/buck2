@@ -81,7 +81,7 @@ impl XcodeVersionInfo {
             Ok(plist) => plist,
             Err(e)
                 if e.as_io()
-                    .map_or(false, |e| e.kind() == io::ErrorKind::NotFound) =>
+                    .is_some_and(|e| e.kind() == io::ErrorKind::NotFound) =>
             {
                 return Ok(None);
             }

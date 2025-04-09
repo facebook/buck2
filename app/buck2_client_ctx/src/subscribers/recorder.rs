@@ -1873,7 +1873,7 @@ pub(crate) fn try_get_invocation_recorder(
     let filesystem;
     #[cfg(fbcode_build)]
     {
-        let is_eden = paths.map_or(false, |paths| {
+        let is_eden = paths.is_some_and(|paths| {
             let root = std::path::Path::to_owned(paths.project_root().root().to_buf().as_ref());
             detect_eden::is_eden(root).unwrap_or(false)
         });

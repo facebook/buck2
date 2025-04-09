@@ -47,7 +47,6 @@ CLIPPY_ALLOW = [
     "clippy::too_many_arguments",  # This is an arbitrary limit set on number of arguments and not always useful
     "clippy::type_complexity",  # This is an arbitrary limit set on number of type parameterizations and not always useful
     "clippy::unconditional_recursion",  # FIXME new in Rust 1.77.1
-    "clippy::unnecessary_map_or",  # FIXME new in Rust 1.84
     "clippy::unnecessary_wraps",  # Sometimes unnecessary wraps provide the right API
     "clippy::unwrap_or_default",  # Defaults aren't always more clear as it removes the type information when reading code
     "clippy::useless_conversion",  # Removed all obvious but there are some reports I'm unclear how to fix

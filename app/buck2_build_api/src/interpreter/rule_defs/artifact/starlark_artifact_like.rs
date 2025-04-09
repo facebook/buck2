@@ -73,7 +73,7 @@ pub trait StarlarkArtifactLike: Display {
 
     fn equals<'v>(&self, other: Value<'v>) -> starlark::Result<bool> {
         Ok(ValueAsArtifactLike::unpack_value(other)?
-            .map_or(false, |other| self.fingerprint() == other.0.fingerprint()))
+            .is_some_and(|other| self.fingerprint() == other.0.fingerprint()))
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {

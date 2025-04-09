@@ -473,7 +473,7 @@ impl ScribeProducer {
             let mut write_result_iter = results.iter();
             // Filter successful messages.
             messages.retain_mut(|message| {
-                write_result_iter.next().map_or(true, |result| {
+                write_result_iter.next().is_none_or(|result| {
                     match result_code_into_result(result.code) {
                         Ok(_) => {
                             self.counters

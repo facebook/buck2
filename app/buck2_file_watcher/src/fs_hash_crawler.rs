@@ -196,7 +196,7 @@ impl FsSnapshot {
         for event in events.into_iter() {
             let ignore = ignore_specs
                 .get(&event.cell_path.cell())
-                .map_or(false, |i| i.is_match(event.cell_path.path()));
+                .is_some_and(|i| i.is_match(event.cell_path.path()));
 
             if ignore {
                 ignored += 1;

@@ -30,7 +30,7 @@ where
     D: Into<buck2_data::command_end::Data>,
 {
     buck2_data::CommandEnd {
-        is_success: result.as_ref().map_or(false, is_success),
+        is_success: result.as_ref().is_ok_and(is_success),
         data: Some(data.into()),
     }
 }

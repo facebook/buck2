@@ -160,7 +160,7 @@ pub fn emit_what_ran_entry(
     let should_emit = options
         .filter_category_regex
         .as_ref()
-        .map_or(true, |category| matches_category(action, category));
+        .is_none_or(|category| matches_category(action, category));
 
     if !should_emit {
         return Ok(());

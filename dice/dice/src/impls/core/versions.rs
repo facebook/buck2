@@ -116,7 +116,7 @@ impl VersionTracker {
             && self
                 .active_versions
                 .get(&v)
-                .map_or(false, |active| active.version_epoch == epoch)
+                .is_some_and(|active| active.version_epoch == epoch)
     }
 
     pub(crate) fn should_reject(&self, v: VersionNumber) -> bool {

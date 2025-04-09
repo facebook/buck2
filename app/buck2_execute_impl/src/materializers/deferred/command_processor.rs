@@ -1410,7 +1410,7 @@ struct ExistingFutures(buck2_error::Result<Vec<(ProjectRelativePathBuf, Processi
 
 impl ExistingFutures {
     fn is_empty(&self) -> bool {
-        self.0.as_ref().map_or(false, |f| f.is_empty())
+        self.0.as_ref().is_ok_and(Vec::is_empty)
     }
 
     fn into_result(self) -> buck2_error::Result<Vec<(ProjectRelativePathBuf, ProcessingFuture)>> {

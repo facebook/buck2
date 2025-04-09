@@ -122,7 +122,7 @@ impl VersionRange {
             begin: VersionNumber,
             end: Option<VersionNumber>,
         ) -> bool {
-            v >= begin && end.map_or(true, |end| v < end)
+            v >= begin && end.is_none_or(|end| v < end)
         }
 
         if contains_end_exclusive(self.begin, other.begin, other.end)
@@ -185,7 +185,7 @@ impl VersionRange {
             begin: VersionNumber,
             end: Option<VersionNumber>,
         ) -> bool {
-            v >= begin && end.map_or(true, |end| v <= end)
+            v >= begin && end.is_none_or(|end| v <= end)
         }
 
         if is_between_end_inclusive(self.begin, other.begin, other.end)

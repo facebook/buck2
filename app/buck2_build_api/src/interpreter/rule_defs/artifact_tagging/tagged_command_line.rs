@@ -99,7 +99,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkTaggedCommandLineGen<V
 
     fn contains_arg_attr(&self) -> bool {
         ValueAsCommandLineLike::unpack(self.inner.value().to_value())
-            .map_or(false, |inner| inner.0.contains_arg_attr())
+            .is_some_and(|inner| inner.0.contains_arg_attr())
     }
 
     fn visit_write_to_file_macros(

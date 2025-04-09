@@ -654,7 +654,7 @@ impl ChromeTraceWriter {
             buck2_data::buck_event::Data::SpanStart(buck2_data::SpanStartEvent {
                 data: Some(start_data),
             }) => {
-                let on_critical_path = event.span_id().map_or(false, |span_id| {
+                let on_critical_path = event.span_id().is_some_and(|span_id| {
                     self.first_pass
                         .critical_path_span_ids
                         .contains(&span_id.into())
@@ -823,7 +823,7 @@ impl ChromeTraceWriter {
                     Categorization::ShowIfParent { name } => {
                         let parent_is_open = event
                             .parent_id()
-                            .map_or(false, |id| self.open_spans.contains_key(&id));
+                            .is_some_and(|id| self.open_spans.contains_key(&id));
 
                         if parent_is_open {
                             // Inherit the parent's track.

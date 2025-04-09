@@ -363,9 +363,7 @@ impl ExprCompiled {
             ExprCompiled::List(xs) => xs.is_empty(),
             ExprCompiled::Tuple(xs) => xs.is_empty(),
             ExprCompiled::Dict(xs) => xs.is_empty(),
-            ExprCompiled::Value(v) if v.is_builtin() => {
-                v.to_value().length().map_or(false, |l| l == 0)
-            }
+            ExprCompiled::Value(v) if v.is_builtin() => v.to_value().length().is_ok_and(|l| l == 0),
             _ => false,
         }
     }

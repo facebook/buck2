@@ -98,7 +98,7 @@ impl NotifyFileData {
             let ignore = ignore_specs
                 .get(&cell_path.cell())
                 // See the comment on the analogous code in `watchman/interface.rs`
-                .map_or(false, |ignore| ignore.is_match(cell_path.path()));
+                .is_some_and(|ignore| ignore.is_match(cell_path.path()));
 
             info!(
                 "FileWatcher: {:?} {:?} (ignore = {})",

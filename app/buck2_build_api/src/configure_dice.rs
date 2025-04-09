@@ -64,7 +64,7 @@ pub async fn configure_dice_for_buck(
                 section: "buck2",
                 property: "invalidation_tracking_enabled",
             })?
-            .map_or(false, |v| v.roll()),
+            .is_some_and(|v| v.roll()),
         None => false,
     };
     dice.set_invalidation_tracking_config(invalidation_tracking_enabled);
@@ -75,7 +75,7 @@ pub async fn configure_dice_for_buck(
                 section: "buck2",
                 property: "compute_action_inputs_hash_enabled",
             })?
-            .map_or(false, |v| v.roll()),
+            .is_some_and(|v| v.roll()),
         None => false,
     };
     dice.set_compute_action_inputs_hash_config(compute_action_inputs_hash_enabled);

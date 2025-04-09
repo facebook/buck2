@@ -162,9 +162,9 @@ impl ActiveCommandStateWriter {
                     return;
                 }
 
-                let is_root = buck_event.parent_id().map_or(true, |id| {
-                    !self.roots.contains(id) && !self.non_roots.contains(&id)
-                });
+                let is_root = buck_event
+                    .parent_id()
+                    .is_none_or(|id| !self.roots.contains(id) && !self.non_roots.contains(&id));
 
                 if is_root {
                     self.roots.insert(span_id, false, RootData::new(buck_event));

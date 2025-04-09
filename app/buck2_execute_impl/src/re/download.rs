@@ -247,7 +247,7 @@ impl CasDownloader<'_> {
                             .into();
                         let is_storage_resource_exhausted = error
                             .find_typed_context::<RemoteExecutionError>()
-                            .map_or(false, |re_client_error| {
+                            .is_some_and(|re_client_error| {
                                 is_storage_resource_exhausted(re_client_error.as_ref())
                             });
                         let error_type = if is_storage_resource_exhausted {

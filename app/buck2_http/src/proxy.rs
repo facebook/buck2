@@ -218,7 +218,7 @@ impl NoProxy {
             // IPv6 addresses are wrapped in [ ] so remove those for equality checks.
             let host = host.map(|h| h.trim_start_matches('[').trim_end_matches(']'));
             let should_bypass_proxy =
-                host.map_or(false, |host| self.should_bypass_proxy_for_host(host));
+                host.is_some_and(|host| self.should_bypass_proxy_for_host(host));
 
             // Negation happens here - true means we're going to proxy the connection.
             !should_bypass_proxy

@@ -540,9 +540,9 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
             Some(x) => {
                 if let Some(x) = x.unpack_frozen() {
                     Some(x)
-                } else if ListRef::from_value(x).map_or(false, |x| x.is_empty()) {
+                } else if ListRef::from_value(x).is_some_and(|x| x.is_empty()) {
                     Some(eval.frozen_heap().alloc(AllocList::EMPTY))
-                } else if DictRef::from_value(x).map_or(false, |x| x.is_empty()) {
+                } else if DictRef::from_value(x).is_some_and(|x| x.is_empty()) {
                     Some(eval.frozen_heap().alloc(AllocDict::EMPTY))
                 } else {
                     // Dealing only with frozen values is much easier.

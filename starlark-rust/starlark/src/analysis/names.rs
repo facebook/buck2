@@ -240,7 +240,7 @@ impl<'a> State<'a> {
                     && scope
                         .last_set
                         .get(ident.node)
-                        .map_or(false, |x| x.1.contains(&ident.span));
+                        .is_some_and(|x| x.1.contains(&ident.span));
                 let ignored = !top && underscore;
 
                 if !exported && !ignored {

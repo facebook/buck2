@@ -128,11 +128,11 @@ async fn repo_type() -> buck2_error::Result<&'static RepoVcs> {
             reap_on_drop_command("git", &["rev-parse", "--is-inside-work-tree"])?.output()
         );
 
-        let is_hg = hg_output.map_or(false, |output| {
-            std::str::from_utf8(&output.stdout).map_or(false, |s| !s.trim().is_empty())
+        let is_hg = hg_output.is_ok_and(|output| {
+            std::str::from_utf8(&output.stdout).is_ok_and(|s| !s.trim().is_empty())
         });
-        let is_git = git_output.map_or(false, |output| {
-            std::str::from_utf8(&output.stdout).map_or(false, |s| s.trim() == "true")
+        let is_git = git_output.is_ok_and(|output| {
+            std::str::from_utf8(&output.stdout).is_ok_and(|s| s.trim() == "true")
         });
 
         if is_hg {
