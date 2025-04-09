@@ -80,7 +80,7 @@ impl TraceIoCommand {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for TraceIoCommand {
     const COMMAND_NAME: &'static str = "trace-io";
 

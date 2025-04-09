@@ -81,7 +81,7 @@ pub struct AqueryCommand {
     common_opts: CommonCommandOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for AqueryCommand {
     const COMMAND_NAME: &'static str = "aquery";
 

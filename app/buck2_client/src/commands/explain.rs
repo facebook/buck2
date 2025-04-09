@@ -49,7 +49,7 @@ pub struct ExplainCommand {
 }
 
 // TODO: not sure I need StreamingCommand
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for ExplainCommand {
     const COMMAND_NAME: &'static str = "explain";
 

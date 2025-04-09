@@ -177,7 +177,7 @@ impl ProfileSubcommand {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for ProfileSubcommand {
     const COMMAND_NAME: &'static str = "profile";
 

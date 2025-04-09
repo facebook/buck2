@@ -91,7 +91,7 @@ pub struct RunCommand {
     common_opts: CommonCommandOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for RunCommand {
     const COMMAND_NAME: &'static str = "run";
 

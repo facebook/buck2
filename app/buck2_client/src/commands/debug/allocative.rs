@@ -36,7 +36,7 @@ pub struct AllocativeCommand {
     output: PathArg,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for AllocativeCommand {
     const COMMAND_NAME: &'static str = "allocative";
 

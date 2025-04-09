@@ -66,7 +66,7 @@ fn send_message_to_dap_client(msg: &[u8]) -> buck2_error::Result<()> {
     Ok(())
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for StarlarkDebugAttachCommand {
     const COMMAND_NAME: &'static str = "starlark-debug-attach";
 

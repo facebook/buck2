@@ -26,7 +26,7 @@ pub struct FlushDepFilesCommand {
     retain_local: bool,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for FlushDepFilesCommand {
     const COMMAND_NAME: &'static str = "FlushDepFiles";
 

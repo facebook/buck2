@@ -37,7 +37,7 @@ pub struct EvalCommand {
     common_opts: CommonCommandOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for EvalCommand {
     const COMMAND_NAME: &'static str = "eval";
 

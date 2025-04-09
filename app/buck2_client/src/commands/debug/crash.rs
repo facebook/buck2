@@ -45,7 +45,7 @@ pub struct CrashCommand {
     pub event_log_opts: CommonEventLogOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for CrashCommand {
     const COMMAND_NAME: &'static str = "crash";
 

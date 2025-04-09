@@ -36,7 +36,7 @@ pub(crate) struct StarlarkBuiltinsCommand {
     common_opts: CommonCommandOptions,
 }
 
-#[async_trait::async_trait]
+#[async_trait::async_trait(?Send)]
 impl StreamingCommand for StarlarkBuiltinsCommand {
     const COMMAND_NAME: &'static str = "docs starlark-builtins";
     async fn exec_impl(

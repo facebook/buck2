@@ -32,7 +32,7 @@ pub struct MaterializeCommand {
     common_opts: CommonCommandOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for MaterializeCommand {
     const COMMAND_NAME: &'static str = "materialize";
 

@@ -33,7 +33,7 @@ pub struct DiceDumpCommand {
     serde_pretty: bool,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for DiceDumpCommand {
     const COMMAND_NAME: &'static str = "connected";
 

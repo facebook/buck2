@@ -172,7 +172,7 @@ If include patterns are present, regardless of whether exclude patterns are pres
     common_opts: CommonCommandOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for TestCommand {
     const COMMAND_NAME: &'static str = "test";
 

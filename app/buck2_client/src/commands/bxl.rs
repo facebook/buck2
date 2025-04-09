@@ -91,7 +91,7 @@ pub struct BxlCommandOptions {
     build_opts: CommonBuildOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for BxlCommand {
     const COMMAND_NAME: &'static str = "bxl";
 

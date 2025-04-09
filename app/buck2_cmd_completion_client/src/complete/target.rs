@@ -69,7 +69,7 @@ impl CompleteTargetCommand {
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait::async_trait(?Send)]
 impl StreamingCommand for CompleteTargetCommand {
     const COMMAND_NAME: &'static str = "complete";
 

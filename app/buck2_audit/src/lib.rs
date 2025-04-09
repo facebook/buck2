@@ -91,7 +91,7 @@ pub enum AuditCommand {
 ///
 /// Audit subcommands implement this trait so that we can handle the entire client side
 /// logic here and to support that serialization to the daemon.
-#[async_trait]
+#[async_trait(?Send)]
 pub trait AuditSubcommand: Send + Sync + 'static {
     fn common_opts(&self) -> &CommonCommandOptions;
 }
@@ -120,7 +120,7 @@ impl AuditCommand {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for AuditCommand {
     const COMMAND_NAME: &'static str = "audit";
 

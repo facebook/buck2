@@ -96,7 +96,7 @@ pub struct CqueryCommand {
     profile_options: QueryProfileOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for CqueryCommand {
     const COMMAND_NAME: &'static str = "cquery";
 

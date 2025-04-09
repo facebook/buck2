@@ -115,7 +115,7 @@ fn default_subscribers<T: StreamingCommand>(
 /// However, this is the most robustly tested of our code paths, and there is little cost to defaulting to it.
 /// As a result, prefer to default to streaming mode unless there is a compelling reason not to
 /// (e.g `status`)
-#[async_trait]
+#[async_trait(?Send)]
 pub trait StreamingCommand: Sized + Send + Sync {
     const COMMAND_NAME: &'static str;
 

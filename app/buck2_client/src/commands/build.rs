@@ -229,7 +229,7 @@ pub fn print_build_result(
     Ok(())
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for BuildCommand {
     const COMMAND_NAME: &'static str = "build";
 

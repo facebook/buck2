@@ -45,7 +45,7 @@ pub struct ConfiguredTargetsCommand {
     common_opts: CommonCommandOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for ConfiguredTargetsCommand {
     const COMMAND_NAME: &'static str = "ctargets";
 

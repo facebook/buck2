@@ -32,7 +32,7 @@ pub struct AllocatorStatsCommand {
     common_event_opts: CommonEventLogOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for AllocatorStatsCommand {
     const COMMAND_NAME: &'static str = "allocator_stats";
 

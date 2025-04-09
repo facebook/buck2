@@ -134,7 +134,7 @@ struct AndroidInstallOptions {
     keep: bool,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for InstallCommand {
     const COMMAND_NAME: &'static str = "install";
     async fn exec_impl(

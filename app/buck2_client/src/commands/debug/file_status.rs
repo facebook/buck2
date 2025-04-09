@@ -37,7 +37,7 @@ pub struct FileStatusCommand {
     common_opts: CommonCommandOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for FileStatusCommand {
     const COMMAND_NAME: &'static str = "file-status";
 

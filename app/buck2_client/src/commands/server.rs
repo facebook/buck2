@@ -30,7 +30,7 @@ To stop all instances, use `buck2 killall`."
 )]
 pub struct ServerCommand {}
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for ServerCommand {
     const COMMAND_NAME: &'static str = "server";
 

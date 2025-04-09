@@ -40,7 +40,7 @@ pub struct HeapDumpCommand {
     test_executor_path: Option<PathArg>,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for HeapDumpCommand {
     const COMMAND_NAME: &'static str = "heap_dump";
 
