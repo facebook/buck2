@@ -8,9 +8,7 @@
 # buildifier: keep sorted
 CLIPPY_ALLOW = [
     "clippy::arc_with_non_send_sync",  # Needs triage, see 'dashmap_directory_interner.rs:39:20' (`DashMap` is not `Send` or `Sync`)
-    "clippy::assigning_clones",  # FIXME new in Rust 1.78.0
     "clippy::await_holding_lock",  # FIXME new in Rust 1.74
-    "clippy::blocks_in_conditions",  # FIXME new in Rust 1.77.1
     "clippy::bool_assert_comparison",  # Sometimes more clear to write it this way
     "clippy::bool_to_int_with_if",  # Using if branches to return 1 or 0 is valid, but this complains that we should use `int::from`, which is arguably less clear
     "clippy::cognitive_complexity",  # This is an arbitrary linter
@@ -46,7 +44,6 @@ CLIPPY_ALLOW = [
     "clippy::too_long_first_doc_paragraph",  # FIXME new in Rust 1.82.0
     "clippy::too_many_arguments",  # This is an arbitrary limit set on number of arguments and not always useful
     "clippy::type_complexity",  # This is an arbitrary limit set on number of type parameterizations and not always useful
-    "clippy::unconditional_recursion",  # FIXME new in Rust 1.77.1
     "clippy::unnecessary_wraps",  # Sometimes unnecessary wraps provide the right API
     "clippy::unwrap_or_default",  # Defaults aren't always more clear as it removes the type information when reading code
     "clippy::useless_conversion",  # Removed all obvious but there are some reports I'm unclear how to fix
