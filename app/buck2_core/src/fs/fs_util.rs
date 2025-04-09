@@ -217,7 +217,7 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
         path
     } else {
         // target doesn't exist yet, try to guess the canonical path
-        if let Some(common_path) = common_path(&target_abspath, &link) {
+        if let Some(common_path) = common_path(&target_abspath, link) {
             let from_common = target_abspath.strip_prefix(&common_path)?;
             let common_canonicalized = common_path
                 .canonicalize()

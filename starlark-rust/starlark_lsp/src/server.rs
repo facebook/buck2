@@ -1465,7 +1465,7 @@ mod tests {
 
     #[cfg(windows)]
     fn temp_file_uri(rel_path: &str) -> Url {
-        Url::from_file_path(&PathBuf::from("C:/tmp").join(rel_path)).unwrap()
+        Url::from_file_path(PathBuf::from("C:/tmp").join(rel_path)).unwrap()
     }
 
     #[cfg(not(windows))]
