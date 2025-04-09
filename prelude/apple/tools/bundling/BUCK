@@ -40,7 +40,7 @@ meta_python_test(
         "test_resources/*",
     ]),
     deps = [
-        "fbsource//third-party/pkg_resources:pkg_resources",
+        "fbsource//third-party/pypi/setuptools:setuptools",
         ":lib",
     ],
 )
