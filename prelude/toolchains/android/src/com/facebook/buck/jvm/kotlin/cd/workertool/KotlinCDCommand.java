@@ -70,6 +70,9 @@ public class KotlinCDCommand implements JvmCDCommand {
   @Option(name = "--command-file", required = true)
   protected Path commandFile;
 
+  @Option(name = "--incremental-metadata-file")
+  protected Path incrementalMetadataFile;
+
   @Option(name = "--logging-level")
   private int loggingLevel = 0;
 

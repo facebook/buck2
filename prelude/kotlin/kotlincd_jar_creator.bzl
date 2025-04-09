@@ -485,6 +485,12 @@ def _define_kotlincd_action(
         proto_with_inputs,
     )
 
+    if should_action_run_incrementally:
+        args.add(
+            "--incremental-metadata-file",
+            _create_incremental_proto(actions, actions_identifier, kotlin_build_command),
+        )
+
     incremental_run_params = {
         "metadata_env_var": "ACTION_METADATA",
         "metadata_path": "action_metadata.json",
@@ -509,3 +515,12 @@ def _define_kotlincd_action(
         **incremental_run_params
     )
     return proto, used_jars_json_output
+
+def _create_incremental_proto(actions: AnalysisActions, actions_identifier: [str, None], kotlin_build_command: struct):
+    incremental_meta_data_output = declare_prefixed_output(actions, actions_identifier, "incremental_metadata.proto.json")
+    incremental_meta_data = struct(
+        version = 1,
+        track_class_usage = kotlin_build_command.buildCommand.baseJarCommand.trackClassUsage,
+        should_use_jvm_abi_gen = kotlin_build_command.buildCommand.kotlinExtraParams.shouldUseJvmAbiGen,
+    )
+    return actions.write_json(incremental_meta_data_output, incremental_meta_data, with_inputs = True)
