@@ -45,8 +45,11 @@ use indexmap::IndexMap;
 use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
+use starlark::environment::GlobalsBuilder;
 use starlark::starlark_complex_value;
+use starlark::starlark_module;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -247,13 +250,13 @@ pub(crate) struct StarlarkWriteJsonCommandLineArgGen<V: ValueLifetimeless> {
 
 impl<'v, V: ValueLike<'v>> fmt::Display for StarlarkWriteJsonCommandLineArgGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("<write_json_cli_args>")
+        f.write_str("<WriteJsonCliArgs>")
     }
 }
 
 starlark_complex_value!(pub(crate) StarlarkWriteJsonCommandLineArg);
 
-#[starlark_value(type = "write_json_cli_args")]
+#[starlark_value(type = "WriteJsonCliArgs")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkWriteJsonCommandLineArgGen<V>
 where
     Self: ProvidesStaticType<'v>,
@@ -317,4 +320,10 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkWriteJsonCommandLineAr
         }
         add_json_to_action_inputs_hash(content, hasher)
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_write_json_cli_args(globals: &mut GlobalsBuilder) {
+    const WriteJsonCliArgs: StarlarkValueAsType<StarlarkWriteJsonCommandLineArg> =
+        StarlarkValueAsType::new();
 }

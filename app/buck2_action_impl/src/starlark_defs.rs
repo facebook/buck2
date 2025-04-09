@@ -9,6 +9,7 @@
 
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_ACTION_IMPL_GLOBALS;
 
+use crate::actions::impls::write_json::register_write_json_cli_args;
 use crate::dynamic::attrs_starlark::register_dynamic_attrs;
 use crate::dynamic::dynamic_actions_globals::register_dynamic_actions;
 use crate::dynamic::dynamic_value::register_dynamic_value;
@@ -20,5 +21,6 @@ pub(crate) fn init_register_buck2_action_impl_globals() {
         register_dynamic_value(globals);
         register_dynamic_attrs(globals);
         register_resolved_dynamic_value(globals);
+        register_write_json_cli_args(globals);
     });
 }
