@@ -119,7 +119,7 @@ impl fmt::Display for DaemonShutdown {
                     caller
                         .chars()
                         .take(max_len)
-                        .chain(std::iter::repeat('.').take(3))
+                        .chain(std::iter::repeat_n('.', 3))
                         .collect(),
                 )
             } else {

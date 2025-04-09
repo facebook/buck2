@@ -245,13 +245,13 @@ impl Lines {
 
     /// Extends the Lines list by the given length, adding empty lines at the bottom
     pub fn pad_lines_bottom(&mut self, amount: usize) {
-        let extender = iter::repeat(Line::default()).take(amount);
+        let extender = iter::repeat_n(Line::default(), amount);
         self.extend(extender);
     }
 
     /// Same functionality as `pad_lines_bottom` but on the top.
     pub fn pad_lines_top(&mut self, amount: usize) {
-        let extender = iter::repeat(Line::default()).take(amount);
+        let extender = iter::repeat_n(Line::default(), amount);
 
         self.0.splice(0..0, extender);
     }
