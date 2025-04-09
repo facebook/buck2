@@ -85,8 +85,8 @@ impl UnregisteredWriteJsonAction {
     pub(crate) fn cli<'v>(
         artifact: Value<'v>,
         content: Value<'v>,
-    ) -> buck2_error::Result<WriteJsonCommandLineArg<'v>> {
-        Ok(WriteJsonCommandLineArg { artifact, content })
+    ) -> buck2_error::Result<StarlarkWriteJsonCommandLineArg<'v>> {
+        Ok(StarlarkWriteJsonCommandLineArg { artifact, content })
     }
 }
 
@@ -237,7 +237,7 @@ impl Action for WriteJsonAction {
 #[derive(Debug, Clone, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[derive(NoSerialize)] // TODO we should probably have a serialization for transitive set
 #[repr(C)]
-pub(crate) struct WriteJsonCommandLineArgGen<V: ValueLifetimeless> {
+pub(crate) struct StarlarkWriteJsonCommandLineArgGen<V: ValueLifetimeless> {
     artifact: V,
     // The list of artifacts here could be large and we don't want to hold those explicitly (due to
     // the memory cost) and so we hold the same content value that the write_json action itself will and
@@ -245,16 +245,16 @@ pub(crate) struct WriteJsonCommandLineArgGen<V: ValueLifetimeless> {
     content: V,
 }
 
-impl<'v, V: ValueLike<'v>> fmt::Display for WriteJsonCommandLineArgGen<V> {
+impl<'v, V: ValueLike<'v>> fmt::Display for StarlarkWriteJsonCommandLineArgGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("<write_json_cli_args>")
     }
 }
 
-starlark_complex_value!(pub(crate) WriteJsonCommandLineArg);
+starlark_complex_value!(pub(crate) StarlarkWriteJsonCommandLineArg);
 
 #[starlark_value(type = "write_json_cli_args")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for WriteJsonCommandLineArgGen<V>
+impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkWriteJsonCommandLineArgGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
@@ -263,9 +263,9 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> CommandLineArgLike for WriteJsonCommandLineArgGen<V> {
+impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkWriteJsonCommandLineArgGen<V> {
     fn register_me(&self) {
-        command_line_arg_like_impl!(WriteJsonCommandLineArg::starlark_type_repr());
+        command_line_arg_like_impl!(StarlarkWriteJsonCommandLineArg::starlark_type_repr());
     }
 
     fn add_to_command_line(
