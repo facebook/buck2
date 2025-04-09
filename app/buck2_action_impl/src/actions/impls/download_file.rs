@@ -56,6 +56,7 @@ enum DownloadFileActionError {
 #[derive(Debug, Allocative)]
 pub(crate) struct UnregisteredDownloadFileAction {
     checksum: Checksum,
+    size_bytes: Option<u64>,
     url: Arc<str>,
     vpnless_url: Option<Arc<str>>,
     is_executable: bool,
@@ -65,6 +66,7 @@ pub(crate) struct UnregisteredDownloadFileAction {
 impl UnregisteredDownloadFileAction {
     pub(crate) fn new(
         checksum: Checksum,
+        size_bytes: Option<u64>,
         url: Arc<str>,
         vpnless_url: Option<Arc<str>>,
         is_executable: bool,
@@ -73,6 +75,7 @@ impl UnregisteredDownloadFileAction {
         Self {
             checksum,
             url,
+            size_bytes,
             vpnless_url,
             is_executable,
             is_deferrable,
@@ -162,38 +165,42 @@ impl DownloadFileAction {
             None => return Ok(None),
         };
 
-        let url = self.url(client);
-        let head = http_head(client, url)
-            .await
-            .map_err(|e| buck2_error::Error::from(e).tag([ErrorTag::DownloadFileHeadRequest]))?;
+        let size = match self.inner.size_bytes {
+            Some(s) => Some(s),
+            None => {
+                let url = self.url(client);
+                let head = http_head(client, url).await.map_err(|e| {
+                    buck2_error::Error::from(e).tag([ErrorTag::DownloadFileHeadRequest])
+                })?;
 
-        let content_length = head
-            .headers()
-            .get(http::header::CONTENT_LENGTH)
-            .map(|content_length| {
-                let content_length = content_length
-                    .to_str()
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Http))
-                    .buck_error_context("Header is not valid utf-8")?;
-                let content_length_number =
-                    content_length.parse().with_buck_error_context(|| {
-                        format!("Header is not a number: `{}`", content_length)
-                    })?;
-                buck2_error::Ok(content_length_number)
-            })
-            .transpose()
-            .with_buck_error_context(|| {
-                format!(
-                    "Request to `{}` returned an invalid `{}` header",
-                    url,
-                    http::header::CONTENT_LENGTH
-                )
-            })?;
+                head.headers()
+                    .get(http::header::CONTENT_LENGTH)
+                    .map(|content_length| {
+                        let content_length = content_length
+                            .to_str()
+                            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Http))
+                            .buck_error_context("Header is not valid utf-8")?;
+                        let content_length_number =
+                            content_length.parse().with_buck_error_context(|| {
+                                format!("Header is not a number: `{}`", content_length)
+                            })?;
+                        buck2_error::Ok(content_length_number)
+                    })
+                    .transpose()
+                    .with_buck_error_context(|| {
+                        format!(
+                            "Request to `{}` returned an invalid `{}` header",
+                            url,
+                            http::header::CONTENT_LENGTH
+                        )
+                    })?
+            }
+        };
 
-        match content_length {
-            Some(length) => {
+        match size {
+            Some(size) => {
                 let digest = TrackedFileDigest::new(
-                    FileDigest::new(digest, length),
+                    FileDigest::new(digest, size),
                     digest_config.cas_digest_config(),
                 );
                 Ok(Some(FileMetadata {

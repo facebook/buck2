@@ -56,6 +56,7 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] vpnless_url: NoneOr<&str>,
         #[starlark(require = named, default = NoneOr::None)] sha1: NoneOr<&str>,
         #[starlark(require = named, default = NoneOr::None)] sha256: NoneOr<&str>,
+        #[starlark(require = named, default = NoneOr::None)] size_bytes: NoneOr<u64>,
         #[starlark(require = named, default = false)] is_executable: bool,
         #[starlark(require = named, default = false)] is_deferrable: bool,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -72,6 +73,7 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
             indexset![output_artifact],
             UnregisteredDownloadFileAction::new(
                 checksum,
+                size_bytes.into_option(),
                 Arc::from(url),
                 vpnless_url.into_option().map(Arc::from),
                 is_executable,
