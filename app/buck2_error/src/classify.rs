@@ -364,6 +364,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::IoBrokenPipe => rank!(unspecified),
         ErrorTag::IoWindowsSharingViolation => rank!(unspecified),
         ErrorTag::IoNotFound => rank!(unspecified),
+        ErrorTag::IoInputOutputError => rank!(unspecified),
         ErrorTag::IoSource => rank!(unspecified),
         ErrorTag::IoSystem => rank!(unspecified),
         ErrorTag::IoEden => rank!(unspecified).generic(false),

@@ -40,6 +40,7 @@ fn io_error_kind_tag(e: &io::Error) -> ErrorTag {
             let from_os = match os_error_code {
                 libc::ENOTCONN => ErrorTag::IoNotConnected,
                 libc::ECONNABORTED => ErrorTag::IoConnectionAborted,
+                libc::EIO => ErrorTag::IoInputOutputError,
                 _ => break 'from_os,
             };
             return from_os;
