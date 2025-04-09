@@ -17,11 +17,16 @@ import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
 
 private const val stubsGenDirName = "stubsgen-dir"
+private const val stubsClassOutputDirName = "stubs-class-dir"
 private const val stubsGenLogEnabledName = "stubsgen-log-enabled"
 private const val stubsGenStandaloneModeName = "stubsgen-standalone-mode"
 
 val stubsGenDirKey: CompilerConfigurationKey<String> =
     CompilerConfigurationKey.create<String>("plugin $stubsGenDirName")
+
+val stubsClassOutputDirKey: CompilerConfigurationKey<String> =
+    CompilerConfigurationKey.create<String>("plugin $stubsClassOutputDirName")
+
 val stubsGenLogEnabledKey: CompilerConfigurationKey<String> =
     CompilerConfigurationKey.create<String>("plugin $stubsGenLogEnabledName")
 val stubsGenStandaloneModeKey: CompilerConfigurationKey<Boolean> =
@@ -33,7 +38,7 @@ class StubsCodegenCommandLineProcessor : CommandLineProcessor {
     get() = COMPILER_PLUGIN_ID
 
   override val pluginOptions: Collection<AbstractCliOption>
-    get() = listOf(STUBS_GEN_DIR, LOG_ENABLED, STANDALONE_MODE)
+    get() = listOf(STUBS_GEN_DIR, STUBS_CLASS_OUTPUT_DIR, LOG_ENABLED, STANDALONE_MODE)
 
   override fun processOption(
       option: AbstractCliOption,
@@ -42,6 +47,7 @@ class StubsCodegenCommandLineProcessor : CommandLineProcessor {
   ) {
     when (option.optionName) {
       stubsGenDirName -> configuration.put(stubsGenDirKey, value)
+      stubsClassOutputDirName -> configuration.put(stubsClassOutputDirKey, value)
       stubsGenLogEnabledName -> configuration.put(stubsGenLogEnabledKey, value)
       stubsGenStandaloneModeName -> configuration.put(stubsGenStandaloneModeKey, value == "true")
       else -> throw CliOptionProcessingException("Unknown option: ${option.optionName}")
@@ -55,10 +61,19 @@ class StubsCodegenCommandLineProcessor : CommandLineProcessor {
         CliOption(
             optionName = stubsGenDirName,
             valueDescription = "<file-path>",
-            description = "Path to stubs directory. test-only",
+            description = "Path to stubs directory.",
             required = false,
             allowMultipleOccurrences = false,
         )
+    val STUBS_CLASS_OUTPUT_DIR: CliOption =
+        CliOption(
+            optionName = stubsClassOutputDirName,
+            valueDescription = "<file-path>",
+            description = "Path to stubs class output directory.",
+            required = false,
+            allowMultipleOccurrences = false,
+        )
+
     val LOG_ENABLED: CliOption =
         CliOption(
             optionName = stubsGenLogEnabledName,
