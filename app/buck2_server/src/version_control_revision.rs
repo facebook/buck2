@@ -7,19 +7,31 @@
  * of this source tree.
  */
 
+use buck2_data::VersionControlRevision;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_util::properly_reaped_child::reap_on_drop_command;
+use futures::future::BoxFuture;
+use futures::stream::FuturesUnordered;
 use tokio::sync::OnceCell;
+use tokio_stream::StreamExt;
 
 /// Spawn tasks to collect version control information
 /// and return a droppable handle that will cancel them on drop.
 pub(crate) fn spawn_version_control_collector(dispatch: EventDispatcher) -> AbortOnDropHandle {
-    AbortOnDropHandle {
-        handle: tokio::spawn(async move {
-            let event = create_revision_data().await;
+    let handle = tokio::spawn(async move {
+        let mut tasks = FuturesUnordered::<BoxFuture<VersionControlRevision>>::new();
+
+        tasks.push(Box::pin(create_revision_data(
+            RevisionDataType::CurrentRevision,
+        )));
+        tasks.push(Box::pin(create_revision_data(RevisionDataType::Status)));
+
+        while let Some(event) = tasks.next().await {
             dispatch.instant_event(event);
-        }),
-    }
+        }
+    });
+
+    AbortOnDropHandle { handle }
 }
 
 /// Abort the underlying task on drop.
@@ -40,19 +52,20 @@ enum RepoVcs {
     Unknown,
 }
 
-async fn create_revision_data() -> buck2_data::VersionControlRevision {
+#[derive(Clone, Copy, Debug)]
+enum RevisionDataType {
+    CurrentRevision,
+    Status,
+}
+
+async fn create_revision_data(
+    revision_type: RevisionDataType,
+) -> buck2_data::VersionControlRevision {
     let mut revision = buck2_data::VersionControlRevision::default();
     match repo_type().await {
         Ok(repo_vcs) => {
             match repo_vcs {
-                RepoVcs::Hg => {
-                    if let Err(e) = add_current_revision(&mut revision).await {
-                        revision.command_error = Some(e.to_string());
-                    }
-                    if let Err(e) = add_status_info(&mut revision).await {
-                        revision.command_error = Some(e.to_string());
-                    }
-                }
+                RepoVcs::Hg => create_hg_data(&mut revision, revision_type).await,
                 RepoVcs::Git => {
                     // TODO(rajneeshl): Implement the git data
                     // Add a message for now so we can actually tell if revision is null due to git
@@ -70,25 +83,56 @@ async fn create_revision_data() -> buck2_data::VersionControlRevision {
     revision
 }
 
-async fn add_current_revision(
+async fn create_hg_data(
     revision: &mut buck2_data::VersionControlRevision,
-) -> buck2_error::Result<()> {
+    revision_type: RevisionDataType,
+) {
+    match revision_type {
+        RevisionDataType::CurrentRevision => add_hg_whereami(revision).await,
+        RevisionDataType::Status => add_hg_status(revision).await,
+    }
+}
+
+async fn add_hg_whereami(revision: &mut buck2_data::VersionControlRevision) {
     // `hg whereami` returns the full hash of the revision
-    let whereami_output = reap_on_drop_command("hg", &["whereami"], Some(&[("HGPLAIN", "1")]))?
-        .output()
-        .await;
+    let whereami_output = match reap_on_drop_command("hg", &["whereami"], Some(&[("HGPLAIN", "1")]))
+    {
+        Ok(command) => command.output().await,
+        Err(e) => {
+            revision.command_error = Some(format!(
+                "reap_on_drop_command for `hg whereami` failed\n {}",
+                e
+            ));
+            return;
+        }
+    };
 
     match whereami_output {
         Ok(result) => {
             if !result.status.success() {
+                let stderr = match std::str::from_utf8(&result.stderr) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        revision.command_error =
+                            Some(format!("hg whereami stderr is not utf8: {}", e));
+                        return;
+                    }
+                };
+
                 revision.command_error = Some(format!(
                     "Command `hg whereami` failed with error code {}; stderr:\n{}",
-                    result.status,
-                    std::str::from_utf8(&result.stderr)?
+                    result.status, stderr
                 ));
-                return Ok(());
+                return;
             }
-            let stdout = std::str::from_utf8(&result.stdout)?.trim();
+
+            let stdout = match std::str::from_utf8(&result.stdout) {
+                Ok(s) => s.trim(),
+                Err(e) => {
+                    revision.command_error = Some(format!("hg whereami stdout is not utf8: {}", e));
+                    return;
+                }
+            };
             // whereami will sometimes return multiple revisions (Possibly due to merge state not handled well)
             // This is not a common pattern (less than 1%) and the last revision should be accurate enough
             // `hg log -r . -T '{node}'`` handles this properly but it's ~40% slower, we should switch if that becomes more performant
@@ -104,37 +148,53 @@ async fn add_current_revision(
                 Some(format!("Command `hg whereami` failed with error: {:?}", e));
         }
     };
-    Ok(())
 }
 
-async fn add_status_info(
-    revision: &mut buck2_data::VersionControlRevision,
-) -> buck2_error::Result<()> {
+async fn add_hg_status(revision: &mut buck2_data::VersionControlRevision) {
     // `hg status` returns if there are any local changes
-    let status_output = reap_on_drop_command("hg", &["status"], Some(&[("HGPLAIN", "1")]))?
-        .output()
-        .await;
+    let status_output = match reap_on_drop_command("hg", &["status"], Some(&[("HGPLAIN", "1")])) {
+        Ok(command) => command.output().await,
+        Err(e) => {
+            revision.command_error = Some(format!(
+                "reap_on_drop_command for `hg status` failed\n {}",
+                e
+            ));
+            return;
+        }
+    };
 
     match status_output {
         Ok(result) => {
             if !result.status.success() {
+                let stderr = match std::str::from_utf8(&result.stderr) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        revision.command_error =
+                            Some(format!("hg status stderr is not utf8: {}", e));
+                        return;
+                    }
+                };
                 revision.command_error = Some(format!(
                     "Command `hg status` failed with error code {}; stderr:\n{}",
-                    result.status,
-                    std::str::from_utf8(&result.stderr)?
+                    result.status, stderr
                 ));
-                return Ok(());
+                return;
             }
-            revision.has_local_changes =
-                Some(!std::str::from_utf8(&result.stdout)?.trim().is_empty());
-            return Ok(());
+
+            let stdout = match std::str::from_utf8(&result.stdout) {
+                Ok(s) => s.trim(),
+                Err(e) => {
+                    revision.command_error = Some(format!("hg status stdout is not utf8: {}", e));
+                    return;
+                }
+            };
+            revision.has_local_changes = Some(!stdout.is_empty());
         }
         Err(e) => {
             revision.command_error =
                 Some(format!("Command `hg status` failed with error: {:?}", e));
         }
     };
-    Ok(())
 }
 
 async fn repo_type() -> buck2_error::Result<&'static RepoVcs> {

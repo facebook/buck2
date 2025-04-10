@@ -457,7 +457,7 @@ impl BuckdServer {
         let cert_state = self.0.cert_state.dupe();
 
         // Spawn an async task to collect expensive info
-        // We start collecting inmediately, and emit the event as soon as it is ready
+        // We start collecting immediately, and emit the event as soon as it is ready
         let version_control_revision_collector =
             version_control_revision::spawn_version_control_collector(dispatch.dupe());
 
