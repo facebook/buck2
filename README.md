@@ -98,11 +98,11 @@ If these headline features make you interested &mdash; check out the
 
 ## 🚧🚧🚧 **Warning** 🚧🚧🚧 &mdash; rough terrain lies ahead
 
-Buck2 was released recently and currently **does not have a stable release tag
-at this time**. Pre-release tags/binaries, and stable tags/binaries, will come
-at later dates. Despite that, it is used extensively inside of Meta on vast
-amounts of code every day, and [buck2-prelude](/prelude/) is the same code used
-internally for all these builds, as well.
+Buck2 currently **does not have a stable release tag at this time**. Pre-release
+tags/binaries, and stable tags/binaries, will come at later dates. Despite that,
+it is used extensively inside of Meta on vast amounts of code every day, and
+[buck2-prelude](/prelude/) is the same code used internally for all these
+builds, as well.
 
 Meta just uses the latest committed `HEAD` version of Buck2 at all times. Your
 mileage may vary &mdash; but at the moment, tracking `HEAD` is ideal for
@@ -119,11 +119,16 @@ Please provide feedback by submitting
 
 ## Installing Buck2
 
-You can get started by downloading the
-[latest buck2 binary](https://github.com/facebook/buck2/releases/tag/latest) for
+You can get started by downloading a
+[bi-monthly version](https://github.com/facebook/buck2/tags) or the
+[latest](https://github.com/facebook/buck2/releases/tag/latest) built binary for
 your platform. The `latest` tag always refers to a recent commit; it is updated
 on every single push to the GitHub repository, so it will always be a recent
 version.
+
+Alternately, you can use [dotslash](https://dotslash-cli.com/) with the
+bi-monthly releases where it's easy to deploy into a repo with a single text
+file and auto pull the correct platform as needed.
 
 You can also compile Buck2 from source, if a binary isn't immediately available
 for your use; check out the [HACKING.md](./HACKING.md) file for information.
