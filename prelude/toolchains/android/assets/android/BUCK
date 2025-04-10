@@ -6,7 +6,5 @@ oncall("android_devxx")
 buck_prebuilt_artifact(
     name = "agent.apk",
     # @oss-disable[end= ]: cas_digest = "1b188878f29e0875c5f5fa67ab69d3c53a0db264bb7b750a6b1e9bbc3a5060ef:3865223",
-    oss_sha1 = "0000000000000000000000000000000000000000",
-    oss_url = "UNUSED",
     visibility = ["PUBLIC"],
 )

@@ -335,10 +335,10 @@ def standard_java_test(
 
 def buck_prebuilt_artifact(
         # @oss-disable[end= ]: cas_digest,
-        oss_url,
-        oss_sha1,
+        oss_url = None,
+        oss_sha1 = None,
         **kwargs):
-    if is_oss_build():
+    if is_oss_build() and oss_url:
         return fb_native.remote_file(
             sha1 = oss_sha1,
             url = oss_url,
