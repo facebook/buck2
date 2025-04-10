@@ -1804,7 +1804,7 @@ async fn resolve_output_root(
         TestExecutionPrefix::Listing => {
             let resolver = dice.get_buck_out_path().await?;
             resolver
-                .resolve_test_discovery(test_target)
+                .resolve_test_discovery(test_target)?
                 .into_forward_relative_path_buf()
         }
         TestExecutionPrefix::Testing(prefix) => prefix.join(ForwardRelativePathBuf::unchecked_new(
