@@ -206,7 +206,9 @@ pub(crate) struct InvocationRecorder {
     peak_used_disk_space_bytes: Option<u64>,
     active_networks_kinds: HashSet<i32>,
     target_cfg: Option<TargetCfg>,
-    version_control_revision: Option<buck2_data::VersionControlRevision>,
+    hg_revision: Option<String>,
+    has_local_changes: Option<bool>,
+    version_control_errors: Vec<String>,
     concurrent_commands: bool,
     initial_local_cache_hits_files: Option<i64>,
     initial_local_cache_hits_bytes: Option<i64>,
@@ -359,7 +361,9 @@ impl InvocationRecorder {
             peak_used_disk_space_bytes: None,
             active_networks_kinds: HashSet::new(),
             target_cfg: None,
-            version_control_revision: None,
+            hg_revision: None,
+            has_local_changes: None,
+            version_control_errors: Vec::new(),
             concurrent_commands: false,
             initial_local_cache_hits_files: None,
             initial_local_cache_hits_bytes: None,
@@ -780,7 +784,10 @@ impl InvocationRecorder {
                 .into_iter()
                 .collect(),
             target_cfg: self.target_cfg.take(),
-            version_control_revision: self.version_control_revision.take(),
+            hg_revision: self.hg_revision.take(),
+            has_local_changes: self.has_local_changes.take(),
+            version_control_errors: self.version_control_errors.drain(..).collect(),
+            version_control_revision: None,
             local_cache_hits_files,
             local_cache_hits_bytes,
             local_cache_misses_files,
@@ -1469,6 +1476,18 @@ impl InvocationRecorder {
         Ok(())
     }
 
+    fn handle_version_control(
+        &mut self,
+        revision: &buck2_data::VersionControlRevision,
+    ) -> buck2_error::Result<()> {
+        self.hg_revision = revision.hg_revision.clone().or(self.hg_revision.clone());
+        self.has_local_changes = revision.has_local_changes.or(self.has_local_changes);
+        self.version_control_errors
+            .extend(revision.command_error.clone());
+
+        Ok(())
+    }
+
     async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> buck2_error::Result<()> {
         // TODO(nga): query now once in `EventsCtx`.
         let now = SystemTime::now();
@@ -1604,8 +1623,7 @@ impl InvocationRecorder {
                         Ok(())
                     }
                     buck2_data::instant_event::Data::VersionControlRevision(revision) => {
-                        self.version_control_revision = Some(revision.clone());
-                        Ok(())
+                        self.handle_version_control(revision)
                     }
                     buck2_data::instant_event::Data::PreviousCommandWithMismatchedConfig(
                         command,

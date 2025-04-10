@@ -2174,6 +2174,16 @@ message InvocationRecord {
   // normalized form.
   repeated string representative_config_flags = 105;
 
+  // 40 characters hash for hg revision.
+  optional string hg_revision = 106;
+  // Here are the possible values:
+  // True: Has local changes that are not committed.
+  // False: All changes committed and can be identified by revision hash.
+  // Unset: Unknown state.
+  optional bool has_local_changes = 107;
+  // Errors encountered during version control operations.
+  repeated string version_control_errors = 108;
+
   // Detailed per-backend RE stats.
   optional uint64 zdb_download_queries = 200;
   optional uint64 zdb_download_bytes = 201;
