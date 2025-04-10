@@ -263,15 +263,18 @@ impl BuckOutPathResolver {
         ]))
     }
 
-    pub fn resolve_scratch(&self, path: &BuckOutScratchPath) -> ProjectRelativePathBuf {
-        self.prefixed_path_for_owner(
+    pub fn resolve_scratch(
+        &self,
+        path: &BuckOutScratchPath,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
+        Ok(self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("tmp"),
             &path.owner,
             Some(&path.action_key.as_str()),
             &path.path,
             // Fully hash scratch path as it can be very long and cause path too long issue on Windows.
             true,
-        )
+        ))
     }
 
     /// Resolve a test path
@@ -452,7 +455,7 @@ mod tests {
                 ForwardRelativePathBuf::new("1_2".to_owned()).unwrap(),
             )
             .unwrap(),
-        );
+        )?;
 
         let expected_scratch_path =
             Regex::new("base/buck-out/v2/tmp/foo/[0-9a-f]{16}/category/blah.file")?;
@@ -525,7 +528,7 @@ mod tests {
                 .unwrap(),
             )
             .unwrap(),
-        );
+        )?;
 
         let expected_scratch_path =
             Regex::new("buck-out/tmp/foo/[0-9a-f]{16}/category/_buck_[0-9a-f]{16}")?;
@@ -610,6 +613,7 @@ mod tests {
                     )
                     .unwrap(),
                 )
+                .unwrap()
                 .as_str()
                 .to_owned()
         };

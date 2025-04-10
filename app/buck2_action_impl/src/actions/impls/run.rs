@@ -558,7 +558,7 @@ impl RunAction {
         extra_env: &mut Vec<(String, String)>,
     ) -> buck2_error::Result<()> {
         let scratch = ctx.target().scratch_path();
-        let scratch_path = fs.buck_out_path_resolver().resolve_scratch(&scratch);
+        let scratch_path = fs.buck_out_path_resolver().resolve_scratch(&scratch)?;
         extra_env.push((
             "BUCK_SCRATCH_PATH".to_owned(),
             cli_ctx.resolve_project_path(scratch_path)?.into_string(),
