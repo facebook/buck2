@@ -452,13 +452,8 @@ impl InterpreterForCell {
             if let Some(i) = self.package_import(build_file) {
                 implicit_imports.push(OwnedStarlarkModulePath::LoadFile(i.import().clone()));
             }
-            if let StarlarkPath::BuildFile(build_file) = import {
-                if let Some(i) = self.package_import(build_file) {
-                    implicit_imports.push(OwnedStarlarkModulePath::LoadFile(i.import().clone()));
-                }
-                if let Some(i) = self.root_import() {
-                    implicit_imports.push(OwnedStarlarkModulePath::LoadFile(i));
-                }
+            if let Some(i) = self.root_import() {
+                implicit_imports.push(OwnedStarlarkModulePath::LoadFile(i));
             }
         }
         ParseData::new(ast, implicit_imports, &self.load_resolver(import)).map(Ok)
