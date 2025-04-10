@@ -98,14 +98,14 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     out_dir = ctx.actions.declare_output("OUT_DIR", dir = True)
     rustc_flags = ctx.actions.declare_output("rustc_flags")
 
-    cmd = cmd_args(
+    cmd = [
         ctx.attrs.runner[RunInfo],
         cmd_args("--buildscript=", ctx.attrs.buildscript[RunInfo], delimiter = ""),
         cmd_args("--rustc-cfg=", ctx.attrs.rustc_cfg[DefaultInfo].default_outputs[0], delimiter = ""),
         cmd_args("--manifest-dir=", ctx.attrs.manifest_dir[DefaultInfo].default_outputs[0], delimiter = ""),
         cmd_args("--create-cwd=", cwd.as_output(), delimiter = ""),
         cmd_args("--outfile=", rustc_flags.as_output(), delimiter = ""),
-    )
+    ]
 
     # See https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts
 
@@ -117,7 +117,11 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     env["RUSTC"] = _make_rustc_shim(ctx, cwd)
     env["RUSTC_LINKER"] = "/bin/false"
     env["RUST_BACKTRACE"] = "1"
-    env["TARGET"] = toolchain_info.rustc_target_triple
+
+    if toolchain_info.rustc_target_triple:
+        env["TARGET"] = toolchain_info.rustc_target_triple
+    else:
+        cmd.append(cmd_args("--rustc-host-tuple=", ctx.attrs.rustc_host_tuple[DefaultInfo].default_outputs[0], delimiter = ""))
 
     # \037 == \x1f == the magic delimiter specified in the environment variable
     # reference above.
@@ -162,6 +166,7 @@ _cargo_buildscript_rule = rule(
         # *IMPORTANT* rustc_cfg must be a `dep` and not an `exec_dep` because
         # we want the `rustc --cfg` for the target platform, not the exec platform.
         "rustc_cfg": attrs.dep(default = "prelude//rust/tools:rustc_cfg"),
+        "rustc_host_tuple": attrs.dep(default = "prelude//rust/tools:rustc_host_tuple"),
         "version": attrs.string(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_rust_toolchain": toolchains_common.rust(),

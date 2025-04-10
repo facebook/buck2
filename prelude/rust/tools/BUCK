@@ -3,6 +3,7 @@ load(":attrs.bzl", "rust_internal_tools_toolchain")
 load(
     ":tool_rules.bzl",
     "get_rustc_cfg",
+    "get_rustc_host_tuple",
     "linkable_symbol_supports_no_std",
 )
 
@@ -14,6 +15,11 @@ prelude = native
 
 get_rustc_cfg(
     name = "rustc_cfg",
+    visibility = ["PUBLIC"],
+)
+
+get_rustc_host_tuple(
+    name = "rustc_host_tuple",
     visibility = ["PUBLIC"],
 )
 

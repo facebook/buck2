@@ -35,6 +35,27 @@ get_rustc_cfg = rule(
     },
 )
 
+def _get_rustc_host_tuple_impl(ctx: AnalysisContext) -> list[Provider]:
+    toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
+
+    out = ctx.actions.declare_output("rustc.host_tuple")
+
+    cmd = [
+        toolchain_info.compiler,
+        cmd_args("--print=host-tuple=", out.as_output(), delimiter = ""),
+    ]
+
+    ctx.actions.run(cmd, category = "rustc_host_tuple")
+
+    return [DefaultInfo(default_output = out)]
+
+get_rustc_host_tuple = rule(
+    impl = _get_rustc_host_tuple_impl,
+    attrs = {
+        "_rust_toolchain": toolchains_common.rust(),
+    },
+)
+
 def _linkable_symbol_supports_no_std_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
 
