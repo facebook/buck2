@@ -76,7 +76,7 @@ fn parse_starlark_paths(
 ) -> buck2_error::Result<HashSet<StarlarkFilePath>> {
     let parse_options = ParseImportOptions {
         allow_missing_at_symbol: true,
-        relative_import_option: RelativeImports::Allow { current_dir },
+        relative_import_option: RelativeImports::AllowForward { current_dir },
     };
     let current_cell = BuildFileCell::new(current_dir.cell());
 

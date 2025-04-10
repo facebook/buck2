@@ -42,7 +42,7 @@ pub(crate) async fn server_execute(
                 &cell_alias_resolver,
                 &command.import_path,
                 &ParseImportOptions {
-                    relative_import_option: RelativeImports::Allow {
+                    relative_import_option: RelativeImports::AllowForward {
                         current_dir: &current_cell_path,
                     },
                     // Otherwise `@arg` is expanded as mode file.

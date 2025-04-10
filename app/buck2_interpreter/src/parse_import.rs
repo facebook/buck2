@@ -40,7 +40,7 @@ enum ImportParseError {
 }
 
 pub enum RelativeImports<'a> {
-    Allow { current_dir: &'a CellPath },
+    AllowForward { current_dir: &'a CellPath },
     Disallow,
 }
 
@@ -76,7 +76,7 @@ pub fn parse_import(
 ) -> buck2_error::Result<CellPath> {
     let opts: ParseImportOptions = ParseImportOptions {
         allow_missing_at_symbol: false,
-        relative_import_option: RelativeImports::Allow {
+        relative_import_option: RelativeImports::AllowForward {
             current_dir: current_path,
         },
     };
@@ -102,7 +102,9 @@ pub fn parse_import_with_config(
 
             match parse_import_cell_path_parts(import, opts.allow_missing_at_symbol) {
                 None => {
-                    if let RelativeImports::Allow { current_dir } = opts.relative_import_option {
+                    if let RelativeImports::AllowForward { current_dir } =
+                        opts.relative_import_option
+                    {
                         let rel_path = ForwardRelativePath::new(import).map_err(|_e| {
                             ImportParseError::InvalidCurrentPathWhenFileRelativeImport(
                                 import.to_owned(),
@@ -131,7 +133,7 @@ pub fn parse_import_with_config(
                 .map_err(|_| ImportParseError::NotAFileName(import.to_owned()))?;
 
             if path.is_empty() {
-                if let RelativeImports::Allow { current_dir } = opts.relative_import_option {
+                if let RelativeImports::AllowForward { current_dir } = opts.relative_import_option {
                     Ok(current_dir.join(filename))
                 } else {
                     Err(ImportParseError::ProhibitedRelativeImport(import.to_owned()).into())
@@ -320,7 +322,7 @@ mod tests {
                 "cell1//package/path:import.bzl",
                 &ParseImportOptions {
                     allow_missing_at_symbol: true,
-                    relative_import_option: RelativeImports::Allow {
+                    relative_import_option: RelativeImports::AllowForward {
                         current_dir: &CellPath::testing_new("root//")
                     }
                 }

@@ -526,7 +526,7 @@ pub(crate) fn parse_bxl_label_from_cli(
 
     let opts: ParseImportOptions = ParseImportOptions {
         allow_missing_at_symbol: true,
-        relative_import_option: RelativeImports::Allow {
+        relative_import_option: RelativeImports::AllowForward {
             current_dir: &current_cell,
         },
     };
