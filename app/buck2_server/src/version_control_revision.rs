@@ -69,8 +69,8 @@ async fn add_hg_data(revision: &mut buck2_data::VersionControlRevision) -> buck2
     // We fire 2 hg command in parallel:
     //  The `hg whereami` returns the full hash of the revision
     //  The `hg status` returns if there are any local changes
-    let whereami_command = reap_on_drop_command("hg", &["whereami"])?;
-    let status_command = reap_on_drop_command("hg", &["status"])?;
+    let whereami_command = reap_on_drop_command("hg", &["whereami"], Some(&[("HGPLAIN", "1")]))?;
+    let status_command = reap_on_drop_command("hg", &["status"], Some(&[("HGPLAIN", "1")]))?;
 
     let (whereami_output, status_output) =
         tokio::join!(whereami_command.output(), status_command.output());
@@ -124,8 +124,8 @@ async fn repo_type() -> buck2_error::Result<&'static RepoVcs> {
     static REPO_TYPE: OnceCell<buck2_error::Result<RepoVcs>> = OnceCell::const_new();
     async fn repo_type_impl() -> buck2_error::Result<RepoVcs> {
         let (hg_output, git_output) = tokio::join!(
-            reap_on_drop_command("hg", &["root"])?.output(),
-            reap_on_drop_command("git", &["rev-parse", "--is-inside-work-tree"])?.output()
+            reap_on_drop_command("hg", &["root"], Some(&[("HGPLAIN", "1")]))?.output(),
+            reap_on_drop_command("git", &["rev-parse", "--is-inside-work-tree"], None)?.output()
         );
 
         let is_hg = hg_output.is_ok_and(|output| {

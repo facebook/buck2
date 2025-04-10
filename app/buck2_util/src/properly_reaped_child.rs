@@ -67,12 +67,20 @@ impl Drop for ProperlyReapedChild {
 pub fn reap_on_drop_command(
     command: &str,
     args: &[&str],
+    env: Option<&[(&str, &str)]>,
 ) -> buck2_error::Result<ProperlyReapedChild> {
-    async_background_command(command)
+    let mut background_command = async_background_command(command);
+    let mut background_command = background_command
         .args(args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .kill_on_drop(true)
+        .kill_on_drop(true);
+
+    if let Some(env_var) = env {
+        background_command = background_command.envs(env_var.to_owned())
+    }
+
+    background_command
         .spawn()
         .map(|child| ProperlyReapedChild { child: Some(child) })
         .map_err(|e| e.into())

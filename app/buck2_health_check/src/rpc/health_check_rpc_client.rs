@@ -70,7 +70,7 @@ impl HealthCheckRpcClient {
         let (addr, tcp_listener) = Self::create_tcp_listener().await?;
 
         let exe = Self::get_cli_path()?;
-        let process = reap_on_drop_command(&exe, &["--io-addr", &addr])?;
+        let process = reap_on_drop_command(&exe, &["--io-addr", &addr], None)?;
 
         let (tcp_stream, _) = tcp_listener.accept().await?;
         let channel = buck2_grpc::make_channel(tcp_stream, "health_check")
