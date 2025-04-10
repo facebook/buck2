@@ -24,6 +24,7 @@ load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//rust:targets.bzl", "targets")
+load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 load(":build.bzl", "dependency_args")
 load(":build_params.bzl", "MetadataKind")
 load(":context.bzl", "DepCollectionContext")
@@ -70,26 +71,14 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
     else:
         sysroot_args = cmd_args()
 
-    if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
-        shim, _ = ctx.actions.write(
-            "__rustc_shim.bat",
-            [
-                "@echo off",
-                cmd_args(toolchain_info.compiler, sysroot_args, "%*", delimiter = " ", relative_to = cwd),
-            ],
-            allow_args = True,
-        )
-    else:
-        shim, _ = ctx.actions.write(
-            "__rustc_shim.sh",
-            [
-                "#!/usr/bin/env bash",
-                cmd_args(toolchain_info.compiler, sysroot_args, "\"$@\"\n", delimiter = " ", relative_to = cwd),
-            ],
-            is_executable = True,
-            allow_args = True,
-        )
-    return cmd_args(shim, relative_to = cwd, hidden = [toolchain_info.compiler, sysroot_args])
+    shim = cmd_script(
+        ctx = ctx,
+        name = "__rustc_shim",
+        cmd = cmd_args(toolchain_info.compiler, sysroot_args, relative_to = cwd),
+        os = ScriptOs("windows" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "unix"),
+    )
+
+    return cmd_args(shim, relative_to = cwd)
 
 def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
