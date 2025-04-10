@@ -279,7 +279,7 @@ impl Action for DownloadFileAction {
             match self.declared_metadata(&client, ctx.digest_config()).await? {
                 Some(metadata) => {
                     let artifact_fs = ctx.fs();
-                    let rel_path = artifact_fs.resolve_build(self.output().get_path());
+                    let rel_path = artifact_fs.resolve_build(self.output().get_path())?;
 
                     // Fast path: download later via the materializer.
                     ctx.materializer()
@@ -302,7 +302,7 @@ impl Action for DownloadFileAction {
 
                     let artifact_fs = ctx.fs();
                     let project_fs = artifact_fs.fs();
-                    let rel_path = artifact_fs.resolve_build(self.output().get_path());
+                    let rel_path = artifact_fs.resolve_build(self.output().get_path())?;
 
                     // Slow path: download now.
                     let digest = http_download(

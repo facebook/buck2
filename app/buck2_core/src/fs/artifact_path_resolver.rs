@@ -45,7 +45,10 @@ impl ArtifactFs {
         self.buck_out_path_resolver.unhashed_gen(path)
     }
 
-    pub fn resolve_build(&self, path: &BuildArtifactPath) -> ProjectRelativePathBuf {
+    pub fn resolve_build(
+        &self,
+        path: &BuildArtifactPath,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.buck_out_path_resolver.resolve_gen(path)
     }
 

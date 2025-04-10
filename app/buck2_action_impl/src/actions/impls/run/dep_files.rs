@@ -44,6 +44,7 @@ use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::expand_selector_for_dependencies;
@@ -771,8 +772,8 @@ async fn outputs_match(
     let output_matches = previous_state
         .result
         .iter()
-        .map(|(path, value)| (fs.buck_out_path_resolver().resolve_gen(path), value.dupe()))
-        .collect();
+        .map(|(path, value)| Ok((fs.buck_out_path_resolver().resolve_gen(path)?, value.dupe())))
+        .collect::<buck2_error::Result<Vec<(ProjectRelativePathBuf, ArtifactValue)>>>()?;
 
     let materializer_accepts = ctx
         .materializer()

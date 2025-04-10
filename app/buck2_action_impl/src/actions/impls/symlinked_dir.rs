@@ -224,7 +224,7 @@ impl Action for SymlinkedDirAction {
         ctx: &mut dyn ActionExecutionCtx,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let fs = ctx.fs().fs();
-        let output = ctx.fs().resolve_build(self.output().get_path());
+        let output = ctx.fs().resolve_build(self.output().get_path())?;
         let mut builder = ArtifactValueBuilder::new(fs, ctx.digest_config());
         let mut srcs = Vec::new();
 

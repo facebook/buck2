@@ -300,7 +300,8 @@ impl CacheUploader {
         let mut output_files: Vec<TFile> = Vec::new();
         let mut output_directories: Vec<TDirectory2> = Vec::new();
 
-        for (output, value) in result.resolve_outputs(&self.artifact_fs) {
+        for output_result in result.resolve_outputs(&self.artifact_fs) {
+            let (output, value) = output_result?;
             match value.entry().as_ref() {
                 DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
                     output_files.push(TFile {

@@ -590,7 +590,7 @@ impl LocalExecutor {
         let mut total_hashing_time = Duration::ZERO;
         let mut total_hashed_outputs = 0;
         for output in request.outputs() {
-            let path = output.resolve(&self.artifact_fs).into_path();
+            let path = output.resolve(&self.artifact_fs)?.into_path();
             let abspath = self.root.join(&path);
             let (entry, hashing_info) = build_entry_from_disk(
                 abspath,
@@ -876,7 +876,7 @@ pub async fn materialize_inputs(
             CommandExecutionInput::ActionMetadata(metadata) => {
                 let path = artifact_fs
                     .buck_out_path_resolver()
-                    .resolve_gen(&metadata.path);
+                    .resolve_gen(&metadata.path)?;
                 CleanOutputPaths::clean(std::iter::once(path.as_ref()), artifact_fs.fs())?;
                 artifact_fs
                     .fs()
@@ -989,7 +989,7 @@ pub(crate) async fn materialize_build_outputs(
             CommandExecutionOutputRef::BuildArtifact {
                 path,
                 output_type: _,
-            } => paths.push(artifact_fs.resolve_build(path)),
+            } => paths.push(artifact_fs.resolve_build(path)?),
             CommandExecutionOutputRef::TestPath { path: _, create: _ } => {}
         }
     }
@@ -1012,7 +1012,7 @@ pub async fn create_output_dirs(
     let outputs: Vec<_> = request
         .outputs()
         .map(|output| output.resolve(artifact_fs))
-        .collect();
+        .collect::<buck2_error::Result<Vec<_>>>()?;
 
     // Invalidate all the output paths this action might provide. Note that this is a bit
     // approximative: we might have previous instances of this action that declared

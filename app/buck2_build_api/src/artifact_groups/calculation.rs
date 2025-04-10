@@ -387,7 +387,7 @@ impl Key for EnsureProjectedArtifactKey {
         let digest_config = ctx.global_data().get_digest_config();
 
         let base_path = match base {
-            BaseArtifactKind::Build(built) => artifact_fs.resolve_build(built.get_path()),
+            BaseArtifactKind::Build(built) => artifact_fs.resolve_build(built.get_path())?,
             BaseArtifactKind::Source(source) => artifact_fs.resolve_source(source.get_path())?,
         };
 

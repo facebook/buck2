@@ -61,7 +61,7 @@ impl ArtifactMaterializer for DiceComputations<'_> {
     ) -> buck2_error::Result<()> {
         let materializer = self.per_transaction_data().get_materializer();
         let artifact_fs = self.get_artifact_fs().await?;
-        let path = artifact_fs.resolve_build(artifact.get_path());
+        let path = artifact_fs.resolve_build(artifact.get_path())?;
 
         let start_event = buck2_data::MaterializeRequestedArtifactStart {
             artifact: Some(artifact.as_proto()),

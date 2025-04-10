@@ -173,15 +173,15 @@ impl Action for WriteMacrosToFileAction {
                     .into());
                 }
 
-                Ok(
-                    std::iter::zip(self.outputs.iter(), output_contents.into_iter())
-                        .map(|(output, content)| WriteRequest {
-                            path: fs.fs().resolve_build(output.get_path()),
+                std::iter::zip(self.outputs.iter(), output_contents.into_iter())
+                    .map(|(output, content)| {
+                        Ok(WriteRequest {
+                            path: fs.fs().resolve_build(output.get_path())?,
                             content: content.into_bytes(),
                             is_executable: false,
                         })
-                        .collect(),
-                )
+                    })
+                    .collect::<buck2_error::Result<_>>()
             }))
             .await?;
 

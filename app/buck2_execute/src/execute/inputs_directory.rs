@@ -27,7 +27,7 @@ pub fn inputs_directory(
                 group.add_to_directory(&mut builder, fs)?;
             }
             CommandExecutionInput::ActionMetadata(metadata) => {
-                let path = fs.buck_out_path_resolver().resolve_gen(&metadata.path);
+                let path = fs.buck_out_path_resolver().resolve_gen(&metadata.path)?;
                 builder.insert(
                     &path,
                     DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {

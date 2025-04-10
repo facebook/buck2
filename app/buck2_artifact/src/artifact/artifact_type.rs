@@ -712,20 +712,20 @@ mod tests {
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
             project_fs.dupe(),
         );
-        let expected_path1 = project_fs.resolve(fs.resolve_build(artifact1.get_path()));
-        let expected_path2 = project_fs.resolve(fs.resolve_build(artifact2.get_path()));
+        let expected_path1 = project_fs.resolve(fs.resolve_build(artifact1.get_path())?);
+        let expected_path2 = project_fs.resolve(fs.resolve_build(artifact2.get_path())?);
 
-        let dest_path = fs.resolve_build(artifact1.get_path());
+        let dest_path = fs.resolve_build(artifact1.get_path())?;
         fs.fs().write_file(&dest_path, "artifact1", false)?;
 
         assert_eq!("artifact1", fs_util::read_to_string(&expected_path1)?);
 
-        let dest_path = fs.resolve_build(artifact2.get_path());
+        let dest_path = fs.resolve_build(artifact2.get_path())?;
         fs.fs().write_file(&dest_path, "artifact2", true)?;
 
         assert_eq!("artifact2", fs_util::read_to_string(&expected_path2)?);
 
-        let dest_path = fs.resolve_build(artifact3.get_path());
+        let dest_path = fs.resolve_build(artifact3.get_path())?;
         fs.fs()
             .write_file(&dest_path, "artifact3", false)
             .expect_err("should fail because bar.cpp is a file");

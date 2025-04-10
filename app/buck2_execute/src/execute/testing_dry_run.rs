@@ -84,7 +84,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
         match request
             .outputs()
             .map(|x| {
-                let path = x.resolve(&self.fs).into_path();
+                let path = x.resolve(&self.fs)?.into_path();
                 self.fs.fs().write_file(&path, "", false)?;
                 Ok((x.cloned(), ArtifactValue::file(digest_config.empty_file())))
             })

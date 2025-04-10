@@ -44,7 +44,7 @@ pub(crate) fn create_unhashed_outputs(
                     if let Some(unhashed_path) =
                         artifact_fs.retrieve_unhashed_location(build.get_path())
                     {
-                        let path = artifact_fs.resolve_build(build.get_path());
+                        let path = artifact_fs.resolve_build(build.get_path())?;
                         let abs_unhashed_path = fs.resolve(&unhashed_path);
                         let entry = unhashed_to_hashed
                             .entry(abs_unhashed_path)

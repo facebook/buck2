@@ -209,8 +209,11 @@ impl BuckOutPathResolver {
 
     /// Resolves a 'BuckOutPath' into a 'ProjectRelativePath' based on the base
     /// directory, target and cell.
-    pub fn resolve_gen(&self, path: &BuildArtifactPath) -> ProjectRelativePathBuf {
-        self.prefixed_path_for_owner(
+    pub fn resolve_gen(
+        &self,
+        path: &BuildArtifactPath,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
+        Ok(self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("gen"),
             path.owner().owner(),
             path.dynamic_actions_action_key()
@@ -218,7 +221,7 @@ impl BuckOutPathResolver {
                 .map(|x| x.as_str()),
             path.path(),
             false,
-        )
+        ))
     }
 
     pub fn resolve_offline_cache(&self, path: &BuildArtifactPath) -> ProjectRelativePathBuf {
@@ -426,7 +429,7 @@ mod tests {
         let resolved_gen_path = path_resolver.resolve_gen(&BuildArtifactPath::new(
             owner.dupe(),
             ForwardRelativePathBuf::unchecked_new("faz.file".into()),
-        ));
+        ))?;
 
         let expected_gen_path = Regex::new(
             "base/buck-out/v2/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/faz.file",
@@ -475,7 +478,7 @@ mod tests {
         let resolved_gen_path = path_resolver.resolve_gen(&BuildArtifactPath::new(
             owner.dupe(),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
-        ));
+        ))?;
 
         let expected_gen_path: Regex =
             Regex::new("buck-out/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/quux")?;
@@ -494,7 +497,7 @@ mod tests {
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
             None,
         );
-        let resolved_gen_path = path_resolver.resolve_gen(&path);
+        let resolved_gen_path = path_resolver.resolve_gen(&path)?;
 
         let expected_gen_path = Regex::new(
             "buck-out/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/__action___17__/quux",

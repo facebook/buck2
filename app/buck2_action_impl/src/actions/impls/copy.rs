@@ -158,7 +158,7 @@ impl Action for CopyAction {
 
         let artifact_fs = ctx.fs();
         let src = input.resolve_path(artifact_fs)?;
-        let dest = artifact_fs.resolve_build(self.output().get_path());
+        let dest = artifact_fs.resolve_build(self.output().get_path())?;
 
         let value = {
             let fs = artifact_fs.fs();

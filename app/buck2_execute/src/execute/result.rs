@@ -278,10 +278,12 @@ impl CommandExecutionResult {
     pub fn resolve_outputs<'a>(
         &'a self,
         fs: &'a ArtifactFs,
-    ) -> impl Iterator<Item = (ResolvedCommandExecutionOutput, &'a ArtifactValue)> + 'a {
+    ) -> impl Iterator<
+        Item = buck2_error::Result<(ResolvedCommandExecutionOutput, &'a ArtifactValue)>,
+    > + 'a {
         self.outputs
             .iter()
-            .map(|(output, value)| (output.as_ref().resolve(fs), value))
+            .map(|(output, value)| Ok((output.as_ref().resolve(fs)?, value)))
     }
 }
 

@@ -224,7 +224,10 @@ impl CommandExecutionPaths {
         let outputs: IndexSet<_> = outputs
             .into_iter()
             .sorted_by_key(|e| {
-                let resolved = e.as_ref().resolve(fs);
+                let resolved = e
+                    .as_ref()
+                    .resolve(fs)
+                    .expect("Failed to resolve output path");
                 resolved.into_path()
             })
             .collect();
@@ -232,7 +235,7 @@ impl CommandExecutionPaths {
         let output_paths = outputs
             .iter()
             .map(|o| {
-                let resolved = o.as_ref().resolve(fs);
+                let resolved = o.as_ref().resolve(fs)?;
                 if let Some(dir) = resolved.path_to_create() {
                     builder.mkdir(dir)?;
                 }
@@ -665,18 +668,18 @@ pub enum CommandExecutionOutputRef<'a> {
 impl<'a> CommandExecutionOutputRef<'a> {
     /// Resolve this output to a ResolvedCommandExecutionOutput that allows access to the output
     /// path as well as any dirs to create.
-    pub fn resolve(&self, fs: &ArtifactFs) -> ResolvedCommandExecutionOutput {
+    pub fn resolve(&self, fs: &ArtifactFs) -> buck2_error::Result<ResolvedCommandExecutionOutput> {
         match self {
-            Self::BuildArtifact { path, output_type } => ResolvedCommandExecutionOutput {
-                path: fs.resolve_build(path),
+            Self::BuildArtifact { path, output_type } => Ok(ResolvedCommandExecutionOutput {
+                path: fs.resolve_build(path)?,
                 create: OutputCreationBehavior::Parent,
                 output_type: *output_type,
-            },
-            Self::TestPath { path, create } => ResolvedCommandExecutionOutput {
+            }),
+            Self::TestPath { path, create } => Ok(ResolvedCommandExecutionOutput {
                 path: fs.buck_out_path_resolver().resolve_test(path),
                 create: *create,
                 output_type: OutputType::FileOrDirectory,
-            },
+            }),
         }
     }
 

@@ -536,7 +536,7 @@ impl RunAction {
             let path =
                 BuildArtifactPath::new(ctx.target().owner().dupe(), metadata_param.path.clone());
             let env = cli_ctx
-                .resolve_project_path(fs.buck_out_path_resolver().resolve_gen(&path))?
+                .resolve_project_path(fs.buck_out_path_resolver().resolve_gen(&path)?)?
                 .into_string();
             let (data, digest) = metadata_content(fs, artifact_inputs, ctx.digest_config())?;
             inputs.push(CommandExecutionInput::ActionMetadata(ActionMetadataBlob {

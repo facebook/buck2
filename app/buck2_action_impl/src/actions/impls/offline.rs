@@ -26,7 +26,7 @@ pub(crate) async fn declare_copy_to_offline_output_cache(
     output: &BuildArtifact,
     value: ArtifactValue,
 ) -> buck2_error::Result<ProjectRelativePathBuf> {
-    let build_path = ctx.fs().resolve_build(output.get_path());
+    let build_path = ctx.fs().resolve_build(output.get_path())?;
     let offline_cache_path = ctx
         .fs()
         .resolve_offline_output_cache_path(output.get_path());
@@ -69,7 +69,7 @@ pub(crate) async fn declare_copy_from_offline_cache(
         });
     let value = ArtifactValue::from(entry);
 
-    let build_path = ctx.fs().resolve_build(output.get_path());
+    let build_path = ctx.fs().resolve_build(output.get_path())?;
     declare_copy_materialization(ctx, offline_cache_path, build_path, value.dupe()).await?;
 
     Ok(ActionOutputs::from_single(output.get_path().dupe(), value))

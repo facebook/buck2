@@ -292,7 +292,7 @@ impl Action for CasArtifactAction {
             }
         };
 
-        let path = ctx.fs().resolve_build(self.output.get_path());
+        let path = ctx.fs().resolve_build(self.output.get_path())?;
         ctx.materializer()
             .declare_cas_many(
                 Arc::new(CasDownloadInfo::new_declared(self.inner.re_use_case)),

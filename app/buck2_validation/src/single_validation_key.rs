@@ -64,7 +64,7 @@ impl Key for SingleValidationKey {
         };
 
         let fs = ctx.get_artifact_fs().await?;
-        let project_relative_path = fs.buck_out_path_resolver().resolve_gen(&gen_path);
+        let project_relative_path = fs.buck_out_path_resolver().resolve_gen(&gen_path)?;
 
         let validation_result_path = fs.fs().resolve(&project_relative_path);
 
