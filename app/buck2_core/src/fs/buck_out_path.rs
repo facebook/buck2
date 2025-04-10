@@ -224,8 +224,11 @@ impl BuckOutPathResolver {
         ))
     }
 
-    pub fn resolve_offline_cache(&self, path: &BuildArtifactPath) -> ProjectRelativePathBuf {
-        self.prefixed_path_for_owner(
+    pub fn resolve_offline_cache(
+        &self,
+        path: &BuildArtifactPath,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
+        Ok(self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("offline-cache"),
             path.owner().owner(),
             path.dynamic_actions_action_key()
@@ -233,7 +236,7 @@ impl BuckOutPathResolver {
                 .map(|x| x.as_str()),
             path.path(),
             false,
-        )
+        ))
     }
 
     pub fn resolve_external_cell_source(

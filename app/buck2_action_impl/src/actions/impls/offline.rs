@@ -29,7 +29,7 @@ pub(crate) async fn declare_copy_to_offline_output_cache(
     let build_path = ctx.fs().resolve_build(output.get_path())?;
     let offline_cache_path = ctx
         .fs()
-        .resolve_offline_output_cache_path(output.get_path());
+        .resolve_offline_output_cache_path(output.get_path())?;
     declare_copy_materialization(ctx, build_path, offline_cache_path.clone(), value).await?;
 
     Ok(offline_cache_path)
@@ -45,7 +45,7 @@ pub(crate) async fn declare_copy_from_offline_cache(
 ) -> buck2_error::Result<ActionOutputs> {
     let offline_cache_path = ctx
         .fs()
-        .resolve_offline_output_cache_path(output.get_path());
+        .resolve_offline_output_cache_path(output.get_path())?;
 
     let (value, _hashing_time) = build_entry_from_disk(
         ctx.fs().fs().resolve(&offline_cache_path),
