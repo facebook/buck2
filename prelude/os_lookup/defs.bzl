@@ -7,7 +7,16 @@
 
 load("@prelude//decls:core_rules.bzl", "Platform", "TargetCpuType")
 
-OsLookup = provider(fields = {"cpu": provider_field(typing.Any, default = None), "platform": provider_field(typing.Any, default = None)})
+ScriptLanguage = enum(
+    "sh",  # Unix shell script
+    "bat",  # Windows batch file
+)
+
+OsLookup = provider(fields = {
+    "cpu": str | None,
+    "platform": str,
+    "script": ScriptLanguage,
+})
 
 def _os_lookup_impl(ctx: AnalysisContext):
     return [
@@ -15,10 +24,12 @@ def _os_lookup_impl(ctx: AnalysisContext):
         OsLookup(
             cpu = ctx.attrs.cpu,
             platform = ctx.attrs.platform,
+            script = ScriptLanguage(ctx.attrs.script),
         ),
     ]
 
 os_lookup = rule(impl = _os_lookup_impl, attrs = {
     "cpu": attrs.option(attrs.enum(TargetCpuType), default = None),
     "platform": attrs.enum(Platform),
+    "script": attrs.enum(ScriptLanguage.values()),
 })

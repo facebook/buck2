@@ -17,5 +17,9 @@ os_lookup(
         "config//os:macos": "macos",
         "config//os:windows": "windows",
     }),
+    script = select({
+        "DEFAULT": "sh",
+        "config//os:windows": "bat",
+    }),
     visibility = ["PUBLIC"],
 )
