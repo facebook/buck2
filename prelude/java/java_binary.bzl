@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//java:proguard.bzl", "get_proguard_output")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info", "get_classpath_subtarget")
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -189,6 +190,22 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     other_outputs = []
 
+    if ctx.attrs.proguard_config:
+        java_base = ([java_toolchain.java_base_jar] if java_toolchain.java_base_jar else [])
+        library_jars = ctx.attrs.proguard_library_jars + java_base
+        proguard_output = get_proguard_output(
+            ctx = ctx,
+            input_jars = packaging_dep_infos,
+            java_packaging_deps = packaging_deps,
+            additional_proguard_configs = [],
+            additional_jars = library_jars,
+            sdk_proguard_config_mode = None,
+            sdk_proguard_config = None,
+            sdk_optimized_proguard_config = None,
+            proguard_jar = java_toolchain.proguard_jar,
+            skip_proguard = False,
+        )
+        packaging_dep_infos = proguard_output.jars_to_owners
     packaging_jar_args = cmd_args(packaging_dep_infos.keys())
 
     if incremental_target_prefix:
