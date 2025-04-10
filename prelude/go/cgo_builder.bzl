@@ -32,7 +32,7 @@ load(
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
-load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
+load("@prelude//utils:cmd_script.bzl", "cmd_script")
 load("@prelude//utils:expect.bzl", "expect")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
@@ -119,7 +119,7 @@ def _cxx_wrapper(ctx: AnalysisContext, own_pre: list[CPreprocessor], inherited_p
         ctx = ctx,
         name = "cxx_wrapper",
         cmd = cxx_cmd,
-        os = ScriptOs("windows" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "unix"),
+        language = ctx.attrs._exec_os_type[OsLookup].script,
     )
 
 # build CPreprocessor similar as cxx_private_preprocessor_info does, but with our filtered headers

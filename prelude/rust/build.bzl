@@ -45,7 +45,7 @@ load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
-load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
+load("@prelude//utils:cmd_script.bzl", "cmd_script")
 load(
     "@prelude//utils:utils.bzl",
     "flatten_dict",
@@ -512,7 +512,7 @@ def rust_compile(
             ctx = ctx,
             name = common_args.subdir + "/linker_wrapper",
             cmd = linker_cmd,
-            os = ScriptOs("windows" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "unix"),
+            language = ctx.attrs._exec_os_type[OsLookup].script,
         )
 
         deferred_link_cmd = cmd_args(
@@ -1182,7 +1182,7 @@ def _linker_args(
         ctx = ctx,
         name = "linker_wrapper",
         cmd = linker,
-        os = ScriptOs("windows" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "unix"),
+        language = ctx.attrs._exec_os_type[OsLookup].script,
     )
 
 # Returns the full label and its hash. The full label is used for `-Cmetadata`

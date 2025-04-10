@@ -7,7 +7,8 @@
 
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 load("@prelude//go_bootstrap:go_bootstrap.bzl", "GoBootstrapToolchainInfo")
-load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
+load("@prelude//os_lookup:defs.bzl", "ScriptLanguage")
+load("@prelude//utils:cmd_script.bzl", "cmd_script")
 
 def go_platform() -> (str, str):
     arch = host_info().arch
@@ -33,7 +34,7 @@ def go_platform() -> (str, str):
 def _system_go_bootstrap_toolchain_impl(ctx):
     go_os, go_arch = go_platform()
 
-    script_os = ScriptOs("windows" if go_os == "windows" else "unix")
+    script_language = ScriptLanguage("bat" if go_os == "windows" else "sh")
     go = "go.exe" if go_os == "windows" else "go"
 
     return [
@@ -41,7 +42,7 @@ def _system_go_bootstrap_toolchain_impl(ctx):
         GoBootstrapToolchainInfo(
             env_go_arch = go_arch,
             env_go_os = go_os,
-            go = RunInfo(cmd_script(ctx, "go", cmd_args(go), script_os)),
+            go = RunInfo(cmd_script(ctx, "go", cmd_args(go), script_language)),
             go_wrapper = ctx.attrs.go_wrapper[RunInfo],
         ),
     ]
@@ -62,26 +63,26 @@ system_go_bootstrap_toolchain = rule(
 def _system_go_toolchain_impl(ctx):
     go_os, go_arch = go_platform()
 
-    script_os = ScriptOs("windows" if go_os == "windows" else "unix")
+    script_language = ScriptLanguage("bat" if go_os == "windows" else "sh")
     go = "go.exe" if go_os == "windows" else "go"
 
     return [
         DefaultInfo(),
         GoToolchainInfo(
-            assembler = RunInfo(cmd_script(ctx, "asm", cmd_args(go, "tool", "asm"), script_os)),
-            cgo = RunInfo(cmd_script(ctx, "cgo", cmd_args(go, "tool", "cgo"), script_os)),
+            assembler = RunInfo(cmd_script(ctx, "asm", cmd_args(go, "tool", "asm"), script_language)),
+            cgo = RunInfo(cmd_script(ctx, "cgo", cmd_args(go, "tool", "cgo"), script_language)),
             cgo_wrapper = ctx.attrs.cgo_wrapper[RunInfo],
             concat_files = ctx.attrs.concat_files[RunInfo],
-            compiler = RunInfo(cmd_script(ctx, "compile", cmd_args(go, "tool", "compile"), script_os)),
-            cover = RunInfo(cmd_script(ctx, "cover", cmd_args(go, "tool", "cover"), script_os)),
+            compiler = RunInfo(cmd_script(ctx, "compile", cmd_args(go, "tool", "compile"), script_language)),
+            cover = RunInfo(cmd_script(ctx, "cover", cmd_args(go, "tool", "cover"), script_language)),
             env_go_arch = go_arch,
             env_go_os = go_os,
             external_linker_flags = [],
             gen_stdlib_importcfg = ctx.attrs.gen_stdlib_importcfg[RunInfo],
-            go = RunInfo(cmd_script(ctx, "go", cmd_args(go), script_os)),
+            go = RunInfo(cmd_script(ctx, "go", cmd_args(go), script_language)),
             go_wrapper = ctx.attrs.go_wrapper[RunInfo],
-            linker = RunInfo(cmd_script(ctx, "link", cmd_args(go, "tool", "link"), script_os)),
-            packer = RunInfo(cmd_script(ctx, "pack", cmd_args(go, "tool", "pack"), script_os)),
+            linker = RunInfo(cmd_script(ctx, "link", cmd_args(go, "tool", "link"), script_language)),
+            packer = RunInfo(cmd_script(ctx, "pack", cmd_args(go, "tool", "pack"), script_language)),
             build_tags = [],
             linker_flags = [],
             assembler_flags = [],

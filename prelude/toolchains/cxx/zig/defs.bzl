@@ -120,8 +120,11 @@ load(
     "LinkStyle",
 )
 load(
+    "@prelude//os_lookup:defs.bzl",
+    "ScriptLanguage",
+)
+load(
     "@prelude//utils:cmd_script.bzl",
-    "ScriptOs",
     "cmd_script",
 )
 load(
@@ -327,25 +330,25 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx = ctx,
         name = "zig_cc",
         cmd = cmd_args(zig, "cc"),
-        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
     )
     zig_cxx = cmd_script(
         ctx = ctx,
         name = "zig_cxx",
         cmd = cmd_args(zig, "c++"),
-        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
     )
     zig_ar = cmd_script(
         ctx = ctx,
         name = "zig_ar",
         cmd = cmd_args(zig, "ar"),
-        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
     )
     zig_ranlib = cmd_script(
         ctx = ctx,
         name = "zig_ranlib",
         cmd = cmd_args(zig, "ranlib"),
-        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
     )
     return [ctx.attrs.distribution[DefaultInfo]] + cxx_toolchain_infos(
         internal_tools = ctx.attrs._cxx_internal_tools[CxxInternalTools],

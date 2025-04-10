@@ -24,7 +24,7 @@ load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//rust:targets.bzl", "targets")
-load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
+load("@prelude//utils:cmd_script.bzl", "cmd_script")
 load(":build.bzl", "dependency_args")
 load(":build_params.bzl", "MetadataKind")
 load(":context.bzl", "DepCollectionContext")
@@ -75,7 +75,7 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
         ctx = ctx,
         name = "__rustc_shim",
         cmd = cmd_args(toolchain_info.compiler, sysroot_args, relative_to = cwd),
-        os = ScriptOs("windows" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "unix"),
+        language = ctx.attrs._exec_os_type[OsLookup].script,
     )
 
     return cmd_args(shim, relative_to = cwd)
