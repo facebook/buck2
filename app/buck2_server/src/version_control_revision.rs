@@ -52,6 +52,8 @@ async fn create_revision_data() -> buck2_data::VersionControlRevision {
                 }
                 RepoVcs::Git => {
                     // TODO(rajneeshl): Implement the git data
+                    // Add a message for now so we can actually tell if revision is null due to git
+                    revision.command_error = Some("Git revision data not implemented".to_owned());
                 }
                 RepoVcs::Unknown => {
                     revision.command_error = Some("Unknown repository type".to_owned());
@@ -86,10 +88,14 @@ async fn add_hg_data(revision: &mut buck2_data::VersionControlRevision) -> buck2
                 return Ok(());
             }
             let stdout = std::str::from_utf8(&result.stdout)?.trim();
-            if stdout.len() == 40 {
-                revision.hg_revision = Some(stdout.to_owned());
+            // whereami will sometimes return multiple revisions (Possibly due to merge state not handled well)
+            // This is not a common pattern (less than 1%) and the last revision should be accurate enough
+            // `hg log -r . -T '{node}'`` handles this properly but it's ~40% slower, we should switch if that becomes more performant
+            let last_line = stdout.split('\n').last().unwrap_or(stdout);
+            if last_line.len() == 40 {
+                revision.hg_revision = Some(last_line.to_owned());
             } else {
-                revision.command_error = Some(format!("Unexpected revision : {}", stdout));
+                revision.command_error = Some(format!("Unexpected revision: {}", stdout));
             }
         }
         Err(e) => {
