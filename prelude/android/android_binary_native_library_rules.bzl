@@ -342,24 +342,6 @@ def get_android_binary_native_library_info(
             unrelinked_shared_libs_by_platform = final_shared_libs_by_platform
             final_shared_libs_by_platform = relink_libraries(ctx, final_shared_libs_by_platform)
             _link_library_subtargets(ctx, outputs, lib_outputs_by_platform, original_shared_libs_by_platform, unrelinked_shared_libs_by_platform, merged_shared_lib_targets_by_platform, split_groups, native_merge_debug, unrelinked = True)
-            # @oss-disable[end= ]: final_shared_libs_by_platform = gatorade_libraries(ctx, final_shared_libs_by_platform)
-
-        bolt_args = getattr(ctx.attrs, "native_library_bolt_args", None)
-        if bolt_args and len(bolt_args) != 0:
-            final_shared_libs_by_platform = _bolt_libraries(ctx, final_shared_libs_by_platform, bolt_args)
-
-        _link_library_subtargets(ctx, outputs, lib_outputs_by_platform, original_shared_libs_by_platform, final_shared_libs_by_platform, merged_shared_lib_targets_by_platform, split_groups, native_merge_debug)
-
-        unstripped_libs = {}
-        for platform, libs in final_shared_libs_by_platform.items():
-            for lib in libs.values():
-                unstripped_libs[lib.lib.output] = platform
-        ctx.actions.write(outputs[unstripped_native_libraries], unstripped_libs.keys())
-        ctx.actions.write_json(outputs[unstripped_native_libraries_json], unstripped_libs)
-        ctx.actions.symlinked_dir(outputs[unstripped_native_libraries_files], {
-            "{}/{}".format(platform, lib.short_path): lib
-            for lib, platform in unstripped_libs.items()
-        })
 
         if ctx.attrs._android_toolchain[AndroidToolchainInfo].cross_module_native_deps_check:
             # note: can only detect these if linkable_nodes_by_platform is created, ie. if using relinker or merging
@@ -378,35 +360,70 @@ def get_android_binary_native_library_info(
                 cross_module_link_errors.append(get_deps_debug_data())
                 fail("Native libraries in modules should only depend on libraries in the same module or the root. Remove these deps:\n" + "\n".join(cross_module_link_errors))
 
-        dynamic_info = _get_native_libs_and_assets(
-            ctx,
-            get_module_from_target,
-            all_prebuilt_native_library_dirs,
-            final_shared_libs_by_platform,
-        )
+        native_lib_dynamic_outputs = {
+            "native_lib_assets_for_primary_apk": outputs[native_lib_assets_for_primary_apk],
+            "native_libs": outputs[native_libs],
+            "native_libs_always_in_primary_apk": outputs[native_libs_always_in_primary_apk],
+            "native_libs_metadata": outputs[native_libs_metadata],
+            "non_root_module_lib_assets": outputs[non_root_module_lib_assets],
+            "non_root_module_metadata_assets": outputs[non_root_module_metadata_assets],
+            "root_module_metadata_assets": outputs[root_module_metadata_assets],
+            "stripped_native_linkable_assets_for_primary_apk": outputs[stripped_native_linkable_assets_for_primary_apk],
+            "unstripped_native_libraries": outputs[unstripped_native_libraries],
+            "unstripped_native_libraries_files": outputs[unstripped_native_libraries_files],
+            "unstripped_native_libraries_json": outputs[unstripped_native_libraries_json],
+        }
 
-        # Since we are using a dynamic action, we need to declare the outputs in advance.
-        # Rather than passing the created outputs into `_get_native_libs_and_assets`, we
-        # just symlink to the outputs that function produces.
-        ctx.actions.symlink_file(outputs[native_libs], dynamic_info.native_libs)
-        ctx.actions.symlink_file(outputs[native_libs_metadata], dynamic_info.native_libs_metadata)
-        ctx.actions.symlink_file(outputs[native_libs_always_in_primary_apk], dynamic_info.native_libs_always_in_primary_apk)
-        ctx.actions.symlink_file(outputs[native_lib_assets_for_primary_apk], dynamic_info.native_lib_assets_for_primary_apk if dynamic_info.native_lib_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_native_lib_assets", {}))
-        ctx.actions.symlink_file(outputs[stripped_native_linkable_assets_for_primary_apk], dynamic_info.stripped_native_linkable_assets_for_primary_apk if dynamic_info.stripped_native_linkable_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_stripped_native_linkable_assets", {}))
-        ctx.actions.symlink_file(outputs[root_module_metadata_assets], dynamic_info.root_module_metadata_assets)
-        ctx.actions.symlink_file(outputs[non_root_module_metadata_assets], dynamic_info.non_root_module_metadata_assets)
-        ctx.actions.symlink_file(outputs[non_root_module_lib_assets], dynamic_info.non_root_module_lib_assets if dynamic_info.non_root_module_lib_assets else ctx.actions.symlinked_dir("empty_non_root_module_lib_assets", {}))
+        if getattr(ctx.attrs, "enable_gatorade", False):
+            # Prevent Buildifier from moving comments in a way that breaks things.
+            args = [
+                ctx,
+                final_shared_libs_by_platform,
+                _post_native_lib_graph_finalization_steps,
+                all_prebuilt_native_library_dirs,
+                get_module_from_target,
+                native_lib_dynamic_outputs,
+            ]
+            # @oss-disable[end= ]: subtarget_shared_libs_by_platform = gatorade_libraries(*args)
+        else:
+            subtarget_shared_libs_by_platform = _post_native_lib_graph_finalization_steps(
+                ctx,
+                final_shared_libs_by_platform,
+                all_prebuilt_native_library_dirs,
+                get_module_from_target,
+                **native_lib_dynamic_outputs
+            )
+
+        # Subtargets can't be created or changed from within dynamic actions, so the individual
+        # library subtargets can't reflect any changes to the set of libraries made by a dynamic
+        # action. All other logic should be in _post_native_lib_graph_finalization_steps, which
+        # receives the final set of native libraries.
+        _link_library_subtargets(
+            ctx,
+            outputs,
+            lib_outputs_by_platform,
+            original_shared_libs_by_platform,
+            subtarget_shared_libs_by_platform,
+            merged_shared_lib_targets_by_platform,
+            split_groups,
+            native_merge_debug,
+        )
 
     ctx.actions.dynamic_output(dynamic = dynamic_inputs, inputs = [], outputs = [o.as_output() for o in dynamic_outputs], f = dynamic_native_libs_info)
     all_native_libs = ctx.actions.symlinked_dir("debug_all_native_libs", {"others": native_libs, "primary": native_libs_always_in_primary_apk})
 
-    lib_subtargets = _create_library_subtargets(lib_outputs_by_platform, native_libs)
+    lib_subtargets = _create_library_subtargets(
+        lib_outputs_by_platform,
+        native_libs,
+        create_default_outputs = not getattr(ctx.attrs, "enable_gatorade", False),
+    )
     enhance_ctx.debug_output("native_libs", all_native_libs, sub_targets = lib_subtargets)
     if native_merge_debug:
         enhance_ctx.debug_output("native_merge_debug", native_merge_debug)
 
     enhance_ctx.debug_output("unstripped_native_libraries", unstripped_native_libraries, other_outputs = [unstripped_native_libraries_files])
     enhance_ctx.debug_output("unstripped_native_libraries_json", unstripped_native_libraries_json, other_outputs = [unstripped_native_libraries_files])
+    enhance_ctx.debug_output("unstripped_native_libraries_files", unstripped_native_libraries_files)
 
     native_libs_for_primary_apk, exopackage_info = _get_exopackage_info(ctx, native_libs_always_in_primary_apk, native_libs, native_libs_metadata)
     return AndroidBinaryNativeLibsInfo(
@@ -424,6 +441,58 @@ _NativeLibSubtargetArtifacts = record(
     default = Artifact,
     unrelinked = Artifact | None,
 )
+
+def _post_native_lib_graph_finalization_steps(
+        ctx: AnalysisContext,
+        final_shared_libs_by_platform: dict[str, dict[str, SharedLibrary]],
+        all_prebuilt_native_library_dirs: list[PrebuiltNativeLibraryDir],
+        get_module_from_target: typing.Callable,
+        unstripped_native_libraries: Artifact,
+        unstripped_native_libraries_json: Artifact,
+        unstripped_native_libraries_files: Artifact,
+        native_libs: Artifact,
+        native_libs_metadata: Artifact,
+        native_libs_always_in_primary_apk: Artifact,
+        native_lib_assets_for_primary_apk: Artifact,
+        stripped_native_linkable_assets_for_primary_apk: Artifact,
+        root_module_metadata_assets: Artifact,
+        non_root_module_metadata_assets: Artifact,
+        non_root_module_lib_assets: Artifact) -> dict[str, dict[str, SharedLibrary]]:
+    bolt_args = getattr(ctx.attrs, "native_library_bolt_args", None)
+    if bolt_args and len(bolt_args) != 0:
+        final_shared_libs_by_platform = _bolt_libraries(ctx, final_shared_libs_by_platform, bolt_args)
+
+    unstripped_libs = {}
+    for platform, libs in final_shared_libs_by_platform.items():
+        for lib in libs.values():
+            unstripped_libs[lib.lib.output] = platform
+    ctx.actions.write(unstripped_native_libraries, unstripped_libs.keys())
+    ctx.actions.write_json(unstripped_native_libraries_json, unstripped_libs)
+    ctx.actions.symlinked_dir(unstripped_native_libraries_files, {
+        "{}/{}".format(platform, lib.basename): lib
+        for lib, platform in unstripped_libs.items()
+    })
+
+    dynamic_info = _get_native_libs_and_assets(
+        ctx,
+        get_module_from_target,
+        all_prebuilt_native_library_dirs,
+        final_shared_libs_by_platform,
+    )
+
+    # Since we are using a dynamic action, we need to declare the outputs in advance.
+    # Rather than passing the created outputs into `_get_native_libs_and_assets`, we
+    # just symlink to the outputs that function produces.
+    ctx.actions.symlink_file(native_libs, dynamic_info.native_libs)
+    ctx.actions.symlink_file(native_libs_metadata, dynamic_info.native_libs_metadata)
+    ctx.actions.symlink_file(native_libs_always_in_primary_apk, dynamic_info.native_libs_always_in_primary_apk)
+    ctx.actions.symlink_file(native_lib_assets_for_primary_apk, dynamic_info.native_lib_assets_for_primary_apk if dynamic_info.native_lib_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_native_lib_assets", {}))
+    ctx.actions.symlink_file(stripped_native_linkable_assets_for_primary_apk, dynamic_info.stripped_native_linkable_assets_for_primary_apk if dynamic_info.stripped_native_linkable_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_stripped_native_linkable_assets", {}))
+    ctx.actions.symlink_file(root_module_metadata_assets, dynamic_info.root_module_metadata_assets)
+    ctx.actions.symlink_file(non_root_module_metadata_assets, dynamic_info.non_root_module_metadata_assets)
+    ctx.actions.symlink_file(non_root_module_lib_assets, dynamic_info.non_root_module_lib_assets if dynamic_info.non_root_module_lib_assets else ctx.actions.symlinked_dir("empty_non_root_module_lib_assets", {}))
+
+    return final_shared_libs_by_platform
 
 # Merged libraries are dynamic dependencies, but outputs need to be declared in advance to be used by subtargets.
 # This means we have to declare outputs for all possible merged libs (every merged name and every unmerged library name).
@@ -512,17 +581,27 @@ def _link_library_subtargets(
                 output = lib_outputs.unrelinked
             ctx.actions.symlinked_dir(outputs[output], group_outputs)
 
-def _create_library_subtargets(lib_outputs_by_platform: dict[str, dict[str, _NativeLibSubtargetArtifacts]], native_libs: Artifact):
-    def create_library_subtarget(output: _NativeLibSubtargetArtifacts):
+def _create_library_subtargets(
+        lib_outputs_by_platform: dict[str, dict[str, _NativeLibSubtargetArtifacts]],
+        native_libs: Artifact,
+        create_default_outputs: bool):
+    def create_library_subtarget(output: _NativeLibSubtargetArtifacts, create_default_outputs: bool):
+        if not create_default_outputs and not output.unrelinked:
+            fail("create_default_outputs can only be False when relinking")
         if output.unrelinked:
             sub_targets = {"unrelinked": [DefaultInfo(default_outputs = [output.unrelinked])]}
-            return [DefaultInfo(default_outputs = [output.default], sub_targets = sub_targets)]
+            if create_default_outputs:
+                default_outputs = [output.default]
+            else:
+                sub_targets |= {"relinked": [DefaultInfo(default_outputs = [output.default])]}
+                default_outputs = []
+            return [DefaultInfo(default_outputs = default_outputs, sub_targets = sub_targets)]
         return [DefaultInfo(default_outputs = [output.default])]
 
     if len(lib_outputs_by_platform) > 1:
         return {
             platform: [DefaultInfo(default_outputs = [native_libs], sub_targets = {
-                soname: create_library_subtarget(output)
+                soname: create_library_subtarget(output, create_default_outputs)
                 for soname, output in lib_outputs.items()
             })]
             for platform, lib_outputs in lib_outputs_by_platform.items()
@@ -530,7 +609,7 @@ def _create_library_subtargets(lib_outputs_by_platform: dict[str, dict[str, _Nat
     elif len(lib_outputs_by_platform) == 1:
         lib_outputs = list(lib_outputs_by_platform.values())[0]
         return {
-            soname: create_library_subtarget(output)
+            soname: create_library_subtarget(output, create_default_outputs)
             for soname, output in lib_outputs.items()
         }
     else:
