@@ -324,3 +324,21 @@ async def test_peak_memory_and_disk(buck: Buck, tmp_path: Path) -> None:
     assert (
         "peak_used_disk_space_bytes" in record and "peak_process_memory_bytes" in record
     )
+
+
+@buck_test(setup_eden=True)
+async def test_version_control_collector(buck: Buck, tmp_path: Path) -> None:
+    record = tmp_path / "record.json"
+
+    await buck.build(
+        ":sleep",
+        "--unstable-write-invocation-record",
+        str(record),
+        "--local-only",
+        "--no-remote-cache",
+    )
+
+    record = read_invocation_record(record)
+
+    assert "has_local_changes" in record and "hg_revision" in record
+    assert record["hg_revision"] is not None

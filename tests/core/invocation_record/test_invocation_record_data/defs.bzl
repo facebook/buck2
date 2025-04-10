@@ -64,3 +64,17 @@ two = rule(
     impl = _two,
     attrs = {},
 )
+
+def _sleep(ctx):
+    # sleep for 5 seconds to ensure all hg commands are finished
+    out = ctx.actions.declare_output("out")
+    ctx.actions.run(
+        cmd_args(["python3", "-c", "import sys, time; time.sleep(5); open(sys.argv[1], 'w').write('something')"], out.as_output()),
+        category = "sleep",
+    )
+    return [DefaultInfo(out)]
+
+sleep = rule(
+    impl = _sleep,
+    attrs = {},
+)
