@@ -214,15 +214,15 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         dependency_jars = []
 
         # separate jars in groups
-        for (dep_jar, label) in packaging_dep_infos.items():
+        for (dep_jar, owner) in packaging_dep_infos.items():
             # lookup for the base jar that can be used to append all other dependencies
-            if base_dep and label == base_dep.label:
+            if base_dep and owner == base_dep.label.raw_target():
                 expect(
                     base_jar == None,
                     "JAR can only have one base JAR file.",
                 )
                 base_jar = dep_jar
-            elif str(label).startswith(incremental_target_prefix):
+            elif str(owner).startswith(incremental_target_prefix):
                 # if it's not a base jar, it can be an incremental jar or dependency only
                 incremental_jars.append(dep_jar)
             else:
