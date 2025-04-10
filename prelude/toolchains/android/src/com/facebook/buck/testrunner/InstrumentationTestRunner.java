@@ -849,7 +849,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     // Use PLAIN_TEXT type(id = 5 https://fburl.com/code/8xzvasdf)
     String annotationTemplate =
         String.format(
-            "{\"type\": {\"formatted_log\": {\"log_source\": 4}}, \"description\": \"%s\"}",
+            "{\"type\": {\"formatted_log\": {\"log_source\": 5}}, \"description\": \"%s\"}",
             description);
     return createTRA(annotationTemplate, name);
   }
