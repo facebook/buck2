@@ -46,7 +46,10 @@ async fn create_revision_data() -> buck2_data::VersionControlRevision {
         Ok(repo_vcs) => {
             match repo_vcs {
                 RepoVcs::Hg => {
-                    if let Err(e) = add_hg_data(&mut revision).await {
+                    if let Err(e) = add_current_revision(&mut revision).await {
+                        revision.command_error = Some(e.to_string());
+                    }
+                    if let Err(e) = add_status_info(&mut revision).await {
                         revision.command_error = Some(e.to_string());
                     }
                 }
@@ -67,15 +70,13 @@ async fn create_revision_data() -> buck2_data::VersionControlRevision {
     revision
 }
 
-async fn add_hg_data(revision: &mut buck2_data::VersionControlRevision) -> buck2_error::Result<()> {
-    // We fire 2 hg command in parallel:
-    //  The `hg whereami` returns the full hash of the revision
-    //  The `hg status` returns if there are any local changes
-    let whereami_command = reap_on_drop_command("hg", &["whereami"], Some(&[("HGPLAIN", "1")]))?;
-    let status_command = reap_on_drop_command("hg", &["status"], Some(&[("HGPLAIN", "1")]))?;
-
-    let (whereami_output, status_output) =
-        tokio::join!(whereami_command.output(), status_command.output());
+async fn add_current_revision(
+    revision: &mut buck2_data::VersionControlRevision,
+) -> buck2_error::Result<()> {
+    // `hg whereami` returns the full hash of the revision
+    let whereami_output = reap_on_drop_command("hg", &["whereami"], Some(&[("HGPLAIN", "1")]))?
+        .output()
+        .await;
 
     match whereami_output {
         Ok(result) => {
@@ -102,7 +103,17 @@ async fn add_hg_data(revision: &mut buck2_data::VersionControlRevision) -> buck2
             revision.command_error =
                 Some(format!("Command `hg whereami` failed with error: {:?}", e));
         }
-    }
+    };
+    Ok(())
+}
+
+async fn add_status_info(
+    revision: &mut buck2_data::VersionControlRevision,
+) -> buck2_error::Result<()> {
+    // `hg status` returns if there are any local changes
+    let status_output = reap_on_drop_command("hg", &["status"], Some(&[("HGPLAIN", "1")]))?
+        .output()
+        .await;
 
     match status_output {
         Ok(result) => {
