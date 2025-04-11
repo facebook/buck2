@@ -26,6 +26,7 @@ import java.io.PrintStream
 import java.nio.file.Path
 import java.util.Optional
 import java.util.UUID
+import kotlin.io.path.extension
 import org.jetbrains.kotlin.buildtools.api.CompilationService
 import org.jetbrains.kotlin.buildtools.api.ExperimentalBuildToolsApi
 import org.jetbrains.kotlin.buildtools.api.ProjectId
@@ -51,7 +52,12 @@ class BuildToolsKotlinc : Kotlinc {
   ): Int {
     val compilerArgs =
         buildCompilerArgs(
-            ruleCellRoot, kotlinSourceFilePaths, workingDirectory, invokingRule, options)
+            ruleCellRoot,
+            kotlinSourceFilePaths,
+            workingDirectory,
+            invokingRule,
+            options,
+            kotlinCDLoggingContext)
 
     LOG.info(
         "[KotlinC Toolchain Build Step from for target:${invokingRule.fullyQualifiedName} type:${invokingRule.type}] " +
@@ -95,10 +101,20 @@ class BuildToolsKotlinc : Kotlinc {
       workingDirectory: Optional<Path>,
       invokingRule: BuildTargetValue,
       options: List<String>,
+      kotlinCDLoggingContext: KotlinCDLoggingContext
   ): List<String> {
     val expandedSources: ImmutableList<Path> =
         getExpandedSourcePathsOrThrow(
             ruleCellRoot, kotlinSourceFilePaths, workingDirectory, invokingRule)
+
+    expandedSources
+        .groupingBy { path -> path.extension }
+        .eachCount()
+        .forEach { (extension, count) ->
+          kotlinCDLoggingContext.addExtras(
+              BuildToolsKotlinc::class.java.simpleName, "Total count of $extension files: $count")
+        }
+
     val resolvedExpandedSources =
         expandedSources.map { path -> ruleCellRoot.resolve(path).toString() }
 
