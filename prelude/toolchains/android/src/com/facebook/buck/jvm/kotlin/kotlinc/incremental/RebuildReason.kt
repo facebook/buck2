@@ -9,30 +9,9 @@
 
 package com.facebook.buck.jvm.kotlin.kotlinc.incremental
 
-import com.facebook.buck.core.filesystems.AbsPath
-
-sealed interface RebuildReason {
-
-  val reason: String
-
-  data object PreviousBuildConfigurationNotFound : RebuildReason {
-
-    override val reason: String = "Previous build configuration not found"
-  }
-
-  data object BuildConfigurationChanged : RebuildReason {
-
-    override val reason: String = "Build configuration has been changed"
-  }
-
-  data class PreviousKotlinUsedClassesFileNotFound(private val kotlinClassUsageFileDir: AbsPath) :
-      RebuildReason {
-
-    override val reason: String = "${kotlinClassUsageFileDir.fileName} not found"
-  }
-
-  data class JvmAbiGenWorkingDirNotFound(private val jvmAbiGenWorkingDir: AbsPath) : RebuildReason {
-
-    override val reason: String = "${jvmAbiGenWorkingDir.fileName} not found"
-  }
+enum class RebuildReason(val message: String) {
+  NO_LAST_BUILD_CONFIGURATION("Last build configuration not found"),
+  BUILD_CONFIGURATION_CHANGED("Build configuration has been changed"),
+  NO_LAST_KOTLIN_USED_CLASSES_FILE("kotlin-used-classes.json not found"),
+  NO_JVM_ABI_WORKING_DIR("jvm_abi_gen_working_dir not found")
 }

@@ -23,21 +23,21 @@ public class IncrementalCompilationValidator {
       @Nullable AbsPath kotlinClassUsageFileDir,
       @Nullable AbsPath jvmAbiGenWorkingDir) {
     if (actionMetadata.getPreviousIncrementalMetadataDigest() == null) {
-      return RebuildReason.PreviousBuildConfigurationNotFound.INSTANCE;
+      return RebuildReason.NO_LAST_BUILD_CONFIGURATION;
     }
 
     if (!actionMetadata
         .getPreviousIncrementalMetadataDigest()
         .equals(actionMetadata.getCurrentIncrementalMetadataDigest())) {
-      return RebuildReason.BuildConfigurationChanged.INSTANCE;
+      return RebuildReason.BUILD_CONFIGURATION_CHANGED;
     }
 
     if (kotlinClassUsageFileDir != null && !kotlinClassUsageFileDir.toFile().exists()) {
-      return new RebuildReason.PreviousKotlinUsedClassesFileNotFound(kotlinClassUsageFileDir);
+      return RebuildReason.NO_LAST_KOTLIN_USED_CLASSES_FILE;
     }
 
     if (jvmAbiGenWorkingDir != null && !jvmAbiGenWorkingDir.toFile().exists()) {
-      return new RebuildReason.JvmAbiGenWorkingDirNotFound(jvmAbiGenWorkingDir);
+      return RebuildReason.NO_JVM_ABI_WORKING_DIR;
     }
 
     return null;

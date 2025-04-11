@@ -11,7 +11,6 @@ package com.facebook.buck.jvm.kotlin;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -39,7 +38,7 @@ public class IncrementalCompilationValidatorTest {
 
     RebuildReason result = incrementalCompilationValidator.validate(actionMetadata, null, null);
 
-    assertEquals(RebuildReason.PreviousBuildConfigurationNotFound.INSTANCE, result);
+    assertEquals(RebuildReason.NO_LAST_BUILD_CONFIGURATION, result);
   }
 
   @Test
@@ -50,7 +49,7 @@ public class IncrementalCompilationValidatorTest {
 
     RebuildReason result = incrementalCompilationValidator.validate(actionMetadata, null, null);
 
-    assertEquals(RebuildReason.BuildConfigurationChanged.INSTANCE, result);
+    assertEquals(RebuildReason.BUILD_CONFIGURATION_CHANGED, result);
   }
 
   @Test
@@ -67,7 +66,7 @@ public class IncrementalCompilationValidatorTest {
     RebuildReason result =
         incrementalCompilationValidator.validate(actionMetadata, kotlinClassUsageFileDir, null);
 
-    assertTrue(result instanceof RebuildReason.PreviousKotlinUsedClassesFileNotFound);
+    assertEquals(RebuildReason.NO_LAST_KOTLIN_USED_CLASSES_FILE, result);
   }
 
   @Test
@@ -83,7 +82,7 @@ public class IncrementalCompilationValidatorTest {
     RebuildReason result =
         incrementalCompilationValidator.validate(actionMetadata, null, jvmAbiGenWorkingDir);
 
-    assertTrue(result instanceof RebuildReason.JvmAbiGenWorkingDirNotFound);
+    assertEquals(RebuildReason.NO_JVM_ABI_WORKING_DIR, result);
   }
 
   @Test

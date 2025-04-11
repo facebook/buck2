@@ -53,10 +53,10 @@ internal class JvmCompilationConfigurationFactory(
                       val rebuildReason = mode.rebuildReason
                       if (rebuildReason != null) {
                         LOG.info(
-                            "Non-incremental compilation will be performed: ${rebuildReason.reason}")
+                            "Non-incremental compilation will be performed: ${rebuildReason.message}")
                         kotlinCDLoggingContext.addExtras(
                             JvmCompilationConfigurationFactory::class.java.simpleName,
-                            "Non-incremental compilation will be performed: ${rebuildReason.reason}")
+                            "Non-incremental compilation will be performed: ${rebuildReason.message}")
                         forceNonIncrementalMode(true)
                       }
 
