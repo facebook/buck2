@@ -43,7 +43,9 @@ class ParBuilder:
             if self.runtime_root and self.exe:
                 self.python = os.path.join(self.runtime_root, self.exe)
         else:
-            self.entry_point = None
+            self.entry_point = (
+                options.runtime_binary if options.runtime_binary else None
+            )
             self.runtime_files = None
             self.python = options.python
             self.python_home = None
