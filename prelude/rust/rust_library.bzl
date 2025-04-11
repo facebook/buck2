@@ -1000,7 +1000,7 @@ def _compute_transitive_deps(
 
 def rust_library_macro_wrapper(rust_library: typing.Callable) -> typing.Callable:
     def wrapper(**kwargs):
-        if not kwargs.pop("_use_legacy_proc_macros", False) and kwargs.get("proc_macro") == True:
+        if kwargs.get("proc_macro") == True:
             name = kwargs["name"]
             if kwargs.get("crate", None) == None and kwargs.get("crate_dynamic", None) == None:
                 kwargs["crate"] = name.replace("-", "_")
