@@ -153,6 +153,8 @@ genrules supported by Buck2 are:
 - [`genrule`](../../prelude/globals/#genrule)
 - [`apk_genrule`](../../prelude/globals/#apk_genrule)
 - [`cxx_genrule`](../../prelude/globals/#cxx_genrule)
+- [`jar_genrule`](../../prelude/globals/#jar_genrule)
+- [`js_bundle_genrule`](../../prelude/globals/#js_bundle_genrule)
 
 ### Multiple output files with genrules
 
