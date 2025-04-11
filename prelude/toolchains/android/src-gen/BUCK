@@ -1,5 +1,7 @@
 load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
 
+oncall("android_devxx")
+
 buck_java_library(
     name = "javacd-model",
     srcs = glob(["**/cd/model/java/**/*.java"]),
