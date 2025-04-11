@@ -177,7 +177,7 @@ def cxx_toolchain_impl(ctx):
         objdump = ctx.attrs.objdump[RunInfo] if ctx.attrs.objdump else None,
         ranlib = ctx.attrs.ranlib[RunInfo] if ctx.attrs.ranlib else None,
         strip = ctx.attrs.strip[RunInfo],
-        dwp = None,
+        dwp = ctx.attrs.dwp[RunInfo] if ctx.attrs.dwp else None,
         bolt_msdk = None,
     )
 
@@ -252,6 +252,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "custom_tools": attrs.dict(key = attrs.string(), value = dep_type(providers = [RunInfo]), default = {}),
         "cvtres_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "cxx_compiler": dep_type(providers = [RunInfo]),
+        "dwp": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "gcno_files": attrs.bool(default = False),
         "generate_linker_maps": attrs.bool(default = False),
         "hip_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
