@@ -195,8 +195,7 @@ impl Action for CasArtifactAction {
         &self,
         ctx: &mut dyn ActionExecutionCtx,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
-        // If running in offline environment, try to restore from cached outputs
-        // first. Fallthrough to normal operation if unsuccessful.
+        // If running in offline environment, try to restore from cached outputs.
         if ctx.run_action_knobs().use_network_action_output_cache {
             return self.execute_for_offline(ctx).await.map_err(Into::into);
         }
