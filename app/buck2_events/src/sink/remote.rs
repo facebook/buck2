@@ -115,14 +115,7 @@ mod fbcode {
 
             Self::prepare_event(&mut proto);
 
-            // TODO T219761949: remove header byte
-            // Add a header byte to indicate this is _not_ base64 encoding.
-            let mut buf = Vec::with_capacity(proto.encoded_len() + 1);
-            buf.push(b'!');
-
-            let mut proto_bytes = proto.encode_to_vec();
-            buf.append(&mut proto_bytes);
-
+            let buf = proto.encode_to_vec();
             if buf.len() > SCRIBE_MESSAGE_SIZE_LIMIT {
                 // if this BuckEvent is already a truncated one but the buffer byte size exceeds the limit,
                 // do not send Scribe another truncated version
