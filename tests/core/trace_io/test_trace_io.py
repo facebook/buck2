@@ -239,7 +239,10 @@ async def test_no_tracing_does_not_write_offline_cache_for_http_archive(
 
 # Validate that when buckconfig use_network_action_output_cache=true is set we use the
 # offline-cache action output instead of fetching from the network.
-@buck_test(skip_for_os=["windows"])
+@buck_test(
+    skip_for_os=["windows"],
+    extra_buck_config={"buck2": {"sqlite_materializer_state": "false"}},
+)
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 async def test_fake_offline_http_archive_uses_offline_cache(buck: Buck) -> None:
     hg_init(cwd=buck.cwd)
@@ -320,7 +323,10 @@ async def test_no_tracing_does_not_write_offline_cache_for_cas_artifact(
 
 # Validate that when buckconfig use_network_action_output_cache=true is set we use the
 # offline-cache action output instead of fetching from the network.
-@buck_test(skip_for_os=["windows"])
+@buck_test(
+    skip_for_os=["windows"],
+    extra_buck_config={"buck2": {"sqlite_materializer_state": "false"}},
+)
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 async def test_fake_offline_cas_artifact_uses_offline_cache(buck: Buck) -> None:
     hg_init(cwd=buck.cwd)

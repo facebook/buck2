@@ -49,7 +49,7 @@ impl DiskStateOptions {
                 section: "buck2",
                 property: "sqlite_materializer_state",
             })?
-            .unwrap_or_else(RolloutPercentage::never)
+            .unwrap_or_else(RolloutPercentage::always)
             .roll();
         Ok(Self {
             sqlite_materializer_state,
