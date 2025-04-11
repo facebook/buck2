@@ -77,8 +77,9 @@ impl QueryAttrTypeExt for QueryAttrType {
                 .into_iter()
                 .map(|(l, p)| {
                     query
-                        .find(l)
-                        .map(|offset| ((offset, l.len()), p))
+                        .as_str()
+                        .substr_range(l)
+                        .map(|range| ((range.start, range.len()), p))
                         .internal_error("Not found in query")
                 })
                 .try_collect()?,
