@@ -36,7 +36,6 @@ use crate::signal_handler::with_simple_sigint_handler;
 use crate::subscribers::build_graph_stats::BuildGraphStats;
 use crate::subscribers::build_id_writer::BuildIdWriter;
 use crate::subscribers::event_log::EventLog;
-use crate::subscribers::health_check_subscriber::HealthCheckSubscriber;
 use crate::subscribers::re_log::ReLog;
 use crate::subscribers::recorder::try_get_invocation_recorder;
 use crate::subscribers::subscriber::EventSubscriber;
@@ -56,9 +55,9 @@ fn default_subscribers<T: StreamingCommand>(
     // and log it in another (invocation_recorder)
     let log_size_counter_bytes = Some(Arc::new(AtomicU64::new(0)));
 
-    let (health_check_tags_sender, health_check_tags_receiver) =
+    let (_health_check_tags_sender, health_check_tags_receiver) =
         tokio::sync::mpsc::channel(HEALTH_CHECK_CHANNEL_SIZE);
-    let (health_check_display_reports_sender, health_check_display_reports_receiver) =
+    let (_health_check_display_reports_sender, health_check_display_reports_receiver) =
         tokio::sync::mpsc::channel(HEALTH_CHECK_CHANNEL_SIZE);
 
     subscribers.push(get_console_with_root(
@@ -102,10 +101,11 @@ fn default_subscribers<T: StreamingCommand>(
     recorder.update_metadata_from_client_metadata(&ctx.client_metadata);
     subscribers.push(recorder);
 
-    subscribers.push(HealthCheckSubscriber::new(
-        health_check_tags_sender,
-        health_check_display_reports_sender,
-    ));
+    // TODO(rajneeshl): Enable this after we have a cleaner kill switch for health checks.
+    // subscribers.push(HealthCheckSubscriber::new(
+    //     health_check_tags_sender,
+    //     health_check_display_reports_sender,
+    // ));
     subscribers.extend(cmd.extra_subscribers());
     Ok(EventSubscribers::new(subscribers))
 }
