@@ -152,13 +152,11 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
         panic_runtime = toolchain_info.panic_runtime,
     )
 
-    # When we pass explicit sysroot deps, we need to override the default sysroot to avoid accidentally
-    # linking against the prebuilt sysroot libs provided by the toolchain. Rustc requires a specific layout
-    # for these libs, so we need to carefully recreate the directory structure below.
+    # When we pass explicit sysroot deps, we need to override the default
+    # sysroot to avoid accidentally linking against the prebuilt sysroot libs
+    # provided by the toolchain.
     if toolchain_info.explicit_sysroot_deps:
-        empty_dir = ctx.actions.copied_dir("empty_dir", {})
-        empty_sysroot = ctx.actions.copied_dir("empty_sysroot", {"lib/rustlib/" + toolchain_info.rustc_target_triple + "/lib": empty_dir})
-
+        empty_sysroot = ctx.actions.copied_dir("empty_dir", {})
         sysroot_args = cmd_args("--sysroot=", empty_sysroot, delimiter = "")
     elif toolchain_info.sysroot_path:
         sysroot_args = cmd_args("--sysroot=", toolchain_info.sysroot_path, delimiter = "")
