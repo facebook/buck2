@@ -136,7 +136,7 @@ async fn add_hg_whereami(revision: &mut buck2_data::VersionControlRevision) {
             // whereami will sometimes return multiple revisions (Possibly due to merge state not handled well)
             // This is not a common pattern (less than 1%) and the last revision should be accurate enough
             // `hg log -r . -T '{node}'`` handles this properly but it's ~40% slower, we should switch if that becomes more performant
-            let last_line = stdout.split('\n').last().unwrap_or(stdout);
+            let last_line = stdout.split('\n').next_back().unwrap_or(stdout);
             if last_line.len() == 40 {
                 revision.hg_revision = Some(last_line.to_owned());
             } else {
