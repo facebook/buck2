@@ -18,7 +18,6 @@ import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.kotlin.abtesting.ExperimentConfigService;
 import com.facebook.buck.jvm.kotlin.abtesting.ksic.KsicExperimentConstantsKt;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlincMode;
-import com.facebook.buck.jvm.kotlin.kotlinc.incremental.RebuildReason;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,12 +28,16 @@ public class KotlincModeFactory {
   private static final Logger LOG = Logger.get(KotlincModeFactory.class);
 
   private ExperimentConfigService experimentConfigService;
+  private IncrementalCompilationValidator incrementalCompilationValidator;
 
   public KotlincModeFactory() {
-    this(ExperimentConfigService.loadImplementation());
+    this(new IncrementalCompilationValidator(), ExperimentConfigService.loadImplementation());
   }
 
-  public KotlincModeFactory(ExperimentConfigService experimentConfigService) {
+  public KotlincModeFactory(
+      IncrementalCompilationValidator incrementalCompilationValidator,
+      ExperimentConfigService experimentConfigService) {
+    this.incrementalCompilationValidator = incrementalCompilationValidator;
     this.experimentConfigService = experimentConfigService;
   }
 
@@ -100,7 +103,8 @@ public class KotlincModeFactory {
           KotlinSourceChangesFactory.create(rootProjectDir, metadata),
           ClasspathChangesFactory.create(metadata, classpathSnapshots),
           kotlinClassUsageFileDir,
-          checkIfRequiresRebuild(
+          incrementalCompilationValidator.validate(
+              metadata,
               kotlinClassUsageFileDir,
               getJvmAbiGenWorkingDir(
                   extraParams.getShouldUseJvmAbiGen(), extraParams.getJvmAbiGenWorkingDir())));
@@ -114,19 +118,6 @@ public class KotlincModeFactory {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-  }
-
-  private static @Nullable RebuildReason checkIfRequiresRebuild(
-      @Nullable AbsPath kotlinClassUsageFileDir, @Nullable AbsPath jvmAbiGenWorkingDir) {
-    if (kotlinClassUsageFileDir != null && !kotlinClassUsageFileDir.toFile().exists()) {
-      return new RebuildReason.PreviousKotlinUsedClassesFileNotFound(kotlinClassUsageFileDir);
-    }
-
-    if (jvmAbiGenWorkingDir != null && !jvmAbiGenWorkingDir.toFile().exists()) {
-      return new RebuildReason.JvmAbiGenWorkingDirNotFound(jvmAbiGenWorkingDir);
-    }
-
-    return null;
   }
 
   private static @Nullable AbsPath getJvmAbiGenWorkingDir(

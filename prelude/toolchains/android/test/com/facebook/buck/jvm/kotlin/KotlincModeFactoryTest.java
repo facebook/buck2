@@ -24,7 +24,6 @@ import com.facebook.buck.jvm.kotlin.abtesting.ExperimentConfig;
 import com.facebook.buck.jvm.kotlin.abtesting.ExperimentConfigService;
 import com.facebook.buck.jvm.kotlin.abtesting.ksic.KsicExperimentConstantsKt;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlincMode;
-import com.facebook.buck.jvm.kotlin.kotlinc.incremental.RebuildReason;
 import com.facebook.buck.testutil.TemporaryPaths;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
@@ -40,6 +39,7 @@ public class KotlincModeFactoryTest {
   private ActionMetadata mockActionMetadata;
   private ExperimentConfigService experimentConfigService;
   private ExperimentConfig experimentConfig;
+  private IncrementalCompilationValidator incrementalCompilationValidator;
   private AbsPath absPath;
   private RelPath relPath;
 
@@ -51,6 +51,7 @@ public class KotlincModeFactoryTest {
     mockActionMetadata = mock(ActionMetadata.class);
     experimentConfigService = mock(ExperimentConfigService.class);
     experimentConfig = mock(ExperimentConfig.class);
+    incrementalCompilationValidator = mock(IncrementalCompilationValidator.class);
     absPath = AbsPath.get("/");
     relPath = RelPath.get("");
 
@@ -58,6 +59,8 @@ public class KotlincModeFactoryTest {
     when(mockActionMetadata.getCurrentDigest()).thenReturn(new HashMap<>());
     when(experimentConfigService.loadConfig(KsicExperimentConstantsKt.UNIVERSE_NAME))
         .thenReturn(experimentConfig);
+    when(incrementalCompilationValidator.validate(mockActionMetadata, absPath, absPath))
+        .thenReturn(null);
   }
 
   @Test
@@ -67,7 +70,7 @@ public class KotlincModeFactoryTest {
     when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
 
     KotlincMode kotlincMode =
-        new KotlincModeFactory(experimentConfigService)
+        new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
             .create(
                 true,
                 absPath,
@@ -88,7 +91,7 @@ public class KotlincModeFactoryTest {
     when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
 
     KotlincMode kotlincMode =
-        new KotlincModeFactory(experimentConfigService)
+        new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
             .create(
                 false,
                 absPath,
@@ -109,7 +112,7 @@ public class KotlincModeFactoryTest {
     when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
 
     KotlincMode kotlincMode =
-        new KotlincModeFactory(experimentConfigService)
+        new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
             .create(
                 false,
                 absPath,
@@ -133,7 +136,7 @@ public class KotlincModeFactoryTest {
     when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
         .thenReturn(true);
 
-    new KotlincModeFactory(experimentConfigService)
+    new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
         .create(
             false,
             absPath,
@@ -155,7 +158,7 @@ public class KotlincModeFactoryTest {
     when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
         .thenReturn(true);
 
-    new KotlincModeFactory(experimentConfigService)
+    new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
         .create(
             false,
             absPath,
@@ -180,7 +183,7 @@ public class KotlincModeFactoryTest {
         .thenReturn(true);
 
     KotlincMode kotlincMode =
-        new KotlincModeFactory(experimentConfigService)
+        new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
             .create(
                 false,
                 absPath,
@@ -206,7 +209,7 @@ public class KotlincModeFactoryTest {
         .thenReturn(false);
 
     KotlincMode kotlincMode =
-        new KotlincModeFactory(experimentConfigService)
+        new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
             .create(
                 false,
                 absPath,
@@ -232,7 +235,7 @@ public class KotlincModeFactoryTest {
         .thenReturn(false);
 
     KotlincMode kotlincMode =
-        new KotlincModeFactory(experimentConfigService)
+        new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
             .create(
                 false,
                 absPath,
@@ -258,7 +261,7 @@ public class KotlincModeFactoryTest {
         .thenReturn(true);
 
     KotlincMode kotlincMode =
-        new KotlincModeFactory(experimentConfigService)
+        new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
             .create(
                 false,
                 absPath,
@@ -284,7 +287,7 @@ public class KotlincModeFactoryTest {
         .thenReturn(true);
 
     KotlincMode kotlincMode =
-        new KotlincModeFactory(experimentConfigService)
+        new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
             .create(
                 false,
                 absPath,
@@ -320,7 +323,7 @@ public class KotlincModeFactoryTest {
     assertNotNull(filesBefore);
     assertEquals(1, filesBefore.length);
 
-    new KotlincModeFactory(experimentConfigService)
+    new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
         .create(
             false,
             absPath,
@@ -347,7 +350,7 @@ public class KotlincModeFactoryTest {
     when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
 
     KotlincMode kotlincMode =
-        new KotlincModeFactory(experimentConfigService)
+        new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
             .create(
                 false,
                 absPath,
@@ -360,97 +363,5 @@ public class KotlincModeFactoryTest {
 
     assertTrue(kotlincMode instanceof KotlincMode.Incremental);
     assertNull(((KotlincMode.Incremental) kotlincMode).getRebuildReason());
-  }
-
-  @Test
-  public void
-      when_is_track_class_usage_enabled_but_kotlinClassUsage_file_does_not_exist_then_requires_rebuild()
-          throws IOException {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
-    when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
-    when(mockKotlinExtraParams.getIncrementalStateDir())
-        .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
-    when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
-    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
-
-    KotlincMode kotlincMode =
-        new KotlincModeFactory(experimentConfigService)
-            .create(
-                false,
-                absPath,
-                absPath,
-                true,
-                RelPath.get("kotlin_used_classes.json"),
-                mockKotlinExtraParams,
-                Optional.of(mockActionMetadata),
-                ImmutableList.of());
-
-    assertTrue(kotlincMode instanceof KotlincMode.Incremental);
-    assertTrue(
-        ((KotlincMode.Incremental) kotlincMode).getRebuildReason()
-            instanceof RebuildReason.PreviousKotlinUsedClassesFileNotFound);
-  }
-
-  @Test
-  public void when_jvm_abi_gen_disabled_then_does_not_require_rebuild() throws IOException {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
-    when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
-    when(mockKotlinExtraParams.getShouldUseJvmAbiGen()).thenReturn(false);
-    when(mockKotlinExtraParams.getIncrementalStateDir())
-        .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
-    when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
-    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
-
-    KotlincMode kotlincMode =
-        new KotlincModeFactory(experimentConfigService)
-            .create(
-                false,
-                absPath,
-                absPath,
-                false,
-                relPath,
-                mockKotlinExtraParams,
-                Optional.of(mockActionMetadata),
-                ImmutableList.of());
-
-    assertTrue(kotlincMode instanceof KotlincMode.Incremental);
-    assertNull(((KotlincMode.Incremental) kotlincMode).getRebuildReason());
-  }
-
-  @Test
-  public void
-      when_jvm_abi_gen_enabled_but_jvmAbiGenWorkingDir_does_not_exist_then_requires_rebuild()
-          throws IOException {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
-    when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
-    when(mockKotlinExtraParams.getShouldUseJvmAbiGen()).thenReturn(true);
-    when(mockKotlinExtraParams.getIncrementalStateDir())
-        .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
-    when(mockKotlinExtraParams.getJvmAbiGenWorkingDir())
-        .thenReturn(
-            Optional.of(
-                temporaryPaths
-                    .getRoot()
-                    .resolve("incrementalStateDir")
-                    .resolve("jvm_abi_gen_working_dir")));
-    when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
-    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
-
-    KotlincMode kotlincMode =
-        new KotlincModeFactory(experimentConfigService)
-            .create(
-                false,
-                absPath,
-                absPath,
-                false,
-                relPath,
-                mockKotlinExtraParams,
-                Optional.of(mockActionMetadata),
-                ImmutableList.of());
-
-    assertTrue(kotlincMode instanceof KotlincMode.Incremental);
-    assertTrue(
-        ((KotlincMode.Incremental) kotlincMode).getRebuildReason()
-            instanceof RebuildReason.JvmAbiGenWorkingDirNotFound);
   }
 }

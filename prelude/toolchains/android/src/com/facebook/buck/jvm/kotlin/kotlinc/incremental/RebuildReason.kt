@@ -15,6 +15,16 @@ sealed interface RebuildReason {
 
   val reason: String
 
+  data object PreviousBuildConfigurationNotFound : RebuildReason {
+
+    override val reason: String = "Previous build configuration not found"
+  }
+
+  data object BuildConfigurationChanged : RebuildReason {
+
+    override val reason: String = "Build configuration has been changed"
+  }
+
   data class PreviousKotlinUsedClassesFileNotFound(private val kotlinClassUsageFileDir: AbsPath) :
       RebuildReason {
 
