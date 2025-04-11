@@ -70,8 +70,6 @@ def erlang_tests_macro(
         )
         deps.append(":" + srcs_app)
 
-    target_resources = list(resources)
-
     if not property_tests:
         first_suite = suites[0]
         prop_target = generate_file_map_target(first_suite, None, "property_test")
@@ -91,10 +89,10 @@ def erlang_tests_macro(
 
         # check if there is a data folder and add it as resource if existing
         data_dir_name = "{}_data".format(suite_name)
-        suite_resource = target_resources
+        suite_resource = resources
         data_target = generate_file_map_target(suite, prefix, data_dir_name)
         if data_target:
-            suite_resource = [target for target in target_resources]
+            suite_resource = list(suite_resource)  # copy
             suite_resource.append(data_target)
 
         if prefix != None:
@@ -350,7 +348,10 @@ def _build_resource_dir(ctx: AnalysisContext, resources: list, target_dir: str) 
     for resource in resources:
         files = resource[DefaultInfo].default_outputs
         for file in files:
-            include_symlinks[file.short_path] = file
+            if file.short_path in include_symlinks:
+                fail("duplicate resource file: `{}`, defined in {} and {}".format(file.short_path, include_symlinks[file.short_path], file))
+            else:
+                include_symlinks[file.short_path] = file
     return ctx.actions.symlinked_dir(
         target_dir,
         include_symlinks,
