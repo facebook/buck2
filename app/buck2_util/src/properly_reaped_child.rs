@@ -90,7 +90,8 @@ fn reap_child(mut child: Child) {
     tokio::spawn(async move {
         if let Some(child_id) = child.id() {
             // If a child process has already exited, the child.id() is None.
-            tracing::warn!("Killed child process: {:?}", child_id);
+            // TODO(rajneeshl): Promote the info! below to warn! when the health check CLI lifetime is better managed.
+            tracing::info!("Killed child process: {:?}", child_id);
         }
         drop(child.kill().await);
     });
