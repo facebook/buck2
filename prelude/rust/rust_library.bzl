@@ -298,9 +298,20 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # If doctests=True or False is set on the individual target, respect that.
     # Otherwise look at the global setting on the toolchain.
-    doctests_enabled = \
-        (ctx.attrs.doctests if ctx.attrs.doctests != None else toolchain_info.doctests) and \
-        toolchain_info.rustc_target_triple == targets.exec_triple(ctx)
+    if ctx.attrs.doctests != None:
+        doctests_enabled = ctx.attrs.doctests
+    else:
+        doctests_enabled = toolchain_info.doctests
+
+    # No doctests if cross-compiling.
+    #
+    # I tried `cargo test --doc --target aarch64-unknown-linux-gnu` and Cargo
+    # silently did not run doc tests. We could probably make this work, but it
+    # seems low value, and Cargo not running them tells me we'd be very likely
+    # to hit issues with this not being supported well in rustdoc.
+    if toolchain_info.rustc_target_triple != None and \
+       toolchain_info.rustc_target_triple != targets.exec_triple(ctx):
+        doctests_enabled = False
 
     rustdoc_test_params = build_params(
         rule = RuleType("binary"),
