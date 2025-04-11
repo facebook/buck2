@@ -53,6 +53,7 @@ public class ActionMetadataSerializer {
 
   /** Protocol buffer model to internal buck representation. */
   public static ActionMetadata deserialize(
+      Path incrementalMetadataFilePath,
       com.facebook.buck.cd.model.kotlin.ActionMetadata actionMetadata) {
     Map<Path, String> previousDigest =
         actionMetadata.getPreviousMetadata().getDigestsList().stream()
@@ -67,6 +68,6 @@ public class ActionMetadataSerializer {
                     digest -> PathSerializer.deserialize(digest.getPath()),
                     com.facebook.buck.cd.model.kotlin.Digests::getDigest));
 
-    return new ActionMetadata(previousDigest, currentDigest);
+    return new ActionMetadata(incrementalMetadataFilePath, previousDigest, currentDigest);
   }
 }

@@ -26,7 +26,7 @@ public class ActionMetadataSerializerTest {
   @Test
   public void testSerialization() {
     ActionMetadata actionMetadata =
-        new ActionMetadata(createPreviousDigest(), createCurrentDigest());
+        new ActionMetadata(Path.of(""), createPreviousDigest(), createCurrentDigest());
     com.facebook.buck.cd.model.kotlin.ActionMetadata expectedActionMetadata =
         createActionMetaData(actionMetadata.getPreviousDigest(), actionMetadata.getCurrentDigest());
 
@@ -42,9 +42,11 @@ public class ActionMetadataSerializerTest {
     Map<Path, String> currentDigest = createCurrentDigest();
     com.facebook.buck.cd.model.kotlin.ActionMetadata actionMetadata =
         createActionMetaData(previousDigest, currentDigest);
-    ActionMetadata expectedActionMetadata = new ActionMetadata(previousDigest, currentDigest);
+    ActionMetadata expectedActionMetadata =
+        new ActionMetadata(Path.of(""), previousDigest, currentDigest);
 
-    ActionMetadata resultActionMetadata = ActionMetadataSerializer.deserialize(actionMetadata);
+    ActionMetadata resultActionMetadata =
+        ActionMetadataSerializer.deserialize(Path.of(""), actionMetadata);
 
     assertThat(resultActionMetadata, equalTo(expectedActionMetadata));
   }

@@ -153,7 +153,8 @@ public class KotlinCDCommand implements JvmCDCommand {
           parseMetadata(previousActionMetadataPath.map(Path::toFile).get()));
     }
 
-    return ActionMetadataSerializer.deserialize(builder.build());
+    Preconditions.checkNotNull(incrementalMetadataFile);
+    return ActionMetadataSerializer.deserialize(incrementalMetadataFile, builder.build());
   }
 
   private Optional<Path> getPreviousActionMetadataPath() {

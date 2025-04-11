@@ -35,7 +35,7 @@ public class KotlinSourceChangesFactoryTest {
 
   @Test
   public void when_file_addition_then_added_to_modified_files() {
-    when(mockActionMetadata.getCurrentDigest())
+    when(mockActionMetadata.getCurrentSourceFilesDigest())
         .thenReturn(
             new HashMap<Path, String>() {
               {
@@ -48,7 +48,7 @@ public class KotlinSourceChangesFactoryTest {
                 put(Paths.get("e.java"), "2");
               }
             });
-    when(mockActionMetadata.getPreviousDigest())
+    when(mockActionMetadata.getPreviousSourceFilesDigest())
         .thenReturn(
             new HashMap<Path, String>() {
               {
@@ -76,7 +76,7 @@ public class KotlinSourceChangesFactoryTest {
 
   @Test
   public void when_file_change_then_added_to_modified_files() {
-    when(mockActionMetadata.getCurrentDigest())
+    when(mockActionMetadata.getCurrentSourceFilesDigest())
         .thenReturn(
             new HashMap<Path, String>() {
               {
@@ -88,7 +88,7 @@ public class KotlinSourceChangesFactoryTest {
                 put(Paths.get("d.java"), "4");
               }
             });
-    when(mockActionMetadata.getPreviousDigest())
+    when(mockActionMetadata.getPreviousSourceFilesDigest())
         .thenReturn(
             new HashMap<Path, String>() {
               {
@@ -118,7 +118,7 @@ public class KotlinSourceChangesFactoryTest {
 
   @Test
   public void when_file_removal_then_added_to_removed_files() {
-    when(mockActionMetadata.getCurrentDigest())
+    when(mockActionMetadata.getCurrentSourceFilesDigest())
         .thenReturn(
             new HashMap<Path, String>() {
               {
@@ -127,7 +127,7 @@ public class KotlinSourceChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    when(mockActionMetadata.getPreviousDigest())
+    when(mockActionMetadata.getPreviousSourceFilesDigest())
         .thenReturn(
             new HashMap<Path, String>() {
               {
