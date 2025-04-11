@@ -165,35 +165,6 @@ int main(int argc, char* argv[]) {
         Py_DECREF(result);
       });
     };
-
-    // Call static_extension_finder._initialize()
-    PyObject* pmodule = PyImport_ImportModule("static_extension_finder");
-    if (pmodule == nullptr) {
-      PyErr_Print();
-      fprintf(
-          stderr, "Error: could not import module 'static_extension_finder'\n");
-      // return 1;
-    } else {
-      PyObject* pinitialize = PyObject_GetAttrString(pmodule, "_initialize");
-      Py_DECREF(pmodule);
-      if (pinitialize == nullptr || !PyCallable_Check(pinitialize)) {
-        PyErr_Print();
-        fprintf(
-            stderr,
-            "Error: could not find '_initialize' in module 'static_extension_finder'\n");
-        // return 1;
-      }
-      PyObject* retvalue = PyObject_CallObject(pinitialize, nullptr);
-      Py_DECREF(pinitialize);
-      if (retvalue == nullptr) {
-        PyErr_Print();
-        fprintf(
-            stderr,
-            "Error: could not call 'static_extension_finder._initialize()'\n");
-        // return 1;
-      }
-      Py_DECREF(retvalue);
-    }
   }
 
   PyConfig_Clear(&config);
