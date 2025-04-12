@@ -15,6 +15,7 @@
 # @unsorted-dict-items
 NAMED_CONSTRAINT_SETTINGS = {
     # TODO(scottcao): Add OSS constraints as well
+    "ovr_config//build_mode/constraints:core_build_mode": None,
     "ovr_config//os/constraints:os": None,
     "ovr_config//cpu/constraints:cpu": None,
     "ovr_config//runtime/constraints:runtime": None,
