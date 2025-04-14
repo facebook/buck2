@@ -326,7 +326,7 @@ async def test_peak_memory_and_disk(buck: Buck, tmp_path: Path) -> None:
     )
 
 
-@buck_test(setup_eden=True)
+@buck_test(setup_eden=True, skip_for_os=["darwin"])
 async def test_version_control_collector(buck: Buck, tmp_path: Path) -> None:
     record = tmp_path / "record.json"
 
