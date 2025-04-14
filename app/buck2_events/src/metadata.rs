@@ -61,6 +61,10 @@ pub fn collect() -> HashMap<String, String> {
         map.insert("ces_id".to_owned(), ces_id);
     }
 
+    if let Some(devx_session_id) = devx_session_id() {
+        map.insert("devx_session_id".to_owned(), devx_session_id);
+    }
+
     // Global trace ID
     map.insert("daemon_uuid".to_owned(), DAEMON_UUID.to_string());
 
@@ -148,6 +152,19 @@ pub fn ces_id() -> Option<String> {
         use cross_env_session_id::CrossEnvironmentSessionId;
 
         CrossEnvironmentSessionId::get()
+    }
+    #[cfg(not(fbcode_build))]
+    {
+        None
+    }
+}
+
+pub fn devx_session_id() -> Option<String> {
+    #[cfg(fbcode_build)]
+    {
+        use devx_session_id::DevXSessionId;
+
+        DevXSessionId::get()
     }
     #[cfg(not(fbcode_build))]
     {
