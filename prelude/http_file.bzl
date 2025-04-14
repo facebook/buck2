@@ -17,7 +17,7 @@ def http_file_shared(
         is_exploded_zip: bool,
         unzip_tool: [RunInfo, None],
         sha1: [None, str],
-        sha256 = [None, str]) -> list[Provider]:
+        sha256: [None, str]) -> list[Provider]:
     output = actions.declare_output(name)
     downloaded_output = actions.declare_output("exploded_zip") if is_exploded_zip else output
     actions.download_file(
