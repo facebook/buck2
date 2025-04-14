@@ -37,6 +37,7 @@ def http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
         sha1 = ctx.attrs.sha1,
         sha256 = ctx.attrs.sha256,
         is_deferrable = True,
+        size_bytes = ctx.attrs.size_bytes,
     )
 
     output, sub_targets = unarchive(
@@ -51,7 +52,19 @@ def http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
         prefer_local = prefer_local,
     )
 
-    return [DefaultInfo(
-        default_output = output,
-        sub_targets = sub_targets,
-    )]
+    return [
+        DefaultInfo(
+            default_output = output,
+            sub_targets = sub_targets,
+        ),
+        ExternalRunnerTestInfo(
+            type = "custom",
+            # Should work on all platforms.
+            command = [cmd_args("true", hidden = [archive, output])],
+            # Force it to run locally and thus force materialization.
+            default_executor = CommandExecutorConfig(
+                local_enabled = True,
+                remote_enabled = False,
+            ),
+        ),
+    ]

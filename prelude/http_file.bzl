@@ -17,7 +17,8 @@ def http_file_shared(
         is_exploded_zip: bool,
         unzip_tool: [RunInfo, None],
         sha1: [None, str],
-        sha256: [None, str]) -> list[Provider]:
+        sha256: [None, str],
+        size_bytes: [None, int]) -> list[Provider]:
     output = actions.declare_output(name)
     downloaded_output = actions.declare_output("exploded_zip") if is_exploded_zip else output
     actions.download_file(
@@ -28,6 +29,7 @@ def http_file_shared(
         sha1 = sha1,
         sha256 = sha256,
         is_deferrable = True,
+        size_bytes = size_bytes,
     )
 
     if is_exploded_zip:
@@ -43,7 +45,19 @@ def http_file_shared(
             local_only = sha1 == None,
         )
 
-    providers = [DefaultInfo(default_output = output)]
+    providers = [
+        DefaultInfo(default_output = output),
+        ExternalRunnerTestInfo(
+            type = "custom",
+            # Should work on all platforms.
+            command = [cmd_args("true", hidden = [downloaded_output, output])],
+            # Force it to run locally and thus force materialization.
+            default_executor = CommandExecutorConfig(
+                local_enabled = True,
+                remote_enabled = False,
+            ),
+        ),
+    ]
     if is_executable:
         providers.append(RunInfo(args = [output]))
     return providers
@@ -65,4 +79,5 @@ def http_file_impl(ctx: AnalysisContext) -> list[Provider]:
         is_executable = ctx.attrs.executable or False,
         is_exploded_zip = False,
         unzip_tool = None,
+        size_bytes = ctx.attrs.size_bytes,
     )

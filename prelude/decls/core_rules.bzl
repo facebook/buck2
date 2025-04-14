@@ -752,6 +752,7 @@ http_archive = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "sha1": attrs.option(attrs.string(), default = None),
+            "size_bytes": attrs.option(attrs.int(), default = None),
         }
     ),
 )
@@ -850,6 +851,7 @@ http_file = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "sha1": attrs.option(attrs.string(), default = None),
+            "size_bytes": attrs.option(attrs.int(), default = None),
         }
     ),
 )
