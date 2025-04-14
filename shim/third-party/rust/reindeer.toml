@@ -15,6 +15,7 @@ precise_srcs = true
 
 # Include a public top-level target which depends on all other targets.
 include_top_level = true
+include_workspace_members = true
 
 [cargo]
 # Support Cargo's unstable "artifact dependencies" functionality, RFC 3028.
