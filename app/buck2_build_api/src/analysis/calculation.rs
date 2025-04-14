@@ -42,7 +42,7 @@ pub static EVAL_ANALYSIS_QUERY: LateBinding<
 > = LateBinding::new("EVAL_ANALYSIS_QUERY");
 
 #[async_trait]
-pub trait RuleAnalsysisCalculationImpl: Send + Sync + 'static {
+pub trait RuleAnalysisCalculationImpl: Send + Sync + 'static {
     async fn get_analysis_result(
         &self,
         ctx: &mut DiceComputations<'_>,
@@ -50,7 +50,7 @@ pub trait RuleAnalsysisCalculationImpl: Send + Sync + 'static {
     ) -> buck2_error::Result<MaybeCompatible<AnalysisResult>>;
 }
 
-pub static RULE_ANALYSIS_CALCULATION: LateBinding<&'static dyn RuleAnalsysisCalculationImpl> =
+pub static RULE_ANALYSIS_CALCULATION: LateBinding<&'static dyn RuleAnalysisCalculationImpl> =
     LateBinding::new("RULE_ANALYSIS_CALCULATION");
 
 #[async_trait]

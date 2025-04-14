@@ -14,8 +14,8 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_build_api::analysis::calculation::RuleAnalsysisCalculationImpl;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculationImpl;
 use buck2_build_api::analysis::calculation::EVAL_ANALYSIS_QUERY;
 use buck2_build_api::analysis::calculation::RULE_ANALYSIS_CALCULATION;
 use buck2_build_api::analysis::AnalysisResult;
@@ -101,7 +101,7 @@ impl Key for AnalysisKey {
 }
 
 #[async_trait]
-impl RuleAnalsysisCalculationImpl for RuleAnalysisCalculationInstance {
+impl RuleAnalysisCalculationImpl for RuleAnalysisCalculationInstance {
     async fn get_analysis_result(
         &self,
         ctx: &mut DiceComputations<'_>,
