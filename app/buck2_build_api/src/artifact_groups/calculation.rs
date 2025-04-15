@@ -396,7 +396,7 @@ impl Key for EnsureProjectedArtifactKey {
 
         let value = extract_artifact_value(&builder, &base_path.join(path), digest_config)
             .with_buck_error_context(|| {
-                format!("The path `{path}` cannot be projected in the artifact `{base}`")
+                format!("The path `{path}` cannot be projected in the artifact `{base}`. Are you calling project() on a symlink?")
             })?
             .with_buck_error_context(|| {
                 format!("The path `{path}` does not exist in the artifact `{base}`")
