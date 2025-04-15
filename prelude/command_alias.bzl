@@ -5,12 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 
 def command_alias_impl(ctx):
-    target_is_windows = ctx.attrs._target_os_type[OsLookup].platform == "windows"
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    target_is_windows = ctx.attrs._target_os_type[OsLookup].os == Os("windows")
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
 
     if target_is_windows:
         # If the target is Windows, create a batch file based command wrapper instead

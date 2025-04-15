@@ -21,7 +21,7 @@
 load("@prelude//:prelude.bzl", "native")
 load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//rust:targets.bzl", "targets")
 load("@prelude//utils:cmd_script.bzl", "cmd_script")
@@ -64,7 +64,7 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
             is_rustdoc_test = False,
         )
 
-        null_path = "nul" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "/dev/null"
+        null_path = "nul" if ctx.attrs._exec_os_type[OsLookup].os == Os("windows") else "/dev/null"
         dep_args = cmd_args("--sysroot=" + null_path, dep_args, relative_to = cwd)
         dep_file, _ = ctx.actions.write("rustc_dep_file", dep_args, allow_args = True)
         sysroot_args = cmd_args("@", dep_file, delimiter = "", hidden = dep_args)

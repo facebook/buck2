@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 
 def _derive_link(artifact):
     if artifact.is_source:
@@ -116,7 +116,7 @@ def sh_binary_impl(ctx):
     if len(ctx.attrs.deps) > 0:
         fail("sh_binary deps unsupported. Got `{}`".format(repr(ctx.attrs)))
 
-    is_windows = ctx.attrs._target_os_type[OsLookup].platform == "windows"
+    is_windows = ctx.attrs._target_os_type[OsLookup].os == Os("windows")
     (script, resources_dir) = _generate_script(
         ctx.label.name,
         ctx.attrs.main,

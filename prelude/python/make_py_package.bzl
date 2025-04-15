@@ -32,7 +32,7 @@ load(
     "gen_shared_libs_action",
     "zip_shlibs",
 )
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":compile.bzl", "PycInvalidationMode")
 load(":interface.bzl", "EntryPoint", "EntryPointKind", "PythonLibraryManifestsInterface")
@@ -482,7 +482,7 @@ def _make_py_package_impl(
     run_args = []
 
     # Windows can't run PAR directly.
-    if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
+    if ctx.attrs._exec_os_type[OsLookup].os == Os("windows"):
         run_args.append(ctx.attrs._python_toolchain[PythonToolchainInfo].interpreter)
     run_args.append(output)
 

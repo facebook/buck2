@@ -7,14 +7,14 @@
 
 load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
 load("@prelude//decls:common.bzl", "buck")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 
 def _buck2_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     """
     Produce a directory layout that is similar to the one our release binary
     uses, this allows setting a path for Tpx relative to BUCK2_BINARY_DIR.
     """
-    target_is_windows = ctx.attrs._target_os_type[OsLookup].platform == "windows"
+    target_is_windows = ctx.attrs._target_os_type[OsLookup].os == Os("windows")
 
     materialisations = []
 

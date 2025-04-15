@@ -12,7 +12,7 @@ load(
     "LinkerType",
 )
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 
 def _extract_symbol_names(
         ctx: AnalysisContext,
@@ -59,7 +59,7 @@ def _extract_symbol_names(
     if defined_only:
         nm_flags += " --defined-only"
 
-    is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
 
     if is_windows:
         script = (

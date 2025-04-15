@@ -13,7 +13,7 @@ load("@prelude//:genrule_prefer_local_labels.bzl", "genrule_labels_prefer_local"
 load("@prelude//:genrule_toolchain.bzl", "GenruleToolchainInfo")
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 
@@ -180,7 +180,7 @@ def process_genrule(
         fail("One of `out` or `outs` should be set. Got `%s`" % repr(ctx.attrs))
 
     # Some custom rules use `process_genrule` but doesn't set this attribute.
-    is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
     if is_windows:
         path_sep = "\\"
         cmd = ctx.attrs.cmd_exe if ctx.attrs.cmd_exe != None else ctx.attrs.cmd

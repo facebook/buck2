@@ -13,7 +13,7 @@ load(
     "LibOutputStyle",
     "LinkStrategy",
 )
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//utils:expect.bzl", "expect")
 
 # --crate-type=
@@ -198,7 +198,7 @@ _NATIVE_LINKABLE_STATIC_NON_PIC = 9
 def _executable_prefix_suffix(linker_type: LinkerType, target_os_type: OsLookup) -> (str, str):
     return {
         LinkerType("darwin"): ("", ""),
-        LinkerType("gnu"): ("", ".exe") if target_os_type.platform == "windows" else ("", ""),
+        LinkerType("gnu"): ("", ".exe") if target_os_type.os == Os("windows") else ("", ""),
         LinkerType("wasm"): ("", ".wasm"),
         LinkerType("windows"): ("", ".exe"),
     }[linker_type]
@@ -206,7 +206,7 @@ def _executable_prefix_suffix(linker_type: LinkerType, target_os_type: OsLookup)
 def _library_prefix_suffix(linker_type: LinkerType, target_os_type: OsLookup) -> (str, str):
     return {
         LinkerType("darwin"): ("lib", ".dylib"),
-        LinkerType("gnu"): ("", ".dll") if target_os_type.platform == "windows" else ("lib", ".so"),
+        LinkerType("gnu"): ("", ".dll") if target_os_type.os == Os("windows") else ("lib", ".so"),
         LinkerType("wasm"): ("", ".wasm"),
         LinkerType("windows"): ("", ".dll"),
     }[linker_type]
@@ -306,7 +306,7 @@ _INPUTS = {
 ]
 
 def _get_reloc_model(link_strategy: LinkStrategy, target_os_type: OsLookup) -> RelocModel:
-    if target_os_type.platform == "windows":
+    if target_os_type.os == Os("windows"):
         return RelocModel("pic")
     if link_strategy == LinkStrategy("static"):
         return RelocModel("static")

@@ -70,7 +70,7 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//python:manifest.bzl", "create_manifest_for_entries")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load(
@@ -553,7 +553,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                             ctx = ctx,
                             shared_lib = shared_lib.output,
                         )
-                    if ctx.attrs._target_os_type[OsLookup].platform == "windows":
+                    if ctx.attrs._target_os_type[OsLookup].os == Os("windows"):
                         shared_lib_for_linking = ctx.attrs.import_lib
 
                     linkable = None

@@ -59,7 +59,7 @@ load(
     "merge_shared_libraries",
 )
 load("@prelude//linking:types.bzl", "Linkage")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo", "get_platform_attr")
 load(
     "@prelude//python/linking:native_python_util.bzl",
@@ -79,7 +79,7 @@ load(":versions.bzl", "gather_versioned_dependencies")
 def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
 
-    if ctx.attrs._target_os_type[OsLookup].platform == "windows":
+    if ctx.attrs._target_os_type[OsLookup].os == Os("windows"):
         library_extension = ".pyd"
     else:
         library_extension = ".so"

@@ -42,7 +42,7 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:cmd_script.bzl", "cmd_script")
@@ -184,7 +184,7 @@ def generate_rustdoc(
         params: BuildParams,
         default_roots: list[str],
         document_private_items: bool) -> Artifact:
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
 
     toolchain_info = compile_ctx.toolchain_info
 
@@ -274,7 +274,7 @@ def generate_rustdoc_coverage(
         "--show-coverage",
     )
 
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
     plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
     plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
 
@@ -304,7 +304,7 @@ def generate_rustdoc_test(
         link_infos: dict[LibOutputStyle, LinkInfos],
         params: BuildParams,
         default_roots: list[str]) -> cmd_args:
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
 
     toolchain_info = compile_ctx.toolchain_info
     internal_tools_info = compile_ctx.internal_tools_info
@@ -460,7 +460,7 @@ def rust_compile(
         infallible_diagnostics: bool = False,
         rust_cxx_link_group_info: [RustCxxLinkGroupInfo, None] = None,
         profile_mode: ProfileMode | None = None) -> RustcOutput:
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
 
     toolchain_info = compile_ctx.toolchain_info
 
@@ -912,7 +912,7 @@ def _compute_common_args(
         incremental_enabled: bool,
         is_rustdoc_test: bool,
         profile_mode: ProfileMode | None) -> CommonArgsInfo:
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
     path_sep = "\\" if exec_is_windows else "/"
 
     crate_type = params.crate_type
@@ -1127,7 +1127,7 @@ def _clippy_wrapper(
 
     skip_setting_sysroot = toolchain_info.explicit_sysroot_deps != None or toolchain_info.sysroot_path != None
 
-    if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
+    if ctx.attrs._exec_os_type[OsLookup].os == Os("windows"):
         wrapper_file, _ = ctx.actions.write(
             ctx.actions.declare_output("__clippy_driver_wrapper.bat"),
             [
@@ -1417,7 +1417,7 @@ def _rustc_invoke(
         env: dict[str, str | ResolvedStringWithMacros | Artifact],
         deferred_link_cmd: cmd_args | None,
         profile_mode: ProfileMode | None) -> Invoke:
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
 
     toolchain_info = compile_ctx.toolchain_info
 

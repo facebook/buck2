@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load(":android_toolchain.bzl", "AndroidToolchainInfo")
 
 _AidlSourceInfo = provider(fields = {
@@ -43,7 +43,7 @@ def gen_aidl_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Aidl does not create any output for parcelables. Therefore, we always initialize the output
     # directory so that we don't get an "Action failed to produce outputs" error.
-    if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
+    if ctx.attrs._exec_os_type[OsLookup].os == Os("windows"):
         sh_cmd = cmd_args([
             cmd_args(["cmd.exe", "/c", cmd_args([aidl_out.as_output()], format = "if not exist {} md {}")]),
             "&&",

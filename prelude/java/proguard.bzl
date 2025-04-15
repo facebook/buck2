@@ -11,7 +11,7 @@ load(
 )
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//utils:expect.bzl", "expect")
 
 ProguardOutput = record(
@@ -97,7 +97,7 @@ def run_proguard(
 
     output_jars_file = ctx.actions.write("proguard/output_jars.txt", output_jars)
 
-    is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
 
     # Some proguard configs can propagate the "-dontobfuscate" flag which disables
     # obfuscation and prevents the mapping.txt and usage.txt file from being generated.

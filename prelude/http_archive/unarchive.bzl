@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":exec_deps.bzl", "HttpArchiveExecDeps")
@@ -124,8 +124,7 @@ def unarchive(
         exec_deps: HttpArchiveExecDeps,
         prefer_local: bool,
         sub_targets: list[str] | dict[str, list[str]]):
-    exec_platform_name = exec_deps.exec_os_type[OsLookup].platform
-    exec_is_windows = exec_platform_name == "windows"
+    exec_is_windows = exec_deps.exec_os_type[OsLookup].os == Os("windows")
 
     # Unpack archive to output directory.
     exclude_flags = []

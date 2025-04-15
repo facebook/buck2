@@ -20,7 +20,7 @@ ScriptLanguage = enum(
 
 OsLookup = provider(fields = {
     "cpu": str | None,
-    "platform": str,
+    "os": Os,
     "script": ScriptLanguage,
 })
 
@@ -29,7 +29,7 @@ def _os_lookup_impl(ctx: AnalysisContext):
         DefaultInfo(),
         OsLookup(
             cpu = ctx.attrs.cpu,
-            platform = ctx.attrs.os,
+            os = Os(ctx.attrs.os),
             script = ScriptLanguage(ctx.attrs.script),
         ),
     ]
