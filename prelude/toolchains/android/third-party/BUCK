@@ -219,6 +219,8 @@ buck_java_library(
     visibility = [
         "prelude//toolchains/android/src-gen:buck2-worker-model",
         "prelude//toolchains/android/src-gen:installer-proto",
+        "prelude//toolchains/android/src/com/facebook/buck/installer/proto:installer-model",
+        "prelude//toolchains/android/src/com/facebook/buck/workertool/resources/proto:worker-model",
     ],
     exported_deps = [
         ":grpc-api",

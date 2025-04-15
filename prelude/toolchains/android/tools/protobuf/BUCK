@@ -5,23 +5,27 @@ oncall("android_devxx")
 
 fb_native.command_alias(
     name = "protoc",
-    args = [
-        "--plugin=protoc-gen-grpc-java=$(location :protoc-gen-grpc-java)",
-    ],
     default_target_platform = get_host_target_platform(use_minimal_xcode = False),
     platform_exe = {
         "linux": "fbsource//third-party/java/com/google/protobuf/protoc:protoc-linux-x86_64",
         "macos": "fbsource//third-party/java/com/google/protobuf/protoc:protoc-osx-x86_64",
         "windows": "fbsource//third-party/java/com/google/protobuf/protoc:protoc-windows-x86_64",
     },
+    visibility = ["PUBLIC"],
 )
 
 fb_native.command_alias(
-    name = "protoc-gen-grpc-java",
+    name = "gen-grpc",
     default_target_platform = get_host_target_platform(use_minimal_xcode = False),
     platform_exe = {
         "linux": "fbsource//third-party/java/io/grpc/protoc-gen-grpc-java:protoc-gen-grpc-java-linux-x86_64",
         "macos": "fbsource//third-party/java/io/grpc/protoc-gen-grpc-java:protoc-gen-grpc-java-osx-x86_64",
-        "windows": "fbsource//third-party/java/io/grpc/protoc-gen-grpc-java:protoc-gen-grpc-java-windows-x86_64",
     },
+    visibility = ["PUBLIC"],
+)
+
+fb_native.alias(
+    name = "gen-grpc-windows",
+    actual = "fbsource//third-party/java/io/grpc/protoc-gen-grpc-java:protoc-gen-grpc-java-windows-x86_64",
+    visibility = ["PUBLIC"],
 )
