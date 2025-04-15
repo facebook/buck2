@@ -233,7 +233,7 @@ def _get_link_group_info(
     return (link_group_info, link_group_specs)
 
 def process_native_linking(ctx, deps, python_toolchain, extra, package_style, allow_cache_upload, extra_artifacts) -> (
-    list[(str, SharedLibrary)],
+    list[(SharedLibrary, str)],
     dict[str, (LinkedObject, Label)],
     list[LinkArgs],
 ):
@@ -369,12 +369,11 @@ def process_native_linking(ctx, deps, python_toolchain, extra, package_style, al
 
     # Put native libraries into the runtime location, as we need to unpack
     # potentially all of them before startup.
-    shared_libs = [("runtime/lib", s) for s in executable_info.shared_libs]
+    shared_libs = [(s, "runtime/lib") for s in executable_info.shared_libs]
 
     # TODO expect(len(executable_info.runtime_files) == 0, "OH NO THERE ARE RUNTIME FILES")
     extra_artifacts.update(extension_info_reduced.artifacts)
     shared_libs.append((
-        "runtime/bin",
         create_shlib(
             soname = ctx.attrs.executable_name,
             label = ctx.label,
@@ -384,6 +383,7 @@ def process_native_linking(ctx, deps, python_toolchain, extra, package_style, al
                 dwp = executable_info.dwp,
             ),
         ),
+        "runtime/bin",
     ))
 
     link_args = executable_info.link_args

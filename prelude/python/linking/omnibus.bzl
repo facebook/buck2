@@ -38,7 +38,7 @@ def process_omnibus_linking(
         extensions: dict[str, (LinkedObject, Label)],
         python_toolchain: PythonToolchainInfo,
         extra: dict[str, typing.Any]) -> (
-    list[(str, SharedLibrary)],
+    list[(SharedLibrary, str)],
     dict[str, (LinkedObject, Label)],
 ):
     # If we're using omnibus linking, re-link libraries and extensions and
@@ -78,7 +78,7 @@ def process_omnibus_linking(
         dest: (omnibus_libs.roots[label].shared_library, label)
         for dest, (_, label) in extensions.items()
     }
-    shared_libs = [("", shlib) for shlib in omnibus_libs.libraries]
+    shared_libs = [(shlib, "") for shlib in omnibus_libs.libraries]
 
     omnibus_providers = []
 

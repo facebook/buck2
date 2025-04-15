@@ -186,7 +186,8 @@ def make_py_package(
         package_style: PackageStyle,
         build_args: list[ArgLike],
         pex_modules: PexModules,
-        shared_libraries: list[(str, SharedLibrary, bool)],
+        shared_libraries: list[(SharedLibrary, str)],
+        preload_labels: set[Label],
         main: EntryPoint,
         allow_cache_upload: bool,
         link_args: list[LinkArgs] = [],
@@ -216,13 +217,13 @@ def make_py_package(
         ctx = ctx,
         shared_libraries = [
             (shlib, libdir)
-            for libdir, shlib, preload in shared_libraries
-            if preload
+            for shlib, libdir in shared_libraries
+            if shlib.label in preload_labels
         ],
     )
 
     # Add link metadata to manifest_module_entries if requested.
-    manifest_module_entries = _add_dep_metadata_to_manifest_module(ctx, map(lambda s: s[1], shared_libraries), link_args)
+    manifest_module_entries = _add_dep_metadata_to_manifest_module(ctx, shared_libraries, link_args)
     generated_files = []
 
     startup_functions_loader = generate_startup_function_loader(ctx, manifest_module_entries)
@@ -244,7 +245,7 @@ def make_py_package(
         ctx,
         pex_modules,
         [startup_function] if startup_function else [],
-        [(shlib, libdir) for libdir, shlib, _ in shared_libraries],
+        shared_libraries,
         debuginfo_files = debuginfo_files,
     )
 
@@ -254,7 +255,7 @@ def make_py_package(
         make_py_package_cmd,
         package_style,
         build_args,
-        map(lambda s: (s[1], s[0]), shared_libraries),
+        shared_libraries,
         generated_files,
         preload_libraries,
         common_modules_args,
@@ -284,7 +285,7 @@ def make_py_package(
             ctx,
             repl_pex_modules,
             [startup_function] if startup_function else [],
-            [(shlib, libdir) for libdir, shlib, _ in shared_libraries],
+            shared_libraries,
             debuginfo_files = debuginfo_files,
             suffix = "_repl",
         )
@@ -296,7 +297,7 @@ def make_py_package(
                 make_py_package_cmd,
                 PackageStyle("inplace"),
                 build_args,
-                map(lambda s: (s[1], s[0]), shared_libraries),
+                shared_libraries,
                 generated_files,
                 preload_libraries,
                 repl_common_modules_args,
@@ -317,7 +318,7 @@ def make_py_package(
             make_py_package_cmd,
             PackageStyle(style),
             build_args,
-            map(lambda s: (s[1], s[0]), shared_libraries),
+            shared_libraries,
             generated_files,
             preload_libraries,
             common_modules_args,
@@ -993,7 +994,7 @@ def _hidden_resources_error_message(current_target: Label, hidden_resources: lis
 
 def _get_shared_library_dep_metadata(
         ctx: AnalysisContext,
-        shared_libraries: list[SharedLibrary],
+        shared_libraries: list[(SharedLibrary, str)],
         link_args: list[LinkArgs]) -> list[DepMetadata]:
     """
     Dedupes the linker metadata for each shared library into a single string.
@@ -1015,7 +1016,7 @@ def _get_shared_library_dep_metadata(
     for args in link_args:
         add_inner_infos(args)
 
-    for lib in shared_libraries:
+    for lib, _ in shared_libraries:
         # Note: refer to SharedLibrary.LinkedObject.link_args here. SharedLibrary.link_args isn't
         # always populated.
         for args in lib.lib.link_args or []:
@@ -1033,7 +1034,7 @@ def _get_shared_library_dep_metadata(
 
 def _add_dep_metadata_to_manifest_module(
         ctx: AnalysisContext,
-        shared_libraries: list[SharedLibrary],
+        shared_libraries: list[(SharedLibrary, str)],
         link_args: list[LinkArgs]) -> dict[str, typing.Any] | None:
     """
     Updates manifest_module_entries with link metadata if they exist.

@@ -256,7 +256,7 @@ def _convert_python_library_to_executable(
     package_style = get_package_style(ctx)
 
     # Convert preloaded deps to a set of their names to be loaded by.
-    preload_labels = {_linkable_graph(d).label: None for d in ctx.attrs.preload_deps if _linkable_graph(d)}
+    preload_labels = set([_linkable_graph(d).label for d in ctx.attrs.preload_deps if _linkable_graph(d)])
 
     extra_artifacts = {}
     link_args = []
@@ -284,14 +284,14 @@ def _convert_python_library_to_executable(
             shared_libs, extensions = process_omnibus_linking(ctx, deps, extensions, python_toolchain, extra)
         else:
             shared_libs = [
-                ("", shared_lib)
+                (shared_lib, "")
                 for shared_lib in traverse_shared_library_info(library.shared_libraries)
             ]
 
             # darwin and windows expect self-contained dynamically linked
             # python extensions without additional transitive shared libraries
             shared_libs += [
-                ("", extension_shared_lib)
+                (extension_shared_lib, "")
                 for extension_shared_lib in traverse_shared_library_info(library.extension_shared_libraries)
             ]
 
@@ -318,22 +318,13 @@ def _convert_python_library_to_executable(
 
     extra_manifests = create_manifest_for_source_map(ctx, "extra_manifests", extra_artifacts)
 
-    # Create the map of native libraries to their artifacts and whether they
-    # need to be preloaded.  Note that we merge preload deps into regular deps
-    # above, before gathering up all native libraries, so we're guaranteed to
-    # have all preload libraries (and their transitive deps) here.
-    shared_libs = [
-        (libdir, shlib, shlib.label in preload_labels)
-        for libdir, shlib in shared_libs
-    ]
-
     # Strip native libraries and extensions and update the .gnu_debuglink references if we are extracting
     # debug symbols from the par
     debuginfo_files = []
     debuginfos = {}
     if ctx.attrs.strip_libpar == "extract" and package_style == PackageStyle("standalone") and cxx_is_gnu(ctx):
         stripped_shlibs = []
-        for libdir, shlib, preload in shared_libs:
+        for shlib, libdir in shared_libs:
             name = paths.join(
                 libdir,
                 value_or(
@@ -360,7 +351,7 @@ def _convert_python_library_to_executable(
                     dwp = shlib.lib.dwp,
                 ),
             )
-            stripped_shlibs.append((libdir, shlib, preload))
+            stripped_shlibs.append((shlib, libdir))
             debuginfo_files.append(((libdir, shlib, ".debuginfo"), debuginfo))
         shared_libs = stripped_shlibs
         for name, (extension, label) in extensions.items():
@@ -400,6 +391,7 @@ def _convert_python_library_to_executable(
         build_args = build_args,
         pex_modules = pex_modules,
         shared_libraries = shared_libs,
+        preload_labels = preload_labels,
         main = main,
         allow_cache_upload = allow_cache_upload,
         debuginfo_files = debuginfo_files,
