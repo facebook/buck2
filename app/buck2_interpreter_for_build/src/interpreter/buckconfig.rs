@@ -196,19 +196,14 @@ impl BuckConfigsViewForStarlark for ConfigsOnDiceViewForStarlark<'_, '_> {
         &mut self,
         key: BuckconfigKeyRef,
     ) -> buck2_error::Result<Option<Arc<str>>> {
-        read_config_and_report_deprecated(
-            self.ctx,
-            &self.root_buckconfig,
-            Some(&self.buckconfig),
-            key,
-        )
+        read_config_and_report_deprecated(self.ctx, &self.buckconfig, key)
     }
 
     fn read_root_cell_config(
         &mut self,
         key: BuckconfigKeyRef,
     ) -> buck2_error::Result<Option<Arc<str>>> {
-        read_config_and_report_deprecated(self.ctx, &self.root_buckconfig, None, key)
+        read_config_and_report_deprecated(self.ctx, &self.root_buckconfig, key)
     }
 }
 
@@ -219,22 +214,17 @@ struct DeprecatedConfigError(String, Arc<str>);
 
 fn read_config_and_report_deprecated(
     ctx: &mut DiceComputations,
-    root: &OpaqueLegacyBuckConfigOnDice,
-    cell: Option<&OpaqueLegacyBuckConfigOnDice>,
+    config: &OpaqueLegacyBuckConfigOnDice,
     key: BuckconfigKeyRef,
 ) -> buck2_error::Result<Option<Arc<str>>> {
-    let result = cell.unwrap_or(root).lookup(ctx, key)?;
+    let result = config.lookup(ctx, key)?;
     let property = format!("{}.{}", key.section, key.property);
 
     let key = BuckconfigKeyRef {
         section: "deprecated_config",
         property: &property,
     };
-    let msg = if let Some(cell) = cell {
-        cell.lookup(ctx, key)?
-    } else {
-        root.lookup(ctx, key)?
-    };
+    let msg = config.lookup(ctx, key)?;
     if let Some(msg) = msg {
         // soft error category can only contain ascii lowercese characters
         let section = filter_out_non_acii_lowercase(key.section);
