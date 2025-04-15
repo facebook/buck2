@@ -160,6 +160,51 @@ pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
     Ok(SaplingGetStatusResult::Normal(status))
 }
 
+// Get directory differences between two revisions. If second is None, then it is the working copy.
+// Limit the number of results to limit_results. If the number of results is greater than
+// limit_results return TooManyResults.
+#[allow(unused)]
+pub(crate) async fn get_dir_diff<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
+    current_dir: D,
+    first: F,
+    second: Option<S>,
+    limit_results: usize,
+) -> buck2_error::Result<SaplingGetStatusResult> {
+    let mut args = vec!["debugdiffdirs", "--rev", first.as_ref()];
+    if let Some(ref second) = second {
+        args.push("--rev");
+        args.push(second.as_ref());
+    }
+
+    let mut output = async_background_command(get_sapling_exe_path())
+        .current_dir(current_dir)
+        .args(args.as_slice())
+        .stdout(Stdio::piped())
+        .spawn()
+        .buck_error_context("Failed to obtain Sapling debugdiffdirs")?;
+
+    let stdout = output.stdout.take().ok_or_else(|| {
+        buck2_error!(
+            buck2_error::ErrorTag::Sapling,
+            "Failed to read stdout when invoking 'hg debugdiffdirs'."
+        )
+    })?;
+    let reader = BufReader::new(stdout);
+
+    let mut status = vec![];
+    let mut lines = reader.lines();
+    while let Some(line) = lines.next_line().await? {
+        if let Some(status_line) = process_one_status_line(&line)? {
+            if status.len() >= limit_results {
+                return Ok(SaplingGetStatusResult::TooManyChanges);
+            }
+            status.push(status_line);
+        }
+    }
+
+    Ok(SaplingGetStatusResult::Normal(status))
+}
+
 //
 // Single line looks like:
 //    <status> <path>
