@@ -88,7 +88,7 @@ def live_par_generated_files(
     artifacts = []
     artifacts.append((python_toolchain.run_lpar_main, "__run_lpar_main__.py"))
 
-    lpar_bootstrap = ctx.actions.declare_output("_bootstrap.sh")
+    lpar_bootstrap = ctx.actions.declare_output("_bootstrap.sh{}".format(output_suffix))
     gen_bootstrap = cmd_args(python_toolchain.gen_lpar_bootstrap[RunInfo])
 
     # Add passthrough args
@@ -117,7 +117,7 @@ def live_par_generated_files(
 
     gen_bootstrap.add(["--bootstrap-output", lpar_bootstrap.as_output()])
     gen_bootstrap.add(["--output", output.as_output()])
-    ctx.actions.run(gen_bootstrap, category = "par", identifier = "lpar_gen_bootstrap".format(output_suffix))
+    ctx.actions.run(gen_bootstrap, category = "par", identifier = "lpar_gen_bootstrap{}".format(output_suffix))
     artifacts.append((lpar_bootstrap, "_bootstrap.sh"))
     return artifacts
 
@@ -248,13 +248,14 @@ def make_py_package(
         debuginfo_files = debuginfo_files,
     )
 
-    default = _make_py_package_impl(
+    default = _make_py_package_wrapper(
         ctx,
         python_toolchain,
         make_py_package_cmd,
         package_style,
         build_args,
-        len(shared_libraries) > 0,
+        map(lambda s: (s[1], s[0]), shared_libraries),
+        generated_files,
         preload_libraries,
         common_modules_args,
         dep_artifacts,
@@ -289,13 +290,14 @@ def make_py_package(
         )
 
         default.sub_targets["repl"] = make_py_package_providers(
-            _make_py_package_impl(
+            _make_py_package_wrapper(
                 ctx,
                 python_toolchain,
                 make_py_package_cmd,
                 PackageStyle("inplace"),
                 build_args,
-                len(shared_libraries) > 0,
+                map(lambda s: (s[1], s[0]), shared_libraries),
+                generated_files,
                 preload_libraries,
                 repl_common_modules_args,
                 repl_dep_artifacts,
@@ -309,13 +311,14 @@ def make_py_package(
         )
 
     for style in PackageStyle.values():
-        pex_providers = default if style == package_style.value else _make_py_package_impl(
+        pex_providers = default if style == package_style.value else _make_py_package_wrapper(
             ctx,
             python_toolchain,
             make_py_package_cmd,
             PackageStyle(style),
             build_args,
-            len(shared_libraries) > 0,
+            map(lambda s: (s[1], s[0]), shared_libraries),
+            generated_files,
             preload_libraries,
             common_modules_args,
             dep_artifacts,
@@ -331,21 +334,55 @@ def make_py_package(
     # cpp binaries already emit a `debuginfo` subtarget with a different format,
     # so we opt to use a more specific subtarget
     default.sub_targets["par-debuginfo"] = _debuginfo_subtarget(ctx, debug_artifacts)
-    if python_toolchain.use_rust_make_par:
-        live_par_providers = _make_py_package_live(
+    return default
+
+def _make_py_package_wrapper(
+        ctx: AnalysisContext,
+        python_toolchain: PythonToolchainInfo,
+        make_py_package_cmd: RunInfo | None,
+        package_style: PackageStyle,
+        build_args: list[ArgLike],
+        shared_libraries: list[(SharedLibrary, str)],
+        generated_files: list[(Artifact, str)],
+        preload_libraries: cmd_args,
+        common_modules_args: cmd_args,
+        dep_artifacts: list[ArgLike],
+        debug_artifacts: list[(str | (str, SharedLibrary, str), ArgLike)],
+        main: EntryPoint,
+        manifest_module: ManifestModule | None,
+        pex_modules: PexModules,
+        output_suffix: str,
+        allow_cache_upload: bool) -> PexProviders:
+    if package_style == PackageStyle("inplace") and ctx.attrs.use_rust_make_par:
+        return _make_py_package_live(
             ctx,
             python_toolchain.make_py_package_live[RunInfo],
             pex_modules,
             build_args,
             preload_libraries,
             main,
-            map(lambda s: (s[1], s[0]), shared_libraries),
+            shared_libraries,
             generated_files,
             python_toolchain,
-            "-live",
+            output_suffix,
         )
-        default.sub_targets["live"] = make_py_package_providers(live_par_providers)
-    return default
+    return _make_py_package_impl(
+        ctx,
+        python_toolchain,
+        make_py_package_cmd,
+        package_style,
+        build_args,
+        len(shared_libraries) > 0,
+        preload_libraries,
+        common_modules_args,
+        dep_artifacts,
+        debug_artifacts,
+        main,
+        manifest_module,
+        pex_modules,
+        output_suffix = output_suffix,
+        allow_cache_upload = allow_cache_upload,
+    )
 
 def _make_py_package_impl(
         ctx: AnalysisContext,
@@ -631,7 +668,7 @@ def _make_py_package_live(
     cmd.add(cmd_args(generated_manifest.without_associated_artifacts(), format = "--generated={}"))
     runtime_files.append(generated_manifest)
 
-    ctx.actions.run(cmd, category = "par", identifier = "make_live_par", prefer_local = True)
+    ctx.actions.run(cmd, category = "par", identifier = "make_live_par{}".format(output_suffix), prefer_local = True)
 
     hidden_resources = pex_modules.manifests.hidden_resources(False)
 
