@@ -56,6 +56,7 @@ load(
     "py_resources",
     "qualify_srcs",
 )
+load(":python_runtime_bundle.bzl", "PythonRuntimeBundleInfo")
 load(":source_db.bzl", "create_dbg_source_db", "create_python_source_db_info", "create_source_db_no_deps")
 load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo", "PythonToolchainInfo", "get_package_style", "get_platform_attr")
 load(":typing.bzl", "create_per_target_type_check")
@@ -260,8 +261,11 @@ def _convert_python_library_to_executable(
     extra_artifacts = {}
     link_args = []
     link_strategy = _link_strategy(ctx)
+    build_args = ctx.attrs.build_args
 
     if link_strategy == NativeLinkStrategy("native"):
+        entry_point = "runtime/bin/{}".format(ctx.attrs.executable_name)
+        build_args.append(cmd_args("--passthrough=--runtime-binary={}".format(entry_point)))
         shared_libs, extensions, link_args = process_native_linking(
             ctx,
             deps,
@@ -296,6 +300,21 @@ def _convert_python_library_to_executable(
 
     if python_toolchain.default_sitecustomize != None:
         extra_artifacts["sitecustomize.py"] = python_toolchain.default_sitecustomize
+
+    # Add bundled runtime
+    if ctx.attrs.runtime_bundle:
+        bundle = ctx.attrs.runtime_bundle[PythonRuntimeBundleInfo]
+        build_args.append(cmd_args("--passthrough=--python-home=runtime"))
+        build_args.append(cmd_args("--passthrough=--preload=runtime/lib/{}".format(bundle.libpython.basename)))
+        extra_artifacts["runtime/bin/{}".format(bundle.py_bin.basename)] = bundle.py_bin
+        extra_artifacts["runtime/lib/{}".format(bundle.stdlib.basename)] = bundle.stdlib
+        extra_artifacts["runtime/lib/{}".format(bundle.libpython.basename)] = bundle.libpython
+        if link_strategy != NativeLinkStrategy("native"):
+            entry_point = "runtime/bin/{}".format(bundle.py_bin.basename)
+            build_args.append(cmd_args(["--passthrough=--runtime-binary={}".format(entry_point)]))
+            extra_artifacts[entry_point] = bundle.py_bin
+        if ctx.attrs.runtime_bundle_full:
+            extra_artifacts["runtime/include/{}".format(bundle.include.basename)] = bundle.include
 
     extra_manifests = create_manifest_for_source_map(ctx, "extra_manifests", extra_artifacts)
 
@@ -378,7 +397,7 @@ def _convert_python_library_to_executable(
         python_toolchain = python_toolchain,
         make_py_package_cmd = ctx.attrs.make_py_package[RunInfo] if ctx.attrs.make_py_package != None else None,
         package_style = package_style,
-        build_args = ctx.attrs.build_args,
+        build_args = build_args,
         pex_modules = pex_modules,
         shared_libraries = shared_libs,
         main = main,

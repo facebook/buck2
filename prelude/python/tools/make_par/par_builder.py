@@ -28,33 +28,11 @@ class ParBuilder:
         self.ld_preload = options.ld_preload
         self.exe = None
 
-        if options.runtime_manifest:
-            with open(options.runtime_manifest, "r") as runtime_manifest:
-                runtime_data = json.load(runtime_manifest)
-            self.ld_preload.extend(runtime_data["ld_preload"])
-            self.python_home = runtime_data.get("python_home")
-            if "exe" in runtime_data:
-                self.exe = self.python = runtime_data["exe"]
-            else:
-                self.python = options.python
-            self.entry_point = runtime_data["entry_point"]
-            self.runtime_files = runtime_data["files"]
-            self.runtime_root = options.runtime_root
-            if self.runtime_root and self.exe:
-                self.python = os.path.join(self.runtime_root, self.exe)
-        else:
-            self.entry_point = (
-                options.runtime_binary if options.runtime_binary else None
-            )
-            self.runtime_files = None
-            self.python = options.python
-            self.python_home = None
+        self.python = options.python
+        self.python_home = options.python_home or None
+        self.entry_point = options.runtime_binary or None
 
     def build(self):
-        if self.runtime_files:
-            self.manifest.add_bundled_runtime(
-                self.runtime_files, root=self.runtime_root
-            )
         self._gen_file()
         self._postbuild()
 

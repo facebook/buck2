@@ -92,6 +92,7 @@ load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//python:python_binary.bzl", "python_binary_impl")
 load("@prelude//python:python_library.bzl", "python_library_impl")
 load("@prelude//python:python_needed_coverage_test.bzl", "python_needed_coverage_test_impl")
+load("@prelude//python:python_runtime_bundle.bzl", "PythonRuntimeBundleInfo", "python_runtime_bundle_impl")
 load("@prelude//python:python_test.bzl", "python_test_impl")
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
@@ -212,6 +213,7 @@ extra_implemented_rules = struct(
     prebuilt_python_library = prebuilt_python_library_impl,
     python_binary = python_binary_impl,
     python_library = python_library_impl,
+    python_runtime_bundle = python_runtime_bundle_impl,
     python_test = python_test_impl,
     python_needed_coverage_test = python_needed_coverage_test_impl,
 
@@ -336,6 +338,8 @@ def _python_executable_attrs():
         "par_style": attrs.option(attrs.string(), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "run_with_inplace": attrs.bool(default = False),
+        "runtime_bundle": attrs.option(attrs.dep(providers = [PythonRuntimeBundleInfo]), default = None),
+        "runtime_bundle_full": attrs.bool(default = False),
         "runtime_env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None),
         "standalone_build_args": attrs.list(attrs.arg(), default = []),
         "static_extension_finder": attrs.source(default = "prelude//python/tools:static_extension_finder.py"),
@@ -352,6 +356,16 @@ def _python_executable_attrs():
     })
 
     return updated_attrs
+
+def _python_runtime_bundle_attrs():
+    return {
+        "include": attrs.string(doc = "Header files required for linking python extensions"),
+        "install_root": attrs.dep(doc = "The filegroup containing the runtime artifacts, all the paths are relative to this location"),
+        "libpython": attrs.string(doc = "libpyhon.so required at runtime for the python executable and native extensions."),
+        "py_bin": attrs.string(doc = "The runtime executable"),
+        "py_version": attrs.string(doc = "The version of python this represents"),
+        "stdlib": attrs.string(doc = "The python standard library"),
+    }
 
 def _python_test_attrs():
     test_attrs = _python_executable_attrs()
@@ -648,6 +662,7 @@ inlined_extra_attributes = {
         test = attrs.dep(providers = [ExternalRunnerTestInfo]),
         **(re_test_common.test_args() | buck.inject_test_env_arg())
     ),
+    "python_runtime_bundle": _python_runtime_bundle_attrs(),
     "python_test": _python_test_attrs(),
     "remote_file": {
         "sha1": attrs.option(attrs.string(), default = None),
