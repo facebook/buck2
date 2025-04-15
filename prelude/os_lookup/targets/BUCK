@@ -13,9 +13,14 @@ os_lookup(
         "config//cpu:x86_64": "x86_64",
     }),
     os = select({
+        # FIXME(JakobDegen): No default
         "DEFAULT": "linux",
+        "config//os:linux": "linux",
         "config//os:macos": "macos",
         "config//os:windows": "windows",
+        # FIXME(JakobDegen): We assuem fat means fat mac linux, but that might not be true in the
+        # future.
+        "prelude//platforms:fat_platform_enabled": "fat_mac_linux",
     }),
     script = select({
         "DEFAULT": "sh",

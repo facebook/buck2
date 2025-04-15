@@ -8,6 +8,7 @@
 load("@prelude//decls:core_rules.bzl", "PlatformExePlatform", "TargetCpuType")
 
 Os = enum(
+    "fat_mac_linux",
     "freebsd",
     "unknown",
     *PlatformExePlatform
