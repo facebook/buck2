@@ -10,20 +10,20 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use buck2_cli_proto::profile_request::ProfileOpts;
-use buck2_cli_proto::target_profile;
 use buck2_cli_proto::BxlProfile;
 use buck2_cli_proto::ProfileRequest;
 use buck2_cli_proto::ProfileResponse;
 use buck2_cli_proto::TargetProfile;
+use buck2_cli_proto::profile_request::ProfileOpts;
+use buck2_cli_proto::target_profile;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::target_cfg::TargetCfgWithUniverseOptions;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgWithUniverseOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::events_ctx::EventsCtx;
@@ -32,8 +32,8 @@ use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use dupe::Dupe;
 
 use super::bxl::BxlCommandOptions;

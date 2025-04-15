@@ -13,6 +13,9 @@ use std::sync::Arc;
 use buck2_data::ActionError;
 use smallvec::SmallVec;
 
+use crate::ErrorTag;
+use crate::Tier;
+use crate::UniqueRootId;
 use crate::classify::best_tag;
 use crate::classify::error_tag_category;
 use crate::classify::tag_is_generic;
@@ -24,9 +27,6 @@ use crate::context_value::TypedContext;
 use crate::format::into_anyhow_for_format;
 use crate::root::ErrorRoot;
 use crate::source_location::SourceLocation;
-use crate::ErrorTag;
-use crate::Tier;
-use crate::UniqueRootId;
 pub type DynLateFormat = dyn Fn(&mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static;
 
 /// The core error type provided by this crate.
@@ -336,8 +336,8 @@ mod tests {
     use std::sync::Arc;
 
     use crate as buck2_error;
-    use crate::conversion::from_any_with_tag;
     use crate::Tier;
+    use crate::conversion::from_any_with_tag;
 
     #[derive(Debug, buck2_error_derive::Error)]
     #[error("Test")]

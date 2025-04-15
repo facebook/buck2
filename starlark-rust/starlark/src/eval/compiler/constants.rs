@@ -19,8 +19,8 @@ use dupe::Dupe;
 use once_cell::sync::Lazy;
 
 use crate::environment::Globals;
-use crate::values::namespace::FrozenNamespace;
 use crate::values::FrozenValue;
+use crate::values::namespace::FrozenNamespace;
 
 #[derive(Copy, Clone, Dupe, Debug)]
 pub(crate) struct BuiltinFn(pub(crate) FrozenValue);

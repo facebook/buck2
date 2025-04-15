@@ -32,13 +32,13 @@ use starlark_syntax::syntax::call::CallArgsUnpack;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::eval::compiler::scope::BindingId;
+use crate::eval::compiler::scope::ResolvedIdent;
+use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::scope::payload::CstAssignTarget;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstPayload;
-use crate::eval::compiler::scope::BindingId;
-use crate::eval::compiler::scope::ResolvedIdent;
-use crate::eval::compiler::scope::Slot;
 use crate::typing::basic::TyBasic;
 use crate::typing::bindings::BindExpr;
 use crate::typing::call_args::TyCallArgs;

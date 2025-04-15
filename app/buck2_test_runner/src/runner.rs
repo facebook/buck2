@@ -22,9 +22,9 @@ use buck2_test_api::data::TestStage;
 use buck2_test_api::data::TestStatus;
 use buck2_test_api::grpc::TestOrchestratorClient;
 use clap::Parser;
-use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
 use futures::TryStreamExt;
+use futures::channel::mpsc::UnboundedReceiver;
 use host_sharing::HostSharingRequirements;
 use parking_lot::Mutex;
 

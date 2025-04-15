@@ -39,11 +39,6 @@ use tokio::sync::oneshot::Sender;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
-use crate::materializers::deferred::clean_stale::CleanStaleArtifactsCommand;
-use crate::materializers::deferred::clean_stale::CleanStaleArtifactsExtensionCommand;
-use crate::materializers::deferred::io_handler::create_ttl_refresh;
-use crate::materializers::deferred::io_handler::IoHandler;
-use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
 use crate::materializers::deferred::ArtifactMaterializationMethod;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::DeferredMaterializerAccessor;
@@ -51,6 +46,11 @@ use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::MaterializerCommand;
 use crate::materializers::deferred::Processing;
 use crate::materializers::deferred::ProcessingFuture;
+use crate::materializers::deferred::clean_stale::CleanStaleArtifactsCommand;
+use crate::materializers::deferred::clean_stale::CleanStaleArtifactsExtensionCommand;
+use crate::materializers::deferred::io_handler::IoHandler;
+use crate::materializers::deferred::io_handler::create_ttl_refresh;
+use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
 
 pub(super) trait ExtensionCommand<T>: Debug + Sync + Send + 'static {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>);

@@ -38,8 +38,6 @@ use crate::starlark_simple_value;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::tests::util::trim_rust_backtrace;
-use crate::values::list_or_tuple::UnpackListOrTuple;
-use crate::values::none::NoneType;
 use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -49,6 +47,8 @@ use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::list_or_tuple::UnpackListOrTuple;
+use crate::values::none::NoneType;
 
 #[test]
 fn alias_test() {

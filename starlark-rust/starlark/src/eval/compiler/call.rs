@@ -22,9 +22,9 @@ use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate::collections::symbol::symbol::Symbol;
 use crate::eval::compiler::args::ArgsCompiledValue;
-use crate::eval::compiler::def_inline::local_as_value::local_as_value;
 use crate::eval::compiler::def_inline::InlineDefBody;
 use crate::eval::compiler::def_inline::InlineDefCallSite;
+use crate::eval::compiler::def_inline::local_as_value::local_as_value;
 use crate::eval::compiler::expr::Builtin1;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;
@@ -32,11 +32,11 @@ use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrameAlloc;
 use crate::eval::runtime::visit_span::VisitSpanMut;
-use crate::values::enumeration::FrozenEnumType;
-use crate::values::string::dot_format::parse_format_one;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Value;
+use crate::values::enumeration::FrozenEnumType;
+use crate::values::string::dot_format::parse_format_one;
 
 #[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) struct CallCompiled {

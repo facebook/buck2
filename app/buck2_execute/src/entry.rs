@@ -17,25 +17,25 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::FileType;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::fs::paths::RelativePath;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_util::future::try_join_all;
 use derive_more::Add;
 use faccess::PathExt;
-use futures::future::try_join;
 use futures::Future;
+use futures::future::try_join;
 use once_cell::sync::Lazy;
 use pathdiff::diff_paths;
 use tokio::sync::Semaphore;
 
-use crate::directory::new_symlink;
 use crate::directory::ActionDirectoryBuilder;
 use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;
+use crate::directory::new_symlink;
 use crate::execute::blocking::BlockingExecutor;
 
 #[derive(Add, Default)]

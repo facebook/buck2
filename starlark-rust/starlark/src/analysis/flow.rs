@@ -26,9 +26,9 @@ use starlark_syntax::syntax::ast::Stmt;
 use starlark_syntax::syntax::module::AstModuleFields;
 use thiserror::Error;
 
+use crate::analysis::EvalSeverity;
 use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
-use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
 use crate::codemap::ResolvedFileSpan;
 use crate::codemap::Span;

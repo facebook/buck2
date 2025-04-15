@@ -22,11 +22,11 @@ use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote_spanned;
-use syn::parse_macro_input;
-use syn::spanned::Spanned;
 use syn::Fields;
 use syn::ItemEnum;
 use syn::Variant;
+use syn::parse_macro_input;
+use syn::spanned::Spanned;
 
 struct BcOpcodeEnum {
     span: Span,

@@ -148,8 +148,8 @@ impl CsvValue for u128 {
 
 #[cfg(test)]
 mod tests {
-    use crate::eval::runtime::profile::csv::quote_str_for_csv;
     use crate::eval::runtime::profile::csv::CsvWriter;
+    use crate::eval::runtime::profile::csv::quote_str_for_csv;
     use crate::eval::runtime::small_duration::SmallDuration;
 
     #[test]

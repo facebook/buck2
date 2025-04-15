@@ -24,8 +24,8 @@ use once_cell::sync::Lazy;
 use once_cell::sync::OnceCell;
 
 use crate::__derive_refs::components::NativeCallableComponents;
-use crate::collections::symbol::map::SymbolMap;
 use crate::collections::SmallMap;
+use crate::collections::symbol::map::SymbolMap;
 use crate::docs::DocItem;
 use crate::docs::DocModule;
 use crate::docs::DocString;
@@ -34,17 +34,17 @@ use crate::docs::DocType;
 use crate::stdlib;
 pub use crate::stdlib::LibraryExtension;
 use crate::typing::Ty;
-use crate::values::function::NativeFunc;
-use crate::values::function::SpecialBuiltinFunction;
-use crate::values::namespace::value::MaybeDocHiddenValue;
-use crate::values::namespace::FrozenNamespace;
-use crate::values::types::function::NativeFunction;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Value;
+use crate::values::function::NativeFunc;
+use crate::values::function::SpecialBuiltinFunction;
+use crate::values::namespace::FrozenNamespace;
+use crate::values::namespace::value::MaybeDocHiddenValue;
+use crate::values::types::function::NativeFunction;
 
 /// The global values available during execution.
 #[derive(Clone, Dupe, Debug, Allocative)]

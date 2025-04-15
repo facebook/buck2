@@ -25,6 +25,7 @@ use std::path::PathBuf;
 
 use itertools::Either;
 use lsp_types::Url;
+use starlark::StarlarkResultExt;
 use starlark::analysis::AstModuleLint;
 use starlark::docs::DocModule;
 use starlark::environment::FrozenModule;
@@ -35,7 +36,6 @@ use starlark::eval::Evaluator;
 use starlark::eval::FileLoader;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
-use starlark::StarlarkResultExt;
 use starlark_lsp::error::eval_message_to_lsp_diagnostic;
 use starlark_lsp::server::LspContext;
 use starlark_lsp::server::LspEvalResult;

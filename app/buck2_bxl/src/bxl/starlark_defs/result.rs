@@ -19,8 +19,6 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_complex_values;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::starlark_value;
-use starlark::values::string::StarlarkStr;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::FrozenValue;
@@ -30,6 +28,8 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueTypedComplex;
+use starlark::values::starlark_value;
+use starlark::values::string::StarlarkStr;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]

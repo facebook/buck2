@@ -10,17 +10,17 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
-use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
+use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dice::DiceComputations;
 use either::Either;
 use futures::FutureExt;
 use starlark::eval::Evaluator;
-use starlark::values::list::AllocList;
 use starlark::values::Trace;
 use starlark::values::ValueTyped;
+use starlark::values::list::AllocList;
 
 use crate::anon_targets::AnonTargetKey;
 

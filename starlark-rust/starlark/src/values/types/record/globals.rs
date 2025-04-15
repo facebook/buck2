@@ -24,10 +24,10 @@ use crate as starlark;
 use crate::collections::SmallMap;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
+use crate::values::Value;
 use crate::values::record::field::Field;
 use crate::values::record::record_type::RecordType;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::Value;
 
 #[starlark_module]
 pub(crate) fn register_record(builder: &mut GlobalsBuilder) {

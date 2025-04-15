@@ -9,17 +9,17 @@
 
 use std::sync::Arc;
 
-use buck2_common::legacy_configs::configs::testing::parse_with_config_args;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
-use buck2_common::package_listing::listing::testing::PackageListingExt;
+use buck2_common::legacy_configs::configs::testing::parse_with_config_args;
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::CellAliasResolver;
-use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter::extra::InterpreterHostArchitecture;

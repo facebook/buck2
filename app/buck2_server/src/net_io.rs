@@ -27,8 +27,8 @@ mod collector {
     use std::sync::Arc;
     use std::sync::Mutex;
 
-    use buck2_error::conversion::from_any_with_tag;
     use buck2_error::BuckErrorContext;
+    use buck2_error::conversion::from_any_with_tag;
     use dupe::Dupe;
     use psutil::network::NetIoCountersCollector;
 

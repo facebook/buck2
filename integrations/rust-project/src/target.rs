@@ -15,13 +15,13 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use rustc_hash::FxHashMap;
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
 use serde::de::Error as _;
 use serde::de::MapAccess;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
 
 use crate::json_project::Edition;
 use crate::path::canonicalize_to_vcs_path;

@@ -12,8 +12,6 @@ use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::NoSerialize;
@@ -22,6 +20,8 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
+use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 use super::ArtifactTag;
 use super::TaggedVisitor;

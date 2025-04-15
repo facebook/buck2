@@ -30,15 +30,15 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::none::NoneOr;
-use starlark::values::starlark_value;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::FrozenStringValue;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::bxl::unconfigured_attribute::CoercedAttrExt;
 

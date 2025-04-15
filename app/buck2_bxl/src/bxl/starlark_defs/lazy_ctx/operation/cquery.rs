@@ -18,9 +18,9 @@ use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
 use dice::DiceComputations;
 use indexmap::IndexMap;
-use starlark::values::dict::Dict;
 use starlark::values::Heap;
 use starlark::values::Value;
+use starlark::values::dict::Dict;
 
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::file_set::StarlarkFileSet;

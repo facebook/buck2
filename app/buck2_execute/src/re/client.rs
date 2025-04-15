@@ -18,9 +18,9 @@ use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_error::BuckErrorContext;
 #[cfg(fbcode_build)]
 use buck2_re_configuration::CASdMode;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
@@ -28,9 +28,9 @@ use chrono::DateTime;
 use chrono::Utc;
 use dupe::Dupe;
 use either::Either;
-use futures::stream::BoxStream;
 use futures::FutureExt;
 use futures::StreamExt;
+use futures::stream::BoxStream;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use prost::Message;
@@ -77,9 +77,9 @@ use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::convert::platform_to_proto;
+use crate::re::error::RemoteExecutionError;
 use crate::re::error::test_re_error;
 use crate::re::error::with_error_handler;
-use crate::re::error::RemoteExecutionError;
 use crate::re::manager::RemoteExecutionConfig;
 use crate::re::metadata::RemoteExecutionMetadataExt;
 use crate::re::stats::LocalCacheRemoteExecutionClientStats;
@@ -455,7 +455,6 @@ impl RemoteExecutionClientImpl {
             #[cfg(fbcode_build)]
             let client = {
                 use buck2_core::fs::fs_util;
-                use remote_execution::create_default_config;
                 use remote_execution::CASDaemonClientCfg;
                 use remote_execution::CopyPolicy;
                 use remote_execution::CurlReactorConfig;
@@ -463,6 +462,7 @@ impl RemoteExecutionClientImpl {
                 use remote_execution::RichClientMode;
                 use remote_execution::TTLExtendingConfig;
                 use remote_execution::ThreadConfig;
+                use remote_execution::create_default_config;
 
                 let mut re_client_config = create_default_config();
 
@@ -930,7 +930,6 @@ impl RemoteExecutionClientImpl {
         platform: &remote_execution::Platform,
         knobs: &ExecutorGlobalKnobs,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
-        use buck2_data::re_stage;
         use buck2_data::ReAfterAction;
         use buck2_data::ReBeforeAction;
         use buck2_data::ReExecute;
@@ -938,6 +937,7 @@ impl RemoteExecutionClientImpl {
         use buck2_data::ReUnknown;
         use buck2_data::ReWorkerDownload;
         use buck2_data::ReWorkerUpload;
+        use buck2_data::re_stage;
 
         let action_key = if knobs.log_action_keys {
             metadata

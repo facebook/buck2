@@ -18,8 +18,8 @@ use buck2_cmd_starlark_client::lint::StarlarkLintCommand;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::io::IoProvider;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::name::CellName;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::paths::path::StarlarkPath;
@@ -35,9 +35,9 @@ use starlark::errors::EvalSeverity;
 use starlark::errors::Lint;
 use starlark::syntax::AstModule;
 
+use crate::StarlarkServerSubcommand;
 use crate::util::environment::Environment;
 use crate::util::paths::starlark_files;
-use crate::StarlarkServerSubcommand;
 
 /// The cache of names for a path, keyed by its CellName and its path type.
 struct Cache<'a> {

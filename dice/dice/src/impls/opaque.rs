@@ -53,6 +53,8 @@ mod tests {
     use buck2_futures::cancellation::CancellationContext;
     use derive_more::Display;
 
+    use crate::DiceComputations;
+    use crate::HashSet;
     use crate::api::data::DiceData;
     use crate::api::key::Key;
     use crate::impls::deps::testing::RecordingDepsTrackersExt;
@@ -63,8 +65,6 @@ mod tests {
     use crate::impls::value::DiceValidity;
     use crate::impls::value::MaybeValidDiceValue;
     use crate::impls::value::TrackedInvalidationPaths;
-    use crate::DiceComputations;
-    use crate::HashSet;
 
     #[derive(Allocative, Clone, Hash, Eq, PartialEq, Debug, Display)]
     struct K;

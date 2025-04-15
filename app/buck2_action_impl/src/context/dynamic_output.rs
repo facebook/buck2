@@ -22,17 +22,17 @@ use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackAr
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use dupe::Dupe;
 use indexmap::IndexSet;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
+use starlark::values::FrozenValue;
+use starlark::values::ValueTyped;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
-use starlark::values::FrozenValue;
-use starlark::values::ValueTyped;
 use starlark_map::small_map::SmallMap;
 
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;

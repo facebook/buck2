@@ -31,9 +31,9 @@ use crate::assert;
 use crate::assert::Assert;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
-use crate::values::any::StarlarkAny;
 use crate::values::FrozenHeap;
 use crate::values::Heap;
+use crate::values::any::StarlarkAny;
 
 #[test]
 fn test_garbage_collect() {

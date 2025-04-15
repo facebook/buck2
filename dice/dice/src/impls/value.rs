@@ -14,13 +14,13 @@ use std::fmt::Formatter;
 use allocative::Allocative;
 use dupe::Dupe;
 
+use crate::Key;
+use crate::ProjectionKey;
 use crate::api::key::InvalidationSourcePriority;
 use crate::arc::Arc;
 use crate::impls::key::DiceKey;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRanges;
-use crate::Key;
-use crate::ProjectionKey;
 
 /// Type erased value associated for each Key in Dice. The 'DiceValidValue' only holds valid values
 /// and never anything that is transient, or whose dependencies are transient.

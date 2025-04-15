@@ -15,10 +15,10 @@ use buck2_events::dispatch::console_message;
 use starlark::eval::Evaluator;
 use starlark::values::ProvidesStaticType;
 
-use crate::bxl::starlark_defs::context::output::OutputStreamState;
-use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::context::ErrorPrinter;
+use crate::bxl::starlark_defs::context::output::OutputStreamState;
+use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 
 enum BxlEvalExtraType {
     Root { stream_state: OutputStreamState },

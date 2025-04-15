@@ -27,9 +27,9 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
 use itertools::Either;
+use starlark::values::UnpackValue;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
-use starlark::values::UnpackValue;
 
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;

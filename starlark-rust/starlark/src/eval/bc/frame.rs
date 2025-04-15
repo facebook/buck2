@@ -24,12 +24,12 @@ use std::slice;
 
 use dupe::Dupe;
 
+use crate::eval::Evaluator;
 use crate::eval::bc::for_loop::LoopDepth;
 use crate::eval::bc::stack_ptr::BcSlotIn;
 use crate::eval::bc::stack_ptr::BcSlotInRange;
 use crate::eval::bc::stack_ptr::BcSlotOut;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
-use crate::eval::Evaluator;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;

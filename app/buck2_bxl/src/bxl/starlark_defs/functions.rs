@@ -20,13 +20,13 @@ use indexmap::IndexSet;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::list::UnpackList;
-use starlark::values::none::NoneType;
-use starlark::values::tuple::UnpackTuple;
 use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::list::UnpackList;
+use starlark::values::none::NoneType;
+use starlark::values::tuple::UnpackTuple;
 
 use super::artifacts::visit_artifact_path_without_associated_deduped;
 use super::context::output::get_artifact_path_display;

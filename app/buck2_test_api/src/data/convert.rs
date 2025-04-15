@@ -54,8 +54,8 @@ impl TryFrom<buck2_test_proto::TestStage> for TestStage {
     type Error = anyhow::Error;
 
     fn try_from(s: buck2_test_proto::TestStage) -> Result<Self, Self::Error> {
-        use buck2_test_proto::test_stage::*;
         use buck2_test_proto::Testing;
+        use buck2_test_proto::test_stage::*;
 
         let res = match s.item.context("Missing `item`")? {
             Item::Listing(Listing { suite, cacheable }) => Self::Listing { suite, cacheable },
@@ -78,8 +78,8 @@ impl TryInto<buck2_test_proto::TestStage> for TestStage {
     type Error = anyhow::Error;
 
     fn try_into(self) -> Result<buck2_test_proto::TestStage, Self::Error> {
-        use buck2_test_proto::test_stage::*;
         use buck2_test_proto::Testing;
+        use buck2_test_proto::test_stage::*;
 
         let item = match self {
             Self::Listing { suite, cacheable } => Item::Listing(Listing { suite, cacheable }),

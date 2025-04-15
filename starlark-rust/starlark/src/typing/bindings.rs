@@ -37,14 +37,16 @@ use starlark_syntax::syntax::uniplate::Visit;
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::eval::compiler::scope::BindingId;
+use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::payload::CstAssignIdentExt;
 use crate::eval::compiler::scope::payload::CstAssignTarget;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
-use crate::eval::compiler::scope::BindingId;
-use crate::eval::compiler::scope::ResolvedIdent;
+use crate::typing::ParamSpec;
+use crate::typing::TyBasic;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::callable_param::ParamIsRequired;
 use crate::typing::error::InternalError;
@@ -52,8 +54,6 @@ use crate::typing::mode::TypecheckMode;
 use crate::typing::tuple::TyTuple;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
-use crate::typing::ParamSpec;
-use crate::typing::TyBasic;
 use crate::util::arc_str::ArcStr;
 
 #[derive(Clone)]

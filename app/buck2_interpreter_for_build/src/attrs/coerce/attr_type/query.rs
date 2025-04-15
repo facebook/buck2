@@ -24,8 +24,8 @@ use buck2_query_parser::parse_expr;
 use starlark::typing::Ty;
 use starlark::values::Value;
 
-use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::AttrTypeCoerce;
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 
 pub trait QueryAttrTypeExt {
     fn coerce(

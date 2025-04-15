@@ -20,16 +20,16 @@ use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
-use syn::parse::ParseStream;
-use syn::parse_macro_input;
-use syn::spanned::Spanned;
-use syn::visit_mut::VisitMut;
 use syn::FnArg;
 use syn::ItemTrait;
 use syn::Pat;
 use syn::ReturnType;
 use syn::TraitItem;
 use syn::TraitItemFn;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::spanned::Spanned;
+use syn::visit_mut::VisitMut;
 
 /// Constant/field name for a flag whether a member is overridden.
 pub(crate) fn vtable_has_field_name(name: &syn::Ident) -> syn::Ident {

@@ -11,9 +11,9 @@ use std::convert::Infallible;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_build_api::actions::RegisteredAction;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::actions::query::OwnedActionAttr;
-use buck2_build_api::actions::RegisteredAction;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_error::buck2_error;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
@@ -27,9 +27,6 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::none::NoneOr;
-use starlark::values::starlark_value;
-use starlark::values::structs::AllocStruct;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -38,6 +35,9 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
+use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
+use starlark::values::structs::AllocStruct;
 
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
 

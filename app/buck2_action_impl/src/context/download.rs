@@ -20,13 +20,13 @@ use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::http::Checksum;
 use chrono::TimeZone;
 use chrono::Utc;
-use indexmap::indexset;
 use indexmap::IndexSet;
+use indexmap::indexset;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::none::NoneOr;
 use starlark::values::ValueTyped;
+use starlark::values::none::NoneOr;
 
 use crate::actions::impls::cas_artifact::ArtifactKind;
 use crate::actions::impls::cas_artifact::DirectoryKind;

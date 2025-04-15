@@ -9,10 +9,10 @@
 
 #![allow(dead_code)] // TODO(rajneeshl): Remove this when the health checks are moved to the server.
 
-use buck2_health_check_proto::health_check_context_event;
 use buck2_health_check_proto::HealthCheckContextEvent;
-use tokio::sync::mpsc::error::TrySendError;
+use buck2_health_check_proto::health_check_context_event;
 use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::error::TrySendError;
 
 use crate::health_check_service::HealthCheckService;
 use crate::report::DisplayReport;

@@ -22,17 +22,17 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::codemap::Span;
+use crate::typing::ParamSpec;
+use crate::typing::Ty;
+use crate::typing::TyBasic;
+use crate::typing::TypingBinOp;
+use crate::typing::TypingOracleCtx;
 use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingNoContextError;
 use crate::typing::error::TypingNoContextOrInternalError;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::ParamSpec;
-use crate::typing::Ty;
-use crate::typing::TyBasic;
-use crate::typing::TypingBinOp;
-use crate::typing::TypingOracleCtx;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 
 /// Custom function typechecker.

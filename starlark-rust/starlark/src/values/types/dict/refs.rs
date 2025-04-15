@@ -26,16 +26,16 @@ use either::Either;
 
 use crate::coerce::coerce;
 use crate::typing::Ty;
-use crate::values::dict::value::DictGen;
-use crate::values::dict::value::FrozenDictData;
-use crate::values::dict::Dict;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::dict::dict_type::DictType;
 use crate::values::FrozenValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
+use crate::values::dict::Dict;
+use crate::values::dict::value::DictGen;
+use crate::values::dict::value::FrozenDictData;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::dict::dict_type::DictType;
 
 /// Borrowed `Dict`.
 pub struct DictRef<'v> {

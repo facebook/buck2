@@ -28,14 +28,15 @@ use allocative::Allocative;
 use dupe::Dupe;
 use starlark_syntax::codemap::Span;
 
-use crate::typing::error::TypingError;
-use crate::typing::error::TypingNoContextError;
-use crate::typing::ty::TypeRenderConfig;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
 use crate::typing::TypingUnOp;
+use crate::typing::error::TypingError;
+use crate::typing::error::TypingNoContextError;
+use crate::typing::ty::TypeRenderConfig;
+use crate::values::StarlarkValue;
 use crate::values::bool::StarlarkBool;
 use crate::values::dict::value::FrozenDict;
 use crate::values::float::StarlarkFloat;
@@ -50,7 +51,6 @@ use crate::values::tuple::value::Tuple;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::matchers::StarlarkTypeIdMatcher;
-use crate::values::StarlarkValue;
 
 #[derive(Debug, thiserror::Error)]
 enum TyStarlarkValueError {

@@ -22,12 +22,12 @@ use futures::future::FutureExt;
 use futures::stream;
 use futures::stream::StreamExt;
 use tokio::process::Child;
-use tonic::transport::Channel;
 use tonic::Request;
+use tonic::transport::Channel;
 
 use crate::convert::decode_event_stream;
-use crate::run::decode_command_event_stream;
 use crate::run::GatherOutputStatus;
+use crate::run::decode_command_event_stream;
 
 #[derive(Clone, Dupe, Allocative)]
 pub struct ForkserverClient {

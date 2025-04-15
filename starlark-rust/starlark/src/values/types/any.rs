@@ -33,8 +33,8 @@
 //!
 //! use starlark::assert::Assert;
 //! use starlark::environment::GlobalsBuilder;
-//! use starlark::values::any::StarlarkAny;
 //! use starlark::values::Value;
+//! use starlark::values::any::StarlarkAny;
 //!
 //! #[derive(Debug)]
 //! struct MyInstant(Instant);
@@ -70,8 +70,8 @@ use std::fmt;
 use std::fmt::Debug;
 
 use allocative::Allocative;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

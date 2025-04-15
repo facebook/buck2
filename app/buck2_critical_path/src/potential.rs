@@ -294,9 +294,9 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use super::*;
+    use crate::test_utils::TestDag;
     use crate::test_utils::make_dag;
     use crate::test_utils::seeded_rng;
-    use crate::test_utils::TestDag;
 
     fn naive_critical_path_costs(
         dag: &TestDag,

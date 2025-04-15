@@ -25,9 +25,10 @@ use crate::dot_format_parser::FormatConv;
 use crate::dot_format_parser::FormatParser;
 use crate::dot_format_parser::FormatToken;
 use crate::eval_exception::EvalException;
-use crate::lexer::lex_exactly_one_identifier;
 use crate::lexer::TokenFString;
+use crate::lexer::lex_exactly_one_identifier;
 use crate::slice_vec_ext::VecExt;
+use crate::syntax::DialectTypes;
 use crate::syntax::ast::AssignIdentP;
 use crate::syntax::ast::AssignOp;
 use crate::syntax::ast::AssignP;
@@ -54,7 +55,6 @@ use crate::syntax::ast::TypeExpr;
 use crate::syntax::ast::TypeExprP;
 use crate::syntax::state::ParserState;
 use crate::syntax::type_expr::TypeExprUnpackP;
-use crate::syntax::DialectTypes;
 
 #[derive(Debug, thiserror::Error)]
 enum GrammarUtilError {

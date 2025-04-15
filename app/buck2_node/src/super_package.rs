@@ -15,8 +15,8 @@ use dupe::Dupe;
 use crate::cfg_constructor::CfgConstructorImpl;
 use crate::metadata::key::MetadataKeyRef;
 use crate::metadata::super_package_values::SuperPackageValues;
-use crate::modifiers::PackageCfgModifiersValue;
 use crate::modifiers::MODIFIER_METADATA_KEY;
+use crate::modifiers::PackageCfgModifiersValue;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 

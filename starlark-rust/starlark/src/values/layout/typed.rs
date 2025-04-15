@@ -40,15 +40,6 @@ use crate::cast::transmute;
 use crate::coerce::Coerce;
 use crate::coerce::CoerceKey;
 use crate::typing::Ty;
-use crate::values::alloc_value::AllocFrozenStringValue;
-use crate::values::alloc_value::AllocStringValue;
-use crate::values::int::pointer_i32::PointerI32;
-use crate::values::layout::avalue::AValue;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::starlark_type_id::StarlarkTypeId;
-use crate::values::string::str_type::StarlarkStr;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
@@ -69,6 +60,15 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueOfUnchecked;
+use crate::values::alloc_value::AllocFrozenStringValue;
+use crate::values::alloc_value::AllocStringValue;
+use crate::values::int::pointer_i32::PointerI32;
+use crate::values::layout::avalue::AValue;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::starlark_type_id::StarlarkTypeId;
+use crate::values::string::str_type::StarlarkStr;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// [`Value`] wrapper which asserts contained value is of type `<T>`.
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType, Allocative)]
@@ -466,11 +466,11 @@ mod tests {
     use crate::assert::Assert;
     use crate::environment::GlobalsBuilder;
     use crate::tests::util::TestComplexValue;
-    use crate::values::int::pointer_i32::PointerI32;
-    use crate::values::none::NoneType;
     use crate::values::FrozenValue;
     use crate::values::FrozenValueTyped;
     use crate::values::Value;
+    use crate::values::int::pointer_i32::PointerI32;
+    use crate::values::none::NoneType;
 
     #[test]
     fn int() {

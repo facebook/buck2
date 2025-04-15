@@ -18,10 +18,10 @@ use triomphe::HeaderSlice;
 use triomphe::HeaderWithLength;
 use triomphe::ThinArc;
 
-use crate::impls::common::PTR_NAME;
 use crate::Allocative;
 use crate::Key;
 use crate::Visitor;
+use crate::impls::common::PTR_NAME;
 
 impl<H: Allocative, T: Allocative + ?Sized> Allocative for HeaderSlice<H, T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {

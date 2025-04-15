@@ -19,8 +19,8 @@ use std::cmp::Ordering;
 use std::hash::Hash;
 
 use itertools::Itertools;
-use starlark_map::small_set::SmallSet;
 use starlark_map::Equivalent;
+use starlark_map::small_set::SmallSet;
 
 use crate::collections::SmallMap;
 

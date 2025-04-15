@@ -21,9 +21,9 @@ use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
 
+use crate::subscribers::superconsole::SuperConsoleState;
 use crate::subscribers::superconsole::common::HeaderLineComponent;
 use crate::subscribers::superconsole::common::StaticStringComponent;
-use crate::subscribers::superconsole::SuperConsoleState;
 
 pub(crate) struct TasksHeader<'s> {
     header: &'s str,

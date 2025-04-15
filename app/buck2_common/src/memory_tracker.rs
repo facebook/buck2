@@ -224,9 +224,9 @@ pub use memory_tracker::*;
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::sync::Arc;
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering;
-    use std::sync::Arc;
     use std::time::Duration;
 
     use async_trait::async_trait;

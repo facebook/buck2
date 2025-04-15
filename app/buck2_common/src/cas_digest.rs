@@ -13,9 +13,9 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::io::Read;
 use std::marker::PhantomData;
+use std::sync::Arc;
 use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use chrono::DateTime;

@@ -11,8 +11,8 @@ use std::str::FromStr;
 
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_core::buck2_env_name;
-use clap::builder::FalseyValueParser;
 use clap::ArgGroup;
+use clap::builder::FalseyValueParser;
 use tracing::warn;
 
 use crate::common::PrintOutputsFormat;

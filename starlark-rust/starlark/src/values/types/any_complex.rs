@@ -23,8 +23,8 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -112,8 +112,6 @@ mod tests {
     use crate as starlark;
     use crate::const_frozen_string;
     use crate::environment::Module;
-    use crate::values::list::AllocList;
-    use crate::values::types::any_complex::StarlarkAnyComplex;
     use crate::values::Freeze;
     use crate::values::FreezeResult;
     use crate::values::Freezer;
@@ -121,6 +119,8 @@ mod tests {
     use crate::values::FrozenValue;
     use crate::values::StringValue;
     use crate::values::Value;
+    use crate::values::list::AllocList;
+    use crate::values::types::any_complex::StarlarkAnyComplex;
 
     #[test]
     fn test_any_complex() {

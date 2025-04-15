@@ -24,8 +24,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use dupe::Dupe;
 
-use crate::typing::ty::TypeRenderConfig;
 use crate::typing::Ty;
+use crate::typing::ty::TypeRenderConfig;
 
 #[derive(Dupe, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative)]
 enum ArcTyInner {

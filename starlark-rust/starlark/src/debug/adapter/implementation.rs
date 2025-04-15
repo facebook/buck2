@@ -17,13 +17,13 @@
 
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering;
-use std::sync::mpsc::channel;
-use std::sync::mpsc::Receiver;
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
+use std::sync::mpsc::Receiver;
+use std::sync::mpsc::Sender;
+use std::sync::mpsc::channel;
 
 use debugserver_types::*;
 use dupe::Dupe;
@@ -37,8 +37,6 @@ use super::VariablePath;
 use crate::codemap::FileSpan;
 use crate::codemap::FileSpanRef;
 use crate::codemap::Span;
-use crate::debug::adapter::Breakpoint;
-use crate::debug::adapter::ResolvedBreakpoints;
 use crate::debug::DapAdapter;
 use crate::debug::DapAdapterClient;
 use crate::debug::DapAdapterEvalHook;
@@ -46,6 +44,8 @@ use crate::debug::ScopesInfo;
 use crate::debug::StepKind;
 use crate::debug::Variable;
 use crate::debug::VariablesInfo;
+use crate::debug::adapter::Breakpoint;
+use crate::debug::adapter::ResolvedBreakpoints;
 use crate::eval::BeforeStmtFuncDyn;
 use crate::eval::Evaluator;
 use crate::syntax::AstModule;

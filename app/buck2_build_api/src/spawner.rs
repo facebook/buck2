@@ -54,11 +54,11 @@ mod tests {
 
     use buck2_data::CommandEnd;
     use buck2_data::CommandStart;
-    use buck2_events::create_source_sink_pair;
-    use buck2_events::dispatch::span;
-    use buck2_events::dispatch::EventDispatcher;
-    use buck2_events::source::ChannelEventSource;
     use buck2_events::BuckEvent;
+    use buck2_events::create_source_sink_pair;
+    use buck2_events::dispatch::EventDispatcher;
+    use buck2_events::dispatch::span;
+    use buck2_events::source::ChannelEventSource;
     use buck2_futures::spawn::spawn_dropcancel;
     use buck2_wrapper_common::invocation_id::TraceId;
     use dice::DiceData;

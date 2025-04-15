@@ -9,14 +9,12 @@
 
 // This code is adapted from https://github.com/dtolnay/thiserror licensed under Apache-2.0 or MIT.
 
-use std::collections::btree_map::Entry;
 use std::collections::BTreeMap as Map;
 use std::collections::BTreeSet as Set;
+use std::collections::btree_map::Entry;
 
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::parse_quote;
-use syn::punctuated::Punctuated;
 use syn::GenericArgument;
 use syn::Generics;
 use syn::Ident;
@@ -24,6 +22,8 @@ use syn::PathArguments;
 use syn::Token;
 use syn::Type;
 use syn::WhereClause;
+use syn::parse_quote;
+use syn::punctuated::Punctuated;
 
 pub struct ParamsInScope<'a> {
     names: Set<&'a Ident>,

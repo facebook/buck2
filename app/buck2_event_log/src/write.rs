@@ -9,8 +9,8 @@
 
 use std::mem;
 use std::process::Stdio;
-use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 
 use buck2_cli_proto::*;
 use buck2_common::argv::SanitizedArgv;
@@ -25,6 +25,7 @@ use prost::Message;
 use serde::Serialize;
 use tokio::fs::OpenOptions;
 
+use crate::FutureChildOutput;
 use crate::file_names::get_logfile_name;
 use crate::file_names::remove_old_logs;
 use crate::read::EventLogPathBuf;
@@ -38,7 +39,6 @@ use crate::wait_for_child_and_log;
 use crate::writer::EventLogType;
 use crate::writer::NamedEventLogWriter;
 use crate::writer::SerializeForLog;
-use crate::FutureChildOutput;
 
 enum LogWriterState {
     Unopened {

@@ -20,13 +20,6 @@ use starlark::starlark_module;
 use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
 use starlark::util::ArcStr;
-use starlark::values::list::ListRef;
-use starlark::values::list_or_tuple::UnpackListOrTuple;
-use starlark::values::none::NoneOr;
-use starlark::values::tuple::TupleRef;
-use starlark::values::typing::StarlarkCallable;
-use starlark::values::typing::StarlarkCallableChecked;
-use starlark::values::typing::StarlarkCallableParamSpec;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Trace;
@@ -35,10 +28,17 @@ use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::list::ListRef;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
+use starlark::values::none::NoneOr;
+use starlark::values::tuple::TupleRef;
+use starlark::values::typing::StarlarkCallable;
+use starlark::values::typing::StarlarkCallableChecked;
+use starlark::values::typing::StarlarkCallableParamSpec;
 
-use crate::transition::starlark::ImplSingleReturnTy;
 use crate::transition::starlark::IMPL_ATTRS_PARAM;
 use crate::transition::starlark::IMPL_PLATFORM_PARAM;
+use crate::transition::starlark::ImplSingleReturnTy;
 
 struct TransitionImplParams;
 

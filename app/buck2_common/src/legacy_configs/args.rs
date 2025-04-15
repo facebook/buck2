@@ -7,18 +7,18 @@
  * of this source tree.
  */
 
-use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
+use buck2_cli_proto::config_override::ConfigType;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 
-use crate::legacy_configs::configs::parse_config_section_and_key;
 use crate::legacy_configs::configs::ConfigArgumentParseError;
 use crate::legacy_configs::configs::ConfigSectionAndKey;
 use crate::legacy_configs::configs::LegacyBuckConfig;
+use crate::legacy_configs::configs::parse_config_section_and_key;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::file_ops::ConfigPath;
 use crate::legacy_configs::parser::LegacyConfigParser;

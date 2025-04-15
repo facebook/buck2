@@ -32,6 +32,8 @@ use starlark_syntax::codemap::Spanned;
 use crate as starlark;
 use crate::__derive_refs::components::NativeCallableComponents;
 use crate::eval::compiler::small_vec_1::SmallVec1;
+use crate::typing::ParamSpec;
+use crate::typing::TypingOracleCtx;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::basic::TyBasic;
 use crate::typing::call_args::TyCallArgs;
@@ -46,12 +48,10 @@ use crate::typing::small_arc_vec::SmallArcVec1;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::structs::TyStruct;
 use crate::typing::tuple::TyTuple;
-use crate::typing::ParamSpec;
-use crate::typing::TypingOracleCtx;
-use crate::values::bool::StarlarkBool;
-use crate::values::typing::never::TypingNever;
 use crate::values::StarlarkValue;
 use crate::values::Value;
+use crate::values::bool::StarlarkBool;
+use crate::values::typing::never::TypingNever;
 
 /// A typing operation wasn't able to produce a precise result,
 /// so made some kind of approximation.

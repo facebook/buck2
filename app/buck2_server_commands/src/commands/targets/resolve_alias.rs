@@ -20,14 +20,14 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write;
 
-use buck2_cli_proto::targets_request::OutputFormat;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
+use buck2_cli_proto::targets_request::OutputFormat;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_node::nodes::attributes::PACKAGE;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use dice::DiceTransaction;

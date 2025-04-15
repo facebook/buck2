@@ -13,14 +13,14 @@ use async_trait::async_trait;
 use buck2_cli_proto::BxlRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
-use buck2_client_ctx::common::build::CommonBuildOptions;
-use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::build::CommonBuildOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
 use buck2_client_ctx::events_ctx::EventsCtx;
@@ -28,11 +28,11 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 
-use crate::commands::build::print_build_result;
 use crate::commands::build::FinalArtifactMaterializations;
 use crate::commands::build::FinalArtifactUploads;
 use crate::commands::build::MaterializationsToProto;
 use crate::commands::build::UploadsToProto;
+use crate::commands::build::print_build_result;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "bxl", about = "Run BXL scripts")]

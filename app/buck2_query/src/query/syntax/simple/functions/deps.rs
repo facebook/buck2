@@ -23,9 +23,9 @@ use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use crate::query::syntax::simple::eval::set::TargetSet;
 use crate::query::syntax::simple::eval::values::QueryEvaluationValue;
 use crate::query::syntax::simple::eval::values::QueryValue;
-use crate::query::syntax::simple::functions::helpers::CapturedExpr;
 use crate::query::syntax::simple::functions::AugmentedQueryFunctions;
 use crate::query::syntax::simple::functions::QueryFunctions;
+use crate::query::syntax::simple::functions::helpers::CapturedExpr;
 
 pub(crate) struct DepsContextFunctions<'a, Env: QueryEnvironment> {
     target: &'a Env::Target,

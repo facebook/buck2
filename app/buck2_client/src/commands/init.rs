@@ -11,8 +11,8 @@ use std::io::ErrorKind;
 use std::io::Write;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
@@ -21,8 +21,8 @@ use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use buck2_util::process::background_command;
 
 /// Initializes a buck2 project at the provided path.

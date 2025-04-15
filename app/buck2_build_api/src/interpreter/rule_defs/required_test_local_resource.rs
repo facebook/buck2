@@ -14,9 +14,9 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::starlark_value;
 
 /// Object describing which local resources are needed for a given test rule.
 #[derive(Debug, Display, NoSerialize, ProvidesStaticType, Allocative)]

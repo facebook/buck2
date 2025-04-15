@@ -9,8 +9,8 @@
 
 //! Contains the internal support within the attribute framework for `select()`.
 
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr::CoercedConcat;
@@ -18,8 +18,8 @@ use buck2_node::attrs::coerced_attr::CoercedSelector;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
-use starlark::values::dict::DictRef;
 use starlark::values::Value;
+use starlark::values::dict::DictRef;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::interpreter::selector::StarlarkSelector;

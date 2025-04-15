@@ -24,12 +24,6 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::typing::Ty;
-use starlark::values::list::AllocList;
-use starlark::values::list_or_tuple::UnpackListOrTuple;
-use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
-use starlark::values::type_repr::StarlarkTypeRepr;
-use starlark::values::typing::StarlarkCallable;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -39,6 +33,12 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
+use starlark::values::list::AllocList;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
+use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
+use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::typing::StarlarkCallable;
 
 /// A type that corresponds to a Rust promise.
 #[derive(

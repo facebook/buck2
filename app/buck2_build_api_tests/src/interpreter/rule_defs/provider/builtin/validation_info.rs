@@ -9,8 +9,8 @@
 
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_build_api::interpreter::rule_defs::validation_spec;
-use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
+use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use indoc::indoc;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;

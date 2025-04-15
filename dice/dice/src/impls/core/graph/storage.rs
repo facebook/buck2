@@ -168,6 +168,8 @@
 
 use allocative::Allocative;
 
+use crate::HashMap;
+use crate::HashSet;
 use crate::api::key::InvalidationSourcePriority;
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
@@ -187,8 +189,6 @@ use crate::impls::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
 use crate::versions::VersionRanges;
-use crate::HashMap;
-use crate::HashSet;
 
 /// The actual incremental cache that checks versions and dependency's versions
 /// to maintain correct caching based on versions and the versions of its
@@ -492,11 +492,11 @@ mod tests {
     use crate::api::key::InvalidationSourcePriority;
     use crate::api::key::Key;
     use crate::arc::Arc;
-    use crate::impls::core::graph::storage::testing::VersionedCacheResultAssertsExt;
     use crate::impls::core::graph::storage::InvalidateKind;
     use crate::impls::core::graph::storage::StorageType;
     use crate::impls::core::graph::storage::ValueReusable;
     use crate::impls::core::graph::storage::VersionedGraph;
+    use crate::impls::core::graph::storage::testing::VersionedCacheResultAssertsExt;
     use crate::impls::core::graph::types::VersionedGraphKey;
     use crate::impls::deps::graph::SeriesParallelDeps;
     use crate::impls::key::DiceKey;

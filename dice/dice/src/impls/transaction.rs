@@ -15,6 +15,8 @@ use dice_error::DiceError;
 use dice_error::DiceResult;
 use dupe::Dupe;
 
+use crate::DiceModern;
+use crate::HashMap;
 use crate::api::key::InvalidationSourcePriority;
 use crate::api::key::Key;
 use crate::api::storage_type::StorageType;
@@ -28,8 +30,6 @@ use crate::impls::value::DiceValidValue;
 use crate::impls::value::DiceValidity;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::versions::VersionNumber;
-use crate::DiceModern;
-use crate::HashMap;
 
 // TODO fill this more
 #[derive(Allocative)]

@@ -23,8 +23,8 @@ use std::array;
 
 use allocative::Allocative;
 use once_cell::sync::Lazy;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::eval::runtime::slots::LocalSlotId;

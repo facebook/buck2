@@ -13,16 +13,16 @@ use std::time::Duration;
 use allocative::Allocative;
 use buck2_core::buck2_env;
 use buck2_data::*;
-use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::with_dispatcher_async;
 use buck2_util::threads::thread_spawn;
 use dice::DiceEvent;
 use dice::DiceEventListener;
 use dupe::Dupe;
+use futures::StreamExt;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;
-use futures::StreamExt;
 
 /// The BuckDiceTracker keeps track of the started/finished events for a dice computation and periodically sends a snapshot to the client.
 ///

@@ -11,9 +11,9 @@
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::name::CellName;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use derive_more::Display;
 use dice::CancellationContext;

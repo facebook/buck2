@@ -25,15 +25,15 @@ use futures::Future;
 use starlark::values::OwnedFrozenValueTyped;
 
 use crate::actions::RegisteredAction;
+use crate::analysis::AnalysisResult;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::analysis::registry::RecordedAnalysisValues;
-use crate::analysis::AnalysisResult;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::bxl::calculation::BXL_CALCULATION_IMPL;
 use crate::bxl::result::BxlResult;
-use crate::dynamic::calculation::dynamic_lambda_result;
 use crate::dynamic::calculation::DynamicLambdaResult;
+use crate::dynamic::calculation::dynamic_lambda_result;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 
 pub static EVAL_ANON_TARGET: LateBinding<

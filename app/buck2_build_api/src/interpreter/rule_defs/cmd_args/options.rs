@@ -31,8 +31,6 @@ use gazebo::prelude::*;
 use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
-use starlark::values::string::StarlarkStr;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -44,15 +42,17 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
+use starlark::values::string::StarlarkStr;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use static_assertions::assert_eq_size;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::regex::FrozenCmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::shlex_quote::shlex_quote;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 
 /// Supported ways of quoting arguments.
 #[derive(Debug, Clone, Copy, Dupe, Trace, Freeze, Serialize, Allocative)]

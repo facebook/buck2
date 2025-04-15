@@ -39,10 +39,10 @@ use crate::eval::compiler::expr::ExprLogicalBinOp;
 use crate::eval::compiler::expr::MaybeNot;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
-use crate::values::layout::value_not_special::FrozenValueNotSpecial;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::ValueLike;
+use crate::values::layout::value_not_special::FrozenValueNotSpecial;
 
 /// Try extract consecutive definitely initialized locals from expressions.
 fn try_slot_range<'a>(

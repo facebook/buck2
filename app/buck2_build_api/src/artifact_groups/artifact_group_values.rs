@@ -20,13 +20,13 @@ use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_execute::directory::insert_artifact;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
+use buck2_execute::directory::insert_artifact;
 use dupe::Dupe;
-use smallvec::smallvec;
 use smallvec::SmallVec;
+use smallvec::smallvec;
 
 /// The [`ArtifactValue`]s for an [`crate::artifact_groups::ArtifactGroup`].
 #[derive(Clone, Dupe, Allocative)]

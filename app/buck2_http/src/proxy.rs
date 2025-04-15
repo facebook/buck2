@@ -11,10 +11,10 @@ use std::net::IpAddr;
 use std::str::FromStr;
 
 use buck2_error::BuckErrorContext;
+use http::Uri;
 use http::uri::InvalidUri;
 use http::uri::PathAndQuery;
 use http::uri::Scheme;
-use http::Uri;
 use hyper_proxy::Intercept;
 use hyper_proxy::Proxy;
 use ipnetwork::IpNetwork;

@@ -24,9 +24,9 @@ use allocative::Allocative;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::Equivalent;
 use crate::small_map;
 use crate::small_map::SmallMap;
-use crate::Equivalent;
 
 /// Wrapper for `SmallMap` which considers map equal if iteration order is equal.
 #[derive(Debug, Clone, Allocative)]

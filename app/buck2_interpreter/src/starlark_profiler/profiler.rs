@@ -9,8 +9,8 @@
 
 use std::time::Instant;
 
-use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
 use starlark::eval::ProfileData;

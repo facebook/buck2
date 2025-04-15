@@ -15,9 +15,9 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::Value;
 
+use crate::attrs::coerce::AttrTypeCoerce;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::attr_type::visibility::parse_visibility_with_view;
-use crate::attrs::coerce::AttrTypeCoerce;
 
 impl AttrTypeCoerce for WithinViewAttrType {
     fn coerce_item(

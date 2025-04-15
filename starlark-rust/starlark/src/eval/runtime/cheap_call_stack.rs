@@ -20,14 +20,14 @@ use std::fmt::Debug;
 use std::vec;
 
 use dupe::Dupe;
+use starlark_syntax::ErrorKind;
 use starlark_syntax::codemap::FileSpan;
 use starlark_syntax::slice_vec_ext::SliceExt;
-use starlark_syntax::ErrorKind;
 
 use crate::errors::Frame;
+use crate::eval::CallStack;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrames;
-use crate::eval::CallStack;
 use crate::hint::unlikely;
 use crate::values::FrozenRef;
 use crate::values::Trace;

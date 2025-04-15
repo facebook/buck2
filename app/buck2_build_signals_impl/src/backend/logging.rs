@@ -18,9 +18,9 @@ use serde::Deserialize;
 use serde::Serialize;
 use smallvec::SmallVec;
 
-use crate::backend::backend::BuildListenerBackend;
 use crate::BuildInfo;
 use crate::NodeKey;
+use crate::backend::backend::BuildListenerBackend;
 
 pub(crate) struct LoggingBackend {
     events: EventDispatcher,

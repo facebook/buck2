@@ -18,7 +18,6 @@ use buck2_util::late_binding::LateBinding;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
-use starlark::values::starlark_value;
 use starlark::values::Freeze;
 use starlark::values::FreezeErrorContext;
 use starlark::values::FreezeResult;
@@ -31,6 +30,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
+use starlark::values::starlark_value;
 use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::extra_value::FrozenInterpreterExtraValue;

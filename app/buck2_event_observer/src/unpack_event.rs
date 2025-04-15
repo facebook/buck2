@@ -7,10 +7,10 @@
  * of this source tree.
  */
 
-use buck2_data::buck_event;
 use buck2_data::InstantEvent;
 use buck2_data::SpanEndEvent;
 use buck2_data::SpanStartEvent;
+use buck2_data::buck_event;
 use buck2_events::BuckEvent;
 
 #[derive(buck2_error::Error, Debug)]

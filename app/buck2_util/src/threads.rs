@@ -10,13 +10,13 @@
 use std::cell::Cell;
 use std::future::Future;
 use std::hint;
-use std::pin::pin;
 use std::pin::Pin;
+use std::pin::pin;
 use std::task::Poll;
 use std::thread;
 
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 
 /// Default stack size for buck2.
 ///

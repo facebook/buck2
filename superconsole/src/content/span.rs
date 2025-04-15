@@ -12,6 +12,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
+use crossterm::Command;
 use crossterm::style::Attribute;
 use crossterm::style::Color;
 use crossterm::style::ContentStyle;
@@ -20,7 +21,6 @@ use crossterm::style::SetAttributes;
 use crossterm::style::SetBackgroundColor;
 use crossterm::style::SetForegroundColor;
 use crossterm::style::StyledContent;
-use crossterm::Command;
 use termwiz::cell;
 use termwiz::cell::Hyperlink;
 use unicode_segmentation::Graphemes;

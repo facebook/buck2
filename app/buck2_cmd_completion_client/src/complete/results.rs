@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
-use std::collections::hash_map::Entry;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
 use buck2_common::buildfiles::parse_buildfile_name;

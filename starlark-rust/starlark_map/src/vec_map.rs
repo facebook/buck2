@@ -28,7 +28,6 @@ use equivalent::Equivalent;
 
 use crate::hash_value::StarlarkHashValue;
 use crate::hashed::Hashed;
-pub(crate) use crate::vec2::Vec2;
 use crate::vec_map::hint::likely;
 pub(crate) use crate::vec_map::iter::IntoIter;
 pub(crate) use crate::vec_map::iter::IntoIterHashed;
@@ -40,6 +39,7 @@ pub(crate) use crate::vec_map::iter::Keys;
 pub(crate) use crate::vec_map::iter::Values;
 pub(crate) use crate::vec_map::iter::ValuesMut;
 use crate::vec_map::simd::find_hash_in_array;
+pub(crate) use crate::vec2::Vec2;
 
 #[derive(Debug, Clone, Allocative)]
 pub(crate) struct VecMap<K, V> {

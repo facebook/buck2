@@ -7,11 +7,11 @@
  * of this source tree.
  */
 
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Barrier;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use assert_matches::assert_matches;
@@ -24,6 +24,11 @@ use dupe::Dupe;
 use futures::FutureExt;
 use tokio::sync::oneshot;
 
+use crate::Dice;
+use crate::DiceData;
+use crate::DynKey;
+use crate::UserCycleDetector;
+use crate::UserCycleDetectorGuard;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::injected::InjectedKey;
@@ -31,11 +36,6 @@ use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::impls::dice::DiceModern;
 use crate::versions::VersionNumber;
-use crate::Dice;
-use crate::DiceData;
-use crate::DynKey;
-use crate::UserCycleDetector;
-use crate::UserCycleDetectorGuard;
 
 #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]
 #[display("{:?}", self)]

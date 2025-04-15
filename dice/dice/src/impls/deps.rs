@@ -217,9 +217,9 @@ use sync_arena::SyncArena;
 
 #[cfg(test)]
 pub(crate) mod testing {
+    use crate::HashSet;
     use crate::impls::deps::RecordingDepsTracker;
     use crate::impls::key::DiceKey;
-    use crate::HashSet;
 
     pub(crate) trait RecordingDepsTrackersExt {
         fn recorded_deps(&self) -> HashSet<DiceKey>;
@@ -238,15 +238,15 @@ mod tests {
     use itertools::Itertools;
     use typed_arena::Arena;
 
-    use crate::impls::deps::iterator::ParallelNodeIterator;
-    use crate::impls::deps::iterator::SeriesParallelDepsIteratorItem;
+    use crate::HashSet;
     use crate::impls::deps::RecordedDeps;
     use crate::impls::deps::RecordingDepsTracker;
+    use crate::impls::deps::iterator::ParallelNodeIterator;
+    use crate::impls::deps::iterator::SeriesParallelDepsIteratorItem;
     use crate::impls::key::DiceKey;
-    use crate::impls::value::testing::MakeInvalidationPaths;
     use crate::impls::value::DiceValidity;
     use crate::impls::value::TrackedInvalidationPaths;
-    use crate::HashSet;
+    use crate::impls::value::testing::MakeInvalidationPaths;
 
     struct DisplaySPDeps<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a>>>(T);
     impl<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a>>> DisplaySPDeps<'a, T> {

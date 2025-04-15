@@ -26,10 +26,10 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
+use futures::StreamExt;
 use futures::stream::BoxStream;
 use futures::stream::Stream;
 use futures::stream::TryStreamExt;
-use futures::StreamExt;
 use pin_project::pin_project;
 use prost::Message;
 use regex::Regex;
@@ -46,8 +46,8 @@ use crate::utils::Encoding;
 use crate::utils::EventLogErrors;
 use crate::utils::EventLogInferenceError;
 use crate::utils::Invocation;
-use crate::utils::LogMode;
 use crate::utils::KNOWN_ENCODINGS;
+use crate::utils::LogMode;
 
 type EventLogReader<'a> = Box<dyn AsyncRead + Send + Sync + Unpin + 'a>;
 

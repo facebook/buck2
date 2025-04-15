@@ -15,9 +15,9 @@ use std::process::Stdio;
 use anyhow::Context;
 use tracing::instrument;
 
+use crate::buck::Buck;
 use crate::buck::truncate_line_ending;
 use crate::buck::utf8_output;
-use crate::buck::Buck;
 use crate::cli::develop_with_sysroot;
 use crate::json_project::Sysroot;
 use crate::target::Target;

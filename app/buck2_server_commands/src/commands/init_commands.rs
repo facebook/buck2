@@ -17,8 +17,8 @@ use buck2_cli_proto::new_generic::ExpandExternalCellsResponse;
 use buck2_cli_proto::new_generic::ExplainRequest;
 use buck2_cli_proto::new_generic::ExplainResponse;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::late_bindings::OtherServerCommands;
 use buck2_server_ctx::late_bindings::OTHER_SERVER_COMMANDS;
+use buck2_server_ctx::late_bindings::OtherServerCommands;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 

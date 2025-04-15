@@ -19,11 +19,11 @@ use std::slice;
 
 use dupe::Clone_;
 
+use crate::Hashed;
+use crate::StarlarkHashValue;
 use crate::iter::def_double_ended_iter;
 use crate::iter::def_iter;
 use crate::vec2;
-use crate::Hashed;
-use crate::StarlarkHashValue;
 
 #[derive(Clone_)]
 pub(crate) struct Keys<'a, K: 'a, V: 'a> {

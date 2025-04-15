@@ -9,11 +9,11 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::parse_macro_input;
-use syn::spanned::Spanned;
 use syn::DeriveInput;
 use syn::Fields;
 use syn::Ident;
+use syn::parse_macro_input;
+use syn::spanned::Spanned;
 
 #[proc_macro_derive(StrongHash)]
 pub fn derive_hash(input: TokenStream) -> TokenStream {

@@ -32,9 +32,9 @@ use futures::future::BoxFuture;
 use futures::future::Shared;
 use tracing::instrument;
 
-use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::deferred::SharedMaterializingError;
 use crate::materializers::deferred::WriteFile;
+use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::sqlite::MaterializerState;
 use crate::materializers::sqlite::MaterializerStateSqliteDb;
 

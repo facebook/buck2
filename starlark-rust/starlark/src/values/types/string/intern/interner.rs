@@ -83,10 +83,10 @@ impl<'v> StringValueInterner<'v> {
 #[cfg(test)]
 mod tests {
     use crate::collections::Hashed;
-    use crate::values::string::intern::interner::FrozenStringValueInterner;
-    use crate::values::string::intern::interner::StringValueInterner;
     use crate::values::FrozenHeap;
     use crate::values::Heap;
+    use crate::values::string::intern::interner::FrozenStringValueInterner;
+    use crate::values::string::intern::interner::StringValueInterner;
 
     #[test]
     fn test_intern() {

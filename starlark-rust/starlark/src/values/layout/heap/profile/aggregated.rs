@@ -16,8 +16,8 @@
  */
 
 use std::cell::RefCell;
-use std::collections::hash_map;
 use std::collections::HashMap;
+use std::collections::hash_map;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -27,14 +27,16 @@ use allocative::Allocative;
 use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
+use crate::eval::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphNode;
 use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::small_duration::SmallDuration;
-use crate::eval::ProfileData;
 use crate::util::arc_str::ArcStr;
+use crate::values::Heap;
+use crate::values::Value;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
@@ -45,8 +47,6 @@ use crate::values::layout::heap::profile::summary_by_function::HeapSummaryByFunc
 use crate::values::layout::heap::repr::AValueOrForward;
 use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::pointer::RawPointer;
-use crate::values::Heap;
-use crate::values::Value;
 
 /// A mapping from function Value to FunctionId, which must be continuous
 #[derive(Default)]
@@ -406,13 +406,13 @@ mod tests {
     use dupe::Dupe;
 
     use crate::const_frozen_string;
+    use crate::values::Freezer;
+    use crate::values::FrozenHeap;
+    use crate::values::Heap;
     use crate::values::layout::heap::heap_type::HeapKind;
     use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
     use crate::values::layout::heap::profile::aggregated::StackFrame;
     use crate::values::layout::heap::profile::summary_by_function::HeapSummaryByFunction;
-    use crate::values::Freezer;
-    use crate::values::FrozenHeap;
-    use crate::values::Heap;
 
     fn total_alloc_count(frame: &StackFrame) -> usize {
         frame.allocs.total().count

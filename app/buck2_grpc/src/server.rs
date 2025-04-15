@@ -17,8 +17,8 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tonic::transport::server::Router;
 use tonic::transport::server::Routes;
-use tower::layer::Layer;
 use tower::Service;
+use tower::layer::Layer;
 
 use self::connection_with_extra::ConnectionWithExtra;
 use self::drop_notifier::DropNotifier;

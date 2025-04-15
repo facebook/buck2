@@ -16,9 +16,9 @@ use buck2_event_observer::pending_estimate::pending_estimate;
 use buck2_event_observer::span_tracker;
 use buck2_event_observer::span_tracker::RootData;
 use buck2_event_observer::span_tracker::Roots;
+use buck2_events::BuckEvent;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::span::SpanId;
-use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
@@ -277,8 +277,8 @@ mod tests {
     use std::time::SystemTime;
 
     use assert_matches::assert_matches;
-    use buck2_events::source::ChannelEventSource;
     use buck2_events::Event;
+    use buck2_events::source::ChannelEventSource;
 
     use super::*;
 

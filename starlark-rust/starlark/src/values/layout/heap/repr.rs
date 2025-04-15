@@ -24,15 +24,15 @@ use dupe::Dupe;
 
 use crate::any::AnyLifetime;
 use crate::cast;
+use crate::values::FrozenValue;
+use crate::values::StarlarkValue;
+use crate::values::Value;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
-use crate::values::FrozenValue;
-use crate::values::StarlarkValue;
-use crate::values::Value;
 
 #[derive(Clone)]
 #[repr(C)]

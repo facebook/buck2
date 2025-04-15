@@ -24,10 +24,10 @@ use buck2_event_observer::display::TargetDisplayOptions;
 use serde::Serialize;
 use tokio_stream::StreamExt;
 
-use crate::commands::log::options::EventLogOptions;
-use crate::commands::log::transform_format;
 use crate::commands::log::LogCommandOutputFormat;
 use crate::commands::log::LogCommandOutputFormatWithWriter;
+use crate::commands::log::options::EventLogOptions;
+use crate::commands::log::transform_format;
 
 /// Show the critical path for a selected build.
 ///

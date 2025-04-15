@@ -14,12 +14,12 @@ use dice_error::DiceErrorImpl;
 use dice_error::DiceResult;
 use dupe::Dupe;
 
+use crate::DynKey;
 use crate::api::user_data::UserCycleDetector;
 use crate::api::user_data::UserCycleDetectorGuard;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key_index::DiceKeyIndex;
-use crate::DynKey;
 
 pub(crate) struct UserCycleDetectorData(());
 

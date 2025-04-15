@@ -18,8 +18,8 @@
 #![cfg(test)]
 
 use crate::assert;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::Heap;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 #[test]
 fn test_types() {

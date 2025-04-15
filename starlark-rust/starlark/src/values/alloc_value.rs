@@ -19,13 +19,13 @@
 
 use either::Either;
 
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// Trait for things that can be created on a [`Heap`] producing a [`Value`].
 ///
@@ -61,8 +61,8 @@ use crate::values::Value;
 /// `AllocValue` can be derived for enums, like this:
 ///
 /// ```
-/// use starlark::values::type_repr::StarlarkTypeRepr;
 /// use starlark::values::AllocValue;
+/// use starlark::values::type_repr::StarlarkTypeRepr;
 ///
 /// #[derive(StarlarkTypeRepr, AllocValue)]
 /// enum AllocIntOrStr {
@@ -123,8 +123,8 @@ impl<A: AllocFrozenValue, B: AllocFrozenValue> AllocFrozenValue for Either<A, B>
 /// `AllocFrozenValue` can be derived for enums, like this:
 ///
 /// ```
-/// use starlark::values::type_repr::StarlarkTypeRepr;
 /// use starlark::values::AllocFrozenValue;
+/// use starlark::values::type_repr::StarlarkTypeRepr;
 ///
 /// #[derive(StarlarkTypeRepr, AllocFrozenValue)]
 /// enum AllocIntOrStr {

@@ -33,8 +33,8 @@ use starlark::environment::FrozenModule;
 use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
-use starlark::values::dict::FrozenDictRef;
 use starlark::values::FrozenValueTyped;
+use starlark::values::dict::FrozenDictRef;
 use starlark_map::small_map::SmallMap;
 use starlark_map::smallmap;
 

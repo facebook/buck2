@@ -15,19 +15,19 @@ use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_critical_path::compute_critical_path_potentials;
 use buck2_critical_path::GraphBuilder;
 use buck2_critical_path::OptionalVertexId;
 use buck2_critical_path::PushError;
+use buck2_critical_path::compute_critical_path_potentials;
 use buck2_error::BuckErrorContext;
 use buck2_events::span::SpanId;
 use dupe::Dupe;
 use smallvec::SmallVec;
 
-use crate::backend::backend::BuildListenerBackend;
 use crate::BuildInfo;
 use crate::NodeData;
 use crate::NodeKey;
+use crate::backend::backend::BuildListenerBackend;
 
 /// An implementation of critical path that uses a longest-paths graph in order to produce
 /// potential savings in addition to the critical path.

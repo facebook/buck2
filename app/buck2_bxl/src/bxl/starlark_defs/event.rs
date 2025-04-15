@@ -13,20 +13,20 @@ use std::collections::HashMap;
 
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_data::StarlarkUserEvent;
+use buck2_data::StarlarkUserMetadataDictValue;
+use buck2_data::StarlarkUserMetadataListValue;
+use buck2_data::StarlarkUserMetadataValue;
 use buck2_data::starlark_user_metadata_value::Value::BoolValue;
 use buck2_data::starlark_user_metadata_value::Value::DictValue;
 use buck2_data::starlark_user_metadata_value::Value::IntValue;
 use buck2_data::starlark_user_metadata_value::Value::ListValue;
 use buck2_data::starlark_user_metadata_value::Value::StringValue;
-use buck2_data::StarlarkUserEvent;
-use buck2_data::StarlarkUserMetadataDictValue;
-use buck2_data::StarlarkUserMetadataListValue;
-use buck2_data::StarlarkUserMetadataValue;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
 use starlark::values::dict::DictRef;
 use starlark::values::float::UnpackFloat;
 use starlark::values::list::ListRef;
-use starlark::values::UnpackValue;
-use starlark::values::Value;
 
 use super::artifacts::EnsuredArtifact;
 use super::context::output::get_artifact_path_display;

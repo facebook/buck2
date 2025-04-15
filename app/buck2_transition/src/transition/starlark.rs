@@ -37,14 +37,6 @@ use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
 use starlark::util::ArcStr;
-use starlark::values::dict::DictType;
-use starlark::values::dict::UnpackDictEntries;
-use starlark::values::list_or_tuple::UnpackListOrTuple;
-use starlark::values::starlark_value;
-use starlark::values::structs::StructRef;
-use starlark::values::type_repr::StarlarkTypeRepr;
-use starlark::values::typing::StarlarkCallableChecked;
-use starlark::values::typing::StarlarkCallableParamSpec;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
@@ -57,6 +49,14 @@ use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::dict::DictType;
+use starlark::values::dict::UnpackDictEntries;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
+use starlark::values::starlark_value;
+use starlark::values::structs::StructRef;
+use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::typing::StarlarkCallableChecked;
+use starlark::values::typing::StarlarkCallableParamSpec;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]

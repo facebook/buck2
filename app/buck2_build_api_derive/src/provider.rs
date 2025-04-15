@@ -10,9 +10,9 @@
 use convert_case::Case;
 use convert_case::Casing;
 use gazebo::prelude::*;
+use quote::ToTokens;
 use quote::format_ident;
 use quote::quote;
-use quote::ToTokens;
 use syn::Fields;
 use syn::TypeParamBound;
 

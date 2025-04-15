@@ -10,13 +10,6 @@
 use std::collections::HashMap;
 use std::time::Instant;
 
-use buck2_data::analysis_stage_start;
-use buck2_data::executor_stage_start;
-use buck2_data::instant_event;
-use buck2_data::local_stage;
-use buck2_data::re_stage;
-use buck2_data::span_end_event;
-use buck2_data::span_start_event;
 use buck2_data::ActionExecutionStart;
 use buck2_data::AnalysisEnd;
 use buck2_data::AnalysisStageStart;
@@ -25,14 +18,21 @@ use buck2_data::ExecutorStageStart;
 use buck2_data::LoadBuildFileEnd;
 use buck2_data::LocalStage;
 use buck2_data::ReStage;
-use buck2_events::span::SpanId;
+use buck2_data::analysis_stage_start;
+use buck2_data::executor_stage_start;
+use buck2_data::instant_event;
+use buck2_data::local_stage;
+use buck2_data::re_stage;
+use buck2_data::span_end_event;
+use buck2_data::span_start_event;
 use buck2_events::BuckEvent;
+use buck2_events::span::SpanId;
 
+use crate::last_command_execution_kind::LastCommandExecutionKind;
 use crate::last_command_execution_kind::get_last_command_execution_kind;
 use crate::last_command_execution_kind::get_last_command_execution_time;
-use crate::last_command_execution_kind::LastCommandExecutionKind;
-use crate::unpack_event::unpack_event;
 use crate::unpack_event::UnpackedBuckEvent;
+use crate::unpack_event::unpack_event;
 
 #[derive(Debug, Clone, Copy)]
 enum State {

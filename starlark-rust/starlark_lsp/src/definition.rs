@@ -39,10 +39,10 @@ use starlark_syntax::syntax::module::AstModuleFields;
 use starlark_syntax::syntax::top_level_stmts::top_level_stmts;
 use starlark_syntax::syntax::uniplate::Visit;
 
-use crate::bind::scope;
 use crate::bind::Assigner;
 use crate::bind::Bind;
 use crate::bind::Scope;
+use crate::bind::scope;
 use crate::exported::AstModuleExportedSymbols;
 use crate::exported::Symbol;
 use crate::loaded::AstModuleLoadedSymbols;
@@ -605,8 +605,8 @@ impl LspModule {
 
 #[cfg(test)]
 pub(crate) mod helpers {
-    use std::collections::hash_map::Entry;
     use std::collections::HashMap;
+    use std::collections::hash_map::Entry;
 
     use starlark::syntax::Dialect;
     use starlark_syntax::codemap::ResolvedPos;

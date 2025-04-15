@@ -8,9 +8,9 @@
  */
 
 use buck2_core::package::PackageLabel;
-use buck2_core::pattern::pattern::display_precise_pattern;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::display_precise_pattern;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::target::name::TargetName;
@@ -137,9 +137,9 @@ mod tests {
     use std::marker::PhantomData;
     use std::sync::Arc;
 
+    use buck2_core::cells::CellResolver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
-    use buck2_core::cells::CellResolver;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::PackageLabel;
     use buck2_core::pattern::pattern::PackageSpec;
@@ -155,10 +155,10 @@ mod tests {
     use gazebo::prelude::*;
     use test_case::test_case;
 
-    use crate::file_ops::testing::TestFileOps;
     use crate::file_ops::FileOps;
-    use crate::pattern::resolve::resolve_target_patterns_impl;
+    use crate::file_ops::testing::TestFileOps;
     use crate::pattern::resolve::ResolvedPattern;
+    use crate::pattern::resolve::resolve_target_patterns_impl;
 
     #[derive(Clone)]
     struct TestPatternResolver {

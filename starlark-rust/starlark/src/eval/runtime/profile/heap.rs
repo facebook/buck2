@@ -20,13 +20,13 @@ use std::fmt::Debug;
 use allocative::Allocative;
 use dupe::Dupe;
 
+use crate::eval::ProfileMode;
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::profiler_type::ProfilerType;
-use crate::eval::ProfileMode;
-use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::Heap;
 use crate::values::Value;
+use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 
 pub(crate) struct HeapAllocatedProfilerType;
 pub(crate) struct HeapRetainedProfilerType;
@@ -260,9 +260,9 @@ impl HeapProfile {
 mod tests {
     use crate::environment::Globals;
     use crate::environment::Module;
+    use crate::eval::Evaluator;
     use crate::eval::runtime::profile::heap::HeapProfile;
     use crate::eval::runtime::profile::mode::ProfileMode;
-    use crate::eval::Evaluator;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
     use crate::values::Value;

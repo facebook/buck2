@@ -24,11 +24,11 @@ use buck2_util::hash::BuckHasherBuilder;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
-use futures::future::BoxFuture;
-use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
+use futures::future::BoxFuture;
+use futures::stream::FuturesUnordered;
 use itertools::Itertools;
 
 use crate::nodes::eval_result::EvaluationResult;

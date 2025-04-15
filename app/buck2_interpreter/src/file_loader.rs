@@ -19,8 +19,8 @@ use either::Either;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::eval::FileLoader;
-use starlark::values::structs::FrozenStructRef;
 use starlark::values::FrozenValue;
+use starlark::values::structs::FrozenStructRef;
 use starlark_map::ordered_map::OrderedMap;
 
 use crate::paths::module::OwnedStarlarkModulePath;

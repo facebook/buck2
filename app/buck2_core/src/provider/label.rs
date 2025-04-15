@@ -22,9 +22,9 @@ use static_assertions::assert_eq_size;
 use triomphe::Arc;
 
 use crate::ascii_char_set::AsciiCharSet;
-use crate::cells::name::CellName;
 use crate::cells::CellAliasResolver;
 use crate::cells::CellResolver;
+use crate::cells::name::CellName;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
 use crate::configuration::pair::ConfigurationNoExec;

@@ -9,12 +9,12 @@
 
 use std::fmt;
 
-use buck2_event_observer::what_ran::emit_what_ran_entry;
 use buck2_event_observer::what_ran::CommandReproducer;
 use buck2_event_observer::what_ran::WhatRanOptions;
 use buck2_event_observer::what_ran::WhatRanOptionsRegex;
 use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_event_observer::what_ran::WhatRanState;
+use buck2_event_observer::what_ran::emit_what_ran_entry;
 use buck2_events::span::SpanId;
 use derive_more::From;
 use dupe::Dupe;

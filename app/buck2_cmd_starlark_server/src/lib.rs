@@ -19,8 +19,8 @@ use buck2_cmd_starlark_client::StarlarkSubcommand;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::late_bindings::StarlarkServerCommand;
 use buck2_server_ctx::late_bindings::STARLARK_SERVER_COMMAND;
+use buck2_server_ctx::late_bindings::StarlarkServerCommand;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 pub fn init_late_bindings() {

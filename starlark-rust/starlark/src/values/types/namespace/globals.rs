@@ -20,11 +20,11 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
-use crate::values::namespace::typing::TyNamespaceFunction;
-use crate::values::namespace::value::MaybeDocHiddenValue;
+use crate::values::Heap;
 use crate::values::namespace::FrozenNamespace;
 use crate::values::namespace::Namespace;
-use crate::values::Heap;
+use crate::values::namespace::typing::TyNamespaceFunction;
+use crate::values::namespace::value::MaybeDocHiddenValue;
 
 #[starlark_module]
 pub fn register_namespace(builder: &mut GlobalsBuilder) {

@@ -33,6 +33,7 @@ use hashbrown::HashTable;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::StarlarkHashValue;
 use crate::hashed::Hashed;
 pub use crate::small_map::iter::IntoIter;
 pub use crate::small_map::iter::IntoIterHashed;
@@ -46,7 +47,6 @@ pub use crate::small_map::iter::Keys;
 pub use crate::small_map::iter::Values;
 pub use crate::small_map::iter::ValuesMut;
 use crate::vec_map::VecMap;
-use crate::StarlarkHashValue;
 
 mod iter;
 
@@ -1081,8 +1081,8 @@ where
 #[cfg(test)]
 mod tests {
     use std::cmp::Ordering;
-    use std::panic::catch_unwind;
     use std::panic::AssertUnwindSafe;
+    use std::panic::catch_unwind;
 
     use super::*;
 

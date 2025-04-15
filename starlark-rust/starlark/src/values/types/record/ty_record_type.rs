@@ -19,8 +19,8 @@ use allocative::Allocative;
 
 use crate::eval::ParametersSpec;
 use crate::typing::Ty;
-use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::FrozenValue;
+use crate::values::types::type_instance_id::TypeInstanceId;
 
 #[derive(Allocative, Debug)]
 #[doc(hidden)]

@@ -32,11 +32,11 @@ use dice::InjectedKey;
 use dice::Key;
 use dice_error::DiceResult;
 use dupe::Dupe;
-use futures::future::join_all;
-use futures::future::BoxFuture;
-use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
+use futures::future::BoxFuture;
+use futures::future::join_all;
+use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
 use ref_cast::RefCast;
 

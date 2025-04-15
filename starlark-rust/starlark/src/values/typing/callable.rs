@@ -26,25 +26,16 @@ use std::sync::atomic::AtomicPtr;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::private::Private;
-use crate::typing::callable::TyCallable;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
-use crate::values::layout::avalue::alloc_static;
-use crate::values::layout::avalue::AValueBasic;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::list::UnpackList;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::typing::callable::param::StarlarkCallableParamAny;
-use crate::values::typing::callable::param::StarlarkCallableParamSpec;
-use crate::values::typing::TypeCompiled;
+use crate::typing::callable::TyCallable;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
@@ -58,6 +49,15 @@ use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::layout::avalue::AValueBasic;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::list::UnpackList;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::typing::TypeCompiled;
+use crate::values::typing::callable::param::StarlarkCallableParamAny;
+use crate::values::typing::callable::param::StarlarkCallableParamSpec;
 
 #[derive(
     Debug,

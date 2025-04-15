@@ -17,19 +17,19 @@ use std::convert::TryInto;
 use std::net::IpAddr;
 use std::net::Ipv6Addr;
 use std::net::SocketAddr;
+use std::sync::Mutex;
 use std::sync::atomic;
 use std::sync::atomic::AtomicU64;
-use std::sync::Mutex;
 use std::time::Duration;
 
 use crossbeam::queue::ArrayQueue;
 use fbinit::FacebookInit;
 use fbthrift::NonthrowingFunctionError;
 use scribe_message_metadata::MessageMetadata;
-use scribe_producer_service::consts::DEFAULT_PRODUCER_SERVICE_PORT;
 use scribe_producer_service::WriteMessage;
 use scribe_producer_service::WriteMessageResultCode;
 use scribe_producer_service::WriteMessagesRequest;
+use scribe_producer_service::consts::DEFAULT_PRODUCER_SERVICE_PORT;
 use scribe_producer_service_clients::ProducerServiceClient;
 use scribe_producer_service_thriftclients::build_ProducerService_client;
 use scribe_use_cases::UseCase;
@@ -757,12 +757,12 @@ mod tests {
     use std::sync::Arc;
 
     use assert_matches::assert_matches;
-    use fbthrift::application_exception::ApplicationException;
     use fbthrift::ApplicationExceptionErrorCode;
+    use fbthrift::application_exception::ApplicationException;
     use scribe_producer_service::WriteMessageResult as ThriftWriteMessageResult;
     use scribe_producer_service::WriteMessagesResponse;
-    use scribe_producer_service_clients::errors::WriteMessagesError;
     use scribe_producer_service_clients::ProducerService;
+    use scribe_producer_service_clients::errors::WriteMessagesError;
 
     use super::*;
 

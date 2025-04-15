@@ -24,10 +24,10 @@ use starlark_syntax::syntax::Dialect;
 use crate::assert::test_functions;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Module;
-use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::Evaluator;
 use crate::eval::ProfileData;
 use crate::eval::ProfileMode;
+use crate::eval::runtime::profile::data::ProfileDataImpl;
 
 fn test_profile_golden_for_mode(mode: ProfileMode) {
     let module = Module::new();

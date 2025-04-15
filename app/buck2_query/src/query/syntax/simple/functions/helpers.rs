@@ -14,9 +14,9 @@
 use std::borrow::Cow;
 
 use async_trait::async_trait;
-use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
 use buck2_query_parser::SpannedExpr;
+use buck2_query_parser::spanned::Spanned;
 use enum_iterator::Sequence;
 use gazebo::variants::VariantName;
 

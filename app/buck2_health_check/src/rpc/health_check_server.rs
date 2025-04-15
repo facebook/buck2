@@ -11,13 +11,13 @@
 
 use std::sync::Arc;
 
+use buck2_grpc::ServerHandle;
 use buck2_grpc::spawn_oneshot;
 use buck2_grpc::to_tonic;
-use buck2_grpc::ServerHandle;
-use buck2_health_check_proto::health_check_server;
 use buck2_health_check_proto::Empty;
 use buck2_health_check_proto::HealthCheckContextEvent;
 use buck2_health_check_proto::HealthCheckResult;
+use buck2_health_check_proto::health_check_server;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tokio::sync::Mutex;

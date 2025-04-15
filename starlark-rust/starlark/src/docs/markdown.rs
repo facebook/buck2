@@ -28,8 +28,8 @@ use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocString;
 use crate::docs::DocType;
-use crate::typing::ty::TypeRenderConfig;
 use crate::typing::Ty;
+use crate::typing::ty::TypeRenderConfig;
 
 /// What to render from a [`DocString`].
 enum DSOpts {

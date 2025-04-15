@@ -9,8 +9,8 @@
 
 use buck2_core::soft_error;
 use buck2_error::ErrorTag;
-use starlark::eval::SoftErrorHandler;
 use starlark::ErrorKind;
+use starlark::eval::SoftErrorHandler;
 pub struct Buck2StarlarkSoftErrorHandler;
 
 /// When starlark deprecates something, we propagate it to our `soft_error!` handler.

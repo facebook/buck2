@@ -11,9 +11,9 @@ use std::collections::HashSet;
 
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
-use starlark::values::list::AllocList;
 use starlark::values::Heap;
 use starlark::values::Value;
+use starlark::values::list::AllocList;
 
 #[starlark_module]
 pub(crate) fn register_dedupe(builder: &mut GlobalsBuilder) {

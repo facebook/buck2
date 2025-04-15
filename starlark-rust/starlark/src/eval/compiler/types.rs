@@ -23,22 +23,22 @@ use starlark_syntax::syntax::type_expr::TypePathP;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::eval::compiler::Compiler;
 use crate::eval::compiler::constants::Constants;
+use crate::eval::compiler::scope::ResolvedIdent;
+use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
-use crate::eval::compiler::scope::ResolvedIdent;
-use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::span::IrSpanned;
-use crate::eval::compiler::Compiler;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::typing::Ty;
-use crate::values::types::ellipsis::Ellipsis;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FrozenValue;
 use crate::values::Value;
+use crate::values::types::ellipsis::Ellipsis;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 #[derive(Debug, thiserror::Error)]
 enum TypesError {

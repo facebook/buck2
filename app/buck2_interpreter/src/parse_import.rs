@@ -10,11 +10,11 @@
 //! Parses imports for load_file() calls in build files.
 
 use buck2_core::bzl::ImportPath;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
-use buck2_core::cells::CellAliasResolver;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 

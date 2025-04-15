@@ -21,9 +21,9 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::typing::Ty;
-use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::starlark_value;
 
 /// Wrapper for `regex::Regex`.
 #[derive(ProvidesStaticType, Debug, NoSerialize, Allocative)]

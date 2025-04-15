@@ -9,10 +9,10 @@
 
 //! Processing and reporting the the results of the build
 
-use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::io::BufWriter;
@@ -58,9 +58,9 @@ use itertools::Itertools;
 use serde::Serialize;
 use starlark_map::small_set::SmallSet;
 
-use crate::build::action_error::BuildReportActionError;
 use crate::build::BuildProviderType;
 use crate::build::ConfiguredBuildTargetResult;
+use crate::build::action_error::BuildReportActionError;
 
 #[derive(Debug, Serialize)]
 #[allow(clippy::upper_case_acronyms)] // We care about how they serialise

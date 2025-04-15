@@ -21,10 +21,10 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use starlark_derive::starlark_value;
 use starlark_derive::Freeze;
 use starlark_derive::NoSerialize;
 use starlark_derive::Trace;
+use starlark_derive::starlark_value;
 use starlark_map::StarlarkHasher;
 
 use crate as starlark;
@@ -32,11 +32,11 @@ use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
 use crate::starlark_complex_value;
 use crate::typing::Ty;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FreezeResult;
 use crate::values::StarlarkValue;
 use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 /// The result of `field()`.
 #[derive(

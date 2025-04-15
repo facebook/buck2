@@ -21,9 +21,9 @@ use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
+use buck2_error::buck2_error;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 
@@ -780,6 +780,8 @@ mod tests {
     use relative_path::RelativePath;
 
     use crate::fs::fs_util;
+    use crate::fs::fs_util::IoError;
+    use crate::fs::fs_util::MAX_IO_ATTEMPTS;
     use crate::fs::fs_util::create_dir_all;
     use crate::fs::fs_util::metadata;
     use crate::fs::fs_util::read_dir_if_exists;
@@ -791,8 +793,6 @@ mod tests {
     use crate::fs::fs_util::symlink_metadata;
     use crate::fs::fs_util::with_retries;
     use crate::fs::fs_util::write;
-    use crate::fs::fs_util::IoError;
-    use crate::fs::fs_util::MAX_IO_ATTEMPTS;
     use crate::fs::paths::abs_norm_path::AbsNormPath;
     use crate::fs::paths::abs_path::AbsPath;
     use crate::fs::paths::forward_rel_path::ForwardRelativePath;

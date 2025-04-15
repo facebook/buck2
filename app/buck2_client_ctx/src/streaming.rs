@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 
 use async_trait::async_trait;
 use buck2_common::argv::Argv;
@@ -17,17 +17,17 @@ use dupe::Dupe;
 
 use crate::client_ctx::BuckSubcommand;
 use crate::client_ctx::ClientCommandContext;
-use crate::common::ui::get_console_with_root;
-use crate::common::ui::CommonConsoleOptions;
 use crate::common::BuckArgMatches;
 use crate::common::CommonBuildConfigurationOptions;
 use crate::common::CommonEventLogOptions;
 use crate::common::CommonStarlarkOptions;
-use crate::daemon::client::connect::connect_buckd;
+use crate::common::ui::CommonConsoleOptions;
+use crate::common::ui::get_console_with_root;
+use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::connect::BuckdConnectConstraints;
 use crate::daemon::client::connect::DaemonConstraintsRequest;
 use crate::daemon::client::connect::DesiredTraceIoState;
-use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::connect::connect_buckd;
 use crate::events_ctx::EventsCtx;
 use crate::exit_result::ExitCode;
 use crate::exit_result::ExitResult;

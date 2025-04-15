@@ -16,10 +16,10 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::Starla
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::instance::CellInstance;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::cells::CellAliasResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern::maybe_split_cell_alias_and_relative_path;
@@ -27,9 +27,9 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use starlark::typing::Ty;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 

@@ -14,8 +14,8 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeho
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacrosPart;
-use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
+use buck2_core::package::source_path::SourcePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::BuckErrorContext;
 use buck2_node::attrs::attr_type::arg::ConfiguredMacro;

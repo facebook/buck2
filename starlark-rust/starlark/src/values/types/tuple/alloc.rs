@@ -18,14 +18,14 @@
 use std::iter;
 
 use crate::typing::Ty;
-use crate::values::tuple::UnpackTuple;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
+use crate::values::tuple::UnpackTuple;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// Utility to allocate a tuple.
 ///
@@ -82,11 +82,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::values::tuple::alloc::AllocTuple;
-    use crate::values::tuple::FrozenTupleRef;
-    use crate::values::tuple::TupleRef;
     use crate::values::FrozenHeap;
     use crate::values::Heap;
+    use crate::values::tuple::FrozenTupleRef;
+    use crate::values::tuple::TupleRef;
+    use crate::values::tuple::alloc::AllocTuple;
 
     #[test]
     fn test_alloc_tuple() {

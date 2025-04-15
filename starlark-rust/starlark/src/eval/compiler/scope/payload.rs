@@ -40,9 +40,9 @@ use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ModuleScopeData;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::ScopeId;
+use crate::typing::Ty;
 use crate::typing::error::InternalError;
 use crate::typing::interface::Interface;
-use crate::typing::Ty;
 
 /// Compiler-specific AST payload.
 #[derive(Debug, Clone)]

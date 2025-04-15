@@ -78,8 +78,8 @@ mod tests {
     use buck2_core::target::label::label::TargetLabel;
     use buck2_interpreter_for_build::call_stack::StarlarkCallStackWrapper;
     use buck2_node::attrs::attr::Attribute;
-    use buck2_node::attrs::attr_type::list::ListLiteral;
     use buck2_node::attrs::attr_type::AttrType;
+    use buck2_node::attrs::attr_type::list::ListLiteral;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::coerced_path::CoercedPath;
     use buck2_node::call_stack::StarlarkCallStack;

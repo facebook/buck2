@@ -9,15 +9,15 @@
 
 use std::fmt::Debug;
 
-use superconsole::components::alignment::HorizontalAlignmentKind;
-use superconsole::components::alignment::VerticalAlignmentKind;
-use superconsole::components::Aligned;
-use superconsole::components::DrawHorizontal;
 use superconsole::Component;
 use superconsole::Dimensions;
 use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
+use superconsole::components::Aligned;
+use superconsole::components::DrawHorizontal;
+use superconsole::components::alignment::HorizontalAlignmentKind;
+use superconsole::components::alignment::VerticalAlignmentKind;
 
 #[derive(Debug)]
 pub(crate) struct HeaderLineComponent<A: Component, B: Component> {

@@ -9,11 +9,11 @@
 
 use proc_macro2::Span;
 use quote::quote;
-use syn::spanned::Spanned;
 use syn::Data;
 use syn::DeriveInput;
 use syn::Fields;
 use syn::Ident;
+use syn::spanned::Spanned;
 
 pub(crate) fn derive_variant_names(input: DeriveInput) -> syn::Result<proc_macro::TokenStream> {
     if let Data::Enum(data_enum) = input.data {

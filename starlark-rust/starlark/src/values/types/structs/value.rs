@@ -24,17 +24,17 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use serde::Serialize;
-use starlark_derive::starlark_value;
 use starlark_derive::Freeze;
 use starlark_derive::Trace;
-use starlark_map::small_map::SmallMap;
+use starlark_derive::starlark_value;
 use starlark_map::Hashed;
 use starlark_map::StarlarkHasher;
+use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::coerce::coerce;
 use crate::coerce::Coerce;
+use crate::coerce::coerce;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocProperty;
@@ -42,9 +42,6 @@ use crate::starlark_complex_value;
 use crate::typing::Ty;
 use crate::typing::TyStruct;
 use crate::util::arc_str::ArcStr;
-use crate::values::comparison::compare_small_map;
-use crate::values::comparison::equals_small_map;
-use crate::values::structs::unordered_hasher::UnorderedHasher;
 use crate::values::FreezeResult;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
@@ -55,6 +52,9 @@ use crate::values::StringValueLike;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
+use crate::values::comparison::compare_small_map;
+use crate::values::comparison::equals_small_map;
+use crate::values::structs::unordered_hasher::UnorderedHasher;
 
 impl<'v, V: ValueLike<'v>> StructGen<'v, V> {
     /// The result of calling `type()` on a struct.

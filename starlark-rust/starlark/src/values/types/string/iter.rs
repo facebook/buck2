@@ -19,15 +19,14 @@
 
 use allocative::Allocative;
 use derive_more::Display;
-use starlark_derive::starlark_value;
 use starlark_derive::Freeze;
 use starlark_derive::NoSerialize;
 use starlark_derive::Trace;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
-use crate::values::typing::iter::StarlarkIter;
 use crate::values::FreezeResult;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
@@ -36,6 +35,7 @@ use crate::values::StringValueLike;
 use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueOfUnchecked;
+use crate::values::typing::iter::StarlarkIter;
 
 /// An opaque iterator over a string, produced by elems/codepoints
 #[derive(

@@ -22,13 +22,14 @@ use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
-use futures::task::AtomicWaker;
 use futures::FutureExt;
+use futures::task::AtomicWaker;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 use parking_lot::RwLock;
 use slab::Slab;
 
+use crate::GlobalStats;
 use crate::arc::Arc;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
@@ -36,7 +37,6 @@ use crate::impls::task::handle::TaskState;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::state::AtomicDiceTaskState;
 use crate::impls::value::DiceComputedValue;
-use crate::GlobalStats;
 
 ///
 /// 'DiceTask' is approximately a copy of Shared and Weak from std, but with some custom special

@@ -19,15 +19,15 @@ use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
+use crate::values::Heap;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::values::ValueOfUnchecked;
 use crate::values::function::SpecialBuiltinFunction;
 use crate::values::set::refs::SetRef;
 use crate::values::set::value::FrozenSet;
 use crate::values::set::value::SetData;
 use crate::values::typing::StarlarkIter;
-use crate::values::Heap;
-use crate::values::UnpackValue;
-use crate::values::Value;
-use crate::values::ValueOfUnchecked;
 
 #[starlark_module]
 pub(crate) fn register_set(globals: &mut GlobalsBuilder) {

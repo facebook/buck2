@@ -12,6 +12,8 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 
 use super::attr_type::target_modifiers::TargetModifiersAttrType;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::arg::ArgAttrType;
 use crate::attrs::attr_type::arg::StringWithMacros;
 use crate::attrs::attr_type::bool::BoolAttrType;
@@ -44,8 +46,6 @@ use crate::attrs::attr_type::tuple::TupleAttrType;
 use crate::attrs::attr_type::tuple::TupleLiteral;
 use crate::attrs::attr_type::visibility::VisibilityAttrType;
 use crate::attrs::attr_type::within_view::WithinViewAttrType;
-use crate::attrs::attr_type::AttrType;
-use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr::CoercedSelector;
 use crate::attrs::coerced_path::CoercedPath;

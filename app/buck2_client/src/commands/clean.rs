@@ -13,12 +13,12 @@ use std::time::Duration;
 
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::target_cfg::TargetCfgUnusedOptions;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
-use buck2_client_ctx::daemon::client::kill::kill_command_impl;
+use buck2_client_ctx::common::target_cfg::TargetCfgUnusedOptions;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
+use buck2_client_ctx::daemon::client::kill::kill_command_impl;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
@@ -33,8 +33,8 @@ use gazebo::prelude::SliceExt;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
-use crate::commands::clean_stale::parse_clean_stale_args;
 use crate::commands::clean_stale::CleanStaleCommand;
+use crate::commands::clean_stale::parse_clean_stale_args;
 
 /// Delete generated files and caches.
 ///

@@ -11,8 +11,8 @@ use buck2_node::modifiers::MODIFIER_METADATA_KEY;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::none::NoneType;
 use starlark::values::Value;
+use starlark::values::none::NoneType;
 
 use crate::super_package::package_value::read_parent_package_value_impl;
 use crate::super_package::package_value::write_package_value_impl;

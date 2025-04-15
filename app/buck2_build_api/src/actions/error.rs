@@ -9,11 +9,11 @@
 
 use std::fmt;
 
-use buck2_error::ErrorTag;
 use buck2_error::__for_macro::AsDynError;
+use buck2_error::ErrorTag;
 use buck2_error::source_location::SourceLocation;
-use buck2_event_observer::display::display_action_error;
 use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_event_observer::display::display_action_error;
 
 use crate::actions::execute::error::ExecuteError;
 
@@ -165,9 +165,9 @@ fn error_items<T: fmt::Display>(xs: &[T]) -> String {
 
 #[cfg(test)]
 mod tests {
+    use buck2_error::ErrorTag;
     use buck2_error::buck2_error;
     use buck2_error::conversion::from_any_with_tag;
-    use buck2_error::ErrorTag;
 
     use super::*;
 

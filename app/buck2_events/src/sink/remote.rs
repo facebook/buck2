@@ -22,22 +22,22 @@ mod fbcode {
     use buck2_data::InstantEvent;
     use buck2_data::Location;
     use buck2_data::StructuredError;
-    use buck2_error::conversion::from_any_with_tag;
     use buck2_error::ErrorTag;
+    use buck2_error::conversion::from_any_with_tag;
     use buck2_util::truncate::truncate;
     use fbinit::FacebookInit;
     use prost::Message;
     pub use scribe_client::ScribeConfig;
 
-    use crate::metadata;
-    use crate::schedule_type::ScheduleType;
-    use crate::sink::smart_truncate_event::smart_truncate_event;
     use crate::BuckEvent;
     use crate::Event;
     use crate::EventSink;
     use crate::EventSinkStats;
     use crate::EventSinkWithStats;
     use crate::TraceId;
+    use crate::metadata;
+    use crate::schedule_type::ScheduleType;
+    use crate::sink::smart_truncate_event::smart_truncate_event;
 
     // 1 MiB limit
     static SCRIBE_MESSAGE_SIZE_LIMIT: usize = 1024 * 1024;
@@ -260,8 +260,8 @@ mod fbcode {
                 }
             }
             Data::SpanEnd(s) => {
-                use buck2_data::span_end_event::Data;
                 use buck2_data::ActionExecutionKind;
+                use buck2_data::span_end_event::Data;
 
                 match &s.data {
                     Some(Data::Command(..)) => true,

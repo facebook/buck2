@@ -20,10 +20,10 @@
 //! "foo/bar", and we need to find out which artifact "foo/bar/c" belongs to.
 
 use std::borrow::Borrow;
+use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::collections::hash_map::IntoIter;
 use std::collections::hash_map::Iter;
-use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 

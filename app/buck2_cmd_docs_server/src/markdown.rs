@@ -14,9 +14,9 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_events::dispatch::console_message;
-use starlark::docs::markdown::render_doc_item;
 use starlark::docs::DocItem;
 use starlark::docs::DocModule;
+use starlark::docs::markdown::render_doc_item;
 use starlark::typing::TypeRenderConfig;
 
 use crate::starlark_::StarlarkFilePath;

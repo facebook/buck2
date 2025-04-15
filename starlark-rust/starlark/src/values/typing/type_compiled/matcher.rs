@@ -20,9 +20,9 @@ use std::fmt::Debug;
 use allocative::Allocative;
 
 use crate::typing::custom::TyCustom;
+use crate::values::Value;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
-use crate::values::Value;
 
 /// Runtime type matcher. E.g. when `isinstance(1, int)` is called,
 /// implementation of `TypeMatcher` for `int` is used.

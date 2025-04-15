@@ -26,22 +26,17 @@ use std::ops::Deref;
 use allocative::Allocative;
 use display_container::fmt_container;
 use serde::Serialize;
-use starlark_map::small_set::SmallSet;
 use starlark_map::Hashed;
+use starlark_map::small_set::SmallSet;
 
 use super::refs::SetRef;
 use crate as starlark;
-use crate::coerce::coerce;
 use crate::coerce::Coerce;
+use crate::coerce::coerce;
 use crate::environment::Methods;
 use crate::environment::MethodsStatic;
 use crate::typing::Ty;
 use crate::util::refcell::unleak_borrow;
-use crate::values::comparison::equals_small_set;
-use crate::values::set::methods;
-use crate::values::starlark_value;
-use crate::values::type_repr::SetType;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocValue;
 use crate::values::Freeze;
 use crate::values::FreezeResult;
@@ -54,6 +49,11 @@ use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
+use crate::values::comparison::equals_small_set;
+use crate::values::set::methods;
+use crate::values::starlark_value;
+use crate::values::type_repr::SetType;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 #[derive(Clone, Default, Trace, Debug, ProvidesStaticType, Allocative)]
 #[repr(transparent)]
@@ -159,7 +159,11 @@ trait SetLike<'v>: Debug + Allocative {
 }
 
 impl<'v> SetLike<'v> for RefCell<SetData<'v>> {
-    type ContentRef<'a> = Ref<'a, SmallSet<Value<'v>>> where Self: 'a, 'v: 'a;
+    type ContentRef<'a>
+        = Ref<'a, SmallSet<Value<'v>>>
+    where
+        Self: 'a,
+        'v: 'a;
 
     fn content<'a>(&'a self) -> Ref<'a, SmallSet<Value<'v>>> {
         Ref::map(self.borrow(), |x| &x.content)
@@ -182,7 +186,11 @@ impl<'v> SetLike<'v> for RefCell<SetData<'v>> {
 }
 
 impl<'v> SetLike<'v> for FrozenSetData {
-    type ContentRef<'a> = &'a SmallSet<Value<'v>> where Self: 'a, 'v: 'a;
+    type ContentRef<'a>
+        = &'a SmallSet<Value<'v>>
+    where
+        Self: 'a,
+        'v: 'a;
 
     fn content(&self) -> &SmallSet<Value<'v>> {
         coerce(&self.content)

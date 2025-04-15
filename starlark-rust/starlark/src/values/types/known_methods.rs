@@ -22,15 +22,15 @@ use once_cell::sync::Lazy;
 use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::values::FrozenRef;
+use crate::values::FrozenValueTyped;
+use crate::values::Value;
 use crate::values::dict::value::dict_methods;
 use crate::values::function::NativeMeth;
 use crate::values::function::NativeMethod;
 use crate::values::list::value::list_methods;
 use crate::values::set::value::set_methods;
 use crate::values::string::str_type::str_methods;
-use crate::values::FrozenRef;
-use crate::values::FrozenValueTyped;
-use crate::values::Value;
 
 /// Method and a `Methods` container which declares it.
 #[derive(Clone, Copy, Dupe)]

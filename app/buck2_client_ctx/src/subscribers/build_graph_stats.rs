@@ -12,8 +12,8 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use buck2_cli_proto::command_result;
-use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_events::sink::remote::ScribeConfig;
+use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use fbinit::FacebookInit;

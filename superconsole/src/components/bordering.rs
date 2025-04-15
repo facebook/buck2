@@ -9,15 +9,15 @@
 
 use std::borrow::Cow;
 
-use crate::components::alignment::HorizontalAlignmentKind;
-use crate::components::alignment::VerticalAlignmentKind;
-use crate::components::Aligned;
 use crate::Component;
 use crate::Dimensions;
 use crate::DrawMode;
 use crate::Line;
 use crate::Lines;
 use crate::Span;
+use crate::components::Aligned;
+use crate::components::alignment::HorizontalAlignmentKind;
+use crate::components::alignment::VerticalAlignmentKind;
 
 /// The `Bordered` component can be used to put borders on all sides of the output of its child.
 /// This is useful for delimiting the boundaries of a component for reading and aesthetic purposes.

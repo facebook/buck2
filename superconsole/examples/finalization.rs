@@ -12,11 +12,11 @@
 use std::time::Duration;
 
 use derive_more::Display;
-use superconsole::components::Component;
-use superconsole::components::DrawMode;
 use superconsole::Dimensions;
 use superconsole::Lines;
 use superconsole::SuperConsole;
+use superconsole::components::Component;
+use superconsole::components::DrawMode;
 use tokio::time;
 
 /// A component representing a store greeter.

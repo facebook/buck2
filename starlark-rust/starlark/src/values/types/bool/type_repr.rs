@@ -16,9 +16,9 @@
  */
 
 use crate::typing::Ty;
+use crate::values::StarlarkValue;
 use crate::values::bool::StarlarkBool;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::StarlarkValue;
 
 impl StarlarkTypeRepr for bool {
     type Canonical = <StarlarkBool as StarlarkTypeRepr>::Canonical;

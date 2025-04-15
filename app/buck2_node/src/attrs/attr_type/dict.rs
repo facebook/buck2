@@ -17,8 +17,8 @@ use buck2_util::arc_str::ArcSlice;
 use display_container::fmt_keyed_container;
 use serde_json::Value;
 
-use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;

@@ -20,9 +20,9 @@ mod fun;
 use std::collections::HashSet;
 
 use proc_macro2::TokenStream;
+use quote::ToTokens;
 use quote::format_ident;
 use quote::quote;
-use quote::ToTokens;
 
 use crate::module::render::fun::render_fun;
 use crate::module::render::fun::render_none;

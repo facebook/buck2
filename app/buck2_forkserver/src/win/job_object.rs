@@ -25,13 +25,13 @@ use winapi::um::ioapiset;
 use winapi::um::jobapi2;
 use winapi::um::minwinbase::OVERLAPPED;
 use winapi::um::winbase::INFINITE;
-use winapi::um::winnt::JobObjectAssociateCompletionPortInformation;
-use winapi::um::winnt::JobObjectExtendedLimitInformation;
 use winapi::um::winnt::HANDLE;
-use winapi::um::winnt::JOBOBJECT_ASSOCIATE_COMPLETION_PORT;
-use winapi::um::winnt::JOBOBJECT_EXTENDED_LIMIT_INFORMATION;
 use winapi::um::winnt::JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
 use winapi::um::winnt::JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO;
+use winapi::um::winnt::JOBOBJECT_ASSOCIATE_COMPLETION_PORT;
+use winapi::um::winnt::JOBOBJECT_EXTENDED_LIMIT_INFORMATION;
+use winapi::um::winnt::JobObjectAssociateCompletionPortInformation;
+use winapi::um::winnt::JobObjectExtendedLimitInformation;
 
 use crate::win::utils::result_bool;
 

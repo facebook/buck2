@@ -26,22 +26,22 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryValue;
-use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
+use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 use itertools::Either;
 
 use crate::aquery::environment::AqueryDelegate;
 use crate::aquery::environment::AqueryEnvironment;
 use crate::aquery::functions::AqueryFunctions;
-use crate::dice::aquery::DiceAqueryDelegate;
 use crate::dice::DiceQueryData;
 use crate::dice::DiceQueryDelegate;
+use crate::dice::aquery::DiceAqueryDelegate;
 
 fn aquery_functions<'v>() -> DefaultQueryFunctions<AqueryEnvironment<'v>> {
     DefaultQueryFunctions::new()

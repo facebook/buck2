@@ -9,8 +9,8 @@
 
 use buck2_error::BuckErrorContext;
 
-use crate::cells::paths::CellRelativePath;
 use crate::cells::CellAliasResolver;
+use crate::cells::paths::CellRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::package::PackageLabel;
 
@@ -42,9 +42,9 @@ pub fn parse_package(
 #[cfg(test)]
 mod tests {
 
+    use crate::cells::CellAliasResolver;
     use crate::cells::alias::NonEmptyCellAlias;
     use crate::cells::name::CellName;
-    use crate::cells::CellAliasResolver;
     use crate::pattern::parse_package::parse_package;
 
     #[test]

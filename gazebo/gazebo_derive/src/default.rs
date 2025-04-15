@@ -10,11 +10,11 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
-use syn::spanned::Spanned;
 use syn::Data;
 use syn::DataStruct;
 use syn::DeriveInput;
 use syn::Fields;
+use syn::spanned::Spanned;
 
 pub fn derive_default_(input: DeriveInput) -> proc_macro::TokenStream {
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();

@@ -21,12 +21,12 @@ use buck2_server_ctx::pattern_parse_and_resolve::parse_and_resolve_provider_labe
 use buck2_util::indent::indent;
 use dice::DiceComputations;
 use dice::DiceTransaction;
-use futures::stream::FuturesOrdered;
 use futures::FutureExt;
 use futures::StreamExt;
+use futures::stream::FuturesOrdered;
 
-use crate::common::target_resolution_config::audit_command_target_resolution_config;
 use crate::ServerAuditSubcommand;
+use crate::common::target_resolution_config::audit_command_target_resolution_config;
 
 #[async_trait]
 impl ServerAuditSubcommand for AuditProvidersCommand {

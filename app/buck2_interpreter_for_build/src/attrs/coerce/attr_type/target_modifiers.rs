@@ -7,20 +7,20 @@
  * of this source tree.
  */
 
+use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
-use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
 use buck2_node::attrs::attr_type::target_modifiers::TargetModifiersAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::values::TargetModifiersValue;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
-use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::AttrTypeCoerce;
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 
 #[derive(Debug, buck2_error::Error)]
 enum TargetModifiersAttrTypeCoerceError {

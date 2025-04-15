@@ -40,14 +40,14 @@ use crate::eval::ReturnFileLoader;
 use crate::stdlib::PrintHandler;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
-use crate::values::none::NoneType;
-use crate::values::structs::AllocStruct;
-use crate::values::tuple::UnpackTuple;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::OwnedFrozenValue;
 use crate::values::Value;
+use crate::values::none::NoneType;
+use crate::values::structs::AllocStruct;
+use crate::values::tuple::UnpackTuple;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 fn mk_environment() -> GlobalsBuilder {
     GlobalsBuilder::extended().with(test_functions)

@@ -11,8 +11,8 @@ use std::future::Future;
 use std::time::Duration;
 use std::time::Instant;
 
-use futures::stream::FuturesUnordered;
 use futures::StreamExt;
+use futures::stream::FuturesUnordered;
 
 use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;

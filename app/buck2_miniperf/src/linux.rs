@@ -18,8 +18,8 @@ use buck2_miniperf_proto::MiniperfCounter;
 use buck2_miniperf_proto::MiniperfCounters;
 use buck2_miniperf_proto::MiniperfOutput;
 use buck2_util::cgroup_info::CGroupInfo;
-use perf_event::events::Hardware;
 use perf_event::Builder;
+use perf_event::events::Hardware;
 use smallvec::SmallVec;
 
 struct Counters {

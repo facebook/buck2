@@ -11,9 +11,9 @@ use buck2_cli_proto::client_context::HostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
-use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 
 pub fn get_host_info(
     host_platform: HostPlatformOverride,

@@ -19,9 +19,9 @@
 mod t {
     use std::collections::HashMap;
     use std::hint;
+    use std::sync::Arc;
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering;
-    use std::sync::Arc;
     use std::thread;
     use std::thread::ScopedJoinHandle;
     use std::time::Duration;
@@ -31,13 +31,13 @@ mod t {
     use dupe::Dupe;
 
     use crate::assert::test_functions;
-    use crate::debug::adapter::implementation::prepare_dap_adapter;
-    use crate::debug::adapter::implementation::resolve_breakpoints;
     use crate::debug::DapAdapter;
     use crate::debug::DapAdapterClient;
     use crate::debug::DapAdapterEvalHook;
     use crate::debug::StepKind;
     use crate::debug::VariablePath;
+    use crate::debug::adapter::implementation::prepare_dap_adapter;
+    use crate::debug::adapter::implementation::resolve_breakpoints;
     use crate::environment::GlobalsBuilder;
     use crate::environment::Module;
     use crate::eval::Evaluator;

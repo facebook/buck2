@@ -16,9 +16,9 @@ use starlark_map::ordered_map::OrderedMap;
 use starlark_map::ordered_set::OrderedSet;
 
 use crate::attrs::attr::Attribute;
+use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::any::AnyAttrType;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
-use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::spec::AttributeId;

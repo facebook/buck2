@@ -10,9 +10,9 @@
 #[cfg(test)]
 mod tests {
 
+    use std::sync::Arc;
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
-    use std::sync::Arc;
 
     use allocative::Allocative;
     use buck2_artifact::deferred::key::DeferredHolderKey;
@@ -37,9 +37,9 @@ mod tests {
     use buck2_core::global_cfg_options::GlobalCfgOptions;
     use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::digest_config::SetDigestConfig;
-    use dice::testing::DiceBuilder;
     use dice::DiceComputations;
     use dice::UserComputationData;
+    use dice::testing::DiceBuilder;
     use dupe::Dupe;
     use indexmap::IndexSet;
     use starlark_map::ordered_map::OrderedMap;

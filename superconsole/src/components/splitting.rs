@@ -187,8 +187,8 @@ mod tests {
 
     mod horizontal {
         use super::*;
-        use crate::components::echo::Echo;
         use crate::Dimensions;
+        use crate::components::echo::Echo;
         #[test]
         fn test_adaptive() {
             let kind = SplitKind::Adaptive;
@@ -328,8 +328,8 @@ mod tests {
 
     mod vertical {
         use super::*;
-        use crate::components::echo::Echo;
         use crate::Dimensions;
+        use crate::components::echo::Echo;
 
         #[test]
         fn test_equal() {
@@ -443,8 +443,8 @@ mod tests {
 
     mod panics {
         use super::*;
-        use crate::components::Blank;
         use crate::Dimensions;
+        use crate::components::Blank;
 
         #[test]
         fn test_no_children() {

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use crate::values::list::ListRef;
 use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -23,6 +22,7 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
+use crate::values::list::ListRef;
 
 struct Test<V> {
     field: V,

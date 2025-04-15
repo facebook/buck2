@@ -12,12 +12,12 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::cells::cell_root_path::CellRootPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::RelativePath;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use regex::Regex;

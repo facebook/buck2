@@ -24,18 +24,18 @@ use allocative::Allocative;
 use dupe::Dupe;
 use starlark_map::sorted_map::SortedMap;
 
-use crate::typing::custom::TyCustomImpl;
-use crate::typing::error::TypingNoContextError;
-use crate::typing::error::TypingNoContextOrInternalError;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
+use crate::typing::custom::TyCustomImpl;
+use crate::typing::error::TypingNoContextError;
+use crate::typing::error::TypingNoContextOrInternalError;
 use crate::util::arc_str::ArcStr;
+use crate::values::Value;
 use crate::values::structs::StructRef;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
-use crate::values::Value;
 
 /// Struct type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]

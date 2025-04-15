@@ -7,11 +7,11 @@
  * of this source tree.
  */
 
-use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
+use ref_cast::ref_cast_custom;
 
-use crate::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
 
 pub struct SpaceSeparatedCommandLineBuilder<'v> {
     builder: &'v mut dyn ArgBuilder,
@@ -62,8 +62,8 @@ impl ArgBuilder for StringAsArgBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
     use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+    use crate::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
 
     #[test]
     fn cmdline_builder() -> buck2_error::Result<()> {

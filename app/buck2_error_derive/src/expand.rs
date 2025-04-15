@@ -13,9 +13,9 @@ use std::collections::BTreeSet as Set;
 
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
+use quote::ToTokens;
 use quote::format_ident;
 use quote::quote;
-use quote::ToTokens;
 use syn::DeriveInput;
 use syn::Member;
 use syn::Result;

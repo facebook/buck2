@@ -21,11 +21,11 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 
+use crate::Equivalent;
 use crate::ordered_set::OrderedSet;
 use crate::small_set;
 use crate::small_set::SmallSet;
 use crate::sorted_vec::SortedVec;
-use crate::Equivalent;
 
 /// An immutable `SmallSet` with values guaranteed to be sorted.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]

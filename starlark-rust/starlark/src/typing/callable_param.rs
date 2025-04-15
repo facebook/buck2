@@ -26,13 +26,13 @@ use starlark_map::small_set::SmallSet;
 use starlark_syntax::other_error;
 use starlark_syntax::syntax::def::DefParamIndices;
 
-use crate::eval::runtime::params::display::fmt_param_spec;
-use crate::eval::runtime::params::display::ParamFmt;
 use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
+use crate::eval::runtime::params::display::ParamFmt;
+use crate::eval::runtime::params::display::fmt_param_spec;
+use crate::typing::Ty;
 use crate::typing::small_arc_vec_or_static::SmallArcVec1OrStatic;
 use crate::typing::ty::TyDisplay;
 use crate::typing::ty::TypeRenderConfig;
-use crate::typing::Ty;
 use crate::util::arc_str::ArcStr;
 
 /// Indication whether parameter is required.

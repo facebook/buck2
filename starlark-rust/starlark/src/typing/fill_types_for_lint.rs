@@ -43,6 +43,9 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::environment::slots::ModuleSlotId;
 use crate::eval::compiler::constants::Constants;
+use crate::eval::compiler::scope::ModuleScopeData;
+use crate::eval::compiler::scope::ResolvedIdent;
+use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::scope::payload::CstAssignIdent;
 use crate::eval::compiler::scope::payload::CstAssignIdentExt;
 use crate::eval::compiler::scope::payload::CstExpr;
@@ -50,22 +53,19 @@ use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
-use crate::eval::compiler::scope::ModuleScopeData;
-use crate::eval::compiler::scope::ResolvedIdent;
-use crate::eval::compiler::scope::Slot;
-use crate::typing::callable_param::ParamIsRequired;
-use crate::typing::error::InternalError;
-use crate::typing::error::TypingError;
 use crate::typing::Approximation;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
+use crate::typing::callable_param::ParamIsRequired;
+use crate::typing::error::InternalError;
+use crate::typing::error::TypingError;
 use crate::util::arc_str::ArcStr;
+use crate::values::Heap;
+use crate::values::Value;
 use crate::values::tuple::AllocTuple;
 use crate::values::types::ellipsis::Ellipsis;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::Heap;
-use crate::values::Value;
 
 /// Value computed during partial evaluation of globals.
 #[derive(Clone)]

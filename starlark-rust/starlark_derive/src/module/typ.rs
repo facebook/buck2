@@ -18,12 +18,12 @@
 use dupe::Dupe;
 use proc_macro2::Ident;
 use proc_macro2::Span;
-use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::Block;
 use syn::Expr;
 use syn::Type;
 use syn::Visibility;
+use syn::spanned::Spanned;
 
 use crate::module::parse::ModuleKind;
 use crate::module::simple_param::SimpleParam;

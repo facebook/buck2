@@ -24,9 +24,9 @@ use std::cell::Cell;
 
 use allocative::Allocative;
 use derive_more::Display;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::Trace;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;

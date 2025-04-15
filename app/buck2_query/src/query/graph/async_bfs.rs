@@ -10,14 +10,14 @@
 use std::future;
 use std::mem;
 
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
+use futures::StreamExt;
 use futures::future::Either;
 use futures::stream::FuturesOrdered;
-use futures::StreamExt;
+use starlark_map::Hashed;
 use starlark_map::unordered_map;
 use starlark_map::unordered_map::UnorderedMap;
-use starlark_map::Hashed;
 
 use crate::query::graph::node::LabeledNode;
 use crate::query::graph::successors::AsyncChildVisitor;

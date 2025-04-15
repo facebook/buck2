@@ -9,11 +9,11 @@
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_error::BuckErrorContext;
+use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_futures::cancellation::CancellationContext;
-use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
+use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use dice::DiceComputations;

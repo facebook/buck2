@@ -26,8 +26,8 @@ use buck2_query::query::environment::AttrFmtOptions;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use buck2_server_ctx::template::run_server_command;
 use dice::DiceTransaction;
 use dupe::Dupe;
 

@@ -9,9 +9,9 @@
 
 //! Implementation of the cli and query_* attr query language.
 
+use buck2_query_parser::Expr;
 use buck2_query_parser::parse_expr;
 use buck2_query_parser::spanned::Spanned;
-use buck2_query_parser::Expr;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;

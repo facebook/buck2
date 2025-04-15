@@ -22,12 +22,12 @@ use starlark_syntax::dot_format_parser::FormatParser;
 use starlark_syntax::dot_format_parser::FormatToken;
 
 use crate::collections::string_pool::StringPool;
-use crate::values::dict::Dict;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
+use crate::values::dict::Dict;
 
 /// Try parse `"aaa{}bbb"` and return `("aaa", "bbb")`.
 pub(crate) fn parse_format_one(s: &str) -> Option<(String, String)> {
@@ -207,12 +207,12 @@ mod tests {
 
     use crate::assert;
     use crate::coerce::coerce;
-    use crate::values::dict::Dict;
-    use crate::values::string::dot_format::format_capture;
-    use crate::values::string::dot_format::parse_format_one;
-    use crate::values::string::dot_format::FormatArgs;
     use crate::values::Heap;
     use crate::values::Value;
+    use crate::values::dict::Dict;
+    use crate::values::string::dot_format::FormatArgs;
+    use crate::values::string::dot_format::format_capture;
+    use crate::values::string::dot_format::parse_format_one;
 
     fn format_capture_for_test<'v, T: Iterator<Item = Value<'v>>>(
         capture: &str,

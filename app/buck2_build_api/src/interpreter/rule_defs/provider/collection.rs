@@ -28,19 +28,14 @@ use either::Either;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::coerce;
 use starlark::coerce::Coerce;
+use starlark::coerce::coerce;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::typing::Ty;
-use starlark::values::list::ListRef;
-use starlark::values::none::NoneOr;
-use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocFrozenValue;
 use starlark::values::AllocStaticSimple;
 use starlark::values::AllocValue;
@@ -63,13 +58,18 @@ use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
+use starlark::values::list::ListRef;
+use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
-use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use crate::interpreter::rule_defs::provider::DefaultInfo;
 use crate::interpreter::rule_defs::provider::DefaultInfoCallable;
 use crate::interpreter::rule_defs::provider::FrozenBuiltinProviderLike;
 use crate::interpreter::rule_defs::provider::FrozenDefaultInfo;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
+use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 
 fn format_provider_keys_for_error(keys: &[String]) -> String {
     format!(
@@ -644,8 +644,8 @@ pub mod tester {
     use starlark::values::Value;
     use starlark::values::ValueLike;
 
-    use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
     use crate::interpreter::rule_defs::provider::ProviderCollection;
+    use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 
     #[starlark_module]
     pub fn collection_creator(builder: &mut GlobalsBuilder) {

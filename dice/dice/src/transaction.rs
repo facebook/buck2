@@ -10,10 +10,10 @@
 use allocative::Allocative;
 use dupe::Dupe;
 
-use crate::impls::ctx::BaseComputeCtx;
-use crate::versions::VersionNumber;
 use crate::DiceComputations;
 use crate::DiceTransactionUpdater;
+use crate::impls::ctx::BaseComputeCtx;
+use crate::versions::VersionNumber;
 
 #[derive(Allocative)]
 pub(crate) enum DiceTransactionImpl {

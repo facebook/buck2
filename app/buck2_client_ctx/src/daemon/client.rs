@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use std::fs::create_dir_all;
 use std::fs::File;
+use std::fs::create_dir_all;
 use std::mem;
 use std::time::Duration;
 
@@ -24,16 +24,16 @@ use buck2_core::fs::paths::file_name::FileName;
 use buck2_data::error::ErrorTag;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::stream_value::StreamValue;
-use futures::future::BoxFuture;
-use futures::pin_mut;
-use futures::stream;
 use futures::Stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
-use tonic::codegen::InterceptedService;
-use tonic::transport::Channel;
+use futures::future::BoxFuture;
+use futures::pin_mut;
+use futures::stream;
 use tonic::Request;
 use tonic::Status;
+use tonic::codegen::InterceptedService;
+use tonic::transport::Channel;
 
 use crate::command_outcome::CommandOutcome;
 use crate::console_interaction_stream::ConsoleInteractionStream;

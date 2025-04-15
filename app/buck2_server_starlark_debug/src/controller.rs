@@ -15,9 +15,9 @@ use starlark::debug::DapAdapterEvalHook;
 use tokio::sync::OwnedSemaphorePermit;
 use tracing::debug;
 
+use crate::HookId;
 use crate::error::StarlarkDebuggerInternalError;
 use crate::server::BuckStarlarkDebuggerServer;
-use crate::HookId;
 
 /// The debug controller is created once for each starlark evaluation. It adds the hooks to the
 /// starlark Evaluator needed for debugging. Internally, the server will send and receive messages

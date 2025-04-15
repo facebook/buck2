@@ -9,12 +9,12 @@
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::parse_macro_input;
-use syn::parse_quote;
 use syn::DeriveInput;
 use syn::Ident;
 use syn::Type;
 use syn::TypeParamBound;
+use syn::parse_macro_input;
+use syn::parse_quote;
 
 use crate::util::add_trait_bounds;
 use crate::util::extract_all_field_tys;

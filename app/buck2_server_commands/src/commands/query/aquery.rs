@@ -20,8 +20,8 @@ use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use buck2_server_ctx::template::run_server_command;
 use dice::DiceTransaction;
 
 use crate::commands::query::printer::QueryResultPrinter;

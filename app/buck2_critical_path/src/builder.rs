@@ -10,8 +10,8 @@
 use std::fmt::Display;
 use std::hash::Hash;
 
-use starlark_map::small_map::SmallMap;
 use starlark_map::Hashed;
+use starlark_map::small_map::SmallMap;
 
 use crate::graph::Graph;
 use crate::graph::GraphVertex;

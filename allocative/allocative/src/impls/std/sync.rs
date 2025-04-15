@@ -11,21 +11,21 @@ use std::alloc::Layout;
 use std::mem;
 use std::rc;
 use std::rc::Rc;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::AtomicI16;
-use std::sync::atomic::AtomicI32;
-use std::sync::atomic::AtomicI64;
-use std::sync::atomic::AtomicI8;
-use std::sync::atomic::AtomicIsize;
-use std::sync::atomic::AtomicU16;
-use std::sync::atomic::AtomicU32;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::AtomicU8;
-use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
 use std::sync::Weak;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicI8;
+use std::sync::atomic::AtomicI16;
+use std::sync::atomic::AtomicI32;
+use std::sync::atomic::AtomicI64;
+use std::sync::atomic::AtomicIsize;
+use std::sync::atomic::AtomicU8;
+use std::sync::atomic::AtomicU16;
+use std::sync::atomic::AtomicU32;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::AtomicUsize;
 
 use crate::allocative_trait::Allocative;
 use crate::impls::common::PTR_NAME;
@@ -220,8 +220,8 @@ mod tests {
     use std::sync::Arc;
 
     use crate as allocative;
-    use crate::golden::golden_test;
     use crate::Allocative;
+    use crate::golden::golden_test;
 
     #[derive(Allocative)]
     #[repr(align(64))]

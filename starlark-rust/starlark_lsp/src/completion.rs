@@ -29,10 +29,10 @@ use lsp_types::MarkupKind;
 use lsp_types::Range;
 use lsp_types::TextEdit;
 use starlark::codemap::ResolvedSpan;
-use starlark::docs::markdown::render_doc_item_no_link;
-use starlark::docs::markdown::render_doc_param;
 use starlark::docs::DocItem;
 use starlark::docs::DocMember;
+use starlark::docs::markdown::render_doc_item_no_link;
+use starlark::docs::markdown::render_doc_param;
 use starlark_syntax::codemap::ResolvedPos;
 use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::module::AstModuleFields;
@@ -45,8 +45,8 @@ use crate::exported::SymbolKind as ExportedSymbolKind;
 use crate::server::Backend;
 use crate::server::LspContext;
 use crate::server::LspUrl;
-use crate::symbols::find_symbols_at_location;
 use crate::symbols::SymbolKind;
+use crate::symbols::find_symbols_at_location;
 
 /// The context in which to offer string completion options.
 #[derive(Debug, PartialEq)]

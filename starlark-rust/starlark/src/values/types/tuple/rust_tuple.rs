@@ -20,8 +20,6 @@
 use either::Either;
 
 use crate::typing::Ty;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::tuple::value::Tuple;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -29,6 +27,8 @@ use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::tuple::value::Tuple;
 
 impl<'v, T1: AllocValue<'v>> AllocValue<'v> for (T1,) {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {

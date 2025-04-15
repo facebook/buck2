@@ -8,9 +8,9 @@
  */
 
 use allocative::Allocative;
-use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::build_file_cell::BuildFileCell;
 
 #[derive(Clone, Debug, Allocative)]
 pub struct InterpreterCellInfo {

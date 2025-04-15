@@ -21,13 +21,13 @@ use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
-use syn::spanned::Spanned;
 use syn::Data;
 use syn::DataEnum;
 use syn::DataStruct;
 use syn::DeriveInput;
 use syn::Field;
 use syn::Fields;
+use syn::spanned::Spanned;
 
 #[derive(Copy, Clone)]
 pub(crate) struct FieldsUtil<'a> {

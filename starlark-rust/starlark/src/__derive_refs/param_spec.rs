@@ -17,11 +17,11 @@
 
 use dupe::Dupe;
 
+use crate::typing::ParamSpec;
+use crate::typing::Ty;
 use crate::typing::callable_param::ParamIsRequired;
 use crate::typing::macro_support::unpack_args_item_ty;
 use crate::typing::macro_support::unpack_kwargs_value_ty;
-use crate::typing::ParamSpec;
-use crate::typing::Ty;
 use crate::util::arc_str::ArcStr;
 use crate::values::FrozenValue;
 

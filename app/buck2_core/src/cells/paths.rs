@@ -26,12 +26,12 @@ use relative_path::RelativePath;
 use serde::Serialize;
 use strong_hash::StrongHash;
 
+use crate::fs::paths::RelativePathBuf;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::fmt::quoted_display;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathIter;
-use crate::fs::paths::RelativePathBuf;
 
 /// A un-owned forward pointing, fully normalized path that is relative to the cell
 #[derive(

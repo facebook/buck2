@@ -27,9 +27,9 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::eval::ReturnFileLoader;
 use starlark::syntax::AstModule;
-use starlark::values::structs::AllocStruct;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::structs::AllocStruct;
 
 fn run_ctx_test(
     content: &str,

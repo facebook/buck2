@@ -17,8 +17,8 @@ use buck2_error::BuckErrorContext;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 
 use crate::nodes::eval_result::EvaluationResult;
 use crate::nodes::unconfigured::TargetNode;

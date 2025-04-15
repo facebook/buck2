@@ -25,11 +25,6 @@ use crate::collections::symbol::symbol::Symbol;
 use crate::docs::DocType;
 use crate::environment::common_documentation;
 use crate::typing::Ty;
-use crate::values::function::NativeAttr;
-use crate::values::function::NativeAttribute;
-use crate::values::function::NativeMeth;
-use crate::values::function::NativeMethod;
-use crate::values::types::unbound::UnboundValue;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
@@ -38,6 +33,11 @@ use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::Value;
+use crate::values::function::NativeAttr;
+use crate::values::function::NativeAttribute;
+use crate::values::function::NativeMeth;
+use crate::values::function::NativeMethod;
+use crate::values::types::unbound::UnboundValue;
 
 /// Methods of an object.
 #[derive(Clone, Debug)]
@@ -292,9 +292,9 @@ impl MethodsStatic {
 mod tests {
     use allocative::Allocative;
     use derive_more::Display;
-    use starlark_derive::starlark_value;
     use starlark_derive::NoSerialize;
     use starlark_derive::ProvidesStaticType;
+    use starlark_derive::starlark_value;
 
     use crate as starlark;
     use crate::assert::Assert;

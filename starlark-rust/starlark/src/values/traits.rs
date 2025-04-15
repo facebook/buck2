@@ -52,9 +52,6 @@ use crate::private::Private;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
-use crate::values::demand::Demand;
-use crate::values::error::ControlError;
-use crate::values::function::FUNCTION_TYPE;
 use crate::values::Freeze;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
@@ -62,6 +59,9 @@ use crate::values::Heap;
 use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueError;
+use crate::values::demand::Demand;
+use crate::values::error::ControlError;
+use crate::values::function::FUNCTION_TYPE;
 
 /// A trait for values which are more complex - because they are either mutable
 /// (e.g. using [`RefCell`](std::cell::RefCell)), or contain references to other values.

@@ -20,17 +20,17 @@ use std::iter;
 use starlark_map::small_map::SmallMap;
 
 use crate::typing::Ty;
-use crate::values::dict::value::FrozenDictData;
-use crate::values::dict::Dict;
-use crate::values::layout::value::ValueLike;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::dict::dict_type::DictType;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
+use crate::values::dict::Dict;
+use crate::values::dict::value::FrozenDictData;
+use crate::values::layout::value::ValueLike;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::dict::dict_type::DictType;
 
 /// Utility to allocate a dict from iterator.
 ///

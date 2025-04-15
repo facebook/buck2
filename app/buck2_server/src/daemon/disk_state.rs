@@ -23,9 +23,9 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
+use buck2_execute_impl::materializers::sqlite::DB_SCHEMA_VERSION;
 use buck2_execute_impl::materializers::sqlite::MaterializerState;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
-use buck2_execute_impl::materializers::sqlite::DB_SCHEMA_VERSION;
 
 use crate::daemon::server::BuckdServerInitPreferences;
 

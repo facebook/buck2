@@ -29,10 +29,10 @@ use crate::docs::DocProperty;
 use crate::docs::DocReturn;
 use crate::docs::DocString;
 use crate::docs::DocType;
-use crate::eval::runtime::params::display::fmt_param_spec_maybe_multiline;
 use crate::eval::runtime::params::display::ParamFmt;
-use crate::typing::ty::TypeRenderConfig;
+use crate::eval::runtime::params::display::fmt_param_spec_maybe_multiline;
 use crate::typing::Ty;
+use crate::typing::ty::TypeRenderConfig;
 
 /// There have been bugs around line endings in the textwrap crate. Just join
 /// into a single string, and trim the line endings.

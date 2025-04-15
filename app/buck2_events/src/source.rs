@@ -30,17 +30,17 @@ mod tests {
     use std::collections::HashMap;
     use std::time::SystemTime;
 
-    use buck2_data::buck_event::Data::SpanStart;
-    use buck2_data::span_start_event::Data::Command;
     use buck2_data::CommandStart;
     use buck2_data::SpanStartEvent;
+    use buck2_data::buck_event::Data::SpanStart;
+    use buck2_data::span_start_event::Data::Command;
 
     use super::ChannelEventSource;
-    use crate::sink::channel::ChannelEventSink;
     use crate::BuckEvent;
     use crate::Event;
     use crate::EventSink;
     use crate::TraceId;
+    use crate::sink::channel::ChannelEventSink;
 
     #[tokio::test]
     async fn receive_smoke() {

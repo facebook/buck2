@@ -9,9 +9,9 @@
 
 use std::io;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
 use std::task::Context;
 use std::task::Poll;
 
@@ -22,10 +22,10 @@ use pin_project::pin_project;
 use tokio::io::AsyncWrite;
 use tokio::io::AsyncWriteExt;
 
+use crate::FutureChildOutput;
 use crate::read::EventLogPathBuf;
 use crate::utils::Compression;
 use crate::utils::LogMode;
-use crate::FutureChildOutput;
 
 type EventLogWriter = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;
 

@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
-use buck2_cli_proto::unstable_crash_request::CrashType;
 use buck2_cli_proto::GenericResponse;
 use buck2_cli_proto::UnstableCrashRequest;
+use buck2_cli_proto::unstable_crash_request::CrashType;
 
 pub(crate) fn crash(req: UnstableCrashRequest) -> buck2_error::Result<GenericResponse> {
     let crash_type = CrashType::try_from(req.crash_type).map_err(|_| {

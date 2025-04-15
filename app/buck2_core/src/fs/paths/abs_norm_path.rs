@@ -20,9 +20,9 @@ use allocative::Allocative;
 use derive_more::Display;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
-use serde::de::Error;
 use serde::Deserialize;
 use serde::Serialize;
+use serde::de::Error;
 
 use crate::fs::paths::abs_path::AbsPath;
 use crate::fs::paths::abs_path::AbsPathBuf;
@@ -651,8 +651,8 @@ impl AbsNormPathBuf {
     /// Note that this does not visit the filesystem to resolve `..`s. Instead, it cancels out the
     /// components directly, similar to `join_normalized`.
     /// ```
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     /// use buck2_core::fs::paths::RelativePath;
+    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     ///
     /// let prefix = if cfg!(windows) { "C:" } else { "" };
     ///
@@ -931,9 +931,9 @@ mod tests {
     use std::path::Path;
     use std::path::PathBuf;
 
-    use crate::fs::paths::abs_norm_path::verify_abs_path_windows_part;
     use crate::fs::paths::abs_norm_path::AbsNormPath;
     use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
+    use crate::fs::paths::abs_norm_path::verify_abs_path_windows_part;
     use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 
     #[cfg(not(windows))]

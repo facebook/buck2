@@ -24,6 +24,8 @@ use dupe::Dupe;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::codemap::Span;
+use crate::typing::ParamSpec;
+use crate::typing::Ty;
 use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustomImpl;
@@ -31,14 +33,12 @@ use crate::typing::error::TypingNoContextError;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::oracle::ctx::TypingOracleCtx;
-use crate::typing::ParamSpec;
-use crate::typing::Ty;
 use crate::util::arc_str::ArcStr;
+use crate::values::Value;
 use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::types::namespace::value::Namespace;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
-use crate::values::Value;
 
 #[derive(
     Allocative, Clone, Copy, Dupe, Debug, Eq, PartialEq, Hash, Ord, PartialOrd

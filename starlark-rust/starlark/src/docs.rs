@@ -34,13 +34,13 @@ pub use parse::DocStringKind;
 use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
-use crate::eval::runtime::params::display::iter_fmt_param_spec;
 pub use crate::eval::runtime::params::display::FmtParam;
+use crate::eval::runtime::params::display::iter_fmt_param_spec;
 use crate::typing::Ty;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// The documentation provided by a user for a specific module, object, function, etc.
 #[derive(Debug, Clone, PartialEq, Trace, Default, Allocative)]

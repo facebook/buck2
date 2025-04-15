@@ -19,10 +19,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crossbeam::queue::SegQueue;
-use dice::introspection::serialize_dense_graph;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceTransaction;
+use dice::introspection::serialize_dense_graph;
 use dupe::Dupe;
 use futures::FutureExt;
 use itertools::Itertools;

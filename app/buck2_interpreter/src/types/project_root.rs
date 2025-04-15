@@ -12,8 +12,6 @@ use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
-use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::AllocFrozenValue;
 use starlark::values::AllocStaticSimple;
 use starlark::values::AllocValue;
@@ -23,6 +21,8 @@ use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
+use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 #[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct StarlarkProjectRoot;

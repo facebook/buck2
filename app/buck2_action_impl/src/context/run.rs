@@ -16,12 +16,12 @@ use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
-use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::command_executor_config::parse_custom_re_image;
 use buck2_build_api::interpreter::rule_defs::command_executor_config::parse_meta_internal_extra_params;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
@@ -30,8 +30,8 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info:
 use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::SliceClonedExt;
@@ -40,6 +40,10 @@ use host_sharing::WeightPercentage;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::StringValue;
+use starlark::values::UnpackAndDiscard;
+use starlark::values::Value;
+use starlark::values::ValueOf;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::UnpackList;
@@ -47,18 +51,14 @@ use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
-use starlark::values::StringValue;
-use starlark::values::UnpackAndDiscard;
-use starlark::values::Value;
-use starlark::values::ValueOf;
 use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
 
-use crate::actions::impls::run::dep_files::RunActionDepFiles;
-use crate::actions::impls::run::new_executor_preference;
 use crate::actions::impls::run::MetadataParameter;
 use crate::actions::impls::run::StarlarkRunActionValues;
 use crate::actions::impls::run::UnregisteredRunAction;
+use crate::actions::impls::run::dep_files::RunActionDepFiles;
+use crate::actions::impls::run::new_executor_preference;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]

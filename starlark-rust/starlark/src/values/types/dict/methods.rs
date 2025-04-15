@@ -24,6 +24,9 @@ use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::environment::MethodsBuilder;
+use crate::values::Heap;
+use crate::values::Value;
+use crate::values::ValueOfUnchecked;
 use crate::values::dict::DictMut;
 use crate::values::dict::DictRef;
 use crate::values::list::AllocList;
@@ -31,9 +34,6 @@ use crate::values::list::ListRef;
 use crate::values::list::UnpackList;
 use crate::values::none::NoneType;
 use crate::values::typing::StarlarkIter;
-use crate::values::Heap;
-use crate::values::Value;
-use crate::values::ValueOfUnchecked;
 
 #[starlark_module]
 pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {

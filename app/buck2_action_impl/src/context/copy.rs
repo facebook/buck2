@@ -23,8 +23,8 @@ use indexmap::indexset;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::dict::UnpackDictEntries;
 use starlark::values::ValueTyped;
+use starlark::values::dict::UnpackDictEntries;
 
 use crate::actions::impls::copy::CopyMode;
 use crate::actions::impls::copy::UnregisteredCopyAction;

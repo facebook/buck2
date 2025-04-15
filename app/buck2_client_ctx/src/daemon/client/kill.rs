@@ -18,14 +18,14 @@ use buck2_wrapper_common::kill;
 use buck2_wrapper_common::pid::Pid;
 use sysinfo::ProcessRefreshKind;
 use sysinfo::System;
+use tonic::Request;
 use tonic::codegen::InterceptedService;
 use tonic::transport::Channel;
-use tonic::Request;
 
-use crate::daemon::client::connect::buckd_startup_timeout;
+use crate::daemon::client::BuckdLifecycleLock;
 use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
 use crate::daemon::client::connect::BuckdProcessInfo;
-use crate::daemon::client::BuckdLifecycleLock;
+use crate::daemon::client::connect::buckd_startup_timeout;
 
 const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
 /// Kill request does not wait for the process to exit.

@@ -13,22 +13,20 @@ use std::ops::ControlFlow;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::Action;
+use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::actions::box_slice_set::BoxSliceSet;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::actions::impls::expanded_command_line::ExpandedCommandLine;
-use buck2_build_api::actions::Action;
-use buck2_build_api::actions::ActionExecutionCtx;
-use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ArtifactGroupValues;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::FrozenStarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
-use buck2_build_api::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
-use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
@@ -36,6 +34,8 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext
 use buck2_build_api::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
+use buck2_build_api::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_core::category::CategoryRef;
@@ -46,8 +46,8 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::action_digest::ActionDigest;
@@ -69,15 +69,11 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use host_sharing::WeightClass;
-use indexmap::indexmap;
 use indexmap::IndexSet;
+use indexmap::indexmap;
 use itertools::Itertools;
 use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
-use starlark::values::dict::AllocDict;
-use starlark::values::dict::DictRef;
-use starlark::values::dict::DictType;
-use starlark::values::starlark_value;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
@@ -98,12 +94,16 @@ use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
+use starlark::values::dict::AllocDict;
+use starlark::values::dict::DictRef;
+use starlark::values::dict::DictType;
+use starlark::values::starlark_value;
 
 use self::dep_files::DepFileBundle;
-use crate::actions::impls::run::dep_files::make_dep_file_bundle;
-use crate::actions::impls::run::dep_files::populate_dep_files;
 use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
 use crate::actions::impls::run::dep_files::RunActionDepFiles;
+use crate::actions::impls::run::dep_files::make_dep_file_bundle;
+use crate::actions::impls::run::dep_files::populate_dep_files;
 use crate::actions::impls::run::metadata::metadata_content;
 use crate::context::run::RunActionError;
 
@@ -754,7 +754,10 @@ trait RunActionVisitor: CommandLineArtifactVisitor {
 }
 
 impl RunActionVisitor for SimpleCommandLineArtifactVisitor {
-    type Iter<'a> = impl Iterator<Item = &'a ArtifactGroup> where Self: 'a;
+    type Iter<'a>
+        = impl Iterator<Item = &'a ArtifactGroup>
+    where
+        Self: 'a;
 
     fn inputs<'a>(&'a self) -> Self::Iter<'a> {
         self.inputs.iter()
@@ -762,7 +765,10 @@ impl RunActionVisitor for SimpleCommandLineArtifactVisitor {
 }
 
 impl RunActionVisitor for DepFilesCommandLineVisitor<'_> {
-    type Iter<'a> = impl Iterator<Item = &'a ArtifactGroup> where Self: 'a;
+    type Iter<'a>
+        = impl Iterator<Item = &'a ArtifactGroup>
+    where
+        Self: 'a;
 
     fn inputs<'a>(&'a self) -> Self::Iter<'a> {
         self.inputs.iter().flat_map(|g| g.iter())

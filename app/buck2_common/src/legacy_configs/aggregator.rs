@@ -10,6 +10,8 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -17,8 +19,6 @@ use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::instance;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::nested::NestedCells;
-use buck2_core::cells::CellAliasResolver;
-use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
 use instance::CellInstance;

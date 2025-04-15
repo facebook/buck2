@@ -25,18 +25,18 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
-use crate::values::list::AllocList;
-use crate::values::tuple::UnpackTuple;
-use crate::values::typing::never::StarlarkNever;
-use crate::values::typing::ty::AbstractType;
-use crate::values::typing::StarlarkIter;
-use crate::values::value_of_unchecked::ValueOfUnchecked;
 use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
+use crate::values::list::AllocList;
+use crate::values::tuple::UnpackTuple;
+use crate::values::typing::StarlarkIter;
+use crate::values::typing::never::StarlarkNever;
+use crate::values::typing::ty::AbstractType;
+use crate::values::value_of_unchecked::ValueOfUnchecked;
 
 #[starlark_module]
 pub(crate) fn register_other(builder: &mut GlobalsBuilder) {

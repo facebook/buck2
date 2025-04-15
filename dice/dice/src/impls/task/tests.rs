@@ -20,14 +20,14 @@ use buck2_futures::spawner::TokioSpawner;
 use derive_more::Display;
 use dice_error::result::CancellationReason;
 use dupe::Dupe;
+use futures::FutureExt;
 use futures::pin_mut;
 use futures::poll;
-use futures::FutureExt;
-use tokio::sync::oneshot;
 use tokio::sync::Barrier;
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
 use tokio::sync::Semaphore;
+use tokio::sync::oneshot;
 
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;

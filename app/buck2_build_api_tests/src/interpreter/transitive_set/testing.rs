@@ -13,13 +13,14 @@ use std::sync::atomic::Ordering;
 use anyhow::Context as _;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetIndex;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
-use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
 use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
+use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
 use buck2_core::deferred::key::DeferredHolderKey;
 use indoc::indoc;
+use starlark::StarlarkResultExt;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -28,7 +29,6 @@ use starlark::values::FreezeErrorContext;
 use starlark::values::FrozenValueTyped;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
-use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 

@@ -18,8 +18,8 @@
 use allocative::Allocative;
 use dupe::Dupe;
 
-use crate::values::layout::const_type_id::ConstTypeId;
 use crate::values::StarlarkValue;
+use crate::values::layout::const_type_id::ConstTypeId;
 
 /// Identifier of a starlark type.
 ///

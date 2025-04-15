@@ -9,9 +9,9 @@
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::name::CellName;
 use buck2_core::error::validate_logview_category;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -22,9 +22,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::dict::DictRef;
-use starlark::values::dict::DictType;
-use starlark::values::dict::UnpackDictEntries;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
@@ -35,6 +32,9 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::dict::DictRef;
+use starlark::values::dict::DictType;
+use starlark::values::dict::UnpackDictEntries;
 
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::dep_only_incompatible_rollout::DepOnlyIncompatibleRollout;

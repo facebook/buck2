@@ -12,10 +12,12 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dice_error::DiceResult;
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 use gazebo::variants::UnpackVariants;
 
+use crate::LinearRecomputeDiceComputations;
+use crate::ProjectionKey;
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::invalidation_tracking::DiceKeyTrackedInvalidationPaths;
@@ -27,8 +29,6 @@ use crate::impls::ctx::LinearRecomputeModern;
 use crate::impls::ctx::ModernComputeCtx;
 use crate::opaque::OpaqueValueImpl;
 use crate::versions::VersionNumber;
-use crate::LinearRecomputeDiceComputations;
-use crate::ProjectionKey;
 
 /// This is just a dispatcher to either of Legacy or Modern Dice.
 ///

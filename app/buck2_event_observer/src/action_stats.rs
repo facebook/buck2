@@ -12,8 +12,8 @@ use std::fmt;
 use dupe::Dupe;
 
 use crate::cache_hit_rate::total_cache_hit_rate;
-use crate::last_command_execution_kind::get_last_command_execution_kind;
 use crate::last_command_execution_kind::LastCommandExecutionKind;
+use crate::last_command_execution_kind::get_last_command_execution_kind;
 
 /// Records the number of actions depending on how they executed.
 /// There's no overlap between the actions - summing them all up

@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
+use std::alloc::Layout;
 use std::alloc::alloc;
 use std::alloc::dealloc;
-use std::alloc::Layout;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::mem;

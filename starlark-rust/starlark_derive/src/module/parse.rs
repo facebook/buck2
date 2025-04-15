@@ -18,7 +18,6 @@
 mod fun;
 
 use dupe::Dupe;
-use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::Expr;
 use syn::ExprLit;
@@ -33,6 +32,7 @@ use syn::Stmt;
 use syn::Type;
 use syn::TypeReference;
 use syn::Visibility;
+use syn::spanned::Spanned;
 
 use crate::module::parse::fun::parse_fun;
 use crate::module::typ::StarConst;

@@ -9,10 +9,10 @@
 
 #![cfg(test)]
 
-use crate::components::Dimensions;
-use crate::components::DrawMode;
 use crate::Component;
 use crate::Lines;
+use crate::components::Dimensions;
+use crate::components::DrawMode;
 
 /// Component that repeats whatever lines are put into it.
 /// Used in tests.

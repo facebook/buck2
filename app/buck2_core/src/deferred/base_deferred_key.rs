@@ -17,8 +17,8 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
+use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
 use static_assertions::assert_eq_size;

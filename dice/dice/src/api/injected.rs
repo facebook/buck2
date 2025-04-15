@@ -16,10 +16,10 @@ use async_trait::async_trait;
 use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 
+use crate::InvalidationSourcePriority;
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
 use crate::api::storage_type::StorageType;
-use crate::InvalidationSourcePriority;
 
 /// Specialized version of `Key` above. This type of Key is never computed. It
 /// should always be injected onto the graph before being requested via

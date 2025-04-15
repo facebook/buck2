@@ -171,8 +171,8 @@ fn main() -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::run;
     use crate::Shell;
+    use crate::run;
 
     const BASH_SCRIPT: &str = "complete -W 'car1 cat2' find";
 

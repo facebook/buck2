@@ -16,8 +16,6 @@ use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProv
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::dict::DictRef;
-use starlark::values::dict::DictType;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
@@ -28,6 +26,8 @@ use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::dict::DictRef;
+use starlark::values::dict::DictType;
 
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;

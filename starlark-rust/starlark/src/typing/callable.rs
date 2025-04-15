@@ -22,12 +22,12 @@ use allocative::Allocative;
 use dupe::Dupe;
 use starlark_syntax::codemap::Span;
 
-use crate::typing::call_args::TyCallArgs;
-use crate::typing::error::TypingOrInternalError;
-use crate::typing::ty::TypeRenderConfig;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
+use crate::typing::call_args::TyCallArgs;
+use crate::typing::error::TypingOrInternalError;
+use crate::typing::ty::TypeRenderConfig;
 use crate::util::arc_or_static::ArcOrStatic;
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Allocative)]

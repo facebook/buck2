@@ -16,8 +16,6 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
@@ -26,6 +24,8 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 /// Functions to access the daemon's digest config. This is not normally all that useful, but it
 /// allows instrospection in a few useful cases (such as knowing what hashes the daemon will be

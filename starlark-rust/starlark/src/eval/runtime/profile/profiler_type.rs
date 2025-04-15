@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::ProfileData;
 use crate::eval::ProfileMode;
+use crate::eval::runtime::profile::data::ProfileDataImpl;
 
 #[derive(Debug, thiserror::Error)]
 enum ProfileError {

@@ -30,15 +30,15 @@ use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_event_observer::what_ran::WhatRanRelevantAction;
 use buck2_event_observer::what_ran::WhatRanState;
 use buck2_events::span::SpanId;
-use futures::stream::Stream;
 use futures::TryStreamExt;
+use futures::stream::Stream;
 use indexmap::IndexMap;
 
-use crate::commands::log::options::EventLogOptions;
-use crate::commands::log::transform_format;
 use crate::commands::log::LogCommandOutputFormat;
 use crate::commands::log::LogCommandOutputFormatWithWriter;
 use crate::commands::log::OutputFormatWithWriter;
+use crate::commands::log::options::EventLogOptions;
+use crate::commands::log::transform_format;
 /// Output everything Buck2 ran from selected invocation.
 ///
 /// The output is presented as a series of tab-delimited records with the following structure:

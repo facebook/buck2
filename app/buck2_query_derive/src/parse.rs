@@ -10,8 +10,6 @@
 use itertools::Itertools;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
-use syn::parse::Result;
-use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::Error;
 use syn::Expr;
@@ -32,6 +30,8 @@ use syn::PatType;
 use syn::Path;
 use syn::Signature;
 use syn::Type;
+use syn::parse::Result;
+use syn::spanned::Spanned;
 
 /// Validates and parses the macro input into structured data.
 pub(crate) fn parse(args: TokenStream, item: TokenStream) -> Result<Parsed> {
@@ -321,9 +321,9 @@ impl syn::parse::Parse for QueryModuleArgs {
 #[cfg(test)]
 mod tests {
     use quote::quote;
-    use syn::parse_quote;
     use syn::Generics;
     use syn::Type;
+    use syn::parse_quote;
 
     use crate::parse::DocString;
     use crate::parse::Parsed;

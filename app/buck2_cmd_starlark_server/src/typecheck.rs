@@ -17,10 +17,10 @@ use buck2_cmd_starlark_client::typecheck::StarlarkTypecheckCommand;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::io::IoProvider;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
-use buck2_error::buck2_error;
+use buck2_core::cells::name::CellName;
 use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
@@ -35,9 +35,9 @@ use starlark::environment::Globals;
 use starlark::typing::AstModuleTypecheck;
 use starlark::typing::Interface;
 
+use crate::StarlarkServerSubcommand;
 use crate::util::environment::Environment;
 use crate::util::paths::starlark_files;
-use crate::StarlarkServerSubcommand;
 
 struct Cache<'a> {
     // Things we have access to get information

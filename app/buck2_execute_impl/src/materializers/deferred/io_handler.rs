@@ -27,9 +27,9 @@ use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestFromReExt;
@@ -64,8 +64,6 @@ use remote_execution::TCode;
 use remote_execution::TDigest;
 use tracing::instrument;
 
-use crate::materializers::deferred::artifact_tree::MaterializationMethodToProto;
-use crate::materializers::deferred::clean_stale::CleanInvalidatedPathRequest;
 use crate::materializers::deferred::ArtifactMaterializationMethod;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::ArtifactTree;
@@ -75,9 +73,11 @@ use crate::materializers::deferred::MaterializerSender;
 use crate::materializers::deferred::SharedMaterializingError;
 use crate::materializers::deferred::Version;
 use crate::materializers::deferred::WriteFile;
+use crate::materializers::deferred::artifact_tree::MaterializationMethodToProto;
+use crate::materializers::deferred::clean_stale::CleanInvalidatedPathRequest;
 use crate::materializers::immediate;
-use crate::materializers::io::materialize_files;
 use crate::materializers::io::MaterializeTreeStructure;
+use crate::materializers::io::materialize_files;
 
 #[derive(Allocative)]
 pub struct DefaultIoHandler {

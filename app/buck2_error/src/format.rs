@@ -14,9 +14,9 @@ use std::sync::Arc;
 use dupe::Dupe;
 
 use crate::__for_macro::ContextValue;
+use crate::DynLateFormat;
 use crate::context_value::StarlarkContext;
 use crate::error::ErrorKind;
-use crate::DynLateFormat;
 
 /// We currently implement formatting in the laziest way possible - we convert to an equivalent
 /// `anyhow::Error` and format that.

@@ -14,11 +14,11 @@ use allocative::Allocative;
 use buck2_futures::spawner::Spawner;
 use buck2_futures::spawner::TokioSpawner;
 
+use crate::DynKey;
 use crate::api::activation_tracker::ActivationTracker;
 use crate::api::data::DiceData;
 use crate::api::events::DiceEvent;
 use crate::api::events::DiceEventListener;
-use crate::DynKey;
 
 /// Includes all user related computation-specific data.
 #[derive(Allocative)]

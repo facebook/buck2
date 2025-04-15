@@ -16,7 +16,6 @@ use serde::Serializer;
 use starlark::__derive_refs::serde::Serialize;
 use starlark::coerce::Coerce;
 use starlark::typing::Ty;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -25,10 +24,11 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
-use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
+use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 
 fn serialize_as_display<V: Display, S>(v: &V, s: S) -> Result<S::Ok, S::Error>
 where

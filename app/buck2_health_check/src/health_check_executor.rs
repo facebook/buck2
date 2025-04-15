@@ -10,8 +10,8 @@
 #![allow(dead_code)] // Unused in oss
 
 use buck2_error::BuckErrorContext;
-use buck2_health_check_proto::health_check_context_event::Data;
 use buck2_health_check_proto::HealthCheckContextEvent;
+use buck2_health_check_proto::health_check_context_event::Data;
 
 use crate::health_check_context::HealthCheckContext;
 use crate::health_check_service::HealthCheckService;

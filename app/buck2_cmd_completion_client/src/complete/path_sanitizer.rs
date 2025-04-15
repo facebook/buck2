@@ -10,14 +10,14 @@
 use std::borrow::Cow;
 use std::path::Path;
 
-use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::invocation_roots::InvocationRoots;
+use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
-use buck2_core::cells::CellAliasResolver;
-use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;

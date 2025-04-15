@@ -20,24 +20,24 @@ use buck2_data::ToProtoMessage;
 use buck2_util::hash::BuckHasher;
 use dupe::Dupe;
 use lock_free_hashtable::atomic_value::AtomicValue;
-use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
+use ref_cast::ref_cast_custom;
 use serde::Serialize;
 use serde::Serializer;
 use strong_hash::StrongHash;
 use strong_hash::StrongHasher;
 use triomphe::ThinArc;
 
-use crate::cells::name::CellName;
-use crate::cells::paths::CellRelativePath;
 use crate::cells::CellAliasResolver;
 use crate::cells::CellResolver;
+use crate::cells::name::CellName;
+use crate::cells::paths::CellRelativePath;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
 use crate::configuration::pair::ConfigurationNoExec;
 use crate::package::PackageLabel;
-use crate::pattern::pattern::lex_target_pattern;
 use crate::pattern::pattern::ParsedPattern;
+use crate::pattern::pattern::lex_target_pattern;
 use crate::pattern::pattern_type::TargetPatternExtra;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::label::triomphe_thin_arc_borrow::ThinArcBorrow;
@@ -312,7 +312,10 @@ impl<'a> Hash for TargetLabelBorrow<'a> {
 
 impl AtomicValue for TargetLabel {
     type Raw = *const ();
-    type Ref<'a> = TargetLabelBorrow<'a> where Self: 'a;
+    type Ref<'a>
+        = TargetLabelBorrow<'a>
+    where
+        Self: 'a;
 
     fn null() -> Self::Raw {
         ptr::null()

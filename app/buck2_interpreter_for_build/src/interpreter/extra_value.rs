@@ -14,13 +14,13 @@ use buck2_error::BuckErrorContext;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
-use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Trace;
 use starlark::values::ValueLike;
+use starlark::values::any_complex::StarlarkAnyComplex;
 
 use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
 use crate::interpreter::package_file_extra::PackageFileExtra;

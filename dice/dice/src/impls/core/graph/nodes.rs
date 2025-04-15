@@ -27,6 +27,7 @@ use itertools::Itertools;
 use sorted_vector_map::SortedVectorMap;
 
 use super::types::VersionedGraphResult;
+use crate::HashSet;
 use crate::api::key::InvalidationSourcePriority;
 use crate::arc::Arc;
 use crate::impls::core::graph::lazy_deps::LazyDepsSet;
@@ -44,7 +45,6 @@ use crate::introspection::graph::SerializedGraphNode;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
 use crate::versions::VersionRanges;
-use crate::HashSet;
 
 /// Actual entries as seen when querying the VersionedGraph.
 ///

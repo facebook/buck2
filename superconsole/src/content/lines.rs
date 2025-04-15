@@ -23,16 +23,16 @@ use termwiz::cell::Hyperlink;
 use termwiz::cell::Intensity;
 use termwiz::color::ColorSpec;
 use termwiz::color::RgbColor;
-use termwiz::escape::csi::Sgr;
-use termwiz::escape::csi::CSI;
 use termwiz::escape::Action;
 use termwiz::escape::OperatingSystemCommand;
+use termwiz::escape::csi::CSI;
+use termwiz::escape::csi::Sgr;
 
-use crate::style::ContentStyle;
-use crate::style::StyledContent;
 use crate::Dimensions;
 use crate::Line;
 use crate::Span;
+use crate::style::ContentStyle;
+use crate::style::StyledContent;
 
 #[derive(Default, Clone, Debug, Eq, PartialEq)]
 pub struct Lines(pub Vec<Line>);

@@ -11,8 +11,8 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use async_trait::async_trait;
-use futures::stream::FuturesOrdered;
 use futures::StreamExt;
+use futures::stream::FuturesOrdered;
 use starlark_map::StarlarkHasherBuilder;
 
 use crate::query::graph::graph::Graph;

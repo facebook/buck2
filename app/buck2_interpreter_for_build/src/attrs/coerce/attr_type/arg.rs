@@ -12,9 +12,6 @@ use std::fmt::Debug;
 use std::mem;
 
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_node::attrs::attr_type::arg::parser;
-use buck2_node::attrs::attr_type::arg::parser::parse_macros;
-use buck2_node::attrs::attr_type::arg::parser::ParsedMacro;
 use buck2_node::attrs::attr_type::arg::ArgAttrType;
 use buck2_node::attrs::attr_type::arg::MacroBase;
 use buck2_node::attrs::attr_type::arg::QueryExpansion;
@@ -22,6 +19,9 @@ use buck2_node::attrs::attr_type::arg::StringWithMacrosPart;
 use buck2_node::attrs::attr_type::arg::UnconfiguredMacro;
 use buck2_node::attrs::attr_type::arg::UnconfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::arg::UnrecognizedMacro;
+use buck2_node::attrs::attr_type::arg::parser;
+use buck2_node::attrs::attr_type::arg::parser::ParsedMacro;
+use buck2_node::attrs::attr_type::arg::parser::parse_macros;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::attr_type::query::QueryMacroBase;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -32,9 +32,9 @@ use once_cell::sync::Lazy;
 use starlark::typing::Ty;
 use starlark::values::Value;
 
+use crate::attrs::coerce::AttrTypeCoerce;
 use crate::attrs::coerce::attr_type::query::QueryAttrTypeExt;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::AttrTypeCoerce;
 
 // These are the macros we haven't yet implemented yet, we should make sure not
 // to try and resolve them to user defined macros with a target parameter,

@@ -12,8 +12,8 @@ use buck2_cli_proto::new_generic::ExplainResponse;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use buck2_server_ctx::template::run_server_command;
 use dice::DiceTransaction;
 use tonic::async_trait;
 

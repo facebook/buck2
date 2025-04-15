@@ -21,11 +21,11 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::starlark_value;
 use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::ValueTyped;
+use starlark::values::starlark_value;
 
 #[derive(ProvidesStaticType, Debug, NoSerialize, Allocative)]
 pub(crate) struct StarlarkAnalysisResult {

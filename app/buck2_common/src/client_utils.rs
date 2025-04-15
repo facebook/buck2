@@ -162,8 +162,8 @@ pub async fn retrying<L, E, Fut: Future<Output = Result<L, E>>, F: FnMut() -> Fu
 mod tests {
     use std::time::Duration;
 
-    use crate::client_utils::retrying;
     use crate::client_utils::RetryError;
+    use crate::client_utils::retrying;
 
     #[tokio::test]
     async fn test_retrying_error_forever() {

@@ -7,11 +7,11 @@
  * of this source tree.
  */
 
-use crate::graph::PathCost;
 use crate::CriticalPathVertexData;
 use crate::OptionalVertexId;
 use crate::VertexData;
 use crate::VertexId;
+use crate::graph::PathCost;
 
 /// A container that can be used to access critical path from arbitrary vertices.
 ///

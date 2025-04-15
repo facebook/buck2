@@ -8,20 +8,20 @@
  */
 
 use allocative::Allocative;
-use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use derivative::Derivative;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::structs::AllocStruct;
-use starlark::values::structs::StructRef;
 use starlark::values::AllocFrozenValue;
 use starlark::values::FrozenHeap;
 use starlark::values::FrozenValue;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::ValueOfUnchecked;
+use starlark::values::structs::AllocStruct;
+use starlark::values::structs::StructRef;
 
 use crate::interpreter::build_context::BuildContext;
 

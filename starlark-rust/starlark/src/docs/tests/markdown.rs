@@ -20,31 +20,31 @@ use derive_more::Display;
 use itertools::Itertools;
 use serde::Serialize;
 use starlark::starlark_simple_value;
+use starlark_derive::NoSerialize;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
-use starlark_derive::NoSerialize;
 use starlark_map::small_map::SmallMap;
 use starlark_syntax::golden_test_template::golden_test_template;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::assert;
-use crate::docs::markdown::render_doc_item_no_link;
-use crate::docs::multipage::render_markdown_multipage;
-use crate::docs::multipage::DocModuleInfo;
 use crate::docs::DocItem;
 use crate::docs::DocType;
+use crate::docs::markdown::render_doc_item_no_link;
+use crate::docs::multipage::DocModuleInfo;
+use crate::docs::multipage::render_markdown_multipage;
 use crate::environment::Globals;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
+use crate::values::StarlarkValue;
+use crate::values::Value;
 use crate::values::list::UnpackList;
 use crate::values::none::NoneType;
 use crate::values::starlark_value_as_type::StarlarkValueAsType;
 use crate::values::tuple::UnpackTuple;
-use crate::values::StarlarkValue;
-use crate::values::Value;
 
 fn docs_golden_test(test_file_name: &str, doc: DocItem) -> String {
     assert!(test_file_name.ends_with(".golden.md"));

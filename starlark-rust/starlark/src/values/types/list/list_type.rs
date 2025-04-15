@@ -16,11 +16,11 @@
  */
 
 use crate::typing::Ty;
-use crate::values::list::UnpackList;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::UnpackAndDiscard;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::list::UnpackList;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// A list type marker.
 ///

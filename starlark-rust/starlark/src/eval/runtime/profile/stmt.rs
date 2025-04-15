@@ -16,9 +16,9 @@
  */
 
 use std::cmp::Reverse;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::hash_map::Entry;
 use std::fmt::Write;
 
 use dupe::Dupe;
@@ -32,13 +32,13 @@ use crate::codemap::FileSpan;
 use crate::codemap::FileSpanRef;
 use crate::codemap::ResolvedFileSpan;
 use crate::codemap::Span;
+use crate::eval::ProfileMode;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::profile::profiler_type::ProfilerType;
 use crate::eval::runtime::small_duration::SmallDuration;
-use crate::eval::ProfileMode;
 
 pub(crate) struct StmtProfilerType;
 pub(crate) struct CoverageProfileType;
@@ -339,14 +339,14 @@ mod tests {
     use crate::assert::test_functions;
     use crate::environment::GlobalsBuilder;
     use crate::environment::Module;
+    use crate::eval::Evaluator;
+    use crate::eval::ProfileData;
     use crate::eval::runtime::profile::data::ProfileDataImpl;
     use crate::eval::runtime::profile::instant::ProfilerInstant;
     use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::eval::runtime::profile::stmt::StmtProfile;
     use crate::eval::runtime::profile::stmt::StmtProfileData;
     use crate::eval::runtime::small_duration::SmallDuration;
-    use crate::eval::Evaluator;
-    use crate::eval::ProfileData;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
 

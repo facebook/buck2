@@ -14,19 +14,19 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::analysis::calculation::RuleAnalysisCalculationImpl;
+use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::analysis::calculation::EVAL_ANALYSIS_QUERY;
 use buck2_build_api::analysis::calculation::RULE_ANALYSIS_CALCULATION;
-use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculationImpl;
 use buck2_build_api::keep_going::KeepGoing;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_data::error::ErrorTag;
 use buck2_data::ToProtoMessage;
-use buck2_error::internal_error;
+use buck2_data::error::ErrorTag;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::record_root_spans;
 use buck2_events::dispatch::span_async;
@@ -56,9 +56,9 @@ use dupe::IterDupedExt;
 use futures::FutureExt;
 use smallvec::SmallVec;
 
+use crate::analysis::env::RuleSpec;
 use crate::analysis::env::get_user_defined_rule_spec;
 use crate::analysis::env::run_analysis;
-use crate::analysis::env::RuleSpec;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
 
 struct RuleAnalysisCalculationInstance;

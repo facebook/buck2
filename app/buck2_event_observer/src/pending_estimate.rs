@@ -54,8 +54,8 @@ mod tests {
     use std::time::UNIX_EPOCH;
 
     use buck2_data::SpanStartEvent;
-    use buck2_events::span::SpanId;
     use buck2_events::BuckEvent;
+    use buck2_events::span::SpanId;
     use buck2_wrapper_common::invocation_id::TraceId;
 
     use crate::dice_state::DiceState;

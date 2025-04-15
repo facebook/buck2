@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use crate::conversion::from_any_with_tag;
 use crate::ErrorTag::Http;
+use crate::conversion::from_any_with_tag;
 
 impl From<http::uri::InvalidUri> for crate::Error {
     #[cold]

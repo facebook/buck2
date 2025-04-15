@@ -31,9 +31,6 @@ use serde::Serialize;
 
 use crate::hint;
 use crate::typing::Ty;
-use crate::values::int::pointer_i32::PointerI32;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::int::int_or_big::StarlarkInt;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -41,6 +38,9 @@ use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::int::pointer_i32::PointerI32;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::int::int_or_big::StarlarkInt;
 
 /// Integer which is stored inline in `RawPointer`.
 #[derive(

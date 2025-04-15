@@ -9,9 +9,9 @@
 
 use tokio::runtime::Builder;
 
+use crate::threads::THREAD_DEFAULT_STACK_SIZE;
 use crate::threads::on_thread_start;
 use crate::threads::on_thread_stop;
-use crate::threads::THREAD_DEFAULT_STACK_SIZE;
 
 pub fn new_tokio_runtime(thread_name: &str) -> Builder {
     let mut builder = Builder::new_multi_thread();

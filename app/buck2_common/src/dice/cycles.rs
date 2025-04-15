@@ -201,9 +201,9 @@ impl<A: UserCycleDetector, B: UserCycleDetector> UserCycleDetector for PairDiceC
 #[cfg(test)]
 mod tests {
     use std::fmt::Debug;
+    use std::sync::Arc;
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
-    use std::sync::Arc;
 
     use allocative::Allocative;
     use async_trait::async_trait;

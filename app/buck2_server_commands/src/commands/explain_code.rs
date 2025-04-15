@@ -12,16 +12,16 @@ use std::collections::HashMap;
 
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::new_generic::ExplainRequest;
-use buck2_data::action_key;
 use buck2_data::CommandInvalidationInfo;
 use buck2_data::FileWatcherEvent;
+use buck2_data::action_key;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
+use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::display::display_anon_target;
 use buck2_event_observer::display::display_bxl_key;
 use buck2_event_observer::display::display_configured_target_label;
-use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::what_ran::CommandReproducer;
 use buck2_event_observer::what_ran::WhatRanOptions;
 use buck2_event_observer::what_ran::WhatRanRelevantAction;

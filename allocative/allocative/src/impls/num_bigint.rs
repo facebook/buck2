@@ -14,10 +14,10 @@ use std::mem;
 use num_bigint::BigInt;
 use num_bigint::BigUint;
 
-use crate::impls::common::DATA_NAME;
-use crate::impls::common::PTR_NAME;
 use crate::Allocative;
 use crate::Visitor;
+use crate::impls::common::DATA_NAME;
+use crate::impls::common::PTR_NAME;
 
 impl Allocative for BigInt {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {

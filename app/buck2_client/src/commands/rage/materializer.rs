@@ -8,9 +8,9 @@
  */
 
 use async_trait::async_trait;
+use buck2_audit::AuditCommand;
 use buck2_audit::deferred_materializer::DeferredMaterializerCommand;
 use buck2_audit::deferred_materializer::DeferredMaterializerSubcommand;
-use buck2_audit::AuditCommand;
 use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
@@ -24,8 +24,8 @@ use buck2_error::buck2_error;
 use futures::future::BoxFuture;
 use futures::future::Shared;
 
-use crate::commands::rage::manifold::buf_to_manifold;
 use crate::commands::rage::MaterializerRageUploadData;
+use crate::commands::rage::manifold::buf_to_manifold;
 
 pub async fn upload_materializer_data(
     buckd: Shared<BoxFuture<'_, buck2_error::Result<BootstrapBuckdClient>>>,

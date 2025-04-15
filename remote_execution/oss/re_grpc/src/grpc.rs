@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-pub use re_grpc_proto::build::bazel::remote::execution::v2::command::EnvironmentVariable;
-pub use re_grpc_proto::build::bazel::remote::execution::v2::platform::Property;
 pub use re_grpc_proto::build::bazel::remote::execution::v2::Action;
 pub use re_grpc_proto::build::bazel::remote::execution::v2::Command;
 pub use re_grpc_proto::build::bazel::remote::execution::v2::Digest;
@@ -18,3 +16,5 @@ pub use re_grpc_proto::build::bazel::remote::execution::v2::FileNode;
 pub use re_grpc_proto::build::bazel::remote::execution::v2::Platform;
 pub use re_grpc_proto::build::bazel::remote::execution::v2::SymlinkNode;
 pub use re_grpc_proto::build::bazel::remote::execution::v2::Tree;
+pub use re_grpc_proto::build::bazel::remote::execution::v2::command::EnvironmentVariable;
+pub use re_grpc_proto::build::bazel::remote::execution::v2::platform::Property;

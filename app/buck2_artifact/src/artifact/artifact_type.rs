@@ -590,9 +590,9 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
+    use buck2_core::cells::CellResolver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
-    use buck2_core::cells::CellResolver;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
     use buck2_core::deferred::key::DeferredHolderKey;
@@ -615,10 +615,10 @@ mod tests {
 
     use crate::actions::key::ActionIndex;
     use crate::actions::key::ActionKey;
-    use crate::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use crate::artifact::artifact_type::Artifact;
     use crate::artifact::artifact_type::DeclaredArtifact;
     use crate::artifact::artifact_type::DeclaredArtifactKind;
+    use crate::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use crate::artifact::build_artifact::BuildArtifact;
     use crate::artifact::source_artifact::SourceArtifact;
 

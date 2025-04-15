@@ -10,10 +10,10 @@
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::none::NoneOr;
-use starlark::values::none::NoneType;
 use starlark::values::StringValue;
 use starlark::values::Value;
+use starlark::values::none::NoneOr;
+use starlark::values::none::NoneType;
 
 use crate::interpreter::module_internals::ModuleInternals;
 

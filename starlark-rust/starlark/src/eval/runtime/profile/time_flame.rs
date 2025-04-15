@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::slice;
 
 use dupe::Dupe;
@@ -24,6 +24,7 @@ use starlark_map::StarlarkHasherBuilder;
 use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate as starlark;
+use crate::eval::ProfileMode;
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
@@ -31,13 +32,12 @@ use crate::eval::runtime::profile::flamegraph::FlameGraphNode;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::profile::profiler_type::ProfilerType;
 use crate::eval::runtime::small_duration::SmallDuration;
-use crate::eval::ProfileMode;
 use crate::util::arc_str::ArcStr;
-use crate::values::layout::pointer::RawPointer;
 use crate::values::FrozenValue;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
+use crate::values::layout::pointer::RawPointer;
 
 pub(crate) struct TimeFlameProfilerType;
 
@@ -299,9 +299,9 @@ mod tests {
     use crate::environment::Globals;
     use crate::environment::GlobalsBuilder;
     use crate::environment::Module;
+    use crate::eval::Evaluator;
     use crate::eval::runtime::file_loader::ReturnOwnedFileLoader;
     use crate::eval::runtime::profile::mode::ProfileMode;
-    use crate::eval::Evaluator;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
     use crate::values::none::NoneType;

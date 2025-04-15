@@ -11,11 +11,11 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
-use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -31,9 +31,9 @@ use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
+use crate::dice::file_ops::CheckIgnores;
 use crate::dice::file_ops::delegate::keys::FileOpsKey;
 use crate::dice::file_ops::delegate::keys::FileOpsValue;
-use crate::dice::file_ops::CheckIgnores;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::file_ops::DirectorySubListingMatchingOutput;
 use crate::file_ops::HasReadDirCache;
@@ -54,8 +54,8 @@ mod keys {
     use derive_more::Display;
     use dupe::Dupe;
 
-    use crate::dice::file_ops::delegate::FileOpsDelegateWithIgnores;
     use crate::dice::file_ops::CheckIgnores;
+    use crate::dice::file_ops::delegate::FileOpsDelegateWithIgnores;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display("{:?}", self)]

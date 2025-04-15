@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_util::late_binding::LateBinding;

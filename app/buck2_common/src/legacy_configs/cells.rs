@@ -12,17 +12,17 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::buck2_env;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::external::GitCellSetup;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::CellAliasResolver;
-use buck2_core::cells::CellResolver;
+use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
@@ -34,24 +34,24 @@ use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::legacy_configs::aggregator::CellsAggregator;
+use crate::legacy_configs::args::ResolvedLegacyConfigArg;
 use crate::legacy_configs::args::resolve_config_args;
 use crate::legacy_configs::args::to_proto_config_args;
-use crate::legacy_configs::args::ResolvedLegacyConfigArg;
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::dice::HasInjectedLegacyConfigs;
-use crate::legacy_configs::file_ops::push_all_files_from_a_directory;
 use crate::legacy_configs::file_ops::ConfigDirEntry;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::file_ops::ConfigPath;
 use crate::legacy_configs::file_ops::DefaultConfigParserFileOps;
 use crate::legacy_configs::file_ops::DiceConfigFileOps;
+use crate::legacy_configs::file_ops::push_all_files_from_a_directory;
 use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::parser::LegacyConfigParser;
-use crate::legacy_configs::path::ExternalConfigSource;
-use crate::legacy_configs::path::ProjectConfigSource;
 use crate::legacy_configs::path::DEFAULT_EXTERNAL_CONFIG_SOURCES;
 use crate::legacy_configs::path::DEFAULT_PROJECT_CONFIG_SOURCES;
 use crate::legacy_configs::path::DOT_BUCKCONFIG_LOCAL;
+use crate::legacy_configs::path::ExternalConfigSource;
+use crate::legacy_configs::path::ProjectConfigSource;
 
 /// Buckconfigs can partially be loaded from within dice. However, some parts of what makes up the
 /// buckconfig comes from outside the buildgraph, and this type represents those parts.
@@ -641,8 +641,8 @@ mod tests {
     use indoc::indoc;
 
     use crate::dice::file_ops::delegate::FileOpsDelegate;
-    use crate::external_cells::ExternalCellsImpl;
     use crate::external_cells::EXTERNAL_CELLS_IMPL;
+    use crate::external_cells::ExternalCellsImpl;
     use crate::legacy_configs::cells::BuckConfigBasedCells;
     use crate::legacy_configs::configs::testing::TestConfigParserFileOps;
     use crate::legacy_configs::configs::tests::assert_config_value;

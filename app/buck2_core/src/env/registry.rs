@@ -41,8 +41,8 @@ pub static ENV_INFO: [EnvInfoEntry];
 mod tests {
     use crate::buck2_env;
     use crate::env::registry::Applicability;
-    use crate::env::registry::EnvInfoEntry;
     use crate::env::registry::ENV_INFO;
+    use crate::env::registry::EnvInfoEntry;
 
     #[test]
     fn test_env_info() {

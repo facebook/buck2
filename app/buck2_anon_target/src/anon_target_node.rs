@@ -8,16 +8,16 @@
  */
 
 use std::any::Any;
-use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_analysis::analysis::env::get_deps_from_analysis_results;
 use buck2_analysis::analysis::env::RuleAnalysisAttrResolutionContext;
+use buck2_analysis::analysis::env::get_deps_from_analysis_results;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::anon_target::AnonTargetDependentAnalysisResults;
 use buck2_build_api::anon_target::AnonTargetDyn;
@@ -35,8 +35,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
+use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::rule_type::StarlarkRuleType;
 use cmp_any::PartialEqAny;
@@ -44,11 +44,11 @@ use dupe::Dupe;
 use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::structs::AllocStruct;
-use starlark::values::structs::StructRef;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::structs::AllocStruct;
+use starlark::values::structs::StructRef;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::anon_target_attr::AnonTargetAttr;

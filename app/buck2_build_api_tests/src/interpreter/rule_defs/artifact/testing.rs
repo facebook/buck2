@@ -8,8 +8,8 @@
  */
 
 use buck2_artifact::actions::key::ActionIndex;
-use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::actions::registry::ActionsRegistry;
@@ -35,9 +35,9 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
-use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -48,13 +48,13 @@ use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::testing::cells;
 use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
-use indexmap::indexset;
 use indexmap::IndexSet;
+use indexmap::indexset;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::Value;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 
 use crate::actions::testings::SimpleUnregisteredAction;
 

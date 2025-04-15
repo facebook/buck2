@@ -30,8 +30,6 @@ use crate::coerce::Coerce;
 use crate::coerce::CoerceKey;
 use crate::collections::Hashed;
 use crate::sealed::Sealed;
-use crate::values::layout::static_string::VALUE_EMPTY_STRING;
-use crate::values::string::str_type::StarlarkStr;
 use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -40,6 +38,8 @@ use crate::values::FrozenValueTyped;
 use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueTyped;
+use crate::values::layout::static_string::VALUE_EMPTY_STRING;
+use crate::values::string::str_type::StarlarkStr;
 
 /// Convenient type alias.
 ///

@@ -10,9 +10,9 @@
 use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_build_api::actions::impls::json::visit_json_artifacts;
 use buck2_build_api::actions::impls::json::JsonUnpack;
 use buck2_build_api::actions::impls::json::SerializeValue;
+use buck2_build_api::actions::impls::json::visit_json_artifacts;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;

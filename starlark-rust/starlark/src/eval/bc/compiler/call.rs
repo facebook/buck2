@@ -48,11 +48,11 @@ use crate::eval::compiler::def::FrozenDef;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
+use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
 use crate::values::function::NativeFunction;
 use crate::values::types::known_methods::get_known_method;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
 
 impl ArgsCompiledValue {
     /// After evaluation of function arguments like `foo(a, b=c[d], **e)`,

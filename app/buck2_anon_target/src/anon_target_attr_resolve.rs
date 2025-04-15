@@ -34,15 +34,15 @@ use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
+use starlark::values::Value;
 use starlark::values::dict::Dict;
 use starlark::values::tuple::AllocTuple;
-use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
 use crate::anon_target_attr::AnonTargetAttr;
-use crate::anon_targets::get_artifact_from_anon_target_analysis;
 use crate::anon_targets::AnonTargetKey;
 use crate::anon_targets::AnonTargetsError;
+use crate::anon_targets::get_artifact_from_anon_target_analysis;
 
 // No macros in anon targets, so query results are empty. Execution platform resolution should
 // always be inherited from the anon target.

@@ -14,9 +14,9 @@ use allocative::Allocative;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_simple_value;
-use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::starlark_value;
 
 #[derive(ProvidesStaticType, Debug, NoSerialize, Allocative)]
 pub struct StarlarkExecutionPlatformResolution(pub ExecutionPlatformResolution);

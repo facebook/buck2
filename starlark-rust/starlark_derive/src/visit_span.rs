@@ -18,9 +18,9 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
+use syn::DeriveInput;
 use syn::parse_macro_input;
 use syn::spanned::Spanned;
-use syn::DeriveInput;
 
 use crate::util::DeriveInputUtil;
 

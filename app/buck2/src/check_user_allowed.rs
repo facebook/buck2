@@ -22,9 +22,9 @@ pub(crate) fn check_user_allowed() -> buck2_error::Result<()> {
     use winapi::um::processthreadsapi::GetCurrentProcess;
     use winapi::um::processthreadsapi::OpenProcessToken;
     use winapi::um::securitybaseapi::GetTokenInformation;
-    use winapi::um::winnt::TokenElevation;
     use winapi::um::winnt::TOKEN_ELEVATION;
     use winapi::um::winnt::TOKEN_QUERY;
+    use winapi::um::winnt::TokenElevation;
 
     let mut handle = ptr::null_mut();
     let token_ok = unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut handle) };

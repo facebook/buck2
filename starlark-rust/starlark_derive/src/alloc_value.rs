@@ -16,9 +16,9 @@
  */
 
 use quote::quote;
-use syn::spanned::Spanned;
 use syn::DeriveInput;
 use syn::Fields;
+use syn::spanned::Spanned;
 
 use crate::util::DataEnumUtil;
 use crate::util::DeriveInputUtil;

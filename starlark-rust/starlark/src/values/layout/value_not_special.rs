@@ -17,10 +17,10 @@
 
 use dupe::Dupe;
 
-use crate::values::layout::vtable::AValueDyn;
-use crate::values::stack_guard;
 use crate::values::FrozenValue;
 use crate::values::Value;
+use crate::values::layout::vtable::AValueDyn;
+use crate::values::stack_guard;
 
 /// `FrozenValue` which is not `i32` or `str`.
 #[derive(Copy, Clone, Dupe, Debug, derive_more::Display)]

@@ -40,11 +40,13 @@ use starlark_map::small_map::SmallMap;
 
 use crate::collections::StarlarkHashValue;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
+use crate::values::Value;
+use crate::values::ValueLike;
 use crate::values::layout::aligned_size::AlignedSize;
-use crate::values::layout::avalue::starlark_str;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::BlackHole;
+use crate::values::layout::avalue::starlark_str;
 use crate::values::layout::heap::allocator::api::ArenaAllocator;
 use crate::values::layout::heap::allocator::api::ChunkAllocationDirection;
 use crate::values::layout::heap::call_enter_exit::CallEnter;
@@ -61,8 +63,6 @@ use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::string::str_type::StarlarkStr;
-use crate::values::Value;
-use crate::values::ValueLike;
 
 /// Min size of allocated object including header.
 /// Should be able to fit `BlackHole` or forward.

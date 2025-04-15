@@ -18,10 +18,10 @@ use buck2_event_log::stream_value::StreamValue;
 use serde::Serialize;
 use tokio_stream::StreamExt;
 
-use crate::commands::log::options::EventLogOptions;
-use crate::commands::log::transform_format;
 use crate::commands::log::LogCommandOutputFormat;
 use crate::commands::log::LogCommandOutputFormatWithWriter;
+use crate::commands::log::options::EventLogOptions;
+use crate::commands::log::transform_format;
 
 const CLI: &str = "cli";
 /// Display the values and origins of external configs for a selected command.

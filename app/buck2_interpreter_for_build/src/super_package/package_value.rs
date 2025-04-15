@@ -12,8 +12,8 @@ use std::io;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_node::metadata::key::MetadataKeyRef;
@@ -22,7 +22,6 @@ use dupe::Dupe;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::none::NoneType;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeErrorContext;
@@ -33,6 +32,7 @@ use starlark::values::FrozenValue;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::none::NoneType;
 use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::build_context::BuildContext;

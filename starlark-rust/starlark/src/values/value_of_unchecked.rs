@@ -29,7 +29,6 @@ use dupe::Dupe_;
 
 use crate::coerce::Coerce;
 use crate::typing::Ty;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
@@ -44,6 +43,7 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// Store value annotated with type, but do not check the type.
 #[derive(Clone_, Copy_, Dupe_, Allocative)]
@@ -195,9 +195,9 @@ mod tests {
 
     use crate::const_frozen_string;
     use crate::typing::Ty;
-    use crate::values::type_repr::StarlarkTypeRepr;
     use crate::values::FrozenValueOfUnchecked;
     use crate::values::ValueOfUnchecked;
+    use crate::values::type_repr::StarlarkTypeRepr;
 
     #[test]
     fn test_cast_example() {

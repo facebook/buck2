@@ -467,8 +467,8 @@ pub fn source_area(tags: impl IntoIterator<Item = ErrorTag>) -> ErrorSourceArea 
 
 #[cfg(test)]
 mod tests {
-    use buck2_data::error::ErrorTag;
     use buck2_data::ErrorReport;
+    use buck2_data::error::ErrorTag;
 
     use super::*;
     use crate::classify::best_tag;

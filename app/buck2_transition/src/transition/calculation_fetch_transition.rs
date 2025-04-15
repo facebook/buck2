@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::transition::TransitionAttrProvider;
 use buck2_build_api::transition::TRANSITION_ATTRS_PROVIDER;
+use buck2_build_api::transition::TransitionAttrProvider;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;

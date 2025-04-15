@@ -9,9 +9,9 @@
 
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::sync::Arc;
 use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;

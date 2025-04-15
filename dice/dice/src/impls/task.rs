@@ -13,8 +13,8 @@ use buck2_futures::owning_future::OwningFuture;
 use buck2_futures::spawn::spawn_dropcancel;
 use buck2_futures::spawner::Spawner;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::Cancellations;

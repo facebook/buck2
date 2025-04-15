@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::name::CellName;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilitySpecification;

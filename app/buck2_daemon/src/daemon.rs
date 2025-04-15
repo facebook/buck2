@@ -36,12 +36,12 @@ use buck2_util::threads::thread_spawn;
 use buck2_util::tokio_runtime::new_tokio_runtime;
 use dice::DetectCycles;
 use dice::WhichDice;
+use futures::FutureExt;
+use futures::StreamExt;
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedSender;
 use futures::pin_mut;
 use futures::select;
-use futures::FutureExt;
-use futures::StreamExt;
 use rand::Rng;
 use tokio::runtime::Builder;
 

@@ -19,10 +19,10 @@ use std::fmt::Write;
 
 use crate::golden_test_template::golden_test_template;
 use crate::slice_vec_ext::SliceExt;
-use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::syntax::DialectTypes;
+use crate::syntax::ast::Stmt;
 
 fn parse_fails_with_dialect(name: &str, dialect: &Dialect, programs: &[&str]) {
     let mut out = String::new();

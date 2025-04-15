@@ -15,16 +15,16 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use buck2_data::CommandExecutionDetails;
+use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_error::BuckErrorContext;
 use buck2_event_observer::display;
-use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::event_observer::DebugEventObserverExtra;
 use buck2_event_observer::session_info::SessionInfo;
-use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::unpack_event::VisitorError;
+use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran::command_to_string;
 use buck2_event_observer::what_ran::worker_command_as_fallback_to_string;
@@ -34,12 +34,6 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use strum::IntoEnumIterator;
-use superconsole::components::DrawVertical;
-use superconsole::style::Attribute;
-use superconsole::style::Color;
-use superconsole::style::ContentStyle;
-use superconsole::style::StyledContent;
-use superconsole::style::Stylize;
 use superconsole::Component;
 use superconsole::Dimensions;
 use superconsole::DrawMode;
@@ -47,6 +41,12 @@ use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
 pub(crate) use superconsole::SuperConsole;
+use superconsole::components::DrawVertical;
+use superconsole::style::Attribute;
+use superconsole::style::Color;
+use superconsole::style::ContentStyle;
+use superconsole::style::StyledContent;
+use superconsole::style::Stylize;
 use tokio::sync::mpsc::Receiver;
 
 use crate::console_interaction_stream::SuperConsoleToggle;
@@ -1011,9 +1011,9 @@ mod tests {
     use buck2_data::SpanEndEvent;
     use buck2_data::SpanStartEvent;
     use buck2_events::span::SpanId;
+    use superconsole::testing::SuperConsoleTestingExt;
     use superconsole::testing::assert_frame_contains;
     use superconsole::testing::test_console;
-    use superconsole::testing::SuperConsoleTestingExt;
 
     use super::*;
 

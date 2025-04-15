@@ -24,8 +24,8 @@ use std::mem;
 use std::ops::Index;
 
 use allocative::Allocative;
-use hashbrown::hash_table;
 use hashbrown::HashTable;
+use hashbrown::hash_table;
 
 use crate::Equivalent;
 use crate::Hashed;

@@ -29,10 +29,10 @@ pub mod ui;
 
 use std::path::Path;
 
-use buck2_cli_proto::config_override::ConfigType;
-use buck2_cli_proto::representative_config_flag::Source as RepresentativeConfigFlagSource;
 use buck2_cli_proto::ConfigOverride;
 use buck2_cli_proto::RepresentativeConfigFlag;
+use buck2_cli_proto::config_override::ConfigType;
+use buck2_cli_proto::representative_config_flag::Source as RepresentativeConfigFlagSource;
 use buck2_common::argv::ArgFileKind;
 use buck2_common::argv::ArgFilePath;
 use buck2_common::argv::ExpandedArgSource;

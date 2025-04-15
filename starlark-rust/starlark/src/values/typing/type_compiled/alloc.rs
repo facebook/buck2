@@ -17,10 +17,10 @@
 
 use starlark_syntax::slice_vec_ext::SliceExt;
 
-use crate::typing::custom::TyCustom;
-use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
+use crate::typing::custom::TyCustom;
+use crate::typing::starlark_value::TyStarlarkValue;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
 use crate::values::typing::type_compiled::matcher::TypeMatcherBoxAlloc;
 use crate::values::typing::type_compiled::matchers::IsAny;

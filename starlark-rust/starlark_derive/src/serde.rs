@@ -17,11 +17,11 @@
 
 use proc_macro2::Span;
 use quote::quote;
-use syn::parse_macro_input;
 use syn::DeriveInput;
 use syn::GenericParam;
 use syn::Lifetime;
 use syn::LifetimeParam;
+use syn::parse_macro_input;
 
 pub fn derive_no_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

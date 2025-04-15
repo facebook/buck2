@@ -9,10 +9,10 @@
 
 use buck2_data::ErrorReport;
 
+use crate::ErrorTag;
 use crate::context_value::ContextValue;
 use crate::context_value::StringTag;
 use crate::source_location::SourceLocation;
-use crate::ErrorTag;
 
 impl From<ErrorReport> for crate::Error {
     #[cold]

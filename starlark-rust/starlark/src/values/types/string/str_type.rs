@@ -30,8 +30,8 @@ use std::sync::atomic;
 
 use allocative::Allocative;
 use serde::Serialize;
-use starlark_derive::starlark_value;
 use starlark_derive::ProvidesStaticType;
+use starlark_derive::starlark_value;
 use starlark_map::Hashed;
 use starlark_map::StarlarkHashValue;
 use starlark_map::StarlarkHasher;
@@ -45,15 +45,15 @@ use crate::environment::Methods;
 use crate::environment::MethodsStatic;
 use crate::private::Private;
 use crate::typing::Ty;
-use crate::values::index::apply_slice;
-use crate::values::none::NoneOr;
-use crate::values::string::interpolation;
-use crate::values::string::repr::string_repr;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
+use crate::values::index::apply_slice;
+use crate::values::none::NoneOr;
+use crate::values::string::interpolation;
+use crate::values::string::repr::string_repr;
 
 /// The result of calling `type()` on strings.
 pub const STRING_TYPE: &str = "string";
@@ -374,9 +374,9 @@ impl Serialize for StarlarkStr {
 #[cfg(test)]
 mod tests {
     use crate::assert;
-    use crate::values::index::apply_slice;
     use crate::values::Heap;
     use crate::values::Value;
+    use crate::values::index::apply_slice;
 
     #[test]
     fn test_string_corruption() {

@@ -17,9 +17,9 @@
 
 use proc_macro2::Span;
 use quote::quote;
+use syn::DeriveInput;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::DeriveInput;
 
 use crate::util::DeriveInputUtil;
 use crate::util::GenericsUtil;

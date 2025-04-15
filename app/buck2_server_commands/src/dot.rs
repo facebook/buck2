@@ -17,9 +17,9 @@
 // data in the right format and maybe escaping. It's not been imported to tp2 so we implement it
 // ourselves for now.
 
+use std::collections::HashMap;
 use std::collections::hash_map::Entry::Occupied;
 use std::collections::hash_map::Entry::Vacant;
-use std::collections::HashMap;
 use std::fmt::Display;
 use std::io::Write;
 

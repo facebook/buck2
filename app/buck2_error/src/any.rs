@@ -9,8 +9,8 @@
 
 //! Integrations of `buck2_error::Error` with `anyhow::Error` and `StdError`.
 
-use std::error::request_value;
 use std::error::Error as StdError;
+use std::error::request_value;
 use std::fmt;
 
 use buck2_data::error::ErrorTag;
@@ -135,8 +135,8 @@ mod tests {
 
     use super::*;
     use crate as buck2_error;
-    use crate::conversion::from_any_with_tag;
     use crate::TypedContext;
+    use crate::conversion::from_any_with_tag;
 
     #[derive(Debug, derive_more::Display)]
     struct TestError;

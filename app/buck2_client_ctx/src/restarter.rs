@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use crate::daemon::client::connect::DaemonConstraintsRequest;
 use crate::daemon::client::BuckdClientConnector;
+use crate::daemon::client::connect::DaemonConstraintsRequest;
 use crate::events_ctx::EventsCtx;
 
 /// Monitor the state of our execution and decide whether we should restart the command we just

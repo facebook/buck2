@@ -11,8 +11,6 @@ use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::list::ListRef;
-use starlark::values::list::ListType;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
@@ -20,6 +18,8 @@ use starlark::values::Trace;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::list::ListRef;
+use starlark::values::list::ListType;
 
 use crate as buck2_build_api;
 

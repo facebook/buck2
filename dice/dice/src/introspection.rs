@@ -10,10 +10,10 @@
 //!
 //! Interfaces for introspection of the DICE graph
 
-use crate::introspection::graph::AnyKey;
-use crate::introspection::graph::GraphIntrospectable;
 use crate::Dice;
 use crate::DiceImplementation;
+use crate::introspection::graph::AnyKey;
+use crate::introspection::graph::GraphIntrospectable;
 
 pub mod graph;
 pub(crate) mod introspect;
@@ -40,13 +40,13 @@ mod tests {
     use derive_more::Display;
     use dupe::Dupe;
 
+    use crate::HashMap;
     use crate::api::computations::DiceComputations;
     use crate::api::cycles::DetectCycles;
     use crate::api::key::Key;
     use crate::impls::dice::DiceModern;
     use crate::introspection::graph::SerializedGraphNodesForKey;
     use crate::introspection::serialize_graph;
-    use crate::HashMap;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display("{:?}", self)]

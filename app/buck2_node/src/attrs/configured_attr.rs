@@ -11,8 +11,8 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::package::PackageLabel;
+use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
@@ -26,6 +26,8 @@ use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map;
 
 use super::attr_type::arg::ConfiguredStringWithMacros;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::attr_config::source_file_display;
 use crate::attrs::attr_type::bool::BoolLiteral;
 use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
@@ -38,8 +40,6 @@ use crate::attrs::attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::attr_type::transition_dep::ConfiguredTransitionDep;
 use crate::attrs::attr_type::tuple::TupleLiteral;
-use crate::attrs::attr_type::AttrType;
-use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::display::AttrDisplayWithContext;

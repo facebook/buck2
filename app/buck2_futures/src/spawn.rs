@@ -15,9 +15,9 @@ use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
 
+use futures::FutureExt;
 use futures::future::BoxFuture;
 use futures::future::Future;
-use futures::FutureExt;
 use pin_project::pin_project;
 use thiserror::Error;
 

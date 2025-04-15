@@ -9,55 +9,55 @@
 
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
 use std::time::Duration;
 
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_interpreter::starlark_debug::StarlarkDebugController;
 use debugserver_types as dap;
 use dupe::Dupe;
 use futures::StreamExt;
 use itertools::Itertools;
-use starlark::debug::prepare_dap_adapter;
-use starlark::debug::resolve_breakpoints;
 use starlark::debug::DapAdapter;
 use starlark::debug::DapAdapterClient;
 use starlark::debug::DapAdapterEvalHook;
 use starlark::debug::ResolvedBreakpoints;
 use starlark::debug::StepKind;
 use starlark::debug::VariablePath;
+use starlark::debug::prepare_dap_adapter;
+use starlark::debug::resolve_breakpoints;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 use starlark::syntax::DialectTypes;
 use tokio::select;
+use tokio::sync::Semaphore;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
-use tokio::sync::Semaphore;
 use tokio::time::Instant;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::debug;
 
-use crate::controller::BuckStarlarkDebugController;
-use crate::dap_api::dap_event;
-use crate::dap_api::dispatch;
-use crate::dap_api::err_response;
-use crate::dap_api::ContinueArguments;
-use crate::dap_api::DebugServer;
-use crate::error::StarlarkDebuggerError;
-use crate::run::ToClientMessage;
-use crate::variable_known_paths::VariablesKnownPaths;
 use crate::BuckStarlarkDebuggerHandle;
 use crate::HandleData;
 use crate::HandleId;
 use crate::HookId;
+use crate::controller::BuckStarlarkDebugController;
+use crate::dap_api::ContinueArguments;
+use crate::dap_api::DebugServer;
+use crate::dap_api::dap_event;
+use crate::dap_api::dispatch;
+use crate::dap_api::err_response;
+use crate::error::StarlarkDebuggerError;
+use crate::run::ToClientMessage;
+use crate::variable_known_paths::VariablesKnownPaths;
 
 /// The DAP capabilities that our debugserver supports.
 ///

@@ -21,6 +21,8 @@ use std::fmt::Display;
 use allocative::Allocative;
 use dupe::Dupe;
 
+use crate::typing::Ty;
+use crate::typing::TyFunction;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustom;
@@ -28,12 +30,10 @@ use crate::typing::custom::TyCustomImpl;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
 use crate::typing::ty::TypeRenderConfig;
-use crate::typing::Ty;
-use crate::typing::TyFunction;
+use crate::values::StarlarkValue;
 use crate::values::none::NoneType;
 use crate::values::string::str_type::StarlarkStr;
 use crate::values::typing::any::TypingAny;
-use crate::values::StarlarkValue;
 
 /// Type that is not a union.
 #[derive(Eq, PartialEq, Hash, Clone, Dupe, Debug, Ord, PartialOrd, Allocative)]

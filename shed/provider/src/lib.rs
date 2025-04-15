@@ -112,10 +112,10 @@ pub fn request_ref<'a, T: ?Sized + 'static>(
 
 #[cfg(test)]
 mod tests {
-    use crate::request_ref;
-    use crate::request_value;
     use crate::Demand;
     use crate::Provider;
+    use crate::request_ref;
+    use crate::request_value;
 
     struct My {
         s0: String,

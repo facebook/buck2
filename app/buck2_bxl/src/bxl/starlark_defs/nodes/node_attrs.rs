@@ -12,10 +12,10 @@ use buck2_build_api::actions::query::PackageLabelOption;
 use buck2_build_api::bxl::unconfigured_attribute::CoercedAttrExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use starlark::collections::SmallMap;
-use starlark::values::none::NoneOr;
 use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::Value;
+use starlark::values::none::NoneOr;
 
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;

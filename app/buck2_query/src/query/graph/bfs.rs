@@ -12,9 +12,9 @@
 use std::collections::VecDeque;
 use std::hash::Hash;
 
+use starlark_map::Hashed;
 use starlark_map::unordered_set;
 use starlark_map::unordered_set::UnorderedSet;
-use starlark_map::Hashed;
 
 use crate::query::graph::successors::GraphSuccessors;
 

@@ -18,10 +18,10 @@
 #![cfg(test)]
 
 use crate::assert;
-use crate::values::int::pointer_i32::PointerI32;
-use crate::values::types::int::inline_int::InlineInt;
 use crate::values::FrozenValue;
 use crate::values::Value;
+use crate::values::int::pointer_i32::PointerI32;
+use crate::values::types::int::inline_int::InlineInt;
 
 #[test]
 fn test_arithmetic_operators() {

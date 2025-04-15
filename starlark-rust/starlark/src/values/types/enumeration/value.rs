@@ -22,11 +22,11 @@ use allocative::Allocative;
 use derivative::Derivative;
 use dupe::Dupe;
 use either::Either;
-use starlark_derive::starlark_module;
-use starlark_derive::starlark_value;
 use starlark_derive::Coerce;
 use starlark_derive::Freeze;
 use starlark_derive::Trace;
+use starlark_derive::starlark_module;
+use starlark_derive::starlark_value;
 use starlark_map::StarlarkHasher;
 
 use crate as starlark;
@@ -38,14 +38,14 @@ use crate::environment::MethodsStatic;
 use crate::starlark_complex_value;
 use crate::starlark_complex_values;
 use crate::typing::Ty;
-use crate::values::enumeration::enum_type::EnumType;
-use crate::values::enumeration::enum_type::FrozenEnumType;
-use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::FreezeResult;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
+use crate::values::enumeration::enum_type::EnumType;
+use crate::values::enumeration::enum_type::FrozenEnumType;
+use crate::values::types::type_instance_id::TypeInstanceId;
 
 /// A value from an enumeration.
 #[derive(

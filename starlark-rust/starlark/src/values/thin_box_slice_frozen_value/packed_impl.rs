@@ -23,8 +23,8 @@ use std::ptr::NonNull;
 use either::Either;
 use static_assertions::const_assert;
 
-use crate::values::thin_box_slice_frozen_value::thin_box::AllocatedThinBoxSlice;
 use crate::values::FrozenValue;
+use crate::values::thin_box_slice_frozen_value::thin_box::AllocatedThinBoxSlice;
 
 /// Wrapper to handle the packing and most of the unsafety.
 ///
@@ -177,9 +177,9 @@ mod tests {
     use super::AllocatedThinBoxSlice;
     use super::PackedImpl;
     use super::ThinBoxSliceFrozenValue;
-    use crate::values::int::inline_int::InlineInt;
     use crate::values::FrozenHeap;
     use crate::values::FrozenValue;
+    use crate::values::int::inline_int::InlineInt;
 
     fn across_lengths(a: [FrozenValue; 16]) {
         for len in 0..=16 {

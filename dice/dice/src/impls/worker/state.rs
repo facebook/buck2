@@ -18,19 +18,19 @@ use dice_error::result::CancellationReason;
 use dupe::Dupe;
 use itertools::Either;
 
+use crate::ActivationData;
+use crate::ActivationTracker;
+use crate::DynKey;
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::KeyEvaluationResult;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key_index::DiceKeyIndex;
-use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::PreviouslyCancelledTask;
+use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
-use crate::ActivationData;
-use crate::ActivationTracker;
-use crate::DynKey;
 
 /// Represents when we are in a spawned dice task worker and are currently waiting for the previous
 /// cancelled instance of this task to finish cancelling.

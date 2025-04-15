@@ -28,5 +28,5 @@ mod type_repr;
 mod unpack;
 pub(crate) mod value;
 
-pub use value::StarlarkBool;
 pub use value::BOOL_TYPE;
+pub use value::StarlarkBool;

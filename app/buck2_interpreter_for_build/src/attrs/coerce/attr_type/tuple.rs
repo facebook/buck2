@@ -16,14 +16,14 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use dupe::IterDupedExt;
 use gazebo::prelude::SliceExt;
-use starlark::values::list::ListRef;
-use starlark::values::tuple::TupleRef;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::list::ListRef;
+use starlark::values::tuple::TupleRef;
 
-use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::AttrTypeCoerce;
+use crate::attrs::coerce::attr_type::AttrTypeExt;
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]

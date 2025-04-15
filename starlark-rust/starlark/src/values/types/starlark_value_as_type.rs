@@ -24,8 +24,8 @@ use std::fmt::Formatter;
 use std::marker::PhantomData;
 
 use allocative::Allocative;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -34,13 +34,6 @@ use crate::docs::DocMember;
 use crate::docs::DocProperty;
 use crate::docs::DocType;
 use crate::typing::Ty;
-use crate::values::layout::avalue::alloc_static;
-use crate::values::layout::avalue::AValueBasic;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::typing::ty::AbstractType;
-use crate::values::typing::TypeType;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -48,6 +41,13 @@ use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
+use crate::values::layout::avalue::AValueBasic;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::typing::TypeType;
+use crate::values::typing::ty::AbstractType;
 
 #[derive(Debug, NoSerialize, Allocative, ProvidesStaticType)]
 struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty, fn() -> DocItem);
@@ -79,10 +79,10 @@ impl Display for StarlarkValueAsTypeStarlarkValue {
 /// use allocative::Allocative;
 /// use starlark::any::ProvidesStaticType;
 /// use starlark::environment::GlobalsBuilder;
-/// use starlark::values::starlark_value;
-/// use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 /// use starlark::values::NoSerialize;
 /// use starlark::values::StarlarkValue;
+/// use starlark::values::starlark_value;
+/// use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 /// #[derive(
 ///     Debug,
 ///     derive_more::Display,
@@ -183,20 +183,20 @@ impl<T: StarlarkTypeRepr> AllocFrozenValue for StarlarkValueAsType<T> {
 #[cfg(test)]
 mod tests {
     use allocative::Allocative;
-    use starlark_derive::starlark_module;
-    use starlark_derive::starlark_value;
     use starlark_derive::NoSerialize;
     use starlark_derive::ProvidesStaticType;
+    use starlark_derive::starlark_module;
+    use starlark_derive::starlark_value;
 
     use crate as starlark;
     use crate::assert::Assert;
     use crate::environment::GlobalsBuilder;
-    use crate::values::types::starlark_value_as_type::tests;
-    use crate::values::types::starlark_value_as_type::StarlarkValueAsType;
     use crate::values::AllocValue;
     use crate::values::Heap;
     use crate::values::StarlarkValue;
     use crate::values::Value;
+    use crate::values::types::starlark_value_as_type::StarlarkValueAsType;
+    use crate::values::types::starlark_value_as_type::tests;
 
     #[derive(
         derive_more::Display,

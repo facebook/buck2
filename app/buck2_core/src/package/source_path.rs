@@ -13,8 +13,8 @@ use derive_more::Display;
 use dupe::Dupe;
 
 use crate::cells::cell_path::CellPath;
-use crate::package::package_relative_path::PackageRelativePath;
 use crate::package::PackageLabel;
+use crate::package::package_relative_path::PackageRelativePath;
 
 /// Represents the path of a source artifact.
 #[derive(

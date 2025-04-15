@@ -14,13 +14,13 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::none::NoneOr;
-use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
 
 use crate::bxl::starlark_defs::context::build::StarlarkFailedArtifactIterable;
 use crate::bxl::starlark_defs::context::build::StarlarkFailedArtifactIterableGen;

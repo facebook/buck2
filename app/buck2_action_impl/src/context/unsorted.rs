@@ -18,11 +18,11 @@ use buck2_execute::execute::request::OutputType;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::typing::StarlarkIter;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
+use starlark::values::typing::StarlarkIter;
 
 #[starlark_module]
 pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {

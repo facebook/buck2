@@ -16,15 +16,15 @@ use std::mem;
 use std::slice;
 use std::vec;
 
+use crossterm::Command;
 use crossterm::cursor::MoveToColumn;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
-use crossterm::Command;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::vec_as_fmt_write::VecAsFmtWrite;
 use crate::Span;
 use crate::SpanError;
+use crate::vec_as_fmt_write::VecAsFmtWrite;
 
 /// A `Line` is an abstraction for a collection of stylized or unstylized strings.
 /// Since each `Span` denotes a portion of a single line, an ordered collection represents a single line of text.

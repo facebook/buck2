@@ -19,10 +19,10 @@ use std::slice;
 use std::vec;
 
 use crate::typing::Ty;
-use crate::values::tuple::TupleRef;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::tuple::TupleRef;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// Unpack a value of type `tuple[T, ...]` into a vec.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -93,9 +93,9 @@ impl<'a, T> IntoIterator for &'a mut UnpackTuple<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::values::tuple::unpack::UnpackTuple;
     use crate::values::Heap;
     use crate::values::UnpackValue;
+    use crate::values::tuple::unpack::UnpackTuple;
 
     #[test]
     fn test_unpack() {

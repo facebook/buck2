@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use buck2_node::attrs::attr_type::visibility::VisibilityAttrType;
 use buck2_node::attrs::attr_type::AttrType;
+use buck2_node::attrs::attr_type::visibility::VisibilityAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -16,10 +16,10 @@ use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilityWithinViewBuilder;
 use starlark::values::Value;
 
+use crate::attrs::coerce::AttrTypeCoerce;
+use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::attr_type::list::coerce_list;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::attr_type::AttrTypeExt;
-use crate::attrs::coerce::AttrTypeCoerce;
 use crate::interpreter::selector::StarlarkSelector;
 
 #[derive(Debug, buck2_error::Error)]

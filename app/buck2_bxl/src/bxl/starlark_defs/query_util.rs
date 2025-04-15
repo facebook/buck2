@@ -10,9 +10,9 @@
 use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
-use starlark::values::dict::Dict;
 use starlark::values::Heap;
 use starlark::values::Value;
+use starlark::values::dict::Dict;
 
 use super::targetset::NodeLike;
 use crate::bxl::starlark_defs::file_set::StarlarkFileSet;

@@ -21,10 +21,10 @@ use ref_cast::RefCast;
 use relative_path::RelativePathBuf;
 
 use crate::fs::fs_util;
+use crate::fs::paths::RelativePath;
 use crate::fs::paths::abs_norm_path::AbsNormPath;
 use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::fs::paths::RelativePath;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]

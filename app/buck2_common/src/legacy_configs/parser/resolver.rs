@@ -13,9 +13,9 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use starlark_map::sorted_map::SortedMap;
 
-use crate::legacy_configs::configs::parse_config_section_and_key;
 use crate::legacy_configs::configs::LegacyBuckConfigSection;
 use crate::legacy_configs::configs::ResolvedValue;
+use crate::legacy_configs::configs::parse_config_section_and_key;
 use crate::legacy_configs::parser::ConfigError;
 use crate::legacy_configs::parser::SectionBuilder;
 

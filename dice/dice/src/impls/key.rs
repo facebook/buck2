@@ -21,6 +21,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use fxhash::FxHasher;
 
+use crate::Demand;
 use crate::api::computations::DiceComputations;
 use crate::api::demand::DemandRef;
 use crate::api::demand::DemandValue;
@@ -34,7 +35,6 @@ use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceProjectValue;
 use crate::impls::value::DiceValueDyn;
 use crate::impls::value::MaybeValidDiceValue;
-use crate::Demand;
 
 /// Type erased internal dice key
 #[derive(

@@ -350,10 +350,10 @@ mod tests {
     use regex::Regex;
 
     use crate::category::CategoryRef;
+    use crate::cells::CellResolver;
     use crate::cells::cell_root_path::CellRootPathBuf;
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePath;
-    use crate::cells::CellResolver;
     use crate::configuration::data::ConfigurationData;
     use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::deferred::dynamic::DynamicLambdaIndex;
@@ -367,8 +367,8 @@ mod tests {
     use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use crate::fs::project::ProjectRoot;
     use crate::fs::project_rel_path::ProjectRelativePathBuf;
-    use crate::package::source_path::SourcePath;
     use crate::package::PackageLabel;
+    use crate::package::source_path::SourcePath;
     use crate::provider::label::ConfiguredProvidersLabel;
     use crate::provider::label::ProviderName;
     use crate::provider::label::ProvidersName;

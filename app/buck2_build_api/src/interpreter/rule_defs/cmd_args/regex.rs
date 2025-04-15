@@ -13,7 +13,6 @@ use dupe::Dupe;
 use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
@@ -24,6 +23,7 @@ use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::ValueTyped;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 /// Regex argument for `cmd_args.replace_regex`.
 #[derive(

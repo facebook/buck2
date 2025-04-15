@@ -26,9 +26,9 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_data::CleanStaleResultKind;
 use buck2_data::CleanStaleStats;
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
+use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
 use buck2_execute::execute::blocking::IoRequest;
@@ -39,18 +39,18 @@ use chrono::DateTime;
 use chrono::Utc;
 use derivative::Derivative;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 use tokio::sync::oneshot::Sender;
 use tracing::error;
 
+use crate::materializers::deferred::ArtifactMaterializationStage;
+use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::artifact_tree::ArtifactMaterializationData;
 use crate::materializers::deferred::artifact_tree::ArtifactTree;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::join_all_existing_futs;
-use crate::materializers::deferred::ArtifactMaterializationStage;
-use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::sqlite::MaterializerStateSqliteDb;
 
 #[derive(Debug, Clone)]

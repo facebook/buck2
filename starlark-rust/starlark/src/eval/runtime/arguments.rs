@@ -27,21 +27,21 @@ use starlark_syntax::value_error;
 use thiserror::Error;
 
 use crate::cast::transmute;
-use crate::coerce::coerce;
 use crate::coerce::Coerce;
-use crate::collections::symbol::symbol::Symbol;
+use crate::coerce::coerce;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::collections::StarlarkHashValue;
+use crate::collections::symbol::symbol::Symbol;
 use crate::eval::ParametersSpec;
 use crate::hint::unlikely;
-use crate::values::dict::Dict;
-use crate::values::dict::DictRef;
-use crate::values::iter::StarlarkIterator;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::dict::Dict;
+use crate::values::dict::DictRef;
+use crate::values::iter::StarlarkIterator;
 
 #[derive(Debug, Clone, Error)]
 pub(crate) enum FunctionError {

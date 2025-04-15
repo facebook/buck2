@@ -11,14 +11,14 @@ use std::fs;
 use std::path::PathBuf;
 
 use clap::Parser;
+use rust_make_par::FileProcessor;
+use rust_make_par::ParInfo;
 use rust_make_par::process_maybe_add_init;
 use rust_make_par::process_symlink;
 use rust_make_par::read_json_manifest;
 use rust_make_par::read_manifest_list;
 use rust_make_par::read_text_manifest;
 use rust_make_par::write_inits;
-use rust_make_par::FileProcessor;
-use rust_make_par::ParInfo;
 use serde::Serialize;
 
 #[derive(Parser, Serialize)]

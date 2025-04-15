@@ -13,12 +13,12 @@ use async_trait::async_trait;
 use buck2_cli_proto::new_generic::DocsRequest;
 use buck2_cli_proto::new_generic::DocsResponse;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::late_bindings::DocsServerCommand;
 use buck2_server_ctx::late_bindings::DOCS_SERVER_COMMAND;
+use buck2_server_ctx::late_bindings::DocsServerCommand;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use buck2_server_ctx::template::run_server_command;
 use dice::DiceTransaction;
 
 use crate::builtins::docs_starlark_builtins;

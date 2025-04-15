@@ -38,19 +38,16 @@ use crate::docs::DocMember;
 use crate::docs::DocModule;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
+use crate::environment::EnvironmentError;
+use crate::environment::Globals;
 use crate::environment::names::FrozenNames;
 use crate::environment::names::MutableNames;
 use crate::environment::slots::FrozenSlots;
 use crate::environment::slots::ModuleSlotId;
 use crate::environment::slots::MutableSlots;
-use crate::environment::EnvironmentError;
-use crate::environment::Globals;
 use crate::errors::did_you_mean::did_you_mean;
-use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
 use crate::eval::ProfileData;
-use crate::values::layout::heap::heap_type::HeapKind;
-use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
-use crate::values::layout::heap::profile::aggregated::RetainedHeapProfile;
+use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
 use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -64,6 +61,9 @@ use crate::values::OwnedFrozenValue;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
+use crate::values::layout::heap::heap_type::HeapKind;
+use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
+use crate::values::layout::heap::profile::aggregated::RetainedHeapProfile;
 
 #[derive(Debug, thiserror::Error)]
 enum ModuleError {
@@ -580,8 +580,8 @@ mod tests {
     use crate::environment::Globals;
     use crate::environment::GlobalsBuilder;
     use crate::environment::Module;
-    use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::eval::Evaluator;
+    use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
     use crate::values::list::ListRef;

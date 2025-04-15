@@ -21,6 +21,7 @@ use std::fmt::Write;
 
 use starlark_syntax::eval_exception::EvalException;
 
+use crate::eval::Evaluator;
 use crate::eval::bc::addr::BcPtrAddr;
 use crate::eval::bc::for_loop::LoopDepth;
 use crate::eval::bc::frame::BcFramePtr;
@@ -34,7 +35,6 @@ use crate::eval::bc::slow_arg::BcInstrEndArg;
 use crate::eval::bc::slow_arg::BcInstrSlowArg;
 use crate::eval::compiler::add_span_to_expr_error;
 use crate::eval::runtime::evaluator::EvaluationCallbacks;
-use crate::eval::Evaluator;
 use crate::values::Value;
 
 /// Ready to execute bytecode.

@@ -13,18 +13,18 @@
 use std::io::Write;
 use std::path::Path;
 
+use buck2_cli_proto::TargetsResponse;
 use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::TargetHashFileMode;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
-use buck2_cli_proto::TargetsResponse;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
+use buck2_node::load_patterns::load_patterns;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::lookup::ConfiguredTargetNodeLookup;
 use buck2_node::nodes::lookup::TargetNodeLookup;

@@ -14,8 +14,8 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
-use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
+use buck2_query_parser::spanned::Spanned;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 

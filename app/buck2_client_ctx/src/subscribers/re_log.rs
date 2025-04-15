@@ -12,12 +12,12 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_event_log::FutureChildOutput;
 use buck2_event_log::should_block_on_log_upload;
 use buck2_event_log::should_upload_log;
 use buck2_event_log::wait_for_child_and_log;
-use buck2_event_log::FutureChildOutput;
-use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::unpack_event::UnpackedBuckEvent;
+use buck2_event_observer::unpack_event::unpack_event;
 use buck2_events::BuckEvent;
 use futures::Future;
 

@@ -90,10 +90,10 @@ mod tests {
     use crate::docs::DocParams;
     use crate::docs::DocString;
     use crate::docs::DocStringKind;
+    use crate::eval::ParametersSpecParam;
     use crate::eval::compiler::def::FrozenDef;
     use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
     use crate::eval::runtime::params::spec::ParametersSpec;
-    use crate::eval::ParametersSpecParam;
     use crate::typing::Ty;
     use crate::values::FrozenValue;
 

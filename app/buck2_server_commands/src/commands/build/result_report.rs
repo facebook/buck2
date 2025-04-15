@@ -13,8 +13,8 @@ use buck2_build_api::build::BuildProviderType;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConfiguredBuildTargetResult;
 use buck2_build_api::build::ProviderArtifacts;
-use buck2_certs::validate::check_cert_state;
 use buck2_certs::validate::CertState;
+use buck2_certs::validate::check_cert_state;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -23,9 +23,9 @@ use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
 mod proto {
-    pub use buck2_cli_proto::build_target::build_output::BuildOutputProviders;
-    pub use buck2_cli_proto::build_target::BuildOutput;
     pub use buck2_cli_proto::BuildTarget;
+    pub use buck2_cli_proto::build_target::BuildOutput;
+    pub use buck2_cli_proto::build_target::build_output::BuildOutputProviders;
 }
 
 /// Simple container for multiple [`buck2_error::Error`]s

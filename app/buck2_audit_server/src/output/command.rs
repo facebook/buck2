@@ -14,8 +14,8 @@ use buck2_audit::output::command::AuditOutputCommand;
 use buck2_build_api::actions::query::FIND_MATCHING_ACTION;
 use buck2_build_api::actions::query::PRINT_ACTION_NODE;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::audit_output::AuditOutputResult;
 use buck2_build_api::audit_output::AUDIT_OUTPUT;
+use buck2_build_api::audit_output::AuditOutputResult;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellResolver;
@@ -29,9 +29,9 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dice::DiceComputations;
 use dupe::Dupe;
 
+use crate::ServerAuditSubcommand;
 use crate::output::buck_out_path_parser::BuckOutPathParser;
 use crate::output::buck_out_path_parser::BuckOutPathType;
-use crate::ServerAuditSubcommand;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]

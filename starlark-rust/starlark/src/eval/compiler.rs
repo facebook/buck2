@@ -37,11 +37,11 @@ use starlark_syntax::eval_exception::EvalException;
 
 use crate::codemap::CodeMap;
 use crate::environment::Globals;
+use crate::eval::Evaluator;
 use crate::eval::compiler::scope::ModuleScopeData;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::scope::ScopeNames;
 use crate::eval::runtime::frame_span::FrameSpan;
-use crate::eval::Evaluator;
 use crate::values::FrozenRef;
 
 #[cold]

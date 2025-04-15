@@ -12,9 +12,9 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 
+use crate::HashMap;
 use crate::impls::cache::SharedCache;
 use crate::versions::VersionNumber;
-use crate::HashMap;
 
 /// Tracks the currently in-flight versions for updates and reads to ensure
 /// values are up to date.
@@ -187,12 +187,12 @@ impl<'a> VersionForWrites<'a> {
 
 pub(crate) mod introspection {
 
+    use crate::HashMap;
     use crate::impls::core::versions::VersionTracker;
     use crate::impls::key::DiceKey;
     use crate::introspection::graph::AnyKey;
     use crate::introspection::graph::VersionNumber;
     use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
-    use crate::HashMap;
 
     pub(crate) struct VersionIntrospectable(
         Vec<(usize, HashMap<DiceKey, DiceTaskStateForDebugging>)>,

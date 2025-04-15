@@ -8,9 +8,9 @@
  */
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_analysis::analysis::calculation::AnalysisKey;
@@ -37,9 +37,9 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
-use dice::testing::DiceBuilder;
 use dice::DiceComputations;
 use dice::UserComputationData;
+use dice::testing::DiceBuilder;
 use dupe::Dupe;
 use indexmap::IndexSet;
 use indoc::indoc;

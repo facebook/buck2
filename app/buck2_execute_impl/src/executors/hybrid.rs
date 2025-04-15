@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
 use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::liveliness_observer::CancelledLivelinessGuard;
@@ -34,10 +34,10 @@ use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_futures::cancellation::CancellationContext;
 use derivative::Derivative;
 use dupe::Dupe;
+use futures::FutureExt;
 use futures::future::BoxFuture;
 use futures::future::Either;
 use futures::future::Future;
-use futures::FutureExt;
 use host_sharing::HostSharingRequirements;
 use tokio::sync::MutexGuard;
 

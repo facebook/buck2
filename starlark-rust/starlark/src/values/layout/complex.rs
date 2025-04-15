@@ -27,7 +27,6 @@ use either::Either;
 use starlark_syntax::value_error;
 
 use crate::typing::Ty;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocValue;
 use crate::values::ComplexValue;
 use crate::values::Freeze;
@@ -42,6 +41,7 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueTyped;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// Value which is either a complex mutable value or a frozen value.
 #[derive(Copy_, Clone_, Dupe_, Allocative)]
@@ -193,8 +193,8 @@ mod tests {
     use crate::const_frozen_string;
     use crate::environment::GlobalsBuilder;
     use crate::tests::util::TestComplexValue;
-    use crate::values::layout::complex::ValueTypedComplex;
     use crate::values::Value;
+    use crate::values::layout::complex::ValueTypedComplex;
 
     #[starlark_module]
     fn test_module(globals: &mut GlobalsBuilder) {

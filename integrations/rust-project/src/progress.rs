@@ -13,8 +13,8 @@ use rustc_hash::FxHashMap;
 use serde::Serialize;
 use serde_json::Value;
 use tracing::span;
-use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::Layer;
+use tracing_subscriber::fmt::MakeWriter;
 
 pub(crate) struct ProgressLayer<S, W> {
     _s: std::marker::PhantomData<S>,

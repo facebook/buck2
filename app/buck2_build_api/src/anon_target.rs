@@ -21,9 +21,9 @@ use dupe::Dupe;
 use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::structs::StructRef;
 use starlark::values::Value;
 use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::structs::StructRef;
 
 use crate::analysis::AnalysisResult;
 use crate::artifact_groups::promise::PromiseArtifactAttr;

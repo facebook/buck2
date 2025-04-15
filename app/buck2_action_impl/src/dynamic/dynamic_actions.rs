@@ -12,7 +12,6 @@ use std::cell::RefCell;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use starlark::any::ProvidesStaticType;
-use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
@@ -20,6 +19,7 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::starlark_value;
 
 use crate::dynamic::attrs::DynamicAttrValues;
 use crate::dynamic::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallable;

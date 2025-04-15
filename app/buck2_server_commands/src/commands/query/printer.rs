@@ -35,16 +35,16 @@ use gazebo::variants::UnpackVariants;
 use indent_write::fmt::IndentWriter;
 use indent_write::io::IndentWriter as IoIndentWriter;
 use regex::RegexSet;
-use serde::ser::SerializeMap;
-use serde::ser::SerializeSeq;
 use serde::Serialize;
 use serde::Serializer;
+use serde::ser::SerializeMap;
+use serde::ser::SerializeSeq;
 
-use crate::commands::query::query_target_ext::QueryCommandTarget;
 use crate::commands::query::QueryCommandError;
-use crate::dot::targets::DotTargetGraph;
+use crate::commands::query::query_target_ext::QueryCommandTarget;
 use crate::dot::Dot;
 use crate::dot::DotCompact;
+use crate::dot::targets::DotTargetGraph;
 use crate::html::Html;
 use crate::query_output_format::QueryOutputFormatInfo;
 

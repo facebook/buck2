@@ -16,9 +16,17 @@ use proc_macro2::Group;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use proc_macro2::TokenTree;
+use quote::ToTokens;
 use quote::format_ident;
 use quote::quote;
-use quote::ToTokens;
+use syn::Attribute;
+use syn::Error;
+use syn::Ident;
+use syn::Index;
+use syn::LitInt;
+use syn::LitStr;
+use syn::Result;
+use syn::Token;
 use syn::braced;
 use syn::bracketed;
 use syn::parenthesized;
@@ -28,14 +36,6 @@ use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token;
-use syn::Attribute;
-use syn::Error;
-use syn::Ident;
-use syn::Index;
-use syn::LitInt;
-use syn::LitStr;
-use syn::Result;
-use syn::Token;
 
 /// Did the user provide an explicit value for the option, or a function from which to compute it
 #[derive(Clone)]

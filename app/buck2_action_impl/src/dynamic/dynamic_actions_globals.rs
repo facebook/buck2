@@ -10,8 +10,8 @@
 use std::cell::OnceCell;
 use std::iter;
 
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::typing::ParamIsRequired;

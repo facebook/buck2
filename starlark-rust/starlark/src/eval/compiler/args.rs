@@ -22,15 +22,15 @@ use starlark_syntax::syntax::ast::CallArgsP;
 
 use crate::coerce::coerce;
 use crate::collections::symbol::symbol::Symbol;
+use crate::eval::Arguments;
+use crate::eval::compiler::Compiler;
 use crate::eval::compiler::error::CompilerInternalError;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::span::IrSpanned;
-use crate::eval::compiler::Compiler;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
-use crate::eval::Arguments;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Value;

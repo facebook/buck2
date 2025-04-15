@@ -31,8 +31,6 @@ use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::eval::Evaluator;
-use crate::values::none::NoneOr;
-use crate::values::starlark_value;
 use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::NoSerialize;
@@ -40,6 +38,8 @@ use crate::values::ProvidesStaticType;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
+use crate::values::none::NoneOr;
+use crate::values::starlark_value;
 
 #[derive(ProvidesStaticType, Trace, Allocative, Debug, NoSerialize, Clone)]
 /// A frame of the call-stack.

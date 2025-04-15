@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-use std::any::type_name;
 use std::any::TypeId;
+use std::any::type_name;
 use std::cmp;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -28,10 +28,20 @@ use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::collections::StarlarkHashValue;
+use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::eval::compiler::def::FrozenDef;
 use crate::private::Private;
+use crate::values::ComplexValue;
+use crate::values::FreezeError;
+use crate::values::FreezeResult;
+use crate::values::Freezer;
+use crate::values::FrozenValue;
+use crate::values::StarlarkValue;
+use crate::values::Trace;
+use crate::values::Tracer;
+use crate::values::Value;
+use crate::values::ValueTyped;
 use crate::values::array::VALUE_EMPTY_ARRAY;
 use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::heap::arena::MIN_ALLOC;
@@ -49,16 +59,6 @@ use crate::values::types::list::value::FrozenListData;
 use crate::values::types::list::value::ListData;
 use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;
-use crate::values::ComplexValue;
-use crate::values::FreezeError;
-use crate::values::FreezeResult;
-use crate::values::Freezer;
-use crate::values::FrozenValue;
-use crate::values::StarlarkValue;
-use crate::values::Trace;
-use crate::values::Tracer;
-use crate::values::Value;
-use crate::values::ValueTyped;
 
 pub(crate) const fn alloc_static<'v, A>(value: A::StarlarkValue) -> AValueRepr<AValueImpl<'v, A>>
 where
@@ -726,10 +726,10 @@ pub(crate) struct BlackHole(pub(crate) ValueAllocSize);
 #[cfg(test)]
 mod tests {
     use crate::environment::Module;
-    use crate::values::dict::AllocDict;
-    use crate::values::types::list::value::ListData;
     use crate::values::UnpackValue;
     use crate::values::Value;
+    use crate::values::dict::AllocDict;
+    use crate::values::types::list::value::ListData;
 
     #[test]
     fn tuple_cycle_freeze() {

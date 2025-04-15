@@ -170,13 +170,13 @@ use allocative::Allocative;
 use futures::future::Future;
 use serde::Serializer;
 
+use crate::DiceDataBuilderImpl;
+use crate::DiceImplementation;
+use crate::WhichDice;
 use crate::api::cycles::DetectCycles;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
 use crate::metrics::Metrics;
-use crate::DiceDataBuilderImpl;
-use crate::DiceImplementation;
-use crate::WhichDice;
 
 /// An incremental computation engine that executes arbitrary computations that
 /// maps `Key`s to values.
@@ -264,12 +264,12 @@ impl DiceDataBuilder {
 }
 
 pub mod testing {
+    use crate::Dice;
+    use crate::DiceDataBuilder;
     use crate::api::cycles::DetectCycles;
     use crate::api::key::Key;
     use crate::api::transaction::DiceTransactionUpdater;
     use crate::api::user_data::UserComputationData;
-    use crate::Dice;
-    use crate::DiceDataBuilder;
 
     /// Testing utility that can be used to build a specific `DiceComputation` where certain keys
     /// of computation mocked to return a specific result.

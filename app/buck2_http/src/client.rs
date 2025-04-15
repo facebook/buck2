@@ -13,27 +13,27 @@ use allocative::Allocative;
 use buck2_error::BuckErrorContext;
 use bytes::Bytes;
 use dupe::Dupe;
-use futures::stream::BoxStream;
 use futures::StreamExt;
 use futures::TryStreamExt;
-use http::request::Builder;
-use http::uri::Scheme;
+use futures::stream::BoxStream;
 use http::Method;
 use http::Uri;
-use hyper::client::connect::Connect;
-use hyper::client::ResponseFuture;
+use http::request::Builder;
+use http::uri::Scheme;
 use hyper::Body;
 use hyper::Request;
 use hyper::Response;
+use hyper::client::ResponseFuture;
+use hyper::client::connect::Connect;
 use tokio::io::AsyncReadExt;
 use tokio_util::io::StreamReader;
 
+use crate::HttpError;
 use crate::redirect::PendingRequest;
 use crate::redirect::RedirectEngine;
 use crate::stats::CountingStream;
 use crate::stats::HttpNetworkStats;
 use crate::x2p::X2PAgentError;
-use crate::HttpError;
 
 mod builder;
 pub use builder::HttpClientBuilder;
@@ -279,9 +279,9 @@ fn is_hyper_error_due_to_timeout(e: &hyper::Error) -> bool {
 #[cfg(test)]
 mod tests {
     use http::StatusCode;
+    use httptest::Expectation;
     use httptest::matchers::*;
     use httptest::responders;
-    use httptest::Expectation;
 
     use super::*;
 
@@ -596,9 +596,9 @@ mod tests {
         use std::convert::Infallible;
         use std::path::PathBuf;
 
+        use hyper::Server;
         use hyper::service::make_service_fn;
         use hyper::service::service_fn;
-        use hyper::Server;
         use hyper_unix_connector::UnixConnector;
 
         use super::*;
@@ -779,12 +779,12 @@ mod proxy_tests {
     use std::time::Duration;
 
     use buck2_error::BuckErrorContext;
+    use httptest::Expectation;
     use httptest::matchers::*;
     use httptest::responders;
-    use httptest::Expectation;
+    use hyper::Server;
     use hyper::service::make_service_fn;
     use hyper::service::service_fn;
-    use hyper::Server;
     use hyper_proxy::Intercept;
     use hyper_proxy::Proxy;
 

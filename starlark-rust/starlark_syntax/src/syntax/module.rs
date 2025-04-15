@@ -33,6 +33,8 @@ use crate::codemap::Spanned;
 use crate::eval_exception::EvalException;
 use crate::lexer::Lexer;
 use crate::lexer::Token;
+use crate::syntax::AstLoad;
+use crate::syntax::Dialect;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstStmt;
@@ -46,8 +48,6 @@ use crate::syntax::lint_suppressions::LintSuppressions;
 use crate::syntax::lint_suppressions::LintSuppressionsBuilder;
 use crate::syntax::state::ParserState;
 use crate::syntax::validate::validate_module;
-use crate::syntax::AstLoad;
-use crate::syntax::Dialect;
 
 fn one_of(expected: &[String]) -> String {
     let mut result = String::new();

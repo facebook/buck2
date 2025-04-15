@@ -21,21 +21,21 @@ use std::mem;
 
 use either::Either;
 use starlark_derive::starlark_module;
-use starlark_map::small_set::SmallSet;
 use starlark_map::Hashed;
+use starlark_map::small_set::SmallSet;
 use starlark_syntax::value_error;
 
 use crate as starlark;
 use crate::environment::MethodsBuilder;
+use crate::values::Heap;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::values::ValueOfUnchecked;
 use crate::values::none::NoneType;
 use crate::values::set::refs::SetMut;
 use crate::values::set::refs::SetRef;
 use crate::values::set::value::SetData;
 use crate::values::typing::StarlarkIter;
-use crate::values::Heap;
-use crate::values::UnpackValue;
-use crate::values::Value;
-use crate::values::ValueOfUnchecked;
 
 enum SetFromValue<'v> {
     Set(SmallSet<Value<'v>>),

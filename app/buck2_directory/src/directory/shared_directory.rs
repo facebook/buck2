@@ -180,7 +180,10 @@ impl<L, H> Directory<L, H> for SharedDirectory<L, H>
 where
     H: DirectoryDigest,
 {
-    type DirectoryRef<'a> = &'a SharedDirectory<L, H> where Self: Sized + 'a;
+    type DirectoryRef<'a>
+        = &'a SharedDirectory<L, H>
+    where
+        Self: Sized + 'a;
 
     fn as_ref<'a>(&'a self) -> Self::DirectoryRef<'a>
     where

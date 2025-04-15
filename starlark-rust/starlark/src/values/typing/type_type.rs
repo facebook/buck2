@@ -19,10 +19,10 @@ use std::convert::Infallible;
 
 use crate::typing::Ty;
 use crate::typing::TyStarlarkValue;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::typing::ty::AbstractType;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::typing::ty::AbstractType;
 
 /// Represent a type of type. (For example, an expression `int` is valid for this type.)
 pub struct TypeType(());

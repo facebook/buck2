@@ -21,13 +21,15 @@ use anyhow::Context;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 use serde::Deserialize;
+use tracing::Level;
 use tracing::enabled;
 use tracing::info;
 use tracing::instrument;
 use tracing::trace;
 use tracing::warn;
-use tracing::Level;
 
+use crate::Crate;
+use crate::Dep;
 use crate::cli::Input;
 use crate::json_project::Build;
 use crate::json_project::Edition;
@@ -42,8 +44,6 @@ use crate::target::Kind;
 use crate::target::MacroOutput;
 use crate::target::Target;
 use crate::target::TargetInfo;
-use crate::Crate;
-use crate::Dep;
 
 const CLIENT_METADATA_RUST_PROJECT: &str = "--client-metadata=id=rust-project";
 

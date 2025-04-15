@@ -23,10 +23,10 @@ use allocative::Allocative;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::Equivalent;
 use crate::ordered_map::OrderedMap;
 use crate::small_map;
 use crate::small_map::SmallMap;
-use crate::Equivalent;
 
 /// `IndexMap` but with keys sorted.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]

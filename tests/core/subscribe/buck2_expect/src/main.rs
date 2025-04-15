@@ -12,11 +12,11 @@ use std::process::Stdio;
 
 use anyhow::Context as _;
 use buck2_cli_proto::protobuf_util::ProtobufSplitter;
-use buck2_subscription_proto::subscription_response::Response;
 use buck2_subscription_proto::Materialized;
 use buck2_subscription_proto::SubscribeToPaths;
 use buck2_subscription_proto::SubscriptionRequest;
 use buck2_subscription_proto::SubscriptionResponse;
+use buck2_subscription_proto::subscription_response::Response;
 use clap::Parser;
 use futures::stream::TryStreamExt;
 use prost::Message;

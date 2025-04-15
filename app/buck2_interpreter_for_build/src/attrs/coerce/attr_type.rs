@@ -14,9 +14,9 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::Value;
 
+use crate::attrs::coerce::AttrTypeCoerce;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::coerced_attr::CoercedAttrExr;
-use crate::attrs::coerce::AttrTypeCoerce;
 
 pub mod any;
 pub mod arg;

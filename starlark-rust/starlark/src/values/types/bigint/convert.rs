@@ -18,9 +18,6 @@
 use num_bigint::BigInt;
 
 use crate::typing::Ty;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::int::int_or_big::StarlarkInt;
-use crate::values::types::int::int_or_big::StarlarkIntRef;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -28,6 +25,9 @@ use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::int::int_or_big::StarlarkInt;
+use crate::values::types::int::int_or_big::StarlarkIntRef;
 
 impl StarlarkTypeRepr for u32 {
     type Canonical = <i32 as StarlarkTypeRepr>::Canonical;

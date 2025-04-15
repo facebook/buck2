@@ -10,8 +10,8 @@
 use allocative::Allocative;
 use dupe::Dupe;
 
-use crate::cells::cell_path::CellPathRef;
 use crate::cells::CellResolver;
+use crate::cells::cell_path::CellPathRef;
 use crate::fs::buck_out_path::BuckOutPathResolver;
 use crate::fs::buck_out_path::BuildArtifactPath;
 use crate::fs::project::ProjectRoot;

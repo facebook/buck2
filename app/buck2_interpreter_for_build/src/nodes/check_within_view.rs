@@ -7,12 +7,12 @@
  * of this source tree.
  */
 
-use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::package::PackageLabel;
+use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use buck2_node::attrs::attr_type::AttrType;
+use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use buck2_node::visibility::VisibilityPattern;

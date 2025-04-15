@@ -11,8 +11,8 @@ use std::future::Future;
 use std::pin::Pin;
 
 use async_trait::async_trait;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::name::CellName;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::global_cfg_options::GlobalCfgOptions;

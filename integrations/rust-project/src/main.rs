@@ -26,10 +26,10 @@ use clap::ArgAction;
 use clap::Parser;
 use clap::Subcommand;
 use serde::Deserialize;
-use tracing_subscriber::filter::LevelFilter;
-use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::Layer;
+use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::layer::SubscriberExt;
 
 use crate::cli::ProjectKind;
 use crate::json_project::Crate;

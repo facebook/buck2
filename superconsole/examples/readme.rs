@@ -9,13 +9,13 @@
 
 // If this code needs fixing, make sure you fix the README.md too!
 
-use superconsole::components::bordering::Bordered;
-use superconsole::components::bordering::BorderedSpec;
 use superconsole::Component;
 use superconsole::Dimensions;
 use superconsole::DrawMode;
 use superconsole::Lines;
 use superconsole::SuperConsole;
+use superconsole::components::bordering::Bordered;
+use superconsole::components::bordering::BorderedSpec;
 
 #[derive(Debug)]
 struct HelloWorld;

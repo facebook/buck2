@@ -22,9 +22,9 @@
 //!  `starlark::__derive_refs::foo`.
 
 pub mod serde {
-    pub use serde::ser::Error;
     pub use serde::Serialize;
     pub use serde::Serializer;
+    pub use serde::ser::Error;
 }
 pub use inventory;
 pub mod components;

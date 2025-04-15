@@ -24,11 +24,11 @@ use either::Either;
 pub use starlark_derive::StarlarkTypeRepr;
 
 use crate::typing::Ty;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
 use crate::values::list::ListType;
 use crate::values::none::NoneType;
 use crate::values::string::str_type::StarlarkStr;
-use crate::values::Heap;
-use crate::values::StarlarkValue;
 
 /// Provides a starlark type representation, even if StarlarkValue is not implemented.
 ///
@@ -142,9 +142,9 @@ pub fn type_repr_from_attr_impl<'v, T: StarlarkTypeRepr, V, E>(
 mod tests {
     use crate::tests::util::TestComplexValue;
     use crate::util::non_static_type_id::non_static_type_id;
-    use crate::values::type_repr::StarlarkTypeRepr;
     use crate::values::FrozenValue;
     use crate::values::Value;
+    use crate::values::type_repr::StarlarkTypeRepr;
 
     #[test]
     fn test_canonical_for_complex_value() {

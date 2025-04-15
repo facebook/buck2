@@ -14,15 +14,15 @@ use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::fmt_duration;
 use buck2_event_observer::span_tracker::BuckEventSpanInfo;
 use derive_more::From;
-use superconsole::style::style;
-use superconsole::style::StyledContent;
-use superconsole::style::Stylize;
 use superconsole::Component;
 use superconsole::Dimensions;
 use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
+use superconsole::style::StyledContent;
+use superconsole::style::Stylize;
+use superconsole::style::style;
 
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 

@@ -20,10 +20,10 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
-use crate::values::typing::ty::AbstractType;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
+use crate::values::typing::ty::AbstractType;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 #[starlark_module]
 pub(crate) fn register_eval_type(globals: &mut GlobalsBuilder) {

@@ -11,8 +11,8 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_action_metadata_proto::REMOTE_DEP_FILE_KEY;
+use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_execute::execute::action_digest::ActionDigest;
@@ -35,8 +35,8 @@ use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use prost::Message;
 
-use crate::re::download::download_action_results;
 use crate::re::download::DownloadResult;
+use crate::re::download::download_action_results;
 use crate::re::paranoid_download::ParanoidDownloader;
 
 pub struct ActionCacheChecker {

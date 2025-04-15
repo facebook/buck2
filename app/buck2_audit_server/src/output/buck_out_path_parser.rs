@@ -11,19 +11,19 @@ use std::iter::Peekable;
 
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_core::bxl::BxlFilePath;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_core::target::name::TargetNameRef;
 use buck2_core::target::name::EQ_SIGN_SUBST;
-use buck2_error::buck2_error;
+use buck2_core::target::name::TargetNameRef;
 use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use dupe::Dupe;
 use itertools::Itertools;
 
@@ -418,11 +418,11 @@ mod tests {
 
     use buck2_build_api::bxl::types::BxlFunctionLabel;
     use buck2_core::bxl::BxlFilePath;
+    use buck2_core::cells::CellResolver;
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_root_path::CellRootPath;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::paths::CellRelativePath;
-    use buck2_core::cells::CellResolver;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::configuration::data::ConfigurationDataData;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;

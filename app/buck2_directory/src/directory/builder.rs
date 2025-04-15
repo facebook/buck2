@@ -11,10 +11,10 @@ use std::mem;
 
 use allocative::Allocative;
 use buck2_core::directory_digest::DirectoryDigest;
+use buck2_core::fs::paths::IntoFileNameBufIterator;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::IntoFileNameBufIterator;
 use derivative::Derivative;
 use dupe::Clone_;
 use dupe::Copy_;
@@ -28,8 +28,8 @@ use crate::directory::directory_mut::DirectoryMut;
 use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::exclusive_directory::ExclusiveDirectory;
-use crate::directory::find::find;
 use crate::directory::find::DirectoryFindError;
+use crate::directory::find::find;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::immutable_directory::ImmutableDirectory;
 use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryEntries;
@@ -381,9 +381,11 @@ impl<L, H> Directory<L, H> for DirectoryBuilder<L, H>
 where
     H: DirectoryDigest,
 {
-    type DirectoryRef<'a> = DirectoryBuilderDirectoryRef<'a, L, H>
-    where Self: Sized + 'a,
-          L: 'a;
+    type DirectoryRef<'a>
+        = DirectoryBuilderDirectoryRef<'a, L, H>
+    where
+        Self: Sized + 'a,
+        L: 'a;
 
     fn as_ref<'a>(&'a self) -> Self::DirectoryRef<'a>
     where

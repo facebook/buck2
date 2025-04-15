@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use crate::conversion::from_any_with_tag;
 use crate::ErrorTag;
+use crate::conversion::from_any_with_tag;
 
 impl From<superconsole::SpanError> for crate::Error {
     #[cold]

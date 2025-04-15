@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 
 use async_trait::async_trait;
 use buck2_common::argv::SanitizedArgv;

@@ -21,20 +21,20 @@ use std::num::NonZeroI32;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::starlark_simple_value;
 use crate::typing::Ty;
-use crate::values::index::convert_index;
-use crate::values::index::convert_slice_indices;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
+use crate::values::index::convert_index;
+use crate::values::index::convert_slice_indices;
 
 /// Representation of `range()` type.
 #[derive(Clone, Copy, Dupe, Debug, ProvidesStaticType, NoSerialize, Allocative)]
@@ -262,11 +262,11 @@ mod tests {
     use std::num::NonZeroI32;
 
     use crate::assert;
-    use crate::values::range::Range;
-    use crate::values::types::int::inline_int::InlineInt;
     use crate::values::Heap;
     use crate::values::StarlarkValue;
     use crate::values::Value;
+    use crate::values::range::Range;
+    use crate::values::types::int::inline_int::InlineInt;
 
     fn range(start: i32, stop: i32, range: i32) -> Range {
         Range {

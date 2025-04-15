@@ -13,13 +13,13 @@ use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
+use buck2_node::load_patterns::load_patterns;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use buck2_server_ctx::template::run_server_command;
 use dice::DiceTransaction;
 
 pub(crate) async fn complete_command(

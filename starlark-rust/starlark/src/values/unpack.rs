@@ -25,8 +25,8 @@ use either::Either;
 use starlark_syntax::StarlarkResultExt;
 
 use crate::typing::Ty;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::Value;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// Error that can be returned by [`UnpackValue`].
 pub trait UnpackValueError: Debug + Send + Sync + 'static {

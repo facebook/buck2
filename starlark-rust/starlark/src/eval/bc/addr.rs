@@ -29,9 +29,9 @@ use dupe::Dupe;
 use crate::eval::bc::if_debug::IfDebug;
 use crate::eval::bc::instr::BcInstr;
 use crate::eval::bc::opcode::BcOpcode;
+use crate::eval::bc::repr::BC_INSTR_ALIGN;
 use crate::eval::bc::repr::BcInstrHeader;
 use crate::eval::bc::repr::BcInstrRepr;
-use crate::eval::bc::repr::BC_INSTR_ALIGN;
 
 /// Address relative to bytecode start.
 #[derive(

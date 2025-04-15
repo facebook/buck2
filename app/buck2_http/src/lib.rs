@@ -19,9 +19,9 @@ pub mod retries;
 mod stats;
 mod x2p;
 
-pub use client::to_bytes;
 pub use client::HttpClient;
 pub use client::HttpClientBuilder;
+pub use client::to_bytes;
 
 fn http_error_label(status: StatusCode) -> &'static str {
     if status.is_server_error() {

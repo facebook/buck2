@@ -36,8 +36,8 @@ use starlark_map::Equivalent;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::cast::transmute;
-use crate::coerce::coerce;
 use crate::coerce::Coerce;
+use crate::coerce::coerce;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::environment::Methods;
@@ -45,16 +45,6 @@ use crate::environment::MethodsStatic;
 use crate::hint::unlikely;
 use crate::typing::Ty;
 use crate::util::refcell::unleak_borrow;
-use crate::values::comparison::equals_small_map;
-use crate::values::dict::DictRef;
-use crate::values::error::ValueError;
-use crate::values::layout::avalue::alloc_static;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalue::AValueSimple;
-use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::string::str_type::hash_string_value;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::dict::dict_type::DictType;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
@@ -69,6 +59,16 @@ use crate::values::StringValue;
 use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::comparison::equals_small_map;
+use crate::values::dict::DictRef;
+use crate::values::error::ValueError;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::AValueSimple;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::string::str_type::hash_string_value;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::dict::dict_type::DictType;
 
 #[derive(Clone, Default, Trace, Debug, ProvidesStaticType, Allocative)]
 pub(crate) struct DictGen<T>(pub(crate) T);
@@ -331,7 +331,11 @@ trait DictLike<'v>: Debug + Allocative {
 }
 
 impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
-    type ContentRef<'a> = Ref<'a, SmallMap<Value<'v>, Value<'v>>> where Self: 'a, 'v: 'a;
+    type ContentRef<'a>
+        = Ref<'a, SmallMap<Value<'v>, Value<'v>>>
+    where
+        Self: 'a,
+        'v: 'a;
 
     fn content<'a>(&'a self) -> Ref<'a, SmallMap<Value<'v>, Value<'v>>> {
         Ref::map(self.borrow(), |x| &x.content)
@@ -365,7 +369,11 @@ impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
 }
 
 impl<'v> DictLike<'v> for FrozenDictData {
-    type ContentRef<'a> = &'a SmallMap<Value<'v>, Value<'v>> where Self: 'a, 'v: 'a;
+    type ContentRef<'a>
+        = &'a SmallMap<Value<'v>, Value<'v>>
+    where
+        Self: 'a,
+        'v: 'a;
 
     fn content<'a>(&'a self) -> &'a SmallMap<Value<'v>, Value<'v>> {
         coerce(&self.content)
@@ -524,8 +532,8 @@ mod tests {
     use crate::assert;
     use crate::coerce::coerce;
     use crate::collections::SmallMap;
-    use crate::values::dict::Dict;
     use crate::values::Heap;
+    use crate::values::dict::Dict;
 
     #[test]
     fn test_mutate_dict() {

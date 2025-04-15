@@ -18,15 +18,15 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::list_or_tuple::UnpackListOrTuple;
-use starlark::values::none::NoneOr;
-use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
+use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
 
-use crate::bxl::starlark_defs::lazy_ctx::operation::cquery::LazyCqueryOperation;
 use crate::bxl::starlark_defs::lazy_ctx::operation::StarlarkLazy;
+use crate::bxl::starlark_defs::lazy_ctx::operation::cquery::LazyCqueryOperation;
 use crate::bxl::starlark_defs::uquery::UnpackUnconfiguredQueryArgs;
 
 /// Context for lazy cquery operations.

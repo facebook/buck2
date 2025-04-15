@@ -9,9 +9,9 @@
 
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNodeRef;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::structs::AllocStruct;
 use starlark::values::structs::StructRef;
-use starlark::values::ValueOfUnchecked;
 
 use crate::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use crate::attrs::resolve::ctx::AttrResolutionContext;

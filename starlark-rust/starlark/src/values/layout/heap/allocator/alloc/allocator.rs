@@ -199,9 +199,9 @@ impl ArenaAllocator for ChunkAllocator {
 
 #[cfg(test)]
 mod tests {
-    use rand::rngs::SmallRng;
     use rand::Rng;
     use rand::SeedableRng;
+    use rand::rngs::SmallRng;
 
     use crate::values::layout::aligned_size::AlignedSize;
     use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;

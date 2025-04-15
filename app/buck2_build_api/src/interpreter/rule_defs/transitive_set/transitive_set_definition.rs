@@ -21,8 +21,8 @@ use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::coerce;
 use starlark::coerce::Coerce;
+use starlark::coerce::coerce;
 use starlark::collections::SmallMap;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
@@ -31,12 +31,6 @@ use starlark::typing::Ty;
 use starlark::typing::TyStarlarkValue;
 use starlark::typing::TyUser;
 use starlark::typing::TyUserParams;
-use starlark::values::list::ListType;
-use starlark::values::starlark_value;
-use starlark::values::typing::FrozenStarlarkCallable;
-use starlark::values::typing::StarlarkCallableChecked;
-use starlark::values::typing::TypeInstanceId;
-use starlark::values::typing::TypeMatcherFactory;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
@@ -49,10 +43,16 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::list::ListType;
+use starlark::values::starlark_value;
+use starlark::values::typing::FrozenStarlarkCallable;
+use starlark::values::typing::StarlarkCallableChecked;
+use starlark::values::typing::TypeInstanceId;
+use starlark::values::typing::TypeMatcherFactory;
 
-use crate::interpreter::rule_defs::transitive_set::transitive_set::TransitiveSetMatcher;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
+use crate::interpreter::rule_defs::transitive_set::transitive_set::TransitiveSetMatcher;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]

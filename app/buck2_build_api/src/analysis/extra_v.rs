@@ -10,13 +10,12 @@
 use std::cell::OnceCell;
 
 use allocative::Allocative;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
-use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
@@ -26,6 +25,7 @@ use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Trace;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
+use starlark::values::any_complex::StarlarkAnyComplex;
 
 use crate::analysis::registry::AnalysisValueStorage;
 use crate::analysis::registry::FrozenAnalysisValueStorage;

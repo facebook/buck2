@@ -29,8 +29,8 @@ use std::slice;
 use allocative::Allocative;
 use display_container::fmt_container;
 use serde::Serialize;
-use starlark_derive::starlark_value;
 use starlark_derive::Trace;
+use starlark_derive::starlark_value;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::slice_vec_ext::VecExt;
 
@@ -43,18 +43,6 @@ use crate::hint::likely;
 use crate::hint::unlikely;
 use crate::private::Private;
 use crate::typing::Ty;
-use crate::values::array::Array;
-use crate::values::comparison::compare_slice;
-use crate::values::comparison::equals_slice;
-use crate::values::error::ValueError;
-use crate::values::index::apply_slice;
-use crate::values::index::convert_index;
-use crate::values::layout::avalue::alloc_static;
-use crate::values::layout::avalue::AValueFrozenList;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::list::ListRef;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -66,6 +54,18 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueTyped;
+use crate::values::array::Array;
+use crate::values::comparison::compare_slice;
+use crate::values::comparison::equals_slice;
+use crate::values::error::ValueError;
+use crate::values::index::apply_slice;
+use crate::values::index::convert_index;
+use crate::values::layout::avalue::AValueFrozenList;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::list::ListRef;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 #[derive(Clone, Default, Trace, Debug, ProvidesStaticType, Allocative)]
 #[repr(transparent)]

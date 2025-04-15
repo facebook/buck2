@@ -17,9 +17,6 @@
 
 use proc_macro2::Ident;
 use proc_macro2::Span;
-use syn::parse::ParseStream;
-use syn::spanned::Spanned;
-use syn::visit::Visit;
 use syn::Attribute;
 use syn::Expr;
 use syn::FnArg;
@@ -31,12 +28,15 @@ use syn::PathArguments;
 use syn::ReturnType;
 use syn::Token;
 use syn::Type;
+use syn::parse::ParseStream;
+use syn::spanned::Spanned;
+use syn::visit::Visit;
 
+use crate::module::parse::ModuleKind;
 use crate::module::parse::is_attribute_docstring;
 use crate::module::parse::is_mut_something;
 use crate::module::parse::is_ref_something;
 use crate::module::parse::parse_visibility;
-use crate::module::parse::ModuleKind;
 use crate::module::simple_param::SimpleParam;
 use crate::module::typ::RegularParams;
 use crate::module::typ::SpecialParam;

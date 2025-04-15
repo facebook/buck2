@@ -15,8 +15,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::list::AllocList;
-use starlark::values::none::NoneOr;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Trace;
@@ -29,6 +27,8 @@ use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
+use starlark::values::list::AllocList;
+use starlark::values::none::NoneOr;
 
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;

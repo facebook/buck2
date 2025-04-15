@@ -21,8 +21,8 @@ use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -37,13 +37,10 @@ use crate::eval::Evaluator;
 use crate::private::Private;
 use crate::starlark_complex_value;
 use crate::starlark_simple_value;
-use crate::typing::arc_ty::ArcTy;
-use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::ellipsis::Ellipsis;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
+use crate::typing::arc_ty::ArcTy;
+use crate::typing::tuple::TyTuple;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
@@ -59,6 +56,9 @@ use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::ellipsis::Ellipsis;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 #[derive(Debug, thiserror::Error)]
 enum FunctionError {

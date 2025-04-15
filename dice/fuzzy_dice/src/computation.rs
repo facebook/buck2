@@ -21,9 +21,9 @@ use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
 use dupe::Dupe;
+use futures::FutureExt;
 use futures::future;
 use futures::future::BoxFuture;
-use futures::FutureExt;
 use serde::Deserialize;
 use serde::Serialize;
 

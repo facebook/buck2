@@ -19,15 +19,15 @@ use proc_macro2::Ident;
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
-use syn::parse::ParseStream;
-use syn::parse_macro_input;
-use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::DeriveInput;
 use syn::GenericParam;
 use syn::LitStr;
 use syn::Token;
 use syn::WherePredicate;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::spanned::Spanned;
 
 use crate::util::DeriveInputUtil;
 

@@ -37,16 +37,16 @@ use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use either::Either;
 use once_cell::sync::Lazy;
-use starlark_map::ordered_map::OrderedMap;
 use starlark_map::Hashed;
+use starlark_map::ordered_map::OrderedMap;
 
 use crate::attrs::attr::Attribute;
+use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dep::DepAttrTransition;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 use crate::attrs::attr_type::string::StringLiteral;
-use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::configuration_context::AttrConfigurationContextImpl;

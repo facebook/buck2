@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_build_api::actions::query::ActionQueryNode;
-use buck2_build_api::query::oneshot::QueryFrontend;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
+use buck2_build_api::query::oneshot::QueryFrontend;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_node::configured_universe::CqueryUniverse;

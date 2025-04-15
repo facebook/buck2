@@ -9,8 +9,8 @@
 
 use allocative::Allocative;
 use buck2_build_api::audit_cell::audit_cell;
-use buck2_build_api::audit_output::audit_output;
 use buck2_build_api::audit_output::AuditOutputResult;
+use buck2_build_api::audit_output::audit_output;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
@@ -24,10 +24,6 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
-use starlark::values::dict::AllocDict;
-use starlark::values::list_or_tuple::UnpackListOrTuple;
-use starlark::values::none::NoneOr;
-use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -35,6 +31,10 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
+use starlark::values::dict::AllocDict;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
+use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::nodes::action::StarlarkAction;

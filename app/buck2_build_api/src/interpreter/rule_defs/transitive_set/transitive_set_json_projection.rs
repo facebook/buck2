@@ -22,7 +22,6 @@ use starlark::coerce::Coerce;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::values::starlark_value;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Heap;
@@ -36,12 +35,13 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::starlark_value;
 
 use crate::artifact_groups::TransitiveSetProjectionKey;
-use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
-use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProjectionTraversal;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
+use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
+use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProjectionTraversal;
 
 /// TransitiveSetJsonProjection is the starlark value returned from the starlark method `transitive_set.project_as_json()`
 ///

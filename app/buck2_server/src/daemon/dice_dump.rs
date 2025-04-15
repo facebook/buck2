@@ -14,12 +14,12 @@ use std::sync::Arc;
 
 use bincode::Options;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use dice::Dice;
 use dupe::Dupe;
-use flate2::write::GzEncoder;
 use flate2::Compression;
+use flate2::write::GzEncoder;
 
 pub(crate) async fn dice_dump_spawn(
     dice: &Arc<Dice>,

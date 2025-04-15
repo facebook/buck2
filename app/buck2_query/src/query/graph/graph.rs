@@ -9,11 +9,11 @@
 
 use std::collections::VecDeque;
 
-use futures::stream::FuturesUnordered;
 use futures::StreamExt;
+use futures::stream::FuturesUnordered;
+use starlark_map::Hashed;
 use starlark_map::unordered_map;
 use starlark_map::unordered_map::UnorderedMap;
-use starlark_map::Hashed;
 
 use crate::query::graph::dfs::dfs_postorder_impl;
 use crate::query::graph::dfs::dfs_preorder;

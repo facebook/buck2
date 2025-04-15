@@ -12,8 +12,8 @@ use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
-use buck2_data::re_platform::Property;
 use buck2_data::ActionName;
+use buck2_data::re_platform::Property;
 use buck2_events::span::SpanId;
 use dupe::Dupe;
 use regex::Regex;

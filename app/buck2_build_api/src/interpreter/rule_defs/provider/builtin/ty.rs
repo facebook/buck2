@@ -15,14 +15,14 @@ use dupe::Dupe;
 use starlark::environment::GlobalsBuilder;
 use starlark::typing::Ty;
 use starlark::typing::TyStarlarkValue;
+use starlark::values::StarlarkValue;
 use starlark::values::function::FUNCTION_TYPE;
 use starlark::values::typing::TypeInstanceId;
-use starlark::values::StarlarkValue;
 use starlark_map::sorted_map::SortedMap;
 
+use crate::interpreter::rule_defs::provider::ProviderLike;
 use crate::interpreter::rule_defs::provider::ty::provider::ty_provider;
 use crate::interpreter::rule_defs::provider::ty::provider_callable::ty_provider_callable;
-use crate::interpreter::rule_defs::provider::ProviderLike;
 
 /// Types associated with builtin providers.
 pub struct BuiltinProviderTy<

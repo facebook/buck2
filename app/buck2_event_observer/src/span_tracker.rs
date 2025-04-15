@@ -12,8 +12,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use buck2_error::BuckErrorContext;
-use buck2_events::span::SpanId;
 use buck2_events::BuckEvent;
+use buck2_events::span::SpanId;
 use derivative::Derivative;
 use derive_more::From;
 use dupe::Dupe;

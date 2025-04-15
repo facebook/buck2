@@ -20,8 +20,8 @@ use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 
 use crate::analysis::evaluator::eval_query;
-use crate::dice::get_dice_query_delegate;
 use crate::dice::DiceQueryDelegate;
+use crate::dice::get_dice_query_delegate;
 use crate::uquery::environment::PreresolvedQueryLiterals;
 use crate::uquery::environment::UqueryEnvironment;
 

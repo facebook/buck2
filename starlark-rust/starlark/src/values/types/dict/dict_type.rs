@@ -20,11 +20,11 @@ use std::marker::PhantomData;
 use either::Either;
 
 use crate::typing::Ty;
-use crate::values::dict::UnpackDictEntries;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::UnpackAndDiscard;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::dict::UnpackDictEntries;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// A dict type marker.
 ///

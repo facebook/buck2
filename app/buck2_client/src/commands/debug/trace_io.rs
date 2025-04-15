@@ -8,19 +8,19 @@
  */
 
 use async_trait::async_trait;
-use buck2_cli_proto::trace_io_request;
 use buck2_cli_proto::TraceIoRequest;
 use buck2_cli_proto::TraceIoResponse;
+use buck2_cli_proto::trace_io_request;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
-use buck2_client_ctx::daemon::client::connect::DesiredTraceIoState;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::daemon::client::connect::DesiredTraceIoState;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;

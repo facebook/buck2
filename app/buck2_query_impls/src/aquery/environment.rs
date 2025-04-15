@@ -22,12 +22,12 @@ use buck2_query::query::graph::successors::AsyncChildVisitor;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
-use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query::query::syntax::simple::functions::HasModuleDescription;
+use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
+use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
-use buck2_query::query::traversal::AsyncNodeLookup;
 use dice::DiceComputations;
 
 use crate::aquery::functions::AqueryFunctions;

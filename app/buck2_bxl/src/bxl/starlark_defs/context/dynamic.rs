@@ -15,11 +15,11 @@ use std::sync::LazyLock;
 
 use buck2_action_impl::dynamic::attrs_starlark::StarlarkDynamicAttrType;
 use buck2_action_impl::dynamic::bxl::EVAL_BXL_FOR_DYNAMIC_OUTPUT;
-use buck2_action_impl::dynamic::deferred::dynamic_lambda_ctx_data;
-use buck2_action_impl::dynamic::deferred::invoke_dynamic_output_lambda;
 use buck2_action_impl::dynamic::deferred::DynamicLambdaArgs;
 use buck2_action_impl::dynamic::deferred::DynamicLambdaCtxDataSpec;
 use buck2_action_impl::dynamic::deferred::InputArtifactsMaterialized;
+use buck2_action_impl::dynamic::deferred::dynamic_lambda_ctx_data;
+use buck2_action_impl::dynamic::deferred::invoke_dynamic_output_lambda;
 use buck2_action_impl::dynamic::dynamic_actions_callable::DynamicActionsCallable;
 use buck2_action_impl::dynamic::dynamic_actions_callable::DynamicActionsCallbackParam;
 use buck2_action_impl::dynamic::dynamic_actions_callable::DynamicActionsCallbackParamSpec;
@@ -40,8 +40,8 @@ use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellation::CancellationObserver;
-use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
+use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
@@ -54,17 +54,17 @@ use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
 use starlark::starlark_module;
-use starlark::values::type_repr::StarlarkTypeRepr;
-use starlark::values::typing::StarlarkCallableChecked;
 use starlark::values::OwnedRefFrozenRef;
 use starlark::values::ValueTyped;
+use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::typing::StarlarkCallableChecked;
 
 use crate::bxl::eval::LIMITED_EXECUTOR;
 use crate::bxl::key::BxlDynamicKey;
-use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::context::DynamicBxlContextData;
+use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(

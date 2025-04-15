@@ -23,9 +23,9 @@
 // But it does as things stand.
 
 use std::cmp;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::hash_map::Entry;
 use std::mem;
 
 use dupe::Dupe;
@@ -46,9 +46,9 @@ use starlark_syntax::syntax::ast::Stmt;
 use starlark_syntax::syntax::module::AstModuleFields;
 use thiserror::Error;
 
+use crate::analysis::EvalSeverity;
 use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
-use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::codemap::Spanned;

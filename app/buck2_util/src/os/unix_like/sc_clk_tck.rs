@@ -11,8 +11,8 @@
 
 use std::sync::OnceLock;
 
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 
 #[allow(clippy::absurd_extreme_comparisons)]
 pub fn sc_clk_tck() -> buck2_error::Result<u32> {

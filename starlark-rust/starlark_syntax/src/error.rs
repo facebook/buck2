@@ -22,8 +22,8 @@ use crate::call_stack::CallStack;
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Span;
-use crate::diagnostic::diagnostic_display;
 use crate::diagnostic::WithDiagnostic;
+use crate::diagnostic::diagnostic_display;
 
 /// An error produced by starlark.
 ///

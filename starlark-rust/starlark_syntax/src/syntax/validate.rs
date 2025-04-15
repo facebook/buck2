@@ -17,6 +17,7 @@
 
 //! AST for parsed starlark files.
 
+use crate::syntax::DialectTypes;
 use crate::syntax::ast::AstArgument;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstLiteral;
@@ -32,7 +33,6 @@ use crate::syntax::ast::Stmt;
 use crate::syntax::call::CallArgsUnpack;
 use crate::syntax::def::DefParams;
 use crate::syntax::state::ParserState;
-use crate::syntax::DialectTypes;
 
 impl Expr {
     /// We want to check a function call is well-formed.

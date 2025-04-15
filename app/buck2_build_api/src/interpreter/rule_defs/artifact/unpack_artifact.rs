@@ -9,8 +9,8 @@
 
 use buck2_artifact::artifact::artifact_type::Artifact;
 use dupe::Dupe;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;

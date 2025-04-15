@@ -15,8 +15,6 @@ use buck2_build_api_derive::internal_provider;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::list::ListRef;
-use starlark::values::list::ListType;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
@@ -26,6 +24,8 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::list::ListRef;
+use starlark::values::list::ListType;
 
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::validation_spec::FrozenStarlarkValidationSpec;

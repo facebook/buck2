@@ -21,9 +21,9 @@ use std::cell::UnsafeCell;
 use std::marker;
 use std::marker::PhantomData;
 
+use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
-use starlark_map::Hashed;
 use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate::values::FreezeResult;

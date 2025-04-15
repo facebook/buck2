@@ -10,12 +10,12 @@
 use std::thread::sleep;
 use std::time::Duration;
 
-use superconsole::style::Stylize;
 use superconsole::Component;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
 use superconsole::SuperConsole;
+use superconsole::style::Stylize;
 
 const CRATES: &str = include_str!("cargo/crates.txt");
 const WIDTH: usize = "=======>                  ".len() - 1;

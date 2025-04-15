@@ -11,9 +11,9 @@ use std::sync::Mutex;
 use std::sync::MutexGuard;
 use std::sync::Once;
 
+use buck2_core::error::StructuredErrorOptions;
 use buck2_core::error::initialize;
 use buck2_core::error::reset_soft_error_counters;
-use buck2_core::error::StructuredErrorOptions;
 use buck2_core::is_open_source;
 use buck2_core::soft_error;
 use buck2_error::buck2_error;

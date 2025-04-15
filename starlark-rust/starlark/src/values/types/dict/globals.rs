@@ -21,12 +21,12 @@ use starlark_map::small_map::SmallMap;
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
-use crate::values::dict::value::FrozenDict;
-use crate::values::dict::Dict;
-use crate::values::dict::DictRef;
-use crate::values::function::SpecialBuiltinFunction;
 use crate::values::Heap;
 use crate::values::Value;
+use crate::values::dict::Dict;
+use crate::values::dict::DictRef;
+use crate::values::dict::value::FrozenDict;
+use crate::values::function::SpecialBuiltinFunction;
 
 fn unpack_pair<'v>(pair: Value<'v>, heap: &'v Heap) -> crate::Result<(Value<'v>, Value<'v>)> {
     let mut it = pair.iterate(heap)?;

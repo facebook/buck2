@@ -63,11 +63,13 @@ use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
-use indexmap::indexmap;
 use indexmap::IndexMap;
+use indexmap::indexmap;
 use itertools::Itertools;
 use remote_execution::TActionResult2;
 
+use crate::actions::ActionExecutionCtx;
+use crate::actions::RegisteredAction;
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::dice_data::CommandExecutorResponse;
@@ -77,8 +79,6 @@ use crate::actions::execute::dice_data::GetReClient;
 use crate::actions::execute::error::ExecuteError;
 use crate::actions::impls::run_action_knobs::HasRunActionKnobs;
 use crate::actions::impls::run_action_knobs::RunActionKnobs;
-use crate::actions::ActionExecutionCtx;
-use crate::actions::RegisteredAction;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 
@@ -681,25 +681,25 @@ impl BuckActionExecutor {
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
-    use std::sync::atomic::AtomicBool;
-    use std::sync::atomic::Ordering;
     use std::sync::Arc;
     use std::sync::Mutex;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::Ordering;
 
     use allocative::Allocative;
     use async_trait::async_trait;
     use buck2_artifact::actions::key::ActionIndex;
     use buck2_artifact::actions::key::ActionKey;
-    use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use buck2_artifact::artifact::artifact_type::Artifact;
+    use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use buck2_artifact::artifact::build_artifact::BuildArtifact;
     use buck2_artifact::artifact::source_artifact::SourceArtifact;
     use buck2_common::cas_digest::CasDigestConfig;
     use buck2_common::io::fs::FsIoProvider;
     use buck2_core::category::CategoryRef;
+    use buck2_core::cells::CellResolver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
-    use buck2_core::cells::CellResolver;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
     use buck2_core::deferred::key::DeferredHolderKey;
@@ -714,8 +714,8 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::source_path::SourcePath;
     use buck2_core::target::label::label::TargetLabel;
-    use buck2_events::dispatch::with_dispatcher_async;
     use buck2_events::dispatch::EventDispatcher;
+    use buck2_events::dispatch::with_dispatcher_async;
     use buck2_execute::artifact_value::ArtifactValue;
     use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
@@ -738,15 +738,15 @@ mod tests {
     use indexmap::indexset;
     use sorted_vector_map::SortedVectorMap;
 
+    use crate::actions::Action;
+    use crate::actions::ActionExecutionCtx;
+    use crate::actions::ExecuteError;
+    use crate::actions::RegisteredAction;
     use crate::actions::box_slice_set::BoxSliceSet;
     use crate::actions::execute::action_executor::ActionExecutionKind;
     use crate::actions::execute::action_executor::ActionExecutionMetadata;
     use crate::actions::execute::action_executor::ActionOutputs;
     use crate::actions::execute::action_executor::BuckActionExecutor;
-    use crate::actions::Action;
-    use crate::actions::ActionExecutionCtx;
-    use crate::actions::ExecuteError;
-    use crate::actions::RegisteredAction;
     use crate::artifact_groups::ArtifactGroup;
     use crate::artifact_groups::ArtifactGroupValues;
 

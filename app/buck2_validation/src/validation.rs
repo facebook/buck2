@@ -8,8 +8,8 @@
  */
 
 use async_trait::async_trait;
-use buck2_build_api::validation::validation_impl::ValidationImpl;
 use buck2_build_api::validation::validation_impl::VALIDATION_IMPL;
+use buck2_build_api::validation::validation_impl::ValidationImpl;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use dice::DiceComputations;
 

@@ -32,23 +32,23 @@ use dupe::Dupe;
 use starlark_map::StarlarkHasher;
 
 use crate::codemap::Span;
+use crate::typing::Ty;
+use crate::typing::TyBasic;
+use crate::typing::TyFunction;
+use crate::typing::TypingBinOp;
+use crate::typing::TypingOracleCtx;
 use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingNoContextError;
 use crate::typing::error::TypingNoContextOrInternalError;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::Ty;
-use crate::typing::TyBasic;
-use crate::typing::TyFunction;
-use crate::typing::TypingBinOp;
-use crate::typing::TypingOracleCtx;
+use crate::values::Value;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
 use crate::values::typing::type_compiled::matcher::TypeMatcherBox;
 use crate::values::typing::type_compiled::matcher::TypeMatcherBoxAlloc;
-use crate::values::Value;
 
 /// Custom type implementation. [`Display`] must implement the representation of the type.
 pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync + 'static {

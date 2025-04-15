@@ -8,8 +8,8 @@
  */
 
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
-use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_common::file_ops::FileDigestConfig;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact_value::ArtifactValue;

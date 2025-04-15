@@ -39,6 +39,14 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::private::Private;
 use crate::typing::Ty;
+use crate::values::FreezeResult;
+use crate::values::Freezer;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::Tracer;
+use crate::values::Value;
 use crate::values::demand::Demand;
 use crate::values::int::pointer_i32::PointerI32;
 use crate::values::layout::avalue::AValue;
@@ -50,14 +58,6 @@ use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::traits::StarlarkValueVTable;
 use crate::values::traits::StarlarkValueVTableGet;
-use crate::values::FreezeResult;
-use crate::values::Freezer;
-use crate::values::FrozenStringValue;
-use crate::values::FrozenValue;
-use crate::values::Heap;
-use crate::values::StarlarkValue;
-use crate::values::Tracer;
-use crate::values::Value;
 
 /// Untyped raw pointer to `StarlarkValue` without vtable.
 ///

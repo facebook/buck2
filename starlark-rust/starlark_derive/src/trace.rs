@@ -18,14 +18,9 @@
 use std::collections::HashSet;
 
 use proc_macro2::Span;
+use quote::ToTokens;
 use quote::quote;
 use quote::quote_spanned;
-use quote::ToTokens;
-use syn::parse::ParseStream;
-use syn::parse_macro_input;
-use syn::parse_quote;
-use syn::punctuated::Punctuated;
-use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::DeriveInput;
 use syn::GenericArgument;
@@ -38,6 +33,11 @@ use syn::ReturnType;
 use syn::TraitBound;
 use syn::Type;
 use syn::TypeParamBound;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::parse_quote;
+use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
 
 use crate::util::DeriveInputUtil;
 

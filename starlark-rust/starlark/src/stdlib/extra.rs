@@ -23,14 +23,14 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
+use crate::values::StringValue;
+use crate::values::Value;
+use crate::values::ValueOfUnchecked;
 use crate::values::function::StarlarkFunction;
 use crate::values::none::NoneOr;
 use crate::values::none::NoneType;
 use crate::values::tuple::UnpackTuple;
 use crate::values::typing::iter::StarlarkIter;
-use crate::values::StringValue;
-use crate::values::Value;
-use crate::values::ValueOfUnchecked;
 
 #[starlark_module]
 pub fn filter(builder: &mut GlobalsBuilder) {

@@ -38,14 +38,14 @@ use starlark_syntax::lexer::TokenInt;
 
 use crate as starlark;
 use crate::typing::Ty;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::bigint::StarlarkBigInt;
-use crate::values::types::int::inline_int::InlineInt;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::bigint::StarlarkBigInt;
+use crate::values::types::int::inline_int::InlineInt;
 
 #[derive(Debug, thiserror::Error)]
 enum StarlarkIntError {

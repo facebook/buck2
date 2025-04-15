@@ -22,9 +22,9 @@ use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
 
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// Unpack the value of type `T`, but do not store result.
 ///

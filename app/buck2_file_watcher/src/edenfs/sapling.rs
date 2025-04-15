@@ -12,8 +12,8 @@ use std::path::Path;
 use std::process::Stdio;
 
 use allocative::Allocative;
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use buck2_util::process::async_background_command;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;

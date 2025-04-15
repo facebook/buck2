@@ -11,22 +11,22 @@ use std::cmp;
 use std::env;
 use std::io;
 
+use crossterm::QueueableCommand;
 use crossterm::cursor::MoveToColumn;
 use crossterm::cursor::MoveUp;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use crossterm::tty::IsTty;
-use crossterm::QueueableCommand;
 
+use crate::Dimensions;
+use crate::Direction;
+use crate::Lines;
 use crate::ansi_support::enable_ansi_support;
 use crate::components::Component;
 use crate::components::DrawMode;
 use crate::content::Line;
 use crate::output::BlockingSuperConsoleOutput;
 use crate::output::SuperConsoleOutput;
-use crate::Dimensions;
-use crate::Direction;
-use crate::Lines;
 
 const MINIMUM_EMIT: usize = 5;
 const MAX_GRAPHEME_BUFFER: usize = 1000000;
@@ -257,9 +257,9 @@ mod tests {
 
     use super::*;
     use crate::components::echo::Echo;
+    use crate::testing::SuperConsoleTestingExt;
     use crate::testing::frame_contains;
     use crate::testing::test_console;
-    use crate::testing::SuperConsoleTestingExt;
 
     #[derive(AsRef, Debug)]
     #[allow(dead_code)]

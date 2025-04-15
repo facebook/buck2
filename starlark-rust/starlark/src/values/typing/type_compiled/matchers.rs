@@ -22,10 +22,13 @@ use starlark_derive::Trace;
 
 use crate as starlark;
 use crate::typing::starlark_value::TyStarlarkValue;
-use crate::values::dict::value::FrozenDict;
+use crate::values::FreezeResult;
+use crate::values::UnpackValue;
+use crate::values::Value;
 use crate::values::dict::DictRef;
-use crate::values::list::value::FrozenList;
+use crate::values::dict::value::FrozenDict;
 use crate::values::list::ListRef;
+use crate::values::list::value::FrozenList;
 use crate::values::set::refs::SetRef;
 use crate::values::set::value::FrozenSet;
 use crate::values::starlark_type_id::StarlarkTypeId;
@@ -34,9 +37,6 @@ use crate::values::tuple::value::Tuple;
 use crate::values::types::int::int_or_big::StarlarkIntRef;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
 use crate::values::typing::type_compiled::matcher::TypeMatcherBox;
-use crate::values::FreezeResult;
-use crate::values::UnpackValue;
-use crate::values::Value;
 
 #[derive(Clone, Copy, Dupe, Allocative, Debug)]
 pub(crate) struct IsAny;

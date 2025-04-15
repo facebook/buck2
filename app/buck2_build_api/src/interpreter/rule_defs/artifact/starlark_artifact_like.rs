@@ -18,15 +18,15 @@ use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::collections::StarlarkHasher;
 use starlark::typing::Ty;
-use starlark::values::list::UnpackList;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::list::UnpackList;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
-use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::methods::EitherStarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;

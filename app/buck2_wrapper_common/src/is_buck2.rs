@@ -53,8 +53,8 @@ mod tests {
     use std::env;
     use std::path::Path;
 
-    use crate::is_buck2::is_buck2_exe;
     use crate::is_buck2::WhoIsAsking;
+    use crate::is_buck2::is_buck2_exe;
 
     #[test]
     fn test_is_buck2_exe() {

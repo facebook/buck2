@@ -25,9 +25,9 @@ use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
 use dupe::Dupe;
+use futures::FutureExt;
 use futures::future;
 use futures::future::BoxFuture;
-use futures::FutureExt;
 
 #[derive(Clone, Dupe, PartialEq, Eq, Hash, Display, Debug, Allocative)]
 #[display("Var({})", _0)]

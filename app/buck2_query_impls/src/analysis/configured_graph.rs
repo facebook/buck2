@@ -30,8 +30,8 @@ use dupe::OptionDupedExt;
 use futures::FutureExt;
 use indexmap::IndexMap;
 
-use crate::analysis::environment::get_from_template_placeholder_info;
 use crate::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate;
+use crate::analysis::environment::get_from_template_placeholder_info;
 
 pub(crate) struct AnalysisDiceQueryDelegate<'c, 'd> {
     pub(crate) ctx: &'c LinearRecomputeDiceComputations<'d>,

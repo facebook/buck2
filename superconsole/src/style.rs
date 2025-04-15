@@ -12,9 +12,9 @@
 //! - Set the foreground or background color of the string using the `Color` enum.
 //! - Set the attribute (bold, italic, underlined, etc) using the `Attribute` enum.
 
-pub use crossterm::style::style;
 pub use crossterm::style::Attribute;
 pub use crossterm::style::Color;
 pub use crossterm::style::ContentStyle;
 pub use crossterm::style::StyledContent;
 pub use crossterm::style::Stylize;
+pub use crossterm::style::style;

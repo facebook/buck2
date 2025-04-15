@@ -18,16 +18,16 @@ use dupe::Dupe;
 
 use crate::artifact_value::ArtifactValue;
 use crate::digest_config::DigestConfig;
-use crate::directory::extract_artifact_value;
-use crate::directory::insert_artifact;
-use crate::directory::insert_entry;
-use crate::directory::new_symlink;
-use crate::directory::relativize_directory;
 use crate::directory::ActionDirectoryBuilder;
 use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionSharedDirectory;
 use crate::directory::INTERNER;
+use crate::directory::extract_artifact_value;
+use crate::directory::insert_artifact;
+use crate::directory::insert_entry;
+use crate::directory::new_symlink;
+use crate::directory::relativize_directory;
 
 pub struct ArtifactValueBuilder<'a> {
     /// Only used to relativize paths; no disk operations performed!

@@ -22,8 +22,8 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dupe::Dupe;
 
-use crate::common::target_resolution_config::audit_command_target_resolution_config;
 use crate::ServerAuditSubcommand;
+use crate::common::target_resolution_config::audit_command_target_resolution_config;
 
 #[async_trait]
 impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {

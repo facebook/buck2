@@ -119,9 +119,9 @@
 //! use starlark::eval::Evaluator;
 //! use starlark::syntax::AstModule;
 //! use starlark::syntax::Dialect;
-//! use starlark::values::none::NoneType;
 //! use starlark::values::Value;
 //! use starlark::values::ValueLike;
+//! use starlark::values::none::NoneType;
 //!
 //! let content = r#"
 //! emit(1)
@@ -429,11 +429,11 @@
 mod macros;
 
 pub use starlark_derive::starlark_module;
-pub use starlark_syntax::codemap;
 pub use starlark_syntax::Error;
 pub use starlark_syntax::ErrorKind;
 pub use starlark_syntax::Result;
 pub use starlark_syntax::StarlarkResultExt;
+pub use starlark_syntax::codemap;
 pub use stdlib::PrintHandler;
 
 pub mod analysis;

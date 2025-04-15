@@ -16,8 +16,8 @@ use starlark::docs::DocString;
 use starlark::docs::DocStringKind;
 use starlark::values::Value;
 
-use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::attr_type::AttrTypeExt;
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::error::CoercionError;
 
 pub(crate) mod attrs_global;

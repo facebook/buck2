@@ -23,12 +23,12 @@ use std::sync::Arc;
 use allocative::Allocative;
 use dupe::Dupe;
 
+use crate::typing::Ty;
+use crate::typing::TypingOracleCtx;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::error::InternalError;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::ty::TypeRenderConfig;
-use crate::typing::Ty;
-use crate::typing::TypingOracleCtx;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::matcher::TypeMatcherBoxAlloc;
 use crate::values::typing::type_compiled::matchers::IsTupleElems;

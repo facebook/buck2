@@ -16,19 +16,19 @@ use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::fmt_duration;
 use buck2_event_observer::span_tracker::BuckEventSpanHandle;
 use buck2_event_observer::span_tracker::BuckEventSpanTracker;
-use superconsole::components::DrawVertical;
-use superconsole::style::Stylize;
 use superconsole::Component;
 use superconsole::Dimensions;
 use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
+use superconsole::components::DrawVertical;
+use superconsole::style::Stylize;
 
 use self::table_builder::Table;
+use crate::subscribers::superconsole::SuperConsoleState;
 use crate::subscribers::superconsole::timed_list::table_builder::Row;
 use crate::subscribers::superconsole::timed_list::table_builder::TimedRow;
-use crate::subscribers::superconsole::SuperConsoleState;
 
 mod table_builder;
 
@@ -246,8 +246,8 @@ mod tests {
     use buck2_error::conversion::from_any_with_tag;
     use buck2_event_observer::action_stats::ActionStats;
     use buck2_event_observer::verbosity::Verbosity;
-    use buck2_events::span::SpanId;
     use buck2_events::BuckEvent;
+    use buck2_events::span::SpanId;
     use buck2_wrapper_common::invocation_id::TraceId;
     use dupe::Dupe;
     use itertools::Itertools;

@@ -22,10 +22,10 @@ use dupe::Dupe;
 use crate::docs::DocItem;
 use crate::docs::DocModule;
 use crate::docs::DocType;
-use crate::typing::ty::TypeRenderConfig;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TyStarlarkValue;
+use crate::typing::ty::TypeRenderConfig;
 
 pub struct DocModuleInfo<'a> {
     pub module: &'a DocModule,

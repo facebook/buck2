@@ -21,11 +21,11 @@ use crate as starlark;
 use crate::assert::Assert;
 use crate::environment::GlobalsBuilder;
 use crate::environment::MethodsBuilder;
-use crate::values::list_or_tuple::UnpackListOrTuple;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
+use crate::values::list_or_tuple::UnpackListOrTuple;
 
 // The examples from the starlark_module documentation.
 #[test]

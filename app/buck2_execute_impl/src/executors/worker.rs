@@ -9,9 +9,9 @@
 
 use std::collections::HashMap;
 use std::ffi::OsString;
+use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
 use std::time::Duration;
 
 use buck2_common::client_utils::get_channel_uds;
@@ -34,26 +34,26 @@ use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_forkserver::run::GatherOutputStatus;
-use buck2_worker_proto::execute_command::EnvironmentEntry;
-use buck2_worker_proto::worker_client;
-use buck2_worker_proto::worker_streaming_client;
 use buck2_worker_proto::ExecuteCommand;
 use buck2_worker_proto::ExecuteCommandStream;
 use buck2_worker_proto::ExecuteResponse;
 use buck2_worker_proto::ExecuteResponseStream;
+use buck2_worker_proto::execute_command::EnvironmentEntry;
+use buck2_worker_proto::worker_client;
+use buck2_worker_proto::worker_streaming_client;
 use dashmap::DashMap;
 use dupe::Dupe;
+use futures::FutureExt;
 use futures::future::BoxFuture;
 use futures::future::Shared;
-use futures::FutureExt;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
 use indexmap::IndexMap;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use tonic::transport::Channel;
 use tonic::Status;
+use tonic::transport::Channel;
 
 const MAX_MESSAGE_SIZE_BYTES: usize = 8 * 1024 * 1024; // 8MB
 

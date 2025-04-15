@@ -9,12 +9,12 @@
 
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
-use buck2_build_api::actions::query::PackageLabelOption;
 use buck2_build_api::actions::query::CONFIGURED_ATTR_TO_VALUE;
+use buck2_build_api::actions::query::PackageLabelOption;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
-use buck2_core::package::PackageLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -31,11 +31,11 @@ use buck2_node::visibility::WithinViewSpecification;
 use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
+use starlark::values::Heap;
+use starlark::values::Value;
 use starlark::values::dict::Dict;
 use starlark::values::list::AllocList;
 use starlark::values::tuple::AllocTuple;
-use starlark::values::Heap;
-use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
 use crate::attrs::resolve::attr_type::arg::ConfiguredStringWithMacrosExt;

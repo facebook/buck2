@@ -33,9 +33,9 @@ use futures::FutureExt;
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::artifact::materializer::ArtifactMaterializer;
 use crate::actions::execute::dice_data::GetReClient;
-use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
+use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 
 pub async fn materialize_and_upload_artifact_group(
     ctx: &mut DiceComputations<'_>,

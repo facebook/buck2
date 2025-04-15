@@ -24,6 +24,9 @@ use dupe::Dupe;
 use starlark_map::sorted_map::SortedMap;
 use starlark_syntax::codemap::Span;
 
+use crate::typing::Ty;
+use crate::typing::TyBasic;
+use crate::typing::TypingOracleCtx;
 use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustomImpl;
@@ -31,9 +34,6 @@ use crate::typing::error::TypingNoContextError;
 use crate::typing::error::TypingNoContextOrInternalError;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::starlark_value::TyStarlarkValue;
-use crate::typing::Ty;
-use crate::typing::TyBasic;
-use crate::typing::TypingOracleCtx;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
@@ -299,28 +299,28 @@ impl TyCustomImpl for TyUser {
 mod tests {
     use allocative::Allocative;
     use dupe::Dupe;
-    use starlark_derive::starlark_module;
-    use starlark_derive::starlark_value;
     use starlark_derive::NoSerialize;
     use starlark_derive::ProvidesStaticType;
+    use starlark_derive::starlark_module;
+    use starlark_derive::starlark_value;
 
     use crate as starlark;
     use crate::assert::Assert;
     use crate::environment::GlobalsBuilder;
     use crate::eval::Arguments;
     use crate::eval::Evaluator;
-    use crate::typing::callable::TyCallable;
-    use crate::typing::user::TyUserParams;
     use crate::typing::ParamSpec;
     use crate::typing::Ty;
     use crate::typing::TyStarlarkValue;
     use crate::typing::TyUser;
-    use crate::values::starlark_value_as_type::StarlarkValueAsType;
-    use crate::values::typing::TypeInstanceId;
+    use crate::typing::callable::TyCallable;
+    use crate::typing::user::TyUserParams;
     use crate::values::AllocValue;
     use crate::values::Heap;
     use crate::values::StarlarkValue;
     use crate::values::Value;
+    use crate::values::starlark_value_as_type::StarlarkValueAsType;
+    use crate::values::typing::TypeInstanceId;
 
     #[derive(
         Debug,

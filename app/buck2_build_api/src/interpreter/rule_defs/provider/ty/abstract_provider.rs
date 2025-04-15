@@ -17,15 +17,15 @@ use starlark::typing::TyStarlarkValue;
 use starlark::typing::TyUser;
 use starlark::typing::TyUserFields;
 use starlark::typing::TyUserParams;
+use starlark::values::StarlarkValue;
+use starlark::values::Value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcher;
 use starlark::values::typing::TypeMatcherFactory;
-use starlark::values::StarlarkValue;
-use starlark::values::Value;
 
-use crate::interpreter::rule_defs::provider::user::UserProvider;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
+use crate::interpreter::rule_defs::provider::user::UserProvider;
 
 #[derive(Allocative, Clone, Debug)]
 struct ProviderMatcher;

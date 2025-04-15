@@ -148,8 +148,8 @@ pub(crate) fn apply_slice<T: Copy>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::values::types::int::inline_int::InlineInt;
     use crate::values::Heap;
+    use crate::values::types::int::inline_int::InlineInt;
 
     #[test]
     fn test_convert_index() {

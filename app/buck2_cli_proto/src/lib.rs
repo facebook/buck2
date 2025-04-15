@@ -14,8 +14,8 @@
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 
 use crate::BuckDaemonProtoError::MissingClientContext;
 

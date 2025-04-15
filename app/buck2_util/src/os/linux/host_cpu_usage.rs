@@ -11,8 +11,8 @@
 
 use std::fs;
 
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 
 use crate::os::host_cpu_usage::HostCpuUsage;
 

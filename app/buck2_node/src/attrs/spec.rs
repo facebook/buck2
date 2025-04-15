@@ -16,9 +16,9 @@ use crate::attrs::attr::Attribute;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::inspect_options::AttrInspectOptions;
+use crate::attrs::spec::internal::INCOMING_TRANSITION_ATTRIBUTE;
 use crate::attrs::spec::internal::common_internal_attrs;
 use crate::attrs::spec::internal::is_internal_attr;
-use crate::attrs::spec::internal::INCOMING_TRANSITION_ATTRIBUTE;
 use crate::attrs::values::AttrValues;
 use crate::rule::RuleIncomingTransition;
 

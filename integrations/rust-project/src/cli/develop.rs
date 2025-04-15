@@ -18,18 +18,18 @@ use serde::Serialize;
 use tracing::info;
 
 use super::Input;
+use crate::Command;
 use crate::buck;
+use crate::buck::Buck;
 use crate::buck::select_mode;
 use crate::buck::to_json_project;
-use crate::buck::Buck;
 use crate::json_project::JsonProject;
 use crate::json_project::Sysroot;
 use crate::path::safe_canonicalize;
+use crate::sysroot::SysrootConfig;
 use crate::sysroot::resolve_buckconfig_sysroot;
 use crate::sysroot::resolve_rustup_sysroot;
-use crate::sysroot::SysrootConfig;
 use crate::target::Target;
-use crate::Command;
 
 #[derive(Debug)]
 pub(crate) struct Develop {

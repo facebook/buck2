@@ -13,15 +13,15 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::environment::MethodsBuilder;
 use starlark::typing::Ty;
-use starlark::values::list::UnpackList;
-use starlark::values::none::NoneOr;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueOf;
+use starlark::values::list::UnpackList;
+use starlark::values::none::NoneOr;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;

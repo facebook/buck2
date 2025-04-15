@@ -60,10 +60,10 @@ mod imp {
     use backtrace::Backtrace;
     use buck2_core::error::StructuredErrorOptions;
     use buck2_data::Location;
-    use buck2_events::metadata;
-    use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
-    use buck2_events::sink::remote::ScribeConfig;
     use buck2_events::BuckEvent;
+    use buck2_events::metadata;
+    use buck2_events::sink::remote::ScribeConfig;
+    use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
     use buck2_util::threads::thread_spawn;
     use fbinit::FacebookInit;
     use tokio::runtime::Builder;

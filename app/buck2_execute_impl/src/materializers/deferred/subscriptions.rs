@@ -23,9 +23,9 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::stream::Stream;
-use tokio::sync::mpsc::unbounded_channel;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::unbounded_channel;
 use tokio::sync::oneshot::Sender;
 
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
