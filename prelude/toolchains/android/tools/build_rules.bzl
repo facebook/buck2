@@ -100,6 +100,12 @@ def buck_java_library(name, **kwargs):
         **kwargs
     )
 
+def java_binary(name, **kwargs):
+    return fb_native.java_binary(
+        name = name,
+        **kwargs
+    )
+
 def buck_java_binary(name, **kwargs):
     kwargs = _add_labels(**kwargs)
     kwargs = _set_buck2_java_toolchain(**kwargs)
