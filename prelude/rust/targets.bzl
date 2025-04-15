@@ -5,25 +5,24 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//decls:core_rules.bzl", "Platform", "TargetCpuType")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//decls:core_rules.bzl", "TargetCpuType")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 
-_platform = enum(*Platform)
 _cpu = enum(*TargetCpuType)
 
 _OS_TRIPLES = {
-    (_platform("linux"), _cpu("arm64")): "aarch64-unknown-linux-gnu",
-    (_platform("linux"), _cpu("x86_64")): "x86_64-unknown-linux-gnu",
-    (_platform("macos"), _cpu("arm64")): "aarch64-apple-darwin",
-    (_platform("macos"), _cpu("x86_64")): "x86_64-apple-darwin",
-    (_platform("windows"), _cpu("arm64")): "aarch64-pc-windows-msvc",
-    (_platform("windows"), _cpu("x86_64")): "x86_64-pc-windows-msvc",
+    (Os("linux"), _cpu("arm64")): "aarch64-unknown-linux-gnu",
+    (Os("linux"), _cpu("x86_64")): "x86_64-unknown-linux-gnu",
+    (Os("macos"), _cpu("arm64")): "aarch64-apple-darwin",
+    (Os("macos"), _cpu("x86_64")): "x86_64-apple-darwin",
+    (Os("windows"), _cpu("arm64")): "aarch64-pc-windows-msvc",
+    (Os("windows"), _cpu("x86_64")): "x86_64-pc-windows-msvc",
 }
 
 def _exec_triple(ctx: AnalysisContext) -> [str, None]:
     exec_os = ctx.attrs._exec_os_type[OsLookup]
     if exec_os.platform and exec_os.cpu:
-        return _OS_TRIPLES.get((_platform(exec_os.platform), _cpu(exec_os.cpu)))
+        return _OS_TRIPLES.get((Os(exec_os.platform), _cpu(exec_os.cpu)))
     else:
         return None
 

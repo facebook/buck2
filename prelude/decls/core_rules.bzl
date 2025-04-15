@@ -16,7 +16,7 @@ load(":remote_common.bzl", "remote_common")
 
 ExportFileDescriptionMode = ["reference", "copy"]
 
-Platform = ["linux", "macos", "windows", "freebsd", "unknown"]
+PlatformExePlatform = ["linux", "macos", "windows"]
 
 RemoteFileType = ["data", "executable", "exploded_zip"]
 
@@ -164,7 +164,7 @@ command_alias = prelude_rule(
                  an executable, such as an `sh_binary()`,
                  or an executable source file.
             """),
-            "platform_exe": attrs.dict(key = attrs.enum(Platform), value = attrs.dep(), sorted = False, default = {}, doc = """
+            "platform_exe": attrs.dict(key = attrs.enum(PlatformExePlatform), value = attrs.dep(), sorted = False, default = {}, doc = """
                 A mapping from platforms to `build target`.
                  enables you to override `exe` per host platform.
 
