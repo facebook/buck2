@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::env;
 use std::path::Path;
 use std::process::Stdio;
 
@@ -48,12 +49,16 @@ impl PartialEq for MergebaseDetails {
     }
 }
 
+fn get_sapling_exe_path() -> String {
+    env::var("EDEN_HG_BINARY").unwrap_or("hg".to_owned())
+}
+
 pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
     current_dir: D,
     commit: C,
     mergegase_with: M,
 ) -> buck2_error::Result<Option<MergebaseDetails>> {
-    let output = async_background_command("hg")
+    let output = async_background_command(get_sapling_exe_path())
         .current_dir(current_dir)
         .env("HGPLAIN", "1")
         .args([
@@ -126,7 +131,7 @@ pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
         args.push(second.as_ref());
     }
 
-    let mut output = async_background_command("hg")
+    let mut output = async_background_command(get_sapling_exe_path())
         .current_dir(current_dir)
         .args(args.as_slice())
         .stdout(Stdio::piped())
