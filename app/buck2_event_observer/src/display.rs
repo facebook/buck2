@@ -23,6 +23,7 @@ use buck2_data::AnonTarget;
 use buck2_data::BxlFunctionKey;
 use buck2_data::BxlFunctionLabel;
 use buck2_data::ConfiguredTargetLabel;
+use buck2_data::FileWatcherKind;
 use buck2_data::TargetLabel;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
@@ -429,16 +430,20 @@ pub fn display_file_watcher_end(file_watcher_end: &buck2_data::FileWatcherEnd) -
 
         let mut to_print = OrderedSet::new();
         for x in &stats.events {
-            to_print.insert(&x.path);
+            to_print.insert((&x.path, x.kind()));
         }
-        for path in to_print.iter().take(MAX_PRINT_MESSAGES) {
-            res.push(format!("File changed: {}", path));
+        for (path, kind) in to_print.iter().take(MAX_PRINT_MESSAGES) {
+            let kind = match kind {
+                FileWatcherKind::Directory => "Directory",
+                FileWatcherKind::File | FileWatcherKind::Symlink => "File",
+            };
+            res.push(format!("{} changed: {}", kind, path));
         }
         let unprinted_paths =
             // those we have the names of but didn't print
             to_print.len().saturating_sub(MAX_PRINT_MESSAGES) +
-            // plus those we didn't get the names for
-            (stats.events_processed as usize).saturating_sub(stats.events.len());
+                // plus those we didn't get the names for
+                (stats.events_processed as usize).saturating_sub(stats.events.len());
         if unprinted_paths > 0 {
             res.push(format!("{} additional file change events", unprinted_paths));
         }
