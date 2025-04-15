@@ -457,6 +457,16 @@ impl EdenFsFileWatcher {
         Ok(())
     }
 
+    async fn process_source_control_changes(
+        &self,
+        tracker: &mut FileChangeTracker,
+        stats: &mut FileWatcherStats,
+        from: &str,
+        to: Option<&str>,
+    ) -> buck2_error::Result<bool> {
+        self.process_sapling_status(tracker, stats, from, to).await
+    }
+
     async fn process_sapling_status(
         &self,
         tracker: &mut FileChangeTracker,
@@ -531,8 +541,8 @@ impl EdenFsFileWatcher {
             // Mergebase has changed - invalidate DICE.
             Ok(true)
         } else {
-            // Mergebase has not changed - compute status
-            self.process_sapling_status(tracker, stats, &from, Some(to))
+            // Mergebase has not changed - compute changes form source control
+            self.process_source_control_changes(tracker, stats, &from, Some(to))
                 .await
         }
     }
@@ -585,7 +595,7 @@ impl EdenFsFileWatcher {
         if let Some(mergebase) = mergebase_info.map(|m| m.mergebase) {
             let mut tracker = FileChangeTracker::new();
             let mut stats = FileWatcherStats::new(base_stats, 0);
-            self.process_sapling_status(&mut tracker, &mut stats, &mergebase, None)
+            self.process_source_control_changes(&mut tracker, &mut stats, &mergebase, None)
                 .await?;
             Ok((stats, dice))
         } else {
