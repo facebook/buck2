@@ -736,6 +736,7 @@ module "{}" {{
     args.extend([cmd_args(headers_argsfile, format = "@{}")])
     args.extend(["-xc++-user-header", "-fmodule-header"])
     args.extend(["-fmodule-name={}".format(module_name)])
+    args.extend(["-Xclang", "-fmodule-file-home-is-cwd"])
     args.extend(["-Xclang", cmd_args(input_header, format = "-fmodules-embed-file={}")])
     args.extend(["--precompile", input_header])
 
