@@ -45,6 +45,7 @@ from buck2.tests.core.common.io.file_watcher_tests import (
 )
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import filter_events
 
@@ -243,3 +244,40 @@ async def test_edenfs_changes_outside_subproject(buck: Buck) -> None:
         ),
     ]
     verify_results(results, required)
+
+
+def create_and_commit(cwd: Path, path: str) -> str:
+    os.makedirs(os.path.dirname(cwd / path), exist_ok=True)
+    with open(cwd / path, "a"):
+        pass
+
+    subprocess.run(["sl", "commit", "--addremove", "-m", path], cwd=cwd)
+    return subprocess.check_output(["sl", "whereami"], cwd=cwd).decode()
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_checkout_dir_changes(buck: Buck) -> None:
+    # We want to create the following commit tree,
+    # so when we move between f2 and f1 the mergbase doesn't change:
+    #
+    # o  xxxxxxxxf3 main
+    # │
+    # │ o  xxxxxxxxf2
+    # ├─╯  files/d2/f2
+    # │
+    # o  xxxxxxxxf1
+
+    f1 = create_and_commit(buck.cwd, "files/d1/f1")
+    f2 = create_and_commit(buck.cwd, "files/d2/f2")
+    subprocess.run(["sl", "co", f1], cwd=buck.cwd)
+    subprocess.run(["sl", "bookmark", "main"], cwd=buck.cwd, check=True)
+    create_and_commit(buck.cwd, "files/d3/f3")
+    subprocess.run(["sl", "co", f2], cwd=buck.cwd)
+
+    await buck.targets("root//:")
+    subprocess.run(["sl", "co", f1], cwd=buck.cwd)
+    # this is a bug, we should report that d2 was deleted
+    await expect_failure(
+        buck.targets("root//:"),
+        stderr_regex="Error listing dir `files/d2`",
+    )
