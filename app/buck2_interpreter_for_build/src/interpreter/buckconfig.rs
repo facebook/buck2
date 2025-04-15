@@ -226,17 +226,15 @@ fn read_config_and_report_deprecated(
     let result = cell.unwrap_or(root).lookup(ctx, key)?;
     let property = format!("{}.{}", key.section, key.property);
 
-    let mut msg = None;
     let key = BuckconfigKeyRef {
         section: "deprecated_config",
         property: &property,
     };
-    if let Some(cell) = cell {
-        msg = cell.lookup(ctx, key)?;
-    }
-    if msg.is_none() {
-        msg = root.lookup(ctx, key)?;
-    }
+    let msg = if let Some(cell) = cell {
+        cell.lookup(ctx, key)?
+    } else {
+        root.lookup(ctx, key)?
+    };
     if let Some(msg) = msg {
         // soft error category can only contain ascii lowercese characters
         let section = filter_out_non_acii_lowercase(key.section);
