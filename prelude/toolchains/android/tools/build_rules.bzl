@@ -160,6 +160,12 @@ def _oss_remote_file_with_wrapper(name, ext, url, sha1, **kwargs):
             aar = ":" + remote_file_target_name,
             **kwargs
         )
+    elif ext == "exe":
+        fb_native.alias(
+            name = name,
+            actual = ":" + remote_file_target_name,
+            **kwargs
+        )
 
     fb_native.remote_file(
         name = remote_file_target_name,
@@ -207,6 +213,21 @@ def third_party_aar(
     return _buck_remote_file_with_wrapper(
         name,
         "aar",
+        url,
+        sha1,
+        # @oss-disable[end= ]: internal_alias,
+        **kwargs
+    )
+
+def third_party_exe(
+        name,
+        url,
+        sha1,
+        # @oss-disable[end= ]: internal_alias,
+        **kwargs):
+    return _buck_remote_file_with_wrapper(
+        name,
+        "exe",
         url,
         sha1,
         # @oss-disable[end= ]: internal_alias,
