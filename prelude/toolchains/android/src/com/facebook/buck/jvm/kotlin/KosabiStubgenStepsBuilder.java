@@ -17,11 +17,14 @@ import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.core.BuildTargetValueExtraParams;
 import com.facebook.buck.jvm.java.CompilerParameters;
+import com.facebook.buck.jvm.java.JarParameters;
+import com.facebook.buck.jvm.java.RemoveClassesPatternsMatcher;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics;
 import com.facebook.buck.jvm.kotlin.kotlinc.Kotlinc;
 import com.facebook.buck.step.isolatedsteps.IsolatedStep;
 import com.facebook.buck.step.isolatedsteps.common.MakeCleanDirectoryIsolatedStep;
 import com.facebook.buck.step.isolatedsteps.common.ZipIsolatedStep;
+import com.facebook.buck.step.isolatedsteps.java.JarDirectoryStep;
 import com.facebook.buck.util.zip.ZipCompressionLevel;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -29,6 +32,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
+import java.util.logging.Level;
 
 public class KosabiStubgenStepsBuilder {
   private static final String VERBOSE = "-verbose";
@@ -50,12 +55,18 @@ public class KosabiStubgenStepsBuilder {
       RelPath reportsOutput,
       Kotlinc kotlinc,
       ImmutableMap<String, AbsPath> allKosabiPluginOptionPath,
-      ImmutableList<AbsPath> sourceOnlyAbiClasspath,
+      ImmutableList.Builder<AbsPath> sourceOnlyAbiClasspathBuilder,
       ImmutableList.Builder<IsolatedStep> postKotlinCompilationFailureSteps,
       KotlinCDAnalytics kotlinCDAnalytics) {
     ImmutableSortedSet<RelPath> stubsGenOutputPath;
     if (invokingRule.isSourceOnlyAbi() && extraParams.getShouldUseStandaloneKosabi()) {
       RelPath stubgenOutputDir = buildTargetValueExtraParams.getGenPath("__%s_stubgen_stubs__");
+      RelPath stubgenClassOutputDir =
+          buildTargetValueExtraParams.getGenPath("__%s_stubgen_stubs_class__");
+
+      RelPath stubsJar = buildTargetValueExtraParams.getGenPath("__%s_stubgen_stubs.jar");
+      sourceOnlyAbiClasspathBuilder.add(stubsJar.toAbsolutePath());
+
       RelPath stubsOutputZipDir =
           buildTargetValueExtraParams.getGenPath("__%s_stubgen_stubs_zip__");
 
@@ -96,11 +107,12 @@ public class KosabiStubgenStepsBuilder {
                   .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)),
               "Terminating compilation. We're done with Stubgen.",
               false,
-              sourceOnlyAbiClasspath,
+              sourceOnlyAbiClasspathBuilder.build(),
               extraParams.getShouldVerifySourceOnlyAbiConstraints(),
               postKotlinCompilationFailureSteps.build(),
               extraParams.getDepTrackerPlugin(),
               stubgenOutputDir,
+              stubgenClassOutputDir,
               kotlinCDAnalytics));
 
       steps.add(
@@ -112,6 +124,21 @@ public class KosabiStubgenStepsBuilder {
               false,
               ZipCompressionLevel.DEFAULT,
               stubgenOutputDir.getPath()));
+
+      steps.add(
+          new JarDirectoryStep(
+              new JarParameters(
+                  false,
+                  true,
+                  stubsJar,
+                  RemoveClassesPatternsMatcher.EMPTY,
+                  ImmutableSortedSet.orderedBy(RelPath.comparator())
+                      .add(stubgenClassOutputDir)
+                      .build(),
+                  ImmutableSortedSet.of(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Level.INFO)));
     }
   }
 }

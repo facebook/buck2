@@ -187,14 +187,12 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           sourceWithStubsAndKaptOutputBuilder,
           extraParams.getLanguageVersion());
 
-      // minified classpath required for so-abi
-      ImmutableList<AbsPath> sourceOnlyAbiClasspath =
+      ImmutableList.Builder<AbsPath> sourceOnlyAbiClasspathBuilder =
           ImmutableList.<AbsPath>builder()
               .addAll(
                   parameters.getClasspathEntries().stream()
-                      .map(relPath -> relPath.toAbsolutePath())
-                      .collect(Collectors.toList()))
-              .build();
+                      .map(RelPath::toAbsolutePath)
+                      .collect(Collectors.toList()));
 
       prepareKosabiStubgenIfNeeded(
           buckOut,
@@ -213,7 +211,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           reportsOutput,
           kotlinc,
           kosabiPluginOptions.getAllKosabiPlugins(),
-          sourceOnlyAbiClasspath,
+          sourceOnlyAbiClasspathBuilder,
           postKotlinCompilationFailureSteps,
           kotlinCDAnalytics);
 
@@ -244,7 +242,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
               kosabiPluginOptions.getKosabiPlugins(),
               extraParams.getKosabiJvmAbiGenEarlyTerminationMessagePrefix().orElse(null),
               sourceWithStubsAndKaptAndKspOutputBuilder,
-              sourceOnlyAbiClasspath,
+              sourceOnlyAbiClasspathBuilder.build(),
               moduleName,
               extraParams.getJvmTarget(),
               extraParams.getExtraKotlincArguments(),
@@ -283,7 +281,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           kotlinc,
           kosabiPluginOptions,
           kspInvocationStatus,
-          sourceOnlyAbiClasspath,
+          sourceOnlyAbiClasspathBuilder.build(),
           postKotlinCompilationFailureSteps,
           outputDirectory,
           classpathSnapshots,

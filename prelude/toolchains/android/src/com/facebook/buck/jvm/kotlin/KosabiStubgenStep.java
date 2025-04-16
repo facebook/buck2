@@ -34,6 +34,7 @@ import javax.annotation.Nullable;
  */
 public class KosabiStubgenStep extends KotlincStep {
   private final RelPath stubgenDir;
+  private final RelPath stubClassOutputDir;
 
   KosabiStubgenStep(
       BuildTargetValue invokingRule,
@@ -57,6 +58,7 @@ public class KosabiStubgenStep extends KotlincStep {
       ImmutableList<IsolatedStep> postKotlinCompilationFailureSteps,
       Optional<AbsPath> depTrackerPath,
       RelPath stubgenDir,
+      @Nullable RelPath stubClassOutputDir,
       KotlinCDAnalytics kotlinCDAnalytics) {
 
     super(
@@ -84,6 +86,7 @@ public class KosabiStubgenStep extends KotlincStep {
         kotlinCDAnalytics,
         LanguageVersion.Companion.getK1());
     this.stubgenDir = stubgenDir;
+    this.stubClassOutputDir = stubClassOutputDir;
   }
 
   @Override
@@ -98,6 +101,13 @@ public class KosabiStubgenStep extends KotlincStep {
     builder.add(
         "plugin:com.facebook.kotlin.compilerplugins.kosabi.stubsgen:stubsgen-dir="
             + stubgenDir.toString());
+
+    if (stubClassOutputDir != null) {
+      builder.add("-P");
+      builder.add(
+          "plugin:com.facebook.kotlin.compilerplugins.kosabi.stubsgen:stubs-class-dir="
+              + stubClassOutputDir.toString());
+    }
 
     builder.add("-P");
     builder.add(

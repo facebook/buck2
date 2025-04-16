@@ -139,13 +139,23 @@ public class KspStepsBuilder {
 
     if (isKsp2(annotationProcessorParams)) {
       kspInvocationStatus = KSPInvocationStatus.KSP2_INVOKED;
+
+      ImmutableList.Builder<AbsPath> allClassPathsBuilder = ImmutableList.builder();
+
+      allClassPathsBuilder.addAll(allClasspaths);
+
+      if (invokingRule.isSourceOnlyAbi()) {
+        allClassPathsBuilder.addAll(
+            sourceOnlyAbiClasspath.stream().filter(p -> !allClasspaths.contains(p)).toList());
+      }
+
       Ksp2Step ksp2Step =
           new Ksp2Step(
               invokingRule,
               compilerOutputPaths,
               rootPath,
               shouldTrackClassUsage,
-              allClasspaths,
+              allClassPathsBuilder.build(),
               kotlinPluginGeneratedOutFullPath,
               projectBaseDir,
               annotationProcessorParams.getParameters(),
