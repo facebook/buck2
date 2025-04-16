@@ -164,3 +164,12 @@ def _get(data: Dict[str, Any], *key: str) -> Dict[str, Any]:
             break
 
     return data
+
+
+@buck_test()
+async def test_super_console_changes(buck: Buck) -> None:
+    res = await buck.log(
+        "replay", fixture("my_genrule1"), "--", "build", "--console", "super"
+    )
+    assert "File changed: fbcode//buck2/dir1/file1" in res.stderr
+    assert "Directory changed: fbcode//buck2/dir1" in res.stderr
