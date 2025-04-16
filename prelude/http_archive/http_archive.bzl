@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:materialization_test.bzl", "materialization_test")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":exec_deps.bzl", "HttpArchiveExecDeps")
 load(":unarchive.bzl", "archive_type", "unarchive")
@@ -57,14 +58,5 @@ def http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
             default_output = output,
             sub_targets = sub_targets,
         ),
-        ExternalRunnerTestInfo(
-            type = "custom",
-            # Should work on all platforms.
-            command = [cmd_args("true", hidden = [archive, output])],
-            # Force it to run locally and thus force materialization.
-            default_executor = CommandExecutorConfig(
-                local_enabled = True,
-                remote_enabled = False,
-            ),
-        ),
+        materialization_test([archive, output]),
     ]

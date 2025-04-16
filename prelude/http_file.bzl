@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:materialization_test.bzl", "materialization_test")
 load("@prelude//utils:utils.bzl", "value_or")
 
 def http_file_shared(
@@ -47,16 +48,7 @@ def http_file_shared(
 
     providers = [
         DefaultInfo(default_output = output),
-        ExternalRunnerTestInfo(
-            type = "custom",
-            # Should work on all platforms.
-            command = [cmd_args("true", hidden = [downloaded_output, output])],
-            # Force it to run locally and thus force materialization.
-            default_executor = CommandExecutorConfig(
-                local_enabled = True,
-                remote_enabled = False,
-            ),
-        ),
+        materialization_test([downloaded_output, output]),
     ]
     if is_executable:
         providers.append(RunInfo(args = [output]))
