@@ -198,7 +198,8 @@ pub static NEW_BXL_UQUERY_FUNCTIONS: LateBinding<
         ProjectRoot,
         CellName,
         CellResolver,
-    ) -> Pin<Box<dyn Future<Output = buck2_error::Result<Box<dyn BxlUqueryFunctions>>>>>,
+    )
+        -> Pin<Box<dyn Future<Output = buck2_error::Result<Box<dyn BxlUqueryFunctions>>> + Send>>,
 > = LateBinding::new("NEW_BXL_UQUERY_FUNCTIONS");
 
 pub static NEW_BXL_AQUERY_FUNCTIONS: LateBinding<

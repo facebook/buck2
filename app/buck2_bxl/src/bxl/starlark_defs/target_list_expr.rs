@@ -811,4 +811,15 @@ impl OwnedTargetNodeArg {
             }
         }
     }
+
+    pub(crate) async fn to_unconfigured_target_set(
+        &self,
+        ctx: &BxlContextCoreData,
+        dice: &mut DiceComputations<'_>,
+    ) -> buck2_error::Result<StarlarkTargetSet<TargetNode>> {
+        match self.to_unconfigured_target_node(ctx, dice).await? {
+            Either::Left(node) => Ok(StarlarkTargetSet(TargetSet::from_iter(vec![node.0]))),
+            Either::Right(target_set) => Ok(target_set),
+        }
+    }
 }

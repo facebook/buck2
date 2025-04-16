@@ -34,6 +34,7 @@ use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 use crate::bxl::starlark_defs::lazy_ctx::StarlarkLazyCtx;
 use crate::bxl::starlark_defs::lazy_ctx::lazy_cquery_ctx::StarlarkLazyCqueryCtx;
+use crate::bxl::starlark_defs::lazy_ctx::lazy_uquery_ctx::StarlarkLazyUqueryCtx;
 use crate::bxl::starlark_defs::lazy_ctx::operation::StarlarkLazy;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredAttr;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
@@ -80,6 +81,8 @@ pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuil
     const Lazy: StarlarkValueAsType<StarlarkLazy> = StarlarkValueAsType::new();
     const Error: StarlarkValueAsType<StarlarkError> = StarlarkValueAsType::new();
     const Result: StarlarkValueAsType<StarlarkResult> = StarlarkValueAsType::new();
+    const LazyUqueryContext: StarlarkValueAsType<StarlarkLazyUqueryCtx> =
+        StarlarkValueAsType::new();
     const LazyCqueryContext: StarlarkValueAsType<StarlarkLazyCqueryCtx> =
         StarlarkValueAsType::new();
     const SelectDict: StarlarkValueAsType<StarlarkSelectDict> = StarlarkValueAsType::new();

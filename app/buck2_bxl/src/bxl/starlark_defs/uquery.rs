@@ -44,7 +44,7 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 use super::file_set::StarlarkFileSet;
 use super::target_list_expr::TargetListExpr;
 use crate::bxl::starlark_defs::context::BxlContext;
-use crate::bxl::starlark_defs::context::BxlContextNoDice;
+use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::file_set::FileSetExpr;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExprArg;
@@ -74,8 +74,8 @@ impl<'v> StarlarkValue<'v> for StarlarkUQueryCtx<'v> {
     }
 }
 
-pub(crate) async fn get_uquery_env<'v>(
-    ctx: &BxlContextNoDice<'v>,
+pub(crate) async fn get_uquery_env(
+    ctx: &BxlContextCoreData,
 ) -> buck2_error::Result<Box<dyn BxlUqueryFunctions>> {
     (NEW_BXL_UQUERY_FUNCTIONS.get()?)(
         ctx.project_root().dupe(),

@@ -31,6 +31,7 @@ use starlark::values::starlark_value;
 use crate::bxl::starlark_defs::artifacts::ArtifactArg;
 use crate::bxl::starlark_defs::artifacts::LazyBuildArtifact;
 use crate::bxl::starlark_defs::context::BxlContext;
+use crate::bxl::starlark_defs::lazy_ctx::lazy_uquery_ctx::StarlarkLazyUqueryCtx;
 use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersLabelArg;
 use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetNodeArg;
 use crate::bxl::starlark_defs::target_list_expr::OwnedConfiguredTargetNodeArg;
@@ -39,6 +40,7 @@ use crate::bxl::starlark_defs::target_list_expr::TargetNodeOrTargetLabelOrStr;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 pub(crate) mod lazy_cquery_ctx;
+pub(crate) mod lazy_uquery_ctx;
 pub(crate) mod operation;
 
 #[derive(Debug, buck2_error::Error)]
@@ -215,6 +217,13 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<StarlarkLazy> {
         let expr = OwnedTargetNodeArg::from_ref(&expr);
         Ok(StarlarkLazy::new_unconfigured_target_node(expr))
+    }
+
+    /// Gets the lazy uquery context.
+    fn uquery<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyCtx,
+    ) -> starlark::Result<StarlarkLazyUqueryCtx> {
+        Ok(StarlarkLazyUqueryCtx::new())
     }
 
     /// Gets the lazy cquery context.
