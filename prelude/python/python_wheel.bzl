@@ -342,6 +342,14 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     return providers
 
+_default_python = select({
+    "ovr_config//third-party/python/constraints:3.10": "py3.10",
+    "ovr_config//third-party/python/constraints:3.11": "py3.11",
+    "ovr_config//third-party/python/constraints:3.12": "py3.12",
+    "ovr_config//third-party/python/constraints:3.8": "py3.8",
+    "ovr_config//third-party/python/constraints:3.9": "py3.9",
+})
+
 python_wheel = rule(
     impl = _impl,
     cfg = constraint_overrides.transition,
@@ -349,13 +357,7 @@ python_wheel = rule(
         dist = attrs.option(attrs.string(), default = None),
         version = attrs.string(default = "1.0.0"),
         python = attrs.string(
-            default = select({
-                "ovr_config//third-party/python/constraints:3.10": "py3.10",
-                "ovr_config//third-party/python/constraints:3.11": "py3.11",
-                "ovr_config//third-party/python/constraints:3.12": "py3.12",
-                "ovr_config//third-party/python/constraints:3.8": "py3.8",
-                "ovr_config//third-party/python/constraints:3.9": "py3.9",
-            }),
+            # @oss-disable[end= ]: default = _default_python,
         ),
         entry_points = attrs.dict(
             key = attrs.string(),
@@ -375,8 +377,8 @@ python_wheel = rule(
         platform = attrs.string(
             default = select({
                 "DEFAULT": "any",
-                "ovr_config//os:linux-arm64": "linux_aarch64",
-                "ovr_config//os:linux-x86_64": "linux_x86_64",
+                # @oss-disable[end= ]: "ovr_config//os:linux-arm64": "linux_aarch64",
+                # @oss-disable[end= ]: "ovr_config//os:linux-x86_64": "linux_x86_64",
             }),
         ),
         libraries = attrs.list(attrs.dep(providers = [PythonLibraryInfo]), default = []),
