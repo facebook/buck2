@@ -11,6 +11,7 @@ D = {}
 
 Max stack size: 1
 Instructions:
-  0: ListNew ->&1
-  8: Return &1
+       # instrs.star.bzl:1:13-34
+   0: ListNew ->&1
+   8: Return &1
   16: End

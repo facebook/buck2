@@ -11,6 +11,7 @@ def test(x):
 
 Max stack size: 1
 Instructions:
-  0: EqPtr &x True ->&1
+       # instrs.star.bzl:2:5-21
+   0: EqPtr &x True ->&1
   24: Return &1
   32: End

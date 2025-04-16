@@ -218,6 +218,12 @@ impl BcInstrs {
 
     pub(crate) fn fmt_impl(&self, f: &mut dyn Write, newline: bool) -> fmt::Result {
         let end_arg = self.end_arg();
+        let ip_pad = if newline {
+            let max_ip = self.iter().map(|(_, ip)| ip).max().unwrap_or(BcAddr(0));
+            format!("{}", (max_ip).0).len()
+        } else {
+            0
+        };
 
         let mut loop_ends = Vec::new();
         let mut jump_targets = HashSet::new();
@@ -227,13 +233,21 @@ impl BcInstrs {
             });
         }
         for (ptr, ip) in self.iter() {
-            if ptr != self.start_ptr() && !newline {
-                write!(f, "; ")?;
-            }
-
             if loop_ends.last() == Some(&ip) {
                 loop_ends.pop().unwrap();
             }
+            let loop_pad = loop_ends.len() * 2;
+
+            if newline {
+                if let Some(loc) = self.stmt_locs.stmt_at(ip) {
+                    writeln!(f, "{:loop_pad$} {:ip_pad$}  # {}", "", "", loc.span.span)?;
+                }
+            } else {
+                if ptr != self.start_ptr() {
+                    write!(f, "; ")?;
+                }
+            }
+
             let opcode = ptr.get_opcode();
             if !jump_targets.is_empty() {
                 if jump_targets.contains(&ip) {
@@ -243,11 +257,9 @@ impl BcInstrs {
                 }
             }
             if newline {
-                for _ in &loop_ends {
-                    write!(f, "  ")?;
-                }
+                write!(f, "{:loop_pad$}", "")?;
             }
-            write!(f, "{}: {:?}", ip.0, opcode)?;
+            write!(f, "{:ip_pad$}: {:?}", ip.0, opcode)?;
             if opcode != BcOpcode::End {
                 // `End` args are too verbose and not really instruction args.
                 opcode.fmt_append_arg(ptr, ip, end_arg, f)?;
@@ -402,7 +414,7 @@ mod tests {
                 bc.to_string()
             );
             assert_eq!(
-                "0: Const True ->&abc\n24: Return &abc\n32: End\n",
+                " 0: Const True ->&abc\n24: Return &abc\n32: End\n",
                 bc.dump_debug()
             );
         } else if mem::size_of::<usize>() == 4 {

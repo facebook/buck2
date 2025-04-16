@@ -14,6 +14,7 @@ def test(x):
 
 Max stack size: 1
 Instructions:
-  0: EqPtr &x MyEnum("red") ->&1
+       # instrs.star.bzl:5:5-30
+   0: EqPtr &x MyEnum("red") ->&1
   24: Return &1
   32: End
