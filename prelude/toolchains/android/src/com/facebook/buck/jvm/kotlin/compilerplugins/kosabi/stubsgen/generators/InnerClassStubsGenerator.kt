@@ -70,11 +70,12 @@ class InnerClassStubsGenerator : StubsGenerator {
 
       stub?.let {
         var stubToEdit = it
+        var innerQualifier = stub.name
         for (qualifierPart in inners) {
           // find or create and register
           val innerStub =
               stubToEdit.innerStubs.find { it.name == qualifierPart }
-                  ?: KStub(qualifierPart).also { innerStub ->
+                  ?: KStub(pkg + ".${innerQualifier}", qualifierPart).also { innerStub ->
                     stubToEdit.innerStubs += innerStub
                     Logger.log(
                         """
@@ -87,6 +88,7 @@ class InnerClassStubsGenerator : StubsGenerator {
                     """
                             .trimMargin())
                   }
+          innerQualifier = "${innerQualifier}.${qualifierPart}"
           stubToEdit = innerStub
         }
       }

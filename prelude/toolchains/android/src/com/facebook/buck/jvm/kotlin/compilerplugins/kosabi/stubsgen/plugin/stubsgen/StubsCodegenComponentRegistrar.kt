@@ -25,6 +25,8 @@ class StubsCodegenComponentRegistrar : ComponentRegistrar {
       configuration: CompilerConfiguration
   ) {
     val stubsGenDir: File? = configuration.get(stubsGenDirKey)?.let { File(it) }
+    val stubsClassOutputDir: File? = configuration.get(stubsClassOutputDirKey)?.let { File(it) }
+
     // Register logger path if set
     Logger.userDefinedPath = configuration.get(stubsGenLogEnabledKey)
     val classPaths = configuration.jvmClasspathRoots
@@ -34,7 +36,11 @@ class StubsCodegenComponentRegistrar : ComponentRegistrar {
     project.extensionArea
         .getExtensionPoint(CollectAdditionalSourcesExtension.extensionPointName)
         .registerExtension(
-            StubsAdditionalSourcesExtension(stubsDumpDir = stubsGenDir, classPaths = classPaths),
+            StubsAdditionalSourcesExtension(
+                stubsDumpDir = stubsGenDir,
+                stubsClassOutputDir = stubsClassOutputDir,
+                classPaths = classPaths,
+            ),
             LoadingOrder.LAST,
             project)
   }

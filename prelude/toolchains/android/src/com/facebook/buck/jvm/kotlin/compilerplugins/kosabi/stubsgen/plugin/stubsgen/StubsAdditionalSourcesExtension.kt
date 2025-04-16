@@ -9,6 +9,8 @@
 
 package com.facebook.kotlin.compilerplugins.kosabi.stubsgen.plugin.stubsgen
 
+import com.facebook.buck.jvm.kotlin.compilerplugins.kosabi.common.stub.render.StubBytecodeRender
+import com.facebook.buck.jvm.kotlin.compilerplugins.kosabi.common.stub.render.StubBytecodeRender.supportBytecode
 import com.facebook.kotlin.compilerplugins.kosabi.common.Logger
 import com.facebook.kotlin.compilerplugins.kosabi.common.stub.model.KStub
 import com.facebook.kotlin.compilerplugins.kosabi.common.stub.render.RenderedKStub
@@ -57,6 +59,7 @@ class StubsAdditionalSourcesExtension(
     private val additionalSourcesGenerators: List<StubsGenerator> =
         listOf(ApEmulatorStubsGenerator()),
     private val stubsDumpDir: File? = null,
+    private val stubsClassOutputDir: File? = null,
     private val classPaths: List<File>
 ) : CollectAdditionalSourcesExtension {
   // Stubs generation should happen exactly once.
@@ -113,7 +116,11 @@ class StubsAdditionalSourcesExtension(
         GenerationContext(
             additionalSrcs + knownSources, classPaths, knownKSPGeneratedTypes, lightweight = false)
     val stubs = generateStubs(stubsGenerators, context)
-    val renderedStubs: List<RenderedKStub> = stubs.map { RenderedKStub(it, it.render()) }
+    val enableBytecodeStub = stubsClassOutputDir != null
+    val renderedStubs: List<RenderedKStub> =
+        stubs
+            .filter { stub -> !enableBytecodeStub || !stub.supportBytecode() }
+            .map { RenderedKStub(it, it.render()) }
     val stubFiles = renderedStubs.map { generateFakeKtFile(project, it) }
 
     if (stubsDumpDir != null) {
@@ -121,7 +128,6 @@ class StubsAdditionalSourcesExtension(
       check(stubDir.exists() || stubDir.mkdirs()) {
         "Could not generate package directory: $stubDir"
       }
-
       if (configuration.getBoolean(stubsGenStandaloneModeKey)) {
         (additionalSrcs + stubFiles).forEach { file ->
           File(stubsDumpDir, file.name).writeText(file.text)
@@ -129,6 +135,16 @@ class StubsAdditionalSourcesExtension(
       } else {
         writeStubs(stubDir, renderedStubs + additionalRenderedSrcStubs)
       }
+    }
+
+    if (stubsClassOutputDir != null) {
+      val stubClassDir = stubsClassOutputDir
+      check(stubClassDir.exists() || stubClassDir.mkdirs()) {
+        "Could not generate package directory: $stubClassDir"
+      }
+      stubs
+          .filter { stub -> stub.supportBytecode() }
+          .forEach { StubBytecodeRender.renderKStubBytecode(it, stubsClassOutputDir) }
     }
 
     if (configuration.getBoolean(stubsGenStandaloneModeKey)) {

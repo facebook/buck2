@@ -32,7 +32,7 @@ class FullQualifiedClassStubsGenerator : StubsGenerator {
           for (className in qualifier.names.drop(1)) {
             val innerStub =
                 stubToEdit.innerStubs.find { it.name == className }
-                    ?: KStub(className).also { innerStub ->
+                    ?: KStub(stubToEdit.pkg + ".${stubToEdit.name}", className).also { innerStub ->
                       stubToEdit.innerStubs += innerStub
                       Logger.log(
                           """
