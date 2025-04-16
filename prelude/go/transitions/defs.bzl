@@ -188,7 +188,7 @@ _top_level_tansitions = [_asan_transition, _cgo_enabled_transition, _race_transi
 
 _all_level_refs = {
     "abi_gnu": "prelude//abi/constraints:gnu",
-    "os_windows": "prelude//os/constraints:windows",
+    "os_windows": "config//os/constraints:windows",
 }
 
 _top_level_refs = {
