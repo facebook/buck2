@@ -69,6 +69,12 @@ pub(crate) enum EdenFsWatcherError {
     NotAbsNormPath,
 }
 
+#[derive(PartialEq)]
+enum ProcessChangeStatus {
+    Processed,
+    LargeOrUnknown,
+}
+
 #[derive(Allocative)]
 pub(crate) struct EdenFsFileWatcher {
     manager: EdenConnectionManager,
@@ -160,7 +166,8 @@ impl EdenFsFileWatcher {
             } else {
                 large_or_unknown_change = self
                     .process_change(&change, &mut file_change_tracker, &mut stats)
-                    .await?;
+                    .await?
+                    == ProcessChangeStatus::LargeOrUnknown;
             }
         }
 
@@ -181,7 +188,7 @@ impl EdenFsFileWatcher {
         change: &ChangeNotification,
         tracker: &mut FileChangeTracker,
         stats: &mut FileWatcherStats,
-    ) -> buck2_error::Result<bool> {
+    ) -> buck2_error::Result<ProcessChangeStatus> {
         let large_or_unknown_change = match change {
             ChangeNotification::smallChange(small_change) => match small_change {
                 SmallChangeNotification::added(added) => {
@@ -192,7 +199,7 @@ impl EdenFsFileWatcher {
                         Type::Create,
                         &added.path,
                     )?;
-                    false
+                    ProcessChangeStatus::Processed
                 }
                 SmallChangeNotification::modified(modified) => {
                     self.process_file_watcher_event(
@@ -202,7 +209,7 @@ impl EdenFsFileWatcher {
                         Type::Modify,
                         &modified.path,
                     )?;
-                    false
+                    ProcessChangeStatus::Processed
                 }
                 SmallChangeNotification::renamed(renamed) => {
                     if renamed.fileType == Dtype::DIR {
@@ -235,7 +242,7 @@ impl EdenFsFileWatcher {
                             &renamed.from,
                         )?;
                     }
-                    false
+                    ProcessChangeStatus::Processed
                 }
                 SmallChangeNotification::replaced(replaced) => {
                     if replaced.fileType == Dtype::DIR {
@@ -268,7 +275,7 @@ impl EdenFsFileWatcher {
                             &replaced.from,
                         )?;
                     }
-                    false
+                    ProcessChangeStatus::Processed
                 }
                 SmallChangeNotification::removed(removed) => {
                     self.process_file_watcher_event(
@@ -278,7 +285,7 @@ impl EdenFsFileWatcher {
                         Type::Delete,
                         &removed.path,
                     )?;
-                    false
+                    ProcessChangeStatus::Processed
                 }
                 SmallChangeNotification::UnknownField(_) => {
                     soft_error!(
@@ -291,7 +298,7 @@ impl EdenFsFileWatcher {
                         )
                         .into()
                     )?;
-                    true
+                    ProcessChangeStatus::LargeOrUnknown
                 }
             },
             ChangeNotification::largeChange(large_change) => match large_change {
@@ -312,8 +319,8 @@ impl EdenFsFileWatcher {
                     )?;
                     // NOTE: even though a directory rename is a large change,
                     // we handle by reporting two small changes to DICE.
-                    // Return false here indicating no large change.
-                    false
+                    // Return Processed here indicating no large change.
+                    ProcessChangeStatus::Processed
                 }
                 LargeChangeNotification::commitTransition(commit_transition) => {
                     let from = hex::encode(&commit_transition.from);
@@ -327,8 +334,8 @@ impl EdenFsFileWatcher {
                     self.update_mergebase(current_rev)
                         .await
                         .buck_error_context("Failed to update mergebase.")?;
-                    // Return true indicating a large change (i.e. invalidate DICE).
-                    true
+                    // Return LargeOrUnknown indicating a large change (i.e. invalidate DICE).
+                    ProcessChangeStatus::LargeOrUnknown
                 }
                 LargeChangeNotification::UnknownField(_) => {
                     soft_error!(
@@ -341,7 +348,7 @@ impl EdenFsFileWatcher {
                         )
                         .into()
                     )?;
-                    true
+                    ProcessChangeStatus::LargeOrUnknown
                 }
             },
             ChangeNotification::UnknownField(_) => {
@@ -355,7 +362,7 @@ impl EdenFsFileWatcher {
                     )
                     .into()
                 )?;
-                true
+                ProcessChangeStatus::LargeOrUnknown
             }
         };
 
@@ -463,7 +470,7 @@ impl EdenFsFileWatcher {
         stats: &mut FileWatcherStats,
         from: &str,
         to: Option<&str>,
-    ) -> buck2_error::Result<bool> {
+    ) -> buck2_error::Result<ProcessChangeStatus> {
         self.process_sapling_status(tracker, stats, from, to).await
     }
 
@@ -473,13 +480,13 @@ impl EdenFsFileWatcher {
         stats: &mut FileWatcherStats,
         from: &str,
         to: Option<&str>,
-    ) -> buck2_error::Result<bool> {
+    ) -> buck2_error::Result<ProcessChangeStatus> {
         // limit results to MAX_SAPLING_STATUS_CHANGES
         match get_status(&self.eden_root, &from, to, MAX_SAPLING_STATUS_CHANGES)
             .await
             .buck_error_context("Failed to get Sapling status.")?
         {
-            SaplingGetStatusResult::TooManyChanges => Ok(true),
+            SaplingGetStatusResult::TooManyChanges => Ok(ProcessChangeStatus::LargeOrUnknown),
             SaplingGetStatusResult::Normal(status) => {
                 // Process statuses - if any fail, will terminate early.
                 let results: buck2_error::Result<Vec<_>> = status
@@ -516,7 +523,7 @@ impl EdenFsFileWatcher {
 
                 // Return false indicating no large change.
                 results
-                    .map(|_| false)
+                    .map(|_| ProcessChangeStatus::Processed)
                     .buck_error_context("Failed to process Sapling statuses.")
             }
         }
@@ -532,14 +539,14 @@ impl EdenFsFileWatcher {
         stats: &mut FileWatcherStats,
         from: &str,
         to: &str,
-    ) -> buck2_error::Result<bool> {
+    ) -> buck2_error::Result<ProcessChangeStatus> {
         if self
             .update_mergebase(&to)
             .await
             .buck_error_context("Failed to update mergebase.")?
         {
             // Mergebase has changed - invalidate DICE.
-            Ok(true)
+            Ok(ProcessChangeStatus::LargeOrUnknown)
         } else {
             // Mergebase has not changed - compute changes form source control
             self.process_source_control_changes(tracker, stats, &from, Some(to))
