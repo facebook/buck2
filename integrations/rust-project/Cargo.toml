@@ -7,6 +7,10 @@ readme = "README.md"
 repository = { workspace = true }
 version = "0.0.0"
 
+[[bin]]
+name = "buck2-rust-project"
+path = "src/main.rs"
+
 [dependencies]
 anyhow = { workspace = true }
 clap = { workspace = true }
