@@ -71,14 +71,12 @@ fn parse_import_cell_path_parts(path: &str, allow_missing_at_symbol: bool) -> Op
 
 pub fn parse_import(
     cell_resolver: &CellAliasResolver,
-    current_path: &CellPath,
+    relative_import_option: RelativeImports,
     import: &str,
 ) -> buck2_error::Result<CellPath> {
     let opts: ParseImportOptions = ParseImportOptions {
         allow_missing_at_symbol: false,
-        relative_import_option: RelativeImports::AllowForward {
-            current_dir: current_path,
-        },
+        relative_import_option,
     };
     parse_import_with_config(cell_resolver, import, &opts)
 }
@@ -197,7 +195,9 @@ mod tests {
             path("root", "package/path", "import.bzl"),
             parse_import(
                 &resolver(),
-                &CellPath::testing_new("passport//"),
+                RelativeImports::AllowForward {
+                    current_dir: &CellPath::testing_new("passport//")
+                },
                 "//package/path:import.bzl"
             )?
         );
@@ -210,7 +210,9 @@ mod tests {
             path("cell1", "package/path", "import.bzl"),
             parse_import(
                 &resolver(),
-                &CellPath::testing_new("root//"),
+                RelativeImports::AllowForward {
+                    current_dir: &CellPath::testing_new("root//")
+                },
                 "@cell1//package/path:import.bzl"
             )?
         );
@@ -223,7 +225,9 @@ mod tests {
             path("cell1", "package/path", "import.bzl"),
             parse_import(
                 &resolver(),
-                &CellPath::testing_new("cell1//package/path"),
+                RelativeImports::AllowForward {
+                    current_dir: &CellPath::testing_new("cell1//package/path")
+                },
                 ":import.bzl"
             )?
         );
@@ -234,7 +238,13 @@ mod tests {
     fn missing_colon() -> buck2_error::Result<()> {
         let import = "//package/path/import.bzl".to_owned();
         assert_eq!(
-            parse_import(&resolver(), &CellPath::testing_new("lighter//"), &import)?,
+            parse_import(
+                &resolver(),
+                RelativeImports::AllowForward {
+                    current_dir: &CellPath::testing_new("lighter//")
+                },
+                &import
+            )?,
             path("root", "package/path", "import.bzl")
         );
         Ok(())
@@ -243,7 +253,13 @@ mod tests {
     #[test]
     fn empty_filename() -> buck2_error::Result<()> {
         let path = "//package/path:".to_owned();
-        match parse_import(&resolver(), &CellPath::testing_new("root//"), &path) {
+        match parse_import(
+            &resolver(),
+            RelativeImports::AllowForward {
+                current_dir: &CellPath::testing_new("root//"),
+            },
+            &path,
+        ) {
             Ok(import) => panic!("Expected parse failure for {}, got result {}", path, import),
             Err(e) => {
                 assert_eq!(
@@ -258,7 +274,13 @@ mod tests {
     #[test]
     fn bad_alias() -> buck2_error::Result<()> {
         let path = "bad_alias//package/path:".to_owned();
-        match parse_import(&resolver(), &CellPath::testing_new("root//"), &path) {
+        match parse_import(
+            &resolver(),
+            RelativeImports::AllowForward {
+                current_dir: &CellPath::testing_new("root//"),
+            },
+            &path,
+        ) {
             Ok(import) => panic!("Expected parse failure for {}, got result {}", path, import),
             Err(_) => {
                 // TODO: should we verify the contents of the error?
@@ -273,7 +295,9 @@ mod tests {
             path("cell1", "package/path", "bar.bzl"),
             parse_import(
                 &resolver(),
-                &CellPath::testing_new("cell1//package/path"),
+                RelativeImports::AllowForward {
+                    current_dir: &CellPath::testing_new("cell1//package/path")
+                },
                 "bar.bzl",
             )?
         );
@@ -281,7 +305,9 @@ mod tests {
             path("cell1", "package/path", "foo/bar.bzl"),
             parse_import(
                 &resolver(),
-                &CellPath::testing_new("cell1//package/path"),
+                RelativeImports::AllowForward {
+                    current_dir: &CellPath::testing_new("cell1//package/path")
+                },
                 "foo/bar.bzl",
             )?
         );
@@ -294,7 +320,13 @@ mod tests {
         let importee = "foo/bar.bzl";
 
         assert_eq!(
-            parse_import(&resolver(), &importer, importee)?,
+            parse_import(
+                &resolver(),
+                RelativeImports::AllowForward {
+                    current_dir: &importer
+                },
+                importee
+            )?,
             path("cell1", "package/path/foo", "bar.bzl")
         );
         Ok(())
@@ -306,7 +338,9 @@ mod tests {
             path("cell1", "package/path", "import.bzl"),
             parse_import(
                 &resolver(),
-                &CellPath::testing_new("root//foo/bar"),
+                RelativeImports::AllowForward {
+                    current_dir: &CellPath::testing_new("root//foo/bar")
+                },
                 "@cell1//package/path:import.bzl",
             )?
         );

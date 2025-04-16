@@ -37,6 +37,7 @@ use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::import_paths::ImplicitImportPaths;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_interpreter::parse_import::parse_import;
+use buck2_interpreter::parse_import::RelativeImports;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::paths::package::PackageFilePath;
@@ -185,9 +186,12 @@ impl LoadResolver for InterpreterLoadResolver {
         // This is to be removed when we finish migration to Buck2.
         let path = path.strip_suffix("?v2_only").unwrap_or(path);
 
+        let relative_import_option = RelativeImports::AllowForward {
+            current_dir: &self.loader_path,
+        };
         let path = parse_import(
             &self.config.cell_info.cell_alias_resolver(),
-            &self.loader_path,
+            relative_import_option,
             path,
         )?;
 

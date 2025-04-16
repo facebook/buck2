@@ -20,6 +20,7 @@ use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::package::PackageLabel;
 
 use crate::parse_import::parse_import;
+use crate::parse_import::RelativeImports;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Input)]
@@ -85,7 +86,11 @@ impl PackageImplicitImports {
                 let (import, symbol_specs) = import_spec
                     .split_once("::")
                     .ok_or_else(|| PackageImportsError::MissingColons(import_spec.to_owned()))?;
-                let import_path = parse_import(&cell_alias_resolver, &root_path, import)?;
+                let relative_import_option = RelativeImports::AllowForward {
+                    current_dir: &root_path,
+                };
+                let import_path =
+                    parse_import(&cell_alias_resolver, relative_import_option, import)?;
                 // Package implicit imports are only going to be used for a top-level module in
                 // the same cell, so we can set that early.
                 let import_path = ImportPath::new_with_build_file_cells(import_path, cell_name)?;
