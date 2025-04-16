@@ -1,4 +1,4 @@
-load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library", "third_party_aar", "third_party_jar")
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library", "third_party_aar", "third_party_exe", "third_party_jar")
 
 oncall("android_devxx")
 
@@ -1057,6 +1057,54 @@ third_party_jar(
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/google/protobuf/protobuf-java-util:protobuf-java-util__toolchain",
     sha1 = "38cc5ce479603e36466feda2a9f1dfdb2210ef00",
     url = "mvn:com.google.protobuf:protobuf-java-util:jar:3.25.5",
+    visibility = ["PUBLIC"],
+)
+
+third_party_exe(
+    name = "protoc-linux-x86_64",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/google/protobuf/protoc:protoc-linux-x86_64",
+    sha1 = "9065c462198f65a0f5ab4945023dac99288cf24f",
+    url = "mvn:com.google.protobuf:protoc:exe:linux-x86_64:3.25.6",
+    visibility = ["PUBLIC"],
+)
+
+third_party_exe(
+    name = "protoc-osx-x86_64",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/google/protobuf/protoc:protoc-osx-x86_64",
+    sha1 = "a57fab7d37d8824034cc67325f81de24d0f36b6a",
+    url = "mvn:com.google.protobuf:protoc:exe:osx-x86_64:3.25.6",
+    visibility = ["PUBLIC"],
+)
+
+third_party_exe(
+    name = "protoc-windows-x86_64",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/google/protobuf/protoc:protoc-windows-x86_64",
+    sha1 = "d9bbbb5a88fc7fdcb41ff717028461f8e6b5b958",
+    url = "mvn:com.google.protobuf:protoc:exe:windows-x86_64:3.25.6",
+    visibility = ["PUBLIC"],
+)
+
+third_party_exe(
+    name = "protoc-gen-grpc-java-linux-x86_64",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/io/grpc/protoc-gen-grpc-java:protoc-gen-grpc-java-linux-x86_64",
+    sha1 = "3c8950cae9d5b4bed363f71118fb54bfddafcd2a",
+    url = "mvn:io.grpc:protoc-gen-grpc-java:exe:linux-x86_64:1.10.1",
+    visibility = ["PUBLIC"],
+)
+
+third_party_exe(
+    name = "protoc-gen-grpc-java-osx-x86_64",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/io/grpc/protoc-gen-grpc-java:protoc-gen-grpc-java-osx-x86_64",
+    sha1 = "8c37e3794df02dcb2dcc7547266119bc09d3aeae",
+    url = "mvn:io.grpc:protoc-gen-grpc-java:exe:osx-x86_64:1.10.1",
+    visibility = ["PUBLIC"],
+)
+
+third_party_exe(
+    name = "protoc-gen-grpc-java-windows-x86_64",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/io/grpc/protoc-gen-grpc-java:protoc-gen-grpc-java-windows-x86_64",
+    sha1 = "b5692a8df52f6aef24c7181f94240ef52b7060fb",
+    url = "mvn:io.grpc:protoc-gen-grpc-java:exe:windows-x86_64:1.10.1",
     visibility = ["PUBLIC"],
 )
 # ===   End: protobuf
