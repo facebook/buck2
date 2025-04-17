@@ -16,6 +16,7 @@ use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::process::Stdio;
 use std::sync::Arc;
+use std::time::Duration;
 use std::time::Instant;
 
 use async_trait::async_trait;
@@ -35,6 +36,7 @@ use buck2_build_api::validation::validation_impl::VALIDATION_IMPL;
 use buck2_cli_proto::InstallRequest;
 use buck2_cli_proto::InstallResponse;
 use buck2_common::client_utils::get_channel_tcp;
+use buck2_common::client_utils::retrying;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
@@ -372,18 +374,42 @@ struct ConnectedInstaller<'a> {
 }
 
 impl<'a> ConnectedInstaller<'a> {
-    fn new(
-        client: InstallerClient<Channel>,
+    async fn connect(
+        tcp_port: u16,
         artifact_fs: ArtifactFs,
         install_request_data: &'a InstallRequestData<'a>,
-    ) -> Self {
-        Self {
-            client,
+    ) -> buck2_error::Result<Self> {
+        // These numbers might need to be configured based on the installer
+        let initial_delay = Duration::from_millis(100);
+        let max_delay = Duration::from_millis(500);
+        let timeout = Duration::from_secs(120);
+
+        let client: buck2_error::Result<InstallerClient<Channel>> = span_async_simple(
+            buck2_data::ConnectToInstallerStart {
+                tcp_port: tcp_port.into(),
+            },
+            async move {
+                let channel = retrying(initial_delay, max_delay, timeout, || async {
+                    get_channel_tcp(Ipv4Addr::LOCALHOST, tcp_port).await
+                })
+                .await
+                .buck_error_context("Failed to connect to the installer using TCP")?;
+
+                Ok(InstallerClient::new(channel)
+                    .max_encoding_message_size(usize::MAX)
+                    .max_decoding_message_size(usize::MAX))
+            },
+            buck2_data::ConnectToInstallerEnd {},
+        )
+        .await;
+
+        Ok(Self {
+            client: client?,
             artifact_fs,
             install_request_data,
             device_metadata: Arc::new(Mutex::new(Vec::new())),
             installer_ready: Instant::now(),
-        }
+        })
     }
 
     async fn install(mut self, files_rx: mpsc::UnboundedReceiver<FileResult>) -> InstallResult {
@@ -394,7 +420,7 @@ impl<'a> ConnectedInstaller<'a> {
 
         let send_files_result = self.send_files(files_rx).await;
 
-        let shutdown_result = send_shutdown_command(self.client.clone()).await;
+        let shutdown_result = self.send_shutdown_command().await;
         if shutdown_result.is_err() {
             return self.install_result(shutdown_result);
         }
@@ -415,15 +441,62 @@ impl<'a> ConnectedInstaller<'a> {
 
     async fn send_install_info(&mut self) -> buck2_error::Result<()> {
         for (installed_target, install_files) in &self.install_request_data.installed_targets {
-            send_install_info(
-                self.client.clone(),
-                &install_id(installed_target),
-                install_files,
-                &self.artifact_fs,
-            )
-            .await?;
+            let mut files_map = HashMap::new();
+            for (file_name, artifact) in install_files {
+                let artifact_path = &self
+                    .artifact_fs
+                    .fs()
+                    .resolve(&artifact.resolve_path(&self.artifact_fs)?);
+                files_map
+                    .entry((*file_name).to_owned())
+                    .or_insert_with(|| artifact_path.to_string());
+            }
+
+            let install_id = install_id(installed_target);
+            let install_info_request = tonic::Request::new(InstallInfoRequest {
+                install_id: install_id.to_owned(),
+                files: files_map,
+            });
+
+            let response_result = self.client.install(install_info_request).await;
+            let install_info_response = match response_result {
+                Ok(r) => r.into_inner(),
+                Err(status) => {
+                    return Err(InstallError::InternalInstallerFailure {
+                        install_id: install_id.to_owned(),
+                        err: status.message().to_owned(),
+                    }
+                    .into());
+                }
+            };
+
+            if install_info_response.install_id != install_id {
+                self.send_shutdown_command().await?;
+                return Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::InstallIdMismatch,
+                    "Received install id: {} doesn't match with the sent one: {}",
+                    install_info_response.install_id,
+                    &install_id
+                ));
+            }
         }
         Ok(())
+    }
+
+    async fn send_shutdown_command(&self) -> buck2_error::Result<()> {
+        let response_result = self
+            .client
+            .clone()
+            .shutdown_server(tonic::Request::new(ShutdownRequest {}))
+            .await;
+
+        match response_result {
+            Ok(_) => Ok(()),
+            Err(status) => Err(InstallError::InstallerCommunicationFailure {
+                err: status.message().to_owned(),
+            }
+            .into()),
+        }
     }
 
     async fn send_files(
@@ -432,15 +505,134 @@ impl<'a> ConnectedInstaller<'a> {
     ) -> buck2_error::Result<()> {
         UnboundedReceiverStream::new(files_rx)
             .map(buck2_error::Ok)
-            .try_for_each_concurrent(None, |file| {
-                send_file(
-                    file,
-                    &self.artifact_fs,
-                    self.client.clone(),
-                    self.device_metadata.dupe(),
-                )
-            })
+            .try_for_each_concurrent(None, |file| self.send_file(file))
             .await
+    }
+
+    async fn send_file(&self, file: FileResult) -> buck2_error::Result<()> {
+        let install_id = file.install_id;
+        let name = file.name;
+        let artifact = file.artifact;
+
+        enum Data<'a> {
+            Digest(&'a FileDigest), // NOTE: A misnommer, this is rather BlobDigest.
+            Symlink(String),
+        }
+
+        let data = match &file.artifact_value.entry() {
+            DirectoryEntry::Dir(dir) => Data::Digest(dir.fingerprint().data()),
+            DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => {
+                Data::Digest(file.digest.data())
+            }
+            DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink)) => {
+                // todo(@lebentle) Use for now to unblock exopackage,
+                // but should follow symlink and validate the target exists and send that
+                Data::Symlink(symlink.target().as_str().to_owned())
+            }
+            DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(symlink)) => {
+                Data::Symlink(symlink.with_full_target()?.target_str().to_owned())
+            }
+        };
+
+        let (digest, size, digest_algorithm) = match data {
+            Data::Digest(d) => (
+                d.raw_digest().to_string(),
+                d.size(),
+                d.raw_digest().algorithm().to_string(),
+            ),
+            Data::Symlink(sym) => (format!("re-symlink:{}", sym), 0, "".to_owned()), // Messy :(
+        };
+
+        let path = &self
+            .artifact_fs
+            .fs()
+            .resolve(&artifact.resolve_path(&self.artifact_fs)?);
+        let request = tonic::Request::new(FileReadyRequest {
+            install_id: install_id.to_owned(),
+            name: name.to_owned(),
+            digest,
+            digest_algorithm,
+            size,
+            path: path.to_string(),
+        });
+
+        let start = InstallEventInfoStart {
+            artifact_name: name.to_owned(),
+            file_path: path.to_string(),
+        };
+        let end = InstallEventInfoEnd {};
+        let mut client = self.client.clone();
+        span_async(start, async {
+            let mut outcome: buck2_error::Result<()> = Ok(());
+            let response_result = client.file_ready(request).await;
+            let mut response = match response_result {
+                Ok(r) => r.into_inner(),
+                Err(status) => {
+                    return (
+                        Err(InstallError::ProcessingFileReadyFailure {
+                            install_id: install_id.to_owned(),
+                            artifact: name,
+                            path: path.to_owned(),
+                            err: status.message().to_owned(),
+                        }
+                        .into()),
+                        end,
+                    );
+                }
+            };
+
+            if response.install_id != install_id {
+                outcome = Err(InstallError::ProcessingFileReadyFailure {
+                    install_id: install_id.to_owned(),
+                    artifact: name.to_owned(),
+                    path: path.to_owned(),
+                    err: format!(
+                        "Received install id: {} doesn't match with the sent one: {}",
+                        response.install_id, &install_id
+                    ),
+                }
+                .into());
+            }
+            self.device_metadata
+                .lock()
+                .await
+                .append(&mut response.device_metadata);
+
+            if let Some(error_detail) = response.error_detail {
+                let mut error: buck2_error::Error = InstallError::ProcessingFileReadyFailure {
+                    install_id: install_id.to_owned(),
+                    artifact: name.to_owned(),
+                    path: path.to_owned(),
+                    err: error_detail.message,
+                }
+                .into();
+                let category_tag = if let Ok(category) =
+                    buck2_install_proto::ErrorCategory::try_from(error_detail.category)
+                {
+                    match category {
+                        buck2_install_proto::ErrorCategory::Unspecified => {
+                            ErrorTag::InstallerUnknown
+                        }
+                        buck2_install_proto::ErrorCategory::Tier0 => ErrorTag::InstallerTier0,
+                        buck2_install_proto::ErrorCategory::Input => ErrorTag::InstallerInput,
+                        buck2_install_proto::ErrorCategory::Environment => {
+                            ErrorTag::InstallerEnvironment
+                        }
+                    }
+                } else {
+                    ErrorTag::InstallerUnknown
+                };
+                error = error.tag([category_tag]);
+
+                for tag in error_detail.tags {
+                    error = error.string_tag(&tag);
+                }
+                outcome = Err(error);
+            }
+            (outcome, end)
+        })
+        .await?;
+        Ok(())
     }
 }
 
@@ -496,11 +688,11 @@ async fn handle_install_request<'a>(
                         installer_debug,
                     )
                     .await?;
-                    let client: InstallerClient<Channel> = connect_to_installer(tcp_port).await?;
                     let artifact_fs = ctx.get_artifact_fs().await?;
 
                     let installer =
-                        ConnectedInstaller::new(client, artifact_fs, install_request_data);
+                        ConnectedInstaller::connect(tcp_port, artifact_fs, install_request_data)
+                            .await?;
 
                     buck2_error::Ok(installer.install(files_rx).await)
                 }
@@ -561,66 +753,6 @@ async fn upload_installer_logs(log_path: &AbsNormPathBuf) -> buck2_error::Result
     manifold
         .upload_file(log_path, manifold_filename, Bucket::INSTALLER_LOGS)
         .await
-}
-
-async fn send_install_info(
-    mut client: InstallerClient<Channel>,
-    install_id: &str,
-    install_files: &SmallMap<&str, Artifact>,
-    artifact_fs: &ArtifactFs,
-) -> buck2_error::Result<()> {
-    let mut files_map = HashMap::new();
-    for (file_name, artifact) in install_files {
-        let artifact_path = &artifact_fs
-            .fs()
-            .resolve(&artifact.resolve_path(artifact_fs)?);
-        files_map
-            .entry((*file_name).to_owned())
-            .or_insert_with(|| artifact_path.to_string());
-    }
-
-    let install_info_request = tonic::Request::new(InstallInfoRequest {
-        install_id: install_id.to_owned(),
-        files: files_map,
-    });
-
-    let response_result = client.install(install_info_request).await;
-    let install_info_response = match response_result {
-        Ok(r) => r.into_inner(),
-        Err(status) => {
-            return Err(InstallError::InternalInstallerFailure {
-                install_id: install_id.to_owned(),
-                err: status.message().to_owned(),
-            }
-            .into());
-        }
-    };
-
-    if install_info_response.install_id != install_id {
-        send_shutdown_command(client.clone()).await?;
-        return Err(buck2_error::buck2_error!(
-            buck2_error::ErrorTag::InstallIdMismatch,
-            "Received install id: {} doesn't match with the sent one: {}",
-            install_info_response.install_id,
-            &install_id
-        ));
-    }
-
-    Ok(())
-}
-
-async fn send_shutdown_command(mut client: InstallerClient<Channel>) -> buck2_error::Result<()> {
-    let response_result = client
-        .shutdown_server(tonic::Request::new(ShutdownRequest {}))
-        .await;
-
-    match response_result {
-        Ok(_) => Ok(()),
-        Err(status) => Err(InstallError::InstallerCommunicationFailure {
-            err: status.message().to_owned(),
-        }
-        .into()),
-    }
 }
 
 async fn build_launch_installer<'a>(
@@ -761,161 +893,6 @@ async fn build_files(
             .boxed()
         },
     )
-    .await?;
-    Ok(())
-}
-
-async fn connect_to_installer(tcp_port: u16) -> buck2_error::Result<InstallerClient<Channel>> {
-    use std::time::Duration;
-
-    use buck2_common::client_utils::retrying;
-
-    // These numbers might need to be configured based on the installer
-    let initial_delay = Duration::from_millis(100);
-    let max_delay = Duration::from_millis(500);
-    let timeout = Duration::from_secs(120);
-
-    span_async_simple(
-        buck2_data::ConnectToInstallerStart {
-            tcp_port: tcp_port.into(),
-        },
-        async move {
-            let channel = retrying(initial_delay, max_delay, timeout, || async {
-                get_channel_tcp(Ipv4Addr::LOCALHOST, tcp_port).await
-            })
-            .await
-            .buck_error_context("Failed to connect to the installer using TCP")?;
-
-            Ok(InstallerClient::new(channel)
-                .max_encoding_message_size(usize::MAX)
-                .max_decoding_message_size(usize::MAX))
-        },
-        buck2_data::ConnectToInstallerEnd {},
-    )
-    .await
-}
-
-async fn send_file(
-    file: FileResult,
-    artifact_fs: &ArtifactFs,
-    mut client: InstallerClient<Channel>,
-    device_metadata: Arc<Mutex<Vec<DeviceMetadata>>>,
-) -> buck2_error::Result<()> {
-    let install_id = file.install_id;
-    let name = file.name;
-    let artifact = file.artifact;
-
-    enum Data<'a> {
-        Digest(&'a FileDigest), // NOTE: A misnommer, this is rather BlobDigest.
-        Symlink(String),
-    }
-
-    let data = match &file.artifact_value.entry() {
-        DirectoryEntry::Dir(dir) => Data::Digest(dir.fingerprint().data()),
-        DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => Data::Digest(file.digest.data()),
-        DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink)) => {
-            // todo(@lebentle) Use for now to unblock exopackage,
-            // but should follow symlink and validate the target exists and send that
-            Data::Symlink(symlink.target().as_str().to_owned())
-        }
-        DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(symlink)) => {
-            Data::Symlink(symlink.with_full_target()?.target_str().to_owned())
-        }
-    };
-
-    let (digest, size, digest_algorithm) = match data {
-        Data::Digest(d) => (
-            d.raw_digest().to_string(),
-            d.size(),
-            d.raw_digest().algorithm().to_string(),
-        ),
-        Data::Symlink(sym) => (format!("re-symlink:{}", sym), 0, "".to_owned()), // Messy :(
-    };
-
-    let path = &artifact_fs
-        .fs()
-        .resolve(&artifact.resolve_path(artifact_fs)?);
-    let request = tonic::Request::new(FileReadyRequest {
-        install_id: install_id.to_owned(),
-        name: name.to_owned(),
-        digest,
-        digest_algorithm,
-        size,
-        path: path.to_string(),
-    });
-
-    let start = InstallEventInfoStart {
-        artifact_name: name.to_owned(),
-        file_path: path.to_string(),
-    };
-    let end = InstallEventInfoEnd {};
-    span_async(start, async {
-        let mut outcome: buck2_error::Result<()> = Ok(());
-        let response_result = client.file_ready(request).await;
-        let mut response = match response_result {
-            Ok(r) => r.into_inner(),
-            Err(status) => {
-                return (
-                    Err(InstallError::ProcessingFileReadyFailure {
-                        install_id: install_id.to_owned(),
-                        artifact: name,
-                        path: path.to_owned(),
-                        err: status.message().to_owned(),
-                    }
-                    .into()),
-                    end,
-                );
-            }
-        };
-
-        if response.install_id != install_id {
-            outcome = Err(InstallError::ProcessingFileReadyFailure {
-                install_id: install_id.to_owned(),
-                artifact: name.to_owned(),
-                path: path.to_owned(),
-                err: format!(
-                    "Received install id: {} doesn't match with the sent one: {}",
-                    response.install_id, &install_id
-                ),
-            }
-            .into());
-        }
-        device_metadata
-            .lock()
-            .await
-            .append(&mut response.device_metadata);
-
-        if let Some(error_detail) = response.error_detail {
-            let mut error: buck2_error::Error = InstallError::ProcessingFileReadyFailure {
-                install_id: install_id.to_owned(),
-                artifact: name.to_owned(),
-                path: path.to_owned(),
-                err: error_detail.message,
-            }
-            .into();
-            let category_tag = if let Ok(category) =
-                buck2_install_proto::ErrorCategory::try_from(error_detail.category)
-            {
-                match category {
-                    buck2_install_proto::ErrorCategory::Unspecified => ErrorTag::InstallerUnknown,
-                    buck2_install_proto::ErrorCategory::Tier0 => ErrorTag::InstallerTier0,
-                    buck2_install_proto::ErrorCategory::Input => ErrorTag::InstallerInput,
-                    buck2_install_proto::ErrorCategory::Environment => {
-                        ErrorTag::InstallerEnvironment
-                    }
-                }
-            } else {
-                ErrorTag::InstallerUnknown
-            };
-            error = error.tag([category_tag]);
-
-            for tag in error_detail.tags {
-                error = error.string_tag(&tag);
-            }
-            outcome = Err(error);
-        }
-        (outcome, end)
-    })
     .await?;
     Ok(())
 }
