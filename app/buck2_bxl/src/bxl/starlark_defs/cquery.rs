@@ -237,13 +237,14 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         })?)
     }
 
-    /// The kind query for filtering targets by rule type.
+    /// Filter targets by rule type.
+    /// Returns a subset of `targets` where the rule type matches the specified `regex`. The specified pattern can be a regular expression.
     ///
     /// Sample usage:
     /// ```python
     /// def _impl_kind(ctx):
-    ///     kind = ctx.cquery().kind(".*1", "bin/kind/...")
-    ///     ctx.output.print(kind)
+    ///     kind = ctx.cquery().kind("cpp.*", "bin/libs/...")
+    ///     ctx.output.print(nodes)
     /// ```
     fn kind<'v>(
         this: &StarlarkCQueryCtx<'v>,

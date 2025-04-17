@@ -221,13 +221,14 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             .map(StarlarkFileSet::from)?)
     }
 
-    /// The kind query for filtering targets by rule type.
+    /// Filter targets by rule type.
+    /// Returns a subset of `targets` where the rule type matches the specified `regex`. The specified pattern can be a regular expression.
     ///
     /// Sample usage:
     /// ```python
     /// def _impl_kind(ctx):
-    ///     kind = ctx.uquery().kind(".*1", "bin/kind/...")
-    ///     ctx.output.print(kind)
+    ///     kind = ctx.uquery().kind("cpp.*", "bin/libs/...")
+    ///     ctx.output.print(nodes)
     /// ```
     fn kind<'v>(
         this: &StarlarkUQueryCtx<'v>,
