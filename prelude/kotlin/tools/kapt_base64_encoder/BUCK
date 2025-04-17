@@ -10,8 +10,8 @@ java_bootstrap_library(
     srcs = [
         "com/facebook/kapt/KaptBase64Encoder.java",
     ],
-    source = "8",
-    target = "8",
+    source = "11",
+    target = "11",
 )
 
 java_bootstrap_binary(
