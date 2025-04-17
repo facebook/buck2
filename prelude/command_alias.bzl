@@ -5,53 +5,25 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup", "ScriptLanguage")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 
-def command_alias_impl(ctx: AnalysisContext):
-    target_os = ctx.attrs._target_os_type[OsLookup]
+def command_alias_impl(ctx):
+    target_is_windows = ctx.attrs._target_os_type[OsLookup].os == Os("windows")
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
 
-    if target_os.os == Os("fat_mac_linux"):
-        variants = {
-            "Darwin": _get_os_base(ctx, Os("macos")),
-            "Linux": _get_os_base(ctx, Os("linux")),
-        }
-        return _command_alias_impl_target_unix(ctx, variants, exec_is_windows)
-
-    base = _get_os_base(ctx, target_os.os)
-    if target_os.script == ScriptLanguage("sh"):
-        return _command_alias_impl_target_unix(ctx, base, exec_is_windows)
-    elif target_os.script == ScriptLanguage("bat"):
-        return _command_alias_impl_target_windows(ctx, base, exec_is_windows)
+    if target_is_windows:
+        # If the target is Windows, create a batch file based command wrapper instead
+        return _command_alias_impl_target_windows(ctx, exec_is_windows)
     else:
-        fail("Unsupported script language: {}".format(target_os.script))
+        return _command_alias_impl_target_unix(ctx, exec_is_windows)
 
-def _get_os_base(ctx: AnalysisContext, os: Os) -> RunInfo:
-    exe = ctx.attrs.platform_exe.get(os.value)
-    if exe == None:
-        exe = ctx.attrs.exe
+def _command_alias_impl_target_unix(ctx, exec_is_windows: bool):
+    if ctx.attrs.exe == None:
+        base = RunInfo()
+    else:
+        base = _get_run_info_from_exe(ctx.attrs.exe)
 
-    if exe == None:
-        return RunInfo()
-
-    if isinstance(exe, Artifact):
-        return RunInfo(args = cmd_args(exe))
-
-    run_info = exe.get(RunInfo)
-    if run_info == None:
-        run_info = RunInfo(
-            args = exe[DefaultInfo].default_outputs,
-        )
-
-    return run_info
-
-def _command_alias_impl_target_unix(
-        ctx: AnalysisContext,
-        # Either the `RunInfo` to use, or in the case of a fat platform, the choice of `RunInfo`
-        # depending on `uname`
-        base: RunInfo | dict[str, RunInfo],
-        exec_is_windows: bool) -> list[Provider]:
     trampoline_args = cmd_args()
     trampoline_args.add("#!/usr/bin/env bash")
     trampoline_args.add("set -euo pipefail")
@@ -61,12 +33,17 @@ def _command_alias_impl_target_unix(
         # TODO(akozhevnikov): maybe check environment variable is not conflicting with pre-existing one
         trampoline_args.add(cmd_args(["export ", k, "=", cmd_args(v, quote = "shell")], delimiter = ""))
 
-    if isinstance(base, dict):
+    if len(ctx.attrs.platform_exe.items()) > 0:
         trampoline_args.add('case "$(uname)" in')
-        for uname, run_info in base.items():
-            trampoline_args.add("    {})".format(uname))
-            _add_args_declaration_to_trampoline_args(trampoline_args, run_info, ctx.attrs.args)
-            trampoline_args.add("        ;;")
+        for platform, exe in ctx.attrs.platform_exe.items():
+            # Only linux and macos are supported.
+            if platform == "linux":
+                _add_platform_case_to_trampoline_args(trampoline_args, "Linux", _get_run_info_from_exe(exe), ctx.attrs.args)
+            elif platform == "macos":
+                _add_platform_case_to_trampoline_args(trampoline_args, "Darwin", _get_run_info_from_exe(exe), ctx.attrs.args)
+
+        # Default case
+        _add_platform_case_to_trampoline_args(trampoline_args, "*", base, ctx.attrs.args)
         trampoline_args.add("esac")
     else:
         _add_args_declaration_to_trampoline_args(trampoline_args, base, ctx.attrs.args)
@@ -83,13 +60,7 @@ def _command_alias_impl_target_unix(
 
     run_info_args_args = []
     run_info_args_hidden = []
-
-    # FIXME(JakobDegen): We should not accept `platform_exe` as meaning `run_using_single_arg`, but
-    # there are things that depend on that
-    if ctx.attrs.run_using_single_arg or \
-       len(ctx.attrs.env) > 0 or \
-       isinstance(base, dict) or \
-       len(ctx.attrs.platform_exe) > 0:
+    if ctx.attrs.run_using_single_arg or len(ctx.attrs.env) > 0 or len(ctx.attrs.platform_exe.items()) > 0:
         run_info_args_args.append(trampoline)
         run_info_args_hidden.append(trampoline_args)
     else:
@@ -105,7 +76,16 @@ def _command_alias_impl_target_unix(
         RunInfo(args = run_info_args),
     ]
 
-def _command_alias_impl_target_windows(ctx: AnalysisContext, base: RunInfo, exec_is_windows: bool):
+def _command_alias_impl_target_windows(ctx, exec_is_windows: bool):
+    # If a windows specific exe is specified, take that. Otherwise just use the default exe.
+    windows_exe = ctx.attrs.platform_exe.get("windows")
+    if windows_exe != None:
+        base = _get_run_info_from_exe(windows_exe)
+    elif ctx.attrs.exe != None:
+        base = _get_run_info_from_exe(ctx.attrs.exe)
+    else:
+        base = RunInfo()
+
     trampoline_args = cmd_args()
     trampoline_args.add("@echo off")
 
@@ -162,7 +142,7 @@ def _command_alias_impl_target_windows(ctx: AnalysisContext, base: RunInfo, exec
     ]
 
 def _relativize_path(
-        ctx: AnalysisContext,
+        ctx,
         trampoline_args: cmd_args,
         extension: str,
         var: str,
@@ -209,7 +189,7 @@ def _relativize_path_unix(
     return trampoline
 
 def _relativize_path_windows(
-        ctx: AnalysisContext,
+        ctx,
         extension: str,
         var: str,
         trampoline_args: cmd_args) -> Artifact:
@@ -224,6 +204,11 @@ def _relativize_path_windows(
     trampoline, _ = ctx.actions.write("__command_alias_trampoline.{}".format(extension), trampoline_args, allow_args = True)
 
     return trampoline
+
+def _add_platform_case_to_trampoline_args(trampoline_args: cmd_args, platform_name: str, base: RunInfo, args: list[ArgLike]):
+    trampoline_args.add("    {})".format(platform_name))
+    _add_args_declaration_to_trampoline_args(trampoline_args, base, args)
+    trampoline_args.add("        ;;")
 
 def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: RunInfo, args: list[ArgLike]):
     trampoline_args.add("ARGS=(")
@@ -244,3 +229,15 @@ def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: Ru
     trampoline_args.add('"$@"')
 
     trampoline_args.add(")")
+
+def _get_run_info_from_exe(exe: Dependency | Artifact) -> RunInfo:
+    if isinstance(exe, Artifact):
+        return RunInfo(args = cmd_args(exe))
+
+    run_info = exe.get(RunInfo)
+    if run_info == None:
+        run_info = RunInfo(
+            args = exe[DefaultInfo].default_outputs,
+        )
+
+    return run_info
