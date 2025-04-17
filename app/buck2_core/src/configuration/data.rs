@@ -125,7 +125,8 @@ fn emit_configuration_instant_event(cfg: &ConfigurationData) -> buck2_error::Res
     Ord,
     PartialOrd,
     Allocative,
-    derive_more::Display
+    derive_more::Display,
+    StrongHash
 )]
 pub struct ConfigurationData(Intern<HashedConfigurationPlatform>);
 
@@ -428,6 +429,13 @@ pub(crate) struct HashedConfigurationPlatform {
 #[allow(clippy::derived_hash_with_manual_eq)] // The derived PartialEq is still correct.
 impl std::hash::Hash for HashedConfigurationPlatform {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        self.output_hash.hash(state)
+    }
+}
+
+impl StrongHash for HashedConfigurationPlatform {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        // This is already a strong hash (computed a few lines below).
         self.output_hash.hash(state)
     }
 }

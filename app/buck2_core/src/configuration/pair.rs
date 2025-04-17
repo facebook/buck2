@@ -13,6 +13,7 @@ use dupe::Dupe;
 use once_cell::sync::Lazy;
 use static_interner::Intern;
 use static_interner::Interner;
+use strong_hash::StrongHash;
 
 use crate::configuration::data::ConfigurationData;
 
@@ -23,7 +24,7 @@ enum ConfigurationError {
     HasExecCfg,
 }
 
-#[derive(Debug, Allocative, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Allocative, Hash, Eq, PartialEq, Ord, PartialOrd, StrongHash)]
 struct ConfigurationPairData {
     cfg: ConfigurationData,
     /// Usually this is None, but for toolchain deps where the exec_cfg isn't picked it is set
@@ -32,7 +33,9 @@ struct ConfigurationPairData {
 
 /// Pair of `cfg` and `exec_cfg`.
 /// These two are added to `TargetLabel` to make `ConfiguredTargetLabel`.
-#[derive(Debug, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(
+    Debug, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash
+)]
 pub struct Configuration(Intern<ConfigurationPairData>);
 
 static INTERNER: Interner<ConfigurationPairData, BuckHasher> = Interner::new();
