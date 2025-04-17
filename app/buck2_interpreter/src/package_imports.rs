@@ -19,8 +19,8 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::package::PackageLabel;
 
-use crate::parse_import::parse_import;
 use crate::parse_import::RelativeImports;
+use crate::parse_import::parse_import;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Input)]
