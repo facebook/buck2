@@ -662,8 +662,8 @@ def _create_precompile_cmd(
         _convert_raw_header(ctx, raw_header, include_dirs)
         for raw_header in flatten([x.raw_headers for x in preprocessors])
     ]
-    headers = [
-        header
+    header_paths = [
+        paths.normalize(paths.join(header.namespace, header.name))
         for header in flatten([x.headers for x in preprocessors]) + converted_headers
         if (_is_standalone_header(header) if header_group == None else regex_match(header_group, header.name))
     ]
@@ -683,8 +683,7 @@ import \"{}\";
     )
 
     symlinked_files = {}
-    for header in headers:
-        path = paths.normalize(paths.join(header.namespace, header.name))
+    for path in header_paths:
         symlinked_files[path] = import_stub
 
     modulemap_content = """
@@ -724,12 +723,10 @@ module "{}" {{
             filename_prefix = "export{}_".format(group_name),
         )
 
-    include_args = []
-    for header in headers:
-        include_args.extend(["-include", paths.join(header.namespace, header.name)])
+    include_args = cmd_args(header_paths, format = "-include{}", quote = "shell")
 
     file_name = "{}.header_unit_headers".format(group_name)
-    headers_argsfile, _ = ctx.actions.write(file_name, cmd_args(include_args, quote = "shell"), allow_args = True)
+    headers_argsfile, _ = ctx.actions.write(file_name, include_args, allow_args = True)
 
     args.extend([cmd_args(headers_argsfile, format = "@{}")])
     args.extend(["-xc++-user-header", "-fmodule-header"])
