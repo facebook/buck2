@@ -64,6 +64,7 @@ load(
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:argfile.bzl", "argfile")
+load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:graph_utils.bzl", "post_order_traversal", "pre_order_traversal", "rust_matching_topological_traversal")
 load("@prelude//utils:utils.bzl", "dedupe_by_value")
@@ -1646,7 +1647,7 @@ def _create_merged_link_args(
 def _bolt_libraries(
         ctx: AnalysisContext,
         libraries_by_platform: dict[str, dict[str, SharedLibrary]],
-        bolt_args: dict[str, typing.Any]) -> dict[str, dict[str, SharedLibrary]]:
+        bolt_args: dict[str, ArgLike]) -> dict[str, dict[str, SharedLibrary]]:
     bolted_libraries_by_platform = {}
     for platform, shared_libraries in libraries_by_platform.items():
         cxx_toolchain = ctx.attrs._cxx_toolchain[platform][CxxToolchainInfo]
@@ -1889,7 +1890,7 @@ def _create_bolt_lib(
         cxx_toolchain: CxxToolchainInfo,
         prebolt_lib: SharedLibrary,
         output_path: str,
-        bolt_args: list[typing.Any]) -> SharedLibrary:
+        bolt_args: list[ArgLike]) -> SharedLibrary:
     soname = prebolt_lib.soname.ensure_str()
     bolt_output = ctx.actions.declare_output(output_path)
     action_execution_properties = get_action_execution_attributes(LinkExecutionPreference("any"))
