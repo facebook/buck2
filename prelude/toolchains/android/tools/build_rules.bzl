@@ -183,7 +183,7 @@ def _buck_remote_file_with_wrapper(
         **kwargs):
     if is_oss_build():
         return _oss_remote_file_with_wrapper(name, ext, url, sha1, **kwargs)
-    # @oss-disable[end= ]: else:
+    else:
         # @oss-disable: # deps are managed by Artificer internally - only relevant for OSS builds.
         # @oss-disable[end= ]: kwargs.pop("deps", None)
         # @oss-disable[end= ]: return native.alias(name = name, actual = internal_alias, **kwargs)

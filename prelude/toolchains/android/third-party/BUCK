@@ -851,7 +851,7 @@ third_party_jar(
 
 third_party_jar(
     name = "kotlin-build-tools-api",
-    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/jetbrains/kotlin/kotlin-build-tools-api:kotlin-build-tools-api",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/jetbrains/kotlin/kotlin-build-tools-api:kotlin-build-tools-api__toolchain",
     sha1 = "7898f46131274ac85569ef30f965e3758e217551",
     url = "mvn:org.jetbrains.kotlin:kotlin-build-tools-api:jar:2.0.20",
     visibility = [
@@ -864,7 +864,7 @@ third_party_jar(
 # We need to figure out how to handle JAR patches
 third_party_jar(
     name = "kotlin-build-tools-impl",
-    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/jetbrains/kotlin/kotlin-build-tools-impl:kotlin-build-tools-impl",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/jetbrains/kotlin/kotlin-build-tools-impl:kotlin-build-tools-impl__toolchain",
     sha1 = "39ce8433d2ca26ee627d5baccbe672578df69d49",
     url = "mvn:org.jetbrains.kotlin:kotlin-build-tools-impl:jar:2.0.20",
     visibility = ["PUBLIC"],
@@ -946,7 +946,7 @@ third_party_jar(
 
 third_party_jar(
     name = "symbol-processing-aa-embeddable",
-    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/google/devtools/ksp/symbol-processing-aa-embeddable:symbol-processing-aa-embeddable",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/google/devtools/ksp/symbol-processing-aa-embeddable:symbol-processing-aa-embeddable__toolchain",
     sha1 = "ae333924fd0b5a4d723ef6c6f6eb0954c7f14547",
     url = "mvn:com.google.devtools.ksp:symbol-processing-aa-embeddable:jar:2.0.20-1.0.24",
     visibility = ["PUBLIC"],
