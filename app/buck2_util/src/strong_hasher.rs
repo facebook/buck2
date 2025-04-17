@@ -11,6 +11,7 @@ use std::hash::Hasher;
 
 use strong_hash::StrongHasher;
 
+#[derive(Default)]
 pub struct Blake3StrongHasher(blake3::Hasher);
 
 impl Blake3StrongHasher {

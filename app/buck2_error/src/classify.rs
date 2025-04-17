@@ -380,6 +380,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::StarlarkError => rank!(unspecified),
         ErrorTag::UnexpectedNone => rank!(unspecified),
         ErrorTag::UnusedDefaultTag => rank!(unspecified),
+        ErrorTag::BuildSketchError => rank!(unspecified),
         // Build phases
         ErrorTag::DaemonStateInitFailed => rank!(unspecified),
         ErrorTag::DaemonConnect => rank!(unspecified),

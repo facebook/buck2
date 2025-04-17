@@ -238,6 +238,7 @@ perf-event-open-sys = "4.0"
 pin-project = "0.4.29"
 plist = "1.4.3"
 pretty_assertions = "1.2.1"
+probminhash = { git = "https://github.com/krallin/probminhash", rev = "3d6b7a5315305c2893a7a04e0de9e23b305992c5", default-features = false } # WAITING_FOR_PR https://github.com/jean-pierreBoth/probminhash/pull/4
 proc-macro2 = "1.0"
 prost = "0.12"
 prost-build = "0.12"

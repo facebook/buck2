@@ -10,6 +10,7 @@ version = "0.1.0"
 anyhow = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
+base64 = { workspace = true }
 blake3 = { workspace = true }
 dashmap = { workspace = true }
 derivative = { workspace = true }
@@ -22,12 +23,14 @@ inventory = { workspace = true }
 itertools = { workspace = true }
 linkme = { workspace = true }
 once_cell = { workspace = true }
+probminhash = { workspace = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 smallvec = { workspace = true }
 static_assertions = { workspace = true }
+strong_hash = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 

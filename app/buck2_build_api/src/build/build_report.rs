@@ -122,6 +122,9 @@ pub(crate) struct ConfiguredBuildReportEntry {
     artifact_info: HashMap<Arc<str>, ArtifactInfo>,
     #[serde(flatten)]
     inner: MaybeConfiguredBuildReportEntry,
+    /// The serialized graph sketch for this target, if it was produced.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    configured_graph_sketch: Option<String>,
 }
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
@@ -399,6 +402,11 @@ impl<'a> BuildReportCollector<'a> {
             {
                 configured_report.inner.configured_graph_size =
                     graph_properties.configured_graph_size;
+
+                configured_report.configured_graph_sketch = graph_properties
+                    .configured_graph_sketch
+                    .as_ref()
+                    .map(|s| s.serialize());
             }
         }
         configured_report.errors = self.convert_error_list(&errors, target);
