@@ -56,11 +56,13 @@ use crate::target_aliases::TargetAliasResolver;
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]
 enum TargetPatternParseError {
-    #[error("Expected a `:`, a trailing `/...` or the literal `...`.")]
+    #[error("Expected pattern to contain `:`, trailing `/...` or literal `...`.")]
     UnexpectedFormat,
     #[error("Package is empty")]
     PackageIsEmpty,
-    #[error("Must be absolute, with a `//` or no package just `:`.")]
+    #[error(
+        "Must be absolute. Starting with either `//` for a cell alias or `:` for a relative target."
+    )]
     AbsoluteRequired,
     #[error(
         "Packages may not end with a trailing `/` (except when provided on the command line where it's tolerated)"

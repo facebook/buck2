@@ -20,4 +20,4 @@ Caused by:
           |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
           |
     3: Invalid target pattern `notaproperlabel` is not allowed
-    4: Expected a `:`, a trailing `/...` or the literal `...`.
+    4: Expected pattern to contain `:`, trailing `/...` or literal `...`.
