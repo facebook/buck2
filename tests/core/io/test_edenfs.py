@@ -281,3 +281,15 @@ async def test_edenfs_checkout_dir_changes(buck: Buck) -> None:
         buck.targets("root//:"),
         stderr_regex="Error listing dir `files/d2`",
     )
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_directory_rename(buck: Buck) -> None:
+    (buck.cwd / "d1").mkdir()
+    (buck.cwd / "d1" / "TARGETS.fixture").touch()
+    await buck.targets("root//d1:")
+
+    (buck.cwd / "d1").rename(buck.cwd / "d2")
+    # FIXME(JakobDegen): Bug: This directory doesn't exist.
+    # Note: Also repros with watchman
+    await buck.targets("root//d1:")
