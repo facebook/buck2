@@ -1,7 +1,11 @@
-load("@fbcode//buck2/platform:java_toolchains.bzl", "config_backed_java_toolchain")
-load("@fbcode//buck2/platform:kotlin_toolchains.bzl", "config_backed_kotlin_toolchain")
+# @oss-disable[end= ]: load("@fbcode//buck2/platform:java_toolchains.bzl", "config_backed_java_toolchain")
+# @oss-disable[end= ]: load("@fbcode//buck2/platform:kotlin_toolchains.bzl", "config_backed_kotlin_toolchain")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+load("@prelude//toolchains/android/config/buck_2:oss_toolchains.bzl", "config_backed_java_toolchain", "config_backed_kotlin_toolchain") # @oss-enable
 
 oncall("android_devxx")
+
+source_listing()
 
 config_backed_java_toolchain(
     name = "java_bootstrap",
