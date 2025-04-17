@@ -42,12 +42,12 @@ def _get_merge_index_store_tool(ctx: AnalysisContext) -> RunInfo | None:
         return None
     return apple_toolchain[AppleToolchainInfo].merge_index_store
 
-def _merge_index_store(ctx: AnalysisContext, merge_index_store_tool: RunInfo, index_stores: list[Artifact] | TransitiveSet, merge_output_dir_name: str) -> Artifact:
+def merge_index_store(actions: AnalysisActions, merge_index_store_tool: RunInfo, index_stores: list[Artifact] | TransitiveSet, merge_output_dir_name: str) -> Artifact:
     if isinstance(index_stores, list):
         if len(index_stores) == 1:
             return index_stores[0]
 
-    merged_index_store = ctx.actions.declare_output(merge_output_dir_name)
+    merged_index_store = actions.declare_output(merge_output_dir_name)
 
     cmd = cmd_args([merge_index_store_tool])
     cmd.add(["--dest", merged_index_store.as_output()])
@@ -59,7 +59,7 @@ def _merge_index_store(ctx: AnalysisContext, merge_index_store_tool: RunInfo, in
         txt_args.add(index_stores.project_as_args("args"))
 
     argsfile_path = merge_output_dir_name + ".files.txt"
-    argsfile = ctx.actions.write(argsfile_path, txt_args)
+    argsfile = actions.write(argsfile_path, txt_args)
     argsfile = cmd_args(argsfile, format = "@{}", hidden = txt_args)
 
     cmd.add(["--sources"])
@@ -77,7 +77,7 @@ def _merge_index_store(ctx: AnalysisContext, merge_index_store_tool: RunInfo, in
     #
     # We use `allow_cache_upload` because the output should be
     # deterministic, so we can reuse results from previous runs.
-    ctx.actions.run(cmd, category = "merge_index_store", identifier = merge_output_dir_name, allow_cache_upload = True, prefer_remote = True)
+    actions.run(cmd, category = "merge_index_store", identifier = merge_output_dir_name, allow_cache_upload = True, prefer_remote = True)
     return merged_index_store
 
 def _gather_deps_index_store_tsets(deps: list[Dependency]) -> list[IndexStoreTSet]:
@@ -93,20 +93,20 @@ def create_index_store_subtargets_and_provider(ctx: AnalysisContext, current_tar
 
     if merge_index_store_tool:
         # To create the index store for this target, we merge all the individual file target stores.
-        target_index_store = _merge_index_store(ctx, merge_index_store_tool, current_target_index_stores, paths.join("__indexstore__", ctx.attrs.name, "index_store"))
+        target_index_store = merge_index_store(ctx.actions, merge_index_store_tool, current_target_index_stores, paths.join("__indexstore__", ctx.attrs.name, "index_store"))
 
         # To create the full index store, we need to merge the index store for this target with the
         # index store from all our transitive dependencies.
         index_store_tset = ctx.actions.tset(IndexStoreTSet, value = target_index_store, children = _gather_deps_index_store_tsets(deps))
-        full_index_store = _merge_index_store(ctx, merge_index_store_tool, index_store_tset, paths.join("__indexstore__", ctx.attrs.name, "full_index_stores"))
+        full_index_store = merge_index_store(ctx.actions, merge_index_store_tool, index_store_tset, paths.join("__indexstore__", ctx.attrs.name, "full_index_stores"))
 
         # The index store for all the Swift files in this target.
-        target_swift_index_store = _merge_index_store(ctx, merge_index_store_tool, swift_index_stores, paths.join("__swiftindexstore__", ctx.attrs.name, "swift_index_stores"))
+        target_swift_index_store = merge_index_store(ctx.actions, merge_index_store_tool, swift_index_stores, paths.join("__swiftindexstore__", ctx.attrs.name, "swift_index_stores"))
 
         # The full Swift index index store is created by merging the Swift index store for this target,
         # plus the Swift index store from all our transitive dependencies.
         swift_index_store_tset = ctx.actions.tset(IndexStoreTSet, value = target_swift_index_store, children = _gather_deps_swift_index_store_tsets(deps))
-        full_swift_index_store = _merge_index_store(ctx, merge_index_store_tool, swift_index_store_tset, paths.join("__swiftfullindexstore__", ctx.attrs.name, "full_index_stores"))
+        full_swift_index_store = merge_index_store(ctx.actions, merge_index_store_tool, swift_index_store_tset, paths.join("__swiftfullindexstore__", ctx.attrs.name, "full_index_stores"))
 
         sub_targets = {
             # Create a subtarget foo//bar:baz[full-index-store] that builds and merges
