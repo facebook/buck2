@@ -14,6 +14,7 @@ python_bootstrap_library(
     name = "merge_index_store_lib",
     srcs = ["merge_index_store.py"],
     tests = [":merge_index_store_tests"],
+    visibility = ["PUBLIC"],
 )
 
 meta_python_test(

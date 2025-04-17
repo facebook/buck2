@@ -25,7 +25,7 @@ def parse_arguments() -> Namespace:
     return parser.parse_args()
 
 
-def merge_directories(source: str, destination: str) -> None:
+def merge_directory(source: str, destination: str) -> None:
     if os.path.isdir(source):
         print(f"Merging {source} to {destination}", file=sys.stderr)
         if not source.endswith("/"):
@@ -90,7 +90,7 @@ def main() -> None:
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = [
-            executor.submit(merge_directories, index_dir, destination)
+            executor.submit(merge_directory, index_dir, destination)
             for index_dir in directories
         ]
         for future in as_completed(futures):
