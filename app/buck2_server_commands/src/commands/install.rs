@@ -137,6 +137,10 @@ pub enum InstallError {
     #[error("Incorrect seconds/nanos argument")]
     #[buck2(tier0)]
     NativeDateTime,
+
+    #[error("Timed out after {timeout:?} waiting for installer to {action}")]
+    #[buck2(environment)]
+    RequestTimeout { timeout: Duration, action: String },
 }
 
 async fn get_installer_log_directory(
@@ -372,6 +376,8 @@ struct ConnectedInstaller<'a> {
     install_request_data: &'a InstallRequestData<'a>,
     device_metadata: Arc<Mutex<Vec<DeviceMetadata>>>,
     installer_ready: Instant,
+    timeout: Duration,
+    send_timeout: Duration,
 }
 
 impl<'a> ConnectedInstaller<'a> {
@@ -384,6 +390,9 @@ impl<'a> ConnectedInstaller<'a> {
         let max_delay = Duration::from_millis(500);
         let timeout =
             Duration::from_secs(buck2_env!("BUCK2_INSTALLER_TIMEOUT_S", type=u64)?.unwrap_or(120));
+        let send_timeout = Duration::from_secs(
+            buck2_env!("BUCK2_INSTALLER_SEND_TIMEOUT_S", type=u64)?.unwrap_or(300),
+        );
 
         let client: buck2_error::Result<InstallerClient<Channel>> = span_async_simple(
             buck2_data::ConnectToInstallerStart {
@@ -410,6 +419,8 @@ impl<'a> ConnectedInstaller<'a> {
             install_request_data,
             device_metadata: Arc::new(Mutex::new(Vec::new())),
             installer_ready: Instant::now(),
+            timeout,
+            send_timeout,
         })
     }
 
@@ -459,13 +470,20 @@ impl<'a> ConnectedInstaller<'a> {
                 files: files_map,
             });
 
-            let response_result = self.client.install(install_info_request).await;
+            let response_result =
+                tokio::time::timeout(self.timeout, self.client.install(install_info_request))
+                    .await
+                    .map_err(|_| InstallError::RequestTimeout {
+                        timeout: self.timeout,
+                        action: "send install metadata".to_owned(),
+                    })?;
+
             let install_info_response = match response_result {
                 Ok(r) => r.into_inner(),
-                Err(status) => {
+                Err(e) => {
                     return Err(InstallError::InternalInstallerFailure {
                         install_id: install_id.to_owned(),
-                        err: status.message().to_owned(),
+                        err: e.message().to_owned(),
                     }
                     .into());
                 }
@@ -485,11 +503,17 @@ impl<'a> ConnectedInstaller<'a> {
     }
 
     async fn send_shutdown_command(&self) -> buck2_error::Result<()> {
-        let response_result = self
-            .client
-            .clone()
-            .shutdown_server(tonic::Request::new(ShutdownRequest {}))
-            .await;
+        let response_result = tokio::time::timeout(
+            self.timeout,
+            self.client
+                .clone()
+                .shutdown_server(tonic::Request::new(ShutdownRequest {})),
+        )
+        .await
+        .map_err(|_| InstallError::RequestTimeout {
+            timeout: self.timeout,
+            action: "shutdown".to_owned(),
+        })?;
 
         match response_result {
             Ok(_) => Ok(()),
@@ -562,24 +586,31 @@ impl<'a> ConnectedInstaller<'a> {
             file_path: path.to_string(),
         };
         let end = InstallEventInfoEnd {};
-        let mut client = self.client.clone();
         span_async(start, async {
             let mut outcome: buck2_error::Result<()> = Ok(());
-            let response_result = client.file_ready(request).await;
+
+            let response_result = match tokio::time::timeout(
+                self.send_timeout,
+                self.client.clone().file_ready(request),
+            )
+            .await
+            {
+                Ok(Ok(r)) => Ok(r.into_inner()),
+                Ok(Err(status)) => Err(InstallError::ProcessingFileReadyFailure {
+                    install_id: install_id.to_owned(),
+                    artifact: name.to_owned(),
+                    path: path.to_owned(),
+                    err: status.message().to_owned(),
+                }),
+                Err(_elapsed) => Err(InstallError::RequestTimeout {
+                    timeout: self.send_timeout,
+                    action: format!("process {}", name),
+                }),
+            };
+
             let mut response = match response_result {
-                Ok(r) => r.into_inner(),
-                Err(status) => {
-                    return (
-                        Err(InstallError::ProcessingFileReadyFailure {
-                            install_id: install_id.to_owned(),
-                            artifact: name,
-                            path: path.to_owned(),
-                            err: status.message().to_owned(),
-                        }
-                        .into()),
-                        end,
-                    );
-                }
+                Ok(response) => response,
+                Err(e) => return (Err(e.into()), end),
             };
 
             if response.install_id != install_id {

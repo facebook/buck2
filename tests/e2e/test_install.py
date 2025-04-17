@@ -83,6 +83,19 @@ if linux_only():
         ]
 
     @buck_test(inplace=True)
+    @env("BUCK2_INSTALLER_SEND_TIMEOUT_S", "1")
+    async def test_send_file_timeout(buck: Buck, tmp_path: Path) -> None:
+        await expect_failure(
+            buck.install(
+                "fbcode//buck2/tests/targets/rules/install:installer_single_artifact",
+                "--",
+                "--delay",
+                "30",
+            ),
+            stderr_regex=r"Timed out after 1s waiting for installer to process artifact_a",
+        )
+
+    @buck_test(inplace=True)
     async def test_artifact_fails_to_install(buck: Buck, tmp_path: Path) -> None:
         record_path = tmp_path / "record.json"
         await expect_failure(
