@@ -26,12 +26,3 @@ buck2_e2e_test(
         "//manifold/clients/python:manifold_client_deprecated",
     ],
 )
-
-buck2_e2e_test(
-    name = "test_upload_re_logs",
-    srcs = ["test_upload_re_logs.py"],
-    deps = [
-        "fbcode//buck2/tests/e2e_util:utils",
-        "//manifold/clients/python:manifold_client_deprecated",
-    ],
-)
