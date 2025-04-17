@@ -682,12 +682,10 @@ import \"{}\";
 """.format(module_name),
     )
 
-    modulemap_headers = []
     symlinked_files = {}
     for header in headers:
         path = paths.normalize(paths.join(header.namespace, header.name))
         symlinked_files[path] = import_stub
-        modulemap_headers.append(path)
 
     modulemap_content = """
 module "{}" {{
