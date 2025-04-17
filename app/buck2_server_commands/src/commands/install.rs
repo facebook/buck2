@@ -40,6 +40,7 @@ use buck2_common::client_utils::retrying;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
+use buck2_common::manifold::Ttl;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_core::buck2_env;
@@ -63,7 +64,6 @@ use buck2_data::InstallEventInfoStart;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
-use buck2_error::Tier;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::span_async_simple;
@@ -760,24 +760,17 @@ async fn handle_install_request<'a>(
 
     let mut log_url = None;
 
-    let result = if result
-        .as_ref()
-        .is_err_and(|e| e.get_tier() != Some(Tier::Input))
-    {
-        match upload_installer_logs(&log_path).await {
-            Ok(url) => {
-                let result =
-                    result.map_err(|err| err.context(format!("See installer logs at: {}", url)));
-                log_url = Some(url);
-                result
-            }
-            Err(err) => {
-                let _unused = soft_error!("installer_log_upload_failed", err.clone());
-                result.map_err(|err| err.context(format!("See installer logs at: {}", log_path)))
-            }
+    let result = match upload_installer_logs(&log_path).await {
+        Ok(url) => {
+            let result =
+                result.map_err(|err| err.context(format!("See installer logs at: {}", url)));
+            log_url = Some(url);
+            result
         }
-    } else {
-        result
+        Err(err) => {
+            let _unused = soft_error!("installer_log_upload_failed", err.clone());
+            result.map_err(|err| err.context(format!("See installer logs at: {}", log_path)))
+        }
     };
 
     get_dispatcher().instant_event(buck2_data::InstallFinished {
@@ -793,7 +786,12 @@ async fn upload_installer_logs(log_path: &AbsNormPathBuf) -> buck2_error::Result
     let trace_id: &str = &get_dispatcher().trace_id().to_string();
     let manifold_filename = format!("flat/{}.log", trace_id);
     manifold
-        .upload_file(log_path, manifold_filename, Bucket::INSTALLER_LOGS)
+        .upload_file(
+            log_path,
+            manifold_filename,
+            Bucket::INSTALLER_LOGS,
+            Ttl::from_days(14),
+        )
         .await
 }
 

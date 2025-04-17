@@ -318,9 +318,10 @@ impl ManifoldClient {
         local_path: &AbsPath,
         filename: String,
         bucket: Bucket,
+        ttl: Ttl,
     ) -> buck2_error::Result<String> {
         let mut file = File::open(&local_path).await?;
-        self.read_and_upload(bucket, &filename, Default::default(), &mut file)
+        self.read_and_upload(bucket, &filename, ttl, &mut file)
             .await?;
 
         Ok(manifold_url(&bucket, filename))
