@@ -14,6 +14,7 @@
 #![feature(box_patterns)]
 #![feature(let_chains)]
 #![feature(try_blocks)]
+#![feature(used_with_arg)]
 
 pub mod commands;
 pub mod dot;

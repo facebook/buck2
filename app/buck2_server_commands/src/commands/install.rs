@@ -42,6 +42,7 @@ use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
+use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
@@ -379,10 +380,10 @@ impl<'a> ConnectedInstaller<'a> {
         artifact_fs: ArtifactFs,
         install_request_data: &'a InstallRequestData<'a>,
     ) -> buck2_error::Result<Self> {
-        // These numbers might need to be configured based on the installer
         let initial_delay = Duration::from_millis(100);
         let max_delay = Duration::from_millis(500);
-        let timeout = Duration::from_secs(120);
+        let timeout =
+            Duration::from_secs(buck2_env!("BUCK2_INSTALLER_TIMEOUT_S", type=u64)?.unwrap_or(120));
 
         let client: buck2_error::Result<InstallerClient<Channel>> = span_async_simple(
             buck2_data::ConnectToInstallerStart {
