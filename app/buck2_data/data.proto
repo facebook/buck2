@@ -2161,6 +2161,8 @@ message InvocationRecord {
   uint64 min_attempted_build_count_since_rebase = 98;
   // Metadata about devices installed to by an install command.
   repeated DeviceMetadata install_device_metadata = 99;
+  // Path to uploaded installer log file.
+  optional string installer_log_url = 247;
   // The list of active network devices
   repeated NetworkKind active_networks_kinds = 102;
   // Configuration used during the build command.
@@ -2571,6 +2573,7 @@ message DeviceMetadata {
 message InstallFinished {
   google.protobuf.Duration duration = 1;
   repeated DeviceMetadata device_metadata = 2;
+  optional string log_url = 3;
 }
 
 message SystemInfo {

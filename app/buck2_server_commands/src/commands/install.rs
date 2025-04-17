@@ -757,17 +757,20 @@ async fn handle_install_request<'a>(
         .collect();
     let build_finished = std::cmp::max(installer_ready, artifacts_ready);
     let install_duration = installer_finished - build_finished;
-    get_dispatcher().instant_event(buck2_data::InstallFinished {
-        duration: install_duration.try_into().ok(),
-        device_metadata,
-    });
 
-    if result
+    let mut log_url = None;
+
+    let result = if result
         .as_ref()
         .is_err_and(|e| e.get_tier() != Some(Tier::Input))
     {
         match upload_installer_logs(&log_path).await {
-            Ok(url) => result.map_err(|err| err.context(format!("See installer logs at: {}", url))),
+            Ok(url) => {
+                let result =
+                    result.map_err(|err| err.context(format!("See installer logs at: {}", url)));
+                log_url = Some(url);
+                result
+            }
             Err(err) => {
                 let _unused = soft_error!("installer_log_upload_failed", err.clone());
                 result.map_err(|err| err.context(format!("See installer logs at: {}", log_path)))
@@ -775,7 +778,14 @@ async fn handle_install_request<'a>(
         }
     } else {
         result
-    }
+    };
+
+    get_dispatcher().instant_event(buck2_data::InstallFinished {
+        duration: install_duration.try_into().ok(),
+        device_metadata,
+        log_url,
+    });
+    result
 }
 
 async fn upload_installer_logs(log_path: &AbsNormPathBuf) -> buck2_error::Result<String> {
