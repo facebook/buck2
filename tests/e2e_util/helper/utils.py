@@ -102,6 +102,10 @@ def replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
+def replace_digest(s: str) -> str:
+    return re.sub(r"\b[0-9a-f]{40}:[0-9]{1,3}\b", "<DIGEST>", s)
+
+
 def read_invocation_record(record: Path) -> typing.Dict[str, typing.Any]:
     return json.loads(record.read_text(encoding="utf-8"))["data"]["Record"]["data"][
         "InvocationRecord"

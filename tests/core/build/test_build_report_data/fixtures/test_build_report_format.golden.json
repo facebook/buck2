@@ -1,0 +1,64 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "failures": {},
+  "results": {
+    "root//:rule1": {
+      "configured": {
+        "<unspecified>": {
+          "configured_graph_size": 2,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {
+            "DEFAULT": [
+              "buck-out/v2/gen/root/<HASH>/__rule1__/out.txt"
+            ]
+          },
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": 2,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {
+        "DEFAULT": [
+          "buck-out/v2/gen/root/<HASH>/__rule1__/out.txt"
+        ]
+      },
+      "success": "SUCCESS"
+    },
+    "root//:rule2": {
+      "configured": {
+        "<unspecified>": {
+          "configured_graph_size": 3,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {
+            "DEFAULT": [
+              "buck-out/v2/gen/root/<HASH>/__rule2__/out1.txt"
+            ],
+            "out1": [
+              "buck-out/v2/gen/root/<HASH>/__rule2__/out1.txt"
+            ]
+          },
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": 3,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {
+        "DEFAULT": [
+          "buck-out/v2/gen/root/<HASH>/__rule2__/out1.txt"
+        ],
+        "out1": [
+          "buck-out/v2/gen/root/<HASH>/__rule2__/out1.txt"
+        ]
+      },
+      "success": "SUCCESS"
+    }
+  },
+  "strings": {},
+  "success": true,
+  "truncated": false
+}
