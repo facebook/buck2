@@ -12,7 +12,7 @@ import os
 import sys
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.buck_workspace import buck_test, env, get_mode_from_platform
 from buck2.tests.e2e_util.helper.utils import json_get
 
 from manifold.clients.python.manifold_client_deprecated import Client as ManifoldClient
@@ -31,11 +31,14 @@ async def manifold_exists(path: str) -> bool:
         return client.exists(bucket=BUCKET_CONFIG["bucket"], path=path)
 
 
-@buck_test()
+@buck_test(inplace=True)
 @env("SANDCASTLE", "1")  # wait for logs to finish uploading
 async def test_upload_re_logs(buck: Buck) -> None:
     # Build a trivial action
-    await buck.build("root//:run")
+    await buck.build(
+        "fbcode//buck2/tests/targets/rules/command_alias:print_cwd",
+        get_mode_from_platform(),
+    )
 
     session_id = await extract_re_session_id(buck)
     await buck.debug("upload-re-logs", "--session-id", session_id)
