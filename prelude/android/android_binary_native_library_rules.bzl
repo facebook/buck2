@@ -1646,7 +1646,7 @@ def _create_merged_link_args(
 def _bolt_libraries(
         ctx: AnalysisContext,
         libraries_by_platform: dict[str, dict[str, SharedLibrary]],
-        bolt_args: dict[str, list[str]]) -> dict[str, dict[str, SharedLibrary]]:
+        bolt_args: dict[str, typing.Any]) -> dict[str, dict[str, SharedLibrary]]:
     bolted_libraries_by_platform = {}
     for platform, shared_libraries in libraries_by_platform.items():
         cxx_toolchain = ctx.attrs._cxx_toolchain[platform][CxxToolchainInfo]
@@ -1889,7 +1889,7 @@ def _create_bolt_lib(
         cxx_toolchain: CxxToolchainInfo,
         prebolt_lib: SharedLibrary,
         output_path: str,
-        bolt_args: list[str]) -> SharedLibrary:
+        bolt_args: list[typing.Any]) -> SharedLibrary:
     soname = prebolt_lib.soname.ensure_str()
     bolt_output = ctx.actions.declare_output(output_path)
     action_execution_properties = get_action_execution_attributes(LinkExecutionPreference("any"))
