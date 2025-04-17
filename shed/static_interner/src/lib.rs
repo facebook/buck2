@@ -30,7 +30,6 @@ use dupe::Dupe;
 pub use equivalent::Equivalent;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 use strong_hash::StrongHash;
-use strong_hash::StrongHasher;
 
 pub struct Interner<T: 'static, H = DefaultHasher> {
     table: ShardedLockFreeRawTable<Box<InternedData<T>>, 64>,
@@ -55,7 +54,7 @@ pub struct Intern<T: 'static> {
 }
 
 impl<T: StrongHash> StrongHash for Intern<T> {
-    fn strong_hash<H: StrongHasher>(&self, hasher: &mut H) {
+    fn strong_hash<H: Hasher>(&self, hasher: &mut H) {
         self.pointer.data.strong_hash(hasher);
     }
 }

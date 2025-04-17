@@ -25,7 +25,6 @@ use ref_cast::ref_cast_custom;
 use serde::Serialize;
 use serde::Serializer;
 use strong_hash::StrongHash;
-use strong_hash::StrongHasher;
 use triomphe::ThinArc;
 
 use crate::cells::CellAliasResolver;
@@ -69,7 +68,7 @@ pub struct TargetLabel(
 );
 
 impl StrongHash for TargetLabel {
-    fn strong_hash<H: StrongHasher>(&self, state: &mut H) {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
         self.pkg().strong_hash(state);
         self.name().strong_hash(state);
     }

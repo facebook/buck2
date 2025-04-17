@@ -18,7 +18,6 @@ use equivalent::Equivalent;
 use static_interner::Intern;
 use static_interner::Interner;
 use strong_hash::StrongHash;
-use strong_hash::StrongHasher;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
@@ -38,7 +37,7 @@ impl Hash for CellNameData {
 }
 
 impl StrongHash for CellNameData {
-    fn strong_hash<H: StrongHasher>(&self, state: &mut H) {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
         CellNameDataRef(&self.0).strong_hash(state)
     }
 }

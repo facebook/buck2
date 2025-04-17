@@ -26,7 +26,7 @@ pub fn derive_hash(input: TokenStream) -> TokenStream {
             let members = data.fields.members();
             quote! {
                 impl #impl_generics strong_hash::StrongHash for #name #type_generics #where_clause {
-                    fn strong_hash<H: strong_hash::StrongHasher>(&self, state: &mut H) {
+                    fn strong_hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
                         #(StrongHash::strong_hash(&self.#members, state));*
                     }
                 }
@@ -81,7 +81,7 @@ pub fn derive_hash(input: TokenStream) -> TokenStream {
                 .collect::<Vec<_>>();
             quote! {
                 impl #impl_generics strong_hash::StrongHash for #name #type_generics #where_clause {
-                    fn strong_hash<H: strong_hash::StrongHasher>(&self, state: &mut H) {
+                    fn strong_hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
                         match self {
                             #(#hash_impl),*
                         }
