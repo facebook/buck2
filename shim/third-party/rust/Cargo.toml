@@ -110,7 +110,7 @@ hyper-timeout = "0.4"
 hyper-unix-connector = "0.2"
 indent_write = "2.2.0"
 indenter = "0.3.3"
-indexmap = { version = "2.1.0", features = ["arbitrary", "rayon", "serde"] }
+indexmap = { version = "2.9.0", features = ["arbitrary", "rayon", "serde"] }
 indoc = "1.0.3"
 inferno = { version = "0.11.11", default-features = false }
 internment = { version = "0.7", features = ["arc"] }
@@ -155,6 +155,7 @@ perf-event-open-sys = "4.0"
 pin-project = "0.4.29"
 plist = "0.5"
 pretty_assertions = "1.2.1"
+probminhash = { git = "https://github.com/krallin/probminhash", rev = "3d6b7a5315305c2893a7a04e0de9e23b305992c5", default-features = false } # WAITING_FOR_PR https://github.com/jean-pierreBoth/probminhash/pull/4
 proc-macro2 = { version = "1.0.70", features = ["span-locations"] }
 prost = "0.12"
 prost-build = "0.12"
