@@ -19,6 +19,7 @@ use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::build::build_report::build_report_opts;
 use buck2_build_api::build::build_report::generate_build_report;
+use buck2_build_api::build::graph_properties::GraphPropertiesOptions;
 use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_cli_proto::CommonBuildOptions;
 use buck2_cli_proto::build_request::BuildProviders;
@@ -195,7 +196,9 @@ async fn build(
                 build_opts.fail_fast,
                 MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
                 build_opts.skip_incompatible_targets,
-                want_configured_graph_size,
+                GraphPropertiesOptions {
+                    configured_graph_size: want_configured_graph_size,
+                },
                 timeout_observer.as_ref(),
             )
             .await
@@ -317,7 +320,7 @@ async fn build_targets(
     fail_fast: bool,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
-    want_configured_graph_size: bool,
+    graph_properties: GraphPropertiesOptions,
     timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
 ) -> buck2_error::Result<BuildTargetResult> {
     let stream = match target_resolution_config {
@@ -333,7 +336,7 @@ async fn build_targets(
                 materialization_and_upload,
                 missing_target_behavior,
                 skip_incompatible_targets,
-                want_configured_graph_size,
+                graph_properties,
                 timeout_observer,
             )
             .left_stream()
@@ -344,7 +347,7 @@ async fn build_targets(
             universe,
             build_providers,
             materialization_and_upload,
-            want_configured_graph_size,
+            graph_properties,
             timeout_observer,
         )
         .map(BuildEvent::Configured)
@@ -360,7 +363,7 @@ fn build_targets_in_universe<'a>(
     universe: CqueryUniverse,
     build_providers: Arc<BuildProviders>,
     materialization_and_upload: &'a MaterializationAndUploadContext,
-    want_configured_graph_size: bool,
+    graph_properties: GraphPropertiesOptions,
     timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> impl Stream<Item = ConfiguredBuildEvent> + Unpin + 'a {
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
@@ -383,7 +386,7 @@ fn build_targets_in_universe<'a>(
                     &providers_to_build,
                     build::BuildConfiguredLabelOptions {
                         skippable: false,
-                        want_configured_graph_size,
+                        graph_properties,
                     },
                     timeout_observer,
                 )
@@ -402,7 +405,7 @@ fn build_targets_with_global_target_platform<'a>(
     materialization_and_upload: &'a MaterializationAndUploadContext,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
-    want_configured_graph_size: bool,
+    graph_properties: GraphPropertiesOptions,
     timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> impl Stream<Item = BuildEvent> + Unpin + 'a {
     futures::stream::iter(spec.specs.into_iter().map(move |(package, spec)| {
@@ -415,7 +418,7 @@ fn build_targets_with_global_target_platform<'a>(
             materialization_and_upload,
             missing_target_behavior,
             skip_incompatible_targets,
-            want_configured_graph_size,
+            graph_properties,
             timeout_observer,
         )
         .boxed()
@@ -432,7 +435,7 @@ struct TargetBuildSpec {
     // of something like `//foo/...` we can skip it (for example if it's incompatible with
     // the target platform).
     skippable: bool,
-    want_configured_graph_size: bool,
+    graph_properties: GraphPropertiesOptions,
 }
 
 fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> ProvidersToBuild {
@@ -463,7 +466,7 @@ async fn build_targets_for_spec<'a>(
     materialization_and_upload: &'a MaterializationAndUploadContext,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
-    want_configured_graph_size: bool,
+    graph_properties: GraphPropertiesOptions,
     timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> impl Stream<Item = BuildEvent> + 'a {
     let skippable = match spec {
@@ -529,7 +532,7 @@ async fn build_targets_for_spec<'a>(
             providers: extra.providers,
             global_cfg_options: global_cfg_options.dupe(),
             skippable,
-            want_configured_graph_size,
+            graph_properties,
         })
         .collect();
 
@@ -586,7 +589,7 @@ async fn build_target<'a>(
         providers_to_build,
         build::BuildConfiguredLabelOptions {
             skippable: spec.skippable,
-            want_configured_graph_size: spec.want_configured_graph_size,
+            graph_properties: spec.graph_properties,
         },
         timeout_observer,
     )

@@ -394,10 +394,11 @@ impl<'a> BuildReportCollector<'a> {
 
             errors.extend(result.errors.iter().cloned());
 
-            if let Some(Ok(MaybeCompatible::Compatible(configured_graph_size))) =
-                result.configured_graph_size
+            if let Some(Ok(MaybeCompatible::Compatible(ref graph_properties))) =
+                &result.graph_properties
             {
-                configured_report.inner.configured_graph_size = Some(configured_graph_size);
+                configured_report.inner.configured_graph_size =
+                    graph_properties.configured_graph_size;
             }
         }
         configured_report.errors = self.convert_error_list(&errors, target);

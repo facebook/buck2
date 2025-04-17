@@ -46,6 +46,8 @@ use crate::artifact_groups::ArtifactGroupValues;
 use crate::artifact_groups::ResolvedArtifactGroup;
 use crate::artifact_groups::ResolvedArtifactGroupBuildSignalsKey;
 use crate::artifact_groups::calculation::EnsureTransitiveSetProjectionKey;
+use crate::build::graph_properties::GraphPropertiesOptions;
+use crate::build::graph_properties::GraphPropertiesValues;
 use crate::build_signals::HasBuildSignals;
 use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -59,7 +61,7 @@ use crate::validation::validation_impl::VALIDATION_IMPL;
 
 mod action_error;
 pub mod build_report;
-mod graph_size;
+pub mod graph_properties;
 
 /// The types of provider to build on the configured providers label
 #[derive(Debug, Clone, Dupe, Allocative, PartialEq)]
@@ -75,7 +77,7 @@ pub struct ConfiguredBuildTargetResultGen<T> {
     pub outputs: Vec<T>,
     pub run_args: Option<Vec<String>>,
     pub target_rule_type_name: Option<String>,
-    pub configured_graph_size: Option<buck2_error::Result<MaybeCompatible<u64>>>,
+    pub graph_properties: Option<buck2_error::Result<MaybeCompatible<GraphPropertiesValues>>>,
     pub errors: Vec<buck2_error::Error>,
 }
 
@@ -144,7 +146,7 @@ impl BuildTargetResult {
                             outputs: Vec::new(),
                             run_args,
                             target_rule_type_name: Some(target_rule_type_name),
-                            configured_graph_size: None,
+                            graph_properties: None,
                             errors: Vec::new(),
                         }));
                 }
@@ -177,14 +179,12 @@ impl BuildTargetResult {
                         }
                     }
                 }
-                ConfiguredBuildEventVariant::GraphSize {
-                    configured_graph_size,
-                } => {
+                ConfiguredBuildEventVariant::GraphProperties { graph_properties } => {
                     res.get_mut(label.as_ref())
-                         .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphSize before ConfiguredBuildEventVariant::Prepared for {}", label))?
+                         .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphProperties before ConfiguredBuildEventVariant::Prepared for {}", label))?
                          .as_mut()
-                         .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphSize for a skipped target: `{}`", label))?
-                         .configured_graph_size = Some(configured_graph_size);
+                         .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphProperties for a skipped target: `{}`", label))?
+                         .graph_properties = Some(graph_properties);
                 }
                 ConfiguredBuildEventVariant::Timeout => {
                     res.get_mut(label.as_ref())
@@ -201,7 +201,7 @@ impl BuildTargetResult {
                             outputs: Vec::new(),
                             run_args: None,
                             target_rule_type_name: None,
-                            configured_graph_size: None,
+                            graph_properties: None,
                             errors: Vec::new(),
                         }))
                         .as_mut()
@@ -225,7 +225,7 @@ impl BuildTargetResult {
                         mut outputs,
                         run_args,
                         target_rule_type_name,
-                        configured_graph_size,
+                        graph_properties,
                         errors,
                     } = result;
 
@@ -244,7 +244,7 @@ impl BuildTargetResult {
                             .collect(),
                         run_args,
                         target_rule_type_name,
-                        configured_graph_size,
+                        graph_properties,
                         errors,
                     }
                 });
@@ -285,8 +285,8 @@ pub enum ConfiguredBuildEventVariant {
         target_rule_type_name: String,
     },
     Execution(ConfiguredBuildEventExecutionVariant),
-    GraphSize {
-        configured_graph_size: buck2_error::Result<MaybeCompatible<u64>>,
+    GraphProperties {
+        graph_properties: buck2_error::Result<MaybeCompatible<GraphPropertiesValues>>,
     },
     Error {
         /// An error that can't be associated with a single artifact.
@@ -331,7 +331,7 @@ struct BuildDeadlineExpired;
 #[derive(Copy, Clone, Dupe, Debug)]
 pub struct BuildConfiguredLabelOptions {
     pub skippable: bool,
-    pub want_configured_graph_size: bool,
+    pub graph_properties: GraphPropertiesOptions,
 }
 
 pub async fn build_configured_label<'a>(
@@ -576,18 +576,19 @@ async fn build_configured_label_inner<'a>(
     }))
     .chain(outputs);
 
-    if opts.want_configured_graph_size {
+    if !opts.graph_properties.is_empty() {
         let stream = stream.chain(futures::stream::once(async move {
-            let configured_graph_size =
-                graph_size::get_configured_graph_size(&mut ctx.get(), providers_label.target())
-                    .await
-                    .map_err(|e| e.into());
+            let graph_properties = graph_properties::get_configured_graph_properties(
+                &mut ctx.get(),
+                providers_label.target(),
+                opts.graph_properties,
+            )
+            .await
+            .map_err(|e| e.into());
 
             ConfiguredBuildEvent {
                 label: providers_label,
-                variant: ConfiguredBuildEventVariant::GraphSize {
-                    configured_graph_size,
-                },
+                variant: ConfiguredBuildEventVariant::GraphProperties { graph_properties },
             }
         }));
 

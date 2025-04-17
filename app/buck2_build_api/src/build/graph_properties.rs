@@ -20,6 +20,37 @@ use dice::Key;
 use dupe::Dupe;
 
 #[derive(
+    Copy,
+    Clone,
+    Dupe,
+    derive_more::Display,
+    Debug,
+    Eq,
+    Hash,
+    PartialEq,
+    Allocative,
+    Default
+)]
+pub struct GraphPropertiesOptions {
+    pub configured_graph_size: bool,
+}
+
+impl GraphPropertiesOptions {
+    pub fn is_empty(self) -> bool {
+        let Self {
+            configured_graph_size,
+        } = self;
+
+        !configured_graph_size
+    }
+}
+
+#[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative, Default)]
+pub struct GraphPropertiesValues {
+    pub configured_graph_size: Option<u64>,
+}
+
+#[derive(
     Clone,
     Dupe,
     derive_more::Display,
@@ -29,18 +60,22 @@ use dupe::Dupe;
     PartialEq,
     Allocative
 )]
-struct GraphSizeKey(ConfiguredTargetLabel);
+#[display("GraphPropertiesKey: {} {}", label, properties)]
+struct GraphPropertiesKey {
+    label: ConfiguredTargetLabel,
+    properties: GraphPropertiesOptions,
+}
 
 #[async_trait]
-impl Key for GraphSizeKey {
-    type Value = buck2_error::Result<MaybeCompatible<u64>>;
+impl Key for GraphPropertiesKey {
+    type Value = buck2_error::Result<MaybeCompatible<GraphPropertiesValues>>;
 
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> Self::Value {
-        let configured_node = ctx.get_configured_target_node(&self.0).await?;
+        let configured_node = ctx.get_configured_target_node(&self.label).await?;
 
         Ok(configured_node.map(|node| {
             let mut queue = vec![&node];
@@ -53,7 +88,9 @@ impl Key for GraphSizeKey {
                 queue.extend(item.deps());
             }
 
-            visited.len() as _
+            GraphPropertiesValues {
+                configured_graph_size: Some(visited.len() as _),
+            }
         }))
     }
 
@@ -66,9 +103,14 @@ impl Key for GraphSizeKey {
 }
 
 /// Returns the total graph size for all dependencies of a target.
-pub async fn get_configured_graph_size(
+pub async fn get_configured_graph_properties(
     ctx: &mut DiceComputations<'_>,
-    key: &ConfiguredTargetLabel,
-) -> buck2_error::Result<MaybeCompatible<u64>> {
-    ctx.compute(&GraphSizeKey(key.dupe())).await?
+    label: &ConfiguredTargetLabel,
+    properties: GraphPropertiesOptions,
+) -> buck2_error::Result<MaybeCompatible<GraphPropertiesValues>> {
+    ctx.compute(&GraphPropertiesKey {
+        label: label.dupe(),
+        properties,
+    })
+    .await?
 }

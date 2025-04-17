@@ -218,7 +218,7 @@ pub(crate) fn build<'v>(
                                     }, // TODO support skipping/configuring?
                                     BuildConfiguredLabelOptions {
                                         skippable: false,
-                                        want_configured_graph_size: false,
+                                        graph_properties: Default::default(),
                                     },
                                     None, // TODO: support timeouts?
                                 )

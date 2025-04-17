@@ -1111,7 +1111,7 @@ async fn build_target_result(
                 },
                 BuildConfiguredLabelOptions {
                     skippable: false,
-                    want_configured_graph_size: false,
+                    graph_properties: Default::default(),
                 },
                 None, // TODO: is this right?
             )

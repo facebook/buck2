@@ -170,8 +170,8 @@ impl<'a> ResultReporter<'a> {
         let target = label.unconfigured().to_string();
         let configuration = label.cfg().to_string();
 
-        let configured_graph_size = match &result.configured_graph_size {
-            Some(Ok(MaybeCompatible::Compatible(v))) => Some(*v),
+        let configured_graph_size = match &result.graph_properties {
+            Some(Ok(MaybeCompatible::Compatible(v))) => v.configured_graph_size,
             Some(Ok(MaybeCompatible::Incompatible(..))) => None,
             Some(Err(e)) => {
                 // We don't expect an error on this unless something else on this target
