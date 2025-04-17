@@ -17,6 +17,7 @@ def inspect_default(ctx: bxl.Context, _actions: AnalysisActions, target: bxl.Con
     attrs = target.attrs_lazy()
     labels = attrs.get("labels").value() if attrs.get("labels") else []
     env = attrs.get("env").value() if attrs.get("env") else {}
+    configured_env = configure_env(env, labels)
 
     return ExecInfo(
         target_name = target_name(settings.target),
@@ -24,6 +25,7 @@ def inspect_default(ctx: bxl.Context, _actions: AnalysisActions, target: bxl.Con
         data = TargetExtraInfo(
             exec_info_version = 1,
             debugger = "fdb:debugger:default",
-            env = configure_env(env, labels),
+            env = configured_env.env,
         ),
+        messages = configured_env.messages,
     )

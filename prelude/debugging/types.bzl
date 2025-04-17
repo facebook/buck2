@@ -83,9 +83,15 @@ TargetExtraInfo = record(
     java = field([JavaInfo, None], default = None),
 )
 
+UserMessage = record(
+    title = field(str),
+    body = field(str),
+)
+
 # Full BXL response data structure understood by debugging tool
 ExecInfo = record(
     target_name = field(str),
     target_info = field(TargetInfo),
     data = field([TargetExtraInfo, None], default = None),
+    messages = field(list[UserMessage], default = []),
 )
