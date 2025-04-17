@@ -42,7 +42,7 @@ def _main(ctx: bxl.Context):
     buckets_to_artifacts = _hash_bucket_index_stores(index_stores)
 
     for bucket, index_stores in buckets_to_artifacts.items():
-        if len(index_stores) == 0:
+        if not index_stores:
             continue
         merged_buck_index_store = merge_index_store(bxl_actions.actions, merge_tool, index_stores, "merge_bucket/{}/index_store".format(bucket))
 
