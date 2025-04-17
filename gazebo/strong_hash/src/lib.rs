@@ -13,6 +13,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
+use ref_cast::RefCast;
 pub use strong_hash_derive::StrongHash;
 
 /// `StrongHasher` is a trait for hashing functions that return more than 64
@@ -198,5 +199,75 @@ impl<K: StrongHash, V: StrongHash> StrongHash for HashMap<K, V> {
 impl StrongHash for *const () {
     fn strong_hash<H: Hasher>(&self, state: &mut H) {
         (*self as usize).strong_hash(state);
+    }
+}
+
+/// A wrapper can be used to implement `Hash` using the inner type's `StrongHash`.
+#[derive(RefCast)]
+#[repr(transparent)]
+pub struct UseStrongHashing<T: ?Sized>(pub T);
+
+impl<T> Hash for UseStrongHashing<T>
+where
+    T: ?Sized + StrongHash,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.strong_hash(state);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    struct TestHashable {
+        hash: u64,
+        strong_hash: u64,
+    }
+
+    impl Hash for TestHashable {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            self.hash.hash(state);
+        }
+    }
+
+    impl StrongHash for TestHashable {
+        fn strong_hash<H: Hasher>(&self, state: &mut H) {
+            self.strong_hash.strong_hash(state);
+        }
+    }
+
+    fn hash<T: Hash>(t: &T) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        t.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    fn strong_hash<T: StrongHash>(t: &T) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        t.strong_hash(&mut hasher);
+        hasher.finish()
+    }
+
+    #[test]
+    fn test_use_strong_hashing() {
+        let x = TestHashable {
+            hash: 1,
+            strong_hash: 2,
+        };
+
+        let y = TestHashable {
+            hash: 1,
+            strong_hash: 3,
+        };
+
+        assert_eq!(hash(&x), hash(&y));
+
+        assert_eq!(strong_hash(&x), hash(UseStrongHashing::ref_cast(&x)));
+
+        assert_ne!(
+            hash(UseStrongHashing::ref_cast(&x)),
+            hash(UseStrongHashing::ref_cast(&y))
+        );
     }
 }

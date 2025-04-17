@@ -6,6 +6,7 @@ rust_library(
     name = "strong_hash",
     srcs = glob(["src/**/*.rs"]),
     deps = [
+        "fbsource//third-party/rust:ref-cast",
         "//buck2/gazebo/strong_hash_derive:strong_hash_derive",
     ],
 )
