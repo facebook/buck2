@@ -163,7 +163,6 @@ pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
 // Get directory differences between two revisions. If second is None, then it is the working copy.
 // Limit the number of results to limit_results. If the number of results is greater than
 // limit_results return TooManyResults.
-#[allow(unused)]
 pub(crate) async fn get_dir_diff<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
     current_dir: D,
     first: F,

@@ -276,11 +276,20 @@ async def test_edenfs_checkout_dir_changes(buck: Buck) -> None:
 
     await buck.targets("root//:")
     subprocess.run(["sl", "co", f1], cwd=buck.cwd)
-    # this is a bug, we should report that d2 was deleted
-    await expect_failure(
-        buck.targets("root//:"),
-        stderr_regex="Error listing dir `files/d2`",
-    )
+    is_fresh_instance, results = await get_file_watcher_events(buck)
+    required = [
+        FileWatcherEvent(
+            FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/d2/f2"
+        ),
+        FileWatcherEvent(
+            FileWatcherEventType.DELETE, FileWatcherKind.DIRECTORY, "root//files/d2"
+        ),
+        FileWatcherEvent(
+            FileWatcherEventType.MODIFY, FileWatcherKind.DIRECTORY, "root//files"
+        ),
+    ]
+    assert not is_fresh_instance
+    verify_results(results, required)
 
 
 @buck_test(setup_eden=True)

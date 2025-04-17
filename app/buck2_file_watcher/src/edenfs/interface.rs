@@ -48,6 +48,7 @@ use tracing::warn;
 use crate::edenfs::sapling::MergebaseDetails;
 use crate::edenfs::sapling::SaplingGetStatusResult;
 use crate::edenfs::sapling::SaplingStatus;
+use crate::edenfs::sapling::get_dir_diff;
 use crate::edenfs::sapling::get_mergebase;
 use crate::edenfs::sapling::get_status;
 use crate::edenfs::utils::bytes_to_string_or_unknown;
@@ -471,7 +472,25 @@ impl EdenFsFileWatcher {
         from: &str,
         to: Option<&str>,
     ) -> buck2_error::Result<ProcessChangeStatus> {
-        self.process_sapling_status(tracker, stats, from, to).await
+        // `sl status` only reports added/removed/modified files, not directories.
+        // we use `sl debugdiffdirs` to get changes for directories
+        if self
+            .process_sapling_status(tracker, stats, from, to)
+            .await?
+            == ProcessChangeStatus::LargeOrUnknown
+        {
+            return Ok(ProcessChangeStatus::LargeOrUnknown);
+        }
+
+        if self
+            .process_sapling_diffdirs(tracker, stats, from, to)
+            .await?
+            == ProcessChangeStatus::LargeOrUnknown
+        {
+            return Ok(ProcessChangeStatus::LargeOrUnknown);
+        }
+
+        Ok(ProcessChangeStatus::Processed)
     }
 
     async fn process_sapling_status(
@@ -525,6 +544,61 @@ impl EdenFsFileWatcher {
                 results
                     .map(|_| ProcessChangeStatus::Processed)
                     .buck_error_context("Failed to process Sapling statuses.")
+            }
+        }
+    }
+
+    async fn process_sapling_diffdirs(
+        &self,
+        tracker: &mut FileChangeTracker,
+        stats: &mut FileWatcherStats,
+        from: &str,
+        to: Option<&str>,
+    ) -> buck2_error::Result<ProcessChangeStatus> {
+        // limit results to MAX_SAPLING_STATUS_CHANGES
+        match get_dir_diff(&self.eden_root, &from, to, MAX_SAPLING_STATUS_CHANGES)
+            .await
+            .buck_error_context("Failed to get Sapling debugdiffdirs.")?
+        {
+            SaplingGetStatusResult::TooManyChanges => Ok(ProcessChangeStatus::LargeOrUnknown),
+            SaplingGetStatusResult::Normal(status) => {
+                // Process statuses - if any fail, will terminate early.
+                let results: buck2_error::Result<Vec<_>> = status
+                    .into_iter()
+                    .map(|(change, path)| match change {
+                        SaplingStatus::Added
+                        | SaplingStatus::NotTracked
+                        | SaplingStatus::Copied
+                        | SaplingStatus::Ignored => self.process_file_watcher_event(
+                            tracker,
+                            stats,
+                            Kind::Directory,
+                            Type::Create,
+                            path.as_bytes(),
+                        ),
+                        SaplingStatus::Modified => self.process_file_watcher_event(
+                            tracker,
+                            stats,
+                            Kind::Directory,
+                            Type::Modify,
+                            path.as_bytes(),
+                        ),
+                        SaplingStatus::Removed | SaplingStatus::Missing | SaplingStatus::Clean => {
+                            self.process_file_watcher_event(
+                                tracker,
+                                stats,
+                                Kind::Directory,
+                                Type::Delete,
+                                path.as_bytes(),
+                            )
+                        }
+                    })
+                    .collect();
+
+                // Return false indicating no large change.
+                results
+                    .map(|_| ProcessChangeStatus::Processed)
+                    .buck_error_context("Failed to process Sapling dir diffs.")
             }
         }
     }
