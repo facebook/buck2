@@ -33,9 +33,7 @@ use dupe::IterDupedExt;
 use dupe::OptionDupedExt;
 use futures::FutureExt;
 use futures::future::Either;
-use futures::stream::BoxStream;
 use futures::stream::FuturesUnordered;
-use futures::stream::Stream;
 use futures::stream::StreamExt;
 use itertools::Itertools;
 use starlark::collections::SmallSet;
@@ -363,19 +361,6 @@ impl BuildTargetResult {
     pub fn is_empty(&self) -> bool {
         self.configured.is_empty() && self.other_errors.is_empty()
     }
-
-    pub async fn collect_stream(
-        mut stream: impl Stream<Item = BuildEvent> + Unpin,
-        fail_fast: bool,
-    ) -> buck2_error::Result<Self> {
-        let (builder, event_sender) = AsyncBuildTargetResultBuilder::new();
-        let forwarder = async move {
-            while let Some(event) = stream.next().await {
-                event_sender.consume(event);
-            }
-        };
-        builder.wait_for(fail_fast, forwarder).await
-    }
 }
 
 pub enum ConfiguredBuildEventExecutionVariant {
@@ -450,16 +435,18 @@ pub struct BuildConfiguredLabelOptions {
     pub graph_properties: GraphPropertiesOptions,
 }
 
-pub async fn build_configured_label<'a>(
-    ctx: &'a LinearRecomputeDiceComputations<'_>,
-    materialization_and_upload: &'a MaterializationAndUploadContext,
+pub async fn build_configured_label(
+    event_consumer: &dyn BuildEventConsumer,
+    ctx: &LinearRecomputeDiceComputations<'_>,
+    materialization_and_upload: &MaterializationAndUploadContext,
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
-    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
-) -> BoxStream<'a, ConfiguredBuildEvent> {
+    timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
+) {
     let providers_label = Arc::new(providers_label);
-    build_configured_label_inner(
+    if let Err(e) = build_configured_label_inner(
+        event_consumer,
         ctx,
         materialization_and_upload,
         providers_label.dupe(),
@@ -468,23 +455,23 @@ pub async fn build_configured_label<'a>(
         timeout_observer,
     )
     .await
-    .unwrap_or_else(|e| {
-        futures::stream::once(futures::future::ready(ConfiguredBuildEvent {
+    {
+        event_consumer.consume_configured(ConfiguredBuildEvent {
             label: providers_label,
             variant: ConfiguredBuildEventVariant::Error { err: e.into() },
-        }))
-        .boxed()
-    })
+        });
+    }
 }
 
 async fn build_configured_label_inner<'a>(
+    event_consumer: &dyn BuildEventConsumer,
     ctx: &'a LinearRecomputeDiceComputations<'_>,
     materialization_and_upload: &'a MaterializationAndUploadContext,
     providers_label: Arc<ConfiguredProvidersLabel>,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
     timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
-) -> buck2_error::Result<BoxStream<'a, ConfiguredBuildEvent>> {
+) -> buck2_error::Result<()> {
     let artifact_fs = ctx.get().get_artifact_fs().await?;
 
     let outputs = match get_outputs_for_top_level_target(
@@ -495,17 +482,15 @@ async fn build_configured_label_inner<'a>(
     .await?
     {
         MaybeCompatible::Incompatible(reason) => {
-            return if opts.skippable {
+            if opts.skippable {
                 tracing::debug!("{}", reason.skipping_message(providers_label.target()));
-                Ok(
-                    futures::stream::once(futures::future::ready(ConfiguredBuildEvent {
-                        label: providers_label.dupe(),
-                        variant: ConfiguredBuildEventVariant::SkippedIncompatible,
-                    }))
-                    .boxed(),
-                )
+                event_consumer.consume_configured(ConfiguredBuildEvent {
+                    label: providers_label.dupe(),
+                    variant: ConfiguredBuildEventVariant::SkippedIncompatible,
+                });
+                return Ok(());
             } else {
-                Err(reason.to_err().into())
+                return Err(reason.to_err().into());
             };
         }
         MaybeCompatible::Compatible(v) => v,
@@ -584,7 +569,7 @@ async fn build_configured_label_inner<'a>(
         ));
     }
 
-    let mut outputs = outputs
+    let mut outputs: Vec<_> = outputs
         .iter()
         .duped()
         .enumerate()
@@ -609,7 +594,7 @@ async fn build_configured_label_inner<'a>(
                 })
             }
         })
-        .collect::<Vec<_>>();
+        .collect();
 
     let validation_result = {
         let validation_impl = VALIDATION_IMPL.get()?;
@@ -625,64 +610,57 @@ async fn build_configured_label_inner<'a>(
 
     outputs.push(validation_result);
 
-    let outputs = outputs
-        .into_iter()
-        .map(|build| {
-            let providers_label = providers_label.dupe();
-            async move {
-                let build = build.map(ConfiguredBuildEventVariant::Execution);
-
-                let variant = match timeout_observer {
-                    Some(timeout_observer) => {
-                        let alive = timeout_observer
-                            .while_alive()
-                            .map(|()| ConfiguredBuildEventVariant::Timeout);
-                        futures::pin_mut!(alive);
-                        futures::pin_mut!(build);
-                        futures::future::select(alive, build)
-                            .map(|r| r.factor_first().0)
-                            .await
-                    }
-                    None => build.await,
-                };
-
-                ConfiguredBuildEvent {
-                    label: providers_label.dupe(),
-                    variant,
-                }
-            }
-        })
-        .collect::<FuturesUnordered<_>>();
-
-    let stream = futures::stream::once(futures::future::ready(ConfiguredBuildEvent {
+    event_consumer.consume_configured(ConfiguredBuildEvent {
         label: providers_label.dupe(),
         variant: ConfiguredBuildEventVariant::Prepared {
             run_args,
             target_rule_type_name,
         },
-    }))
-    .chain(outputs);
+    });
+
+    let mut outputs: FuturesUnordered<_> = outputs
+        .into_iter()
+        .map(|build| async move {
+            let build = build.map(ConfiguredBuildEventVariant::Execution);
+            match timeout_observer {
+                Some(timeout_observer) => {
+                    let alive = timeout_observer
+                        .while_alive()
+                        .map(|()| ConfiguredBuildEventVariant::Timeout);
+                    futures::pin_mut!(alive);
+                    futures::pin_mut!(build);
+                    futures::future::select(alive, build)
+                        .map(|r| r.factor_first().0)
+                        .await
+                }
+                None => build.await,
+            }
+        })
+        .collect();
+
+    while let Some(variant) = outputs.next().await {
+        event_consumer.consume_configured(ConfiguredBuildEvent {
+            label: providers_label.dupe(),
+            variant,
+        })
+    }
 
     if !opts.graph_properties.is_empty() {
-        let stream = stream.chain(futures::stream::once(async move {
-            let graph_properties = graph_properties::get_configured_graph_properties(
-                &mut ctx.get(),
-                providers_label.target(),
-                opts.graph_properties,
-            )
-            .await
-            .map_err(|e| e.into());
+        let graph_properties = graph_properties::get_configured_graph_properties(
+            &mut ctx.get(),
+            providers_label.target(),
+            opts.graph_properties,
+        )
+        .await
+        .map_err(|e| e.into());
 
-            ConfiguredBuildEvent {
-                label: providers_label,
-                variant: ConfiguredBuildEventVariant::GraphProperties { graph_properties },
-            }
-        }));
-
-        Ok(stream.boxed())
-    } else {
-        Ok(stream.boxed())
+        event_consumer.consume_configured(ConfiguredBuildEvent {
+            label: providers_label,
+            variant: ConfiguredBuildEventVariant::GraphProperties { graph_properties },
+        });
     }
+
+    Ok(())
 }
 
 #[derive(Clone, Allocative)]

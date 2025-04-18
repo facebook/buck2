@@ -18,9 +18,11 @@ use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::actions::calculation::get_target_rule_type_name;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::build::AsyncBuildTargetResultBuilder;
 use buck2_build_api::build::BuildConfiguredLabelOptions;
 use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildTargetResult;
+use buck2_build_api::build::BuildTargetResultBuilder;
 use buck2_build_api::build::ConfiguredBuildEventVariant;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::build::build_configured_label;
@@ -658,10 +660,11 @@ async fn test_targets(
                     .context("Failed to release local resources")?;
 
                 // Process the build errors we've collected.
-                let error_stream = futures::stream::iter(driver.error_events);
-                let error_target_result = BuildTargetResult::collect_stream(error_stream, false)
-                    .await
-                    .buck_error_context_anyhow("Failed to collect error events")?;
+                let mut builder = BuildTargetResultBuilder::new();
+                for event in driver.error_events {
+                    builder.event(event)?;
+                }
+                let error_target_result = builder.build();
 
                 driver.build_target_result.extend(error_target_result);
 
@@ -1099,26 +1102,29 @@ async fn build_target_result(
                 return Ok((BuildTargetResult::new(), providers));
             }
             let materialization_and_upload = MaterializationAndUploadContext::skip();
-            let stream = build_configured_label(
-                &ctx,
-                &materialization_and_upload,
-                label,
-                &ProvidersToBuild {
-                    default: false,
-                    default_other: false,
-                    run: false,
-                    tests: true,
-                },
-                BuildConfiguredLabelOptions {
-                    skippable: false,
-                    graph_properties: Default::default(),
-                },
-                None, // TODO: is this right?
-            )
-            .await
-            .map(BuildEvent::Configured);
-
-            BuildTargetResult::collect_stream(stream, false).await?
+            let (result_builder, consumer) = AsyncBuildTargetResultBuilder::new();
+            result_builder
+                .wait_for(
+                    false,
+                    build_configured_label(
+                        &consumer,
+                        &ctx,
+                        &materialization_and_upload,
+                        label,
+                        &ProvidersToBuild {
+                            default: false,
+                            default_other: false,
+                            run: false,
+                            tests: true,
+                        },
+                        BuildConfiguredLabelOptions {
+                            skippable: false,
+                            graph_properties: Default::default(),
+                        },
+                        None, // TODO: is this right?
+                    ),
+                )
+                .await?
         }
         None => {
             // not a test

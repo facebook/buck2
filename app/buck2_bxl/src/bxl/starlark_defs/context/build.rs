@@ -12,10 +12,8 @@
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_build_api::build::AsyncBuildTargetResultBuilder;
 use buck2_build_api::build::BuildConfiguredLabelOptions;
-use buck2_build_api::build::BuildEvent;
-use buck2_build_api::build::BuildTargetResult;
-use buck2_build_api::build::ConfiguredBuildEvent;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::build::build_configured_label;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
@@ -27,7 +25,6 @@ use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProv
 use derive_more::Display;
 use dupe::Dupe;
 use futures::FutureExt;
-use futures::StreamExt;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -200,49 +197,43 @@ pub(crate) fn build<'v>(
                 )
                 .await?;
 
-                let per_spec_results: Vec<Vec<ConfiguredBuildEvent>> = dice
-                    .compute_join(build_spec.labels().unique(), |ctx, target| {
-                        async move {
-                            let target = target.clone();
+                let (result_builder, consumer) = AsyncBuildTargetResultBuilder::new();
+                result_builder
+                    .wait_for(
+                        // TODO (torozco): support --fail-fast in BXL.
+                        false,
+                        dice.compute_join(build_spec.labels().unique(), |ctx, target| {
+                            let consumer = consumer.clone();
+                            async move {
+                                let target = target.clone();
 
-                            ctx.with_linear_recompute(|ctx| async move {
-                                build_configured_label(
-                                    &ctx,
-                                    &(materializations, uploads).into(),
-                                    target,
-                                    &ProvidersToBuild {
-                                        default: true,
-                                        default_other: true,
-                                        run: true,
-                                        tests: true,
-                                    }, // TODO support skipping/configuring?
-                                    BuildConfiguredLabelOptions {
-                                        skippable: false,
-                                        graph_properties: Default::default(),
-                                    },
-                                    None, // TODO: support timeouts?
-                                )
+                                ctx.with_linear_recompute(|ctx| async move {
+                                    build_configured_label(
+                                        &consumer,
+                                        &ctx,
+                                        &(materializations, uploads).into(),
+                                        target,
+                                        &ProvidersToBuild {
+                                            default: true,
+                                            default_other: true,
+                                            run: true,
+                                            tests: true,
+                                        }, // TODO support skipping/configuring?
+                                        BuildConfiguredLabelOptions {
+                                            skippable: false,
+                                            graph_properties: Default::default(),
+                                        },
+                                        None, // TODO: support timeouts?
+                                    )
+                                    .await
+                                })
                                 .await
-                                .collect::<Vec<_>>()
-                                .await
-                            })
-                            .await
-                        }
-                        .boxed()
-                    })
-                    .await;
-
-                // TODO (torozco): support --fail-fast in BXL.
-                BuildTargetResult::collect_stream(
-                    futures::stream::iter(
-                        per_spec_results
-                            .into_iter()
-                            .flatten()
-                            .map(BuildEvent::Configured),
-                    ),
-                    false,
-                )
-                .await
+                            }
+                            .boxed()
+                        })
+                        .map(|_| ()),
+                    )
+                    .await
             }
             .boxed_local()
         })

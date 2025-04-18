@@ -12,9 +12,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::build;
+use buck2_build_api::build::AsyncBuildTargetResultBuilder;
 use buck2_build_api::build::BuildEvent;
+use buck2_build_api::build::BuildEventConsumer;
 use buck2_build_api::build::BuildTargetResult;
-use buck2_build_api::build::ConfiguredBuildEvent;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::build::build_report::build_report_opts;
@@ -62,7 +63,6 @@ use dice::DiceTransaction;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 use futures::future::FutureExt;
-use futures::stream::Stream;
 use futures::stream::StreamExt;
 use futures::stream::futures_unordered::FuturesUnordered;
 use itertools::Either;
@@ -335,12 +335,14 @@ async fn build_targets(
     graph_properties: GraphPropertiesOptions,
     timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
 ) -> buck2_error::Result<BuildTargetResult> {
-    let stream = match target_resolution_config {
+    let (builder, consumer) = AsyncBuildTargetResultBuilder::new();
+    let fut = match target_resolution_config {
         TargetResolutionConfig::Default(global_cfg_options) => {
             let spec = spec.convert_pattern().buck_error_context(
                 "Targets with explicit configuration can only be built when the `--target-universe=` flag is provided",
             )?;
             build_targets_with_global_target_platform(
+                &consumer,
                 ctx,
                 spec,
                 global_cfg_options,
@@ -351,9 +353,10 @@ async fn build_targets(
                 graph_properties,
                 timeout_observer,
             )
-            .left_stream()
+            .left_future()
         }
         TargetResolutionConfig::Universe(universe) => build_targets_in_universe(
+            &consumer,
             ctx,
             spec,
             universe,
@@ -362,22 +365,22 @@ async fn build_targets(
             graph_properties,
             timeout_observer,
         )
-        .map(BuildEvent::Configured)
-        .right_stream(),
+        .right_future(),
     };
 
-    BuildTargetResult::collect_stream(stream, fail_fast).await
+    builder.wait_for(fail_fast, fut).await
 }
 
-fn build_targets_in_universe<'a>(
-    ctx: &'a LinearRecomputeDiceComputations,
+async fn build_targets_in_universe(
+    event_consumer: &dyn BuildEventConsumer,
+    ctx: &LinearRecomputeDiceComputations<'_>,
     spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     universe: CqueryUniverse,
     build_providers: Arc<BuildProviders>,
-    materialization_and_upload: &'a MaterializationAndUploadContext,
+    materialization_and_upload: &MaterializationAndUploadContext,
     graph_properties: GraphPropertiesOptions,
-    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
-) -> impl Stream<Item = ConfiguredBuildEvent> + Unpin + 'a {
+    timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
+) {
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
     let provider_labels = universe.get_provider_labels(&spec);
     if provider_labels.is_empty() {
@@ -392,6 +395,7 @@ fn build_targets_in_universe<'a>(
             let providers_to_build = providers_to_build.clone();
             async move {
                 build::build_configured_label(
+                    event_consumer,
                     ctx,
                     materialization_and_upload,
                     p,
@@ -406,10 +410,12 @@ fn build_targets_in_universe<'a>(
             }
         })
         .collect::<FuturesUnordered<_>>()
-        .flatten_unordered(None)
+        .collect()
+        .await
 }
 
-fn build_targets_with_global_target_platform<'a>(
+async fn build_targets_with_global_target_platform<'a>(
+    event_consumer: &'a dyn BuildEventConsumer,
     ctx: &'a LinearRecomputeDiceComputations<'_>,
     spec: ResolvedPattern<ProvidersPatternExtra>,
     global_cfg_options: GlobalCfgOptions,
@@ -419,24 +425,30 @@ fn build_targets_with_global_target_platform<'a>(
     skip_incompatible_targets: bool,
     graph_properties: GraphPropertiesOptions,
     timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
-) -> impl Stream<Item = BuildEvent> + Unpin + 'a {
-    futures::stream::iter(spec.specs.into_iter().map(move |(package, spec)| {
-        build_targets_for_spec(
-            ctx,
-            spec,
-            package,
-            global_cfg_options.dupe(),
-            build_providers.dupe(),
-            materialization_and_upload,
-            missing_target_behavior,
-            skip_incompatible_targets,
-            graph_properties,
-            timeout_observer,
-        )
-        .boxed()
-        .flatten_stream()
-    }))
-    .flatten_unordered(None)
+) {
+    let global_cfg_options = &global_cfg_options;
+    let build_providers = &build_providers;
+    spec.specs
+        .into_iter()
+        .map(move |(package, spec)| async move {
+            build_targets_for_spec(
+                event_consumer,
+                ctx,
+                spec,
+                package,
+                global_cfg_options.dupe(),
+                build_providers.dupe(),
+                materialization_and_upload,
+                missing_target_behavior,
+                skip_incompatible_targets,
+                graph_properties,
+                timeout_observer,
+            )
+            .await
+        })
+        .collect::<FuturesUnordered<_>>()
+        .collect()
+        .await
 }
 
 struct TargetBuildSpec {
@@ -469,18 +481,19 @@ fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> Pr
     providers_to_build
 }
 
-async fn build_targets_for_spec<'a>(
-    ctx: &'a LinearRecomputeDiceComputations<'_>,
+async fn build_targets_for_spec(
+    event_consumer: &dyn BuildEventConsumer,
+    ctx: &LinearRecomputeDiceComputations<'_>,
     spec: PackageSpec<ProvidersPatternExtra>,
     package: PackageLabel,
     global_cfg_options: GlobalCfgOptions,
     build_providers: Arc<BuildProviders>,
-    materialization_and_upload: &'a MaterializationAndUploadContext,
+    materialization_and_upload: &MaterializationAndUploadContext,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     graph_properties: GraphPropertiesOptions,
-    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
-) -> impl Stream<Item = BuildEvent> + 'a {
+    timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
+) {
     let skippable = match spec {
         PackageSpec::Targets(..) => skip_incompatible_targets,
         PackageSpec::All => true,
@@ -505,35 +518,35 @@ async fn build_targets_for_spec<'a>(
                 ),
                 PackageSpec::All => Either::Right(std::iter::once(None)),
             };
-            return futures::stream::iter(targets.into_iter().map(move |t| {
-                BuildEvent::OtherError {
+            for t in targets {
+                event_consumer.consume(BuildEvent::OtherError {
                     label: t,
                     err: e.dupe(),
-                }
-            }))
-            .left_stream();
+                });
+            }
+            return;
         }
     };
     let (targets, missing) = res.apply_spec(spec);
-    let missing_target_stream = match (missing, missing_target_behavior) {
-        (Some(missing), MissingTargetBehavior::Fail) => {
-            futures::stream::iter(missing.into_all_errors().map(|err| BuildEvent::OtherError {
-                label: Some(ProvidersLabel::new(
-                    TargetLabel::new(err.package.dupe(), err.target.as_ref()),
-                    ProvidersName::Default,
-                )),
-                err: err.into(),
-            }))
-            .left_stream()
+    if let Some(missing) = missing {
+        match missing_target_behavior {
+            MissingTargetBehavior::Fail => {
+                for err in missing.into_all_errors() {
+                    event_consumer.consume(BuildEvent::OtherError {
+                        label: Some(ProvidersLabel::new(
+                            TargetLabel::new(err.package.dupe(), err.target.as_ref()),
+                            ProvidersName::Default,
+                        )),
+                        err: err.into(),
+                    });
+                }
+            }
+            MissingTargetBehavior::Warn => {
+                // TODO: This should be reported in the build report eventually.
+                console_message(missing.missing_targets_warning());
+            }
         }
-        (Some(missing), MissingTargetBehavior::Warn) => {
-            // TODO: This should be reported in the build report eventually.
-            console_message(missing.missing_targets_warning());
-            futures::stream::empty().right_stream()
-        }
-        (None, _) => futures::stream::empty().right_stream(),
-    };
-
+    }
     let todo_targets: Vec<TargetBuildSpec> = targets
         .into_iter()
         .map(|((_target_name, extra), target)| TargetBuildSpec {
@@ -553,6 +566,7 @@ async fn build_targets_for_spec<'a>(
             let providers_to_build = providers_to_build.clone();
             async move {
                 build_target(
+                    event_consumer,
                     ctx,
                     build_spec,
                     &providers_to_build,
@@ -563,18 +577,18 @@ async fn build_targets_for_spec<'a>(
             }
         })
         .collect::<FuturesUnordered<_>>()
-        .flatten_unordered(None)
-        .chain(missing_target_stream)
-        .right_stream()
+        .collect()
+        .await
 }
 
-async fn build_target<'a>(
-    ctx: &'a LinearRecomputeDiceComputations<'_>,
+async fn build_target(
+    event_consumer: &dyn BuildEventConsumer,
+    ctx: &LinearRecomputeDiceComputations<'_>,
     spec: TargetBuildSpec,
     providers_to_build: &ProvidersToBuild,
-    materialization_and_upload: &'a MaterializationAndUploadContext,
-    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
-) -> impl Stream<Item = BuildEvent> + 'a {
+    materialization_and_upload: &MaterializationAndUploadContext,
+    timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
+) {
     let providers_label = ProvidersLabel::new(spec.target.label().dupe(), spec.providers);
     let providers_label = match ctx
         .get()
@@ -583,15 +597,16 @@ async fn build_target<'a>(
     {
         Ok(l) => l,
         Err(e) => {
-            return futures::stream::once(futures::future::ready(BuildEvent::OtherError {
+            event_consumer.consume(BuildEvent::OtherError {
                 label: Some(providers_label),
                 err: e.into(),
-            }))
-            .left_stream();
+            });
+            return;
         }
     };
 
     build::build_configured_label(
+        event_consumer,
         ctx,
         materialization_and_upload,
         providers_label,
@@ -602,7 +617,5 @@ async fn build_target<'a>(
         },
         timeout_observer,
     )
-    .await
-    .map(BuildEvent::Configured)
-    .right_stream()
+    .await;
 }
