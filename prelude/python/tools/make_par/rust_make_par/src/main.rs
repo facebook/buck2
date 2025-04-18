@@ -63,13 +63,13 @@ fn main() -> anyhow::Result<()> {
 
     let source_processors: Vec<FileProcessor> = vec![process_symlink, process_maybe_add_init];
 
-    read_text_manifest(&args.sources, &mut info, &source_processors)?;
+    read_manifest_list(&args.sources, &mut info, &source_processors)?;
 
     if let Some(extras) = &args.extras {
         read_text_manifest(extras, &mut info, &source_processors)?;
     }
     if let Some(resources) = &args.resources {
-        read_text_manifest(resources, &mut info, &source_processors)?;
+        read_manifest_list(resources, &mut info, &source_processors)?;
     }
     if let Some(extensions) = &args.extensions {
         read_json_manifest(extensions, &mut info, &source_processors)?;

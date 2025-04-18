@@ -598,20 +598,28 @@ def _make_py_package_live(
     cmd = cmd_args(make_py_package_live)
     cmd.add(cmd_args(symlink_tree_path.as_output(), format = "--output-path={}"))
 
-    # For each set of artifacts create a manifest file in the form: artifact_location::location_relative_to_linktree
-    # We declare the manifest using with_inputs=True to associate the required runtime artifacts to it
-    sources_manifest = ctx.actions.write("{}-sources.txt".format(name), pex_modules.manifests.sources_simple(), with_inputs = True)
+    sources = pex_modules.manifests.src_manifests()
+    if pex_modules.repl_manifests:
+        sources.extend(pex_modules.repl_manifests.src_manifests())
+        runtime_files.extend(pex_modules.repl_manifests.src_artifacts())
 
-    # We explicitly do not include the associated artifacts when building the link-tree - this lets us run make_par in parallel
-    # and keeps us from re-running it on file changes
-    cmd.add(cmd_args(sources_manifest.without_associated_artifacts(), format = "--sources={}"))
+    source_manifests_path = ctx.actions.write(
+        "__source_manifests{}.txt".format(output_suffix),
+        sources,
+    )
+    cmd.add(cmd_args(source_manifests_path, format = "--sources={}", hidden = sources))
+    runtime_files.extend(pex_modules.manifests.src_artifacts())
 
-    # We include the original manifest as a required runtime file, so that all of the artifacts associated with it will be materialized
-    runtime_files.append(sources_manifest)
-
-    resource_manifest = ctx.actions.write("{}-resources.txt".format(name), pex_modules.manifests.resource_artifacts_simple(), with_inputs = True)
-    cmd.add(cmd_args(resource_manifest.without_associated_artifacts(), format = "--resources={}"))
-    runtime_files.append(resource_manifest)
+    # Gather inplace binary resources
+    resources = pex_modules.manifests.resource_manifests(False)
+    if resources:
+        resource_manifests_path = ctx.actions.write(
+            "__resource_manifests{}.txt".format(output_suffix),
+            resources,
+        )
+        cmd.add(cmd_args(resource_manifests_path, format = "--resources={}", hidden = resources))
+        resource_artifacts = pex_modules.manifests.resource_artifacts(False)
+        runtime_files.extend(resource_artifacts)
 
     if pex_modules.compile:
         # bytecode is compiled per library so the actual bytecode artifacts are directories
