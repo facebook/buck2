@@ -23,6 +23,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
+use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
@@ -371,91 +372,61 @@ async fn build_configured_label_inner<'a>(
 ) -> buck2_error::Result<BoxStream<'a, ConfiguredBuildEvent>> {
     let artifact_fs = ctx.get().get_artifact_fs().await?;
 
-    let (outputs, run_args, target_rule_type_name) = {
-        // A couple of these objects aren't Send and so scope them here so async transform doesn't get concerned.
-        let providers = match ctx.get().get_providers(providers_label.as_ref()).await? {
-            MaybeCompatible::Incompatible(reason) => {
-                return if opts.skippable {
-                    tracing::debug!("{}", reason.skipping_message(providers_label.target()));
-                    Ok(
-                        futures::stream::once(futures::future::ready(ConfiguredBuildEvent {
-                            label: providers_label.dupe(),
-                            variant: ConfiguredBuildEventVariant::SkippedIncompatible,
-                        }))
-                        .boxed(),
-                    )
-                } else {
-                    Err(reason.to_err().into())
-                };
-            }
-            MaybeCompatible::Compatible(v) => v,
-        };
-
-        // Important we use an ordered collections, so the order matches the order the rule
-        // author wrote.
-        let mut outputs = Vec::new();
-        // Providers that produced each output, in the order of outputs above. We use a separate collection
-        // otherwise we'd build the same output twice when it's both in DefaultInfo and RunInfo
-        let collection = providers.provider_collection();
-
-        let mut run_args: Option<Vec<String>> = None;
-
-        if providers_to_build.default {
-            collection
-                .default_info()?
-                .for_each_default_output_artifact_only(&mut |o| {
-                    outputs.push((ArtifactGroup::Artifact(o), BuildProviderType::Default))
-                })?;
+    let outputs = match get_outputs_for_top_level_target(
+        &mut ctx.get(),
+        &providers_label,
+        providers_to_build,
+    )
+    .await?
+    {
+        MaybeCompatible::Incompatible(reason) => {
+            return if opts.skippable {
+                tracing::debug!("{}", reason.skipping_message(providers_label.target()));
+                Ok(
+                    futures::stream::once(futures::future::ready(ConfiguredBuildEvent {
+                        label: providers_label.dupe(),
+                        variant: ConfiguredBuildEventVariant::SkippedIncompatible,
+                    }))
+                    .boxed(),
+                )
+            } else {
+                Err(reason.to_err().into())
+            };
         }
-        if providers_to_build.default_other {
-            collection
-                .default_info()?
-                .for_each_default_output_other_artifacts_only(&mut |o| {
-                    outputs.push((o, BuildProviderType::DefaultOther))
-                })?;
-            collection.default_info()?.for_each_other_output(&mut |o| {
-                outputs.push((o, BuildProviderType::DefaultOther))
-            })?;
-        }
-        if providers_to_build.run {
-            if let Some(runinfo) = providers
-                .provider_collection()
-                .builtin_provider::<FrozenRunInfo>()
-            {
-                let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-                runinfo.visit_artifacts(&mut artifact_visitor)?;
-                for input in artifact_visitor.inputs {
-                    outputs.push((input, BuildProviderType::Run));
-                }
-                // Produce arguments to run on a local machine.
-                let path_separator = if cfg!(windows) {
-                    PathSeparatorKind::Windows
-                } else {
-                    PathSeparatorKind::Unix
-                };
-                let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
-                let mut cli = Vec::<String>::new();
-                let mut ctx = AbsCommandLineContext::new(&executor_fs);
-                runinfo.add_to_command_line(&mut cli, &mut ctx)?;
-                run_args = Some(cli);
-            }
-        }
-        if providers_to_build.tests {
-            if let Some(test_provider) = <dyn TestProvider>::from_collection(collection) {
-                let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-                test_provider.visit_artifacts(&mut artifact_visitor)?;
-                for input in artifact_visitor.inputs {
-                    outputs.push((input, BuildProviderType::Test));
-                }
-            }
-        }
-
-        let target_rule_type_name =
-            get_target_rule_type_name(&mut ctx.get(), providers_label.target()).await?;
-
-        (outputs, run_args, target_rule_type_name)
+        MaybeCompatible::Compatible(v) => v,
     };
 
+    let target_rule_type_name =
+        get_target_rule_type_name(&mut ctx.get(), providers_label.target()).await?;
+
+    let run_args = if providers_to_build.run {
+        let providers = ctx
+            .get()
+            .get_providers(providers_label.as_ref())
+            .await?
+            .require_compatible()?;
+
+        if let Some(runinfo) = providers
+            .provider_collection()
+            .builtin_provider::<FrozenRunInfo>()
+        {
+            // Produce arguments to run on a local machine.
+            let path_separator = if cfg!(windows) {
+                PathSeparatorKind::Windows
+            } else {
+                PathSeparatorKind::Unix
+            };
+            let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
+            let mut cli = Vec::<String>::new();
+            let mut ctx = AbsCommandLineContext::new(&executor_fs);
+            runinfo.add_to_command_line(&mut cli, &mut ctx)?;
+            Some(cli)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
     if let Some(signals) = ctx
         .get()
         .per_transaction_data()
@@ -596,6 +567,64 @@ async fn build_configured_label_inner<'a>(
     } else {
         Ok(stream.boxed())
     }
+}
+
+async fn get_outputs_for_top_level_target(
+    ctx: &mut DiceComputations<'_>,
+    providers_label: &ConfiguredProvidersLabel,
+    providers_to_build: &ProvidersToBuild,
+) -> buck2_error::Result<MaybeCompatible<Vec<(ArtifactGroup, BuildProviderType)>>> {
+    let providers = match ctx.get_providers(providers_label).await? {
+        MaybeCompatible::Incompatible(reason) => {
+            return Ok(MaybeCompatible::Incompatible(reason));
+        }
+        MaybeCompatible::Compatible(v) => v,
+    };
+
+    // Important we use an ordered collections, so the order matches the order the rule
+    // author wrote.
+    let mut outputs = Vec::new();
+    let collection = providers.provider_collection();
+    if providers_to_build.default {
+        collection
+            .default_info()?
+            .for_each_default_output_artifact_only(&mut |o| {
+                outputs.push((ArtifactGroup::Artifact(o), BuildProviderType::Default))
+            })?;
+    }
+    if providers_to_build.default_other {
+        collection
+            .default_info()?
+            .for_each_default_output_other_artifacts_only(&mut |o| {
+                outputs.push((o, BuildProviderType::DefaultOther))
+            })?;
+        collection
+            .default_info()?
+            .for_each_other_output(&mut |o| outputs.push((o, BuildProviderType::DefaultOther)))?;
+    }
+    if providers_to_build.run {
+        if let Some(runinfo) = providers
+            .provider_collection()
+            .builtin_provider::<FrozenRunInfo>()
+        {
+            let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
+            runinfo.visit_artifacts(&mut artifact_visitor)?;
+            for input in artifact_visitor.inputs {
+                outputs.push((input, BuildProviderType::Run));
+            }
+        }
+    }
+    if providers_to_build.tests {
+        if let Some(test_provider) = <dyn TestProvider>::from_collection(collection) {
+            let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
+            test_provider.visit_artifacts(&mut artifact_visitor)?;
+            for input in artifact_visitor.inputs {
+                outputs.push((input, BuildProviderType::Test));
+            }
+        }
+    }
+
+    Ok(MaybeCompatible::Compatible(outputs))
 }
 
 #[derive(Clone, Allocative)]
