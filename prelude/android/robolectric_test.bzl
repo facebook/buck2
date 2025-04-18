@@ -71,6 +71,15 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(jar_cmd, category = "test_config_properties_jar_cmd")
     extra_cmds.append(cmd_args(hidden = [resources_info.primary_resources_apk, resources_info.manifest]))
 
+    list_tests_command = ctx.attrs._android_toolchain[AndroidToolchainInfo].list_tests_command
+    if (list_tests_command != None):
+        codesense_cmd = cmd_args([
+            list_tests_command[RunInfo],
+            "list-tests",
+            ctx.attrs.srcs,
+        ])
+        ctx.attrs.env["TPX_LIST_TESTS_COMMAND"] = codesense_cmd
+
     r_dot_javas = [r_dot_java.library_info.library_output for r_dot_java in resources_info.r_dot_java_infos if r_dot_java.library_info.library_output]
     expect(len(r_dot_javas) <= 1, "android_library only works with single R.java")
 
