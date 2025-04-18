@@ -141,7 +141,7 @@ pub fn get_starlark_warning_link() -> &'static str {
 /// evaluating that AST. The Interpreter doesn't maintain state or cache results
 /// of parsing or loading imports.
 #[derive(Allocative)]
-pub(crate) struct InterpreterForCell {
+pub(crate) struct InterpreterForDir {
     /// Non-cell-specific information.
     global_state: Arc<GlobalInterpreterState>,
     /// Cell-specific alias resolver.
@@ -157,7 +157,7 @@ pub(crate) struct InterpreterForCell {
 }
 
 struct InterpreterLoadResolver {
-    config: Arc<InterpreterForCell>,
+    config: Arc<InterpreterForDir>,
     loader_path: CellPath,
     loader_file_type: StarlarkFileType,
     build_file_cell: BuildFileCell,
@@ -263,7 +263,7 @@ struct EvalResult {
     cpu_instruction_count: Option<u64>,
 }
 
-impl InterpreterForCell {
+impl InterpreterForDir {
     fn verbose_gc() -> buck2_error::Result<bool> {
         match std::env::var_os("BUCK2_STARLARK_VERBOSE_GC") {
             Some(val) => Ok(!val.is_empty()),

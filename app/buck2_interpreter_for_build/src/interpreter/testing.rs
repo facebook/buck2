@@ -44,8 +44,8 @@ use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::configuror::AdditionalGlobalsFn;
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
-use crate::interpreter::interpreter_for_cell::InterpreterForCell;
-use crate::interpreter::interpreter_for_cell::ParseData;
+use crate::interpreter::interpreter_for_dir::InterpreterForDir;
+use crate::interpreter::interpreter_for_dir::ParseData;
 use crate::super_package::package_value::SuperPackageValuesImpl;
 
 /// Simple container that allows us to instrument things like imports
@@ -160,7 +160,7 @@ impl Tester {
         self.prelude_path = Some(PreludePath::testing_new(prelude_import));
     }
 
-    fn interpreter(&self) -> buck2_error::Result<Arc<InterpreterForCell>> {
+    fn interpreter(&self) -> buck2_error::Result<Arc<InterpreterForDir>> {
         let build_file_cell = BuildFileCell::new(self.cell_alias_resolver.resolve_self());
         let import_paths = ImplicitImportPaths::parse(
             &self.root_config,
@@ -173,7 +173,7 @@ impl Tester {
             self.cell_resolver.dupe(),
             self.cell_alias_resolver.dupe(),
         )?;
-        Ok(Arc::new(InterpreterForCell::new(
+        Ok(Arc::new(InterpreterForDir::new(
             cell_info,
             Arc::new(GlobalInterpreterState::new(
                 self.cell_resolver.dupe(),

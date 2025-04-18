@@ -58,9 +58,9 @@ use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::check_starlark_stack_size::check_starlark_stack_size;
 use crate::interpreter::cycles::LoadCycleDescriptor;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
-use crate::interpreter::interpreter_for_cell::InterpreterForCell;
-use crate::interpreter::interpreter_for_cell::ParseData;
-use crate::interpreter::interpreter_for_cell::ParseResult;
+use crate::interpreter::interpreter_for_dir::InterpreterForDir;
+use crate::interpreter::interpreter_for_dir::ParseData;
+use crate::interpreter::interpreter_for_dir::ParseResult;
 use crate::super_package::package_value::SuperPackageValuesImpl;
 
 #[derive(Debug, buck2_error::Error)]
@@ -94,11 +94,11 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
     ) -> buck2_error::Result<DiceCalculationDelegate<'c, 'd>> {
         #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
         #[display("{}@{}", _0, _1)]
-        struct InterpreterConfigForCellKey(CellName, BuildFileCell);
+        struct InterpreterConfigForDirKey(CellName, BuildFileCell);
 
         #[async_trait]
-        impl Key for InterpreterConfigForCellKey {
-            type Value = buck2_error::Result<Arc<InterpreterForCell>>;
+        impl Key for InterpreterConfigForDirKey {
+            type Value = buck2_error::Result<Arc<InterpreterForDir>>;
             async fn compute(
                 &self,
                 ctx: &mut DiceComputations,
@@ -116,7 +116,7 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
                     cell_alias_resolver,
                 )?;
 
-                Ok(Arc::new(InterpreterForCell::new(
+                Ok(Arc::new(InterpreterForDir::new(
                     cell_info,
                     global_state.dupe(),
                     implicit_import_paths,
@@ -129,7 +129,7 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
         }
 
         let configs = self
-            .compute(&InterpreterConfigForCellKey(cell, build_file_cell))
+            .compute(&InterpreterConfigForDirKey(cell, build_file_cell))
             .await??;
 
         Ok(DiceCalculationDelegate {
@@ -143,7 +143,7 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
 pub struct DiceCalculationDelegate<'c, 'd> {
     build_file_cell: BuildFileCell,
     ctx: &'c mut DiceComputations<'d>,
-    configs: Arc<InterpreterForCell>,
+    configs: Arc<InterpreterForDir>,
 }
 
 impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
