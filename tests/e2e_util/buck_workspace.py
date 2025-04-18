@@ -185,6 +185,7 @@ async def buck_fixture(  # noqa C901 : "too complex"
             # FYI: if you remove this, make sure to remove it from external_buckconfig tests too
             if marker.setup_eden:
                 extra_config_lines.append("[buck2]\nfile_watcher = edenfs\n")
+                extra_config_lines.append("[buck2]\nallow_eden_io = true\n")
             else:
                 extra_config_lines.append("[buck2]\nfile_watcher = fs_hash_crawler\n")
 
