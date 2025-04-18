@@ -931,7 +931,7 @@ buck_java_library(
 
 third_party_jar(
     name = "kotlinx-coroutines-core-jvm",
-    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm:kotlinx-coroutines-core-jvm",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm:kotlinx-coroutines-core-jvm__toolchain",
     sha1 = "9beade4c1c1569e4f36cbd2c37e02e3e41502601",
     url = "mvn:org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:jar:1.9.0",
     visibility = ["PUBLIC"],
