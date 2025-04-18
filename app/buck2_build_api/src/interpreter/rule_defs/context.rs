@@ -255,7 +255,7 @@ impl<'v> AnalysisContext<'v> {
     }
 }
 
-#[starlark_value(type = "context")]
+#[starlark_value(type = "AnalysisContext")]
 impl<'v> StarlarkValue<'v> for AnalysisContext<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
