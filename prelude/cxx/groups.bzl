@@ -161,8 +161,7 @@ def _parse_filter(entry: str) -> GroupFilterInfo:
             # We need the anchors "^"" and "$" because experimental_regex match
             # anywhere in the text, while we want full text match for group label
             # text.
-            # TODO(nga): fancy is probably not needed here.
-            regex_expr = regex("^{}$".format(label_regex), fancy = True)
+            regex_expr = regex("^{}$".format(label_regex), fancy = False)
 
             def matches_regex(_t, labels):
                 for label in labels:
