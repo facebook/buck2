@@ -1075,13 +1075,8 @@ def _mk_argsfiles(
     args_list.append(file_prefix_args)
 
     if is_xcode_argsfile:
-        replace_regex = []
-        for re, sub in XCODE_ARG_SUBSTITUTIONS:
-            replace_regex.append((re, sub))
-        args = cmd_args(args_list, replace_regex = replace_regex)
         file_args = cmd_args(argsfiles, format = "@{}")
     else:
-        args = cmd_args(args_list) if is_nasm else cmd_args(args_list, quote = "shell")
         file_args = cmd_args(argsfiles, format = "-@{}") if is_nasm else cmd_args(argsfiles, format = "@{}", quote = "shell")
 
     file_name = ext.value + ".{}cxx_compile_argsfile".format(filename_prefix)
@@ -1089,16 +1084,15 @@ def _mk_argsfiles(
     # For Xcode to parse argsfiles of argsfiles, the paths in the former must be absolute.
     argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True, absolute = is_xcode_argsfile)
 
-    input_args = [args, file_args]
+    args_list.append(file_args)
 
     format = "-@{}" if is_nasm else "@{}"
-    cmd_form = cmd_args(argsfile, format = format, hidden = input_args)
+    cmd_form = cmd_args(argsfile, format = format, hidden = args_list)
 
     return CompileArgsfile(
         file = argsfile,
         cmd_form = cmd_form,
-        input_args = input_args,
-        args = args,
+        args = file_args,
     )
 
 def _compiler_flags(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, ext: str) -> list[typing.Any]:
@@ -1153,15 +1147,13 @@ def _mk_header_units_argsfile(
     # TODO(nml): Tag args with headers_tag.tag_artifacts() once -MD -MF reports correct
     # usage of PCMs.
     args.add(preprocessor.set.project_as_args("header_units_args"))
-    input_args = [args]
     file_args = cmd_args(args, quote = "shell")
     argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True)
-    cmd_form = cmd_args(argsfile, format = "@{}", hidden = input_args)
+    cmd_form = cmd_args(argsfile, format = "@{}", hidden = [args])
 
     return CompileArgsfile(
         file = argsfile,
         cmd_form = cmd_form,
-        input_args = input_args,
         args = file_args,
     )
 
