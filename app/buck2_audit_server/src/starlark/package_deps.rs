@@ -14,7 +14,6 @@ use buck2_audit::starlark::package_deps::StarlarkPackageDepsCommand;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::pattern::parse_package::parse_package;
 use buck2_error::buck2_error;
 use buck2_interpreter::file_loader::LoadedModule;
@@ -35,7 +34,6 @@ pub(crate) async fn server_execute(
             let cell_resolver = dice_ctx.get_cell_resolver().await?;
             let cwd = server_ctx.working_dir();
             let current_cell_path = cell_resolver.get_cell_path(cwd)?;
-            let current_cell = BuildFileCell::new(current_cell_path.cell());
             let cell_alias_resolver = dice_ctx
                 .get_cell_alias_resolver(current_cell_path.cell())
                 .await?;
@@ -44,7 +42,7 @@ pub(crate) async fn server_execute(
 
             let module_deps = INTERPRETER_CALCULATION_IMPL
                 .get()?
-                .get_module_deps(&mut dice_ctx, package, current_cell)
+                .get_module_deps(&mut dice_ctx, package)
                 .await?;
 
             let mut stdout = stdout.as_writer();

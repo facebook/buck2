@@ -9,7 +9,6 @@
 
 use async_trait::async_trait;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
@@ -33,7 +32,6 @@ pub trait InterpreterCalculationImpl: Send + Sync + 'static {
         &self,
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
-        build_file_cell: BuildFileCell,
     ) -> buck2_error::Result<ModuleDeps>;
 
     /// Return `None` if the PACKAGE file doesn't exist.

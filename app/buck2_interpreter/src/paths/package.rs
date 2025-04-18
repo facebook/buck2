@@ -46,6 +46,12 @@ impl PackageFilePath {
         })
     }
 
+    pub fn package_file_for_dir(path: CellPathRef) -> PackageFilePath {
+        PackageFilePath {
+            path: path.join(FileName::unchecked_new("PACKAGE")),
+        }
+    }
+
     pub fn from_file_path(path: CellPathRef) -> Option<PackageFilePath> {
         for file_name in Self::package_file_names() {
             if path.ends_with(file_name.as_ref()) {

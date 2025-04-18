@@ -23,7 +23,7 @@ use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::cells::name::CellName;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::package::PackageLabel;
 use buck2_error::BuckErrorContext;
@@ -40,6 +40,7 @@ use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::paths::package::PackageFilePath;
+use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
@@ -80,8 +81,7 @@ pub trait HasCalculationDelegate<'c, 'd> {
     /// per evaluated file (build file or `.bzl`).
     async fn get_interpreter_calculator(
         &'c mut self,
-        cell: CellName,
-        build_file_cell: BuildFileCell,
+        path: OwnedStarlarkPath,
     ) -> buck2_error::Result<DiceCalculationDelegate<'c, 'd>>;
 }
 
@@ -89,12 +89,11 @@ pub trait HasCalculationDelegate<'c, 'd> {
 impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
     async fn get_interpreter_calculator(
         &'c mut self,
-        cell: CellName,
-        build_file_cell: BuildFileCell,
+        path: OwnedStarlarkPath,
     ) -> buck2_error::Result<DiceCalculationDelegate<'c, 'd>> {
-        #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+        #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
         #[display("{}@{}", _0, _1)]
-        struct InterpreterConfigForDirKey(CellName, BuildFileCell);
+        struct InterpreterConfigForDirKey(CellPath, BuildFileCell);
 
         #[async_trait]
         impl Key for InterpreterConfigForDirKey {
@@ -106,7 +105,7 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
             ) -> Self::Value {
                 let global_state = ctx.get_global_interpreter_state().await?;
 
-                let cell_alias_resolver = ctx.get_cell_alias_resolver(self.0).await?;
+                let cell_alias_resolver = ctx.get_cell_alias_resolver(self.0.cell()).await?;
 
                 let implicit_import_paths = ctx.import_paths_for_cell(self.1).await?;
 
@@ -128,8 +127,16 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
             }
         }
 
+        let build_file_cell = path.borrow().build_file_cell();
         let configs = self
-            .compute(&InterpreterConfigForDirKey(cell, build_file_cell))
+            .compute(&InterpreterConfigForDirKey(
+                path.borrow()
+                    .path()
+                    .parent()
+                    .expect("starlark path to have parent")
+                    .to_owned(),
+                build_file_cell,
+            ))
             .await??;
 
         Ok(DiceCalculationDelegate {
@@ -426,9 +433,10 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
-                let cell_name = self.0.as_cell_path().cell();
                 let mut interpreter = ctx
-                    .get_interpreter_calculator(cell_name, BuildFileCell::new(cell_name))
+                    .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
+                        PackageFilePath::package_file_for_dir(self.0.as_cell_path()),
+                    ))
                     .await?;
                 interpreter
                     .eval_package_file_uncached(self.0.dupe())

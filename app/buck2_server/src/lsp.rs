@@ -40,6 +40,7 @@ use buck2_events::dispatch::with_dispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
+use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_interpreter_for_build::interpreter::globals::base_globals;
@@ -429,10 +430,7 @@ impl<'a> BuckLspContext<'a> {
 
         self.with_dice_ctx(|mut dice_ctx| async move {
             let calculator = dice_ctx
-                .get_interpreter_calculator(
-                    import_path.borrow().cell(),
-                    import_path.borrow().build_file_cell(),
-                )
+                .get_interpreter_calculator(import_path.clone().into_starlark_path())
                 .await?;
 
             let module_path = import_path.borrow();
@@ -575,10 +573,9 @@ impl<'a> LspContext for BuckLspContext<'a> {
                         let url = self
                             .with_dice_ctx(|mut dice_ctx| async move {
                                 let calculator = dice_ctx
-                                    .get_interpreter_calculator(
-                                        borrowed_current_import_path.cell(),
-                                        borrowed_current_import_path.build_file_cell(),
-                                    )
+                                    .get_interpreter_calculator(OwnedStarlarkPath::new(
+                                        borrowed_current_import_path.starlark_path(),
+                                    ))
                                     .await?;
 
                                 let starlark_file = borrowed_current_import_path.starlark_path();

@@ -41,10 +41,6 @@ use dice::UserComputationData;
 use dupe::Dupe;
 use indoc::indoc;
 
-pub(crate) fn root_cell() -> CellName {
-    CellName::testing_new("root")
-}
-
 pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
     let mut dice = Dice::builder();
     dice.set(EventDispatcher::null());

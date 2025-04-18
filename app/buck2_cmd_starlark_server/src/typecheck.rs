@@ -102,7 +102,7 @@ impl<'a> Cache<'a> {
 
         let mut dice = self.dice.clone();
         let interp = dice
-            .get_interpreter_calculator(path_ref.cell(), path_ref.build_file_cell())
+            .get_interpreter_calculator(OwnedStarlarkPath::new(path_ref))
             .await?;
 
         let ParseData(ast, _) = interp.prepare_eval_with_content(path_ref, src)??;
