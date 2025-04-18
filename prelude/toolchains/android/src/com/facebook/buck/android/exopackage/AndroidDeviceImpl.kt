@@ -35,11 +35,6 @@ class AndroidDeviceImpl(val serial: String, val adbExecutable: String?) : Androi
       verifyTempWritable: Boolean,
       stagedInstallMode: Boolean
   ): Boolean {
-    // TODO: this can be checked sooner when we receive install options
-    if (stagedInstallMode) {
-      throw AndroidInstallException.operationNotSupported("stagedInstallMode")
-    }
-
     val elapsed = measureTimeMillis {
       if (verifyTempWritable) {
         try {
@@ -52,7 +47,8 @@ class AndroidDeviceImpl(val serial: String, val adbExecutable: String?) : Androi
       }
       // TODO consider using --fastdeploy after intaller is stable
       executeAdbCommandCatching(
-          "install -r -d ${apk.absolutePath}", "Failed to install ${apk.name}.")
+          "install -r -d${if (stagedInstallMode) " --staged" else ""} ${apk.absolutePath}",
+          "Failed to install ${apk.name}.")
     }
     val kbps = (apk.length() / 1024.0) / (elapsed / 1000.0)
     LOG.info("Installed ${apk.name} (${apk.length()} bytes) in ${elapsed/1000.0} s ($kbps kB/s)")
