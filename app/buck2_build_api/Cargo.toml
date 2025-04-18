@@ -17,6 +17,7 @@ derivative = { workspace = true }
 derive_more = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
+fxhash = { workspace = true }
 indexmap = { workspace = true }
 internment = { workspace = true }
 inventory = { workspace = true }

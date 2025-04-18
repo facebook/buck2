@@ -187,7 +187,8 @@ pub fn debug_compute_configured_graph_properties_uncached(
 ) -> buck2_error::Result<MaybeCompatible<GraphPropertiesValues>> {
     node.try_map(|node| {
         let mut queue = vec![&node];
-        let mut visited = HashSet::new();
+        let mut visited: HashSet<_, fxhash::FxBuildHasher> = HashSet::default();
+        visited.insert(&node);
 
         let mut sketch = if properties.configured_graph_sketch {
             Some(SketchVersion::V1.create_sketcher())
@@ -196,8 +197,10 @@ pub fn debug_compute_configured_graph_properties_uncached(
         };
 
         while let Some(item) = queue.pop() {
-            if !visited.insert(item) {
-                continue;
+            for d in item.deps() {
+                if visited.insert(d) {
+                    queue.push(d);
+                }
             }
 
             if let Some(sketch) = sketch.as_mut() {

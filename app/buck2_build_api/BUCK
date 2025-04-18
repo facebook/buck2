@@ -19,6 +19,7 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:fxhash",
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:internment",
         "fbsource//third-party/rust:inventory",
