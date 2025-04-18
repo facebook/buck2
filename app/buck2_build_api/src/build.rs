@@ -11,6 +11,8 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
+use std::future::Future;
+use std::pin::pin;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -36,8 +38,10 @@ use futures::stream::FuturesUnordered;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use itertools::Itertools;
-use starlark_map::small_set::SmallSet;
+use starlark::collections::SmallSet;
 use tokio::sync::Mutex;
+use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::calculation::BuildKey;
@@ -88,6 +92,77 @@ pub type ConfiguredBuildTargetResult =
 pub enum FailFastState {
     Continue,
     Breakpoint,
+}
+
+pub struct AsyncBuildTargetResultBuilder {
+    event_rx: UnboundedReceiver<BuildEvent>,
+    builder: BuildTargetResultBuilder,
+}
+
+impl AsyncBuildTargetResultBuilder {
+    pub fn new() -> (Self, impl BuildEventConsumer + Clone) {
+        let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel();
+        #[derive(Clone)]
+        struct EventConsumer {
+            event_tx: UnboundedSender<BuildEvent>,
+        }
+
+        impl BuildEventConsumer for EventConsumer {
+            fn consume(&self, ev: BuildEvent) {
+                let _ignored = self.event_tx.send(ev);
+            }
+
+            fn consume_configured(&self, ev: ConfiguredBuildEvent) {
+                let _ignored = self.event_tx.send(BuildEvent::Configured(ev));
+            }
+        }
+
+        (
+            Self {
+                event_rx,
+                builder: BuildTargetResultBuilder::new(),
+            },
+            EventConsumer { event_tx },
+        )
+    }
+
+    pub async fn wait_for(
+        mut self,
+        fail_fast: bool,
+        fut: impl Future<Output = ()>,
+    ) -> buck2_error::Result<BuildTargetResult> {
+        let mut fut = pin!(fut);
+        loop {
+            tokio::select! {
+                event = self.event_rx.recv() => {
+                    match event {
+                        Some(event) => {
+                            if let FailFastState::Breakpoint = self.builder.event(event)? {
+                                if fail_fast {
+                                    break;
+                                }
+                            }
+                        }
+                        None => {
+                            // Intentionally don't break early in this case.
+                            // The None indicates that the event sender has been dropped, but a caller is going to expect
+                            // the future to be driven to completion except for in the fail_fast case.
+                        }
+                    }
+                }
+                _ = &mut fut => {
+                    // The future is done, but make sure to drain the queue of events.
+                    // Unlike poll_recv, try_recv never spuriously returns empty.
+                    while let Ok(event) = self.event_rx.try_recv() {
+                        self.builder.event(event)?;
+                    }
+                    break;
+                }
+            }
+        }
+
+        Ok(self.builder.build())
+    }
 }
 
 pub struct BuildTargetResultBuilder {
@@ -293,15 +368,13 @@ impl BuildTargetResult {
         mut stream: impl Stream<Item = BuildEvent> + Unpin,
         fail_fast: bool,
     ) -> buck2_error::Result<Self> {
-        let mut builder = BuildTargetResultBuilder::new();
-        while let Some(event) = stream.next().await {
-            if let FailFastState::Breakpoint = builder.event(event)? {
-                if fail_fast {
-                    break;
-                }
+        let (builder, event_sender) = AsyncBuildTargetResultBuilder::new();
+        let forwarder = async move {
+            while let Some(event) = stream.next().await {
+                event_sender.consume(event);
             }
-        }
-        Ok(builder.build())
+        };
+        builder.wait_for(fail_fast, forwarder).await
     }
 }
 
@@ -359,6 +432,11 @@ impl BuildEvent {
             variant,
         })
     }
+}
+
+pub trait BuildEventConsumer: Sync {
+    fn consume(&self, ev: BuildEvent);
+    fn consume_configured(&self, ev: ConfiguredBuildEvent);
 }
 
 #[derive(Debug, buck2_error::Error)]
