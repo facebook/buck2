@@ -881,7 +881,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 if let Some(missing) = missing {
                     match state.missing_target_behavior {
                         MissingTargetBehavior::Fail => {
-                            let err = missing.into_errors().0;
+                            let err = missing.into_first_error();
                             let events = vec![BuildEvent::OtherError {
                                 label: Some(ProvidersLabel::new(
                                     TargetLabel::new(err.package.dupe(), err.target.as_ref()),

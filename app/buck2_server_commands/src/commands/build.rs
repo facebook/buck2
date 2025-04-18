@@ -517,15 +517,12 @@ async fn build_targets_for_spec<'a>(
     let (targets, missing) = res.apply_spec(spec);
     let missing_target_stream = match (missing, missing_target_behavior) {
         (Some(missing), MissingTargetBehavior::Fail) => {
-            let (first, rest) = missing.into_errors();
-            futures::stream::iter(std::iter::once(first).chain(rest).map(|err| {
-                BuildEvent::OtherError {
-                    label: Some(ProvidersLabel::new(
-                        TargetLabel::new(err.package.dupe(), err.target.as_ref()),
-                        ProvidersName::Default,
-                    )),
-                    err: err.into(),
-                }
+            futures::stream::iter(missing.into_all_errors().map(|err| BuildEvent::OtherError {
+                label: Some(ProvidersLabel::new(
+                    TargetLabel::new(err.package.dupe(), err.target.as_ref()),
+                    ProvidersName::Default,
+                )),
+                err: err.into(),
             }))
             .left_stream()
         }
