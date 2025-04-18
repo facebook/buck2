@@ -56,7 +56,7 @@ parameter, `impl` a callable with signature `PlatformInfo -> PlatformInfo`. With
 that in mind, we can a transition rule:
 
 ```python
-def _transition_to_watchos_impl(_ctx: AnalysisContext) -> list[provider]:
+def _transition_to_watchos_impl(_ctx: AnalysisContext) -> list[Provider]:
 
     # From above
     def _transition_impl_with_refs(platform: PlatformInfo) -> PlatformInfo:
@@ -90,7 +90,7 @@ on those rules as dependencies like in any other analysis. We can use that to
 finish the example above:
 
 ```python
-def _transition_to_watchos_impl(ctx: AnalysisContext) -> list[provider]:
+def _transition_to_watchos_impl(ctx: AnalysisContext) -> list[Provider]:
     os = ctx.attrs.os
     watchos = ctx.attrs.watchos
 
@@ -149,7 +149,7 @@ my_binary(
 
 `incoming_transition` attributes are not available on all rules - instead, rules
 must declare that they support them by setting
-`allows_incoming_transition = True` as a parameter to the `rule` call
+`supports_incoming_transition = True` as a parameter to the `rule` call
 
 ## Outgoing edge transitions
 
@@ -195,7 +195,7 @@ _transition_target(
     name = "my_transition_target",
 )
 
-my_rule = rule(..., allows_incoming_transition)
+my_rule = rule(..., supports_incoming_transition)
 
 my_rule(
     ...,
