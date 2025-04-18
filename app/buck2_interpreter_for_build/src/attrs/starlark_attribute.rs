@@ -48,7 +48,7 @@ starlark_simple_value!(StarlarkAttribute);
 #[starlark_module]
 fn starlark_attribute_methods(builder: &mut MethodsBuilder) {}
 
-#[starlark_value(type = "attribute")]
+#[starlark_value(type = "Attr")]
 impl<'v> StarlarkValue<'v> for StarlarkAttribute {
     // Used to add type documentation to the generated documentation
     fn get_methods() -> Option<&'static Methods> {
