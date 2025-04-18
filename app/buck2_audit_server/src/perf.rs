@@ -9,6 +9,8 @@
 
 //! Starlark debugging.
 
+mod configured_graph_size;
+
 use async_trait::async_trait;
 use buck2_audit::perf::AuditPerfCommand;
 use buck2_cli_proto::ClientContext;
@@ -21,10 +23,14 @@ use crate::ServerAuditSubcommand;
 impl ServerAuditSubcommand for AuditPerfCommand {
     async fn server_execute(
         &self,
-        _server_ctx: &dyn ServerCommandContextTrait,
-        _stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        _client_ctx: ClientContext,
+        server_ctx: &dyn ServerCommandContextTrait,
+        stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
+        client_ctx: ClientContext,
     ) -> buck2_error::Result<()> {
-        Ok(())
+        match self {
+            AuditPerfCommand::ConfiguredGraphSize(cmd) => {
+                configured_graph_size::server_execute(cmd, server_ctx, stdout, client_ctx).await
+            }
+        }
     }
 }

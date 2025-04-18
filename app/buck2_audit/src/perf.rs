@@ -9,18 +9,25 @@
 
 //! Starlark debugging.
 
+pub mod configured_graph_size;
+
 use async_trait::async_trait;
 use buck2_client_ctx::common::CommonCommandOptions;
 
 use crate::AuditSubcommand;
+use crate::perf::configured_graph_size::ConfiguredGraphSizeCommand;
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 #[clap(name = "perf", about = "Commands for checking buck2 performance")]
-pub enum AuditPerfCommand {}
+pub enum AuditPerfCommand {
+    ConfiguredGraphSize(ConfiguredGraphSizeCommand),
+}
 
 #[async_trait]
 impl AuditSubcommand for AuditPerfCommand {
     fn common_opts(&self) -> &CommonCommandOptions {
-        unreachable!()
+        match self {
+            AuditPerfCommand::ConfiguredGraphSize(cmd) => &cmd.common_opts,
+        }
     }
 }
