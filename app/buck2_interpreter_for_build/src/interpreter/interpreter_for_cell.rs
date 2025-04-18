@@ -24,6 +24,7 @@ use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::humanized::HumanizedBytes;
@@ -186,8 +187,11 @@ impl LoadResolver for InterpreterLoadResolver {
         // This is to be removed when we finish migration to Buck2.
         let path = path.strip_suffix("?v2_only").unwrap_or(path);
 
-        let relative_import_option = RelativeImports::AllowForward {
-            current_dir: &self.loader_path,
+        let relative_import_option = RelativeImports::Allow {
+            current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                self.loader_path.clone(),
+                None,
+            ),
         };
         let path = parse_import(
             &self.config.cell_info.cell_alias_resolver(),

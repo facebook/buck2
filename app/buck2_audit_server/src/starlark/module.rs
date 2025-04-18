@@ -13,6 +13,7 @@ use buck2_audit::starlark::module::StarlarkModuleCommand;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
@@ -42,8 +43,11 @@ pub(crate) async fn server_execute(
                 &cell_alias_resolver,
                 &command.import_path,
                 &ParseImportOptions {
-                    relative_import_option: RelativeImports::AllowForward {
-                        current_dir: &current_cell_path,
+                    relative_import_option: RelativeImports::Allow {
+                        current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                            current_cell_path,
+                            None,
+                        ),
                     },
                     // Otherwise `@arg` is expanded as mode file.
                     allow_missing_at_symbol: true,

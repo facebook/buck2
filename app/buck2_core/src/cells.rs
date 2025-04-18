@@ -78,6 +78,7 @@
 pub mod alias;
 pub mod build_file_cell;
 pub mod cell_path;
+pub mod cell_path_with_allowed_relative_dir;
 pub mod cell_root_path;
 pub mod external;
 pub mod instance;

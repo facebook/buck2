@@ -18,6 +18,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::name::CellName;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::ParseImportOptions;
@@ -76,7 +77,12 @@ fn parse_starlark_paths(
 ) -> buck2_error::Result<HashSet<StarlarkFilePath>> {
     let parse_options = ParseImportOptions {
         allow_missing_at_symbol: true,
-        relative_import_option: RelativeImports::AllowForward { current_dir },
+        relative_import_option: RelativeImports::Allow {
+            current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                current_dir.clone(),
+                None,
+            ),
+        },
     };
     let current_cell = BuildFileCell::new(current_dir.cell());
 

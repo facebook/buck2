@@ -33,6 +33,7 @@ use buck2_core::bxl::BxlFilePath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
@@ -526,8 +527,11 @@ pub(crate) fn parse_bxl_label_from_cli(
 
     let opts: ParseImportOptions = ParseImportOptions {
         allow_missing_at_symbol: true,
-        relative_import_option: RelativeImports::AllowForward {
-            current_dir: &current_cell,
+        relative_import_option: RelativeImports::Allow {
+            current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                current_cell,
+                None,
+            ),
         },
     };
     let import_path = parse_import_with_config(cell_alias_resolver, bxl_path, &opts)?;

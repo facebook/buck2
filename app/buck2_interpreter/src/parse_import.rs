@@ -13,10 +13,11 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
+use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]
@@ -31,8 +32,6 @@ enum ImportParseError {
     EmptyFileName(String),
     #[error("Unexpected relative import spec. Got `{0}`")]
     ProhibitedRelativeImport(String),
-    #[error("Invalid path `{0}` for file relative import path. Should be a forward relative path.")]
-    InvalidCurrentPathWhenFileRelativeImport(String),
     #[error(
         "Unable to parse import spec. Expected format `(@<cell>)//package/name:filename.bzl` or `:filename.bzl`, but got a path. Got `{0}`"
     )]
@@ -40,7 +39,9 @@ enum ImportParseError {
 }
 
 pub enum RelativeImports<'a> {
-    AllowForward { current_dir: &'a CellPath },
+    Allow {
+        current_dir_with_allowed_relative: &'a CellPathWithAllowedRelativeDir,
+    },
     Disallow,
 }
 
@@ -100,15 +101,12 @@ pub fn parse_import_with_config(
 
             match parse_import_cell_path_parts(import, opts.allow_missing_at_symbol) {
                 None => {
-                    if let RelativeImports::AllowForward { current_dir } =
-                        opts.relative_import_option
+                    if let RelativeImports::Allow {
+                        current_dir_with_allowed_relative,
+                    } = opts.relative_import_option
                     {
-                        let rel_path = ForwardRelativePath::new(import).map_err(|_e| {
-                            ImportParseError::InvalidCurrentPathWhenFileRelativeImport(
-                                import.to_owned(),
-                            )
-                        })?;
-                        Ok(current_dir.join(rel_path))
+                        current_dir_with_allowed_relative
+                            .join_normalized(RelativePath::from_path(import)?)
                     } else {
                         Err(ImportParseError::ProhibitedRelativeImport(import.to_owned()).into())
                     }
@@ -131,8 +129,11 @@ pub fn parse_import_with_config(
                 .map_err(|_| ImportParseError::NotAFileName(import.to_owned()))?;
 
             if path.is_empty() {
-                if let RelativeImports::AllowForward { current_dir } = opts.relative_import_option {
-                    Ok(current_dir.join(filename))
+                if let RelativeImports::Allow {
+                    current_dir_with_allowed_relative,
+                } = opts.relative_import_option
+                {
+                    Ok(current_dir_with_allowed_relative.join(filename))
                 } else {
                     Err(ImportParseError::ProhibitedRelativeImport(import.to_owned()).into())
                 }
@@ -195,8 +196,11 @@ mod tests {
             path("root", "package/path", "import.bzl"),
             parse_import(
                 &resolver(),
-                RelativeImports::AllowForward {
-                    current_dir: &CellPath::testing_new("passport//")
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        CellPath::testing_new("passport//"),
+                        None,
+                    ),
                 },
                 "//package/path:import.bzl"
             )?
@@ -210,8 +214,11 @@ mod tests {
             path("cell1", "package/path", "import.bzl"),
             parse_import(
                 &resolver(),
-                RelativeImports::AllowForward {
-                    current_dir: &CellPath::testing_new("root//")
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        CellPath::testing_new("root//"),
+                        None,
+                    ),
                 },
                 "@cell1//package/path:import.bzl"
             )?
@@ -225,8 +232,11 @@ mod tests {
             path("cell1", "package/path", "import.bzl"),
             parse_import(
                 &resolver(),
-                RelativeImports::AllowForward {
-                    current_dir: &CellPath::testing_new("cell1//package/path")
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        CellPath::testing_new("cell1//package/path"),
+                        None,
+                    ),
                 },
                 ":import.bzl"
             )?
@@ -240,8 +250,11 @@ mod tests {
         assert_eq!(
             parse_import(
                 &resolver(),
-                RelativeImports::AllowForward {
-                    current_dir: &CellPath::testing_new("lighter//")
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        CellPath::testing_new("lighter//"),
+                        None,
+                    ),
                 },
                 &import
             )?,
@@ -255,8 +268,11 @@ mod tests {
         let path = "//package/path:".to_owned();
         match parse_import(
             &resolver(),
-            RelativeImports::AllowForward {
-                current_dir: &CellPath::testing_new("root//"),
+            RelativeImports::Allow {
+                current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                    CellPath::testing_new("root//"),
+                    None,
+                ),
             },
             &path,
         ) {
@@ -276,8 +292,11 @@ mod tests {
         let path = "bad_alias//package/path:".to_owned();
         match parse_import(
             &resolver(),
-            RelativeImports::AllowForward {
-                current_dir: &CellPath::testing_new("root//"),
+            RelativeImports::Allow {
+                current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                    CellPath::testing_new("root//"),
+                    None,
+                ),
             },
             &path,
         ) {
@@ -295,8 +314,11 @@ mod tests {
             path("cell1", "package/path", "bar.bzl"),
             parse_import(
                 &resolver(),
-                RelativeImports::AllowForward {
-                    current_dir: &CellPath::testing_new("cell1//package/path")
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        CellPath::testing_new("cell1//package/path"),
+                        None,
+                    ),
                 },
                 "bar.bzl",
             )?
@@ -305,8 +327,11 @@ mod tests {
             path("cell1", "package/path", "foo/bar.bzl"),
             parse_import(
                 &resolver(),
-                RelativeImports::AllowForward {
-                    current_dir: &CellPath::testing_new("cell1//package/path")
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        CellPath::testing_new("cell1//package/path"),
+                        None,
+                    ),
                 },
                 "foo/bar.bzl",
             )?
@@ -322,8 +347,10 @@ mod tests {
         assert_eq!(
             parse_import(
                 &resolver(),
-                RelativeImports::AllowForward {
-                    current_dir: &importer
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        importer, None,
+                    ),
                 },
                 importee
             )?,
@@ -338,8 +365,11 @@ mod tests {
             path("cell1", "package/path", "import.bzl"),
             parse_import(
                 &resolver(),
-                RelativeImports::AllowForward {
-                    current_dir: &CellPath::testing_new("root//foo/bar")
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        CellPath::testing_new("root//foo/bar"),
+                        None,
+                    ),
                 },
                 "@cell1//package/path:import.bzl",
             )?
@@ -356,9 +386,12 @@ mod tests {
                 "cell1//package/path:import.bzl",
                 &ParseImportOptions {
                     allow_missing_at_symbol: true,
-                    relative_import_option: RelativeImports::AllowForward {
-                        current_dir: &CellPath::testing_new("root//")
-                    }
+                    relative_import_option: RelativeImports::Allow {
+                        current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                            CellPath::testing_new("root//"),
+                            None,
+                        ),
+                    },
                 }
             )?,
         );
