@@ -23,10 +23,10 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
-use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use dupe::OptionDupedExt;
 use futures::FutureExt;
 use futures::future::Either;
@@ -42,19 +42,17 @@ use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::calculation::BuildKey;
 use crate::actions::calculation::get_target_rule_type_name;
 use crate::analysis::calculation::RuleAnalysisCalculation;
-use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::artifact_groups::ResolvedArtifactGroup;
 use crate::artifact_groups::ResolvedArtifactGroupBuildSignalsKey;
 use crate::artifact_groups::calculation::EnsureTransitiveSetProjectionKey;
 use crate::build::graph_properties::GraphPropertiesOptions;
 use crate::build::graph_properties::GraphPropertiesValues;
+use crate::build::outputs::get_outputs_for_top_level_target;
 use crate::build_signals::HasBuildSignals;
 use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
-use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
-use crate::interpreter::rule_defs::provider::test_provider::TestProvider;
 use crate::keep_going::KeepGoing;
 use crate::materialize::MaterializationAndUploadContext;
 use crate::materialize::materialize_and_upload_artifact_group;
@@ -63,9 +61,10 @@ use crate::validation::validation_impl::VALIDATION_IMPL;
 mod action_error;
 pub mod build_report;
 pub mod graph_properties;
+pub mod outputs;
 
 /// The types of provider to build on the configured providers label
-#[derive(Debug, Clone, Dupe, Allocative, PartialEq)]
+#[derive(Debug, Clone, Dupe, Copy, Allocative, PartialEq)]
 pub enum BuildProviderType {
     Default,
     DefaultOther,
@@ -470,7 +469,8 @@ async fn build_configured_label_inner<'a>(
     }
 
     let mut outputs = outputs
-        .into_iter()
+        .iter()
+        .duped()
         .enumerate()
         .map({
             |(index, (output, provider_type))| {
@@ -569,64 +569,6 @@ async fn build_configured_label_inner<'a>(
     }
 }
 
-async fn get_outputs_for_top_level_target(
-    ctx: &mut DiceComputations<'_>,
-    providers_label: &ConfiguredProvidersLabel,
-    providers_to_build: &ProvidersToBuild,
-) -> buck2_error::Result<MaybeCompatible<Vec<(ArtifactGroup, BuildProviderType)>>> {
-    let providers = match ctx.get_providers(providers_label).await? {
-        MaybeCompatible::Incompatible(reason) => {
-            return Ok(MaybeCompatible::Incompatible(reason));
-        }
-        MaybeCompatible::Compatible(v) => v,
-    };
-
-    // Important we use an ordered collections, so the order matches the order the rule
-    // author wrote.
-    let mut outputs = Vec::new();
-    let collection = providers.provider_collection();
-    if providers_to_build.default {
-        collection
-            .default_info()?
-            .for_each_default_output_artifact_only(&mut |o| {
-                outputs.push((ArtifactGroup::Artifact(o), BuildProviderType::Default))
-            })?;
-    }
-    if providers_to_build.default_other {
-        collection
-            .default_info()?
-            .for_each_default_output_other_artifacts_only(&mut |o| {
-                outputs.push((o, BuildProviderType::DefaultOther))
-            })?;
-        collection
-            .default_info()?
-            .for_each_other_output(&mut |o| outputs.push((o, BuildProviderType::DefaultOther)))?;
-    }
-    if providers_to_build.run {
-        if let Some(runinfo) = providers
-            .provider_collection()
-            .builtin_provider::<FrozenRunInfo>()
-        {
-            let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-            runinfo.visit_artifacts(&mut artifact_visitor)?;
-            for input in artifact_visitor.inputs {
-                outputs.push((input, BuildProviderType::Run));
-            }
-        }
-    }
-    if providers_to_build.tests {
-        if let Some(test_provider) = <dyn TestProvider>::from_collection(collection) {
-            let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-            test_provider.visit_artifacts(&mut artifact_visitor)?;
-            for input in artifact_visitor.inputs {
-                outputs.push((input, BuildProviderType::Test));
-            }
-        }
-    }
-
-    Ok(MaybeCompatible::Compatible(outputs))
-}
-
 #[derive(Clone, Allocative)]
 pub struct ProviderArtifacts {
     pub values: ArtifactGroupValues,
@@ -634,7 +576,7 @@ pub struct ProviderArtifacts {
 }
 
 // what type of artifacts to build based on the provider it came from
-#[derive(Default, Clone)]
+#[derive(Default, Allocative, Debug, Clone, Dupe, Eq, PartialEq, Hash)]
 pub struct ProvidersToBuild {
     pub default: bool,
     pub default_other: bool,
