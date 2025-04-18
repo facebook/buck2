@@ -1,0 +1,5 @@
+load(":defs.bzl", "run_action")
+
+run_action(
+    name = "run",
+)
