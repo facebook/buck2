@@ -17,6 +17,8 @@ CompileArgsfile = record(
     input_args = field(list[cmd_args]),
     # Args as written to the argsfile (with shell quoting applied).
     args = field(cmd_args),
+    # Args aggregated for the argsfile excluding file prefix args (excludes shell quoting).
+    args_without_file_prefix_args = field(cmd_args),
 )
 
 CompileArgsfiles = record(

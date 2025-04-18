@@ -1067,6 +1067,9 @@ def _mk_argsfiles(
     argsfiles.append(_mk_argsfile(ctx, target_argsfile_filename, target_args, is_nasm, is_xcode_argsfile))
     args_list.extend(target_args)
 
+    # Create a copy of the args so that we can continue to modify it later.
+    args_without_file_prefix_args = cmd_args(args_list)
+
     # Put file_prefix_args in argsfile, make sure they do not appear when evaluating $(cxxppflags)
     # to avoid "argument too long" errors
     file_prefix_args = headers_tag.tag_artifacts(cmd_args(preprocessor.set.project_as_args("file_prefix_args")))
@@ -1099,6 +1102,7 @@ def _mk_argsfiles(
         cmd_form = cmd_form,
         input_args = input_args,
         args = args,
+        args_without_file_prefix_args = args_without_file_prefix_args,
     )
 
 def _compiler_flags(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, ext: str) -> list[typing.Any]:
@@ -1163,6 +1167,7 @@ def _mk_header_units_argsfile(
         cmd_form = cmd_form,
         input_args = input_args,
         args = file_args,
+        args_without_file_prefix_args = args,
     )
 
 def _get_dep_tracking_mode(toolchain: Provider, file_type: DepFileType) -> DepTrackingMode:

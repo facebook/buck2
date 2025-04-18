@@ -755,6 +755,7 @@ def _compile_with_argsfile(
         cmd_form = argsfile_cmd_form,
         input_args = [shared_flags],
         args = shell_quoted_args,
+        args_without_file_prefix_args = shared_flags,
     )
 
     # Swift correctly handles relative paths and we can utilize the relative argsfile for Xcode.
