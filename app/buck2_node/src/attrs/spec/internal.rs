@@ -84,8 +84,7 @@ pub const LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalA
             )),
         )
     },
-    // `compatible_with` is not configurable in Buck v1.
-    is_configurable: AttrIsConfigurable::No,
+    is_configurable: AttrIsConfigurable::Yes,
 };
 
 pub const EXEC_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalAttribute {
