@@ -18,6 +18,7 @@ use base64::Engine;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_util::commas::commas;
 use buck2_util::strong_hasher::Blake3StrongHasher;
@@ -116,44 +117,7 @@ impl Key for GraphPropertiesKey {
         _cancellation: &CancellationContext,
     ) -> Self::Value {
         let configured_node = ctx.get_configured_target_node(&self.label).await?;
-
-        configured_node.try_map(|node| {
-            let mut queue = vec![&node];
-            let mut visited = HashSet::new();
-
-            let mut sketch = if self.properties.configured_graph_sketch {
-                Some(SketchVersion::V1.create_sketcher())
-            } else {
-                None
-            };
-
-            while let Some(item) = queue.pop() {
-                if !visited.insert(item) {
-                    continue;
-                }
-
-                if let Some(sketch) = sketch.as_mut() {
-                    let label = UseStrongHashing::ref_cast(item.label());
-                    sketch.sketcher.sketch(label).map_err(|e| {
-                        from_any_with_tag(e, buck2_error::ErrorTag::BuildSketchError)
-                    })?;
-                }
-
-                queue.extend(item.deps());
-            }
-
-            Ok(GraphPropertiesValues {
-                configured_graph_size: Some(visited.len() as _),
-                configured_graph_sketch: sketch.map(|sketch| {
-                    let signature = sketch.sketcher.get_signature();
-                    let signature = signature.iter().flat_map(|v| v.to_ne_bytes()).collect();
-                    ConfiguredGraphSketch {
-                        version: sketch.version,
-                        signature: Arc::new(signature),
-                    }
-                }),
-            })
-        })
+        debug_compute_configured_graph_properties_uncached(configured_node, self.properties)
     }
 
     fn equality(a: &Self::Value, b: &Self::Value) -> bool {
@@ -212,4 +176,51 @@ pub async fn get_configured_graph_properties(
         properties,
     })
     .await?
+}
+
+/// Returns the total graph size for all dependencies of a target without caching the result on the DICE graph.
+/// The cost of storing this on DICE is extremely low, so there's almost no reason to use this function (we currently
+/// expose it just for performance testing).
+pub fn debug_compute_configured_graph_properties_uncached(
+    node: MaybeCompatible<ConfiguredTargetNode>,
+    properties: GraphPropertiesOptions,
+) -> buck2_error::Result<MaybeCompatible<GraphPropertiesValues>> {
+    node.try_map(|node| {
+        let mut queue = vec![&node];
+        let mut visited = HashSet::new();
+
+        let mut sketch = if properties.configured_graph_sketch {
+            Some(SketchVersion::V1.create_sketcher())
+        } else {
+            None
+        };
+
+        while let Some(item) = queue.pop() {
+            if !visited.insert(item) {
+                continue;
+            }
+
+            if let Some(sketch) = sketch.as_mut() {
+                let label = UseStrongHashing::ref_cast(item.label());
+                sketch
+                    .sketcher
+                    .sketch(label)
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::BuildSketchError))?;
+            }
+
+            queue.extend(item.deps());
+        }
+
+        Ok(GraphPropertiesValues {
+            configured_graph_size: Some(visited.len() as _),
+            configured_graph_sketch: sketch.map(|sketch| {
+                let signature = sketch.sketcher.get_signature();
+                let signature = signature.iter().flat_map(|v| v.to_ne_bytes()).collect();
+                ConfiguredGraphSketch {
+                    version: sketch.version,
+                    signature: Arc::new(signature),
+                }
+            }),
+        })
+    })
 }
