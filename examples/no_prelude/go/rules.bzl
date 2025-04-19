@@ -14,7 +14,7 @@ def _go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     cmd = cmd_args([ctx.attrs.toolchain[GoCompilerInfo].compiler_path, "build", "-o", out.as_output()] + sources)
 
-    ctx.actions.run(cmd, category = "compile")
+    ctx.actions.run(cmd, env = {"GOCACHE":ctx.attrs.toolchain[GoCompilerInfo].GOCACHE}, category = "compile")
 
     return [
         DefaultInfo(default_output = out),
