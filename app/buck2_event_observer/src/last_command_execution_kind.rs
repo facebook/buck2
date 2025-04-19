@@ -62,7 +62,7 @@ pub fn get_last_command_execution_kind(
 }
 
 pub struct ExecTime {
-    pub(crate) exec_time_ms: u64,
+    pub exec_time_ms: u64,
     pub(crate) cached_exec_time_ms: u64,
 }
 

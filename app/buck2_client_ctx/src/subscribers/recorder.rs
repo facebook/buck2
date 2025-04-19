@@ -49,6 +49,7 @@ use buck2_event_observer::action_stats;
 use buck2_event_observer::cache_hit_rate::total_cache_hit_rate;
 use buck2_event_observer::last_command_execution_kind;
 use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
+use buck2_event_observer::last_command_execution_kind::get_last_command_execution_time;
 use buck2_events::BuckEvent;
 use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
@@ -220,6 +221,7 @@ pub(crate) struct InvocationRecorder {
     file_watcher: Option<String>,
     health_check_tags_receiver: Option<Receiver<Vec<String>>>,
     health_check_tags: HashSet<String>,
+    exec_time_ms: u64,
 }
 
 impl InvocationRecorder {
@@ -376,6 +378,7 @@ impl InvocationRecorder {
             file_watcher: None,
             health_check_tags_receiver,
             health_check_tags: HashSet::new(),
+            exec_time_ms: 0,
         }
     }
 
@@ -798,6 +801,8 @@ impl InvocationRecorder {
             materialization_files: Some(self.materialization_files),
             previous_uuid_with_mismatched_config: self.previous_uuid_with_mismatched_config.take(),
             file_watcher: self.file_watcher.take(),
+
+            exec_time_ms: self.exec_time_ms,
         };
 
         let event = BuckEvent::new(
@@ -1001,6 +1006,8 @@ impl InvocationRecorder {
         }
 
         self.time_to_last_action_execution_end = Some(elapsed_since(self.start_time));
+
+        self.exec_time_ms += get_last_command_execution_time(action).exec_time_ms;
 
         Ok(())
     }

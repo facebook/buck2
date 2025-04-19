@@ -2230,6 +2230,7 @@ message InvocationRecord {
   // Buck2 binary start time, if invoked through the wrapper, then it will be
   // the wrapper start time as that'd be more accurate
   optional uint64 wrapper_start_time = 246;
+  uint64 exec_time_ms = 248;
 }
 
 // Record event sent directly to scribe.
