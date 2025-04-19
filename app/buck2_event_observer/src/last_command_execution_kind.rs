@@ -61,12 +61,28 @@ pub fn get_last_command_execution_kind(
     }
 }
 
-pub fn get_last_command_execution_time(action: &buck2_data::ActionExecutionEnd) -> Option<u64> {
-    action
+pub struct ExecTime {
+    pub(crate) exec_time_ms: u64,
+    pub(crate) cached_exec_time_ms: u64,
+}
+
+pub fn get_last_command_execution_time(action: &buck2_data::ActionExecutionEnd) -> ExecTime {
+    let exec_time_ms = action
         .commands
         .last()
         .and_then(|c| c.details.as_ref())
         .and_then(|c| c.metadata.as_ref())
         .and_then(|c| c.execution_time.as_ref())
         .map(|c| c.seconds as u64 * 1000 + c.nanos as u64 / 1000000)
+        .unwrap_or(0);
+
+    ExecTime {
+        exec_time_ms,
+        cached_exec_time_ms: match get_last_command_execution_kind(action) {
+            LastCommandExecutionKind::Cached | LastCommandExecutionKind::RemoteDepFileCached => {
+                exec_time_ms
+            }
+            _ => 0,
+        },
+    }
 }

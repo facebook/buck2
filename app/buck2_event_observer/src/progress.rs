@@ -28,8 +28,6 @@ use buck2_data::span_start_event;
 use buck2_events::BuckEvent;
 use buck2_events::span::SpanId;
 
-use crate::last_command_execution_kind::LastCommandExecutionKind;
-use crate::last_command_execution_kind::get_last_command_execution_kind;
 use crate::last_command_execution_kind::get_last_command_execution_time;
 use crate::unpack_event::UnpackedBuckEvent;
 use crate::unpack_event::unpack_event;
@@ -397,16 +395,9 @@ impl BuildProgressStateTracker {
                     self.action_finished(data);
                 }
 
-                let exec_time = get_last_command_execution_time(end).unwrap_or(0);
-                self.stats.exec_time_ms += exec_time;
-
-                match get_last_command_execution_kind(end) {
-                    LastCommandExecutionKind::Cached
-                    | LastCommandExecutionKind::RemoteDepFileCached => {
-                        self.stats.cached_exec_time_ms += exec_time;
-                    }
-                    _ => {}
-                }
+                let exec_time = get_last_command_execution_time(end);
+                self.stats.exec_time_ms += exec_time.exec_time_ms;
+                self.stats.cached_exec_time_ms += exec_time.cached_exec_time_ms;
             }
             _ => {}
         }
