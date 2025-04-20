@@ -1,4 +1,5 @@
 load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
+load("@fbsource//tools/build_defs:selects.bzl", "selects")
 
 oncall("build_infra")
 
@@ -10,53 +11,78 @@ prelude.export_file(
     src = "test_file",
 )
 
-prelude.command_alias(
-    name = "relative_path_sh",
-    args = [
+_args = select({
+    "DEFAULT": [
         "sh",
         "-c",
         "cat $1",
         "--",
         "$(location :relative_path_test_file)",
     ],
-    # FIXME(JakobDegen): Bug. Doesn't work without this because we don't quote
-    # the `RunInfo` this emits in the below `command_alias`
-    run_using_single_arg = True,
-)
-
-prelude.command_alias(
-    name = "relative_path_win",
-    args = [
+    "ovr_config//os:windows": [
         "cmd.exe",
         "/c",
         "type",
         "$(location :relative_path_test_file)",
     ],
-    # FIXME(JakobDegen): Bug. Can't be cross-built. Also add a proper test
-    exec_compatible_with = ["ovr_config//os:windows"],
-    # FIXME(JakobDegen): Bug. Doesn't work without this because we don't quote
-    # the `RunInfo` this emits in the below `command_alias`
-    run_using_single_arg = True,
+})
+
+prelude.command_alias(
+    name = "relative_path_exec_unix",
+    args = _args,
+    exec_compatible_with = [
+        "ovr_config//os:linux",
+    ],
 )
 
 prelude.command_alias(
-    name = "relative_path",
-    platform_exe = {
-        "linux": ":relative_path_sh",
-        "macos": ":relative_path_sh",
-        "windows": ":relative_path_win",
-    },
+    name = "relative_path_exec_windows",
+    args = _args,
+    exec_compatible_with = [
+        "ovr_config//os:windows",
+    ],
 )
 
 py_assertion(
-    name = "check_relative_paths",
-    script = """
+    name = "check_relative_paths_exec_unix",
+    script = selects.fmt(
+        """
 import subprocess
 import sys
-assert (
-    subprocess.check_output([sys.argv[1]]).decode().strip()
-    == "foo"
-)
+
+stdout, ret = {}
+output = subprocess.run([sys.argv[1]], capture_output=True, text=True)
+assert output.stdout.strip() == stdout
+assert output.returncode == ret
 """,
-    script_args = ["$(exe_target :relative_path)"],
+        select({
+            "DEFAULT": '"foo", 0',
+            # FIXME(JakobDegen): Also broken, haven't investigated the cause yet, may be the same
+            # as below
+            "ovr_config//os:windows": '"", 1',
+        }),
+    ),
+    script_args = ["$(location :relative_path_exec_unix)"],
+)
+
+py_assertion(
+    name = "check_relative_path_exec_windows",
+    script = selects.fmt(
+        """
+import subprocess
+import sys
+
+stdout, ret = {}
+output = subprocess.run([sys.argv[1]], capture_output=True, text=True)
+assert output.stdout.strip() == stdout
+assert output.returncode == ret
+""",
+        select({
+            # FIXME(JakobDegen): The trampoline we output uses line separators appropriate for the
+            # exec platform, not the target platform
+            "DEFAULT": '"", 1',
+            "ovr_config//os:windows": '"foo", 0',
+        }),
+    ),
+    script_args = ["$(location :relative_path_exec_windows)"],
 )
