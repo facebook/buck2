@@ -1,3 +1,5 @@
+load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
+
 oncall("build_infra")
 
 prelude = native
@@ -14,51 +16,41 @@ prelude.export_file(
 )
 
 prelude.command_alias(
-    name = "linux",
+    name = "multiple_args",
     args = [
-        "some_linux_arg",
-        "some_other_linux_arg",
+        "some_arg",
+        "some_other_arg",
     ],
-    exe = ":print_two_args.sh",
+    exe = select({
+        "DEFAULT": ":print_two_args.sh",
+        "ovr_config//os:windows": ":print_two_args.bat",
+    }),
 )
 
-prelude.command_alias(
-    name = "mac",
-    args = [
-        "some_mac_arg",
-        "some_other_mac_arg",
-    ],
-    exe = ":print_two_args.sh",
+py_assertion(
+    name = "check_multiple_args",
+    script = """
+import subprocess
+import sys
+args = sys.argv[1].split(" ")
+assert (
+    subprocess.check_output(args).decode().strip()
+    == "some_arg some_other_arg"
+)
+""",
+    script_args = ["$(exe_target :multiple_args)"],
 )
 
-prelude.command_alias(
-    name = "windows",
-    args = [
-        "some_mac_arg",
-        "some_other_mac_arg",
-    ],
-    exe = ":print_two_args.bat",
-)
-
-prelude.command_alias(
-    name = "platform_multiple_args",
-    platform_exe = {
-        "linux": ":linux",
-        "macos": ":mac",
-        "windows": ":windows",
-    },
-)
-
-prelude.genrule(
-    name = "check_platform_multiple_args",
-    out = "out.txt",
-    bash = '$(exe_target :platform_multiple_args) | grep "arg" && touch "$OUT"',
-    cmd_exe = '$(exe_target :platform_multiple_args) | findstr "arg" && type nul> %OUT%',
-)
-
-prelude.genrule(
+py_assertion(
     name = "check_platform_multiple_args_via_default_info",
-    out = "out.txt",
-    bash = '$(location :platform_multiple_args) | grep "arg" && touch "$OUT"',
-    cmd_exe = '$(location :platform_multiple_args) | findstr "arg" && type nul> %OUT%',
+    script = """
+import subprocess
+import sys
+args = sys.argv[1].split(" ")
+assert (
+    subprocess.check_output(args).decode().strip()
+    == "some_arg some_other_arg"
+)
+""",
+    script_args = ["$(location :multiple_args)"],
 )

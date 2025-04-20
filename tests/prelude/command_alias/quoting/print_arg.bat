@@ -6,4 +6,4 @@
 @REM of this source tree.
 
 @echo off
-echo %1 %2
+echo %~1

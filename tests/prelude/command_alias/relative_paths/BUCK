@@ -1,3 +1,5 @@
+load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
+
 oncall("build_infra")
 
 prelude = native
@@ -17,9 +19,9 @@ prelude.command_alias(
         "--",
         "$(location :relative_path_test_file)",
     ],
-    # Right now, this doesn't actually work with a genrule unless we actually
-    # write this to a file anyway, which we'll do if we have envs...
-    env = {"FORCE_WRITE_TO_FILE": ""},
+    # FIXME(JakobDegen): Bug. Doesn't work without this because we don't quote
+    # the `RunInfo` this emits in the below `command_alias`
+    run_using_single_arg = True,
 )
 
 prelude.command_alias(
@@ -30,9 +32,9 @@ prelude.command_alias(
         "type",
         "$(location :relative_path_test_file)",
     ],
-    # Right now, this doesn't actually work with a genrule unless we actually
-    # write this to a file anyway, which we'll do if we have envs...
-    env = {"FORCE_WRITE_TO_FILE": ""},
+    # FIXME(JakobDegen): Bug. Doesn't work without this because we don't quote
+    # the `RunInfo` this emits in the below `command_alias`
+    run_using_single_arg = True,
 )
 
 prelude.command_alias(
@@ -44,9 +46,15 @@ prelude.command_alias(
     },
 )
 
-prelude.genrule(
-    name = "check_relative_path",
-    out = "out.txt",
-    bash = '$(exe_target :relative_path) | grep "foo" && touch "$OUT"',
-    cmd_exe = '$(exe_target :relative_path) | findstr "foo" && type nul> %OUT%',
+py_assertion(
+    name = "check_relative_paths",
+    script = """
+import subprocess
+import sys
+assert (
+    subprocess.check_output([sys.argv[1]]).decode().strip()
+    == "foo"
+)
+""",
+    script_args = ["$(exe_target :relative_path)"],
 )
