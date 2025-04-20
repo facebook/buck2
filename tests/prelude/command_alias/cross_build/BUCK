@@ -35,8 +35,4 @@ import sys
 subprocess.check_output([sys.argv[1]])
 """,
     script_args = ["$(location :exec_windows)"],
-    # FIXME(JakobDegen): The trampoline is not executable
-    target_compatible_with = [
-        "ovr_config//os:windows",
-    ],
 )

@@ -221,7 +221,12 @@ def _relativize_path_windows(
         absolute_prefix = var + "/",
     )
 
-    trampoline, _ = ctx.actions.write("__command_alias_trampoline.{}".format(extension), trampoline_args, allow_args = True)
+    trampoline, _ = ctx.actions.write(
+        "__command_alias_trampoline.{}".format(extension),
+        trampoline_args,
+        allow_args = True,
+        is_executable = True,
+    )
 
     return trampoline
 
