@@ -1,0 +1,31 @@
+# @lint-ignore BUCKLINT
+prelude = native  # Avoid warnings and auto-formatters
+
+prelude.export_file(
+    name = "exe.sh",
+    mode = "reference",
+)
+
+prelude.export_file(
+    name = "exe.bat",
+    mode = "reference",
+)
+
+prelude.command_alias(
+    name = "rule",
+    platform_exe = {
+        "linux": ":exe.sh",
+        "macos": ":exe.sh",
+        "windows": ":exe.bat",
+    },
+    resources = [
+        "resource.dat",
+    ],
+)
+
+prelude.genrule(
+    name = "check",
+    out = "out.txt",
+    bash = "$(exe_target :rule) | grep HELLO > $OUT",
+    cmd_exe = "$(exe_target :rule) | findstr HELLO && type nul > %OUT%",
+)

@@ -1,0 +1,25 @@
+# @lint-ignore BUCKLINT
+# Test that the use of env vars don't make `$(exe ...)` expand to multiple args.
+# Even though this is technically fine, a lot of use-cases expect expansions to
+# a single arg.
+
+prelude = native  # Avoid warnings and auto-formatters
+
+prelude.command_alias(
+    name = "foo_sh_alias",
+    env = {"FOO": "hello-world"},
+    exe = "foo.sh",
+)
+
+prelude.command_alias(
+    name = "foo_bat_alias",
+    env = {"FOO": "hello-world"},
+    exe = "foo.bat",
+)
+
+prelude.genrule(
+    name = "check",
+    out = "out.txt",
+    bash = '$(exe_target :foo_sh_alias) | grep hello-world && touch "$OUT"',
+    cmd_exe = "$(exe_target :foo_bat_alias) | findstr hello-world && type nul > %OUT%",
+)

@@ -1,0 +1,112 @@
+# @lint-ignore BUCKLINT
+# Test that the use of env vars, platform_exe, or run_using_single_arg don't
+# make `$(exe ...)` expand to multiple args. Even though this is technically
+# fine, a lot of use-cases expect expansions to a single arg.
+
+prelude = native  # Avoid warnings and auto-formatters
+
+prelude.export_file(
+    name = "foo.sh",
+    src = "foo.sh",
+)
+
+prelude.export_file(
+    name = "foo.bat",
+    src = "foo.bat",
+)
+
+prelude.command_alias(
+    name = "foo_sh_alias",
+    env = {"FOO": "hello-world"},
+    exe = ":foo.sh",
+)
+
+prelude.command_alias(
+    name = "foo_bat_alias",
+    env = {"FOO": "hello-world"},
+    exe = ":foo.bat",
+)
+
+prelude.genrule(
+    name = "check",
+    out = "out.txt",
+    bash = '$(exe_target :foo_sh_alias) | grep hello-world && touch "$OUT"',
+    cmd_exe = "$(exe_target :foo_bat_alias) | findstr hello-world && type nul > %OUT%",
+)
+
+prelude.command_alias(
+    name = "foo_with_platform_nested_aliasing",
+    platform_exe = {
+        "linux": ":foo_sh_alias",
+        "macos": ":foo_sh_alias",
+        "windows": ":foo_bat_alias",
+    },
+)
+
+prelude.genrule(
+    name = "check_foo_with_platform_nested_aliasing",
+    out = "out.txt",
+    bash = '$(exe_target :foo_with_platform_nested_aliasing) | grep hello-world && touch "$OUT"',
+    cmd_exe = "$(exe_target :foo_with_platform_nested_aliasing) | findstr hello-world && type nul > %OUT%",
+)
+
+prelude.command_alias(
+    name = "foo_with_platform",
+    env = {"FOO": "hello-world"},
+    platform_exe = {
+        "linux": ":foo.sh",
+        "macos": ":foo.sh",
+        "windows": ":foo.bat",
+    },
+)
+
+prelude.genrule(
+    name = "check_foo_with_platform",
+    out = "out.txt",
+    bash = '$(exe_target :foo_with_platform) | grep hello-world && touch "$OUT"',
+    cmd_exe = "$(exe_target :foo_with_platform) | findstr hello-world && type nul > %OUT%",
+)
+
+prelude.command_alias(
+    name = "echo_args_sh_alias",
+    args = [
+        "hello",
+        "world",
+    ],
+    exe = "echo_args.sh",
+    run_using_single_arg = True,
+)
+
+prelude.command_alias(
+    name = "echo_args_bat_alias",
+    args = [
+        "hello",
+        "world",
+    ],
+    exe = "echo_args.bat",
+    run_using_single_arg = True,
+)
+
+prelude.command_alias(
+    name = "run_first_arg_sh_alias",
+    exe = "run_first_arg.sh",
+)
+
+prelude.command_alias(
+    name = "run_first_arg_bat_alias",
+    exe = "run_first_arg.bat",
+)
+
+prelude.genrule(
+    name = "check_run_using_single_arg",
+    out = "out.txt",
+    bash = '$(exe_target :run_first_arg_sh_alias) $(exe_target :echo_args_sh_alias) | grep "hello world" && touch "$OUT"',
+    cmd_exe = '$(exe_target :run_first_arg_bat_alias) $(exe_target :echo_args_bat_alias) | findstr "hello world" && type nul > "%OUT%"',
+    exec_compatible_with = select({
+        "DEFAULT": [],
+        # Allow testing on Windows via @fbcode/mode/win
+        "ovr_config//os:windows": [
+            "ovr_config//os/constraints:windows",
+        ],
+    }),
+)

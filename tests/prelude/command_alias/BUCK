@@ -1,0 +1,263 @@
+oncall("build_infra")
+
+prelude = native  # Avoid warnings and auto-formatters
+
+# Test to verify that we construct the command correctly when it has multiple args.
+prelude.export_file(
+    name = "print_two_args.sh",
+    src = "print_two_args.sh",
+)
+
+prelude.export_file(
+    name = "print_two_args.bat",
+    src = "print_two_args.bat",
+)
+
+prelude.command_alias(
+    name = "linux",
+    args = [
+        "some_linux_arg",
+        "some_other_linux_arg",
+    ],
+    exe = ":print_two_args.sh",
+)
+
+prelude.command_alias(
+    name = "mac",
+    args = [
+        "some_mac_arg",
+        "some_other_mac_arg",
+    ],
+    exe = ":print_two_args.sh",
+)
+
+prelude.command_alias(
+    name = "windows",
+    args = [
+        "some_mac_arg",
+        "some_other_mac_arg",
+    ],
+    exe = ":print_two_args.bat",
+)
+
+prelude.command_alias(
+    name = "platform_multiple_args",
+    platform_exe = {
+        "linux": ":linux",
+        "macos": ":mac",
+        "windows": ":windows",
+    },
+)
+
+prelude.genrule(
+    name = "check_platform_multiple_args",
+    out = "out.txt",
+    bash = '$(exe_target :platform_multiple_args) | grep "arg" && touch "$OUT"',
+    cmd_exe = '$(exe_target :platform_multiple_args) | findstr "arg" && type nul> %OUT%',
+)
+
+prelude.genrule(
+    name = "check_platform_multiple_args_via_default_info",
+    out = "out.txt",
+    bash = '$(location :platform_multiple_args) | grep "arg" && touch "$OUT"',
+    cmd_exe = '$(location :platform_multiple_args) | findstr "arg" && type nul> %OUT%',
+)
+
+# Test to verify we handle quoting arguments properly
+prelude.command_alias(
+    name = "quote_sh",
+    args = [
+        "sh",
+        "-c",
+        "echo $1",
+        "--",
+        "foo bar",
+    ],
+    # Right now, this doesn't actually work with a genrule unless we actually
+    # write this to a file anyway, which we'll do if we have envs...
+    env = {"FORCE_WRITE_TO_FILE": ""},
+)
+
+prelude.command_alias(
+    name = "quote_win",
+    args = [
+        "$(location :print_two_args.bat)",
+        "foo",
+        "baz bar",
+    ],
+    # Right now, this doesn't actually work with a genrule unless we actually
+    # write this to a file anyway, which we'll do if we have envs...
+    env = {"FORCE_WRITE_TO_FILE": ""},
+)
+
+prelude.command_alias(
+    name = "quote",
+    platform_exe = {
+        "linux": ":quote_sh",
+        "macos": ":quote_sh",
+        "windows": ":quote_win",
+    },
+)
+
+prelude.genrule(
+    name = "check_quote",
+    out = "out.txt",
+    bash = '$(exe_target :quote) | grep "bar" && touch "$OUT"',
+    cmd_exe = '$(exe_target :quote) | findstr "bar" && type nul> %OUT%',
+)
+
+# Test to verify that we handle env
+prelude.command_alias(
+    name = "env_sh",
+    args = [
+        "sh",
+        "-c",
+        "echo $TEST_VAR",
+    ],
+    env = {"TEST_VAR": "foo"},
+)
+
+prelude.command_alias(
+    name = "env_win",
+    args = [
+        "cmd.exe",
+        "/c",
+        "echo %TEST_VAR%",
+    ],
+    env = {"TEST_VAR": "foo bar"},
+)
+
+prelude.command_alias(
+    name = "env",
+    platform_exe = {
+        "linux": ":env_sh",
+        "macos": ":env_sh",
+        "windows": ":env_win",
+    },
+)
+
+prelude.genrule(
+    name = "check_env",
+    out = "out.txt",
+    bash = '$(exe_target :env) | grep "foo" && touch "$OUT"',
+    cmd_exe = '$(exe_target :env) | findstr "foo bar" && type nul> %OUT%',
+)
+
+# Test to verify that relative paths in args actually work
+prelude.export_file(
+    name = "relative_path_test_file",
+    src = "test_file",
+)
+
+prelude.command_alias(
+    name = "relative_path_sh",
+    args = [
+        "sh",
+        "-c",
+        "cat $1",
+        "--",
+        "$(location :relative_path_test_file)",
+    ],
+    # Right now, this doesn't actually work with a genrule unless we actually
+    # write this to a file anyway, which we'll do if we have envs...
+    env = {"FORCE_WRITE_TO_FILE": ""},
+)
+
+prelude.command_alias(
+    name = "relative_path_win",
+    args = [
+        "cmd.exe",
+        "/c",
+        "type",
+        "$(location :relative_path_test_file)",
+    ],
+    # Right now, this doesn't actually work with a genrule unless we actually
+    # write this to a file anyway, which we'll do if we have envs...
+    env = {"FORCE_WRITE_TO_FILE": ""},
+)
+
+prelude.command_alias(
+    name = "relative_path",
+    platform_exe = {
+        "linux": ":relative_path_sh",
+        "macos": ":relative_path_sh",
+        "windows": ":relative_path_win",
+    },
+)
+
+prelude.genrule(
+    name = "check_relative_path",
+    out = "out.txt",
+    bash = '$(exe_target :relative_path) | grep "foo" && touch "$OUT"',
+    cmd_exe = '$(exe_target :relative_path) | findstr "foo" && type nul> %OUT%',
+)
+
+# Test that producing trampoline scripts works when the target and exec platform don't match
+prelude.command_alias(
+    name = "exec_unix",
+    args = ["ls"],
+    # Force this to write a command alias wrapper
+    env = {"FORCE_WRITE_TO_FILE": ""},
+    exec_compatible_with = ["ovr_config//os:linux"],
+    target_compatible_with = ["ovr_config//os:windows"],
+)
+
+prelude.command_alias(
+    name = "exec_windows",
+    args = ["ls"],
+    # Force this to write a command alias wrapper
+    env = {"FORCE_WRITE_TO_FILE": ""},
+    exec_compatible_with = ["ovr_config//os:windows"],
+    target_compatible_with = ["ovr_config//os:linux"],
+)
+
+# @lint-ignore BUCKLINT
+prelude.genrule(
+    name = "check_exec_unix_target_windows",
+    out = "out",
+    cmd_exe = "$(exe :exec_unix) && type nul> %OUT%",
+)
+
+# This is broken: batch script mangles the whole thing.
+#
+# prelude.genrule(
+#     name = "check_exec_windows_target_unix",
+#     bash = '$(exe :exec_windows) && touch "$OUT"',
+#     out = "out",
+# )
+
+# Test JSON is encoded correctly when serialized to env variable.
+prelude.genrule(
+    name = "check_json_encode",
+    out = "out.txt",
+    bash = '$(exe_target :with_json_env) && touch "$OUT"',
+    cmd_exe = "$(exe_target :with_json_env) && type nul> %OUT%",
+)
+
+prelude.command_alias(
+    name = "with_json_env",
+    env = {
+        "COMMAND_ALIAS_ENV_TEST_VARS": prelude.json.encode(struct(
+            key = "value",
+            key2 = {
+                "test2_key": "test2_value",
+                "test_key": "test_value",
+            },
+        )),
+    },
+    platform_exe = {
+        "linux": ":check_json.sh",
+        "macos": ":check_json.sh",
+        "windows": ":check_json.bat",
+    },
+)
+
+prelude.export_file(
+    name = "check_json.sh",
+    src = "check_json.sh",
+)
+
+prelude.export_file(
+    name = "check_json.bat",
+    src = "check_json.bat",
+)
