@@ -46,7 +46,7 @@ pub(crate) fn resolve_buckconfig_sysroot(
         // TODO(diliopoulos): remove hardcoded path to toolchain sysroot and replace with something
         // derived from buck, e.g.
         //
-        // $ buck cquery -u fbcode//buck2/integrations/rust-project:rust-project -a compiler fbcode//buck2/platform/toolchain:rust_bootstrap
+        // $ buck cquery -u fbcode//buck2/integrations/rust-project:rust-project -a compiler fbcode//buck2/platform/rust:rust_bootstrap
         // ...
         //     "compiler": "fbcode//tools/build/buck/wrappers:rust-platform010-clang-17-nosan-compiler (fbcode//buck2/platform/execution:linux-x86_64#54c5d1cbad5316cb)"
         // $ buck cquery -u fbcode//buck2/integrations/rust-project:rust-project -a exe fbcode//tools/build/buck/wrappers:rust-platform010-clang-17-nosan-compiler
