@@ -15,9 +15,10 @@ import sys
 def main():
     if len(sys.argv) < 3:
         raise ValueError("expected at least 2 arguments")
-    out = sys.argv[1]
+    tool = sys.argv[1]
+    out = sys.argv[2]
     with open(out, "w") as f:
-        res = subprocess.run(sys.argv[2:], stdout=f)
+        res = subprocess.run([tool] + sys.argv[3:], stdout=f)
     sys.exit(res.returncode)
 
 
