@@ -32,6 +32,8 @@ prelude.command_alias(
         "type",
         "$(location :relative_path_test_file)",
     ],
+    # FIXME(JakobDegen): Bug. Can't be cross-built. Also add a proper test
+    exec_compatible_with = ["ovr_config//os:windows"],
     # FIXME(JakobDegen): Bug. Doesn't work without this because we don't quote
     # the `RunInfo` this emits in the below `command_alias`
     run_using_single_arg = True,
