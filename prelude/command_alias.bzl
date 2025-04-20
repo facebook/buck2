@@ -23,7 +23,7 @@ def command_alias_impl(ctx: AnalysisContext):
     if target_os.script == ScriptLanguage("sh"):
         return _command_alias_impl_target_unix(ctx, base, exec_is_windows)
     elif target_os.script == ScriptLanguage("bat"):
-        return _command_alias_impl_target_windows(ctx, base, exec_is_windows)
+        return _command_alias_impl_target_windows(ctx, base)
     else:
         fail("Unsupported script language: {}".format(target_os.script))
 
@@ -105,7 +105,7 @@ def _command_alias_impl_target_unix(
         RunInfo(args = run_info_args),
     ]
 
-def _command_alias_impl_target_windows(ctx: AnalysisContext, base: RunInfo, exec_is_windows: bool):
+def _command_alias_impl_target_windows(ctx: AnalysisContext, base: RunInfo):
     trampoline_args = cmd_args()
     trampoline_args.add("@echo off")
 
@@ -135,12 +135,17 @@ def _command_alias_impl_target_windows(ctx: AnalysisContext, base: RunInfo, exec
 
     trampoline_args.add(cmd)
 
-    trampoline = _relativize_path(
-        ctx,
+    trampoline = ctx.actions.declare_output("__command_alias_trampoline.bat")
+    trampoline_args = cmd_args(
         trampoline_args,
-        "bat",
-        "%BUCK_COMMAND_ALIAS_ABSOLUTE%",
-        exec_is_windows,
+        relative_to = (trampoline, 1),
+        absolute_prefix = "%BUCK_COMMAND_ALIAS_ABSOLUTE%/",
+    )
+    ctx.actions.write(
+        trampoline.as_output(),
+        trampoline_args,
+        allow_args = True,
+        is_executable = True,
     )
 
     run_info_args_args = []
