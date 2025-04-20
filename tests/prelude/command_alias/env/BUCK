@@ -34,3 +34,20 @@ assert (
 """,
     script_args = ["$(exe_target :env)"],
 )
+
+py_assertion(
+    name = "check_env_has_priority",
+    script = """
+import subprocess
+import sys
+import os
+
+env = os.environ.copy()
+env["TEST_VAR"] = "baz qux"
+assert (
+    subprocess.check_output([sys.argv[1]], env = env).decode().strip()
+    == "foo bar"
+)
+""",
+    script_args = ["$(exe_target :env)"],
+)
