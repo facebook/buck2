@@ -1,0 +1,51 @@
+oncall("build_infra")
+
+prelude = native
+
+prelude.export_file(
+    name = "print_two_args.bat",
+    src = "print_two_args.bat",
+)
+
+# Test to verify we handle quoting arguments properly
+prelude.command_alias(
+    name = "quote_sh",
+    args = [
+        "sh",
+        "-c",
+        "echo $1",
+        "--",
+        "foo bar",
+    ],
+    # Right now, this doesn't actually work with a genrule unless we actually
+    # write this to a file anyway, which we'll do if we have envs...
+    env = {"FORCE_WRITE_TO_FILE": ""},
+)
+
+prelude.command_alias(
+    name = "quote_win",
+    args = [
+        "$(location :print_two_args.bat)",
+        "foo",
+        "baz bar",
+    ],
+    # Right now, this doesn't actually work with a genrule unless we actually
+    # write this to a file anyway, which we'll do if we have envs...
+    env = {"FORCE_WRITE_TO_FILE": ""},
+)
+
+prelude.command_alias(
+    name = "quote",
+    platform_exe = {
+        "linux": ":quote_sh",
+        "macos": ":quote_sh",
+        "windows": ":quote_win",
+    },
+)
+
+prelude.genrule(
+    name = "check_quote",
+    out = "out.txt",
+    bash = '$(exe_target :quote) | grep "bar" && touch "$OUT"',
+    cmd_exe = '$(exe_target :quote) | findstr "bar" && type nul> %OUT%',
+)

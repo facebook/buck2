@@ -1,0 +1,37 @@
+oncall("build_infra")
+
+prelude = native
+
+# Test that producing trampoline scripts works when the target and exec platform don't match
+prelude.command_alias(
+    name = "exec_unix",
+    args = ["ls"],
+    # Force this to write a command alias wrapper
+    env = {"FORCE_WRITE_TO_FILE": ""},
+    exec_compatible_with = ["ovr_config//os:linux"],
+    target_compatible_with = ["ovr_config//os:windows"],
+)
+
+prelude.command_alias(
+    name = "exec_windows",
+    args = ["ls"],
+    # Force this to write a command alias wrapper
+    env = {"FORCE_WRITE_TO_FILE": ""},
+    exec_compatible_with = ["ovr_config//os:windows"],
+    target_compatible_with = ["ovr_config//os:linux"],
+)
+
+# @lint-ignore BUCKLINT
+prelude.genrule(
+    name = "check_exec_unix_target_windows",
+    out = "out",
+    cmd_exe = "$(exe :exec_unix) && type nul> %OUT%",
+)
+
+# This is broken: batch script mangles the whole thing.
+#
+# prelude.genrule(
+#     name = "check_exec_windows_target_unix",
+#     bash = '$(exe :exec_windows) && touch "$OUT"',
+#     out = "out",
+# )

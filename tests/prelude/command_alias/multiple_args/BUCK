@@ -1,0 +1,64 @@
+oncall("build_infra")
+
+prelude = native
+
+# Test to verify that we construct the command correctly when it has multiple args.
+prelude.export_file(
+    name = "print_two_args.sh",
+    src = "print_two_args.sh",
+)
+
+prelude.export_file(
+    name = "print_two_args.bat",
+    src = "print_two_args.bat",
+)
+
+prelude.command_alias(
+    name = "linux",
+    args = [
+        "some_linux_arg",
+        "some_other_linux_arg",
+    ],
+    exe = ":print_two_args.sh",
+)
+
+prelude.command_alias(
+    name = "mac",
+    args = [
+        "some_mac_arg",
+        "some_other_mac_arg",
+    ],
+    exe = ":print_two_args.sh",
+)
+
+prelude.command_alias(
+    name = "windows",
+    args = [
+        "some_mac_arg",
+        "some_other_mac_arg",
+    ],
+    exe = ":print_two_args.bat",
+)
+
+prelude.command_alias(
+    name = "platform_multiple_args",
+    platform_exe = {
+        "linux": ":linux",
+        "macos": ":mac",
+        "windows": ":windows",
+    },
+)
+
+prelude.genrule(
+    name = "check_platform_multiple_args",
+    out = "out.txt",
+    bash = '$(exe_target :platform_multiple_args) | grep "arg" && touch "$OUT"',
+    cmd_exe = '$(exe_target :platform_multiple_args) | findstr "arg" && type nul> %OUT%',
+)
+
+prelude.genrule(
+    name = "check_platform_multiple_args_via_default_info",
+    out = "out.txt",
+    bash = '$(location :platform_multiple_args) | grep "arg" && touch "$OUT"',
+    cmd_exe = '$(location :platform_multiple_args) | findstr "arg" && type nul> %OUT%',
+)

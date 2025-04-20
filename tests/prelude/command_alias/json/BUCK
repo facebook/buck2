@@ -1,0 +1,39 @@
+oncall("build_infra")
+
+prelude = native
+
+# Test JSON is encoded correctly when serialized to env variable.
+prelude.genrule(
+    name = "check_json_encode",
+    out = "out.txt",
+    bash = '$(exe_target :with_json_env) && touch "$OUT"',
+    cmd_exe = "$(exe_target :with_json_env) && type nul> %OUT%",
+)
+
+prelude.command_alias(
+    name = "with_json_env",
+    env = {
+        "COMMAND_ALIAS_ENV_TEST_VARS": prelude.json.encode(struct(
+            key = "value",
+            key2 = {
+                "test2_key": "test2_value",
+                "test_key": "test_value",
+            },
+        )),
+    },
+    platform_exe = {
+        "linux": ":check_json.sh",
+        "macos": ":check_json.sh",
+        "windows": ":check_json.bat",
+    },
+)
+
+prelude.export_file(
+    name = "check_json.sh",
+    src = "check_json.sh",
+)
+
+prelude.export_file(
+    name = "check_json.bat",
+    src = "check_json.bat",
+)

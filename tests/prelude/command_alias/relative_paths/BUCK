@@ -1,0 +1,52 @@
+oncall("build_infra")
+
+prelude = native
+
+# Test to verify that relative paths in args actually work
+prelude.export_file(
+    name = "relative_path_test_file",
+    src = "test_file",
+)
+
+prelude.command_alias(
+    name = "relative_path_sh",
+    args = [
+        "sh",
+        "-c",
+        "cat $1",
+        "--",
+        "$(location :relative_path_test_file)",
+    ],
+    # Right now, this doesn't actually work with a genrule unless we actually
+    # write this to a file anyway, which we'll do if we have envs...
+    env = {"FORCE_WRITE_TO_FILE": ""},
+)
+
+prelude.command_alias(
+    name = "relative_path_win",
+    args = [
+        "cmd.exe",
+        "/c",
+        "type",
+        "$(location :relative_path_test_file)",
+    ],
+    # Right now, this doesn't actually work with a genrule unless we actually
+    # write this to a file anyway, which we'll do if we have envs...
+    env = {"FORCE_WRITE_TO_FILE": ""},
+)
+
+prelude.command_alias(
+    name = "relative_path",
+    platform_exe = {
+        "linux": ":relative_path_sh",
+        "macos": ":relative_path_sh",
+        "windows": ":relative_path_win",
+    },
+)
+
+prelude.genrule(
+    name = "check_relative_path",
+    out = "out.txt",
+    bash = '$(exe_target :relative_path) | grep "foo" && touch "$OUT"',
+    cmd_exe = '$(exe_target :relative_path) | findstr "foo" && type nul> %OUT%',
+)
