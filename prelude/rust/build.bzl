@@ -211,7 +211,6 @@ def generate_rustdoc(
 
     rustdoc_cmd = cmd_args(
         toolchain_info.rustdoc,
-        "--rustc-action-separator",
         toolchain_info.rustdoc_flags,
         ctx.attrs.rustdoc_flags,
         common_args.args,
@@ -268,7 +267,6 @@ def generate_rustdoc_coverage(
 
     rustdoc_cmd = cmd_args(
         toolchain_info.rustdoc,
-        "--rustc-action-separator",
         toolchain_info.rustdoc_flags,
         ctx.attrs.rustdoc_flags,
         common_args.args,
@@ -411,7 +409,6 @@ def generate_rustdoc_test(
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
         [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
         toolchain_info.rustdoc,
-        "--rustc-action-separator",
         "--test",
         unstable_options,
         cmd_args("--test-builder=", toolchain_info.compiler, delimiter = ""),
@@ -651,12 +648,7 @@ def rust_compile(
         compile_ctx = compile_ctx,
         common_args = common_args,
         prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
-        rustc_cmd = cmd_args(
-            rustc_bin,
-            "--rustc-action-separator",
-            rustc_cmd,
-            emit_op.args,
-        ),
+        rustc_cmd = cmd_args(rustc_bin, rustc_cmd, emit_op.args),
         required_outputs = [emit_op.output],
         is_clippy = emit.value == "clippy",
         infallible_diagnostics = infallible_diagnostics,

@@ -325,8 +325,7 @@ async def main() -> int:  # noqa: C901
     if DEBUG:
         print(f"args {repr(args)} env {env} crate_map {crate_map}", end="\n")
 
-    separator = args.rustc.index("--rustc-action-separator")
-    rustc_cmd, rustc_args = args.rustc[:separator], args.rustc[separator + 1 :]
+    rustc_cmd, rustc_args = args.rustc[:1], args.rustc[1:]
 
     if args.remap_cwd_prefix is not None:
         rustc_args.append(
