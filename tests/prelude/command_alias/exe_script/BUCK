@@ -1,25 +1,26 @@
-# @lint-ignore BUCKLINT
-# Test that the use of env vars don't make `$(exe ...)` expand to multiple args.
-# Even though this is technically fine, a lot of use-cases expect expansions to
-# a single arg.
+load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
 
-prelude = native  # Avoid warnings and auto-formatters
+# Test that the sources can be used in `exe`
 
-prelude.command_alias(
-    name = "foo_sh_alias",
-    env = {"FOO": "hello-world"},
-    exe = "foo.sh",
-)
+oncall("build_infra")
+
+prelude = native
 
 prelude.command_alias(
-    name = "foo_bat_alias",
+    name = "foo",
     env = {"FOO": "hello-world"},
-    exe = "foo.bat",
+    exe = select({
+        "DEFAULT": "foo.sh",
+        "ovr_config//os:windows": "foo.bat",
+    }),
 )
 
-prelude.genrule(
+py_assertion(
     name = "check",
-    out = "out.txt",
-    bash = '$(exe_target :foo_sh_alias) | grep hello-world && touch "$OUT"',
-    cmd_exe = "$(exe_target :foo_bat_alias) | findstr hello-world && type nul > %OUT%",
+    script = """
+import subprocess
+import sys
+assert "hello-world" in subprocess.check_output([sys.argv[1]]).decode()
+""",
+    script_args = ["$(exe_target :foo)"],
 )
