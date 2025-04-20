@@ -1,4 +1,5 @@
 load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
+load("@fbsource//tools/build_defs:selects.bzl", "selects")
 
 oncall("build_infra")
 
@@ -58,4 +59,43 @@ assert (
 )
 """,
     script_args = ["$(location :quoting_run_info)"],
+)
+
+# Test to verify we handle quoting things that need quoting on windows
+prelude.command_alias(
+    name = "quoted_windows_arg",
+    args = select({
+        "DEFAULT": [
+            "sh",
+            "-c",
+            "echo $1",
+            "--",
+            "%SOME_VAR%",
+        ],
+        "ovr_config//os:windows": [
+            "$(location :print_arg.bat)",
+            "%SOME_VAR%",
+        ],
+    }),
+)
+
+py_assertion(
+    name = "check_quoted_windows_arg",
+    script = selects.fmt(
+        """
+import subprocess
+import sys
+
+assert (
+    subprocess.check_output([sys.argv[1]]).decode().strip()
+    {} "%SOME_VAR%"
+)
+""",
+        select({
+            "DEFAULT": "==",
+            # FIXME(JakobDegen): We don't quote correctly on windows
+            "ovr_config//os:windows": "!=",
+        }),
+    ),
+    script_args = ["$(location :quoted_windows_arg)"],
 )
