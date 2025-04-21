@@ -23,7 +23,7 @@ def main():
         help="write the archive to bootstrap script",
         required=True,
     )
-    args = parser.parse_args(sys.argv[1:])
+    args, _ = parser.parse_known_args(sys.argv[1:])
     args.target = get_target_info(args.target)
 
     builder = LiveBuilder(options=args, manifest=None, linktree_suffix="#link-tree")
