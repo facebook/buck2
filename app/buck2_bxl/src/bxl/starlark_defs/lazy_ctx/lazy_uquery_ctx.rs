@@ -46,7 +46,7 @@ impl StarlarkLazyUqueryCtx {
 
 starlark_simple_value!(StarlarkLazyUqueryCtx);
 
-#[starlark_value(type = "bxl.LazyCqueryContext")]
+#[starlark_value(type = "bxl.LazyUqueryContext")]
 impl<'v> StarlarkValue<'v> for StarlarkLazyUqueryCtx {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
