@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:alias.bzl", "alias_impl", "configured_alias_impl", "toolchain_alias_impl", "versioned_alias_impl")
+load("@prelude//:alias.bzl", "alias_impl", "configured_alias_impl", "versioned_alias_impl")
 load("@prelude//:command_alias.bzl", "command_alias_impl")
 load("@prelude//:export_file.bzl", "export_file_impl")
 load("@prelude//:filegroup.bzl", "filegroup_impl")
@@ -155,7 +155,7 @@ extra_implemented_rules = struct(
     sh_binary = sh_binary_impl,
     sh_test = sh_test_impl,
     test_suite = test_suite_impl,
-    toolchain_alias = toolchain_alias_impl,
+    toolchain_alias = alias_impl,
     versioned_alias = versioned_alias_impl,
     worker_tool = worker_tool,
 

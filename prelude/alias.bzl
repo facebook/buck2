@@ -8,7 +8,10 @@
 # Implementation of aliases build rules.
 
 def alias_impl(ctx: AnalysisContext) -> list[Provider]:
-    return ctx.attrs.actual.providers
+    if ctx.attrs.actual:
+        return ctx.attrs.actual.providers
+    else:
+        return [DefaultInfo()]
 
 def configured_alias_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.configured_actual != None and ctx.attrs.fallback_actual != None:
@@ -18,9 +21,6 @@ def configured_alias_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.fallback_actual != None:
         return ctx.attrs.fallback_actual.providers
     fail("must set one of `configured_actual` or `fallback_actual`")
-
-def toolchain_alias_impl(ctx: AnalysisContext) -> list[Provider]:
-    return ctx.attrs.actual.providers
 
 def versioned_alias_impl(_ctx: AnalysisContext) -> list[Provider]:
     # Should be intercepted in macro stub and converted to `alias`.

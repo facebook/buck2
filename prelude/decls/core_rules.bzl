@@ -30,7 +30,7 @@ alias = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "actual": attrs.dep(pulls_and_pushes_plugins = plugins.All),
+            "actual": attrs.option(attrs.dep(pulls_and_pushes_plugins = plugins.All)),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
@@ -1092,7 +1092,9 @@ expected to be a toolchain_rule as well.
     """,
     examples = None,
     further = None,
-    attrs = {"actual": attrs.toolchain_dep(doc = "The actual toolchain that is being aliased. This should be a toolchain rule.")},
+    attrs = {
+        "actual": attrs.option(attrs.toolchain_dep(doc = "The actual toolchain that is being aliased. This should be a toolchain rule.")),
+    },
 )
 
 versioned_alias = prelude_rule(
