@@ -16,6 +16,7 @@
 #![feature(never_type)]
 #![feature(box_patterns)]
 
+pub mod allow_relative_paths;
 pub mod build_context;
 pub mod coerce;
 pub mod dice;

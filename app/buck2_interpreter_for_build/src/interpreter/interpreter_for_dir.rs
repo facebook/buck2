@@ -154,11 +154,12 @@ pub(crate) struct InterpreterForDir {
     /// Implicit imports. These are only used for build files (e.g. `BUCK`),
     /// not for `bzl` or other files, because we only have implicit imports for build files.
     implicit_import_paths: Arc<ImplicitImportPaths>,
+    /// Enable relative imports for the current dir
+    current_dir_with_allowed_relative_dirs: Arc<CellPathWithAllowedRelativeDir>,
 }
 
 struct InterpreterLoadResolver {
     config: Arc<InterpreterForDir>,
-    loader_path: CellPath,
     loader_file_type: StarlarkFileType,
     build_file_cell: BuildFileCell,
 }
@@ -188,10 +189,7 @@ impl LoadResolver for InterpreterLoadResolver {
         let path = path.strip_suffix("?v2_only").unwrap_or(path);
 
         let relative_import_option = RelativeImports::Allow {
-            current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
-                self.loader_path.clone(),
-                None,
-            ),
+            current_dir_with_allowed_relative: &self.config.current_dir_with_allowed_relative_dirs,
         };
         let path = parse_import(
             &self.config.cell_info.cell_alias_resolver(),
@@ -292,6 +290,7 @@ impl InterpreterForDir {
         cell_info: InterpreterCellInfo,
         global_state: Arc<GlobalInterpreterState>,
         implicit_import_paths: Arc<ImplicitImportPaths>,
+        current_dir_with_allowed_relative_dirs: Arc<CellPathWithAllowedRelativeDir>,
     ) -> buck2_error::Result<Self> {
         Ok(Self {
             global_state,
@@ -299,6 +298,7 @@ impl InterpreterForDir {
             verbose_gc: Self::verbose_gc()?,
             ignore_attrs_for_profiling: Self::is_ignore_attrs_for_profiling()?,
             implicit_import_paths,
+            current_dir_with_allowed_relative_dirs,
         })
     }
 
@@ -379,11 +379,6 @@ impl InterpreterForDir {
     ) -> InterpreterLoadResolver {
         InterpreterLoadResolver {
             config: self.dupe(),
-            loader_path: current_file_path
-                .path()
-                .parent()
-                .expect("loading file should have parent directory")
-                .to_owned(),
             loader_file_type: current_file_path.file_type(),
             build_file_cell: current_file_path.build_file_cell(),
         }

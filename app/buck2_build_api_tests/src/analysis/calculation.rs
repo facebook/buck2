@@ -27,6 +27,8 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::configuration::data::ConfigurationData;
@@ -75,6 +77,7 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
         CellAliasResolver::new(CellName::testing_new("cell"), HashMap::new())?,
         resolver.dupe(),
         LegacyBuckConfig::empty(),
+        CellPathWithAllowedRelativeDir::new(CellPath::testing_new("cell//pkg"), None),
     ))?;
     interpreter.additional_globals(register_rule_function);
     interpreter.additional_globals(register_provider);

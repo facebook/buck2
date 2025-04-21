@@ -18,6 +18,8 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
+use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -57,10 +59,16 @@ pub struct Tester {
     loaded_modules: LoadedModules,
     additional_globals: Vec<AdditionalGlobalsFn>,
     prelude_path: Option<PreludePath>,
+    current_dir_with_allowed_relative_dirs: Arc<CellPathWithAllowedRelativeDir>,
 }
 
 /// Helpers required to help drive the interpreter
-pub type CellsData = (CellAliasResolver, CellResolver, LegacyBuckConfig);
+pub type CellsData = (
+    CellAliasResolver,
+    CellResolver,
+    LegacyBuckConfig,
+    CellPathWithAllowedRelativeDir,
+);
 
 /// The same as `run_starlark_test`, but just make sure the parse succeeds;
 /// ignore the targets
@@ -106,6 +114,7 @@ pub fn cells(extra_root_config: Option<&str>) -> buck2_error::Result<CellsData> 
         resolver.root_cell_cell_alias_resolver().dupe(),
         resolver,
         config,
+        CellPathWithAllowedRelativeDir::new(CellPath::testing_new("root//some/package"), None), // current_dir_with_allowed_relative_dirs
     ))
 }
 
@@ -137,7 +146,12 @@ impl Tester {
     }
 
     pub fn with_cells(cells_data: CellsData) -> buck2_error::Result<Self> {
-        let (cell_alias_resolver, cell_resolver, root_config) = cells_data;
+        let (
+            cell_alias_resolver,
+            cell_resolver,
+            root_config,
+            current_dir_with_allowed_relative_dirs,
+        ) = cells_data;
         Ok(Self {
             cell_alias_resolver,
             cell_resolver,
@@ -145,6 +159,7 @@ impl Tester {
             loaded_modules: LoadedModules::default(),
             additional_globals: Vec::new(),
             prelude_path: None,
+            current_dir_with_allowed_relative_dirs: current_dir_with_allowed_relative_dirs.into(),
         })
     }
 
@@ -195,6 +210,7 @@ impl Tester {
                 true,
             )?),
             Arc::new(import_paths),
+            self.current_dir_with_allowed_relative_dirs.dupe(),
         )?))
     }
 

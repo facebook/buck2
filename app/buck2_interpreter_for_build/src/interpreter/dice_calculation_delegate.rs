@@ -31,6 +31,7 @@ use buck2_error::internal_error;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async_simple;
 use buck2_futures::cancellation::CancellationContext;
+use buck2_interpreter::allow_relative_paths::HasAllowRelativePaths;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::file_loader::LoadedModule;
@@ -109,6 +110,9 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
 
                 let implicit_import_paths = ctx.import_paths_for_cell(self.1).await?;
 
+                let dirs_allowing_relative_paths =
+                    ctx.dirs_allowing_relative_paths(self.0.clone()).await?;
+
                 let cell_info = InterpreterCellInfo::new(
                     self.1,
                     ctx.get_cell_resolver().await?,
@@ -119,6 +123,7 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
                     cell_info,
                     global_state.dupe(),
                     implicit_import_paths,
+                    dirs_allowing_relative_paths,
                 )?))
             }
 

@@ -16,6 +16,8 @@ use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
+use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::path::StarlarkPath;
@@ -197,13 +199,17 @@ fn cells() -> CellsData {
         cell_resolver.root_cell_cell_alias_resolver().dupe(),
         cell_resolver,
         LegacyBuckConfig::empty(),
+        CellPathWithAllowedRelativeDir::new(
+            CellPath::testing_new("cell1//config/foo"),
+            Some(CellPath::testing_new("cell1//config")),
+        ),
     )
 }
 
 #[test]
 fn test_find_imports() {
     let tester = Tester::with_cells(cells()).unwrap();
-    let path = BuildFilePath::testing_new("cell1//config:BUCK");
+    let path = BuildFilePath::testing_new("cell1//config/foo:BUCK");
     let parse_result = tester.parse(
         StarlarkPath::BuildFile(&path),
         indoc!(
@@ -228,6 +234,7 @@ fn test_find_imports() {
 
             # some other comments
             load(":other.bzl", "some_macro")
+            load("../bar/three.bzl", "some_macro")
         "#
         ),
     );
@@ -237,7 +244,8 @@ fn test_find_imports() {
             "root//imports/one.bzl@cell1",
             "cell1//one.bzl",
             "cell2//two.bzl@cell1",
-            "cell1//config/other.bzl"
+            "cell1//config/foo/other.bzl",
+            "cell1//config/bar/three.bzl",
         ],
         parse_result.imports().map(|e| e.1.to_string()).as_slice()
     );
