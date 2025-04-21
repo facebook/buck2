@@ -12,7 +12,6 @@ load(
     "CONSTRAINT_PACKAGE",
     "REMAPPED_BUILD_MODES",
     "get_build_mode",
-    "get_build_mode_debug",
 )
 load(
     "@prelude//platforms/apple:constants.bzl",
@@ -21,20 +20,12 @@ load(
     "mac_platforms",
     "watch_platforms",
 )
-
-# Debug constraints to add for build modes used by other rule platforms (ex: rust).
-_DEBUG_CONSTRAINTS = [
-    # @oss-disable[end= ]: "ovr_config//build_mode/constraints:debug",
-]
-
-# Release constraints to add for build modes used by other rule platforms (ex: rust).
-_RELEASE_CONSTRAINTS = [
-    # @oss-disable[end= ]: "ovr_config//build_mode/constraints:release",
-]
+# @oss-disable[end= ]: load("@prelude//platforms/apple/meta_only:build_mode.bzl", "BUILD_MODE_CONSTRAINTS")
 
 BUILD_MODE_TO_CONSTRAINTS_MAP = {
     build_mode: ["{}:{}".format(CONSTRAINT_PACKAGE, build_mode)] +
-                (_DEBUG_CONSTRAINTS if build_mode == get_build_mode_debug() or REMAPPED_BUILD_MODES.get(build_mode) == get_build_mode_debug() else _RELEASE_CONSTRAINTS)
+                # @oss-disable[end= ]: BUILD_MODE_CONSTRAINTS[build_mode]
+    [] # @oss-enable
     for build_mode in APPLE_BUILD_MODES + REMAPPED_BUILD_MODES.keys()
 }
 
