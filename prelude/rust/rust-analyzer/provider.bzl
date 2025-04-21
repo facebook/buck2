@@ -55,7 +55,7 @@ def _compute_transitive_target_set(
         first_order_deps: list[Dependency]) -> set[ConfiguredTargetLabel]:
     transitive_targets = set([ctx.label.configured_target()])
     for dep in first_order_deps:
-        target_sets = dep.get(RustAnalyzerInfo).transitive_target_set
+        target_sets = dep[RustAnalyzerInfo].transitive_target_set
         for target_set in target_sets:
             transitive_targets.add(target_set)
     return transitive_targets
