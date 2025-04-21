@@ -19,9 +19,6 @@ prelude.command_alias(
             "echo %COMMAND_ALIAS_ENV_TEST_VARS%",
         ],
     }),
-    # FIXME(JakobDegen): Bug. Doesn't work without this because we don't quote
-    # the `RunInfo` this emits in the below `command_alias`
-    run_using_single_arg = True,
 )
 
 prelude.command_alias(

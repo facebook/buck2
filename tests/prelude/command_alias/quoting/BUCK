@@ -47,7 +47,6 @@ prelude.command_alias(
     exe = ":quoted_args",
 )
 
-# FIXME(JakobDegen): Bug. Should print `foo bar`
 py_assertion(
     name = "check_quoting_run_info",
     script = """
@@ -55,7 +54,7 @@ import subprocess
 import sys
 assert (
     subprocess.run([sys.argv[1]], capture_output=True).stdout.decode().strip()
-    != "foo bar"
+    == "foo bar"
 )
 """,
     script_args = ["$(location :quoting_run_info)"],

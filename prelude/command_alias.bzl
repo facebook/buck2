@@ -86,7 +86,7 @@ done
         trampoline_args.add(cmd_args("export ", k, "=", cmd_args(v, quote = "shell"), delimiter = ""))
         trampoline_args.add(cmd_args("export ", k, '="${', k, '//BUCK_COMMAND_ALIAS_ABSOLUTE_PREFIX/$BASE}"', delimiter = ""))
 
-    trampoline_args.add('exec "${R_ARGS[@]}"')
+    trampoline_args.add('exec "${R_ARGS[@]}" "$@"')
 
     trampoline = ctx.actions.declare_output("__command_alias_trampoline.sh")
     trampoline_args = cmd_args(
@@ -144,14 +144,8 @@ def _command_alias_impl_target_windows(ctx: AnalysisContext, base: RunInfo):
         # TODO(akozhevnikov): maybe check environment variable is not conflicting with pre-existing one
         trampoline_args.add(cmd_args(["set ", k, "=", v], delimiter = ""))
 
-    # Handle args
-    # We shell quote the args but not the base. This is due to the same limitation detailed below with T111687922
-    cmd = cmd_args([base.args], delimiter = " ")
-    for arg in ctx.attrs.args:
-        cmd.add(cmd_args(arg, quote = "shell"))
-
-    # Add on %* to handle any other args passed through the command
-    cmd.add("%*")
+    # FIXME(JakobDegen): This should be batch quoting, not shell quoting
+    cmd = cmd_args(cmd_args(base.args, ctx.attrs.args, quote = "shell"), "%*", delimiter = " ")
 
     trampoline_args.add(cmd)
 
@@ -188,20 +182,5 @@ def _command_alias_impl_target_windows(ctx: AnalysisContext, base: RunInfo):
 
 def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: RunInfo, args: list[ArgLike]):
     trampoline_args.add("ARGS=(")
-
-    # FIXME (T111687922): We cannot preserve BUCK_COMMAND_ALIAS_ABSOLUTE *and*
-    # quote here...  So we don't quote the exe's RunInfo (which usually has a
-    # path and hopefully no args that need quoting), but we quote the args
-    # themselves (which usually are literals that might need quoting and
-    # hopefully doesn't contain relative paths).
-    # FIXME (T111687922): Note that we have no shot at quoting base.args anyway
-    # at this time, since we need to quote the individual words, but using
-    # `quote = "shell"` would just quote the whole thing into one big word.
-    trampoline_args.add(base.args)
-    for arg in args:
-        trampoline_args.add(cmd_args(arg, quote = "shell"))
-
-    # Add the args passed to the command_alias itself.
-    trampoline_args.add('"$@"')
-
+    trampoline_args.add(cmd_args(base.args, args, quote = "shell"))
     trampoline_args.add(")")
