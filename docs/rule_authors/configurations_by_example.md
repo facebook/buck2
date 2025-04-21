@@ -155,10 +155,10 @@ defining platforms
 #//platforms/BUCK
 
 [
-platform(
+    platform(
         name = "{}-{}".format(base, mode)
         deps = [":{}".format(base)],
-        constraint_values = ["//constraints:{}".format(mode)
+        constraint_values = ["//constraints:{}".format(mode)]
     )
     for base in ["mac-x86", "mac-arm64", "windows-x86", "windows-arm64"]
     for mode in ["dev", "opt"]
@@ -169,10 +169,10 @@ platform(
         name = name,
         constraint_values = constraint_values
     ) for name, constraint_values in [
-        "mac-x86", ["//constraints:mac", "//constraints:x86"],
-        "mac-arm64", ["//constraints:mac", "//constraints:arm64"],
-        "windows-x86", ["//constraints:windows", "//constraints:x86"],
-        "windows-arm64", ["//constraints:windows", "//constraints:arm64"],
+        ("mac-x86", ["//constraints:mac", "//constraints:x86"]),
+        ("mac-arm64", ["//constraints:mac", "//constraints:arm64"]),
+        ("windows-x86", ["//constraints:windows", "//constraints:x86"]),
+        ("windows-arm64", ["//constraints:windows", "//constraints:arm64"]),
     ]
 ]
 ```
