@@ -174,10 +174,18 @@ def buildscript_run(
         **kwargs):
     filegroup_name = "{}-{}.crate".format(package_name, version)
     if not rule_exists(filegroup_name):
-        # In reindeer's `vendor = false` mode, this target will already exist;
-        # it is the `http_archive` containing the crate's sources. When
-        # vendoring, we need to make a filegroup referring to the vendored
-        # sources.
+        # For a buildscript executable to be able to access its crate's source
+        # files, we need to make a filegroup target referring to the source files.
+        # For downloaded crates.io dependencies, Reindeer already creates such
+        # targets with the `http_archive` rule, in other cases, i.e.,
+        #   - local crates (e.g., `my_crate = { path = "path/to/my_crate" }` in "[dependencies]" section),
+        #     + this also includes workspace members (when using Reindeer in `include_workspace_members = true` mode),
+        #   - git patches (e.g., `my_crate = { git = "http://..." }` in "[patch.crates-io]" section),
+        #   - vendored crates (when using Reindeer in `vendor = true` mode),
+        # no filegroup target will be explicitly stated in the genereated BUCK file.
+        #
+        # The first two cases are handled in @prelude//rust:cargo_package.bzl.
+        # Here handles the third case (vendored crates).
         prefix = "vendor/{}-{}".format(package_name, version)
         prefix_with_trailing_slash = "{}/".format(prefix)
 
