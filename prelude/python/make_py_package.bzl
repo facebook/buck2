@@ -305,7 +305,7 @@ def make_py_package(
                 repl_debug_artifacts,
                 (EntryPointKind("function"), ctx.attrs.repl_main),
                 manifest_module,
-                pex_modules,
+                repl_pex_modules,
                 output_suffix = "-repl",
                 allow_cache_upload = allow_cache_upload,
             ),
@@ -551,7 +551,7 @@ def _make_py_package_live(
         preload_libraries: cmd_args,
         main: EntryPoint,
         shared_libraries: list[(SharedLibrary, str)],
-        generated_files: list[(Artifact, str)],
+        common_generated_files: list[(Artifact, str)],
         python_toolchain: PythonToolchainInfo,
         output_suffix: str) -> PexProviders:
     """
@@ -593,6 +593,8 @@ def _make_py_package_live(
 
     output = ctx.actions.declare_output("{}{}".format(name, ctx.attrs.extension or python_toolchain.pex_extension))
 
+    generated_files = []
+    generated_files.extend(common_generated_files)
     generated_files.extend(live_par_generated_files(ctx, output, python_toolchain, build_args, main, preload_libraries, output_suffix))
 
     cmd = cmd_args(make_py_package_live)
