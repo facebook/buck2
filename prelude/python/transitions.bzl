@@ -23,6 +23,11 @@ def _transition_opt_by_default_impl(platform: PlatformInfo, refs: struct, attrs:
     if refs._opt_by_default__opt[ConstraintValueInfo].setting.label not in constraints:
         return platform
 
+    # check if native debug is enabled, if so cancel the transition
+    maybe_native_debug_constraints = getattr(constraints.get(refs._opt_by_default_native_debug_enabled[ConstraintValueInfo].setting.label), "label", None)
+    if maybe_native_debug_constraints == refs._opt_by_default_native_debug_enabled[ConstraintValueInfo].label:
+        return platform
+
     mode_constraint = constraints[refs._opt_by_default__opt[ConstraintValueInfo].setting.label].label
     is_dev = mode_constraint == refs._opt_by_default__dev[ConstraintValueInfo].label
     is_opt = mode_constraint == refs._opt_by_default__opt[ConstraintValueInfo].label
@@ -90,6 +95,7 @@ def _refs():
         "_opt_by_default__opt_cxx_enabled": "@config//build_mode/default_opt_cxx:enabled",
         "_opt_by_default__split_dwarf_single": "@config//build_mode/constraints:split-dwarf-single",
         "_opt_by_default__static": "@config//build_mode/constraints:static",
+        "_opt_by_default_native_debug_enabled": "@config//build_mode/constraints:native-debugging-supported",
     }
 
 def _attrs():
