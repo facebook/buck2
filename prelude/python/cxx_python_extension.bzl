@@ -112,6 +112,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         preprocessor_for_tests = False,
     )
 
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
 
     impl_params = CxxRuleConstructorParams(
@@ -132,6 +133,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
+        error_handler = cxx_toolchain.cxx_error_handler,
     )
 
     cxx_library_info = cxx_library_parameterized(ctx, impl_params)
@@ -145,7 +147,6 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     if extension.pdb:
         sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = extension.pdb, binary = extension.output)
 
-    cxx_toolchain = get_cxx_toolchain_info(ctx)
     dumpbin_toolchain_path = cxx_toolchain.dumpbin_toolchain_path
     if dumpbin_toolchain_path:
         sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, extension.output, dumpbin_toolchain_path)
