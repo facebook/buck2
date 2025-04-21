@@ -250,6 +250,7 @@ extra_attributes = {
         # which requires setting up separate platform-specific aliases with the correct constraints.
         "placeholder_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "platform_path": attrs.option(attrs.source(), default = None),
+        "provide_swift_debug_info": attrs.bool(default = True),
         "sdk_module_path_prefixes": attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
         "sdk_modules": attrs.list(attrs.exec_dep(), default = []),  # A list or a root target that represent a graph of sdk modules (e.g Frameworks)
         "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`

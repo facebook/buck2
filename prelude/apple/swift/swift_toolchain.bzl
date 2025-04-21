@@ -79,6 +79,7 @@ def swift_toolchain_impl(ctx):
             mk_swift_interface = cmd_args(ctx.attrs._swiftc_wrapper[RunInfo]).add(ctx.attrs.make_swift_interface[RunInfo]),
             object_format = SwiftObjectFormat(ctx.attrs.object_format) if ctx.attrs.object_format else SwiftObjectFormat("object"),
             platform_path = ctx.attrs.platform_path,
+            provide_swift_debug_info = ctx.attrs.provide_swift_debug_info,
             resource_dir = ctx.attrs.resource_dir,
             sdk_module_path_prefixes = ctx.attrs.sdk_module_path_prefixes,
             sdk_path = ctx.attrs._internal_sdk_path or ctx.attrs.sdk_path,
