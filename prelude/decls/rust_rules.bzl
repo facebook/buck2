@@ -130,6 +130,7 @@ rust_binary = prelude_rule(
         buck.allow_cache_upload_arg()
     ),
     uses_plugins = [RustProcMacroPlugin],
+    supports_incoming_transition = True,
 )
 
 rust_library = prelude_rule(
@@ -282,6 +283,7 @@ rust_test = prelude_rule(
         test_common.attributes()
     ),
     uses_plugins = [RustProcMacroPlugin],
+    supports_incoming_transition = True,
 )
 
 rust_rules = struct(

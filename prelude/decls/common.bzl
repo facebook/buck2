@@ -21,6 +21,7 @@ prelude_rule = record(
     attrs = field(dict[str, Attr]),
     impl = field([typing.Callable, None], None),
     uses_plugins = field([list[plugins.PluginKind], None], None),
+    supports_incoming_transition = field([bool, None], None),
 )
 
 AbiGenerationMode = ["unknown", "class", "source", "migrating_to_source_only", "source_only", "unrecognized"]
