@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_core::soft_error;
 use buck2_data::VersionControlRevision;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_util::properly_reaped_child::reap_on_drop_command;
@@ -27,6 +28,15 @@ pub(crate) fn spawn_version_control_collector(dispatch: EventDispatcher) -> Abor
         tasks.push(Box::pin(create_revision_data(RevisionDataType::Status)));
 
         while let Some(event) = tasks.next().await {
+            if let Some(error) = &event.command_error {
+                soft_error!(
+                    "spawn_version_control_collector_failed",
+                    buck2_error::buck2_error!(buck2_error::ErrorTag::Input, "{}", error),
+                    quiet: true
+                )
+                .ok();
+            }
+
             dispatch.instant_event(event);
         }
     });
@@ -77,7 +87,7 @@ async fn create_revision_data(
             }
         }
         Err(e) => {
-            revision.command_error = Some(e.to_string());
+            revision.command_error = Some(format!("Failed to get repository type: {:#}", e));
         }
     }
     revision
@@ -100,7 +110,7 @@ async fn add_hg_whereami(revision: &mut buck2_data::VersionControlRevision) {
         Ok(command) => command.output().await,
         Err(e) => {
             revision.command_error = Some(format!(
-                "reap_on_drop_command for `hg whereami` failed\n {}",
+                "reap_on_drop_command for `hg whereami` failed\n {:#}",
                 e
             ));
             return;
