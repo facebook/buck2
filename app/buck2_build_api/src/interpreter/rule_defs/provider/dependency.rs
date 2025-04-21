@@ -83,6 +83,12 @@ impl<V: ValueLifetimeless> Display for DependencyGen<V> {
     }
 }
 
+impl<'v, V: ValueLike<'v>> DependencyGen<V> {
+    pub fn label(&self) -> &'v StarlarkConfiguredProvidersLabel {
+        StarlarkConfiguredProvidersLabel::from_value(self.label.get().to_value()).unwrap()
+    }
+}
+
 impl<'v> Dependency<'v> {
     pub fn new(
         heap: &'v Heap,
@@ -107,10 +113,6 @@ impl<'v> Dependency<'v> {
             },
             execution_platform,
         }
-    }
-
-    pub fn label(&self) -> &StarlarkConfiguredProvidersLabel {
-        StarlarkConfiguredProvidersLabel::from_value(self.label.get()).unwrap()
     }
 
     pub fn execution_platform(&self) -> buck2_error::Result<Option<&ExecutionPlatformResolution>> {
@@ -147,6 +149,17 @@ where
 
     fn is_in(&self, other: Value<'v>) -> starlark::Result<bool> {
         self.provider_collection.to_value().is_in(other)
+    }
+
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
+        let other = match other.downcast_ref::<Dependency<'v>>() {
+            Some(other) => other.label(),
+            None => match other.downcast_ref::<FrozenDependency>() {
+                Some(other) => other.label(),
+                None => return Ok(false),
+            },
+        };
+        Ok(self.label().inner() == other.inner())
     }
 }
 
