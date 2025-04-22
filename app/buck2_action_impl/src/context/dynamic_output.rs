@@ -73,10 +73,10 @@ impl DynamicActionsOutputArtifactBinder {
         // This means that we are creating ActionKeys for the lambda and it needs to offset
         // its key's index to account for this (see ActionRegistry where this is done).
         let bound = output
-            .bind(
-                ActionKey::new(self.key.dupe(), ActionIndex::new(self.index)),
-                &None,
-            )?
+            .bind(ActionKey::new(
+                self.key.dupe(),
+                ActionIndex::new(self.index),
+            ))?
             .dupe();
         self.index += 1;
         Ok(bound)

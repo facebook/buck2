@@ -215,7 +215,6 @@ async fn execute_lambda(
                         dynamic_lambda_ctx_data.lambda.plugins()?,
                         dynamic_lambda_ctx_data.registry,
                         dynamic_lambda_ctx_data.digest_config,
-                        false,
                     );
 
                     let args = match (

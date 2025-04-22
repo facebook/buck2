@@ -268,21 +268,6 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
         }
         Ok(())
     }
-
-    fn add_to_action_inputs_hash(
-        &self,
-        hasher: &mut dyn std::hash::Hasher,
-    ) -> buck2_error::Result<bool> {
-        for item in self.0.items().iter().chain(self.0.hidden().iter()) {
-            if !item
-                .as_command_line_arg()
-                .add_to_action_inputs_hash(hasher)?
-            {
-                return Ok(false);
-            }
-        }
-        Ok(true)
-    }
 }
 
 /// Starlark object returned by `cmd_args()`
@@ -542,13 +527,6 @@ impl<'v> CommandLineArgLike for StarlarkCmdArgs<'v> {
     ) -> buck2_error::Result<()> {
         FieldsRef(self.0.borrow(), PhantomData).visit_write_to_file_macros(visitor)
     }
-
-    fn add_to_action_inputs_hash(
-        &self,
-        hasher: &mut dyn std::hash::Hasher,
-    ) -> buck2_error::Result<bool> {
-        FieldsRef(self.0.borrow(), PhantomData).add_to_action_inputs_hash(hasher)
-    }
 }
 
 impl CommandLineArgLike for FrozenStarlarkCmdArgs {
@@ -580,13 +558,6 @@ impl CommandLineArgLike for FrozenStarlarkCmdArgs {
         visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> buck2_error::Result<()> {
         FieldsRef(self, PhantomData).visit_write_to_file_macros(visitor)
-    }
-
-    fn add_to_action_inputs_hash(
-        &self,
-        hasher: &mut dyn std::hash::Hasher,
-    ) -> buck2_error::Result<bool> {
-        FieldsRef(self, PhantomData).add_to_action_inputs_hash(hasher)
     }
 }
 

@@ -24,7 +24,6 @@ use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::actions::impls::json;
 use buck2_build_api::actions::impls::json::JsonUnpack;
-use buck2_build_api::actions::impls::json::add_json_to_action_inputs_hash;
 use buck2_build_api::actions::impls::json::validate_json;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::command_line_arg_like_impl;
@@ -304,21 +303,6 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkWriteJsonCommandLineAr
     ) -> buck2_error::Result<()> {
         // In the write_json implementation, the commandlinebuilders we use don't support args.
         Ok(())
-    }
-
-    fn add_to_action_inputs_hash(
-        &self,
-        hasher: &mut dyn std::hash::Hasher,
-    ) -> buck2_error::Result<bool> {
-        let artifact = self.artifact.to_value();
-        let content = self.content.to_value();
-        if !ValueAsCommandLineLike::unpack_value_err(artifact)?
-            .0
-            .add_to_action_inputs_hash(hasher)?
-        {
-            return Ok(false);
-        }
-        add_json_to_action_inputs_hash(content, hasher)
     }
 }
 

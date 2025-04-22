@@ -10,7 +10,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use buck2_build_api::actions::execute::dice_data::SetComputeActionInputsHashConfig;
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
@@ -145,7 +144,6 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
         .set_data(|data| {
             data.set_testing_io_provider(&fs);
             data.set_digest_config(DigestConfig::testing_default());
-            data.set_compute_action_inputs_hash_config(false);
         })
         .build({
             let mut data = UserComputationData::new();

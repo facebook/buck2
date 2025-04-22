@@ -58,7 +58,6 @@ use buck2_futures::cancellation::CancellationContext;
 use buck2_http::HttpClient;
 use derivative::Derivative;
 use derive_more::Display;
-use dupe::Dupe;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indexmap::indexmap;
@@ -304,9 +303,6 @@ pub struct RegisteredAction {
     action: Box<dyn Action>,
     #[derivative(Hash = "ignore", PartialEq = "ignore")]
     executor_config: Arc<CommandExecutorConfig>,
-    /// A hash calculation from the inputs to the action, if available.
-    #[derivative(Hash = "ignore", PartialEq = "ignore")]
-    action_inputs_hash: Option<Arc<str>>,
 }
 
 impl RegisteredAction {
@@ -314,13 +310,11 @@ impl RegisteredAction {
         key: ActionKey,
         action: Box<dyn Action>,
         executor_config: Arc<CommandExecutorConfig>,
-        action_inputs_hash: Option<Arc<str>>,
     ) -> Self {
         Self {
             key,
             action,
             executor_config,
-            action_inputs_hash,
         }
     }
 
@@ -363,10 +357,6 @@ impl RegisteredAction {
     pub fn identifier(&self) -> Option<&str> {
         self.action.identifier()
     }
-
-    pub(crate) fn action_inputs_hash(&self) -> Option<Arc<str>> {
-        self.action_inputs_hash.as_ref().map(|hash| hash.dupe())
-    }
 }
 
 impl Deref for RegisteredAction {
@@ -385,7 +375,6 @@ struct ActionToBeRegistered {
     inputs: IndexSet<ArtifactGroup>,
     outputs: IndexSet<BuildArtifact>,
     action: Box<dyn UnregisteredAction>,
-    action_inputs_hash: Option<Arc<str>>,
 }
 
 impl ActionToBeRegistered {
@@ -394,23 +383,17 @@ impl ActionToBeRegistered {
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         a: A,
-        action_inputs_hash: Option<Arc<str>>,
     ) -> Self {
         Self {
             key,
             inputs,
             outputs,
             action: Box::new(a),
-            action_inputs_hash,
         }
     }
 
     pub(crate) fn key(&self) -> &ActionKey {
         &self.key
-    }
-
-    pub(crate) fn action_inputs_hash(&self) -> Option<Arc<str>> {
-        self.action_inputs_hash.as_ref().map(|hash| hash.dupe())
     }
 
     fn register(

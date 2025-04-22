@@ -27,7 +27,6 @@ use buck2_build_api::actions::calculation::command_details;
 use buck2_build_api::actions::execute::dice_data::CommandExecutorResponse;
 use buck2_build_api::actions::execute::dice_data::HasCommandExecutor;
 use buck2_build_api::actions::execute::dice_data::SetCommandExecutor;
-use buck2_build_api::actions::execute::dice_data::SetComputeActionInputsHashConfig;
 use buck2_build_api::actions::execute::dice_data::SetInvalidationTrackingConfig;
 use buck2_build_api::actions::execute::dice_data::SetReClient;
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
@@ -127,7 +126,6 @@ fn registered_action(
         build_artifact.key().dupe(),
         action,
         CommandExecutorConfig::testing_local(),
-        None,
     );
     Arc::new(registered_action)
 }
@@ -196,7 +194,6 @@ async fn make_default_dice_state(
         data.set_testing_io_provider(temp_fs);
         data.set_digest_config(DigestConfig::testing_default());
         data.set_invalidation_tracking_config(true);
-        data.set_compute_action_inputs_hash_config(false);
     });
 
     for mock in mocks.into_iter() {

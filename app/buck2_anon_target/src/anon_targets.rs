@@ -435,7 +435,6 @@ impl AnonTargetKey {
                     ),
                     registry,
                     dice.global_data().get_digest_config(),
-                    false,
                 );
 
                 let list_res = rule_impl.invoke(&mut eval, ctx)?;

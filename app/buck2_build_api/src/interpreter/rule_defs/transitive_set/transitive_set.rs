@@ -8,8 +8,6 @@
  */
 
 use std::fmt;
-use std::hash::DefaultHasher;
-use std::hash::Hasher;
 use std::iter;
 use std::sync::Arc;
 
@@ -50,13 +48,11 @@ use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcher;
 
 use crate::actions::impls::json::JsonUnpack;
-use crate::actions::impls::json::add_json_to_action_inputs_hash;
 use crate::actions::impls::json::validate_json;
 use crate::actions::impls::json::visit_json_artifacts;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::artifact_groups::deferred::TransitiveSetKey;
-use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::transitive_set::BfsTransitiveSetIteratorGen;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
@@ -116,9 +112,6 @@ pub struct TransitiveSetGen<V: ValueLifetimeless> {
 
     /// Pre-computed reductions. Those are arbitrary values based on the set's definition.
     pub(crate) reductions: Box<[V]>,
-
-    /// Pre-computed projection action inputs hashes.
-    pub(crate) projection_action_inputs_hashes: Box<[Option<u64>]>,
 
     /// Further transitive sets.
     pub children: Box<[V]>,
@@ -365,20 +358,17 @@ impl<'v> Freeze for TransitiveSet<'v> {
             definition,
             node,
             reductions,
-            projection_action_inputs_hashes,
             children,
         } = self;
         let definition = definition.freeze(freezer)?;
         let node = node.try_map(|node| node.freeze(freezer))?;
         let children = children.freeze(freezer)?;
-        let projection_action_inputs_hashes = projection_action_inputs_hashes.freeze(freezer)?;
         let reductions = reductions.freeze(freezer)?;
         Ok(TransitiveSetGen {
             key,
             definition,
             node,
             reductions,
-            projection_action_inputs_hashes,
             children,
         })
     }
@@ -441,48 +431,6 @@ impl<'v> TransitiveSet<'v> {
             buck2_error::Ok(NodeGen { value, projections })
         })?;
 
-        let projection_action_inputs_hashes = def
-            .operations()
-            .projections
-            .iter()
-            .enumerate()
-            .map(|(i, (_name, spec))| {
-                let mut hasher = DefaultHasher::new();
-                if let Some(node) = &node {
-                    let projection = node
-                        .projections
-                        .get(i)
-                        .buck_error_context("Invalid projection id")?;
-                    let is_valid_hash = match spec.kind {
-                        TransitiveSetProjectionKind::Args => {
-                            TransitiveSetArgsProjection::as_command_line(*projection)?
-                                .add_to_action_inputs_hash(&mut hasher)?
-                        }
-                        TransitiveSetProjectionKind::Json => {
-                            add_json_to_action_inputs_hash(*projection, &mut hasher)?
-                        }
-                    };
-
-                    if !is_valid_hash {
-                        return buck2_error::Ok(None);
-                    }
-                }
-
-                for child in children_sets.iter() {
-                    let child_action_inputs_hash = child
-                        .projection_action_inputs_hashes
-                        .get(i)
-                        .buck_error_context("Invalid projection id")?;
-                    if let Some(child_action_inputs_hash) = child_action_inputs_hash {
-                        hasher.write_u64(*child_action_inputs_hash);
-                    } else {
-                        return buck2_error::Ok(None);
-                    }
-                }
-                buck2_error::Ok(Some(hasher.finish()))
-            })
-            .collect::<Result<Box<[_]>, _>>()?;
-
         let reductions = def
             .operations()
             .reductions
@@ -516,7 +464,6 @@ impl<'v> TransitiveSet<'v> {
             FrozenValueTyped::<FrozenTransitiveSetDefinition>::new(FrozenValueTyped::<FrozenTransitiveSetDefinition>::to_frozen_value(definition)).buck_error_context("internal error")?,
             node,
             reductions,
-            projection_action_inputs_hashes,
             children,
         })
     }

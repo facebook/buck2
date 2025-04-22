@@ -932,7 +932,6 @@ mod tests {
                 ran: Default::default(),
             }),
             CommandExecutorConfig::testing_local(),
-            None,
         );
         let res = with_dispatcher_async(
             EventDispatcher::null(),
