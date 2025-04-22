@@ -1196,14 +1196,18 @@ def _linker_args(
 # crates. The hash is added to the filename to give them a lower likelihood of
 # duplicate names, but it doesn't matter if they collide.
 def _metadata(label: Label, is_rustdoc_test: bool) -> (str, str):
-    label = str(label.raw_target())
+    metadata = str(label.raw_target())
     if is_rustdoc_test:
-        label = "doctest/" + label
-    h = hash(label)
-    if h < 0:
-        h = -h
-    h = "%x" % h
-    return (label, "0" * (8 - len(h)) + h)
+        metadata = "doctest/" + metadata
+
+    int_hash = hash(metadata)
+    if int_hash < 0:
+        int_hash = -int_hash
+
+    hex_hash = "%x" % int_hash
+    hex_hash = "0" * (8 - len(hex_hash)) + hex_hash
+
+    return (metadata, hex_hash)
 
 def crate_root(
         ctx: AnalysisContext,
