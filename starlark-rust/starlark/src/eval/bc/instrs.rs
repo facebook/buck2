@@ -239,7 +239,7 @@ impl BcInstrs {
             let loop_pad = loop_ends.len() * 2;
 
             if newline {
-                if let Some(loc) = self.stmt_locs.stmt_at(ip) {
+                if let Some((loc, _continued)) = self.stmt_locs.stmt_at(ip) {
                     writeln!(f, "{:loop_pad$} {:ip_pad$}  # {}", "", "", loc.span.span)?;
                 }
             } else {

@@ -309,7 +309,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             }
             ProfileMode::Statement | ProfileMode::Coverage => {
                 self.stmt_profile.enable();
-                self.before_stmt_fn(&|span, eval| eval.stmt_profile.before_stmt(span));
+                self.before_stmt_fn(&|span, _continued, eval| eval.stmt_profile.before_stmt(span));
             }
             ProfileMode::TimeFlame => {
                 self.time_flame_profile.enable();
@@ -422,7 +422,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
 
     pub(crate) fn before_stmt_fn(
         &mut self,
-        f: &'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a, 'e>),
+        f: &'a dyn for<'v1> Fn(FileSpanRef, bool, &mut Evaluator<'v1, 'a, 'e>),
     ) {
         self.before_stmt(f.into())
     }
@@ -891,8 +891,8 @@ pub(crate) struct EvalCallbacksEnabled<'a> {
 impl<'a> EvalCallbacksEnabled<'a> {
     fn before_stmt(&mut self, eval: &mut Evaluator, ip: BcPtrAddr) -> crate::Result<()> {
         let offset = ip.offset_from(self.bc_start_ptr);
-        if let Some(loc) = self.stmt_locs.stmt_at(offset) {
-            before_stmt(loc.span, eval)?;
+        if let Some((loc, continued)) = self.stmt_locs.stmt_at(offset) {
+            before_stmt(loc.span, continued, eval)?;
         }
         Ok(())
     }
@@ -916,11 +916,15 @@ impl<'a> EvaluationCallbacks for EvalCallbacksEnabled<'a> {
     }
 }
 
-// This function should be called before every meaningful statement.
+// This function should be called before every meaningful statement (continued==false), and after a call that returns into a previously entered statement (continued==true).
 // The purposes are GC, profiling and debugging.
 //
 // This function is called only if `before_stmt` is set before compilation start.
-pub(crate) fn before_stmt(span: FrameSpan, eval: &mut Evaluator) -> crate::Result<()> {
+pub(crate) fn before_stmt(
+    span: FrameSpan,
+    continued: bool,
+    eval: &mut Evaluator,
+) -> crate::Result<()> {
     assert!(
         eval.eval_instrumentation.before_stmt.enabled(),
         "this code should only be called if `before_stmt` is set"
@@ -931,7 +935,7 @@ pub(crate) fn before_stmt(span: FrameSpan, eval: &mut Evaluator) -> crate::Resul
     let mut result = Ok(());
     for f in &mut fs {
         if result.is_ok() {
-            result = f.call(span.span.file_span_ref(), eval);
+            result = f.call(span.span.file_span_ref(), continued, eval);
         }
     }
     let added = eval.eval_instrumentation.change(|eval_instrumentation| {

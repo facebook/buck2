@@ -111,8 +111,16 @@ impl<'a, 'e: 'a> BeforeStmtFuncDyn<'a, 'e> for DapAdapterEvalHookImpl {
     fn call<'v>(
         &mut self,
         span_loc: FileSpanRef,
+        continued: bool,
         eval: &mut Evaluator<'v, 'a, 'e>,
     ) -> crate::Result<()> {
+        // The debug adapter should only break on the "initial" instruction that
+        // makes up any given statement. "Continued" instructions are part of
+        // the still-executing/previous statement, and should be ignored.
+        if continued {
+            return Ok(());
+        }
+
         let stop = if self.state.disable_breakpoints.load(Ordering::SeqCst) > 0 {
             false
         } else {

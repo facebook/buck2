@@ -13,5 +13,6 @@ Max stack size: 1
 Instructions:
        # instrs.star.bzl:2:17-23
    0: CallFrozenNativePos noop &0..&0 instrs.star.bzl:2:17-23 ->&1
+       # instrs.star.bzl:2:17-23
   56: ReturnConst None
   72: End

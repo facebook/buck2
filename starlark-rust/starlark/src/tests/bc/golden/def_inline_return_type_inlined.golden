@@ -17,5 +17,6 @@ Max stack size: 1
 Instructions:
        # instrs.star.bzl:6:5-18
    0: CallFrozenDefPos instrs.star.bzl.smth &0..&0 instrs.star.bzl:6:12-18 ->&0
+       # instrs.star.bzl:6:5-18
   40: Return &0
   48: End

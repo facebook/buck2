@@ -289,8 +289,10 @@ impl<'a> Assert<'a> {
         }
         let loader = ReturnFileLoader { modules: &modules };
         let ast = AstModule::parse(path, program.to_owned(), &self.dialect)?;
-        let gc_always = |_span: FileSpanRef, eval: &mut Evaluator| {
-            eval.trigger_gc();
+        let gc_always = |_span: FileSpanRef, continued: bool, eval: &mut Evaluator| {
+            if !continued {
+                eval.trigger_gc();
+            }
         };
         let mut eval = Evaluator::new(module);
         eval.enable_static_typechecking(self.static_typechecking);

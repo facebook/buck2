@@ -148,6 +148,25 @@ impl BcOpcode {
         BcOpcode::do_dispatch_all(handler)
     }
 
+    #[inline(always)]
+    pub(crate) fn is_call(self) -> bool {
+        match self {
+            BcOpcode::Call
+            | BcOpcode::CallPos
+            | BcOpcode::CallFrozenDef
+            | BcOpcode::CallFrozenDefPos
+            | BcOpcode::CallFrozenNative
+            | BcOpcode::CallFrozenNativePos
+            | BcOpcode::CallFrozen
+            | BcOpcode::CallFrozenPos
+            | BcOpcode::CallMethod
+            | BcOpcode::CallMethodPos
+            | BcOpcode::CallMaybeKnownMethod
+            | BcOpcode::CallMaybeKnownMethodPos => true,
+            _ => false,
+        }
+    }
+
     /// Get opcode by opcode number.
     pub(crate) fn by_number(n: u32) -> Option<BcOpcode> {
         struct ByNumber {

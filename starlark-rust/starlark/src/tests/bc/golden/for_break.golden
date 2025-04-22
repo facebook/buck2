@@ -21,6 +21,7 @@ Instructions:
       40: Break &2 136
           # instrs.star.bzl:4:5-12
   >   56: CallFrozenNativePos noop &1..&2 instrs.star.bzl:4:5-12 ->&3
+          # instrs.star.bzl:4:5-12
      112: Continue &2 0 ->&i 24 136
   >136: ReturnConst None
    152: End

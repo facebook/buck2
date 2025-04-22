@@ -14,5 +14,6 @@ Instructions:
     0: Mov &y ->&3
    16: Mov &x ->&4
    32: CallFrozenNativePos noop &3..&5 instrs.star.bzl:1:17-27 ->&2
+        # instrs.star.bzl:1:17-27
    88: ReturnConst None
   104: End

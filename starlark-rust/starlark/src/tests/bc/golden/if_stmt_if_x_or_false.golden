@@ -15,5 +15,6 @@ Instructions:
     0: IfNotBr &x 72
        # instrs.star.bzl:2:18-24
    16: CallFrozenNativePos noop &0..&0 instrs.star.bzl:2:18-24 ->&1
+       # instrs.star.bzl:2:18-24
   >72: ReturnConst None
    88: End

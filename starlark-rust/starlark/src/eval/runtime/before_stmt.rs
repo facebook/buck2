@@ -35,7 +35,7 @@ pub(crate) struct BeforeStmt<'a, 'e: 'a> {
 // TODO(cjhopman): pull DAP into the crate, and hide this function.
 #[doc(hidden)]
 pub enum BeforeStmtFunc<'a, 'e: 'a> {
-    Fn(&'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a, 'e>)),
+    Fn(&'a dyn for<'v1> Fn(FileSpanRef, bool, &mut Evaluator<'v1, 'a, 'e>)),
     Dyn(Box<dyn BeforeStmtFuncDyn<'a, 'e>>),
 }
 
@@ -43,14 +43,15 @@ impl<'a, 'e: 'a> BeforeStmtFunc<'a, 'e> {
     pub(crate) fn call<'v>(
         &mut self,
         span: FileSpanRef,
+        continued: bool,
         eval: &mut Evaluator<'v, 'a, 'e>,
     ) -> crate::Result<()> {
         match self {
             BeforeStmtFunc::Fn(f) => {
-                f(span, eval);
+                f(span, continued, eval);
                 Ok(())
             }
-            BeforeStmtFunc::Dyn(d) => d.call(span, eval),
+            BeforeStmtFunc::Dyn(d) => d.call(span, continued, eval),
         }
     }
 }
@@ -65,6 +66,7 @@ pub trait BeforeStmtFuncDyn<'a, 'e: 'a> {
     fn call<'v>(
         &mut self,
         span: FileSpanRef,
+        continued: bool,
         eval: &mut Evaluator<'v, 'a, 'e>,
     ) -> crate::Result<()>;
 }
@@ -75,10 +77,10 @@ impl<'a, 'e: 'a> BeforeStmt<'a, 'e> {
     }
 }
 
-impl<'a, 'e: 'a> From<&'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a, 'e>)>
+impl<'a, 'e: 'a> From<&'a dyn for<'v1> Fn(FileSpanRef, bool, &mut Evaluator<'v1, 'a, 'e>)>
     for BeforeStmtFunc<'a, 'e>
 {
-    fn from(value: &'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a, 'e>)) -> Self {
+    fn from(value: &'a dyn for<'v1> Fn(FileSpanRef, bool, &mut Evaluator<'v1, 'a, 'e>)) -> Self {
         Self::Fn(value)
     }
 }
