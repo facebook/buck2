@@ -52,8 +52,9 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
     test_config_properties_file = ctx.actions.write(
         "test_config.properties",
         [
-            cmd_args(["android_resource_apk", resources_info.primary_resources_apk], delimiter = "="),
-            cmd_args(["android_merged_manifest", resources_info.manifest], delimiter = "="),
+            # Replace \ with \\ for Windows compatibility
+            cmd_args(["android_resource_apk", resources_info.primary_resources_apk], delimiter = "=", replace_regex = ("\\\\\\b", "\\\\")),
+            cmd_args(["android_merged_manifest", resources_info.manifest], delimiter = "=", replace_regex = ("\\\\\\b", "\\\\")),
         ],
     )
 
