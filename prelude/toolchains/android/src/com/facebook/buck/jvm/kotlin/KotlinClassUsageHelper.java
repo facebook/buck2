@@ -16,12 +16,8 @@ import static com.facebook.buck.jvm.java.CompilerOutputPaths.getKspDepFilePath;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.jvm.java.ClassUsageURIParser;
-import com.facebook.buck.jvm.kotlin.compilerplugins.usedclasses.ClassUsageMerger;
-import com.facebook.buck.util.json.ObjectMappers;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -50,7 +46,7 @@ public class KotlinClassUsageHelper {
     Path kotlinGeneralClassUsageReportPath =
         ruleCellRoot.resolve(getKotlinTempDepFilePath(reportDirPath)).getPath();
     ImmutableMap<Path, Set<Path>> classUsages =
-        readNdJsonBasedClassUsageReport(kotlinGeneralClassUsageReportPath);
+        readUriBasedClassUsageFile(kotlinGeneralClassUsageReportPath);
 
     // merge kapt generated class usage report file if it exist
     Path kaptClassUsageReportPath =
@@ -68,54 +64,15 @@ public class KotlinClassUsageHelper {
     return classUsages;
   }
 
-  /**
-   * Read a class usage report that is in desired json format already
-   *
-   * <p>Kotlin dep-tracker compiler plugin, for example, is internal, so we were managed to have it
-   * output in the desired format since beginning.
-   */
+  /** Read a class usage report that is in the raw format one URI per line */
   @VisibleForTesting
-  static ImmutableMap<Path, Set<Path>> readJsonBasedClassUsageReport(Path path) throws IOException {
+  static ImmutableMap<Path, Set<Path>> readUriBasedClassUsageFile(Path path) throws IOException {
     if (!Files.exists(path)) {
       return ImmutableMap.of();
     }
 
-    return ObjectMappers.readValue(path, new TypeReference<>() {});
-  }
-
-  /** Read a class usage report that is in desired ndJson format already */
-  @VisibleForTesting
-  static ImmutableMap<Path, Set<Path>> readNdJsonBasedClassUsageReport(Path path)
-      throws IOException {
-    if (!Files.exists(path)) {
-      return ImmutableMap.of();
-    }
-
-    Map<Path, Set<Path>> resultMap = new HashMap<>();
-    try (BufferedReader reader = Files.newBufferedReader(path)) {
-      String line;
-      while ((line = reader.readLine()) != null) {
-        Map<Path, Set<Path>> classUsageMap =
-            ObjectMappers.readValue(line, new TypeReference<>() {});
-
-        resultMap = ClassUsageMerger.mergeClassUsageMaps(resultMap, classUsageMap);
-      }
-    }
-
-    return ImmutableMap.copyOf(resultMap);
-  }
-
-  /**
-   * Read a class usage report that is in the raw format one URI per line
-   *
-   * <p>KAPT output in this format for example.
-   */
-  @VisibleForTesting
-  static ImmutableMap<Path, Set<Path>> readUriBasedClassUsageFile(Path kaptClassUsageFilePath)
-      throws IOException {
     final ClassUsageURIParser parser = new ClassUsageURIParser();
-    Files.readAllLines(kaptClassUsageFilePath)
-        .forEach(line -> parser.parseAndRecordURI(URI.create(line)));
+    Files.readAllLines(path).forEach(line -> parser.parseAndRecordURI(URI.create(line)));
     return parser.getClassUsageMap();
   }
 

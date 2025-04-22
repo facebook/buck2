@@ -17,9 +17,9 @@ import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.testutil.TemporaryPaths;
 import com.facebook.buck.util.environment.Platform;
-import com.facebook.buck.util.json.ObjectMappers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URI;
@@ -36,6 +36,7 @@ public class KotlinClassUsageHelperTest {
 
   public static final String FOO_TEST_FILE_NAME = "Foo.class";
   public static final String BAR_TEST_FILE_NAME = "Bar.class";
+  public static final String BAZ_TEST_FILE_NAME = "Baz.class";
   private static final String TEST_JAR_URI =
       Platform.detect() == Platform.WINDOWS ? "/C:/test.jar" : "/test.jar";
   private static final Path TEST_JAR_PATH = Paths.get(URI.create("file://" + TEST_JAR_URI));
@@ -46,32 +47,6 @@ public class KotlinClassUsageHelperTest {
   public void setUp() throws IOException {
     tmp.newFolder("dummyOutputDir");
     outputDir = RelPath.get("dummyOutputDir");
-  }
-
-  @Test
-  public void testReadJsonDepFile() throws IOException {
-    AbsPath kotlinTempDepPath =
-        generateDummyKotlinTempFile(
-            "dummy.json", ImmutableMap.of(TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME))));
-
-    assertEquals(
-        ImmutableMap.of(TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME))),
-        KotlinClassUsageHelper.readJsonBasedClassUsageReport(kotlinTempDepPath.getPath()));
-  }
-
-  @Test
-  public void testReadNdJsonDepFile() throws IOException {
-    AbsPath kotlinTempDepPath =
-        generateDummyKotlinTempFile(
-            "dummy.json",
-            ImmutableMap.of(TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME))),
-            ImmutableMap.of(TEST_JAR_PATH, Set.of(Paths.get(BAR_TEST_FILE_NAME))));
-
-    assertEquals(
-        ImmutableMap.of(
-            TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME), Paths.get(BAR_TEST_FILE_NAME))),
-        com.facebook.buck.jvm.kotlin.KotlinClassUsageHelper.readNdJsonBasedClassUsageReport(
-            kotlinTempDepPath.getPath()));
   }
 
   @Test
@@ -115,7 +90,8 @@ public class KotlinClassUsageHelperTest {
   public void testReadAllKotlinTempDepFiles() throws IOException {
     generateDummyKotlinTempFile(
         getKotlinTempDepFilePath(outputDir).toString(),
-        ImmutableMap.of(TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME))));
+        ImmutableSet.of(getURI(TEST_JAR_URI, FOO_TEST_FILE_NAME)),
+        ImmutableSet.of(getURI(TEST_JAR_URI, BAZ_TEST_FILE_NAME)));
     generateDummyKaptTempFile(
         getKAPTDepFilePath(outputDir).toString(),
         ImmutableList.of(
@@ -125,19 +101,25 @@ public class KotlinClassUsageHelperTest {
 
     assertEquals(
         ImmutableMap.of(
-            TEST_JAR_PATH, Set.of(Paths.get(FOO_TEST_FILE_NAME), Paths.get(BAR_TEST_FILE_NAME))),
+            TEST_JAR_PATH,
+            Set.of(
+                Paths.get(FOO_TEST_FILE_NAME),
+                Paths.get(BAR_TEST_FILE_NAME),
+                Paths.get(BAZ_TEST_FILE_NAME))),
         KotlinClassUsageHelper.getClassUsageData(outputDir, tmp.getRoot()));
   }
 
-  private AbsPath generateDummyKotlinTempFile(
-      String fileName, ImmutableMap<Path, Set<Path>>... dummyClassUsagesJson) throws IOException {
+  @SafeVarargs
+  private final AbsPath generateDummyKotlinTempFile(
+      String fileName, ImmutableSet<String>... dummyClassUsagesUriSets) throws IOException {
     AbsPath kotlinTempFile = tmp.newFile(fileName);
 
     try (FileWriter writer = new FileWriter(kotlinTempFile.toFile(), true)) {
-      for (ImmutableMap<Path, Set<Path>> dummyClassUsageJson : dummyClassUsagesJson) {
-        String json = ObjectMappers.WRITER.writeValueAsString(dummyClassUsageJson);
-        writer.write(json);
-        writer.write("\n");
+      for (ImmutableSet<String> dummyClassUsageUriSet : dummyClassUsagesUriSets) {
+        for (String dummyUri : dummyClassUsageUriSet) {
+          writer.write(dummyUri);
+          writer.write("\n");
+        }
       }
     }
 
