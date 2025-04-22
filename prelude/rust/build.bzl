@@ -550,6 +550,7 @@ def rust_compile(
     if infallible_diagnostics:
         emit_op = _rustc_emit(
             ctx = ctx,
+            compile_ctx = compile_ctx,
             emit = emit,
             subdir = common_args.subdir,
             params = params,
@@ -559,6 +560,7 @@ def rust_compile(
     else:
         emit_op = _rustc_emit(
             ctx = ctx,
+            compile_ctx = compile_ctx,
             emit = emit,
             subdir = common_args.subdir,
             params = params,
@@ -1087,7 +1089,7 @@ def _compute_common_args(
         "--crate-type={}".format(crate_type.value),
         "-Crelocation-model={}".format(params.reloc_model.value),
         "--edition={}".format(edition),
-        "-Cmetadata={}".format(_metadata(ctx.label, is_rustdoc_test)[0]),
+        "-Cmetadata={}".format(_metadata(compile_ctx, ctx.label, is_rustdoc_test)[0]),
         # Make diagnostics json with the option to extract rendered text
         ["--error-format=json", "--json=diagnostic-rendered-ansi"] if not is_rustdoc_test else [],
         prefer_dynamic_flags,
@@ -1195,8 +1197,14 @@ def _linker_args(
 # which provided the primary disambiguator for two otherwise identically named
 # crates. The hash is added to the filename to give them a lower likelihood of
 # duplicate names, but it doesn't matter if they collide.
-def _metadata(label: Label, is_rustdoc_test: bool) -> (str, str):
-    metadata = str(label.raw_target())
+def _metadata(
+        compile_ctx: CompileContext,
+        label: Label,
+        is_rustdoc_test: bool) -> (str, str):
+    raw_target = str(label.raw_target())
+    configuration_hash = compile_ctx.toolchain_info.configuration_hash or label.configured_target().config().hash
+    metadata = "{}#{}".format(raw_target, configuration_hash)
+
     if is_rustdoc_test:
         metadata = "doctest/" + metadata
 
@@ -1304,6 +1312,7 @@ EmitOperation = record(
 # Take a desired output and work out how to convince rustc to generate it
 def _rustc_emit(
         ctx: AnalysisContext,
+        compile_ctx: CompileContext,
         emit: Emit,
         subdir: str,
         params: BuildParams,
@@ -1325,7 +1334,7 @@ def _rustc_emit(
         # Don't support profiles with predeclared outputs
         crate_name_and_extra_for_profile = None
     else:
-        extra_hash = "-" + _metadata(ctx.label, False)[1]
+        extra_hash = "-" + _metadata(compile_ctx, ctx.label, False)[1]
         emit_args.add("-Cextra-filename={}".format(extra_hash))
         filename = subdir + "/" + output_filename(simple_crate, emit, params, extra_hash)
         crate_name_and_extra_for_profile = simple_crate + extra_hash

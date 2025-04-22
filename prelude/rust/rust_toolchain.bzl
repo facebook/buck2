@@ -134,6 +134,9 @@ rust_toolchain_attrs = {
     "measureme_crox": provider_field(RunInfo | None, default = None),
     # Constructs an upload command for the given chrome trace
     "make_trace_upload": provider_field(typing.Callable[[Artifact], RunInfo] | None, default = None),
+    # Suffix to append onto all -Cmetadata arguments to differentiate the same
+    # crate in different configurations
+    "configuration_hash": provider_field(str | None, default = None),
 }
 
 RustToolchainInfo = provider(fields = rust_toolchain_attrs)
