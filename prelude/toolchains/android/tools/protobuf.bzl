@@ -18,12 +18,12 @@ def protobuf_src_gen(name, srcs, proto_path = [], deps = [], exported_deps = [])
     command = [
         "mkdir $OUT",
         "&& $(exe prelude//toolchains/android/tools/protobuf:protoc)",
-        "--plugin=protoc-gen-grpc-java=$(location prelude//toolchains/android/tools/protobuf:gen-grpc)",
+        "--plugin=protoc-gen-grpc-java=$(location_exec prelude//toolchains/android/tools/protobuf:gen-grpc)",
     ] + common_args
 
     command_exe = [
         "mkdir $OUT",
-        "&& cp $(location prelude//toolchains/android/tools/protobuf:gen-grpc-windows) $TMP/gen-grpc",
+        "&& cp $(location_exec prelude//toolchains/android/tools/protobuf:gen-grpc-windows) $TMP/gen-grpc",
         "&& $(exe prelude//toolchains/android/tools/protobuf:protoc)",
         "--plugin=protoc-gen-grpc-java=$TMP/gen-grpc",
     ] + common_args
