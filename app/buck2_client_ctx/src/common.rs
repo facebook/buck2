@@ -456,6 +456,9 @@ impl<'a> BuckArgMatches<'a> {
                         Some(RepresentativeConfigFlagSource::ConfigFile(v)) => {
                             format!("--config-file {}", v)
                         }
+                        Some(RepresentativeConfigFlagSource::ConfigModifier(v)) => {
+                            format!("-m {}", v)
+                        }
                         Some(RepresentativeConfigFlagSource::ModeFile(v)) => v,
                         None => unreachable!("impossible flag"),
                     })
@@ -506,6 +509,14 @@ impl<'a> BuckArgMatches<'a> {
                             state = State::Matched("--config-file");
                             None
                         }
+                        "-m" => {
+                            state = State::Matched("-m");
+                            None
+                        }
+                        "--modifier" => {
+                            state = State::Matched("--modifier");
+                            None
+                        }
                         v if v.starts_with("--config=") || v.starts_with("-c=") => {
                             Some(RepresentativeConfigFlagSource::ConfigFlag(
                                 v.split_once("=").unwrap().1.to_owned(),
@@ -514,6 +525,11 @@ impl<'a> BuckArgMatches<'a> {
                         v if v.starts_with("--config-file=") => {
                             Some(RepresentativeConfigFlagSource::ConfigFile(
                                 v.split_at("--config-file=".len()).1.to_owned(),
+                            ))
+                        }
+                        v if v.starts_with("--modifier=") || v.starts_with("-m=") => {
+                            Some(RepresentativeConfigFlagSource::ConfigModifier(
+                                v.split_once("=").unwrap().1.to_owned(),
                             ))
                         }
                         _ => None,
@@ -527,6 +543,12 @@ impl<'a> BuckArgMatches<'a> {
                             "--config-file" => {
                                 Some(RepresentativeConfigFlagSource::ConfigFile(value.to_owned()))
                             }
+                            "-m" => Some(RepresentativeConfigFlagSource::ConfigModifier(
+                                value.to_owned(),
+                            )),
+                            "--modifier" => Some(RepresentativeConfigFlagSource::ConfigModifier(
+                                value.to_owned(),
+                            )),
                             _ => unreachable!("impossible flag"),
                         }
                     }
@@ -597,6 +619,12 @@ mod tests {
         argv.push("--config-file".to_owned());
         argv.push("//2.bcfg".to_owned());
 
+        argv.push("-m".to_owned());
+        argv.push("//bar:baz".to_owned());
+        argv.push("--modifier=//foo:bar".to_owned());
+        argv.push("--modifier".to_owned());
+        argv.push("//bar:foo".to_owned());
+
         let argv = argv.build();
 
         let clap = clap::ArgMatches::default(); // we don't actually inspect this right now so just use an empty one.
@@ -613,6 +641,9 @@ mod tests {
                 "-c section.option4=value",
                 "--config-file //1.bcfg",
                 "--config-file //2.bcfg",
+                "-m //bar:baz",
+                "-m //foo:bar",
+                "-m //bar:foo"
             ]
         );
 
@@ -634,11 +665,16 @@ mod tests {
         };
 
         let mut argv = ExpandedArgvBuilder::new();
+        argv.push("-m".to_owned());
+        argv.push("//bar:baz".to_owned());
 
         argv.argfile_scope(ArgFileKind::Path(project_argfile("root//mode/1")), |argv| {
             argv.push("-c=a.b=c".to_owned());
             argv.push("-c=a.b2=c".to_owned());
             argv.push("-c=a.b3=c".to_owned());
+            argv.push("--modifier=//foo:bar".to_owned());
+            argv.push("--modifier".to_owned());
+            argv.push("//bar:foo".to_owned());
         });
 
         argv.argfile_scope(ArgFileKind::Path(external_argfile("mode/1")), |argv| {
@@ -666,7 +702,13 @@ mod tests {
 
         assert_eq!(
             flags,
-            vec!["@root//mode/1", "@root//mode/2", "-c a.b5=c", "-c a.b6=c"]
+            vec![
+                "-m //bar:baz",
+                "@root//mode/1",
+                "@root//mode/2",
+                "-c a.b5=c",
+                "-c a.b6=c"
+            ]
         );
 
         Ok(())

@@ -102,6 +102,7 @@ message RepresentativeConfigFlag {
     string config_flag = 1;
     string config_file = 2;
     string mode_file = 3;
+    string config_modifier = 4;
   }
 }
 
