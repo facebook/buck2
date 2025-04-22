@@ -108,8 +108,8 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     pkgs[pkg_name] = tests
 
-    # Generate a main function which runs the tests and build that into another
-    # package.
+    # Generate a 'main.go' file (test runner) which runs the actual tests from the package above.
+    # Build the it as a separate package (<foo>.test) - which imports and invokes the test package.
     gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, coverage_vars, tests.test_go_files)
     main, _ = build_package(
         ctx = ctx,
@@ -118,7 +118,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         srcs = [gen_main],
         package_root = "",
         pkgs = pkgs,
-        coverage_mode = coverage_mode,
+        coverage_mode = None,
         race = ctx.attrs._race,
         asan = ctx.attrs._asan,
         cgo_gen_dir_name = "cgo_gen_test_main",
