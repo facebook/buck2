@@ -178,7 +178,7 @@ impl<'v> UnpackValue<'v> for PluginKindArg {
 pub struct AllPlugins;
 starlark_simple_value!(AllPlugins);
 
-#[starlark_value(type = "all_plugins")]
+#[starlark_value(type = "AllPlugins")]
 impl<'v> StarlarkValue<'v> for AllPlugins {}
 
 #[starlark_module]
