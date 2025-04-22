@@ -9,6 +9,7 @@
 # These are not used anywhere else in prelude and are not exported as prelude globals.
 
 load("@prelude//:prelude.bzl", "native")
+load("@prelude//utils:lazy.bzl", "lazy")
 load("@prelude//utils:selects.bzl", "selects")
 
 DEFAULT_PLATFORM_TEMPLATES = {
@@ -90,11 +91,52 @@ def apply_platform_attrs(
 
     return combined_attrs
 
+def filegroup_for_buildscript_run(filegroup_name, manifest_dir, srcs):
+    if len(srcs) == 1 and srcs[0].startswith(":"):
+        # In cases such as `srcs = [":thiserror-a2b02c8016a45f62.git"]`, this
+        # creates an alias like "thiserror-2.0.12.crate".
+        native.alias(
+            name = filegroup_name,
+            actual = srcs[0],
+            visibility = [],
+        )
+    elif not lazy.is_any(lambda path: path.startswith(":"), srcs):
+        # Otherwise if `srcs` is a simple list of local source files, this
+        # creates a filegroup with source mapping like
+        # `srcs = { "src/lib.rs": "path/to/manifest/dir/src/lib.rs", ... }`
+        # removing the "path/to/manifest/dir/" prefix.
+        manifest_dir_with_trailing_slash = "{}/".format(manifest_dir)
+        native.filegroup(
+            name = filegroup_name,
+            srcs = {
+                path.removeprefix(manifest_dir_with_trailing_slash): path
+                for path in srcs
+            },
+            copy = False,
+            visibility = [],
+        )
+
+    # The last case of filegroup missing is when using Reindeer in `vendor = true` mode,
+    # which is handled in @prelude//rust:cargo_buildscript.bzl by the `buildscript_run` macro.
+
 def _cargo_rust_binary(name, platform = {}, **kwargs):
     kwargs = apply_platform_attrs(platform, kwargs)
 
     rustc_flags = kwargs.get("rustc_flags", [])
     kwargs["rustc_flags"] = ["--cap-lints=allow"] + rustc_flags
+
+    env = kwargs.get("env", {})
+    manifest_dir = env.get("CARGO_MANIFEST_DIR", None)
+    package_name = env.get("CARGO_PKG_NAME", None)
+    version = env.get("CARGO_PKG_VERSION", None)
+
+    is_buildscript_build = kwargs.get("crate", None) == "build_script_build" and name.endswith("-build-script-build")
+    has_required_envs = manifest_dir != None and package_name != None and version != None
+
+    if is_buildscript_build and has_required_envs:
+        filegroup_name = "{}-{}.crate".format(package_name, version)
+        if not rule_exists(filegroup_name):
+            filegroup_for_buildscript_run(filegroup_name, manifest_dir, srcs = kwargs["srcs"])
 
     native.rust_binary(name = name, **kwargs)
 
