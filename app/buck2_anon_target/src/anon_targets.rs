@@ -59,7 +59,7 @@ use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
-use buck2_interpreter_for_build::rule::FrozenRuleCallable;
+use buck2_interpreter_for_build::rule::FrozenStarlarkRuleCallable;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::spec::internal::is_internal_attr;
@@ -153,7 +153,7 @@ impl AnonTargetKey {
 
     fn prepare_anon_target_data<'v>(
         execution_platform: &ExecutionPlatformResolution,
-        rule: ValueTyped<'v, FrozenRuleCallable>,
+        rule: ValueTyped<'v, FrozenStarlarkRuleCallable>,
         attributes: UnpackDictEntries<&'v str, Value<'v>>,
     ) -> buck2_error::Result<(
         Arc<StarlarkRuleType>,
@@ -214,7 +214,7 @@ impl AnonTargetKey {
 
     pub(crate) fn new<'v>(
         execution_platform: &ExecutionPlatformResolution,
-        rule: ValueTyped<'v, FrozenRuleCallable>,
+        rule: ValueTyped<'v, FrozenStarlarkRuleCallable>,
         attributes: UnpackDictEntries<&'v str, Value<'v>>,
         owner_key: &BaseDeferredKey,
     ) -> buck2_error::Result<Self> {
@@ -581,7 +581,7 @@ impl<'v> AnonTargetsRegistry<'v> {
 
     pub(crate) fn anon_target_key(
         &self,
-        rule: ValueTyped<'v, FrozenRuleCallable>,
+        rule: ValueTyped<'v, FrozenStarlarkRuleCallable>,
         attributes: UnpackDictEntries<&'v str, Value<'v>>,
         owner_key: &BaseDeferredKey,
     ) -> buck2_error::Result<AnonTargetKey> {

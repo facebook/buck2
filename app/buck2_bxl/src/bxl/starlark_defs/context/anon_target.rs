@@ -38,7 +38,7 @@ use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use buck2_interpreter_for_build::attrs::StarlarkAttribute;
-use buck2_interpreter_for_build::rule::RuleCallable;
+use buck2_interpreter_for_build::rule::StarlarkRuleCallable;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -119,8 +119,8 @@ pub(crate) fn register_anon_rule(globals: &mut GlobalsBuilder) {
             StarlarkCallable<'v, (FrozenValue,), UnpackList<FrozenValue>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<RuleCallable<'v>> {
-        RuleCallable::new_bxl_anon(
+    ) -> anyhow::Result<StarlarkRuleCallable<'v>> {
+        StarlarkRuleCallable::new_bxl_anon(
             StarlarkCallable::unchecked_new(r#impl.0),
             attrs,
             doc,

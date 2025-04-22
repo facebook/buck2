@@ -20,7 +20,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_ANON_TARGETS_GLOBALS;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter_for_build::rule::FrozenArtifactPromiseMappings;
-use buck2_interpreter_for_build::rule::FrozenRuleCallable;
+use buck2_interpreter_for_build::rule::FrozenStarlarkRuleCallable;
 use gazebo::prelude::VecExt;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
@@ -253,7 +253,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     fn anon_target<'v>(
         this: &AnalysisActions<'v>,
         // TODO(nga): this should be either positional or named, not both.
-        rule: ValueTyped<'v, FrozenRuleCallable>,
+        rule: ValueTyped<'v, FrozenStarlarkRuleCallable>,
         attrs: UnpackDictEntries<&'v str, Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAnonTarget<'v>> {
@@ -278,7 +278,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         // TODO(nga): this should be either positional or named, not both.
         rules: UnpackListOrTuple<(
-            ValueTyped<'v, FrozenRuleCallable>,
+            ValueTyped<'v, FrozenStarlarkRuleCallable>,
             UnpackDictEntries<&'v str, Value<'v>>,
         )>,
         eval: &mut Evaluator<'v, '_, '_>,
