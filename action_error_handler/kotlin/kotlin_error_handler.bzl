@@ -6,10 +6,12 @@
 # of this source tree.
 
 load("@fbsource//tools/build_defs/android/action_error_handler:android_di_error_handler.bzl", "android_di_error_handler")
+load("@fbsource//tools/build_defs/android/action_error_handler:kotlin_error_handler.bzl", "kotlin_action_error_handler")
 
 def kotlin_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     categories = []
 
     categories += android_di_error_handler(ctx)
+    categories += kotlin_action_error_handler(ctx)
 
     return categories
