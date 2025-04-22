@@ -100,7 +100,7 @@ pub(crate) struct FrozenTransition {
     pub(crate) split: bool,
 }
 
-#[starlark_value(type = "transition")]
+#[starlark_value(type = "Transition")]
 impl<'v> StarlarkValue<'v> for Transition<'v> {
     fn export_as(
         &self,
@@ -123,7 +123,7 @@ impl<'v> StarlarkValue<'v> for Transition<'v> {
     }
 }
 
-#[starlark_value(type = "transition")]
+#[starlark_value(type = "Transition")]
 impl<'v> StarlarkValue<'v> for FrozenTransition {
     type Canonical = Transition<'v>;
 
