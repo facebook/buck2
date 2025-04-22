@@ -545,8 +545,7 @@ mod tests {
     // `fbinit_tokio` is not on crates, so we cannot use `#[fbinit::test]`.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_daemon_smoke() {
-        // TODO(nga): this should be `fbinit::perform_init`, but it is not on crates yet.
-        let fbinit = unsafe { fbinit::assume_init() };
+        let fbinit = unsafe { fbinit::perform_init() };
 
         buck2_core::client_only::CLIENT_ONLY_VAL.init(false);
 
