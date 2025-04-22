@@ -1105,22 +1105,22 @@ def _mk_argsfiles(
         args_without_file_prefix_args = args_without_file_prefix_args,
     )
 
-def _compiler_flags(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, ext: str) -> list[typing.Any]:
-    return (
-        cxx_by_language_ext(impl_params.lang_compiler_flags, ext) +
-        flatten(cxx_by_platform(ctx, impl_params.platform_compiler_flags)) +
-        flatten(cxx_by_platform(ctx, cxx_by_language_ext(impl_params.lang_platform_compiler_flags, ext))) +
+def _compiler_flags(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, ext: str) -> cmd_args:
+    return cmd_args(
+        cxx_by_language_ext(impl_params.lang_compiler_flags, ext),
+        cxx_by_platform(ctx, impl_params.platform_compiler_flags),
+        cxx_by_platform(ctx, cxx_by_language_ext(impl_params.lang_platform_compiler_flags, ext)),
         # ctx.attrs.compiler_flags need to come last to preserve buck1 ordering, this prevents compiler
         # flags ordering-dependent build errors
-        impl_params.compiler_flags
+        impl_params.compiler_flags,
     )
 
-def _preprocessor_flags(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, ext: str) -> list[typing.Any]:
-    return (
-        impl_params.preprocessor_flags +
-        cxx_by_language_ext(impl_params.lang_preprocessor_flags, ext) +
-        flatten(cxx_by_platform(ctx, impl_params.platform_preprocessor_flags)) +
-        flatten(cxx_by_platform(ctx, cxx_by_language_ext(impl_params.lang_platform_preprocessor_flags, ext)))
+def _preprocessor_flags(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, ext: str) -> cmd_args:
+    return cmd_args(
+        impl_params.preprocessor_flags,
+        cxx_by_language_ext(impl_params.lang_preprocessor_flags, ext),
+        cxx_by_platform(ctx, impl_params.platform_preprocessor_flags),
+        cxx_by_platform(ctx, cxx_by_language_ext(impl_params.lang_platform_preprocessor_flags, ext)),
     )
 
 def _mk_header_units_argsfile(
