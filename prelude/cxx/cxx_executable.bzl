@@ -758,14 +758,16 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
     if binary.dwp:
         # A `dwp` sub-target which generates the `.dwp` file for this binary and its shared lib dependencies.
+        shared_libraries_dwp = [
+            shlib.lib.dwp
+            for shlib in shared_libs
+            if shlib.lib.dwp
+        ] + ([link_result.dwp_symlink_tree] if link_result.dwp_symlink_tree else [])
+
         sub_targets["dwp"] = [
             DefaultInfo(
                 default_output = binary.dwp,
-                other_outputs = [
-                    shlib.lib.dwp
-                    for shlib in shared_libs
-                    if shlib.lib.dwp
-                ] + ([link_result.dwp_symlink_tree] if link_result.dwp_symlink_tree else []),
+                other_outputs = shared_libraries_dwp,
             ),
         ]
 
