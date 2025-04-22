@@ -905,6 +905,9 @@ public class AdbHelper implements AndroidDevicesHelper {
       Optional<String> buck2BuildUuid)
       throws InterruptedException {
     File apk = isolatedApkInfo.getApkPath().toFile();
+    if (setDebugAppMode == SetDebugAppMode.SET) {
+      adbCall("set debug app", (device) -> device.setDebugAppPackageName(packageName), true);
+    }
     adbCall(
         String.format("install apk %s", buildTarget),
         (device) -> {
@@ -925,9 +928,6 @@ public class AdbHelper implements AndroidDevicesHelper {
               device.installBuildUuidFile(
                   BUILD_METADATA_INSTALL_ROOT, packageName, buck2BuildUuid.get()),
           true);
-    }
-    if (setDebugAppMode == SetDebugAppMode.SET) {
-      adbCall("set debug app", (device) -> device.setDebugAppPackageName(packageName), true);
     }
   }
 
