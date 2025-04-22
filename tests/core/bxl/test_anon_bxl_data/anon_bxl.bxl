@@ -35,7 +35,7 @@ anon = bxl.anon_rule(
 )
 
 def _define_anon(_ctx: bxl.Context):
-    _assert_eq(type(anon), "rule")
+    _assert_eq(isinstance(anon, Rule), True)
 
 define_anon = bxl_main(
     impl = _define_anon,

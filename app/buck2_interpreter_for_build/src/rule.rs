@@ -67,6 +67,7 @@ use starlark::values::list::ListType;
 use starlark::values::list::UnpackList;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::typing::StarlarkCallableChecked;
@@ -638,4 +639,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         StarlarkRuleCallable::new_anon(r#impl, attrs, doc, artifact_promise_mappings, eval)
             .map_err(Into::into)
     }
+
+    /// Type symbol for Rule.
+    const Rule: StarlarkValueAsType<StarlarkRuleCallable> = StarlarkValueAsType::new();
 }
