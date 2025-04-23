@@ -162,8 +162,8 @@ impl<'a> ClientCommandContext<'a> {
         let result = async {
             let mut events_ctx = exec_events_ctx.lock().await;
             let is_streaming_command = cmd.is_streaming_command();
-            let result = cmd.exec_impl(matches, self, &mut events_ctx).await;
-            events_ctx.subscribers.handle_exit_result(&result);
+            let mut result = cmd.exec_impl(matches, self, &mut events_ctx).await;
+            events_ctx.subscribers.handle_exit_result(&mut result).await;
 
             // TODO(ctolliday) always send ExitResult to recorder and remove this check.
             if !is_streaming_command {

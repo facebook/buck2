@@ -81,9 +81,9 @@ impl EventSubscribers {
         }
     }
 
-    pub(crate) fn handle_exit_result(&mut self, exit_result: &ExitResult) {
+    pub(crate) async fn handle_exit_result(&mut self, exit_result: &mut ExitResult) {
         for subscriber in &mut self.subscribers {
-            subscriber.handle_exit_result(exit_result);
+            subscriber.handle_exit_result(exit_result).await;
         }
     }
 

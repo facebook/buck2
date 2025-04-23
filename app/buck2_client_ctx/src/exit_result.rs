@@ -27,6 +27,8 @@ use buck2_error::classify::best_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_wrapper_common::invocation_id::TraceId;
 
+use crate::events_ctx::EventsCtxError;
+
 #[derive(Debug)]
 pub struct ExecArgs {
     prog: OsString,
@@ -104,6 +106,35 @@ impl ExitResult {
             errors.push(e.into());
         }
         errors
+    }
+
+    /// Update exit result based on result of writing to the console.
+    /// If successful, move error into emitted_errors, otherwise wrap error to be logged via `report()` at client process shutdown.
+    pub fn handle_console_write(&mut self, write_result: buck2_error::Result<()>) {
+        let (exit_code, err) =
+            if let ExitResultVariant::StatusWithErr(exit_code, err) = &self.variant {
+                (exit_code, err.clone())
+            } else {
+                // Nothing should have been written.
+                return;
+            };
+
+        match write_result {
+            Ok(_) => {
+                self.variant = ExitResultVariant::Status(*exit_code);
+                self.emitted_errors.push((&err).into())
+            }
+            Err(write_err) => {
+                self.variant = ExitResultVariant::StatusWithErr(
+                    *exit_code,
+                    EventsCtxError::WrappedStreamError {
+                        source: err.into(),
+                        other: write_err,
+                    }
+                    .into(),
+                );
+            }
+        }
     }
 
     pub fn status(status: ExitCode) -> Self {

@@ -5,7 +5,8 @@
 [<TIMESTAMP>] explicitly requested panic (via unstable_crash)
 [<TIMESTAMP>] stack backtrace:
 [<TIMESTAMP>] note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
-Command failed: Buck daemon event bus encountered an error, the root cause (if available) is displayed above this message.
+Command failed: 
+Buck daemon event bus encountered an error, the root cause (if available) is displayed above this message.
 
 Caused by:
     0: status: Unknown, message: "transport error", details: [], metadata: MetadataMap { headers: {} }

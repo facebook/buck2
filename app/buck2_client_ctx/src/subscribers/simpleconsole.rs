@@ -42,7 +42,9 @@ use superconsole::SuperConsole;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::error::TryRecvError;
 
+use crate::exit_result::ExitResult;
 use crate::subscribers::emit_event::emit_event_if_relevant;
+use crate::subscribers::errorconsole::ErrorConsole;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
@@ -642,6 +644,10 @@ where
         crate::subscribers::errorconsole::ErrorConsole
             .handle_command_result(result)
             .await
+    }
+
+    async fn handle_exit_result(&mut self, result: &mut ExitResult) {
+        ErrorConsole.handle_exit_result(result).await;
     }
 
     async fn tick(&mut self, _: &Tick) -> buck2_error::Result<()> {
