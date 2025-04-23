@@ -131,7 +131,7 @@ impl TryFrom<buck2_cli_proto::command_result::Result> for ReplayResult {
         // It would be good to declare this as a extension trait on our types, but for now to
         // support Replay this is fine;
         let errors = match v {
-            Result::Error(v) => v.errors,
+            Result::Error(error) => vec![error],
             Result::BuildResponse(v) => v.errors,
             Result::TestResponse(v) => v.errors,
             Result::BxlResponse(v) => v.errors,

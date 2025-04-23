@@ -644,16 +644,11 @@ message UnstableCrashRequest {
 
 message UnstableCrashResponse {}
 
-message CommandError {
-  reserved 1;
-  repeated buck.data.ErrorReport errors = 2;
-}
-
 message CommandResult {
   reserved 10;
 
   oneof result {
-    CommandError error = 1;
+    buck.data.ErrorReport error = 1;
     // Ideally, this would be an Any, but tonic/prost doesn't support it yet.
     KillResponse kill_response = 2;
     StatusResponse status_response = 3;

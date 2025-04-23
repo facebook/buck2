@@ -582,10 +582,10 @@ fn convert_positive_duration(proto_duration: &prost_types::Duration) -> Result<D
 }
 
 fn error_to_command_result(e: buck2_error::Error) -> CommandResult {
-    let errors = vec![buck2_data::ErrorReport::from(&e)];
-
     CommandResult {
-        result: Some(command_result::Result::Error(CommandError { errors })),
+        result: Some(command_result::Result::Error(
+            buck2_data::ErrorReport::from(&e),
+        )),
     }
 }
 

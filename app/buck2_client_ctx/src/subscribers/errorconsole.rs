@@ -23,13 +23,11 @@ impl EventSubscriber for ErrorConsole {
         result: &buck2_cli_proto::CommandResult,
     ) -> buck2_error::Result<()> {
         if let buck2_cli_proto::CommandResult {
-            result: Some(buck2_cli_proto::command_result::Result::Error(e)),
+            result: Some(buck2_cli_proto::command_result::Result::Error(error)),
         } = result
         {
             crate::eprintln!("Command failed: ")?;
-            for e in &e.errors {
-                crate::eprintln!("{}", e.message)?;
-            }
+            crate::eprintln!("{}", error.message)?;
         }
 
         Ok(())

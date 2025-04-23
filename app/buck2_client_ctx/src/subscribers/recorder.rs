@@ -1757,8 +1757,8 @@ impl EventSubscriber for InvocationRecorder {
             Some(command_result::Result::BxlResponse(res)) => {
                 self.command_errors.extend(res.errors.clone())
             }
-            Some(command_result::Result::Error(buck2_cli_proto::CommandError { errors })) => {
-                self.command_errors.extend(errors.clone());
+            Some(command_result::Result::Error(error)) => {
+                self.command_errors.push(error.clone());
             }
             _ => {}
         }

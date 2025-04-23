@@ -374,8 +374,10 @@ fn convert_result<R: TryFrom<command_result::Result, Error = command_result::Res
     value: CommandResult,
 ) -> buck2_error::Result<CommandOutcome<R>> {
     match value.result {
-        Some(command_result::Result::Error(buck2_cli_proto::CommandError { errors })) => {
-            Ok(CommandOutcome::Failure(ExitResult::from_errors(&errors)))
+        Some(command_result::Result::Error(error)) => {
+            Ok(CommandOutcome::Failure(ExitResult::from_errors(&vec![
+                error,
+            ])))
         }
         Some(value) => match value.try_into() {
             Ok(v) => Ok(CommandOutcome::Success(v)),
