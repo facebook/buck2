@@ -161,9 +161,10 @@ def _oss_remote_file_with_wrapper(name, ext, url, sha1, **kwargs):
             **kwargs
         )
     elif ext == "exe":
-        fb_native.alias(
+        fb_native.genrule(
             name = name,
-            actual = ":" + remote_file_target_name,
+            out = name + "." + ext,
+            cmd = "cp $(location :{}) $OUT && chmod +x $OUT".format(remote_file_target_name),
             **kwargs
         )
 
