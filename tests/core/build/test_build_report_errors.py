@@ -9,7 +9,6 @@
 
 
 import json
-import re
 import sys
 from pathlib import Path
 from typing import List
@@ -17,35 +16,7 @@ from typing import List
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.golden import golden
-
-
-def _sanitize(s: str) -> str:
-    # Remote message hashes
-    s = re.sub(r"\b[0-9]{16,}\b", "<STRING_HASH>", s)
-    # Remove configuration hashes
-    # This is so bad... we don't force these hashes to print as 16
-    # characters... and that's hard to fix because we don't allow changes to
-    # change action digests.
-    s = re.sub(r"\b[0-9a-f]{12,16}\b", "<HASH>", s)
-    # And action digests
-    return re.sub(r"\b[0-9a-f]{40}:[0-9]{1,3}\b", "<DIGEST>", s)
-
-
-def _sanitize_stderr(s: str) -> str:
-    # Remove all timestamps
-    s = re.sub(r"\[.{29}\]", "[<TIMESTAMP>]", s)
-    # Remove all UUIDs
-    s = re.sub(
-        r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", "<UUID>", s
-    )
-    # Remove "Commands" line
-    s = re.sub(r"Commands: .+", "Commands: <COMMAND_STATS>", s)
-    # Remove "Cache hits" percentage
-    s = re.sub(r"Cache hits: .+", "Cache hits: <CACHE_STATS>", s)
-    # Remove "Network" line
-    s = re.sub(r"Network: .+", "Network: <NETWORK_STATS>", s)
-    return _sanitize(s)
+from buck2.tests.e2e_util.helper.golden import golden, sanitize_hashes, sanitize_stderr
 
 
 def build_report_test(name: str, command: List[str]) -> None:
@@ -74,7 +45,7 @@ def build_report_test(name: str, command: List[str]) -> None:
         strings = dict(
             sorted(
                 report["strings"].items(),
-                key=lambda item: _sanitize(item[1]),
+                key=lambda item: sanitize_hashes(item[1]),
             )
         )
         updated_strings = {}
@@ -85,7 +56,7 @@ def build_report_test(name: str, command: List[str]) -> None:
         report["strings"] = updated_strings
 
         golden(
-            output=_sanitize(json.dumps(report, indent=2, sort_keys=True)),
+            output=sanitize_hashes(json.dumps(report, indent=2, sort_keys=True)),
             rel_path="fixtures/" + name + ".golden.json",
         )
         pass
@@ -156,7 +127,7 @@ if not running_on_windows() and not running_on_mac():
         )
 
         golden(
-            output=_sanitize_stderr(result.stderr),
+            output=sanitize_stderr(result.stderr),
             rel_path="fixtures/test_stderr_with_empty_error_diagnostics.golden.txt",
         )
 
@@ -167,7 +138,7 @@ if not running_on_windows() and not running_on_mac():
         )
 
         golden(
-            output=_sanitize_stderr(result.stderr),
+            output=sanitize_stderr(result.stderr),
             rel_path="fixtures/test_stderr_with_error_diagnostics.golden.txt",
         )
 
@@ -176,7 +147,7 @@ if not running_on_windows() and not running_on_mac():
         result = await expect_failure(buck.build("//fail_action:fail_script"))
 
         golden(
-            output=_sanitize_stderr(result.stderr),
+            output=sanitize_stderr(result.stderr),
             rel_path="fixtures/test_stderr_with_no_error_diagnostics.golden.txt",
         )
 
@@ -185,7 +156,7 @@ if not running_on_windows() and not running_on_mac():
         result = await expect_failure(buck.build("//fail_action:error_handler_failed"))
 
         golden(
-            output=_sanitize_stderr(result.stderr),
+            output=sanitize_stderr(result.stderr),
             rel_path="fixtures/test_stderr_could_not_produce_error_diagnostics.golden.txt",
         )
 

@@ -154,3 +154,33 @@ def golden_replace_temp_path(*, output: str, rel_path: str, tmp_path: str) -> No
         output=output.replace(tmp_path_escaped, "tmp-path").replace("\\\\", "/"),
         rel_path=rel_path,
     )
+
+
+def sanitize_hashes(s: str) -> str:
+    # Remote message hashes
+    s = re.sub(r"\b[0-9]{16,}\b", "<STRING_HASH>", s)
+    # Remove configuration hashes
+    # This is so bad... we don't force these hashes to print as 16
+    # characters... and that's hard to fix because we don't allow changes to
+    # change action digests.
+    s = re.sub(r"\b[0-9a-f]{12,16}\b", "<HASH>", s)
+    # And action digests
+    return re.sub(r"\b[0-9a-f]{40}:[0-9]{1,3}\b", "<DIGEST>", s)
+
+
+def sanitize_stderr(s: str) -> str:
+    # Remove all timestamps
+    s = re.sub(r"\[.{29}\]", "[<TIMESTAMP>]", s)
+    # Remove all UUIDs
+    s = re.sub(
+        r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", "<UUID>", s
+    )
+    # Remove "Commands" line
+    s = re.sub(r"Commands: .+", "Commands: <COMMAND_STATS>", s)
+    # Remove "Cache hits" percentage
+    s = re.sub(r"Cache hits: .+", "Cache hits: <CACHE_STATS>", s)
+    # Remove "Network" line
+    s = re.sub(r"Network: .+", "Network: <NETWORK_STATS>", s)
+    # Remove path from "panicked at" line
+    s = re.sub(r"panicked at .+", "panicked at <PATH>", s)
+    return sanitize_hashes(s)

@@ -12,6 +12,7 @@ from pathlib import Path
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.helper.golden import golden, sanitize_stderr
 
 from buck2.tests.e2e_util.helper.utils import (
     is_running_on_linux,
@@ -183,7 +184,7 @@ async def test_starlark_scope_error_categorization(buck: Buck, tmp_path: Path) -
 @buck_test()
 async def test_targets_error_categorization(buck: Buck, tmp_path: Path) -> None:
     record_path = tmp_path / "record.json"
-    await expect_failure(
+    res = await expect_failure(
         buck.targets(
             "//starlark_fail:foobar",
             "--unstable-write-invocation-record",
@@ -197,13 +198,18 @@ async def test_targets_error_categorization(buck: Buck, tmp_path: Path) -> None:
     assert errors[0]["tags"] == ["INPUT", "STARLARK_FAIL"]
     assert errors[0]["category"] == "USER"
 
+    golden(
+        output=sanitize_stderr(res.stderr),
+        rel_path="fixtures/test_targets_error_categorization.golden.txt",
+    )
+
 
 @buck_test()
 async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
     await buck.build()
 
     record = tmp_path / "record.json"
-    await expect_failure(
+    res = await expect_failure(
         buck.debug("crash", "panic", "--unstable-write-invocation-record", str(record)),
     )
     invocation_record = read_invocation_record(record)
@@ -230,6 +236,12 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
     if not is_running_on_windows():
         assert "crash(" in category_key
 
+    if not is_running_on_windows():
+        golden(
+            output=sanitize_stderr(res.stderr),
+            rel_path="fixtures/test_daemon_crash.golden.txt",
+        )
+
 
 @buck_test()
 @env("BUCKD_STARTUP_TIMEOUT", "0")
@@ -250,6 +262,12 @@ async def test_connection_timeout(buck: Buck, tmp_path: Path) -> None:
     assert record["daemon_was_started"] is None
 
     assert record["errors"][0]["best_tag"] == "SERVER_STDERR_UNKNOWN"
+
+    if not is_running_on_windows():
+        golden(
+            output=sanitize_stderr(res.stderr),
+            rel_path="fixtures/test_connection_timeout.golden.txt",
+        )
 
 
 @buck_test()
@@ -403,6 +421,11 @@ async def test_daemon_startup_error(buck: Buck, tmp_path: Path) -> None:
     assert "DAEMON_CONNECT" in error["tags"]
     assert "DAEMON_STATE_INIT_FAILED" in error["tags"]
 
+    golden(
+        output=sanitize_stderr(res.stderr),
+        rel_path="fixtures/test_daemon_startup_error.golden.txt",
+    )
+
 
 @buck_test(setup_eden=True, skip_for_os=["windows"])
 async def test_eden_io_error_tagging(buck: Buck, tmp_path: Path) -> None:
@@ -445,3 +468,8 @@ async def test_client_streaming_error(buck: Buck, tmp_path: Path) -> None:
     [error] = errors
 
     assert "Injected client streaming error" in error["message"]
+
+    golden(
+        output=sanitize_stderr(res.stderr),
+        rel_path="fixtures/test_client_streaming_error.golden.txt",
+    )

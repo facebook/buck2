@@ -1,0 +1,10 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+[<TIMESTAMP>] Buck UI: https://www.internalfb.com/buck2/<UUID>
+BUILD FAILED
+Command failed: Buck daemon event bus encountered an error, the root cause (if available) is displayed above this message.
+
+Caused by:
+    0: status: Unknown, message: "h2 protocol error: error reading a body from connection: stream closed because of a broken pipe", details: [], metadata: MetadataMap { headers: {} }
+    1: error reading a body from connection: stream closed because of a broken pipe
+    2: stream closed because of a broken pipe

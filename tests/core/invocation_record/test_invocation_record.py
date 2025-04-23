@@ -16,6 +16,7 @@ from pathlib import Path
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.golden import golden, sanitize_stderr
 from buck2.tests.e2e_util.helper.utils import read_invocation_record
 
 # FIXME(JakobDegen): Flakey in CI
@@ -75,7 +76,7 @@ async def test_has_no_command_result(buck: Buck, tmp_path: Path) -> None:
     status = json.loads((await buck.status()).stdout)
     pid = status["process_info"]["pid"]
 
-    await expect_failure(
+    result = await expect_failure(
         buck.build(
             ":kill",
             "-c",
@@ -92,6 +93,11 @@ async def test_has_no_command_result(buck: Buck, tmp_path: Path) -> None:
 
     assert record["has_end_of_stream"]
     assert not record["has_command_result"]
+
+    golden(
+        output=sanitize_stderr(result.stderr),
+        rel_path="fixtures/test_has_no_command_result.golden.txt",
+    )
 
 
 @buck_test(skip_for_os=["windows"])  # TODO(T154836632)
