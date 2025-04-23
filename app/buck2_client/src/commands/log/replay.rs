@@ -14,11 +14,11 @@ use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::ui::get_console_with_root;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::events_ctx::EventsCtx;
+use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
 use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
-use buck2_error::buck2_error;
 
 use crate::commands::log::options::EventLogOptions;
 
@@ -103,18 +103,12 @@ impl BuckSubcommand for ReplayCommand {
             }
 
             // FIXME(JakobDegen)(easy): This should probably return failures if there were errors
-            buck2_error::Ok(())
+            ExitResult::success()
         };
 
         with_simple_sigint_handler(work)
             .await
-            .unwrap_or_else(|| {
-                Err(buck2_error!(
-                    buck2_error::ErrorTag::LogCmd,
-                    "Signal Interrupted"
-                ))
-            })
-            .into()
+            .unwrap_or_else(|| ExitResult::status(ExitCode::SignalInterrupt))
     }
 }
 

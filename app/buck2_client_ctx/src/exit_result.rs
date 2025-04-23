@@ -9,7 +9,6 @@
 
 use std::convert::Infallible;
 use std::ffi::OsString;
-use std::fmt;
 use std::fmt::Display;
 use std::io;
 use std::io::Write;
@@ -72,34 +71,6 @@ enum ExitResultVariant {
     /// We failed (i.e. due to a Buck internal error).
     /// At this time, when execution does fail, we print out the error message to stderr.
     StatusWithErr(ExitCode, buck2_error::Error),
-}
-
-impl Display for ExitResult {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let _ignored = match &self.variant {
-            ExitResultVariant::Status(code) => write!(f, "ExitCode = {}", code.exit_code()),
-            ExitResultVariant::Exec(args) => {
-                write!(
-                    f,
-                    "Exec {} {}",
-                    args.prog.to_string_lossy(),
-                    args.argv
-                        .iter()
-                        .map(|s| s.to_string_lossy())
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                )
-            }
-            ExitResultVariant::StatusWithErr(code, e) => {
-                write!(f, "ExitCode = {}, Err = {}", code.exit_code(), e)
-            }
-        };
-        if !self.stdout.is_empty() {
-            let _ignored = writeln!(f, "Stdout:");
-            let _ignored = write!(f, "{}", String::from_utf8_lossy(self.stdout.as_slice()));
-        };
-        Ok(())
-    }
 }
 
 impl ExitResult {
@@ -322,8 +293,6 @@ impl ExitResult {
         Ok(())
     }
 }
-
-impl std::error::Error for ExitResult {}
 
 /// We can produce a ExitResult from a `buck2_error::Result` for convenience.
 impl From<buck2_error::Result<()>> for ExitResult {
