@@ -11,6 +11,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_build_api::build::detailed_aggregated_metrics::dice::HasDetailedAggregatedMetrics;
+use buck2_build_api::deferred::calculation::DeferredHolder;
 use buck2_build_api::deferred::calculation::lookup_deferred_holder;
 use buck2_build_api::dynamic::calculation::DYNAMIC_LAMBDA_CALCULATION_IMPL;
 use buck2_build_api::dynamic::calculation::DynamicLambdaCalculation;
@@ -18,6 +20,7 @@ use buck2_build_api::dynamic::calculation::DynamicLambdaResult;
 use buck2_build_signals::node_key::BuildSignalsNodeKey;
 use buck2_build_signals::node_key::BuildSignalsNodeKeyImpl;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
+use buck2_core::deferred::key::DeferredHolderKey;
 use dice::CancellationContext;
 use dice::Demand;
 use dice::DiceComputations;
@@ -65,6 +68,9 @@ impl Key for DynamicLambdaDiceKey {
         ctx: &mut DiceComputations,
         cancellation: &CancellationContext,
     ) -> Self::Value {
+        let self_deferred_key = DeferredHolderKey::DynamicLambda(Arc::new(self.0.dupe()));
+        ctx.analysis_started(&self_deferred_key)?;
+
         let deferred_holder = lookup_deferred_holder(ctx, self.0.holder_key()).await?;
         let lambda = FrozenDynamicLambdaParamsStorageImpl::lookup_lambda(
             deferred_holder.analysis_values().analysis_storage()?,
@@ -73,7 +79,12 @@ impl Key for DynamicLambdaDiceKey {
 
         let analysis_values =
             prepare_and_execute_lambda(ctx, cancellation, lambda, self.0.dupe()).await?;
-        Ok(Arc::new(DynamicLambdaResult { analysis_values }))
+        let res = Arc::new(DynamicLambdaResult { analysis_values });
+        ctx.analysis_complete(
+            &self_deferred_key,
+            &DeferredHolder::DynamicLambda(res.dupe()),
+        )?;
+        Ok(res)
     }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {

@@ -62,7 +62,7 @@ impl Key for internal::BxlComputeKey {
         cancellation: &CancellationContext,
     ) -> Self::Value {
         let key = self.0.dupe();
-
+        // TODO(cjhopman): send analysis started/finished events for bxl to support detailed aggregated metrics
         cancellation
             .with_structured_cancellation(|observer| {
                 async move {

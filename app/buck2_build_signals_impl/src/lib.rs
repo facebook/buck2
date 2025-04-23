@@ -680,6 +680,7 @@ impl ActionNodeData {
                     target_rule_type_name,
                     action_digest,
                     invalidation_info,
+                    ..
                 },
         } = data;
         Self {

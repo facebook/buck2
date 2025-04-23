@@ -63,6 +63,7 @@ use crate::validation::validation_impl::VALIDATION_IMPL;
 
 mod action_error;
 pub mod build_report;
+pub mod detailed_aggregated_metrics;
 pub mod graph_properties;
 pub mod outputs;
 

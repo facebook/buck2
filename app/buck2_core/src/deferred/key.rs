@@ -43,6 +43,10 @@ pub enum DeferredHolderKey {
 assert_eq_size!(DeferredHolderKey, [usize; 3]);
 
 impl DeferredHolderKey {
+    pub fn for_analysis(target: ConfiguredTargetLabel) -> Self {
+        Self::Base(BaseDeferredKey::TargetLabel(target))
+    }
+
     pub fn testing_new(target_label: &str) -> DeferredHolderKey {
         let target =
             ConfiguredTargetLabel::testing_parse(target_label, ConfigurationData::testing_new());

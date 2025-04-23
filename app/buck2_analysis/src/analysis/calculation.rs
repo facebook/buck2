@@ -19,8 +19,12 @@ use buck2_build_api::analysis::calculation::EVAL_ANALYSIS_QUERY;
 use buck2_build_api::analysis::calculation::RULE_ANALYSIS_CALCULATION;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculationImpl;
+use buck2_build_api::build::detailed_aggregated_metrics::dice::HasDetailedAggregatedMetrics;
+use buck2_build_api::deferred::calculation::DeferredHolder;
 use buck2_build_api::keep_going::KeepGoing;
 use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ToProtoMessage;
@@ -88,9 +92,15 @@ impl Key for AnalysisKey {
         ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> Self::Value {
-        Ok(get_analysis_result(ctx, &self.0)
+        let deferred_key = DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(self.0.dupe()));
+        ctx.analysis_started(&deferred_key)?;
+        let res = get_analysis_result(ctx, &self.0)
             .await
-            .with_buck_error_context(|| format!("Error running analysis for `{}`", &self.0))?)
+            .with_buck_error_context(|| format!("Error running analysis for `{}`", &self.0))?;
+        if let MaybeCompatible::Compatible(v) = &res {
+            ctx.analysis_complete(&deferred_key, &DeferredHolder::Analysis(v.dupe()))?;
+        }
+        Ok(res)
     }
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {

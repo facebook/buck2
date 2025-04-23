@@ -27,6 +27,8 @@ use buck2_build_api::anon_target::AnonTargetDyn;
 use buck2_build_api::artifact_groups::promise::PromiseArtifact;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactId;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactResolveError;
+use buck2_build_api::build::detailed_aggregated_metrics::dice::HasDetailedAggregatedMetrics;
+use buck2_build_api::deferred::calculation::DeferredHolder;
 use buck2_build_api::deferred::calculation::EVAL_ANON_TARGET;
 use buck2_build_api::deferred::calculation::GET_PROMISED_ARTIFACT;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
@@ -38,6 +40,7 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
+use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::PatternData;
@@ -133,7 +136,11 @@ impl Key for AnonTargetKey {
         ctx: &mut DiceComputations,
         cancellation: &CancellationContext,
     ) -> Self::Value {
-        Ok(self.run_analysis(ctx, cancellation).await?)
+        let deferred_key = DeferredHolderKey::Base(BaseDeferredKey::AnonTarget(self.0.dupe()));
+        ctx.analysis_started(&deferred_key)?;
+        let res = self.run_analysis(ctx, cancellation).await?;
+        ctx.analysis_complete(&deferred_key, &DeferredHolder::Analysis(res.dupe()))?;
+        Ok(res)
     }
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {

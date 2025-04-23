@@ -33,3 +33,19 @@ pub fn get_action_digest(commands: &[buck2_data::CommandExecution]) -> Option<St
     }
     None
 }
+
+pub fn get_execution_time_ms(commands: &[buck2_data::CommandExecution]) -> Option<u64> {
+    if let Some(command_execution) = commands.last() {
+        if let Some(details) = &command_execution.details {
+            if let Some(metadata) = &details.metadata {
+                if let Some(execution_time) = &metadata.execution_time {
+                    return Some(
+                        (execution_time.seconds * 1000) as u64
+                            + (execution_time.nanos / 1000000) as u64,
+                    );
+                }
+            }
+        }
+    }
+    None
+}

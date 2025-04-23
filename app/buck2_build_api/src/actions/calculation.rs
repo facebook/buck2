@@ -27,6 +27,7 @@ use buck2_data::ToProtoMessage;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::action_util::get_action_digest;
+use buck2_event_observer::action_util::get_execution_time_ms;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
@@ -65,6 +66,8 @@ use crate::actions::execute::action_executor::HasActionExecutor;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::artifact_groups::calculation::ensure_artifact_group_staged;
+use crate::build::detailed_aggregated_metrics::dice::HasDetailedAggregatedMetrics;
+use crate::build::detailed_aggregated_metrics::types::ActionExecutionMetrics;
 use crate::deferred::calculation::ActionLookup;
 use crate::deferred::calculation::lookup_deferred_holder;
 use crate::keep_going::KeepGoing;
@@ -169,6 +172,15 @@ async fn build_action_no_redirect(
     let (action_execution_data, spans) =
         async_record_root_spans(span_async(start_event, fut.boxed())).await;
 
+    let execution_metrics = ActionExecutionMetrics {
+        key: action.key().dupe(),
+        execution_time_ms: action_execution_data
+            .extra_data
+            .execution_time_ms
+            .unwrap_or_default(),
+        execution_kind: action_execution_data.extra_data.execution_kind,
+        output_size_bytes: action_execution_data.extra_data.output_size,
+    };
     ctx.store_evaluation_data(BuildKeyActivationData {
         action_with_extra_data: ActionWithExtraData {
             action: action.dupe(),
@@ -181,6 +193,8 @@ async fn build_action_no_redirect(
         },
         spans,
     })?;
+
+    ctx.action_executed(execution_metrics)?;
 
     action_execution_data.action_result
 }
@@ -356,6 +370,8 @@ async fn build_action_inner(
                 target_rule_type_name: target_rule_type_name.clone(),
                 action_digest,
                 invalidation_info: invalidation_info.clone(),
+                execution_time_ms: get_execution_time_ms(&commands),
+                output_size,
             },
         },
         Box::new(buck2_data::ActionExecutionEnd {
@@ -498,6 +514,8 @@ pub struct ActionWithExtraData {
 #[derive(Clone)]
 pub struct ActionExtraData {
     pub execution_kind: buck2_data::ActionExecutionKind,
+    pub execution_time_ms: Option<u64>,
+    pub output_size: u64,
     pub target_rule_type_name: Option<String>,
     pub action_digest: Option<String>,
     pub invalidation_info: Option<buck2_data::CommandInvalidationInfo>,
