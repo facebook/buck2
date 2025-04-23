@@ -71,7 +71,6 @@ use crate::common::CommonEventLogOptions;
 use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::exit_result::ExitResult;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
-use crate::subscribers::command_response_ext::TestResponseExt;
 use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::system_warning::check_download_speed;
@@ -1751,8 +1750,7 @@ impl EventSubscriber for InvocationRecorder {
                 let built_rule_type_names: Vec<String> =
                     unique_and_sorted(res.target_rule_type_names.clone().into_iter());
                 self.target_rule_type_names = built_rule_type_names;
-                self.command_errors
-                    .extend(res.error_report_for_test_errors())
+                self.command_errors.extend(res.errors.clone())
             }
             Some(command_result::Result::BxlResponse(res)) => {
                 self.command_errors.extend(res.errors.clone())

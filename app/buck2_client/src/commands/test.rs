@@ -291,12 +291,12 @@ impl StreamingCommand for TestCommand {
             buck2_client_ctx::println!("{}", build_report)?;
         }
 
-        let exit_result = if !response.errors.is_empty() {
-            // If we had build errors, those take precedence and we return their exit code.
+        let exit_result = if let Some(exit_code) = response.exit_code {
+            // If exit code is set in response, it should be used and not derived from command errors.
+            ExitResult::status_extended(exit_code, response.errors)
+        } else if !response.errors.is_empty() {
+            // If we had build errors return their exit code.
             ExitResult::from_command_result_errors(response.errors)
-        } else if let Some(exit_code) = response.exit_code {
-            // Otherwise, use the exit code from Tpx.
-            ExitResult::status_extended(exit_code)
         } else {
             // But if we had no build errors, and Tpx did not provide an exit code, then that's
             // going to be an error.

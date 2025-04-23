@@ -104,14 +104,23 @@ impl ExitResult {
         }
     }
 
+    pub fn status_with_emitted_errors(status: ExitCode, emitted_errors: Vec<ErrorReport>) -> Self {
+        Self {
+            variant: ExitResultVariant::Status(status),
+            stdout: Vec::new(),
+            emitted_errors,
+        }
+    }
+
     /// Values out of the range of u8 will have their status information ignored
-    pub fn status_extended(status: i32) -> Self {
-        if let Ok(code) = status.try_into() {
-            Self::status(ExitCode::Explicit(code))
+    pub fn status_extended(status: i32, emitted_errors: Vec<ErrorReport>) -> Self {
+        let exit_code = if let Ok(code) = status.try_into() {
+            ExitCode::Explicit(code)
         } else {
             // The exit code isn't an allowable value, so just switch to generic failure
-            Self::status(ExitCode::UnknownFailure)
-        }
+            ExitCode::UnknownFailure
+        };
+        Self::status_with_emitted_errors(exit_code, emitted_errors)
     }
 
     pub fn exec(

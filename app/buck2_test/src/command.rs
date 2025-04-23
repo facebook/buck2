@@ -208,6 +208,22 @@ impl TestStatuses {
     }
 }
 
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = TestExecutor)]
+enum TestError {
+    #[error("Test execution completed but the tests failed")]
+    #[buck2(tag = Input)]
+    TestFailed,
+    #[error("Test execution completed but tests were skipped")]
+    #[buck2(tag = Input)]
+    TestSkipped,
+    #[error("Test listing failed")]
+    #[buck2(tag = Input)]
+    ListingFailed,
+    #[error("Fatal error encountered during test execution")]
+    Fatal,
+}
+
 #[derive(Debug, buck2_error_derive::Error)]
 #[buck2(tag = TestDeadlineExpired)]
 #[error("This test run exceeded the deadline that was provided")]
@@ -516,9 +532,52 @@ async fn test(
             .push(get_target_rule_type_name(&mut ctx, &configured.target()).await?);
     }
 
+    let exit_code_overide = if test_outcome.errors.is_empty() {
+        exit_code
+    } else {
+        None
+    };
+
+    let mut errors = test_outcome.errors;
+    if let Some(failed) = &test_statuses.failed {
+        if failed.count > 0 {
+            errors.push(buck2_data::ErrorReport::from(&TestError::TestFailed.into()));
+        }
+    }
+    if let Some(fatal) = &test_statuses.fatals {
+        if fatal.count > 0 {
+            errors.push(buck2_data::ErrorReport::from(&TestError::Fatal.into()));
+        }
+    }
+    if let Some(listing_failed) = &test_statuses.listing_failed {
+        if listing_failed.count > 0 {
+            errors.push(buck2_data::ErrorReport::from(
+                &TestError::ListingFailed.into(),
+            ));
+        }
+    }
+    // If a test was skipped due to condition not being met a non-zero exit code will be returned,
+    // this doesn't seem quite right, but for now just tag it with TestSkipped to track occurrence.
+    if let Some(skipped) = &test_statuses.skipped {
+        if skipped.count > 0 && exit_code.is_none_or(|code| code != 0) {
+            errors.push(buck2_data::ErrorReport::from(
+                &TestError::TestSkipped.into(),
+            ));
+        }
+    }
+
+    if let Some(code) = exit_code {
+        if errors.is_empty() && code != 0 {
+            errors.push(buck2_data::ErrorReport::from(&buck2_error::buck2_error!(
+                buck2_error::ErrorTag::TestExecutor,
+                "Test Executor Failed with exit code {code}"
+            )))
+        }
+    }
+
     Ok(TestResponse {
-        exit_code,
-        errors: test_outcome.errors,
+        exit_code: exit_code_overide,
+        errors,
         test_statuses: Some(test_statuses),
         executor_stdout: test_outcome.executor_stdout,
         executor_stderr: test_outcome.executor_stderr,
