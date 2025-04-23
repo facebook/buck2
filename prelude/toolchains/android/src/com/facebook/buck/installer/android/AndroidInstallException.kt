@@ -21,6 +21,9 @@ class AndroidInstallException(val installError: InstallError) :
   companion object {
     private val LOG: Logger = Logger.get(AndroidInstallException::class.java.name)
 
+    fun rebootRequired(msg: String) =
+        AndroidInstallException(InstallError(msg, AndroidInstallErrorTag.MANUAL_REBOOT_REQUIRED))
+
     fun tempFolderNotWritable(): AndroidInstallException =
         AndroidInstallException(
             InstallError(

@@ -16,6 +16,7 @@ import com.google.common.base.Splitter
 import com.google.common.collect.ImmutableSortedSet
 import com.google.common.collect.Sets
 import java.io.File
+import java.lang.Thread.sleep
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -56,7 +57,66 @@ class AndroidDeviceImpl(val serial: String, val adbExecutable: String?) : Androi
   }
 
   override fun installApexOnDevice(apex: File, quiet: Boolean): Boolean {
-    throw AndroidInstallException.operationNotSupported("installApexOnDevice")
+    var softRebootAvailable: Boolean
+    val elapsed = measureTimeMillis {
+      try {
+        executeAdbCommand("root")
+        // Root kills adbd, and sometimes, it takes a while for it to come back
+        for (i in 1..3) {
+          if (executeAdbShellCommand("whoami").equals("root")) {
+            break
+          }
+          sleep(1000)
+        }
+
+        softRebootAvailable =
+            executeAdbShellCommand("pm", ignoreFailure = true).contains("force-non-staged")
+        LOG.info("Soft reboot available: $softRebootAvailable")
+        val installArgs = "--apex ${if (softRebootAvailable) "--force-non-staged" else ""}".trim()
+        executeAdbCommand("install $installArgs ${apex.absolutePath}")
+      } catch (e: AdbCommandFailedException) {
+        if ((e.message ?: "").contains("INSTALL_FAILED_VERIFICATION_FAILURE: Staged session ")) {
+          throw AndroidInstallException.rebootRequired(
+              "Device is already staged; You need to run 'adb reboot' on your device.")
+        }
+
+        // if the device can't install because the list of native libs is different,
+        // retry without the --force-non-staged flag. Then reboot automatically.
+        if ((e.message ?: "").contains(
+            "INSTALL_FAILED_INTERNAL_ERROR: APEX installation failed: Set of native libs required")) {
+          // try install again without --force-non-staged
+          executeAdbCommandCatching(
+              "install -d --apex ${apex.absolutePath}", "Failed to install ${apex.name}.")
+          throw AndroidInstallException.rebootRequired(
+              "Installed ${apex.name} on device; however --force-non-staged doesn't work when the" +
+                  " native lib dependencies of an apex have changed. You need to run 'adb" +
+                  " reboot' on your device to complete the install. See also:" +
+                  " https://www.internalfb.com/intern/wiki/RL/RL_Release_and_Reliability/Build_and_Release_Infra/APEX_in_fbsource/Pit_falls/")
+        }
+
+        throw AndroidInstallException.adbCommandFailedException(
+            "Failed to install ${apex.name}.", e.message)
+      }
+
+      if (!softRebootAvailable) {
+        throw AndroidInstallException.rebootRequired(
+            "--force-non-staged is not available on device" +
+                "(is the device running an older build?); " +
+                "${apex.name} was installed successfully but will not be active until " +
+                "you run 'adb reboot' on your device")
+      }
+
+      try {
+        executeAdbShellCommand("stop")
+        executeAdbShellCommand("start")
+      } catch (e: AdbCommandFailedException) {
+        throw AndroidInstallException.rebootRequired(
+            "Failed to stop+start shell; ${apex.name} was installed successfully but device will be in an unknown state until you run 'adb reboot'")
+      }
+    }
+    val kbps = (apex.length() / 1024.0) / (elapsed / 1000.0)
+    LOG.info("Installed ${apex.name} (${apex.length()} bytes) in ${elapsed/1000.0} s ($kbps kB/s)")
+    return true
   }
 
   override fun stopPackage(packageName: String) {
@@ -311,8 +371,8 @@ class AndroidDeviceImpl(val serial: String, val adbExecutable: String?) : Androi
     }
   }
 
-  private fun executeAdbShellCommand(command: String): String =
-      adbUtils.executeAdbShellCommand(command, serialNumber)
+  private fun executeAdbShellCommand(command: String, ignoreFailure: Boolean = false): String =
+      adbUtils.executeAdbShellCommand(command, serialNumber, ignoreFailure)
 
   private fun executeAdbCommand(command: String): String =
       adbUtils.executeAdbCommand(command, serialNumber)

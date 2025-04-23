@@ -24,24 +24,32 @@ enum class SetDebugAppMode {
 
 class AdbUtils(val adb: String) {
 
-  fun executeAdbShellCommand(command: String, deviceId: String): String {
-    return executeAdbCommand("shell $command", deviceId)
+  fun executeAdbShellCommand(
+      command: String,
+      deviceId: String,
+      ignoreFailure: Boolean = false
+  ): String {
+    return executeAdbCommand("shell $command", deviceId, ignoreFailure)
   }
 
-  fun executeAdbCommand(command: String, deviceId: String): String {
+  fun executeAdbCommand(command: String, deviceId: String, ignoreFailure: Boolean = false): String {
     val adbCommandResult: AdbCommandResult =
         try {
           runAdbCommand("-s $deviceId $command")
         } catch (e: Exception) {
           error("Failed to execute adb command 'adb $command' on device $deviceId.\n${e.message}")
         }
-    if (adbCommandResult.exitCode != 0) {
-      throw AdbCommandFailedException(
-          "Executing 'adb $command' on $deviceId failed with code ${adbCommandResult.exitCode}." +
-              if (!adbCommandResult.error.isNullOrEmpty()) "\nError:${adbCommandResult.error}"
-              else "")
+    return if (adbCommandResult.exitCode != 0) {
+      if (!ignoreFailure) {
+        throw AdbCommandFailedException(
+            "Executing 'adb $command' on $deviceId failed with code ${adbCommandResult.exitCode}." +
+                if (!adbCommandResult.error.isNullOrEmpty()) "\nError:${adbCommandResult.error}"
+                else "")
+      } else {
+        adbCommandResult.output
+      }
     } else {
-      return adbCommandResult.output
+      adbCommandResult.output
     }
   }
 

@@ -39,7 +39,8 @@ enum class AndroidInstallErrorTag(val category: InstallErrorCategory) : InstallE
   VERIFICATION_FAILED(USER),
   INVALID_APK(USER),
   INSTALL_CANCELLED_BY_USER(USER),
-  UNKNOWN_DEVICE_ABI(USER);
+  UNKNOWN_DEVICE_ABI(USER),
+  MANUAL_REBOOT_REQUIRED(USER);
 
   override fun getErrorCategory(): InstallErrorCategory {
     return category
