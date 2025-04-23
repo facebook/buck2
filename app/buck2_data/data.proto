@@ -294,6 +294,10 @@ message InstantEvent {
     // Previous command, but only logged if external configs changed
     PreviousCommandWithMismatchedConfig
         previous_command_with_mismatched_config = 49;
+
+    // Detailed aggregated metrics. Expensive to compute, so not always
+    // available.
+    DetailedAggregatedMetrics detailedAggregatedMetrics = 50;
   }
 }
 
@@ -560,6 +564,49 @@ message CriticalPathEntry2 {
     Listing listing = 105;
     GenericEntry generic_entry = 106;
   }
+}
+
+message DetailedAggregatedMetrics {
+  repeated TopLevelTargetMetrics topLevelTargetMetrics = 1;
+
+  AllTargetsBuildMetrics allTargetsBuildMetrics = 2;
+}
+
+// Aggregated metrics associated with a top-level target.
+message TopLevelTargetMetrics {
+  ConfiguredTargetLabel target = 1;
+  optional string provider = 2;
+  // The total number of nodes in the action graph, if we were able to fully
+  // traverse it.
+  optional uint64 action_graph_size = 3;
+
+  AggregatedBuildMetrics metrics = 4;
+  AggregatedBuildMetrics amortized_metrics = 5;
+}
+
+// Aggregated metrics across all targets in a build.
+message AllTargetsBuildMetrics {
+  optional uint64 action_graph_size = 1;
+  AggregatedBuildMetrics metrics = 2;
+  optional uint64 compute_time_ms = 3;
+}
+
+// These use double so it's convenient to use for both the normal metrics and
+// the amortized case. For the size of values that we see, the precision is
+// fine.
+message AggregatedBuildMetrics {
+  double full_graph_execution_time_ms = 1;
+  double full_graph_output_size_bytes = 2;
+
+  double local_execution_time_ms = 3;
+  double remote_execution_time_ms = 4;
+
+  double local_executions = 5;
+  double remote_executions = 6;
+  double remote_cache_hits = 7;
+
+  double analysis_retained_memory = 8;
+  double declared_actions = 10;
 }
 
 message TopLevelTargetCriticalPath {
