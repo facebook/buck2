@@ -53,6 +53,7 @@ use crate::actions::impls::json::visit_json_artifacts;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::artifact_groups::deferred::TransitiveSetKey;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::transitive_set::BfsTransitiveSetIteratorGen;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
@@ -226,6 +227,18 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
 }
 
 impl FrozenTransitiveSet {
+    pub fn visit_projection_direct_inputs<V: CommandLineArtifactVisitor>(
+        &self,
+        projection: usize,
+        visitor: &mut V,
+    ) -> buck2_error::Result<()> {
+        if let Some(projection) = self.get_projection_value(projection)? {
+            // It's either an args-like or a json projection. visit_json_artifacts handles both the way we want.
+            visit_json_artifacts(projection.to_value(), visitor)?;
+        }
+        Ok(())
+    }
+
     pub fn get_projection_sub_inputs(
         &self,
         projection: usize,
