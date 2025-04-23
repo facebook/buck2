@@ -110,10 +110,6 @@ impl AsyncBuildTargetResultBuilder {
             fn consume(&self, ev: BuildEvent) {
                 let _ignored = self.event_tx.send(ev);
             }
-
-            fn consume_configured(&self, ev: ConfiguredBuildEvent) {
-                let _ignored = self.event_tx.send(BuildEvent::Configured(ev));
-            }
         }
 
         (
@@ -422,7 +418,9 @@ impl BuildEvent {
 
 pub trait BuildEventConsumer: Sync {
     fn consume(&self, ev: BuildEvent);
-    fn consume_configured(&self, ev: ConfiguredBuildEvent);
+    fn consume_configured(&self, ev: ConfiguredBuildEvent) {
+        self.consume(BuildEvent::Configured(ev))
+    }
 }
 
 #[derive(Debug, buck2_error::Error)]
