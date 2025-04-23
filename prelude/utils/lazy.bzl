@@ -30,7 +30,7 @@ def _is_any(predicate, iterable):
 def _is_all(predicate, iterable):
     """
     This expression lazily iterates the container with 0 new allocations.
-    In the event that the iterable is empty, it will return False.
+    In the event that the iterable is empty, it will return True.
 
     For scenarios like this:
 
