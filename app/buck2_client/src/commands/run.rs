@@ -144,7 +144,7 @@ impl StreamingCommand for RunCommand {
         print_build_result(&console, &response.errors)?;
 
         if !success {
-            return ExitResult::from_errors(&response.errors);
+            return ExitResult::from_command_result_errors(response.errors);
         }
 
         if response.build_targets.len() > 1 {

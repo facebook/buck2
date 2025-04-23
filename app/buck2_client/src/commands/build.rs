@@ -334,7 +334,7 @@ impl StreamingCommand for BuildCommand {
 
             ExitResult::success()
         } else {
-            ExitResult::from_errors(&response.errors)
+            ExitResult::from_command_result_errors(response.errors)
         };
 
         res.with_stdout(stdout)

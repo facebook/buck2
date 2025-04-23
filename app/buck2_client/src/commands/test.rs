@@ -306,7 +306,7 @@ impl StreamingCommand for TestCommand {
 
         let exit_result = if !build_errors.is_empty() {
             // If we had build errors, those take precedence and we return their exit code.
-            ExitResult::from_errors(&build_errors)
+            ExitResult::from_command_result_errors(build_errors)
         } else if let Some(exit_code) = response.exit_code {
             // Otherwise, use the exit code from Tpx.
             ExitResult::status_extended(exit_code)

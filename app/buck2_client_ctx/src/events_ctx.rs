@@ -374,11 +374,9 @@ fn convert_result<R: TryFrom<command_result::Result, Error = command_result::Res
     value: CommandResult,
 ) -> buck2_error::Result<CommandOutcome<R>> {
     match value.result {
-        Some(command_result::Result::Error(error)) => {
-            Ok(CommandOutcome::Failure(ExitResult::from_errors(&vec![
-                error,
-            ])))
-        }
+        Some(command_result::Result::Error(error)) => Ok(CommandOutcome::Failure(
+            ExitResult::from_command_result_errors(vec![error]),
+        )),
         Some(value) => match value.try_into() {
             Ok(v) => Ok(CommandOutcome::Success(v)),
             Err(res) => Err(BuckdCommunicationError::UnexpectedResultType(res).into()),

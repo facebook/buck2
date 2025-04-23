@@ -19,6 +19,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_data::ErrorReport;
 use buck2_error::ErrorTag;
 use buck2_error::Tier;
 use buck2_error::classify::ErrorLike;
@@ -56,8 +57,9 @@ pub struct ExitResult {
     /// their final output and choose not to send it if we opt to restart the command.
     stdout: Vec<u8>,
 
-    // List of error messages that was observed during the command. Used for error reporting.
-    error_messages: Vec<String>,
+    // Errors that should have been written to the console already.
+    // These should be written to the command report, but won't be written to the console before exiting via `report()`
+    emitted_errors: Vec<ErrorReport>,
 }
 
 #[derive(Debug)]
@@ -98,7 +100,7 @@ impl ExitResult {
         Self {
             variant: ExitResultVariant::Status(status),
             stdout: Vec::new(),
-            error_messages: Vec::new(),
+            emitted_errors: Vec::new(),
         }
     }
 
@@ -109,14 +111,6 @@ impl ExitResult {
         } else {
             // The exit code isn't an allowable value, so just switch to generic failure
             Self::status(ExitCode::UnknownFailure)
-        }
-    }
-
-    fn status_with_error_report(status: ExitCode, errors: &[buck2_data::ErrorReport]) -> Self {
-        Self {
-            variant: ExitResultVariant::Status(status),
-            stdout: Vec::new(),
-            error_messages: errors.iter().map(|e| e.message.clone()).collect(),
         }
     }
 
@@ -134,7 +128,7 @@ impl ExitResult {
                 env,
             }),
             stdout: Vec::new(),
-            error_messages: Vec::new(),
+            emitted_errors: Vec::new(),
         }
     }
 
@@ -147,7 +141,6 @@ impl ExitResult {
     }
 
     pub fn err(err: buck2_error::Error) -> Self {
-        let err_msg = format!("{:#}", err);
         let err: buck2_error::Error = err.into();
         let exit_code = if err.has_tag(ErrorTag::IoClientBrokenPipe) {
             ExitCode::BrokenPipe
@@ -158,16 +151,15 @@ impl ExitResult {
         Self {
             variant: ExitResultVariant::StatusWithErr(exit_code, err.into()),
             stdout: Vec::new(),
-            error_messages: vec![err_msg],
+            emitted_errors: Vec::new(),
         }
     }
 
     pub fn err_with_exit_code(err: buck2_error::Error, exit_code: ExitCode) -> Self {
-        let err_msg = format!("{:#}", err);
         Self {
             variant: ExitResultVariant::StatusWithErr(exit_code, err.into()),
             stdout: Vec::new(),
-            error_messages: vec![err_msg],
+            emitted_errors: Vec::new(),
         }
     }
 
@@ -192,32 +184,36 @@ impl ExitResult {
         }
     }
 
-    pub fn from_errors<'a>(errors: &'a Vec<buck2_data::ErrorReport>) -> Self {
-        for e in errors {
-            if e.tags
-                .contains(&(buck2_data::error::ErrorTag::DaemonIsBusy as i32))
-            {
-                return Self::status_with_error_report(ExitCode::DaemonIsBusy, errors);
-            }
-            if e.tags
-                .contains(&(buck2_data::error::ErrorTag::DaemonPreempted as i32))
-            {
-                return Self::status_with_error_report(ExitCode::DaemonPreempted, errors);
+    pub fn from_command_result_errors(errors: Vec<ErrorReport>) -> Self {
+        fn status_with_error_report(status: ExitCode, errors: Vec<ErrorReport>) -> ExitResult {
+            ExitResult {
+                variant: ExitResultVariant::Status(status),
+                stdout: Vec::new(),
+                emitted_errors: errors,
             }
         }
 
-        match best_error(errors).map(|error| error.category()) {
+        for e in &errors {
+            if e.tags.contains(&(ErrorTag::DaemonIsBusy as i32)) {
+                return status_with_error_report(ExitCode::DaemonIsBusy, errors);
+            }
+            if e.tags.contains(&(ErrorTag::DaemonPreempted as i32)) {
+                return status_with_error_report(ExitCode::DaemonPreempted, errors);
+            }
+        }
+
+        match best_error(&errors).map(|error| error.category()) {
             Some(category) => match category {
-                Tier::Input => Self::status_with_error_report(ExitCode::UserError, errors),
+                Tier::Input => status_with_error_report(ExitCode::UserError, errors),
                 Tier::Tier0 | Tier::Environment => {
-                    Self::status_with_error_report(ExitCode::InfraError, errors)
+                    status_with_error_report(ExitCode::InfraError, errors)
                 }
             },
             None => {
                 // FIXME(JakobDegen): For compatibility with pre-existing behavior, we return infra failure
                 // here. However, it would be more honest to return the `1` status code that we use for
                 // "unknown"
-                Self::status_with_error_report(ExitCode::InfraError, errors)
+                status_with_error_report(ExitCode::InfraError, errors)
             }
         }
     }
@@ -265,6 +261,12 @@ impl ExitResult {
         let file = fs_util::create_file(&path)?;
         let mut file = std::io::BufWriter::new(file);
 
+        let mut errors = self.emitted_errors.clone();
+        if let ExitResultVariant::StatusWithErr(_, e) = &self.variant {
+            errors.push(e.into());
+        }
+        let error_messages = errors.iter().map(|e| e.message.clone()).collect();
+
         match &self.variant {
             ExitResultVariant::Status(exit_code)
             | ExitResultVariant::StatusWithErr(exit_code, _) => {
@@ -273,7 +275,7 @@ impl ExitResult {
                     &buck2_data::CommandReport {
                         trace_id: trace_id.to_string(),
                         exit_code: exit_code.exit_code(),
-                        error_messages: self.error_messages.clone(),
+                        error_messages,
                         finalizing_error_messages,
                     },
                 )?;
