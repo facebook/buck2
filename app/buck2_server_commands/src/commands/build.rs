@@ -50,7 +50,6 @@ use buck2_events::dispatch::span_async;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
-use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::commands::send_target_cfg_event;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -452,8 +451,7 @@ async fn build_targets_with_global_target_platform<'a>(
 }
 
 struct TargetBuildSpec {
-    target: TargetNode,
-    providers: ProvidersName,
+    target: ProvidersLabel,
     global_cfg_options: GlobalCfgOptions,
     // Indicates whether this target was explicitly requested or not. If it's the result
     // of something like `//foo/...` we can skip it (for example if it's incompatible with
@@ -550,8 +548,7 @@ async fn build_targets_for_spec(
     let todo_targets: Vec<TargetBuildSpec> = targets
         .into_iter()
         .map(|((_target_name, extra), target)| TargetBuildSpec {
-            target,
-            providers: extra.providers,
+            target: ProvidersLabel::new(target.label().dupe(), extra.providers),
             global_cfg_options: global_cfg_options.dupe(),
             skippable,
             graph_properties,
@@ -589,16 +586,15 @@ async fn build_target(
     materialization_and_upload: &MaterializationAndUploadContext,
     timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
 ) {
-    let providers_label = ProvidersLabel::new(spec.target.label().dupe(), spec.providers);
     let providers_label = match ctx
         .get()
-        .get_configured_provider_label(&providers_label, &spec.global_cfg_options)
+        .get_configured_provider_label(&spec.target, &spec.global_cfg_options)
         .await
     {
         Ok(l) => l,
         Err(e) => {
             event_consumer.consume(BuildEvent::OtherError {
-                label: Some(providers_label),
+                label: Some(spec.target.dupe()),
                 err: e.into(),
             });
             return;
