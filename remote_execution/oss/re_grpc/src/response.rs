@@ -210,7 +210,44 @@ pub struct ExecutedActionMemoryStats {
 #[derive(Clone, Default)]
 pub struct TaskInfo {
     pub estimated_queue_time_ms: i64,
+    pub state: TaskState,
 }
+
+#[derive(Clone)]
+#[allow(non_camel_case_types)]
+pub enum TaskState {
+    enqueued(EnqueuedTaskState),
+    waiting_on_reservation(WaitingOnReservationTaskState),
+    no_worker_available(NoAgentAvailableTaskState),
+    cancelled(CancelledTaskState),
+    over_quota(OverQuotaTaskState),
+    acquiring_dependencies(AcquiringDependenciesTaskState),
+    UnknownField(i32),
+}
+
+impl Default for TaskState {
+    fn default() -> Self {
+        Self::UnknownField(1)
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct EnqueuedTaskState {}
+
+#[derive(Clone, Default)]
+pub struct NoAgentAvailableTaskState {}
+
+#[derive(Clone, Default)]
+pub struct CancelledTaskState {}
+
+#[derive(Clone, Default)]
+pub struct OverQuotaTaskState {}
+
+#[derive(Clone, Default)]
+pub struct WaitingOnReservationTaskState {}
+
+#[derive(Clone, Default)]
+pub struct AcquiringDependenciesTaskState {}
 
 #[derive(Clone, Default)]
 pub struct OperationMetadata {

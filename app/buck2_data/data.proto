@@ -1602,6 +1602,10 @@ message ReStage {
     MaterializeFailedInputs materialize_failed_inputs = 11;
     ReBeforeAction before_action_execution = 12;
     ReAfterAction after_action_execution = 13;
+    ReQueueOverQuota queue_over_quota = 14;
+    ReQueueNoWorkerAvailable queue_no_worker_available = 15;
+    ReQueueAcquiringDependencies queue_acquiring_dependencies = 16;
+    ReQueueCancelled queue_cancelled = 17;
   }
 }
 
@@ -1627,6 +1631,22 @@ message ReDownload {}
 message ReQueue {
   string action_digest = 1;
   string use_case = 2;
+}
+
+message ReQueueCancelled {
+  ReQueue queue_info = 1;
+}
+
+message ReQueueOverQuota {
+  ReQueue queue_info = 1;
+}
+
+message ReQueueAcquiringDependencies {
+  ReQueue queue_info = 1;
+}
+
+message ReQueueNoWorkerAvailable {
+  ReQueue queue_info = 1;
 }
 
 message ReWorkerDownload {

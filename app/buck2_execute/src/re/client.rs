@@ -18,6 +18,10 @@ use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_data::ReQueueAcquiringDependencies;
+use buck2_data::ReQueueCancelled;
+use buck2_data::ReQueueNoWorkerAvailable;
+use buck2_data::ReQueueOverQuota;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
@@ -47,6 +51,7 @@ use remote_execution::GetDigestsTtlRequest;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
+use remote_execution::OperationMetadata;
 use remote_execution::REClient;
 use remote_execution::REClientBuilder;
 use remote_execution::RemoteExecutionMetadata;
@@ -61,6 +66,7 @@ use remote_execution::TExecutionPolicy;
 use remote_execution::THostResourceRequirements;
 use remote_execution::THostRuntimeRequirements;
 use remote_execution::TLocalCacheStats;
+use remote_execution::TaskState;
 use remote_execution::UploadRequest;
 use remote_execution::WriteActionResultRequest;
 use remote_execution::WriteActionResultResponse;
@@ -1032,18 +1038,60 @@ impl RemoteExecutionClientImpl {
             .await
         }
 
+        fn get_queue_state(
+            action_digest: String,
+            use_case: String,
+            operation_metadata: &Option<OperationMetadata>,
+        ) -> re_stage::Stage {
+            let queue_info = ReQueue {
+                action_digest,
+                use_case,
+            };
+            let state = operation_metadata
+                .as_ref()
+                .and_then(|m| m.task_info.as_ref())
+                .map(|i| &i.state);
+            match state {
+                // Waiting to run, no extra info needed
+                Some(TaskState::enqueued(..)) => re_stage::Stage::Queue(queue_info),
+                Some(TaskState::waiting_on_reservation(..)) => re_stage::Stage::Queue(queue_info),
+                // Useful info to display
+                Some(TaskState::no_worker_available(..)) => {
+                    re_stage::Stage::QueueNoWorkerAvailable(ReQueueNoWorkerAvailable {
+                        queue_info: Some(queue_info),
+                    })
+                }
+                Some(TaskState::cancelled(..)) => {
+                    re_stage::Stage::QueueCancelled(ReQueueCancelled {
+                        queue_info: Some(queue_info),
+                    })
+                }
+                Some(TaskState::over_quota(..)) => {
+                    re_stage::Stage::QueueOverQuota(ReQueueOverQuota {
+                        queue_info: Some(queue_info),
+                    })
+                }
+                Some(TaskState::acquiring_dependencies(..)) => {
+                    re_stage::Stage::QueueAcquiringDependencies(ReQueueAcquiringDependencies {
+                        queue_info: Some(queue_info),
+                    })
+                }
+                // Unknown
+                Some(TaskState::UnknownField(..)) => re_stage::Stage::Queue(queue_info),
+                None => re_stage::Stage::Queue(queue_info),
+            }
+        }
+
         fn re_stage_from_exe_stage(
             stage: Stage,
+            operation_metadata: &Option<OperationMetadata>,
             action_digest: String,
             platform: &remote_execution::Platform,
             action_key: &Option<String>,
             use_case: String,
         ) -> re_stage::Stage {
             match stage {
-                Stage::QUEUED => re_stage::Stage::Queue(ReQueue {
-                    action_digest,
-                    use_case,
-                }),
+                Stage::QUEUED => get_queue_state(action_digest, use_case, operation_metadata),
                 Stage::MATERIALIZING_INPUT => re_stage::Stage::WorkerDownload(ReWorkerDownload {
                     action_digest,
                     use_case,
@@ -1097,6 +1145,7 @@ impl RemoteExecutionClientImpl {
         // this doesn't give us an ExecuteResponse then this is case #1 again so we also fail.
         let action_digest_str = action_digest.to_string();
         let mut exe_stage = Stage::QUEUED;
+        let mut operation_metadata = None;
 
         loop {
             let progress_response = wait_for_response_or_stage_change(
@@ -1104,6 +1153,7 @@ impl RemoteExecutionClientImpl {
                 exe_stage,
                 re_stage_from_exe_stage(
                     exe_stage,
+                    &operation_metadata,
                     action_digest_str.clone(),
                     platform,
                     &action_key,
@@ -1129,6 +1179,7 @@ impl RemoteExecutionClientImpl {
 
             // Change the stage
             exe_stage = progress_response.stage;
+            operation_metadata = Some(progress_response.metadata);
         }
     }
 
