@@ -137,6 +137,8 @@ rust_toolchain_attrs = {
     # Suffix to append onto all -Cmetadata arguments to differentiate the same
     # crate in different configurations
     "configuration_hash": provider_field(str | None, default = None),
+    # Error handler used to categorize rust errors encountered by users
+    "rust_error_handler": provider_field(typing.Any, default = None),
 }
 
 RustToolchainInfo = provider(fields = rust_toolchain_attrs)

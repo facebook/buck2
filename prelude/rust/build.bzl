@@ -1522,6 +1522,7 @@ def _rustc_invoke(
         no_outputs_cleanup = incremental_enabled,
         # We want to unconditionally cache object file compilations when rustc is not linking
         allow_cache_upload = allow_cache_upload or deferred_link_cmd != None,
+        error_handler = toolchain_info.rust_error_handler,
     )
 
     if deferred_link_cmd:

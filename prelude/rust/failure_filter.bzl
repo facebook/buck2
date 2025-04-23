@@ -38,6 +38,12 @@ def failure_filter(
         build_status,
     )
 
-    ctx.actions.run(cmd, category = "failure_filter", identifier = identifier)
+    toolchain_info = compile_ctx.toolchain_info
+    ctx.actions.run(
+        cmd,
+        category = "failure_filter",
+        identifier = identifier,
+        error_handler = toolchain_info.rust_error_handler,
+    )
 
     return output
