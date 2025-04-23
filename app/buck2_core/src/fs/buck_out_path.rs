@@ -194,7 +194,7 @@ impl BuckOutPathResolver {
         &self,
         path: &BuildArtifactPath,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        Ok(self.prefixed_path_for_owner(
+        self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("gen"),
             path.owner().owner(),
             path.dynamic_actions_action_key()
@@ -202,14 +202,14 @@ impl BuckOutPathResolver {
                 .map(|x| x.as_str()),
             path.path(),
             false,
-        ))
+        )
     }
 
     pub fn resolve_offline_cache(
         &self,
         path: &BuildArtifactPath,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        Ok(self.prefixed_path_for_owner(
+        self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("offline-cache"),
             path.owner().owner(),
             path.dynamic_actions_action_key()
@@ -217,7 +217,7 @@ impl BuckOutPathResolver {
                 .map(|x| x.as_str()),
             path.path(),
             false,
-        ))
+        )
     }
 
     pub fn resolve_external_cell_source(
@@ -248,14 +248,14 @@ impl BuckOutPathResolver {
         &self,
         path: &BuckOutScratchPath,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        Ok(self.prefixed_path_for_owner(
+        self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("tmp"),
             &path.owner,
             Some(&path.action_key.as_str()),
             &path.path,
             // Fully hash scratch path as it can be very long and cause path too long issue on Windows.
             true,
-        ))
+        )
     }
 
     /// Resolve a test path
@@ -286,13 +286,13 @@ impl BuckOutPathResolver {
             },
         };
         let path = ForwardRelativePath::unchecked_new(&path);
-        Ok(self.prefixed_path_for_owner(
+        self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("test_discovery"),
             &BaseDeferredKey::TargetLabel(label.target().dupe()),
             None,
             &path,
             true,
-        ))
+        )
     }
 
     fn prefixed_path_for_owner(
@@ -302,7 +302,7 @@ impl BuckOutPathResolver {
         action_key: Option<&str>,
         path: &ForwardRelativePath,
         fully_hash_path: bool,
-    ) -> ProjectRelativePathBuf {
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         owner.make_hashed_path(&self.buck_out_v2, prefix, action_key, path, fully_hash_path)
     }
 

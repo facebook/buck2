@@ -121,7 +121,7 @@ impl BaseDeferredKey {
         action_key: Option<&str>,
         path: &ForwardRelativePath,
         fully_hash_path: bool,
-    ) -> ProjectRelativePathBuf {
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         match self {
             BaseDeferredKey::TargetLabel(target) => {
                 let cell_relative_path = target.pkg().cell_relative_path().as_str();
@@ -177,10 +177,10 @@ impl BaseDeferredKey {
                     path.as_str(),
                 ];
 
-                ProjectRelativePathBuf::unchecked_new(hashed_path.concat())
+                Ok(ProjectRelativePathBuf::unchecked_new(hashed_path.concat()))
             }
             BaseDeferredKey::AnonTarget(d) | BaseDeferredKey::BxlLabel(BaseDeferredKeyBxl(d)) => {
-                d.make_hashed_path(base, prefix, action_key, path)
+                Ok(d.make_hashed_path(base, prefix, action_key, path))
             }
         }
     }
