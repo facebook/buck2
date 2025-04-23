@@ -35,7 +35,7 @@ def cover_srcs(
     pkgcfg = {
         "EmitMetaFile": cover_meta_file,
         "Granularity": "perblock",
-        "Local": False,
+        "Local": True,
         "ModulePath": "",
         "OutConfig": out_config_file,
         "PkgName": pkg_name,
