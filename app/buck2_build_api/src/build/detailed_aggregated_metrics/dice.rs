@@ -11,7 +11,9 @@ use buck2_core::deferred::key::DeferredHolderKey;
 use dice::DiceComputations;
 
 use crate::build::detailed_aggregated_metrics::types::ActionExecutionMetrics;
+use crate::build::detailed_aggregated_metrics::types::TopLevelTargetSpec;
 use crate::deferred::calculation::DeferredHolder;
+
 pub trait HasDetailedAggregatedMetrics {
     fn action_executed(&self, ev: ActionExecutionMetrics) -> buck2_error::Result<()>;
     fn analysis_started(&self, key: &DeferredHolderKey) -> buck2_error::Result<()>;
@@ -20,8 +22,14 @@ pub trait HasDetailedAggregatedMetrics {
         key: &DeferredHolderKey,
         result: &DeferredHolder,
     ) -> buck2_error::Result<()>;
+    fn top_level_target(&self, spec: TopLevelTargetSpec) -> buck2_error::Result<()>;
 }
+
 impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
+    fn top_level_target(&self, _spec: TopLevelTargetSpec) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
     fn action_executed(&self, _ev: ActionExecutionMetrics) -> buck2_error::Result<()> {
         Ok(())
     }

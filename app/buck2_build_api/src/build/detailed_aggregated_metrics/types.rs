@@ -7,7 +7,14 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use buck2_artifact::actions::key::ActionKey;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
+
+use crate::artifact_groups::ArtifactGroup;
+use crate::build::BuildProviderType;
 
 #[derive(Clone)]
 pub struct ActionExecutionMetrics {
@@ -15,4 +22,10 @@ pub struct ActionExecutionMetrics {
     pub execution_time_ms: u64,
     pub execution_kind: buck2_data::ActionExecutionKind,
     pub output_size_bytes: u64,
+}
+
+pub struct TopLevelTargetSpec {
+    pub label: Arc<ConfiguredProvidersLabel>,
+    pub target: ConfiguredTargetNode,
+    pub outputs: Arc<Vec<(ArtifactGroup, BuildProviderType)>>,
 }

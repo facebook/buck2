@@ -26,6 +26,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dice::LinearRecomputeDiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
@@ -49,6 +50,8 @@ use crate::artifact_groups::ArtifactGroupValues;
 use crate::artifact_groups::ResolvedArtifactGroup;
 use crate::artifact_groups::ResolvedArtifactGroupBuildSignalsKey;
 use crate::artifact_groups::calculation::EnsureTransitiveSetProjectionKey;
+use crate::build::detailed_aggregated_metrics::dice::HasDetailedAggregatedMetrics;
+use crate::build::detailed_aggregated_metrics::types::TopLevelTargetSpec;
 use crate::build::graph_properties::GraphPropertiesOptions;
 use crate::build::graph_properties::GraphPropertiesValues;
 use crate::build::outputs::get_outputs_for_top_level_target;
@@ -494,6 +497,18 @@ async fn build_configured_label_inner<'a>(
         }
         MaybeCompatible::Compatible(v) => v,
     };
+
+    let node = ctx
+        .get()
+        .get_configured_target_node(providers_label.target())
+        .await?
+        .require_compatible()?;
+
+    ctx.get().top_level_target(TopLevelTargetSpec {
+        label: providers_label.dupe(),
+        target: node,
+        outputs: outputs.dupe(),
+    })?;
 
     let target_rule_type_name =
         get_target_rule_type_name(&mut ctx.get(), providers_label.target()).await?;
