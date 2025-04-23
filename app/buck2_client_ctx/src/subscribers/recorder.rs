@@ -194,7 +194,6 @@ pub(crate) struct InvocationRecorder {
     daemon_was_started: Option<buck2_data::DaemonWasStartedReason>,
     should_restart: bool,
     client_metadata: Vec<buck2_data::ClientMetadata>,
-    client_error: Option<buck2_error::Error>,
     command_errors: Vec<ErrorReport>,
     /// To append to gRPC errors.
     server_stderr: String,
@@ -344,7 +343,6 @@ impl InvocationRecorder {
             daemon_was_started: None,
             should_restart: false,
             client_metadata,
-            client_error: None,
             command_errors: Vec::new(),
             server_stderr: String::new(),
             target_rule_type_names: Vec::new(),
@@ -421,12 +419,14 @@ impl InvocationRecorder {
     }
 
     fn finalize_errors(&mut self) -> Vec<ProcessedErrorReport> {
-        let client_error = if let Some(error) = self.client_error.take() {
-            let error = if error.has_tag(ErrorTag::ClientGrpc) {
+        let mut errors = Vec::new();
+        for error in self.command_errors.drain(..) {
+            // FIXME this error should be updated at the source if possible, and not only in the invocation record.
+            let error: ErrorReport = if error.tags.contains(&(ErrorTag::ClientGrpc as i32)) {
+                let error: buck2_error::Error = error.into();
                 // Add stderr to GRPC connection errors if available
                 let error = classify_server_stderr(error, &self.server_stderr);
-
-                if self.server_stderr.is_empty() {
+                let error = if self.server_stderr.is_empty() {
                     let error = error.context("buckd stderr is empty");
                     // Likely buckd received SIGKILL, may be due to memory pressure
                     if self.tags.iter().any(|s| s == MEMORY_PRESSURE_TAG) {
@@ -444,20 +444,14 @@ impl InvocationRecorder {
                     // - truncate stderr, but keep the error message
                     let server_stderr = truncate_stderr(&self.server_stderr);
                     error.context(format!("buckd stderr:\n{}", server_stderr))
-                }
+                };
+                (&error).into()
             } else {
                 error
             };
-            Some(error)
-        } else {
-            None
-        };
-
-        let mut errors: Vec<ErrorReport> = client_error.into_iter().map(|e| (&e).into()).collect();
-        let command_errors = std::mem::take(&mut self.command_errors);
-        errors.extend(command_errors);
+            errors.push(error);
+        }
         errors.sort_by_key(|e| e.error_rank());
-
         errors.into_map(process_error_report)
     }
 
@@ -1744,19 +1738,11 @@ impl EventSubscriber for InvocationRecorder {
                             .unwrap_or_else(|| "NULL".to_owned())
                     }));
                 self.target_rule_type_names = built_rule_type_names;
-                self.command_errors.extend(res.errors.clone())
             }
             Some(command_result::Result::TestResponse(res)) => {
                 let built_rule_type_names: Vec<String> =
                     unique_and_sorted(res.target_rule_type_names.clone().into_iter());
                 self.target_rule_type_names = built_rule_type_names;
-                self.command_errors.extend(res.errors.clone())
-            }
-            Some(command_result::Result::BxlResponse(res)) => {
-                self.command_errors.extend(res.errors.clone())
-            }
-            Some(command_result::Result::Error(error)) => {
-                self.command_errors.push(error.clone());
             }
             _ => {}
         }
@@ -1768,9 +1754,7 @@ impl EventSubscriber for InvocationRecorder {
     }
 
     fn handle_exit_result(&mut self, exit_result: &ExitResult) {
-        if let Some(error) = exit_result.get_error() {
-            self.client_error = Some(error);
-        }
+        self.command_errors = exit_result.get_all_errors();
     }
 
     async fn handle_tailer_stderr(&mut self, stderr: &str) -> buck2_error::Result<()> {

@@ -129,14 +129,13 @@ async def test_command_report_post_build_client_error(
 
     record = read_invocation_record(record_path)
     errors = record["errors"]
-    # Both injected error and action error are reported (for now).
-    assert len(errors) == 2
+    # There's only 1 error message and it's the late client error that's injected
+    assert len(errors) == 1
     assert errors[0]["message"] == "Injected Build Response Error"
 
     with open(report) as f:
         report = json.loads(f.read())
 
-    # There's only 1 error message and it's the late client error that's injected
     assert len(report["error_messages"]) == 1
     assert report["exit_code"] == UnknownFailure
     assert "Injected Build Response Error" in report["error_messages"][0]

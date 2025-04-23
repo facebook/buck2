@@ -88,12 +88,22 @@ impl ExitResult {
         }
     }
 
+    /// Return the stored error that hasn't been shown to the user yet, if there is one.
     pub fn get_error(&self) -> Option<buck2_error::Error> {
         if let ExitResultVariant::StatusWithErr(_, err) = &self.variant {
             Some(err.clone())
         } else {
             None
         }
+    }
+
+    /// Get all errors, emitted or not, for the command report and invocation record.
+    pub fn get_all_errors(&self) -> Vec<ErrorReport> {
+        let mut errors = self.emitted_errors.clone();
+        if let ExitResultVariant::StatusWithErr(_, e) = &self.variant {
+            errors.push(e.into());
+        }
+        errors
     }
 
     pub fn status(status: ExitCode) -> Self {
@@ -270,11 +280,11 @@ impl ExitResult {
         let file = fs_util::create_file(&path)?;
         let mut file = std::io::BufWriter::new(file);
 
-        let mut errors = self.emitted_errors.clone();
-        if let ExitResultVariant::StatusWithErr(_, e) = &self.variant {
-            errors.push(e.into());
-        }
-        let error_messages = errors.iter().map(|e| e.message.clone()).collect();
+        let error_messages = self
+            .get_all_errors()
+            .iter()
+            .map(|e| e.message.clone())
+            .collect();
 
         match &self.variant {
             ExitResultVariant::Status(exit_code)
