@@ -35,7 +35,6 @@ use buck2_client_ctx::subscribers::superconsole::test::span_from_build_failure_c
 use buck2_core::fs::fs_util;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::BuckErrorContext;
-use buck2_error::ErrorTag;
 use superconsole::Line;
 use superconsole::Span;
 
@@ -243,18 +242,8 @@ impl StreamingCommand for TestCommand {
         let console = self.common_opts.console_opts.final_console();
         print_build_result(&console, &response.errors)?;
 
-        // Filtering out individual types might not be best here. While we just have 1 non-build
-        // error that seems OK, but if we add more we should reconsider (we could add a type on all
-        // the build errors, but that seems potentially confusing if we only do that in the test
-        // command).
-        let build_errors = response
-            .errors
-            .into_iter()
-            .filter(|e| !e.tags().any(|t| t == ErrorTag::TestDeadlineExpired))
-            .collect::<Vec<_>>();
-
-        if !build_errors.is_empty() {
-            console.print_error(&format!("{} BUILDS FAILED", build_errors.len()))?;
+        if statuses.build_errors != 0 {
+            console.print_error(&format!("{} BUILDS FAILED", statuses.build_errors))?;
         }
 
         let mut line = Line::default();
@@ -273,9 +262,7 @@ impl StreamingCommand for TestCommand {
             line.push(column.to_span_from_test_statuses(statuses)?);
             line.push(Span::new_unstyled_lossy(". "));
         }
-        line.push(span_from_build_failure_count(
-            build_errors.len().try_into()?,
-        )?);
+        line.push(span_from_build_failure_count(statuses.build_errors)?);
         eprint_line(&line)?;
 
         print_error_counter(&console, listing_failed, "LISTINGS FAILED", "⚠")?;
@@ -304,9 +291,9 @@ impl StreamingCommand for TestCommand {
             buck2_client_ctx::println!("{}", build_report)?;
         }
 
-        let exit_result = if !build_errors.is_empty() {
+        let exit_result = if !response.errors.is_empty() {
             // If we had build errors, those take precedence and we return their exit code.
-            ExitResult::from_command_result_errors(build_errors)
+            ExitResult::from_command_result_errors(response.errors)
         } else if let Some(exit_code) = response.exit_code {
             // Otherwise, use the exit code from Tpx.
             ExitResult::status_extended(exit_code)

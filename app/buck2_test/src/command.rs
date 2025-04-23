@@ -61,6 +61,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::tag_result;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -434,6 +435,17 @@ async fn test(
         .context("No exit code available")
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::TestExecutor))?;
 
+    // Filtering out individual types might not be best here. While we just have 1 non-build
+    // error that seems OK, but if we add more we should reconsider (we could add a type on all
+    // the build errors, but that seems potentially confusing if we only do that in the test
+    // command).
+    let build_errors_count: u64 = test_outcome
+        .errors
+        .iter()
+        .filter(|e| !e.tags().any(|t| t == ErrorTag::TestDeadlineExpired))
+        .count()
+        .try_into()?;
+
     let test_statuses = buck2_cli_proto::test_response::TestStatuses {
         passed: Some(
             test_outcome
@@ -477,6 +489,7 @@ async fn test(
                 .listing_failed
                 .to_cli_proto_counter(),
         ),
+        build_errors: build_errors_count,
     };
 
     let serialized_build_report = if build_opts.unstable_print_build_report {

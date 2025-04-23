@@ -604,6 +604,7 @@ message TestResponse {
     CounterWithExamples fatals = 13;
     CounterWithExamples listing_success = 14;
     CounterWithExamples listing_failed = 15;
+    uint64 build_errors = 16;
   }
   TestStatuses test_statuses = 3;
   string executor_stdout = 4;
