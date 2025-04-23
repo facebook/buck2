@@ -24,6 +24,7 @@ use buck2_events::span::SpanId;
 use dupe::Dupe;
 use smallvec::SmallVec;
 
+use crate::ActionNodeData;
 use crate::BuildInfo;
 use crate::NodeData;
 use crate::NodeKey;
@@ -69,7 +70,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             key,
             dep_keys,
             NodeData {
-                action_with_extra_data,
+                action_node_data: action_with_extra_data.map(ActionNodeData::from_extra_data),
                 duration,
                 span_ids,
             },
@@ -231,7 +232,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                 let data = std::mem::replace(
                     &mut data[vertex_idx],
                     NodeData {
-                        action_with_extra_data: None,
+                        action_node_data: None,
                         duration: NodeDuration::zero(),
                         span_ids: Default::default(),
                     },

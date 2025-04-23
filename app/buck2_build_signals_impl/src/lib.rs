@@ -21,6 +21,8 @@ use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_analysis::analysis::calculation::AnalysisKeyActivationData;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::RegisteredAction;
+use buck2_build_api::actions::calculation::ActionExtraData;
 use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_api::actions::calculation::BuildKey;
 use buck2_build_api::actions::calculation::BuildKeyActivationData;
@@ -411,7 +413,7 @@ where
         let elapsed_compute_critical_path = now.elapsed();
 
         let meta_entry_data = NodeData {
-            action_with_extra_data: None,
+            action_node_data: None,
             duration: NodeDuration {
                 user: Duration::ZERO,
                 total: elapsed_compute_critical_path,
@@ -428,7 +430,7 @@ where
 
         let early_command_entries = ctx.early_command_entries.iter().map(|entry| {
             let generic_entry_data = NodeData {
-                action_with_extra_data: None,
+                action_node_data: None,
                 duration: NodeDuration {
                     user: Duration::ZERO,
                     total: entry.duration,
@@ -457,8 +459,13 @@ where
                             // If we have a NodeKey that's an ActionKey we'd expect to have an `action`
                             // in our data (unless we didn't actually run it because of e.g. early
                             // cutoff, in which case omitting it is what we want).
-                            let ActionWithExtraData { action, extra_data } =
-                                data.action_with_extra_data.as_ref()?;
+                            let ActionNodeData {
+                                action,
+                                execution_kind,
+                                target_rule_type_name,
+                                action_digest,
+                                invalidation_info,
+                            } = data.action_node_data.as_ref()?;
 
                             buck2_data::critical_path_entry2::ActionExecution {
                                 owner: Some(owner),
@@ -466,10 +473,10 @@ where
                                     category: action.category().as_str().to_owned(),
                                     identifier: action.identifier().unwrap_or("").to_owned(),
                                 }),
-                                execution_kind: extra_data.execution_kind.into(),
-                                target_rule_type_name: extra_data.target_rule_type_name.to_owned(),
-                                action_digest: extra_data.action_digest.to_owned(),
-                                invalidation_info: extra_data.invalidation_info.to_owned(),
+                                execution_kind: (*execution_kind).into(),
+                                target_rule_type_name: target_rule_type_name.to_owned(),
+                                action_digest: action_digest.to_owned(),
+                                invalidation_info: invalidation_info.to_owned(),
                             }
                             .into()
                         }
@@ -649,9 +656,40 @@ pub(crate) struct BuildInfo {
 
 #[derive(Clone)]
 struct NodeData {
-    action_with_extra_data: Option<ActionWithExtraData>,
+    action_node_data: Option<ActionNodeData>,
     duration: NodeDuration,
     span_ids: SmallVec<[SpanId; 1]>,
+}
+
+#[derive(Clone)]
+struct ActionNodeData {
+    action: Arc<RegisteredAction>,
+    execution_kind: buck2_data::ActionExecutionKind,
+    target_rule_type_name: Option<String>,
+    action_digest: Option<String>,
+    invalidation_info: Option<buck2_data::CommandInvalidationInfo>,
+}
+
+impl ActionNodeData {
+    fn from_extra_data(data: ActionWithExtraData) -> Self {
+        let ActionWithExtraData {
+            action,
+            extra_data:
+                ActionExtraData {
+                    execution_kind,
+                    target_rule_type_name,
+                    action_digest,
+                    invalidation_info,
+                },
+        } = data;
+        Self {
+            action,
+            execution_kind,
+            target_rule_type_name,
+            action_digest,
+            invalidation_info,
+        }
+    }
 }
 
 assert_eq_size!(NodeData, [usize; 17]);
