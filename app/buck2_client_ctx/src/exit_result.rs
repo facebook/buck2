@@ -115,6 +115,14 @@ impl ExitResult {
         }
     }
 
+    pub fn get_error(&self) -> Option<buck2_error::Error> {
+        if let ExitResultVariant::StatusWithErr(_, err) = &self.variant {
+            Some(err.clone())
+        } else {
+            None
+        }
+    }
+
     pub fn status(status: ExitCode) -> Self {
         Self {
             variant: ExitResultVariant::Status(status),

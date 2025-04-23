@@ -17,6 +17,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.golden import golden
+from buck2.tests.e2e_util.helper.utils import read_invocation_record
 
 # From `exit_result.rs/ExitCode`
 Success = 0
@@ -110,15 +111,27 @@ async def test_exit_result_connection_error(buck: Buck, tmp_path: Path) -> None:
 # Late client error takes precedence over action errors
 @buck_test()
 @env("BUCK2_TEST_BUILD_ERROR", "true")
-# Ideally both action error and client error should both be included in the exit result,
-# but this is difficult to do due to the current design, it might be easier to just rewrite
-# and merge exit result stuff into invocation record so everything is logged to scuba.
 async def test_command_report_post_build_client_error(
     buck: Buck, tmp_path: Path
 ) -> None:
     report = tmp_path / "command_report.json"
+    record_path = tmp_path / "record.json"
     # Failed build that should have some action errors
-    await expect_failure(buck.build("--command-report-path", str(report), ":fail1"))
+    await expect_failure(
+        buck.build(
+            "--command-report-path",
+            str(report),
+            "--unstable-write-invocation-record",
+            str(record_path),
+            ":fail1",
+        )
+    )
+
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
+    # Both injected error and action error are reported (for now).
+    assert len(errors) == 2
+    assert errors[0]["message"] == "Injected Build Response Error"
 
     with open(report) as f:
         report = json.loads(f.read())

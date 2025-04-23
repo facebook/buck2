@@ -21,7 +21,7 @@ async def test_debug_crash(buck: Buck) -> None:
     # If the first operation immediately does a panic then we fail to connect.
     # While that's not great, having some panics is better than none, so test once after we spawn.
     await buck.build()
-    result = await buck.debug("crash", "panic")
+    result = await expect_failure(buck.debug("crash", "panic"))
     assert "explicitly requested panic" in result.stderr
     # Our crash output should include a stack trace.
     assert "stack backtrace:" in result.stderr

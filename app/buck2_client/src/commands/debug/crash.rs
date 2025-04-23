@@ -56,7 +56,7 @@ impl StreamingCommand for CrashCommand {
         _ctx: &mut ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        let _err = buckd
+        buckd
             .with_flushing()
             .unstable_crash(
                 UnstableCrashRequest {
@@ -64,8 +64,8 @@ impl StreamingCommand for CrashCommand {
                 },
                 events_ctx,
             )
-            .await;
-        ExitResult::success()
+            .await??;
+        unreachable!("request should have failed")
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {

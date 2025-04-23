@@ -14,6 +14,7 @@ use std::time::Instant;
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 
+use crate::exit_result::ExitResult;
 use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;
 
@@ -56,9 +57,9 @@ impl EventSubscribers {
         r
     }
 
-    pub(crate) fn handle_daemon_connection_failure(&mut self, error: &buck2_error::Error) {
+    pub(crate) fn handle_daemon_connection_failure(&mut self) {
         for subscriber in &mut self.subscribers {
-            subscriber.handle_daemon_connection_failure(error);
+            subscriber.handle_daemon_connection_failure();
         }
     }
 
@@ -77,6 +78,12 @@ impl EventSubscribers {
     pub(crate) fn handle_instant_command_outcome(&mut self, is_success: bool) {
         for subscriber in &mut self.subscribers {
             subscriber.handle_instant_command_outcome(is_success);
+        }
+    }
+
+    pub(crate) fn handle_exit_result(&mut self, exit_result: &ExitResult) {
+        for subscriber in &mut self.subscribers {
+            subscriber.handle_exit_result(exit_result);
         }
     }
 

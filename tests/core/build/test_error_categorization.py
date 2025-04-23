@@ -203,8 +203,8 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
     await buck.build()
 
     record = tmp_path / "record.json"
-    await buck.debug(
-        "crash", "panic", "--unstable-write-invocation-record", str(record)
+    await expect_failure(
+        buck.debug("crash", "panic", "--unstable-write-invocation-record", str(record)),
     )
     invocation_record = read_invocation_record(record)
 
@@ -257,8 +257,8 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
     await buck.build()
 
     record = tmp_path / "record.json"
-    await buck.debug(
-        "crash", "abort", "--unstable-write-invocation-record", str(record)
+    await expect_failure(
+        buck.debug("crash", "abort", "--unstable-write-invocation-record", str(record))
     )
     invocation_record = read_invocation_record(record)
 

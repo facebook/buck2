@@ -49,8 +49,10 @@ async def test_run_non_executable_fails(buck: Buck, tmp_path: Path) -> None:
     )
 
     record = read_invocation_record(record_path)
-    # TODO: This is wrong, this error happens too early to be caught by even CommandResult
-    assert len(record["errors"]) == 0
+    [error] = record["errors"]
+
+    assert error["category_key"] == "RunCommandError::NonBinaryRule"
+    assert error["category"] == "USER"
 
 
 @buck_test()

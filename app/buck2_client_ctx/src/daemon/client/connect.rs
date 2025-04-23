@@ -622,7 +622,7 @@ pub async fn connect_buckd(
     {
         Ok(client) => Ok(client.to_connector()),
         Err(e) => {
-            events_ctx.subscribers.handle_daemon_connection_failure(&e);
+            events_ctx.subscribers.handle_daemon_connection_failure();
             Err(e.into())
         }
     }

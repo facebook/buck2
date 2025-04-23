@@ -163,6 +163,7 @@ impl<'a> ClientCommandContext<'a> {
             let mut events_ctx = exec_events_ctx.lock().await;
             let is_streaming_command = cmd.is_streaming_command();
             let result = cmd.exec_impl(matches, self, &mut events_ctx).await;
+            events_ctx.subscribers.handle_exit_result(&result);
 
             // TODO(ctolliday) always send ExitResult to recorder and remove this check.
             if !is_streaming_command {

@@ -16,6 +16,7 @@ use buck2_events::BuckEvent;
 use dupe::Dupe;
 
 use crate::console_interaction_stream::SuperConsoleToggle;
+use crate::exit_result::ExitResult;
 use crate::subscribers::observer::ErrorObserver;
 
 /// Information about tick timing.
@@ -90,10 +91,12 @@ pub trait EventSubscriber: Send {
         None
     }
 
-    fn handle_daemon_connection_failure(&mut self, _error: &buck2_error::Error) {}
+    fn handle_daemon_connection_failure(&mut self) {}
     fn handle_daemon_started(&mut self, _reason: buck2_data::DaemonWasStartedReason) {}
     fn handle_should_restart(&mut self) {}
     fn handle_instant_command_outcome(&mut self, _is_success: bool) {}
+
+    fn handle_exit_result(&mut self, _result: &ExitResult) {}
 
     /// Perform final clean up before exiting, upload logs etc.
     async fn finalize(&mut self) -> buck2_error::Result<()> {

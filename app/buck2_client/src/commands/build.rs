@@ -291,7 +291,7 @@ impl StreamingCommand for BuildCommand {
 
         if buck2_env!("BUCK2_TEST_BUILD_ERROR", bool, applicability = testing)? {
             return buck2_error!(
-                buck2_error::ErrorTag::Input,
+                buck2_error::ErrorTag::TestOnly,
                 "Injected Build Response Error"
             )
             .into();

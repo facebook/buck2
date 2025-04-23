@@ -69,6 +69,7 @@ use crate::client_ctx::ClientCommandContext;
 use crate::client_metadata::ClientMetadata;
 use crate::common::CommonEventLogOptions;
 use crate::console_interaction_stream::SuperConsoleToggle;
+use crate::exit_result::ExitResult;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::command_response_ext::TestResponseExt;
 use crate::subscribers::observer::ErrorObserver;
@@ -194,7 +195,7 @@ pub(crate) struct InvocationRecorder {
     daemon_was_started: Option<buck2_data::DaemonWasStartedReason>,
     should_restart: bool,
     client_metadata: Vec<buck2_data::ClientMetadata>,
-    client_errors: Vec<buck2_error::Error>,
+    client_error: Option<buck2_error::Error>,
     command_errors: Vec<ErrorReport>,
     /// To append to gRPC errors.
     server_stderr: String,
@@ -344,7 +345,7 @@ impl InvocationRecorder {
             daemon_was_started: None,
             should_restart: false,
             client_metadata,
-            client_errors: Vec::new(),
+            client_error: None,
             command_errors: Vec::new(),
             server_stderr: String::new(),
             target_rule_type_names: Vec::new(),
@@ -421,39 +422,39 @@ impl InvocationRecorder {
     }
 
     fn finalize_errors(&mut self) -> Vec<ProcessedErrorReport> {
-        // Add stderr to GRPC connection errors if available
-        let connection_errors: Vec<buck2_error::Error> = self
-            .client_errors
-            .extract_if(.., |e| e.has_tag(ErrorTag::ClientGrpc))
-            .collect();
+        let client_error = if let Some(error) = self.client_error.take() {
+            let error = if error.has_tag(ErrorTag::ClientGrpc) {
+                // Add stderr to GRPC connection errors if available
+                let error = classify_server_stderr(error, &self.server_stderr);
 
-        for error in connection_errors {
-            let error = classify_server_stderr(error, &self.server_stderr);
-
-            let error = if self.server_stderr.is_empty() {
-                let error = error.context("buckd stderr is empty");
-                // Likely buckd received SIGKILL, may be due to memory pressure
-                if self.tags.iter().any(|s| s == MEMORY_PRESSURE_TAG) {
-                    error
-                        .context("memory pressure detected")
-                        .tag([ErrorTag::ServerMemoryPressure])
+                if self.server_stderr.is_empty() {
+                    let error = error.context("buckd stderr is empty");
+                    // Likely buckd received SIGKILL, may be due to memory pressure
+                    if self.tags.iter().any(|s| s == MEMORY_PRESSURE_TAG) {
+                        error
+                            .context("memory pressure detected")
+                            .tag([ErrorTag::ServerMemoryPressure])
+                    } else {
+                        error
+                    }
+                } else if error.has_tag(ErrorTag::ServerSigterm) {
+                    error.context("buckd killed by SIGTERM")
                 } else {
-                    error
+                    // Scribe sink truncates messages, but here we can do it better:
+                    // - truncate even if total message is not large enough
+                    // - truncate stderr, but keep the error message
+                    let server_stderr = truncate_stderr(&self.server_stderr);
+                    error.context(format!("buckd stderr:\n{}", server_stderr))
                 }
-            } else if error.has_tag(ErrorTag::ServerSigterm) {
-                error.context("buckd killed by SIGTERM")
             } else {
-                // Scribe sink truncates messages, but here we can do it better:
-                // - truncate even if total message is not large enough
-                // - truncate stderr, but keep the error message
-                let server_stderr = truncate_stderr(&self.server_stderr);
-                error.context(format!("buckd stderr:\n{}", server_stderr))
+                error
             };
+            Some(error)
+        } else {
+            None
+        };
 
-            self.client_errors.push(error);
-        }
-
-        let mut errors = std::mem::take(&mut self.client_errors).into_map(|e| (&e).into());
+        let mut errors: Vec<ErrorReport> = client_error.into_iter().map(|e| (&e).into()).collect();
         let command_errors = std::mem::take(&mut self.command_errors);
         errors.extend(command_errors);
         errors.sort_by_key(|e| e.error_rank());
@@ -1768,9 +1769,10 @@ impl EventSubscriber for InvocationRecorder {
         self.instant_command_is_success = Some(is_success);
     }
 
-    async fn handle_error(&mut self, error: &buck2_error::Error) -> buck2_error::Result<()> {
-        self.client_errors.push(error.clone());
-        Ok(())
+    fn handle_exit_result(&mut self, exit_result: &ExitResult) {
+        if let Some(error) = exit_result.get_error() {
+            self.client_error = Some(error);
+        }
     }
 
     async fn handle_tailer_stderr(&mut self, stderr: &str) -> buck2_error::Result<()> {
@@ -1819,9 +1821,8 @@ impl EventSubscriber for InvocationRecorder {
         Some(self)
     }
 
-    fn handle_daemon_connection_failure(&mut self, error: &buck2_error::Error) {
+    fn handle_daemon_connection_failure(&mut self) {
         self.daemon_connection_failure = true;
-        self.client_errors.push(error.clone());
     }
 
     fn handle_daemon_started(&mut self, daemon_was_started: buck2_data::DaemonWasStartedReason) {
