@@ -210,8 +210,6 @@ pub fn debug_compute_configured_graph_properties_uncached(
                     .sketch(label)
                     .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::BuildSketchError))?;
             }
-
-            queue.extend(item.deps());
         }
 
         Ok(GraphPropertiesValues {
