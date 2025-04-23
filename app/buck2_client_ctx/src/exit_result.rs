@@ -191,11 +191,16 @@ impl ExitResult {
     }
 
     pub fn err(err: buck2_error::Error) -> Self {
-        let err: buck2_error::Error = err.into();
         let exit_code = if err.has_tag(ErrorTag::IoClientBrokenPipe) {
             ExitCode::BrokenPipe
         } else {
-            ExitCode::UnknownFailure
+            match err.get_tier() {
+                Some(tier) => match tier {
+                    Tier::Input => ExitCode::UserError,
+                    Tier::Tier0 | Tier::Environment => ExitCode::InfraError,
+                },
+                None => ExitCode::UnknownFailure,
+            }
         };
 
         Self {

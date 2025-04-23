@@ -137,7 +137,7 @@ async def test_command_report_post_build_client_error(
         report = json.loads(f.read())
 
     assert len(report["error_messages"]) == 1
-    assert report["exit_code"] == UnknownFailure
+    assert report["exit_code"] == InfraError
     assert "Injected Build Response Error" in report["error_messages"][0]
 
 
