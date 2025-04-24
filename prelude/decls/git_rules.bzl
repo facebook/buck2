@@ -34,6 +34,16 @@ git_fetch = prelude_rule(
             "rev": attrs.string(doc = """
                 40-digit hex SHA-1 of the git commit.
             """),
+            "sub_targets": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
+                A list of paths within the remote repo to be made accessible as sub-targets.
+                For example if we have a git_fetch with `name = "serde.git"` and
+                `sub_targets = ["serde_derive"]`, then other targets would be able to refer
+                to the serde_derive subdirectory of the repo as `":serde.git[serde_derive]"`.
+            """,
+            ),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
