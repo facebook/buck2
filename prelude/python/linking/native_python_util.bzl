@@ -26,6 +26,7 @@ load(
     "linkable",
 )
 load("@prelude//linking:strip.bzl", "strip_debug_info")
+load("@prelude//python:toolchain.bzl", "NativeLinkStrategy", "PythonToolchainInfo")
 
 # Info required to link cxx_python_extensions into native python binaries
 CxxExtensionLinkInfo = provider(
@@ -65,6 +66,15 @@ CxxExtensionTSet = transitive_set(
         "python_module_names": _cxx_extension_info_python_module_names,
     },
 )
+
+def compute_link_strategy(ctx: AnalysisContext) -> NativeLinkStrategy | None:
+    if ctx.attrs._cxx_toolchain.get(CxxToolchainInfo) == None:
+        # cxx toolchain is required
+        return None
+
+    return NativeLinkStrategy(
+        ctx.attrs.native_link_strategy or ctx.attrs._python_toolchain[PythonToolchainInfo].native_link_strategy,
+    )
 
 def merge_cxx_extension_info(
         actions: AnalysisActions,

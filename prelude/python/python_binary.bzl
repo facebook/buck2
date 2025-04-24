@@ -16,7 +16,6 @@ load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_is_gnu",
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load(
     "@prelude//linking:link_info.bzl",
@@ -33,6 +32,7 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_debug_with_gnu_debuglink")
 load("@prelude//python/linking:native.bzl", "process_native_linking")
+load("@prelude//python/linking:native_python_util.bzl", "compute_link_strategy")
 load("@prelude//python/linking:omnibus.bzl", "process_omnibus_linking")
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 load(":compile.bzl", "compile_manifests")
@@ -61,15 +61,6 @@ load(":source_db.bzl", "create_dbg_source_db", "create_python_source_db_info", "
 load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo", "PythonToolchainInfo", "get_package_style", "get_platform_attr")
 load(":typing.bzl", "create_per_target_type_check")
 load(":versions.bzl", "LibraryName", "LibraryVersion", "gather_versioned_dependencies", "resolve_versions")
-
-def _link_strategy(ctx: AnalysisContext) -> NativeLinkStrategy | None:
-    if ctx.attrs._cxx_toolchain.get(CxxToolchainInfo) == None:
-        # cxx toolchain is required
-        return None
-
-    return NativeLinkStrategy(
-        ctx.attrs.native_link_strategy or ctx.attrs._python_toolchain[PythonToolchainInfo].native_link_strategy,
-    )
 
 # We do a lot of merging extensions, so don't use O(n) type annotations
 def _merge_extensions(
@@ -260,7 +251,7 @@ def _convert_python_library_to_executable(
 
     extra_artifacts = {}
     link_args = []
-    link_strategy = _link_strategy(ctx)
+    link_strategy = compute_link_strategy(ctx)
     build_args = ctx.attrs.build_args
 
     if link_strategy == NativeLinkStrategy("native"):
