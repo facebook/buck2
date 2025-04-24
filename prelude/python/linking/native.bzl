@@ -330,11 +330,17 @@ def _compute_cxx_executable_info(
 
     return cxx_executable(ctx, impl_params)
 
-def process_native_linking(ctx, deps, python_toolchain, extra, package_style, allow_cache_upload, extra_artifacts) -> (
+def process_native_linking(ctx, deps, python_toolchain, package_style, allow_cache_upload) -> (
     list[(SharedLibrary, str)],
     dict[str, (LinkedObject, Label)],
     list[LinkArgs],
+    dict[str, typing.Any],
+    dict[str, typing.Any],
 ):
+    #TODO @dcssiva: fix types
+    extra = {}
+    extra_artifacts = {}
+
     extension_info, extension_info_reduced = _compute_cxx_extension_info(ctx, deps)
 
     executable_deps = ctx.attrs.executable_deps
@@ -412,4 +418,4 @@ def process_native_linking(ctx, deps, python_toolchain, extra, package_style, al
 
     link_args = executable_info.link_args
     extra_artifacts["static_extension_finder.py"] = ctx.attrs.static_extension_finder
-    return shared_libs, extensions, link_args
+    return shared_libs, extensions, link_args, extra, extra_artifacts

@@ -266,14 +266,12 @@ def _convert_python_library_to_executable(
     if link_strategy == NativeLinkStrategy("native"):
         entry_point = "runtime/bin/{}".format(ctx.attrs.executable_name)
         build_args.append(cmd_args("--passthrough=--runtime-binary={}".format(entry_point)))
-        shared_libs, extensions, link_args = process_native_linking(
+        shared_libs, extensions, link_args, extra, extra_artifacts = process_native_linking(
             ctx,
             deps,
             python_toolchain,
-            extra,
             package_style,
             allow_cache_upload,
-            extra_artifacts,
         )
     else:
         extensions = {}
