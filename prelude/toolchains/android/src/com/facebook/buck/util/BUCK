@@ -1,0 +1,82 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library", "buck_kotlin_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+THROWING_PRINT_WRITER_SRCS = [
+    "ThrowingPrintWriter.java",
+]
+
+buck_java_library(
+    name = "throwing_print_writer",
+    srcs = THROWING_PRINT_WRITER_SRCS,
+    visibility = ["PUBLIC"],
+)
+
+PROCESS_EXECUTOR_SRCS = [
+    "ProcessExecutorParams.kt",
+    "Ansi.java",
+    "CapturingPrintStream.java",
+    "Console.java",
+    "ConsoleLock.java",
+    "DefaultProcessExecutor.java",
+    "DelegateLaunchedProcess.java",
+    "DirtyPrintStreamDecorator.java",
+    "InputStreamConsumer.java",
+    "LineFetcher.java",
+    "ProcessExecutor.java",
+    "ProcessHelper.java",
+    "Threads.java",
+    "Verbosity.java",
+]
+
+buck_kotlin_library(
+    name = "process_executor",
+    srcs = PROCESS_EXECUTOR_SRCS,
+    tests = [
+    ],
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/util/concurrent:concurrent",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
+        "prelude//toolchains/android/src/com/facebook/buck/util/string:string",
+        "prelude//toolchains/android/src/com/facebook/buck/util/types:types",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jsr305",
+        "prelude//toolchains/android/third-party:nuprocess",
+        ":util",
+    ],
+)
+
+buck_java_library(
+    name = "util",
+    srcs = glob(
+        ["*.java"],
+        exclude = PROCESS_EXECUTOR_SRCS + THROWING_PRINT_WRITER_SRCS,
+    ),
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/util:util",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/fatjar:fat_jar_utils",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
+        "prelude//toolchains/android/src/com/facebook/buck/util/escaper:bash",
+        "prelude//toolchains/android/src/com/facebook/buck/util/escaper:quoter",
+        "prelude//toolchains/android/src/com/facebook/buck/util/escaper:utils",
+        "prelude//toolchains/android/src/com/facebook/buck/util/function:function",
+        "prelude//toolchains/android/src/com/facebook/buck/util/types:types",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jackson-annotations",
+        "prelude//toolchains/android/third-party:jackson-databind",
+        "prelude//toolchains/android/third-party:jsr305",
+    ],
+)

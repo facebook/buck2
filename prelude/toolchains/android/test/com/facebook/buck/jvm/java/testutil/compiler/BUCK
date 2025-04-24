@@ -1,0 +1,30 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "compiler",
+    srcs = glob(["*.java"]),
+    visibility = [
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/...",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
+        "prelude//toolchains/android/src/com/facebook/buck/io/pathformat:pathformat",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/source:source",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/source/api:api",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/javax:javax",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/lang/model:model",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/plugin/adapter:adapter",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/version/utils:utils",
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/src/com/facebook/buck/util/function:function",
+        "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip",
+        "prelude//toolchains/android/third-party:asm",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:junit",
+    ],
+)

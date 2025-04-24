@@ -1,0 +1,32 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "json",
+    srcs = glob(["*.java"]),
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/util/json:json",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        "prelude//toolchains/android/third-party:jackson-datatype-guava",
+        "prelude//toolchains/android/third-party:jackson-datatype-jdk8",
+        "prelude//toolchains/android/third-party:jackson-module-kotlin",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/third-party:jackson-annotations",
+        "prelude//toolchains/android/third-party:jackson-databind",
+        "prelude//toolchains/android/third-party:kotlin-reflect",
+        "prelude//toolchains/android/third-party:kotlin-stdlib",
+        "prelude//toolchains/android/third-party:protobuf",
+        "prelude//toolchains/android/third-party:protobuf-util",
+    ],
+)

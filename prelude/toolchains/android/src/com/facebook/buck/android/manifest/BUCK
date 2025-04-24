@@ -1,0 +1,47 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "manifest",
+    srcs = glob(["*.java"]),
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/android/...",
+        "prelude//toolchains/android/test/com/facebook/buck/...",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/android:manifest_utils",
+        "prelude//toolchains/android/src/com/facebook/buck/android/apkmodule:module-only",
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/util:throwing_print_writer",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party/aosp:aosp",
+    ],
+)
+
+buck_java_binary(
+    name = "generate_manifest_binary",
+    main_class = "com.facebook.buck.android.manifest.GenerateManifestExecutableMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":manifest",
+    ],
+)
+
+buck_java_binary(
+    name = "replace_application_id_placeholders_binary",
+    main_class = "com.facebook.buck.android.manifest.ReplaceApplicationIdPlaceholdersExecutableMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":manifest",
+    ],
+)

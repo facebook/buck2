@@ -1,0 +1,25 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "model",
+    srcs = glob(["*.java"]),
+    extra_arguments = [
+        "--add-exports",
+        "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/version/utils:utils",
+        "prelude//toolchains/android/src/com/facebook/buck/util/liteinfersupport:liteinfersupport",
+
+        # Don't add deps that aren't already in the bootstrapper; any dependencies
+        # here will pollute the compiler and annotation processor class loaders
+    ],
+)

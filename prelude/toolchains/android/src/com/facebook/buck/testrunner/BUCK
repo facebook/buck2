@@ -1,0 +1,190 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library")
+load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "base",
+    srcs = [
+        "BaseRunner.java",
+        "CheckDependency.java",
+        "TestResult.java",
+        "TestXmlEscaper.java",
+    ],
+    # @oss-disable[end= ]: source = "8",
+    # @oss-disable[end= ]: target = "8",
+    source = "17", # @oss-enable
+    target = "17", # @oss-enable
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
+    ],
+    visibility = [
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/test/result/type:type",
+        "prelude//toolchains/android/src/com/facebook/buck/test/selectors:selectors",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
+    ],
+)
+
+buck_java_library(
+    name = "junit",
+    srcs = [
+        "BuckBlockJUnit4ClassRunner.java",
+        "DelegateRunNotifier.java",
+        "DelegateRunnerWithTimeout.java",
+        "JUnitMain.java",
+        "JUnitOptions.java",
+        "JUnitRunner.java",
+        "JUnitSupport.java",
+        "JUnitTpxStandardOutputListener.java",
+        "JulLogFormatter.java",
+        "JupiterMain.java",
+        "JupiterRunner.java",
+        "SameThreadFailOnTimeout.java",
+        "SkipTestCondition.java",
+        "StandardOutputRecorder.java",
+        "TestRecorder.java",
+        "TpxStandardOutputTestListener.java",
+    ],
+    resources = glob(["META-INF/**/*"]),
+    resources_root = ".",
+    # @oss-disable[end= ]: source = "8",
+    # @oss-disable[end= ]: target = "8",
+    source = "17", # @oss-enable
+    target = "17", # @oss-enable
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
+    ],
+    visibility = [
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
+    ],
+    # IMPORTANT! This library limits itself to types that are available in both the JDK and Android
+    # Java API. The objective is to limit the set of files added to the ClassLoader that runs the
+    # test, as not to interfere with the results of the test.
+    deps = [
+        ":base",
+        # This is loaded by reflection. Joy.
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/runner:runner",
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log/appendablelogrecord:appendablelogrecord",
+        "prelude//toolchains/android/src/com/facebook/buck/test/result/type:type",
+        "prelude//toolchains/android/src/com/facebook/buck/test/selectors:selectors",
+        "prelude//toolchains/android/src/com/facebook/buck/util/concurrent:concurrent_for_junit_runner",
+        "prelude//toolchains/android/src/com/facebook/buck/testresultsoutput:testresultsoutput",
+        "prelude//toolchains/android/third-party:junit",
+        "prelude//toolchains/android/third-party:junit-jupiter-engine",
+        "prelude//toolchains/android/third-party:junit-platform-launcher",
+    ],
+)
+
+buck_java_library(
+    name = "instrumentation",
+    srcs = [
+        "BuckXmlTestRunListener.java",
+        "CrashCapturer.java",
+        "DeviceRunner.java",
+        "InstrumentationMain.java",
+        "InstrumentationTestRunner.java",
+        "InstrumentationTpxStandardOutputTestListener.java",
+        "TpxStandardOutputTestListener.java",
+        "reportlayer/LogExtractorReportLayer.java",
+        "reportlayer/ReportLayer.java",
+        "reportlayer/TombstonesReportLayer.java",
+        "reportlayer/VideoRecordingReportLayer.java",
+    ],
+    required_for_source_only_abi = True,
+    # @oss-disable[end= ]: source = "8",
+    # @oss-disable[end= ]: target = "8",
+    source = "17", # @oss-enable
+    target = "17", # @oss-enable
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
+    ],
+    visibility = [
+        "fbsource//fbandroid/instrumentation_tests/com/meta/instrumentation/host/...",
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/testresultsoutput:testresultsoutput",
+        "prelude//toolchains/android/src/com/facebook/buck/util/escaper:bash",
+        "prelude//toolchains/android/third-party:ddmlib",
+    ],
+)
+
+buck_java_library(
+    name = "instrumentation_for_clout",
+    srcs = [
+        "InstrumentationMainForClout.java",
+        "InstrumentationTestRunnerForClout.java",
+        "RunShellCommand.java",
+    ],
+    required_for_source_only_abi = True,
+    # @oss-disable[end= ]: source = "8",
+    # @oss-disable[end= ]: target = "8",
+    source = "17", # @oss-enable
+    target = "17", # @oss-enable
+    visibility = [
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
+    ],
+    deps = [
+        "prelude//toolchains/android/third-party:ddmlib",
+        ":instrumentation",
+    ],
+)
+
+buck_java_library(
+    name = "testng",
+    srcs = [
+        "TestNGMain.java",
+        "TestNGRunner.java",
+    ],
+    # @oss-disable[end= ]: source = "8",
+    # @oss-disable[end= ]: target = "8",
+    source = "17", # @oss-enable
+    target = "17", # @oss-enable
+    visibility = [
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/test/result/type:type",
+        "prelude//toolchains/android/src/com/facebook/buck/test/selectors:selectors",
+        "prelude//toolchains/android/third-party:guice",
+        "prelude//toolchains/android/third-party:jsr305",
+        "prelude//toolchains/android/third-party:testng",
+        ":base",
+    ],
+)
+
+buck_java_binary(
+    name = "testrunner-bin",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/test/result/type:type",
+        "prelude//toolchains/android/src/com/facebook/buck/test/selectors:selectors",
+        ":instrumentation",
+        ":instrumentation_for_clout",
+        ":junit",
+        ":testng",
+    ],
+)
+
+# Strip out classes we don't want automatically added to the classpath for
+# tests, leaving just the extra buck classes.
+fb_native.zip_file(
+    name = "testrunner-bin-fixed",
+    out = "testrunner-bin-fixed.jar",
+    entries_to_exclude = [
+        "^(?!com/facebook/buck/|META-INF/services/org.junit.jupiter|com/fasterxml/jackson/core).*",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    zip_srcs = [
+        ":testrunner-bin",
+    ],
+)

@@ -1,0 +1,94 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library")
+load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "command_lib",
+    srcs = [
+        "JavaCDCommand.java",
+    ],
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/...",
+        "prelude//toolchains/android/test/com/facebook/buck/...",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd:cd",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/command/java:command",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/serialization:serialization",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/serialization/java:java",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java:steps",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi:abi",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:protobuf-util",
+    ],
+)
+
+buck_java_library(
+    name = "main_lib",
+    srcs = [
+        "JavaCDMain.java",
+    ],
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/...",
+        "prelude//toolchains/android/test/com/facebook/buck/...",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd:cd",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        ":command_lib",
+    ],
+)
+
+buck_java_library(
+    name = "grpc_worker_lib",
+    srcs = ["JavaCDGrpcWorkerToolMain.java"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd:cd",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/workertool:workertool",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/workertool/grpc:workertool_grpc",
+        "prelude//toolchains/android/src/com/facebook/buck/workertool/resources/proto:worker-model",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        ":command_lib",
+    ],
+)
+
+buck_java_binary(
+    name = "javacd_tool_grpc-main",
+    main_class = "com.facebook.buck.jvm.java.stepsbuilder.javacd.main.JavaCDGrpcWorkerToolMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":grpc_worker_lib",
+        ":main_lib",
+    ],
+)
+
+fb_native.alias(
+    name = "javacd_tool",
+    actual = ":javacd_tool_grpc-main",
+    visibility = ["PUBLIC"],
+)
+
+buck_java_binary(
+    name = "javacd_tool-main",
+    java_args_for_run_info = ["-Dfile.encoding=UTF-8"],
+    main_class = "com.facebook.buck.jvm.java.stepsbuilder.javacd.main.JavaCDMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":main_lib",
+    ],
+)

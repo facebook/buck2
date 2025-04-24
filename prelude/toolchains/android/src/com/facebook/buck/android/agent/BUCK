@@ -1,0 +1,37 @@
+load(
+    "@prelude//toolchains/android/tools:build_rules.bzl",
+    "buck_java_binary",
+)
+load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+fb_native.android_library(
+    name = "agent",
+    srcs = glob(["*.java"]),
+    # Because this code gets dx'd, we restrict the source to Java 8
+    # @oss-disable[end= ]: source = "8",
+    # @oss-disable[end= ]: target = "8",
+    source = "17", # @oss-enable
+    target = "17", # @oss-enable
+    visibility = [
+        "prelude//toolchains/android/android/com/facebook/buck/android/agent:agent",
+        "prelude//toolchains/android/src/com/facebook/buck/android/agent:agent-for-host",
+    ],
+    deps = [
+        # Do not add other deps here.  The agent should remain very small.
+        "prelude//toolchains/android/src/com/facebook/buck/android/agent/util:util",
+        "prelude//toolchains/android/third-party:zstd-jni-android",
+    ],
+)
+
+buck_java_binary(
+    name = "agent-for-host",
+    main_class = "com.facebook.buck.android.agent.AgentMain",
+    deps = [
+        ":agent",
+    ],
+)

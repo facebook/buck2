@@ -1,0 +1,24 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "workertool",
+    srcs = glob(["*.java"]),
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/...",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/...",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/step/isolatedsteps:isolatedsteps",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:environment",
+        "prelude//toolchains/android/src/com/facebook/buck/util/perf:perf",
+        "prelude//toolchains/android/src/com/facebook/buck/util/unit:unit",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jsr305",
+    ],
+)

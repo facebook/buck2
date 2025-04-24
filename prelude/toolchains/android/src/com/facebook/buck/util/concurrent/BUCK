@@ -1,0 +1,36 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "concurrent",
+    srcs = glob(["*.java"]),
+    tests = [
+    ],
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jsr305",
+    ],
+)
+
+buck_java_library(
+    name = "concurrent_for_junit_runner",
+    srcs = ["MostExecutors.java"],
+    # This target is pulled in by testrunner, which needs to compile against Java 8.
+    source = "8",
+    target = "8",
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/testrunner:junit",
+        "prelude//toolchains/android/test/...",
+    ],
+    deps = [
+        # IMPORTANT! This list is to remain empty. See src/com/facebook/buck/testrunner/BUCK.
+    ],
+)

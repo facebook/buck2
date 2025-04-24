@@ -1,0 +1,50 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "bundle",
+    srcs = glob(["*.java"]),
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/android/apk:apk",
+        "prelude//toolchains/android/src/com/facebook/buck/android/apk/sdk:apk_builder",
+        "prelude//toolchains/android/src/com/facebook/buck/core/build/execution/context:context",
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:bundletool",
+        "prelude//toolchains/android/third-party:gson",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jsr305",
+        "prelude//toolchains/android/third-party:jsr330",
+        "prelude//toolchains/android/third-party/aosp:apksig",
+    ],
+)
+
+buck_java_binary(
+    name = "bundle_builder_binary",
+    main_class = "com.facebook.buck.android.bundle.AndroidBundleBuilderExecutableMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":bundle",
+    ],
+)
+
+buck_java_binary(
+    name = "bundle_apks_builder_binary",
+    main_class = "com.facebook.buck.android.bundle.AndroidBundleApksBuilderExecutableMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":bundle",
+    ],
+)

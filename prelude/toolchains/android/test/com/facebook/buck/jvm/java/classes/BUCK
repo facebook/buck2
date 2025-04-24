@@ -1,0 +1,24 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "standard_java_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+standard_java_test(
+    name = "classes",
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem:filesystem",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/classes:classes",
+        "prelude//toolchains/android/src/com/facebook/buck/test/result/type:type",
+        "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jackson-annotations",
+        "prelude//toolchains/android/third-party:jackson-core",
+        "prelude//toolchains/android/third-party:jackson-databind",
+        "prelude//toolchains/android/third-party:jsr305",
+        "prelude//toolchains/android/third-party:junit",
+    ],
+)
