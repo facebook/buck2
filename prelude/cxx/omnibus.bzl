@@ -452,8 +452,7 @@ def _create_omnibus(
         inputs.append(LinkInfo(pre_flags = [
             get_undefined_symbols_args(
                 ctx = ctx,
-                cxx_toolchain = get_cxx_toolchain_info(ctx),
-                name = "__undefined_symbols__.linker_script",
+                name = "__undefined_symbols__.argsfile",
                 symbol_files = non_body_root_undefined_syms,
                 category = "omnibus_undefined_symbols",
             ),

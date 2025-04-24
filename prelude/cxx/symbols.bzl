@@ -313,23 +313,11 @@ def _create_symbols_file_from_script(
 
 def get_undefined_symbols_args(
         ctx: AnalysisContext,
-        cxx_toolchain: CxxToolchainInfo,
         name: str,
         symbol_files: list[Artifact],
         category: [str, None] = None,
         identifier: [str, None] = None,
         prefer_local: bool = False) -> cmd_args:
-    if cxx_toolchain.linker_info.type == LinkerType("gnu"):
-        # linker script is only supported in gnu linkers
-        linker_script = create_undefined_symbols_linker_script(
-            ctx.actions,
-            name,
-            symbol_files,
-            category,
-            identifier,
-            prefer_local,
-        )
-        return cmd_args(linker_script, format = "-Wl,--script={}")
     argsfile = create_undefined_symbols_argsfile(
         ctx.actions,
         name,

@@ -967,10 +967,9 @@ def _symbol_flags_for_link_groups(
     sym_linker_flags.append(
         get_undefined_symbols_args(
             ctx = ctx,
-            cxx_toolchain = get_cxx_toolchain_info(ctx),
-            name = "undefined_symbols.linker_script",
+            name = "undefined_symbols_args",
             symbol_files = undefined_symfiles,
-            category = "link_groups_undefined_syms_script",
+            category = "link_groups_undefined_syms_args",
         ),
     )
 
