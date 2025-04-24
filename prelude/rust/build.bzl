@@ -1514,6 +1514,8 @@ def _rustc_invoke(
 
     toolchain_info = compile_ctx.toolchain_info
 
+    env_flags_file = resolve_env_flags(ctx, compile_ctx, prefix, ctx.attrs.env_flags, exec_is_windows)
+
     plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
 
     more_plain_env, more_path_env = process_env(compile_ctx, env, exec_is_windows)
@@ -1535,6 +1537,7 @@ def _rustc_invoke(
 
     for k, v in crate_map:
         compile_cmd.add(crate_map_arg(k, v))
+    compile_cmd.add(cmd_args(env_flags_file, format = "@{}"))
     for k, v in plain_env.items():
         compile_cmd.add(cmd_args("--env=", k, "=", v, delimiter = ""))
     for k, v in path_env.items():
@@ -1630,6 +1633,68 @@ def _long_command(
             allow_args = True,
         ),
     )
+
+# TODO(yxdai-nju): docstring
+def resolve_env_flags(
+        ctx: AnalysisContext,
+        compile_ctx: CompileContext,
+        prefix: str,
+        env_flags: list[str | ResolvedStringWithMacros | Artifact],
+        exec_is_windows: bool,
+        escape_for_rustc_action: bool = True) -> Artifact:
+    # Step 1: In most cases `env_flags = ["@$(location :my_target)"]`, and :my_target
+    #         is a file containing several "--env=NAME=VALUE" flags. This reads
+    #         all such flags and produces an *-env-lines.txt file containing each
+    #         environment variable with the variable name followed by its value.
+    #         For instance, `--env=USER=john --env=HOME=/home/john` (content of :my_target)
+    #         gets converted to:
+    #         ```
+    #         USER
+    #         john
+    #         HOME
+    #         /home/john
+    #         ```
+    env_lines_file = ctx.actions.declare_output("{}-env-lines.txt".format(prefix))
+    cmd = cmd_args(
+        compile_ctx.internal_tools_info.write_env_lines_action,
+        cmd_args(env_lines_file.as_output(), format = "--outfile={}"),
+        cmd_args(env_flags),
+    )
+    ctx.actions.run(cmd, category = "write_env_lines_action", identifier = prefix)
+    env_flags_outfile = ctx.actions.declare_output("{}-env-flags.txt".format(prefix))
+
+    def parse_env_lines_file(ctx: AnalysisContext, artifacts, outputs):
+        # Step 2: Read *-env-lines.txt, then create a mapping from it. For instance
+        #         `{"USER": "john", "HOME": "/home/john"}`.
+        lines = artifacts[env_lines_file].read_string().strip().split("\n")
+        env_map = {k: v for k, v in zip(lines[:-1], lines[1:])}
+        # Step 3: Utilize 'process_env' to determine whether each environment variable
+        #         is "plain" or "with path", then produce an *-env-flags.txt file
+        #         containing environment variable flags suitable to pass to the
+        #         `_long_command` macro. For instance
+        #         ```
+        #         --env=USER=john
+        #         --path-env=HOME=/home/john
+        #         ```
+        plain_env, path_env = process_env(compile_ctx, env_map, exec_is_windows, escape_for_rustc_action)
+        cmd = cmd_args(
+            compile_ctx.internal_tools_info.write_env_flags_action,
+            cmd_args(outputs[env_flags_outfile].as_output(), format = "--outfile={}"),
+        )
+        for k, v in plain_env.items():
+            cmd.add(cmd_args("--env=", k, "=", v, delimiter = ""))
+        for k, v in path_env.items():
+            cmd.add(cmd_args("--path-env=", k, "=", v, delimiter = ""))
+        ctx.actions.run(cmd, category = "write_env_flags_action", identifier = prefix)
+
+    ctx.actions.dynamic_output(
+        dynamic = [env_lines_file],
+        inputs = [],
+        outputs = [env_flags_outfile.as_output()],
+        f = parse_env_lines_file
+    )
+    # Step 4: Return the Artifact referencing the *-env-flags.txt file.
+    return env_flags_outfile
 
 _DOUBLE_ESCAPED_NEWLINE_RE = regex("\\\\n")
 _ESCAPED_NEWLINE_RE = regex("\\n")

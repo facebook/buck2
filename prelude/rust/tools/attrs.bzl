@@ -22,6 +22,8 @@ _internal_tool_attrs = {
     "rustdoc_test_with_resources": _internal_tool("prelude//rust/tools:rustdoc_test_with_resources"),
     "symlink_only_dir_entry": _internal_tool("prelude//rust/tools:symlink_only_dir_entry"),
     "transitive_dependency_symlinks_tool": _internal_tool("prelude//rust/tools:transitive_dependency_symlinks"),
+    "write_env_flags_action": _internal_tool("prelude//rust/tools:write_env_flags_action"),
+    "write_env_lines_action": _internal_tool("prelude//rust/tools:write_env_lines_action"),
 }
 
 RustInternalToolsInfo = provider(fields = {
