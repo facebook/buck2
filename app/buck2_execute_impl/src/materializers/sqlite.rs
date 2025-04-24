@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_common::directory_metadata::DirectoryMetadata;
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
@@ -44,7 +45,6 @@ use parking_lot::Mutex;
 use rusqlite::Connection;
 
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
-use crate::materializers::deferred::artifact_tree::DirectoryMetadata;
 
 #[derive(Display, Allocative, Clone, From, PartialEq, Eq, Debug)]
 pub struct MaterializerStateIdentity(String);
@@ -911,16 +911,15 @@ mod tests {
         assert_eq!(artifacts, state.into_iter().collect::<HashMap<_, _>>());
     }
 
-    // Only implementing for tests, actual code should use `matches_entry` (and not check total_size)
-    impl PartialEq for DirectoryMetadata {
-        fn eq(&self, other: &DirectoryMetadata) -> bool {
-            self.fingerprint == other.fingerprint && self.total_size == other.total_size
-        }
-    }
-
     impl PartialEq for ArtifactMetadata {
         fn eq(&self, other: &ArtifactMetadata) -> bool {
-            self.0 == other.0
+            match (&self.0, &other.0) {
+                (DirectoryEntry::Dir(d1), DirectoryEntry::Dir(d2)) => {
+                    d1.fingerprint == d2.fingerprint && d1.total_size == d2.total_size
+                }
+                (DirectoryEntry::Leaf(l1), DirectoryEntry::Leaf(l2)) => l1 == l2,
+                (_, _) => false,
+            }
         }
     }
 

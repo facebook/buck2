@@ -28,6 +28,7 @@ pub mod client_utils;
 pub mod convert;
 pub mod daemon_dir;
 pub mod dice;
+pub mod directory_metadata;
 pub mod events;
 pub mod external_cells;
 pub mod external_symlink;

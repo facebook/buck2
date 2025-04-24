@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::directory_metadata::DirectoryMetadata;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_directory::directory::directory_ref::DirectoryRef;
@@ -101,26 +101,12 @@ impl Processing {
     }
 }
 
-/// Fingerprint used to identify `ActionSharedDirectory`. We give it an explicit
-/// alias because `TrackedFileDigest` can look confusing.
-pub type ActionDirectoryFingerprint = TrackedFileDigest;
-
 /// Metadata used to identify an artifact entry without all of its content. Stored on materialized
 /// artifacts to check matching artifact optimizations. For `ActionSharedDirectory`, we use its fingerprint,
 /// For everything else (files, symlinks, and external symlinks), we use `ActionDirectoryMember`
 /// as is because it already holds the metadata we need.
 #[derive(Clone, Dupe, Debug)]
 pub struct ArtifactMetadata(pub ActionDirectoryEntry<DirectoryMetadata>);
-
-#[derive(Clone, Dupe, Debug, Display)]
-#[display("DirectoryMetadata(digest:{},size:{})", fingerprint, total_size)]
-pub struct DirectoryMetadata {
-    pub fingerprint: ActionDirectoryFingerprint,
-    /// Size on disk, if the artifact is a directory.
-    /// Storing separately from ArtifactMetadata to avoid calculating when
-    /// checking matching artifacts.
-    pub total_size: u64,
-}
 
 impl ArtifactMetadata {
     pub fn matches_entry(&self, entry: &ActionDirectoryEntry<ActionSharedDirectory>) -> bool {
