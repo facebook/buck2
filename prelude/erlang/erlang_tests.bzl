@@ -215,6 +215,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         test_dir = output_dir,
         config_files = config_files,
         erl_cmd = primary_toolchain.otp_binaries.erl,
+        raw_target = str(ctx.label.raw_target()) if ctx.label else "",
     )
     cmd.add(test_info_file)
 
@@ -301,7 +302,8 @@ def _write_test_info_file(
         dependencies: ErlAppDependencies,
         test_dir: Artifact,
         config_files: list[Artifact],
-        erl_cmd: [cmd_args, Artifact]) -> Artifact:
+        erl_cmd: [cmd_args, Artifact],
+        raw_target: str) -> Artifact:
     dependency_paths = _list_code_paths(ctx, dependencies)
     tests_info = {
         "artifact_annotation_mfa": ctx.attrs._artifact_annotation_mfa,
@@ -313,6 +315,7 @@ def _write_test_info_file(
         "extra_ct_hooks": ctx.attrs.extra_ct_hooks,
         "extra_flags": ctx.attrs.extra_erl_flags,
         "providers": ctx.attrs._providers,
+        "raw_target": raw_target,
         "test_dir": test_dir,
         "test_suite": test_suite,
     }

@@ -60,7 +60,9 @@ run(Args) when is_list(Args) ->
                 ],
                 [file:consult(DotApp) || DotApp <- PotentialDotApp, filelib:is_regular(DotApp)],
                 {_, Suite} = lists:keyfind(suite, 1, CtExecutorArgs),
-                ProviderInitState = #init_provider_state{output_dir = OutputDir, suite = Suite},
+                {ok, RawTarget} = application:get_env(common, raw_target),
+
+                ProviderInitState = #init_provider_state{output_dir = OutputDir, suite = Suite, raw_target = RawTarget},
                 Providers0 =
                     case lists:keyfind(providers, 1, CtExecutorArgs) of
                         false ->

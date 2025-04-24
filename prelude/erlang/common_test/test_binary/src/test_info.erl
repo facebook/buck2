@@ -21,7 +21,8 @@ load_from_file(TestInfoFile) ->
         <<"erl_cmd">> := [ErlExec | ErlFlags],
         <<"extra_flags">> := ExtraFlags,
         <<"artifact_annotation_mfa">> := ArtifactAnnotationMFA,
-        <<"common_app_env">> := CommonAppEnv
+        <<"common_app_env">> := CommonAppEnv,
+        <<"raw_target">> := RawTarget
     } = json:decode(Content),
     Providers1 = buck_ct_parser:parse_str(Providers),
     CtOpts1 = make_ct_opts(
@@ -38,7 +39,8 @@ load_from_file(TestInfoFile) ->
         ct_opts = CtOpts1,
         erl_cmd = [make_path_absolute(ErlExec) | ErlFlags],
         extra_flags = ExtraFlags,
-        common_app_env = CommonAppEnv
+        common_app_env = CommonAppEnv,
+        raw_target = RawTarget
     }.
 
 -spec write_to_file(file:filename_all(), test_info()) -> ok | {error, Reason :: term()}.
@@ -52,7 +54,8 @@ write_to_file(FileName, TestInfo ) ->
         ct_opts = CtOpts,
         erl_cmd = [ErlCmd | ErlFlags],
         extra_flags = ExtraFlags,
-        common_app_env = CommonAppEnv
+        common_app_env = CommonAppEnv,
+        raw_target = RawTarget
     } = TestInfo,
     ErlTermToStr = fun(Term) -> list_to_binary(lists:flatten(io_lib:format("~p", [Term]))) end,
     Json = #{
@@ -66,7 +69,8 @@ write_to_file(FileName, TestInfo ) ->
         <<"erl_cmd">> => [try_make_path_relative(ErlCmd) | ErlFlags],
         <<"extra_flags">> => ExtraFlags,
         <<"artifact_annotation_mfa">> => ErlTermToStr(ArtifactAnnotationMFA),
-        <<"common_app_env">> => CommonAppEnv
+        <<"common_app_env">> => CommonAppEnv,
+        <<"raw_target">> => RawTarget
     },
     file:write_file(FileName, json:encode(Json)).
 

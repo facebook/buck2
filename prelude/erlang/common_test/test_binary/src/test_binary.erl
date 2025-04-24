@@ -114,7 +114,11 @@ get_listing(TestInfo, OutputDir) ->
     {ok, ProjectRoot} = file:get_cwd(),
     true = os:putenv("PROJECT_ROOT", ProjectRoot),
 
-    InitProviderState = #init_provider_state{output_dir = OutputDir, suite = Suite},
+    InitProviderState = #init_provider_state{
+        output_dir = OutputDir,
+        suite = Suite,
+        raw_target = TestInfo#test_info.raw_target
+    },
     Providers0 = [
         buck_ct_provider:do_init(Provider, InitProviderState)
      || Provider <- TestInfo#test_info.providers
