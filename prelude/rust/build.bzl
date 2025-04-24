@@ -1514,10 +1514,13 @@ def _rustc_invoke(
 
     toolchain_info = compile_ctx.toolchain_info
 
+    # Read and process ctx.attrs.env_flags, produce an *-env-flags.txt file
+    # contatining processed environment variable flags.
     env_flags_file = resolve_env_flags(ctx, compile_ctx, prefix, ctx.attrs.env_flags, exec_is_windows)
 
+    # Process environment variable flags from `ctx.attrs.env`
     plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
-
+    # Process environment variable flags from `env`
     more_plain_env, more_path_env = process_env(compile_ctx, env, exec_is_windows)
     plain_env.update(more_plain_env)
     path_env.update(more_path_env)
@@ -1537,7 +1540,9 @@ def _rustc_invoke(
 
     for k, v in crate_map:
         compile_cmd.add(crate_map_arg(k, v))
+    # Feed the environment variable flags in *-env-flags.txt to the command.
     compile_cmd.add(cmd_args(env_flags_file, format = "@{}"))
+    # Then feed environment variables from `ctx.attrs.env` and `env` to the command.
     for k, v in plain_env.items():
         compile_cmd.add(cmd_args("--env=", k, "=", v, delimiter = ""))
     for k, v in path_env.items():
@@ -1634,7 +1639,8 @@ def _long_command(
         ),
     )
 
-# TODO(yxdai-nju): docstring
+# Takes a list of environment flag as input. Returns an Artifact containing the
+# processed flags, suitable for `_long_command` macro (for rustc and rustdoc).
 def resolve_env_flags(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
