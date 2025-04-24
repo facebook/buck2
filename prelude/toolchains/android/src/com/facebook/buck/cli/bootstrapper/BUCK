@@ -15,7 +15,7 @@ buck_java_binary(
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/worker:",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/worker:",
         "toolchains//...",
-        "wa_android//buck2/toolchains/...",
+        # @oss-disable[end= ]: "wa_android//buck2/toolchains/...",
     ],
     deps = [
         ":bootstrapper_lib",
