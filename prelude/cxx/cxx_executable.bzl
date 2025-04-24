@@ -71,6 +71,7 @@ load(
     "get_lib_output_style",
     "make_link_command_debug_output",
     "make_link_command_debug_output_json_info",
+    "process_link_strategy_for_pic_behavior",
     "to_link_strategy",
 )
 load(
@@ -231,6 +232,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
     # The link style to use.
     link_strategy = to_link_strategy(cxx_attr_link_style(ctx))
+    link_strategy = process_link_strategy_for_pic_behavior(link_strategy, get_cxx_toolchain_info(ctx).pic_behavior)
 
     sub_targets = {}
 

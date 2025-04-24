@@ -37,6 +37,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStrategy",
+    "process_link_strategy_for_pic_behavior",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -111,6 +112,7 @@ def _rust_binary_common(
     simple_crate = attr_simple_crate_for_filenames(ctx)
 
     link_strategy = LinkStrategy(ctx.attrs.link_style) if ctx.attrs.link_style else DEFAULT_STATIC_LINK_STRATEGY
+    link_strategy = process_link_strategy_for_pic_behavior(link_strategy, compile_ctx.cxx_toolchain_info.pic_behavior)
 
     resources = flatten_dict(gather_resources(
         label = ctx.label,
