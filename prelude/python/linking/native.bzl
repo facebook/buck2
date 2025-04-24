@@ -65,7 +65,7 @@ load(
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//python:toolchain.bzl", "PackageStyle")
 load("@prelude//utils:argfile.bzl", "at_argfile")
-load(":native_python_util.bzl", "merge_cxx_extension_info", "reduce_cxx_extension_info")
+load(":native_python_util.bzl", "CxxExtensionLinkInfo", "CxxExtensionLinkInfoReduced", "merge_cxx_extension_info", "reduce_cxx_extension_info")  # @unused Used as a type
 
 def _get_root_link_group_specs(
         libs: list[LinkableProviders],
@@ -232,11 +232,7 @@ def _get_link_group_info(
 
     return (link_group_info, link_group_specs)
 
-def process_native_linking(ctx, deps, python_toolchain, extra, package_style, allow_cache_upload, extra_artifacts) -> (
-    list[(SharedLibrary, str)],
-    dict[str, (LinkedObject, Label)],
-    list[LinkArgs],
-):
+def _compute_cxx_extension_info(ctx, deps) -> (CxxExtensionLinkInfo, CxxExtensionLinkInfoReduced):
     executable_deps = ctx.attrs.executable_deps
     extension_info = merge_cxx_extension_info(
         ctx.actions,
@@ -245,6 +241,17 @@ def process_native_linking(ctx, deps, python_toolchain, extra, package_style, al
         shared_deps = ctx.attrs.deps + ctx.attrs.preload_deps,
     )
     extension_info_reduced = reduce_cxx_extension_info(extension_info)
+    return extension_info, extension_info_reduced
+
+def process_native_linking(ctx, deps, python_toolchain, extra, package_style, allow_cache_upload, extra_artifacts) -> (
+    list[(SharedLibrary, str)],
+    dict[str, (LinkedObject, Label)],
+    list[LinkArgs],
+):
+    extension_info, extension_info_reduced = _compute_cxx_extension_info(ctx, deps)
+
+    executable_deps = ctx.attrs.executable_deps
+
     inherited_preprocessor_info = cxx_inherited_preprocessor_infos(executable_deps)
 
     # Generate an additional C file as input
