@@ -90,7 +90,8 @@ public class CompileStrings {
 
   @VisibleForTesting
   public static final Pattern NON_ENGLISH_STRING_FILE_PATTERN =
-      Pattern.compile(".*res/values-([a-z]{2})(?:-r([A-Z]{2}))*/strings.xml");
+      Pattern.compile(
+          ".*res/values-(?:b\\+)*([a-z]{2})(?:-r([A-Z]{2}))*(?:\\+[a-zA-Z]{4})*/strings.xml");
 
   @VisibleForTesting
   public static final Pattern R_DOT_TXT_STRING_RESOURCE_PATTERN =
