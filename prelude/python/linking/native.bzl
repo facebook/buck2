@@ -35,8 +35,6 @@ load(
 load("@prelude//cxx:linker.bzl", "get_rpath_origin")
 load(
     "@prelude//cxx:preprocessor.bzl",
-    "CPreprocessor",
-    "CPreprocessorArgs",
     "cxx_inherited_preprocessor_infos",
 )
 load(
@@ -256,9 +254,6 @@ def _compute_cxx_executable_info(
         CxxSrcWithFlags(file = ctx.attrs.static_extension_utils, flags = []),
         CxxSrcWithFlags(file = static_extension_info_out, flags = []),
     ]
-    extra_preprocessors = []
-    if ctx.attrs.par_style == "native":
-        extra_preprocessors.append(CPreprocessor(args = CPreprocessorArgs(args = ["-DNATIVE_PAR_STYLE=1"])))
 
     # All deps inolved in the link.
     link_deps = (
@@ -295,7 +290,7 @@ def _compute_cxx_executable_info(
         srcs = cxx_executable_srcs,
         extra_binary_link_flags = extra_binary_link_flags,
         extra_link_flags = python_toolchain.linker_flags,
-        extra_preprocessors = extra_preprocessors,
+        extra_preprocessors = [],
         extra_preprocessors_info = inherited_preprocessor_info,
         extra_link_deps = link_deps,
         exe_shared_libs_link_tree = False,
