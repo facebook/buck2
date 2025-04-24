@@ -1,0 +1,35 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_kotlin_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+KOTLIN_VERSION = read_config("kotlin", "kotlin_version")
+
+# KSP2 is not available on pre Kotlin 2.0 versions, which are still used by AOSP builds
+NO_OP_FILES = ["Ksp2StepNoOp.kt"]
+
+buck_kotlin_library(
+    name = "ksp",
+    srcs = glob(["**/*.kt"]),
+    extra_kotlinc_arguments = ["-Xopt-in=kotlin.ExperimentalStdlibApi"],
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/...",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/kotlin/...",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/command/kotlin:language-version",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/core:core",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java:support",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics:analytics",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/util:util",
+        "prelude//toolchains/android/src/com/facebook/buck/step/isolatedsteps/common:common",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:kotlinx-coroutines-core-jvm",
+        "prelude//toolchains/android/third-party:symbol-processing-aa-embeddable",
+        "prelude//toolchains/android/third-party:symbol-processing-api",
+        "prelude//toolchains/android/third-party:symbol-processing-common-deps",
+    ],
+)

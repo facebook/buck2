@@ -1,0 +1,18 @@
+load("@prelude//kotlin/tools:defs.bzl", "kotlin_bootstrap_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+kotlin_bootstrap_library(
+    name = "common",
+    srcs = glob(["*.kt"]),
+    tests = [
+        "fbsource//fbandroid/javatests/com/facebook/kotlin/compilerplugins/kosabi/common:common",
+    ],
+    visibility = [
+        "fbsource//fbandroid/javatests/...",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/compilerplugins/...",
+    ],
+)

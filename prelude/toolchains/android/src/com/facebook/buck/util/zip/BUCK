@@ -1,0 +1,144 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library", "buck_prebuilt_artifact", "buck_prebuilt_jar")
+load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+JAR_BUILDER_MAIN_SRCS = [
+    "JarBuilderMain.java",
+]
+
+ZIP_SCRUBBER_SRCS = [
+    "ZipScrubber.java",
+    "ZipConstants.java",
+]
+
+buck_java_library(
+    name = "zip",
+    srcs = glob(
+        ["*.java"],
+        exclude = JAR_BUILDER_MAIN_SRCS + ZIP_SCRUBBER_SRCS,
+    ),
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/util/zip:zip",
+    ],
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem:filesystem",
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem/impl:utils",
+        "prelude//toolchains/android/src/com/facebook/buck/io/pathformat:pathformat",
+        "prelude//toolchains/android/src/com/facebook/buck/util/function:function",
+        "prelude//toolchains/android/src/com/facebook/buck/util/io:io",
+        "prelude//toolchains/android/src/com/facebook/buck/util/unarchive:unarchive",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jsr305",
+    ],
+    exported_deps = [
+        ":zip_scrubber_lib",
+    ],
+)
+
+buck_java_library(
+    name = "zip_scrubber_lib",
+    srcs = ZIP_SCRUBBER_SRCS,
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/src/com/facebook/buck/util/nio:nio",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+    ],
+)
+
+fb_native.alias(
+    name = "zip_scrubber",
+    actual = ":zip_scrubber_prebuilt",
+    visibility = ["PUBLIC"],
+)
+
+# This is a prebuilt jar so that it can be part of the buck2 bootstrap toolchain.
+# To rebuild the jar, do:
+# `buck build prelude//toolchains/android/src/com/facebook/buck/util/zip:zip_scrubber_main --out xplat/toolchains/android/sdk/src/com/facebook/buck/util/zip/zip_scrubber_main.jar`
+buck_prebuilt_jar(
+    name = "zip_scrubber_prebuilt",
+    _dex_toolchain = "toolchains//:empty_dex",
+    binary_jar = ":zip_scrubber_main.jar",
+    should_generate_snapshot = False,
+    visibility = ["PUBLIC"],
+)
+
+# To rebuild the jar and upload it to CAS, do:
+# buck build prelude//toolchains/android/src/com/facebook/buck/util/zip:zip_scrubber_main --show-simple-output | xargs frecli --use-case android_build_infra_tools cas upload-blob
+buck_prebuilt_artifact(
+    name = "zip_scrubber_main.jar",
+    # @oss-disable[end= ]: cas_digest = "9cec24a193a236fc5acdaff4fae66769f22c56af19c1e9204affad545d0ec7ab:10388458",
+    oss_sha1 = "23c85d8db2958ad502c1cd1eb3bbcd1342c37c7d",
+    oss_url = "https://github.com/facebook/buck2/releases/download/androidToolchain%2F2025-04-03/zip_scrubber_main.jar",
+)
+
+buck_java_binary(
+    name = "zip_scrubber_main",
+    main_class = "com.facebook.buck.util.zip.ZipScrubber",
+    visibility = ["PUBLIC"],
+    deps = [":zip_scrubber_lib"],
+)
+
+buck_java_library(
+    name = "jar_builder_main_lib",
+    srcs = JAR_BUILDER_MAIN_SRCS,
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java:remove_classes_patterns_matcher",
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        ":zip",
+    ],
+)
+
+fb_native.alias(
+    name = "jar_builder",
+    actual = ":jar_builder_prebuilt",
+    visibility = ["PUBLIC"],
+)
+
+# This is a prebuilt jar so that it can be part of the buck2 bootstrap toolchain.
+buck_prebuilt_jar(
+    name = "jar_builder_prebuilt",
+    _dex_toolchain = "toolchains//:empty_dex",
+    binary_jar = ":jar_builder_main.jar",
+    should_generate_snapshot = False,
+    visibility = ["PUBLIC"],
+)
+
+# To rebuild the jar and upload it to CAS, do:
+# buck build prelude//toolchains/android/src/com/facebook/buck/util/zip:jar_builder_main --show-simple-output | xargs frecli --use-case android_build_infra_tools cas upload-blob
+buck_prebuilt_artifact(
+    name = "jar_builder_main.jar",
+    # @oss-disable[end= ]: cas_digest = "8736eacdd6ac915a5e9a11cedd57d737286175c7c91dc974c14a9292b9c0eaa6:22163374",
+    oss_sha1 = "773465b2d6bd444c15c04dc4c9bc4e8ff81ed821",
+    oss_url = "https://github.com/facebook/buck2/releases/download/androidToolchain%2F2025-04-03/jar_builder_main.jar",
+)
+
+buck_java_binary(
+    name = "jar_builder_main",
+    main_class = "com.facebook.buck.util.zip.JarBuilderMain",
+    deps = [
+        ":jar_builder_main_lib",
+    ],
+)
+
+buck_java_binary(
+    name = "jar_diff",
+    main_class = "com.facebook.buck.util.zip.JarDiff",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":jar_builder_main_lib",
+    ],
+)

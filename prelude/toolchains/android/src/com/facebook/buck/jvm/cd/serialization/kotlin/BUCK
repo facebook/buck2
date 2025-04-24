@@ -1,0 +1,30 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "kotlin",
+    srcs = glob(["*.java"]),
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/cd/serialization/kotlin:kotlin",
+    ],
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/command/kotlin:command",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/...",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/cd/...",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
+        "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:kotlincd-model",
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/command/kotlin:language-version",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/command/kotlin:support",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/serialization:serialization",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/serialization/java:java",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java:support",
+        "prelude//toolchains/android/third-party:guava",
+    ],
+)

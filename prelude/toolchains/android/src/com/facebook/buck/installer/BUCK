@@ -1,0 +1,23 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_kotlin_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_kotlin_library(
+    name = "installer_server",
+    srcs = glob([
+        "*.java",
+        "*.kt",
+    ]),
+    visibility = [
+        "PUBLIC",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/installer/proto:installer-model",
+        "prelude//toolchains/android/src/com/facebook/buck/util/concurrent:concurrent",
+        "prelude//toolchains/android/src/com/facebook/buck/util/types:types",
+        "prelude//toolchains/android/third-party:grpc-netty-shaded",
+    ],
+)

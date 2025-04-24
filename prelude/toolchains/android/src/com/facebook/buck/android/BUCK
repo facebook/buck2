@@ -1,0 +1,139 @@
+load(
+    "@prelude//toolchains/android/tools:build_rules.bzl",
+    "buck_java_binary",
+    "buck_java_library",
+    "buck_kotlin_library",
+)
+load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+HELPERS_SRCS = [
+    "AdbHelper.java",
+    "AdbOptions.java",
+    "AdbExecutionContext.java",
+    "AndroidInstallPrinter.java",
+    "RetryingAndroidDevice.kt",
+    "exopackage/AndroidDeviceFactory.java",
+    "exopackage/ExoHelper.java",
+    "exopackage/DexExoHelper.java",
+    "exopackage/ExopackageAgent.java",
+    "exopackage/ExopackageInstaller.java",
+    "exopackage/ExopackageMode.java",
+    "exopackage/ExopackageUtil.java",
+    "exopackage/NativeExoHelper.java",
+    "exopackage/RealAndroidDevice.java",
+    "exopackage/RealAndroidDeviceFactory.java",
+    "exopackage/AdbUtils.kt",
+    "exopackage/AndroidDeviceImpl.kt",
+    "exopackage/AndroidDeviceFactoryImpl.kt",
+    "exopackage/ResourcesExoHelper.java",
+]
+
+fb_native.config_setting(
+    name = "use_adb_installer",
+    values = {
+        "android.use_adb_installer": "true",
+    },
+)
+
+buck_kotlin_library(
+    name = "helpers",
+    srcs = HELPERS_SRCS,
+    resources = select({
+        ":use_adb_installer": ["exopackage/resources-adb/META-INF/services/com.facebook.buck.android.exopackage.AndroidDeviceFactory"],
+        "DEFAULT": ["exopackage/resources/META-INF/services/com.facebook.buck.android.exopackage.AndroidDeviceFactory"],
+    }),
+    resources_root = select({
+        ":use_adb_installer": "exopackage/resources-adb",
+        "DEFAULT": "exopackage/resources",
+    }),
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/android:unit",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/android/agent/util:util",
+        "prelude//toolchains/android/src/com/facebook/buck/android/device:device",
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/installer/android:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem/impl:utils",
+        "prelude//toolchains/android/src/com/facebook/buck/io/pathformat:pathformat",
+        "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/src/com/facebook/buck/util/concurrent:concurrent",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:environment",
+        "prelude//toolchains/android/third-party:ddmlib",
+        "prelude//toolchains/android/third-party:kotlinx-coroutines-core-jvm",
+        "prelude//toolchains/android/third-party:zstd-jni",
+        ":manifest_utils",
+        ":utils_api",
+    ],
+    exported_deps = [
+    ],
+)
+
+MANIFEST_UTILS_SRCS = [
+    "AndroidManifestReader.java",
+    "AndroidManifestReaderExecutableMain.java",
+    "DefaultAndroidManifestReader.java",
+]
+
+buck_java_binary(
+    name = "manifest_utils_binary",
+    main_class = "com.facebook.buck.android.AndroidManifestReaderExecutableMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":manifest_utils",
+    ],
+)
+
+buck_java_library(
+    name = "manifest_utils",
+    srcs = MANIFEST_UTILS_SRCS,
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/android:unit",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/util/xml:xml",
+        "prelude//toolchains/android/third-party:args4j",
+    ],
+)
+
+UTILS_API_SRCS = [
+    "exopackage/AndroidDevicesHelper.java",
+    "exopackage/IsolatedExopackageInfo.kt",
+    "exopackage/AndroidDeviceInfo.kt",
+    "exopackage/AndroidDevice.java",
+    "exopackage/AndroidIntent.java",
+    "IsolatedApkInfo.java",
+    "exopackage/PackageInfo.java",
+]
+
+buck_kotlin_library(
+    name = "utils_api",
+    srcs = UTILS_API_SRCS,
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem:filesystem",
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
+        "prelude//toolchains/android/src/com/facebook/buck/util/xml:xml",
+        "prelude//toolchains/android/third-party:ddmlib",
+        "prelude//toolchains/android/third-party:guava",
+    ],
+)

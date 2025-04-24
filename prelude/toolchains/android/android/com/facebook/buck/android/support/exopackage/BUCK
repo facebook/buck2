@@ -1,0 +1,14 @@
+load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+fb_native.android_library(
+    name = "exopackage",
+    srcs = glob(["*.java"]),
+    visibility = [
+        "PUBLIC",
+    ],
+)

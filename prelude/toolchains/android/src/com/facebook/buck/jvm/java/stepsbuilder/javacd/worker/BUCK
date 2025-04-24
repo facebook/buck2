@@ -1,0 +1,23 @@
+load("@prelude//toolchains/android/tools/build_rules:worker.bzl", "worker")
+load("@prelude//utils:buckconfig.bzl", "read", "read_list")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+worker(
+    name = "javacd_grpc_worker_tool",
+    concurrency = 16,
+    exe = "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:javacd_tool",
+    jvm_args = read_list(
+        "javacd",
+        "jvm_args",
+        delimiter = " ",
+        required = False,
+    ) or [] if not read("javacd", "jvm_args_target") else [],
+    main_class = "com.facebook.buck.jvm.java.stepsbuilder.javacd.main.JavaCDGrpcWorkerToolMain",
+    visibility = [
+        "PUBLIC",
+    ],
+)

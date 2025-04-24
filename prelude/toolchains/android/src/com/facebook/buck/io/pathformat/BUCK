@@ -1,0 +1,17 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "pathformat",
+    srcs = glob(["*.java"]),
+    visibility = [
+        "PUBLIC",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+    ],
+)

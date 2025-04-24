@@ -1,0 +1,18 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "standard_java_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+standard_java_test(
+    name = "graph",
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/graph:graph",
+        "prelude//toolchains/android/src/com/facebook/buck/util/function:function",
+        "prelude//toolchains/android/src/com/facebook/buck/util/string:string",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:junit",
+    ],
+)

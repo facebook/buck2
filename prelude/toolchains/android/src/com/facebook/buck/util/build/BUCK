@@ -1,0 +1,30 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_kotlin_library")
+load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
+load("@prelude//toolchains/android/tools/build_rules:utils.bzl", "is_oss_build")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_kotlin_library(
+    name = "build",
+    srcs = [":build_config"],
+    visibility = ["PUBLIC"],
+)
+
+fb_native.export_file(
+    name = "build_config_template",
+    src = "ToolchainBuild.kt.template",
+)
+
+fb_native.genrule(
+    name = "build_config",
+    out = "BuildConfig.kt",
+    cmd = "$(exe :generate_build_config) $(location :build_config_template) {is_oss} > $OUT".format(is_oss = is_oss_build()),
+)
+
+fb_native.python_binary(
+    name = "generate_build_config",
+    main = "generate_build_config.py",
+)

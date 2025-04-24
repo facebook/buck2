@@ -1,0 +1,31 @@
+load(
+    "@prelude//toolchains/android/tools:build_rules.bzl",
+    "buck_kotlin_library",
+)
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_kotlin_library(
+    name = "core",
+    srcs = glob(
+        [
+            "*.java",
+            "*.kt",
+        ],
+    ),
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem:filesystem",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/serialization:serialization",
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
+        "prelude//toolchains/android/src/com/facebook/buck/util/unarchive:unarchive",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:infer-annotations",
+        "prelude//toolchains/android/third-party:jsr305",
+    ],
+)

@@ -1,0 +1,33 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library", "standard_java_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "testutil",
+    srcs = glob(
+        ["*.java"],
+        exclude = [
+            "*Test.java",
+        ],
+    ),
+    visibility = ["prelude//toolchains/android/test/..."],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        "prelude//toolchains/android/third-party:junit",
+    ],
+)
+
+standard_java_test(
+    name = "filesystems",
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jimfs",
+        "prelude//toolchains/android/third-party:junit",
+        ":testutil",
+    ],
+)

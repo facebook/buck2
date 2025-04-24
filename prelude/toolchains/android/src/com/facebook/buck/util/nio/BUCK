@@ -1,0 +1,20 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "nio",
+    srcs = glob(["*.java"]),
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/util/nio:nio",
+    ],
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/version/utils:utils",
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/third-party:guava",
+    ],
+)

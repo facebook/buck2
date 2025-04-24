@@ -1,0 +1,24 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "java",
+    srcs = glob(["*.java"]),
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/...",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/cd/serialization/...",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/serialization:serialization",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/serialization:util",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java:support",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/version:version",
+        "prelude//toolchains/android/third-party:guava",
+    ],
+)
