@@ -208,14 +208,10 @@ def _impl_example(ctx):
 
 `ctx.build` is synchronous and should only be used when the result of the build
 is needed inline during the bxl execution. To execute builds without blocking
-the script, retrieve the `DefaultInfo` from the target's providers and use the
-`ctx.output.ensure_multiple` api.
-
-Example:
-
-```python
-ctx.output.ensure_multiple(ctx.analysis(label).providers()[DefaultInfo])
-```
+the script, retrieve the outputs from `DefaultInfo` of the target's providers
+and use the `ctx.output.ensure/ensure_multiple` for the outputs. Or you can use
+the util function
+[`ensure_default_info`](../../../api/bxl_utils/ensure/#ensure_default_info)
 
 ## Accessing Unconfigured/Configured Target Node Attributes
 
