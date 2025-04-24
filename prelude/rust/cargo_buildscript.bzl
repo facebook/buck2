@@ -206,6 +206,7 @@ def buildscript_run(
         version,
         features = [],
         env = {},
+        manifest_dir = None,
         **kwargs):
     _cargo_buildscript_rule(
         name = name,
@@ -214,6 +215,6 @@ def buildscript_run(
         version = version,
         features = features,
         env = env,
-        manifest_dir = _create_manifest_dir_filegroup(package_name, version),
+        manifest_dir = manifest_dir or _create_manifest_dir_filegroup(package_name, version),
         **kwargs
     )
