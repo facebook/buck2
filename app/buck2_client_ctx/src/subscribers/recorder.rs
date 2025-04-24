@@ -1753,7 +1753,7 @@ impl EventSubscriber for InvocationRecorder {
         self.instant_command_is_success = Some(is_success);
     }
 
-    async fn handle_exit_result(&mut self, exit_result: &mut ExitResult) {
+    fn handle_exit_result(&mut self, exit_result: &ExitResult) {
         self.command_errors = exit_result.get_all_errors();
     }
 

@@ -9,7 +9,6 @@
 
 use async_trait::async_trait;
 
-use crate::exit_result::ExitResult;
 use crate::subscribers::subscriber::EventSubscriber;
 
 /// This console is what is used for `--console none` and only prints errors.
@@ -27,21 +26,10 @@ impl EventSubscriber for ErrorConsole {
             result: Some(buck2_cli_proto::command_result::Result::Error(error)),
         } = result
         {
-            print_error(&error.message)?;
+            crate::eprintln!("Command failed: ")?;
+            crate::eprintln!("{}", error.message)?;
         }
 
         Ok(())
     }
-
-    async fn handle_exit_result(&mut self, result: &mut ExitResult) {
-        if let Some(error) = result.get_error() {
-            result.handle_console_write(print_error(&format!("{:?}", error)));
-        }
-    }
-}
-
-fn print_error(error: &String) -> buck2_error::Result<()> {
-    crate::eprintln!("Command failed: ")?;
-    crate::eprintln!("{}", error)?;
-    Ok(())
 }

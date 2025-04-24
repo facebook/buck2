@@ -50,7 +50,6 @@ use superconsole::style::Stylize;
 use tokio::sync::mpsc::Receiver;
 
 use crate::console_interaction_stream::SuperConsoleToggle;
-use crate::exit_result::ExitResult;
 use crate::subscribers::emit_event::emit_event_if_relevant;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::EventSubscriber;
@@ -366,14 +365,6 @@ impl StatefulSuperConsole {
                 .extend(Lines::from_multiline_string(&e.message, style).0);
         }
         lines
-    }
-
-    pub fn render_error(error: &buck2_error::Error) -> Lines {
-        let style = ContentStyle {
-            foreground_color: Some(Color::DarkRed),
-            ..Default::default()
-        };
-        Lines::from_multiline_string(&format!("{:?}", &error), style)
     }
 
     async fn handle_event(&mut self, ev: &Arc<BuckEvent>) -> buck2_error::Result<()> {
@@ -803,13 +794,6 @@ impl StatefulSuperConsoleImpl {
         Ok(())
     }
 
-    async fn handle_exit_result(&mut self, result: &mut ExitResult) {
-        if let Some(error) = result.get_error() {
-            let lines = StatefulSuperConsole::render_error(&error);
-            self.super_console.emit(lines);
-        }
-    }
-
     fn finalize(self) -> (SuperConsoleState, Option<anyhow::Error>) {
         let err = self
             .super_console
@@ -866,19 +850,9 @@ impl EventSubscriber for StatefulSuperConsole {
             Self::Running(c) => c.handle_command_result(result).await?,
             Self::Finalized(c) => c.handle_command_result(result).await?,
         }
+        self.finalize()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
         Ok(())
-    }
-
-    async fn handle_exit_result(&mut self, exit_result: &mut ExitResult) {
-        match self {
-            Self::Running(c) => c.handle_exit_result(exit_result).await,
-            Self::Finalized(c) => c.handle_exit_result(exit_result).await,
-        }
-        let result = self
-            .finalize()
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole));
-
-        exit_result.handle_console_write(result);
     }
 
     async fn tick(&mut self, tick: &Tick) -> buck2_error::Result<()> {
@@ -889,6 +863,8 @@ impl EventSubscriber for StatefulSuperConsole {
     }
 
     async fn handle_error(&mut self, _error: &buck2_error::Error) -> buck2_error::Result<()> {
+        self.finalize()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
         Ok(())
     }
 }
