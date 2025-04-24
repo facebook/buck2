@@ -164,14 +164,7 @@ _cargo_buildscript_rule = rule(
     uses_plugins = [RustProcMacroPlugin],
 )
 
-def buildscript_run(
-        name,
-        buildscript_rule,
-        package_name,
-        version,
-        features = [],
-        env = {},
-        **kwargs):
+def _create_manifest_dir_filegroup(package_name, version):
     filegroup_name = "{}-{}.crate".format(package_name, version)
     if not rule_exists(filegroup_name):
         # For a buildscript executable to be able to access its crate's source
@@ -204,6 +197,16 @@ def buildscript_run(
             visibility = [],
         )
 
+    return ":{}-{}.crate".format(package_name, version)
+
+def buildscript_run(
+        name,
+        buildscript_rule,
+        package_name,
+        version,
+        features = [],
+        env = {},
+        **kwargs):
     _cargo_buildscript_rule(
         name = name,
         buildscript = buildscript_rule,
@@ -211,6 +214,6 @@ def buildscript_run(
         version = version,
         features = features,
         env = env,
-        manifest_dir = ":{}-{}.crate".format(package_name, version),
+        manifest_dir = _create_manifest_dir_filegroup(package_name, version),
         **kwargs
     )
