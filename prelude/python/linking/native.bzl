@@ -7,7 +7,7 @@
 
 load("@prelude//cxx:cxx.bzl", "create_shared_lib_link_group_specs")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
-load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
+load("@prelude//cxx:cxx_executable.bzl", "CxxExecutableOutput", "cxx_executable")
 load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags")
 load(
     "@prelude//cxx:cxx_types.bzl",
@@ -243,36 +243,14 @@ def _compute_cxx_extension_info(ctx, deps) -> (CxxExtensionLinkInfo, CxxExtensio
     extension_info_reduced = reduce_cxx_extension_info(extension_info)
     return extension_info, extension_info_reduced
 
-def process_native_linking(ctx, deps, python_toolchain, extra, package_style, allow_cache_upload, extra_artifacts) -> (
-    list[(SharedLibrary, str)],
-    dict[str, (LinkedObject, Label)],
-    list[LinkArgs],
-):
-    extension_info, extension_info_reduced = _compute_cxx_extension_info(ctx, deps)
-
-    executable_deps = ctx.attrs.executable_deps
-
-    inherited_preprocessor_info = cxx_inherited_preprocessor_infos(executable_deps)
-
-    # Generate an additional C file as input
-    static_extension_info_out = ctx.actions.declare_output("static_extension_info.cpp")
-    argfile = at_argfile(
-        actions = ctx.actions,
-        name = "generate_static_extension_info.argsfile",
-        args = cmd_args(
-            extension_info.set.project_as_args("python_module_names"),
-        ),
-    )
-    cmd = cmd_args()
-    cmd.add(cmd_args(python_toolchain.generate_static_extension_info[RunInfo]))
-    cmd.add(cmd_args(argfile))
-    cmd.add(cmd_args(static_extension_info_out.as_output(), format = "--output={}"))
-
-    # TODO we don't need to do this ...
-    ctx.actions.run(cmd, category = "generate_static_extension_info")
-
-    extra["static_extension_info"] = [DefaultInfo(default_output = static_extension_info_out)]
-
+def _compute_cxx_executable_info(
+        ctx,
+        extension_info_reduced,
+        static_extension_info_out,
+        inherited_preprocessor_info,
+        python_toolchain,
+        package_style,
+        allow_cache_upload) -> CxxExecutableOutput:
     cxx_executable_srcs = [
         CxxSrcWithFlags(file = ctx.attrs.cxx_main, flags = []),
         CxxSrcWithFlags(file = ctx.attrs.static_extension_utils, flags = []),
@@ -284,7 +262,7 @@ def process_native_linking(ctx, deps, python_toolchain, extra, package_style, al
 
     # All deps inolved in the link.
     link_deps = (
-        linkables(executable_deps + ctx.attrs.preload_deps) +
+        linkables(ctx.attrs.executable_deps + ctx.attrs.preload_deps) +
         extension_info_reduced.linkable_providers
     )
 
@@ -348,10 +326,49 @@ def process_native_linking(ctx, deps, python_toolchain, extra, package_style, al
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
-        error_handler = python_toolchain.python_error_handler,
     )
 
-    executable_info = cxx_executable(ctx, impl_params)
+    return cxx_executable(ctx, impl_params)
+
+def process_native_linking(ctx, deps, python_toolchain, extra, package_style, allow_cache_upload, extra_artifacts) -> (
+    list[(SharedLibrary, str)],
+    dict[str, (LinkedObject, Label)],
+    list[LinkArgs],
+):
+    extension_info, extension_info_reduced = _compute_cxx_extension_info(ctx, deps)
+
+    executable_deps = ctx.attrs.executable_deps
+
+    inherited_preprocessor_info = cxx_inherited_preprocessor_infos(executable_deps)
+
+    # Generate an additional C file as input
+    static_extension_info_out = ctx.actions.declare_output("static_extension_info.cpp")
+    argfile = at_argfile(
+        actions = ctx.actions,
+        name = "generate_static_extension_info.argsfile",
+        args = cmd_args(
+            extension_info.set.project_as_args("python_module_names"),
+        ),
+    )
+    cmd = cmd_args()
+    cmd.add(cmd_args(python_toolchain.generate_static_extension_info[RunInfo]))
+    cmd.add(cmd_args(argfile))
+    cmd.add(cmd_args(static_extension_info_out.as_output(), format = "--output={}"))
+
+    # TODO we don't need to do this ...
+    ctx.actions.run(cmd, category = "generate_static_extension_info")
+
+    extra["static_extension_info"] = [DefaultInfo(default_output = static_extension_info_out)]
+
+    executable_info = _compute_cxx_executable_info(
+        ctx,
+        extension_info_reduced,
+        static_extension_info_out,
+        inherited_preprocessor_info,
+        python_toolchain,
+        package_style,
+        allow_cache_upload,
+    )
     extra["native-executable"] = [DefaultInfo(default_output = executable_info.binary, sub_targets = executable_info.sub_targets)]
 
     # Add sub-targets for libs.
