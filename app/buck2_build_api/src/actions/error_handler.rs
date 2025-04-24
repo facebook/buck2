@@ -104,19 +104,25 @@ impl<'v> StarlarkValue<'v> for StarlarkActionErrorContext<'v> {
 /// categorizations should be finer grain, and most likely language specific.
 #[starlark_module]
 fn action_error_context_methods(builder: &mut MethodsBuilder) {
-    /// The stderr of the failed action.
+    /// Retrieve the stderr of the failed action.
+    /// Can use string/regex matching to identify the error in order to categorize it.
     #[starlark(attribute)]
     fn stderr<'v>(this: &'v StarlarkActionErrorContext) -> starlark::Result<&'v str> {
         Ok(&this.stderr)
     }
 
-    /// The stdout of the failed action.
+    /// Retrieve the stdout of the failed action.
+    /// Can use string/regex matching to identify the patterns in order to categorize it.
     #[starlark(attribute)]
     fn stdout<'v>(this: &'v StarlarkActionErrorContext) -> starlark::Result<&'v str> {
         Ok(&this.stdout)
     }
 
-    // The output artifacts of the failed action.
+    /// Allows the output artifacts to be retrieve if 'outputs_for_error_handler' is set and the output artifact exists.
+    /// This is useful for languages with structured error output, making the error retrieval process simpler.
+    ///
+    /// This is also the recommended way to retrieve file path and line number, as reliably extracting that information
+    /// from stdout/stderr can be challenging
     #[starlark(attribute)]
     fn output_artifacts<'v>(
         this: &'v StarlarkActionErrorContext<'v>,
@@ -148,6 +154,10 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
     /// among all errors for all languages/rules. For example, timeouts and infra errors
     /// should not go here - buck2 tries to categorize these types of errors automatically.
     /// An example of a finer grain error category may be the error code for rustc outputs.
+    ///
+    /// 'category': Required, useful for providing a more granular error category for action errors.
+    /// 'message': Optional, provide users with additional context about the error to help with debugging/understandability/resolution, etc.
+    /// 'locations': Optional, file path and line number of the error location, useful for external integration to highlight where the error is.
     ///
     /// The message will be emitted to the build report, and to the stderr in the error diagnostics
     /// section.
@@ -225,15 +235,15 @@ impl<'v> AllocValue<'v> for StarlarkActionErrorLocation {
 /// handler implementation
 #[starlark_module]
 fn action_error_location_methods(builder: &mut MethodsBuilder) {
-    /// The file of the error location. This is only needed for action error handler
-    /// unit testing.
+    /// Useful for external integration to highlight which file the error resides in.
+    /// Currently only used for action error handler unit testing.
     #[starlark(attribute)]
     fn file<'v>(this: &'v StarlarkActionErrorLocation) -> starlark::Result<&'v str> {
         Ok(&this.file)
     }
 
-    /// The line of the error location. This is only needed for action error handler
-    /// unit testing.
+    /// Useful for external integration to highlight which line the error resides in.
+    /// Currently only used for action error handler unit testing.
     #[starlark(attribute)]
     fn line<'v>(this: &'v StarlarkActionErrorLocation) -> starlark::Result<NoneOr<u64>> {
         Ok(NoneOr::from_option(this.line))
@@ -312,15 +322,15 @@ impl<'v> StarlarkValue<'v> for StarlarkActionSubError<'v> {
 /// handler implementation
 #[starlark_module]
 fn action_sub_error_methods(builder: &mut MethodsBuilder) {
-    /// The category name of this sub error. This function is only needed for action
-    /// error handler unit testing.
+    /// A more granular category for the action error.
+    /// Currently only used for action error handler unit testing.
     #[starlark(attribute)]
     fn category<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<&'v str> {
         Ok(&this.category)
     }
 
-    /// The optional message associated with this sub error.  This function is only
-    /// needed for action error handler unit testing.
+    /// An optional message to be displayed with the error, used to provide additoinal context
+    /// Currently only used for action error handler unit testing.
     #[starlark(attribute)]
     fn message<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<NoneOr<&'v str>> {
         Ok(match &this.message {
@@ -329,8 +339,8 @@ fn action_sub_error_methods(builder: &mut MethodsBuilder) {
         })
     }
 
-    /// Any locations associated with this sub error.  This function is only needed
-    /// for action error handler unit testing.
+    /// File/line information for the error, useful for external integration to highlight where the error resides
+    /// Currently only used for action error handler unit testing.
     #[starlark(attribute)]
     fn locations<'v>(
         this: &'v StarlarkActionSubError,
