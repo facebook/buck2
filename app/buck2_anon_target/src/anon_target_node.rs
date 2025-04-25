@@ -40,6 +40,7 @@ use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::strong_hasher::Blake3StrongHasher;
+use buck2_util::strong_hasher::USE_CORRECT_ANON_TARGETS_HASH;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
 use fxhash::FxHasher;
@@ -83,6 +84,7 @@ pub(crate) struct AnonTarget {
     partial_hash: String,
     /// The cached strong hash value - we do have to cache this, it's quite perf sensitive
     strong_hash: u64,
+    strong_hash_str: String,
     /// Cached hash value
     hash: u64,
 }
@@ -150,6 +152,7 @@ impl AnonTarget {
         exec_cfg.hash(&mut strong_hash);
         variant.hash(&mut strong_hash);
         let strong_hash = strong_hash.finish();
+        let strong_hash_str = format!("{:x}", strong_hash);
 
         AnonTarget {
             name,
@@ -160,6 +163,7 @@ impl AnonTarget {
             partial_hash,
             hash: full_hash,
             strong_hash,
+            strong_hash_str,
         }
     }
 
@@ -173,7 +177,11 @@ impl AnonTarget {
 
     /// The hash that is used in anon target artifact paths
     fn path_hash(&self) -> &str {
-        &self.partial_hash
+        if *USE_CORRECT_ANON_TARGETS_HASH.get().unwrap() {
+            &self.strong_hash_str
+        } else {
+            &self.partial_hash
+        }
     }
 
     pub(crate) fn exec_cfg(&self) -> &ConfigurationNoExec {

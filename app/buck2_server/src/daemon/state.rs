@@ -72,6 +72,7 @@ use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::ctx::LockedPreviousCommandData;
+use buck2_util::strong_hasher::USE_CORRECT_ANON_TARGETS_HASH;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use fbinit::FacebookInit;
@@ -457,6 +458,17 @@ impl DaemonState {
             };
             let disable_eager_write_dispatch =
                 deferred_materializer_configs.disable_eager_write_dispatch;
+
+            USE_CORRECT_ANON_TARGETS_HASH
+                .set(
+                    root_config
+                        .parse(BuckconfigKeyRef {
+                            section: "buck2",
+                            property: "use_correct_anon_targets_hash",
+                        })?
+                        .unwrap_or_default(),
+                )
+                .unwrap();
 
             let (io, _, (materializer_db, materializer_state)) = futures::future::try_join3(
                 create_io_provider(
