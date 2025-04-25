@@ -334,6 +334,10 @@ def compile_swift(
         exported_compiled_underlying_pcm = None
         private_compiled_underlying_pcm = None
 
+    # We always track inputs for dependency file tracking, but optionally set
+    # the tag on the action depending on the use_depsfiles config.
+    inputs_tag = ctx.actions.artifact_tag()
+
     shared_flags = _get_shared_flags(
         ctx,
         deps_providers,
@@ -384,6 +388,7 @@ def compile_swift(
             output_header,
             output_symbols,
             swift_framework_output,
+            inputs_tag,
             compile_swiftmodule_category,
         )
 
@@ -476,6 +481,7 @@ def _compile_swiftmodule(
         output_header: Artifact,
         output_symbols: Artifact | None,
         swift_framework_output: SwiftLibraryForDistributionOutput | None,
+        inputs_tag: ArtifactTag,
         category: str) -> CompileArgsfiles:
     if output_swiftinterface:
         # We compile the interface in two passes:
@@ -529,7 +535,6 @@ def _compile_swiftmodule(
         argfile_cmd = cmd_args(shared_flags)
         argfile_cmd.add([
             "-disable-cmo",
-            "-experimental-emit-module-separately",
             "-wmo",
         ])
 
@@ -564,6 +569,7 @@ def _compile_swiftmodule(
             ])
 
             # There is no driver flag to specify the swiftdoc output path
+            # TODO: use an output file map for this.
             cmd.add(cmd_args(hidden = swift_framework_output.swiftdoc.as_output()))
 
     output_tbd = None
@@ -576,7 +582,40 @@ def _compile_swiftmodule(
             output_tbd.as_output(),
         ])
 
-    ret = _compile_with_argsfile(ctx, category, SWIFTMODULE_EXTENSION, argfile_cmd, srcs, cmd, toolchain, num_threads = 1)
+    dep_files = {}
+    if toolchain.use_depsfiles:
+        # Dependency file output paths are only specifiable via output file maps.
+        dep_file = ctx.actions.declare_output("__depfiles__/" + ctx.attrs.name + "-swiftmodule.d").as_output()
+        tagged_dep_file = inputs_tag.tag_artifacts(dep_file)
+        output_file_map = {
+            "": {
+                "dependencies": cmd_args(tagged_dep_file, delimiter = ""),
+            },
+        }
+        output_file_map_json = ctx.actions.write_json(
+            ctx.attrs.name + "_swiftmodule_output_file_map.json",
+            output_file_map,
+            pretty = True,
+            with_inputs = True,
+        )
+        cmd.add([
+            "-emit-dependencies",
+            "-output-file-map",
+            output_file_map_json,
+        ])
+        dep_files["swiftmodule"] = inputs_tag
+
+    ret = _compile_with_argsfile(
+        ctx = ctx,
+        category_prefix = category,
+        extension = SWIFTMODULE_EXTENSION,
+        shared_flags = argfile_cmd,
+        srcs = srcs,
+        additional_flags = cmd,
+        toolchain = toolchain,
+        num_threads = 1,
+        dep_files = dep_files,
+    )
 
     if output_tbd != None:
         # Now we have run the TBD action we need to extract the symbols
@@ -696,7 +735,8 @@ def _compile_with_argsfile(
         toolchain: SwiftToolchainInfo,
         identifier: str | None = None,
         num_threads: int = 1,
-        cacheable: bool = True) -> CompileArgsfiles:
+        cacheable: bool = True,
+        dep_files: dict[str, ArtifactTag] = {}) -> CompileArgsfiles:
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
 
@@ -748,6 +788,7 @@ def _compile_with_argsfile(
         allow_cache_upload = allow_cache_upload,
         local_only = local_only,
         prefer_local = prefer_local,
+        dep_files = dep_files,
     )
 
     argsfile = CompileArgsfile(

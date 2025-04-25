@@ -9,6 +9,7 @@
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 
@@ -79,6 +80,35 @@ def _remove_swiftinterface_module_prefixes(command):
         f.seek(0)
         f.write(pattern.sub(replace_module_prefixes, interface))
         f.truncate()
+
+
+def _rewrite_dependency_file(command):
+    # The compiler will output d files in Makefile format with abolute paths,
+    # Buck expects line separated relative paths with no input prefix.
+    output_file_map_path = command[command.index("-output-file-map") + 1]
+    with open(output_file_map_path) as f:
+        output_file_map = json.load(f)
+
+    deps_file_path = output_file_map[""]["dependencies"]
+    with open(deps_file_path, encoding="utf-8") as f:
+        for line in f:
+            # We have multiple entries for the supplementary outputs of the
+            # compilation action. We only care about the swiftmodule file,
+            # we can drop the rest of the lines.
+            output, inputs = line.split(" : ")
+            if output.endswith(".swiftmodule"):
+                dependencies = shlex.split(inputs)
+                break
+
+    # Sanity check that we only track relative paths
+    for path in dependencies:
+        if path.startswith("/"):
+            print(f"Dependency file contains absolute path: {path}", file=sys.stderr)
+            sys.exit(1)
+
+    with open(deps_file_path, "w") as f:
+        f.write("\n".join(sorted(dependencies)))
+        f.write("\n")
 
 
 def main():
@@ -158,6 +188,10 @@ def main():
                 "Detected Swift compiler file write error but compiler exited with code 0, failing command..."
             )
             sys.exit(1)
+
+        # Rewrite .d files for the format that Buck requires.
+        if "-emit-dependencies" in command:
+            _rewrite_dependency_file(command)
 
     # https://github.com/swiftlang/swift/issues/56573
     if should_remove_module_prefixes:
