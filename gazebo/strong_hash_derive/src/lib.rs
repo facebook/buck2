@@ -27,7 +27,7 @@ pub fn derive_hash(input: TokenStream) -> TokenStream {
             quote! {
                 impl #impl_generics strong_hash::StrongHash for #name #type_generics #where_clause {
                     fn strong_hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
-                        #(StrongHash::strong_hash(&self.#members, state));*
+                        #(strong_hash::StrongHash::strong_hash(&self.#members, state));*
                     }
                 }
             }
@@ -48,8 +48,8 @@ pub fn derive_hash(input: TokenStream) -> TokenStream {
                                 .collect();
                             quote! {
                                 #name::#variant_name { #(#field_names),* } => {
-                                    StrongHash::strong_hash(#variant_name_str, state);
-                                    #(StrongHash::strong_hash(#field_names, state);)*
+                                    strong_hash::StrongHash::strong_hash(#variant_name_str, state);
+                                    #(strong_hash::StrongHash::strong_hash(#field_names, state);)*
                                 }
                             }
                         }
@@ -64,15 +64,15 @@ pub fn derive_hash(input: TokenStream) -> TokenStream {
                                 .collect();
                             quote! {
                                 #name::#variant_name(#(#vars),*) => {
-                                    StrongHash::strong_hash(#variant_name_str, state);
-                                    #(StrongHash::strong_hash(#vars, state);)*
+                                    strong_hash::StrongHash::strong_hash(#variant_name_str, state);
+                                    #(strong_hash::StrongHash::strong_hash(#vars, state);)*
                                 }
                             }
                         }
                         Fields::Unit => {
                             quote! {
                                 #name::#variant_name => {
-                                    StrongHash::strong_hash(#variant_name_str, state);
+                                    strong_hash::StrongHash::strong_hash(#variant_name_str, state);
                                 }
                             }
                         }
