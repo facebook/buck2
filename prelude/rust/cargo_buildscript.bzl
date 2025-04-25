@@ -18,7 +18,6 @@
 #     buildscript_genrule = "buildscript_run"
 #
 
-load("@prelude//:prelude.bzl", "native")
 load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
@@ -87,11 +86,16 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     out_dir = ctx.actions.declare_output("OUT_DIR", dir = True)
     rustc_flags = ctx.actions.declare_output("rustc_flags")
 
+    if ctx.attrs.manifest_dir != None:
+        manifest_dir = ctx.attrs.manifest_dir[DefaultInfo].default_outputs[0]
+    else:
+        manifest_dir = ctx.actions.symlinked_dir("manifest_dir", ctx.attrs.filegroup_for_manifest_dir)
+
     cmd = [
         ctx.attrs.runner[RunInfo],
         cmd_args("--buildscript=", ctx.attrs.buildscript[RunInfo], delimiter = ""),
         cmd_args("--rustc-cfg=", ctx.attrs.rustc_cfg[DefaultInfo].default_outputs[0], delimiter = ""),
-        cmd_args("--manifest-dir=", ctx.attrs.manifest_dir[DefaultInfo].default_outputs[0], delimiter = ""),
+        cmd_args("--manifest-dir=", manifest_dir, delimiter = ""),
         cmd_args("--create-cwd=", cwd.as_output(), delimiter = ""),
         cmd_args("--outfile=", rustc_flags.as_output(), delimiter = ""),
     ]
@@ -149,7 +153,8 @@ _cargo_buildscript_rule = rule(
         "buildscript": attrs.exec_dep(providers = [RunInfo]),
         "env": attrs.dict(key = attrs.string(), value = attrs.arg()),
         "features": attrs.list(attrs.string()),
-        "manifest_dir": attrs.dep(),
+        "filegroup_for_manifest_dir": attrs.option(attrs.dict(key = attrs.string(), value = attrs.source()), default = None),
+        "manifest_dir": attrs.option(attrs.dep(), default = None),
         "package_name": attrs.string(),
         "runner": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//rust/tools:buildscript_run")),
         # *IMPORTANT* rustc_cfg must be a `dep` and not an `exec_dep` because
@@ -164,41 +169,6 @@ _cargo_buildscript_rule = rule(
     uses_plugins = [RustProcMacroPlugin],
 )
 
-def _create_manifest_dir_filegroup(package_name, version):
-    filegroup_name = "{}-{}.crate".format(package_name, version)
-    if not rule_exists(filegroup_name):
-        # For a buildscript executable to be able to access its crate's source
-        # files, we need a filegroup target referring to the source files. For
-        # downloaded crates.io dependencies, Reindeer already creates such
-        # targets with the `http_archive` rule. But in other cases:
-        #
-        #   - local crates (`my_crate = { path = "path/to/my_crate" }`), and workspace
-        #     member when using Reindeer in `include_workspace_members = true` mode;
-        #
-        #   - git patches (`my_crate = { git = "https://..." }`);
-        #
-        #   - vendored crates (when using Reindeer in `vendor = true` mode),
-        #
-        # no filegroup target will be explicitly stated in the generated BUCK
-        # file.
-        #
-        # The first two cases are handled in @prelude//rust:cargo_package.bzl.
-        # Here handles the third case (vendored crates).
-        prefix = "vendor/{}-{}".format(package_name, version)
-        prefix_with_trailing_slash = "{}/".format(prefix)
-
-        native.filegroup(
-            name = filegroup_name,
-            srcs = {
-                path.removeprefix(prefix_with_trailing_slash): path
-                for path in glob(["{}/**".format(prefix)])
-            },
-            copy = False,
-            visibility = [],
-        )
-
-    return ":{}-{}.crate".format(package_name, version)
-
 def buildscript_run(
         name,
         buildscript_rule,
@@ -206,8 +176,27 @@ def buildscript_run(
         version,
         features = [],
         env = {},
+        # target or subtarget containing crate, e.g. ":serde.git[serde]"
         manifest_dir = None,
         **kwargs):
+    # path to crate's directory in source tree, e.g. "vendor/serde-1.0.100"
+    local_manifest_dir = None
+
+    if manifest_dir == None:
+        existing_filegroup_name = "{}-{}.crate".format(package_name, version)
+        if rule_exists(existing_filegroup_name):
+            manifest_dir = ":{}".format(existing_filegroup_name)
+        else:
+            local_manifest_dir = "vendor/{}-{}".format(package_name, version)
+
+    filegroup_for_manifest_dir = None
+    if local_manifest_dir != None:
+        prefix_with_trailing_slash = "{}/".format(local_manifest_dir)
+        filegroup_for_manifest_dir = {
+            path.removeprefix(prefix_with_trailing_slash): path
+            for path in glob(["{}/**".format(local_manifest_dir)])
+        }
+
     _cargo_buildscript_rule(
         name = name,
         buildscript = buildscript_rule,
@@ -215,6 +204,7 @@ def buildscript_run(
         version = version,
         features = features,
         env = env,
-        manifest_dir = manifest_dir or _create_manifest_dir_filegroup(package_name, version),
+        filegroup_for_manifest_dir = filegroup_for_manifest_dir,
+        manifest_dir = manifest_dir,
         **kwargs
     )
