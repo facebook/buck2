@@ -282,12 +282,12 @@ impl<'v> Value<'v> {
 
     #[inline]
     pub(crate) unsafe fn new_ptr_usize_with_str_tag(x: usize) -> Self {
-        Self(Pointer::new_unfrozen_usize_with_str_tag(x))
+        unsafe { Self(Pointer::new_unfrozen_usize_with_str_tag(x)) }
     }
 
     #[inline]
     pub(crate) unsafe fn cast_lifetime<'w>(self) -> Value<'w> {
-        Value(self.0.cast_lifetime())
+        unsafe { Value(self.0.cast_lifetime()) }
     }
 
     /// Create a new `None` value.
@@ -347,8 +347,10 @@ impl<'v> Value<'v> {
 
     #[inline]
     unsafe fn unpack_frozen_unchecked(self) -> FrozenValue {
-        debug_assert!(!self.0.is_unfrozen());
-        FrozenValue(self.0.cast_lifetime().to_frozen_pointer_unchecked())
+        unsafe {
+            debug_assert!(!self.0.is_unfrozen());
+            FrozenValue(self.0.cast_lifetime().to_frozen_pointer_unchecked())
+        }
     }
 
     /// Is this value `None`.
@@ -502,13 +504,15 @@ impl<'v> Value<'v> {
     #[inline]
     pub(crate) unsafe fn downcast_ref_unchecked<T: StarlarkValue<'v>>(self) -> &'v T {
         debug_assert!(self.get_ref().downcast_ref::<T>().is_some());
-        if PointerI32::type_is_pointer_i32::<T>() {
-            transmute!(&PointerI32, &T, self.0.unpack_pointer_i32_unchecked())
-        } else {
-            self.0
-                .unpack_ptr_no_int_unchecked()
-                .unpack_header_unchecked()
-                .payload()
+        unsafe {
+            if PointerI32::type_is_pointer_i32::<T>() {
+                transmute!(&PointerI32, &T, self.0.unpack_pointer_i32_unchecked())
+            } else {
+                self.0
+                    .unpack_ptr_no_int_unchecked()
+                    .unpack_header_unchecked()
+                    .payload()
+            }
         }
     }
 
@@ -610,12 +614,12 @@ impl<'v> Value<'v> {
 
     /// `x * other`.
     pub fn mul(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
-        if let Some(r) = self.get_ref().mul(other, heap) {
-            r
-        } else if let Some(r) = other.get_ref().rmul(self, heap) {
-            r
-        } else {
-            ValueError::unsupported_owned(self.get_type(), "*", Some(other.get_type()))
+        match self.get_ref().mul(other, heap) {
+            Some(r) => r,
+            _ => match other.get_ref().rmul(self, heap) {
+                Some(r) => r,
+                _ => ValueError::unsupported_owned(self.get_type(), "*", Some(other.get_type())),
+            },
         }
     }
 
@@ -824,12 +828,12 @@ impl<'v> Value<'v> {
             }
         }
 
-        if let Some(v) = self.get_ref().add(other, heap) {
-            v
-        } else if let Some(v) = other.get_ref().radd(self, heap) {
-            v
-        } else {
-            ValueError::unsupported_owned(self.get_type(), "+", Some(other.get_type()))
+        match self.get_ref().add(other, heap) {
+            Some(v) => v,
+            _ => match other.get_ref().radd(self, heap) {
+                Some(v) => v,
+                _ => ValueError::unsupported_owned(self.get_type(), "+", Some(other.get_type())),
+            },
         }
     }
 

@@ -164,7 +164,11 @@ impl Context {
         module
     }
 
-    fn go(&self, file: &str, ast: AstModule) -> EvalResult<impl Iterator<Item = EvalMessage>> {
+    fn go(
+        &self,
+        file: &str,
+        ast: AstModule,
+    ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<>> {
         let mut warnings = Either::Left(iter::empty());
         let mut errors = Either::Left(iter::empty());
         let final_ast = match self.mode {
@@ -184,10 +188,10 @@ impl Context {
     }
 
     // Convert a result over iterator of EvalMessage, into an iterator of EvalMessage
-    fn err(
+    fn err<T: Iterator<Item = EvalMessage>>(
         file: &str,
-        result: starlark::Result<EvalResult<impl Iterator<Item = EvalMessage>>>,
-    ) -> EvalResult<impl Iterator<Item = EvalMessage>> {
+        result: starlark::Result<EvalResult<T>>,
+    ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<T>> {
         match result {
             Err(e) => EvalResult {
                 messages: Either::Left(iter::once(EvalMessage::from_error(Path::new(file), &e))),
@@ -203,7 +207,7 @@ impl Context {
     pub(crate) fn expression(
         &self,
         content: String,
-    ) -> EvalResult<impl Iterator<Item = EvalMessage>> {
+    ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<>> {
         let file = "expression";
         Self::err(
             file,
@@ -213,7 +217,10 @@ impl Context {
         )
     }
 
-    pub(crate) fn file(&self, file: &Path) -> EvalResult<impl Iterator<Item = EvalMessage>> {
+    pub(crate) fn file(
+        &self,
+        file: &Path,
+    ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<>> {
         let filename = &file.to_string_lossy();
         Self::err(
             filename,
@@ -227,7 +234,7 @@ impl Context {
         &self,
         filename: &str,
         content: String,
-    ) -> EvalResult<impl Iterator<Item = EvalMessage>> {
+    ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<>> {
         Self::err(
             filename,
             AstModule::parse(filename, content, &self.dialect)
@@ -236,7 +243,11 @@ impl Context {
         )
     }
 
-    fn run(&self, file: &str, ast: AstModule) -> EvalResult<impl Iterator<Item = EvalMessage>> {
+    fn run(
+        &self,
+        file: &str,
+        ast: AstModule,
+    ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<>> {
         let new_module;
         let module = match self.module.as_ref() {
             Some(module) => module,
@@ -270,7 +281,7 @@ impl Context {
             .any(|rule| rule.is_suppressed(file, issue))
     }
 
-    fn check(&self, file: &str, module: &AstModule) -> impl Iterator<Item = EvalMessage> {
+    fn check(&self, file: &str, module: &AstModule) -> impl Iterator<Item = EvalMessage> + use<> {
         let globals = if self.prelude.is_empty() {
             None
         } else {

@@ -133,8 +133,10 @@ impl StmtCompiledCell {
 
     /// This function is unsafe if other thread is executing the stmt.
     unsafe fn set(&self, value: Bc) {
-        ptr::drop_in_place(self.cell.get());
-        ptr::write(self.cell.get(), value);
+        unsafe {
+            ptr::drop_in_place(self.cell.get());
+            ptr::write(self.cell.get(), value);
+        }
     }
 
     fn get(&self) -> &Bc {

@@ -151,7 +151,7 @@ impl<'v> StringValue<'v> {
 
     #[inline]
     pub(crate) unsafe fn cast_lifetime<'w>(self) -> StringValue<'w> {
-        StringValue::new_unchecked(self.to_value().cast_lifetime())
+        unsafe { StringValue::new_unchecked(self.to_value().cast_lifetime()) }
     }
 }
 

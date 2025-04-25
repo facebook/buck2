@@ -107,7 +107,7 @@ impl TypecheckProfile {
         *self.by_function.entry(function.get_hashed()).or_default() += time;
     }
 
-    pub(crate) fn gen(&self) -> crate::Result<ProfileData> {
+    pub(crate) fn r#gen(&self) -> crate::Result<ProfileData> {
         if !self.enabled {
             return Err(crate::Error::new_other(TypecheckProfileError::NotEnabled));
         }
@@ -161,7 +161,7 @@ g()
         eval.enable_profile(&ProfileMode::Typecheck)?;
         eval.eval_module(program, &Globals::extended_internal())?;
 
-        let csv = eval.typecheck_profile.gen()?.gen_csv()?;
+        let csv = eval.typecheck_profile.r#gen()?.gen_csv()?;
         let lines: Vec<&str> = csv.lines().collect();
         assert_eq!("Function,Time (s)", lines[0]);
         assert!(lines[1].starts_with("\"TOTAL\","), "{:?}", lines[1]);

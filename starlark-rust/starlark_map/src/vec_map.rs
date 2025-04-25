@@ -115,16 +115,20 @@ impl<K, V> VecMap<K, V> {
 
     #[inline]
     pub(crate) unsafe fn get_unchecked(&self, index: usize) -> (Hashed<&K>, &V) {
-        debug_assert!(index < self.buckets.len());
-        let ((key, value), hash) = self.buckets.get_unchecked(index);
-        (Hashed::new_unchecked(*hash, key), value)
+        unsafe {
+            debug_assert!(index < self.buckets.len());
+            let ((key, value), hash) = self.buckets.get_unchecked(index);
+            (Hashed::new_unchecked(*hash, key), value)
+        }
     }
 
     #[inline]
     pub(crate) unsafe fn get_unchecked_mut(&mut self, index: usize) -> (Hashed<&K>, &mut V) {
-        debug_assert!(index < self.buckets.len());
-        let ((key, value), hash) = self.buckets.get_unchecked_mut(index);
-        (Hashed::new_unchecked(*hash, key), value)
+        unsafe {
+            debug_assert!(index < self.buckets.len());
+            let ((key, value), hash) = self.buckets.get_unchecked_mut(index);
+            (Hashed::new_unchecked(*hash, key), value)
+        }
     }
 
     #[inline]

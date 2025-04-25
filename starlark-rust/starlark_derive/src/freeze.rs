@@ -135,7 +135,7 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
 
     let body = freeze_impl(input.input)?;
 
-    let gen = syn::parse_quote_spanned! {
+    let r#gen = syn::parse_quote_spanned! {
         span=>
         impl #impl_params starlark::values::Freeze for #name #input_params #bounds_body {
             type Frozen = #name #output_params;
@@ -148,7 +148,7 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
         }
     };
 
-    Ok(gen)
+    Ok(r#gen)
 }
 
 syn::custom_keyword!(identity);

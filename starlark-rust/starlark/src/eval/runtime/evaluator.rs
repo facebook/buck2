@@ -350,24 +350,24 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         match mode {
             ProfileMode::HeapAllocated => self
                 .heap_profile
-                .gen(self.heap(), HeapProfileFormat::FlameGraphAndSummary),
+                .r#gen(self.heap(), HeapProfileFormat::FlameGraphAndSummary),
             ProfileMode::HeapSummaryAllocated => self
                 .heap_profile
-                .gen(self.heap(), HeapProfileFormat::Summary),
+                .r#gen(self.heap(), HeapProfileFormat::Summary),
             ProfileMode::HeapFlameAllocated => self
                 .heap_profile
-                .gen(self.heap(), HeapProfileFormat::FlameGraph),
+                .r#gen(self.heap(), HeapProfileFormat::FlameGraph),
             ProfileMode::HeapSummaryRetained
             | ProfileMode::HeapFlameRetained
             | ProfileMode::HeapRetained => Err(crate::Error::new_other(
                 EvaluatorError::RetainedMemoryProfilingCannotBeObtainedFromEvaluator,
             )),
-            ProfileMode::Statement => self.stmt_profile.gen(),
+            ProfileMode::Statement => self.stmt_profile.r#gen(),
             ProfileMode::Coverage => self.stmt_profile.gen_coverage(),
             ProfileMode::Bytecode => self.gen_bc_profile(),
             ProfileMode::BytecodePairs => self.gen_bc_pairs_profile(),
-            ProfileMode::TimeFlame => self.time_flame_profile.gen(),
-            ProfileMode::Typecheck => self.typecheck_profile.gen(),
+            ProfileMode::TimeFlame => self.time_flame_profile.r#gen(),
+            ProfileMode::Typecheck => self.typecheck_profile.r#gen(),
             ProfileMode::None => Ok(ProfileData {
                 profile: ProfileDataImpl::None,
             }),
@@ -722,28 +722,30 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     /// and using them will lead to a segfault.
     /// Do not call during Starlark evaluation.
     pub unsafe fn garbage_collect(&mut self) {
-        if self.verbose_gc {
-            eprintln!(
-                "Starlark: allocated bytes: {}, starting GC...",
-                self.heap().allocated_bytes()
-            );
-        }
+        unsafe {
+            if self.verbose_gc {
+                eprintln!(
+                    "Starlark: allocated bytes: {}, starting GC...",
+                    self.heap().allocated_bytes()
+                );
+            }
 
-        self.stmt_profile
-            .before_stmt(rust_loc!().span.file_span_ref());
+            self.stmt_profile
+                .before_stmt(rust_loc!().span.file_span_ref());
 
-        self.time_flame_profile
-            .record_call_enter(const_frozen_string!("GC").to_value());
+            self.time_flame_profile
+                .record_call_enter(const_frozen_string!("GC").to_value());
 
-        self.heap().garbage_collect(|tracer| self.trace(tracer));
+            self.heap().garbage_collect(|tracer| self.trace(tracer));
 
-        self.time_flame_profile.record_call_exit();
+            self.time_flame_profile.record_call_exit();
 
-        if self.verbose_gc {
-            eprintln!(
-                "Starlark: GC complete. Allocated bytes: {}.",
-                self.heap().allocated_bytes()
-            );
+            if self.verbose_gc {
+                eprintln!(
+                    "Starlark: GC complete. Allocated bytes: {}.",
+                    self.heap().allocated_bytes()
+                );
+            }
         }
     }
 

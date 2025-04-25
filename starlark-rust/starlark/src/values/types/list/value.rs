@@ -136,9 +136,11 @@ impl<'v> ListData<'v> {
     }
 
     pub(crate) unsafe fn from_value_unchecked_mut(x: Value<'v>) -> &'v Self {
-        let list = x.downcast_ref_unchecked::<ListGen<ListData<'v>>>();
-        debug_assert!(list.0.check_can_mutate().is_ok());
-        &list.0
+        unsafe {
+            let list = x.downcast_ref_unchecked::<ListGen<ListData<'v>>>();
+            debug_assert!(list.0.check_can_mutate().is_ok());
+            &list.0
+        }
     }
 
     pub(crate) fn is_list_type(x: TypeId) -> bool {
@@ -510,19 +512,21 @@ where
     }
 
     unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
-        Ok(self.0.new_iter(me))
+        unsafe { Ok(self.0.new_iter(me)) }
     }
 
     unsafe fn iter_size_hint(&self, index: usize) -> (usize, Option<usize>) {
-        self.0.iter_size_hint(index)
+        unsafe { self.0.iter_size_hint(index) }
     }
 
     unsafe fn iter_next(&self, index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
-        self.0.iter_next(index)
+        unsafe { self.0.iter_next(index) }
     }
 
     unsafe fn iter_stop(&self) {
-        self.0.iter_stop();
+        unsafe {
+            self.0.iter_stop();
+        }
     }
 
     fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {

@@ -78,14 +78,18 @@ impl<A, B> Vec2Layout<A, B> {
     }
 
     unsafe fn alloc(&self) -> NonNull<B> {
-        let ptr: *mut u8 = alloc::alloc(self.layout);
-        let bbb_ptr: *mut B = ptr.add(self.offset_of_bbb).cast();
-        NonNull::new_unchecked(bbb_ptr)
+        unsafe {
+            let ptr: *mut u8 = alloc::alloc(self.layout);
+            let bbb_ptr: *mut B = ptr.add(self.offset_of_bbb).cast();
+            NonNull::new_unchecked(bbb_ptr)
+        }
     }
 
     unsafe fn dealloc(&self, bbb_ptr: NonNull<B>) {
-        let ptr: *mut u8 = bbb_ptr.as_ptr().cast::<u8>().sub(self.offset_of_bbb);
-        alloc::dealloc(ptr, self.layout)
+        unsafe {
+            let ptr: *mut u8 = bbb_ptr.as_ptr().cast::<u8>().sub(self.offset_of_bbb);
+            alloc::dealloc(ptr, self.layout)
+        }
     }
 }
 
@@ -250,20 +254,26 @@ impl<A, B> Vec2<A, B> {
 
     #[inline]
     unsafe fn dealloc_impl(data: NonNull<B>, cap: usize) {
-        if cap != 0 {
-            Vec2Layout::<A, B>::new(cap).dealloc(data);
+        unsafe {
+            if cap != 0 {
+                Vec2Layout::<A, B>::new(cap).dealloc(data);
+            }
         }
     }
 
     /// Deallocate, but do not call destructors.
     #[inline]
     unsafe fn dealloc(&mut self) {
-        Self::dealloc_impl(self.bbb_ptr, self.cap);
+        unsafe {
+            Self::dealloc_impl(self.bbb_ptr, self.cap);
+        }
     }
 
     unsafe fn drop_in_place(&mut self) {
-        ptr::drop_in_place::<[A]>(self.aaa_mut());
-        ptr::drop_in_place::<[B]>(self.bbb_mut());
+        unsafe {
+            ptr::drop_in_place::<[A]>(self.aaa_mut());
+            ptr::drop_in_place::<[B]>(self.bbb_mut());
+        }
     }
 
     /// Push an element.
@@ -291,11 +301,13 @@ impl<A, B> Vec2<A, B> {
     /// Get an element reference by index skipping bounds check.
     #[inline]
     pub unsafe fn get_unchecked(&self, index: usize) -> (&A, &B) {
-        debug_assert!(index < self.len);
-        (
-            self.aaa().get_unchecked(index),
-            self.bbb().get_unchecked(index),
-        )
+        unsafe {
+            debug_assert!(index < self.len);
+            (
+                self.aaa().get_unchecked(index),
+                self.bbb().get_unchecked(index),
+            )
+        }
     }
 
     /// Get an element mutable reference by index.
@@ -311,17 +323,21 @@ impl<A, B> Vec2<A, B> {
     /// Get an element mutable reference by index.
     #[inline]
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> (&mut A, &mut B) {
-        debug_assert!(index < self.len);
-        let k_ptr = self.aaa_ptr().as_ptr();
-        let v_ptr = self.bbb_ptr().as_ptr();
-        (&mut *k_ptr.add(index), &mut *v_ptr.add(index))
+        unsafe {
+            debug_assert!(index < self.len);
+            let k_ptr = self.aaa_ptr().as_ptr();
+            let v_ptr = self.bbb_ptr().as_ptr();
+            (&mut *k_ptr.add(index), &mut *v_ptr.add(index))
+        }
     }
 
     #[inline]
     unsafe fn read(&self, index: usize) -> (A, B) {
-        debug_assert!(index < self.len);
-        let (a, b) = self.get_unchecked(index);
-        (ptr::read(a), ptr::read(b))
+        unsafe {
+            debug_assert!(index < self.len);
+            let (a, b) = self.get_unchecked(index);
+            (ptr::read(a), ptr::read(b))
+        }
     }
 
     /// Remove an element by index.

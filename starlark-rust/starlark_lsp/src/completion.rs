@@ -78,7 +78,7 @@ impl<T: LspContext> Backend<T> {
         line: u32,
         character: u32,
         workspace_root: Option<&Path>,
-    ) -> impl Iterator<Item = CompletionItem> + '_ {
+    ) -> impl Iterator<Item = CompletionItem> + '_ + use<'_, T> {
         let cursor_position = ResolvedPos {
             line: line as usize,
             column: character as usize,
@@ -200,7 +200,7 @@ impl<T: LspContext> Backend<T> {
         document_uri: &LspUrl,
         previously_used_named_parameters: &[String],
         workspace_root: Option<&Path>,
-    ) -> impl Iterator<Item = CompletionItem> {
+    ) -> impl Iterator<Item = CompletionItem> + use<T> {
         match document.find_definition_at_location(
             function_name_span.begin.line as u32,
             function_name_span.begin.column as u32,

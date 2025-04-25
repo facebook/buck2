@@ -541,10 +541,10 @@ where
 #[macro_export]
 macro_rules! smallset {
     (@single $($x:tt)*) => (());
-    (@count $($rest:expr),*) => (<[()]>::len(&[$(smallset!(@single $rest)),*]));
+    (@count $($rest:expr_2021),*) => (<[()]>::len(&[$(smallset!(@single $rest)),*]));
 
-    ($($key:expr,)+) => { smallset!($($key),+) };
-    ($($key:expr),*) => {
+    ($($key:expr_2021,)+) => { smallset!($($key),+) };
+    ($($key:expr_2021),*) => {
         {
             let cap = smallset!(@count $($key),*);
             let mut set = $crate::small_set::SmallSet::with_capacity(cap);

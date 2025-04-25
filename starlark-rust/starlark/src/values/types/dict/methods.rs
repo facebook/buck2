@@ -324,20 +324,23 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
 
         let mut this = DictMut::from_value(this)?;
         if let Some(pairs) = pairs {
-            if let Some(dict) = DictRef::from_value(pairs) {
-                for (k, v) in dict.iter_hashed() {
-                    this.aref.insert_hashed(k, v);
+            match DictRef::from_value(pairs) {
+                Some(dict) => {
+                    for (k, v) in dict.iter_hashed() {
+                        this.aref.insert_hashed(k, v);
+                    }
                 }
-            } else {
-                for v in pairs.iterate(heap)? {
-                    let mut it = v.iterate(heap)?;
-                    // `StarlarkIterator` is fused.
-                    let (Some(k), Some(v), None) = (it.next(), it.next(), it.next()) else {
-                        return Err(anyhow::anyhow!(
+                _ => {
+                    for v in pairs.iterate(heap)? {
+                        let mut it = v.iterate(heap)?;
+                        // `StarlarkIterator` is fused.
+                        let (Some(k), Some(v), None) = (it.next(), it.next(), it.next()) else {
+                            return Err(anyhow::anyhow!(
                             "dict.update expect a list of pairs or a dictionary as first argument, got a list of non-pairs.",
                         ).into());
-                    };
-                    this.aref.insert_hashed(k.get_hashed()?, v);
+                        };
+                        this.aref.insert_hashed(k.get_hashed()?, v);
+                    }
                 }
             }
         }

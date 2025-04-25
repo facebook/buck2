@@ -612,7 +612,7 @@ impl<P: AstPayload> AssignTargetP<P> {
             f: &mut impl FnMut(&'a mut AstExprP<P>),
         ) {
             match x {
-                AssignTargetP::Tuple(ref mut xs) => xs.iter_mut().for_each(|x| recurse(&mut *x, f)),
+                AssignTargetP::Tuple(xs) => xs.iter_mut().for_each(|x| recurse(&mut *x, f)),
                 AssignTargetP::Dot(a, _) => f(a),
                 AssignTargetP::Index(a_b) => {
                     let (a, b) = &mut **a_b;

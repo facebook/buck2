@@ -214,10 +214,9 @@ impl TyCustomImpl for TyUser {
     }
 
     fn attribute(&self, attr: &str) -> Result<Ty, TypingNoContextError> {
-        if let Ok(ty) = self.base.attr_from_methods(attr) {
-            Ok(ty)
-        } else {
-            match self.fields.known.get(attr) {
+        match self.base.attr_from_methods(attr) {
+            Ok(ty) => Ok(ty),
+            _ => match self.fields.known.get(attr) {
                 Some(ty) => Ok(ty.dupe()),
                 None => {
                     if self.fields.unknown {
@@ -226,7 +225,7 @@ impl TyCustomImpl for TyUser {
                         Err(TypingNoContextError)
                     }
                 }
-            }
+            },
         }
     }
 
@@ -413,7 +412,7 @@ mod tests {
             let ty_fruit = Ty::custom(TyUser::new(
                 name.clone(),
                 TyStarlarkValue::new::<Fruit>(),
-                TypeInstanceId::gen(),
+                TypeInstanceId::r#gen(),
                 TyUserParams {
                     supertypes: AbstractPlant::get_type_starlark_repr()
                         .iter_union()
@@ -424,7 +423,7 @@ mod tests {
             let ty_fruit_callable = Ty::custom(TyUser::new(
                 format!("fruit[{}]", name),
                 TyStarlarkValue::new::<FruitCallable>(),
-                TypeInstanceId::gen(),
+                TypeInstanceId::r#gen(),
                 TyUserParams {
                     callable: Some(TyCallable::new(ParamSpec::empty(), ty_fruit.clone())),
 

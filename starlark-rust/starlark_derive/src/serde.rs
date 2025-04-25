@@ -44,7 +44,7 @@ pub fn derive_no_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenS
     let (impl_generics, _, _) = generics2.split_for_impl();
 
     let name = &input.ident;
-    let gen = quote! {
+    let r#gen = quote! {
         impl #impl_generics starlark::__derive_refs::serde::Serialize for #name #ty_generics where Self : starlark::values::StarlarkValue<'v> {
             fn serialize<__NoSerializeS>(&self, serializer: __NoSerializeS) -> std::result::Result<__NoSerializeS::Ok, __NoSerializeS::Error>
             where
@@ -55,5 +55,5 @@ pub fn derive_no_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenS
         }
     };
 
-    gen.into()
+    r#gen.into()
 }

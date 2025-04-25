@@ -91,11 +91,13 @@ impl PointerI32 {
     pub(crate) unsafe fn from_raw_pointer_unchecked(
         raw_pointer: RawPointer,
     ) -> &'static PointerI32 {
-        debug_assert!(raw_pointer.is_int());
-        // UB if the pointer isn't aligned, or it is zero.
-        // Alignment is 1, so that's not an issue.
-        // And the pointer is not zero because it has `TAG_INT` bit set.
-        cast::usize_to_ptr(raw_pointer.ptr_value())
+        unsafe {
+            debug_assert!(raw_pointer.is_int());
+            // UB if the pointer isn't aligned, or it is zero.
+            // Alignment is 1, so that's not an issue.
+            // And the pointer is not zero because it has `TAG_INT` bit set.
+            cast::usize_to_ptr(raw_pointer.ptr_value())
+        }
     }
 
     #[inline]

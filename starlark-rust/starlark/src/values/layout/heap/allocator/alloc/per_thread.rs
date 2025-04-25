@@ -91,14 +91,13 @@ pub(crate) fn thread_local_alloc_at_least(
     len: AlignedSize,
     chunk_count_in_bump: usize,
 ) -> ChunkPart {
-    let chunk = if let Some(chunk) =
-        PER_THREAD_ALLOCATOR.with_borrow_mut(|allocator| allocator.fetch(len))
-    {
-        chunk
-    } else {
-        let next_chunk_size = next_chunk_size(chunk_count_in_bump) - Chunk::HEADER_SIZE;
-        let len = cmp::max(len, next_chunk_size);
-        ChunkPart::alloc_at_least(len)
+    let chunk = match PER_THREAD_ALLOCATOR.with_borrow_mut(|allocator| allocator.fetch(len)) {
+        Some(chunk) => chunk,
+        _ => {
+            let next_chunk_size = next_chunk_size(chunk_count_in_bump) - Chunk::HEADER_SIZE;
+            let len = cmp::max(len, next_chunk_size);
+            ChunkPart::alloc_at_least(len)
+        }
     };
     debug_assert!(chunk.len() >= len);
     chunk

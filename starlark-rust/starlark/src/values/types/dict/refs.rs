@@ -126,7 +126,7 @@ impl FrozenDictRef {
     }
 
     /// Iterate over dict entries.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (FrozenValue, FrozenValue)> {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (FrozenValue, FrozenValue)> + use<> {
         self.dict.iter()
     }
 }

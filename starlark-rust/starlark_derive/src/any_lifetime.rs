@@ -123,7 +123,7 @@ pub(crate) fn derive_provides_static_type(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     match derive_provides_static_type_impl(input) {
-        Ok(gen) => quote! { #gen }.into(),
+        Ok(r#gen) => quote! { #r#gen }.into(),
         Err(e) => e.to_compile_error().into(),
     }
 }

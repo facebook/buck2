@@ -168,8 +168,10 @@ impl<'v> Array<'v> {
     }
 
     unsafe fn get_unchecked(&self, index: usize) -> Value<'v> {
-        debug_assert!(index < self.len());
-        *self.ptr_at(index)
+        unsafe {
+            debug_assert!(index < self.len());
+            *self.ptr_at(index)
+        }
     }
 
     pub(crate) fn set_at(&self, index: usize, value: Value<'v>) {

@@ -29,7 +29,7 @@ pub(crate) fn derive_starlark_value(
     let attr = syn::parse_macro_input!(attr as StarlarkValueAttrs);
     let input = syn::parse_macro_input!(input as syn::ItemImpl);
     match derive_starlark_value_impl(attr, input) {
-        Ok(gen) => gen.into(),
+        Ok(r#gen) => r#gen.into(),
         Err(e) => e.to_compile_error().into(),
     }
 }

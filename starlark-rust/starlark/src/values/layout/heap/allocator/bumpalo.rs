@@ -72,8 +72,10 @@ impl ArenaAllocator for Bump {
     type ChunkRevIterator<'a> = ChunkIteratorWrapper<'a>;
 
     unsafe fn iter_allocated_chunks_rev(&self) -> Self::ChunkRevIterator<'_> {
-        ChunkIteratorWrapper {
-            iter: Bump::iter_allocated_chunks_raw(self),
+        unsafe {
+            ChunkIteratorWrapper {
+                iter: Bump::iter_allocated_chunks_raw(self),
+            }
         }
     }
 

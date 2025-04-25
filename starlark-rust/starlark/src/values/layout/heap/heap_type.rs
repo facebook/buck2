@@ -887,7 +887,7 @@ impl Heap {
         forward_heap_kind: HeapKind,
         v: &mut impl ArenaVisitor<'v>,
     ) {
-        (*self.arena.get_mut()).visit_arena(HeapKind::Unfrozen, forward_heap_kind, v)
+        unsafe { (*self.arena.get_mut()).visit_arena(HeapKind::Unfrozen, forward_heap_kind, v) }
     }
 
     /// Garbage collect any values that are unused. This function is _unsafe_ in
@@ -895,23 +895,27 @@ impl Heap {
     /// invalid_. Furthermore, any references to values, e.g `&'v str` will
     /// also become invalid.
     pub(crate) unsafe fn garbage_collect<'v>(&'v self, f: impl FnOnce(&Tracer<'v>)) {
-        // Record the highest peak, so it never decreases
-        self.peak_allocated.set(self.peak_allocated_bytes());
-        self.garbage_collect_internal(f)
+        unsafe {
+            // Record the highest peak, so it never decreases
+            self.peak_allocated.set(self.peak_allocated_bytes());
+            self.garbage_collect_internal(f)
+        }
     }
 
     unsafe fn garbage_collect_internal<'v>(&'v self, f: impl FnOnce(&Tracer<'v>)) {
-        // Must rewrite all Value's so they point at the new heap.
-        // Take the arena out of the heap to make sure nobody allocates in it,
-        // but hold the reference until the GC is done.
-        let _arena = self.arena.take();
+        unsafe {
+            // Must rewrite all Value's so they point at the new heap.
+            // Take the arena out of the heap to make sure nobody allocates in it,
+            // but hold the reference until the GC is done.
+            let _arena = self.arena.take();
 
-        let tracer = Tracer::<'v> {
-            arena: Arena::default(),
-            phantom: PhantomData,
-        };
-        f(&tracer);
-        self.arena.set(tracer.arena);
+            let tracer = Tracer::<'v> {
+                arena: Arena::default(),
+                phantom: PhantomData,
+            };
+            f(&tracer);
+            self.arena.set(tracer.arena);
+        }
     }
 
     /// Obtain a summary of how much memory is currently allocated by this heap.

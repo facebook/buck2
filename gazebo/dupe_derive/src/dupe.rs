@@ -57,7 +57,7 @@ fn derive_dupe_explicit(
         name.span(),
     );
 
-    let gen = quote! {
+    let r#gen = quote! {
         impl #impl_generics dupe::Dupe for #name #ty_generics #where_clause {
         }
 
@@ -68,7 +68,7 @@ fn derive_dupe_explicit(
         }
     };
 
-    gen.into()
+    r#gen.into()
 }
 
 fn check_each_field_dupe<'a>(tys: impl IntoIterator<Item = &'a Type>) -> TokenStream {

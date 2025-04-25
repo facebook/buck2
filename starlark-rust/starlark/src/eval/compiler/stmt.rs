@@ -619,17 +619,18 @@ pub(crate) fn add_assign<'v>(
     let lhs_ty = lhs_aref.vtable().static_type_of_value.get();
 
     if ListData::is_list_type(lhs_ty) {
-        if let Some(v) = rhs.get_ref().radd(lhs, heap) {
-            v
-        } else {
-            let list = ListData::from_value_mut(lhs)?;
-            if lhs.ptr_eq(rhs) {
-                list.double(heap);
-            } else {
-                // TODO: if RHS is list, consider calling `List::extend_from_slice`.
-                list.extend(rhs.iterate(heap)?, heap);
+        match rhs.get_ref().radd(lhs, heap) {
+            Some(v) => v,
+            _ => {
+                let list = ListData::from_value_mut(lhs)?;
+                if lhs.ptr_eq(rhs) {
+                    list.double(heap);
+                } else {
+                    // TODO: if RHS is list, consider calling `List::extend_from_slice`.
+                    list.extend(rhs.iterate(heap)?, heap);
+                }
+                Ok(lhs)
             }
-            Ok(lhs)
         }
     } else {
         lhs.add(rhs, heap)

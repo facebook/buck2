@@ -264,12 +264,11 @@ impl<'v, TLeft: UnpackValue<'v>, TRight: UnpackValue<'v>> UnpackValue<'v>
 
     // Only implemented for types that implement [`UnpackValue`]. Nonsensical for other types.
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
-        if let Some(left) = TLeft::unpack_value_impl(value).map_err(Either::Left)? {
-            Ok(Some(Self::Left(left)))
-        } else {
-            Ok(TRight::unpack_value_impl(value)
+        match TLeft::unpack_value_impl(value).map_err(Either::Left)? {
+            Some(left) => Ok(Some(Self::Left(left))),
+            _ => Ok(TRight::unpack_value_impl(value)
                 .map_err(Either::Right)?
-                .map(Self::Right))
+                .map(Self::Right)),
         }
     }
 }

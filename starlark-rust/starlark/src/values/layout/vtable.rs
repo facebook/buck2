@@ -104,7 +104,7 @@ impl StarlarkValueRawPtr {
 
     #[inline]
     pub(crate) unsafe fn value_ref<'v, T: StarlarkValue<'v>>(self) -> &'v T {
-        &*self.value_ptr()
+        unsafe { &*self.value_ptr() }
     }
 }
 

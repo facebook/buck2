@@ -297,7 +297,7 @@ impl StmtProfile {
     }
 
     // None = not applicable because not enabled
-    pub(crate) fn gen(&self) -> crate::Result<ProfileData> {
+    pub(crate) fn r#gen(&self) -> crate::Result<ProfileData> {
         match &self.0 {
             Some(data) => Ok(ProfileData {
                 profile: ProfileDataImpl::Statement(data.finish()?),
@@ -413,7 +413,7 @@ xx(*[2])
             file: &y,
             span: Span::new(Pos::new(2), Pos::new(4)),
         });
-        let a = a.gen().unwrap();
+        let a = a.r#gen().unwrap();
 
         let mut b = StmtProfile::new();
         b.enable();
@@ -425,7 +425,7 @@ xx(*[2])
             file: &z,
             span: Span::new(Pos::new(3), Pos::new(5)),
         });
-        let b = b.gen().unwrap();
+        let b = b.r#gen().unwrap();
 
         let ProfileDataImpl::Statement(merged) = ProfileData::merge([&a, &b]).unwrap().profile
         else {

@@ -334,15 +334,18 @@ impl Drop for TestServer {
             method: Shutdown::METHOD.to_owned(),
             params: Default::default(),
         };
-        if let Err(e) = self.send_request(req) {
-            eprintln!("Server was already shutdown: {}", e);
-        } else {
-            let notif = lsp_server::Notification {
-                method: Exit::METHOD.to_owned(),
-                params: Default::default(),
-            };
-            if let Err(e) = self.send_notification(notif) {
-                eprintln!("Could not send Exit notification: {}", e);
+        match self.send_request(req) {
+            Err(e) => {
+                eprintln!("Server was already shutdown: {}", e);
+            }
+            _ => {
+                let notif = lsp_server::Notification {
+                    method: Exit::METHOD.to_owned(),
+                    params: Default::default(),
+                };
+                if let Err(e) = self.send_notification(notif) {
+                    eprintln!("Could not send Exit notification: {}", e);
+                }
             }
         }
 

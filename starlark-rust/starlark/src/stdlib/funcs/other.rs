@@ -341,7 +341,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] key: Option<Value<'v>>,
         #[starlark(require = named, default = false)] reverse: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> starlark::Result<AllocList<impl IntoIterator<Item = Value<'v>>>> {
+    ) -> starlark::Result<AllocList<impl IntoIterator<Item = Value<'v>> + use<'v>>> {
         let it = x.get().iterate(eval.heap())?;
         let mut it = match key {
             None => it.map(|x| (x, x)).collect(),

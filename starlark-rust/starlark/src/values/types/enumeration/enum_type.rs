@@ -172,7 +172,7 @@ impl<'v> EnumType<'v> {
     pub(crate) fn new(elements: Vec<StringValue<'v>>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         // We are constructing the enum and all elements in one go.
         // They both point at each other, which adds to the complexity.
-        let id = TypeInstanceId::gen();
+        let id = TypeInstanceId::r#gen();
         let typ = heap.alloc(EnumType {
             id,
             ty_enum_data: OnceCell::new(),
@@ -315,7 +315,7 @@ where
             let ty_enum_type = Ty::custom(TyUser::new(
                 format!("enum[{}]", variable_name),
                 TyStarlarkValue::new::<EnumType>(),
-                TypeInstanceId::gen(),
+                TypeInstanceId::r#gen(),
                 TyUserParams {
                     index: Some(TyUserIndex {
                         index: Ty::int(),

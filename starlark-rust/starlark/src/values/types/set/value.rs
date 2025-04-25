@@ -176,12 +176,14 @@ impl<'v> SetLike<'v> for RefCell<SetData<'v>> {
 
     #[inline]
     unsafe fn iter_stop(&self) {
-        unleak_borrow(self);
+        unsafe {
+            unleak_borrow(self);
+        }
     }
 
     #[inline]
     unsafe fn content_unchecked(&self) -> &SmallSet<Value<'v>> {
-        &self.try_borrow_unguarded().ok().unwrap_unchecked().content
+        unsafe { &self.try_borrow_unguarded().ok().unwrap_unchecked().content }
     }
 }
 
@@ -236,8 +238,10 @@ where
     }
 
     unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
-        self.0.iter_start();
-        Ok(me)
+        unsafe {
+            self.0.iter_start();
+            Ok(me)
+        }
     }
 
     unsafe fn iter_size_hint(&self, index: usize) -> (usize, Option<usize>) {
@@ -247,11 +251,13 @@ where
     }
 
     unsafe fn iter_next(&self, index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
-        self.0.content_unchecked().iter().nth(index).copied()
+        unsafe { self.0.content_unchecked().iter().nth(index).copied() }
     }
 
     unsafe fn iter_stop(&self) {
-        self.0.iter_stop();
+        unsafe {
+            self.0.iter_stop();
+        }
     }
 
     fn to_bool(&self) -> bool {

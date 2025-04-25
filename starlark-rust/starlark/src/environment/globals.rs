@@ -374,10 +374,13 @@ impl GlobalsStatic {
     }
 }
 
-pub(crate) fn common_documentation<'a>(
+pub(crate) fn common_documentation<'a, T: IntoIterator<Item = (&'a str, FrozenValue)>>(
     docstring: &Option<String>,
-    members: impl IntoIterator<Item = (&'a str, FrozenValue)>,
-) -> (Option<DocString>, impl Iterator<Item = (String, DocItem)>) {
+    members: T,
+) -> (
+    Option<DocString>,
+    impl Iterator<Item = (String, DocItem)> + use<T>,
+) {
     let main_docs = docstring
         .as_ref()
         .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));

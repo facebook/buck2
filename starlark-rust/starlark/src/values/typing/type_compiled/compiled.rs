@@ -458,10 +458,11 @@ impl<'v> TypeCompiled<Value<'v>> {
             // This branch is optimization: `TypeCompiledAsStarlarkValue` implements `eval_type`,
             // but this branch avoids copying the type.
             Ok(TypeCompiled(ty))
-        } else if let Some(ty) = ty.get_ref().eval_type() {
-            Ok(TypeCompiled::from_ty(&ty, heap))
         } else {
-            Err(invalid_type_annotation(ty, heap).into())
+            match ty.get_ref().eval_type() {
+                Some(ty) => Ok(TypeCompiled::from_ty(&ty, heap)),
+                _ => Err(invalid_type_annotation(ty, heap).into()),
+            }
         }
     }
 }

@@ -71,7 +71,7 @@ impl ComprCompiled {
     pub(crate) fn write_bc(&self, span: FrameSpan, target: BcSlotOut, bc: &mut BcWriter) {
         bc.alloc_slot(|temp, bc| {
             match self {
-                ComprCompiled::List(ref expr, ref clauses) => {
+                ComprCompiled::List(expr, clauses) => {
                     bc.write_instr::<InstrListNew>(span, temp.to_out());
                     let (first, rem) = clauses.split_last();
                     first.write_bc(bc, rem, |bc| {

@@ -77,7 +77,9 @@ pub struct FrozenStructRef<'f>(pub(crate) &'f FrozenStruct);
 
 impl<'f> FrozenStructRef<'f> {
     /// Iterate over struct fields.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (FrozenStringValue, FrozenValue)> + 'f {
+    pub fn iter(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (FrozenStringValue, FrozenValue)> + 'f + use<'f> {
         self.0.iter_frozen()
     }
 

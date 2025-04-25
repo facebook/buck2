@@ -556,7 +556,7 @@ impl IrSpanned<ExprCompiled> {
                 ExprCompiled::index2(a, i0, i1)
             }
             d @ ExprCompiled::Def(..) => (*d).clone(),
-            ExprCompiled::Call(ref call) => call.optimize(ctx),
+            ExprCompiled::Call(call) => call.optimize(ctx),
         };
         IrSpanned { node: expr, span }
     }

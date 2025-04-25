@@ -426,10 +426,9 @@ impl Ty {
 
     /// Typechecker type of value.
     pub fn of_value(value: Value) -> Ty {
-        if let Some(t) = value.get_ref().typechecker_ty() {
-            t
-        } else {
-            value.get_type_starlark_repr()
+        match value.get_ref().typechecker_ty() {
+            Some(t) => t,
+            _ => value.get_type_starlark_repr(),
         }
     }
 

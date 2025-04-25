@@ -69,13 +69,15 @@ impl BcOpcode {
 
 /// Invoke drop for instructions in the buffer.
 unsafe fn drop_instrs(instrs: &[u64]) {
-    let end = BcPtrAddr::for_slice_end(instrs);
-    let mut ptr = BcPtrAddr::for_slice_start(instrs);
-    while ptr != end {
-        assert!(ptr < end);
-        let opcode = ptr.get_opcode();
-        opcode.drop_in_place(ptr);
-        ptr = ptr.add(opcode.size_of_repr());
+    unsafe {
+        let end = BcPtrAddr::for_slice_end(instrs);
+        let mut ptr = BcPtrAddr::for_slice_start(instrs);
+        while ptr != end {
+            assert!(ptr < end);
+            let opcode = ptr.get_opcode();
+            opcode.drop_in_place(ptr);
+            ptr = ptr.add(opcode.size_of_repr());
+        }
     }
 }
 

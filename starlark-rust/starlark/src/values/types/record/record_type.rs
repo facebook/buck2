@@ -155,7 +155,7 @@ pub(crate) fn record_fields<'v>(
 impl<'v> RecordType<'v> {
     pub(crate) fn new(fields: SmallMap<String, FieldGen<Value<'v>>>) -> Self {
         Self {
-            id: TypeInstanceId::gen(),
+            id: TypeInstanceId::r#gen(),
             fields,
             ty_record_data: OnceCell::new(),
         }
@@ -317,7 +317,7 @@ where
             let ty_record_type = Ty::custom(TyUser::new(
                 format!("record[{}]", variable_name),
                 TyStarlarkValue::new::<RecordType>(),
-                TypeInstanceId::gen(),
+                TypeInstanceId::r#gen(),
                 TyUserParams {
                     callable: Some(TyCallable::new(
                         ParamSpec::new_named_only(self.fields.iter().map(|(name, field)| {

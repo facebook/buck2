@@ -217,7 +217,11 @@ impl HeapProfile {
     }
 
     // We could expose profile on the Heap, but it's an implementation detail that it works here.
-    pub(crate) fn gen(&self, heap: &Heap, format: HeapProfileFormat) -> crate::Result<ProfileData> {
+    pub(crate) fn r#gen(
+        &self,
+        heap: &Heap,
+        format: HeapProfileFormat,
+    ) -> crate::Result<ProfileData> {
         if !self.enabled {
             return Err(crate::Error::new_other(HeapProfileError::NotEnabled));
         }

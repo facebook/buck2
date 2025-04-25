@@ -152,8 +152,10 @@ impl<'v> Dict<'v> {
     }
 
     pub(crate) unsafe fn from_value_unchecked_mut(x: Value<'v>) -> RefMut<'v, Self> {
-        let dict = &x.downcast_ref_unchecked::<DictGen<RefCell<Dict<'v>>>>().0;
-        dict.borrow_mut()
+        unsafe {
+            let dict = &x.downcast_ref_unchecked::<DictGen<RefCell<Dict<'v>>>>().0;
+            dict.borrow_mut()
+        }
     }
 }
 
@@ -348,13 +350,17 @@ impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
 
     #[inline]
     unsafe fn iter_stop(&self) {
-        unleak_borrow(self);
+        unsafe {
+            unleak_borrow(self);
+        }
     }
 
     #[inline]
     unsafe fn content_unchecked(&self) -> &SmallMap<Value<'v>, Value<'v>> {
-        // SAFETY: this function contract is, caller must ensure that the value is borrowed.
-        &self.try_borrow_unguarded().ok().unwrap_unchecked().content
+        unsafe {
+            // SAFETY: this function contract is, caller must ensure that the value is borrowed.
+            &self.try_borrow_unguarded().ok().unwrap_unchecked().content
+        }
     }
 
     fn set_at(&self, index: Hashed<Value<'v>>, alloc_value: Value<'v>) -> crate::Result<()> {
@@ -462,8 +468,10 @@ where
     }
 
     unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
-        self.0.iter_start();
-        Ok(me)
+        unsafe {
+            self.0.iter_start();
+            Ok(me)
+        }
     }
 
     unsafe fn iter_size_hint(&self, index: usize) -> (usize, Option<usize>) {
@@ -473,11 +481,13 @@ where
     }
 
     unsafe fn iter_next(&self, index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
-        self.0.content_unchecked().keys().nth(index).copied()
+        unsafe { self.0.content_unchecked().keys().nth(index).copied() }
     }
 
     unsafe fn iter_stop(&self) {
-        self.0.iter_stop();
+        unsafe {
+            self.0.iter_stop();
+        }
     }
 
     fn set_at(&self, index: Value<'v>, alloc_value: Value<'v>) -> crate::Result<()> {

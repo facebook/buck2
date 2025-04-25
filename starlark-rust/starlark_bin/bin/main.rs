@@ -171,7 +171,7 @@ enum ArgsDialect {
 
 // Treat directories as things to recursively walk for .<extension> files,
 // and everything else as normal files.
-fn expand_dirs(extension: &str, xs: Vec<PathBuf>) -> impl Iterator<Item = PathBuf> {
+fn expand_dirs(extension: &str, xs: Vec<PathBuf>) -> impl Iterator<Item = PathBuf> + use<> {
     let extension = Arc::new(extension.to_owned());
     xs.into_iter().flat_map(move |x| {
         // Have to keep cloning extension so we keep ownership

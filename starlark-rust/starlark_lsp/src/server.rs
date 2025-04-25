@@ -907,7 +907,7 @@ impl<T: LspContext> Backend<T> {
     pub(crate) fn get_global_symbol_completion_items(
         &self,
         current_document: &LspUrl,
-    ) -> impl Iterator<Item = CompletionItem> + '_ {
+    ) -> impl Iterator<Item = CompletionItem> + '_ + use<'_, T> {
         self.context
             .get_environment(current_document)
             .members
@@ -1134,10 +1134,11 @@ impl<T: LspContext> Backend<T> {
                     }) => {
                         // If there's an error loading the file to parse it, at least
                         // try to get to the file.
-                        let module = if let Ok(Some(ast)) = self.get_ast_or_load_from_disk(&url) {
-                            ast
-                        } else {
-                            return Ok(None);
+                        let module = match self.get_ast_or_load_from_disk(&url) {
+                            Ok(Some(ast)) => ast,
+                            _ => {
+                                return Ok(None);
+                            }
                         };
                         let result = location_finder(&module.ast)?;
 

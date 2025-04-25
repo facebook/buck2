@@ -18,7 +18,7 @@
 use crate::syntax::grammar_tests;
 
 macro_rules! testcases_parse {
-    ($($x:expr)*) => {
+    ($($x:expr_2021)*) => {
         &[
             $(
                 (

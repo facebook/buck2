@@ -346,8 +346,8 @@ pub(crate) fn starlark_internal_vtable(
 ) -> proc_macro::TokenStream {
     let starlark_value = parse_macro_input!(input as ItemTrait);
 
-    let gen = Gen { starlark_value };
-    let generated = match gen.gen_starlark_value_vtable() {
+    let r#gen = Gen { starlark_value };
+    let generated = match r#gen.gen_starlark_value_vtable() {
         Ok(generated) => generated,
         Err(error) => {
             return error.to_compile_error().into();
