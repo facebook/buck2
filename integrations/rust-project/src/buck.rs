@@ -628,6 +628,7 @@ impl Buck {
         ]);
 
         info!(
+            kind = "progress",
             ?input,
             "querying buck to determine owning buildfile and its targets"
         );

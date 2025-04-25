@@ -233,7 +233,7 @@ impl Develop {
             ..
         } = self;
 
-        info!("fetching sysroot");
+        info!(kind = "progress", "fetching sysroot");
         let sysroot = match &sysroot {
             SysrootConfig::Sysroot(path) => Sysroot {
                 sysroot: safe_canonicalize(&expand_tilde(path)?),
@@ -305,14 +305,17 @@ pub(crate) fn develop_with_sysroot(
     include_all_buildfiles: bool,
     extra_cfgs: &[String],
 ) -> Result<JsonProject, anyhow::Error> {
-    info!("building generated code");
+    info!(kind = "progress", "building generated code");
     let expanded_and_resolved = buck.expand_and_resolve(&targets, exclude_workspaces)?;
 
-    info!("resolving aliased libraries");
+    info!(kind = "progress", "resolving aliased libraries");
     let aliased_libraries =
         buck.query_aliased_libraries(&expanded_and_resolved.expanded_targets)?;
 
-    info!("converting buck info to rust-project.json");
+    info!(
+        kind = "progress",
+        "converting buck info to rust-project.json"
+    );
     let rust_project = to_json_project(
         sysroot,
         expanded_and_resolved,
