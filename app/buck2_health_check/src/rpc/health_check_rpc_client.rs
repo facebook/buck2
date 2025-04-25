@@ -26,7 +26,7 @@ use futures::FutureExt;
 use tokio::net::TcpListener;
 use tonic::transport::Channel;
 
-use crate::health_check_service::HealthCheckService;
+use crate::interface::HealthCheckService;
 use crate::report::Report;
 
 const CLI_NAME: &str = "buck2-health-check";

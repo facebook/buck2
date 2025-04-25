@@ -13,12 +13,12 @@ use buck2_error::BuckErrorContext;
 use buck2_health_check_proto::HealthCheckContextEvent;
 use buck2_health_check_proto::health_check_context_event::Data;
 
-use crate::health_check_service::HealthCheckService;
 #[cfg(fbcode_build)]
 use crate::health_checks::facebook::stable_revision::stable_revision_check::StableRevisionCheck;
 use crate::health_checks::vpn_check::VpnCheck;
 use crate::interface::HealthCheck;
 use crate::interface::HealthCheckContext;
+use crate::interface::HealthCheckService;
 use crate::report::Report;
 
 /// This executor is responsible for maintaining the health check context and running the checks.

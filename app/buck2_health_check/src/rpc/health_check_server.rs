@@ -23,7 +23,7 @@ use tokio::io::AsyncWrite;
 use tokio::sync::Mutex;
 
 use crate::health_check_executor::HealthCheckExecutor;
-use crate::health_check_service::HealthCheckService;
+use crate::interface::HealthCheckService;
 
 pub struct HealthCheckServer {
     executor: Arc<Mutex<Box<dyn HealthCheckService>>>,

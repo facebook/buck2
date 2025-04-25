@@ -35,6 +35,19 @@ pub(crate) trait HealthCheck: Send + Sync {
     async fn handle_context_update(&mut self, context: &HealthCheckContext);
 }
 
+/// Trait to generalize a health check service e.g. in-process, out-of-process over gRPC.
+#[async_trait::async_trait]
+pub(crate) trait HealthCheckService: Sync + Send {
+    /// Update the context for the health check service.
+    async fn update_context(
+        &mut self,
+        event: &buck2_health_check_proto::HealthCheckContextEvent,
+    ) -> buck2_error::Result<()>;
+
+    /// Run all registered health checks.
+    async fn run_checks(&mut self) -> buck2_error::Result<Vec<Report>>;
+}
+
 /// A subset of the client data that is relevant for health checks.
 /// This is intentionally kept as a small set to avoid serialization costs.
 #[derive(Default)]

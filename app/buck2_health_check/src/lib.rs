@@ -14,6 +14,5 @@ pub mod interface;
 pub mod report;
 
 pub(crate) mod health_check_executor;
-pub(crate) mod health_check_service;
 #[cfg(fbcode_build)]
 pub mod rpc;

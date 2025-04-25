@@ -14,7 +14,7 @@ use buck2_health_check_proto::health_check_context_event;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::error::TrySendError;
 
-use crate::health_check_service::HealthCheckService;
+use crate::interface::HealthCheckService;
 use crate::report::DisplayReport;
 #[cfg(fbcode_build)]
 use crate::rpc::health_check_rpc_client::HealthCheckRpcClient;
