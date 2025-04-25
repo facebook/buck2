@@ -33,7 +33,6 @@ smallvec = { workspace = true }
 static_assertions = { workspace = true }
 strong_hash = { workspace = true }
 tokio = { workspace = true }
-tokio-stream = { workspace = true }
 tracing = { workspace = true }
 
 allocative = { workspace = true }
