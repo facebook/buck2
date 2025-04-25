@@ -69,7 +69,7 @@ pub(crate) struct AnonTarget {
     /// The hash of the `rule_type` and `attrs` for bzl anon targets.
     /// Or
     /// The hash of the `rule_type`, `attrs` and `global_cfg_options` for bxl anon targets.
-    hash: String,
+    partial_hash: String,
     /// Variant of the anon target, either bxl or bzl.
     variant: AnonTargetVariant,
 }
@@ -93,30 +93,6 @@ impl fmt::Display for AnonTarget {
 }
 
 impl AnonTarget {
-    fn mk_hash_bzl(
-        rule_type: &StarlarkRuleType,
-        attrs: &SortedMap<String, AnonTargetAttr>,
-    ) -> String {
-        // This is the same hasher as we use for Configuration, so is probably fine.
-        // But quite possibly should be a crypto hasher in future.
-        let mut hasher = DefaultHasher::new();
-        rule_type.hash(&mut hasher);
-        attrs.hash(&mut hasher);
-        format!("{:x}", hasher.finish())
-    }
-
-    fn mk_hash_bxl(
-        rule_type: &StarlarkRuleType,
-        attrs: &SortedMap<String, AnonTargetAttr>,
-        global_cfg_options: &GlobalCfgOptions,
-    ) -> String {
-        let mut hasher = DefaultHasher::new();
-        rule_type.hash(&mut hasher);
-        attrs.hash(&mut hasher);
-        global_cfg_options.hash(&mut hasher);
-        format!("{:x}", hasher.finish())
-    }
-
     pub(crate) fn as_proto(&self) -> buck2_data::AnonTarget {
         buck2_data::AnonTarget {
             name: Some(self.name().as_proto()),
@@ -130,33 +106,23 @@ impl AnonTarget {
         name: TargetLabel,
         attrs: SortedMap<String, AnonTargetAttr>,
         exec_cfg: ConfigurationNoExec,
+        variant: AnonTargetVariant,
     ) -> Self {
-        let hash = Self::mk_hash_bzl(&rule_type, &attrs);
-        AnonTarget {
-            name,
-            rule_type,
-            attrs,
-            exec_cfg,
-            hash,
-            variant: AnonTargetVariant::Bzl,
+        let mut hasher = DefaultHasher::new();
+        rule_type.hash(&mut hasher);
+        attrs.hash(&mut hasher);
+        if let AnonTargetVariant::Bxl(global_cfg_options) = &variant {
+            global_cfg_options.hash(&mut hasher);
         }
-    }
+        let partial_hash = format!("{:x}", hasher.finish());
 
-    pub(crate) fn new_bxl(
-        rule_type: Arc<StarlarkRuleType>,
-        name: TargetLabel,
-        attrs: SortedMap<String, AnonTargetAttr>,
-        exec_cfg: ConfigurationNoExec,
-        global_cfg_options: GlobalCfgOptions,
-    ) -> Self {
-        let hash = Self::mk_hash_bxl(&rule_type, &attrs, &global_cfg_options);
         AnonTarget {
             name,
             rule_type,
             attrs,
             exec_cfg,
-            hash,
-            variant: AnonTargetVariant::Bxl(global_cfg_options),
+            partial_hash,
+            variant,
         }
     }
 
@@ -172,7 +138,7 @@ impl AnonTarget {
     /// Or
     /// The hash of the rule type, attributes and global_cfg_options for bxl anon targets.
     fn partial_hash(&self) -> &str {
-        &self.hash
+        &self.partial_hash
     }
 
     pub(crate) fn exec_cfg(&self) -> &ConfigurationNoExec {

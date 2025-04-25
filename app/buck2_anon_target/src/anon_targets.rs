@@ -234,10 +234,16 @@ impl AnonTargetKey {
             BaseDeferredKey::BxlLabel(bxl) => bxl.0.global_cfg_options(),
         };
         let anon_target = match (&rule_type.path, global_cfg_options) {
-            (BzlOrBxlPath::Bzl(_), _) => AnonTarget::new(rule_type, name, attrs, exec_cfg),
-            (BzlOrBxlPath::Bxl(_), Some(global_cfg_options)) => {
-                AnonTarget::new_bxl(rule_type, name, attrs, exec_cfg, global_cfg_options)
+            (BzlOrBxlPath::Bzl(_), _) => {
+                AnonTarget::new(rule_type, name, attrs, exec_cfg, AnonTargetVariant::Bzl)
             }
+            (BzlOrBxlPath::Bxl(_), Some(global_cfg_options)) => AnonTarget::new(
+                rule_type,
+                name,
+                attrs,
+                exec_cfg,
+                AnonTargetVariant::Bxl(global_cfg_options),
+            ),
             (BzlOrBxlPath::Bxl(bxl_file_path), None) => {
                 return Err(internal_error!(
                     "Bxl anon target defined at {} must have global configuration options.",
