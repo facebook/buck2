@@ -1,6 +1,6 @@
 load(
     "@prelude//toolchains/android/tools:build_rules.bzl",
-    "java_test",
+    "buck_java_test",
 )
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
@@ -8,7 +8,7 @@ oncall("android_devxx")
 
 source_listing()
 
-java_test(
+buck_java_test(
     name = "build_config",
     srcs = glob(["*.java"]),
     deps = [

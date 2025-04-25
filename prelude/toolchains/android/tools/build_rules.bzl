@@ -102,12 +102,6 @@ def buck_java_library(name, **kwargs):
         **kwargs
     )
 
-def java_binary(name, **kwargs):
-    return fb_native.java_binary(
-        name = name,
-        **kwargs
-    )
-
 def buck_java_binary(name, **kwargs):
     kwargs = _add_labels(**kwargs)
     kwargs = _set_buck2_java_toolchain(**kwargs)
@@ -136,7 +130,7 @@ def buck_java_graalvm_binary(name, **kwargs):
         **kwargs
     )
 
-def toolchain_prebuilt_jar(name, **kwargs):
+def _toolchain_prebuilt_jar(name, **kwargs):
     kwargs = _add_labels(**kwargs)
     kwargs = _set_buck2_dex_toolchain(**kwargs)
     if kwargs.pop("should_generate_snapshot", True) == False:
@@ -151,7 +145,7 @@ def toolchain_prebuilt_jar(name, **kwargs):
 def _oss_remote_file_with_wrapper(name, ext, url, sha1, **kwargs):
     remote_file_target_name = name + "_" + ext
     if ext == "jar":
-        toolchain_prebuilt_jar(
+        _toolchain_prebuilt_jar(
             name = name,
             binary_jar = ":" + remote_file_target_name,
             **kwargs
@@ -238,13 +232,13 @@ def third_party_exe(
     )
 
 def buck_prebuilt_jar(name, **kwargs):
-    return toolchain_prebuilt_jar(name = name, **kwargs)
+    return _toolchain_prebuilt_jar(name = name, **kwargs)
 
 def _shallow_dict_copy_without_key(table, key_to_omit):
     """Returns a shallow copy of dict with key_to_omit omitted."""
     return {key: table[key] for key in table if key != key_to_omit}
 
-def kotlin_test(**kwargs):
+def buck_kotlin_test(**kwargs):
     extra_labels = [_RUN_AS_BUNDLE_LABEL, _FDB_DEBUG_LABEL]
 
     kwargs = _add_labels(**kwargs)
@@ -255,7 +249,7 @@ def kotlin_test(**kwargs):
 
     fb_native.kotlin_test(**kwargs)
 
-def java_test(
+def buck_java_test(
         name,
         vm_args = None,
         run_test_separately = False,
@@ -352,7 +346,7 @@ def standard_java_test(
 
     if len(test_srcs) > 0:
         # @lint-ignore BUCKLINT
-        java_test(
+        buck_java_test(
             name = name,
             srcs = test_srcs,
             resources = native.glob(["testdata/**"]) if with_test_data else [],

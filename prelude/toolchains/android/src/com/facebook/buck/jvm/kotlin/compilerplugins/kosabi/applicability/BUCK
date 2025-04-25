@@ -1,4 +1,4 @@
-load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_kotlin_library", "java_binary")
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_kotlin_library")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
 oncall("android_devxx")
@@ -27,7 +27,7 @@ buck_kotlin_library(
     ],
 )
 
-java_binary(
+buck_java_binary(
     name = "applicability",
     visibility = ["PUBLIC"],
     deps = [":applicability-lib"],

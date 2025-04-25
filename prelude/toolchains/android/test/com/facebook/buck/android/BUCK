@@ -1,7 +1,7 @@
 load(
     "@prelude//toolchains/android/tools:build_rules.bzl",
     "buck_java_library",
-    "java_test",
+    "buck_java_test",
 )
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
@@ -65,7 +65,7 @@ buck_java_library(
     ],
 )
 
-java_test(
+buck_java_test(
     name = "unit",
     srcs = glob(
         STANDARD_TEST_SRCS,
