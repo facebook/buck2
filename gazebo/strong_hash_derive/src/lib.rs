@@ -17,9 +17,19 @@ use syn::spanned::Spanned;
 
 #[proc_macro_derive(StrongHash)]
 pub fn derive_hash(input: TokenStream) -> TokenStream {
-    // TODO(scottcao): Make derive work with generics that implement StrongHash
-    let input = parse_macro_input!(input as DeriveInput);
+    let mut input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
+    let ty_params = input
+        .generics
+        .type_params()
+        .map(|p| p.ident.clone())
+        .collect::<Vec<_>>();
+    let where_clause = input.generics.make_where_clause();
+    for ty_param in ty_params {
+        where_clause
+            .predicates
+            .push(syn::parse_quote! { #ty_param: strong_hash::StrongHash });
+    }
     let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
     let output = match input.data {
         syn::Data::Struct(data) => {

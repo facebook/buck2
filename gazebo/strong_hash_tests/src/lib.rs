@@ -96,3 +96,14 @@ fn test_strong_hash_derive() {
     assert_ne!(bar_hash, foo_bar_bar_hash);
     assert_ne!(foo_bar_foo_hash, foo_bar_bar_hash);
 }
+
+#[test]
+fn test_generics() {
+    #[derive(StrongHash)]
+    struct Foo<T>(T);
+
+    fn check_is_implemented<T: StrongHash>(_t: &T) {}
+
+    let foo = Foo(1u8);
+    check_is_implemented(&foo);
+}
