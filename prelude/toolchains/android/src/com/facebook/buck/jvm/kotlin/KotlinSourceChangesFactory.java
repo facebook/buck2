@@ -24,13 +24,6 @@ public class KotlinSourceChangesFactory {
 
   private static final Logger LOG = Logger.get(KotlinSourceChangesFactory.class);
 
-  // TODO(T210694438): use create(ActionMetadata) instead
-  @Deprecated
-  public static KotlinSourceChanges create() {
-    return KotlinSourceChanges.ToBeCalculated.INSTANCE;
-  }
-
-  // TODO(ijurcikova): T210694438
   public static KotlinSourceChanges create(
       final AbsPath rootProjectDir, final ActionMetadata actionMetadata) {
     Map<Path, String> previousSourceFiles = actionMetadata.getPreviousSourceFilesDigest();
