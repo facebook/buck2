@@ -257,6 +257,7 @@ extra_attributes = {
         "swift_ide_test_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "swift_stdlib_tool": attrs.exec_dep(providers = [RunInfo]),
         "swiftc": attrs.exec_dep(providers = [RunInfo]),
+        "use_depsfiles": attrs.bool(default = False),
         # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),

@@ -41,6 +41,7 @@ SwiftToolchainInfo = provider(
         "swift_upcoming_features": provider_field(dict[str, list[str]]),  # { "5": [], "6", [] }
         "uncompiled_clang_sdk_modules_deps": provider_field(dict[str, Dependency]),
         "uncompiled_swift_sdk_modules_deps": provider_field(dict[str, Dependency]),
+        "use_depsfiles": provider_field(bool, default = False),
     },
 )
 
