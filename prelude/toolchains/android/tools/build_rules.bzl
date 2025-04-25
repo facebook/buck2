@@ -10,7 +10,8 @@
 load("@prelude//:native.bzl", "native")
 # @oss-disable[end= ]: load("@prelude//android/meta_only:android_build_tools_cas_artifact.bzl", "android_build_tools_cas_artifact")
 load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
-load("@prelude//toolchains/android/tools/build_rules:utils.bzl", "add_os_labels", "is_oss_build")
+load("@prelude//toolchains/android/tools/build_rules:oss_utils.bzl", "is_oss_build")
+load("@prelude//toolchains/android/tools/build_rules:utils.bzl", "add_os_labels")
 
 OPEN_JDK_COMPILER_ARGS = [
     "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -30,6 +31,7 @@ OPEN_JDK_COMPILER_ARGS = [
 ]
 
 _RUN_AS_BUNDLE_LABEL = "run_as_bundle"
+
 _FDB_DEBUG_LABEL = "fdb:target:android"
 
 def _maybe_add_java_version(**kwargs):

@@ -1,5 +1,5 @@
 load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library")
-load("@prelude//toolchains/android/tools/build_rules:utils.bzl", "is_oss_build")
+load("@prelude//toolchains/android/tools/build_rules:oss_utils.bzl", "is_oss_build")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
 oncall("android_devxx")
