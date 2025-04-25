@@ -72,6 +72,12 @@ pub(crate) struct AnonTarget {
     /// The hash of the `rule_type` and `attrs` for bzl anon targets.
     /// Or
     /// The hash of the `rule_type`, `attrs` and `global_cfg_options` for bxl anon targets.
+    ///
+    /// FIXME(JakobDegen): We use this to disambiguate artifact paths, so hashing only some of these
+    /// values is super dangerous - if there's anything we forget to include in the path, we get
+    /// what is effectively UB
+    ///
+    /// FIXME(JakobDegen): This needs to use a strong hash
     partial_hash: String,
     /// Cached hash value
     hash: u64,
