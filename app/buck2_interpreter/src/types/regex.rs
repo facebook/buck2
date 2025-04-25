@@ -58,7 +58,7 @@ impl StarlarkBuckRegex {
     }
 }
 
-#[starlark_value(type = "buck_regex")] // "regex" is used for "experimental_regex" in starlark-rust.
+#[starlark_value(type = "BuckRegex")] // "regex" is used for "experimental_regex" in starlark-rust.
 impl<'v> StarlarkValue<'v> for StarlarkBuckRegex {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
