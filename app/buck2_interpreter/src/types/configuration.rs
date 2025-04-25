@@ -25,7 +25,7 @@ pub struct StarlarkConfiguration(pub ConfigurationData);
 
 starlark_simple_value!(StarlarkConfiguration);
 
-#[starlark_value(type = "configuration")]
+#[starlark_value(type = "Configuration")]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguration {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
