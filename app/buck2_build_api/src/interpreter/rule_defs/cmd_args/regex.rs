@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use buck2_interpreter::types::regex::BuckStarlarkRegex;
+use buck2_interpreter::types::regex::StarlarkBuckRegex;
 use dupe::Dupe;
 use regex::Regex;
 use serde::Serialize;
@@ -40,7 +40,7 @@ pub(crate) enum CmdArgsRegex<'v> {
     /// Deprecated.
     // TODO(nga): migrate, soft error, remove.
     Str(StringValue<'v>),
-    Regex(ValueTyped<'v, BuckStarlarkRegex>),
+    Regex(ValueTyped<'v, StarlarkBuckRegex>),
 }
 
 impl<'v> CmdArgsRegex<'v> {
@@ -59,7 +59,7 @@ impl<'v> CmdArgsRegex<'v> {
 #[derive(Debug, Clone, Dupe, Copy, Allocative)]
 pub(crate) enum FrozenCmdArgsRegex {
     Str(FrozenStringValue),
-    Regex(FrozenValueTyped<'static, BuckStarlarkRegex>),
+    Regex(FrozenValueTyped<'static, StarlarkBuckRegex>),
 }
 
 impl<'v> CmdArgsRegex<'v> {

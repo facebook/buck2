@@ -21,7 +21,7 @@ use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::project_root::StarlarkProjectRoot;
-use buck2_interpreter::types::regex::BuckStarlarkRegex;
+use buck2_interpreter::types::regex::StarlarkBuckRegex;
 use buck2_util::thin_box::ThinBoxSlice;
 use derive_more::Display;
 use display_container::fmt_container;
@@ -608,7 +608,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
                     let re = match &pattern {
                         CmdArgsRegex::Str(pattern) => {
                             // We checked that regex is valid in replace_regex(), so unwrap is safe.
-                            re = BuckStarlarkRegex::Regular(Regex::new(pattern.as_str()).unwrap());
+                            re = StarlarkBuckRegex::Regular(Regex::new(pattern.as_str()).unwrap());
                             &re
                         }
                         CmdArgsRegex::Regex(regex) => regex,
