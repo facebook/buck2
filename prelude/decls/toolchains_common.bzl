@@ -58,6 +58,9 @@ def _haskell_toolchain():
 def _java_toolchain():
     return _toolchain("java", [JavaToolchainInfo, JavaPlatformInfo])
 
+def _java_bootstrap_toolchain():
+    return _toolchain("java_bootstrap", [JavaToolchainInfo, JavaPlatformInfo])
+
 def _java_for_android_toolchain():
     return _toolchain("java_for_android", [JavaToolchainInfo, JavaPlatformInfo])
 
@@ -107,6 +110,7 @@ toolchains_common = struct(
     go_bootstrap = _go_bootstrap_toolchain,
     haskell = _haskell_toolchain,
     java = _java_toolchain,
+    java_bootstrap = _java_bootstrap_toolchain,
     java_for_android = _java_for_android_toolchain,
     java_for_host_test = _java_for_host_test_toolchain,
     java_test = _java_test_toolchain,

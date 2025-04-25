@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
+load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//toolchains/android/tools:build_rules.bzl", "OPEN_JDK_COMPILER_ARGS")
 
 def _jvm_arg_name_is_specified(arg_name: str, existing_jvm_args: list[str]) -> bool:
@@ -16,7 +18,7 @@ def _jvm_arg_name_is_specified(arg_name: str, existing_jvm_args: list[str]) -> b
 
 def _worker_impl(ctx):
     args = cmd_args()
-    args.add(ctx.attrs.java[RunInfo])
+    args.add(ctx.attrs._java_toolchain[JavaToolchainInfo].java[RunInfo])
     jvm_args = ctx.attrs.jvm_args
     if not "-XX:-MaxFDLimit" in jvm_args:
         jvm_args.insert(0, "-XX:-MaxFDLimit")
@@ -50,8 +52,8 @@ worker = rule(
         "class_loader_bootstrapper": attrs.source(default = "prelude//toolchains/android/src/com/facebook/buck/cli/bootstrapper:bootstrapper"),
         "concurrency": attrs.option(attrs.int(), default = None),
         "exe": attrs.source(),
-        "java": attrs.default_only(attrs.dep(default = "fbsource//third-party/toolchains/jdk:java")),
         "jvm_args": attrs.list(attrs.string(), default = []),
         "main_class": attrs.string(),
+        "_java_toolchain": toolchains_common.java_bootstrap(),
     },
 )
