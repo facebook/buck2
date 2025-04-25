@@ -444,12 +444,7 @@ impl HashedConfigurationPlatform {
     fn new(configuration_platform: ConfigurationPlatform) -> Self {
         let mut hasher = Blake3StrongHasher::new();
         configuration_platform.strong_hash(&mut hasher);
-        let output_hash = hasher.digest();
-        let output_hash = u64::from_be_bytes(
-            output_hash.as_bytes()[0..8]
-                .try_into()
-                .expect("Internal error from converting a slice of 8 to an array of 8"),
-        );
+        let output_hash = hasher.finish();
 
         let rollout_threshold = match NEW_PLATFORM_HASH_ROLLOUT_THRESHOLD.get() {
             Some(v) => *v,
