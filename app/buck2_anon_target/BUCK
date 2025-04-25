@@ -10,6 +10,7 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:fxhash",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "//buck2/allocative/allocative:allocative",

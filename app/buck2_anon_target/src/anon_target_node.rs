@@ -41,6 +41,7 @@ use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::rule_type::StarlarkRuleType;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
+use fxhash::FxHasher;
 use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -55,7 +56,7 @@ use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_target_attr_resolve::AnonTargetAttrResolution;
 use crate::anon_target_attr_resolve::AnonTargetAttrResolutionContext;
 
-#[derive(Hash, Eq, PartialEq, Clone, Debug, Allocative)]
+#[derive(Eq, PartialEq, Clone, Debug, Allocative)]
 pub(crate) struct AnonTarget {
     /// Not necessarily a "real" target label that actually exists, but could be.
     name: TargetLabel,
@@ -66,12 +67,14 @@ pub(crate) struct AnonTarget {
     attrs: SortedMap<String, AnonTargetAttr>,
     /// The execution configuration - same as the parent.
     exec_cfg: ConfigurationNoExec,
+    /// Variant of the anon target, either bxl or bzl.
+    variant: AnonTargetVariant,
     /// The hash of the `rule_type` and `attrs` for bzl anon targets.
     /// Or
     /// The hash of the `rule_type`, `attrs` and `global_cfg_options` for bxl anon targets.
     partial_hash: String,
-    /// Variant of the anon target, either bxl or bzl.
-    variant: AnonTargetVariant,
+    /// Cached hash value
+    hash: u64,
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug, Allocative)]
@@ -89,6 +92,12 @@ impl fmt::Display for AnonTarget {
             self.partial_hash(),
             self.exec_cfg()
         )
+    }
+}
+
+impl Hash for AnonTarget {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.hash);
     }
 }
 
@@ -116,13 +125,22 @@ impl AnonTarget {
         }
         let partial_hash = format!("{:x}", hasher.finish());
 
+        let mut full_hash = FxHasher::default();
+        rule_type.hash(&mut full_hash);
+        name.hash(&mut full_hash);
+        attrs.hash(&mut full_hash);
+        exec_cfg.hash(&mut full_hash);
+        variant.hash(&mut full_hash);
+        let full_hash = full_hash.finish();
+
         AnonTarget {
             name,
             rule_type,
             attrs,
             exec_cfg,
-            partial_hash,
             variant,
+            partial_hash,
+            hash: full_hash,
         }
     }
 
@@ -241,9 +259,7 @@ impl BaseDeferredKeyDyn for AnonTarget {
     }
 
     fn hash(&self) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        Hash::hash(self, &mut hasher);
-        hasher.finish()
+        self.hash
     }
 
     fn make_hashed_path(
