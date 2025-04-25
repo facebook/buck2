@@ -211,10 +211,10 @@ def _label_impl(ctx: AnalysisContext) -> Promise:
     def f(providers):
         target_label = providers[MirrorInfo].info.target_label
         subtarget_label = providers[MirrorInfo].info.subtarget_label
-        _assert_eq(type(subtarget_label), "providers_label")
+        _assert_eq(isinstance(subtarget_label, ProvidersLabel), True)
         _assert_eq(subtarget_label.cell, "root")
         _assert_eq(subtarget_label.name, "rule_with_subtarget")
-        _assert_eq(type(target_label), "providers_label")
+        _assert_eq(isinstance(target_label, ProvidersLabel), True)
         _assert_eq(target_label.cell, "root")
         return [DefaultInfo()]
 

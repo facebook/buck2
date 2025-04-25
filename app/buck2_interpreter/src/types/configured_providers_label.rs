@@ -220,7 +220,7 @@ impl StarlarkProvidersLabel {
     }
 }
 
-#[starlark_value(type = "providers_label")]
+#[starlark_value(type = "ProvidersLabel")]
 impl<'v> StarlarkValue<'v> for StarlarkProvidersLabel
 where
     Self: ProvidesStaticType<'v>,
