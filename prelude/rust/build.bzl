@@ -1673,7 +1673,7 @@ def resolve_env_flags(
         # Step 2: Read *-env-lines.txt, then create a mapping from it. For instance
         #         `{"USER": "john", "HOME": "/home/john"}`.
         lines = artifacts[env_lines_file].read_string().strip().split("\n")
-        env_map = {k: v for k, v in zip(lines[:-1], lines[1:])}
+        env_map = {k: v for k, v in zip(lines[0::2], lines[1::2])}
         # Step 3: Utilize 'process_env' to determine whether each environment variable
         #         is "plain" or "with path", then produce an *-env-flags.txt file
         #         containing environment variable flags suitable to pass to the
