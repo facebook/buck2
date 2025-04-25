@@ -156,6 +156,7 @@ export const sidebars: SidebarsConfig = {
         isInternal() ? 'rule_authors/client_metadata' : null,
         isInternal() ? 'rule_authors/action_error_handler' : null,
         'rule_authors/dep_files',
+        'rule_authors/string_parameter_macros',
       ].flatMap(x => x !== null ? [x] : []),
     },
     {

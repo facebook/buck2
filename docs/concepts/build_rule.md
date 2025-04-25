@@ -171,6 +171,7 @@ you add needed functionality to Buck2 without editing its source code.
 ## String parameter macros
 
 It is also possible to expand references to other rules within the `cmd`, using
-the builtin [`string parameter macros`](string_parameter_macros.md). All build
-rules expanded in the command are automatically considered to be dependencies of
-the `genrule()`.
+the builtin
+[`string parameter macros`](../../rule_authors/string_parameter_macros). All
+build rules expanded in the command are automatically considered to be
+dependencies of the `genrule()`.
