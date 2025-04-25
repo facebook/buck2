@@ -15,7 +15,6 @@ use crate::health_checks::vpn_check::VpnCheck;
 use crate::interface::HealthCheck;
 use crate::interface::HealthCheckContext;
 use crate::interface::HealthCheckContextEvent;
-use crate::interface::HealthCheckService;
 use crate::report::Report;
 
 /// This executor is responsible for maintaining the health check context and running the checks.
@@ -48,11 +47,11 @@ impl HealthCheckExecutor {
 
         health_checks
     }
-}
 
-#[async_trait::async_trait]
-impl HealthCheckService for HealthCheckExecutor {
-    async fn update_context(&mut self, event: HealthCheckContextEvent) -> buck2_error::Result<()> {
+    pub async fn update_context(
+        &mut self,
+        event: HealthCheckContextEvent,
+    ) -> buck2_error::Result<()> {
         match event {
             HealthCheckContextEvent::CommandStart(command_start) => {
                 self.health_check_context.command_data = command_start.data;
@@ -78,7 +77,7 @@ impl HealthCheckService for HealthCheckExecutor {
         Ok(())
     }
 
-    async fn run_checks(&mut self) -> buck2_error::Result<Vec<Report>> {
+    pub async fn run_checks(&mut self) -> buck2_error::Result<Vec<Report>> {
         let mut reports = Vec::new();
         for check in &self.health_checks {
             if let Some(report) = check.run_check().ok().flatten() {

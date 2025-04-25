@@ -13,3 +13,4 @@ pub(crate) mod health_check_rpc_client;
 pub mod health_check_rpc_server;
 
 pub(crate) mod health_check_executor;
+pub(crate) mod health_check_in_process_service;

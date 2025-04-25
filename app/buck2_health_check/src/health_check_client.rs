@@ -45,7 +45,9 @@ impl HealthCheckClient {
         #[cfg(not(fbcode_build))]
         {
             // There is no easy binary distribution mechanism for OSS, hence default to in-process execution.
-            Box::new(crate::service::health_check_executor::HealthCheckExecutor::new())
+            Box::new(
+                crate::service::health_check_in_process_service::HealthCheckInProcessService::new(),
+            )
         }
     }
 

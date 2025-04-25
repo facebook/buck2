@@ -22,18 +22,16 @@ use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tokio::sync::Mutex;
 
-use crate::interface::HealthCheckService;
 use crate::service::health_check_executor::HealthCheckExecutor;
 
 pub struct HealthCheckRpcServer {
-    executor: Arc<Mutex<Box<dyn HealthCheckService>>>,
+    executor: Arc<Mutex<HealthCheckExecutor>>,
 }
 
 impl HealthCheckRpcServer {
     pub fn new() -> Self {
-        let executor = Box::new(HealthCheckExecutor::new());
         Self {
-            executor: Arc::new(Mutex::new(executor)),
+            executor: Arc::new(Mutex::new(HealthCheckExecutor::new())),
         }
     }
 }
