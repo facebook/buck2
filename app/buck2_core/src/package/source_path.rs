@@ -26,7 +26,8 @@ use crate::package::package_relative_path::PackageRelativePath;
     PartialEq,
     Ord,
     PartialOrd,
-    Allocative
+    Allocative,
+    strong_hash::StrongHash
 )]
 #[display("{}", self.as_ref())]
 pub struct SourcePath {

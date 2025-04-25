@@ -15,7 +15,16 @@ use dupe::Dupe;
 use crate::bzl_or_bxl_path::BzlOrBxlPath;
 
 /// The identifier used to find the implementation function for this rule. Should point at the output of `rule()`
-#[derive(Debug, Clone, derive_more::Display, Eq, PartialEq, Hash, Allocative)]
+#[derive(
+    Debug,
+    Clone,
+    derive_more::Display,
+    Eq,
+    PartialEq,
+    Hash,
+    Allocative,
+    strong_hash::StrongHash
+)]
 #[display("{}:{}", path, name)]
 pub struct StarlarkRuleType {
     /// The cell, package, and file that contains the output of `rule()`

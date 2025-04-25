@@ -37,7 +37,8 @@ use crate::package::quoted_display;
     PartialOrd,
     Ord,
     RefCast,
-    Allocative
+    Allocative,
+    strong_hash::StrongHash
 )]
 #[derivative(Debug)]
 #[repr(transparent)]

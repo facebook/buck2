@@ -43,11 +43,30 @@ use crate::artifact::source_artifact::SourceArtifact;
 /// An 'Artifact' that can be materialized at its path. The underlying data is not very large here,
 /// but we do store many copies of it, which is why we store this as an Arc.
 #[derive(
-    Clone, Debug, Display, Dupe, Allocative, Derivative, PartialEq, Eq, Hash
+    Clone,
+    Debug,
+    Display,
+    Dupe,
+    Allocative,
+    Derivative,
+    PartialEq,
+    Eq,
+    Hash,
+    strong_hash::StrongHash
 )]
 pub struct Artifact(Arc<ArtifactData>);
 
-#[derive(Clone, Debug, Display, Dupe, Allocative, Hash, Eq, PartialEq)]
+#[derive(
+    Clone,
+    Debug,
+    Display,
+    Dupe,
+    Allocative,
+    Hash,
+    Eq,
+    PartialEq,
+    strong_hash::StrongHash
+)]
 #[display("{}", data)]
 struct ArtifactData {
     data: Hashed<ArtifactKind>,
@@ -186,7 +205,18 @@ impl ArtifactDyn for Artifact {
     }
 }
 
-#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, From, Allocative)]
+#[derive(
+    Clone,
+    Debug,
+    Display,
+    Dupe,
+    PartialEq,
+    Eq,
+    Hash,
+    From,
+    Allocative,
+    strong_hash::StrongHash
+)]
 pub enum BaseArtifactKind {
     Source(SourceArtifact),
     Build(BuildArtifact),
@@ -194,7 +224,16 @@ pub enum BaseArtifactKind {
 
 assert_eq_size!(BaseArtifactKind, [usize; 6]);
 
-#[derive(Clone, Debug, Dupe, PartialEq, Eq, Hash, Allocative)]
+#[derive(
+    Clone,
+    Debug,
+    Dupe,
+    PartialEq,
+    Eq,
+    Hash,
+    Allocative,
+    strong_hash::StrongHash
+)]
 pub struct ArtifactKind {
     pub base: BaseArtifactKind,
     /// When non-empty, the artifact is considered "projected".

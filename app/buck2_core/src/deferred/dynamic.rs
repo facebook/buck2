@@ -27,7 +27,8 @@ use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
     Dupe,
     derive_more::Display,
     Debug,
-    Allocative
+    Allocative,
+    strong_hash::StrongHash
 )]
 #[display("{_0}_{_1}")]
 pub struct DynamicLambdaResultsKey(DeferredHolderKey, DynamicLambdaIndex);
@@ -68,7 +69,8 @@ impl DynamicLambdaResultsKey {
     Dupe,
     Copy,
     derive_more::Display,
-    Allocative
+    Allocative,
+    strong_hash::StrongHash
 )]
 pub struct DynamicLambdaIndex(u32);
 

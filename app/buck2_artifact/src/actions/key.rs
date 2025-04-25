@@ -26,7 +26,8 @@ use static_assertions::assert_eq_size;
     Clone,
     Dupe,
     derive_more::Display,
-    Allocative
+    Allocative,
+    strong_hash::StrongHash
 )]
 #[display("(target: `{parent}`, id: `{id}`)")]
 pub struct ActionKey {
@@ -46,7 +47,8 @@ assert_eq_size!(ActionKey, [usize; 4]);
     Dupe,
     Copy,
     derive_more::Display,
-    Allocative
+    Allocative,
+    strong_hash::StrongHash
 )]
 pub struct ActionIndex(pub u32);
 impl ActionIndex {

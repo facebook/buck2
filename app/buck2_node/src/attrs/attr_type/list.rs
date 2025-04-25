@@ -40,7 +40,16 @@ impl ListAttrType {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative, Default)]
+#[derive(
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Hash,
+    Allocative,
+    Default,
+    strong_hash::StrongHash
+)]
 pub struct ListLiteral<C: Eq>(pub ArcSlice<C>);
 
 impl<C: Eq> Deref for ListLiteral<C> {

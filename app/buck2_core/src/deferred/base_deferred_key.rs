@@ -22,6 +22,7 @@ use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
 use static_assertions::assert_eq_size;
+use strong_hash::StrongHash;
 
 use crate::execution_types::execution::ExecutionPlatformResolution;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -35,6 +36,7 @@ use crate::target::name::EQ_SIGN_SUBST;
 pub trait BaseDeferredKeyDyn: Debug + Display + Any + Allocative + Send + Sync + 'static {
     fn eq_token(&self) -> PartialEqAny;
     fn hash(&self) -> u64;
+    fn strong_hash(&self) -> u64;
     fn make_hashed_path(
         &self,
         base: &ProjectRelativePath,
@@ -92,6 +94,17 @@ impl Hash for BaseDeferredKey {
             BaseDeferredKey::TargetLabel(a) => a.hash(state),
             BaseDeferredKey::AnonTarget(d) | BaseDeferredKey::BxlLabel(BaseDeferredKeyBxl(d)) => {
                 d.hash().hash(state)
+            }
+        }
+    }
+}
+
+impl StrongHash for BaseDeferredKey {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            BaseDeferredKey::TargetLabel(a) => a.strong_hash(state),
+            BaseDeferredKey::AnonTarget(d) | BaseDeferredKey::BxlLabel(BaseDeferredKeyBxl(d)) => {
+                d.strong_hash().strong_hash(state)
             }
         }
     }

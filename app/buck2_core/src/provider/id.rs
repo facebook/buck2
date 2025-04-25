@@ -28,7 +28,17 @@ use crate::cells::cell_path::CellPath;
 ///     ctx.actions.write("out.txt", ctx.attrs.dep[FooInfo].bar)
 /// foo_binary = rule(impl=impl, attrs={"dep": attrs.dep(providers=[FooInfo])})
 /// ```
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(
+    Debug,
+    Clone,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
+)]
 pub struct ProviderId {
     /// This is present for all user-specified providers. This is only None if it is a
     /// native provider, which has no affiliated .bzl file

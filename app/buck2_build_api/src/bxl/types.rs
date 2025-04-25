@@ -18,7 +18,16 @@ use serde::Serializer;
 
 /// The identifier used to find the implementation function for this bxl. Should point at the output of `bxl()`
 #[derive(
-    Debug, Clone, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
+    Debug,
+    Clone,
+    Display,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
 )]
 #[display("{}:{}", bxl_path, name)]
 pub struct BxlFunctionLabel {

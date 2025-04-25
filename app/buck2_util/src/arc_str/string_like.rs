@@ -28,7 +28,18 @@ pub trait StringInside {
     fn from_str(s: &str) -> &Self;
 }
 
-#[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Clone_, Dupe_, Debug, Allocative)]
+#[derive(
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Clone_,
+    Dupe_,
+    Debug,
+    Allocative,
+    strong_hash::StrongHash
+)]
 #[allocative(bound = "")]
 pub struct ArcS<S: StringInside + ?Sized> {
     s: ArcStr,
@@ -92,7 +103,18 @@ impl<S: StringInside + Display + ?Sized> Display for ArcS<S> {
     }
 }
 
-#[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Clone_, Dupe_, Debug, Allocative)]
+#[derive(
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Clone_,
+    Dupe_,
+    Debug,
+    Allocative,
+    strong_hash::StrongHash
+)]
 #[allocative(bound = "")]
 pub struct ThinArcS<S: StringInside + ?Sized> {
     s: ThinArcStr,

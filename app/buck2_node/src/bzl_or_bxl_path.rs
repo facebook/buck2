@@ -11,7 +11,16 @@ use allocative::Allocative;
 use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;
 
-#[derive(Debug, Clone, derive_more::Display, Eq, PartialEq, Hash, Allocative)]
+#[derive(
+    Debug,
+    Clone,
+    derive_more::Display,
+    Eq,
+    PartialEq,
+    Hash,
+    Allocative,
+    strong_hash::StrongHash
+)]
 #[display("{}", _0)]
 pub enum BzlOrBxlPath {
     // bxl anon rule can be defined in bxl file

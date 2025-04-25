@@ -62,6 +62,7 @@ rust_library(
         # @oss-disable[end= ]: "//buck2/facebook/test_env_allowlist:test_env_allowlist",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/gazebo/strong_hash:strong_hash",
         "//buck2/host_sharing:host_sharing",
         "//buck2/remote_execution:remote_execution",
         "//buck2/starlark-rust/starlark_map:starlark_map",

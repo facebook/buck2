@@ -32,7 +32,8 @@ use crate::target::configured_target_label::ConfiguredTargetLabel;
     Dupe,
     derive_more::Display,
     Debug,
-    Allocative
+    Allocative,
+    strong_hash::StrongHash
 )]
 
 pub enum DeferredHolderKey {

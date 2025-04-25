@@ -71,7 +71,7 @@ impl QueryAttr<ProvidersLabel> {
 }
 
 /// Query in target node attribute, like `$(query_outputs ...)`.
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, strong_hash::StrongHash)]
 pub struct QueryMacroBase<P: ProvidersLabelMaybeConfigured> {
     pub expansion_type: QueryExpansion,
     pub query: QueryAttrBase<P>,
@@ -117,7 +117,7 @@ impl QueryMacroBase<ProvidersLabel> {
 /// Used in either:
 /// * Attribute created with `attrs.query(...)`
 /// * Query inside macros like `$(query_targets ...)`
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, strong_hash::StrongHash)]
 pub struct QueryAttrBase<P: ProvidersLabelMaybeConfigured> {
     pub query: String,
     pub resolved_literals: ResolvedQueryLiterals<P>,
@@ -125,7 +125,7 @@ pub struct QueryAttrBase<P: ProvidersLabelMaybeConfigured> {
 
 type OffsetAndLength = (usize, usize);
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, strong_hash::StrongHash)]
 pub struct ResolvedQueryLiterals<P: ProvidersLabelMaybeConfigured>(
     pub BTreeMap<OffsetAndLength, P>,
 );

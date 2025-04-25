@@ -54,6 +54,7 @@ use starlark::values::ValueTyped;
 use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictType;
 use starlark::values::starlark_value;
+use strong_hash::StrongHash;
 
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 
@@ -129,6 +130,17 @@ pub(crate) struct BxlExecutionResolution {
     pub(crate) resolved_execution: ExecutionPlatformResolution,
     pub(crate) exec_deps_configured: Vec<ConfiguredProvidersLabel>,
     pub(crate) toolchain_deps_configured: Vec<ConfiguredProvidersLabel>,
+}
+
+impl StrongHash for BxlExecutionResolution {
+    fn strong_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        use std::hash::Hash;
+
+        // FIXME(JakobDegen): It seems wrong that we're structurally hashing this entire value
+        self.resolved_execution.hash(state);
+        self.exec_deps_configured.strong_hash(state);
+        self.toolchain_deps_configured.strong_hash(state);
+    }
 }
 
 impl BxlExecutionResolution {

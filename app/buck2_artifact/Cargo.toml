@@ -18,6 +18,7 @@ allocative = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
 starlark_map = { workspace = true }
+strong_hash = { workspace = true }
 
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }

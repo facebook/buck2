@@ -170,7 +170,8 @@ impl CliArgs {
     Ord,
     PartialOrd,
     Allocative,
-    Serialize
+    Serialize,
+    strong_hash::StrongHash
 )]
 pub(crate) enum JsonCliArgValueData {
     None,
@@ -252,7 +253,8 @@ impl JsonCliArgValueData {
     Hash,
     Ord,
     PartialOrd,
-    Allocative
+    Allocative,
+    strong_hash::StrongHash
 )]
 pub(crate) enum CliArgValue {
     Bool(bool),

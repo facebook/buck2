@@ -29,7 +29,7 @@ enum ImportPathError {
 }
 
 /// Path of a `.bzl` file.
-#[derive(Clone, Hash, Eq, PartialEq, Debug, Allocative)]
+#[derive(Clone, Hash, Eq, PartialEq, Debug, Allocative, strong_hash::StrongHash)]
 pub struct ImportPath {
     /// The path to the import as a 'CellPath', which contains the cell
     /// information and the cell relative path to the bzl file itself, including the bzl suffix

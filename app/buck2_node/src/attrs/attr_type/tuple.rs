@@ -48,7 +48,16 @@ impl TupleAttrType {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative, Default)]
+#[derive(
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Hash,
+    Allocative,
+    Default,
+    strong_hash::StrongHash
+)]
 pub struct TupleLiteral<C: Eq>(pub ArcSlice<C>);
 
 impl<C: Eq> Deref for TupleLiteral<C> {

@@ -38,7 +38,7 @@ use serde_json::to_value;
 
 use crate::anon_target_attr_resolve::AnonTargetAttrTraversal;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, strong_hash::StrongHash)]
 pub enum AnonTargetAttr {
     Bool(BoolLiteral),
     Int(i64),

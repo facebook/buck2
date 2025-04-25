@@ -341,7 +341,8 @@ starlark_lsp = { version = "0.13.0", path = "starlark-rust/starlark_lsp" }
 starlark_map = { version = "0.13.0", path = "starlark-rust/starlark_map" }
 starlark_syntax = { version = "0.13.0", path = "starlark-rust/starlark_syntax" }
 static_interner = { path = "shed/static_interner" }
-strong_hash = { path = "gazebo/strong_hash" }
+strong_hash.features = ["num-bigint", "triomphe"]
+strong_hash.path = "gazebo/strong_hash"
 strong_hash_derive = { path = "gazebo/strong_hash_derive" }
 three_billion_instructions = { path = "shed/three_billion_instructions" }
 

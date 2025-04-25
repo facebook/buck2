@@ -600,7 +600,17 @@ impl CommandExecutionRequest {
 
 /// Is an output a file or a directory
 #[derive(
-    PartialEq, Eq, Hash, Debug, Copy, Clone, Dupe, Allocative, Ord, PartialOrd
+    PartialEq,
+    Eq,
+    Hash,
+    Debug,
+    Copy,
+    Clone,
+    Dupe,
+    Allocative,
+    Ord,
+    PartialOrd,
+    strong_hash::StrongHash
 )]
 pub enum OutputType {
     /// We don't know - used to represent legacy code that doesn't yet declare the output type properly.

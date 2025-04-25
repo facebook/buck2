@@ -34,7 +34,16 @@ use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::label::label::TargetLabel;
 
 #[derive(
-    Display, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
+    Display,
+    Clone,
+    Debug,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
 )]
 pub struct ProviderName(String);
 
@@ -73,7 +82,18 @@ impl ProviderName {
     }
 }
 
-#[derive(Clone, Dupe, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
+)]
 pub enum NonDefaultProvidersName {
     Named(ArcSlice<ProviderName>),
     // For some flavors from buck1, we can translate them to ProvidersName::Named
@@ -91,7 +111,17 @@ pub enum NonDefaultProvidersName {
 /// It should be non-empty alphanumeric characters, '/', '.', ',', '-','=',
 /// and'_' character. All other special characters including spaces are
 /// prohibited.
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(
+    Clone,
+    Debug,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
+)]
 pub enum ProvidersName {
     Default,
     NonDefault(Arc<NonDefaultProvidersName>),
@@ -150,7 +180,17 @@ impl ProvidersName {
 /// the 'ProvidersName' referring to the specific set of inner providers of a
 /// rule.
 #[derive(
-    Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
+    Clone,
+    Dupe,
+    Debug,
+    Display,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
 )]
 #[display("{}{}", target, name)]
 pub struct ProvidersLabel {
@@ -244,7 +284,17 @@ impl Serialize for ProvidersLabel {
 ///
 /// A configured 'ProvidersLabel'.
 #[derive(
-    Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
+    Clone,
+    Dupe,
+    Debug,
+    Display,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
 )]
 #[display("{}{} ({})", target.unconfigured(), name, target.cfg())]
 pub struct ConfiguredProvidersLabel {

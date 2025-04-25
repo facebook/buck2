@@ -11,10 +11,15 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use ref_cast::RefCast;
 pub use strong_hash_derive::StrongHash;
+
+use crate as strong_hash;
+
+mod impls;
 
 /// `StrongHasher` is a trait for hashing functions that return more than 64
 /// bits of output.  The key difference between `std::hash::Hasher` and
@@ -91,12 +96,13 @@ pub trait StrongHash {
     fn strong_hash<H: Hasher>(&self, state: &mut H);
 }
 
+#[macro_export]
 macro_rules! impl_strong_hash_for_impl_hash {
     ($($t:ty)*) => {
         $(
-            impl StrongHash for $t {
-                fn strong_hash<H: Hasher>(&self, state: &mut H) {
-                    self.hash(state);
+            impl strong_hash::StrongHash for $t {
+                fn strong_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                    std::hash::Hash::hash(self, state);
                 }
             }
         )*
@@ -199,6 +205,12 @@ impl<K: StrongHash, V: StrongHash> StrongHash for HashMap<K, V> {
 impl StrongHash for *const () {
     fn strong_hash<H: Hasher>(&self, state: &mut H) {
         (*self as usize).strong_hash(state);
+    }
+}
+
+impl<T: ?Sized> StrongHash for PhantomData<T> {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        self.hash(state);
     }
 }
 

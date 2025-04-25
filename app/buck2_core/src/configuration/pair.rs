@@ -76,7 +76,8 @@ impl Configuration {
     Ord,
     PartialOrd,
     Allocative,
-    derive_more::Display
+    derive_more::Display,
+    strong_hash::StrongHash
 )]
 #[display("{}", self.cfg())]
 pub struct ConfigurationNoExec(Configuration);

@@ -15,7 +15,17 @@ use dupe::Dupe;
 use crate::target::label::label::TargetLabel;
 
 #[derive(
-    Default, Debug, Dupe, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Allocative
+    Default,
+    Debug,
+    Dupe,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Allocative,
+    strong_hash::StrongHash
 )]
 pub struct GlobalCfgOptions {
     pub target_platform: Option<TargetLabel>,

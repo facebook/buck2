@@ -48,7 +48,16 @@ impl DictAttrType {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative, Default)]
+#[derive(
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Hash,
+    Allocative,
+    Default,
+    strong_hash::StrongHash
+)]
 pub struct DictLiteral<C: Eq>(pub ArcSlice<(C, C)>);
 
 impl<C: Eq> Deref for DictLiteral<C> {

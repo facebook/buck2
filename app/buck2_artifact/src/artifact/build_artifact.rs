@@ -21,7 +21,16 @@ use crate::actions::key::ActionKey;
 
 /// An artifact that is built by the build system
 #[derive(
-    Clone, PartialEq, Eq, Hash, Debug, Dupe, Display, Derivative, Allocative
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    Debug,
+    Dupe,
+    Display,
+    Derivative,
+    Allocative,
+    strong_hash::StrongHash
 )]
 #[display("`{}`, action: {}", path, key)]
 pub struct BuildArtifact {

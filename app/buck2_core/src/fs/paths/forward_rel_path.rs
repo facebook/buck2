@@ -59,7 +59,18 @@ pub struct ForwardRelativePath(
 /// The owned version of 'ForwardRelativePath', like how 'PathBuf' relates to
 /// 'Path'
 #[derive(
-    Default, Clone, Display, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative
+    Default,
+    Clone,
+    Display,
+    Debug,
+    Serialize,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Allocative,
+    strong_hash::StrongHash
 )]
 #[repr(transparent)]
 pub struct ForwardRelativePathBuf(String);

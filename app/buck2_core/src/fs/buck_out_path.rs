@@ -31,7 +31,16 @@ use crate::provider::label::ConfiguredProvidersLabel;
 use crate::provider::label::NonDefaultProvidersName;
 use crate::provider::label::ProvidersName;
 
-#[derive(Clone, Debug, Display, Allocative, Hash, Eq, PartialEq)]
+#[derive(
+    Clone,
+    Debug,
+    Display,
+    Allocative,
+    Hash,
+    Eq,
+    PartialEq,
+    strong_hash::StrongHash
+)]
 #[display("({})/{}", owner, path.as_str())]
 struct BuildArtifactPathData {
     /// The owner responsible for creating this path.
@@ -47,7 +56,17 @@ struct BuildArtifactPathData {
 /// This structure contains a target label for generating the base of the path (base
 /// path), and a `ForwardRelativePath` that represents the specific output
 /// location relative to the 'base path'.
-#[derive(Clone, Dupe, Debug, Display, Hash, PartialEq, Eq, Allocative)]
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Display,
+    Hash,
+    PartialEq,
+    Eq,
+    Allocative,
+    strong_hash::StrongHash
+)]
 pub struct BuildArtifactPath(Arc<BuildArtifactPathData>);
 
 impl BuildArtifactPath {

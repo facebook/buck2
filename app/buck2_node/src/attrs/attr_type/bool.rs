@@ -20,7 +20,18 @@ use crate::attrs::attr_type::any_matches::AnyMatches;
 #[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
 pub struct BoolAttrType;
 
-#[derive(Debug, Clone, Copy, Dupe, Eq, PartialEq, Hash, Allocative, Serialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Dupe,
+    Eq,
+    PartialEq,
+    Hash,
+    Allocative,
+    Serialize,
+    strong_hash::StrongHash
+)]
 #[serde(transparent)]
 pub struct BoolLiteral(pub bool);
 
