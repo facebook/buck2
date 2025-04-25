@@ -339,15 +339,16 @@ def compile_swift(
     inputs_tag = ctx.actions.artifact_tag()
 
     shared_flags = _get_shared_flags(
-        ctx,
-        deps_providers,
-        parse_as_library,
-        private_compiled_underlying_pcm,
-        exported_compiled_underlying_pcm,
-        module_name,
-        private_objc_modulemap_pp_info,
-        exported_objc_modulemap_pp_info,
-        extra_search_paths_flags,
+        ctx = ctx,
+        deps_providers = deps_providers,
+        parse_as_library = parse_as_library,
+        private_module = private_compiled_underlying_pcm,
+        public_module = exported_compiled_underlying_pcm,
+        module_name = module_name,
+        private_modulemap_pp_info = private_objc_modulemap_pp_info,
+        public_modulemap_pp_info = exported_objc_modulemap_pp_info,
+        extra_search_paths_flags = extra_search_paths_flags,
+        inputs_tag = inputs_tag,
     )
     shared_flags.add(framework_search_paths)
     swift_interface_info = _create_swift_interface(ctx, shared_flags, module_name)
@@ -824,7 +825,8 @@ def _get_shared_flags(
         module_name: str,
         private_modulemap_pp_info: CPreprocessor | None,
         public_modulemap_pp_info: CPreprocessor | None,
-        extra_search_paths_flags: list[ArgLike] = []) -> cmd_args:
+        extra_search_paths_flags: list[ArgLike],
+        inputs_tag: ArtifactTag) -> cmd_args:
     toolchain = get_swift_toolchain_info(ctx)
     cmd = cmd_args()
 
@@ -950,7 +952,7 @@ def _get_shared_flags(
             macro_artifact = m[DefaultInfo].default_outputs[0]
             cmd.add([
                 "-load-plugin-executable",
-                cmd_args(macro_artifact, format = "{}#" + macro_artifact.basename),
+                cmd_args(inputs_tag.tag_artifacts(macro_artifact), format = "{}#" + macro_artifact.basename),
             ])
 
     pcm_deps_tset = get_compiled_pcm_deps_tset(ctx, deps_providers)
@@ -964,7 +966,14 @@ def _get_shared_flags(
     if uses_explicit_modules(ctx):
         sdk_clang_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, deps_providers)
         sdk_swift_deps_tset = get_compiled_sdk_swift_deps_tset(ctx, deps_providers)
-        _add_swift_module_map_args(ctx, sdk_swift_deps_tset, pcm_deps_tset, sdk_clang_deps_tset, cmd)
+        _add_swift_module_map_args(
+            ctx = ctx,
+            sdk_swiftmodule_deps_tset = sdk_swift_deps_tset,
+            pcm_deps_tset = pcm_deps_tset,
+            sdk_deps_tset = sdk_clang_deps_tset,
+            inputs_tag = inputs_tag,
+            cmd = cmd,
+        )
 
     _add_clang_deps_flags(ctx, pcm_deps_tset, cmd)
     _add_swift_deps_flags(ctx, cmd)
@@ -991,6 +1000,7 @@ def _add_swift_module_map_args(
         sdk_swiftmodule_deps_tset: SwiftCompiledModuleTset,
         pcm_deps_tset: SwiftCompiledModuleTset,
         sdk_deps_tset: SwiftCompiledModuleTset,
+        inputs_tag: ArtifactTag,
         cmd: cmd_args):
     module_name = get_module_name(ctx)
     sdk_swiftmodule_deps_tset = [sdk_swiftmodule_deps_tset] if sdk_swiftmodule_deps_tset else []
@@ -1007,7 +1017,7 @@ def _add_swift_module_map_args(
         "-Xfrontend",
         "-explicit-swift-module-map-file",
         "-Xfrontend",
-        swift_module_map_artifact,
+        inputs_tag.tag_artifacts(swift_module_map_artifact),
     ])
 
 def _add_swift_deps_flags(
