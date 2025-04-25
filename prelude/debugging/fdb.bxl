@@ -25,7 +25,7 @@ load("@prelude//debugging:inspect_java.bzl", "inspect_java_rule")
 load("@prelude//debugging:labels.bzl", "DBG_INFO_EXEC", "DBG_INFO_REF", "get_info_ref", "get_label_or_mark")
 load("@prelude//debugging:types.bzl", "ScriptSettings")
 
-def inspect_alias_rule(ctx: bxl.Context, actions: AnalysisActions, target: bxl.ConfiguredTargetNode, settings: ScriptSettings, _labels: list[str]):
+def inspect_alias_rule(ctx: bxl.Context, actions: AnalysisActions, target: bxl.ConfiguredTargetNode, settings: ScriptSettings):
     attrs = target.attrs_lazy()
     actual = attrs.get("actual")
     return inspect_any_target(ctx, actions, ctx.configured_targets(actual.value().configured_target()), settings)
