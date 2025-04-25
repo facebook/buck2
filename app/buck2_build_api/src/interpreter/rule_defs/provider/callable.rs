@@ -345,7 +345,7 @@ impl TypeMatcher for UserProviderMatcher {
     }
 }
 
-#[starlark_value(type = "provider_callable")]
+#[starlark_value(type = "ProviderCallable")]
 impl<'v> StarlarkValue<'v> for UserProviderCallable {
     type Canonical = FrozenUserProviderCallable;
 
@@ -479,7 +479,7 @@ impl ProviderCallableLike for FrozenUserProviderCallable {
     }
 }
 
-#[starlark_value(type = "provider_callable")]
+#[starlark_value(type = "ProviderCallable")]
 impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
     type Canonical = Self;
 
