@@ -70,3 +70,15 @@ pub(crate) struct HealthCheckContext {
     /// Configurations for health check experiments.
     pub experiment_configurations: Option<buck2_data::SystemInfo>,
 }
+
+/// An event to trigger update of context in the health check server.
+/// This may result in side effects like precomputing data, etc. in health checks.
+pub enum HealthCheckContextEvent {
+    CommandStart(buck2_data::CommandStart),
+    ParsedTargetPatterns(buck2_data::ParsedTargetPatterns),
+    BranchedFromRevision(String),
+    /// Sent only once and communicates if buck2 is experiencing excess cache misses.
+    HasExcessCacheMisses(),
+    /// Configuration about the health checks.
+    ExperimentConfigurations(buck2_data::SystemInfo),
+}

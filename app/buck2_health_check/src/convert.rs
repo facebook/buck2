@@ -11,6 +11,7 @@
 
 use buck2_error::BuckErrorContext;
 
+use crate::interface::HealthCheckContextEvent;
 use crate::interface::HealthCheckType;
 use crate::report::DisplayReport;
 use crate::report::HealthIssue;
@@ -179,5 +180,65 @@ impl TryInto<buck2_health_check_proto::Report> for Report {
             display_report: self.display_report.map(|d| d.try_into()).transpose()?,
             tag: self.tag,
         })
+    }
+}
+
+impl TryInto<buck2_health_check_proto::HealthCheckContextEvent> for HealthCheckContextEvent {
+    type Error = buck2_error::Error;
+
+    fn try_into(self) -> buck2_error::Result<buck2_health_check_proto::HealthCheckContextEvent> {
+        Ok(match self {
+            HealthCheckContextEvent::BranchedFromRevision(rev) => {
+                buck2_health_check_proto::HealthCheckContextEvent {
+                    data: Some(buck2_health_check_proto::health_check_context_event::Data::BranchedFromRevision(rev)),
+                }
+            }
+            HealthCheckContextEvent::CommandStart(cmd) => {
+                buck2_health_check_proto::HealthCheckContextEvent {
+                    data: Some(buck2_health_check_proto::health_check_context_event::Data::CommandStart(cmd.clone())),
+                }
+            }
+            HealthCheckContextEvent::ParsedTargetPatterns(patterns) => {
+                buck2_health_check_proto::HealthCheckContextEvent {
+                    data: Some(buck2_health_check_proto::health_check_context_event::Data::ParsedTargetPatterns(patterns.clone())),
+                }
+            }
+            HealthCheckContextEvent::HasExcessCacheMisses() => {
+                buck2_health_check_proto::HealthCheckContextEvent {
+                    data: Some(buck2_health_check_proto::health_check_context_event::Data::HasExcessCacheMisses(true)),
+                }
+            }
+            HealthCheckContextEvent::ExperimentConfigurations(system_info) => {
+                buck2_health_check_proto::HealthCheckContextEvent {
+                    data: Some(buck2_health_check_proto::health_check_context_event::Data::ExperimentConfigurations(system_info.clone())),
+                }
+            }
+        })
+    }
+}
+
+impl TryFrom<buck2_health_check_proto::HealthCheckContextEvent> for HealthCheckContextEvent {
+    type Error = buck2_error::Error;
+    fn try_from(
+        value: buck2_health_check_proto::HealthCheckContextEvent,
+    ) -> buck2_error::Result<Self> {
+        Ok( match value.data.buck_error_context("Invalid `health_check_context_event`")? {
+            buck2_health_check_proto::health_check_context_event::Data::BranchedFromRevision(rev) => {
+                HealthCheckContextEvent::BranchedFromRevision(rev)
+            }
+            buck2_health_check_proto::health_check_context_event::Data::CommandStart(cmd) => {
+                HealthCheckContextEvent::CommandStart(cmd)
+            }
+            buck2_health_check_proto::health_check_context_event::Data::ParsedTargetPatterns(patterns) => {
+                HealthCheckContextEvent::ParsedTargetPatterns(patterns)
+            }
+            buck2_health_check_proto::health_check_context_event::Data::HasExcessCacheMisses(_) => {
+                HealthCheckContextEvent::HasExcessCacheMisses()
+            }
+            buck2_health_check_proto::health_check_context_event::Data::ExperimentConfigurations(system_info) => {
+                HealthCheckContextEvent::ExperimentConfigurations(system_info)
+            }
+        }
+    )
     }
 }
