@@ -99,7 +99,7 @@ impl fmt::Display for AnonTarget {
             f,
             "{} (anon: {}) ({})",
             self.name(),
-            self.partial_hash(),
+            self.path_hash(),
             self.exec_cfg()
         )
     }
@@ -116,7 +116,7 @@ impl AnonTarget {
         buck2_data::AnonTarget {
             name: Some(self.name().as_proto()),
             execution_configuration: Some(self.exec_cfg().cfg().as_proto()),
-            hash: self.partial_hash().to_owned(),
+            hash: self.path_hash().to_owned(),
         }
     }
 
@@ -171,10 +171,8 @@ impl AnonTarget {
         &self.attrs
     }
 
-    /// The hash of the rule type and attributes for bzl anon targets.
-    /// Or
-    /// The hash of the rule type, attributes and global_cfg_options for bxl anon targets.
-    fn partial_hash(&self) -> &str {
+    /// The hash that is used in anon target artifact paths
+    fn path_hash(&self) -> &str {
         &self.partial_hash
     }
 
@@ -311,7 +309,7 @@ impl BaseDeferredKeyDyn for AnonTarget {
             } else {
                 "/"
             },
-            self.partial_hash(),
+            self.path_hash(),
             "/__",
             self.name().name().as_str(),
             "__",
