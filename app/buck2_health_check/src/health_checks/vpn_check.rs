@@ -12,8 +12,8 @@
 use buck2_core::soft_error;
 use regex::Regex;
 
-use crate::health_check_context::HealthCheckContext;
 use crate::interface::HealthCheck;
+use crate::interface::HealthCheckContext;
 use crate::report::DisplayReport;
 use crate::report::HealthIssue;
 use crate::report::Remediation;

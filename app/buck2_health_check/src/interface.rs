@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use crate::health_check_context::HealthCheckContext;
 use crate::report::Report;
 
 #[derive(Eq, PartialEq, Hash)]
@@ -34,4 +33,27 @@ pub(crate) trait HealthCheck: Send + Sync {
     /// The `run_check` method is executed repeatedly at every snapshot and should be optimized.
     /// This trigger can be used to precompute/cache relevant data.
     async fn handle_context_update(&mut self, context: &HealthCheckContext);
+}
+
+/// A subset of the client data that is relevant for health checks.
+/// This is intentionally kept as a small set to avoid serialization costs.
+#[derive(Default)]
+pub(crate) struct HealthCheckContext {
+    /// Data from the command start.
+    /// Example use: Run a check only on a subset of commands.
+    pub command_data: Option<buck2_data::command_start::Data>,
+
+    /// Target patterns.
+    /// Example use: Project/target specific checks, target specific configs e.g. warm revision.
+    pub parsed_target_patterns: Option<buck2_data::ParsedTargetPatterns>,
+
+    /// Revision hash of the mergebase.
+    /// Example use: Warm revision check.
+    pub branched_from_revision: Option<String>,
+
+    /// Denotes if this command is seeing cache miss without any file changes.
+    pub has_excess_cache_misses: bool,
+
+    /// Configurations for health check experiments.
+    pub experiment_configurations: Option<buck2_data::SystemInfo>,
 }
