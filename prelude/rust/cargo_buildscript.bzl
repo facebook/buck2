@@ -176,13 +176,12 @@ def buildscript_run(
         version,
         features = [],
         env = {},
+        # path to crate's directory in source tree, e.g. "vendor/serde-1.0.100"
+        local_manifest_dir = None,
         # target or subtarget containing crate, e.g. ":serde.git[serde]"
         manifest_dir = None,
         **kwargs):
-    # path to crate's directory in source tree, e.g. "vendor/serde-1.0.100"
-    local_manifest_dir = None
-
-    if manifest_dir == None:
+    if manifest_dir == None and local_manifest_dir == None:
         existing_filegroup_name = "{}-{}.crate".format(package_name, version)
         if rule_exists(existing_filegroup_name):
             manifest_dir = ":{}".format(existing_filegroup_name)
