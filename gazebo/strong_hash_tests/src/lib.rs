@@ -12,7 +12,6 @@
 use std::hash::Hasher;
 
 use strong_hash::StrongHash;
-use strong_hash::StrongHasher;
 
 #[test]
 fn test_strong_hash_derive() {
@@ -60,16 +59,10 @@ fn test_strong_hash_derive() {
         }
     }
 
-    impl StrongHasher for Blake3StrongHasher {
-        fn finish(&self) -> Vec<u8> {
-            self.digest().as_bytes().into()
-        }
-    }
-
-    fn hash(hashable: &impl StrongHash) -> Vec<u8> {
+    fn hash(hashable: &impl StrongHash) -> u64 {
         let mut hasher = Blake3StrongHasher::new();
         hashable.strong_hash(&mut hasher);
-        StrongHasher::finish(&hasher)
+        Hasher::finish(&hasher)
     }
 
     // Now test that hashes are not equal

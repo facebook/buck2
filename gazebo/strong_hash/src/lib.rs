@@ -21,34 +21,6 @@ use crate as strong_hash;
 
 mod impls;
 
-/// `StrongHasher` is a trait for hashing functions that return more than 64
-/// bits of output.  The key difference between `std::hash::Hasher` and
-/// `StrongHasher` is that `StrongHasher` produces a vec of bytes as the hash.
-///
-/// For example, a `DefaultHasher` implementation of `StrongHasher` is as follows.
-///
-/// ```ignore
-/// struct DefaultHasher2 {
-///    hasher: DefaultHasher,
-/// }
-///
-/// impl StrongHasher for DefaultHasher2 {
-///     fn finish(self) -> Vec<u8> {
-///         self.hasher.finish().to_le_bytes().to_vec()
-///     }
-/// }
-/// ```
-pub trait StrongHasher: Hasher {
-    /// Finishes the hash and returns the hash in bytes as a `Vec<u8>`.
-    fn finish(&self) -> Vec<u8>;
-}
-
-impl<H: StrongHasher + ?Sized> StrongHasher for &mut H {
-    fn finish(&self) -> Vec<u8> {
-        StrongHasher::finish(*self)
-    }
-}
-
 /// `StrongHash`` is a trait that is notionally similar to `std::hash::Hash`,
 /// but carries the implicit expectation that the hash that will be produced
 /// should be as perturbed as possible.

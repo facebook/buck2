@@ -10,8 +10,6 @@
 use std::hash::Hasher;
 use std::sync::OnceLock;
 
-use strong_hash::StrongHasher;
-
 #[derive(Default)]
 pub struct Blake3StrongHasher(blake3::Hasher);
 
@@ -35,12 +33,6 @@ impl Hasher for Blake3StrongHasher {
             .try_into()
             .expect("Internal error: hash should be 64 bits");
         u64::from_be_bytes(bytes)
-    }
-}
-
-impl StrongHasher for Blake3StrongHasher {
-    fn finish(&self) -> Vec<u8> {
-        self.digest().as_bytes().into()
     }
 }
 
