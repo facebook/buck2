@@ -44,7 +44,6 @@ def erlang_application(
         **kwargs):
     if read_root_config("erlang", "application_only_dependencies"):
         kwargs["shell_libs"] = []
-        kwargs["resources"] = []
 
     normalized_applications = [
         normalize_application(app)
