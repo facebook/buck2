@@ -16,8 +16,6 @@ use tokio::sync::mpsc::error::TrySendError;
 
 use crate::interface::HealthCheckService;
 use crate::report::DisplayReport;
-#[cfg(fbcode_build)]
-use crate::rpc::health_check_rpc_client::HealthCheckRpcClient;
 
 /// This client maintains the context and make requests to the health check server.
 pub struct HealthCheckClient {
@@ -43,12 +41,12 @@ impl HealthCheckClient {
     fn create_service() -> Box<dyn HealthCheckService> {
         #[cfg(fbcode_build)]
         {
-            Box::new(HealthCheckRpcClient::new())
+            Box::new(crate::service::health_check_rpc_client::HealthCheckRpcClient::new())
         }
         #[cfg(not(fbcode_build))]
         {
             // There is no easy binary distribution mechanism for OSS, hence default to in-process execution.
-            Box::new(crate::health_check_executor::HealthCheckExecutor::new())
+            Box::new(crate::service::health_check_executor::HealthCheckExecutor::new())
         }
     }
 

@@ -12,7 +12,4 @@ pub mod health_check_client;
 pub(crate) mod health_checks;
 pub mod interface;
 pub mod report;
-
-pub(crate) mod health_check_executor;
-#[cfg(fbcode_build)]
-pub mod rpc;
+pub mod service;

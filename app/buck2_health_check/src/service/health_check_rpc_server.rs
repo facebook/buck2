@@ -22,14 +22,14 @@ use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tokio::sync::Mutex;
 
-use crate::health_check_executor::HealthCheckExecutor;
 use crate::interface::HealthCheckService;
+use crate::service::health_check_executor::HealthCheckExecutor;
 
-pub struct HealthCheckServer {
+pub struct HealthCheckRpcServer {
     executor: Arc<Mutex<Box<dyn HealthCheckService>>>,
 }
 
-impl HealthCheckServer {
+impl HealthCheckRpcServer {
     pub fn new() -> Self {
         let executor = Box::new(HealthCheckExecutor::new());
         Self {
@@ -39,7 +39,7 @@ impl HealthCheckServer {
 }
 
 #[async_trait::async_trait]
-impl health_check_server::HealthCheck for HealthCheckServer {
+impl health_check_server::HealthCheck for HealthCheckRpcServer {
     async fn update_context(
         &self,
         request: tonic::Request<HealthCheckContextEvent>,
@@ -75,7 +75,7 @@ where
     I: AsyncRead + AsyncWrite + Send + Unpin + 'static + tonic::transport::server::Connected,
 {
     let router = tonic::transport::Server::builder().add_service(
-        health_check_server::HealthCheckServer::new(HealthCheckServer::new())
+        health_check_server::HealthCheckServer::new(HealthCheckRpcServer::new())
             .max_encoding_message_size(usize::MAX)
             .max_decoding_message_size(usize::MAX),
     );

@@ -7,5 +7,9 @@
  * of this source tree.
  */
 
+#[cfg(fbcode_build)]
 pub(crate) mod health_check_rpc_client;
-pub mod health_check_server;
+#[cfg(fbcode_build)]
+pub mod health_check_rpc_server;
+
+pub(crate) mod health_check_executor;
