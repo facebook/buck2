@@ -39,10 +39,7 @@ pub(crate) trait HealthCheck: Send + Sync {
 #[async_trait::async_trait]
 pub(crate) trait HealthCheckService: Sync + Send {
     /// Update the context for the health check service.
-    async fn update_context(
-        &mut self,
-        event: &buck2_health_check_proto::HealthCheckContextEvent,
-    ) -> buck2_error::Result<()>;
+    async fn update_context(&mut self, event: HealthCheckContextEvent) -> buck2_error::Result<()>;
 
     /// Run all registered health checks.
     async fn run_checks(&mut self) -> buck2_error::Result<Vec<Report>>;

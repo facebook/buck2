@@ -98,12 +98,12 @@ impl HealthCheckSubscriber {
                 {
                     SystemInfo(system_info) => {
                         self.health_check_client
-                            .update_experiment_configurations(&system_info)
+                            .update_experiment_configurations(system_info.clone())
                             .await
                     }
                     TargetPatterns(target_patterns) => {
                         self.health_check_client
-                            .update_parsed_target_patterns(&target_patterns)
+                            .update_parsed_target_patterns(target_patterns.clone())
                             .await
                     }
                     Snapshot(snapshot) => self.health_check_client.run_checks(snapshot).await,

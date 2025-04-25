@@ -9,11 +9,10 @@
 
 #![allow(dead_code)] // TODO(rajneeshl): Remove this when the health checks are moved to the server.
 
-use buck2_health_check_proto::HealthCheckContextEvent;
-use buck2_health_check_proto::health_check_context_event;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::error::TrySendError;
 
+use crate::interface::HealthCheckContextEvent;
 use crate::interface::HealthCheckService;
 use crate::report::DisplayReport;
 
@@ -54,36 +53,25 @@ impl HealthCheckClient {
         &mut self,
         command_start: buck2_data::CommandStart,
     ) -> buck2_error::Result<()> {
-        let event = HealthCheckContextEvent {
-            data: Some(health_check_context_event::Data::CommandStart(
-                command_start,
-            )),
-        };
-        self.health_check_service.update_context(&event).await
+        let event = HealthCheckContextEvent::CommandStart(command_start);
+        self.health_check_service.update_context(event).await
     }
 
     pub async fn update_parsed_target_patterns(
         &mut self,
-        parsed_target_patterns: &buck2_data::ParsedTargetPatterns,
+        parsed_target_patterns: buck2_data::ParsedTargetPatterns,
     ) -> buck2_error::Result<()> {
-        let event = HealthCheckContextEvent {
-            data: Some(health_check_context_event::Data::ParsedTargetPatterns(
-                parsed_target_patterns.clone(),
-            )),
-        };
-        self.health_check_service.update_context(&event).await
+        let event = HealthCheckContextEvent::ParsedTargetPatterns(parsed_target_patterns);
+        self.health_check_service.update_context(event).await
     }
 
     pub async fn update_branched_from_revision(
         &mut self,
         branched_from_revision: &str,
     ) -> buck2_error::Result<()> {
-        let event = HealthCheckContextEvent {
-            data: Some(health_check_context_event::Data::BranchedFromRevision(
-                branched_from_revision.to_owned(),
-            )),
-        };
-        self.health_check_service.update_context(&event).await
+        let event =
+            HealthCheckContextEvent::BranchedFromRevision(branched_from_revision.to_owned());
+        self.health_check_service.update_context(event).await
     }
 
     pub async fn update_excess_cache_misses(
@@ -95,24 +83,18 @@ impl HealthCheckClient {
             .as_ref()
             .is_some_and(|v| v.changed_file.is_none());
         if has_excess_cache_miss {
-            let event = HealthCheckContextEvent {
-                data: Some(health_check_context_event::Data::HasExcessCacheMisses(true)),
-            };
-            self.health_check_service.update_context(&event).await?
+            let event = HealthCheckContextEvent::HasExcessCacheMisses();
+            self.health_check_service.update_context(event).await?
         }
         Ok(())
     }
 
     pub async fn update_experiment_configurations(
         &mut self,
-        experiment_configurations: &buck2_data::SystemInfo,
+        experiment_configurations: buck2_data::SystemInfo,
     ) -> buck2_error::Result<()> {
-        let event = HealthCheckContextEvent {
-            data: Some(health_check_context_event::Data::ExperimentConfigurations(
-                experiment_configurations.clone(),
-            )),
-        };
-        self.health_check_service.update_context(&event).await
+        let event = HealthCheckContextEvent::ExperimentConfigurations(experiment_configurations);
+        self.health_check_service.update_context(event).await
     }
 
     pub async fn run_checks(

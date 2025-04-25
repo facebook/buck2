@@ -45,9 +45,9 @@ impl health_check_server::HealthCheck for HealthCheckRpcServer {
         request: tonic::Request<HealthCheckContextEvent>,
     ) -> Result<tonic::Response<Empty>, tonic::Status> {
         to_tonic(async move {
-            let event = request.into_inner();
+            let event = request.into_inner().try_into()?;
             let mut executor = self.executor.lock().await;
-            executor.update_context(&event).await?;
+            executor.update_context(event).await?;
             Ok(Empty {})
         })
         .await

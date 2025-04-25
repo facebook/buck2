@@ -26,6 +26,7 @@ use futures::FutureExt;
 use tokio::net::TcpListener;
 use tonic::transport::Channel;
 
+use crate::interface::HealthCheckContextEvent;
 use crate::interface::HealthCheckService;
 use crate::report::Report;
 
@@ -125,13 +126,11 @@ impl HealthCheckRpcClient {
 
 #[async_trait::async_trait]
 impl HealthCheckService for HealthCheckRpcClient {
-    async fn update_context(
-        &mut self,
-        event: &buck2_health_check_proto::HealthCheckContextEvent,
-    ) -> buck2_error::Result<()> {
+    async fn update_context(&mut self, event: HealthCheckContextEvent) -> buck2_error::Result<()> {
+        let rpc_event: buck2_health_check_proto::HealthCheckContextEvent = event.try_into()?;
         self.rpc_client()
             .await?
-            .update_context(event.clone())
+            .update_context(rpc_event)
             .await
             .map_err(|e| from_any_with_tag(e, ErrorTag::HealthCheck))?;
         Ok(())

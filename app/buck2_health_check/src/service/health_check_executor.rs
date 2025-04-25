@@ -9,15 +9,12 @@
 
 #![allow(dead_code)] // Unused in oss
 
-use buck2_error::BuckErrorContext;
-use buck2_health_check_proto::HealthCheckContextEvent;
-use buck2_health_check_proto::health_check_context_event::Data;
-
 #[cfg(fbcode_build)]
 use crate::health_checks::facebook::stable_revision::stable_revision_check::StableRevisionCheck;
 use crate::health_checks::vpn_check::VpnCheck;
 use crate::interface::HealthCheck;
 use crate::interface::HealthCheckContext;
+use crate::interface::HealthCheckContextEvent;
 use crate::interface::HealthCheckService;
 use crate::report::Report;
 
@@ -55,29 +52,22 @@ impl HealthCheckExecutor {
 
 #[async_trait::async_trait]
 impl HealthCheckService for HealthCheckExecutor {
-    async fn update_context(&mut self, event: &HealthCheckContextEvent) -> buck2_error::Result<()> {
-        let data = event
-            .data
-            .as_ref()
-            .buck_error_context("Missing `data` in HealthCheckContextEvent")?;
-
-        match data {
-            Data::ParsedTargetPatterns(parsed_target_patterns) => {
-                self.health_check_context.parsed_target_patterns =
-                    Some(parsed_target_patterns.clone());
+    async fn update_context(&mut self, event: HealthCheckContextEvent) -> buck2_error::Result<()> {
+        match event {
+            HealthCheckContextEvent::CommandStart(command_start) => {
+                self.health_check_context.command_data = command_start.data;
             }
-            Data::CommandStart(command_start) => {
-                self.health_check_context.command_data = command_start.data.clone();
+            HealthCheckContextEvent::ParsedTargetPatterns(parsed_target_patterns) => {
+                self.health_check_context.parsed_target_patterns = Some(parsed_target_patterns);
             }
-            Data::BranchedFromRevision(branched_from_revision) => {
-                self.health_check_context.branched_from_revision =
-                    Some(branched_from_revision.to_owned());
+            HealthCheckContextEvent::BranchedFromRevision(rev) => {
+                self.health_check_context.branched_from_revision = Some(rev);
             }
-            Data::HasExcessCacheMisses(_) => {
+            HealthCheckContextEvent::HasExcessCacheMisses() => {
                 self.health_check_context.has_excess_cache_misses = true;
             }
-            Data::ExperimentConfigurations(system_info) => {
-                self.health_check_context.experiment_configurations = Some(system_info.clone());
+            HealthCheckContextEvent::ExperimentConfigurations(system_info) => {
+                self.health_check_context.experiment_configurations = Some(system_info);
             }
         }
         for check in self.health_checks.iter_mut() {
