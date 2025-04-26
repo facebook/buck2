@@ -133,6 +133,7 @@ pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
 
     let mut output = async_background_command(get_sapling_exe_path())
         .current_dir(current_dir)
+        .env("HGPLAIN", "1")
         .args(args.as_slice())
         .stdout(Stdio::piped())
         .spawn()
@@ -177,6 +178,7 @@ pub(crate) async fn get_dir_diff<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
 
     let mut output = async_background_command(get_sapling_exe_path())
         .current_dir(current_dir)
+        .env("HGPLAIN", "1")
         .args(args.as_slice())
         .stdout(Stdio::piped())
         .spawn()
