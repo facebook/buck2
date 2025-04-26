@@ -18,7 +18,6 @@ use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
-use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -270,10 +269,6 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
 
     fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
         self
-    }
-
-    fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution {
-        &self.execution_resolution.resolved_execution
     }
 
     fn global_cfg_options(&self) -> Option<GlobalCfgOptions> {

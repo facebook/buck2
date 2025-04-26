@@ -342,11 +342,6 @@ impl BaseDeferredKeyDyn for AnonTarget {
         self
     }
 
-    fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution {
-        // TODO(wendyy) support exec platforms for anon targets
-        unimplemented!("Execution platforms are not supported for anon targets (yet)")
-    }
-
     fn global_cfg_options(&self) -> Option<GlobalCfgOptions> {
         match &self.variant {
             AnonTargetVariant::Bzl => None,
