@@ -23,13 +23,11 @@ use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::prelude_path::PreludePath;
 use buck2_node::super_package::SuperPackage;
 use dupe::Dupe;
-use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::functions::host_info::HostInfo;
-use crate::interpreter::globals::base_globals;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::module_internals::PackageImplicits;
 
@@ -95,14 +93,8 @@ impl BuildInterpreterConfiguror {
         }))
     }
 
-    pub(crate) fn globals(&self) -> Globals {
-        base_globals()
-            .with(|g| {
-                if let Some(additional_globals) = &self.additional_globals {
-                    (additional_globals.0)(g);
-                }
-            })
-            .build()
+    pub(crate) fn additional_globals(&self) -> Option<&AdditionalGlobalsFn> {
+        self.additional_globals.as_ref()
     }
 
     pub fn host_info(&self) -> &HostInfo {

@@ -22,6 +22,7 @@ use starlark::environment::Globals;
 
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::context::HasInterpreterContext;
+use crate::interpreter::globals::base_globals;
 
 /// Information shared across interpreters. Contains no cell-specific
 /// information.
@@ -50,7 +51,13 @@ impl GlobalInterpreterState {
         disable_starlark_types: bool,
         unstable_typecheck: bool,
     ) -> buck2_error::Result<Self> {
-        let global_env = interpreter_configuror.globals();
+        let global_env = base_globals()
+            .with(|g| {
+                if let Some(additional_globals) = interpreter_configuror.additional_globals() {
+                    (additional_globals.0)(g);
+                }
+            })
+            .build();
 
         Ok(Self {
             cell_resolver,
