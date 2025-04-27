@@ -57,6 +57,7 @@ load(
     "Emit",
     "MetadataKind",
     "ProfileMode",  # @unused Used as a type
+    "RelocModel",
     "crate_type_codegen",
     "crate_type_linked",
     "dep_metadata_of_emit",
@@ -910,6 +911,77 @@ def _rustc_flags(flags: list[[str, ResolvedStringWithMacros, Artifact]]) -> list
 
     return flags
 
+# Differently parameterized build outputs need to be assigned nonoverlapping
+# output paths. For example the pic and non-pic rlib cannot both be written to
+# libfoo.rlib. We place artifacts into a unique subdirectory for each
+# permutation of build parameters.
+#
+# Keep this short or it exacerbates filepath length limits on Windows.
+#
+# Common examples:
+#     rlib pic static_pic metadata-fast diag => "LPPMD"
+#     bin pic shared link => "XPHL"
+def _abbreviated_subdir(
+        crate_type: CrateType,
+        reloc_model: RelocModel,
+        dep_link_strategy: LinkStrategy,
+        emit: Emit,
+        is_rustdoc_test: bool,
+        infallible_diagnostics: bool,
+        incremental_enabled: bool,
+        profile_mode: ProfileMode | None) -> str:
+    crate_type = {
+        CrateType("bin"): "X",  # mnemonic: "eXecutable"
+        CrateType("rlib"): "L",  # "Library"
+        CrateType("dylib"): "D",
+        CrateType("proc-macro"): "M",  # "Macro"
+        CrateType("cdylib"): "C",
+        CrateType("staticlib"): "S",
+    }[crate_type]
+
+    reloc_model = {
+        RelocModel("static"): "S",
+        RelocModel("pic"): "P",
+        RelocModel("dynamic-no-pic"): "N",
+        RelocModel("ropi"): "O",
+        RelocModel("rwpi"): "W",
+        RelocModel("ropi-rwpi"): "R",
+        RelocModel("default"): "D",
+    }[reloc_model]
+
+    dep_link_strategy = {
+        LinkStrategy("static"): "T",
+        LinkStrategy("static_pic"): "P",
+        LinkStrategy("shared"): "H",
+    }[dep_link_strategy]
+
+    emit = {
+        Emit("asm"): "s",
+        Emit("llvm-bc"): "b",
+        Emit("llvm-ir"): "i",
+        Emit("llvm-ir-noopt"): "n",
+        Emit("obj"): "o",
+        Emit("link"): "L",
+        Emit("dep-info"): "d",
+        Emit("mir"): "m",
+        Emit("expand"): "e",
+        Emit("clippy"): "c",
+        Emit("metadata-full"): "F",  # "Full metadata"
+        Emit("metadata-fast"): "M",  # "Metadata"
+    }[emit]
+
+    profile_mode = {
+        None: "",
+        ProfileMode("llvm-time-trace"): "L",
+        ProfileMode("self-profile"): "P",
+    }[profile_mode]
+
+    return crate_type + reloc_model + dep_link_strategy + emit + \
+           ("T" if is_rustdoc_test else "") + \
+           ("D" if infallible_diagnostics else "") + \
+           ("I" if incremental_enabled else "") + \
+           profile_mode
+
 # Compute which are common to both rustc and rustdoc
 def _compute_common_args(
         ctx: AnalysisContext,
@@ -931,16 +1003,16 @@ def _compute_common_args(
     if args_key in compile_ctx.common_args:
         return compile_ctx.common_args[args_key]
 
-    # Keep filenames distinct in per-flavour subdirs
-    subdir = "{}-{}-{}-{}".format(crate_type.value, params.reloc_model.value, params.dep_link_strategy.value, emit.value)
-    if is_rustdoc_test:
-        subdir = "{}-rustdoc-test".format(subdir)
-    if infallible_diagnostics:
-        subdir = "{}-diag".format(subdir)
-    if incremental_enabled:
-        subdir = "{}-incr".format(subdir)
-    if profile_mode:
-        subdir = "{}-prof-{}".format(subdir, profile_mode.value)
+    subdir = _abbreviated_subdir(
+        crate_type = crate_type,
+        reloc_model = params.reloc_model,
+        dep_link_strategy = params.dep_link_strategy,
+        emit = emit,
+        is_rustdoc_test = is_rustdoc_test,
+        infallible_diagnostics = infallible_diagnostics,
+        incremental_enabled = incremental_enabled,
+        profile_mode = profile_mode,
+    )
 
     # Included in tempfiles
     tempfile = "{}-{}".format(attr_simple_crate_for_filenames(ctx), emit.value)
