@@ -140,8 +140,8 @@ const themeConfig: ClassicPresetConfig = ({
   algolia: fbContent({
     internal: undefined,
     external: {
-      appId: '9RT0EWXQO8',
-      apiKey: 'cf8a08e681e1e1d8a73a08d3f13948c7',
+      appId: 'process.env.ALGOLIA_APP_ID,',
+      apiKey: 'process.env.ALGOLIA_API_KEY',
       indexName: 'buck2',
     }
   }),
