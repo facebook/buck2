@@ -953,6 +953,9 @@ async fn http_client_from_startup_config(
         }
         _ => {}
     }
+    if let Some(n) = config.http.max_concurrent_requests {
+        builder.with_max_concurrent_requests(n);
+    }
 
     Ok(builder)
 }
