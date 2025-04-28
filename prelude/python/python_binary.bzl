@@ -250,7 +250,7 @@ def _add_executable_subtargets(
 
 def _compute_pex_providers(
         ctx,
-        dbg_source_db: Artifact | None,
+        dbg_source_db_output: Artifact | None,
         main: EntryPoint,
         compile: bool,
         library: PythonLibraryInfo,
@@ -268,8 +268,8 @@ def _compute_pex_providers(
         entry_point = "runtime/bin/{}".format(ctx.attrs.executable_name)
         build_args.append(cmd_args("--passthrough=--runtime-binary={}".format(entry_point)))
 
-    if dbg_source_db:
-        extra_artifacts["dbg-db.json"] = dbg_source_db
+    if dbg_source_db_output:
+        extra_artifacts["dbg-db.json"] = dbg_source_db_output
 
     if python_toolchain.default_sitecustomize != None:
         extra_artifacts["sitecustomize.py"] = python_toolchain.default_sitecustomize
@@ -386,7 +386,7 @@ def _convert_python_library_to_executable(
         deps: list[Dependency],
         compile: bool,
         allow_cache_upload: bool,
-        dbg_source_db: [Artifact, None]) -> PexProviders:
+        dbg_source_db_output: Artifact | None) -> PexProviders:
     extra = {}
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
@@ -426,7 +426,7 @@ def _convert_python_library_to_executable(
 
     return _compute_pex_providers(
         ctx,
-        dbg_source_db,
+        dbg_source_db_output,
         main,
         compile,
         library,
