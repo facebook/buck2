@@ -2298,6 +2298,12 @@ message InvocationRecord {
   // the wrapper start time as that'd be more accurate
   optional uint64 wrapper_start_time = 246;
   uint64 exec_time_ms = 248;
+
+  // Exit code that should have been returned by the buck2 client process,
+  // unless it failed after finalizing logging.
+  // This will be missing for run commands where the command succeeds in
+  // buck and the RunInfo binary starts executing.
+  optional uint32 exit_code = 249;
 }
 
 // Record event sent directly to scribe.

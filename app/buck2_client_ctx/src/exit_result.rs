@@ -262,6 +262,17 @@ impl ExitResult {
         }
     }
 
+    /// Return the exit code to be returned unless a run command will be exec'd, in which case we don't know what the final exit code will be.
+    pub fn exit_code(&self) -> Option<ExitCode> {
+        if let ExitResultVariant::Status(exit_code)
+        | ExitResultVariant::StatusWithErr(exit_code, _) = self.variant
+        {
+            Some(exit_code)
+        } else {
+            None
+        }
+    }
+
     pub fn write_command_report(
         &self,
         trace_id: TraceId,
@@ -291,29 +302,25 @@ impl ExitResult {
             .map(|e| e.message.clone())
             .collect();
 
-        match &self.variant {
-            ExitResultVariant::Status(exit_code)
-            | ExitResultVariant::StatusWithErr(exit_code, _) => {
-                serde_json::to_writer_pretty(
-                    &mut file,
-                    &buck2_data::CommandReport {
-                        trace_id: trace_id.to_string(),
-                        exit_code: exit_code.exit_code(),
-                        error_messages,
-                        finalizing_error_messages,
-                    },
-                )?;
+        if let Some(exit_code) = self.exit_code() {
+            serde_json::to_writer_pretty(
+                &mut file,
+                &buck2_data::CommandReport {
+                    trace_id: trace_id.to_string(),
+                    exit_code: exit_code.exit_code(),
+                    error_messages,
+                    finalizing_error_messages,
+                },
+            )?;
 
-                if let Some(report_path) = copy_path {
-                    if let Some(parent) = report_path.parent() {
-                        fs_util::create_dir_all(parent)?;
-                    }
-                    // buck wrapper depends on command report being written.
-                    file.flush()?;
-                    fs_util::copy(path, report_path)?;
+            if let Some(report_path) = copy_path {
+                if let Some(parent) = report_path.parent() {
+                    fs_util::create_dir_all(parent)?;
                 }
+                // buck wrapper depends on command report being written.
+                file.flush()?;
+                fs_util::copy(path, report_path)?;
             }
-            _ => {}
         }
 
         Ok(())
