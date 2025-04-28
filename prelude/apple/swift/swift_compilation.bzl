@@ -1015,7 +1015,7 @@ def _get_shared_flags(
             cmd = cmd,
         )
 
-    _add_clang_deps_flags(ctx, pcm_deps_tset, cmd)
+    _add_clang_deps_flags(ctx, pcm_deps_tset, cmd, inputs_tag)
     _add_swift_deps_flags(ctx, cmd)
 
     # Add flags for importing the ObjC part of this library
@@ -1086,9 +1086,11 @@ def _add_swift_deps_flags(
 def _add_clang_deps_flags(
         ctx: AnalysisContext,
         pcm_deps_tset: SwiftCompiledModuleTset,
-        cmd: cmd_args) -> None:
+        cmd: cmd_args,
+        inputs_tag: ArtifactTag) -> None:
     if uses_explicit_modules(ctx):
-        cmd.add(pcm_deps_tset.project_as_args("clang_importer_flags"))
+        clang_flags = pcm_deps_tset.project_as_args("clang_importer_flags")
+        cmd.add(inputs_tag.tag_artifacts(clang_flags))
     else:
         inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", []))
         preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
