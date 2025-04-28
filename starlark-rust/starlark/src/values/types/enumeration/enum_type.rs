@@ -61,7 +61,6 @@ use crate::values::ValueTyped;
 use crate::values::enumeration::EnumValue;
 use crate::values::enumeration::matcher::EnumTypeMatcher;
 use crate::values::enumeration::ty_enum_type::TyEnumData;
-use crate::values::enumeration::value::EnumValueGen;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::index::convert_index;
 use crate::values::list::AllocList;
@@ -340,16 +339,6 @@ where
             )?);
             Ok(Arc::new(TyEnumData {
                 name: variable_name.to_owned(),
-                variants: self
-                    .elements()
-                    .iter()
-                    .map(|(_, enum_value)| {
-                        let enum_value: &EnumValueGen<_> =
-                            EnumValue::from_value(enum_value.to_value())
-                                .expect("known to be enum value");
-                        Ty::of_value(enum_value.value)
-                    })
-                    .collect(),
                 id: self.id,
                 ty_enum_value,
                 ty_enum_type,
