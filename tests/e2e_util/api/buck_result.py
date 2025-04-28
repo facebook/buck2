@@ -53,7 +53,12 @@ class ExitCodeV2(Enum):
     UNKNOWN_ERROR = 1
     INFRA_ERROR = 2
     USER_ERROR = 3
-    DAEMON_CONNECTION_FAILURE = 11
+    DAEMON_IS_BUSY = 4
+    DAEMON_PREEMPTED = 5
+    TIMEOUT = 6
+    CONNECT_ERROR = 11
+    BROKEN_PIPE = 130
+    SIGNAL_INTERRUPT = 141
 
 
 class AutoName(Enum):

@@ -196,6 +196,7 @@ pub(crate) struct InvocationRecorder {
     client_metadata: Vec<buck2_data::ClientMetadata>,
     command_errors: Vec<ErrorReport>,
     exit_code: Option<u32>,
+    exit_result_name: Option<String>,
     /// To append to gRPC errors.
     server_stderr: String,
     target_rule_type_names: Vec<String>,
@@ -346,6 +347,7 @@ impl InvocationRecorder {
             client_metadata,
             command_errors: Vec::new(),
             exit_code: None,
+            exit_result_name: None,
             server_stderr: String::new(),
             target_rule_type_names: Vec::new(),
             re_max_download_speeds: vec![
@@ -799,6 +801,7 @@ impl InvocationRecorder {
             file_watcher: self.file_watcher.take(),
             exec_time_ms: self.exec_time_ms,
             exit_code: self.exit_code.take(),
+            exit_result_name: self.exit_result_name.take(),
         };
 
         let event = BuckEvent::new(
@@ -1758,6 +1761,7 @@ impl EventSubscriber for InvocationRecorder {
     fn handle_exit_result(&mut self, exit_result: &ExitResult) {
         self.command_errors = exit_result.get_all_errors();
         self.exit_code = exit_result.exit_code().map(|code| code.exit_code());
+        self.exit_result_name = Some(exit_result.name().to_owned());
     }
 
     async fn handle_tailer_stderr(&mut self, stderr: &str) -> buck2_error::Result<()> {

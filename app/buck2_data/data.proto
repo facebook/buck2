@@ -2304,6 +2304,14 @@ message InvocationRecord {
   // This will be missing for run commands where the command succeeds in
   // buck and the RunInfo binary starts executing.
   optional uint32 exit_code = 249;
+
+  // If command returned an exit code and it originated from buck, this is
+  // the meaning of the exit code (e.g. SUCCESS).
+  // If the exit code was from an external source, this is that source
+  // (e.g. TEST_RUNNER)
+  // If there is no exit code because this is a run command that called exec,
+  // this will be EXEC.
+  optional string exit_result_name = 250;
 }
 
 // Record event sent directly to scribe.

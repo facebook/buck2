@@ -15,9 +15,11 @@ from pathlib import Path
 from typing import Callable, List
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.api.buck_result import BuckException, BuckResult
+from buck2.tests.e2e_util.api.buck_result import BuckException, BuckResult, ExitCodeV2
 from buck2.tests.e2e_util.api.process import Process
 from buck2.tests.e2e_util.buck_workspace import buck_test
+
+from buck2.tests.e2e_util.helper.utils import read_invocation_record
 
 
 async def _test_cancellation_helper(
@@ -31,7 +33,17 @@ async def _test_cancellation_helper(
     starts. We then check that the process exited, and that nothing else
     started (or if anything did, that they stopped).
     """
-    opts = ["-c", f"test.pids={tmp_path}", "-c", "test.duration=60"]
+    pid_path = tmp_path / "pids"
+    pid_path.mkdir()
+    record_path = tmp_path / "record.json"
+    opts = [
+        "-c",
+        f"test.pids={pid_path}",
+        "-c",
+        "test.duration=60",
+        "--unstable-write-invocation-record",
+        str(record_path),
+    ]
     await buck.audit("providers", ":slow", *opts)
     command = runner(buck, [*opts, "--local-only"])
 
@@ -39,7 +51,7 @@ async def _test_cancellation_helper(
 
     for _i in range(30):
         await asyncio.sleep(1)
-        pids = os.listdir(tmp_path)
+        pids = os.listdir(pid_path)
         if pids:
             break
     else:
@@ -53,7 +65,7 @@ async def _test_cancellation_helper(
     await asyncio.sleep(5)
 
     # At this point, nothing should be alive.
-    pids = os.listdir(tmp_path)
+    pids = os.listdir(pid_path)
     for pid in pids:
         try:
             os.kill(int(pid), 0)
@@ -61,6 +73,10 @@ async def _test_cancellation_helper(
             pass
         else:
             raise Exception(f"PID existed: {pid}")
+
+    record = read_invocation_record(record_path)
+    assert record["exit_code"] == ExitCodeV2.SIGNAL_INTERRUPT.value
+    assert record["exit_result_name"] == "SIGNAL_INTERRUPT"
 
 
 @buck_test()

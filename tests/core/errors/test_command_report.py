@@ -14,17 +14,11 @@ from pathlib import Path
 from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.api.buck_result import ExitCodeV2
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.golden import golden
 from buck2.tests.e2e_util.helper.utils import read_invocation_record
-
-# From `exit_result.rs/ExitCode`
-Success = 0
-UnknownFailure = 1
-InfraError = 2
-UserError = 3
-ConnectError = 11
 
 
 def command_report_test(name: str, command: List[str]) -> None:
@@ -63,7 +57,7 @@ async def test_command_report_watchman_error(buck: Buck, tmp_path: Path) -> None
     with open(report) as f:
         report = json.loads(f.read())
 
-    assert report["exit_code"] == UserError
+    assert report["exit_code"] == ExitCodeV2.USER_ERROR.value
     assert "SyncableQueryHandler returned an error" in report["error_messages"][0]
 
 
@@ -79,7 +73,7 @@ async def test_command_report_init_daemon_error(buck: Buck, tmp_path: Path) -> N
     with open(report) as f:
         report = json.loads(f.read())
 
-    assert report["exit_code"] == ConnectError
+    assert report["exit_code"] == ExitCodeV2.CONNECT_ERROR.value
     assert "Injected init daemon error" in report["error_messages"][0]
 
 
@@ -93,15 +87,24 @@ async def test_command_report_init_daemon_error(buck: Buck, tmp_path: Path) -> N
 @env("BUCK2_TERMINATE_AFTER", "15")
 async def test_exit_result_connection_error(buck: Buck, tmp_path: Path) -> None:
     report = tmp_path / "command_report.json"
+    record_path = tmp_path / "record.json"
     await expect_failure(
-        buck.build("--command-report-path", str(report), ":build_success")
+        buck.build(
+            "--command-report-path",
+            str(report),
+            "--unstable-write-invocation-record",
+            str(record_path),
+            ":build_success",
+        )
     )
 
+    record = read_invocation_record(record_path)
     with open(report) as f:
         report = json.loads(f.read())
 
-    assert report["exit_code"] == ConnectError
+    assert report["exit_code"] == ExitCodeV2.CONNECT_ERROR.value
     assert "injected auth error" in report["error_messages"][0]
+    assert record["exit_result_name"] == "CONNECT_ERROR"
 
     await asyncio.sleep(
         20
@@ -137,8 +140,10 @@ async def test_command_report_post_build_client_error(
         report = json.loads(f.read())
 
     assert len(report["error_messages"]) == 1
-    assert report["exit_code"] == InfraError
+    assert report["exit_code"] == ExitCodeV2.INFRA_ERROR.value
     assert "Injected Build Response Error" in report["error_messages"][0]
+
+    assert record["exit_result_name"] == "INFRA_ERROR"
 
 
 @buck_test()

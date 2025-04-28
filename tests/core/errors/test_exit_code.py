@@ -39,7 +39,7 @@ async def test_exit_code_build_fail(buck: Buck) -> None:
 @env("BUCK2_TERMINATE_AFTER", "15")
 async def test_exit_code_fail_buckd_auth_for_unknown_reason(buck: Buck) -> None:
     await expect_failure(
-        buck.build(":build_success"), exit_code=ExitCodeV2.DAEMON_CONNECTION_FAILURE
+        buck.build(":build_success"), exit_code=ExitCodeV2.CONNECT_ERROR
     )
     await asyncio.sleep(
         20

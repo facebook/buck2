@@ -122,17 +122,6 @@ impl ExitResult {
         }
     }
 
-    /// Values out of the range of u8 will have their status information ignored
-    pub fn status_extended(status: i32, emitted_errors: Vec<ErrorReport>) -> Self {
-        let exit_code = if let Ok(code) = status.try_into() {
-            ExitCode::Explicit(code)
-        } else {
-            // The exit code isn't an allowable value, so just switch to generic failure
-            ExitCode::UnknownFailure
-        };
-        Self::status_with_emitted_errors(exit_code, emitted_errors)
-    }
-
     pub fn exec(
         prog: OsString,
         argv: Vec<OsString>,
@@ -270,6 +259,15 @@ impl ExitResult {
             Some(exit_code)
         } else {
             None
+        }
+    }
+
+    /// Return the name of the exit code for logging, or the reason there is no exit code (EXEC).
+    pub fn name(&self) -> &'static str {
+        match self.variant {
+            ExitResultVariant::Status(exit_code)
+            | ExitResultVariant::StatusWithErr(exit_code, _) => exit_code.name(),
+            ExitResultVariant::Exec(_) => "EXEC",
         }
     }
 
@@ -478,8 +476,6 @@ impl From<io::Error> for ClientIoError {
 /// Common exit codes for buck with stronger semantic meanings
 #[derive(Clone, Copy, Debug)]
 pub enum ExitCode {
-    // TODO: Fill in more exit codes from ExitCode.java here. Need to determine
-    // how many make sense in v2 versus v1. Some are assuredly unnecessary in v2.
     Success,
     UnknownFailure,
     InfraError,
@@ -490,13 +486,12 @@ pub enum ExitCode {
     ConnectError,
     SignalInterrupt,
     BrokenPipe,
-    /// Something other than buck2 itself (usually a test runner) explicitly requested that this
-    /// exit code be returned
-    Explicit(u8),
+    /// Test runner explicitly requested that this exit code be returned
+    TestRunner(u8),
 }
 
 impl ExitCode {
-    pub fn exit_code(self) -> u32 {
+    pub const fn exit_code(self) -> u32 {
         use ExitCode::*;
         match self {
             Success => 0,
@@ -509,7 +504,24 @@ impl ExitCode {
             ConnectError => 11,
             BrokenPipe => 130,
             SignalInterrupt => 141,
-            Explicit(code) => code.into(),
+            TestRunner(code) => code as u32,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        use ExitCode::*;
+        match self {
+            Success => "SUCCESS",
+            UnknownFailure => "UNKNOWN_FAILURE",
+            InfraError => "INFRA_ERROR",
+            UserError => "USER_ERROR",
+            DaemonIsBusy => "DAEMON_IS_BUSY",
+            DaemonPreempted => "DAEMON_PREEMPTED",
+            Timeout => "TIMEOUT",
+            ConnectError => "CONNECT_ERROR",
+            BrokenPipe => "BROKEN_PIPE",
+            SignalInterrupt => "SIGNAL_INTERRUPT",
+            TestRunner(_) => "TEST_RUNNER",
         }
     }
 }

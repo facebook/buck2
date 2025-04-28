@@ -24,6 +24,7 @@ use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::events_ctx::EventsCtx;
+use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
@@ -293,7 +294,13 @@ impl StreamingCommand for TestCommand {
 
         let exit_result = if let Some(exit_code) = response.exit_code {
             // If exit code is set in response, it should be used and not derived from command errors.
-            ExitResult::status_extended(exit_code, response.errors)
+            let exit_code = if let Ok(code) = exit_code.try_into() {
+                ExitCode::TestRunner(code)
+            } else {
+                // The exit code isn't an allowable value, so just switch to generic failure
+                ExitCode::UnknownFailure
+            };
+            ExitResult::status_with_emitted_errors(exit_code, response.errors)
         } else if !response.errors.is_empty() {
             // If we had build errors return their exit code.
             ExitResult::from_command_result_errors(response.errors)

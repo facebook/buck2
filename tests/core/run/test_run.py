@@ -56,6 +56,16 @@ async def test_run_non_executable_fails(buck: Buck, tmp_path: Path) -> None:
 
 
 @buck_test()
+async def test_run_exit_result(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
+    await buck.run(
+        "root//:print_hello", "--unstable-write-invocation-record", str(record_path)
+    )
+    record = read_invocation_record(record_path)
+    assert record["exit_result_name"] == "EXEC"
+
+
+@buck_test()
 async def test_passing_arguments(buck: Buck) -> None:
     async def f(args1: List[str], args2: List[str]) -> None:
         result = await buck.run("root//:echo_args", *args1, *args2)
