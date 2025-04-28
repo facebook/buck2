@@ -24,13 +24,14 @@ use std::cell::Cell;
 
 use allocative::Allocative;
 use derive_more::Display;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::Trace;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
@@ -38,13 +39,13 @@ use crate::values::Value;
 use crate::values::ValueLike;
 
 #[derive(Debug, Trace, ProvidesStaticType, Display, NoSerialize, Allocative)]
-#[display(fmt = "{:?}", self)] // This type should never be user visible
+#[display("{:?}", self)] // This type should never be user visible
 #[repr(transparent)]
 #[allocative(skip)]
 pub(crate) struct ValueCaptured<'v>(Cell<Option<Value<'v>>>);
 
 #[derive(Debug, ProvidesStaticType, Display, NoSerialize, Allocative)]
-#[display(fmt = "{:?}", self)] // Type is not user visible
+#[display("{:?}", self)] // Type is not user visible
 #[repr(transparent)]
 pub(crate) struct FrozenValueCaptured(Option<FrozenValue>);
 
@@ -75,7 +76,7 @@ impl<'v> ValueCaptured<'v> {
 impl<'v> Freeze for ValueCaptured<'v> {
     type Frozen = FrozenValueCaptured;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenValueCaptured> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenValueCaptured> {
         Ok(FrozenValueCaptured(self.0.get().freeze(freezer)?))
     }
 }

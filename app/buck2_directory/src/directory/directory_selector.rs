@@ -10,9 +10,9 @@
 use std::iter;
 
 use buck2_core::directory_digest::DirectoryDigest;
+use buck2_core::fs::paths::IntoFileNameBufIterator;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::fs::paths::IntoFileNameBufIterator;
 use either::Either;
 use starlark_map::small_map::SmallMap;
 
@@ -27,6 +27,7 @@ use crate::directory::walk::UnorderedDirectoryWalkType;
 use crate::directory::walk::WalkType;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 pub enum DirectorySearchError<L> {
     #[error("Search traverses a leaf")]
     CannotTraverseLeaf { leaf: L },
@@ -40,6 +41,7 @@ impl<L> DirectorySearchError<L> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 pub enum DirectoryFilterError {
     #[error("Filter traverses a leaf")]
     CannotTraverseLeaf,
@@ -175,7 +177,10 @@ impl<'a, 'b, T: WalkType<'b>> Search<'a, 'b, T> {
 }
 
 impl<'a, 'b, T: WalkType<'b>> DirectoryIterator for Search<'a, 'b, T> {
-    type PathStack = Self;
+    type PathStack<'c>
+        = DirectoryIteratorPathAccessor<'c, Self>
+    where
+        Self: 'c;
     type Item =
         Result<DirectoryEntry<T::Directory, &'b T::Leaf>, DirectorySearchError<&'b T::Leaf>>;
 

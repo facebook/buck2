@@ -1,5 +1,4 @@
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
 
@@ -7,7 +6,6 @@ rust_library(
     name = "buck2_action_impl",
     srcs = glob(["src/**/*.rs"]),
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:dashmap",
@@ -23,12 +21,12 @@ rust_library(
         "fbsource//third-party/rust:relative-path",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:sha1",
-        "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_action_metadata_proto:buck2_action_metadata_proto",
         "//buck2/app/buck2_artifact:buck2_artifact",
         "//buck2/app/buck2_build_api:buck2_build_api",
+        "//buck2/app/buck2_build_signals:buck2_build_signals",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_data:buck2_data",

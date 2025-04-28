@@ -27,7 +27,7 @@ pub trait TransitionCalculation: Send + Sync + 'static {
         attrs: &OrderedMap<&str, Arc<ConfiguredAttr>>,
         conf: &ConfigurationData,
         transition_id: &TransitionId,
-    ) -> anyhow::Result<Arc<TransitionApplied>>;
+    ) -> buck2_error::Result<Arc<TransitionApplied>>;
 }
 
 pub static TRANSITION_CALCULATION: LateBinding<&'static dyn TransitionCalculation> =
@@ -48,5 +48,5 @@ pub trait TransitionAttrProvider: Send + Sync + 'static {
         &self,
         ctx: &mut DiceComputations<'_>,
         transition_id: &TransitionId,
-    ) -> anyhow::Result<Option<Arc<[String]>>>;
+    ) -> buck2_error::Result<Option<Arc<[String]>>>;
 }

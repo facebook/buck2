@@ -13,19 +13,19 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::stream::Stream;
-use tokio::sync::mpsc::unbounded_channel;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::unbounded_channel;
 use tokio::sync::oneshot::Sender;
 
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
@@ -186,7 +186,7 @@ where
                     .subscriptions
                     .active
                     .get_mut(&index)
-                    .with_context(|| format!("Invalid subscription: {}", index))
+                    .with_buck_error_context(|| format!("Invalid subscription: {}", index))
                     .unwrap();
 
                 for path in paths_to_report {
@@ -202,7 +202,7 @@ where
                     .subscriptions
                     .active
                     .get_mut(&index)
-                    .with_context(|| format!("Invalid subscription: {}", index))
+                    .with_buck_error_context(|| format!("Invalid subscription: {}", index))
                     .unwrap();
 
                 for path in &paths {

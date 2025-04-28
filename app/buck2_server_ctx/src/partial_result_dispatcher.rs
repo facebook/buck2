@@ -9,8 +9,8 @@
 
 use std::marker::PhantomData;
 
-use buck2_cli_proto::partial_result;
 use buck2_cli_proto::PartialResult;
+use buck2_cli_proto::partial_result;
 use buck2_events::dispatch::EventDispatcher;
 
 use crate::stdout_partial_output::StdoutPartialOutput;

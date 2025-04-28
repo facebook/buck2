@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
@@ -21,7 +21,6 @@ use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::StarlarkResultExt;
 
 fn artifact_fs() -> ArtifactFs {
     let cell_info = cells(None).unwrap();
@@ -35,13 +34,13 @@ fn artifact_fs() -> ArtifactFs {
     )
 }
 
-fn get_command_line(value: Value) -> anyhow::Result<Vec<String>> {
+fn get_command_line(value: Value) -> buck2_error::Result<Vec<String>> {
     let fs = artifact_fs();
     let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
     let mut cli = Vec::<String>::new();
     let mut ctx = DefaultCommandLineContext::new(&executor_fs);
 
-    match ValueAsCommandLineLike::unpack_value(value).into_anyhow_result()? {
+    match ValueAsCommandLineLike::unpack_value(value)? {
         Some(v) => v.0.add_to_command_line(&mut cli, &mut ctx),
         None => ValueAsCommandLineLike::unpack_value_err(value)?
             .0
@@ -52,11 +51,11 @@ fn get_command_line(value: Value) -> anyhow::Result<Vec<String>> {
 
 #[starlark_module]
 pub(crate) fn command_line_stringifier(builder: &mut GlobalsBuilder) {
-    fn get_args<'v>(value: Value<'v>) -> anyhow::Result<Vec<String>> {
-        get_command_line(value)
+    fn get_args<'v>(value: Value<'v>) -> starlark::Result<Vec<String>> {
+        Ok(get_command_line(value)?)
     }
 
-    fn stringify_cli_arg<'v>(value: Value<'v>) -> anyhow::Result<String> {
+    fn stringify_cli_arg<'v>(value: Value<'v>) -> starlark::Result<String> {
         let fs = artifact_fs();
         let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
         let mut cli = Vec::<String>::new();

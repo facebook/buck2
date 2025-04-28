@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -15,7 +14,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use buck2_util::hash::BuckHasher;
 use derive_more::Display;
 use dupe::Dupe;
@@ -39,12 +38,39 @@ impl Default for LocalExecutorOptions {
     }
 }
 
+#[derive(Debug, Eq, Hash, PartialEq, Clone, Allocative)]
+pub struct RemoteEnabledExecutorOptions {
+    pub executor: RemoteEnabledExecutor,
+    pub re_properties: RePlatformFields,
+    pub re_use_case: RemoteExecutorUseCase,
+    pub re_action_key: Option<String>,
+    pub cache_upload_behavior: CacheUploadBehavior,
+    pub remote_cache_enabled: bool,
+    pub remote_dep_file_cache_enabled: bool,
+    pub dependencies: Vec<RemoteExecutorDependency>,
+    pub custom_image: Option<Box<RemoteExecutorCustomImage>>,
+    pub meta_internal_extra_params: MetaInternalExtraParams,
+}
+
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum RemoteExecutorDependencyErrors {
     #[error("RE dependency requires `{0}` to be set")]
     MissingField(&'static str),
     #[error("too many fields set for RE dependency: `{0}`")]
     UnsupportedFields(String),
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, Clone, Allocative)]
+pub struct ImagePackageIdentifier {
+    pub name: String,
+    pub uuid: String,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, Clone, Allocative)]
+pub struct RemoteExecutorCustomImage {
+    pub identifier: ImagePackageIdentifier,
+    pub drop_host_mount_globs: Vec<String>,
 }
 
 /// A Remote Action can specify a list of dependencies that are required before starting the execution `https://fburl.com/wiki/offzl3ox`
@@ -57,13 +83,13 @@ pub struct RemoteExecutorDependency {
 }
 
 impl RemoteExecutorDependency {
-    pub fn parse(dep_map: SmallMap<&str, &str>) -> anyhow::Result<RemoteExecutorDependency> {
+    pub fn parse(dep_map: SmallMap<&str, &str>) -> buck2_error::Result<RemoteExecutorDependency> {
         let smc_tier = dep_map
             .get("smc_tier")
-            .context(RemoteExecutorDependencyErrors::MissingField("smc_tier"))?;
+            .buck_error_context(RemoteExecutorDependencyErrors::MissingField("smc_tier"))?;
         let id = dep_map
             .get("id")
-            .context(RemoteExecutorDependencyErrors::MissingField("id"))?;
+            .buck_error_context(RemoteExecutorDependencyErrors::MissingField("id"))?;
         if dep_map.len() > 2 {
             return Err(RemoteExecutorDependencyErrors::UnsupportedFields(
                 dep_map.keys().join(", "),
@@ -107,6 +133,14 @@ impl Hash for RemoteExecutorUseCase {
     }
 }
 
+impl FromStr for RemoteExecutorUseCase {
+    type Err = buck2_error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(RemoteExecutorUseCase::new(s.to_owned()))
+    }
+}
+
 #[derive(Debug, Default, Eq, PartialEq, Clone, Hash, Allocative)]
 pub struct RemoteExecutorOptions {
     pub re_max_input_files_bytes: Option<u64>,
@@ -119,11 +153,11 @@ pub struct RemoteExecutorOptions {
 /// with a RE backend for caching".
 #[derive(Display, Debug, Eq, PartialEq, Clone, Hash, Allocative)]
 pub enum RemoteEnabledExecutor {
-    #[display(fmt = "local")]
+    #[display("local")]
     Local(LocalExecutorOptions),
-    #[display(fmt = "remote")]
+    #[display("remote")]
     Remote(RemoteExecutorOptions),
-    #[display(fmt = "hybrid")]
+    #[display("hybrid")]
     Hybrid {
         local: LocalExecutorOptions,
         remote: RemoteExecutorOptions,
@@ -138,22 +172,14 @@ pub struct RePlatformFields {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
+#[allow(clippy::large_enum_variant)]
 pub enum Executor {
     /// This executor only runs local commands.
     Local(LocalExecutorOptions),
 
     /// This executor interacts with a RE backend. It may use that to read or write to caches, or
     /// to execute commands.
-    RemoteEnabled {
-        executor: RemoteEnabledExecutor,
-        re_properties: RePlatformFields,
-        re_use_case: RemoteExecutorUseCase,
-        re_action_key: Option<String>,
-        cache_upload_behavior: CacheUploadBehavior,
-        remote_cache_enabled: bool,
-        remote_dep_file_cache_enabled: bool,
-        dependencies: Vec<RemoteExecutorDependency>,
-    },
+    RemoteEnabled(RemoteEnabledExecutorOptions),
 }
 
 impl Display for Executor {
@@ -166,28 +192,19 @@ impl Display for Executor {
                     options.use_persistent_workers
                 )
             }
-            Self::RemoteEnabled {
-                executor,
-                re_properties: _,
-                re_use_case: _,
-                re_action_key: _,
-                cache_upload_behavior,
-                remote_cache_enabled,
-                remote_dep_file_cache_enabled,
-                dependencies: _,
-            } => {
-                let cache = match remote_cache_enabled {
+            Self::RemoteEnabled(options) => {
+                let cache = match options.remote_cache_enabled {
                     true => "enabled",
                     false => "disabled",
                 };
-                let dep_file_cache = match remote_dep_file_cache_enabled {
+                let dep_file_cache = match options.remote_dep_file_cache_enabled {
                     true => "enabled",
                     false => "disabled",
                 };
                 write!(
                     f,
                     "RemoteEnabled + executor {} + remote cache {} + cache upload {} + remote dep file cache {}",
-                    executor, cache, cache_upload_behavior, dep_file_cache
+                    options.executor, cache, options.cache_upload_behavior, dep_file_cache
                 )
             }
         }
@@ -222,7 +239,7 @@ pub enum OutputPathsBehavior {
 }
 
 impl FromStr for OutputPathsBehavior {
-    type Err = anyhow::Error;
+    type Err = buck2_error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -230,7 +247,11 @@ impl FromStr for OutputPathsBehavior {
             "compatibility" => Ok(OutputPathsBehavior::Compatibility),
             #[cfg(not(fbcode_build))]
             "output_paths" => Ok(OutputPathsBehavior::OutputPaths),
-            _ => Err(anyhow::anyhow!("Invalid OutputPathsBehavior: `{}`", s)),
+            _ => Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Invalid OutputPathsBehavior: `{}`",
+                s
+            )),
         }
     }
 }
@@ -247,9 +268,9 @@ impl Default for OutputPathsBehavior {
 
 #[derive(Display, Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
 pub enum CacheUploadBehavior {
-    #[display(fmt = "enabled")]
+    #[display("enabled")]
     Enabled { max_bytes: Option<u64> },
-    #[display(fmt = "disabled")]
+    #[display("disabled")]
     Disabled,
 }
 
@@ -263,9 +284,10 @@ impl Default for CacheUploadBehavior {
 pub struct CommandGenerationOptions {
     pub path_separator: PathSeparatorKind,
     pub output_paths_behavior: OutputPathsBehavior,
+    pub use_bazel_protocol_remote_persistent_workers: bool,
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone)]
 pub struct CommandExecutorConfig {
     pub executor: Executor,
     pub options: CommandGenerationOptions,
@@ -294,7 +316,32 @@ impl CommandExecutorConfig {
             options: CommandGenerationOptions {
                 path_separator: PathSeparatorKind::system_default(),
                 output_paths_behavior: Default::default(),
+                use_bazel_protocol_remote_persistent_workers: false,
             },
         })
     }
+
+    pub fn re_cache_enabled(&self) -> bool {
+        match &self.executor {
+            Executor::Local(_) => false,
+            Executor::RemoteEnabled(options) => options.remote_cache_enabled,
+        }
+    }
+}
+
+/// This struct is used to pass policy info about the action to RE, its data should
+/// match the TExecutionPolicy in the RE thrift API.
+/// affinity_keys is not defined here because it's already defined in ReActionIdentity
+/// duration_ms is not supported because we can't unpack i64 from starlark easily
+#[derive(Default, Debug, Clone, Eq, Hash, PartialEq, Allocative)]
+pub struct RemoteExecutionPolicy {
+    pub priority: Option<i32>,
+    pub region_preference: Option<String>,
+    pub setup_preference_key: Option<String>,
+}
+
+/// This struct is used to pass meta internal params to RE
+#[derive(Default, Debug, Clone, Eq, Hash, PartialEq, Allocative)]
+pub struct MetaInternalExtraParams {
+    pub remote_execution_policy: RemoteExecutionPolicy,
 }

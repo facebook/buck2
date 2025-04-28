@@ -14,10 +14,13 @@ def test(x, y):
 
 Max stack size: 0
 Instructions:
-   0: IfBr &x 32
+       # instrs.star.bzl:2:3-5:14
+    0: IfBr &x 32
    16: IfNotBr &y 56
+       # instrs.star.bzl:3:5-14
   >32: ReturnConst 10
    48: Br 72
+       # instrs.star.bzl:5:5-14
   >56: ReturnConst 20
   >72: ReturnConst None
    88: End

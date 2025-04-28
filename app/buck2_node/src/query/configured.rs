@@ -39,7 +39,7 @@ impl QueryTarget for ConfiguredTargetNode {
     type Attr<'a> = ConfiguredAttr;
 
     fn label_for_filter(&self) -> String {
-        return self.label().unconfigured().to_string();
+        self.label().unconfigured().to_string()
     }
 
     fn rule_type(&self) -> Cow<str> {
@@ -89,8 +89,8 @@ impl QueryTarget for ConfiguredTargetNode {
 
     fn attr_any_matches(
         attr: &Self::Attr<'_>,
-        filter: &dyn Fn(&str) -> anyhow::Result<bool>,
-    ) -> anyhow::Result<bool> {
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         attr.any_matches(filter)
     }
 
@@ -130,6 +130,17 @@ impl QueryTarget for ConfiguredTargetNode {
             func(input)?;
         }
         Ok(())
+    }
+
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, mut func: F) -> R {
+        match self
+            .get(key, AttrInspectOptions::All)
+            .as_ref()
+            .map(|v| &v.value)
+        {
+            Some(attr) => func(Some(attr)),
+            None => func(self.special_attr_or_none(key).as_ref()),
+        }
     }
 }
 

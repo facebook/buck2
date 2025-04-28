@@ -7,20 +7,23 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::CleanStaleRequest;
 use buck2_cli_proto::CleanStaleResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
+use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::TimeZone;
@@ -48,10 +51,11 @@ pub enum KeepSinceArg {
 pub fn parse_clean_stale_args(
     stale: Option<Option<humantime::Duration>>,
     keep_since_time: Option<i64>,
-) -> anyhow::Result<Option<KeepSinceArg>> {
+) -> buck2_error::Result<Option<KeepSinceArg>> {
     let arg = match (stale, keep_since_time) {
         (Some(Some(human_duration)), None) => {
-            let duration = chrono::Duration::from_std(human_duration.into())?;
+            let duration = chrono::Duration::from_std(human_duration.into())
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::InvalidDuration))?;
             Some(KeepSinceArg::Duration(duration))
         }
         (Some(None), None) => Some(KeepSinceArg::Duration(chrono::Duration::weeks(1))),
@@ -90,25 +94,32 @@ fn format_result_stats(stats: buck2_data::CleanStaleStats) -> String {
     output
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for CleanStaleCommand {
     const COMMAND_NAME: &'static str = "clean-stale";
 
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let keep_since_time = match self.keep_since_arg {
             KeepSinceArg::Duration(duration) => {
                 let keep_since_time: DateTime<Utc> = Utc::now()
                     .checked_sub_signed(duration)
-                    .context("Duration underflow")?;
+                    .buck_error_context("Duration underflow")?;
                 buck2_client_ctx::eprintln!(
                     "Cleaning artifacts more than {} old",
                     humantime::format_duration(
-                        duration.to_std().context("Error converting duration")?
+                        duration
+                            .to_std()
+                            .map_err(|e| from_any_with_tag(
+                                e,
+                                buck2_error::ErrorTag::InvalidDuration
+                            ))
+                            .buck_error_context("Error converting duration")?
                     ),
                 )?;
                 // Round up to next second since timestamp below is rounded down
@@ -118,7 +129,7 @@ impl StreamingCommand for CleanStaleCommand {
             KeepSinceArg::Time(timestamp) => Utc
                 .timestamp_opt(timestamp, 0)
                 .single()
-                .context("Invalid timestamp")?,
+                .buck_error_context("Invalid timestamp")?,
         };
 
         let context = ctx.client_context(matches, &self)?;
@@ -131,8 +142,8 @@ impl StreamingCommand for CleanStaleCommand {
                     dry_run: self.dry_run,
                     tracked_only: self.tracked_only,
                 },
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                events_ctx,
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
             .await??;

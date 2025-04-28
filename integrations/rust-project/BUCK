@@ -1,5 +1,4 @@
 load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("rust_devx")
 
@@ -21,10 +20,9 @@ rust_binary(
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:tracing",
-        "fbsource//third-party/rust:tracing-core",
         "fbsource//third-party/rust:tracing-subscriber",
         "fbsource//third-party/rust:whoami",
-        # @oss-disable: "//common/rust/scuba:scuba", 
-        # @oss-disable: "//common/rust/shed/fbinit:fbinit", 
+        # @oss-disable[end= ]: "//common/rust/scuba:scuba",
+        # @oss-disable[end= ]: "//common/rust/shed/fbinit:fbinit",
     ],
 )

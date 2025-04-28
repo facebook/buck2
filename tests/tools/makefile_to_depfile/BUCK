@@ -1,0 +1,12 @@
+load("@fbsource//tools/build_defs:cram_test.bzl", "cram_test")
+
+cram_test(
+    name = "integration",
+    srcs = glob([
+        "*.t",
+        "fixtures/**/*",
+    ]),
+    env = {
+        "DEP_FILE_PROCESSOR": "$(exe prelude//cxx/tools:dep_file_processor)",
+    },
+)

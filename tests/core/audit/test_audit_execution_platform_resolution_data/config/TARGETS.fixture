@@ -1,0 +1,25 @@
+constraint_setting(name = "os")
+
+constraint_value(
+    name = "haiku",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "hurd",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "minix",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "sunos",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)

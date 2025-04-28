@@ -10,6 +10,20 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 
 BASE_PACKAGE_ID = 0x7f
 
+def normalize_locale(locale: str) -> str:
+    if locale == "NONE":
+        return "en"
+    if regex("^[a-z][a-z]$").match(locale):
+        return locale
+    if regex("^[a-z][a-z]_[A-Z][A-Z]$").match(locale):
+        # This transforms locales from xx_YY to xx-rYY.
+        # E.g.: like "zh_CN" to "zh-rCN".
+        return locale[:2] + "-r" + locale[-2:]
+    if regex("^[a-z][a-z]-r[A-Z][A-Z]$").match(locale):
+        # Already in xx-rYY format
+        return locale
+    fail("Invalid locale format passed: {} {}".format(locale, regex("/^[a-z][a-z]$/").match(locale)))
+
 def get_aapt2_link(
         ctx: AnalysisContext,
         android_toolchain: AndroidToolchainInfo,
@@ -99,10 +113,8 @@ def get_aapt2_link(
             aapt2_command.add(["--debug-mode"])
 
         if filter_locales and len(locales) > 0:
-            aapt2_command.add("-c")
-
-            # "NONE" means "en", update the list of locales
-            aapt2_command.add(cmd_args([locale if locale != "NONE" else "en" for locale in locales], delimiter = ","))
+            for locale in locales:
+                aapt2_command.add(["-c", normalize_locale(locale)])
 
         for compiled_resource_apk in compiled_resource_apks:
             aapt2_command.add(["-I", compiled_resource_apk])

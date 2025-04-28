@@ -1,0 +1,30 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+STANDARD_TEST_SRCS = [
+    "*Test.java",
+]
+
+buck_java_test(
+    name = "unit",
+    srcs = glob(
+        STANDARD_TEST_SRCS,
+    ),
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/android:helpers",
+        "prelude//toolchains/android/src/com/facebook/buck/android:utils_api",
+        "prelude//toolchains/android/src/com/facebook/buck/android/apkmodule:apkmodule",
+        "prelude//toolchains/android/src/com/facebook/buck/installer/android:installer_android_lib",
+        "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",
+        "prelude//toolchains/android/test/com/facebook/buck/android:testutil",
+        "prelude//toolchains/android/test/com/facebook/buck/testutil:testutil",
+        "prelude//toolchains/android/test/com/facebook/buck/testutil/integration:util",
+        "prelude//toolchains/android/third-party:ddmlib",
+        "prelude//toolchains/android/third-party:jsr305",
+        "prelude//toolchains/android/third-party:junit",
+    ],
+)

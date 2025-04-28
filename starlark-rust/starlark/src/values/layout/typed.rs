@@ -40,18 +40,10 @@ use crate::cast::transmute;
 use crate::coerce::Coerce;
 use crate::coerce::CoerceKey;
 use crate::typing::Ty;
-use crate::values::alloc_value::AllocFrozenStringValue;
-use crate::values::alloc_value::AllocStringValue;
-use crate::values::int::PointerI32;
-use crate::values::layout::avalue::AValue;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::starlark_type_id::StarlarkTypeId;
-use crate::values::string::str_type::StarlarkStr;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
@@ -68,6 +60,15 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueOfUnchecked;
+use crate::values::alloc_value::AllocFrozenStringValue;
+use crate::values::alloc_value::AllocStringValue;
+use crate::values::int::pointer_i32::PointerI32;
+use crate::values::layout::avalue::AValue;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::starlark_type_id::StarlarkTypeId;
+use crate::values::string::str_type::StarlarkStr;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// [`Value`] wrapper which asserts contained value is of type `<T>`.
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType, Allocative)]
@@ -76,6 +77,7 @@ pub struct ValueTyped<'v, T: StarlarkValue<'v>>(Value<'v>, marker::PhantomData<&
 /// [`FrozenValue`] wrapper which asserts contained value is of type `<T>`.
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType, Allocative)]
 #[allocative(skip)] // Heap owns the value.
+#[repr(transparent)]
 pub struct FrozenValueTyped<'v, T: StarlarkValue<'v>>(FrozenValue, marker::PhantomData<&'v T>);
 
 unsafe impl<'v, T: StarlarkValue<'v>> Coerce<ValueTyped<'v, T>> for ValueTyped<'v, T> {}
@@ -97,7 +99,7 @@ unsafe impl<'v, 'f, T: StarlarkValue<'f>> Trace<'v> for FrozenValueTyped<'f, T> 
 impl<T: StarlarkValue<'static>> Freeze for FrozenValueTyped<'static, T> {
     type Frozen = Self;
 
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         Ok(self)
     }
 }
@@ -144,10 +146,22 @@ impl<'v, T: StarlarkValue<'v>> Serialize for FrozenValueTyped<'v, T> {
     }
 }
 
-// Have to implement these manually to avoid the `T: PartialEq` bound
 impl<'v, T: StarlarkValue<'v>> PartialEq for ValueTyped<'v, T> {
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        // Poor man specialization.
+        if T::static_type_id() == StarlarkStr::static_type_id() {
+            // SAFETY: just checked type ids.
+            let (this, other) = unsafe {
+                (
+                    StringValue::new_unchecked(self.0),
+                    StringValue::new_unchecked(other.0),
+                )
+            };
+            this.0.ptr_eq(other.0) || StarlarkStr::eq(this.as_ref(), other.as_ref())
+        } else {
+            // Slow comparison with virtual call.
+            self.0 == other.0
+        }
     }
 }
 
@@ -155,7 +169,7 @@ impl<'v, T: StarlarkValue<'v>> Eq for ValueTyped<'v, T> {}
 
 impl<'v, T: StarlarkValue<'v>> PartialEq for FrozenValueTyped<'v, T> {
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        self.to_value_typed() == other.to_value_typed()
     }
 }
 
@@ -171,7 +185,7 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
 
     /// Downcast.
     #[inline]
-    pub fn new_err(value: Value<'v>) -> anyhow::Result<ValueTyped<'v, T>> {
+    pub fn new_err(value: Value<'v>) -> crate::Result<ValueTyped<'v, T>> {
         value.downcast_ref_err::<T>()?;
         Ok(ValueTyped(value, marker::PhantomData))
     }
@@ -245,7 +259,7 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
 
     /// Downcast.
     #[inline]
-    pub fn new_err(value: FrozenValue) -> anyhow::Result<FrozenValueTyped<'v, T>> {
+    pub fn new_err(value: FrozenValue) -> crate::Result<FrozenValueTyped<'v, T>> {
         value.downcast_ref_err::<T>()?;
         Ok(FrozenValueTyped(value, marker::PhantomData))
     }
@@ -452,11 +466,11 @@ mod tests {
     use crate::assert::Assert;
     use crate::environment::GlobalsBuilder;
     use crate::tests::util::TestComplexValue;
-    use crate::values::int::PointerI32;
-    use crate::values::none::NoneType;
     use crate::values::FrozenValue;
     use crate::values::FrozenValueTyped;
     use crate::values::Value;
+    use crate::values::int::pointer_i32::PointerI32;
+    use crate::values::none::NoneType;
 
     #[test]
     fn int() {

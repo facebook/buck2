@@ -22,21 +22,25 @@
 
 pub mod code;
 pub mod markdown;
+pub mod multipage;
 mod parse;
+#[cfg(test)]
+mod tests;
 
-use std::collections::HashMap;
+use std::iter;
 
 use allocative::Allocative;
-pub use code::render_docs_as_code;
 pub use parse::DocStringKind;
-pub use starlark_derive::StarlarkDocs;
 use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
+pub use crate::eval::runtime::params::display::FmtParam;
+use crate::eval::runtime::params::display::iter_fmt_param_spec;
 use crate::typing::Ty;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// The documentation provided by a user for a specific module, object, function, etc.
 #[derive(Debug, Clone, PartialEq, Trace, Default, Allocative)]
@@ -48,22 +52,6 @@ pub struct DocString {
     pub details: Option<String>,
 }
 
-/// The file a symbol resides in, and if available its location within that file.
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct Location {
-    /// `path` is a string that can be passed into `load()` statements.
-    pub path: String,
-}
-
-/// The main identifier for a symbol.
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct Identifier {
-    /// The name of the symbol (e.g. the function name, a name or path for a module, etc).
-    pub name: String,
-    /// Where the symbol is located, or absent if it is a built-in symbol.
-    pub location: Option<Location>,
-}
-
 /// The documentation for a module/namespace.
 ///
 /// See the docs on [`DocType`] for the distinction between that type and this one.
@@ -71,6 +59,24 @@ pub struct Identifier {
 pub struct DocModule {
     pub docs: Option<DocString>,
     pub members: SmallMap<String, DocItem>,
+}
+
+impl DocModule {
+    pub fn filter<P>(self, mut predicate: P) -> Self
+    where
+        P: FnMut(&(String, DocItem)) -> bool,
+    {
+        let members = self
+            .members
+            .into_iter()
+            .filter(|member| predicate(member))
+            .collect();
+
+        Self {
+            docs: self.docs,
+            members,
+        }
+    }
 }
 
 /// Documents a single function.
@@ -83,56 +89,90 @@ pub struct DocFunction {
     pub docs: Option<DocString>,
     /// The parameters that this function takes. Docs for these parameters should generally be
     /// extracted from the main docstring's details.
-    pub params: Vec<DocParam>,
+    pub params: DocParams,
     /// Details about what this function returns.
     pub ret: DocReturn,
-    /// Does this function act as type?
-    pub as_type: Option<Ty>,
 }
 
 impl DocFunction {
-    /// Used by LSP.
-    pub fn find_param_with_name(&self, param_name: &str) -> Option<&DocParam> {
-        self.params.iter().find(|p| match p {
-            DocParam::Arg { name, .. }
-            | DocParam::Args { name, .. }
-            | DocParam::Kwargs { name, .. }
-                if name == param_name =>
-            {
-                true
-            }
-            _ => false,
-        })
+    /// Used by LSP. Return starred name and the doc.
+    pub fn find_param_with_name(&self, param_name: &str) -> Option<(String, &DocParam)> {
+        self.params
+            .doc_params_with_starred_names()
+            .find(|(_, p)| p.name == param_name)
+    }
+}
+
+/// Function parameters.
+#[derive(Debug, Clone, PartialEq, Default, Allocative)]
+pub struct DocParams {
+    pub pos_only: Vec<DocParam>,
+    pub pos_or_named: Vec<DocParam>,
+    pub args: Option<DocParam>,
+    pub named_only: Vec<DocParam>,
+    pub kwargs: Option<DocParam>,
+}
+
+impl DocParams {
+    /// Iterate parameters ignoring information about positional-only, named-only.
+    pub(crate) fn doc_params(&self) -> impl Iterator<Item = &DocParam> {
+        iter::empty()
+            .chain(&self.pos_only)
+            .chain(&self.pos_or_named)
+            .chain(&self.args)
+            .chain(&self.named_only)
+            .chain(&self.kwargs)
+    }
+
+    pub(crate) fn doc_params_with_starred_names(
+        &self,
+    ) -> impl Iterator<Item = (String, &DocParam)> {
+        iter::empty()
+            .chain(self.pos_only.iter().map(|p| (p.name.clone(), p)))
+            .chain(self.pos_or_named.iter().map(|p| (p.name.clone(), p)))
+            .chain(self.args.iter().map(|p| (format!("*{}", p.name), p)))
+            .chain(self.named_only.iter().map(|p| (p.name.clone(), p)))
+            .chain(self.kwargs.iter().map(|p| (format!("**{}", p.name), p)))
+    }
+
+    pub(crate) fn doc_params_mut(&mut self) -> impl Iterator<Item = &mut DocParam> {
+        iter::empty()
+            .chain(&mut self.pos_only)
+            .chain(&mut self.pos_or_named)
+            .chain(&mut self.args)
+            .chain(&mut self.named_only)
+            .chain(&mut self.kwargs)
+    }
+
+    /// Non-star parameters.
+    pub fn regular_params(&self) -> impl Iterator<Item = &DocParam> {
+        iter::empty()
+            .chain(&self.pos_only)
+            .chain(&self.pos_or_named)
+            .chain(&self.named_only)
+    }
+
+    /// Iterate params with `/` and `*` markers to output function signature.
+    pub fn fmt_params(&self) -> impl Iterator<Item = FmtParam<&'_ DocParam>> {
+        iter_fmt_param_spec(
+            &self.pos_only,
+            &self.pos_or_named,
+            self.args.as_ref(),
+            &self.named_only,
+            self.kwargs.as_ref(),
+        )
     }
 }
 
 /// A single parameter of a function.
 #[derive(Debug, Clone, PartialEq, Allocative)]
-pub enum DocParam {
-    /// A regular parameter that may or may not have a default value.
-    Arg {
-        name: String,
-        docs: Option<DocString>,
-        typ: Ty,
-        /// If present, this parameter has a default value. This is the `repr()` of that value.
-        default_value: Option<String>,
-    },
-    /// Represents the "*" argument from [PEP 3102](https://peps.python.org/pep-3102/).
-    OnlyNamedAfter,
-    /// Represents the "/" argument from [PEP 570](https://peps.python.org/pep-0570/).
-    OnlyPosBefore,
-    /// Represents the "*args" style of argument.
-    Args {
-        name: String,
-        docs: Option<DocString>,
-        tuple_elem_ty: Ty,
-    },
-    /// Represents the "**kwargs" style of argument.
-    Kwargs {
-        name: String,
-        docs: Option<DocString>,
-        dict_value_ty: Ty,
-    },
+pub struct DocParam {
+    /// Does not include `*` or `**`.
+    pub name: String,
+    pub docs: Option<DocString>,
+    /// Element type for `*args` and value type for `**kwargs`.
+    pub typ: Ty,
+    pub default_value: Option<String>,
 }
 
 /// Details about the return value of a function.
@@ -171,7 +211,7 @@ impl DocMember {
         // If we have a value which is a complex type, the right type to put in the docs is not the type
         // it represents, but it's just a property we should point at
         match value.documentation() {
-            Some(DocItem::Member(x)) => x,
+            DocItem::Member(x) => x,
             _ => DocMember::Property(DocProperty {
                 docs: None,
                 typ: value.get_type_starlark_repr(),
@@ -194,6 +234,22 @@ pub struct DocType {
     /// Name and details of each attr/function that can be accessed on this type.
     pub members: SmallMap<String, DocMember>,
     pub ty: Ty,
+    pub constructor: Option<DocFunction>,
+}
+
+impl DocType {
+    pub fn from_starlark_value<T: StarlarkValue<'static>>() -> DocType {
+        let ty = T::starlark_type_repr();
+        match T::get_methods() {
+            Some(methods) => methods.documentation(ty),
+            None => DocType {
+                docs: None,
+                members: SmallMap::new(),
+                ty,
+                constructor: None,
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Allocative)]
@@ -233,6 +289,13 @@ impl DocItem {
             })),
         }
     }
+
+    pub fn try_as_member(&self) -> Option<DocMember> {
+        match self {
+            DocItem::Member(m) => Some(m.clone()),
+            _ => None,
+        }
+    }
 }
 
 impl DocMember {
@@ -253,82 +316,11 @@ impl DocMember {
 impl DocParam {
     /// Get the underlying [`DocString`] for this item, if it exists.
     pub fn get_doc_string(&self) -> Option<&DocString> {
-        match self {
-            DocParam::Arg { docs, .. }
-            | DocParam::Args { docs, .. }
-            | DocParam::Kwargs { docs, .. } => docs.as_ref(),
-            _ => None,
-        }
+        self.docs.as_ref()
     }
 
     /// Get the summary of the underlying [`DocString`] for this item, if it exists.
     pub fn get_doc_summary(&self) -> Option<&str> {
         self.get_doc_string().map(|ds| ds.summary.as_str())
-    }
-}
-
-/// The main structure that represents the documentation for a given symbol / module.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Doc {
-    pub id: Identifier,
-    pub item: DocItem,
-    /// Custom key-value pairs that are not interpreted directly by starlark, and can be
-    /// used as arbitrary data for documentation tooling.
-    pub custom_attrs: HashMap<String, String>,
-}
-
-impl Doc {
-    pub fn named_item(name: String, item: DocItem) -> Self {
-        Doc {
-            id: Identifier {
-                name,
-                location: None,
-            },
-            item,
-            custom_attrs: HashMap::new(),
-        }
-    }
-}
-
-/// Get documentation for all items registered with `#[derive(StarlarkDocs)]`
-///
-/// Note: Because `StarlarkDocs` uses the inventory crate under the hood, in statically linked
-/// binaries, documentation from all compiled crates in the binary will be included.
-///
-/// For dynamically linked binaries, documentation will only be able to retrieved after the crate's
-/// library is `dlopen()`ed.
-pub fn get_registered_starlark_docs() -> Vec<Doc> {
-    inventory::iter::<RegisteredDoc>
-        .into_iter()
-        .filter_map(|d| (d.getter)())
-        .collect()
-}
-
-#[doc(hidden)]
-pub struct RegisteredDoc {
-    pub getter: fn() -> Option<Doc>,
-}
-
-inventory::collect!(RegisteredDoc);
-
-impl RegisteredDoc {
-    /// This function is called from generated code.
-    pub fn for_type<'v, T: StarlarkValue<'v>>(custom_attrs: &[(&str, &str)]) -> Option<Doc> {
-        let name = T::TYPE.to_owned();
-        let id = Identifier {
-            name,
-            location: None,
-        };
-        let ty = T::get_type_starlark_repr();
-        let item = DocItem::Type(T::get_methods()?.documentation(ty));
-        let custom_attrs = custom_attrs
-            .iter()
-            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
-            .collect();
-        Some(Doc {
-            id,
-            item,
-            custom_attrs,
-        })
     }
 }

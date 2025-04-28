@@ -9,7 +9,7 @@ load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
 load(":apple_utility.bzl", "has_apple_toolchain")
 
-_FRAMEWORK_INTRODUCED_VERSIONS = {
+FRAMEWORK_INTRODUCED_VERSIONS = {
     "AGL": {"macosx": (10, 0, 0)},
     "ARKit": {"iphoneos": (11, 0, 0), "maccatalyst": (14, 0, 0)},
     "AVFAudio": {
@@ -457,8 +457,6 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
     "GLKit": {
         "appletvos": (9, 0, 0),
         "iphoneos": (5, 0, 0),
-        # TODO(T191992091): Enable OpenGLES/GLKit for Catalyst platforms
-        "maccatalyst": (13, 0, 0),
         "macosx": (10, 8, 0),
     },
     "GLUT": {"macosx": (10, 0, 0)},
@@ -756,8 +754,7 @@ _FRAMEWORK_INTRODUCED_VERSIONS = {
     "OpenCL": {"macosx": (10, 6, 0)},
     "OpenDirectory": {"maccatalyst": (13, 0, 0), "macosx": (10, 6, 0)},
     "OpenGL": {"macosx": (10, 0, 0)},
-    # TODO(T191992091): Enable OpenGLES/GLKit for Catalyst platforms
-    "OpenGLES": {"appletvos": (9, 0, 0), "iphoneos": (2, 0, 0), "maccatalyst": (13, 0, 0)},
+    "OpenGLES": {"appletvos": (9, 0, 0), "iphoneos": (2, 0, 0)},
     "PCSC": {"macosx": (10, 0, 0)},
     "PDFKit": {"iphoneos": (11, 0, 0), "macosx": (10, 4, 0)},
     "PHASE": {
@@ -1079,7 +1076,7 @@ def validate_sdk_frameworks(frameworks: list[str]) -> None:
     for framework in frameworks:
         if framework.startswith("$SDKROOT/System/Library/Frameworks"):
             framework_name = framework[len("$SDKROOT/System/Library/Frameworks/"):-len(".framework")]
-            if framework_name not in _FRAMEWORK_INTRODUCED_VERSIONS:
+            if framework_name not in FRAMEWORK_INTRODUCED_VERSIONS:
                 fail("Framework {} is missing version information".format(framework_name))
 
 def get_framework_linker_args(ctx: AnalysisContext, framework_names: list[str]) -> list[str]:
@@ -1100,7 +1097,7 @@ def get_framework_linker_args(ctx: AnalysisContext, framework_names: list[str]) 
 
     args = []
     for name in framework_names:
-        versions = _FRAMEWORK_INTRODUCED_VERSIONS.get(name, None)
+        versions = FRAMEWORK_INTRODUCED_VERSIONS.get(name, None)
         if versions:
             introduced = versions.get(sdk_name, None)
             if not introduced:

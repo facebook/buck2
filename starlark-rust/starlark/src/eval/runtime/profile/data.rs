@@ -15,18 +15,15 @@
  * limitations under the License.
  */
 
-use std::fs;
-use std::path::Path;
-
-use anyhow::Context;
-
 use crate::eval::runtime::profile::bc::BcPairsProfileData;
 use crate::eval::runtime::profile::bc::BcPairsProfilerType;
 use crate::eval::runtime::profile::bc::BcProfileData;
 use crate::eval::runtime::profile::bc::BcProfilerType;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
+use crate::eval::runtime::profile::heap::HeapAllocatedProfilerType;
 use crate::eval::runtime::profile::heap::HeapFlameAllocatedProfilerType;
 use crate::eval::runtime::profile::heap::HeapFlameRetainedProfilerType;
+use crate::eval::runtime::profile::heap::HeapRetainedProfilerType;
 use crate::eval::runtime::profile::heap::HeapSummaryAllocatedProfilerType;
 use crate::eval::runtime::profile::heap::HeapSummaryRetainedProfilerType;
 use crate::eval::runtime::profile::mode::ProfileMode;
@@ -51,6 +48,8 @@ enum ProfileDataError {
 pub(crate) enum ProfileDataImpl {
     Bc(Box<BcProfileData>),
     BcPairs(BcPairsProfileData),
+    HeapRetained(Box<AggregateHeapProfileInfo>),
+    HeapAllocated(Box<AggregateHeapProfileInfo>),
     HeapFlameRetained(Box<AggregateHeapProfileInfo>),
     HeapFlameAllocated(Box<AggregateHeapProfileInfo>),
     HeapSummaryRetained(Box<AggregateHeapProfileInfo>),
@@ -60,6 +59,7 @@ pub(crate) enum ProfileDataImpl {
     Statement(StmtProfileData),
     Coverage(StmtProfileData),
     Typecheck(TypecheckProfileData),
+    None,
 }
 
 impl ProfileDataImpl {
@@ -67,6 +67,8 @@ impl ProfileDataImpl {
         match self {
             ProfileDataImpl::Bc(_) => ProfileMode::Bytecode,
             ProfileDataImpl::BcPairs(_) => ProfileMode::BytecodePairs,
+            ProfileDataImpl::HeapRetained(_) => ProfileMode::HeapRetained,
+            ProfileDataImpl::HeapAllocated(_) => ProfileMode::HeapAllocated,
             ProfileDataImpl::HeapFlameRetained(_) => ProfileMode::HeapFlameRetained,
             ProfileDataImpl::HeapFlameAllocated(_) => ProfileMode::HeapFlameAllocated,
             ProfileDataImpl::HeapSummaryRetained(_) => ProfileMode::HeapSummaryRetained,
@@ -75,6 +77,7 @@ impl ProfileDataImpl {
             ProfileDataImpl::Statement(_) => ProfileMode::Statement,
             ProfileDataImpl::Coverage(_) => ProfileMode::Coverage,
             ProfileDataImpl::Typecheck(_) => ProfileMode::Typecheck,
+            ProfileDataImpl::None => ProfileMode::None,
         }
     }
 }
@@ -96,32 +99,34 @@ impl ProfileData {
         self.profile.profile_mode()
     }
 
-    /// Generate a string with profile data (e.g. CSV or flamegraph, depending on profile type).
-    pub fn gen(&self) -> crate::Result<String> {
+    /// Generate a string with flamegraph profile data, depending on profile type.
+    pub fn gen_flame_data(&self) -> crate::Result<String> {
+        match &self.profile {
+            ProfileDataImpl::TimeFlameProfile(profile) => Ok(profile.write()),
+            ProfileDataImpl::HeapRetained(profile)
+            | ProfileDataImpl::HeapAllocated(profile)
+            | ProfileDataImpl::HeapFlameRetained(profile)
+            | ProfileDataImpl::HeapFlameAllocated(profile) => Ok(profile.gen_flame_graph_data()),
+            _ => Ok("".to_owned()),
+        }
+    }
+
+    /// Generate a string with csv profile data, depending on profile type.
+    pub fn gen_csv(&self) -> crate::Result<String> {
         match &self.profile {
             ProfileDataImpl::Bc(bc) => Ok(bc.gen_csv()),
             ProfileDataImpl::BcPairs(bc_pairs) => Ok(bc_pairs.gen_csv()),
-            ProfileDataImpl::HeapFlameRetained(profile)
-            | ProfileDataImpl::HeapFlameAllocated(profile) => Ok(profile.gen_flame_graph()),
+            ProfileDataImpl::HeapRetained(profile) | ProfileDataImpl::HeapAllocated(profile) => {
+                Ok(profile.gen_summary_csv())
+            }
             ProfileDataImpl::HeapSummaryRetained(profile)
             | ProfileDataImpl::HeapSummaryAllocated(profile) => Ok(profile.gen_summary_csv()),
             ProfileDataImpl::TimeFlameProfile(data) => Ok(data.write()),
             ProfileDataImpl::Statement(data) => Ok(data.write_to_string()),
             ProfileDataImpl::Coverage(data) => Ok(data.write_coverage()),
             ProfileDataImpl::Typecheck(data) => Ok(data.gen_csv()),
+            _ => Ok("".to_owned()),
         }
-    }
-
-    /// Write to a file.
-    pub fn write(&self, path: &Path) -> crate::Result<()> {
-        fs::write(path, self.gen()?).with_context(|| {
-            format!(
-                "write profile `{}` data to `{}`",
-                self.profile.profile_mode(),
-                path.display()
-            )
-        })?;
-        Ok(())
     }
 
     /// Merge profiles (aggregate).
@@ -151,6 +156,12 @@ impl ProfileData {
         let profile = match &profile_mode {
             ProfileMode::Bytecode => BcProfilerType::merge_profiles(&profiles)?.profile,
             ProfileMode::BytecodePairs => BcPairsProfilerType::merge_profiles(&profiles)?.profile,
+            ProfileMode::HeapAllocated => {
+                HeapAllocatedProfilerType::merge_profiles(&profiles)?.profile
+            }
+            ProfileMode::HeapRetained => {
+                HeapRetainedProfilerType::merge_profiles(&profiles)?.profile
+            }
             ProfileMode::HeapSummaryAllocated => {
                 HeapSummaryAllocatedProfilerType::merge_profiles(&profiles)?.profile
             }
@@ -167,6 +178,7 @@ impl ProfileData {
             ProfileMode::Typecheck => TypecheckProfilerType::merge_profiles(&profiles)?.profile,
             ProfileMode::Statement => StmtProfilerType::merge_profiles(&profiles)?.profile,
             ProfileMode::Coverage => CoverageProfileType::merge_profiles(&profiles)?.profile,
+            ProfileMode::None => ProfileDataImpl::None,
         };
         Ok(ProfileData { profile })
     }

@@ -11,18 +11,19 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::cells::cell_root_path::CellRootPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::RelativePath;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use starlark_map::sorted_map::SortedMap;
 
+use super::cells::ExternalPathBuckconfigData;
 use crate::legacy_configs::args::ResolvedConfigFlag;
 use crate::legacy_configs::configs::ConfigArgumentParseError;
 use crate::legacy_configs::configs::ConfigData;
@@ -34,11 +35,13 @@ use crate::legacy_configs::configs::LegacyBuckConfigSection;
 use crate::legacy_configs::configs::Location;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::file_ops::ConfigPath;
+use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::parser::resolver::ConfigResolver;
 
 mod resolver;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum ConfigError {
     #[error("Expected line of the form `key = value` but key was empty. Line was `{0}`")]
     EmptyKey(String),
@@ -114,13 +117,13 @@ impl LegacyConfigParser {
         source: Option<Location>,
         follow_includes: bool,
         file_ops: &mut dyn ConfigParserFileOps,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let mut file_parser = LegacyConfigFileParser::new(self);
         file_parser.start_file(path, source)?;
         file_parser
             .parse_file_on_stack(path, follow_includes, file_ops)
             .await
-            .with_context(|| format!("Error parsing buckconfig `{}`", path))?;
+            .with_buck_error_context(|| format!("Error parsing buckconfig `{}`", path))?;
         file_parser.finish_file();
 
         Ok(())
@@ -130,7 +133,7 @@ impl LegacyConfigParser {
         &mut self,
         config_pair: &ResolvedConfigFlag,
         current_cell: &CellRootPath,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         for banned_section in ["repositories", "cells"] {
             if config_pair.section == banned_section {
                 return Err(
@@ -157,7 +160,7 @@ impl LegacyConfigParser {
         Ok(())
     }
 
-    pub(crate) fn finish(self) -> anyhow::Result<LegacyBuckConfig> {
+    pub(crate) fn finish(self) -> buck2_error::Result<LegacyBuckConfig> {
         let LegacyConfigParser { values } = self;
 
         let values = ConfigResolver::resolve(values)?;
@@ -176,6 +179,46 @@ impl LegacyConfigParser {
             }
         }
     }
+
+    pub(crate) fn filter_values<F>(&mut self, filter: F)
+    where
+        F: Fn(&BuckconfigKeyRef) -> bool,
+    {
+        for (section, section_builder) in self.values.iter_mut() {
+            section_builder.values.retain(|key, _| {
+                filter(&BuckconfigKeyRef {
+                    section,
+                    property: key,
+                })
+            });
+        }
+    }
+
+    pub(crate) fn to_proto_external_config_values(
+        &self,
+        is_cli: bool,
+    ) -> Vec<buck2_data::ConfigValue> {
+        self.values
+            .iter()
+            .map(|(k, v)| {
+                v.values.iter().map(|(key, value)| buck2_data::ConfigValue {
+                    section: k.to_string(),
+                    key: key.to_string(),
+                    value: value.raw_value().to_owned(),
+                    cell: None,
+                    is_cli,
+                })
+            })
+            .flatten()
+            .collect()
+    }
+    pub(crate) fn combine(external_path_configs: Vec<ExternalPathBuckconfigData>) -> Self {
+        let mut parser = LegacyConfigParser::new();
+        external_path_configs
+            .into_iter()
+            .for_each(|o| parser.join(&o.parse_state));
+        parser
+    }
 }
 
 impl<'p> LegacyConfigFileParser<'p> {
@@ -192,7 +235,7 @@ impl<'p> LegacyConfigFileParser<'p> {
         ("__unspecified__".to_owned(), BTreeMap::new())
     }
 
-    fn push_file(&mut self, line: usize, path: &ConfigPath) -> anyhow::Result<()> {
+    fn push_file(&mut self, line: usize, path: &ConfigPath) -> buck2_error::Result<()> {
         let include_source = ConfigFileLocationWithLine {
                 source_file: self.current_file.dupe().unwrap_or_else(|| panic!("push_file() called without any files on the include stack. top-level files should use start_file()")),
                 line,
@@ -208,7 +251,11 @@ impl<'p> LegacyConfigFileParser<'p> {
         Ok(())
     }
 
-    fn start_file(&mut self, path: &ConfigPath, source: Option<Location>) -> anyhow::Result<()> {
+    fn start_file(
+        &mut self,
+        path: &ConfigPath,
+        source: Option<Location>,
+    ) -> buck2_error::Result<()> {
         let source_file = Arc::new(ConfigFileLocation {
             path: path.to_string(),
             include_source: source,
@@ -245,7 +292,7 @@ impl<'p> LegacyConfigFileParser<'p> {
         config_path: &'a ConfigPath,
         parse_includes: bool,
         file_ops: &'a mut dyn ConfigParserFileOps,
-    ) -> BoxFuture<'a, anyhow::Result<bool>> {
+    ) -> BoxFuture<'a, buck2_error::Result<bool>> {
         async move {
             let Some(file_lines) = file_ops.read_file_lines_if_exists(config_path).await? else {
                 return Ok(false);
@@ -264,7 +311,7 @@ impl<'p> LegacyConfigFileParser<'p> {
         }
     }
 
-    fn parse_section_marker(line: &str) -> anyhow::Result<Option<&str>> {
+    fn parse_section_marker(line: &str) -> buck2_error::Result<Option<&str>> {
         // We allow trailing comment markers at the end of sections, since otherwise
         // using oss-enable/oss-disable is super tricky
         match line.strip_prefix('[') {
@@ -276,19 +323,13 @@ impl<'p> LegacyConfigFileParser<'p> {
         }
     }
 
-    async fn parse_lines<T, E>(
+    async fn parse_lines(
         &mut self,
         config_path: &ConfigPath,
-        lines: T,
+        lines: Vec<String>,
         parse_includes: bool,
         file_ops: &mut dyn ConfigParserFileOps,
-    ) -> anyhow::Result<()>
-    where
-        T: IntoIterator<Item = Result<String, E>>,
-        E: std::error::Error + Send + Sync + 'static,
-    {
-        let lines: Vec<String> = lines.into_iter().collect::<Result<Vec<_>, _>>()?;
-
+    ) -> buck2_error::Result<()> {
         let lines = lines
             .into_iter()
             // Trim leading/trailing whitespace.
@@ -323,7 +364,7 @@ impl<'p> LegacyConfigFileParser<'p> {
                 let key = key.trim();
                 let val = val.trim();
                 if key.is_empty() {
-                    return Err(anyhow::anyhow!(ConfigError::EmptyKey(line.to_owned())));
+                    return Err(ConfigError::EmptyKey(line.to_owned()).into());
                 }
                 self.current_section.1.insert(
                     key.to_owned(),
@@ -348,9 +389,7 @@ impl<'p> LegacyConfigFileParser<'p> {
                         match config_path.join_to_parent_normalized(relative) {
                             Ok(d) => d,
                             Err(_) => {
-                                return Err(anyhow::anyhow!(ConfigError::BadIncludePath(
-                                    include.to_owned()
-                                )));
+                                return Err(ConfigError::BadIncludePath(include.to_owned()).into());
                             }
                         }
                     };
@@ -362,13 +401,11 @@ impl<'p> LegacyConfigFileParser<'p> {
                     self.pop_file();
 
                     if !exists && !optional {
-                        return Err(anyhow::anyhow!(ConfigError::MissingInclude(
-                            include.to_owned()
-                        )));
+                        return Err(ConfigError::MissingInclude(include.to_owned()).into());
                     }
                 }
             } else {
-                return Err(anyhow::anyhow!(ConfigError::InvalidLine(line.to_owned())));
+                return Err(ConfigError::InvalidLine(line.to_owned()).into());
             }
         }
         Ok(())

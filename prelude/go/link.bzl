@@ -26,10 +26,11 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//linking:stamp_build_info.bzl", "stamp_build_info")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load(
     "@prelude//utils:utils.bzl",
-    "map_idx",
+    "filter_and_map_idx",
 )
 load(
     ":packages.bzl",
@@ -81,7 +82,7 @@ def _process_shared_dependencies(
 
     shlib_info = merge_shared_libraries(
         ctx.actions,
-        deps = filter(None, map_idx(SharedLibraryInfo, deps)),
+        deps = filter_and_map_idx(SharedLibraryInfo, deps),
     )
     shared_libs = traverse_shared_library_info(shlib_info)
 
@@ -123,7 +124,8 @@ def link(
     else:  # GoBuildMode("executable")
         file_extension = executable_extension
         use_shared_code = False  # non-PIC
-    output = ctx.actions.declare_output(ctx.label.name + file_extension)
+    final_output_name = ctx.label.name + file_extension
+    output = ctx.actions.declare_output(ctx.label.name + "-tmp" + file_extension)
 
     cmd = cmd_args()
 
@@ -148,7 +150,7 @@ def link(
 
     identifier_prefix = ctx.label.name + "_" + _build_mode_param(build_mode)
 
-    importcfg = make_importcfg(ctx, identifier_prefix, all_pkgs, use_shared_code, with_importmap = False)
+    importcfg = make_importcfg(ctx, identifier_prefix, all_pkgs, use_shared_code)
 
     cmd.add("-importcfg", importcfg)
 
@@ -163,9 +165,10 @@ def link(
     if link_mode != None:
         cmd.add("-linkmode", link_mode)
 
-    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
-    if cxx_toolchain != None:
-        is_win = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
+    if cxx_toolchain_available:
+        cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
+        is_win = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
 
         # Gather external link args from deps.
         ext_links = get_link_args_for_strategy(ctx, cxx_inherited_link_info(deps), to_link_strategy(link_style))
@@ -219,4 +222,8 @@ def link(
 
     ctx.actions.run(cmd, env = env, category = "go_link", identifier = identifier_prefix)
 
-    return (output, executable_args.runtime_files, executable_args.external_debug_info)
+    output = stamp_build_info(ctx, output)
+
+    final_output = ctx.actions.copy_file(final_output_name, output)
+
+    return (final_output, executable_args.runtime_files, executable_args.external_debug_info)

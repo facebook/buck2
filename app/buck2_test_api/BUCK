@@ -1,5 +1,4 @@
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
 
@@ -23,9 +22,11 @@ rust_library(
         "fbsource//third-party/rust:tower-layer",
         "fbsource//third-party/rust:tower-service",
         "fbsource//third-party/rust:tracing",
+        "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_downward_api:buck2_downward_api",
         "//buck2/app/buck2_downward_api_proto:buck2_downward_api_proto",
+        "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_events:buck2_events",
         "//buck2/app/buck2_grpc:buck2_grpc",
         "//buck2/app/buck2_test_proto:buck2_test_proto",

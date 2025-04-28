@@ -1,0 +1,97 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+[
+  {
+    "deps": [],
+    "key": "PackageListingKey(root//)"
+  },
+  {
+    "deps": [
+      "PackageListingKey(root//)"
+    ],
+    "key": "InterpreterResultsKey(root//)"
+  },
+  {
+    "deps": [
+      "InterpreterResultsKey(root//)"
+    ],
+    "key": "ConfiguredTargetNodeKey(root//:step_0 (<unspecified>))"
+  },
+  {
+    "deps": [
+      "InterpreterResultsKey(root//)",
+      "ConfiguredTargetNodeKey(root//:step_0 (<unspecified>))"
+    ],
+    "key": "ConfiguredTargetNodeKey(root//:step_1 (<unspecified>))"
+  },
+  {
+    "deps": [
+      "InterpreterResultsKey(root//)",
+      "ConfiguredTargetNodeKey(root//:step_1 (<unspecified>))"
+    ],
+    "key": "ConfiguredTargetNodeKey(root//:check_dynamic_input (<unspecified>))"
+  },
+  {
+    "deps": [
+      "ConfiguredTargetNodeKey(root//:step_0 (<unspecified>))"
+    ],
+    "key": "AnalysisKey(root//:step_0 (<unspecified>))"
+  },
+  {
+    "deps": [
+      "ConfiguredTargetNodeKey(root//:step_1 (<unspecified>))",
+      "AnalysisKey(root//:step_0 (<unspecified>))"
+    ],
+    "key": "AnalysisKey(root//:step_1 (<unspecified>))"
+  },
+  {
+    "deps": [
+      "ConfiguredTargetNodeKey(root//:check_dynamic_input (<unspecified>))",
+      "AnalysisKey(root//:step_1 (<unspecified>))"
+    ],
+    "key": "AnalysisKey(root//:check_dynamic_input (<unspecified>))"
+  },
+  {
+    "deps": [
+      "AnalysisKey(root//:step_0 (<unspecified>))",
+      "ConfiguredTargetNodeKey(root//:step_0 (<unspecified>))"
+    ],
+    "key": "BuildKey((target: `root//:step_0 (<unspecified>)`, id: `0`))"
+  },
+  {
+    "deps": [
+      "AnalysisKey(root//:step_1 (<unspecified>))",
+      "BuildKey((target: `root//:step_0 (<unspecified>)`, id: `0`))",
+      "ConfiguredTargetNodeKey(root//:step_1 (<unspecified>))"
+    ],
+    "key": "BuildKey((target: `root//:step_1 (<unspecified>)`, id: `0`))"
+  },
+  {
+    "deps": [
+      "AnalysisKey(root//:check_dynamic_input (<unspecified>))",
+      "BuildKey((target: `root//:step_1 (<unspecified>)`, id: `0`))"
+    ],
+    "key": "DynamicLambdaDiceKey(root//:check_dynamic_input (<unspecified>)_0)"
+  },
+  {
+    "deps": [
+      "DynamicLambdaDiceKey(root//:check_dynamic_input (<unspecified>)_0)",
+      "ConfiguredTargetNodeKey(root//:check_dynamic_input (<unspecified>))"
+    ],
+    "key": "BuildKey((target: `root//:check_dynamic_input (<unspecified>)_0`, id: `1`))"
+  },
+  {
+    "deps": [
+      "DynamicLambdaDiceKey(root//:check_dynamic_input (<unspecified>)_0)",
+      "DynamicLambdaDiceKey(root//:check_dynamic_input (<unspecified>)_0)",
+      "BuildKey((target: `root//:check_dynamic_input (<unspecified>)_0`, id: `1`))"
+    ],
+    "key": "BuildKey((target: `root//:check_dynamic_input (<unspecified>)_0`, id: `0`))"
+  },
+  {
+    "deps": [
+      "BuildKey((target: `root//:check_dynamic_input (<unspecified>)_0`, id: `0`))"
+    ],
+    "key": "FinalMaterialization(`(root//:check_dynamic_input (<unspecified>))/out`, action: (target: `root//:check_dynamic_input (<unspecified>)_0`, id: `0`))"
+  }
+]

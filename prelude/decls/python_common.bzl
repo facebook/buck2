@@ -118,6 +118,17 @@ def _deduplicate_merged_link_roots():
 """),
     }
 
+def _version_selections_arg():
+    return {
+        "version_selections": attrs.dict(
+            key = attrs.string(),
+            value = attrs.string(),
+            default = {},
+            doc = """A mapping from library name to desired version. Versioned dependencies from the entire dependency tree with the given name will be used at the specified version, if available.
+            Versioned libraries that are unspecified will be used at their respective default version.""",
+        ),
+    }
+
 python_common = struct(
     srcs_arg = _srcs_arg,
     platform_srcs_arg = _platform_srcs_arg,
@@ -130,4 +141,5 @@ python_common = struct(
     preload_deps_arg = _preload_deps_arg,
     exclude_deps_from_merged_linking_arg = _exclude_deps_from_merged_linking_arg,
     deduplicate_merged_link_roots = _deduplicate_merged_link_roots,
+    version_selections_arg = _version_selections_arg,
 )

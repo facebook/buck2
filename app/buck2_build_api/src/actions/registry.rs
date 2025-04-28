@@ -17,10 +17,10 @@ use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
-use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_core::category::Category;
+use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
-use buck2_core::fs::buck_out_path::BuckOutPath;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_directory::directory;
@@ -30,8 +30,8 @@ use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_hasher::NoDigest;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::entry::DirectoryEntry;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_execute::execute::request::OutputType;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
@@ -39,7 +39,6 @@ use gazebo::prelude::SliceExt;
 use indexmap::IndexSet;
 use starlark::codemap::FileSpan;
 use starlark::collections::SmallMap;
-use starlark_map::Hashed;
 
 use crate::actions::ActionErrors;
 use crate::actions::ActionToBeRegistered;
@@ -53,7 +52,6 @@ use crate::deferred::calculation::ActionLookup;
 #[derive(Allocative)]
 pub struct ActionsRegistry {
     owner: DeferredHolderKey,
-    action_key: Option<Arc<str>>,
     artifacts: IndexSet<DeclaredArtifact>,
 
     // For a dynamic_output, maps the ActionKeys for the outputs that have been bound
@@ -68,7 +66,6 @@ impl ActionsRegistry {
     pub fn new(owner: DeferredHolderKey, execution_platform: ExecutionPlatformResolution) -> Self {
         Self {
             owner,
-            action_key: None,
             artifacts: Default::default(),
             declared_dynamic_outputs: SmallMap::new(),
             pending: Default::default(),
@@ -77,14 +74,10 @@ impl ActionsRegistry {
         }
     }
 
-    pub fn set_action_key(&mut self, action_key: Arc<str>) {
-        self.action_key = Some(action_key);
-    }
-
     pub fn declare_dynamic_output(
         &mut self,
         artifact: &BuildArtifact,
-    ) -> anyhow::Result<DeclaredArtifact> {
+    ) -> buck2_error::Result<DeclaredArtifact> {
         if !self.pending.is_empty() {
             return Err(internal_error!(
                 "output for dynamic_output/actions declared after actions: {}, {:?}",
@@ -114,7 +107,7 @@ impl ActionsRegistry {
         &mut self,
         path: &ForwardRelativePath,
         declaration_location: Option<FileSpan>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         fn display_location_opt(location: Option<&FileSpan>) -> &dyn std::fmt::Display {
             location.map_or(&"<unknown>" as _, |l| l as _)
         }
@@ -125,12 +118,11 @@ impl ActionsRegistry {
         {
             Ok(None) => Ok(()),
             Ok(Some(conflict)) => match conflict {
-                DirectoryEntry::Leaf(location) => {
-                    Err(anyhow::anyhow!(ActionErrors::ConflictingOutputPath(
-                        path.to_owned(),
-                        display_location_opt(location.as_ref()).to_string(),
-                    )))
-                }
+                DirectoryEntry::Leaf(location) => Err(ActionErrors::ConflictingOutputPath(
+                    path.to_owned(),
+                    display_location_opt(location.as_ref()).to_string(),
+                )
+                .into()),
                 DirectoryEntry::Dir(conflict_dir) => {
                     let conflicting_paths = conflict_dir
                         .ordered_walk_leaves()
@@ -143,15 +135,13 @@ impl ActionsRegistry {
                             )
                         })
                         .collect::<Vec<_>>();
-                    Err(anyhow::anyhow!(ActionErrors::ConflictingOutputPaths(
-                        path.to_owned(),
-                        conflicting_paths,
-                    )))
+                    Err(
+                        ActionErrors::ConflictingOutputPaths(path.to_owned(), conflicting_paths)
+                            .into(),
+                    )
                 }
             },
-            Err(DirectoryInsertError::EmptyPath) => {
-                Err(anyhow::anyhow!(ActionErrors::EmptyOutputPath))
-            }
+            Err(DirectoryInsertError::EmptyPath) => Err(ActionErrors::EmptyOutputPath.into()),
             Err(DirectoryInsertError::CannotTraverseLeaf { path: conflict }) => {
                 let location =
                     match directory::find::find(self.claimed_output_paths.as_ref(), &conflict) {
@@ -165,10 +155,7 @@ impl ActionsRegistry {
                     display_location_opt(location),
                 );
 
-                Err(anyhow::anyhow!(ActionErrors::ConflictingOutputPaths(
-                    path.to_owned(),
-                    vec![conflict],
-                )))
+                Err(ActionErrors::ConflictingOutputPaths(path.to_owned(), vec![conflict]).into())
             }
         }
     }
@@ -180,14 +167,13 @@ impl ActionsRegistry {
         path: ForwardRelativePathBuf,
         output_type: OutputType,
         declaration_location: Option<FileSpan>,
-    ) -> anyhow::Result<DeclaredArtifact> {
+    ) -> buck2_error::Result<DeclaredArtifact> {
         let (path, hidden) = match prefix {
             None => (path, 0),
             Some(prefix) => (prefix.join(path), prefix.iter().count()),
         };
         self.claim_output_path(&path, declaration_location)?;
-        let out_path =
-            BuckOutPath::with_action_key(self.owner.owner().dupe(), path, self.action_key.dupe());
+        let out_path = BuildArtifactPath::with_dynamic_actions_action_key(self.owner.dupe(), path);
         let declared = DeclaredArtifact::new(out_path, output_type, hidden);
         if !self.artifacts.insert(declared.dupe()) {
             panic!("not expected duplicate artifact after output path was successfully claimed");
@@ -202,7 +188,7 @@ impl ActionsRegistry {
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<OutputArtifact>,
         action: A,
-    ) -> anyhow::Result<ActionKey> {
+    ) -> buck2_error::Result<ActionKey> {
         let key = ActionKey::new(
             self_key.dupe(),
             // If there are declared_dynamic_outputs, then the analysis that created this one has
@@ -232,14 +218,15 @@ impl ActionsRegistry {
     pub fn ensure_bound(
         self,
         analysis_value_fetcher: &AnalysisValueFetcher,
-    ) -> anyhow::Result<RecordedActions> {
+    ) -> buck2_error::Result<RecordedActions> {
         for artifact in self.artifacts {
             artifact.ensure_bound()?;
         }
 
-        let mut actions = RecordedActions::new();
+        let num_action_keys = self.declared_dynamic_outputs.len() + self.pending.len();
+        let mut actions = RecordedActions::new(num_action_keys);
 
-        for (key, artifact) in self.declared_dynamic_outputs.into_iter_hashed() {
+        for (key, artifact) in self.declared_dynamic_outputs.into_iter() {
             actions.insert_dynamic_output(key, artifact.ensure_bound()?.action_key().dupe());
         }
 
@@ -313,7 +300,9 @@ impl ActionsRegistry {
 
 #[derive(Debug, Allocative)]
 pub struct RecordedActions {
-    /// ActionLookup::Action would indicate that this analysis created the action.
+    /// Vec of actions indexed by ActionKey::id.
+    ///
+    /// ActionLookup::Action indicates that this analysis created the action.
     ///
     /// It's possible for an Action to appear in this map multiple times. That can
     /// happen for a dynamic_outputs' "outputs" argument when the output is bound to
@@ -321,59 +310,48 @@ pub struct RecordedActions {
     ///
     /// ActionLookup::Deferred is only used for a dynamic_outputs "outputs" argument
     /// that has been re-bound to another dynamic_output.
-    actions: SmallMap<ActionKey, ActionLookup>,
+    actions: Vec<ActionLookup>,
 }
 
 impl RecordedActions {
-    pub fn new() -> Self {
+    pub fn new(capacity: usize) -> Self {
         Self {
-            actions: SmallMap::new(),
+            actions: Vec::with_capacity(capacity),
         }
     }
 
     pub fn insert(&mut self, key: ActionKey, action: Arc<RegisteredAction>) {
-        assert!(
-            self.actions
-                .insert(key, ActionLookup::Action(action))
-                .is_none()
-        );
+        self.insert_action_lookup(key, ActionLookup::Action(action));
+    }
+
+    fn insert_action_lookup(&mut self, key: ActionKey, action: ActionLookup) {
+        assert!(self.actions.len() == key.action_index().0 as usize);
+        self.actions.push(action);
     }
 
     /// Inserts a binding for a dynamic_outputs' "outputs" arg.
-    pub(crate) fn insert_dynamic_output(
-        &mut self,
-        key: Hashed<ActionKey>,
-        bound_to_key: ActionKey,
-    ) {
-        match self.actions.get(&bound_to_key) {
+    pub(crate) fn insert_dynamic_output(&mut self, key: ActionKey, bound_to_key: ActionKey) {
+        match self.actions.get(bound_to_key.action_index().0 as usize) {
             Some(ActionLookup::Action(v)) => {
                 // indicates that a dynamic_output "outputs" has been bound to an action it created
-                assert!(
-                    self.actions
-                        .insert_hashed(key, ActionLookup::Action(v.dupe()))
-                        .is_none()
-                );
+                self.insert_action_lookup(key, ActionLookup::Action(v.dupe()));
             }
             _ => {
-                assert!(
-                    self.actions
-                        .insert_hashed(key, ActionLookup::Deferred(bound_to_key))
-                        .is_none()
-                );
+                self.insert_action_lookup(key, ActionLookup::Deferred(bound_to_key));
             }
         }
     }
 
-    pub fn lookup(&self, key: &ActionKey) -> anyhow::Result<ActionLookup> {
+    pub fn lookup(&self, key: &ActionKey) -> buck2_error::Result<ActionLookup> {
         self.actions
-            .get(key)
+            .get(key.action_index().0 as usize)
             .duped()
             .with_internal_error(|| format!("action key missing in recorded actions {}", key))
     }
 
     /// Iterates over the actions created in this analysis.
     pub fn iter_actions(&self) -> impl Iterator<Item = &Arc<RegisteredAction>> + '_ {
-        self.actions.values().filter_map(|v| match v {
+        self.actions.iter().filter_map(|v| match v {
             ActionLookup::Action(a) => Some(a),
             ActionLookup::Deferred(_) => None,
         })

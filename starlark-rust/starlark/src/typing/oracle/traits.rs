@@ -24,13 +24,13 @@ use dupe::Dupe;
 #[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display, Debug)]
 pub enum TypingUnOp {
     /// `+`.
-    #[display(fmt = "+")]
+    #[display("+")]
     Plus,
     /// `+`.
-    #[display(fmt = "-")]
+    #[display("-")]
     Minus,
     /// `~`.
-    #[display(fmt = "~")]
+    #[display("~")]
     BitNot,
 }
 
@@ -38,43 +38,43 @@ pub enum TypingUnOp {
 #[derive(Copy, Clone, Dupe, Eq, PartialEq, derive_more::Display, Debug)]
 pub enum TypingBinOp {
     /// `+`.
-    #[display(fmt = "+")]
+    #[display("+")]
     Add,
     /// `-`.
-    #[display(fmt = "-")]
+    #[display("-")]
     Sub,
     /// `/`.
-    #[display(fmt = "/")]
+    #[display("/")]
     Div,
     /// `//`.
-    #[display(fmt = "/")]
+    #[display("/")]
     FloorDiv,
     /// `*`.
-    #[display(fmt = "*")]
+    #[display("*")]
     Mul,
     /// `%`.
-    #[display(fmt = "%")]
+    #[display("%")]
     Percent,
     /// `y in x`.
-    #[display(fmt = "in")]
+    #[display("in")]
     In,
     /// `|`.
-    #[display(fmt = "|")]
+    #[display("|")]
     BitOr,
     /// `^`.
-    #[display(fmt = "^")]
+    #[display("^")]
     BitXor,
     /// `&`.
-    #[display(fmt = "&")]
+    #[display("&")]
     BitAnd,
     /// `<`.
-    #[display(fmt = "<")]
+    #[display("<")]
     Less,
     /// `<<`.
-    #[display(fmt = "<<")]
+    #[display("<<")]
     LeftShift,
     /// `>>`.
-    #[display(fmt = ">>")]
+    #[display(">>")]
     RightShift,
 }
 

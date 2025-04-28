@@ -7,25 +7,28 @@
 
 load("@prelude//:artifact_tset.bzl", "make_artifact_tset")
 load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_DEPS_ATTR_TYPE", "get_validation_deps_outputs")
-load("@prelude//apple:apple_library.bzl", "AppleLibraryForDistributionInfo", "AppleLibraryInfo")
+load("@prelude//apple:apple_common.bzl", "apple_common")
+load("@prelude//apple:apple_library.bzl", "AppleLibraryForDistributionInfo")
+load("@prelude//apple:apple_library_types.bzl", "AppleLibraryInfo")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "get_apple_toolchain_attr")
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@prelude//linking:link_info.bzl", "LinkStrategy", "get_link_args_for_strategy", "unpack_link_args")
 load("@prelude//linking:linkables.bzl", "linkables")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 
-def _impl(ctx: AnalysisContext) -> list[Provider]:
+def _apple_static_archive_impl(ctx: AnalysisContext) -> list[Provider]:
     libtool = ctx.attrs._apple_toolchain[AppleToolchainInfo].libtool
+    static_archive_linker = ctx.attrs._apple_tools[AppleToolsInfo].static_archive_linker
     archive_name = ctx.attrs.name if ctx.attrs.archive_name == None else ctx.attrs.archive_name
     output = ctx.actions.declare_output(archive_name)
 
-    artifacts = _get_static_link_args(ctx)
+    link_args = _get_static_link_args(ctx)
     validation_deps_outputs = get_validation_deps_outputs(ctx)
 
     #TODO(T193127271): Support thin archives
-    cmd = cmd_args([libtool, "-static", "-o", output.as_output(), artifacts], hidden = validation_deps_outputs or [])
-    ctx.actions.run(cmd, category = "libtool", identifier = output.short_path)
+    cmd = cmd_args([static_archive_linker, "--libtool", libtool, "--output", output.as_output(), link_args], hidden = validation_deps_outputs or [])
+    ctx.actions.run(cmd, category = "static_archive_linker", identifier = output.short_path)
 
     providers = [DefaultInfo(default_output = output), _get_apple_library_info(ctx)] + _get_apple_library_for_distribution_info(ctx)
 
@@ -67,7 +70,12 @@ def _get_apple_library_info(ctx: AnalysisContext) -> AppleLibraryInfo:
         if distribution_flat_dep_apple_library_info:
             swift_header = distribution_flat_dep_apple_library_info.swift_header
 
-    return AppleLibraryInfo(public_framework_headers = public_framework_header_tset, swift_header = swift_header)
+    return AppleLibraryInfo(
+        public_framework_headers = public_framework_header_tset,
+        swift_header = swift_header,
+        target = ctx.label,
+        labels = ctx.attrs.labels,
+    )
 
 def _get_static_link_args(ctx: AnalysisContext) -> list[ArgLike]:
     args = []
@@ -100,13 +108,14 @@ def _get_static_link_args(ctx: AnalysisContext) -> list[ArgLike]:
 
 registration_spec = RuleRegistrationSpec(
     name = "apple_static_archive",
-    impl = _impl,
+    impl = _apple_static_archive_impl,
     attrs = {
         "archive_name": attrs.option(attrs.string(), default = None),
         "deps": attrs.list(attrs.dep(), default = []),
         "distribution_flat_dep": attrs.option(attrs.dep(), default = None),
         "flat_deps": attrs.list(attrs.dep(), default = []),
+        "labels": attrs.list(attrs.string(), default = []),
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
         "_apple_toolchain": get_apple_toolchain_attr(),
-    },
+    } | apple_common.apple_tools_arg(),
 )

@@ -32,6 +32,7 @@ use dupe::Copy_;
 use dupe::Dupe_;
 
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -60,7 +61,7 @@ unsafe impl<'v, 'f, T: 'f + ?Sized> Trace<'v> for FrozenRef<'f, T> {
 }
 
 impl<'f, T: 'f + ?Sized> FrozenRef<'f, T> {
-    pub(crate) const fn new(value: &'f T) -> FrozenRef<T> {
+    pub(crate) const fn new(value: &'f T) -> FrozenRef<'f, T> {
         FrozenRef { value }
     }
 
@@ -167,7 +168,7 @@ where
 impl<'f, T: 'f + ?Sized> Freeze for FrozenRef<'f, T> {
     type Frozen = Self;
 
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         Ok(self)
     }
 }

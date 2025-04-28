@@ -1,0 +1,1 @@
+stub(name = "select", metadata = select({"DEFAULT": {}}))

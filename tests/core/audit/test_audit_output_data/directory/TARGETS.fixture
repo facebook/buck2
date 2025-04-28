@@ -1,0 +1,5 @@
+load(":defs.bzl", "empty_dir")
+
+empty_dir(name = "empty_dir")
+
+trivial_build(name = "dummy")

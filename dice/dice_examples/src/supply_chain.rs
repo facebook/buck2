@@ -27,16 +27,16 @@ use async_trait::async_trait;
 use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DiceComputations;
-use dice::DiceResult;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
+use dice_error::DiceResult;
 use dupe::Dupe;
-use futures::future::join_all;
-use futures::future::BoxFuture;
-use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
+use futures::future::BoxFuture;
+use futures::future::join_all;
+use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
 use ref_cast::RefCast;
 
@@ -214,7 +214,7 @@ async fn lookup_company_resource_cost(
     resource: &Resource,
 ) -> Result<Option<u16>, Arc<anyhow::Error>> {
     #[derive(Display, Debug, Hash, Eq, Clone, Dupe, PartialEq, Allocative)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct LookupCompanyResourceCost(LookupCompany, Resource);
     #[async_trait]
     impl Key for LookupCompanyResourceCost {

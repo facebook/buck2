@@ -17,6 +17,7 @@
 
 use std::collections::HashMap;
 
+use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 use starlark_syntax::syntax::ast::AssignOp;
 use starlark_syntax::syntax::ast::AssignP;
@@ -30,27 +31,30 @@ use starlark_syntax::syntax::ast::IdentP;
 use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::def::DefParamKind;
 use starlark_syntax::syntax::def::DefParams;
+use starlark_syntax::syntax::def::DefRegularParamMode;
 use starlark_syntax::syntax::uniplate::Visit;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::eval::compiler::scope::BindingId;
+use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::payload::CstAssignIdentExt;
 use crate::eval::compiler::scope::payload::CstAssignTarget;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
-use crate::eval::compiler::scope::BindingId;
-use crate::eval::compiler::scope::ResolvedIdent;
+use crate::typing::ParamSpec;
+use crate::typing::TyBasic;
 use crate::typing::arc_ty::ArcTy;
-use crate::typing::callable_param::Param;
+use crate::typing::callable_param::ParamIsRequired;
 use crate::typing::error::InternalError;
 use crate::typing::mode::TypecheckMode;
 use crate::typing::tuple::TyTuple;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
-use crate::typing::TyBasic;
+use crate::util::arc_str::ArcStr;
 
 #[derive(Clone)]
 pub(crate) enum BindExpr<'a> {
@@ -214,35 +218,55 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
             return_type,
             ..
         } = def;
-        let mut params2 = Vec::with_capacity(params.len());
-        let def_params =
-            DefParams::unpack(params, codemap).map_err(InternalError::from_diagnostic)?;
-        for (i, p) in def_params.params.iter().enumerate() {
+        let DefParams { params, indices: _ } =
+            DefParams::unpack(params, codemap).map_err(InternalError::from_eval_exception)?;
+
+        let mut pos_only = Vec::new();
+        let mut pos_or_named = Vec::new();
+        let mut args = None;
+        let mut named_only = Vec::new();
+        let mut kwargs = None;
+
+        for p in params {
             let name = &p.node.ident;
             let ty = p.node.ty;
             let ty = Self::resolve_ty_opt(ty, typecheck_mode, codemap)?;
             let name_ty = match &p.node.kind {
-                DefParamKind::Regular(default_value) => {
-                    let mut param = if i >= def_params.num_positional as usize {
-                        Param::name_only(&name.ident, ty.clone())
-                    } else {
-                        Param::pos_or_name(&name.ident, ty.clone())
+                DefParamKind::Regular(mode, default_value) => {
+                    let required = match default_value.is_some() {
+                        true => ParamIsRequired::No,
+                        false => ParamIsRequired::Yes,
                     };
-                    if default_value.is_some() {
-                        param = param.optional();
+                    match mode {
+                        DefRegularParamMode::PosOnly => {
+                            pos_only.push((required, ty.dupe()));
+                        }
+                        DefRegularParamMode::PosOrName => {
+                            pos_or_named.push((
+                                ArcStr::from(name.ident.as_str()),
+                                required,
+                                ty.dupe(),
+                            ));
+                        }
+                        DefRegularParamMode::NameOnly => {
+                            named_only.push((
+                                ArcStr::from(name.ident.as_str()),
+                                required,
+                                ty.dupe(),
+                            ));
+                        }
                     }
-                    params2.push(param);
                     Some((name, ty))
                 }
                 DefParamKind::Args => {
                     // There is the type we require people calling us use (usually any)
                     // and then separately the type we are when we are running (always tuple)
-                    params2.push(Param::args(ty.clone()));
+                    args = Some(ty.dupe());
                     Some((name, Ty::basic(TyBasic::Tuple(TyTuple::Of(ArcTy::new(ty))))))
                 }
                 DefParamKind::Kwargs => {
                     let var_ty = Ty::dict(Ty::string(), ty.clone());
-                    params2.push(Param::kwargs(ty));
+                    kwargs = Some(ty.dupe());
                     Some((name, var_ty))
                 }
             };
@@ -252,6 +276,8 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                     .insert(name.resolved_binding_id(codemap)?, ty);
             }
         }
+        let params2 = ParamSpec::new_parts(pos_only, pos_or_named, args, named_only, kwargs)
+            .map_err(|e| InternalError::from_error(e, def.signature_span(), codemap))?;
         let ret_ty = Self::resolve_ty_opt(return_type.as_deref(), typecheck_mode, codemap)?;
         self.bindings.types.insert(
             name.resolved_binding_id(codemap)?,
@@ -311,9 +337,9 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                         if let ExprP::Dot(id, attr) = &***fun {
                             if let ExprP::Identifier(id) = &id.node {
                                 let res = match attr.as_str() {
-                                    "append" if args.len() == 1 => Some((false, 0)),
-                                    "insert" if args.len() == 2 => Some((false, 1)),
-                                    "extend" if args.len() == 1 => Some((true, 0)),
+                                    "append" if args.args.len() == 1 => Some((false, 0)),
+                                    "insert" if args.args.len() == 2 => Some((false, 1)),
+                                    "extend" if args.args.len() == 1 => Some((true, 0)),
                                     _ => None,
                                 };
                                 if let Some((extend, arg)) = res {
@@ -321,9 +347,9 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                                         id.node.payload.as_ref().unwrap()
                                     {
                                         let bind = if extend {
-                                            BindExpr::ListExtend(*id, args[arg].expr())
+                                            BindExpr::ListExtend(*id, args.args[arg].expr())
                                         } else {
-                                            BindExpr::ListAppend(*id, args[arg].expr())
+                                            BindExpr::ListAppend(*id, args.args[arg].expr())
                                         };
                                         self.bindings.expressions.entry(*id).or_default().push(bind)
                                     }

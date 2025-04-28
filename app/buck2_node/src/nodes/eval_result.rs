@@ -39,7 +39,7 @@ use crate::super_package::SuperPackage;
     "Unknown target `{target}` from package `{package}`.\n\
 Did you mean one of the {num_targets} targets in {buildfile_path}?{similar_targets}"
 )]
-#[buck2(input)]
+#[buck2(tag = MissingTarget)]
 pub struct MissingTargetError {
     pub target: TargetName,
     pub package: PackageLabel,
@@ -58,9 +58,16 @@ pub struct MissingTargets {
 }
 
 impl MissingTargets {
-    /// Error message emitted when missing targets are not skipped.
-    pub fn into_errors(self) -> (MissingTargetError, impl Iterator<Item = MissingTargetError>) {
-        let mut iter = self.missing_targets.into_iter().map(move |target| {
+    /// Returns a single missing target error
+    pub fn into_first_error(self) -> MissingTargetError {
+        self.into_all_errors()
+            .next()
+            .expect("Should be guaranteed that this vec is non-empty in this same file")
+    }
+
+    /// Returns an iterator over all the errors.
+    pub fn into_all_errors(self) -> impl Iterator<Item = MissingTargetError> {
+        self.missing_targets.into_iter().map(move |target| {
             let similar_targets = SuggestedSimilarTargets::suggest(
                 target.name(),
                 self.package.dupe(),
@@ -73,12 +80,7 @@ impl MissingTargets {
                 buildfile_path: self.buildfile_path.dupe(),
                 similar_targets,
             }
-        });
-        (
-            iter.next()
-                .expect("Should be guaranteed that this vec is non-empty in this same file"),
-            iter,
-        )
+        })
     }
 
     fn gen_missing_target_warning(mut missing_targets: Vec<TargetLabel>) -> String {
@@ -170,7 +172,10 @@ impl EvaluationResult {
         self.targets.get(name)
     }
 
-    pub fn resolve_target<'a>(&'a self, path: &TargetNameRef) -> anyhow::Result<TargetNodeRef<'a>> {
+    pub fn resolve_target<'a>(
+        &'a self,
+        path: &TargetNameRef,
+    ) -> buck2_error::Result<TargetNodeRef<'a>> {
         self.get_target(path).ok_or_else(|| {
             MissingTargetError {
                 target: path.to_owned(),

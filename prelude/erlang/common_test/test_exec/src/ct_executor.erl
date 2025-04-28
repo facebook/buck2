@@ -14,6 +14,7 @@
 -include_lib("kernel/include/logger.hrl").
 -include_lib("common/include/buck_ct_records.hrl").
 -compile(warn_missing_spec_all).
+-eqwalizer(ignore).
 
 -export([run/1]).
 
@@ -59,7 +60,9 @@ run(Args) when is_list(Args) ->
                 ],
                 [file:consult(DotApp) || DotApp <- PotentialDotApp, filelib:is_regular(DotApp)],
                 {_, Suite} = lists:keyfind(suite, 1, CtExecutorArgs),
-                ProviderInitState = #init_provider_state{output_dir = OutputDir, suite = Suite},
+                {ok, RawTarget} = application:get_env(common, raw_target),
+
+                ProviderInitState = #init_provider_state{output_dir = OutputDir, suite = Suite, raw_target = RawTarget},
                 Providers0 =
                     case lists:keyfind(providers, 1, CtExecutorArgs) of
                         false ->

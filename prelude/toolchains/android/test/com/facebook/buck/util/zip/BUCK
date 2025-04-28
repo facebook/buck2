@@ -1,0 +1,36 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_test(
+    name = "zip",
+    srcs = glob(["*Test.java"]),
+    resources = [
+        # Generated as: echo "1" > test.so && zip -0 test.zip test.so && zipalign 4 test.zip aligned.4.zip
+        "aligned.4.zip",
+        # Generated as: echo "1" > test.so && zip -0 -X test.zip test.so && zipalign 4 test.zip aligned.4.zip
+        "aligned.4.no_extra.zip",
+        # Generated as: echo "1" > test.so && zip -0 test.zip test.so && zipalign -p 4 test.zip aligned.page.zip
+        "aligned.page.zip",
+        "macbeth.dat",
+        "sample-bytes.dat",
+    ],
+    source_only_abi_deps = ["prelude//toolchains/android/src/com/facebook/buck/util/zip:zip"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/version/utils:utils",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
+        "prelude//toolchains/android/src/com/facebook/buck/util/nio:nio",
+        "prelude//toolchains/android/src/com/facebook/buck/util/unarchive:unarchive",
+        "prelude//toolchains/android/src/com/facebook/buck/util/zip:jar_builder_main_lib",
+        "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip",
+        "prelude//toolchains/android/test/com/facebook/buck/testutil:testutil",
+        "prelude//toolchains/android/test/com/facebook/buck/testutil/integration:util",
+        "prelude//toolchains/android/third-party:commons-compress",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:junit",
+    ],
+)

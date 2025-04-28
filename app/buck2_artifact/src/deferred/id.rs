@@ -14,7 +14,7 @@ use dupe::Dupe;
 #[derive(Clone, Copy, Debug, Dupe, derive_more::Display, Allocative)]
 // comment because linters and fmt don't agree
 #[derive(Eq, Hash, Ord, PartialEq, PartialOrd)]
-#[display(fmt = "{}", id)]
+#[display("{}", id)]
 pub struct DeferredId {
     pub id: u32,
     pub trivial: bool,

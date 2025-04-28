@@ -26,9 +26,6 @@ use dupe::Dupe_;
 
 use crate::cast::transmute;
 use crate::typing::Ty;
-use crate::values::none::NoneType;
-use crate::values::owned_frozen_ref::OwnedFrozenRef;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
@@ -37,6 +34,9 @@ use crate::values::FrozenValueTyped;
 use crate::values::OwnedRefFrozenRef;
 use crate::values::StarlarkValue;
 use crate::values::Value;
+use crate::values::none::NoneType;
+use crate::values::owned_frozen_ref::OwnedFrozenRef;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 #[derive(Debug, thiserror::Error)]
 enum OwnedError {
@@ -140,16 +140,15 @@ impl OwnedFrozenValue {
     }
 
     /// `downcast`, but return an error for human instead of original value.
-    pub fn downcast_anyhow<T: StarlarkValue<'static>>(
+    pub fn downcast_starlark<T: StarlarkValue<'static>>(
         self,
-    ) -> anyhow::Result<OwnedFrozenValueTyped<T>> {
+    ) -> crate::Result<OwnedFrozenValueTyped<T>> {
         match self.downcast() {
             Ok(v) => Ok(v),
-            Err(this) => Err(OwnedError::WrongType(
+            Err(this) => Err(crate::Error::new_value(OwnedError::WrongType(
                 T::TYPE,
                 this.value.to_value().to_string_for_type_error(),
-            )
-            .into()),
+            ))),
         }
     }
 
@@ -227,7 +226,7 @@ impl<T: StarlarkValue<'static>> Deref for OwnedFrozenValueTyped<T> {
     }
 }
 
-impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
+impl<T: for<'a> StarlarkValue<'a>> OwnedFrozenValueTyped<T> {
     /// Create an [`OwnedFrozenValueTyped`] - generally [`OwnedFrozenValueTyped`]s are obtained
     /// from downcasting [`OwnedFrozenValue`].
     ///
@@ -241,7 +240,11 @@ impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
     /// let value = heap.alloc("test");
     /// unsafe { OwnedFrozenValue::new(heap.into_ref(), value) };
     /// ```
-    pub unsafe fn new(owner: FrozenHeapRef, value: FrozenValueTyped<'static, T>) -> Self {
+    pub unsafe fn new<'a>(owner: FrozenHeapRef, value: FrozenValueTyped<'a, T>) -> Self {
+        // SAFETY: The caller has asserted that this heap ref keeps the value alive.
+        let value = unsafe {
+            std::mem::transmute::<FrozenValueTyped<'a, T>, FrozenValueTyped<'static, T>>(value)
+        };
         Self { owner, value }
     }
 
@@ -333,9 +336,9 @@ impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
     /// Operate on the [`FrozenValue`] stored inside.
     /// Safe provided you don't store the argument [`FrozenValue`] after the closure has returned.
     /// Using this function is discouraged when possible.
-    pub fn map<U: StarlarkValue<'static>>(
+    pub fn map<U: for<'a> StarlarkValue<'a>>(
         &self,
-        f: impl FnOnce(FrozenValueTyped<T>) -> FrozenValueTyped<U>,
+        f: impl for<'a> FnOnce(FrozenValueTyped<'a, T>) -> FrozenValueTyped<'a, U>,
     ) -> OwnedFrozenValueTyped<U> {
         OwnedFrozenValueTyped {
             owner: self.owner.dupe(),
@@ -344,9 +347,9 @@ impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
     }
 
     /// Same as [`map`](OwnedFrozenValue::map) above but with [`Result`]
-    pub fn try_map<U: StarlarkValue<'static>, E>(
+    pub fn try_map<U: for<'a> StarlarkValue<'a>, E>(
         &self,
-        f: impl FnOnce(FrozenValueTyped<T>) -> Result<FrozenValueTyped<U>, E>,
+        f: impl for<'a> FnOnce(FrozenValueTyped<'a, T>) -> Result<FrozenValueTyped<'a, U>, E>,
     ) -> Result<OwnedFrozenValueTyped<U>, E> {
         Ok(OwnedFrozenValueTyped {
             owner: self.owner.dupe(),
@@ -355,9 +358,9 @@ impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
     }
 
     /// Same as [`map`](OwnedFrozenValue::map) above but with [`Option`]
-    pub fn maybe_map<U: StarlarkValue<'static>>(
+    pub fn maybe_map<U: for<'a> StarlarkValue<'a>>(
         &self,
-        f: impl FnOnce(FrozenValueTyped<T>) -> Option<FrozenValueTyped<U>>,
+        f: impl for<'a> FnOnce(FrozenValueTyped<'a, T>) -> Option<FrozenValueTyped<'a, U>>,
     ) -> Option<OwnedFrozenValueTyped<U>> {
         Some(OwnedFrozenValueTyped {
             owner: self.owner.dupe(),

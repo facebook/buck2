@@ -14,13 +14,13 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark::StarlarkDocs;
+use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
 
 use crate::bxl::starlark_defs::context::build::StarlarkFailedArtifactIterable;
 use crate::bxl::starlark_defs::context::build::StarlarkFailedArtifactIterableGen;
@@ -34,10 +34,8 @@ use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable
     derive_more::Display,
     ProvidesStaticType,
     NoSerialize,
-    StarlarkDocs,
     Allocative
 )]
-#[starlark_docs(directory = "bxl")]
 pub(crate) struct StarlarkBxlBuildResult(pub(crate) BxlBuildResult);
 
 /// The result of building in bxl.
@@ -46,7 +44,7 @@ fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
     /// Returns an optional iterable of artifacts that was successfully built.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl(ctx):
     ///     outputs = {}
     ///     for target, value in ctx.build(ctx.cli_args.target).items():
@@ -54,26 +52,32 @@ fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn artifacts<'v>(
         this: Value<'v>,
-    ) -> anyhow::Result<Option<StarlarkProvidersArtifactIterable<'v>>> {
+    ) -> starlark::Result<NoneOr<StarlarkProvidersArtifactIterable<'v>>> {
         match &this.downcast_ref::<StarlarkBxlBuildResult>().unwrap().0 {
-            BxlBuildResult::None => Ok(None),
-            BxlBuildResult::Built { .. } => Ok(Some(StarlarkProvidersArtifactIterableGen(this))),
+            BxlBuildResult::None => Ok(NoneOr::None),
+            BxlBuildResult::Built { .. } => {
+                Ok(NoneOr::Other(StarlarkProvidersArtifactIterableGen(this)))
+            }
         }
     }
 
     /// Returns an optional of iterable of artifacts that failed to be built.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl(ctx):
     ///     outputs = {}
     ///     for target, value in ctx.build(ctx.cli_args.target).items():
     ///         ctx.output.print(value.failures())
     /// ```
-    fn failures<'v>(this: Value<'v>) -> anyhow::Result<Option<StarlarkFailedArtifactIterable<'v>>> {
+    fn failures<'v>(
+        this: Value<'v>,
+    ) -> starlark::Result<NoneOr<StarlarkFailedArtifactIterable<'v>>> {
         match &this.downcast_ref::<StarlarkBxlBuildResult>().unwrap().0 {
-            BxlBuildResult::None => Ok(None),
-            BxlBuildResult::Built { .. } => Ok(Some(StarlarkFailedArtifactIterableGen(this))),
+            BxlBuildResult::None => Ok(NoneOr::None),
+            BxlBuildResult::Built { .. } => {
+                Ok(NoneOr::Other(StarlarkFailedArtifactIterableGen(this)))
+            }
         }
     }
 }

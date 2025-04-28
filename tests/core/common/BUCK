@@ -1,0 +1,12 @@
+load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
+
+oncall("build_infra")
+
+python_library(
+    name = "io",
+    srcs = glob(["io/*.py"]),
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util/api:api",
+    ],
+)

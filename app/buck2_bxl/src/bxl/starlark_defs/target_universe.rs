@@ -22,7 +22,6 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -30,7 +29,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
-use starlark::StarlarkDocs;
+use starlark::values::starlark_value;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExpr;
@@ -43,12 +42,10 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
     Display,
     Trace,
     NoSerialize,
-    StarlarkDocs,
     Allocative
 )]
-#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
-#[display(fmt = "<universe of {} nodes>", "self.target_universe.len()")]
+#[display("<universe of {} nodes>", self.target_universe.len())]
 pub(crate) struct StarlarkTargetUniverse<'v> {
     // Cquery universe for performing
     target_universe: CqueryUniverse,
@@ -56,10 +53,9 @@ pub(crate) struct StarlarkTargetUniverse<'v> {
     target_set: TargetSet<ConfiguredTargetNode>,
     // Trace/Allocative are implemented for BxlContext, but we take a reference here.
     // This is used in unpacking target expressions for lookups.
-    #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    ctx: &'v BxlContext<'v>,
+    ctx: ValueTyped<'v, BxlContext<'v>>,
 }
 
 #[starlark_value(type = "bxl.TargetUniverse", StarlarkTypeRepr, UnpackValue)]
@@ -78,9 +74,9 @@ impl<'v> AllocValue<'v> for StarlarkTargetUniverse<'v> {
 
 impl<'v> StarlarkTargetUniverse<'v> {
     pub(crate) async fn new(
-        ctx: &'v BxlContext<'v>,
+        ctx: ValueTyped<'v, BxlContext<'v>>,
         target_set: TargetSet<ConfiguredTargetNode>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let target_universe = CqueryUniverse::build(&target_set)?;
         let target_set = target_universe
             .get_from_targets(target_set.iter().map(|i| i.label().unconfigured().dupe()));
@@ -99,14 +95,14 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
     fn target_set<'v>(
         this: &'v StarlarkTargetUniverse<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkTargetSet<ConfiguredTargetNode>>> {
+    ) -> starlark::Result<ValueTyped<'v, StarlarkTargetSet<ConfiguredTargetNode>>> {
         Ok(heap.alloc_typed(StarlarkTargetSet::from(this.target_set.clone())))
     }
 
     /// The target set of the entire target universe.
     fn universe_target_set<'v>(
         this: &'v StarlarkTargetUniverse<'v>,
-    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
+    ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(StarlarkTargetSet::from(
             this.target_universe
                 .iter()
@@ -121,8 +117,8 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
         this: &'v StarlarkTargetUniverse<'v>,
         targets: TargetListExprArg<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkTargetSet<ConfiguredTargetNode>>> {
-        this.ctx.via_dice(|dice, ctx| {
+    ) -> starlark::Result<ValueTyped<'v, StarlarkTargetSet<ConfiguredTargetNode>>> {
+        Ok(this.ctx.via_dice(|dice, ctx| {
             dice.via(|dice| {
                 async move {
                     let inputs = &*TargetListExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
@@ -138,6 +134,6 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 }

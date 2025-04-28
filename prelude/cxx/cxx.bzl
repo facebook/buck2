@@ -17,6 +17,10 @@ load(
     "@prelude//cxx:link_groups_types.bzl",
     "LinkGroupInfo",  # @unused Used as a type
 )
+load(
+    "@prelude//cxx:runtime_dependency_handling.bzl",
+    "cxx_attr_runtime_dependency_handling",
+)
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_groups.bzl",
@@ -66,11 +70,16 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//python:manifest.bzl", "create_manifest_for_entries")
+load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
+)
+load(
+    "@prelude//third-party:build.bzl",
+    "create_third_party_build_info",
 )
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:expect.bzl", "expect")
@@ -79,7 +88,6 @@ load(
     "filter_and_map_idx",
     "value_or",
 )
-load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_executable.bzl", "cxx_executable")
 load(
@@ -89,8 +97,10 @@ load(
 )
 load(
     ":cxx_library_utility.bzl",
+    "cxx_attr_dep_metadata",
     "cxx_attr_deps",
     "cxx_attr_exported_deps",
+    "cxx_attr_link_style",
     "cxx_attr_linker_flags_all",
     "cxx_attr_preferred_linkage",
     "cxx_inherited_link_info",
@@ -188,7 +198,9 @@ def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         sub_target_params, provider_params = _get_params_for_android_binary_cxx_library()
     else:
         sub_target_params = CxxRuleSubTargetParams()
-        provider_params = CxxRuleProviderParams()
+        provider_params = CxxRuleProviderParams(
+            third_party_build = True,
+        )
 
     params = CxxRuleConstructorParams(
         rule_type = "cxx_library",
@@ -205,6 +217,10 @@ def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
+        use_header_units = ctx.attrs.use_header_units,
+        export_header_unit = ctx.attrs.export_header_unit,
+        export_header_unit_filter = ctx.attrs.export_header_unit_filter,
+        error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers
@@ -219,10 +235,10 @@ def _only_shared_mappings(group: Group) -> bool:
             return False
     return True
 
-def create_shared_lib_link_group_specs(ctx: AnalysisContext, link_group_info: LinkGroupInfo) -> list[LinkGroupLibSpec]:
+def create_shared_lib_link_group_specs(ctx: AnalysisContext, link_group_definitions: list[Group]) -> list[LinkGroupLibSpec]:
     specs = []
     linker_info = get_cxx_toolchain_info(ctx).linker_info
-    for group in link_group_info.groups.values():
+    for group in link_group_definitions:
         if group.name in (MATCH_ALL_LABEL, NO_MATCH_LABEL):
             continue
 
@@ -242,10 +258,15 @@ def create_shared_lib_link_group_specs(ctx: AnalysisContext, link_group_info: Li
 def get_auto_link_group_specs(ctx: AnalysisContext, link_group_info: [LinkGroupInfo, None]) -> [list[LinkGroupLibSpec], None]:
     if link_group_info == None or not ctx.attrs.auto_link_groups:
         return None
-    return create_shared_lib_link_group_specs(ctx, link_group_info)
+    return create_shared_lib_link_group_specs(ctx, link_group_info.groups.values())
 
 def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
-    link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)))
+    link_strategy = to_link_strategy(cxx_attr_link_style(ctx))
+    link_group_info = get_link_group_info(
+        ctx,
+        filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)),
+        link_strategy,
+    )
     params = CxxRuleConstructorParams(
         rule_type = "cxx_binary",
         executable_name = ctx.attrs.executable_name,
@@ -264,6 +285,9 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
+        use_header_units = ctx.attrs.use_header_units,
+        runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
+        error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
     )
     output = cxx_executable(ctx, params)
 
@@ -406,16 +430,17 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Prepare the stripped static lib.
     static_lib_stripped = None
-    if static_lib != None:
+    if not ctx.attrs.prestripped and static_lib != None:
         static_lib_stripped = strip_debug_info(ctx, static_lib.short_path, static_lib)
 
     # Prepare the stripped static PIC lib.  If the static PIC lib is the same
     # artifact as the static lib, then just re-use the stripped static lib.
     static_pic_lib_stripped = None
-    if static_lib == static_pic_lib:
-        static_pic_lib_stripped = static_lib_stripped
-    elif static_pic_lib != None:
-        static_pic_lib_stripped = strip_debug_info(ctx, static_pic_lib.short_path, static_pic_lib)
+    if not ctx.attrs.prestripped:
+        if static_lib == static_pic_lib:
+            static_pic_lib_stripped = static_lib_stripped
+        elif static_pic_lib != None:
+            static_pic_lib_stripped = strip_debug_info(ctx, static_pic_lib.short_path, static_pic_lib)
 
     if ctx.attrs.soname != None:
         soname = get_shared_library_name_for_param(linker_info, ctx.attrs.soname)
@@ -444,11 +469,12 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     exported_items = [generic_exported_pre]
     if args:
         exported_items.append(CPreprocessor(args = CPreprocessorArgs(args = args)))
-    providers.append(cxx_merge_cpreprocessors(
+    propagated_preprocessor = cxx_merge_cpreprocessors(
         ctx,
         exported_items,
         inherited_pp_infos,
-    ))
+    )
+    providers.append(propagated_preprocessor)
 
     inherited_link = cxx_inherited_link_info(first_order_deps)
     inherited_exported_link = cxx_inherited_link_info(exported_first_order_deps)
@@ -473,19 +499,20 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     archive = Archive(artifact = lib),
                     linker_type = linker_type,
                     link_whole = ctx.attrs.link_whole,
+                    supports_lto = ctx.attrs.supports_lto,
                 )
 
             if output_style == LibOutputStyle("archive"):
                 if static_lib:
                     out = static_lib
                     linkable = archive_linkable(static_lib)
-                    linkable_stripped = archive_linkable(static_lib_stripped)
+                    linkable_stripped = archive_linkable(static_lib_stripped) if static_lib_stripped else None
             elif output_style == LibOutputStyle("pic_archive"):
                 lib = static_pic_lib or static_lib
                 if lib:
                     out = lib
                     linkable = archive_linkable(lib)
-                    linkable_stripped = archive_linkable(static_pic_lib_stripped or static_lib_stripped)
+                    linkable_stripped = archive_linkable(static_pic_lib_stripped or static_lib_stripped) if (static_pic_lib_stripped or static_lib_stripped) else None
             else:  # shared
                 # If no shared library was provided, link one from the static libraries.
                 if shared_lib != None:
@@ -526,7 +553,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                             ctx = ctx,
                             shared_lib = shared_lib.output,
                         )
-                    if ctx.attrs._target_os_type[OsLookup].platform == "windows":
+                    if ctx.attrs._target_os_type[OsLookup].os == Os("windows"):
                         shared_lib_for_linking = ctx.attrs.import_lib
 
                     linkable = None
@@ -553,7 +580,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
                     # Provide a sub-target that always provides the shared lib
                     # using the soname.
-                    if soname and soname.is_str() and shared_lib.output.basename != paths.basename(soname.ensure_str()):
+                    if soname and soname.is_str and shared_lib.output.basename != paths.basename(soname.ensure_str()):
                         soname_lib = ctx.actions.copy_file(soname.ensure_str(), shared_lib.output)
                     else:
                         soname_lib = shared_lib.output
@@ -564,21 +591,26 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     dumpbin_toolchain_path = get_cxx_toolchain_info(ctx).dumpbin_toolchain_path
                     if dumpbin_toolchain_path != None:
                         sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, shared_lib.output, dumpbin_toolchain_path)
+                    if shared_lib.dwp != None:
+                        sub_targets["dwp"] = [DefaultInfo(default_output = shared_lib.dwp)]
 
         # TODO(cjhopman): is it okay that we sometimes don't have a linkable?
         outputs[output_style] = out
+        dep_metadata = cxx_attr_dep_metadata(ctx)
         libraries[output_style] = LinkInfos(
             default = LinkInfo(
                 name = ctx.attrs.name,
                 pre_flags = linker_flags.exported_flags,
                 post_flags = linker_flags.exported_post_flags,
                 linkables = [linkable] if linkable else [],
+                metadata = dep_metadata,
             ),
             stripped = None if linkable_stripped == None else LinkInfo(
                 name = ctx.attrs.name,
                 pre_flags = linker_flags.exported_flags,
                 post_flags = linker_flags.exported_post_flags,
                 linkables = [linkable_stripped],
+                metadata = dep_metadata,
             ),
         )
 
@@ -586,16 +618,8 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
             default_output = outputs[output_style],
         )]
 
-    # Create the default output for the library rule given it's link style and preferred linkage
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     pic_behavior = cxx_toolchain.pic_behavior
-    link_strategy = to_link_strategy(cxx_toolchain.linker_info.link_style)
-    actual_output_style = get_lib_output_style(link_strategy, preferred_linkage, pic_behavior)
-    output = outputs[actual_output_style]
-    providers.append(DefaultInfo(
-        default_output = output,
-        sub_targets = sub_targets,
-    ))
 
     # Propagate link info provider.
     providers.append(create_merged_link_info(
@@ -629,8 +653,36 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     )
 
+    # Third-party provider.
+    third_party_build_info = create_third_party_build_info(
+        ctx = ctx,
+        paths = [] if header_dirs == None else [(d.short_path, d) for d in header_dirs],
+        cxx_headers = [propagated_preprocessor],
+        shared_libs = shared_libs.libraries,
+        cxx_header_dirs = ["include"] + ([] if header_dirs == None else [d.short_path for d in header_dirs]),
+        deps = ctx.attrs.deps + cxx_attr_exported_deps(ctx),
+    )
+    providers.append(third_party_build_info)
+    sub_targets["third-party-build"] = [
+        DefaultInfo(
+            default_output = third_party_build_info.build.root.artifact,
+            sub_targets = dict(
+                manifest = [DefaultInfo(default_output = third_party_build_info.build.manifest)],
+            ),
+        ),
+    ]
+
+    # Create the default output for the library rule given it's link style and preferred linkage
+    link_strategy = to_link_strategy(cxx_toolchain.linker_info.link_style)
+    actual_output_style = get_lib_output_style(link_strategy, preferred_linkage, pic_behavior)
+    output = outputs[actual_output_style]
+    providers.append(DefaultInfo(
+        default_output = output,
+        sub_targets = sub_targets,
+    ))
+
     # Omnibus root provider.
-    if LibOutputStyle("pic_archive") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only and soname.is_str():
+    if LibOutputStyle("pic_archive") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only and soname.is_str:
         # TODO(cjhopman): This doesn't support thin archives
         linkable_root = create_linkable_root(
             label = ctx.label,
@@ -649,6 +701,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     link_whole = True,
                 )],
                 post_flags = linker_flags.exported_post_flags,
+                metadata = cxx_attr_dep_metadata(ctx),
             )),
             deps = exported_first_order_deps,
         )
@@ -674,6 +727,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 shared_libs = shared_libs,
                 linker_flags = linker_flags,
                 can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
+                stub = getattr(ctx.attrs, "stub", False),
             ),
             excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
         ),
@@ -712,7 +766,12 @@ def cxx_precompiled_header_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
 def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
-    link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)))
+    link_strategy = to_link_strategy(cxx_attr_link_style(ctx))
+    link_group_info = get_link_group_info(
+        ctx,
+        filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)),
+        link_strategy,
+    )
 
     # TODO(T110378115): have the runinfo contain the correct test running args
     params = CxxRuleConstructorParams(
@@ -731,6 +790,9 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
+        use_header_units = ctx.attrs.use_header_units,
+        runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
+        error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
     )
     output = cxx_executable(ctx, params, is_cxx_test = True)
 

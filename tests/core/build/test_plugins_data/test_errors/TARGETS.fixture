@@ -1,0 +1,51 @@
+load(":rules.bzl", "multi_dep_rule", "plugin_dep_rule", "regular_rule", "toolchain_rule", "wrong_plugin_kind_rule")
+
+# Set up a recursive dependence between plugin targets. This should successfully build because
+# there's no actual cycle in the configured graph
+
+plugin_dep_rule(
+    name = "recursive_target_1",
+    dep = ":recursive_target_2",
+)
+
+plugin_dep_rule(
+    name = "recursive_target_2",
+    dep = ":recursive_target_1",
+)
+
+# Make sure that plugin deps can appear as regular deps too
+
+regular_rule(
+    name = "plugin_a",
+)
+
+multi_dep_rule(
+    name = "regular_a",
+    dep = ":plugin_a",
+    plugin_dep = ":plugin_a",
+)
+
+# Make sure that we error if toolchain rules show up as plugin deps. Unfortunately, this error only
+# shows up in cquery, not in uquery (the same thing is true for toolchains)
+
+toolchain_rule(
+    name = "toolchain",
+)
+
+plugin_dep_rule(
+    name = "regular_b",
+    dep = ":toolchain",
+)
+
+# Test that analysis can't access plugins which are not declared as used, even if they are propagated
+wrong_plugin_kind_rule(
+    name = "wrong_plugin_kind",
+    dep = ":plugin_a",
+)
+
+# A test rule that references a plugin with insufficient visibility
+
+plugin_dep_rule(
+    name = "missing_access",
+    dep = "//test_errors/package:hidden",
+)

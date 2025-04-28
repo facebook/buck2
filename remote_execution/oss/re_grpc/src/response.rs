@@ -66,6 +66,7 @@ pub struct TExecutedActionMetadata {
     pub last_queued_timestamp: TTimestamp,
     pub instruction_counts: TPerfCount,
     pub auxiliary_metadata: Vec<TAny>,
+    pub max_used_mem: i64,
     // Compatibility with the Thrift structs
     pub _dot_dot_default: (),
 }
@@ -127,6 +128,7 @@ pub struct WriteActionResultResponse {
 pub struct DownloadResponse {
     pub inlined_blobs: Option<Vec<InlinedDigestWithStatus>>,
     pub directories: Option<Vec<DigestWithStatus>>,
+    pub local_cache_stats: TLocalCacheStats,
 }
 
 #[derive(Clone, Default)]
@@ -140,6 +142,16 @@ pub struct InlinedDigestWithStatus {
 pub struct DigestWithStatus {
     pub digest: TDigest,
     pub status: TStatus,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
+}
+
+#[derive(Clone, Default)]
+pub struct TLocalCacheStats {
+    pub hits_files: i64,
+    pub hits_bytes: i64,
+    pub misses_files: i64,
+    pub misses_bytes: i64,
     // Compatibility with the Thrift structs
     pub _dot_dot_default: (),
 }
@@ -179,9 +191,63 @@ pub struct ExecuteResponse {
 }
 
 #[derive(Clone, Default)]
+pub struct ExecutedActionStorageStats {
+    pub downloads: TStorageStats,
+    pub uploads: TStorageStats,
+    pub inputs_downloads: TStorageStats,
+    pub inputs_uploads: TStorageStats,
+    pub outputs_downloads: TStorageStats,
+    pub outputs_uploads: TStorageStats,
+    pub local_cache_stats: TLocalCacheStats,
+}
+
+#[derive(Clone, Default)]
+pub struct ExecutedActionMemoryStats {
+    pub max_used_mem: i64,
+    pub reserved_mem: i64,
+}
+
+#[derive(Clone, Default)]
 pub struct TaskInfo {
     pub estimated_queue_time_ms: i64,
+    pub state: TaskState,
 }
+
+#[derive(Clone)]
+#[allow(non_camel_case_types)]
+pub enum TaskState {
+    enqueued(EnqueuedTaskState),
+    waiting_on_reservation(WaitingOnReservationTaskState),
+    no_worker_available(NoAgentAvailableTaskState),
+    cancelled(CancelledTaskState),
+    over_quota(OverQuotaTaskState),
+    acquiring_dependencies(AcquiringDependenciesTaskState),
+    UnknownField(i32),
+}
+
+impl Default for TaskState {
+    fn default() -> Self {
+        Self::UnknownField(1)
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct EnqueuedTaskState {}
+
+#[derive(Clone, Default)]
+pub struct NoAgentAvailableTaskState {}
+
+#[derive(Clone, Default)]
+pub struct CancelledTaskState {}
+
+#[derive(Clone, Default)]
+pub struct OverQuotaTaskState {}
+
+#[derive(Clone, Default)]
+pub struct WaitingOnReservationTaskState {}
+
+#[derive(Clone, Default)]
+pub struct AcquiringDependenciesTaskState {}
 
 #[derive(Clone, Default)]
 pub struct OperationMetadata {
@@ -250,6 +316,14 @@ pub struct TSymlink {
 pub struct NetworkStatisticsResponse {
     pub uploaded: i64,
     pub downloaded: i64,
+    pub download_storage_stats: TStorageStats,
+    pub upload_storage_stats: TStorageStats,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
+}
+
+#[derive(Clone, Default)]
+pub struct TStorageStats {
     // Compatibility with the Thrift structs
     pub _dot_dot_default: (),
 }

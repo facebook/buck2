@@ -1,0 +1,9 @@
+platform(
+    name = "p",
+    constraint_values = [],
+)
+
+# Just a simple target.
+trivial_build(
+    name = "gum",
+)

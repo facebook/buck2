@@ -9,14 +9,14 @@
 
 use std::cell::RefCell;
 use std::fmt;
-use std::fmt::Display;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
+use buck2_core::bxl::BxlFilePath;
+use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
-use buck2_interpreter::paths::bxl::BxlFilePath;
 use cli_args::CliArgs;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
@@ -26,11 +26,10 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::dict::UnpackDictEntries;
-use starlark::values::starlark_value;
-use starlark::values::typing::StarlarkCallable;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
@@ -38,6 +37,9 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::dict::UnpackDictEntries;
+use starlark::values::starlark_value;
+use starlark::values::typing::StarlarkCallable;
 use starlark_map::ordered_map::OrderedMap;
 
 use crate::bxl::eval::CliResolutionCtx;
@@ -47,13 +49,25 @@ use crate::bxl::starlark_defs::cli_args::CliArgError;
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
 
 #[starlark_module]
-pub(crate) fn register_bxl_function(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_bxl_prefixed_main_function(builder: &mut GlobalsBuilder) {
     fn bxl_main<'v>(
         #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
         #[starlark(require = named)] cli_args: UnpackDictEntries<&'v str, &'v CliArgs>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
+        bxl_impl(r#impl, cli_args, doc, eval)
+    }
+}
+
+#[starlark_module]
+pub(crate) fn register_bxl_main_function(builder: &mut GlobalsBuilder) {
+    fn main<'v>(
+        #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
+        #[starlark(require = named)] cli_args: UnpackDictEntries<&'v str, &'v CliArgs>,
+        #[starlark(require = named, default = "")] doc: &str,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<Value<'v>> {
         bxl_impl(r#impl, cli_args, doc, eval)
     }
 }
@@ -63,12 +77,17 @@ fn bxl_impl<'v>(
     cli_args: UnpackDictEntries<&'v str, &'v CliArgs>,
     doc: &str,
     eval: &mut Evaluator<'v, '_, '_>,
-) -> anyhow::Result<Value<'v>> {
+) -> starlark::Result<Value<'v>> {
     let implementation = r#impl.0;
 
     let bxl_path = (*starlark_path_from_build_context(eval)?
         .unpack_bxl_file()
-        .ok_or_else(|| anyhow::anyhow!("`bxl` can only be declared in bxl files"))?)
+        .ok_or_else(|| {
+            buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "`bxl` can only be declared in bxl files"
+            )
+        })?)
     .clone();
 
     let mut unresolved_cli_args = SmallMap::new();
@@ -77,7 +96,9 @@ fn bxl_impl<'v>(
     for (arg, def) in cli_args.entries {
         if let Some(short) = def.short {
             if short_args.contains(&short) {
-                return Err(CliArgError::DuplicateShort(short.to_owned()).into());
+                let buck2_error: buck2_error::Error =
+                    CliArgError::DuplicateShort(short.to_owned()).into();
+                return Err(buck2_error.into());
             } else {
                 short_args.insert(short.to_owned());
             }
@@ -96,6 +117,7 @@ fn bxl_impl<'v>(
 
 /// Errors around rule declaration, instantiation, validation, etc
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum BxlError {
     #[error("Bxl defined in `{0}` must be assigned to a variable, e.g. `my_bxl = bxl_main(...)`")]
     BxlNotAssigned(String),
@@ -149,12 +171,16 @@ impl<'v> StarlarkValue<'v> for BxlFunction<'v> {
 
 impl<'v> Freeze for BxlFunction<'v> {
     type Frozen = FrozenBxlFunction;
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let frozen_impl = self.implementation.freeze(freezer)?;
         let docs = self.docs;
         let id = match self.id.into_inner() {
             Some(x) => x,
-            None => return Err(BxlError::BxlNotAssigned(self.bxl_path.to_string()).into()),
+            None => {
+                return Err(FreezeError::new(
+                    BxlError::BxlNotAssigned(self.bxl_path.to_string()).to_string(),
+                ));
+            }
         };
         let bxl_id = Arc::new(id);
 
@@ -168,7 +194,7 @@ impl<'v> Freeze for BxlFunction<'v> {
 }
 
 #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
-#[display(fmt = "{}()", "bxl_id.name")]
+#[display("{}()", bxl_id.name)]
 pub(crate) struct FrozenBxlFunction {
     implementation: FrozenValue,
     cli_args: SmallMap<String, CliArgs>,
@@ -205,7 +231,7 @@ impl FrozenBxlFunction {
         &self,
         clap: clap::ArgMatches,
         ctx: &CliResolutionCtx<'a>,
-    ) -> anyhow::Result<OrderedMap<String, CliArgValue>> {
+    ) -> buck2_error::Result<OrderedMap<String, CliArgValue>> {
         let mut res = OrderedMap::with_capacity(self.cli_args.len());
 
         for (arg, cli) in self.cli_args.iter() {
@@ -217,7 +243,7 @@ impl FrozenBxlFunction {
                 snake_case_args,
                 cli.parse_clap(ArgAccessor::Clap { clap: &clap, arg }, ctx)
                     .await
-                    .with_context(|| {
+                    .with_buck_error_context(|| {
                         format!("Error parsing cli flag `{}` for bxl function", arg)
                     })?,
             );

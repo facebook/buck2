@@ -10,6 +10,8 @@
 mod critical_path;
 pub(crate) mod debug_replay;
 pub(crate) mod debug_what_ran;
+mod diff;
+mod external_configs;
 pub(crate) mod options;
 pub(crate) mod path_log;
 mod replay;
@@ -26,6 +28,7 @@ mod what_uploaded;
 use std::fmt::Debug;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
@@ -91,23 +94,28 @@ pub enum LogCommand {
     Replay(replay::ReplayCommand),
     ShowUser(show_user_log::ShowUserLogCommand),
     Summary(summary::SummaryCommand),
+    #[clap(subcommand)]
+    Diff(diff::DiffCommand),
+    ExternalConfigs(external_configs::ExternalConfigsCommand),
 }
 
 impl LogCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         match self {
-            Self::WhatRan(cmd) => cmd.exec(matches, ctx),
+            Self::WhatRan(cmd) => ctx.exec(cmd, matches),
             Self::WhatFailed(cmd) => cmd.exec(matches, ctx),
-            Self::Path(cmd) => cmd.exec(matches, ctx),
-            Self::Show(cmd) => cmd.exec(matches, ctx),
-            Self::Cmd(cmd) => cmd.exec(matches, ctx),
-            Self::WhatUp(cmd) => cmd.exec(matches, ctx),
-            Self::WhatMaterialized(cmd) => cmd.exec(matches, ctx),
-            Self::WhatUploaded(cmd) => cmd.exec(matches, ctx),
-            Self::CriticalPath(cmd) => cmd.exec(matches, ctx),
-            Self::Replay(cmd) => cmd.exec(matches, ctx),
-            Self::ShowUser(cmd) => cmd.exec(matches, ctx),
-            Self::Summary(cmd) => cmd.exec(matches, ctx),
+            Self::Path(cmd) => ctx.exec(cmd, matches),
+            Self::Show(cmd) => ctx.exec(cmd, matches),
+            Self::Cmd(cmd) => ctx.exec(cmd, matches),
+            Self::WhatUp(cmd) => ctx.exec(cmd, matches),
+            Self::WhatMaterialized(cmd) => ctx.exec(cmd, matches),
+            Self::WhatUploaded(cmd) => ctx.exec(cmd, matches),
+            Self::CriticalPath(cmd) => ctx.exec(cmd, matches),
+            Self::Replay(cmd) => ctx.exec(cmd, matches),
+            Self::ShowUser(cmd) => ctx.exec(cmd, matches),
+            Self::Summary(cmd) => ctx.exec(cmd, matches),
+            Self::Diff(cmd) => cmd.exec(matches, ctx),
+            Self::ExternalConfigs(cmd) => ctx.exec(cmd, matches),
         }
     }
 

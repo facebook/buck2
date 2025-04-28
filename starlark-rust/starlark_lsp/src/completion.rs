@@ -29,11 +29,10 @@ use lsp_types::MarkupKind;
 use lsp_types::Range;
 use lsp_types::TextEdit;
 use starlark::codemap::ResolvedSpan;
-use starlark::docs::markdown::render_doc_item;
-use starlark::docs::markdown::render_doc_param;
 use starlark::docs::DocItem;
 use starlark::docs::DocMember;
-use starlark::docs::DocParam;
+use starlark::docs::markdown::render_doc_item_no_link;
+use starlark::docs::markdown::render_doc_param;
 use starlark_syntax::codemap::ResolvedPos;
 use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::module::AstModuleFields;
@@ -46,8 +45,8 @@ use crate::exported::SymbolKind as ExportedSymbolKind;
 use crate::server::Backend;
 use crate::server::LspContext;
 use crate::server::LspUrl;
-use crate::symbols::find_symbols_at_location;
 use crate::symbols::SymbolKind;
+use crate::symbols::find_symbols_at_location;
 
 /// The context in which to offer string completion options.
 #[derive(Debug, PartialEq)]
@@ -79,7 +78,7 @@ impl<T: LspContext> Backend<T> {
         line: u32,
         character: u32,
         workspace_root: Option<&Path>,
-    ) -> impl Iterator<Item = CompletionItem> + '_ {
+    ) -> impl Iterator<Item = CompletionItem> + '_ + use<'_, T> {
         let cursor_position = ResolvedPos {
             line: line as usize,
             column: character as usize,
@@ -106,14 +105,14 @@ impl<T: LspContext> Backend<T> {
                         .map(|doc| {
                             Documentation::MarkupContent(MarkupContent {
                                 kind: MarkupKind::Markdown,
-                                value: render_doc_item(&value.name, &doc),
+                                value: render_doc_item_no_link(&value.name, &doc),
                             })
                         })
                         .or_else(|| {
-                            value.param.map(|doc| {
+                            value.param.map(|(starred_name, doc)| {
                                 Documentation::MarkupContent(MarkupContent {
                                     kind: MarkupKind::Markdown,
-                                    value: render_doc_param(&doc),
+                                    value: render_doc_param(starred_name, &doc),
                                 })
                             })
                         }),
@@ -201,7 +200,7 @@ impl<T: LspContext> Backend<T> {
         document_uri: &LspUrl,
         previously_used_named_parameters: &[String],
         workspace_root: Option<&Path>,
-    ) -> impl Iterator<Item = CompletionItem> {
+    ) -> impl Iterator<Item = CompletionItem> + use<T> {
         match document.find_definition_at_location(
             function_name_span.begin.line as u32,
             function_name_span.begin.column as u32,
@@ -265,14 +264,10 @@ impl<T: LspContext> Backend<T> {
                     DocItem::Member(DocMember::Function(doc_function)) => Some(
                         doc_function
                             .params
-                            .into_iter()
-                            .filter_map(|param| match param {
-                                DocParam::Arg { name, .. } => Some(name),
-                                _ => None,
-                            })
-                            .filter(|name| !previously_used_named_parameters.contains(name))
-                            .map(|name| CompletionItem {
-                                label: name,
+                            .regular_params()
+                            .filter(|p| !previously_used_named_parameters.contains(&p.name))
+                            .map(|p| CompletionItem {
+                                label: p.name.to_owned(),
                                 kind: Some(CompletionItemKind::PROPERTY),
                                 ..Default::default()
                             })
@@ -312,14 +307,11 @@ impl<T: LspContext> Backend<T> {
                         DocItem::Member(DocMember::Function(doc_function)) => Some(
                             doc_function
                                 .params
-                                .into_iter()
-                                .filter_map(|param| match param {
-                                    DocParam::Arg { name, .. } => Some(CompletionItem {
-                                        label: name,
-                                        kind: Some(CompletionItemKind::PROPERTY),
-                                        ..Default::default()
-                                    }),
-                                    _ => None,
+                                .regular_params()
+                                .map(|param| CompletionItem {
+                                    label: param.name.to_owned(),
+                                    kind: Some(CompletionItemKind::PROPERTY),
+                                    ..Default::default()
                                 })
                                 .collect(),
                         ),

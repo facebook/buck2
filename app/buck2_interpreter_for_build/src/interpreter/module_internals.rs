@@ -113,6 +113,7 @@ impl PackageImplicits {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum OncallErrors {
     #[error("Called `oncall` after one or more targets were declared, `oncall` must be first.")]
     OncallAfterTargets,
@@ -150,7 +151,7 @@ impl ModuleInternals {
         &self.attr_coercion_context
     }
 
-    pub fn record(&self, target_node: TargetNode) -> anyhow::Result<()> {
+    pub fn record(&self, target_node: TargetNode) -> buck2_error::Result<()> {
         match self.recording_targets().recorder.record(target_node) {
             Ok(()) => Ok(()),
             Err(e @ TargetsMapRecordError::RegisteredTargetTwice { .. }) => {
@@ -164,7 +165,7 @@ impl ModuleInternals {
         }
     }
 
-    pub(crate) fn set_oncall(&self, name: &str) -> anyhow::Result<()> {
+    pub(crate) fn set_oncall(&self, name: &str) -> buck2_error::Result<()> {
         match &mut *self.state.borrow_mut() {
             State::BeforeTargets(x) => match x.oncall {
                 _ if x.has_read_oncall => Err(OncallErrors::AfterReadOncall.into()),
@@ -205,7 +206,6 @@ impl ModuleInternals {
                             }),
                             recorder: TargetsRecorder::new(),
                         });
-                        continue;
                     }
                     State::RecordingTargets(r) => return r,
                 }

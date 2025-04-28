@@ -7,23 +7,26 @@
  * of this source tree.
  */
 
-use std::error::Error as StdError;
 use std::fmt;
 use std::sync::Arc;
 
-use either::Either;
+use buck2_data::ActionError;
 use smallvec::SmallVec;
 
+use crate::ErrorTag;
+use crate::Tier;
+use crate::UniqueRootId;
 use crate::classify::best_tag;
 use crate::classify::error_tag_category;
+use crate::classify::tag_is_generic;
+use crate::classify::tag_is_hidden;
 use crate::context_value::ContextValue;
+use crate::context_value::StarlarkContext;
+use crate::context_value::StringTag;
 use crate::context_value::TypedContext;
 use crate::format::into_anyhow_for_format;
 use crate::root::ErrorRoot;
-use crate::ErrorType;
-use crate::Tier;
-use crate::UniqueRootId;
-
+use crate::source_location::SourceLocation;
 pub type DynLateFormat = dyn Fn(&mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static;
 
 /// The core error type provided by this crate.
@@ -59,10 +62,16 @@ pub(crate) enum ErrorKind {
 impl Error {
     #[track_caller]
     #[cold]
-    pub fn new<E: StdError + Send + Sync + 'static>(e: E) -> Self {
-        let source_location =
-            crate::source_location::from_file(std::panic::Location::caller().file(), None);
-        crate::any::recover_crate_error(&e, source_location)
+    pub fn new(
+        error_msg: String,
+        error_tag: ErrorTag,
+        source_location: SourceLocation,
+        action_error: Option<ActionError>,
+    ) -> Self {
+        let error_root = ErrorRoot::new(error_msg, error_tag, source_location, action_error);
+
+        let buck2_error = crate::Error(Arc::new(ErrorKind::Root(Box::new(error_root))));
+        buck2_error.tag([error_tag])
     }
 
     fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {
@@ -113,10 +122,6 @@ impl Error {
         if was_late_formatted { Some(val) } else { None }
     }
 
-    pub fn get_error_type(&self) -> Option<ErrorType> {
-        self.root().error_type()
-    }
-
     /// Only intended to be used for debugging, helps to understand the structure of the error
     pub fn get_stack_for_debug(&self) -> String {
         use fmt::Write;
@@ -137,16 +142,76 @@ impl Error {
         s
     }
 
+    /// Identifier for deduplication during a build.
     pub fn root_id(&self) -> UniqueRootId {
         self.root().id()
     }
 
-    pub fn source_location(&self) -> Option<&str> {
+    /// Stable identifier for grouping errors.
+    ///
+    /// This tries to include the least information possible that can be used to uniquely identify an error type.
+    pub fn category_key(&self) -> String {
+        let tags = self.tags();
+
+        let non_generic_tags: Vec<ErrorTag> = tags
+            .clone()
+            .into_iter()
+            .filter(|tag| !tag_is_generic(tag))
+            .collect();
+
+        let (source_location, key_tags) = if !non_generic_tags.is_empty() {
+            (None, non_generic_tags)
+        } else {
+            // Only include source location if there are no non-generic tags.
+            let source_location = if let Some(type_name) = self.source_location().type_name() {
+                // If type name available, include it and exclude source location.
+                Some(type_name.to_owned())
+            } else {
+                Some(self.source_location().to_string())
+            };
+
+            (
+                source_location,
+                // Only include generic tags if there are no non-generic tags. Always exclude hidden tags.
+                tags.into_iter().filter(|tag| !tag_is_hidden(tag)).collect(),
+            )
+        };
+
+        let key_tags = key_tags.into_iter().map(|tag| tag.as_str_name().to_owned());
+
+        let string_tags = self.string_tags();
+
+        let values: Vec<String> = source_location
+            .into_iter()
+            .chain(key_tags)
+            .chain(string_tags)
+            .collect();
+
+        values.join(":").to_owned()
+    }
+
+    pub fn source_location(&self) -> &SourceLocation {
         self.root().source_location()
     }
 
     pub fn context<C: Into<ContextValue>>(self, context: C) -> Self {
         Self(Arc::new(ErrorKind::WithContext(context.into(), self)))
+    }
+
+    pub fn string_tag(self, context: &str) -> Self {
+        Self(Arc::new(ErrorKind::WithContext(
+            ContextValue::StringTag(StringTag {
+                tag: context.into(),
+            }),
+            self,
+        )))
+    }
+
+    pub fn context_for_starlark_backtrace(self, context: StarlarkContext) -> Self {
+        Self(Arc::new(ErrorKind::WithContext(
+            ContextValue::StarlarkError(context),
+            self,
+        )))
     }
 
     #[cold]
@@ -168,25 +233,7 @@ impl Error {
     }
 
     pub fn get_tier(&self) -> Option<Tier> {
-        let mut out = None;
-        // TODO(nga): remove tiers marking and only rely on tags.
-        let context_tiers = self.iter_context().flat_map(|kind| match kind {
-            ContextValue::Tier(t) => Either::Left(Some(*t).into_iter()),
-            ContextValue::Tags(tags) => {
-                Either::Right(tags.iter().copied().filter_map(error_tag_category))
-            }
-            _ => Either::Left(None.into_iter()),
-        });
-
-        for t in context_tiers {
-            // It's a tier0 error if it was ever marked as a tier0 error
-            match t {
-                Tier::Tier0 => return Some(t),
-                Tier::Environment => out = std::cmp::max(out, Some(t)),
-                Tier::Input => out = std::cmp::max(out, Some(t)),
-            }
-        }
-        out
+        best_tag(self.tags()).map(error_tag_category).flatten()
     }
 
     /// All tags unsorted and with duplicates.
@@ -197,6 +244,22 @@ impl Error {
                 _ => None,
             })
             .flatten()
+    }
+
+    pub fn find_typed_context<T: TypedContext>(&self) -> Option<Arc<T>> {
+        self.iter_context().find_map(|kind| match kind {
+            ContextValue::Typed(v) => Arc::downcast(v.clone()).ok(),
+            _ => None,
+        })
+    }
+
+    pub fn string_tags(&self) -> Vec<String> {
+        self.iter_context()
+            .filter_map(|kind| match kind {
+                ContextValue::StringTag(val) => Some(val.tag.clone()),
+                _ => None,
+            })
+            .collect()
     }
 
     /// Get all the tags that have been added to this error
@@ -226,18 +289,17 @@ impl Error {
         self,
         map_context: F,
         new_context: F2,
-    ) -> anyhow::Error {
+    ) -> crate::Error {
         if let ErrorKind::WithContext(crate::context_value::ContextValue::Typed(v), err) = &*self.0
         {
             if let Ok(typed) = Arc::downcast(v.clone()) {
                 return Self(Arc::new(ErrorKind::WithContext(
                     map_context(typed).into(),
                     err.clone(),
-                )))
-                .into();
+                )));
             }
         }
-        self.context(new_context()).into()
+        self.context(new_context())
     }
 
     #[cfg(test)]
@@ -273,10 +335,13 @@ impl Error {
 mod tests {
     use std::sync::Arc;
 
+    use crate as buck2_error;
     use crate::Tier;
+    use crate::conversion::from_any_with_tag;
 
-    #[derive(Debug, thiserror::Error)]
+    #[derive(Debug, buck2_error_derive::Error)]
     #[error("Test")]
+    #[buck2(tag = Environment)]
     struct TestError;
 
     #[test]
@@ -286,7 +351,7 @@ mod tests {
         let e = e.mark_emitted(Arc::new(|_| Ok(())));
         assert!(e.is_emitted().is_some());
         let e: anyhow::Error = e.into();
-        let e: crate::Error = e.context("context").into();
+        let e: crate::Error = from_any_with_tag(e.context("context"), crate::ErrorTag::Input);
         assert!(e.is_emitted().is_some());
     }
 
@@ -307,13 +372,33 @@ mod tests {
 
     #[test]
     fn test_get_tier() {
-        let e: crate::Error = crate::Error::new(TestError)
-            .context(Tier::Tier0)
-            .context(Tier::Environment);
-        assert_eq!(e.get_tier(), Some(Tier::Tier0));
-        let e: crate::Error = crate::Error::new(TestError)
-            .context(Tier::Environment)
-            .context(Tier::Input);
+        let e: crate::Error = crate::Error::from(TestError)
+            .tag([crate::ErrorTag::Tier0, crate::ErrorTag::Environment]);
         assert_eq!(e.get_tier(), Some(Tier::Environment));
+        let e: crate::Error = crate::Error::from(TestError)
+            .tag([crate::ErrorTag::Environment, crate::ErrorTag::Input]);
+        assert_eq!(e.get_tier(), Some(Tier::Environment));
+    }
+
+    #[test]
+    fn test_category_key() {
+        let err: crate::Error = TestError.into();
+        assert_eq!(err.category_key(), "TestError");
+
+        let err = err.clone().tag([crate::ErrorTag::Analysis]);
+        assert_eq!(
+            err.category_key(),
+            format!(
+                "{}:{}",
+                err.source_location().type_name().unwrap(),
+                "ANALYSIS"
+            )
+        );
+
+        let err = err.clone().tag([
+            crate::ErrorTag::AnyActionExecution,
+            crate::ErrorTag::ReInternal,
+        ]);
+        assert_eq!(err.category_key(), format!("RE_INTERNAL"));
     }
 }

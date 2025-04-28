@@ -1,0 +1,4 @@
+eee(name = "EEE")
+set_starlark_peak_allocated_byte_limit(1 << 10)
+thousand_list = [1 for i in range(1 << 10)]
+ten_million_list = 10 * thousand_list * (1 << 10)

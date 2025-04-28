@@ -23,11 +23,11 @@ use std::vec;
 use either::Either;
 
 use crate::typing::Ty;
+use crate::values::UnpackValue;
+use crate::values::Value;
 use crate::values::list::UnpackList;
 use crate::values::tuple::UnpackTuple;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::UnpackValue;
-use crate::values::Value;
 
 /// Unpack a value of type `list[T]` or `tuple[T, ...]` into a vec.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -93,9 +93,9 @@ impl<'a, T> IntoIterator for &'a mut UnpackListOrTuple<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::values::types::list_or_tuple::UnpackListOrTuple;
     use crate::values::Heap;
     use crate::values::UnpackValue;
+    use crate::values::types::list_or_tuple::UnpackListOrTuple;
 
     #[test]
     fn test_unpack() {

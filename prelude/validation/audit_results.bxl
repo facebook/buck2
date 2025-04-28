@@ -1,0 +1,66 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _impl(ctx: bxl.Context):
+    if ctx.cli_args.transitive:
+        targets = (
+            ctx.target_universe(ctx.cli_args.targets).universe_target_set()
+        )
+    else:
+        targets = ctx.cli_args.targets
+
+    info = {}
+    for target, analysis_result in ctx.analysis(targets).items():
+        providers = analysis_result.providers()
+        validation_info = providers.get(ValidationInfo)
+        if not validation_info:
+            if not ctx.cli_args.trim:
+                info[target] = {}
+            continue
+
+        spec_name_to_path = {}
+        for spec in validation_info.validations:
+            # Yes, I'm aware this is suboptimal. When running this script on
+            # large targets are Meta, there is no discernable regression to performance.
+            #
+            # Read the big ol' comment block below to understand why.
+            o = ctx.output.ensure(spec.validation_result)
+            spec_name_to_path[spec.name] = o.abs_path()
+
+        info[target] = spec_name_to_path
+
+    # We chose to print to stdout because we run into an issue with
+    # the ctx.bxl_actions().actions.write_json() API
+    #
+    # The goal is to output something into a file which looks like this:
+    # {
+    #   "cell//some:target": {
+    #      "spec_name": "path/to/materialized/output.json"
+    #
+    # Unfortuantely, if we use the actions.write_json() API, it requires us to pass
+    # `with_inputs = True` so we can be sure that we materialize the the paths to validation
+    # outputs with the JSON.
+    #
+    # Unfortunately, `ensured_artifact_group` has a limited API that doesn't allow us to
+    # only print a subset of the targets. While you can loop thru them, there is no way .owner
+    # API, you'd have to guess based on filepath.
+    #
+    # As a result, we ensure the artifacts as we iterate so we can get the materialized absolute
+    # path and not run into an invariant where you are not allowed to freeze EnsuredArtifacts.
+    ctx.output.print_json(info)
+
+main = bxl_main(
+    impl = _impl,
+    cli_args = {
+        "targets": cli_args.target_expr(),
+        "transitive": cli_args.bool(False),
+        "trim": cli_args.bool(
+            default = True,
+            doc = "By default, targets with no validations will be stripped from the output.",
+        ),
+    },
+)

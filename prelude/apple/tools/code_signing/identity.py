@@ -24,11 +24,9 @@ class CodeSigningIdentity:
         fingerprint = "fingerprint"
         subject_common_name = "subject_common_name"
 
-    _re_string: str = (
-        '(?P<{fingerprint}>[A-F0-9]{{40}}) "(?P<{subject_common_name}>.+)"(?!.*CSSMERR_.+)'.format(
-            fingerprint=_ReGroupName.fingerprint,
-            subject_common_name=_ReGroupName.subject_common_name,
-        )
+    _re_string: str = '(?P<{fingerprint}>[A-F0-9]{{40}}) "(?P<{subject_common_name}>.+)"(?!.*CSSMERR_.+)'.format(
+        fingerprint=_ReGroupName.fingerprint.value,
+        subject_common_name=_ReGroupName.subject_common_name.value,
     )
 
     _pattern: re.Pattern[str] = re.compile(_re_string)
@@ -37,8 +35,8 @@ class CodeSigningIdentity:
     def parse_security_stdout(cls, text: str) -> List[CodeSigningIdentity]:
         return [
             CodeSigningIdentity(
-                match.group(cls._ReGroupName.fingerprint),
-                match.group(cls._ReGroupName.subject_common_name),
+                match.group(cls._ReGroupName.fingerprint.value),
+                match.group(cls._ReGroupName.subject_common_name.value),
             )
             for match in re.finditer(cls._pattern, text)
         ]

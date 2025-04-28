@@ -13,5 +13,6 @@ def test():
 
 Max stack size: 0
 Instructions:
-  0: ReturnConst None
+       # instrs.star.bzl:3:9-15
+   0: ReturnConst None
   16: End

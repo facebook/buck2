@@ -9,34 +9,27 @@
 
 use std::cell::OnceCell;
 use std::cell::RefCell;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
-use anyhow::Context;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
+use buck2_build_api::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
-use starlark::typing::Param;
+use starlark::eval::ParametersSpecParam;
+use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
-use starlark::values::list::AllocList;
-use starlark::values::list::UnpackList;
-use starlark::values::starlark_value;
-use starlark::values::type_repr::DictType;
-use starlark::values::type_repr::StarlarkTypeRepr;
-use starlark::values::typing::FrozenStarlarkCallable;
-use starlark::values::typing::StarlarkCallable;
-use starlark::values::typing::StarlarkCallableParamSpec;
+use starlark::util::ArcStr;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
@@ -45,38 +38,52 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::list::ListType;
+use starlark::values::starlark_value;
+use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::typing::FrozenStarlarkCallable;
+use starlark::values::typing::StarlarkCallable;
+use starlark::values::typing::StarlarkCallableParamSpec;
+use starlark_map::small_map::SmallMap;
 
+use crate::dynamic::attrs::DynamicAttrType;
+use crate::dynamic::attrs::DynamicAttrValues;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
-use crate::dynamic::dynamic_value::StarlarkDynamicValue;
 
-pub(crate) struct DynamicActionsCallbackParamSpec;
+pub struct DynamicActionsCallbackParamSpec;
+
+pub struct DynamicActionsCallbackParam {
+    pub name: &'static str,
+    pub ty: LazyLock<Ty>,
+}
+
+pub(crate) static P_ACTIONS: DynamicActionsCallbackParam = DynamicActionsCallbackParam {
+    name: "actions",
+    ty: LazyLock::new(AnalysisActions::starlark_type_repr),
+};
 
 impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
     fn params() -> ParamSpec {
-        ParamSpec::new(vec![
-            Param::name_only("actions", AnalysisActions::starlark_type_repr()),
-            Param::name_only(
-                "artifacts",
-                DictType::<StarlarkArtifact, StarlarkArtifactValue>::starlark_type_repr(),
-            ),
-            Param::name_only(
-                "dynamic_values",
-                DictType::<FrozenValue, FrozenValue>::starlark_type_repr(),
-            ),
-            Param::name_only(
-                "outputs",
-                DictType::<StarlarkArtifact, StarlarkDeclaredArtifact>::starlark_type_repr(),
-            ),
-            Param::name_only("arg", Ty::any()),
-        ])
+        ParamSpec::new_parts(
+            [],
+            [],
+            None,
+            [(
+                ArcStr::new_static(P_ACTIONS.name),
+                ParamIsRequired::Yes,
+                P_ACTIONS.ty.dupe(),
+            )],
+            Some(Ty::any()),
+        )
+        .unwrap()
     }
 }
 
-// TODO(nga): should be list of provider.
-pub(crate) type DynamicActionsCallbackReturnType = AllocList<Vec<FrozenValue>>;
+pub type DynamicActionsCallbackReturnType = ListType<AbstractProvider>;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum DynamicActionCallableError {
     #[error("DynamicActionCallable can be called only if frozen")]
     NotFrozen,
@@ -94,12 +101,14 @@ enum DynamicActionCallableError {
     Trace
 )]
 #[display(
-    fmt = "DynamicActionCallable[{}]",
-    "self.name.get().map(|s| s.as_str()).unwrap_or(\"(unbound)\")"
+    "DynamicActionCallable[{}]",
+    self.name.get().map(|s| s.as_str()).unwrap_or("(unbound)")
 )]
-pub(crate) struct DynamicActionsCallable<'v> {
+pub struct DynamicActionsCallable<'v> {
+    pub(crate) self_ty: Ty,
     pub(crate) implementation:
         StarlarkCallable<'v, DynamicActionsCallbackParamSpec, DynamicActionsCallbackReturnType>,
+    pub(crate) attrs: SmallMap<String, DynamicAttrType>,
     pub(crate) name: OnceCell<String>,
 }
 
@@ -110,10 +119,12 @@ pub(crate) struct DynamicActionsCallable<'v> {
     Allocative,
     derive_more::Display
 )]
-#[display(fmt = "DynamicActionsCallable[{}]", "name")]
-pub(crate) struct FrozenStarlarkDynamicActionsCallable {
+#[display("DynamicActionsCallable[{}]", name)]
+pub struct FrozenStarlarkDynamicActionsCallable {
+    pub(crate) self_ty: Ty,
     pub(crate) implementation:
         FrozenStarlarkCallable<DynamicActionsCallbackParamSpec, DynamicActionsCallbackReturnType>,
+    pub(crate) attrs: SmallMap<String, DynamicAttrType>,
     name: String,
     signature: ParametersSpec<FrozenValue>,
 }
@@ -138,9 +149,13 @@ impl<'v> StarlarkValue<'v> for DynamicActionsCallable<'v> {
         _args: &Arguments<'v, '_>,
         _eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
-        Err(starlark::Error::new_other(
+        Err(starlark::Error::new_other(buck2_error::Error::from(
             DynamicActionCallableError::NotFrozen,
-        ))
+        )))
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(self.self_ty.dupe())
     }
 }
 
@@ -156,39 +171,29 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
     ) -> starlark::Result<Value<'v>> {
         let me = me.unpack_frozen().internal_error("me must be frozen")?;
         let me = FrozenValueTyped::new_err(me)?;
-        let (dynamic, dynamic_values, outputs, arg) =
-            self.signature.parser(args, eval, |mut parser, _eval| {
-                // TODO(nga): we are not checking that what we parse here actually matches signature.
-                let dynamic: UnpackList<UnpackArtifactOrDeclaredArtifact> =
-                    parser.next("dynamic")?;
-                let dynamic_values: UnpackList<&StarlarkDynamicValue> =
-                    parser.next_opt("dynamic_values")?.unwrap_or_default();
-                let outputs: UnpackList<&StarlarkOutputArtifact> = parser.next("outputs")?;
-                let arg: Value = parser.next("arg")?;
-                Ok((dynamic, dynamic_values, outputs, arg))
+        let attr_values: DynamicAttrValues<Value, OutputArtifact> =
+            self.signature.parser(args, eval, |parser, _eval| {
+                let mut attr_values = Vec::with_capacity(self.attrs.len());
+                for (name, attr_ty) in &self.attrs {
+                    let value = attr_ty
+                        .coerce(parser.next()?)
+                        .with_buck_error_context(|| format!("Error coercing attribute `{name}`"))?;
+                    attr_values.push(value);
+                }
+                Ok(DynamicAttrValues {
+                    values: attr_values.into_boxed_slice(),
+                })
             })?;
-        let dynamic = dynamic
-            .into_iter()
-            .map(|a| a.artifact())
-            .collect::<anyhow::Result<_>>()?;
-        let dynamic_values = dynamic_values
-            .items
-            .into_iter()
-            .map(|a| a.dynamic_value.dupe())
-            .collect();
-        let outputs = outputs
-            .into_iter()
-            .map(|a| a.artifact())
-            .collect::<anyhow::Result<_>>()?;
         Ok(eval.heap().alloc(StarlarkDynamicActions {
             data: RefCell::new(Some(StarlarkDynamicActionsData {
-                dynamic,
-                dynamic_values,
-                outputs,
-                arg,
                 callable: me,
+                attr_values,
             })),
         }))
+    }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(self.self_ty.dupe())
     }
 }
 
@@ -201,27 +206,31 @@ impl<'v> AllocValue<'v> for DynamicActionsCallable<'v> {
 impl<'v> Freeze for DynamicActionsCallable<'v> {
     type Frozen = FrozenStarlarkDynamicActionsCallable;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let DynamicActionsCallable {
+            self_ty,
             implementation,
             name,
+            attrs,
         } = self;
 
         let name = name
             .into_inner()
-            .context(DynamicActionCallableError::NotExported)?;
+            .buck_error_context(DynamicActionCallableError::NotExported)
+            .map_err(|e| FreezeError::new(e.to_string()))?;
 
-        let mut signature = ParametersSpec::with_capacity(name.clone(), 3);
-        signature.no_more_positional_args();
-        signature.required("dynamic");
-        signature.optional("dynamic_values");
-        signature.required("outputs");
-        signature.required("arg");
-        let signature = signature.finish();
+        let signature = ParametersSpec::new_named_only(
+            &name,
+            attrs
+                .keys()
+                .map(|s| (s.as_str(), ParametersSpecParam::Required)),
+        );
 
         Ok(FrozenStarlarkDynamicActionsCallable {
+            self_ty,
             implementation: implementation.freeze(freezer)?,
             name,
+            attrs,
             signature,
         })
     }

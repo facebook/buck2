@@ -20,32 +20,32 @@ use std::fmt::Debug;
 
 use starlark_map::unordered_map::UnorderedMap;
 use starlark_syntax::slice_vec_ext::SliceExt;
-use starlark_syntax::syntax::ast::ArgumentP;
 use starlark_syntax::syntax::ast::AssignOp;
 use starlark_syntax::syntax::ast::AssignTargetP;
 use starlark_syntax::syntax::ast::AstLiteral;
 use starlark_syntax::syntax::ast::BinOp;
+use starlark_syntax::syntax::ast::CallArgsP;
 use starlark_syntax::syntax::ast::ClauseP;
 use starlark_syntax::syntax::ast::ExprP;
 use starlark_syntax::syntax::ast::ForClauseP;
+use starlark_syntax::syntax::call::CallArgsUnpack;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::eval::compiler::scope::payload::CstArgument;
+use crate::eval::compiler::scope::BindingId;
+use crate::eval::compiler::scope::ResolvedIdent;
+use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::scope::payload::CstAssignTarget;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstPayload;
-use crate::eval::compiler::scope::BindingId;
-use crate::eval::compiler::scope::ResolvedIdent;
-use crate::eval::compiler::scope::Slot;
 use crate::typing::basic::TyBasic;
 use crate::typing::bindings::BindExpr;
+use crate::typing::call_args::TyCallArgs;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::fill_types_for_lint::ModuleVarTypes;
-use crate::typing::function::Arg;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingUnOp;
@@ -94,12 +94,7 @@ impl TypingContext<'_> {
         }
     }
 
-    fn validate_call(
-        &self,
-        fun: &Ty,
-        args: &[Spanned<Arg>],
-        span: Span,
-    ) -> Result<Ty, InternalError> {
+    fn validate_call(&self, fun: &Ty, args: &TyCallArgs, span: Span) -> Result<Ty, InternalError> {
         self.result_to_ty_with_internal_error(self.oracle.validate_call(span, fun, args))
     }
 
@@ -107,10 +102,22 @@ impl TypingContext<'_> {
         self.result_to_ty(self.oracle.iter_item(Spanned { node: ty, span }))
     }
 
-    pub(crate) fn validate_type(&self, got: Spanned<&Ty>, require: &Ty) {
+    pub(crate) fn validate_type(
+        &self,
+        got: Spanned<&Ty>,
+        require: &Ty,
+    ) -> Result<(), InternalError> {
         if let Err(e) = self.oracle.validate_type(got, require) {
-            self.errors.borrow_mut().push(e);
+            match e {
+                TypingOrInternalError::Typing(e) => {
+                    self.errors.borrow_mut().push(e);
+                }
+                TypingOrInternalError::Internal(e) => {
+                    return Err(e);
+                }
+            }
         }
+        Ok(())
     }
 
     fn expr_dot(&self, ty: &Ty, attr: &str, span: Span) -> Ty {
@@ -185,7 +192,7 @@ impl TypingContext<'_> {
                 // We know about list and dict, everything else we just ignore
                 if self.types[id].is_list() {
                     // If we know it MUST be a list, then the index must be an int
-                    self.validate_type(index.as_ref(), &Ty::int());
+                    self.validate_type(index.as_ref(), &Ty::int())?;
                 }
                 for ty in self.types[id].iter_union() {
                     match ty {
@@ -204,7 +211,7 @@ impl TypingContext<'_> {
                 Ok(Ty::unions(res))
             }
             BindExpr::ListAppend(id, e) => {
-                if self.oracle.probably_a_list(&self.types[id]) {
+                if self.oracle.probably_a_list(&self.types[id])? {
                     Ok(Ty::list(self.expression_type(e)?))
                 } else {
                     // It doesn't seem to be a list, so let's assume the append is non-mutating
@@ -212,7 +219,7 @@ impl TypingContext<'_> {
                 }
             }
             BindExpr::ListExtend(id, e) => {
-                if self.oracle.probably_a_list(&self.types[id]) {
+                if self.oracle.probably_a_list(&self.types[id])? {
                     Ok(Ty::list(
                         self.from_iterated(&self.expression_type(e)?, e.span),
                     ))
@@ -295,27 +302,64 @@ impl TypingContext<'_> {
         &self,
         span: Span,
         f: &CstExpr,
-        args: &[CstArgument],
+        args: &CallArgsP<CstPayload>,
     ) -> Result<Ty, InternalError> {
-        let args_ty: Vec<Spanned<Arg>> = args.try_map(|x| {
-            Ok(Spanned {
-                span: x.span,
-                node: match &**x {
-                    ArgumentP::Positional(x) => Arg::Pos(self.expression_type(x)?),
-                    ArgumentP::Named(name, x) => Arg::Name(name.as_str(), self.expression_type(x)?),
-                    ArgumentP::Args(x) => {
-                        let ty = self.expression_type(x)?;
-                        self.from_iterated(&ty, x.span);
-                        Arg::Args(ty)
-                    }
-                    ArgumentP::KwArgs(x) => {
-                        let ty = self.expression_type_spanned(x)?;
-                        self.validate_type(ty.as_ref(), &Ty::dict(Ty::string(), Ty::any()));
-                        Arg::Kwargs(ty.node)
-                    }
-                },
-            })
-        })?;
+        let args = CallArgsUnpack::unpack(args, self.oracle.codemap)
+            .map_err(InternalError::from_eval_exception)?;
+
+        let CallArgsUnpack {
+            pos,
+            named,
+            star,
+            star_star,
+        } = args;
+
+        let mut pos_ty: Vec<Spanned<Ty>> = Vec::new();
+        for pos in pos {
+            pos_ty.push(Spanned {
+                span: pos.span,
+                node: self.expression_type(&pos.node.expr())?,
+            });
+        }
+
+        let mut named_ty: Vec<Spanned<(&str, Ty)>> = Vec::new();
+        for named in named {
+            let Some(name) = named.name() else {
+                return Err(InternalError::msg(
+                    "Named argument without name",
+                    named.span,
+                    self.oracle.codemap,
+                ));
+            };
+            named_ty.push(Spanned {
+                span: named.span,
+                node: (name, self.expression_type(&named.node.expr())?),
+            });
+        }
+
+        let args_ty = if let Some(star) = star {
+            let ty = self.expression_type_spanned(&star.node.expr())?;
+            self.from_iterated(&ty, star.span);
+            Some(ty)
+        } else {
+            None
+        };
+
+        let kwargs_ty = if let Some(star_star) = star_star {
+            let ty = self.expression_type_spanned(&star_star.node.expr())?;
+            self.validate_type(ty.as_ref(), &Ty::dict(Ty::string(), Ty::any()))?;
+            Some(ty)
+        } else {
+            None
+        };
+
+        let args_ty = TyCallArgs {
+            pos: pos_ty,
+            named: named_ty,
+            args: args_ty,
+            kwargs: kwargs_ty,
+        };
+
         let f_ty = self.expression_type(f)?;
         // If we can't resolve the types of the arguments, we can't validate the call,
         // but we still know the type of the result since the args don't impact that
@@ -331,7 +375,7 @@ impl TypingContext<'_> {
         stride: Option<&CstExpr>,
     ) -> Result<Ty, InternalError> {
         for e in [start, stop, stride].iter().copied().flatten() {
-            self.validate_type(self.expression_type_spanned(e)?.as_ref(), &Ty::int());
+            self.validate_type(self.expression_type_spanned(e)?.as_ref(), &Ty::int())?;
         }
         Ok(self.result_to_ty(self.oracle.expr_slice(span, self.expression_type(x)?)))
     }

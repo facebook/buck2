@@ -17,7 +17,6 @@
 
 use std::collections::HashMap;
 
-use anyhow::Context;
 use dupe::Dupe;
 use starlark_syntax::codemap::CodeMap;
 use starlark_syntax::codemap::FileSpanRef;
@@ -30,12 +29,12 @@ use starlark_syntax::syntax::module::AstModuleFields;
 use starlark_syntax::syntax::top_level_stmts::top_level_stmts;
 
 use crate::environment::names::MutableNames;
-use crate::eval::compiler::scope::payload::CstPayload;
-use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
+use crate::eval::compiler::scope::payload::CstPayload;
+use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::FrozenHeap;
@@ -73,7 +72,7 @@ pub(crate) fn find_unused_loads(
     name: &str,
     program: &str,
 ) -> crate::Result<(CodeMap, Vec<UnusedLoad>)> {
-    let module = AstModule::parse(name, program.to_owned(), &Dialect::Extended)?;
+    let module = AstModule::parse(name, program.to_owned(), &Dialect::AllOptionsInternal)?;
     let names = MutableNames::new();
     let heap = FrozenHeap::new();
     let (codemap, statement, dialect, ..) = module.into_parts();
@@ -112,7 +111,10 @@ pub(crate) fn find_unused_loads(
             let args = load.args.try_map(|arg| {
                 anyhow::Ok(LoadSymbol {
                     arg,
-                    binding_id: arg.local.payload.context("payload is not set")?,
+                    binding_id: arg
+                        .local
+                        .payload
+                        .ok_or_else(|| anyhow::anyhow!("payload is not set"))?,
                     used: false,
                 })
             })?;
@@ -131,7 +133,7 @@ pub(crate) fn find_unused_loads(
             println!("visit ident: {:?}", ident);
             let ResolvedIdent::Slot(Slot::Module(_), binding_id) = ident
                 .payload
-                .context("ident is not resolved (internal error)")?
+                .ok_or_else(|| anyhow::anyhow!("ident is not resolved (internal error)"))?
             else {
                 return Ok(());
             };

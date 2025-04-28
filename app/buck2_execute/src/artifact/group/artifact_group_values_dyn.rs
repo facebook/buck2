@@ -21,5 +21,5 @@ pub trait ArtifactGroupValuesDyn: Send + Sync + 'static {
         &self,
         builder: &mut ActionDirectoryBuilder,
         artifact_fs: &ArtifactFs,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
 }

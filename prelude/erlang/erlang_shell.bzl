@@ -5,21 +5,23 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:paths.bzl", "paths")
+load(":erlang_build.bzl", "erlang_build")
 load(":erlang_dependencies.bzl", "check_dependencies", "flatten_dependencies")
 load(":erlang_info.bzl", "ErlangAppInfo")
-load(":erlang_toolchain.bzl", "get_primary_tools")
+load(":erlang_toolchain.bzl", "get_primary", "get_primary_tools")
 
 def _build_run_info(
         ctx: AnalysisContext,
+        *,
         dependencies: list[Dependency],
         additional_app_paths: list[Artifact] = [],
         additional_paths: list[Artifact] = [],
         additional_args: list[cmd_args] = []) -> Provider:
     """Builds an Erlang shell with the dependencies and additional code paths available."""
+    primary_toolchain_name = get_primary(ctx)
 
     app_paths = [
-        dep[ErlangAppInfo].app_folder
+        dep[ErlangAppInfo].app_folders[primary_toolchain_name]
         for dep in dependencies
         if ErlangAppInfo in dep and not dep[ErlangAppInfo].virtual
     ] + additional_app_paths
@@ -29,19 +31,19 @@ def _build_run_info(
     for dep in all_shell_dependencies.values():
         if dep[ErlangAppInfo].virtual:
             continue
-        app_paths.append(dep[ErlangAppInfo].app_folder)
+        app_paths.append(dep[ErlangAppInfo].app_folders[primary_toolchain_name])
 
     erl_args = cmd_args([])
     for app_path in app_paths:
-        erl_args.add(cmd_args(app_path, format = "-pa \"${REPO_ROOT}\"/{}/ebin \\", delimiter = ""))
+        erl_args.add(cmd_args(app_path, format = "-pa \"${REPO_ROOT}\"/{}/ebin", delimiter = ""))
 
     for additional_path in additional_paths:
-        erl_args.add(cmd_args(additional_path, format = "-pa \"${REPO_ROOT}\"/{} \\", delimiter = ""))
+        erl_args.add(cmd_args(additional_path, format = "-pa \"${REPO_ROOT}\"/{}", delimiter = ""))
 
     # add configs
     config_files = _shell_config_files(ctx)
     for config_file in _shell_config_files(ctx):
-        erl_args.add(cmd_args(config_file, format = "-config \"${REPO_ROOT}\"/{} \\", delimiter = ""))
+        erl_args.add(cmd_args(config_file, format = "-config \"${REPO_ROOT}\"/{}", delimiter = ""))
 
     # add extra args
     for additional_args in additional_args:
@@ -50,13 +52,19 @@ def _build_run_info(
     erl_args.add('"$@"')
 
     tools = get_primary_tools(ctx)
-    content = cmd_args([])
-    content = content.add("REPO_ROOT=$(buck2 root --kind=project)")
-    content.add(cmd_args(["\"${REPO_ROOT}\"/", cmd_args(tools.erl, delimiter = " "), " \\"], delimiter = ""))
-    content.add(erl_args)
-    content.add("")
+    erl_command = cmd_args([
+        "exec",
+        cmd_args(["\"${REPO_ROOT}\"/", cmd_args(tools.erl, delimiter = " ")], delimiter = ""),
+        erl_args,
+    ])
 
-    shell_script = ctx.actions.write("start_shell.sh", content)
+    start_shell_content = cmd_args([
+        "export REPO_ROOT=$(buck2 root --kind=project)",
+        cmd_args(erl_command, delimiter = " \\\n"),
+        "",
+    ])
+
+    shell_script = ctx.actions.write("start_shell.sh", start_shell_content, with_inputs = True)
     shell_cmd = cmd_args(
         ["/usr/bin/env", "bash", shell_script],
         # depend on input paths
@@ -68,9 +76,11 @@ def _build_run_info(
 def _shell_config_files(ctx: AnalysisContext) -> list[Artifact]:
     config_files = []
     for config_dep in ctx.attrs.shell_configs:
-        for artifact in config_dep[DefaultInfo].default_outputs + config_dep[DefaultInfo].other_outputs:
-            (_, ext) = paths.split_extension(artifact.short_path)
-            if ext == ".config":
+        for artifact in config_dep[DefaultInfo].default_outputs:
+            if erlang_build.utils.is_config(artifact):
+                config_files.append(artifact)
+        for artifact in config_dep[DefaultInfo].other_outputs:
+            if erlang_build.utils.is_config(artifact):
                 config_files.append(artifact)
     return config_files
 

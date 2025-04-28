@@ -15,14 +15,11 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use dupe::Dupe;
 use starlark::typing::Ty;
-use starlark::values::string::STRING_TYPE;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::StarlarkResultExt;
 
-use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 
 impl AttrTypeCoerce for DepAttrType {
     fn coerce_item(
@@ -30,12 +27,8 @@ impl AttrTypeCoerce for DepAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
-        let label = value
-            .unpack_str()
-            .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
-
-        let label = ctx.coerce_providers_label(label)?;
+    ) -> buck2_error::Result<CoercedAttr> {
+        let label = ctx.coerce_providers_label(value.unpack_str_err()?)?;
 
         Ok(CoercedAttr::Dep(label))
     }
@@ -51,24 +44,11 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
-        let (label_value, platform_value): (Value, Value) = UnpackValue::unpack_value(value)
-            .into_anyhow_result()?
-            .ok_or_else(|| {
-                anyhow::anyhow!(CoercionError::type_error(
-                    "Tuple must be a pair of two strings",
-                    value,
-                ))
-            })?;
+    ) -> buck2_error::Result<CoercedAttr> {
+        let (label_string, platform_string): (&str, &str) = UnpackValue::unpack_value_err(value)?;
 
-        let label_string = label_value
-            .unpack_str()
-            .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
         let label = ctx.coerce_providers_label(label_string)?;
 
-        let platform_string = platform_value
-            .unpack_str()
-            .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
         let platform = ctx.coerce_target_label(platform_string)?;
 
         Ok(CoercedAttr::ExplicitConfiguredDep(Box::new(

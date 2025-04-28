@@ -1,0 +1,4 @@
+load(":attributes.bzl", "default_dep_fails", "source")
+
+source(name = "dep")
+default_dep_fails(name = "default_dep_fails")

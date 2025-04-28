@@ -1,0 +1,27 @@
+load(":defs.bzl", "nested_subtargets", "one", "three_with_transition", "two")
+
+nested_subtargets(
+    name = "nested",
+)
+
+one(
+    name = "rule0",
+)
+
+one(
+    name = "rule1",
+    deps = [":rule0"],
+)
+
+two(
+    name = "a_writer",
+)
+
+platform(
+    name = "some_platform",
+)
+
+three_with_transition(
+    name = "a_writer_with_transition",
+    default_target_platform = ":some_platform",
+)

@@ -1,0 +1,44 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+# Build APIs
+## ExecutionPlatformInfo
+## ExecutionPlatformRegistrationInfo
+## InstallInfo
+## Provider
+## anon\_rule
+## dedupe
+## dynamic\_actions
+## get\_base\_path
+## get\_cell\_name
+## get\_parent\_modifiers
+## glob
+## host\_info
+## implicit\_package\_symbol
+## load\_symbols
+## oncall
+## package
+## package\_name
+## provider
+## provider\_field
+## read\_config
+## read\_oncall
+## read\_package\_value
+## read\_parent\_package\_value
+## read\_root\_config
+## regex\_match
+## repository\_name
+## rule
+## rule\_exists
+## select
+## select\_map
+## select\_test
+## set\_cfg\_constructor
+## set\_modifiers
+## set\_starlark\_peak\_allocated\_byte\_limit
+## sha1
+## sha256
+## soft\_error
+## transition
+## transitive\_set
+## warning
+## write\_package\_value

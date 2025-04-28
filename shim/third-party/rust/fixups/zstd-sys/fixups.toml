@@ -1,3 +1,10 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
 buildscript = []
 
 [[platform_fixup.'cfg(not(all(target_os = "windows", target_env = "msvc")))'.buildscript]]
@@ -21,6 +28,8 @@ srcs = [
 headers = [
     "zdict.h",
     "zstd.h",
+    "zstd/lib/common/allocations.h",
+    "zstd/lib/common/bits.h",
     "zstd/lib/common/bitstream.h",
     "zstd/lib/common/compiler.h",
     "zstd/lib/common/cpu.h",
@@ -32,7 +41,7 @@ headers = [
     "zstd/lib/common/pool.h",
     "zstd/lib/common/portability_macros.h",
     "zstd/lib/common/threading.h",
-    #"zstd/lib/common/xxhash.h",
+    "zstd/lib/common/xxhash.h",
     "zstd/lib/common/zstd_deps.h",
     "zstd/lib/common/zstd_internal.h",
     "zstd/lib/common/zstd_trace.h",
@@ -78,6 +87,8 @@ srcs = [
 headers = [
     "zdict.h",
     "zstd.h",
+    "zstd/lib/common/allocations.h",
+    "zstd/lib/common/bits.h",
     "zstd/lib/common/bitstream.h",
     "zstd/lib/common/compiler.h",
     "zstd/lib/common/cpu.h",
@@ -89,7 +100,7 @@ headers = [
     "zstd/lib/common/pool.h",
     "zstd/lib/common/portability_macros.h",
     "zstd/lib/common/threading.h",
-    #"zstd/lib/common/xxhash.h",
+    "zstd/lib/common/xxhash.h",
     "zstd/lib/common/zstd_deps.h",
     "zstd/lib/common/zstd_internal.h",
     "zstd/lib/common/zstd_trace.h",

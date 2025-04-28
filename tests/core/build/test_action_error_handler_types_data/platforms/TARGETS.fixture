@@ -1,0 +1,10 @@
+load(":defs.bzl", "execution_platforms", "target_platform")
+
+execution_platforms(
+    name = "platforms",
+)
+
+target_platform(
+    name = "platform",
+    visibility = ["PUBLIC"],
+)

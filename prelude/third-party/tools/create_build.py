@@ -1,8 +1,21 @@
 import argparse
 import shutil
+import stat
 import json
 import sys
 import os
+
+
+# Copy only file contents and exec permission bit.
+def _copy(src, dst, *, follow_symlinks=True):
+    shutil.copyfile(src, dst, follow_symlinks=False)
+    src_mode = os.lstat(src).st_mode
+    dst_mode = os.lstat(dst).st_mode
+    os.chmod(
+        dst,
+        dst_mode | (src_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)),
+        follow_symlinks=False,
+    )
 
 
 def main(argv):
@@ -11,6 +24,9 @@ def main(argv):
         "--manifest", dest="manifests", nargs=2, action="append", default=[]
     )
     parser.add_argument("--path", dest="paths", nargs=2, action="append", default=[])
+    parser.add_argument(
+        "--symlink", dest="symlinks", nargs=2, action="append", default=[]
+    )
     parser.add_argument("output")
     args = parser.parse_args(argv[1:])
 
@@ -30,9 +46,16 @@ def main(argv):
         fdst = os.path.join(args.output, dst)
         os.makedirs(os.path.dirname(fdst), exist_ok=True)
         if os.path.isdir(src):
-            shutil.copytree(src, fdst, symlinks=True, dirs_exist_ok=True)
+            shutil.copytree(
+                src, fdst, symlinks=True, dirs_exist_ok=True, copy_function=_copy
+            )
         else:
             shutil.copy(src, fdst)
+
+    for dst, target in args.symlinks:
+        fdst = os.path.join(args.output, dst)
+        os.makedirs(os.path.dirname(fdst), exist_ok=True)
+        os.symlink(target, fdst)
 
 
 sys.exit(main(sys.argv))

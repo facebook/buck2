@@ -9,10 +9,10 @@ load(":manifest.bzl", "ManifestInfo")
 load(":toolchain.bzl", "PythonToolchainInfo")
 
 PycInvalidationMode = enum(
-    "UNCHECKED_HASH",
-    "CHECKED_HASH",
+    "unchecked_hash",
+    "checked_hash",
     # timestamp isn't supported at the moment
-    # "TIMESTAMP",
+    # "timestamp",
 )
 
 def compile_manifests(
@@ -20,21 +20,22 @@ def compile_manifests(
         manifests: list[ManifestInfo]) -> dict[PycInvalidationMode, ManifestInfo]:
     return {
         mode: compile_manifests_for_mode(ctx, manifests, mode)
-        for mode in [PycInvalidationMode("UNCHECKED_HASH"), PycInvalidationMode("CHECKED_HASH")]
+        for mode in [PycInvalidationMode("unchecked_hash"), PycInvalidationMode("checked_hash")]
     }
 
 def compile_manifests_for_mode(
         ctx: AnalysisContext,
         manifests: list[ManifestInfo],
-        invalidation_mode: PycInvalidationMode = PycInvalidationMode("UNCHECKED_HASH")) -> ManifestInfo:
-    output = ctx.actions.declare_output("bytecode_{}".format(invalidation_mode.value), dir = True)
-    bytecode_manifest = ctx.actions.declare_output("bytecode_{}.manifest".format(invalidation_mode.value))
+        invalidation_mode: PycInvalidationMode = PycInvalidationMode("unchecked_hash")) -> ManifestInfo:
+    mode = invalidation_mode.value.upper()
+    output = ctx.actions.declare_output("bytecode_{}".format(mode), dir = True)
+    bytecode_manifest = ctx.actions.declare_output("bytecode_{}.manifest".format(mode))
     cmd = [
         ctx.attrs._python_toolchain[PythonToolchainInfo].host_interpreter,
         ctx.attrs._python_toolchain[PythonToolchainInfo].compile,
         cmd_args(output.as_output(), format = "--output={}"),
         cmd_args(bytecode_manifest.as_output(), format = "--bytecode-manifest={}"),
-        "--invalidation-mode={}".format(invalidation_mode.value),
+        "--invalidation-mode={}".format(mode),
     ]
 
     env = {
@@ -70,6 +71,6 @@ def compile_manifests_for_mode(
         cmd_args(cmd, hidden = hidden),
         env = env,
         category = "py_compile",
-        identifier = invalidation_mode.value,
+        identifier = mode,
     )
     return ManifestInfo(manifest = bytecode_manifest, artifacts = [(output, "bytecode")])

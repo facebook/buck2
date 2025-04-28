@@ -8,6 +8,7 @@
  */
 
 use std::ffi::OsStr;
+use std::fs;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
@@ -20,13 +21,15 @@ use anyhow::Context;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 use serde::Deserialize;
+use tracing::Level;
 use tracing::enabled;
 use tracing::info;
 use tracing::instrument;
 use tracing::trace;
 use tracing::warn;
-use tracing::Level;
 
+use crate::Crate;
+use crate::Dep;
 use crate::cli::Input;
 use crate::json_project::Build;
 use crate::json_project::Edition;
@@ -41,15 +44,16 @@ use crate::target::Kind;
 use crate::target::MacroOutput;
 use crate::target::Target;
 use crate::target::TargetInfo;
-use crate::Crate;
-use crate::Dep;
+
+const CLIENT_METADATA_RUST_PROJECT: &str = "--client-metadata=id=rust-project";
 
 pub(crate) fn to_json_project(
     sysroot: Sysroot,
     expanded_and_resolved: ExpandedAndResolved,
     aliases: FxHashMap<Target, AliasedTargetInfo>,
-    relative_paths: bool,
     check_cycles: bool,
+    include_all_buildfiles: bool,
+    extra_cfgs: &[String],
 ) -> Result<JsonProject, anyhow::Error> {
     let mode = select_mode(None);
     let buck = Buck::new(mode);
@@ -107,7 +111,7 @@ pub(crate) fn to_json_project(
         // the mapping here is inverted, which means we need to search through the keys for the Target.
         // thankfully, most projects don't have to many proc macros, which means the size of this list
         // remains in the two digit space.
-        let mut proc_macro_dylib_path = proc_macros
+        let proc_macro_dylib_path = proc_macros
             .values()
             .find(|macro_output| macro_output.actual == *target)
             .map(|macro_output| macro_output.dylib.clone());
@@ -116,25 +120,17 @@ pub(crate) fn to_json_project(
         }
 
         // corresponds to the BUCK/TARGETS file of a target.
-        let mut build_file = info.project_relative_buildfile.clone();
+        let build_file = project_root.join(info.project_relative_buildfile.clone());
 
         // We don't need to push the source folder as rust-analyzer by default will use the root-module parent().
         // info.root_module() will output either the fbcode source file or the symlinked one based on if it's a mapped source or not
-        let mut root_module = info.root_module();
-
-        if relative_paths {
-            proc_macro_dylib_path = proc_macro_dylib_path.map(|p| relative_to(&p, &project_root));
-            root_module = relative_to(&root_module, &project_root);
-        } else {
-            let path = project_root.join(build_file);
-            build_file = path;
-        }
+        let root_module = info.root_module(&project_root);
 
         let mut env = FxHashMap::default();
 
         // Populate the environment variables the target configuration's environment variables,
         // but ignore OUT_DIR as we handle that later.
-        env.extend(info.env.clone().into_iter().filter(|(k, _)| k != "OUT_DIR"));
+        env.extend(info.env.clone().into_iter());
 
         // If $CARGO_MANIFEST_DIR is set, resolve it to an absolute path.
         if let Some(rel_cargo_manifest_dir) = info.env.get("CARGO_MANIFEST_DIR") {
@@ -146,11 +142,10 @@ pub(crate) fn to_json_project(
         }
 
         let mut include_dirs = FxHashSet::default();
-        if let Some(out_dir) = &info.out_dir {
-            env.insert("OUT_DIR".to_owned(), out_dir.to_string_lossy().into_owned());
+        if let Some(out_dir) = info.env.get("OUT_DIR") {
             // to ensure that the `OUT_DIR` is included as part of the `PackageRoot` in rust-analyzer,
             // manually insert the parent of the `out_dir` into `include_dirs`.
-            if let Some(parent) = out_dir.parent() {
+            if let Some(parent) = Path::new(out_dir).parent() {
                 include_dirs.insert(parent.to_owned());
             }
         }
@@ -159,7 +154,7 @@ pub(crate) fn to_json_project(
             include_dirs.insert(parent.to_owned());
         }
 
-        let build = if info.in_workspace {
+        let build = if include_all_buildfiles || info.in_workspace {
             let build = Build {
                 label: target.clone(),
                 build_file: build_file.to_owned(),
@@ -180,12 +175,16 @@ pub(crate) fn to_json_project(
                 include_dirs,
                 exclude_dirs: FxHashSet::default(),
             }),
-            cfg: info.cfg(),
+            cfg: info
+                .cfg()
+                .into_iter()
+                .chain(extra_cfgs.iter().cloned())
+                .collect(),
             env,
             build,
             is_proc_macro: info.proc_macro.unwrap_or(false),
             proc_macro_dylib_path,
-            ..Default::default()
+            target: None,
         };
         crates.push(crate_info);
     }
@@ -195,14 +194,14 @@ pub(crate) fn to_json_project(
     }
 
     let jp = JsonProject {
-        sysroot,
+        sysroot: Box::new(sysroot),
         crates,
         runnables: vec![
             Runnable {
                 program: "buck".to_owned(),
                 args: vec![
                     "build".to_owned(),
-                    "-c=client.id=rust-project".to_owned(),
+                    CLIENT_METADATA_RUST_PROJECT.to_owned(),
                     "{label}".to_owned(),
                 ],
                 cwd: project_root.to_owned(),
@@ -212,7 +211,7 @@ pub(crate) fn to_json_project(
                 program: "buck".to_owned(),
                 args: vec![
                     "test".to_owned(),
-                    "-c=client.id=rust-project".to_owned(),
+                    CLIENT_METADATA_RUST_PROJECT.to_owned(),
                     "{label}".to_owned(),
                     "--".to_owned(),
                     "{test_id}".to_owned(),
@@ -302,15 +301,6 @@ fn format_route(route: &[usize], crates: &[Crate]) -> String {
     }
 
     formatted_crates.join(" -> ")
-}
-
-/// If `path` starts with `base`, drop the prefix.
-pub(crate) fn relative_to(path: &Path, base: &Path) -> PathBuf {
-    match path.strip_prefix(base) {
-        Ok(rel_path) => rel_path,
-        Err(_) => path,
-    }
-    .to_owned()
 }
 
 /// If any target in `targets` is an alias, resolve it to the actual target.
@@ -404,10 +394,11 @@ fn merge_unit_test_targets(
     let (generated_unit_tests, standalone_tests): (
         FxHashMap<Target, TargetInfo>,
         FxHashMap<Target, TargetInfo>,
-    ) = tests.into_iter().partition(|(target, _)| {
-        targets
-            .iter()
-            .any(|(_, value)| value.test_deps.contains(target))
+    ) = tests.into_iter().partition(|(test_target, _)| {
+        test_target.ends_with("-unittest")
+            && targets
+                .iter()
+                .any(|(_, value)| value.test_deps.contains(test_target))
     });
 
     targets.extend(standalone_tests);
@@ -424,6 +415,8 @@ fn merge_unit_test_targets(
                         info.deps.push(test_dep.clone())
                     }
                 }
+
+                info.in_workspace |= test_info.in_workspace;
             }
         }
 
@@ -500,25 +493,6 @@ impl Buck {
         Ok(stdout.into())
     }
 
-    pub(crate) fn resolve_root_of_file(&self, path: &Path) -> Result<PathBuf, anyhow::Error> {
-        let mut command = self.command_without_config(["root"]);
-        command.arg("--kind=project");
-
-        if let Some(parent) = path.parent() {
-            command.arg("--dir");
-            command.arg(parent.as_os_str());
-        }
-
-        let mut stdout = utf8_output(command.output(), &command)?;
-        truncate_line_ending(&mut stdout);
-
-        if enabled!(Level::TRACE) {
-            trace!(%stdout, "got root from buck");
-        }
-
-        Ok(stdout.into())
-    }
-
     pub(crate) fn resolve_sysroot_src(&self) -> Result<PathBuf, anyhow::Error> {
         let mut command = self.command(["audit", "config"]);
         command.args(["--json", "--", "rust.sysroot_src_path"]);
@@ -537,19 +511,16 @@ impl Buck {
             sysroot_src_path: PathBuf,
         }
         let cfg: BuckConfig = deserialize_output(child.wait_with_output(), &command)?;
-        // the `library` path component needs to be appended to the `sysroot_src_path`
-        // so that rust-analyzer will be able to find standard library sources.
-        let cfg = cfg.sysroot_src_path.join("library");
-        Ok(cfg)
+        Ok(cfg.sysroot_src_path)
     }
 
     /// Determines the owning target(s) of the saved file and builds them.
-    #[instrument(fields(use_clippy, saved_file = %saved_file.display()))]
+    #[instrument]
     pub(crate) fn check_saved_file(
         &self,
         use_clippy: bool,
         saved_file: &Path,
-    ) -> Result<Vec<PathBuf>, anyhow::Error> {
+    ) -> Result<CheckOutput, anyhow::Error> {
         let mut command = self.command(["bxl"]);
 
         if let Some(mode) = &self.mode {
@@ -579,11 +550,6 @@ impl Buck {
         }
 
         let output = command.output();
-        if let Ok(output) = &output {
-            if output.stdout.is_empty() {
-                return Ok(vec![]);
-            }
-        }
 
         let files = deserialize_output(output, &command)?;
         Ok(files)
@@ -604,14 +570,14 @@ impl Buck {
             command.arg(mode);
         }
         command.args([
-            "prelude//rust/rust-analyzer/resolve_deps.bxl:expand_and_resolve",
+            "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
             "--",
             "--exclude_workspaces",
             exclude_workspaces.to_string().as_str(),
             "--targets",
         ]);
         command.args(targets);
-        deserialize_output(command.output(), &command)
+        deserialize_file_output(command.output(), &command)
     }
 
     #[instrument(skip_all)]
@@ -662,6 +628,7 @@ impl Buck {
         ]);
 
         info!(
+            kind = "progress",
             ?input,
             "querying buck to determine owning buildfile and its targets"
         );
@@ -687,6 +654,12 @@ impl Buck {
         let out = deserialize_output(command.output(), &command)?;
         Ok(out)
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct CheckOutput {
+    pub(crate) diagnostic_paths: Vec<PathBuf>,
+    pub(crate) project_root: PathBuf,
 }
 
 pub(crate) fn utf8_output(
@@ -737,6 +710,41 @@ where
     }
 }
 
+fn deserialize_file_output<T>(
+    output: io::Result<Output>,
+    command: &Command,
+) -> Result<T, anyhow::Error>
+where
+    T: for<'a> Deserialize<'a>,
+{
+    match output {
+        Ok(Output {
+            stdout,
+            stderr,
+            status,
+        }) => {
+            tracing::debug!(?command, "parsing file output");
+            serde_json_from_stdout_path(&stdout)
+                .with_context(|| cmd_err(command, status, &stderr))
+                .context("failed to deserialize command output")
+        }
+        Err(err) => Err(err)
+            .with_context(|| format!("command `{:?}`", command))
+            .context("failed to execute command"),
+    }
+}
+
+fn serde_json_from_stdout_path<T>(stdout: &[u8]) -> Result<T, anyhow::Error>
+where
+    T: for<'a> Deserialize<'a>,
+{
+    let file_path = std::str::from_utf8(stdout)?;
+    let file_path = Path::new(file_path.lines().next().context("no file path in output")?);
+    let contents =
+        fs::read_to_string(file_path).with_context(|| format!("failed to read {:?}", file_path))?;
+    serde_json::from_str(&contents).context("failed to deserialize file")
+}
+
 fn cmd_err(command: &Command, status: ExitStatus, stderr: &[u8]) -> anyhow::Error {
     anyhow::anyhow!(
         "command `{:?}` (exit code: {})\nstderr:\n{}",
@@ -785,7 +793,7 @@ fn merge_tests_no_cycles() {
             mapped_srcs: FxHashMap::default(),
             crate_name: None,
             crate_dynamic: None,
-            crate_root: None,
+            crate_root: PathBuf::default(),
             deps: vec![],
             test_deps: vec![Target::new("//foo-unittest")],
             named_deps: FxHashMap::default(),
@@ -795,7 +803,6 @@ fn merge_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
-            out_dir: None,
             rustc_flags: vec![],
         },
     );
@@ -811,7 +818,7 @@ fn merge_tests_no_cycles() {
             mapped_srcs: FxHashMap::default(),
             crate_name: None,
             crate_dynamic: None,
-            crate_root: None,
+            crate_root: PathBuf::default(),
             deps: vec![Target::new("//foo")],
             test_deps: vec![],
             named_deps: FxHashMap::default(),
@@ -821,7 +828,6 @@ fn merge_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo-unittest/BUCK"),
             in_workspace: false,
-            out_dir: None,
             rustc_flags: vec![],
         },
     );
@@ -846,7 +852,7 @@ fn merge_target_multiple_tests_no_cycles() {
             mapped_srcs: FxHashMap::default(),
             crate_name: None,
             crate_dynamic: None,
-            crate_root: None,
+            crate_root: PathBuf::default(),
             deps: vec![Target::new("//foo@rust")],
             test_deps: vec![
                 Target::new("//foo_test"),
@@ -859,7 +865,6 @@ fn merge_target_multiple_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
-            out_dir: None,
             rustc_flags: vec![],
         },
     );
@@ -875,7 +880,7 @@ fn merge_target_multiple_tests_no_cycles() {
             mapped_srcs: FxHashMap::default(),
             crate_name: None,
             crate_dynamic: None,
-            crate_root: None,
+            crate_root: PathBuf::default(),
             deps: vec![],
             test_deps: vec![
                 Target::new("//foo_test"),
@@ -888,7 +893,6 @@ fn merge_target_multiple_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
-            out_dir: None,
             rustc_flags: vec![],
         },
     );
@@ -904,7 +908,7 @@ fn merge_target_multiple_tests_no_cycles() {
             mapped_srcs: FxHashMap::default(),
             crate_name: None,
             crate_dynamic: None,
-            crate_root: None,
+            crate_root: PathBuf::default(),
             // foo_test depends on foo, which is reasonable, but
             // we need to be careful when merging test
             // dependencies of foo@rust to avoid creating cycles.
@@ -917,7 +921,6 @@ fn merge_target_multiple_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo_test/BUCK"),
             in_workspace: false,
-            out_dir: None,
             rustc_flags: vec![],
         },
     );
@@ -933,7 +936,7 @@ fn merge_target_multiple_tests_no_cycles() {
             mapped_srcs: FxHashMap::default(),
             crate_name: None,
             crate_dynamic: None,
-            crate_root: None,
+            crate_root: PathBuf::default(),
             deps: vec![Target::new("//test-framework")],
             test_deps: vec![],
             named_deps: FxHashMap::default(),
@@ -943,7 +946,6 @@ fn merge_target_multiple_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
-            out_dir: None,
             rustc_flags: vec![],
         },
     );
@@ -965,6 +967,64 @@ fn merge_target_multiple_tests_no_cycles() {
 }
 
 #[test]
+fn integration_tests_preserved() {
+    let mut targets = FxHashMap::default();
+
+    targets.insert(
+        Target::new("//foo"),
+        TargetInfo {
+            name: "foo".to_owned(),
+            label: "foo".to_owned(),
+            kind: Kind::Library,
+            edition: None,
+            srcs: vec![],
+            mapped_srcs: FxHashMap::default(),
+            crate_name: None,
+            crate_dynamic: None,
+            crate_root: PathBuf::default(),
+            deps: vec![],
+            test_deps: vec![Target::new("//foo-integration-test")],
+            named_deps: FxHashMap::default(),
+            proc_macro: None,
+            features: vec![],
+            env: FxHashMap::default(),
+            source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("foo/BUCK"),
+            in_workspace: false,
+            rustc_flags: vec![],
+        },
+    );
+
+    targets.insert(
+        Target::new("//foo-integration-test"),
+        TargetInfo {
+            name: "foo-integration-test".to_owned(),
+            label: "foo-integration-test".to_owned(),
+            kind: Kind::Test,
+            edition: None,
+            srcs: vec![],
+            mapped_srcs: FxHashMap::default(),
+            crate_name: None,
+            crate_dynamic: None,
+            crate_root: PathBuf::default(),
+            deps: vec![Target::new("//foo")],
+            test_deps: vec![],
+            named_deps: FxHashMap::default(),
+            proc_macro: None,
+            features: vec![],
+            env: FxHashMap::default(),
+            source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("foo/BUCK"),
+            in_workspace: false,
+            rustc_flags: vec![],
+        },
+    );
+
+    let res = merge_unit_test_targets(targets.clone());
+    assert!(res.contains_key(&Target::new("//foo-integration-test")));
+}
+
+#[test]
 fn named_deps_underscores() {
     let mut target_index = FxHashMap::default();
     target_index.insert(
@@ -978,7 +1038,7 @@ fn named_deps_underscores() {
             mapped_srcs: FxHashMap::default(),
             crate_name: None,
             crate_dynamic: None,
-            crate_root: None,
+            crate_root: PathBuf::default(),
             deps: vec![],
             test_deps: vec![],
             named_deps: FxHashMap::default(),
@@ -988,7 +1048,6 @@ fn named_deps_underscores() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("bar/BUCK"),
             in_workspace: false,
-            out_dir: None,
             rustc_flags: vec![],
         },
     );
@@ -1005,7 +1064,7 @@ fn named_deps_underscores() {
         mapped_srcs: FxHashMap::default(),
         crate_name: None,
         crate_dynamic: None,
-        crate_root: None,
+        crate_root: PathBuf::default(),
         deps: vec![],
         test_deps: vec![],
         named_deps,
@@ -1015,7 +1074,6 @@ fn named_deps_underscores() {
         source_folder: PathBuf::from("/tmp"),
         project_relative_buildfile: PathBuf::from("foo/BUCK"),
         in_workspace: false,
-        out_dir: None,
         rustc_flags: vec![],
     };
 

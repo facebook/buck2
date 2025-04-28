@@ -74,31 +74,40 @@ COMMA<E>: Vec<E> =
 pub(crate) Starlark: AstStmt = "\n"* <l:@L> <s:(<Stmt> "\n"*)*> <r:@R>
     => grammar_util::statements(s, l, r);
 
-DefStmt: AstStmt = ASTS<DefStmt_> =>? Ok(grammar_util::dialect_check_def(state.dialect, state.codemap, <>)?);
+DefStmt: AstStmt = ASTS<DefStmt_>;
 DefStmt_: Stmt =
-  "def" <identifier> "(" <COMMA<ParameterTyped>> ")" <ReturnType> ":" <Suite>
-      => grammar_util::check_def(<>, state);
+  "def" <name:AssignIdent> "(" <params:COMMA<DefParameter>> ")" <return_type:ReturnType> ":" <stmts:Suite>
+      => StmtP::Def(DefP {
+             name,
+             params,
+             return_type,
+             body: Box::new(stmts),
+             payload: (),
+         });
 
 ReturnType: Option<Box<AstTypeExpr>> = {
     "->" <TypeExpr> => Some(Box::new(<>)),
     => None,
 }
 
-Parameter: AstParameter = ASTP<Parameter_>;
-Parameter_: Parameter = {
-    <n:AssignIdent> "=" <e:Test> => Parameter::WithDefaultValue(n, None, Box::new(e)),
-    <AssignIdent>                => Parameter::Normal(<>, None),
+// Lambda parameter cannot have type annotations.
+LambdaParameter: AstParameter = ASTP<LambdaParameter_>;
+LambdaParameter_: Parameter = {
+    "/"                          => Parameter::Slash,
+    <n:AssignIdent> "=" <e:Test> => Parameter::Normal(n, None, Some(Box::new(e))),
+    <AssignIdent>                => Parameter::Normal(<>, None, None),
     "*" <AssignIdent>            => Parameter::Args(<>, None),
-    <l:@L> "*" <r:@R>                 =>? Ok(grammar_util::dialect_check_keyword_only_arguments(state.dialect, state.codemap, l, r, Parameter::NoArgs)?),
+    "*"                          => Parameter::NoArgs,
     "**" <AssignIdent>           => Parameter::KwArgs(<>, None),
 };
 
-ParameterTyped: AstParameter = ASTP<ParameterTyped_>;
-ParameterTyped_: Parameter = {
-    <n:AssignIdent> <t:Type> "=" <e:Test> => Parameter::WithDefaultValue(n, t, Box::new(e)),
-    <AssignIdent> <Type>                  => Parameter::Normal(<>),
+DefParameter: AstParameter = ASTP<DefParameter_>;
+DefParameter_: Parameter = {
+    "/"                                   => Parameter::Slash,
+    <n:AssignIdent> <t:Type> "=" <e:Test> => Parameter::Normal(n, t, Some(Box::new(e))),
+    <AssignIdent> <Type>                  => Parameter::Normal(<>, None),
     "*" <AssignIdent> <Type>              => Parameter::Args(<>),
-    <l:@L> "*" <r:@R>                          =>? Ok(grammar_util::dialect_check_keyword_only_arguments(state.dialect, state.codemap, l, r, Parameter::NoArgs)?),
+    "*"                                   => Parameter::NoArgs,
     "**" <AssignIdent> <Type>             => Parameter::KwArgs(<>),
 };
 
@@ -231,7 +240,7 @@ PrimaryExpr: AstExpr = {
     <l:@L> <e:PrimaryExpr> "." <i:identifier> <r:@R>
         => Expr::Dot(Box::new(e), i).ast(l, r),
     <l:@L> <e:PrimaryExpr> "(" <a:COMMA<Argument>> ")" <r:@R>
-        =>? Ok(Expr::check_call(e, a, state.codemap)?.ast(l, r)),
+        =>? Ok(Expr::check_call(e, a, state).ast(l, r)),
     <l:@L> <e:PrimaryExpr> "[" <i1:Test?> ":" <i2:Test?> <i3:(":" <Test?>)?> "]"
         <r:@R> => {
           Expr::Slice(Box::new(e), i1.map(|x| Box::new(x)), i2.map(|x| Box::new(x)), i3.unwrap_or(None).map(|x| Box::new(x)))
@@ -312,10 +321,14 @@ Test: AstExpr = {
     LambDef
 };
 
-LambDef: AstExpr = {
-    <l:@L> "lambda" <p:COMMA<Parameter>> ":" <e:Test> <r:@R>
-        =>? Ok(grammar_util::dialect_check_lambda(state.dialect, state.codemap, grammar_util::check_lambda(p, e, state).ast(l, r))?),
-}
+LambDef: AstExpr = ASTE<LambDef_>;
+LambDef_: Expr = "lambda" <p:COMMA<LambdaParameter>> ":" <e:Test> => {
+    Expr::Lambda(LambdaP {
+        params: p,
+        body: Box::new(e),
+        payload: (),
+    })
+};
 
 // Binary operators
 OrTest: AstExpr = {

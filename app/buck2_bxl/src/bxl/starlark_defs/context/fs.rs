@@ -22,9 +22,9 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
-use buck2_core::package::PackageLabel;
 use buck2_node::nodes::unconfigured::TargetNode;
 use derivative::Derivative;
 use derive_more::Display;
@@ -36,8 +36,6 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::none::NoneOr;
-use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -47,7 +45,8 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
-use starlark::StarlarkDocs;
+use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
 
 use super::BxlContext;
 use crate::bxl::starlark_defs::file_expr::FileExpr;
@@ -61,21 +60,18 @@ use crate::bxl::starlark_defs::target_list_expr::TargetListExprArg;
     Display,
     Trace,
     NoSerialize,
-    StarlarkDocs,
     Allocative
 )]
 #[derivative(Debug)]
-#[starlark_docs(directory = "bxl")]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 #[allocative(skip)]
 pub(crate) struct BxlFilesystem<'v> {
-    #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
-    ctx: &'v BxlContext<'v>,
+    ctx: ValueTyped<'v, BxlContext<'v>>,
 }
 
 impl<'v> BxlFilesystem<'v> {
-    pub(crate) fn new(ctx: &'v BxlContext<'v>) -> Self {
+    pub(crate) fn new(ctx: ValueTyped<'v, BxlContext<'v>>) -> Self {
         Self { ctx }
     }
 
@@ -87,7 +83,7 @@ impl<'v> BxlFilesystem<'v> {
         self.ctx.project_fs()
     }
 
-    fn cell(&self) -> anyhow::Result<&CellInstance> {
+    fn cell(&self) -> buck2_error::Result<&CellInstance> {
         self.ctx.cell_resolver().get(self.ctx.cell_name())
     }
 }
@@ -107,6 +103,7 @@ impl<'v> AllocValue<'v> for BxlFilesystem<'v> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub(crate) enum BxlFilesystemError {
     #[error("Inferred package path `{0}` is not a valid package within the given file path `{1}`")]
     PackageMismatch(PackageLabel, CellPath),
@@ -116,7 +113,7 @@ pub(crate) enum BxlFilesystemError {
 
 impl<'v> BxlFilesystem<'v> {
     /// Returns the absolute path for a FileExpr.
-    fn resolve(&'v self, expr: FileExpr<'v>) -> anyhow::Result<AbsNormPathBuf> {
+    fn resolve(&'v self, expr: FileExpr<'v>) -> buck2_error::Result<AbsNormPathBuf> {
         let project_rel_path = self.project_relative_path(expr)?;
         Ok(self.project_fs().resolve(&project_rel_path))
     }
@@ -125,7 +122,7 @@ impl<'v> BxlFilesystem<'v> {
     fn project_relative_path(
         &'v self,
         expr: FileExpr<'v>,
-    ) -> anyhow::Result<ProjectRelativePathBuf> {
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         let cell_path = self
             .ctx
             .async_ctx
@@ -139,7 +136,7 @@ impl<'v> BxlFilesystem<'v> {
 async fn try_exists(
     ctx: &mut DiceComputations<'_>,
     path: CellPathRef<'async_recursion>,
-) -> anyhow::Result<bool> {
+) -> buck2_error::Result<bool> {
     match DiceFileComputations::read_path_metadata_if_exists(ctx, path).await? {
         Some(path) => match PathMetadataOrRedirection::from(path) {
             PathMetadataOrRedirection::PathMetadata(_) => Ok(true),
@@ -157,12 +154,12 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     /// Takes in a literal, a source artifact (via `artifact`), or a `file_node`.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_exists(ctx):
     ///     ctx.output.print(ctx.fs.exists("bin"))
     /// ```
-    fn exists<'v>(this: &'v BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
-        this.ctx.async_ctx.borrow_mut().via(|dice| {
+    fn exists<'v>(this: &'v BxlFilesystem<'v>, expr: FileExpr<'v>) -> starlark::Result<bool> {
+        Ok(this.ctx.async_ctx.borrow_mut().via(|dice| {
             async {
                 let path = expr.get(dice, this.cell()?).await;
 
@@ -172,7 +169,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                 }
             }
             .boxed_local()
-        })
+        })?)
     }
 
     /// Returns all the contents of the given input that points to a directory.
@@ -181,7 +178,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     /// The input is a either a literal, a source artifact (via `artifact`), or a `file_node`.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_list(ctx):
     ///     list_results = ctx.fs.list("bin")
     ///     for result in list_results:
@@ -191,8 +188,8 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         this: &'v BxlFilesystem<'v>,
         expr: FileExpr<'v>,
         #[starlark(require = named, default = false)] dirs_only: bool,
-    ) -> anyhow::Result<StarlarkReadDirSet> {
-        this.ctx.async_ctx.borrow_mut().via(|dice| {
+    ) -> starlark::Result<StarlarkReadDirSet> {
+        Ok(this.ctx.async_ctx.borrow_mut().via(|dice| {
             async {
                 let path = expr.get(dice, this.cell()?).await;
 
@@ -210,18 +207,18 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                 }
             }
             .boxed_local()
-        })
+        })?)
     }
 
     /// Returns whether the provided path is a dir. Returns false is the dir does not exist.
     /// The input is a either a literal, a source artifact (via `artifact`), or a `file_node`.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_is_dir(ctx):
     ///     ctx.output.print(ctx.fs.is_dir("bin"))
     /// ```
-    fn is_dir<'v>(this: &'v BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
+    fn is_dir<'v>(this: &'v BxlFilesystem<'v>, expr: FileExpr<'v>) -> starlark::Result<bool> {
         Ok(std::path::Path::is_dir(this.resolve(expr)?.as_ref()))
     }
 
@@ -229,18 +226,18 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     /// The input is a either a literal, a source artifact (via `artifact`), or a `file_node`.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_is_file(ctx):
     ///     ctx.output.print(ctx.fs.is_dir("bin"))
     /// ```
-    fn is_file<'v>(this: &'v BxlFilesystem<'v>, expr: FileExpr<'v>) -> anyhow::Result<bool> {
+    fn is_file<'v>(this: &'v BxlFilesystem<'v>, expr: FileExpr<'v>) -> starlark::Result<bool> {
         Ok(std::path::Path::is_file(this.resolve(expr)?.as_ref()))
     }
 
     /// Returns the relative path to the project root, given the file expression.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def project_rel_path(ctx):
     ///     ctx.output.print(ctx.fs.project_rel_path("bin"))
     /// ```
@@ -248,7 +245,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         this: &'v BxlFilesystem<'v>,
         expr: FileExpr<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
+    ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str(this.project_relative_path(expr)?.as_str()))
     }
 
@@ -257,7 +254,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     /// are run remotely will most likely result in failures since the absolute path most likely differs locally vs remotely.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_abs_path_unsafe(ctx):
     ///     ctx.output.print(ctx.fs.abs_path_unsafe("bin"))
     /// ```
@@ -265,7 +262,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         this: &'v BxlFilesystem<'v>,
         expr: FileExpr<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
+    ) -> starlark::Result<StringValue<'v>> {
         let abs_norm_path = this.resolve(expr)?;
         Ok(heap.alloc_str(abs_norm_path.as_abs_path().to_str()?))
     }
@@ -278,7 +275,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
         expr: FileExpr<'v>,
         #[starlark(default = NoneOr::None)] target_hint: NoneOr<ValueOf<'v, TargetListExprArg<'v>>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkArtifact>> {
+    ) -> starlark::Result<ValueTyped<'v, StarlarkArtifact>> {
         let buck_path = this.ctx.via_dice(|dice, ctx| {
             dice.via(|dice| {
                 async {
@@ -303,11 +300,10 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                             if let Some(node) = target_expr.get_one(dice).await? {
                                 Ok(node.label().pkg())
                             } else {
-                                Err(anyhow::anyhow!(
-                                    BxlFilesystemError::MultipleTargetHintsNotSupported(
-                                        target_hint.value.to_repr()
-                                    )
-                                ))
+                                Err(BxlFilesystemError::MultipleTargetHintsNotSupported(
+                                    target_hint.value.to_repr(),
+                                )
+                                .into())
                             }
                         }
                     }?;
@@ -319,10 +315,11 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                     let forward_relative_path = match file_path.strip_prefix(&package_path) {
                         Ok(path) => path,
                         Err(_) => {
-                            return Err(anyhow::anyhow!(BxlFilesystemError::PackageMismatch(
+                            return Err(BxlFilesystemError::PackageMismatch(
                                 package_label,
                                 file_path_as_cell_path,
-                            )));
+                            )
+                            .into());
                         }
                     };
 

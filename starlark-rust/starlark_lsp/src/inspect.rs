@@ -184,12 +184,12 @@ impl AstModuleInspect for AstModule {
                             continue;
                         }
                         match &arg.node {
-                            ParameterP::Normal(_, Some(type_)) => {
+                            ParameterP::Normal(_, Some(type_), None) => {
                                 if type_.span.contains(position) {
                                     return Some(AutocompleteType::Type);
                                 }
                             }
-                            ParameterP::WithDefaultValue(_, type_, expr) => {
+                            ParameterP::Normal(_, type_, Some(expr)) => {
                                 if let Some(type_) = type_ {
                                     if type_.span.contains(position) {
                                         return Some(AutocompleteType::Type);
@@ -228,7 +228,8 @@ impl AstModuleInspect for AstModule {
                         return Some(AutocompleteType::Default);
                     }
                     let get_previously_used_argument_names = || {
-                        args.iter()
+                        args.args
+                            .iter()
                             .filter_map(|arg| match arg {
                                 AstArgumentP {
                                     node: ArgumentP::Named(name, _),
@@ -238,7 +239,7 @@ impl AstModuleInspect for AstModule {
                             })
                             .collect()
                     };
-                    for arg in args {
+                    for arg in &args.args {
                         if !arg.span.contains(position) {
                             continue;
                         }

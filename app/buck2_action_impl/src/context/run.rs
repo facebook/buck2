@@ -10,49 +10,56 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
-use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
+use buck2_build_api::interpreter::rule_defs::command_executor_config::parse_custom_re_image;
+use buck2_build_api::interpreter::rule_defs::command_executor_config::parse_meta_internal_extra_params;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
 use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use dupe::Dupe;
 use either::Either;
+use gazebo::prelude::SliceClonedExt;
 use host_sharing::WeightClass;
 use host_sharing::WeightPercentage;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::StringValue;
+use starlark::values::UnpackAndDiscard;
+use starlark::values::Value;
+use starlark::values::ValueOf;
+use starlark::values::dict::DictRef;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::UnpackList;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
-use starlark::values::StringValue;
-use starlark::values::UnpackAndDiscard;
-use starlark::values::ValueOf;
-use starlark::values::ValueTypedComplex;
 use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
 
-use crate::actions::impls::run::dep_files::RunActionDepFiles;
-use crate::actions::impls::run::new_executor_preference;
 use crate::actions::impls::run::MetadataParameter;
 use crate::actions::impls::run::StarlarkRunActionValues;
 use crate::actions::impls::run::UnregisteredRunAction;
+use crate::actions::impls::run::dep_files::RunActionDepFiles;
+use crate::actions::impls::run::new_executor_preference;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub(crate) enum RunActionError {
     #[error("expected at least one output artifact, did not get any")]
     NoOutputsSpecified,
@@ -76,14 +83,19 @@ pub(crate) enum RunActionError {
         "Recursion limit exceeded when visiting artifacts: do you have a cycle in your inputs or outputs?"
     )]
     ArtifactVisitRecursionLimitExceeded,
+    #[error(
+        "`{}` was marked to be materialized on failure but is not declared as an output of the action.", .path 
+    )]
+    FailedActionArtifactNotDeclared { path: String },
 }
 
 #[starlark_module]
 pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
-    /// Runs a command
+    /// Run a command to produce one or more artifacts.
     ///
     /// * `arguments`: must be of type `cmd_args`, or a type convertible to such (such as a list of
-    ///   strings and artifacts) and must contain at least one `.as_output()` artifact
+    ///   strings and artifacts). See below for detailed description of artifact arguments.
+    /// * `env`: environment variables to set when the command is executed.
     /// * `category`: category and identifier - when used together, identify the action in Buck2's
     ///   event stream, and must be unique for a given target
     /// * `weight`: used to note how heavy the command is and will typically be set to a higher
@@ -120,6 +132,19 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     ///   Each dependency is dictionary with the following keys:
     ///     * `smc_tier`: name of the SMC tier to call by RE Scheduler.
     ///     * `id`: name of the dependency.
+    /// * `remote_execution_dynamic_image`: a custom Tupperware image which is passed to Remote Execution.
+    ///   It takes a dictionary with the following keys:
+    ///     * `identifier`: name of the SMC tier to call by RE Scheduler.
+    ///         * `name`: name of the image.
+    ///         * `uuid`: uuid of the image.
+    ///     * `drop_host_mount_globs`: list of strings containing file
+    ///     globs. Any mounts globs specified will not be bind mounted
+    ///     from the host.
+    ///  * `meta_internal_extra_params`: a dictionary to pass extra parameters to RE, can add more keys in the future:
+    ///     * `remote_execution_policy`: refer to TExecutionPolicy.
+    ///  * `outputs_for_error_handler`: Output files to be provided by action error handler the event of failure
+    ///     * The output must also be declared as an output of the action
+    ///     * Nothing will be provided if left empty (Which is the default)
     ///
     /// When actions execute, they'll do so from the root of the repository. As they execute,
     /// actions have exclusive access to their output directory.
@@ -130,6 +155,26 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     /// executes.
     ///
     /// When actions run locally, the scratch path is also used as the `TMPDIR`.
+    ///
+    /// ### Input and output artifacts
+    ///
+    /// Run action consumes arbitrary number of input artifacts
+    /// and produces at least one output artifact.
+    ///
+    /// Both input and output artifacts can be passed in:
+    /// - positional `arguments` parameters
+    /// - `env` dict
+    ///
+    /// Input artifacts must be already bound prior to this call,
+    /// meaning these artifacts must be either:
+    /// - source artifacts
+    /// - coming from dependencies
+    /// - declared locally and bound to another action (passed to `.as_output()`)
+    ///   *before* this `run()` call
+    /// - or created already bound with some simple action like `write()`
+    ///
+    /// Output artifacts must be declared locally (within the same analysis),
+    /// and must not be already bound. Output artifacts become "bound" after this call.
     fn run<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] arguments: StarlarkCommandLineValueUnpack<'v>,
@@ -157,11 +202,19 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             Either<ValueOf<'v, &'v WorkerRunInfo<'v>>, ValueOf<'v, &'v RunInfo<'v>>>,
         >,
         #[starlark(require = named, default = false)] unique_input_inodes: bool,
-        #[starlark(require = named)] error_handler: Option<StarlarkCallable<'v>>,
+        #[starlark(require = named, default = NoneOr::None)] error_handler: NoneOr<
+            StarlarkCallable<'v>,
+        >,
         eval: &mut Evaluator<'v, '_, '_>,
         #[starlark(require = named, default=UnpackList::default())]
         remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
-    ) -> anyhow::Result<NoneType> {
+        #[starlark(default = NoneType, require = named)] remote_execution_dynamic_image: Value<'v>,
+        #[starlark(require = named, default = NoneOr::None)] meta_internal_extra_params: NoneOr<
+            DictRef<'v>,
+        >,
+        #[starlark(require = named, default = UnpackListOrTuple::default())]
+        outputs_for_error_handler: UnpackListOrTuple<&'v StarlarkOutputArtifact<'v>>,
+    ) -> starlark::Result<NoneType> {
         struct RunCommandArtifactVisitor {
             inner: SimpleCommandLineArtifactVisitor,
             tagged_outputs: HashMap<ArtifactTag, Vec<OutputArtifact>>,
@@ -197,7 +250,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                 self.inner.visit_output(artifact, tag);
             }
 
-            fn push_frame(&mut self) -> anyhow::Result<()> {
+            fn push_frame(&mut self) -> buck2_error::Result<()> {
                 self.depth += 1;
                 if self.depth > 1000 {
                     return Err(RunActionError::ArtifactVisitRecursionLimitExceeded.into());
@@ -217,37 +270,43 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let starlark_args = StarlarkCmdArgs::try_from_value_typed(arguments)?;
         starlark_args.visit_artifacts(&mut artifact_visitor)?;
 
-        let (starlark_exe, starlark_worker) = match exe {
+        // TODO(nga): we should not accept output artifacts in worker.
+        let (starlark_exe, starlark_worker, starlark_remote_worker) = match exe {
             Some(Either::Left(worker_run)) => {
-                let worker: ValueTypedComplex<WorkerInfo> = worker_run.typed.worker();
+                let worker = worker_run.typed.worker();
+                let remote_worker = worker_run.typed.remote_worker();
                 let worker_exe = worker_run.typed.exe();
                 worker_exe.as_ref().visit_artifacts(&mut artifact_visitor)?;
                 let starlark_exe = StarlarkCmdArgs::try_from_value(worker_exe.to_value())?;
                 starlark_exe.visit_artifacts(&mut artifact_visitor)?;
-                (starlark_exe, Some(worker))
+                (starlark_exe, worker, remote_worker)
             }
             Some(Either::Right(exe)) => {
                 let starlark_exe = StarlarkCmdArgs::try_from_value(*exe)?;
                 starlark_exe.visit_artifacts(&mut artifact_visitor)?;
-                (starlark_exe, None)
+                (starlark_exe, None, None)
             }
-            None => (StarlarkCmdArgs::default(), None),
+            None => (StarlarkCmdArgs::default(), None, None),
         };
 
         let weight = match (weight, weight_percentage) {
             (None, None) => WeightClass::Permits(1),
             (Some(v), None) => {
                 if v < 1 {
-                    return Err(RunActionError::InvalidWeight(v).into());
+                    return Err(buck2_error::Error::from(RunActionError::InvalidWeight(v)).into());
                 } else {
                     WeightClass::Permits(v as usize)
                 }
             }
             (None, Some(v)) => WeightClass::Percentage(
-                WeightPercentage::try_new(v).context("Invalid `weight_percentage`")?,
+                WeightPercentage::try_new(v)
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+                    .buck_error_context("Invalid `weight_percentage`")?,
             ),
             (Some(..), Some(..)) => {
-                return Err(RunActionError::DuplicateWeightsSpecified.into());
+                return Err(
+                    buck2_error::Error::from(RunActionError::DuplicateWeightsSpecified).into(),
+                );
             }
         };
 
@@ -275,11 +334,13 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                 let count = tagged.map_or(0, |t| t.len());
 
                 if count != 1 {
-                    return Err(RunActionError::InvalidDepFileOutputs {
-                        key: (*key).to_owned(),
-                        count,
-                    }
-                    .into());
+                    return Err(
+                        buck2_error::Error::from(RunActionError::InvalidDepFileOutputs {
+                            key: (*key).to_owned(),
+                            count,
+                        })
+                        .into(),
+                    );
                 }
 
                 match dep_files_configuration.labels.entry(tag.dupe()) {
@@ -287,10 +348,12 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                         v.insert(Arc::from(key));
                     }
                     small_map::Entry::Occupied(o) => {
-                        return Err(RunActionError::ConflictingDepFiles {
-                            first: (**o.get()).to_owned(),
-                            second: (*key).to_owned(),
-                        }
+                        return Err(buck2_error::Error::from(
+                            RunActionError::ConflictingDepFiles {
+                                first: (**o.get()).to_owned(),
+                                second: (*key).to_owned(),
+                            },
+                        )
                         .into());
                     }
                 }
@@ -300,35 +363,59 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let metadata_param = match (metadata_env_var, metadata_path) {
             (Some(env_var), Some(path)) => {
                 let path: ForwardRelativePathBuf = path.try_into()?;
-                this.state().claim_output_path(eval, &path)?;
-                Ok(Some(MetadataParameter { env_var, path }))
+                this.state()?.claim_output_path(eval, &path)?;
+                buck2_error::Ok(Some(MetadataParameter { env_var, path }))
             }
-            (Some(_), None) => Err(anyhow::anyhow!(RunActionError::MetadataPathMissing)),
-            (None, Some(_)) => Err(anyhow::anyhow!(RunActionError::MetadataEnvVarMissing)),
+            (Some(_), None) => Err(RunActionError::MetadataPathMissing.into()),
+            (None, Some(_)) => Err(RunActionError::MetadataEnvVarMissing.into()),
             (None, None) => Ok(None),
         }?;
 
         if artifacts.outputs.is_empty() {
-            return Err(RunActionError::NoOutputsSpecified.into());
+            return Err(buck2_error::Error::from(RunActionError::NoOutputsSpecified).into());
         }
         let heap = eval.heap();
+
+        for o in outputs_for_error_handler.items.iter() {
+            let to_materialize = o.artifact()?.as_output();
+            if !artifacts.outputs.contains(&to_materialize) {
+                return Err(buck2_error::Error::from(
+                    RunActionError::FailedActionArtifactNotDeclared {
+                        path: o.to_string(),
+                    },
+                )
+                .into());
+            }
+        }
+
+        let outputs_for_error_handler = outputs_for_error_handler.items.cloned();
 
         let starlark_values = heap.alloc_complex(StarlarkRunActionValues {
             exe: heap.alloc_typed(starlark_exe),
             args: heap.alloc_typed(starlark_args),
             env: starlark_env,
             worker: starlark_worker,
+            remote_worker: starlark_remote_worker,
             category: {
                 CategoryRef::new(category.as_str())?;
                 category
             },
             identifier: identifier.into_option(),
+            outputs_for_error_handler,
         });
 
         let re_dependencies = remote_execution_dependencies
             .into_iter()
             .map(RemoteExecutorDependency::parse)
-            .collect::<anyhow::Result<Vec<RemoteExecutorDependency>>>()?;
+            .collect::<buck2_error::Result<Vec<RemoteExecutorDependency>>>()?;
+
+        let re_custom_image = parse_custom_re_image(
+            "remote_execution_dynamic_image",
+            remote_execution_dynamic_image,
+        )?;
+
+        let extra_params =
+            parse_meta_internal_extra_params(meta_internal_extra_params.into_option())?;
 
         let action = UnregisteredRunAction {
             executor_preference,
@@ -343,13 +430,15 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             force_full_hybrid_if_capable,
             unique_input_inodes,
             remote_execution_dependencies: re_dependencies,
+            remote_execution_custom_image: re_custom_image,
+            meta_internal_extra_params: extra_params,
         };
-        this.state().register_action(
+        this.state()?.register_action(
             artifacts.inputs,
             artifacts.outputs,
             action,
             Some(starlark_values),
-            error_handler,
+            error_handler.into_option(),
         )?;
         Ok(NoneType)
     }

@@ -1,0 +1,27 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+UTILS_SRCS = [
+    "ProjectFilesystemUtils.java",
+]
+
+buck_java_library(
+    name = "utils",
+    srcs = UTILS_SRCS,
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
+        "prelude//toolchains/android/src/com/facebook/buck/io/windowsfs:windowsfs",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jsr305",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem:filesystem",
+    ],
+)

@@ -295,9 +295,9 @@ impl Add for CharIndex {
 mod tests {
     use std::iter;
 
-    use crate::fast_string::convert_str_indices;
     use crate::fast_string::CharIndex;
     use crate::fast_string::StrIndices;
+    use crate::fast_string::convert_str_indices;
 
     #[test]
     fn test_convert_str_indices() {

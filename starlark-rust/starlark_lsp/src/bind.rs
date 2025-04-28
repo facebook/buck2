@@ -38,7 +38,6 @@ use starlark_syntax::syntax::ast::ForP;
 use starlark_syntax::syntax::ast::IdentP;
 use starlark_syntax::syntax::ast::LambdaP;
 use starlark_syntax::syntax::ast::Stmt;
-use starlark_syntax::syntax::module::AstModuleFields;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) enum Assigner {
@@ -183,10 +182,10 @@ fn dot_access<'a>(lhs: &'a AstExpr, attribute: &'a AstString, res: &mut Vec<Bind
                 attributes.push(attribute);
                 f(lhs, attributes, res);
             }
-            Expr::Call(name, parameters) => {
+            Expr::Call(name, args) => {
                 f(name, attributes, res);
                 // make sure that if someone does a(b).c, 'b' is bound and considered used.
-                for parameter in parameters {
+                for parameter in &args.args {
                     expr(parameter.expr(), res);
                 }
             }
@@ -364,7 +363,11 @@ mod tests {
         ]
         .into_map(|names| names.into_map(String::from));
 
-        let module = AstModule::parse("foo.star", contents.to_owned(), &Dialect::Extended)?;
+        let module = AstModule::parse(
+            "foo.star",
+            contents.to_owned(),
+            &Dialect::AllOptionsInternal,
+        )?;
         let scope = scope(&module);
 
         let found_bindings = scope
@@ -387,7 +390,11 @@ mod tests {
     #[test]
     fn dotted_contains_is_correct() -> starlark::Result<()> {
         let contents = "x1.y1.z1\nx2.y2.z2";
-        let module = AstModule::parse("foo.star", contents.to_owned(), &Dialect::Extended)?;
+        let module = AstModule::parse(
+            "foo.star",
+            contents.to_owned(),
+            &Dialect::AllOptionsInternal,
+        )?;
         let scope = scope(&module);
 
         let get = scope

@@ -7,12 +7,16 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use allocative::Allocative;
+use dupe::Dupe;
 use starlark_map::vec2;
 use starlark_map::vec2::Vec2;
 
+use super::attr_type::any_matches::AnyMatches;
 use crate::attrs::coerced_attr::CoercedAttr;
-use crate::attrs::id::AttributeId;
+use crate::attrs::spec::AttributeId;
 
 #[derive(Debug, Eq, PartialEq, Hash, Default, Allocative)]
 pub struct AttrValues {
@@ -64,5 +68,53 @@ impl<'a> IntoIterator for &'a AttrValues {
 
     fn into_iter(self) -> Self::IntoIter {
         self.sorted.iter()
+    }
+}
+
+#[derive(
+    Debug,
+    Dupe,
+    Eq,
+    PartialEq,
+    Hash,
+    Clone,
+    Allocative,
+    Default,
+    derive_more::Display
+)]
+#[display("{}", self.0.as_ref())]
+pub struct TargetModifiersValue(Arc<serde_json::Value>);
+
+impl TargetModifiersValue {
+    pub fn new(v: serde_json::Value) -> Self {
+        Self(Arc::new(v))
+    }
+
+    pub fn to_value(&self) -> serde_json::Value {
+        (*self.0).clone()
+    }
+
+    pub fn as_json(&self) -> Arc<serde_json::Value> {
+        self.0.dupe()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match self.0.as_ref() {
+            serde_json::Value::Null => true,
+            serde_json::Value::Bool(_) => false,
+            serde_json::Value::Number(_) => false,
+            serde_json::Value::String(_) => false,
+            serde_json::Value::Array(vec) => vec.is_empty(),
+            serde_json::Value::Object(map) => map.is_empty(),
+        }
+    }
+}
+
+impl AnyMatches for TargetModifiersValue {
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
+        self.0.any_matches(filter)
     }
 }

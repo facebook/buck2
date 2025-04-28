@@ -20,15 +20,15 @@
 //! These structures use vector backed storage if there are only a few elements, and and index
 //! for larger collections. The API mirrors standard Rust collections.
 
+pub use starlark_map::Equivalent;
+pub use starlark_map::Hashed;
+pub use starlark_map::StarlarkHashValue;
+pub use starlark_map::StarlarkHasher;
 pub use starlark_map::small_map::IntoIter;
 pub use starlark_map::small_map::Iter;
 pub use starlark_map::small_map::IterMut;
 pub use starlark_map::small_map::SmallMap;
 pub use starlark_map::small_set::SmallSet;
-pub use starlark_map::Equivalent;
-pub use starlark_map::Hashed;
-pub use starlark_map::StarlarkHashValue;
-pub use starlark_map::StarlarkHasher;
 
 pub(crate) mod aligned_padded_str;
 pub(crate) mod alloca;

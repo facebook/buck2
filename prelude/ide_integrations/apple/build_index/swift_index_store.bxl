@@ -1,0 +1,57 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("@prelude//cxx:index_store.bzl", "IndexStoreInfo", "merge_index_store")
+
+MERGE_TOOL_TARGET = "prelude//apple/tools/index:merge_index_store"
+
+# Magic number here. There is a trade off here:
+# more buckets -> fewer index stores in each bucket -> more duplication -> more materializion time but less time to wait from RE to merge bucket
+# less buckets -> more index stores in each bucket -> less duplication -> less materialization time but more time to wait from RE to merge bucket
+BUCKET_COUNT = 20
+
+def _hash_bucket_index_stores(index_stores: list[Artifact]) -> dict[int, list[Artifact]]:
+    buckets_to_artifacts = {}
+    for index_store in index_stores:
+        hash_value = hash(index_store.short_path)
+        bucket = hash_value % BUCKET_COUNT
+        if bucket not in buckets_to_artifacts:
+            buckets_to_artifacts[bucket] = []
+        buckets_to_artifacts[bucket].append(index_store)
+    return buckets_to_artifacts
+
+def _main(ctx: bxl.Context):
+    target = ctx.cli_args.target
+    node = ctx.lazy.configured_target_node(target).resolve()
+    analysis_res = ctx.lazy.analysis(node).resolve()
+    index_store_info = analysis_res.providers()[IndexStoreInfo]
+
+    merge_tool_target = ctx.unconfigured_sub_targets(MERGE_TOOL_TARGET)
+    bxl_actions = ctx.bxl_actions(
+        exec_deps = [merge_tool_target],
+    )
+
+    merge_tool = bxl_actions.exec_deps[merge_tool_target][RunInfo]
+
+    index_stores = list(index_store_info.swift_tset.traverse())
+
+    buckets_to_artifacts = _hash_bucket_index_stores(index_stores)
+
+    for bucket, index_stores in buckets_to_artifacts.items():
+        if not index_stores:
+            continue
+        merged_buck_index_store = merge_index_store(bxl_actions.actions, merge_tool, index_stores, "merge_bucket/{}/index_store".format(bucket))
+
+        merged = ctx.output.ensure(merged_buck_index_store).abs_path()
+        ctx.output.stream(merged, wait_on = [merged])
+
+main = bxl_main(
+    impl = _main,
+    cli_args = {
+        "target": cli_args.string(),
+    },
+)

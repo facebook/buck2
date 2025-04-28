@@ -1,0 +1,12 @@
+execution_platform(
+    name = "platform",
+)
+
+execution_platforms(
+    name = "platforms",
+    platforms = [":platform"],
+)
+
+china(
+    name = "plate",
+)

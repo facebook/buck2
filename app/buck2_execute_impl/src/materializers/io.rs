@@ -29,7 +29,7 @@ pub struct MaterializeTreeStructure {
 }
 
 impl IoRequest for MaterializeTreeStructure {
-    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
+    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
         materialize_dirs_and_syms(self.entry.as_ref(), project_fs.root().join(&self.path))?;
 
         Ok(())
@@ -48,7 +48,7 @@ fn materialize<F, D>(
     dest: &AbsNormPath,
     materialize_dirs_and_syms: bool,
     mut file_src: F,
-) -> anyhow::Result<()>
+) -> buck2_error::Result<()>
 where
     F: FnMut(&AbsNormPath) -> Option<AbsNormPathBuf>,
     D: ActionDirectory,
@@ -73,7 +73,7 @@ where
 pub(crate) fn materialize_dirs_and_syms<P, D>(
     entry: DirectoryEntry<&D, &ActionDirectoryMember>,
     dest: P,
-) -> anyhow::Result<()>
+) -> buck2_error::Result<()>
 where
     P: AsRef<AbsNormPath>,
     D: ActionDirectory,
@@ -89,7 +89,7 @@ pub(crate) fn materialize_files<P, D>(
     entry: DirectoryEntry<&D, &ActionDirectoryMember>,
     src: P,
     dest: P,
-) -> anyhow::Result<()>
+) -> buck2_error::Result<()>
 where
     P: AsRef<AbsNormPath>,
     D: ActionDirectory,
@@ -119,7 +119,7 @@ fn _materialize_files_from_map<P, D>(
     entry: DirectoryEntry<&D, &ActionDirectoryMember>,
     srcs: &mut HashMap<AbsNormPathBuf, AbsNormPathBuf>,
     dest: P,
-) -> anyhow::Result<()>
+) -> buck2_error::Result<()>
 where
     P: AsRef<AbsNormPath>,
     D: ActionDirectory,
@@ -133,7 +133,7 @@ fn materialize_recursively<'a, F, D>(
     dest: &mut AbsNormPathBuf,
     materialize_dirs_and_syms: bool,
     file_src: &mut F,
-) -> anyhow::Result<()>
+) -> buck2_error::Result<()>
 where
     F: FnMut(&AbsNormPath) -> Option<AbsNormPathBuf>,
     D: ActionDirectoryRef<'a>,

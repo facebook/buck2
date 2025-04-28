@@ -1,0 +1,16 @@
+stub(
+    name = "foo",
+    srcs = [
+        "foo.txt",
+    ],
+)
+
+stub(
+    name = "foo_dep",
+    srcs = [":foo"],
+)
+
+stub(
+    name = "none",
+    srcs = [],
+)

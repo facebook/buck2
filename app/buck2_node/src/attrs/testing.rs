@@ -25,24 +25,24 @@ use starlark_map::unordered_map::UnorderedMap;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::configuration::resolved::ConfigurationNode;
 use crate::configuration::resolved::ConfigurationSettingKey;
-use crate::configuration::resolved::ResolvedConfigurationSettings;
+use crate::configuration::resolved::MatchedConfigurationSettingKeys;
 
 pub fn configuration_ctx() -> impl AttrConfigurationContext {
     struct TestAttrConfigurationContext(
         ConfigurationData,
         ConfigurationData,
-        ResolvedConfigurationSettings,
+        MatchedConfigurationSettingKeys,
     );
     impl AttrConfigurationContext for TestAttrConfigurationContext {
         fn cfg(&self) -> ConfigurationNoExec {
             ConfigurationNoExec::new(self.0.dupe())
         }
 
-        fn exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec> {
+        fn exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
             Ok(ConfigurationNoExec::new(self.1.dupe()))
         }
 
-        fn resolved_cfg_settings(&self) -> &ResolvedConfigurationSettings {
+        fn matched_cfg_keys(&self) -> &MatchedConfigurationSettingKeys {
             &self.2
         }
 
@@ -50,13 +50,13 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             ConfigurationWithExec::new(self.0.dupe(), self.1.dupe())
         }
 
-        fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<ConfigurationData> {
+        fn platform_cfg(&self, _label: &TargetLabel) -> buck2_error::Result<ConfigurationData> {
             panic!("not used in tests")
         }
 
         fn resolved_transitions(
             &self,
-        ) -> anyhow::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
+        ) -> buck2_error::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
             panic!("not used in tests")
         }
     }
@@ -70,7 +70,7 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             },
         )
         .unwrap(),
-        ResolvedConfigurationSettings::new(UnorderedMap::from_iter([
+        MatchedConfigurationSettingKeys::new(UnorderedMap::from_iter([
             (
                 ConfigurationSettingKey::testing_parse("root//other:config"),
                 ConfigurationNode::new(Some(ConfigSettingData {

@@ -26,6 +26,7 @@
 pub(crate) mod arc_ty;
 pub(crate) mod basic;
 pub(crate) mod bindings;
+pub(crate) mod call_args;
 pub(crate) mod callable;
 pub(crate) mod callable_param;
 pub(crate) mod ctx;
@@ -52,9 +53,8 @@ mod tests;
 
 pub use basic::TyBasic;
 pub use callable::TyCallable;
-pub use callable_param::Param;
+pub use callable_param::ParamIsRequired;
 pub use callable_param::ParamSpec;
-pub use function::Arg;
 pub use function::TyFunction;
 pub use interface::Interface;
 pub use oracle::ctx::TypingOracleCtx;
@@ -64,7 +64,7 @@ pub use starlark_value::TyStarlarkValue;
 pub use structs::TyStruct;
 pub use ty::Approximation;
 pub use ty::Ty;
-pub use ty::TyName;
+pub use ty::TypeRenderConfig;
 pub use typecheck::AstModuleTypecheck;
 pub use typecheck::TypeMap;
 pub use user::TyUser;

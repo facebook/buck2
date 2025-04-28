@@ -1,0 +1,6 @@
+load(":defs.bzl", "fail_build1", "fail_build2", "fail_test", "ok_test")
+
+ok_test(name = "ok")
+fail_test(name = "fail_test")
+fail_build1(name = "fail_build1")
+fail_build2(name = "fail_build2")

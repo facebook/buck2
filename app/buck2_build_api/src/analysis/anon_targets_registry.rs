@@ -33,5 +33,5 @@ pub trait AnonTargetsRegistryDyn<'v>:
     fn as_any_mut(&mut self) -> &mut dyn AnyLifetime<'v>;
     fn take_promises(&mut self) -> Option<Box<dyn AnonPromisesDyn<'v>>>;
     fn consumer_analysis_artifacts(&self) -> Vec<PromiseArtifact>;
-    fn assert_no_promises(&self) -> anyhow::Result<()>;
+    fn assert_no_promises(&self) -> buck2_error::Result<()>;
 }

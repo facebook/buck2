@@ -62,9 +62,8 @@ def filter_and_map_idx(key: typing.Any, vals: list[typing.Any]) -> list[typing.A
 def idx(x: [typing.Any, None], key: typing.Any) -> [typing.Any, None]:
     return x[key] if x != None else None
 
-# TODO(T127134666) remove this once we have a native function that does this
 def dedupe_by_value(vals: list[typing.Any]) -> list[typing.Any]:
-    return {val: None for val in vals}.keys()
+    return list(set(vals))
 
 def map_val(func: typing.Callable[[typing.Any], typing.Any], val: [typing.Any, None]) -> [typing.Any, None]:
     """

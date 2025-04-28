@@ -13,26 +13,26 @@ use std::collections::HashMap;
 
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_data::StarlarkUserEvent;
+use buck2_data::StarlarkUserMetadataDictValue;
+use buck2_data::StarlarkUserMetadataListValue;
+use buck2_data::StarlarkUserMetadataValue;
 use buck2_data::starlark_user_metadata_value::Value::BoolValue;
 use buck2_data::starlark_user_metadata_value::Value::DictValue;
 use buck2_data::starlark_user_metadata_value::Value::IntValue;
 use buck2_data::starlark_user_metadata_value::Value::ListValue;
 use buck2_data::starlark_user_metadata_value::Value::StringValue;
-use buck2_data::StarlarkUserEvent;
-use buck2_data::StarlarkUserMetadataDictValue;
-use buck2_data::StarlarkUserMetadataListValue;
-use buck2_data::StarlarkUserMetadataValue;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
 use starlark::values::dict::DictRef;
 use starlark::values::float::UnpackFloat;
 use starlark::values::list::ListRef;
-use starlark::values::UnpackValue;
-use starlark::values::Value;
-use starlark::StarlarkResultExt;
 
 use super::artifacts::EnsuredArtifact;
 use super::context::output::get_artifact_path_display;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum StarlarkUserEventUnpack {
     #[error(
         "Metadata should be a dict where keys are strings, and values are strings, ints, bools, or dicts/lists of the mentioned types. Got type: `{0}`"
@@ -52,7 +52,11 @@ pub(crate) struct StarlarkUserEventParser<'v> {
 }
 
 impl<'v> StarlarkUserEventParser<'v> {
-    pub(crate) fn parse(&self, id: &str, metadata: Value<'v>) -> anyhow::Result<StarlarkUserEvent> {
+    pub(crate) fn parse(
+        &self,
+        id: &str,
+        metadata: Value<'v>,
+    ) -> buck2_error::Result<StarlarkUserEvent> {
         Ok(StarlarkUserEvent {
             id: id.to_owned(),
             metadata: self.unpack_metadata_map(metadata)?,
@@ -62,7 +66,7 @@ impl<'v> StarlarkUserEventParser<'v> {
     fn unpack_metadata_map(
         &self,
         metadata: Value<'v>,
-    ) -> anyhow::Result<HashMap<String, StarlarkUserMetadataValue>> {
+    ) -> buck2_error::Result<HashMap<String, StarlarkUserMetadataValue>> {
         let metadata = match DictRef::from_value(metadata) {
             Some(metadata) => metadata,
             None => {
@@ -88,14 +92,14 @@ impl<'v> StarlarkUserEventParser<'v> {
                 let v = self.get_metadata_value(&k, v)?;
                 Ok((k, v))
             })
-            .collect::<anyhow::Result<HashMap<_, _>>>()
+            .collect::<buck2_error::Result<HashMap<_, _>>>()
     }
 
     fn get_metadata_value(
         &self,
         k: &str,
         v: Value<'v>,
-    ) -> anyhow::Result<StarlarkUserMetadataValue> {
+    ) -> buck2_error::Result<StarlarkUserMetadataValue> {
         if let Some(v) = v.unpack_str() {
             Ok(StarlarkUserMetadataValue {
                 value: Some(StringValue(v.into())),
@@ -109,11 +113,11 @@ impl<'v> StarlarkUserEventParser<'v> {
                 value: Some(IntValue(v)),
             })
         // Let's also accept floats since `instant()` methods return floats, but cast them to ints
-        } else if let Some(v) = UnpackFloat::unpack_value(v).into_anyhow_result()? {
+        } else if let Some(v) = UnpackFloat::unpack_value(v)? {
             Ok(StarlarkUserMetadataValue {
                 value: Some(IntValue(v.0 as i32)),
             })
-        } else if let Some(v) = <&EnsuredArtifact>::unpack_value(v).into_anyhow_result()? {
+        } else if let Some(v) = <&EnsuredArtifact>::unpack_value(v)? {
             let path = get_artifact_path_display(
                 v.get_artifact_path(),
                 v.abs(),
@@ -133,7 +137,7 @@ impl<'v> StarlarkUserEventParser<'v> {
             let list = v
                 .iter()
                 .map(|e| self.get_metadata_value(k, e))
-                .collect::<anyhow::Result<Vec<_>>>()?;
+                .collect::<buck2_error::Result<Vec<_>>>()?;
             let list = StarlarkUserMetadataListValue { value: list };
             Ok(StarlarkUserMetadataValue {
                 value: Some(ListValue(list)),

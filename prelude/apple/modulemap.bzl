@@ -15,14 +15,30 @@ load(
     "CPreprocessor",
     "CPreprocessorArgs",
 )
-load(":apple_utility.bzl", "get_module_name")
 
-def preprocessor_info_for_modulemap(ctx: AnalysisContext, name: str, headers: list[CHeader], swift_header: Artifact | None) -> CPreprocessor:
+def preprocessor_info_for_modulemap(
+        ctx: AnalysisContext,
+        name: str,
+        module_name: str,
+        headers: list[CHeader],
+        swift_header: Artifact | None,
+        mark_headers_private: bool,
+        additional_args: CPreprocessorArgs | None) -> CPreprocessor:
+    preprocessor_info, _ = create_modulemap(ctx, name, module_name, headers, swift_header, mark_headers_private, additional_args)
+    return preprocessor_info
+
+def create_modulemap(
+        ctx: AnalysisContext,
+        name: str,
+        module_name: str,
+        headers: list[CHeader],
+        swift_header: Artifact | None,
+        mark_headers_private: bool,
+        additional_args: CPreprocessorArgs | None,
+        is_framework: bool = False) -> (CPreprocessor, Artifact):
     # We don't want to name this module.modulemap to avoid implicit importing
-    if name == "module":
+    if name == "module" and not is_framework:
         fail("Don't use the name `module` for modulemaps, this will allow for implicit importing.")
-
-    module_name = get_module_name(ctx)
 
     # Create a map of header import path to artifact location
     header_map = {}
@@ -32,13 +48,17 @@ def preprocessor_info_for_modulemap(ctx: AnalysisContext, name: str, headers: li
         else:
             header_map[h.name] = h.artifact
 
-    # We need to include the Swift header in the symlink tree too
-    swift_header_name = "{}/{}-Swift.h".format(module_name, module_name)
+    swift_header_name = None
     if swift_header:
+        # We need to include the Swift header in the symlink tree too
+        swift_header_name = "{}/{}-Swift.h".format(module_name, module_name)
         header_map[swift_header_name] = swift_header
 
+        if mark_headers_private:
+            fail("You shouldn't be generating a bridging header for a private module map.")
+
     # Create a symlink dir for the headers to import
-    symlink_tree = ctx.actions.symlinked_dir(name + "_symlink_tree", header_map)
+    symlink_tree = ctx.actions.symlinked_dir(name.replace(".", "_") + "_symlink_tree", header_map)
 
     # Create a modulemap at the root of that tree
     output = ctx.actions.declare_output(name + ".modulemap")
@@ -47,7 +67,7 @@ def preprocessor_info_for_modulemap(ctx: AnalysisContext, name: str, headers: li
         "--output",
         output.as_output(),
         "--name",
-        get_module_name(ctx),
+        module_name,
         "--symlink-tree",
         symlink_tree,
     ])
@@ -58,21 +78,30 @@ def preprocessor_info_for_modulemap(ctx: AnalysisContext, name: str, headers: li
             swift_header,
         ])
 
-    if ctx.attrs.use_submodules:
+    if getattr(ctx.attrs, "use_submodules", False):
         cmd.add("--use-submodules")
+
+    if is_framework:
+        cmd.add("--framework")
 
     for hdr in sorted(header_map.keys()):
         # Don't include the Swift header in the mappings, this is handled separately.
         if hdr != swift_header_name:
             cmd.add(hdr)
 
+    if mark_headers_private:
+        cmd.add("--mark-headers-private")
+
     ctx.actions.run(cmd, category = "modulemap", identifier = name)
 
     return CPreprocessor(
-        args = CPreprocessorArgs(args = _exported_preprocessor_args(symlink_tree)),
+        args = CPreprocessorArgs(
+            args = _exported_preprocessor_args(symlink_tree) + (additional_args.args if additional_args else []),
+            file_prefix_args = additional_args.file_prefix_args if additional_args else [],
+        ),
         modular_args = _args_for_modulemap(output, symlink_tree, swift_header),
         modulemap_path = cmd_args(output, hidden = cmd_args(symlink_tree)),
-    )
+    ), output
 
 def _args_for_modulemap(
         modulemap: Artifact,

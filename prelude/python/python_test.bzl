@@ -6,12 +6,12 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
 )
 load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
-load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(":interface.bzl", "EntryPointKind")
 load(":make_py_package.bzl", "PexProviders", "make_default_info")
 load(
@@ -53,13 +53,16 @@ def python_test_executable(ctx: AnalysisContext) -> PexProviders:
     # Add in default test runner.
     srcs["__test_main__.py"] = ctx.attrs._test_main
 
-    resources = qualify_srcs(ctx.label, ctx.attrs.base_module, py_attr_resources(ctx))
+    resources_map, standalone_resources_map = py_attr_resources(ctx)
+    standalone_resources = qualify_srcs(ctx.label, ctx.attrs.base_module, standalone_resources_map)
+    resources = qualify_srcs(ctx.label, ctx.attrs.base_module, resources_map)
 
     return python_executable(
         ctx,
         (EntryPointKind("module"), main_module),
         srcs,
         resources,
+        standalone_resources,
         compile = value_or(ctx.attrs.compile, False),
         allow_cache_upload = False,
     )
@@ -70,13 +73,16 @@ def python_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Setup RE executors based on the `remote_execution` param.
     re_executor, executor_overrides = get_re_executors_from_props(ctx)
+    test_env = ctx.attrs.env
+    if pex.dbg_source_db:
+        test_env["PYTHON_SOURCE_MAP"] = pex.dbg_source_db
 
     return inject_test_run_info(
         ctx,
         ExternalRunnerTestInfo(
             type = "pyunit",
             command = [test_cmd],
-            env = ctx.attrs.env,
+            env = test_env,
             labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
             default_executor = re_executor,

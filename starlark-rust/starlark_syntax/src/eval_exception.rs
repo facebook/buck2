@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 
+use std::fmt::Display;
+
 use crate::call_stack::CallStack;
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::diagnostic::WithDiagnostic;
+use crate::internal_error;
 
 /// Error with location.
 #[derive(Debug, derive_more::Display)]
@@ -31,6 +34,11 @@ impl EvalException {
     #[cold]
     pub fn into_error(self) -> crate::Error {
         self.0
+    }
+
+    #[cold]
+    pub fn into_internal_error(self) -> Self {
+        EvalException(self.0.into_internal_error())
     }
 
     #[cold]
@@ -63,6 +71,24 @@ impl EvalException {
     pub fn new_anyhow(error: anyhow::Error, span: Span, codemap: &CodeMap) -> EvalException {
         EvalException(crate::Error::new_spanned(
             crate::ErrorKind::Other(error),
+            span,
+            codemap,
+        ))
+    }
+
+    #[cold]
+    pub fn internal_error(error: impl Display, span: Span, codemap: &CodeMap) -> EvalException {
+        Self::new(internal_error!("{}", error), span, codemap)
+    }
+
+    #[cold]
+    pub(crate) fn parser_error(
+        error: impl Display,
+        span: Span,
+        codemap: &CodeMap,
+    ) -> EvalException {
+        EvalException(crate::Error::new_spanned(
+            crate::ErrorKind::Parser(anyhow::anyhow!("{error}")),
             span,
             codemap,
         ))

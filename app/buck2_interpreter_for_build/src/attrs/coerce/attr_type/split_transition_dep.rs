@@ -12,12 +12,10 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::typing::Ty;
-use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
-use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 
 impl AttrTypeCoerce for SplitTransitionDepAttrType {
     fn coerce_item(
@@ -25,12 +23,8 @@ impl AttrTypeCoerce for SplitTransitionDepAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
-        let label = value
-            .unpack_str()
-            .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
-
-        let label = ctx.coerce_providers_label(label)?;
+    ) -> buck2_error::Result<CoercedAttr> {
+        let label = ctx.coerce_providers_label(value.unpack_str_err()?)?;
 
         Ok(CoercedAttr::SplitTransitionDep(label))
     }

@@ -8,8 +8,8 @@
  */
 
 use async_trait::async_trait;
-use buck2_server_ctx::bxl::BxlServerCommands;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
+use buck2_server_ctx::bxl::BxlServerCommands;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -26,8 +26,8 @@ impl BxlServerCommands for BxlServerCommandsInstance {
         ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::BxlRequest,
-    ) -> anyhow::Result<buck2_cli_proto::BxlResponse> {
-        bxl_command(ctx, partial_result_dispatcher, req).await
+    ) -> buck2_error::Result<buck2_cli_proto::BxlResponse> {
+        Ok(bxl_command(ctx, partial_result_dispatcher, req).await?)
     }
 
     async fn bxl_profile(
@@ -35,8 +35,8 @@ impl BxlServerCommands for BxlServerCommandsInstance {
         ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::ProfileRequest,
-    ) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
-        bxl_profile_command(ctx, partial_result_dispatcher, req).await
+    ) -> buck2_error::Result<buck2_cli_proto::ProfileResponse> {
+        Ok(bxl_profile_command(ctx, partial_result_dispatcher, req).await?)
     }
 }
 

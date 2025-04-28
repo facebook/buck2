@@ -18,12 +18,9 @@
 use std::collections::HashSet;
 
 use proc_macro2::Span;
+use quote::ToTokens;
 use quote::quote;
 use quote::quote_spanned;
-use syn::parse::ParseStream;
-use syn::parse_macro_input;
-use syn::parse_quote;
-use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::DeriveInput;
 use syn::GenericArgument;
@@ -36,18 +33,50 @@ use syn::ReturnType;
 use syn::TraitBound;
 use syn::Type;
 use syn::TypeParamBound;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::parse_quote;
+use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
 
 use crate::util::DeriveInputUtil;
 
-pub fn derive_trace(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let mut input = parse_macro_input!(input as DeriveInput);
+pub(crate) fn derive_trace(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    match derive_trace_impl(input) {
+        Ok(x) => x.into_token_stream().into(),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
+fn derive_trace_impl(mut input: DeriveInput) -> syn::Result<syn::ItemImpl> {
     let tick_v = GenericParam::Lifetime(LifetimeParam::new(Lifetime::new("'v", Span::call_site())));
+
+    let TraceAttrs {
+        unsafe_ignore,
+        trace_static,
+        bounds,
+    } = parse_attrs(&input.attrs)?;
+    if let Some(unsafe_ignore) = unsafe_ignore {
+        return Err(syn::Error::new_spanned(
+            unsafe_ignore,
+            "`unsafe_ignore` attribute is not allowed on `#[derive(Trace)]`, only on fields",
+        ));
+    }
+    if let Some(trace_static) = trace_static {
+        return Err(syn::Error::new_spanned(
+            trace_static,
+            "`static` attribute is not allowed on `#[derive(Trace)]`, only on fields",
+        ));
+    }
 
     let bound: TypeParamBound = parse_quote!(starlark::values::Trace<'v>);
     let mut has_tick_v = false;
     for param in &mut input.generics.params {
         if let GenericParam::Type(type_param) = param {
-            type_param.bounds.push(bound.clone());
+            if bounds.is_none() {
+                type_param.bounds.push(bound.clone());
+            }
         }
         if let GenericParam::Lifetime(t) = param {
             if t.lifetime.ident == "v" {
@@ -55,6 +84,23 @@ pub fn derive_trace(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             }
         }
     }
+    if let Some(bounds) = bounds {
+        'outer: for bound in bounds {
+            for param in &mut input.generics.params {
+                if let GenericParam::Type(type_param) = param {
+                    if type_param.ident == bound.ident {
+                        type_param.bounds.extend(bound.bounds);
+                        continue 'outer;
+                    }
+                }
+            }
+            return Err(syn::Error::new_spanned(
+                bound,
+                "Type parameter not found in the generic parameters",
+            ));
+        }
+    }
+
     let mut generics2 = input.generics.clone();
 
     let (_, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -64,37 +110,92 @@ pub fn derive_trace(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let (impl_generics, _, _) = generics2.split_for_impl();
 
     let name = &input.ident;
-    let body = match trace_impl(&input, &input.generics) {
-        Ok(body) => body,
-        Err(e) => {
-            return e.to_compile_error().into();
-        }
-    };
-    let gen = quote! {
+    let body = trace_impl(&input, &input.generics)?;
+    Ok(syn::parse_quote! {
         unsafe impl #impl_generics starlark::values::Trace<'v> for #name #ty_generics #where_clause {
             #[allow(unused_variables)]
             fn trace(&mut self, tracer: &starlark::values::Tracer<'v>) {
                 #body
             }
         }
-    };
-    gen.into()
+    })
+}
+
+syn::custom_keyword!(unsafe_ignore);
+syn::custom_keyword!(bound);
+
+#[derive(Default)]
+struct TraceAttrs {
+    /// `#[trace(unsafe_ignore)]`
+    unsafe_ignore: Option<unsafe_ignore>,
+    /// `#[trace(static)]`
+    trace_static: Option<syn::Token![static]>,
+    /// `#[trace(bound = "A: 'static, B: Trace<'v>")]`
+    bounds: Option<Punctuated<syn::TypeParam, syn::Token![,]>>,
+}
+
+impl TraceAttrs {
+    fn parse(attr: &Attribute) -> syn::Result<TraceAttrs> {
+        attr.parse_args_with(|input: ParseStream| {
+            let mut trace_attrs = TraceAttrs::default();
+            while !input.is_empty() {
+                if let Some(unsafe_ignore) = input.parse::<Option<unsafe_ignore>>()? {
+                    if trace_attrs.unsafe_ignore.is_some() {
+                        return Err(syn::Error::new_spanned(
+                            unsafe_ignore,
+                            "Duplicate `unsafe_ignore` attribute",
+                        ));
+                    }
+                    trace_attrs.unsafe_ignore = Some(unsafe_ignore);
+                } else if let Some(trace_static) = input.parse::<Option<syn::Token![static]>>()? {
+                    if trace_attrs.trace_static.is_some() {
+                        return Err(syn::Error::new_spanned(
+                            trace_static,
+                            "Duplicate `static` attribute",
+                        ));
+                    }
+                    trace_attrs.trace_static = Some(trace_static);
+                } else if let Some(bound) = input.parse::<Option<bound>>()? {
+                    if trace_attrs.bounds.is_some() {
+                        return Err(syn::Error::new_spanned(
+                            bound,
+                            "Duplicate `bound` attribute",
+                        ));
+                    }
+                    input.parse::<syn::Token![=]>()?;
+                    let bounds = input.parse::<syn::LitStr>()?;
+                    let bounds = bounds
+                        .parse_with(|parser: ParseStream| Punctuated::parse_terminated(parser))?;
+                    trace_attrs.bounds = Some(bounds);
+                } else {
+                    return Err(input.error("Unknown attribute"));
+                }
+                if input.is_empty() {
+                    break;
+                }
+                input.parse::<syn::Token![,]>()?;
+            }
+            Ok(trace_attrs)
+        })
+    }
 }
 
 /// Parse attribute `#[trace(unsafe_ignore)]`.
 ///
 /// Currently it fails on any attribute argument other than `unsafe_ignore`.
-fn is_ignore(attrs: &[Attribute]) -> bool {
-    syn::custom_keyword!(unsafe_ignore);
+fn parse_attrs(attrs: &[Attribute]) -> syn::Result<TraceAttrs> {
+    let mut trace_attrs = None;
 
-    attrs.iter().any(|a| {
-        a.path().is_ident("trace")
-            && a.parse_args_with(|input: ParseStream| {
-                let ignore = input.parse::<Option<unsafe_ignore>>()?.is_some();
-                Ok(ignore)
-            })
-            .unwrap()
-    })
+    for attr in attrs {
+        if attr.path().is_ident("trace") {
+            if trace_attrs.is_some() {
+                return Err(syn::Error::new_spanned(attr, "Duplicate `trace` attribute"));
+            }
+            trace_attrs = Some(TraceAttrs::parse(attr)?);
+        }
+    }
+
+    Ok(trace_attrs.unwrap_or_default())
 }
 
 fn trace_impl(derive_input: &DeriveInput, generics: &Generics) -> syn::Result<syn::Expr> {
@@ -106,9 +207,26 @@ fn trace_impl(derive_input: &DeriveInput, generics: &Generics) -> syn::Result<sy
         .collect();
 
     derive_input.for_each_field(|name, field| {
-        if is_ignore(&field.attrs) {
+        let TraceAttrs {
+            unsafe_ignore,
+            trace_static,
+            bounds,
+        } = parse_attrs(&field.attrs)?;
+        if let (Some(unsafe_ignore), Some(_trace_static)) = (unsafe_ignore, trace_static) {
+            return Err(syn::Error::new_spanned(
+                unsafe_ignore,
+                "Cannot have both `unsafe_ignore` and `static` attributes",
+            ));
+        }
+        if let Some(bounds) = bounds {
+            return Err(syn::Error::new_spanned(
+                bounds,
+                "The `bound` attribute can only be used on the `#[derive(Trace)]`",
+            ));
+        }
+        if unsafe_ignore.is_some() {
             Ok(quote! {})
-        } else if is_static(&field.ty, &generic_types) {
+        } else if trace_static.is_some() || is_static(&field.ty, &generic_types) {
             Ok(quote_spanned! {
                 field.span()=>
                 starlark::values::Tracer::trace_static(tracer, #name);

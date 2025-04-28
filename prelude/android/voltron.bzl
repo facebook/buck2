@@ -17,7 +17,6 @@ load(
 )
 load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//utils:set.bzl", "set")
 load("@prelude//utils:utils.bzl", "flatten")
 
 # "Voltron" gives us the ability to split our Android APKs into different "modules". These
@@ -73,7 +72,7 @@ def android_app_modularity_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.attrs._android_toolchain[AndroidToolchainInfo],
         ctx.attrs.application_module_configs,
         ctx.attrs.application_module_dependencies,
-        ctx.attrs.application_module_blacklist,
+        ctx.attrs.application_module_blocklist,
     )
 
     if ctx.attrs.should_include_classes:
@@ -136,7 +135,7 @@ def get_target_to_module_mapping(ctx: AnalysisContext, deps_by_platform: dict[st
         ctx.attrs._android_toolchain[AndroidToolchainInfo],
         ctx.attrs.application_module_configs,
         ctx.attrs.application_module_dependencies,
-        ctx.attrs.application_module_blacklist,
+        ctx.attrs.application_module_blocklist,
     )
 
     cmd.add("--output-module-info-and-target-to-module-only")
@@ -192,8 +191,8 @@ def _get_base_cmd_and_output(
     used_by_wrap_script_libs = [str(shared_lib.label.raw_target()) for shared_lib in shared_libraries if shared_lib.for_primary_apk]
     prebuilt_native_library_dirs = flatten([list(android_packageable_info.prebuilt_native_library_dirs.traverse()) if android_packageable_info.prebuilt_native_library_dirs else [] for android_packageable_info in android_packageable_infos])
     prebuilt_native_library_targets_for_primary_apk = dedupe([str(native_lib_dir.raw_target) for native_lib_dir in prebuilt_native_library_dirs if native_lib_dir.for_primary_apk])
-    if application_module_blocklist or used_by_wrap_script_libs or prebuilt_native_library_targets_for_primary_apk or primary_apk_deps.size() > 0:
-        all_blocklisted_deps = used_by_wrap_script_libs + prebuilt_native_library_targets_for_primary_apk + primary_apk_deps.list()
+    if application_module_blocklist or used_by_wrap_script_libs or prebuilt_native_library_targets_for_primary_apk or len(primary_apk_deps) > 0:
+        all_blocklisted_deps = used_by_wrap_script_libs + prebuilt_native_library_targets_for_primary_apk + list(primary_apk_deps)
         if application_module_blocklist:
             all_blocklisted_deps.extend([str(blocklisted_dep.label.raw_target()) for blocklisted_dep in application_module_blocklist])
 
@@ -221,6 +220,9 @@ APKModuleGraphInfo = record(
     target_to_module_mapping_function = typing.Callable,
     module_to_canary_class_name_function = typing.Callable,
     module_to_module_deps_function = typing.Callable,
+    transitive_module_deps_function = typing.Callable,
+    calculated_deps_function = typing.Callable,
+    get_deps_debug_data = typing.Callable,
 )
 
 def get_root_module_only_apk_module_graph_info() -> APKModuleGraphInfo:
@@ -237,6 +239,9 @@ def get_root_module_only_apk_module_graph_info() -> APKModuleGraphInfo:
         target_to_module_mapping_function = all_targets_in_root_module,
         module_to_canary_class_name_function = root_module_canary_class_name,
         module_to_module_deps_function = root_module_deps,
+        transitive_module_deps_function = root_module_deps,
+        calculated_deps_function = root_module_deps,
+        get_deps_debug_data = root_module_deps,
     )
 
 def get_apk_module_graph_info(
@@ -251,6 +256,9 @@ def get_apk_module_graph_info(
 
     module_to_canary_class_name_map = {}
     module_to_module_deps_map = {}
+    transitive_module_deps_map = {}
+    calculated_deps_map = {}
+    shared_module_rdeps = {}
     for line in module_infos:
         line_data = line.split(" ")
         module_name = line_data[0]
@@ -258,11 +266,36 @@ def get_apk_module_graph_info(
         module_deps = [module_dep for module_dep in line_data[2:] if module_dep]
         module_to_canary_class_name_map[module_name] = canary_class_name
         module_to_module_deps_map[module_name] = module_deps
+        shared_modules = [module_dep for module_dep in module_deps if module_dep.startswith("s_")]
+        for shared_module in shared_modules:
+            rdeps = shared_module_rdeps.get(shared_module, set())
+            rdeps.add(module_name)
+            shared_module_rdeps[shared_module] = rdeps
 
     target_to_module_mapping = {str(ctx.label.raw_target()): ROOT_MODULE}
     for line in target_to_module_lines:
         target, module = line.split(" ")
         target_to_module_mapping[target] = module
+
+    for module, deps in module_to_module_deps_map.items():
+        visited_modules = set()
+        queue = [d for d in deps]
+        for _ in range(1, 1000):  # represents a while loop since while loops dont exist in starlark
+            if len(queue) == 0:
+                transitive_module_deps_map[module] = visited_modules
+                continue
+            node = queue.pop()
+            visited_modules.add(node)
+            for d in module_to_module_deps_map[node]:
+                if d not in visited_modules:
+                    queue.append(d)
+    for shared_module, rdeps in shared_module_rdeps.items():
+        rdeps_list = list(rdeps)
+        head = rdeps_list[0]
+        intersection = transitive_module_deps_map[head]
+        for rdep in rdeps_list[1:]:
+            intersection = intersection & transitive_module_deps_map[rdep]
+        calculated_deps_map[shared_module] = intersection | rdeps
 
     def target_to_module_mapping_function(raw_target: str) -> str:
         mapped_module = target_to_module_mapping.get(raw_target)
@@ -275,9 +308,21 @@ def get_apk_module_graph_info(
     def module_to_module_deps_function(voltron_module: str) -> list:
         return module_to_module_deps_map.get(voltron_module)
 
+    def transitive_module_deps_function(voltron_module: str) -> set[str]:
+        return transitive_module_deps_map.get(voltron_module)
+
+    def calculated_deps_function(voltron_module: str) -> set[str]:
+        return calculated_deps_map.get(voltron_module) if voltron_module in calculated_deps_map else set()
+
+    def get_deps_debug_data() -> str:
+        return "tdeps - {} \n calculated deps - {}".format(transitive_module_deps_map, calculated_deps_map)
+
     return APKModuleGraphInfo(
         module_list = module_to_canary_class_name_map.keys(),
         target_to_module_mapping_function = target_to_module_mapping_function,
         module_to_canary_class_name_function = module_to_canary_class_name_function,
         module_to_module_deps_function = module_to_module_deps_function,
+        transitive_module_deps_function = transitive_module_deps_function,
+        calculated_deps_function = calculated_deps_function,
+        get_deps_debug_data = get_deps_debug_data,
     )

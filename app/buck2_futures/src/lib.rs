@@ -8,12 +8,11 @@
  */
 
 #![feature(assert_matches)]
-#![feature(pin_deref_mut)]
 
-pub mod cancellable_future;
 pub mod cancellation;
+mod details;
 pub mod drop;
-pub mod instrumented_shared;
+pub mod drop_on_ready;
 mod maybe_future;
 pub mod owning_future;
 pub mod spawn;

@@ -40,11 +40,14 @@ use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe;
 use dupe::Dupe_;
+use dupe::IterDupedExt;
+use dupe::OptionDupedExt;
 use either::Either;
 use num_bigint::BigInt;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_map::Equivalent;
+use starlark_syntax::value_error;
 
 use crate as starlark;
 use crate::any::AnyLifetime;
@@ -56,28 +59,46 @@ use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::docs::DocItem;
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
+use crate::eval::ParametersSpec;
 use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::FrozenDef;
 use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::eval::runtime::frame_span::FrameSpan;
-use crate::eval::Arguments;
-use crate::eval::Evaluator;
-use crate::eval::ParametersSpec;
 use crate::sealed::Sealed;
+use crate::typing::ParamIsRequired;
+use crate::typing::ParamSpec;
 use crate::typing::Ty;
-use crate::values::bool::VALUE_FALSE_TRUE;
+use crate::typing::TyCallable;
+use crate::util::ArcStr;
+use crate::values::FreezeResult;
+use crate::values::Freezer;
+use crate::values::FrozenRef;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValueTyped;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::StringValue;
+use crate::values::Trace;
+use crate::values::UnpackValue;
+use crate::values::ValueError;
+use crate::values::ValueIdentity;
+use crate::values::bool::value::VALUE_FALSE_TRUE;
 use crate::values::demand::request_value_impl;
 use crate::values::dict::FrozenDictRef;
+use crate::values::dict::value::VALUE_EMPTY_FROZEN_DICT;
 use crate::values::enumeration::EnumType;
 use crate::values::enumeration::FrozenEnumValue;
+use crate::values::function::FUNCTION_TYPE;
 use crate::values::function::FrozenBoundMethod;
 use crate::values::function::NativeFunction;
-use crate::values::function::FUNCTION_TYPE;
-use crate::values::int::PointerI32;
+use crate::values::int::pointer_i32::PointerI32;
 use crate::values::iter::StarlarkIterator;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::repr::AValueHeader;
+use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::pointer::FrozenPointer;
 use crate::values::layout::pointer::Pointer;
@@ -90,7 +111,6 @@ use crate::values::layout::vtable::AValueDynFull;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::list::value::VALUE_EMPTY_FROZEN_LIST;
 use crate::values::none::none_type::VALUE_NONE;
-use crate::values::num::value::NumRef;
 use crate::values::range::Range;
 use crate::values::record::instance::FrozenRecord;
 use crate::values::record::record_type::RecordType;
@@ -102,22 +122,12 @@ use crate::values::string::str_type::StarlarkStr;
 use crate::values::structs::value::FrozenStruct;
 use crate::values::tuple::value::VALUE_EMPTY_TUPLE;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::inline_int::InlineInt;
-use crate::values::types::int_or_big::StarlarkIntRef;
+use crate::values::types::int::inline_int::InlineInt;
+use crate::values::types::int::int_or_big::StarlarkIntRef;
 use crate::values::types::list::value::FrozenListData;
+use crate::values::types::num::value::NumRef;
 use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;
-use crate::values::Freezer;
-use crate::values::FrozenRef;
-use crate::values::FrozenStringValue;
-use crate::values::FrozenValueTyped;
-use crate::values::Heap;
-use crate::values::StarlarkValue;
-use crate::values::StringValue;
-use crate::values::Trace;
-use crate::values::UnpackValue;
-use crate::values::ValueError;
-use crate::values::ValueIdentity;
 
 // We already import another `ValueError`, hence the odd name.
 #[derive(Debug, thiserror::Error)]
@@ -176,6 +186,14 @@ impl Display for FrozenValue {
 }
 
 fn debug_value(typ: &str, v: Value, f: &mut fmt::Formatter) -> fmt::Result {
+    // When value is being moved during GC or freeze,
+    // `Value` pointee is not a proper value, but a GC-related information.
+    // Regular operations like `.to_repr()` crash, but `Debug` should work.
+    if let Some(x) = v.0.unpack_ptr() {
+        if let AValueOrForwardUnpack::Forward(fwd) = x.unpack() {
+            return f.debug_tuple(typ).field(&fwd).finish();
+        }
+    }
     f.debug_tuple(typ).field(v.get_ref().as_debug()).finish()
 }
 
@@ -264,12 +282,12 @@ impl<'v> Value<'v> {
 
     #[inline]
     pub(crate) unsafe fn new_ptr_usize_with_str_tag(x: usize) -> Self {
-        Self(Pointer::new_unfrozen_usize_with_str_tag(x))
+        unsafe { Self(Pointer::new_unfrozen_usize_with_str_tag(x)) }
     }
 
     #[inline]
     pub(crate) unsafe fn cast_lifetime<'w>(self) -> Value<'w> {
-        Value(self.0.cast_lifetime())
+        unsafe { Value(self.0.cast_lifetime()) }
     }
 
     /// Create a new `None` value.
@@ -329,8 +347,10 @@ impl<'v> Value<'v> {
 
     #[inline]
     unsafe fn unpack_frozen_unchecked(self) -> FrozenValue {
-        debug_assert!(!self.0.is_unfrozen());
-        FrozenValue(self.0.cast_lifetime().to_frozen_pointer_unchecked())
+        unsafe {
+            debug_assert!(!self.0.is_unfrozen());
+            FrozenValue(self.0.cast_lifetime().to_frozen_pointer_unchecked())
+        }
     }
 
     /// Is this value `None`.
@@ -448,6 +468,12 @@ impl<'v> Value<'v> {
         self.unpack_starlark_str().map(|s| s.as_str())
     }
 
+    /// Obtain the underlying `str` if it is a string, otherwise return an error for users.
+    #[inline]
+    pub fn unpack_str_err(self) -> crate::Result<&'v str> {
+        UnpackValue::unpack_value_err(self)
+    }
+
     /// Get a pointer to a [`AValue`].
     #[inline]
     pub(crate) fn get_ref(self) -> AValueDyn<'v> {
@@ -478,13 +504,15 @@ impl<'v> Value<'v> {
     #[inline]
     pub(crate) unsafe fn downcast_ref_unchecked<T: StarlarkValue<'v>>(self) -> &'v T {
         debug_assert!(self.get_ref().downcast_ref::<T>().is_some());
-        if PointerI32::type_is_pointer_i32::<T>() {
-            transmute!(&PointerI32, &T, self.0.unpack_pointer_i32_unchecked())
-        } else {
-            self.0
-                .unpack_ptr_no_int_unchecked()
-                .unpack_header_unchecked()
-                .payload()
+        unsafe {
+            if PointerI32::type_is_pointer_i32::<T>() {
+                transmute!(&PointerI32, &T, self.0.unpack_pointer_i32_unchecked())
+            } else {
+                self.0
+                    .unpack_ptr_no_int_unchecked()
+                    .unpack_header_unchecked()
+                    .payload()
+            }
         }
     }
 
@@ -586,12 +614,12 @@ impl<'v> Value<'v> {
 
     /// `x * other`.
     pub fn mul(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
-        if let Some(r) = self.get_ref().mul(other, heap) {
-            r
-        } else if let Some(r) = other.get_ref().rmul(self, heap) {
-            r
-        } else {
-            ValueError::unsupported_owned(self.get_type(), "*", Some(other.get_type()))
+        match self.get_ref().mul(other, heap) {
+            Some(r) => r,
+            _ => match other.get_ref().rmul(self, heap) {
+                Some(r) => r,
+                _ => ValueError::unsupported_owned(self.get_type(), "*", Some(other.get_type())),
+            },
         }
     }
 
@@ -686,6 +714,78 @@ impl<'v> Value<'v> {
         self.invoke(&params, eval)
     }
 
+    fn check_callable(self) -> crate::Result<()> {
+        if !self.vtable().starlark_value.HAS_invoke {
+            return Err(value_error!(
+                "Value is not callable: {}",
+                self.to_string_for_type_error()
+            ));
+        }
+        Ok(())
+    }
+
+    /// Check this value can be "called" with given parameter types, and provided return type.
+    ///
+    /// This check is done optimistically: when it is not known
+    /// whether the value is compatible with given arguments, return `Ok(())`.
+    ///
+    /// This operation is expensive.
+    pub fn check_callable_with<'a>(
+        self,
+        pos: impl IntoIterator<Item = &'a Ty>,
+        named: impl IntoIterator<Item = (&'a str, &'a Ty)>,
+        args: Option<&Ty>,
+        kwargs: Option<&Ty>,
+        ret: &Ty,
+    ) -> crate::Result<()> {
+        let pos = Vec::from_iter(pos);
+        let named = Vec::from_iter(named);
+        self.check_callable_with_impl(&pos, &named, args, kwargs, ret)
+    }
+
+    fn check_callable_with_impl<'a>(
+        self,
+        pos: &[&Ty],
+        named: &[(&'a str, &Ty)],
+        args: Option<&Ty>,
+        kwargs: Option<&Ty>,
+        ret: &Ty,
+    ) -> crate::Result<()> {
+        // First, provide a good error message when the value is not callable
+        // without invoking a typechecker.
+        self.check_callable()?;
+
+        let sig = TyCallable::new(
+            ParamSpec::new_parts(
+                pos.iter().map(|ty| (ParamIsRequired::Yes, (*ty).dupe())),
+                [],
+                args.duped(),
+                named
+                    .iter()
+                    .map(|(n, ty)| (ArcStr::from(*n), ParamIsRequired::Yes, (*ty).dupe())),
+                kwargs.duped(),
+            )?,
+            ret.dupe(),
+        );
+
+        let ty = Ty::of_value(self);
+        if !ty.check_call(
+            pos.iter().copied().duped(),
+            named.iter().map(|(n, ty)| (*n, (*ty).dupe())),
+            args.duped(),
+            kwargs.duped(),
+            ret.dupe(),
+        ) {
+            return Err(value_error!(
+                "Value `{}` is not compatible with the signature `{}`",
+                self.to_string_for_type_error(),
+                sig
+            ));
+        }
+
+        Ok(())
+    }
+
     /// `type(x)`.
     pub fn get_type_value(self) -> FrozenStringValue {
         self.vtable().type_value()
@@ -728,17 +828,17 @@ impl<'v> Value<'v> {
             }
         }
 
-        if let Some(v) = self.get_ref().add(other, heap) {
-            v
-        } else if let Some(v) = other.get_ref().radd(self, heap) {
-            v
-        } else {
-            ValueError::unsupported_owned(self.get_type(), "+", Some(other.get_type()))
+        match self.get_ref().add(other, heap) {
+            Some(v) => v,
+            _ => match other.get_ref().radd(self, heap) {
+                Some(v) => v,
+                _ => ValueError::unsupported_owned(self.get_type(), "+", Some(other.get_type())),
+            },
         }
     }
 
     /// Convert a value to a [`FrozenValue`] using a supplied [`Freezer`].
-    pub fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenValue> {
+    pub fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenValue> {
         freezer.freeze(self)
     }
 
@@ -785,7 +885,7 @@ impl<'v> Value<'v> {
     }
 
     /// Forwards to [`StarlarkValue::documentation`].
-    pub fn documentation(self) -> Option<DocItem> {
+    pub fn documentation(self) -> DocItem {
         self.get_ref().documentation()
     }
 
@@ -1018,8 +1118,15 @@ impl FrozenValue {
     }
 
     /// Create a new empty list.
+    #[inline]
     pub fn new_empty_list() -> Self {
         FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_LIST)
+    }
+
+    /// Create a new empty dict.
+    #[inline]
+    pub fn new_empty_dict() -> Self {
+        FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_DICT)
     }
 
     #[inline]
@@ -1245,14 +1352,13 @@ pub trait ValueLike<'v>:
 
     /// Get a reference to underlying data or [`Err`]
     /// if contained object has different type than requested.
-    fn downcast_ref_err<T: StarlarkValue<'v>>(self) -> anyhow::Result<&'v T> {
+    fn downcast_ref_err<T: StarlarkValue<'v>>(self) -> crate::Result<&'v T> {
         match self.downcast_ref() {
             Some(v) => Ok(v),
-            None => Err(ValueValueError::WrongType(
+            None => Err(crate::Error::new_value(ValueValueError::WrongType(
                 T::TYPE,
                 self.to_value().to_string_for_type_error(),
-            )
-            .into()),
+            ))),
         }
     }
 }
@@ -1378,14 +1484,16 @@ mod tests {
     use num_bigint::BigInt;
 
     use crate::assert;
-    use crate::values::list::AllocList;
-    use crate::values::none::NoneType;
-    use crate::values::string::str_type::StarlarkStr;
-    use crate::values::types::int::PointerI32;
-    use crate::values::unpack::UnpackValue;
+    use crate::environment::Globals;
+    use crate::typing::Ty;
     use crate::values::Heap;
     use crate::values::Value;
     use crate::values::ValueLike;
+    use crate::values::int::pointer_i32::PointerI32;
+    use crate::values::list::AllocList;
+    use crate::values::none::NoneType;
+    use crate::values::string::str_type::StarlarkStr;
+    use crate::values::unpack::UnpackValue;
 
     #[test]
     fn test_downcast_ref() {
@@ -1455,6 +1563,47 @@ mod tests {
         assert_eq!(
             "list (repr: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,<<...>>42, 12343, 12344])",
             list.to_string_for_type_error(),
+        );
+    }
+
+    #[test]
+    fn test_check_callable_with_none() {
+        let e = Value::new_none()
+            .check_callable_with([], [], None, None, &Ty::int())
+            .unwrap_err();
+        assert!(
+            e.to_string().contains("Value is not callable: NoneType"),
+            "{e}"
+        );
+    }
+
+    #[test]
+    fn test_check_callable_with_good_function() {
+        let g = Globals::standard();
+        let f = g.get("bool").unwrap();
+
+        // Positional.
+        f.check_callable_with([&Ty::any_list()], [], None, None, &Ty::bool())
+            .unwrap();
+
+        // Named.
+        let e = f
+            .check_callable_with([], [("x", &Ty::any_list())], None, None, &Ty::bool())
+            .unwrap_err();
+        assert!(
+            e.to_string()
+                .contains("Value `function (repr: bool)` is not compatible with"),
+            "{e}"
+        );
+
+        // Return type.
+        let e = f
+            .check_callable_with([&Ty::any_list()], [], None, None, &Ty::string())
+            .unwrap_err();
+        assert!(
+            e.to_string()
+                .contains("Value `function (repr: bool)` is not compatible with"),
+            "{e}"
         );
     }
 }

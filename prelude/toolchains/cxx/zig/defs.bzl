@@ -100,7 +100,9 @@ load(
     "BinaryUtilitiesInfo",
     "CCompilerInfo",
     "CxxCompilerInfo",
+    "CxxInternalTools",
     "LinkerInfo",
+    "LinkerType",
     "ShlibInterfacesMode",
     "StripFlagsInfo",
     "cxx_toolchain_infos",
@@ -118,16 +120,17 @@ load(
     "LinkStyle",
 )
 load(
+    "@prelude//os_lookup:defs.bzl",
+    "ScriptLanguage",
+)
+load(
     "@prelude//utils:cmd_script.bzl",
-    "ScriptOs",
     "cmd_script",
 )
 load(
     ":releases.bzl",
     "releases",
 )
-
-DEFAULT_MAKE_COMP_DB = "prelude//cxx/tools:make_comp_db"
 
 ZigReleaseInfo = provider(
     # @unsorted-dict-items
@@ -305,17 +308,17 @@ def download_zig_distribution(
         os = os,
     )
 
-def _get_linker_type(os: str) -> str:
+def _get_linker_type(os: str) -> LinkerType:
     if os == "linux":
-        return "gnu"
+        return LinkerType("gnu")
     elif os == "macos" or os == "freebsd":
         # TODO[AH] return "darwin".
         #   The cc rules emit linker flags on MacOS that are not supported by Zig's linker.
         #   Declaring the linker as GNU style is not entirely correct, however it works better than
         #   declaring Darwin style at this point. See https://github.com/facebook/buck2/issues/470
-        return "gnu"
+        return LinkerType("gnu")
     elif os == "windows":
-        return "windows"
+        return LinkerType("windows")
     else:
         fail("Cannot determine linker type: Unknown OS '{}'".format(os))
 
@@ -327,27 +330,28 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx = ctx,
         name = "zig_cc",
         cmd = cmd_args(zig, "cc"),
-        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
     )
     zig_cxx = cmd_script(
         ctx = ctx,
         name = "zig_cxx",
         cmd = cmd_args(zig, "c++"),
-        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
     )
     zig_ar = cmd_script(
         ctx = ctx,
         name = "zig_ar",
         cmd = cmd_args(zig, "ar"),
-        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
     )
     zig_ranlib = cmd_script(
         ctx = ctx,
         name = "zig_ranlib",
         cmd = cmd_args(zig, "ranlib"),
-        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
     )
     return [ctx.attrs.distribution[DefaultInfo]] + cxx_toolchain_infos(
+        internal_tools = ctx.attrs._cxx_internal_tools[CxxInternalTools],
         platform_name = dist.arch,
         c_compiler_info = CCompilerInfo(
             compiler = RunInfo(args = cmd_args(zig_cc)),
@@ -416,7 +420,6 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         #as_compiler_info = None,
         #hip_compiler_info = None,
         #cuda_compiler_info = None,
-        mk_comp_db = ctx.attrs.make_comp_db,
         #mk_hmap = None,
         #use_distributed_thinlto = False,
         #use_dep_files = False,  # requires dep_files_processor
@@ -446,7 +449,6 @@ cxx_zig_toolchain = rule(
             """,
         ),
         "linker_flags": attrs.list(attrs.arg(), default = []),
-        "make_comp_db": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_COMP_DB),
         "shared_dep_runtime_ld_flags": attrs.list(attrs.arg(), default = []),
         "shared_library_interface_flags": attrs.list(attrs.string(), default = []),
         "static_dep_runtime_ld_flags": attrs.list(attrs.arg(), default = []),
@@ -455,6 +457,7 @@ cxx_zig_toolchain = rule(
         "strip_debug_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "strip_non_global_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "target": attrs.option(attrs.string(), default = None),
+        "_cxx_internal_tools": attrs.default_only(attrs.dep(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools")),
     },
     is_toolchain_rule = True,
 )

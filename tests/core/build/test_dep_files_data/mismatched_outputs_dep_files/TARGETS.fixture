@@ -1,0 +1,1 @@
+test(name = "test", prefix = read_config("test", "prefix"), suffix = read_config("test", "suffix"))

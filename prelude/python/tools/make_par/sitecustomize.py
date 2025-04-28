@@ -76,7 +76,6 @@ def __clear_env(patch_spawn: bool = True) -> None:
     # Restore the original value of environment variables that we altered
     # as part of the startup process.
     for var in var_names:
-
         curr_val = os.environ.pop(var, None)
         if curr_val is not None:
             saved_env[var] = curr_val

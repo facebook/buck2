@@ -1,0 +1,5 @@
+load(":defs.bzl", "fail", "one")
+
+fail(name = "fail")
+
+one(name = "a_one")

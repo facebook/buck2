@@ -7,12 +7,13 @@
 
 # Rules for mapping requirements to options
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerType")
 load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",
     "LinkStrategy",
 )
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//utils:expect.bzl", "expect")
 
 # --crate-type=
@@ -59,6 +60,7 @@ Emit = enum(
     "asm",
     "llvm-bc",
     "llvm-ir",
+    "llvm-ir-noopt",
     "obj",
     "link",
     "dep-info",
@@ -72,6 +74,11 @@ Emit = enum(
     #    build, but cannot be used in pipelined builds.
     "metadata-full",
     "metadata-fast",
+)
+
+ProfileMode = enum(
+    "llvm-time-trace",
+    "self-profile",
 )
 
 # The different quantities of Rust metadata that can be requested from
@@ -89,6 +96,7 @@ def dep_metadata_of_emit(emit: Emit) -> MetadataKind:
         Emit("asm"): MetadataKind("link"),
         Emit("llvm-bc"): MetadataKind("link"),
         Emit("llvm-ir"): MetadataKind("link"),
+        Emit("llvm-ir-noopt"): MetadataKind("link"),
         Emit("obj"): MetadataKind("link"),
         Emit("link"): MetadataKind("link"),
         Emit("mir"): MetadataKind("link"),
@@ -124,6 +132,7 @@ _EMIT_PREFIX_SUFFIX = {
     Emit("asm"): ("", ".s"),
     Emit("llvm-bc"): ("", ".bc"),
     Emit("llvm-ir"): ("", ".ll"),
+    Emit("llvm-ir-noopt"): ("", ".ll"),
     Emit("obj"): ("", ".o"),
     Emit("metadata-fast"): ("lib", ".rmeta"),  # even binaries get called 'libfoo.rmeta'
     Emit("metadata-full"): (None, None),  # Hollow rlibs, so they get the same name
@@ -186,20 +195,20 @@ _RUST_STATIC_NON_PIC_LIBRARY = 7
 _NATIVE_LINKABLE_STATIC_PIC = 8
 _NATIVE_LINKABLE_STATIC_NON_PIC = 9
 
-def _executable_prefix_suffix(linker_type: str, target_os_type: OsLookup) -> (str, str):
+def _executable_prefix_suffix(linker_type: LinkerType, target_os_type: OsLookup) -> (str, str):
     return {
-        "darwin": ("", ""),
-        "gnu": ("", ".exe") if target_os_type.platform == "windows" else ("", ""),
-        "wasm": ("", ".wasm"),
-        "windows": ("", ".exe"),
+        LinkerType("darwin"): ("", ""),
+        LinkerType("gnu"): ("", ".exe") if target_os_type.os == Os("windows") else ("", ""),
+        LinkerType("wasm"): ("", ".wasm"),
+        LinkerType("windows"): ("", ".exe"),
     }[linker_type]
 
-def _library_prefix_suffix(linker_type: str, target_os_type: OsLookup) -> (str, str):
+def _library_prefix_suffix(linker_type: LinkerType, target_os_type: OsLookup) -> (str, str):
     return {
-        "darwin": ("lib", ".dylib"),
-        "gnu": ("", ".dll") if target_os_type.platform == "windows" else ("lib", ".so"),
-        "wasm": ("", ".wasm"),
-        "windows": ("", ".dll"),
+        LinkerType("darwin"): ("lib", ".dylib"),
+        LinkerType("gnu"): ("", ".dll") if target_os_type.os == Os("windows") else ("lib", ".so"),
+        LinkerType("wasm"): ("", ".wasm"),
+        LinkerType("windows"): ("", ".dll"),
     }[linker_type]
 
 _BUILD_PARAMS = {
@@ -297,7 +306,7 @@ _INPUTS = {
 ]
 
 def _get_reloc_model(link_strategy: LinkStrategy, target_os_type: OsLookup) -> RelocModel:
-    if target_os_type.platform == "windows":
+    if target_os_type.os == Os("windows"):
         return RelocModel("pic")
     if link_strategy == LinkStrategy("static"):
         return RelocModel("static")
@@ -338,7 +347,7 @@ def build_params(
         link_strategy: LinkStrategy | None,
         lib_output_style: LibOutputStyle | None,
         lang: LinkageLang,
-        linker_type: str,
+        linker_type: LinkerType,
         target_os_type: OsLookup) -> BuildParams:
     if rule == RuleType("binary"):
         expect(link_strategy != None)

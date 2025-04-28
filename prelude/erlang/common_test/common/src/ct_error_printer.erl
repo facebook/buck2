@@ -14,6 +14,8 @@
 
 -module(ct_error_printer).
 
+-eqwalizer(ignore).
+
 %% Public API
 -export([format_error/2, format_error/3, format_reason/1]).
 -spec format_error(term(), boolean()) -> [unicode:chardata()].
@@ -98,7 +100,7 @@ maybe_custom_format({{Type, Props = #{formatter := Formatter}}, _StackTrace}) wh
                     "~s~n",
                     [erl_error:format_exception(E, R, ST)]
                 ),
-                io_lib:format("original assertion: ~n" "~p~n", {Type, Props})
+                io_lib:format("original assertion: ~n" "~p~n", [{Type, Props}])
             ]}
     end;
 maybe_custom_format(_Reason) ->
@@ -224,8 +226,8 @@ format_assert0(
                 io_lib:format("          got value: ~p~n", [Value]);
             #{unexpected_exception := {Class, Reason, StackTrace} = _Exception} ->
                 io_lib:format(
-                    "      got exception: ~s ~n",
-                    [erl_error:format_exception(Class, Reason, StackTrace)]
+                    "      got exception: ~p ~n",
+                    [{Class, Reason, StackTrace}]
                 );
             _ ->
                 unrecognized_error

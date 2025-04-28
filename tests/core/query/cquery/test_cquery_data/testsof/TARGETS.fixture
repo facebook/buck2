@@ -1,0 +1,53 @@
+constraint_setting(
+    name = "testfullness",
+)
+
+constraint_value(
+    name = "regular_tests",
+    constraint_setting = ":testfullness",
+)
+
+constraint_value(
+    name = "more_tests",
+    constraint_setting = ":testfullness",
+)
+
+platform(
+    name = "platform_default_tests",
+    constraint_values = [":regular_tests"],
+)
+
+platform(
+    name = "platform_more_tests",
+    constraint_values = [":more_tests"],
+)
+
+stub(
+    name = "foo_lib",
+    tests = [":foo_test"] + select({":more_tests": [":foo_extra_test"], "DEFAULT": []}),
+)
+
+stub(
+    name = "foo_lib_with_test_with_default_platform",
+    tests = [":foo_test_with_default_platform"],
+)
+
+stub(name = "foo_test")
+
+stub(name = "foo_test_with_default_platform", default_target_platform = ":foo_test_default_platform")
+
+stub(name = "foo_extra_test", compatible_with = [":more_tests"])
+
+constraint_setting(
+    name = "foo_test_constraint_setting",
+)
+
+constraint_value(
+    name = "foo_test_constraint_value",
+    constraint_setting = ":foo_test_constraint_setting",
+)
+
+platform(
+    name = "foo_test_default_platform",
+    constraint_values = [":foo_test_constraint_value"],
+)

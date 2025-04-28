@@ -98,12 +98,12 @@ role_priority(bot) ->
     post_init_per_testcase |
     on_tc_fail |
     on_tc_skip |
-    pre_init_per_suite |
-    post_init_per_suite |
-    pre_init_per_group |
-    post_init_per_group |
-    pre_init_per_testcase |
-    post_init_per_testcase |
+    pre_end_per_suite |
+    post_end_per_suite |
+    pre_end_per_group |
+    post_end_per_group |
+    pre_end_per_testcase |
+    post_end_per_testcase |
     terminate.
 
 %% @ doc Partition of responsibilities among both roles

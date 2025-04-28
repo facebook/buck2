@@ -10,6 +10,10 @@ _TARGET_SYMBOL = ":"
 _RECURSIVE_SYMBOL = "..."
 _PATH_SYMBOL = "/"
 
+# https://www.internalfb.com/intern/staticdocs/buck2/docs/concepts/build_target/
+_NAME_REGEX_PATTERN = "[A-Za-z0-9_/.=,@~+-]+"
+_NAME_REGEX = regex(_NAME_REGEX_PATTERN)
+
 _BuildTargetPatternKind = enum(
     "single",
     "package",
@@ -76,6 +80,11 @@ def try_parse_build_target_pattern(pattern: str) -> BuildTargetPatternParseResul
             return BuildTargetPatternParseResult(error = err_msg)
         else:
             name = pattern[end_of_path_position + len(_TARGET_SYMBOL):]
+
+        valid_name = _NAME_REGEX.match(name)
+        if not valid_name:
+            err_msg = "Invalid build target pattern, target name `{}` contains invalid characters. Valid characters are `{}`.".format(name, _NAME_REGEX_PATTERN)
+            return BuildTargetPatternParseResult(error = err_msg)
 
     start_of_path_position = root_position + len(ROOT_SYMBOL)
 

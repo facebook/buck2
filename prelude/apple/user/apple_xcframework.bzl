@@ -5,19 +5,48 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleInfo")
+load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
-def _impl(ctx: AnalysisContext) -> list[Provider]:
-    apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
+# Metadata about XCFramework
+XCFrameworkInfo = provider(
+    fields = {
+        # Name of supplied framework. For frameworks that define
+        # modules this should be the name of the module
+        "name": provider_field(str),
+    },
+)
 
-    xcframework_dir = ctx.actions.declare_output(ctx.attrs.framework_name + ".xcframework", dir = True)
+def _get_any_framework_dep(framework_deps: [dict[str, Dependency], Dependency, None]) -> [Dependency, None]:
+    if not type(framework_deps) == "dict":
+        return framework_deps
+    if len(framework_deps) == 0:
+        return None
+    return sorted(framework_deps.items())[0][1]
+
+def _get_framework_name(ctx: AnalysisContext) -> str:
+    if ctx.attrs.framework_name != None:
+        return ctx.attrs.framework_name
+    if ctx.attrs.framework_name_from_product_name:
+        framework = _get_any_framework_dep(ctx.attrs.framework)
+        if framework == None:
+            fail("Cannot find framework name")
+        return framework[AppleBundleInfo].binary_name
+    fail("Cannot find framework name")
+
+def _apple_xcframework_impl(ctx: AnalysisContext) -> list[Provider]:
+    apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
+    framework_name = _get_framework_name(ctx)
+
+    xcframework_dir = ctx.actions.declare_output(framework_name + ".xcframework", dir = True)
     xcframework_command = cmd_args([
         apple_tools.xcframework_maker,
         "--output-path",
         xcframework_dir.as_output(),
         "--name",
-        ctx.attrs.framework_name,
+        framework_name,
     ])
 
     for arch in ctx.attrs.framework:
@@ -40,6 +69,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(xcframework_command, category = "apple_xcframework")
     return [
         DefaultInfo(default_output = xcframework_dir),
+        XCFrameworkInfo(name = framework_name),
     ]
 
 def _strip_os_sdk_and_runtime_constraints(platform: PlatformInfo, refs: struct) -> dict[TargetLabel, ConstraintValueInfo]:
@@ -168,18 +198,12 @@ framework_split_transition = transition(
 
 registration_spec = RuleRegistrationSpec(
     name = "apple_xcframework",
-    impl = _impl,
+    impl = _apple_xcframework_impl,
     attrs = {
         "framework": attrs.split_transition_dep(cfg = framework_split_transition),
-        "framework_name": attrs.string(),
+        "framework_name": attrs.option(attrs.string(), default = None),
+        "framework_name_from_product_name": attrs.bool(default = False),
         "include_dsym": attrs.option(attrs.bool(), default = None),
         "platforms": attrs.list(attrs.string(), default = []),
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
-    },
+    } | apple_common.apple_tools_arg(),
 )
-
-def apple_xcframework_extra_attrs():
-    attribs = {
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
-    }
-    return attribs

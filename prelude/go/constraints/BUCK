@@ -1,0 +1,96 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
+
+constraint_setting(
+    name = "cgo_enabled",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "cgo_enabled_true",
+    constraint_setting = ":cgo_enabled",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "cgo_enabled_false",
+    constraint_setting = ":cgo_enabled",
+    visibility = ["PUBLIC"],
+)
+
+constraint_setting(
+    name = "compile_shared",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "compile_shared_false",
+    constraint_setting = ":compile_shared",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "compile_shared_true",
+    constraint_setting = ":compile_shared",
+    visibility = ["PUBLIC"],
+)
+
+constraint_setting(
+    name = "race",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "race_false",
+    constraint_setting = ":race",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "race_true",
+    constraint_setting = ":race",
+    visibility = ["PUBLIC"],
+)
+
+constraint_setting(
+    name = "asan",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "asan_false",
+    constraint_setting = ":race",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "asan_true",
+    constraint_setting = ":race",
+    visibility = ["PUBLIC"],
+)
+
+constraint_setting(
+    name = "coverage_mode",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "coverage_mode_set",
+    constraint_setting = ":coverage_mode",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "coverage_mode_count",
+    constraint_setting = ":coverage_mode",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "coverage_mode_atomic",
+    constraint_setting = ":coverage_mode",
+    visibility = ["PUBLIC"],
+)

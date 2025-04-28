@@ -12,6 +12,7 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use buck2_cli_proto::command_result;
+use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
@@ -32,7 +33,7 @@ impl BuildGraphStats {
     async fn handle_build_response(
         &self,
         res: &buck2_cli_proto::BuildResponse,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let events = self.build_graph_stats_from_build_response(res);
         self.send_events(events).await;
 
@@ -75,11 +76,19 @@ impl BuildGraphStats {
     }
 
     async fn send_events(&self, events: Vec<buck2_events::BuckEvent>) {
-        if let Ok(Some(sink)) =
-            new_remote_event_sink_if_enabled(self.fb, 1, Duration::from_millis(100), 2, None)
-        {
+        #[allow(unreachable_patterns)]
+        if let Ok(Some(sink)) = new_remote_event_sink_if_enabled(
+            self.fb,
+            ScribeConfig {
+                buffer_size: 1,
+                retry_backoff: Duration::from_millis(100),
+                retry_attempts: 2,
+                message_batch_size: None,
+                thrift_timeout: Duration::from_secs(1),
+            },
+        ) {
             tracing::info!("Sending events to Scribe: {:?}", &events);
-            sink.send_messages_now(events).await;
+            let _res = sink.send_messages_now(events).await;
         } else {
             tracing::info!("Events were not sent to Scribe: {:?}", &events);
         }
@@ -91,7 +100,7 @@ impl EventSubscriber for BuildGraphStats {
     async fn handle_command_result(
         &mut self,
         result: &buck2_cli_proto::CommandResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match &result.result {
             Some(command_result::Result::BuildResponse(res)) => {
                 self.handle_build_response(res).await

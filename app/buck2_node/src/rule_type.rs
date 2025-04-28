@@ -10,15 +10,25 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::bzl::ImportPath;
 use dupe::Dupe;
 
+use crate::bzl_or_bxl_path::BzlOrBxlPath;
+
 /// The identifier used to find the implementation function for this rule. Should point at the output of `rule()`
-#[derive(Debug, Clone, derive_more::Display, Eq, PartialEq, Hash, Allocative)]
-#[display(fmt = "{}:{}", import_path, name)]
+#[derive(
+    Debug,
+    Clone,
+    derive_more::Display,
+    Eq,
+    PartialEq,
+    Hash,
+    Allocative,
+    strong_hash::StrongHash
+)]
+#[display("{}:{}", path, name)]
 pub struct StarlarkRuleType {
     /// The cell, package, and file that contains the output of `rule()`
-    pub import_path: ImportPath,
+    pub path: BzlOrBxlPath,
     /// The name of the symbol that is bound to the output of `rule()`, e.g. `cxx_binary`
     pub name: String,
 }
@@ -35,7 +45,7 @@ pub struct StarlarkRuleType {
 )]
 pub enum RuleType {
     Starlark(Arc<StarlarkRuleType>),
-    #[display(fmt = "forward")]
+    #[display("forward")]
     Forward,
 }
 
@@ -52,6 +62,7 @@ impl RuleType {
 mod tests {
     use buck2_core::bzl::ImportPath;
 
+    use crate::bzl_or_bxl_path::BzlOrBxlPath;
     use crate::rule_type::StarlarkRuleType;
 
     #[test]
@@ -61,7 +72,11 @@ mod tests {
 
         assert_eq!(
             "root//some/subdir/foo.bzl:foo_binary",
-            &StarlarkRuleType { import_path, name }.to_string()
+            &StarlarkRuleType {
+                path: BzlOrBxlPath::Bzl(import_path),
+                name
+            }
+            .to_string()
         );
     }
 }

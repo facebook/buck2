@@ -1,0 +1,16 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
+
+oncall("build_infra")
+
+buck2_core_tests(
+    target_extra_attrs = {
+        "test_upload_re_logs": {
+            "deps": [
+                "//manifold/clients/python:manifold_client_deprecated",
+            ],
+        },
+        "test_what_materialized": {
+            "use_compiled_buck2_client_and_tpx": True,
+        },
+    },
+)

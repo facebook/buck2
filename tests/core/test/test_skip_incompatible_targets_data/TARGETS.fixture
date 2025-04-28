@@ -1,0 +1,26 @@
+load(":rules.bzl", "test_rule")
+
+constraint_setting(name = "setting")
+
+constraint_value(name = "A", constraint_setting = ":setting")
+constraint_value(name = "B", constraint_setting = ":setting")
+
+platform(
+    name = "platA",
+    constraint_values = [":A"],
+)
+
+platform(
+    name = "platB",
+    constraint_values = [":B"],
+)
+
+test_rule(
+    name = "compatible-with-A",
+    target_compatible_with = [":A"],
+)
+
+test_rule(
+    name = "compatible-with-B",
+    target_compatible_with = [":B"],
+)

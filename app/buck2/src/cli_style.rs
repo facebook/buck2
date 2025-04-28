@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use clap::builder::styling;
 use clap::builder::Styles;
+use clap::builder::styling;
 
 pub(crate) fn get_styles() -> Styles {
     let heading = styling::AnsiColor::Yellow.on_default().bold();

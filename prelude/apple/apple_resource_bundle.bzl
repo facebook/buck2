@@ -38,7 +38,7 @@
 #          +------>|      Binary       |<--------+
 #                  +-------------------+
 
-load("@prelude//apple:apple_bundle_attrs.bzl", "get_apple_info_plist_build_system_identification_attrs")
+load("@prelude//apple:apple_rules_impl_utility.bzl", "get_apple_info_plist_build_system_identification_attrs")
 
 _RESOURCE_BUNDLE_FIELDS = [
     "asset_catalogs_compilation_options",
@@ -48,7 +48,6 @@ _RESOURCE_BUNDLE_FIELDS = [
     "deps",
     "extension",
     "ibtool_flags",
-    "ibtool_module_flag",
     "info_plist",
     "info_plist_substitutions",
     "module_map",
@@ -83,6 +82,7 @@ def make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs) -> [None, st
         "compatible_with": kwargs.get("compatible_with"),
         "exec_compatible_with": kwargs.get("exec_compatible_with"),
         "labels": ["generated"],
+        "product_name_from_module_name": kwargs.get("product_name_from_module_name"),
         "target_compatible_with": kwargs.get("target_compatible_with"),
         "_bundle_target_name": kwargs["name"],
         "_compile_resources_locally_override": kwargs["_compile_resources_locally_override"],

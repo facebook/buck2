@@ -17,4 +17,14 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 @buck_test(inplace=True)
 async def test_bxl(buck: Buck) -> None:
-    await buck.bxl(os.environ["BXL_MAIN"])
+    args = []
+
+    buck_args = os.environ.get("BUCK_ARGS")
+    if buck_args:
+        args += buck_args.split(" ")
+
+    bxl_args = os.environ.get("BXL_ARGS")
+    if bxl_args:
+        args += ["--"] + bxl_args.split(" ")
+
+    await buck.bxl(os.environ["BXL_MAIN"], *args)

@@ -1,0 +1,109 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+#  Traceback (most recent call last):
+#    * lib/TARGETS.fixture:3, in <module>
+#        foo_config_setting(
+foo_config_setting(
+  name = "constraint",
+  visibility = [],
+  within_view = ["PUBLIC"],
+)
+
+
+#  Traceback (most recent call last):
+#    * lib/TARGETS.fixture:33, in <module>
+#        foo_genrule(
+#    * rules/rules.bzl:108, in foo_genrule
+#        _foo_genrule(default_target_platform = _default_platform, **kwargs)
+_foo_genrule(
+  name = "file1",
+  cmd = "",
+  default_target_platform = "root//platforms:platform1",
+  visibility = ["PUBLIC"],
+  within_view = ["PUBLIC"],
+)
+
+
+#  Traceback (most recent call last):
+#    * lib/TARGETS.fixture:39, in <module>
+#        foo_genrule(
+#    * rules/rules.bzl:108, in foo_genrule
+#        _foo_genrule(default_target_platform = _default_platform, **kwargs)
+_foo_genrule(
+  name = "file2",
+  cmd = "",
+  default_target_platform = "root//platforms:platform1",
+  visibility = ["PUBLIC"],
+  within_view = ["PUBLIC"],
+)
+
+
+#  Traceback (most recent call last):
+#    * lib/TARGETS.fixture:45, in <module>
+#        foo_genrule(
+#    * rules/rules.bzl:108, in foo_genrule
+#        _foo_genrule(default_target_platform = _default_platform, **kwargs)
+_foo_genrule(
+  name = "file3",
+  cmd = "",
+  default_target_platform = "root//platforms:platform1",
+  visibility = ["PUBLIC"],
+  within_view = ["PUBLIC"],
+)
+
+
+#  Traceback (most recent call last):
+#    * lib/TARGETS.fixture:7, in <module>
+#        foo_library(
+#    * rules/rules.bzl:101, in foo_library
+#        _foo_library(default_target_platform = _default_platform, **kwargs)
+_foo_library(
+  name = "lib1",
+  default_target_platform = "root//platforms:platform1",
+  description = "this is lib1",
+  srcs = [
+    "root//lib:file1",
+    "root//lib/TARGETS.fixture"
+  ],
+  visibility = ["PUBLIC"],
+  within_view = ["PUBLIC"],
+)
+
+
+#  Traceback (most recent call last):
+#    * lib/TARGETS.fixture:14, in <module>
+#        foo_library(
+#    * rules/rules.bzl:101, in foo_library
+#        _foo_library(default_target_platform = _default_platform, **kwargs)
+_foo_library(
+  name = "lib2",
+  cmd = [
+    "this is lib2",
+    "cmd",
+    "$(location root//lib:file2)"
+  ],
+  default_target_platform = "root//platforms:platform1",
+  description = "this is lib2",
+  srcs = [ "root//lib:file2" ],
+  visibility = ["PUBLIC"],
+  within_view = ["PUBLIC"],
+)
+
+
+#  Traceback (most recent call last):
+#    * lib/TARGETS.fixture:22, in <module>
+#        foo_library(
+#    * rules/rules.bzl:101, in foo_library
+#        _foo_library(default_target_platform = _default_platform, **kwargs)
+_foo_library(
+  name = "lib3",
+  cmd = [ "this is lib3" ]+select({
+    "root//lib:constraint": [ "this is lib3 too, case 1" ],
+    "DEFAULT": [ "this is lib3 too, case 2" ]
+  }),
+  default_target_platform = "root//platforms:platform1",
+  description = "this is lib3",
+  srcs = [ "root//lib:file3" ],
+  visibility = ["PUBLIC"],
+  within_view = ["PUBLIC"],
+)

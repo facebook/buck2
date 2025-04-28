@@ -1,6 +1,5 @@
 load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
 
@@ -18,6 +17,7 @@ rust_library(
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_futures:buck2_futures",
         "//buck2/dice/dice:dice",
+        "//buck2/dice/dice_error:dice_error",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",
     ],

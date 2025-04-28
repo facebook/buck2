@@ -1,0 +1,64 @@
+load(":rules.bzl", "any_rule", "test_rule", "test_rule_with_transition_dep")
+
+constraint_setting(
+    name = "os",
+)
+
+constraint_value(
+    name = "watchos",
+    constraint_setting = ":os",
+)
+
+constraint_value(
+    name = "iphoneos",
+    constraint_setting = ":os",
+)
+
+test_rule(
+    name = "target_where_transition_does_not_change_attr",
+    default_target_platform = ":iwatch",
+    device = select({
+        ":iphoneos": "phone",
+        ":watchos": "watch",
+    }),
+)
+
+test_rule(
+    name = "target_where_transition_changes_attr",
+    default_target_platform = ":iphone",
+    device = "watch",
+    extra = select({
+        ":iphoneos": "phone",
+        ":watchos": "watch",
+    }),
+)
+
+test_rule(
+    name = "target_where_transition_cycles_via_changed_attrs",
+    default_target_platform = ":iphone",
+    device = select({
+        ":iphoneos": "watch",
+        ":watchos": "phone",
+    }),
+)
+
+test_rule_with_transition_dep(
+    name = "target_with_transition_dep",
+    default_target_platform = ":iphone",
+    attr_with_transition = ":foo",
+    device = select({
+        ":iphoneos": "phone",
+        ":watchos": "watch",
+    }),
+)
+
+any_rule(
+    name = "foo",
+    another_device = select({
+        ":iphoneos": "phone",
+        ":watchos": "watch",
+    }),
+)
+
+platform(name = "iphone", constraint_values = [":iphoneos"])
+platform(name = "iwatch", constraint_values = [":watchos"])

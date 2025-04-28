@@ -8,22 +8,24 @@
  */
 
 use async_trait::async_trait;
+use buck2_audit::AuditCommand;
 use buck2_audit::deferred_materializer::DeferredMaterializerCommand;
 use buck2_audit::deferred_materializer::DeferredMaterializerSubcommand;
-use buck2_audit::AuditCommand;
 use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::events_ctx::PartialResultCtx;
 use buck2_client_ctx::events_ctx::PartialResultHandler;
 use buck2_client_ctx::subscribers::subscriber::EventSubscriber;
 use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
 use buck2_common::manifold::ManifoldClient;
+use buck2_error::buck2_error;
 use futures::future::BoxFuture;
 use futures::future::Shared;
 
-use crate::commands::rage::manifold::buf_to_manifold;
 use crate::commands::rage::MaterializerRageUploadData;
+use crate::commands::rage::manifold::buf_to_manifold;
 
 pub async fn upload_materializer_data(
     buckd: Shared<BoxFuture<'_, buck2_error::Result<BootstrapBuckdClient>>>,
@@ -31,9 +33,11 @@ pub async fn upload_materializer_data(
     manifold: &ManifoldClient,
     manifold_id: &String,
     materializer_data: MaterializerRageUploadData,
-) -> anyhow::Result<String> {
-    let mut buckd =
-        buckd.await?.with_subscribers(EventSubscribers::new(
+) -> buck2_error::Result<String> {
+    let mut buckd = buckd.await?.to_connector();
+
+    let mut events_ctx =
+        EventsCtx::new(EventSubscribers::new(
             vec![Box::new(TracingSubscriber) as _],
         ));
 
@@ -59,6 +63,7 @@ pub async fn upload_materializer_data(
                     },
                 ))?,
             },
+            &mut events_ctx,
             None,
             &mut capture,
         )
@@ -66,7 +71,9 @@ pub async fn upload_materializer_data(
 
     match outcome {
         CommandOutcome::Success(..) => {}
-        CommandOutcome::Failure(..) => return Err(anyhow::anyhow!("Command failed")),
+        CommandOutcome::Failure(..) => {
+            return Err(buck2_error!(buck2_error::ErrorTag::Tier0, "Command failed"));
+        }
     }
 
     let manifold_filename = format!("flat/{}_materializer_{}", manifold_id, materializer_data);
@@ -90,9 +97,9 @@ impl PartialResultHandler for CaptureStdout {
 
     async fn handle_partial_result(
         &mut self,
-        _ctx: PartialResultCtx<'_, '_>,
+        _ctx: PartialResultCtx<'_>,
         partial_res: Self::PartialResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.buf.extend(partial_res.data);
         Ok(())
     }
@@ -102,12 +109,12 @@ struct TracingSubscriber;
 
 #[async_trait]
 impl EventSubscriber for TracingSubscriber {
-    async fn handle_tailer_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+    async fn handle_tailer_stderr(&mut self, stderr: &str) -> buck2_error::Result<()> {
         tracing::info!("{}", stderr);
         Ok(())
     }
 
-    async fn handle_error(&mut self, error: &buck2_error::Error) -> anyhow::Result<()> {
+    async fn handle_error(&mut self, error: &buck2_error::Error) -> buck2_error::Result<()> {
         tracing::info!("{:#}", error);
         Ok(())
     }
@@ -115,7 +122,7 @@ impl EventSubscriber for TracingSubscriber {
     async fn handle_command_result(
         &mut self,
         result: &buck2_cli_proto::CommandResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         tracing::info!("{:?}", result);
         Ok(())
     }

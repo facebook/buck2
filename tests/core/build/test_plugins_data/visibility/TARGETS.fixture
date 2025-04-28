@@ -1,0 +1,11 @@
+load(":rules.bzl", "plugin_dep", "plugin_user")
+
+plugin_dep(
+    name = "missing_access",
+    actual = "//visibility/package:hidden",
+)
+
+plugin_user(
+    name = "has_access",
+    actual = "//visibility/package:unhidden",
+)

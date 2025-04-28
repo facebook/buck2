@@ -88,6 +88,7 @@ pub fn process_stats() -> ProcessStats {
     ProcessStats {
         rss_bytes: wss_bytes,
         max_rss_bytes: max_wss_bytes,
+        // TODO T219499802: Add CPU stats for Windows
         user_cpu_us: None,
         system_cpu_us: None,
     }

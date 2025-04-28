@@ -16,8 +16,8 @@ use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 
 use crate::data::ExternalRunnerSpec;
-use crate::grpc::spawn_executor_server;
 use crate::grpc::TestExecutorClient;
+use crate::grpc::spawn_executor_server;
 use crate::protocol::TestExecutor;
 
 struct MockExecutor;

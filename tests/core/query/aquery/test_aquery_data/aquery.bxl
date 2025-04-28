@@ -1,0 +1,142 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _assert_eq(a, b):
+    if a != b:
+        fail("Expected {} == {}".format(a, b))
+
+def _impl_target(ctx):
+    result = ctx.aquery().eval("//:test")
+
+    output = {}
+    for node in result:
+        data = {}
+        if hasattr(node.attrs, "identifier"):
+            data.update({"identifier": node.attrs.identifier})
+        output.update({str(node): data})
+    ctx.output.print_json(output)
+
+target = bxl_main(
+    impl = _impl_target,
+    cli_args = {},
+)
+
+def _impl_all_outputs(ctx):
+    target_literal = "//:test"
+    target_set = ctx.unconfigured_targets("//:test")
+
+    # assert that target literal and target set can both be passed into aquery
+    target_literal_result = ctx.aquery().all_outputs(target_literal)
+    target_set_result = ctx.aquery().all_outputs(target_set)
+
+    _assert_eq(target_set_result, target_literal_result)
+
+    output = {}
+    for node in target_set_result:
+        attr = {"identifier": node.attrs.identifier}
+        output.update({str(node): attr})
+    ctx.output.print_json(output)
+
+all_outputs = bxl_main(
+    impl = _impl_all_outputs,
+    cli_args = {},
+)
+
+def _impl_all_actions(ctx):
+    result = ctx.aquery().all_actions("//:test")
+
+    output = {}
+    for node in result:
+        attr = {"identifier": node.attrs.identifier}
+        output.update({str(node): attr})
+    ctx.output.print_json(output)
+
+all_actions = bxl_main(
+    impl = _impl_all_actions,
+    cli_args = {},
+)
+
+def _impl_all_outputs_subtarget(ctx):
+    providers_set = ctx.unconfigured_sub_targets("//:test[sub]")
+    providers_literal = "//:test[sub]"
+
+    # assert that target literal and target set can both be passed into aquery
+    providers_set_result = ctx.aquery().all_outputs(providers_set)
+    providers_literal_result = ctx.aquery().all_outputs(providers_literal)
+
+    _assert_eq(providers_set_result, providers_literal_result)
+
+    output = {}
+    for node in providers_set_result:
+        attr = {"identifier": node.attrs.identifier}
+        output.update({str(node): attr})
+    ctx.output.print_json(output)
+
+all_outputs_subtarget = bxl_main(
+    impl = _impl_all_outputs_subtarget,
+    cli_args = {},
+)
+
+def _impl_attrfilter(ctx):
+    all_actions = ctx.aquery().all_actions("//:test[sub]")
+    result = ctx.aquery().attrfilter("identifier", "other", all_actions)
+
+    output = {}
+    for node in result:
+        attr = {"identifier": node.attrs.identifier}
+        output.update({str(node): attr})
+    ctx.output.print_json(output)
+
+attrfilter = bxl_main(
+    impl = _impl_attrfilter,
+    cli_args = {},
+)
+
+def _impl_deps(ctx):
+    result = ctx.aquery().deps("//:test")
+
+    output = {}
+    for node in result:
+        output.update({str(node): node.attrs})
+    ctx.output.print_json(output)
+
+deps = bxl_main(
+    impl = _impl_deps,
+    cli_args = {},
+)
+
+def _impl_eval(ctx):
+    result = ctx.aquery().eval("attrfilter('identifier', 'other', all_actions('//:test[sub]'))")
+
+    output = {}
+    for node in result:
+        attr = {"identifier": node.attrs.identifier}
+        output.update({str(node): attr})
+    ctx.output.print_json(output)
+
+eval = bxl_main(
+    impl = _impl_eval,
+    cli_args = {},
+)
+
+def _impl_action_query_node(ctx):
+    result = ctx.aquery().eval("//:test")
+
+    action = result[0]
+    analysis = result[1]
+
+    _assert_eq(type(action.action()), "action")
+    _assert_eq(action.rule_type, "copy")
+    _assert_eq(str(action.action().owner().raw_target()), "root//:test")
+
+    _assert_eq(type(analysis.analysis()), "bxl.AnalysisResult")
+    _assert_eq(analysis.rule_type, "analysis")
+
+action_query_node = bxl_main(
+    impl = _impl_action_query_node,
+    cli_args = {},
+)

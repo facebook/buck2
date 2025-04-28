@@ -19,7 +19,7 @@ use crate::deferred::key::DeferredKey;
 /// A value to be stored in 'Provider' fields representing an asynchronously computed value
 #[derive(Clone_, Dupe_, derive_more::Display, Derivative, Allocative)]
 #[derivative(Debug, Eq, Hash, PartialEq)]
-#[display(fmt = "{}", key)]
+#[display("{}", key)]
 #[allocative(bound = "")]
 #[repr(C)]
 pub struct DeferredData<T> {

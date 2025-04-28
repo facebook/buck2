@@ -118,7 +118,7 @@ impl Latches {
 }
 
 #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "TopKey({})", _0)]
+#[display("TopKey({})", _0)]
 pub struct TopKey(u32);
 
 #[async_trait]
@@ -163,7 +163,7 @@ impl Key for TopKey {
 }
 
 #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "BottomKey({})", _0)]
+#[display("BottomKey({})", _0)]
 pub struct BottomKey(u32);
 
 #[async_trait]
@@ -194,7 +194,7 @@ impl Key for BottomKey {
 }
 
 #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "DenseKey({})", _0)]
+#[display("DenseKey({})", _0)]
 pub struct DenseKey(u32);
 
 #[async_trait]
@@ -229,7 +229,7 @@ impl Key for DenseKey {
 }
 
 #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "Leaf")]
+#[display("Leaf")]
 pub struct Leaf;
 
 impl InjectedKey for Leaf {
@@ -241,7 +241,7 @@ impl InjectedKey for Leaf {
 }
 
 #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "ConfigKey")]
+#[display("ConfigKey")]
 pub struct ConfigKey;
 
 impl InjectedKey for ConfigKey {

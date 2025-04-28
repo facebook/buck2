@@ -21,10 +21,7 @@ mod pass {
 
     fn assert() -> Assert<'static> {
         let mut a = Assert::new();
-        a.dialect(&Dialect {
-            enable_f_strings: true,
-            ..Dialect::Extended
-        });
+        a.dialect(&Dialect::AllOptionsInternal);
         a
     }
 
@@ -114,16 +111,12 @@ f"{x}" == '("x",)'
 mod fail {
     use starlark_syntax::golden_test_template::golden_test_template;
 
-    use crate::assert;
     use crate::assert::Assert;
     use crate::syntax::Dialect;
 
-    fn fstring_golden_test(test_name: &str, text: &str) {
+    fn fstring_golden_test_with_dialect(test_name: &str, text: &str, dialect: &Dialect) {
         let mut a = Assert::new();
-        a.dialect(&Dialect {
-            enable_f_strings: true,
-            ..Dialect::Extended
-        });
+        a.dialect(dialect);
 
         let err = a.fails(text, &[]);
 
@@ -131,6 +124,10 @@ mod fail {
             &format!("src/tests/fstring/golden/{test_name}.err.golden.md"),
             &format!("{}", err),
         );
+    }
+
+    fn fstring_golden_test(test_name: &str, text: &str) {
+        fstring_golden_test_with_dialect(test_name, text, &Dialect::AllOptionsInternal);
     }
 
     #[test]
@@ -176,12 +173,6 @@ mod fail {
 
     #[test]
     fn not_enabled() {
-        // Default dialect does not enable fstrings.
-        let err = assert::fails("f'{foo}'", &[]);
-
-        golden_test_template(
-            "src/tests/fstring/golden/not_enabled.err.golden.md",
-            &format!("{}", err),
-        );
+        fstring_golden_test_with_dialect("not_enabled", "f'{foo}'", &Dialect::Standard);
     }
 }

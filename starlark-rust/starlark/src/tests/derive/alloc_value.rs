@@ -22,8 +22,8 @@
 use starlark_derive::AllocFrozenValue;
 
 use crate as starlark;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocValue;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 #[derive(StarlarkTypeRepr, AllocValue, AllocFrozenValue)]
 enum AllocNoVariant {}

@@ -10,9 +10,10 @@
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::none::NoneType;
 use starlark::values::StringValue;
 use starlark::values::Value;
+use starlark::values::none::NoneOr;
+use starlark::values::none::NoneType;
 
 use crate::interpreter::module_internals::ModuleInternals;
 
@@ -23,7 +24,7 @@ pub(crate) fn register_module_natives(globals: &mut GlobalsBuilder) {
     ///
     /// Note that this function checks for the existence of a _target_ rather than a _rule_.
     /// In general use of this function is discouraged, as it makes definitions of rules not compose.
-    fn rule_exists(name: &str, eval: &mut Evaluator) -> anyhow::Result<bool> {
+    fn rule_exists(name: &str, eval: &mut Evaluator) -> starlark::Result<bool> {
         Ok(ModuleInternals::from_context(eval, "rule_exists")?.target_exists(name))
     }
 
@@ -33,7 +34,7 @@ pub(crate) fn register_module_natives(globals: &mut GlobalsBuilder) {
     fn oncall(
         #[starlark(require = pos)] name: &str,
         eval: &mut Evaluator,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         let internals = ModuleInternals::from_context(eval, "oncall")?;
         internals.set_oncall(name)?;
         Ok(NoneType)
@@ -43,11 +44,11 @@ pub(crate) fn register_module_natives(globals: &mut GlobalsBuilder) {
     /// It is an error to call `oncall` after calling this function.
     fn read_oncall<'v>(
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Option<StringValue<'v>>> {
+    ) -> starlark::Result<NoneOr<StringValue<'v>>> {
         let internals = ModuleInternals::from_context(eval, "read_oncall")?;
         match internals.get_oncall() {
-            None => Ok(None),
-            Some(oncall) => Ok(Some(eval.heap().alloc_str(oncall.as_str()))),
+            None => Ok(NoneOr::None),
+            Some(oncall) => Ok(NoneOr::Other(eval.heap().alloc_str(oncall.as_str()))),
         }
     }
 
@@ -55,7 +56,7 @@ pub(crate) fn register_module_natives(globals: &mut GlobalsBuilder) {
         name: &str,
         default: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         let internals = ModuleInternals::from_context(eval, "implicit_package_symbol")?;
         match internals.get_package_implicit(name) {
             None => Ok(default.unwrap_or_else(Value::new_none)),

@@ -9,9 +9,11 @@ load("@prelude//android:android_providers.bzl", "merge_android_packageable_info"
 load("@prelude//java/utils:java_utils.bzl", "get_classpath_subtarget")
 load(
     ":java_providers.bzl",
+    "ClasspathSnapshotGranularity",
     "JavaClasspathEntry",
     "create_abi",
     "create_java_library_providers",
+    "generate_java_classpath_snapshot",
 )
 load(":java_toolchain.bzl", "PrebuiltJarToolchainInfo")
 
@@ -25,12 +27,12 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
         list of created providers
     """
 
-    expected_extension = ".jar"
+    expected_extensions = [".jar", ".jmod"]
     binary_jar = ctx.attrs.binary_jar
     extension = binary_jar.extension
-    if extension != expected_extension:
-        fail("Extension of the binary_jar attribute has to be equal to '{}' but '{}' has an extension '{}'".format(
-            expected_extension,
+    if extension not in expected_extensions:
+        fail("Extension of the binary_jar attribute has to be one of '{}' but '{}' has an extension '{}'".format(
+            expected_extensions,
             binary_jar,
             extension,
         ))
@@ -43,15 +45,23 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
 
     abi = None
     prebuilt_jar_toolchain = ctx.attrs._prebuilt_jar_toolchain[PrebuiltJarToolchainInfo]
-    if ctx.attrs.generate_abi:
-        if not prebuilt_jar_toolchain.is_bootstrap_toolchain:
+    if not prebuilt_jar_toolchain.is_bootstrap_toolchain:
+        if ctx.attrs.generate_abi:
             abi = create_abi(ctx.actions, prebuilt_jar_toolchain.class_abi_generator, output)
+    jar_snapshot = generate_java_classpath_snapshot(
+        ctx.actions,
+        ctx.attrs._prebuilt_jar_toolchain[PrebuiltJarToolchainInfo].cp_snapshot_generator,
+        ClasspathSnapshotGranularity("CLASS_LEVEL"),
+        abi or output,
+        "",
+    )
 
     library_output_classpath_entry = JavaClasspathEntry(
         full_library = output,
         abi = abi or output,
         abi_as_dir = None,
         required_for_source_only_abi = ctx.attrs.required_for_source_only_abi,
+        abi_jar_snapshot = jar_snapshot,
     )
 
     java_library_info, java_packaging_info, global_code_info, shared_library_info, cxx_resource_info, linkable_graph, template_placeholder_info, _ = create_java_library_providers(
@@ -87,4 +97,8 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
         template_placeholder_info,
         linkable_graph,
         DefaultInfo(default_output = output, sub_targets = sub_targets),
-    ]
+    ] + (
+        [
+            RunInfo(args = cmd_args([ctx.attrs._prebuilt_jar_toolchain[PrebuiltJarToolchainInfo].java[RunInfo], "-jar", output])),
+        ] if ctx.attrs.is_executable else []
+    )

@@ -10,7 +10,7 @@ Handle labels used to opt-out genrules from running remotely.
 """
 
 # Some rules have to be run locally for various reasons listed next to the label.
-_GENRULE_LOCAL_LABELS = {label: True for label in [
+_GENRULE_LOCAL_LABELS = set([
     # Used for buck2 tests that want to run locally
     "buck2_test_local_exec",
 
@@ -221,7 +221,14 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     # The compilation databases produced by Buck have paths relative to the root of
     # fbsource. This isn't compatible with RE.
     "uses_compilation_database",
-]}
+
+    # Uses checkpolicy which is not on RE
+    "uses_checkpolicy",
+
+    # Need to build sgw containers on devserver and not on RE
+    # We pull base image from internet
+    "sgw_build_containers",
+])
 
 def genrule_labels_require_local(labels):
     for label in labels:

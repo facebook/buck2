@@ -8,14 +8,12 @@
  */
 
 use std::collections::HashMap;
-use std::fmt;
-use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::time::Instant;
 
-use anyhow::Context as _;
-use buck2_events::span::SpanId;
+use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
+use buck2_events::span::SpanId;
 use derivative::Derivative;
 use derive_more::From;
 use dupe::Dupe;
@@ -25,6 +23,7 @@ use crate::what_ran::WhatRanRelevantAction;
 use crate::what_ran::WhatRanState;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = InvalidEvent)]
 enum SpanTrackerError<T: SpanTrackable> {
     #[error(
         "Tried to end a child (`{child:#?}`) that did not exist for its parent (`{parent:#?}`)."
@@ -64,7 +63,7 @@ impl<T: SpanTrackable + Dupe> Span<T> {
         }
     }
 
-    fn remove_child(&mut self, child: Span<T>, roots: &mut Roots<T>) -> anyhow::Result<()> {
+    fn remove_child(&mut self, child: Span<T>, roots: &mut Roots<T>) -> buck2_error::Result<()> {
         let removed = self.children.remove(&child.span_id).is_some();
 
         if !removed {
@@ -109,7 +108,7 @@ impl<'a, T: SpanTrackable> SpanHandle<'a, T> {
                 .tracker
                 .all
                 .get(c.0)
-                .with_context(|| {
+                .with_buck_error_context(|| {
                     format!(
                         "Invariant violation: span `{:?}` references non-existent child `{}`",
                         self.span.info.event, c.0
@@ -294,7 +293,7 @@ impl<T: SpanTrackable + Dupe> SpanTracker<T> {
         }
     }
 
-    pub fn start_at(&mut self, event: &T, at: Instant) -> anyhow::Result<()> {
+    pub fn start_at(&mut self, event: &T, at: Instant) -> buck2_error::Result<()> {
         if !event.is_shown() {
             return Ok(());
         }
@@ -329,7 +328,7 @@ impl<T: SpanTrackable + Dupe> SpanTracker<T> {
         Ok(())
     }
 
-    fn end(&mut self, event: &T) -> anyhow::Result<()> {
+    fn end(&mut self, event: &T) -> buck2_error::Result<()> {
         let span_id = event
             .span_id()
             .ok_or_else(|| SpanTrackerError::NonSpanEvent(event.dupe()))?;
@@ -543,7 +542,6 @@ pub fn is_span_shown(event: &BuckEvent) -> bool {
             | Data::ConnectToInstaller(..)
             | Data::LocalResources(..)
             | Data::ReleaseLocalResources(..)
-            | Data::CreateOutputHashesFile(..)
             | Data::ActionErrorHandlerExecution(..)
             | Data::CqueryUniverseBuild(..),
         ) => true,
@@ -560,7 +558,7 @@ impl BuckEventSpanTracker {
         &mut self,
         receive_time: Instant,
         event: &Arc<BuckEvent>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if let Some(_start) = event.span_start_event() {
             self.start_at(event, receive_time)?;
         } else if let Some(_end) = event.span_end_event() {
@@ -571,32 +569,11 @@ impl BuckEventSpanTracker {
 }
 
 impl WhatRanState for SpanTracker<Arc<BuckEvent>> {
-    fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction<'_>> {
+    fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction> {
         self.all
             .get(&span_id)
             .map(|e| e.info.event.data())
             .and_then(WhatRanRelevantAction::from_buck_data)
-    }
-}
-
-/// A wrapper type to make calls to emit_event_if_relevant more convenient, since parent_id is
-/// `Option<SpanId>` on BuckEvent.
-#[derive(From, Copy, Clone, Dupe, Eq, PartialEq, Hash)]
-pub struct OptionalSpanId(pub Option<SpanId>);
-
-impl OptionalSpanId {
-    pub fn from_u64(optional_span_id: u64) -> OptionalSpanId {
-        OptionalSpanId(NonZeroU64::new(optional_span_id).map(SpanId))
-    }
-}
-
-impl fmt::Display for OptionalSpanId {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        if let Some(this) = self.0 {
-            write!(formatter, "{}", this)
-        } else {
-            write!(formatter, "(none)")
-        }
     }
 }
 
@@ -670,7 +647,7 @@ mod tests {
     }
 
     #[test]
-    fn test_boring_via_self() -> anyhow::Result<()> {
+    fn test_boring_via_self() -> buck2_error::Result<()> {
         let t0 = Instant::now();
 
         let boring = TestSpan::new().boring();
@@ -694,7 +671,7 @@ mod tests {
     }
 
     #[test]
-    fn test_boring_via_child() -> anyhow::Result<()> {
+    fn test_boring_via_child() -> buck2_error::Result<()> {
         let t0 = Instant::now();
 
         let parent = TestSpan::new();
@@ -755,7 +732,7 @@ mod tests {
     }
 
     #[test]
-    fn test_iter_roots_len() -> anyhow::Result<()> {
+    fn test_iter_roots_len() -> buck2_error::Result<()> {
         let t0 = Instant::now();
 
         let e1 = TestSpan::new();
@@ -788,7 +765,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dice_counts() -> anyhow::Result<()> {
+    fn test_dice_counts() -> buck2_error::Result<()> {
         let t0 = Instant::now();
 
         let foo = TestSpan::new().dice_key_type("foo");

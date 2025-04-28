@@ -13,12 +13,12 @@ use std::time::SystemTime;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_log::utils::Invocation;
-use futures::stream::BoxStream;
-use futures::task::Poll;
 use futures::Future;
 use futures::Stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
+use futures::stream::BoxStream;
+use futures::task::Poll;
 use pin_project::pin_project;
 use tokio::time::Instant;
 use tokio::time::Sleep;
@@ -31,7 +31,7 @@ struct Pending {
 }
 
 #[pin_project]
-pub struct Replayer<T = BoxStream<'static, anyhow::Result<StreamValue>>> {
+pub struct Replayer<T = BoxStream<'static, buck2_error::Result<StreamValue>>> {
     #[pin]
     events: T,
     was_complete: bool,
@@ -45,7 +45,7 @@ impl Replayer {
         log_path: EventLogPathBuf,
         speed: Option<f64>,
         preload: bool,
-    ) -> anyhow::Result<(Self, Invocation)> {
+    ) -> buck2_error::Result<(Self, Invocation)> {
         let (invocation, events) = log_path.unpack_stream().await?;
 
         let events = if preload {
@@ -89,7 +89,7 @@ impl Syncher {
     ///
     /// The first event will be sent immediately. Each subsequent event will be sent with a delay
     /// based on its time since that first event.
-    fn synch_playback_time(&mut self, event: &buck2_data::BuckEvent) -> anyhow::Result<Sleep> {
+    fn synch_playback_time(&mut self, event: &buck2_data::BuckEvent) -> buck2_error::Result<Sleep> {
         let event_time = SystemTime::try_from(event.timestamp.as_ref().unwrap().clone())?;
         let (sync_start, log_start) = self.start.get_or_insert((Instant::now(), event_time));
         let log_offset_time = event_time.duration_since(*log_start)?;
@@ -101,9 +101,9 @@ impl Syncher {
 
 impl<T> Stream for Replayer<T>
 where
-    T: Stream<Item = anyhow::Result<StreamValue>>,
+    T: Stream<Item = buck2_error::Result<StreamValue>>,
 {
-    type Item = anyhow::Result<StreamValue>;
+    type Item = buck2_error::Result<StreamValue>;
 
     fn poll_next(
         self: Pin<&mut Self>,

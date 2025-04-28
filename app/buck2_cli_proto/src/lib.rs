@@ -14,8 +14,8 @@
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 
 use crate::BuckDaemonProtoError::MissingClientContext;
 
@@ -25,13 +25,14 @@ pub mod protobuf_util;
 tonic::include_proto!("buck.daemon");
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum BuckDaemonProtoError {
     #[error("daemon request was missing client context")]
     MissingClientContext,
 }
 
 #[track_caller]
-fn wrong_request_type(request_type: &'static str) -> anyhow::Error {
+fn wrong_request_type(request_type: &'static str) -> buck2_error::Error {
     internal_error!("wrong gRPC request message type, expecting {request_type}")
 }
 
@@ -57,7 +58,7 @@ impl ConfigOverride {
         }
     }
 
-    pub fn get_cell(&self) -> anyhow::Result<Option<&CellRootPath>> {
+    pub fn get_cell(&self) -> buck2_error::Result<Option<&CellRootPath>> {
         self.cell
             .as_ref()
             .map(|p| {
@@ -70,11 +71,11 @@ impl ConfigOverride {
 }
 
 pub trait HasClientContext {
-    fn client_context(&self) -> anyhow::Result<&ClientContext>;
+    fn client_context(&self) -> buck2_error::Result<&ClientContext>;
 }
 
 impl HasClientContext for StreamingRequest {
-    fn client_context(&self) -> anyhow::Result<&ClientContext> {
+    fn client_context(&self) -> buck2_error::Result<&ClientContext> {
         match self.request.as_ref() {
             Some(streaming_request::Request::Context(ctx)) => Ok(ctx),
             _ => Err(MissingClientContext.into()),
@@ -89,7 +90,7 @@ impl HasBuildOptions for StreamingRequest {
 }
 
 impl TryFrom<StreamingRequest> for LspRequest {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     fn try_from(value: StreamingRequest) -> Result<Self, Self::Error> {
         match value.request {
@@ -108,7 +109,7 @@ impl From<LspRequest> for StreamingRequest {
 }
 
 impl TryFrom<StreamingRequest> for SubscriptionRequestWrapper {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     fn try_from(value: StreamingRequest) -> Result<Self, Self::Error> {
         match value.request {
@@ -127,7 +128,7 @@ impl From<SubscriptionRequestWrapper> for StreamingRequest {
 }
 
 impl TryFrom<StreamingRequest> for DapRequest {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     fn try_from(value: StreamingRequest) -> Result<Self, Self::Error> {
         match value.request {
@@ -214,7 +215,7 @@ macro_rules! define_request {
 
     ( @has $name:ident $has_buildopts:ident context $($tail:ident)* ) => {
         impl HasClientContext for $name {
-            fn client_context(&self) -> anyhow::Result<&ClientContext> {
+            fn client_context(&self) -> buck2_error::Result<&ClientContext> {
                 // A request that has a client context field should always set the context.
                 match &self.context {
                     Some(v) => Ok(v),

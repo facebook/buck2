@@ -9,10 +9,10 @@
 
 use std::sync::Arc;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::fs::async_fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
 
 use crate::subscribers::subscriber::EventSubscriber;
@@ -29,12 +29,12 @@ impl BuildIdWriter {
 
 #[async_trait]
 impl EventSubscriber for BuildIdWriter {
-    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
+    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> buck2_error::Result<()> {
         for event in events {
             if event.command_start()?.is_some() {
                 async_fs_util::write(&self.path, event.trace_id()?.to_string())
                     .await
-                    .context("Error writing build ID")?;
+                    .buck_error_context("Error writing build ID")?;
             }
         }
         Ok(())

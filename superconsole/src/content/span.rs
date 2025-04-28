@@ -12,6 +12,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
+use crossterm::Command;
 use crossterm::style::Attribute;
 use crossterm::style::Color;
 use crossterm::style::ContentStyle;
@@ -20,13 +21,13 @@ use crossterm::style::SetAttributes;
 use crossterm::style::SetBackgroundColor;
 use crossterm::style::SetForegroundColor;
 use crossterm::style::StyledContent;
-use crossterm::Command;
 use termwiz::cell;
+use termwiz::cell::Hyperlink;
 use unicode_segmentation::Graphemes;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, thiserror::Error)]
-enum SpanError {
+pub enum SpanError {
     #[error("Word {0} contains non-space whitespace")]
     InvalidWhitespace(String),
 }
@@ -38,6 +39,7 @@ enum SpanError {
 pub struct Span {
     pub(crate) content: Cow<'static, str>,
     pub style: ContentStyle,
+    pub hyperlink: Option<Hyperlink>,
 }
 
 /// Test whether a char is permissable to be inside a Span.
@@ -60,6 +62,7 @@ impl Span {
         Span {
             content: Cow::Borrowed("-"),
             style: ContentStyle::default(),
+            hyperlink: None,
         }
     }
 
@@ -74,6 +77,7 @@ impl Span {
         Span {
             content: Cow::Owned(content),
             style: ContentStyle::default(),
+            hyperlink: None,
         }
     }
 
@@ -86,20 +90,28 @@ impl Span {
         Self {
             content: Cow::Owned(format!("{:<width$}", "", width = amount)),
             style: ContentStyle::default(),
+            hyperlink: None,
         }
+    }
+
+    /// Determine if this span is mergeable with another span, i.e. if they
+    /// are equal except for content.
+    pub fn is_mergeable_with(&self, other: &Span) -> bool {
+        self.style == other.style && self.hyperlink == other.hyperlink
     }
 
     /// Attempt to create a new, unstyled span equivalent to the underlying stringlike.
     /// This will fail if the input string is not [`valid`](Span::valid).
-    pub fn new_unstyled<S: std::fmt::Display>(stringlike: S) -> anyhow::Result<Self> {
+    pub fn new_unstyled<S: std::fmt::Display>(stringlike: S) -> Result<Self, SpanError> {
         let owned = stringlike.to_string();
         if Self::valid(&owned) {
             Ok(Self {
                 content: Cow::Owned(owned),
                 style: ContentStyle::default(),
+                hyperlink: None,
             })
         } else {
-            Err(SpanError::InvalidWhitespace(owned).into())
+            Err(SpanError::InvalidWhitespace(owned))
         }
     }
 
@@ -108,19 +120,21 @@ impl Span {
         Self {
             content: Cow::Owned(content),
             style: ContentStyle::default(),
+            hyperlink: None,
         }
     }
 
     /// Equivalent to [`new_unstyled`](Span::new_unstyled), except with styling.
     // TODO(brasselsprouts): Does this have to be a `String`? probably not.
-    pub fn new_styled(content: StyledContent<String>) -> anyhow::Result<Self> {
+    pub fn new_styled(content: StyledContent<String>) -> Result<Self, SpanError> {
         if Self::valid(content.content()) {
             Ok(Self {
                 content: Cow::Owned(content.content().clone()),
                 style: *content.style(),
+                hyperlink: None,
             })
         } else {
-            Err(SpanError::InvalidWhitespace(content.content().to_owned()).into())
+            Err(SpanError::InvalidWhitespace(content.content().to_owned()))
         }
     }
 
@@ -130,10 +144,11 @@ impl Span {
         Self {
             content: Cow::Owned(content),
             style: *span.style(),
+            hyperlink: None,
         }
     }
 
-    pub fn new_colored(text: &str, color: Color) -> anyhow::Result<Self> {
+    pub fn new_colored(text: &str, color: Color) -> Result<Self, SpanError> {
         Self::new_styled(StyledContent::new(
             ContentStyle {
                 foreground_color: Some(color),
@@ -153,6 +168,10 @@ impl Span {
         ))
     }
 
+    pub fn with_hyperlink(self, hyperlink: Option<Hyperlink>) -> Self {
+        Self { hyperlink, ..self }
+    }
+
     /// Returns the number of graphemes in the span.
     pub fn len(&self) -> usize {
         // Pulled this dep from another FB employee's project - better unicode support for terminal column widths.
@@ -168,7 +187,7 @@ impl Span {
     /// Because a `Grapheme` is represented as another string, the sub-`Span` is represented as a `Span`.
     /// This `panics` if it encounters unicode that it doesn't know how to deal with.
     pub fn iter(&self) -> impl Iterator<Item = Span> + '_ {
-        SpanIterator(&self.style, self.content.graphemes(true))
+        SpanIterator(&self.style, self.content.graphemes(true), &self.hyperlink)
     }
 
     pub(crate) fn render(&self, f: &mut impl fmt::Write) -> fmt::Result {
@@ -178,6 +197,7 @@ impl Span {
 
         let mut reset_background = false;
         let mut reset_foreground = false;
+        let mut reset_hyperlink = false;
         let mut reset = false;
 
         if let Some(bg) = self.style.background_color {
@@ -192,8 +212,18 @@ impl Span {
             SetAttributes(self.style.attributes).write_ansi(f)?;
             reset = true;
         }
+        if let Some(hy) = &self.hyperlink {
+            // TODO: IDs aren't supported here. This is a very naive implementation
+            // ideally this should be supported by crossterm
+            write!(f, "\x1B]8;;{}\x1B\\", hy.uri())?;
+            reset_hyperlink = true;
+        }
 
         write!(f, "{}", self.content)?;
+
+        if reset_hyperlink {
+            write!(f, "\x1B]8;;\x1B\\")?;
+        }
 
         if reset {
             ResetColor.write_ansi(f)?;
@@ -298,7 +328,7 @@ impl Span {
 }
 
 impl TryFrom<String> for Span {
-    type Error = anyhow::Error;
+    type Error = SpanError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::new_unstyled(value)
@@ -306,7 +336,7 @@ impl TryFrom<String> for Span {
 }
 
 impl TryFrom<&str> for Span {
-    type Error = anyhow::Error;
+    type Error = SpanError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         Self::new_unstyled(value)
@@ -314,23 +344,26 @@ impl TryFrom<&str> for Span {
 }
 
 impl TryFrom<StyledContent<String>> for Span {
-    type Error = anyhow::Error;
+    type Error = SpanError;
 
     fn try_from(value: StyledContent<String>) -> Result<Self, Self::Error> {
         Self::new_styled(value)
     }
 }
 
-pub(crate) struct SpanIterator<'a>(&'a ContentStyle, Graphemes<'a>);
+pub(crate) struct SpanIterator<'a>(&'a ContentStyle, Graphemes<'a>, &'a Option<Hyperlink>);
 
 impl<'a> Iterator for SpanIterator<'a> {
     type Item = Span;
 
     fn next(&mut self) -> Option<Self::Item> {
         let content = self.1.next();
+        let style = self.0;
+        let hyperlink = self.2;
         content.map(|content| Span {
-            style: *self.0,
+            style: *style,
             content: Cow::Owned(content.to_owned()),
+            hyperlink: hyperlink.clone(),
         })
     }
 }

@@ -1,0 +1,14 @@
+config_setting(
+    name = "cs",
+    values = {
+        "aaa.bbb": "ccc",
+    },
+)
+
+stub(
+    name = "the-test",
+    labels = select({
+        ":cs": ["YES"],
+        "DEFAULT": ["NO"],
+    }),
+)

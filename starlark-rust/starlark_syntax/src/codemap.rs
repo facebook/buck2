@@ -23,8 +23,8 @@
 //! of a `Pos` or `Span`, as well as provide source code snippets for error reporting.
 use std::cmp;
 use std::cmp::Ordering;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -150,7 +150,7 @@ impl Span {
 }
 
 /// Associate a Span with a value of arbitrary type (e.g. an AST node).
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Copy)]
+#[derive(Clone, Copy, Dupe, PartialEq, Eq, Hash, Debug)]
 pub struct Spanned<T> {
     /// Data in the node.
     pub node: T,
@@ -691,7 +691,7 @@ impl ResolvedSpan {
 
 /// File and line number.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, derive_more::Display)]
-#[display(fmt = "{}:{}", file, "line + 1")]
+#[display("{}:{}", file, line + 1)]
 pub struct ResolvedFileLine {
     /// File name.
     pub file: String,

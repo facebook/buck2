@@ -8,7 +8,6 @@
  */
 
 #![feature(assert_matches)]
-#![feature(is_sorted)]
 #![feature(error_generic_member_access)]
 #![feature(once_cell_try)]
 
@@ -30,6 +29,7 @@ mod git;
 struct ConcreteExternalCellsImpl;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum ExternalCellsError {
     #[error("Tried to expand external cell to `{0}`, but that directory already contains data!")]
     ExpandDataAlreadyPresent(ProjectRelativePathBuf),
@@ -42,7 +42,7 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
         ctx: &mut DiceComputations<'_>,
         cell_name: CellName,
         origin: ExternalCellOrigin,
-    ) -> anyhow::Result<Arc<dyn FileOpsDelegate>> {
+    ) -> buck2_error::Result<Arc<dyn FileOpsDelegate>> {
         match origin {
             ExternalCellOrigin::Bundled(cell_name) => {
                 Ok(bundled::get_file_ops_delegate(ctx, cell_name).await? as _)
@@ -53,7 +53,7 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
         }
     }
 
-    fn check_bundled_cell_exists(&self, cell_name: CellName) -> anyhow::Result<()> {
+    fn check_bundled_cell_exists(&self, cell_name: CellName) -> buck2_error::Result<()> {
         bundled::find_bundled_data(cell_name).map(|_| ())
     }
 
@@ -63,7 +63,7 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
         cell: CellName,
         origin: ExternalCellOrigin,
         path: &CellRootPath,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let dest_path = path.as_project_relative_path().to_buf();
         let io = ctx.global_data().get_io_provider();
 
@@ -92,7 +92,7 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
             ExternalCellOrigin::Git(setup) => git::materialize_all(ctx, cell, setup).await?,
         };
 
-        io.project_root().copy(&materialized_path, &dest_path)
+        Ok(io.project_root().copy(&materialized_path, &dest_path)?)
     }
 }
 

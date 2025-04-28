@@ -72,7 +72,7 @@ do(AppInfoFile) ->
         mod := Mod,
         env := Env,
         metadata := Metadata
-    } = AppInfo = do_parse_app_info_file(AppInfoFile),
+    } = do_parse_app_info_file(AppInfoFile),
     VerifiedTerms = check_and_normalize_template(
         Name,
         Version,
@@ -144,7 +144,7 @@ get_mod(_, undefined) ->
 get_mod(AppName, [ModuleName, StringArgs]) ->
     parse_term(
         AppName,
-        ["{", ModuleName, ",[", lists:join(",", StringArgs), "]}"],
+        ["{", ModuleName, ", ", StringArgs, "}"],
         "mod field"
     ).
 
@@ -334,7 +334,7 @@ render_app_file(AppName, Terms, Output, Srcs) ->
     Spec =
         {application, App, [{modules, Modules} | Props1]},
     ToWrite = io_lib:format("~kp.\n", [Spec]),
-    file:write_file(Output, ToWrite, [raw]).
+    ok = file:write_file(Output, ToWrite, [raw]).
 
 -spec generate_modules([file:filename()]) -> [atom()].
 generate_modules(Sources) ->

@@ -1,0 +1,15 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+
+oncall("build_infra")
+
+# TODO: this code is meant to be compiled to wasm,
+#       but here we only check it compiles for linux/mac/etc.
+rust_library(
+    name = "starlark_js_example",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    deps = [
+        "//buck2/starlark-rust/starlark:starlark",
+    ],
+)

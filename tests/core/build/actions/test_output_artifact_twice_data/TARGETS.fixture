@@ -1,0 +1,2 @@
+test_output_artifact_twice_same(name = "test_output_artifact_twice_same")
+test_output_artifact_twice_with_projection(name = "test_output_artifact_twice_with_projection")

@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use dupe::Dupe;
+use strong_hash::StrongHash;
 
 use crate::cells::name::CellName;
 
@@ -24,7 +25,8 @@ use crate::cells::name::CellName;
     PartialEq,
     Debug,
     derive_more::Display,
-    Allocative
+    Allocative,
+    StrongHash
 )]
 #[repr(C)]
 pub struct BuildFileCell(CellName);

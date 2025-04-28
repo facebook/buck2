@@ -13,7 +13,6 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::OnceLock;
 
-use anyhow::Context;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_common::dice::file_ops::delegate::FileOpsDelegate;
 use buck2_common::file_ops::FileMetadata;
@@ -39,32 +38,39 @@ use buck2_directory::directory::directory_hasher::NoDigestDigester;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::directory_ref::DirectoryRef;
 use buck2_directory::directory::entry::DirectoryEntry;
-use buck2_directory::directory::find::find;
 use buck2_directory::directory::find::DirectoryFindError;
+use buck2_directory::directory::find::find;
 use buck2_directory::directory::immutable_directory::ImmutableDirectory;
 use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::WriteRequest;
-use buck2_external_cells_bundled::get_bundled_data;
 use buck2_external_cells_bundled::BundledCell;
 use buck2_external_cells_bundled::BundledFile;
+use buck2_external_cells_bundled::get_bundled_data;
 use cmp_any::PartialEqAny;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
 
-fn load_nano_prelude() -> anyhow::Result<BundledCell> {
-    let path = env::var("NANO_PRELUDE").context(
-        "NANO_PRELUDE env var must be set to the location of nano prelude\n\
+fn load_nano_prelude() -> buck2_error::Result<BundledCell> {
+    let path = env::var("NANO_PRELUDE")
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Input))
+        .buck_error_context(
+            "NANO_PRELUDE env var must be set to the location of nano prelude\n\
         Consider `export NANO_PRELUDE=$HOME/fbsource/fbcode/buck2/tests/e2e_util/nano_prelude`",
-    )?;
+        )?;
     if path.is_empty() {
-        return Err(anyhow::anyhow!("NANO_PRELUDE env var must not be empty"));
+        return Err(buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "NANO_PRELUDE env var must not be empty"
+        ));
     }
     let path = AbsPathBuf::new(Path::new(&path))
-        .context("NANO_PRELUDE env var must point to absolute path")?;
+        .buck_error_context("NANO_PRELUDE env var must point to absolute path")?;
 
     let mut files = Vec::new();
     let mut dir_stack = Vec::new();
@@ -74,7 +80,10 @@ fn load_nano_prelude() -> anyhow::Result<BundledCell> {
             let entry = entry?;
             let entry_path = AbsPathBuf::new(entry.path())?;
             let entry_rel_path = rel_path.join(FileName::new(
-                entry.file_name().to_str().context("not UTF-8 string")?,
+                entry
+                    .file_name()
+                    .to_str()
+                    .buck_error_context("not UTF-8 string")?,
             )?);
             match FileType::from(entry.file_type()?) {
                 FileType::Directory => dir_stack.push((entry_path, entry_rel_path)),
@@ -100,14 +109,16 @@ fn load_nano_prelude() -> anyhow::Result<BundledCell> {
     })
 }
 
-fn nano_prelude() -> anyhow::Result<BundledCell> {
+fn nano_prelude() -> buck2_error::Result<BundledCell> {
     static NANO_PRELUDE: OnceLock<BundledCell> = OnceLock::new();
-    Ok(*NANO_PRELUDE.get_or_try_init(|| load_nano_prelude().context("loading nano_prelude"))?)
+    Ok(*NANO_PRELUDE
+        .get_or_try_init(|| load_nano_prelude().buck_error_context("loading nano_prelude"))?)
 }
 
-pub(crate) fn find_bundled_data(cell_name: CellName) -> anyhow::Result<BundledCell> {
+pub(crate) fn find_bundled_data(cell_name: CellName) -> buck2_error::Result<BundledCell> {
     #[derive(buck2_error::Error, Debug)]
     #[error("No bundled cell named `{0}`, options are `{}`", _1.join(", "))]
+    #[buck2(tag = Input)]
     struct CellNotBundled(String, Vec<&'static str>);
 
     let cell_name = cell_name.as_str();
@@ -145,6 +156,7 @@ pub(crate) struct BundledFileOpsDelegate {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Environment)]
 enum BundledPathSearchError {
     #[error("Expected a directory at `{0}` but found a file")]
     ExpectedDirectory(String),
@@ -158,7 +170,7 @@ impl BundledFileOpsDelegate {
     fn get_entry_at_path_if_exists(
         &self,
         path: &CellRelativePath,
-    ) -> anyhow::Result<
+    ) -> buck2_error::Result<
         Option<
             DirectoryEntry<
                 impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = NoDigest>,
@@ -177,7 +189,7 @@ impl BundledFileOpsDelegate {
     fn get_entry_at_path(
         &self,
         path: &CellRelativePath,
-    ) -> anyhow::Result<
+    ) -> buck2_error::Result<
         DirectoryEntry<
             impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = NoDigest>,
             &ContentsAndMetadata,
@@ -193,7 +205,7 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
     async fn read_file_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> buck2_error::Result<Option<String>> {
         match self.get_entry_at_path_if_exists(path)? {
             Some(DirectoryEntry::Leaf(leaf)) => {
                 Ok(Some(String::from_utf8(leaf.contents.to_vec())?))
@@ -209,7 +221,7 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
     async fn read_dir(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<Vec<RawDirEntry>> {
         let dir = match self.get_entry_at_path(path)? {
             DirectoryEntry::Dir(dir) => dir,
             DirectoryEntry::Leaf(_) => {
@@ -234,7 +246,7 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
     async fn read_path_metadata_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Option<RawPathMetadata>> {
+    ) -> buck2_error::Result<Option<RawPathMetadata>> {
         match self.get_entry_at_path_if_exists(path)? {
             Some(DirectoryEntry::Leaf(leaf)) => {
                 Ok(Some(RawPathMetadata::File(leaf.metadata.clone())))
@@ -252,7 +264,7 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
 fn get_file_ops_delegate_impl(
     data: BundledCell,
     digest_config: DigestConfig,
-) -> anyhow::Result<BundledFileOpsDelegate> {
+) -> buck2_error::Result<BundledFileOpsDelegate> {
     let mut builder: DirectoryBuilder<ContentsAndMetadata, NoDigest> = DirectoryBuilder::empty();
     let digest_config = digest_config.cas_digest_config().source_files_config();
     for file in data.files {
@@ -282,7 +294,7 @@ async fn declare_all_source_artifacts(
     ctx: &mut DiceComputations<'_>,
     cell_name: CellName,
     ops: &BundledFileOpsDelegate,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut requests = Vec::new();
     let artifact_fs = ctx.get_artifact_fs().await?;
     let buck_out_resolver = artifact_fs.buck_out_path_resolver();
@@ -309,7 +321,7 @@ async fn declare_all_source_artifacts(
 pub(crate) async fn get_file_ops_delegate(
     ctx: &mut DiceComputations<'_>,
     cell_name: CellName,
-) -> anyhow::Result<Arc<BundledFileOpsDelegate>> {
+) -> buck2_error::Result<Arc<BundledFileOpsDelegate>> {
     #[derive(
         dupe::Dupe,
         Clone,
@@ -344,13 +356,13 @@ pub(crate) async fn get_file_ops_delegate(
         }
     }
 
-    Ok(ctx.compute(&BundledFileOpsDelegateKey(cell_name)).await??)
+    ctx.compute(&BundledFileOpsDelegateKey(cell_name)).await?
 }
 
 pub(crate) async fn materialize_all(
     ctx: &mut DiceComputations<'_>,
     cell: CellName,
-) -> anyhow::Result<ProjectRelativePathBuf> {
+) -> buck2_error::Result<ProjectRelativePathBuf> {
     let artifact_fs = ctx.get_artifact_fs().await?;
     let buck_out_resolver = artifact_fs.buck_out_path_resolver();
 

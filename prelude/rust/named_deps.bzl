@@ -21,7 +21,7 @@ def write_named_deps_names(
     named_deps_names = ctx.actions.declare_output("named_deps")
     ctx.actions.run(
         cmd_args(
-            compile_ctx.toolchain_info.rustc_action,
+            compile_ctx.internal_tools_info.rustc_action,
             cmd_args(named_deps_names.as_output(), format = "--echo={}"),
             at_argfile(
                 actions = ctx.actions,

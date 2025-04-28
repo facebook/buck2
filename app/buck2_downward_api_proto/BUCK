@@ -1,5 +1,4 @@
 load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
 
@@ -9,8 +8,8 @@ rust_protobuf_library(
     build_script = "build.rs",
     protos = ["downward_api.proto"],
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tracing",
+        "//buck2/app/buck2_error:buck2_error",
     ],
 )

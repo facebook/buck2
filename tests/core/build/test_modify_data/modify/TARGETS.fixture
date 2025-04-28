@@ -1,0 +1,13 @@
+load(":rules.bzl", "copy_file", "write_string")
+
+write_string(
+    name = "writer",
+    content = "HELLO\n",
+    out = "out.txt",
+)
+
+copy_file(
+    name = "mysrcrule",
+    src = "src.txt",
+    out = "out.txt",
+)

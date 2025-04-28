@@ -5,15 +5,15 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo")
-load("@prelude//linking:link_info.bzl", "Archive")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo", "LinkerType")
+load("@prelude//linking:link_info.bzl", "Archive", "ArchiveContentsType")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def _archive_flags(
         archiver_type: str,
-        linker_type: str,
+        linker_type: LinkerType,
         use_archiver_flags: bool,
         symbol_table: bool,
         thin: bool) -> list[str]:
@@ -26,6 +26,10 @@ def _archive_flags(
         return ["/Brepro", "/d2threads1"]
     elif archiver_type == "windows_clang":
         return ["/llvmlibthin"] if thin else []
+    elif archiver_type == "amdclang":
+        # amdclang can be used to create archives with --emit-static-lib, so let's
+        # prefer to let the toolchain define the args instead of hardcoding them here.
+        return []
     flags = ""
 
     # Operate in quick append mode, so that objects with identical basenames
@@ -43,13 +47,19 @@ def _archive_flags(
         flags += "T"
 
     # GNU archivers support generating deterministic archives.
-    if linker_type == "gnu":
+    if linker_type == LinkerType("gnu"):
         flags += "D"
 
     return [flags]
 
 # Create a static library from a list of object files.
-def _archive(ctx: AnalysisContext, name: str, args: cmd_args, thin: bool, prefer_local: bool) -> Artifact:
+def _archive(
+        ctx: AnalysisContext,
+        name: str,
+        args: cmd_args,
+        thin: bool,
+        prefer_local: bool,
+        allow_cache_upload: bool) -> Artifact:
     archive_output = ctx.actions.declare_output(name)
     toolchain = get_cxx_toolchain_info(ctx)
     command = cmd_args(toolchain.linker_info.archiver)
@@ -63,6 +73,8 @@ def _archive(ctx: AnalysisContext, name: str, args: cmd_args, thin: bool, prefer
     ))
     if archiver_type == "windows" or archiver_type == "windows_clang":
         command.add([cmd_args(archive_output.as_output(), format = "/OUT:{}")])
+    elif archiver_type == "amdclang":
+        command.add(["-o", archive_output.as_output()])
     else:
         command.add([archive_output.as_output()])
 
@@ -97,6 +109,7 @@ def _archive(ctx: AnalysisContext, name: str, args: cmd_args, thin: bool, prefer
         identifier = name,
         env = env,
         prefer_local = prefer_local,
+        allow_cache_upload = allow_cache_upload,
     )
     return archive_output
 
@@ -105,6 +118,9 @@ def _archive_locally(ctx: AnalysisContext, linker_info: LinkerInfo) -> bool:
     if hasattr(ctx.attrs, "_archive_objects_locally_override"):
         return value_or(ctx.attrs._archive_objects_locally_override, archive_locally)
     return archive_locally
+
+def _archive_allow_cache_upload(ctx: AnalysisContext) -> bool:
+    return getattr(ctx.attrs, "archive_allow_cache_upload", False)
 
 # Creates a static library given a list of object files.
 def make_archive(
@@ -119,11 +135,22 @@ def make_archive(
     thin = linker_info.archive_contents == "thin"
     object_args = cmd_args(objects, ignore_artifacts = not linker_info.archiver_reads_inputs)
     args = cmd_args(object_args, hidden = hidden)
-    archive = _archive(ctx, name, args, thin = thin, prefer_local = _archive_locally(ctx, linker_info))
+    archive = _archive(
+        ctx,
+        name,
+        args,
+        thin = thin,
+        prefer_local = _archive_locally(ctx, linker_info),
+        allow_cache_upload = _archive_allow_cache_upload(ctx),
+    )
 
     # TODO(T110378125): use argsfiles for GNU archiver for long lists of objects.
     # TODO(T110378123): for BSD archiver, split long args over multiple invocations.
     # TODO(T110378100): We need to scrub the static library (timestamps, permissions, etc) as those are
     # sources of non-determinism. See `ObjectFileScrubbers.createDateUidGidScrubber()` in Buck v1.
 
-    return Archive(artifact = archive, external_objects = objects if thin else [])
+    return Archive(
+        artifact = archive,
+        archive_contents_type = ArchiveContentsType(linker_info.archive_contents),
+        external_objects = objects,
+    )

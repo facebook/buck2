@@ -1,0 +1,63 @@
+with_two_dep_files(
+    name = "dep_files1",
+    out_name = "out",
+    dep_file_contents = [
+        (
+            "dep_file_name0",
+            ["used.1", "used.2"],
+            ["unused.1"],
+        ),
+        (
+            "dep_file_name1",
+            ["used.3"],
+            ["unused.2"],
+        ),
+    ],
+    create_dep_file = "create_dep_file.py",
+    untagged_files = ["untagged.1"],
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:cache_uploads_with_remote_dep_file_query"],
+)
+
+with_two_dep_files(
+    name = "dep_files2",
+    out_name = "out",
+    dep_file_contents = [
+        (
+            "dep_file_name0",
+            ["used.1", "used.2"],
+            ["unused.1"],
+        ),
+        (
+            "dep_file_name1",
+            ["used.3"],
+            ["unused.2"],
+        ),
+    ],
+    create_dep_file = "create_dep_file.py",
+    untagged_files = ["untagged.2"],
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:cache_uploads_with_remote_dep_file_query"],
+)
+
+with_two_dep_files(
+    name = "dep_files_fail",
+    out_name = "out",
+    dep_file_contents = [
+        (
+            "dep_file_name0",
+            ["used.1", "used.2"],
+            ["unused.1"],
+        ),
+        (
+            "dep_file_name1",
+            ["used.3"],
+            ["unused.2"],
+        ),
+    ],
+    create_dep_file = "create_dep_file.py",
+    untagged_files = ["untagged.1"],
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:cache_uploads"],
+    fail = True,
+)

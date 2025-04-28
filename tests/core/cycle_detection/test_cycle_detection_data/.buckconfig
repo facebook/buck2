@@ -1,0 +1,16 @@
+[buildfile]
+name=TARGETS.fixture
+
+[project]
+ignore=ignored
+
+[repositories]
+root = .
+prelude = prelude
+
+[build]
+  lazy_cycle_detector = true
+  execution_platforms = //:execution_platforms
+
+[buck2]
+  detect_cycles = disabled

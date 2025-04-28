@@ -1,0 +1,16 @@
+name: build_example_persistent_worker
+inputs:
+  buildbuddyApiKey:
+    description: "The API key for BuildBuddy remote cache and execution."
+    required: true
+runs:
+  using: composite
+  steps:
+  - name: Build examples/persistent_worker directory
+    env:
+      BUILDBUDDY_API_KEY: ${{ inputs.buildbuddyApiKey }}
+    run: |-
+      cd examples/persistent_worker
+      export PATH="$RUNNER_TEMP/artifacts:$PATH"
+      ./test.sh
+    shell: bash

@@ -255,7 +255,12 @@ def compile(
     ctx.actions.run(
         compile_cmd,
         category = "haskell_compile_" + artifact_suffix.replace("-", "_"),
-        no_outputs_cleanup = True,
+        # We can't use no_outputs_cleanup because GHC's recompilation checking
+        # is based on file timestamps, and Buck doesn't maintain timestamps when
+        # artifacts may come from RE.
+        # TODO: enable this for GHC 9.4 which tracks file changes using hashes
+        # not timestamps.
+        # no_outputs_cleanup = True,
     )
 
     return args.result

@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_artifact::dynamic::DynamicLambdaResultsKey;
+use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 
@@ -34,7 +34,7 @@ pub trait DynamicLambdaCalculation: Sync + 'static {
         &self,
         dice: &mut DiceComputations<'_>,
         key: &DynamicLambdaResultsKey,
-    ) -> anyhow::Result<Arc<DynamicLambdaResult>>;
+    ) -> buck2_error::Result<Arc<DynamicLambdaResult>>;
 }
 
 pub static DYNAMIC_LAMBDA_CALCULATION_IMPL: LateBinding<&'static dyn DynamicLambdaCalculation> =
@@ -43,7 +43,7 @@ pub static DYNAMIC_LAMBDA_CALCULATION_IMPL: LateBinding<&'static dyn DynamicLamb
 pub async fn dynamic_lambda_result(
     dice: &mut DiceComputations<'_>,
     key: &DynamicLambdaResultsKey,
-) -> anyhow::Result<Arc<DynamicLambdaResult>> {
+) -> buck2_error::Result<Arc<DynamicLambdaResult>> {
     DYNAMIC_LAMBDA_CALCULATION_IMPL
         .get()?
         .dynamic_lambda_result(dice, key)

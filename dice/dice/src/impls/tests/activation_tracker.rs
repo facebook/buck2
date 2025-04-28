@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::any::Any;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -17,15 +16,16 @@ use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dupe::Dupe;
 
+use crate::ActivationData;
+use crate::ActivationTracker;
+use crate::DiceDataBuilder;
+use crate::DynKey;
+use crate::InjectedKey;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::dice::Dice;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
-use crate::ActivationData;
-use crate::ActivationTracker;
-use crate::DiceDataBuilder;
-use crate::InjectedKey;
 
 #[derive(Default, Allocative)]
 struct Tracker {
@@ -44,8 +44,8 @@ impl Tracker {
 impl ActivationTracker for Tracker {
     fn key_activated(
         &self,
-        key: &dyn Any,
-        deps: &mut dyn Iterator<Item = &dyn Any>,
+        key: &DynKey,
+        deps: &mut dyn Iterator<Item = &DynKey>,
         activation_data: ActivationData,
     ) {
         let (data, reused) = match activation_data {
@@ -54,8 +54,8 @@ impl ActivationTracker for Tracker {
         };
 
         self.state.lock().unwrap().push((
-            Kind::from_any(key),
-            deps.into_iter().map(Kind::from_any).collect(),
+            Kind::from_dyn_key(key),
+            deps.into_iter().map(Kind::from_dyn_key).collect(),
             data,
             reused,
         ));
@@ -70,20 +70,20 @@ enum Kind {
 }
 
 impl Kind {
-    fn from_any(key: &dyn Any) -> Self {
-        if key.is::<Injected>() {
+    fn from_dyn_key(key: &DynKey) -> Self {
+        if key.downcast_ref::<Injected>().is_some() {
             return Self::Injected;
         }
 
-        if key.is::<Stage0>() {
+        if key.downcast_ref::<Stage0>().is_some() {
             return Self::Stage0;
         }
 
-        if key.is::<Stage1>() {
+        if key.downcast_ref::<Stage1>().is_some() {
             return Self::Stage1;
         }
 
-        panic!("Unexpected key: {:?}", key)
+        panic!("Unexpected key: {}", key)
     }
 }
 
@@ -91,7 +91,7 @@ impl Kind {
 struct Data;
 
 #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct Injected;
 
 #[async_trait]
@@ -104,7 +104,7 @@ impl InjectedKey for Injected {
 }
 
 #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct Stage0;
 
 #[async_trait]
@@ -126,7 +126,7 @@ impl Key for Stage0 {
 }
 
 #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct Stage1;
 
 #[async_trait]

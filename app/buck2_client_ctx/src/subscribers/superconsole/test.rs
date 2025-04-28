@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use buck2_event_observer::test_state::TestState;
 use crossterm::style::Color;
 use crossterm::style::ContentStyle;
@@ -17,6 +17,7 @@ use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
+use superconsole::SpanError;
 
 use crate::subscribers::superconsole::SessionInfo;
 
@@ -75,7 +76,7 @@ impl TestCounterColumn {
         get_from_test_statues: |_test_statuses| &None,
     };
 
-    fn to_span_from_test_state(&self, test_state: &TestState) -> anyhow::Result<Span> {
+    fn to_span_from_test_state(&self, test_state: &TestState) -> Result<Span, SpanError> {
         StylizedCount {
             label: self.label,
             count: (self.get_from_test_state)(test_state),
@@ -87,16 +88,17 @@ impl TestCounterColumn {
     pub fn to_span_from_test_statuses(
         &self,
         test_statuses: &buck2_cli_proto::test_response::TestStatuses,
-    ) -> anyhow::Result<Span> {
+    ) -> buck2_error::Result<Span> {
         StylizedCount {
             label: self.label,
             count: (self.get_from_test_statues)(test_statuses)
                 .as_ref()
-                .with_context(|| format!("Missing {} in TestStatuses", self.label))?
+                .with_buck_error_context(|| format!("Missing {} in TestStatuses", self.label))?
                 .count,
             color: self.color,
         }
         .to_span()
+        .map_err(|e| e.into())
     }
 }
 
@@ -142,7 +144,6 @@ pub(crate) struct TestHeader<'a> {
 impl<'a> Component for TestHeader<'a> {
     fn draw_unchecked(
         &self,
-
         dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
@@ -154,10 +155,10 @@ impl<'a> Component for TestHeader<'a> {
     }
 }
 
-pub fn span_from_build_failure_count(count: usize) -> anyhow::Result<Span> {
+pub fn span_from_build_failure_count(count: u64) -> Result<Span, SpanError> {
     StylizedCount {
         label: "Build failure",
-        count: count.try_into()?,
+        count,
         color: Some(Color::Red),
     }
     .to_span()
@@ -172,7 +173,7 @@ struct StylizedCount {
 
 impl StylizedCount {
     /// Turn this StylizedCount into a Superconsole Span.
-    fn to_span(&self) -> anyhow::Result<superconsole::Span> {
+    fn to_span(&self) -> Result<superconsole::Span, SpanError> {
         let mut style = ContentStyle::default();
         if self.count > 0 {
             style.foreground_color = self.color;

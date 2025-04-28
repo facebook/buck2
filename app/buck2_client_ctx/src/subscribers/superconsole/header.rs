@@ -21,9 +21,9 @@ use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
 
+use crate::subscribers::superconsole::SuperConsoleState;
 use crate::subscribers::superconsole::common::HeaderLineComponent;
 use crate::subscribers::superconsole::common::StaticStringComponent;
-use crate::subscribers::superconsole::SuperConsoleState;
 
 pub(crate) struct TasksHeader<'s> {
     header: &'s str,
@@ -72,7 +72,7 @@ impl<'s> HeaderData<'s> {
     fn from_state(header: &'s str, state: &'s SuperConsoleState) -> Self {
         let observer = state.simple_console.observer();
         let spans = observer.spans();
-        let pending = pending_estimate(spans.roots(), observer.extra().dice_state());
+        let pending = pending_estimate(spans.roots(), observer.dice_state());
         let finished = spans.roots_completed() as u64;
         let remaining = spans.iter_roots().len() as u64 + pending;
 
@@ -421,6 +421,12 @@ impl<'s> Component for ProgressHeader<'s> {
 
         let elapsed = format!("Time elapsed: {}", &self.time_elapsed);
 
+        // During normal drawing, the elapsed time is in the last row at the end. In the final rendering it gets its own line and is on the left.
+        let inline_elapsed = match mode {
+            DrawMode::Normal => &elapsed,
+            DrawMode::Final => "",
+        };
+
         let long_middle_len = "111222333 actions, 111222333 artifacts declared  ".len();
 
         let style = if header_width + long_middle_len < dimensions.width {
@@ -491,8 +497,10 @@ impl<'s> Component for ProgressHeader<'s> {
         let extra_preferred_width = long_middle_len + 20;
         let extra_width = extra.iter().map(String::len).max().unwrap();
         // need to append elapsed time to the final line
-        let extra_min_width =
-            2 + std::cmp::max(extra_width, extra.last().unwrap().len() + elapsed.len() + 2);
+        let extra_min_width = 2 + std::cmp::max(
+            extra_width,
+            extra.last().unwrap().len() + inline_elapsed.len() + 2,
+        );
         let extra_max_width = dimensions.width.saturating_sub(main_width + 2);
 
         // If there's not actually enough space to draw them both, we'll prefer for the extra column to be truncated.
@@ -511,7 +519,7 @@ impl<'s> Component for ProgressHeader<'s> {
             let mut line = format!("{:<pad_to$}{}", main[i], extra[i], pad_to = pad_to);
 
             if i == main.len() - 1 {
-                let wanted_len = dimensions.width.saturating_sub(elapsed.len() + 2);
+                let wanted_len = dimensions.width.saturating_sub(inline_elapsed.len() + 2);
                 if line.len() > wanted_len {
                     // If we're going to have to truncate the extra column for the elapsed time, just drop it in this row.
                     line = main[i].to_owned();
@@ -523,10 +531,14 @@ impl<'s> Component for ProgressHeader<'s> {
                     line.truncate(wanted_len);
                 }
                 line += "  ";
-                line += &elapsed;
+                line += inline_elapsed;
             }
 
             lines.push(Line::unstyled(&line)?);
+        }
+
+        if let DrawMode::Final = mode {
+            lines.push(Line::unstyled(&elapsed)?);
         }
 
         Ok(Lines(lines))
@@ -537,6 +549,7 @@ impl<'s> Component for ProgressHeader<'s> {
 mod tests {
     use std::fmt::Write;
 
+    use buck2_error::conversion::from_any_with_tag;
     use buck2_event_observer::progress::BuildProgressPhaseStatsItem;
     use itertools::Itertools;
 
@@ -582,11 +595,12 @@ mod tests {
             cached_actions: 133,
             fallback_actions: 0,
             remote_dep_file_cached_actions: 0,
+            excess_cache_misses: 0,
         }
     }
 
     #[test]
-    fn test_different_sizes_dont_fail() -> anyhow::Result<()> {
+    fn test_different_sizes_dont_fail() -> buck2_error::Result<()> {
         let phase_stats = &phase_stats();
         let progress_stats = &progress_stats();
         let action_stats = &action_stats();
@@ -599,26 +613,30 @@ mod tests {
                 time_elapsed: "1234s".to_owned(),
             };
 
-            header.draw(
-                Dimensions {
-                    width: i,
-                    height: 10,
-                },
-                DrawMode::Normal,
-            )?;
-            header.draw(
-                Dimensions {
-                    width: i,
-                    height: 10,
-                },
-                DrawMode::Final,
-            )?;
+            header
+                .draw(
+                    Dimensions {
+                        width: i,
+                        height: 10,
+                    },
+                    DrawMode::Normal,
+                )
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+            header
+                .draw(
+                    Dimensions {
+                        width: i,
+                        height: 10,
+                    },
+                    DrawMode::Final,
+                )
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
         }
         Ok(())
     }
 
     #[test]
-    fn test_rendering_golden() -> anyhow::Result<()> {
+    fn test_rendering_golden() -> buck2_error::Result<()> {
         let mut all_output = String::new();
 
         fn draw(
@@ -648,8 +666,22 @@ mod tests {
             writeln!(
                 &mut all_output,
                 "{}",
-                draw(width, true, &phase_stats())?.fmt_for_test()
-            )?;
+                draw(width, true, &phase_stats())
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?
+                    .fmt_for_test()
+            )
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        }
+
+        for width in [60, 140] {
+            writeln!(
+                &mut all_output,
+                "{}",
+                draw(width, false, &phase_stats())
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?
+                    .fmt_for_test()
+            )
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
         }
 
         let expected = indoc::indoc!(
@@ -699,6 +731,18 @@ mod tests {
                 Executing actions. Remaining 33000/33333 (running:    55 local,    66 remote)              2:09:37.0s exec time total
                 header             Finished 100 local, 122 remote, 133 cache (37% hit)                     11:06.0s exec time cached (8%)                    Time elapsed: 1234s
 
+                Loading targets.   Remaining 0/11111
+                Analyzing targets. Remaining 0/22222
+                Executing actions. Remaining 0/33333
+                header             Cache hits 37%
+                Time elapsed: 1234s
+
+                Loading targets.   Remaining     0/11111                                111 dirs read, 22222 targets declared
+                Analyzing targets. Remaining     0/22222                                3333333 actions, 4444444 artifacts declared
+                Executing actions. Remaining     0/33333                                2:09:37.0s exec time total
+                header             Finished 100 local, 122 remote, 133 cache (37% hit)  11:06.0s exec time cached (8%)
+                Time elapsed: 1234s
+
         "#
         );
 
@@ -718,13 +762,14 @@ mod tests {
     }
 
     #[test]
-    fn test_remaining() -> anyhow::Result<()> {
+    fn test_remaining() -> buck2_error::Result<()> {
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,
             cached_actions: 1,
             fallback_actions: 0,
             remote_dep_file_cached_actions: 0,
+            excess_cache_misses: 0,
         };
         let output = SimpleHeader::new_for_data(HeaderData {
             header: "test",
@@ -739,7 +784,8 @@ mod tests {
                 height: 10,
             },
             DrawMode::Normal,
-        )?;
+        )
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
         let expected = "testRemaining: 3/3. Cache hits: 100%. Ti\n".to_owned();
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
@@ -748,13 +794,14 @@ mod tests {
     }
 
     #[test]
-    fn test_remaining_with_pending() -> anyhow::Result<()> {
+    fn test_remaining_with_pending() -> buck2_error::Result<()> {
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,
             cached_actions: 0,
             fallback_actions: 0,
             remote_dep_file_cached_actions: 0,
+            excess_cache_misses: 0,
         };
         let output = SimpleHeader::new_for_data(HeaderData {
             header: "test",
@@ -769,7 +816,8 @@ mod tests {
                 height: 10,
             },
             DrawMode::Normal,
-        )?;
+        )
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
 
         let expected = "test                      Remaining: 2/2. Time elapsed: 0.0s\n".to_owned();
 
@@ -779,13 +827,14 @@ mod tests {
     }
 
     #[test]
-    fn test_children() -> anyhow::Result<()> {
+    fn test_children() -> buck2_error::Result<()> {
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,
             cached_actions: 1,
             fallback_actions: 0,
             remote_dep_file_cached_actions: 0,
+            excess_cache_misses: 0,
         };
         let output = SimpleHeader::new_for_data(HeaderData {
             header: "test",
@@ -800,7 +849,8 @@ mod tests {
                 height: 10,
             },
             DrawMode::Normal,
-        )?;
+        )
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
         let expected =
             "test                        Remaining: 1/1. Cache hits: 100%. Time elapsed: 0.0s\n"
                 .to_owned();
@@ -811,13 +861,14 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_header_final() -> anyhow::Result<()> {
+    fn test_simple_header_final() -> buck2_error::Result<()> {
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,
             cached_actions: 1,
             fallback_actions: 0,
             remote_dep_file_cached_actions: 0,
+            excess_cache_misses: 0,
         };
         let output = SimpleHeader::new_for_data(HeaderData {
             header: "test",
@@ -832,7 +883,8 @@ mod tests {
                 height: 10,
             },
             DrawMode::Final,
-        )?;
+        )
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
         let expected = indoc::indoc!(
             r#"
             Jobs completed: 0. Time elapsed: 0.0s.

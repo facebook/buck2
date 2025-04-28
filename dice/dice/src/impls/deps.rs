@@ -10,12 +10,14 @@
 //! Trackers that records dependencies and reverse dependencies during execution of requested nodes
 
 use allocative::Allocative;
+use dupe::Dupe;
 use static_assertions::assert_eq_size;
 use typed_arena::Arena;
 
 use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceValidity;
+use crate::impls::value::TrackedInvalidationPaths;
 
 pub(crate) mod encoding;
 pub(crate) mod graph;
@@ -39,18 +41,39 @@ pub(crate) struct RecordingDepsTracker {
 pub(crate) struct RecordedDeps {
     pub(crate) deps: SeriesParallelDeps,
     pub(crate) deps_validity: DiceValidity,
+    pub(crate) invalidation_paths: TrackedInvalidationPaths,
 }
 
 impl RecordedDeps {
-    fn record(&mut self, k: DiceKey, validity: DiceValidity) {
+    fn record(
+        &mut self,
+        k: DiceKey,
+        validity: DiceValidity,
+        invalidation_paths: TrackedInvalidationPaths,
+    ) {
         self.deps.insert(k);
         self.deps_validity.and(validity);
+        self.update_invalidation_paths(invalidation_paths)
+    }
+
+    #[cfg(test)]
+    fn record_fresh_valid_key(&mut self, index: u32) {
+        self.record(
+            DiceKey { index },
+            DiceValidity::Valid,
+            TrackedInvalidationPaths::clean(),
+        );
+    }
+
+    fn update_invalidation_paths(&mut self, paths: TrackedInvalidationPaths) {
+        self.invalidation_paths.update(paths)
     }
 
     pub(crate) fn new() -> Self {
         RecordedDeps {
             deps: SeriesParallelDeps::None,
             deps_validity: DiceValidity::Valid,
+            invalidation_paths: TrackedInvalidationPaths::clean(),
         }
     }
 
@@ -61,6 +84,8 @@ impl RecordedDeps {
 
         for dep in parallel.iter_mut() {
             self.deps_validity.and(dep.deps_validity);
+            self.invalidation_paths
+                .update(dep.invalidation_paths.dupe());
             let header = dep.deps.header();
             new_keys += header.keys_len();
             new_specs += header.encoded_len();
@@ -84,7 +109,7 @@ impl RecordedDeps {
     }
 }
 
-assert_eq_size!(RecordingDepsTracker, [usize; 4]);
+assert_eq_size!(RecordingDepsTracker, [usize; 8]);
 
 fn _check_deps_trackers_send_and_sync() {
     fn _assert_send_sync<T: Send + Sync>() {}
@@ -92,25 +117,58 @@ fn _check_deps_trackers_send_and_sync() {
 }
 
 impl RecordingDepsTracker {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(invalidation_paths: TrackedInvalidationPaths) -> Self {
+        let mut deps = RecordedDeps::new();
+        deps.invalidation_paths = invalidation_paths;
         Self {
-            deps: RecordedDeps::new(),
+            deps,
             curr_parallel: None,
         }
     }
 
-    pub(crate) fn record(&mut self, k: DiceKey, validity: DiceValidity) {
+    pub(crate) fn record(
+        &mut self,
+        k: DiceKey,
+        validity: DiceValidity,
+        invalidation_paths: TrackedInvalidationPaths,
+    ) {
         self.flatten_parallel();
-        self.deps.record(k, validity)
+        self.deps.record(k, validity, invalidation_paths);
+    }
+
+    #[cfg(test)]
+    fn record_fresh_valid_key(&mut self, index: u32) {
+        self.record(
+            DiceKey { index },
+            DiceValidity::Valid,
+            TrackedInvalidationPaths::clean(),
+        );
+    }
+    pub(crate) fn update_invalidation_paths(
+        &mut self,
+        invalidation_paths: TrackedInvalidationPaths,
+    ) {
+        self.deps.update_invalidation_paths(invalidation_paths);
     }
 
     /// Used to start a new parallel computation. Returns the Arena that each parallel ctx should record its deps to.
-    pub(crate) fn push_parallel(&mut self, size_hint: usize) -> &Arena<RecordedDeps> {
+    pub(crate) fn push_parallel(
+        &mut self,
+        size_hint: usize,
+    ) -> (&Arena<RecordedDeps>, &TrackedInvalidationPaths) {
         self.flatten_parallel();
         assert!(self.curr_parallel.is_none());
-        self.curr_parallel
-            .insert(Box::new(SyncArena::with_capacity(size_hint)))
-            .inner()
+
+        let Self {
+            curr_parallel,
+            deps,
+        } = self;
+        (
+            curr_parallel
+                .insert(Box::new(SyncArena::with_capacity(size_hint)))
+                .inner(),
+            &deps.invalidation_paths,
+        )
     }
 
     pub(crate) fn collect_deps(mut self) -> RecordedDeps {
@@ -124,6 +182,11 @@ impl RecordingDepsTracker {
         if let Some(parallel) = self.curr_parallel.take() {
             self.deps.insert_parallel(parallel.into_inner())
         }
+    }
+
+    pub(crate) fn invalidation_paths(&mut self) -> &TrackedInvalidationPaths {
+        self.flatten_parallel();
+        &self.deps.invalidation_paths
     }
 }
 
@@ -154,9 +217,9 @@ use sync_arena::SyncArena;
 
 #[cfg(test)]
 pub(crate) mod testing {
+    use crate::HashSet;
     use crate::impls::deps::RecordingDepsTracker;
     use crate::impls::key::DiceKey;
-    use crate::HashSet;
 
     pub(crate) trait RecordingDepsTrackersExt {
         fn recorded_deps(&self) -> HashSet<DiceKey>;
@@ -175,13 +238,15 @@ mod tests {
     use itertools::Itertools;
     use typed_arena::Arena;
 
-    use crate::impls::deps::iterator::ParallelNodeIterator;
-    use crate::impls::deps::iterator::SeriesParallelDepsIteratorItem;
+    use crate::HashSet;
     use crate::impls::deps::RecordedDeps;
     use crate::impls::deps::RecordingDepsTracker;
+    use crate::impls::deps::iterator::ParallelNodeIterator;
+    use crate::impls::deps::iterator::SeriesParallelDepsIteratorItem;
     use crate::impls::key::DiceKey;
     use crate::impls::value::DiceValidity;
-    use crate::HashSet;
+    use crate::impls::value::TrackedInvalidationPaths;
+    use crate::impls::value::testing::MakeInvalidationPaths;
 
     struct DisplaySPDeps<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a>>>(T);
     impl<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a>>> DisplaySPDeps<'a, T> {
@@ -270,10 +335,18 @@ mod tests {
 
     #[tokio::test]
     async fn recording_deps_tracker_tracks_deps() -> anyhow::Result<()> {
-        let mut deps_tracker = RecordingDepsTracker::new();
+        let mut deps_tracker = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
 
-        deps_tracker.record(DiceKey { index: 2 }, DiceValidity::Valid);
-        deps_tracker.record(DiceKey { index: 3 }, DiceValidity::Valid);
+        deps_tracker.record(
+            DiceKey { index: 2 },
+            DiceValidity::Valid,
+            TrackedInvalidationPaths::clean(),
+        );
+        deps_tracker.record(
+            DiceKey { index: 3 },
+            DiceValidity::Valid,
+            TrackedInvalidationPaths::clean(),
+        );
 
         let recorded_deps = deps_tracker.collect_deps();
         let expected = HashSet::from_iter([DiceKey { index: 2 }, DiceKey { index: 3 }]);
@@ -284,12 +357,70 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn recording_deps_tracker_tracks_invalidations() -> anyhow::Result<()> {
+        let mut deps_tracker = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
+
+        deps_tracker.record(
+            DiceKey { index: 2 },
+            DiceValidity::Valid,
+            MakeInvalidationPaths {
+                normal: (DiceKey { index: 101 }, 8),
+                high: None,
+            }
+            .into(),
+        );
+
+        assert_eq!(
+            deps_tracker.invalidation_paths(),
+            &MakeInvalidationPaths {
+                normal: (DiceKey { index: 101 }, 8),
+                high: None,
+            }
+            .into()
+        );
+
+        {
+            let p1 = deps_tracker.push_parallel(0).0;
+            {
+                let s1 = p1.alloc(RecordedDeps::new());
+                s1.record(
+                    DiceKey { index: 11 },
+                    DiceValidity::Valid,
+                    MakeInvalidationPaths {
+                        normal: (DiceKey { index: 102 }, 6),
+                        high: Some((DiceKey { index: 102 }, 6)),
+                    }
+                    .into(),
+                );
+            }
+        }
+        assert_eq!(
+            deps_tracker.invalidation_paths(),
+            &MakeInvalidationPaths {
+                normal: (DiceKey { index: 101 }, 8),
+                high: Some((DiceKey { index: 102 }, 6)),
+            }
+            .into()
+        );
+
+        Ok(())
+    }
+
     #[test]
     fn recording_deps_tracker_tracks_deps_invalid() -> anyhow::Result<()> {
-        let mut deps_tracker = RecordingDepsTracker::new();
+        let mut deps_tracker = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
 
-        deps_tracker.record(DiceKey { index: 2 }, DiceValidity::Valid);
-        deps_tracker.record(DiceKey { index: 3 }, DiceValidity::Transient);
+        deps_tracker.record(
+            DiceKey { index: 2 },
+            DiceValidity::Valid,
+            TrackedInvalidationPaths::clean(),
+        );
+        deps_tracker.record(
+            DiceKey { index: 3 },
+            DiceValidity::Transient,
+            TrackedInvalidationPaths::clean(),
+        );
 
         let recorded_deps = deps_tracker.collect_deps();
         let expected = HashSet::from_iter([DiceKey { index: 2 }, DiceKey { index: 3 }]);
@@ -302,55 +433,50 @@ mod tests {
 
     #[test]
     fn test_series_parallel_record_and_iter() -> anyhow::Result<()> {
-        let mut tracker = RecordingDepsTracker::new();
+        let mut tracker = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
 
         {
-            let p1 = tracker.push_parallel(0);
+            let p1 = tracker.push_parallel(0).0;
             {
                 let s1 = p1.alloc(RecordedDeps::new());
-                s1.record(DiceKey { index: 11 }, DiceValidity::Valid);
-                s1.record(DiceKey { index: 12 }, DiceValidity::Valid);
-                s1.record(DiceKey { index: 13 }, DiceValidity::Valid);
-                s1.record(DiceKey { index: 14 }, DiceValidity::Valid);
-                s1.record(DiceKey { index: 15 }, DiceValidity::Valid);
-                s1.record(DiceKey { index: 16 }, DiceValidity::Valid);
-                s1.record(DiceKey { index: 17 }, DiceValidity::Valid);
-                s1.record(DiceKey { index: 18 }, DiceValidity::Valid);
-                s1.record(DiceKey { index: 19 }, DiceValidity::Valid);
+
+                for i in 11..=19 {
+                    s1.record_fresh_valid_key(i);
+                }
             }
             {
                 let s2 = p1.alloc(RecordedDeps::new());
-                s2.record(DiceKey { index: 21 }, DiceValidity::Valid);
+                s2.record_fresh_valid_key(21);
                 {
                     let p2 = Box::new(Arena::new());
                     {
                         let s3 = p2.alloc(RecordedDeps::new());
-                        s3.record(DiceKey { index: 22 }, DiceValidity::Valid);
-                        s3.record(DiceKey { index: 23 }, DiceValidity::Valid);
+                        s3.record_fresh_valid_key(22);
+                        s3.record_fresh_valid_key(23);
                     }
                     {
                         let s3 = p2.alloc(RecordedDeps::new());
-                        s3.record(DiceKey { index: 24 }, DiceValidity::Valid);
-                        s3.record(DiceKey { index: 25 }, DiceValidity::Valid);
+                        s3.record_fresh_valid_key(24);
+                        s3.record_fresh_valid_key(25);
                     }
                     s2.insert_parallel(*p2);
                 }
             }
         }
 
-        tracker.record(DiceKey { index: 91 }, DiceValidity::Valid);
-        tracker.record(DiceKey { index: 92 }, DiceValidity::Valid);
-        tracker.record(DiceKey { index: 93 }, DiceValidity::Valid);
+        tracker.record_fresh_valid_key(91);
+        tracker.record_fresh_valid_key(92);
+        tracker.record_fresh_valid_key(93);
 
         {
-            let p2 = tracker.push_parallel(3);
+            let p2 = tracker.push_parallel(3).0;
             for i in 0..5 {
                 let s = p2.alloc(RecordedDeps::new());
-                s.record(DiceKey { index: 32 + i }, DiceValidity::Valid);
+                s.record_fresh_valid_key(32 + i);
             }
         }
-        tracker.record(DiceKey { index: 94 }, DiceValidity::Valid);
-        tracker.record(DiceKey { index: 95 }, DiceValidity::Valid);
+        tracker.record_fresh_valid_key(94);
+        tracker.record_fresh_valid_key(95);
 
         let deps = tracker.collect_deps();
 

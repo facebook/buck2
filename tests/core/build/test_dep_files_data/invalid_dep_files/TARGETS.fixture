@@ -1,0 +1,2 @@
+test(name = "eager")
+test(name = "lazy", seed = read_config("test", "seed"))

@@ -11,18 +11,15 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::Action;
+use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
-use buck2_build_api::actions::Action;
-use buck2_build_api::actions::ActionExecutable;
-use buck2_build_api::actions::ActionExecutionCtx;
-use buck2_build_api::actions::IncrementalActionExecutable;
-use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_common::cas_digest::RawDigest;
 use buck2_common::file_ops::FileDigest;
@@ -30,12 +27,15 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::CategoryRef;
+use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
+use buck2_execute::materialize::http::Checksum;
 use buck2_execute::materialize::http::http_download;
 use buck2_execute::materialize::http::http_head;
-use buck2_execute::materialize::http::Checksum;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_http::HttpClient;
 use dupe::Dupe;
@@ -45,6 +45,7 @@ use starlark::values::OwnedFrozenValue;
 use crate::actions::impls::offline;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum DownloadFileActionError {
     #[error("download file action should not have inputs, got {0}")]
     WrongNumberOfInputs(usize),
@@ -55,6 +56,7 @@ enum DownloadFileActionError {
 #[derive(Debug, Allocative)]
 pub(crate) struct UnregisteredDownloadFileAction {
     checksum: Checksum,
+    size_bytes: Option<u64>,
     url: Arc<str>,
     vpnless_url: Option<Arc<str>>,
     is_executable: bool,
@@ -64,6 +66,7 @@ pub(crate) struct UnregisteredDownloadFileAction {
 impl UnregisteredDownloadFileAction {
     pub(crate) fn new(
         checksum: Checksum,
+        size_bytes: Option<u64>,
         url: Arc<str>,
         vpnless_url: Option<Arc<str>>,
         is_executable: bool,
@@ -72,6 +75,7 @@ impl UnregisteredDownloadFileAction {
         Self {
             checksum,
             url,
+            size_bytes,
             vpnless_url,
             is_executable,
             is_deferrable,
@@ -86,7 +90,7 @@ impl UnregisteredAction for UnregisteredDownloadFileAction {
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
-    ) -> anyhow::Result<Box<dyn Action>> {
+    ) -> buck2_error::Result<Box<dyn Action>> {
         Ok(Box::new(DownloadFileAction::new(inputs, outputs, *self)?))
     }
 }
@@ -103,15 +107,11 @@ impl DownloadFileAction {
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         inner: UnregisteredDownloadFileAction,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         if !inputs.is_empty() {
-            Err(anyhow::anyhow!(
-                DownloadFileActionError::WrongNumberOfInputs(inputs.len())
-            ))
+            Err(DownloadFileActionError::WrongNumberOfInputs(inputs.len()).into())
         } else if outputs.len() != 1 {
-            Err(anyhow::anyhow!(
-                DownloadFileActionError::WrongNumberOfOutputs(outputs.len())
-            ))
+            Err(DownloadFileActionError::WrongNumberOfOutputs(outputs.len()).into())
         } else {
             Ok(Self {
                 inputs: inputs.into_iter().collect(),
@@ -141,7 +141,7 @@ impl DownloadFileAction {
         &self,
         client: &HttpClient,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<Option<FileMetadata>> {
+    ) -> buck2_error::Result<Option<FileMetadata>> {
         if !self.inner.is_deferrable {
             return Ok(None);
         }
@@ -165,34 +165,42 @@ impl DownloadFileAction {
             None => return Ok(None),
         };
 
-        let url = self.url(client);
-        let head = http_head(client, url).await?;
+        let size = match self.inner.size_bytes {
+            Some(s) => Some(s),
+            None => {
+                let url = self.url(client);
+                let head = http_head(client, url).await.map_err(|e| {
+                    buck2_error::Error::from(e).tag([ErrorTag::DownloadFileHeadRequest])
+                })?;
 
-        let content_length = head
-            .headers()
-            .get(http::header::CONTENT_LENGTH)
-            .map(|content_length| {
-                let content_length = content_length
-                    .to_str()
-                    .context("Header is not valid utf-8")?;
-                let content_length_number = content_length
-                    .parse()
-                    .with_context(|| format!("Header is not a number: `{}`", content_length))?;
-                anyhow::Ok(content_length_number)
-            })
-            .transpose()
-            .with_context(|| {
-                format!(
-                    "Request to `{}` returned an invalid `{}` header",
-                    url,
-                    http::header::CONTENT_LENGTH
-                )
-            })?;
+                head.headers()
+                    .get(http::header::CONTENT_LENGTH)
+                    .map(|content_length| {
+                        let content_length = content_length
+                            .to_str()
+                            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Http))
+                            .buck_error_context("Header is not valid utf-8")?;
+                        let content_length_number =
+                            content_length.parse().with_buck_error_context(|| {
+                                format!("Header is not a number: `{}`", content_length)
+                            })?;
+                        buck2_error::Ok(content_length_number)
+                    })
+                    .transpose()
+                    .with_buck_error_context(|| {
+                        format!(
+                            "Request to `{}` returned an invalid `{}` header",
+                            url,
+                            http::header::CONTENT_LENGTH
+                        )
+                    })?
+            }
+        };
 
-        match content_length {
-            Some(length) => {
+        match size {
+            Some(size) => {
                 let digest = TrackedFileDigest::new(
-                    FileDigest::new(digest, length),
+                    FileDigest::new(digest, size),
                     digest_config.cas_digest_config(),
                 );
                 Ok(Some(FileMetadata {
@@ -208,7 +216,7 @@ impl DownloadFileAction {
     async fn execute_for_offline(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
-    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
+    ) -> buck2_error::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let outputs = offline::declare_copy_from_offline_cache(ctx, self.output()).await?;
 
         Ok((
@@ -216,6 +224,7 @@ impl DownloadFileAction {
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData::default(),
+                input_files_bytes: None,
             },
         ))
     }
@@ -227,7 +236,7 @@ impl Action for DownloadFileAction {
         buck2_data::ActionKind::DownloadFile
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+    fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
         Ok(Cow::Borrowed(&self.inputs))
     }
 
@@ -237,10 +246,6 @@ impl Action for DownloadFileAction {
 
     fn first_output(&self) -> &BuildArtifact {
         self.output()
-    }
-
-    fn as_executable(&self) -> ActionExecutable<'_> {
-        ActionExecutable::Incremental(self)
     }
 
     fn category(&self) -> CategoryRef {
@@ -253,10 +258,7 @@ impl Action for DownloadFileAction {
             .next()
             .map(|o| o.get_path().path().as_str())
     }
-}
 
-#[async_trait]
-impl IncrementalActionExecutable for DownloadFileAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
@@ -277,7 +279,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
             match self.declared_metadata(&client, ctx.digest_config()).await? {
                 Some(metadata) => {
                     let artifact_fs = ctx.fs();
-                    let rel_path = artifact_fs.resolve_build(self.output().get_path());
+                    let rel_path = artifact_fs.resolve_build(self.output().get_path())?;
 
                     // Fast path: download later via the materializer.
                     ctx.materializer()
@@ -300,7 +302,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
 
                     let artifact_fs = ctx.fs();
                     let project_fs = artifact_fs.fs();
-                    let rel_path = artifact_fs.resolve_build(self.output().get_path());
+                    let rel_path = artifact_fs.resolve_build(self.output().get_path())?;
 
                     // Slow path: download now.
                     let digest = http_download(
@@ -342,6 +344,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
             ActionExecutionMetadata {
                 execution_kind,
                 timing: ActionExecutionTimingData::default(),
+                input_files_bytes: None,
             },
         ))
     }

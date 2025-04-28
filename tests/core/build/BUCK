@@ -1,0 +1,34 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
+
+oncall("build_infra")
+
+buck2_core_tests(
+    target_extra_attrs = {
+        "test_cancellation": {
+            "skip_for_os": [
+                "windows",
+            ],
+        },
+        "test_hash_all_commands": {
+            # These tests heavily depend on watchman, which is flakey on
+            # non-Linux systems
+            "skip_for_os": [
+                "darwin",
+                "windows",
+            ],
+        },
+        "test_outputs_ordering": {
+            "env": {
+                "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",
+            },
+        },
+        "test_paranoid": {
+            "data": "//buck2/tests/targets:isolated_targets",
+        },
+        "test_uncategorized": {
+            "env": {
+                "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",
+            },
+        },
+    },
+)

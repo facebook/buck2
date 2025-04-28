@@ -9,29 +9,31 @@
 
 use std::time::Duration;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_cli_proto::profile_request::ProfileOpts;
-use buck2_cli_proto::target_profile;
 use buck2_cli_proto::BxlProfile;
 use buck2_cli_proto::ProfileRequest;
 use buck2_cli_proto::ProfileResponse;
 use buck2_cli_proto::TargetProfile;
+use buck2_cli_proto::profile_request::ProfileOpts;
+use buck2_cli_proto::target_profile;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::target_cfg::TargetCfgWithUniverseOptions;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgWithUniverseOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
-use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
+use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use dupe::Dupe;
 
 use super::bxl::BxlCommandOptions;
@@ -45,9 +47,9 @@ pub enum ProfileCommand {
 }
 
 impl ProfileCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        let submatches = matches.subcommand().expect("subcommand not found").1;
-        ProfileSubcommand { subcommand: self }.exec(submatches, ctx)
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+        let submatches = matches.unwrap_subcommand();
+        ctx.exec(ProfileSubcommand { subcommand: self }, submatches)
     }
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
@@ -58,6 +60,8 @@ impl ProfileCommand {
 #[derive(clap::ValueEnum, Dupe, Clone, Copy, Debug)]
 pub(crate) enum BuckProfileMode {
     TimeFlame,
+    HeapAllocated,
+    HeapRetained,
     HeapFlameAllocated,
     HeapFlameRetained,
     HeapSummaryAllocated,
@@ -67,6 +71,7 @@ pub(crate) enum BuckProfileMode {
     BytecodePairs,
     Typecheck,
     Coverage,
+    None,
 }
 
 /// Profile BXL script.
@@ -147,6 +152,8 @@ struct ProfileSubcommand {
 pub(crate) fn profile_mode_to_profile(mode: BuckProfileMode) -> buck2_cli_proto::ProfileMode {
     match mode {
         BuckProfileMode::TimeFlame => buck2_cli_proto::ProfileMode::TimeFlame,
+        BuckProfileMode::HeapAllocated => buck2_cli_proto::ProfileMode::HeapAllocated,
+        BuckProfileMode::HeapRetained => buck2_cli_proto::ProfileMode::HeapRetained,
         BuckProfileMode::HeapFlameAllocated => buck2_cli_proto::ProfileMode::HeapFlameAllocated,
         BuckProfileMode::HeapFlameRetained => buck2_cli_proto::ProfileMode::HeapFlameRetained,
         BuckProfileMode::HeapSummaryAllocated => buck2_cli_proto::ProfileMode::HeapSummaryAllocated,
@@ -156,6 +163,7 @@ pub(crate) fn profile_mode_to_profile(mode: BuckProfileMode) -> buck2_cli_proto:
         BuckProfileMode::BytecodePairs => buck2_cli_proto::ProfileMode::BytecodePairs,
         BuckProfileMode::Typecheck => buck2_cli_proto::ProfileMode::Typecheck,
         BuckProfileMode::Coverage => buck2_cli_proto::ProfileMode::Coverage,
+        BuckProfileMode::None => buck2_cli_proto::ProfileMode::None,
     }
 }
 
@@ -169,15 +177,16 @@ impl ProfileSubcommand {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for ProfileSubcommand {
     const COMMAND_NAME: &'static str = "profile";
 
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
 
@@ -187,7 +196,7 @@ impl StreamingCommand for ProfileSubcommand {
 
         let destination_path = destination_path.into_string()?;
 
-        let console_opts = ctx.stdin().console_interaction_stream(self.console_opts());
+        let console_opts = ctx.console_interaction_stream(self.console_opts());
 
         let profiler = profile_mode_to_profile(profile_mode);
 
@@ -233,7 +242,8 @@ impl StreamingCommand for ProfileSubcommand {
                     .target_universe
                     .is_empty()
                 {
-                    return Err::<(), _>(anyhow::anyhow!(
+                    return Err::<(), _>(buck2_error!(
+                        buck2_error::ErrorTag::Input,
                         "BXL profile does not support target universe"
                     ))
                     .into();
@@ -255,7 +265,12 @@ impl StreamingCommand for ProfileSubcommand {
 
         let response = buckd
             .with_flushing()
-            .profile(request, console_opts, &mut NoPartialResultHandler)
+            .profile(
+                request,
+                events_ctx,
+                console_opts,
+                &mut NoPartialResultHandler,
+            )
             .await??;
 
         let ProfileResponse {
@@ -264,11 +279,13 @@ impl StreamingCommand for ProfileSubcommand {
         } = response;
 
         let elapsed = elapsed
-            .context("Missing duration")
+            .buck_error_context("Missing duration")
             .and_then(|d| {
-                Duration::try_from(d).map_err(|_| anyhow::anyhow!("Duration is negative"))
+                Duration::try_from(d).map_err(|_| {
+                    buck2_error::buck2_error!(buck2_error::ErrorTag::Input, "Duration is negative")
+                })
             })
-            .context("Elapsed is invalid")?;
+            .buck_error_context("Elapsed is invalid")?;
 
         buck2_client_ctx::println!(
             "Starlark {:?} profile has been written to {}",

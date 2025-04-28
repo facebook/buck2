@@ -1,0 +1,5 @@
+load("@fbcode//buck2/tests:bxl_test.bzl", "bxl_test")
+
+bxl_test(
+    src = "test_configuration_alias.bxl",
+)

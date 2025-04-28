@@ -12,25 +12,19 @@ use std::iter;
 use std::ptr;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api_derive::internal_provider;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::dict::AllocDict;
-use starlark::values::dict::FrozenDictRef;
-use starlark::values::dict::UnpackDictEntries;
-use starlark::values::list::AllocList;
-use starlark::values::list::ListRef;
-use starlark::values::list::UnpackList;
-use starlark::values::none::NoneOr;
-use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::FrozenHeap;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
@@ -47,16 +41,25 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
-use starlark::StarlarkResultExt;
+use starlark::values::dict::AllocDict;
+use starlark::values::dict::DictType;
+use starlark::values::dict::FrozenDictRef;
+use starlark::values::dict::UnpackDictEntries;
+use starlark::values::list::AllocList;
+use starlark::values::list::ListRef;
+use starlark::values::list::ListType;
+use starlark::values::list::UnpackList;
+use starlark::values::none::NoneOr;
 
+use crate as buck2_build_api;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
-use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
+use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::provider::ProviderCollection;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 
 /// A provider that all rules' implementations must return
 ///
@@ -64,7 +67,7 @@ use crate::interpreter::rule_defs::provider::ProviderCollection;
 ///
 /// Example of a rule's implementation function and how these fields are used by the framework:
 ///
-/// ```starlark
+/// ```python
 /// # //foo_binary.bzl
 /// def impl(ctx):
 ///     ctx.action.run([ctx.attrs._cc[RunInfo], "-o", ctx.attrs.out.as_output()] + ctx.attrs.srcs)
@@ -135,16 +138,18 @@ pub struct DefaultInfoGen<V: ValueLifetimeless> {
     /// e.g.: `buck2 build cell//foo:bar[baz][qux]`.
     sub_targets: ValueOfUncheckedGeneric<V, DictType<String, FrozenProviderCollection>>,
     /// A list of `Artifact`s that are built by default if this rule is requested
-    /// explicitly, or depended on as as a "source".
-    default_outputs: ValueOfUncheckedGeneric<V, Vec<ValueAsArtifactLike<'static>>>,
+    /// explicitly (via CLI or `$(location)` etc), or depended on as as a "source"
+    /// (i.e., `attrs.source()`).
+    default_outputs: ValueOfUncheckedGeneric<V, ListType<ValueAsArtifactLike<'static>>>,
     /// A list of `ArtifactTraversable`. The underlying `Artifact`s they define will
-    /// be built by default if this rule is requested, but _not_ when it's depended
-    /// on as as a "source". `ArtifactTraversable` can be an `Artifact` (which yields
-    /// itself), or `cmd_args`, which expand to all their inputs.
-    other_outputs: ValueOfUncheckedGeneric<V, Vec<ValueAsCommandLineLike<'static>>>,
+    /// be built by default if this rule is requested (via CLI or `$(location)` etc),
+    /// but _not_ when it's depended on as as a "source" (i.e., `attrs.source()`).
+    /// `ArtifactTraversable` can be an `Artifact` (which yields itself), or
+    /// `cmd_args`, which expand to all their inputs.
+    other_outputs: ValueOfUncheckedGeneric<V, ListType<ValueAsCommandLineLike<'static>>>,
 }
 
-fn validate_default_info(info: &FrozenDefaultInfo) -> anyhow::Result<()> {
+fn validate_default_info(info: &FrozenDefaultInfo) -> buck2_error::Result<()> {
     // Check length of default outputs
     let default_output_list = ListRef::from_value(info.default_outputs.get().to_value())
         .expect("should be a list from constructor");
@@ -152,7 +157,7 @@ fn validate_default_info(info: &FrozenDefaultInfo) -> anyhow::Result<()> {
         tracing::info!("DefaultInfo.default_output should only have a maximum of 1 item.");
         // TODO use soft_error when landed
         // TODO error rather than soft warning
-        // return Err(anyhow::anyhow!(
+        // return Err(buck2_error::buck2_error!(
         //     "DefaultInfo.default_output can only have a maximum of 1 item."
         // ));
     }
@@ -171,8 +176,8 @@ fn validate_default_info(info: &FrozenDefaultInfo) -> anyhow::Result<()> {
 impl<'v> DefaultInfo<'v> {
     pub fn empty(heap: &'v Heap) -> Self {
         let sub_targets = ValueOfUnchecked::<DictType<_, _>>::new(heap.alloc(AllocDict::EMPTY));
-        let default_outputs = ValueOfUnchecked::<Vec<_>>::new(heap.alloc(AllocList::EMPTY));
-        let other_outputs = ValueOfUnchecked::<Vec<_>>::new(heap.alloc(AllocList::EMPTY));
+        let default_outputs = ValueOfUnchecked::<ListType<_>>::new(heap.alloc(AllocList::EMPTY));
+        let other_outputs = ValueOfUnchecked::<ListType<_>>::new(heap.alloc(AllocList::EMPTY));
         DefaultInfo {
             sub_targets,
             default_outputs,
@@ -188,8 +193,10 @@ impl FrozenDefaultInfo {
                 iter::empty::<(String, FrozenProviderCollection)>(),
             ))
             .cast();
-        let default_outputs = FrozenValueOfUnchecked::<Vec<_>>::new(heap.alloc(AllocList::EMPTY));
-        let other_outputs = FrozenValueOfUnchecked::<Vec<_>>::new(heap.alloc(AllocList::EMPTY));
+        let default_outputs =
+            FrozenValueOfUnchecked::<ListType<_>>::new(heap.alloc(AllocList::EMPTY));
+        let other_outputs =
+            FrozenValueOfUnchecked::<ListType<_>>::new(heap.alloc(AllocList::EMPTY));
         FrozenValueTyped::new_err(heap.alloc(FrozenDefaultInfo {
             sub_targets,
             default_outputs,
@@ -201,12 +208,12 @@ impl FrozenDefaultInfo {
     fn get_sub_target_providers_impl(
         &self,
         name: &str,
-    ) -> anyhow::Result<Option<FrozenValueTyped<'static, FrozenProviderCollection>>> {
+    ) -> buck2_error::Result<Option<FrozenValueTyped<'static, FrozenProviderCollection>>> {
         FrozenDictRef::from_frozen_value(self.sub_targets.get())
-            .context("sub_targets should be a dict-like object")?
+            .buck_error_context("sub_targets should be a dict-like object")?
             .get_str(name)
             .map(|v| {
-                FrozenValueTyped::new_err(v).context(
+                FrozenValueTyped::new_err(v).buck_error_context(
                     "Values inside of a frozen provider should be frozen provider collection",
                 )
             })
@@ -222,21 +229,20 @@ impl FrozenDefaultInfo {
 
     fn default_outputs_impl(
         &self,
-    ) -> anyhow::Result<impl Iterator<Item = anyhow::Result<StarlarkArtifact>> + '_> {
+    ) -> buck2_error::Result<impl Iterator<Item = buck2_error::Result<StarlarkArtifact>> + '_> {
         let list = ListRef::from_frozen_value(self.default_outputs.get())
-            .context("Should be list of artifacts")?;
+            .buck_error_context("Should be list of artifacts")?;
 
         Ok(list.iter().map(|v| {
-            let frozen_value = v.unpack_frozen().context("should be frozen")?;
+            let frozen_value = v.unpack_frozen().buck_error_context("should be frozen")?;
 
             Ok(
                 if let Some(starlark_artifact) = frozen_value.downcast_ref::<StarlarkArtifact>() {
                     starlark_artifact.dupe()
                 } else {
                     // This code path is for StarlarkPromiseArtifact. We have to create a `StarlarkArtifact` object here.
-                    let artifact_like = ValueAsArtifactLike::unpack_value(frozen_value.to_value())
-                        .into_anyhow_result()?
-                        .context("Should be list of artifacts")?;
+                    let artifact_like = ValueAsArtifactLike::unpack_value(frozen_value.to_value())?
+                        .buck_error_context("Should be list of artifacts")?;
                     artifact_like.0.get_bound_starlark_artifact()?
                 },
             )
@@ -256,19 +262,20 @@ impl FrozenDefaultInfo {
 
     fn sub_targets_impl(
         &self,
-    ) -> anyhow::Result<
-        impl Iterator<Item = anyhow::Result<(&str, FrozenRef<'static, FrozenProviderCollection>)>> + '_,
+    ) -> buck2_error::Result<
+        impl Iterator<Item = buck2_error::Result<(&str, FrozenRef<'static, FrozenProviderCollection>)>>
+        + '_,
     > {
         let sub_targets = FrozenDictRef::from_frozen_value(self.sub_targets.get())
-            .context("sub_targets should be a dict-like object")?;
+            .buck_error_context("sub_targets should be a dict-like object")?;
 
         Ok(sub_targets.iter().map(|(k, v)| {
-            anyhow::Ok((
+            buck2_error::Ok((
                 k.to_value()
                     .unpack_str()
-                    .context("sub_targets should have string keys")?,
+                    .buck_error_context("sub_targets should have string keys")?,
                 v.downcast_frozen_ref::<FrozenProviderCollection>()
-                    .context(
+                    .buck_error_context(
                         "Values inside of a frozen provider should be frozen provider collection",
                     )?,
             ))
@@ -289,7 +296,7 @@ impl FrozenDefaultInfo {
     pub fn for_each_default_output_artifact_only(
         &self,
         processor: &mut dyn FnMut(Artifact),
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.for_each_in_list(self.default_outputs.get(), |value| {
             processor(
                 ValueAsArtifactLike::unpack_value_err(value)?
@@ -303,7 +310,7 @@ impl FrozenDefaultInfo {
     pub fn for_each_default_output_other_artifacts_only(
         &self,
         processor: &mut dyn FnMut(ArtifactGroup),
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.for_each_in_list(self.default_outputs.get(), |value| {
             let others = ValueAsArtifactLike::unpack_value_err(value)?
                 .0
@@ -319,7 +326,7 @@ impl FrozenDefaultInfo {
     pub fn for_each_other_output(
         &self,
         processor: &mut dyn FnMut(ArtifactGroup),
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         struct Visitor<'x>(&'x mut dyn FnMut(ArtifactGroup));
 
         impl CommandLineArtifactVisitor for Visitor<'_> {
@@ -337,7 +344,10 @@ impl FrozenDefaultInfo {
         })
     }
 
-    pub fn for_each_output(&self, processor: &mut dyn FnMut(ArtifactGroup)) -> anyhow::Result<()> {
+    pub fn for_each_output(
+        &self,
+        processor: &mut dyn FnMut(ArtifactGroup),
+    ) -> buck2_error::Result<()> {
         self.for_each_default_output_artifact_only(&mut |a| processor(ArtifactGroup::Artifact(a)))?;
         self.for_each_default_output_other_artifacts_only(processor)?;
         self.for_each_other_output(processor)
@@ -346,8 +356,8 @@ impl FrozenDefaultInfo {
     fn for_each_in_list(
         &self,
         value: FrozenValue,
-        mut processor: impl FnMut(Value) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()> {
+        mut processor: impl FnMut(Value) -> buck2_error::Result<()>,
+    ) -> buck2_error::Result<()> {
         let outputs_list = ListRef::from_frozen_value(value)
             .unwrap_or_else(|| panic!("expected list, got `{:?}` from info `{:?}`", value, self));
 
@@ -367,6 +377,7 @@ impl PartialEq for FrozenDefaultInfo {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum DefaultOutputError {
     #[error("Cannot specify both `default_output` and `default_outputs`.")]
     ConflictingArguments,
@@ -393,11 +404,11 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
             Value<'v>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<DefaultInfo<'v>> {
+    ) -> starlark::Result<DefaultInfo<'v>> {
         let heap = eval.heap();
 
         // support both list and singular options for now until we migrate all the rules.
-        let valid_default_outputs: ValueOfUnchecked<Vec<ValueAsArtifactLike>> =
+        let valid_default_outputs: ValueOfUnchecked<ListType<ValueAsArtifactLike>> =
             match (default_outputs.into_option(), default_output.into_option()) {
                 (Some(list), None) => list.as_unchecked().cast(),
                 (None, Some(default_output)) => {
@@ -408,10 +419,12 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
                         .cast()
                 }
                 (None, None) => {
-                    ValueOfUnchecked::<Vec<_>>::new(eval.heap().alloc(AllocList::EMPTY))
+                    ValueOfUnchecked::<ListType<_>>::new(eval.heap().alloc(AllocList::EMPTY))
                 }
                 (Some(_), Some(_)) => {
-                    return Err(DefaultOutputError::ConflictingArguments.into());
+                    return Err(
+                        buck2_error::Error::from(DefaultOutputError::ConflictingArguments).into(),
+                    );
                 }
             };
 
@@ -427,7 +440,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
                     ),
                 ))
             })
-            .collect::<anyhow::Result<Vec<(StringValue<'v>, _)>>>()?;
+            .collect::<buck2_error::Result<Vec<(StringValue<'v>, _)>>>()?;
 
         Ok(DefaultInfo {
             default_outputs: valid_default_outputs,

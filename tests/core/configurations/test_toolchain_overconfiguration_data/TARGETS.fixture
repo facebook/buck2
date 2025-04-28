@@ -1,0 +1,33 @@
+load(":rules.bzl", "needs_toolchain", "optional_dep", "toolchain")
+
+# This target is built in the `cat` platform. It gets a dependency chain like
+#
+#  top (cat)
+#  toolchain (cat) (dog)
+#  base (dog)
+#
+# In the past, a limitation of the toolchain deps implementation would configure the toolchain deps
+# of `:top` in all exec platforms, even if the first one (`:dog` in this case) suffices. This
+# resulted in an incorrectly reported cycle like this:
+#
+#  top (cat)
+#  toolchain (cat) (cat)
+#  base (cat)
+#  top (cat)
+needs_toolchain(
+    name = "top",
+    toolchain = ":toolchain",
+)
+
+toolchain(
+    name = "toolchain",
+    exec_dep = ":base",
+)
+
+optional_dep(
+    name = "base",
+    dep = select({
+        "//config:cat": ":top",
+        "//config:dog": None,
+    }),
+)

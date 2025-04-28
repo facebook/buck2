@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use buck2_wrapper_common::DOT_BUCKCONFIG_D;
+
 pub(crate) enum ExternalConfigSource {
     // Buckconfig file in the user's home directory
     UserFile(&'static str),
@@ -43,12 +45,14 @@ pub(crate) static DEFAULT_EXTERNAL_CONFIG_SOURCES: &[ExternalConfigSource] = &[
     ExternalConfigSource::GlobalFolder("C:\\ProgramData\\buckconfig.d"),
     #[cfg(windows)]
     ExternalConfigSource::GlobalFile("C:\\ProgramData\\buckconfig"),
-    ExternalConfigSource::UserFolder(".buckconfig.d"),
-    ExternalConfigSource::UserFile(".buckconfig.local"),
+    ExternalConfigSource::UserFolder(DOT_BUCKCONFIG_D),
+    ExternalConfigSource::UserFile(DOT_BUCKCONFIG_LOCAL),
 ];
 
 pub(crate) static DEFAULT_PROJECT_CONFIG_SOURCES: &[ProjectConfigSource] = &[
-    ProjectConfigSource::CellRelativeFolder(".buckconfig.d"),
+    ProjectConfigSource::CellRelativeFolder(DOT_BUCKCONFIG_D),
     ProjectConfigSource::CellRelativeFile(".buckconfig"),
-    ProjectConfigSource::CellRelativeFile(".buckconfig.local"),
+    ProjectConfigSource::CellRelativeFile(DOT_BUCKCONFIG_LOCAL),
 ];
+
+pub(crate) static DOT_BUCKCONFIG_LOCAL: &str = ".buckconfig.local";

@@ -12,7 +12,7 @@ use buck2_core::fs::paths::file_name::FileName;
 
 /// `~/.buck/buckd/repo-path` directory.
 #[derive(Debug, Clone, derive_more::Display)]
-#[display(fmt = "{}", path.display())]
+#[display("{}", path.display())]
 pub struct DaemonDir {
     pub path: AbsNormPathBuf,
 }
@@ -36,5 +36,9 @@ impl DaemonDir {
     /// Path to `buckd.pid` file.
     pub fn buckd_pid(&self) -> AbsNormPathBuf {
         self.path.join(FileName::new("buckd.pid").unwrap())
+    }
+
+    pub fn buckd_error_log(&self) -> AbsNormPathBuf {
+        self.path.join(FileName::new("buckd.error.log").unwrap())
     }
 }

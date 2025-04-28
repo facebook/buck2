@@ -8,34 +8,24 @@
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
 def _rule_impl(ctx: AnalysisContext) -> list[Provider]:
+    cmd_args_list = [ctx.attrs.broker[RunInfo], "--simulator-manager", ctx.attrs.idb_targets[RunInfo]] + ctx.attrs.args
+    simulator_os_version = ctx.attrs._simulator_os_version
+    simulator_device = ctx.attrs._simulator_device
+    if simulator_os_version:
+        cmd_args_list += ["--os_version", simulator_os_version]
+    if simulator_device:
+        cmd_args_list += ["--device", simulator_device]
     return [
         DefaultInfo(),
         LocalResourceInfo(
-            setup = cmd_args([ctx.attrs.broker[RunInfo], "--simulator-manager", ctx.attrs.idb_targets[RunInfo]] + ctx.attrs.args),
+            setup = cmd_args(cmd_args_list),
             resource_env_vars = {
-                "IDB_COMPANION": "socket_address",
+                "DEVICE_SET_PATH": "device_set_path",
+                "DEVICE_UDID": "udid",
             },
             setup_timeout_seconds = ctx.attrs.setup_timeout_seconds,
         ),
     ]
-
-# We don't want `apple_simulators` target to be configured differently and handled as a different resource broker by buck2 core.
-# By nuking a platform we make sure there is only a single configured target for a resource broker which manages resources of certain type.
-def _transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
-    # buildifier: disable=unused-variable
-    _ = (platform, refs)
-    return PlatformInfo(
-        label = "apple_simulators",
-        configuration = ConfigurationInfo(
-            constraints = {},
-            values = {},
-        ),
-    )
-
-apple_simulators_transition = transition(
-    impl = _transition_impl,
-    refs = {},
-)
 
 registration_spec = RuleRegistrationSpec(
     name = "apple_simulators",
@@ -45,5 +35,7 @@ registration_spec = RuleRegistrationSpec(
         "broker": attrs.exec_dep(providers = [RunInfo]),
         "idb_targets": attrs.exec_dep(providers = [RunInfo]),
         "setup_timeout_seconds": attrs.option(attrs.int(), default = None),
+        "_simulator_device": attrs.default_only(attrs.string(default = read_root_config("apple", "simulator_device", ""))),
+        "_simulator_os_version": attrs.default_only(attrs.string(default = read_root_config("apple", "simulator_os_version", ""))),
     },
 )

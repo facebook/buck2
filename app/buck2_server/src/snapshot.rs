@@ -10,19 +10,21 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::Context as _;
-use buck2_core::fs::fs_util::disk_space_stats;
 use buck2_core::fs::fs_util::DiskSpaceStats;
+use buck2_core::fs::fs_util::disk_space_stats;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::io_counters::IoCounterKey;
+use buck2_error::BuckErrorContext;
 use buck2_events::EventSinkStats;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_util::process_stats::process_stats;
 use buck2_util::system_stats::UnixSystemStats;
 use dupe::Dupe;
 
+use crate::cpu_usage_collector::CpuUsageCollector;
 use crate::daemon::state::DaemonStateData;
 use crate::jemalloc_stats::get_allocator_stats;
+use crate::net_io::NetworkKind;
 use crate::net_io::SystemNetworkIoCollector;
 
 /// Stores state handles necessary to produce snapshots.
@@ -31,6 +33,7 @@ pub struct SnapshotCollector {
     daemon: Arc<DaemonStateData>,
     net_io_collector: SystemNetworkIoCollector,
     buck_out_path: Arc<AbsNormPathBuf>,
+    cpu_usage_collector: Option<CpuUsageCollector>,
 }
 
 impl SnapshotCollector {
@@ -39,6 +42,7 @@ impl SnapshotCollector {
             daemon,
             net_io_collector: SystemNetworkIoCollector::new(),
             buck_out_path: buck_out_path.into(),
+            cpu_usage_collector: CpuUsageCollector::new().ok(),
         }
     }
 
@@ -54,6 +58,7 @@ impl SnapshotCollector {
         self.add_materializer_metrics(&mut snapshot);
         self.add_sink_metrics(&mut snapshot);
         self.add_net_io_metrics(&mut snapshot);
+        self.add_cpu_usage(&mut snapshot);
         snapshot
     }
 
@@ -93,10 +98,10 @@ impl SnapshotCollector {
         fn inner(
             snapshot: &mut buck2_data::Snapshot,
             re: &ReConnectionManager,
-        ) -> anyhow::Result<()> {
+        ) -> buck2_error::Result<()> {
             let stats = re
                 .get_network_stats()
-                .context("Error collecting network stats")?;
+                .buck_error_context("Error collecting network stats")?;
 
             snapshot.re_download_bytes = stats.downloaded;
             snapshot.re_upload_bytes = stats.uploaded;
@@ -127,6 +132,31 @@ impl SnapshotCollector {
                 stats.get_digest_expirations.finished_successfully;
             snapshot.re_get_digest_expirations_finished_with_error =
                 stats.get_digest_expirations.finished_with_error;
+
+            snapshot.zdb_download_queries = stats.download_stats.zdb.queries;
+            snapshot.zdb_download_bytes = stats.download_stats.zdb.bytes;
+            snapshot.zdb_upload_queries = stats.upload_stats.zdb.queries;
+            snapshot.zdb_upload_bytes = stats.upload_stats.zdb.bytes;
+
+            snapshot.zgateway_download_queries = stats.download_stats.zgateway.queries;
+            snapshot.zgateway_download_bytes = stats.download_stats.zgateway.bytes;
+            snapshot.zgateway_upload_queries = stats.upload_stats.zgateway.queries;
+            snapshot.zgateway_upload_bytes = stats.upload_stats.zgateway.bytes;
+
+            snapshot.manifold_download_queries = stats.download_stats.manifold.queries;
+            snapshot.manifold_download_bytes = stats.download_stats.manifold.bytes;
+            snapshot.manifold_upload_queries = stats.upload_stats.manifold.queries;
+            snapshot.manifold_upload_bytes = stats.upload_stats.manifold.bytes;
+
+            snapshot.hedwig_download_queries = stats.download_stats.hedwig.queries;
+            snapshot.hedwig_download_bytes = stats.download_stats.hedwig.bytes;
+            snapshot.hedwig_upload_queries = stats.upload_stats.hedwig.queries;
+            snapshot.hedwig_upload_bytes = stats.upload_stats.hedwig.bytes;
+
+            snapshot.local_cache_hits_files = stats.local_cache.hits_files;
+            snapshot.local_cache_hits_bytes = stats.local_cache.hits_bytes;
+            snapshot.local_cache_misses_files = stats.local_cache.misses_files;
+            snapshot.local_cache_misses_bytes = stats.local_cache.misses_bytes;
 
             Ok(())
         }
@@ -166,6 +196,7 @@ impl SnapshotCollector {
                 failures_unknown,
                 buffered,
                 dropped,
+                bytes_written,
             } = metrics;
             snapshot.sink_successes = Some(successes);
             snapshot.sink_failures = Some(metrics.failures());
@@ -179,6 +210,7 @@ impl SnapshotCollector {
             snapshot.sink_failures_unknown = Some(failures_unknown);
             snapshot.sink_buffer_depth = Some(buffered);
             snapshot.sink_dropped = Some(dropped);
+            snapshot.sink_bytes_written = Some(bytes_written);
         }
     }
 
@@ -192,6 +224,13 @@ impl SnapshotCollector {
                         buck2_data::NetworkInterfaceStats {
                             tx_bytes: counters.bytes_sent,
                             rx_bytes: counters.bytes_recv,
+                            network_kind: match counters.network_kind {
+                                NetworkKind::WiFi => buck2_data::NetworkKind::WiFi.into(),
+                                NetworkKind::Ethernet => buck2_data::NetworkKind::Ethernet.into(),
+                                NetworkKind::Unknown => {
+                                    buck2_data::NetworkKind::UnknownNetKind.into()
+                                }
+                            },
                         },
                     )
                 })
@@ -239,6 +278,15 @@ impl SnapshotCollector {
                 load5,
                 load15,
             });
+        }
+    }
+
+    fn add_cpu_usage(&self, snapshot: &mut buck2_data::Snapshot) {
+        if let Some(collector) = &self.cpu_usage_collector {
+            if let Ok(cpu_usage) = collector.get_usage_since_command_start() {
+                snapshot.host_cpu_usage_system_ms = Some(cpu_usage.system_millis);
+                snapshot.host_cpu_usage_user_ms = Some(cpu_usage.user_millis);
+            }
         }
     }
 }

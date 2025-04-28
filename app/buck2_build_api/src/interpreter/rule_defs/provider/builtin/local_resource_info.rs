@@ -17,13 +17,10 @@ use indexmap::IndexMap;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::dict::DictRef;
-use starlark::values::dict::UnpackDictEntries;
-use starlark::values::float::UnpackFloat;
-use starlark::values::none::NoneOr;
-use starlark::values::type_repr::DictType;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
@@ -31,13 +28,18 @@ use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTypedComplex;
-use starlark::StarlarkResultExt;
+use starlark::values::dict::DictRef;
+use starlark::values::dict::DictType;
+use starlark::values::dict::UnpackDictEntries;
+use starlark::values::float::UnpackFloat;
+use starlark::values::none::NoneOr;
 
-use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
+use crate as buck2_build_api;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
+use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::starlark::values::UnpackValue;
 use crate::starlark::values::ValueLike;
 
@@ -47,9 +49,12 @@ use crate::starlark::values::ValueLike;
 #[repr(C)]
 pub struct LocalResourceInfoGen<V: ValueLifetimeless> {
     /// Command to run to initialize a local resource.
+    ///
     /// Running this command writes a JSON to stdout.
     /// This JSON represents a pool of local resources which are ready to be used.
     /// Example JSON would be:
+    ///
+    /// ```text
     /// {
     ///   "pid": 42,
     ///   "resources": [
@@ -57,7 +62,9 @@ pub struct LocalResourceInfoGen<V: ValueLifetimeless> {
     ///     {"socket_address": "bar:2"}
     ///   ]
     /// }
-    /// Where '"pid"` maps to a PID of a process which should be sent SIGTERM to release the pool of resources
+    /// ```
+    ///
+    /// Where `"pid"` maps to a PID of a process which should be sent SIGTERM to release the pool of resources
     /// when they are no longer needed. `"resources"` maps to the pool of resources.
     /// When a local resource from this particular pool is needed for an execution command, single entity
     /// will be reserved from the pool, for example `{"socket_address": "bar:2"}` and environment variable with
@@ -71,17 +78,17 @@ pub struct LocalResourceInfoGen<V: ValueLifetimeless> {
     setup_timeout_seconds: ValueOfUncheckedGeneric<V, NoneOr<UnpackFloat>>,
 }
 
-fn validate_local_resource_info<'v, V>(info: &LocalResourceInfoGen<V>) -> anyhow::Result<()>
+fn validate_local_resource_info<'v, V>(info: &LocalResourceInfoGen<V>) -> buck2_error::Result<()>
 where
     V: ValueLike<'v>,
 {
     let env_vars = info
         .resource_env_vars
         .cast::<UnpackDictEntries<&str, &str>>()
-        .unpack()
-        .into_anyhow_result()?;
+        .unpack()?;
     if env_vars.entries.is_empty() {
-        return Err(anyhow::anyhow!(
+        return Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
             "Value for `resource_env_vars` field is an empty dictionary: `{}`",
             info.resource_env_vars
         ));
@@ -94,7 +101,8 @@ where
         Either::Right(b) => b.is_empty(),
     };
     if setup_is_empty {
-        return Err(anyhow::anyhow!(
+        return Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
             "Value for `setup` field is an empty command line: `{}`",
             info.setup
         ));
@@ -116,7 +124,7 @@ fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
             ValueOf<'v, UnpackFloat>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<LocalResourceInfo<'v>> {
+    ) -> starlark::Result<LocalResourceInfo<'v>> {
         let setup = StarlarkCmdArgs::try_from_value_typed(setup)?;
         let result = LocalResourceInfo {
             setup: ValueOfUnchecked::<FrozenStarlarkCmdArgs>::new(eval.heap().alloc(setup)),

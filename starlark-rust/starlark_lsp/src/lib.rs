@@ -31,5 +31,5 @@ pub(crate) mod inspect;
 pub(crate) mod loaded;
 pub mod server;
 mod symbols;
-#[cfg(all(test, not(windows)))]
+#[cfg(test)]
 mod test;

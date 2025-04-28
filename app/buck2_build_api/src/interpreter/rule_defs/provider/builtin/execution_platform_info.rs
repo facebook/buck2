@@ -20,6 +20,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Trace;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
@@ -27,13 +28,14 @@ use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
-use starlark::StarlarkResultExt;
 
+use crate as buck2_build_api;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ExecutionPlatformProviderErrors {
     #[error("expected a ConfigurationInfo, got `{0}` (type `{1}`)")]
     ExpectedConfigurationInfo(String, String),
@@ -55,13 +57,8 @@ pub struct ExecutionPlatformInfoGen<V: ValueLifetimeless> {
 }
 
 impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
-    pub fn to_execution_platform(&self) -> anyhow::Result<ExecutionPlatform> {
-        let target = self
-            .label
-            .cast::<&StarlarkTargetLabel>()
-            .unpack()
-            .into_anyhow_result()?
-            .label();
+    pub fn to_execution_platform(&self) -> buck2_error::Result<ExecutionPlatform> {
+        let target = self.label.cast::<&StarlarkTargetLabel>().unpack()?.label();
         let cfg = ConfigurationInfo::from_value(self.configuration.get().to_value())
             .ok_or_else(|| {
                 ExecutionPlatformProviderErrors::ExpectedConfigurationInfo(
@@ -95,7 +92,7 @@ fn info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(require = named)] label: ValueTyped<'v, StarlarkTargetLabel>,
         #[starlark(require = named)] configuration: ValueTypedComplex<'v, ConfigurationInfo<'v>>,
         #[starlark(require = named)] executor_config: ValueTyped<'v, StarlarkCommandExecutorConfig>,
-    ) -> anyhow::Result<ExecutionPlatformInfo<'v>> {
+    ) -> starlark::Result<ExecutionPlatformInfo<'v>> {
         let info = ExecutionPlatformInfo {
             label: label.to_value_of_unchecked(),
             configuration: ValueOfUnchecked::new(configuration.to_value()),

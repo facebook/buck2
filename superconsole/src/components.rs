@@ -19,10 +19,10 @@ pub use bounding::Bounded;
 pub use padding::Padded;
 pub use splitting::Split;
 
-pub use crate::components::draw_horizontal::DrawHorizontal;
-pub use crate::components::draw_vertical::DrawVertical;
 use crate::Dimensions;
 use crate::Lines;
+pub use crate::components::draw_horizontal::DrawHorizontal;
+pub use crate::components::draw_vertical::DrawVertical;
 
 pub mod alignment;
 mod blank;

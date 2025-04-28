@@ -81,7 +81,7 @@ impl Label {
 
                 let (package, name) = rest.split_once(':').unwrap_or_else(|| {
                     // Here the name is implicit, and comes from the last component of the package name
-                    if let Some((index, _)) = rest.rmatch_indices('/').last() {
+                    if let Some((index, _)) = rest.rmatch_indices('/').next_back() {
                         (rest, &rest[index + 1..])
                     } else {
                         (rest, rest)

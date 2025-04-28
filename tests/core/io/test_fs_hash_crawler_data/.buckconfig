@@ -1,0 +1,11 @@
+[cells]
+  root = .
+
+[buildfile]
+  name = TARGETS.fixture
+
+[buck2]
+  file_watcher = fs_hash_crawler
+
+[project]
+  watchman_merge_base = main

@@ -67,7 +67,7 @@ impl AnalysisResult {
         }
     }
 
-    pub fn providers(&self) -> anyhow::Result<FrozenProviderCollectionValueRef<'_>> {
+    pub fn providers(&self) -> buck2_error::Result<FrozenProviderCollectionValueRef<'_>> {
         self.analysis_values.provider_collection()
     }
 
@@ -79,7 +79,7 @@ impl AnalysisResult {
     pub fn lookup_inner(
         &self,
         label: &ConfiguredProvidersLabel,
-    ) -> anyhow::Result<FrozenProviderCollectionValue> {
+    ) -> buck2_error::Result<FrozenProviderCollectionValue> {
         Ok(self.providers()?.lookup_inner(label)?.to_owned())
     }
 

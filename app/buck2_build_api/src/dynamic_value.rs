@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use buck2_artifact::dynamic::DynamicLambdaResultsKey;
+use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use dupe::Dupe;
 
 #[derive(
@@ -21,7 +21,7 @@ use dupe::Dupe;
     Allocative,
     derive_more::Display
 )]
-#[display(fmt = "{}", "self.dynamic_lambda_results_key")]
+#[display("{}", self.dynamic_lambda_results_key)]
 pub struct DynamicValue {
     pub dynamic_lambda_results_key: DynamicLambdaResultsKey,
 }

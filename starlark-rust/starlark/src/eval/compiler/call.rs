@@ -17,16 +17,14 @@
 
 //! Compile function calls.
 
-use std::cell::Cell;
-
 use starlark_derive::VisitSpanMut;
 use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate::collections::symbol::symbol::Symbol;
 use crate::eval::compiler::args::ArgsCompiledValue;
-use crate::eval::compiler::def_inline::local_as_value::local_as_value;
 use crate::eval::compiler::def_inline::InlineDefBody;
 use crate::eval::compiler::def_inline::InlineDefCallSite;
+use crate::eval::compiler::def_inline::local_as_value::local_as_value;
 use crate::eval::compiler::expr::Builtin1;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;
@@ -34,11 +32,11 @@ use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrameAlloc;
 use crate::eval::runtime::visit_span::VisitSpanMut;
-use crate::values::enumeration::FrozenEnumType;
-use crate::values::string::dot_format::parse_format_one;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Value;
+use crate::values::enumeration::FrozenEnumType;
+use crate::values::string::dot_format::parse_format_one;
 
 #[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) struct CallCompiled {
@@ -178,15 +176,15 @@ impl CallCompiled {
         };
 
         args.all_values_generic(expr_to_value, |arguments| {
-            let slots = vec![Cell::new(None); fun.parameters.len()];
+            let mut slots = vec![None; fun.parameters.len()];
             fun.parameters
-                .collect(arguments.frozen_to_v(), &slots, ctx.heap())
+                .collect(arguments.frozen_to_v(), &mut slots, ctx.heap())
                 .ok()?;
 
             let slots = slots
                 .into_try_map(|value| {
                     // Value must be set, but better ignore optimization here than panic.
-                    let value = value.get().ok_or(())?;
+                    let value = value.ok_or(())?;
                     // Everything should be frozen here, but if not,
                     // it is safer to abandon optimization.
                     value.unpack_frozen().ok_or(())

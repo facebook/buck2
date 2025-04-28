@@ -11,9 +11,10 @@ def filegroup_impl(ctx):
     """
     Creates a directory that contains links to the list of srcs
 
-    The output is a directory that uses `name` for its name, and each symlink
-    is based on the `short_path` for the provided `src`.
+    The output is a directory that uses `out` for its name, if provided, or the rule name if not.
+    Each symlink is based on the `short_path` for the provided `src`.
     """
+    output_name = ctx.attrs.out if ctx.attrs.out else ctx.label.name
 
     if type(ctx.attrs.srcs) == type({}):
         srcs = ctx.attrs.srcs
@@ -32,9 +33,9 @@ def filegroup_impl(ctx):
 
     # It seems that buck1 always copies, and that's important for Python rules
     if ctx.attrs.copy:
-        output = ctx.actions.copied_dir(ctx.label.name, srcs)
+        output = ctx.actions.copied_dir(output_name, srcs)
     else:
-        output = ctx.actions.symlinked_dir(ctx.label.name, srcs)
+        output = ctx.actions.symlinked_dir(output_name, srcs)
 
     if type(ctx.attrs.srcs) == type([]):
         artifacts = ctx.attrs.srcs

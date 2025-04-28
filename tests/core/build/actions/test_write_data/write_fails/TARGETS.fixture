@@ -1,0 +1,3 @@
+fails_on_invalid_output(name = "fails_on_invalid_output")
+
+fails_on_invalid_contents(name = "fails_on_invalid_contents")

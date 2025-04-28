@@ -9,8 +9,8 @@
 
 use gazebo::prelude::SliceExt;
 use starlark::typing::Ty;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::selector::StarlarkSelectorGen;
 

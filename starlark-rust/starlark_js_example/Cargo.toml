@@ -1,0 +1,12 @@
+[package]
+description = "Example of running starlark-rust interpreter in browser"
+edition = "2021"
+name = "starlark_js_example"
+publish = false
+version = "0.0.0"
+
+[dependencies]
+starlark = { path = "../starlark", version = "0.13.0" }
+
+[lib]
+crate-type = ["cdylib", "rlib"]

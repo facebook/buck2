@@ -1,0 +1,13 @@
+load(":packages.bzl", "download_rpm")
+
+oncall("build_infra")
+
+download_rpm(
+    name = "zsh",
+    rpm_name = "zsh.x86_64",
+)
+
+download_rpm(
+    name = "fish",
+    rpm_name = "fish.x86_64",
+)

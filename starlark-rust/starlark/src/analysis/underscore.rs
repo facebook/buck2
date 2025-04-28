@@ -27,9 +27,9 @@ use starlark_syntax::syntax::ast::Stmt;
 use starlark_syntax::syntax::module::AstModuleFields;
 use thiserror::Error;
 
+use crate::analysis::EvalSeverity;
 use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
-use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
 use crate::syntax::AstModule;
 
@@ -174,7 +174,7 @@ mod tests {
     }
 
     fn module(x: &str) -> AstModule {
-        AstModule::parse("X", x.to_owned(), &Dialect::Extended).unwrap()
+        AstModule::parse("X", x.to_owned(), &Dialect::AllOptionsInternal).unwrap()
     }
 
     #[test]

@@ -1,0 +1,36 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _assert_eq(a, b):
+    if a != b:
+        fail("Expected {} == {}".format(a, b))
+
+def _assert_not_eq(a, b):
+    if a == b:
+        fail("Expected {} != {}".format(a, b))
+
+def _unwrap_forward_impl(ctx):
+    node = ctx.configured_targets("//transition:rainbow")
+    _assert_eq(node.rule_type, "forward")
+    actual_node = node.unwrap_forward()
+    _assert_not_eq(actual_node.rule_type, "forward")
+
+unwrap_forward = bxl_main(
+    impl = _unwrap_forward_impl,
+    cli_args = {},
+)
+
+def _configured_targets_with_modifiers_impl(ctx):
+    node = ctx.configured_targets("root//:dummy", modifiers = ["root//:linux"])
+    ctx.output.print(node.label.config())
+    node = ctx.configured_targets("root//:dummy", modifiers = ["root//:macos"])
+    ctx.output.print(node.label.config())
+
+configured_targets_with_modifiers = bxl_main(
+    impl = _configured_targets_with_modifiers_impl,
+    cli_args = {},
+)

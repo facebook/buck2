@@ -5,17 +5,35 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@shim//third-party:third_party.bzl", "third_party_library")
+load("@//third-party:defs.bzl", "system_library")
 
-def boost_libs(xs):
-    third_party_library(
+def boost_libs(libraries, header_only):
+    system_library(
         name = "boost",
-        ubuntu_package_name = "libboost-all-dev",
-        homebrew_package_name = "boost",
+        packages = {
+            "//os:linux-fedora": ["boost-devel"],
+            "//os:linux-ubuntu": ["libboost-all-dev"],
+            "//os:macos-homebrew": ["boost"],
+        },
     )
-    for x in xs:
-        third_party_library(
-            name = "boost_{}".format(x),
-            homebrew_package_name = "boost",
-            homebrew_linker_flags = ["-lboost_{}".format(x)],
-        )
+
+    for library in libraries:
+        boost_library(library, False)
+
+    for library in header_only:
+        boost_library(library, True)
+
+def boost_library(library: str, header_only: bool):
+    exported_linker_flags = [] if header_only else ["-lboost_{}".format(library)]
+
+    system_library(
+        name = "boost_{}".format(library),
+        packages = {
+            "//os:linux-fedora": ["boost-devel"],
+            "//os:linux-ubuntu": [
+                "libboost-dev" if header_only else "libboost-{}-dev".format(library.replace("_", "-")),
+            ],
+            "//os:macos-homebrew": ["boost"],
+        },
+        exported_linker_flags = exported_linker_flags,
+    )

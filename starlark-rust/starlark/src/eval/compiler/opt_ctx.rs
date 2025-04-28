@@ -16,8 +16,8 @@
  */
 
 use crate::environment::FrozenModuleData;
-use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
 use crate::eval::Evaluator;
+use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
 use crate::values::FrozenHeap;
 use crate::values::Heap;
 

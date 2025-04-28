@@ -1,0 +1,9 @@
+load(":defs.bzl", "int_rule")
+
+int_rule(
+    name = "int_rule",
+    x = "foobar",
+)
+
+# This test is interesting because it's a scenario in which there is context both above and below
+# the starlark diagnostic

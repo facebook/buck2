@@ -16,10 +16,10 @@ use buck2_build_api::actions::query::ActionQueryNodeData;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryValue;
-use buck2_query::query::syntax::simple::functions::helpers::QueryBinaryOp;
-use buck2_query::query::syntax::simple::functions::helpers::QueryFunction;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query::query::syntax::simple::functions::QueryFunctions;
+use buck2_query::query::syntax::simple::functions::helpers::QueryBinaryOp;
+use buck2_query::query::syntax::simple::functions::helpers::QueryFunction;
 use buck2_query::query_module;
 use buck2_query_parser::BinaryOp;
 use dupe::Dupe;
@@ -67,6 +67,7 @@ pub(crate) fn aquery_functions<'a>() -> impl QueryFunctions<Env = AqueryEnvironm
 #[derive(Debug)]
 pub(crate) struct AqueryFunctions<'a>(pub(crate) PhantomData<&'a ()>);
 
+/// Aquery-specific
 #[query_module(AqueryEnvironment<'a>)]
 impl<'a> AqueryFunctions<'a> {
     /// Obtain the actions for all the outputs provided by the `DefaultInfo` for the targets passed

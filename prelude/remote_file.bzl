@@ -65,4 +65,5 @@ def remote_file_impl(ctx: AnalysisContext) -> list[Provider]:
         unzip_tool = ctx.attrs._unzip_tool[RunInfo],
         sha1 = ctx.attrs.sha1,
         sha256 = ctx.attrs.sha256,
+        size_bytes = None,
     )

@@ -1,0 +1,24 @@
+load("@prelude//toolchains/android/tools/build_rules:worker.bzl", "worker")
+load("@prelude//utils:buckconfig.bzl", "read_list")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+worker(
+    name = "kotlincd_grpc_worker_tool",
+    class_loader_bootstrapper = "prelude//toolchains/android/src/com/facebook/buck/cli/bootstrapper:bootstrapper",
+    concurrency = 16,
+    exe = "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/workertool:kotlincd_tool",
+    jvm_args = read_list(
+        "kotlincd",
+        "jvm_args",
+        delimiter = " ",
+        required = False,
+    ) or [],
+    main_class = "com.facebook.buck.jvm.kotlin.cd.workertool.KotlinCDGrpcWorkerToolMain",
+    visibility = [
+        "PUBLIC",
+    ],
+)

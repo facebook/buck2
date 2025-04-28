@@ -21,27 +21,29 @@ use dupe::Dupe;
 use indexmap::map::RawEntryApiV1;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::coerce;
 use starlark::coerce::Coerce;
+use starlark::coerce::coerce;
 use starlark::collections::Hashed;
 use starlark::collections::StarlarkHasher;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersParser;
 use starlark::typing::Ty;
-use starlark::values::starlark_value;
 use starlark::values::Demand;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::FrozenRef;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::starlark_value;
 
-use crate::interpreter::rule_defs::provider::callable::UserProviderCallableData;
 use crate::interpreter::rule_defs::provider::ProviderLike;
+use crate::interpreter::rule_defs::provider::callable::UserProviderCallableData;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum UserProviderError {
     #[error("Value for parameter `{0}` mismatches type `{1}`: `{2}`")]
     MismatchedType(String, Ty, String),
@@ -85,7 +87,7 @@ impl<'v, V: ValueLike<'v>> Display for UserProviderGen<'v, V> {
     }
 }
 
-#[starlark_value(type = "provider")]
+#[starlark_value(type = "Provider")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for UserProviderGen<'v, V>
 where
     Self: ProvidesStaticType<'v>,
@@ -162,11 +164,6 @@ impl<'v, V: ValueLike<'v>> ProviderLike<'v> for UserProviderGen<'v, V> {
         &self.callable.provider_id
     }
 
-    fn get_field(&self, name: &str) -> Option<Value<'v>> {
-        let index = self.callable.fields.get_index_of(name)?;
-        Some(self.attributes[index].to_value())
-    }
-
     fn items(&self) -> Vec<(&str, Value<'v>)> {
         self.iter_items().map(|(k, v)| (k, v.to_value())).collect()
     }
@@ -176,13 +173,13 @@ impl<'v, V: ValueLike<'v>> ProviderLike<'v> for UserProviderGen<'v, V> {
 pub(crate) fn user_provider_creator<'v>(
     callable: FrozenRef<'static, UserProviderCallableData>,
     eval: &Evaluator<'v, '_, '_>,
-    mut param_parser: ParametersParser<'v, '_>,
-) -> anyhow::Result<Value<'v>> {
+    param_parser: &mut ParametersParser<'v, '_>,
+) -> buck2_error::Result<Value<'v>> {
     let heap = eval.heap();
     let values = callable
         .fields
         .iter()
-        .map(|(name, field)| match param_parser.next_opt(name)? {
+        .map(|(name, field)| match param_parser.next_opt()? {
             Some(value) => {
                 if !field.ty.matches(value) {
                     return Err(UserProviderError::MismatchedType(
@@ -199,7 +196,7 @@ pub(crate) fn user_provider_creator<'v>(
                 None => Err(UserProviderError::MissingParameter(name.to_owned()).into()),
             },
         })
-        .collect::<anyhow::Result<Box<[Value]>>>()?;
+        .collect::<buck2_error::Result<Box<[Value]>>>()?;
     Ok(heap.alloc(UserProvider {
         callable,
         attributes: values,

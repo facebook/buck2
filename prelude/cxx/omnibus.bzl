@@ -6,7 +6,11 @@
 # of this source tree.
 
 load("@prelude//:local_only.bzl", "get_resolved_cxx_binary_link_execution_preference")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "LinkerType",
+    "PicBehavior",
+)
 load(
     "@prelude//cxx:link.bzl",
     "CxxLinkResult",  # @unused Used as a type
@@ -296,10 +300,7 @@ def _create_root(
             links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],
             category_suffix = "omnibus_root",
             identifier = root.name or output,
-            # We prefer local execution because there are lot of cxx_link_omnibus_root
-            # running simultaneously, so while their overall load is reasonable,
-            # their peak execution load is very high.
-            link_execution_preference = LinkExecutionPreference("local"),
+            link_execution_preference = LinkExecutionPreference("any"),
             allow_cache_upload = allow_cache_upload,
         ),
     )
@@ -451,8 +452,7 @@ def _create_omnibus(
         inputs.append(LinkInfo(pre_flags = [
             get_undefined_symbols_args(
                 ctx = ctx,
-                cxx_toolchain = get_cxx_toolchain_info(ctx),
-                name = "__undefined_symbols__.linker_script",
+                name = "__undefined_symbols__.argsfile",
                 symbol_files = non_body_root_undefined_syms,
                 category = "omnibus_undefined_symbols",
             ),
@@ -513,7 +513,7 @@ def _create_omnibus(
 
     # Add global symbols version script.
     # FIXME(agallagher): Support global symbols for darwin.
-    if linker_info.type != "darwin":
+    if linker_info.type != LinkerType("darwin"):
         global_sym_vers = _create_global_symbols_version_script(
             ctx,
             # Extract symbols from roots...

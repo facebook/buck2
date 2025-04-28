@@ -35,12 +35,12 @@ def _remove_ci_labels(content: str) -> str:
     return "\n".join(new_content)
 
 
-def _replace_windows_newlines(content: str) -> str:
+def _normalize_newlines(content: str) -> str:
     """
     We use golden() with text data so in the interest of being a bit more
     platform independent we just normalize the newlines.
     """
-    return content.replace("\r\n", "\n")
+    return "".join([line + "\n" for line in content.splitlines()])
 
 
 def _test_repo_data_src() -> str:
@@ -87,8 +87,12 @@ def golden_dir(*, output: typing.Dict[str, str], rel_path: str) -> None:
         )
 
     # Check that there are no extra files
-    for file in rel_path_path.glob("**/*"):
-        rel_file_path = str(file.relative_to(rel_path_path))
+    path_in_src = Path(_test_repo_data_src()).joinpath(rel_path_path)
+
+    for file in path_in_src.glob("**/*"):
+        if file.is_dir():
+            continue
+        rel_file_path = str(file.relative_to(path_in_src))
         if rel_file_path not in output:
             if _is_update_invocation():
                 file.unlink()
@@ -102,11 +106,12 @@ def golden(*, output: str, rel_path: str) -> None:
     assert "golden" in rel_path, f"Golden path `{rel_path}` must contain `golden`"
 
     output = _prepend_header(output)
-    output = _replace_windows_newlines(output)
+    output = _normalize_newlines(output)
 
     path_in_src = os.path.join(_test_repo_data_src(), rel_path)
 
     if _is_update_invocation():
+        Path(path_in_src).parent.mkdir(parents=True, exist_ok=True)
         with open(path_in_src, "w") as f:
             f.write(output)
         return
@@ -140,3 +145,42 @@ def golden_replace_cfg_hash(*, output: str, rel_path: str) -> None:
         output=_replace_cfg_hash(output),
         rel_path=rel_path,
     )
+
+
+def golden_replace_temp_path(*, output: str, rel_path: str, tmp_path: str) -> None:
+    # Escaping backslashes are needed for windows paths
+    tmp_path_escaped = tmp_path.replace("\\", "\\\\")
+    golden(
+        output=output.replace(tmp_path_escaped, "tmp-path").replace("\\\\", "/"),
+        rel_path=rel_path,
+    )
+
+
+def sanitize_hashes(s: str) -> str:
+    # Remote message hashes
+    s = re.sub(r"\b[0-9]{16,}\b", "<STRING_HASH>", s)
+    # Remove configuration hashes
+    # This is so bad... we don't force these hashes to print as 16
+    # characters... and that's hard to fix because we don't allow changes to
+    # change action digests.
+    s = re.sub(r"\b[0-9a-f]{12,16}\b", "<HASH>", s)
+    # And action digests
+    return re.sub(r"\b[0-9a-f]{40}:[0-9]{1,3}\b", "<DIGEST>", s)
+
+
+def sanitize_stderr(s: str) -> str:
+    # Remove all timestamps
+    s = re.sub(r"\[.{29}\]", "[<TIMESTAMP>]", s)
+    # Remove all UUIDs
+    s = re.sub(
+        r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", "<UUID>", s
+    )
+    # Remove "Commands" line
+    s = re.sub(r"Commands: .+", "Commands: <COMMAND_STATS>", s)
+    # Remove "Cache hits" percentage
+    s = re.sub(r"Cache hits: .+", "Cache hits: <CACHE_STATS>", s)
+    # Remove "Network" line
+    s = re.sub(r"Network: .+", "Network: <NETWORK_STATS>", s)
+    # Remove path from "panicked at" line
+    s = re.sub(r"panicked at .+", "panicked at <PATH>", s)
+    return sanitize_hashes(s)

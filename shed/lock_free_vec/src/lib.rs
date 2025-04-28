@@ -403,8 +403,8 @@ mod tests {
 
     use allocative::FlameGraphBuilder;
 
-    use crate::buckets_for_max_capacity;
     use crate::LockFreeVec;
+    use crate::buckets_for_max_capacity;
 
     #[test]
     fn test_max_capacity() {

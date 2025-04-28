@@ -60,9 +60,18 @@ def _safe_add_dependency(dependencies: ErlAppDependencies, dep: Dependency) -> E
     ErlangAppInfo (full) application dependencies overwrite include_only dependencies,
     while include_only dependencies are only added if no other dependency is already
     present.
+
+    ErlangAppInfo applications fail, if there is already another full application with the
+    same name added.
     """
     if ErlangAppInfo in dep:
-        dependencies[dep[ErlangAppInfo].name] = dep
+        name = dep[ErlangAppInfo].name
+        if name in dependencies and ErlangAppInfo in dependencies[name] and dep.label != dependencies[name].label:
+            fail(("duplicated application `%s` in dependency tree:\n" +
+                  "    %s\n" +
+                  "    %s") % (name, str(dep.label), str(dependencies[name].label)))
+        else:
+            dependencies[name] = dep
     elif ErlangTestInfo in dep:
         dependencies[dep[ErlangTestInfo].name] = dep
     elif dep[ErlangAppIncludeInfo].name not in dependencies:

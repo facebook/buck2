@@ -38,20 +38,18 @@ use crate::docs::DocMember;
 use crate::docs::DocModule;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
+use crate::environment::EnvironmentError;
+use crate::environment::Globals;
 use crate::environment::names::FrozenNames;
 use crate::environment::names::MutableNames;
 use crate::environment::slots::FrozenSlots;
 use crate::environment::slots::ModuleSlotId;
 use crate::environment::slots::MutableSlots;
-use crate::environment::EnvironmentError;
-use crate::environment::Globals;
 use crate::errors::did_you_mean::did_you_mean;
-use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
 use crate::eval::ProfileData;
-use crate::values::layout::heap::heap_type::HeapKind;
-use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
-use crate::values::layout::heap::profile::aggregated::RetainedHeapProfile;
+use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
@@ -63,6 +61,9 @@ use crate::values::OwnedFrozenValue;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
+use crate::values::layout::heap::heap_type::HeapKind;
+use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
+use crate::values::layout::heap::profile::aggregated::RetainedHeapProfile;
 
 #[derive(Debug, thiserror::Error)]
 enum ModuleError {
@@ -139,7 +140,7 @@ impl FrozenModule {
     ///
     /// This function does not return an error,
     /// but we prefer not to panic if there's some high level logic error.
-    pub fn from_globals(globals: &Globals) -> anyhow::Result<FrozenModule> {
+    pub fn from_globals(globals: &Globals) -> FreezeResult<FrozenModule> {
         let module = Module::new();
 
         module.frozen_heap.add_reference(globals.heap());
@@ -234,7 +235,11 @@ impl FrozenModule {
     pub fn documentation(&self) -> DocModule {
         let members = self
             .all_items()
-            .filter(|n| Module::default_visibility(n.0.as_str()) == Visibility::Public)
+            .filter(|n| {
+                // We only want to show public symbols in the documentation
+                self.get_any_visibility_option(n.0.as_str())
+                    .is_some_and(|(_, vis)| vis == Visibility::Public)
+            })
             // FIXME(JakobDegen): Throws out information
             .map(|(k, v)| {
                 (
@@ -406,7 +411,7 @@ impl Module {
     }
 
     /// Freeze the environment, all its value will become immutable afterwards.
-    pub fn freeze(self) -> anyhow::Result<FrozenModule> {
+    pub fn freeze(self) -> FreezeResult<FrozenModule> {
         let Module {
             names,
             slots,
@@ -501,15 +506,17 @@ impl Module {
         &'v self,
         module: &FrozenModule,
         symbol: &str,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         if Self::default_visibility(symbol) != Visibility::Public {
-            return Err(EnvironmentError::CannotImportPrivateSymbol(symbol.to_owned()).into());
+            return Err(crate::Error::new_other(
+                EnvironmentError::CannotImportPrivateSymbol(symbol.to_owned()),
+            ));
         }
         match module.get_any_visibility(symbol)? {
             (v, Visibility::Public) => Ok(v.owned_value(self.frozen_heap())),
-            (_, Visibility::Private) => {
-                Err(EnvironmentError::ModuleSymbolIsNotExported(symbol.to_owned()).into())
-            }
+            (_, Visibility::Private) => Err(crate::Error::new_other(
+                EnvironmentError::ModuleSymbolIsNotExported(symbol.to_owned()),
+            )),
         }
     }
 
@@ -517,6 +524,7 @@ impl Module {
         self.docstring.replace(Some(docstring));
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn add_eval_duration(&self, duration: Duration) {
         self.eval_duration.set(self.eval_duration.get() + duration);
     }
@@ -572,8 +580,8 @@ mod tests {
     use crate::environment::Globals;
     use crate::environment::GlobalsBuilder;
     use crate::environment::Module;
-    use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::eval::Evaluator;
+    use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
     use crate::values::list::ListRef;
@@ -595,7 +603,7 @@ def f(x):
 x = f(1)
 "
                     .to_owned(),
-                    &Dialect::Extended,
+                    &Dialect::AllOptionsInternal,
                 )
                 .unwrap(),
                 &Globals::standard(),
@@ -603,7 +611,7 @@ x = f(1)
             .unwrap();
         }
         let module = module.freeze().unwrap();
-        let heap_summary = module.heap_profile().unwrap().gen().unwrap();
+        let heap_summary = module.heap_profile().unwrap().gen_csv().unwrap();
         // Smoke test.
         assert!(heap_summary.contains("\"x.star.f\""), "{:?}", heap_summary);
     }

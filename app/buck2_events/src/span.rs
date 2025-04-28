@@ -12,7 +12,7 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use serde::Serialize;
 
@@ -33,8 +33,8 @@ use serde::Serialize;
 pub struct SpanId(pub NonZeroU64);
 
 impl SpanId {
-    pub fn from_u64(span_id: u64) -> anyhow::Result<SpanId> {
-        SpanId::from_u64_opt(span_id).context("zero span id")
+    pub fn from_u64(span_id: u64) -> buck2_error::Result<SpanId> {
+        SpanId::from_u64_opt(span_id).buck_error_context("zero span id")
     }
 
     pub fn from_u64_opt(span_id: u64) -> Option<SpanId> {
@@ -47,11 +47,10 @@ impl SpanId {
         static NEXT_ID: AtomicU64 = AtomicU64::new(1);
         loop {
             let next_id = NEXT_ID.fetch_add(1, Ordering::AcqRel);
-            match NonZeroU64::new(next_id) {
-                Some(id) => return SpanId(id),
-                // 64-bit wrap around; continue the loop to generate the next non-zero ID.
-                None => continue,
+            if let Some(id) = NonZeroU64::new(next_id) {
+                return SpanId(id);
             }
+            // 64-bit wrap around; continue the loop to generate the next non-zero ID.
         }
     }
 }

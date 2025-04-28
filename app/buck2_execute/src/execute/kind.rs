@@ -9,8 +9,10 @@
 
 use std::time::Duration;
 
+use allocative::Allocative;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_data::RePlatform;
 use derive_more::Display;
 use gazebo::prelude::SliceExt;
 use remote_execution as RE;
@@ -20,10 +22,10 @@ use crate::execute::action_digest::ActionDigest;
 use crate::execute::dep_file_digest::DepFileDigest;
 use crate::re::convert::platform_to_proto;
 
-#[derive(Debug, Display, Clone)]
+#[derive(Debug, Display, Clone, Allocative)]
 pub enum CommandExecutionKind {
     /// This action was executed locally.
-    #[display(fmt = "local")]
+    #[display("local")]
     Local {
         // Even though this did not run on RE, we still produced this, so we might as well report
         // it.
@@ -32,35 +34,38 @@ pub enum CommandExecutionKind {
         env: SortedVectorMap<String, String>,
     },
     /// This action was executed via a remote executor.
-    #[display(fmt = "remote")]
+    #[display("remote")]
     Remote {
         details: RemoteCommandExecutionDetails,
 
         /// How long this command queued in RE. This value excludes execution time, i.e. for action cache hit,
         /// this value represents how long a request has to wait for server to handle.
         queue_time: Duration,
-        /// Local paths to the materialized inputs for failed actions, if `--materialize-failed-re-action-inputs`
+        /// Local paths to the materialized inputs for failed actions, if `--materialize-failed-inputs`
         /// was passed to build options
         materialized_inputs_for_failed: Option<Vec<ProjectRelativePathBuf>>,
+        /// Local paths to the materialized outputs for failed actions, if `--unstable-materialize-failed-action-outputs`
+        /// was passed to build options
+        materialized_outputs_for_failed_actions: Option<Vec<ProjectRelativePathBuf>>,
     },
     /// This action was served by the action cache and not executed.
-    #[display(fmt = "action_cache")]
+    #[display("action_cache")]
     ActionCache {
         details: RemoteCommandExecutionDetails,
     },
     /// This action was served by the action cache (remote dep file) and not executed.
-    #[display(fmt = "remote_dep_file_cache")]
+    #[display("remote_dep_file_cache")]
     RemoteDepFileCache {
         details: RemoteCommandExecutionDetails,
     },
     /// This action would have executed via a local worker but failed during worker initialization.
-    #[display(fmt = "worker_init")]
+    #[display("worker_init")]
     LocalWorkerInit {
         command: Vec<String>,
         env: SortedVectorMap<String, String>,
     },
     /// This action was executed via a local worker.
-    #[display(fmt = "worker")]
+    #[display("worker")]
     LocalWorker {
         digest: ActionDigest,
         command: Vec<String>,
@@ -113,6 +118,7 @@ impl CommandExecutionKind {
                 details,
                 queue_time,
                 materialized_inputs_for_failed,
+                materialized_outputs_for_failed_actions,
             } => Command::RemoteCommand(buck2_data::RemoteCommand {
                 action_digest: details.action_digest.to_string(),
                 cache_hit: false,
@@ -121,6 +127,10 @@ impl CommandExecutionKind {
                 queue_time: (*queue_time).try_into().ok(),
                 details: details.to_proto(omit_details),
                 materialized_inputs_for_failed: materialized_inputs_for_failed
+                    .as_ref()
+                    .map(|paths| paths.clone().map(|p| format!("{}", p)))
+                    .unwrap_or_default(),
+                materialized_outputs_for_failed_actions: materialized_outputs_for_failed_actions
                     .as_ref()
                     .map(|paths| paths.clone().map(|p| format!("{}", p)))
                     .unwrap_or_default(),
@@ -134,6 +144,7 @@ impl CommandExecutionKind {
                 details: details.to_proto(omit_details),
                 remote_dep_file_key: None,
                 materialized_inputs_for_failed: Vec::new(),
+                materialized_outputs_for_failed_actions: Vec::new(),
             }),
 
             Self::RemoteDepFileCache { details } => {
@@ -148,6 +159,7 @@ impl CommandExecutionKind {
                         .as_ref()
                         .map(|k| k.to_string()),
                     materialized_inputs_for_failed: Vec::new(),
+                    materialized_outputs_for_failed_actions: Vec::new(),
                 })
             }
 
@@ -188,16 +200,32 @@ impl CommandExecutionKind {
 }
 
 /// Structured data for a RE request.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Allocative)]
 pub struct RemoteCommandExecutionDetails {
     pub action_digest: ActionDigest,
     pub remote_dep_file_key: Option<DepFileDigest>,
     pub session_id: Option<String>,
     pub use_case: RemoteExecutorUseCase,
-    pub platform: RE::Platform,
+    pub platform: RePlatform,
 }
 
 impl RemoteCommandExecutionDetails {
+    pub fn new(
+        action_digest: ActionDigest,
+        remote_dep_file_key: Option<DepFileDigest>,
+        session_id: Option<String>,
+        use_case: RemoteExecutorUseCase,
+        platform: &RE::Platform,
+    ) -> Self {
+        Self {
+            action_digest,
+            remote_dep_file_key,
+            session_id,
+            use_case,
+            platform: platform_to_proto(platform),
+        }
+    }
+
     fn to_proto(&self, omit_details: bool) -> Option<buck2_data::RemoteCommandDetails> {
         if omit_details {
             return None;
@@ -206,7 +234,7 @@ impl RemoteCommandExecutionDetails {
         Some(buck2_data::RemoteCommandDetails {
             session_id: self.session_id.clone(),
             use_case: self.use_case.to_string(),
-            platform: Some(platform_to_proto(&self.platform)),
+            platform: Some(self.platform.clone()),
         })
     }
 }

@@ -1,0 +1,25 @@
+load(":config_defs.bzl", "constraint_setting", "constraint_value", "platform")
+
+constraint_setting(
+    name = "animal",
+)
+
+constraint_value(
+    name = "dog",
+    setting = ":animal",
+)
+
+platform(
+    name = "dog_platform",
+    configuration = ":dog",
+)
+
+constraint_value(
+    name = "cat",
+    setting = ":animal",
+)
+
+platform(
+    name = "cat_platform",
+    configuration = ":cat",
+)

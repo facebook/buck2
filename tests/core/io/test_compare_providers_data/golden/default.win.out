@@ -1,0 +1,8 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+Match: entry kind at file_metadata/nested: Directory
+Match: directory contents at file_metadata/nested: empty, file
+Match: entry kind at file_metadata/nested/empty: File
+Match: file metadata at file_metadata/nested/empty: File(digest=da39a3ee5e6b4b0d3255bfef95601890afd80709:0, is_executable=false)
+Match: entry kind at file_metadata/nested/file: File
+Match: file metadata at file_metadata/nested/file: File(digest=046c168df2244d3a13985f042a50e479fe56455e:5, is_executable=false)

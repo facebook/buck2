@@ -19,11 +19,13 @@ message Testing {
   // A name for the current suite.
   string suite = 1;
   repeated string testcases = 2;
+  optional string variant = 3;
 }
 
 message TestStage {
   message Listing {
     string suite = 1;
+    bool cacheable = 2;
   }
 
   oneof item {
@@ -113,6 +115,7 @@ message TestResult {
   ConfiguredTargetHandle target = 6; // Required
   google.protobuf.Duration duration = 7; // Optional
   string details = 8; // Required
+  optional uint64 max_memory_used_bytes = 9;
 }
 
 message ReportTestResultRequest {
@@ -304,13 +307,21 @@ message ExecutionResult2 {
   google.protobuf.Duration start_time = 5; // Duration since the epoch
   google.protobuf.Duration execution_time = 6;
   ExecutionDetails execution_details = 7;
+  optional uint64 max_memory_used_bytes = 8;
 }
 
 message ExecutionDetails {
   optional buck.data.CommandExecutionKind execution_kind = 1;
 }
 
-message Cancelled {}
+enum CancellationReason {
+  NOT_SPECIFIED = 0;
+  RE_QUEUE_TIMEOUT = 1;
+}
+
+message Cancelled {
+  optional CancellationReason reason = 1;
+}
 
 message ExecuteResponse2 {
   oneof response {

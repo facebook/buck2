@@ -20,11 +20,13 @@
 
 pub(crate) mod bc;
 pub(crate) mod compiler;
+mod params;
 pub(crate) mod runtime;
 pub(crate) mod soft_error;
 
 use std::collections::HashMap;
 use std::mem;
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
 use dupe::Dupe;
@@ -35,7 +37,7 @@ pub use runtime::file_loader::FileLoader;
 pub use runtime::file_loader::ReturnFileLoader;
 pub use runtime::params::parser::ParametersParser;
 pub use runtime::params::spec::ParametersSpec;
-pub use runtime::params::spec::ParametersSpecBuilder;
+pub use runtime::params::spec::ParametersSpecParam;
 pub use runtime::profile::data::ProfileData;
 pub use runtime::profile::mode::ProfileMode;
 pub use soft_error::SoftErrorHandler;
@@ -47,11 +49,12 @@ use starlark_syntax::syntax::module::AstModuleFields;
 use crate::collections::symbol::symbol::Symbol;
 use crate::docs::DocString;
 use crate::environment::Globals;
+use crate::eval::compiler::Compiler;
 use crate::eval::compiler::def::DefInfo;
-use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::scope::ScopeId;
-use crate::eval::compiler::Compiler;
+use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
+pub use crate::eval::params::param_specs;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::eval::runtime::evaluator;
@@ -62,6 +65,7 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
     /// Evaluate an [`AstModule`] with this [`Evaluator`], modifying the in-scope
     /// [`Module`](crate::environment::Module) as appropriate.
     pub fn eval_module(&mut self, ast: AstModule, globals: &Globals) -> crate::Result<Value<'v>> {
+        #[cfg(not(target_arch = "wasm32"))]
         let start = Instant::now();
 
         let (codemap, statement, dialect, typecheck) = ast.into_parts();
@@ -135,6 +139,7 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
 
         self.module_def_info = old_def_info;
 
+        #[cfg(not(target_arch = "wasm32"))]
         self.module_env.add_eval_duration(start.elapsed());
 
         // Return the result of evaluation
@@ -153,7 +158,7 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
         let params = Arguments(ArgumentsFull {
             pos: positional,
             named: &named,
-            names: ArgNames::new(&names),
+            names: ArgNames::new_check_unique(&names)?,
             args: None,
             kwargs: None,
         });

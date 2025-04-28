@@ -58,16 +58,9 @@ pub fn provider_callable_documentation(
                 .into_iter()
                 .map(|(a, b)| (a.to_owned(), DocMember::Property(b)))
                 .collect(),
+            constructor: None,
         }),
-        Some((
-            _name,
-            DocFunction {
-                docs,
-                params,
-                ret,
-                as_type,
-            },
-        )) => {
+        Some((_name, DocFunction { docs, params, ret })) => {
             let summary = if let Some(x) = &docs {
                 x.summary.clone()
             } else if let Some(x) = &overall {
@@ -97,12 +90,7 @@ pub fn provider_callable_documentation(
                 summary,
                 details: Some(details.iter().flatten().join("\n\n")),
             });
-            DocItem::Member(DocMember::Function(DocFunction {
-                docs,
-                params,
-                ret,
-                as_type,
-            }))
+            DocItem::Member(DocMember::Function(DocFunction { docs, params, ret }))
         }
     }
 }

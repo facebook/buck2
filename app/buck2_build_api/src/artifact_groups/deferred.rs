@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use buck2_artifact::deferred::key::DeferredHolderKey;
+use buck2_core::deferred::key::DeferredHolderKey;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -18,7 +18,7 @@ use crate::deferred::calculation::lookup_deferred_holder;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 
 #[derive(Hash, Eq, PartialEq, Clone, Dupe, Display, Debug, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 pub struct TransitiveSetKey(DeferredHolderKey, TransitiveSetIndex);
 
 impl TransitiveSetKey {
@@ -36,7 +36,7 @@ impl TransitiveSetKey {
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Dupe, Copy, Display, Debug, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 /// Index for the transitive set data in the analysis result
 pub struct TransitiveSetIndex(pub(crate) u32);
 
@@ -44,7 +44,7 @@ impl TransitiveSetKey {
     pub async fn lookup(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
+    ) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
         lookup_deferred_holder(ctx, &self.0)
             .await?
             .lookup_transitive_set(self)

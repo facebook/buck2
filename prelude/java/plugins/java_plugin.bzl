@@ -12,25 +12,27 @@ load(
     "JavaProcessorsType",
     "derive_transitive_deps",
 )
+load("@prelude//utils:type_defs.bzl", "is_tuple")
 
 PluginParams = record(
     processors = field(list[(str, cmd_args)]),
     deps = field([JavaPackagingDepTSet, None]),
 )
 
-def create_plugin_params(ctx: AnalysisContext, plugins: list[Dependency]) -> [PluginParams, None]:
+def create_plugin_params(ctx: AnalysisContext, plugins: list[[Dependency, (Dependency, list[str])]]) -> [PluginParams, None]:
     processors = []
     plugin_deps = []
 
-    # _wip_java_plugin_arguments keys are providers_label, map to
-    # target_label to allow lookup with plugin.label.raw_target()
-    plugin_arguments = {
-        label.raw_target(): arguments
-        for label, arguments in ctx.attrs._wip_java_plugin_arguments.items()
-    }
-
     # Compiler plugin derived from `plugins` attribute
-    for plugin in plugins:
+    for item in plugins:
+        # Each plugin can be either a tuple of (target, arguments) or just the target
+        if is_tuple(item):
+            plugin = item[0]
+            arguments = item[1]
+        else:
+            plugin = item
+            arguments = None
+
         processors_info = plugin.get(JavaProcessorsInfo)
         if processors_info != None and processors_info.type == JavaProcessorsType("plugin"):
             if len(processors_info.processors) > 1:
@@ -39,7 +41,6 @@ def create_plugin_params(ctx: AnalysisContext, plugins: list[Dependency]) -> [Pl
             if processors_info.deps:
                 plugin_deps.append(processors_info.deps)
 
-            arguments = plugin_arguments.get(plugin.label.raw_target())
             processors.append((processor, cmd_args(arguments) if arguments != None else cmd_args()))
 
     if not processors:

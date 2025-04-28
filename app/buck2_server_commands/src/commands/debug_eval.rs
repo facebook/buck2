@@ -10,18 +10,19 @@
 use buck2_cli_proto::new_generic::DebugEvalRequest;
 use buck2_cli_proto::new_generic::DebugEvalResponse;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_interpreter::load_module::InterpreterCalculation;
-use buck2_interpreter::paths::bxl::BxlFilePath;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum DebugEvalError {
     #[error("Can only eval `.bzl` or `.bxl`, but got `{0}`")]
     InvalidImportPath(CellPath),
@@ -30,7 +31,7 @@ enum DebugEvalError {
 pub(crate) async fn debug_eval_command(
     context: &dyn ServerCommandContextTrait,
     req: DebugEvalRequest,
-) -> anyhow::Result<DebugEvalResponse> {
+) -> buck2_error::Result<DebugEvalResponse> {
     context
         .with_dice_ctx(|server_ctx, mut ctx| async move {
             let cell_resolver = ctx.get_cell_resolver().await?;

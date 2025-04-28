@@ -1,0 +1,8 @@
+trivial_build(
+    name = "simple",
+)
+
+non_det_build(
+    name = "non_det",
+    buck2_output = read_root_config("test", "buck2_output"),
+)

@@ -11,14 +11,16 @@ use async_trait::async_trait;
 use buck2_cli_proto::ConfiguredTargetsRequest;
 use buck2_cli_proto::ConfiguredTargetsResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
@@ -33,7 +35,7 @@ pub struct ConfiguredTargetsCommand {
     skip_missing_targets: bool,
 
     /// Patterns to interpret.
-    #[clap(name = "TARGET_PATTERNS")]
+    #[clap(name = "TARGET_PATTERNS", value_hint = clap::ValueHint::Other)]
     patterns: Vec<String>,
 
     #[clap(flatten)]
@@ -43,15 +45,16 @@ pub struct ConfiguredTargetsCommand {
     common_opts: CommonCommandOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for ConfiguredTargetsCommand {
     const COMMAND_NAME: &'static str = "ctargets";
 
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = Some(ctx.client_context(matches, &self)?);
         let ConfiguredTargetsResponse {
@@ -65,8 +68,8 @@ impl StreamingCommand for ConfiguredTargetsCommand {
                     target_cfg: Some(self.target_cfg.target_cfg()),
                     skip_missing_targets: self.skip_missing_targets,
                 },
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                events_ctx,
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
             .await??;

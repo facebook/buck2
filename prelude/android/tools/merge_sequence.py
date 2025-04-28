@@ -101,6 +101,7 @@ We aim to minimize the suffixing of the largest, most central layers, so we appl
    (possibly module-suffixed) library name. Each final library after the first encountered for its library name will be
    further suffixed with that library name's counter value.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -410,6 +411,7 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
     native_library_merge_sequence: list[MergeSequenceGroupSpec],
     native_library_merge_sequence_blocklist: list[typing.Pattern],
     apk_module_graph: ApkModuleGraph,
+    native_library_merge_non_asset_libs: bool,
 ) -> typing.Tuple[dict[Label, NodeData], dict[FinalLibKey, str], FinalLibGraph]:
     final_lib_graph = FinalLibGraph()
     node_data: dict[Label, NodeData] = {}
@@ -419,7 +421,7 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
 
     def check_is_excluded(target: Label) -> bool:
         node = graph_node_map[target]
-        if not node.can_be_asset:
+        if not native_library_merge_non_asset_libs and not node.can_be_asset:
             return True
 
         raw_target = node.raw_target
@@ -560,9 +562,7 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
                 for (
                     group,
                     entry_count,
-                ) in (
-                    dependent_in_group_data.dependent_included_split_group_entry_counts.items()
-                ):
+                ) in dependent_in_group_data.dependent_included_split_group_entry_counts.items():
                     if group == dependent_split_group and is_included_split_group_entry:
                         entry_count += 1
 
@@ -714,6 +714,7 @@ def main() -> int:  # noqa: C901
     parser.add_argument("--mergemap-input", required=True)
     parser.add_argument("--apk-module-graph")
     parser.add_argument("--output")
+    parser.add_argument("--merge-non-asset-libs", action="store_true")
     args = parser.parse_args()
 
     apk_module_graph = read_apk_module_graph(args.apk_module_graph)
@@ -732,6 +733,7 @@ def main() -> int:  # noqa: C901
             mergemap_input.merge_sequence,
             mergemap_input.blocklist,
             apk_module_graph,
+            args.merge_non_asset_libs,
         )
 
         final_mapping = {}

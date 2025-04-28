@@ -1,0 +1,22 @@
+load(":defs.bzl", "action_fail", "bad_url", "missing_outputs", "run_action")
+
+action_fail(
+    name = "action_fail",
+)
+
+missing_outputs(
+    name = "missing_outputs",
+)
+
+bad_url(
+    name = "bad_url",
+)
+
+run_action(
+    name = "run_action",
+)
+
+run_action(
+    name = "local_run_action",
+    local_only = True,
+)

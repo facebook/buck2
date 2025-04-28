@@ -19,6 +19,7 @@ use crate::configuration::compatibility::IncompatiblePlatformReasonCause;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::ConfigurationNoExec;
 use crate::execution_types::executor_config::CommandExecutorConfig;
+use crate::provider::label::ProvidersLabel;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::label::label::TargetLabel;
 
@@ -105,9 +106,9 @@ impl ExecutionPlatform {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Allocative)]
 pub enum ExecutionPlatformIncompatibleReason {
-    ConstraintNotSatisfied(TargetLabel),
+    ConstraintNotSatisfied(ProvidersLabel),
     ExecutionDependencyIncompatible(Arc<IncompatiblePlatformReason>),
 }
 
@@ -143,6 +144,7 @@ impl std::fmt::Display for ExecutionPlatformIncompatibleReason {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 pub enum ExecutionPlatformError {
     // .indented() losing the alternate flag that we want to use to format the reason so we need to explicitly do that.
     #[error("No compatible execution platform.\n{}", .0.iter().map(|(id, reason)| format!("  `{}` skipped because:\n{}", id, format!("{:#}", reason).indented("    "))).join("\n"))]
@@ -178,7 +180,7 @@ impl ExecutionPlatformResolution {
         }
     }
 
-    // TODO(cjhopman): Should this be an anyhow::Result and never return an invalid configuration?
+    // TODO(cjhopman): Should this be an buck2_error::Result and never return an invalid configuration?
     #[inline]
     pub fn cfg(&self) -> ConfigurationNoExec {
         match &self.platform {
@@ -187,7 +189,7 @@ impl ExecutionPlatformResolution {
         }
     }
 
-    pub fn platform(&self) -> anyhow::Result<&ExecutionPlatform> {
+    pub fn platform(&self) -> buck2_error::Result<&ExecutionPlatform> {
         match &self.platform {
             Some(v) => Ok(v),
             None => Err(ExecutionPlatformError::NoCompatiblePlatform(
@@ -201,7 +203,7 @@ impl ExecutionPlatformResolution {
         &self.skipped_platforms
     }
 
-    pub fn executor_config(&self) -> anyhow::Result<&Arc<CommandExecutorConfig>> {
+    pub fn executor_config(&self) -> buck2_error::Result<&Arc<CommandExecutorConfig>> {
         Ok(self.platform()?.executor_config())
     }
 }

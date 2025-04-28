@@ -1,0 +1,9 @@
+fake_rule(
+    name = "target1a",
+    visibility = ["PUBLIC"],
+)
+
+fake_rule(
+    name = "target1b",
+    visibility = ["PUBLIC"],
+)

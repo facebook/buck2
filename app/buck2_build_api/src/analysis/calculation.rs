@@ -35,20 +35,22 @@ pub static EVAL_ANALYSIS_QUERY: LateBinding<
         &'a str,
         HashMap<String, ConfiguredTargetNode>,
     ) -> Pin<
-        Box<dyn Future<Output = anyhow::Result<TargetSet<ConfiguredGraphNodeRef>>> + Send + 'a>,
+        Box<
+            dyn Future<Output = buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>>> + Send + 'a,
+        >,
     >,
 > = LateBinding::new("EVAL_ANALYSIS_QUERY");
 
 #[async_trait]
-pub trait RuleAnalsysisCalculationImpl: Send + Sync + 'static {
+pub trait RuleAnalysisCalculationImpl: Send + Sync + 'static {
     async fn get_analysis_result(
         &self,
         ctx: &mut DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<AnalysisResult>>;
+    ) -> buck2_error::Result<MaybeCompatible<AnalysisResult>>;
 }
 
-pub static RULE_ANALYSIS_CALCULATION: LateBinding<&'static dyn RuleAnalsysisCalculationImpl> =
+pub static RULE_ANALYSIS_CALCULATION: LateBinding<&'static dyn RuleAnalysisCalculationImpl> =
     LateBinding::new("RULE_ANALYSIS_CALCULATION");
 
 #[async_trait]
@@ -58,26 +60,26 @@ pub trait RuleAnalysisCalculation {
     async fn get_analysis_result(
         &mut self,
         target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<AnalysisResult>>;
+    ) -> buck2_error::Result<MaybeCompatible<AnalysisResult>>;
 
     /// Return the analysis result for a configuration rule `TargetLabel`
     /// (e. g. `constraint_value`).
     async fn get_configuration_analysis_result(
         &mut self,
         target: &ProvidersLabel,
-    ) -> anyhow::Result<FrozenProviderCollectionValue>;
+    ) -> buck2_error::Result<FrozenProviderCollectionValue>;
 
     /// Returns the provider collection for a ConfiguredProvidersLabel. This is the full set of Providers
     /// returned by the target's rule implementation function.
     async fn get_providers(
         &mut self,
         target: &ConfiguredProvidersLabel,
-    ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>>;
+    ) -> buck2_error::Result<MaybeCompatible<FrozenProviderCollectionValue>>;
 
     async fn get_validations(
         &mut self,
         target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<Option<TransitiveValidations>>>;
+    ) -> buck2_error::Result<MaybeCompatible<Option<TransitiveValidations>>>;
 }
 
 #[async_trait]
@@ -85,7 +87,7 @@ impl RuleAnalysisCalculation for DiceComputations<'_> {
     async fn get_analysis_result(
         &mut self,
         target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
+    ) -> buck2_error::Result<MaybeCompatible<AnalysisResult>> {
         RULE_ANALYSIS_CALCULATION
             .get()?
             .get_analysis_result(self, target)
@@ -95,7 +97,7 @@ impl RuleAnalysisCalculation for DiceComputations<'_> {
     async fn get_configuration_analysis_result(
         &mut self,
         target: &ProvidersLabel,
-    ) -> anyhow::Result<FrozenProviderCollectionValue> {
+    ) -> buck2_error::Result<FrozenProviderCollectionValue> {
         // Analysis for configuration nodes is always done with the unbound configuration.
         let target = target.configure_pair(ConfigurationNoExec::unbound().cfg_pair().dupe());
         Ok(self.get_providers(&target).await?.require_compatible()?)
@@ -104,7 +106,7 @@ impl RuleAnalysisCalculation for DiceComputations<'_> {
     async fn get_providers(
         &mut self,
         target: &ConfiguredProvidersLabel,
-    ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>> {
+    ) -> buck2_error::Result<MaybeCompatible<FrozenProviderCollectionValue>> {
         let analysis = self.get_analysis_result(target.target()).await?;
 
         analysis.try_map(|analysis| analysis.lookup_inner(target))
@@ -113,7 +115,7 @@ impl RuleAnalysisCalculation for DiceComputations<'_> {
     async fn get_validations(
         &mut self,
         target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<Option<TransitiveValidations>>> {
+    ) -> buck2_error::Result<MaybeCompatible<Option<TransitiveValidations>>> {
         let analysis = self.get_analysis_result(target).await?;
         Ok(analysis.map(|x| x.validations))
     }

@@ -78,14 +78,18 @@ impl<A, B> Vec2Layout<A, B> {
     }
 
     unsafe fn alloc(&self) -> NonNull<B> {
-        let ptr: *mut u8 = alloc::alloc(self.layout);
-        let bbb_ptr: *mut B = ptr.add(self.offset_of_bbb).cast();
-        NonNull::new_unchecked(bbb_ptr)
+        unsafe {
+            let ptr: *mut u8 = alloc::alloc(self.layout);
+            let bbb_ptr: *mut B = ptr.add(self.offset_of_bbb).cast();
+            NonNull::new_unchecked(bbb_ptr)
+        }
     }
 
     unsafe fn dealloc(&self, bbb_ptr: NonNull<B>) {
-        let ptr: *mut u8 = bbb_ptr.as_ptr().cast::<u8>().sub(self.offset_of_bbb);
-        alloc::dealloc(ptr, self.layout)
+        unsafe {
+            let ptr: *mut u8 = bbb_ptr.as_ptr().cast::<u8>().sub(self.offset_of_bbb);
+            alloc::dealloc(ptr, self.layout)
+        }
     }
 }
 
@@ -250,20 +254,26 @@ impl<A, B> Vec2<A, B> {
 
     #[inline]
     unsafe fn dealloc_impl(data: NonNull<B>, cap: usize) {
-        if cap != 0 {
-            Vec2Layout::<A, B>::new(cap).dealloc(data);
+        unsafe {
+            if cap != 0 {
+                Vec2Layout::<A, B>::new(cap).dealloc(data);
+            }
         }
     }
 
     /// Deallocate, but do not call destructors.
     #[inline]
     unsafe fn dealloc(&mut self) {
-        Self::dealloc_impl(self.bbb_ptr, self.cap);
+        unsafe {
+            Self::dealloc_impl(self.bbb_ptr, self.cap);
+        }
     }
 
     unsafe fn drop_in_place(&mut self) {
-        ptr::drop_in_place::<[A]>(self.aaa_mut());
-        ptr::drop_in_place::<[B]>(self.bbb_mut());
+        unsafe {
+            ptr::drop_in_place::<[A]>(self.aaa_mut());
+            ptr::drop_in_place::<[B]>(self.bbb_mut());
+        }
     }
 
     /// Push an element.
@@ -282,11 +292,7 @@ impl<A, B> Vec2<A, B> {
     #[inline]
     pub fn get(&self, index: usize) -> Option<(&A, &B)> {
         if index < self.len {
-            unsafe {
-                let a = self.aaa().get_unchecked(index);
-                let b = self.bbb().get_unchecked(index);
-                Some((a, b))
-            }
+            Some(unsafe { self.get_unchecked(index) })
         } else {
             None
         }
@@ -295,27 +301,43 @@ impl<A, B> Vec2<A, B> {
     /// Get an element reference by index skipping bounds check.
     #[inline]
     pub unsafe fn get_unchecked(&self, index: usize) -> (&A, &B) {
-        debug_assert!(index < self.len);
-        (
-            self.aaa().get_unchecked(index),
-            self.bbb().get_unchecked(index),
-        )
+        unsafe {
+            debug_assert!(index < self.len);
+            (
+                self.aaa().get_unchecked(index),
+                self.bbb().get_unchecked(index),
+            )
+        }
+    }
+
+    /// Get an element mutable reference by index.
+    #[inline]
+    pub fn get_mut(&mut self, index: usize) -> Option<(&mut A, &mut B)> {
+        if index < self.len {
+            Some(unsafe { self.get_unchecked_mut(index) })
+        } else {
+            None
+        }
     }
 
     /// Get an element mutable reference by index.
     #[inline]
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> (&mut A, &mut B) {
-        debug_assert!(index < self.len);
-        let k_ptr = self.aaa_ptr().as_ptr();
-        let v_ptr = self.bbb_ptr().as_ptr();
-        (&mut *k_ptr.add(index), &mut *v_ptr.add(index))
+        unsafe {
+            debug_assert!(index < self.len);
+            let k_ptr = self.aaa_ptr().as_ptr();
+            let v_ptr = self.bbb_ptr().as_ptr();
+            (&mut *k_ptr.add(index), &mut *v_ptr.add(index))
+        }
     }
 
     #[inline]
     unsafe fn read(&self, index: usize) -> (A, B) {
-        debug_assert!(index < self.len);
-        let (a, b) = self.get_unchecked(index);
-        (ptr::read(a), ptr::read(b))
+        unsafe {
+            debug_assert!(index < self.len);
+            let (a, b) = self.get_unchecked(index);
+            (ptr::read(a), ptr::read(b))
+        }
     }
 
     /// Remove an element by index.
@@ -380,6 +402,96 @@ impl<A, B> Vec2<A, B> {
             *self = new_vec;
         } else {
             debug_assert!(self.len() == self.capacity());
+        }
+    }
+
+    /// Truncate the vector to the given length.
+    ///
+    /// If the vector is already shorter than the given length, do nothing.
+    pub fn truncate(&mut self, len: usize) {
+        let Some(drop_len) = self.len().checked_sub(len) else {
+            return;
+        };
+        unsafe {
+            let drop_a = ptr::slice_from_raw_parts_mut(self.aaa_ptr().as_ptr().add(len), drop_len);
+            let drop_b = ptr::slice_from_raw_parts_mut(self.bbb_ptr().as_ptr().add(len), drop_len);
+            self.len = len;
+
+            struct DropInPlace<X>(*mut [X]);
+
+            impl<X> Drop for DropInPlace<X> {
+                fn drop(&mut self) {
+                    unsafe {
+                        ptr::drop_in_place(self.0);
+                    }
+                }
+            }
+
+            // Drop with `Drop` implementation to continue panicking if `drop_a` panics.
+            let _drop_a = DropInPlace(drop_a);
+            let _drop_b = DropInPlace(drop_b);
+        }
+    }
+
+    /// Retains only the elements specified by the predicate.
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut A, &mut B) -> bool,
+    {
+        struct Retain<'a, A, B> {
+            /// Data in `vec` is valid in ranges `[0, written)` and `[next, vec.len)`.
+            vec: &'a mut Vec2<A, B>,
+            /// Processed and retained element count.
+            written: usize,
+            /// Next element to check.
+            next: usize,
+        }
+
+        impl<'a, A, B> Drop for Retain<'a, A, B> {
+            fn drop(&mut self) {
+                debug_assert!(self.written <= self.next);
+                debug_assert!(self.next <= self.vec.len);
+                unsafe {
+                    // Copy remaining elements to the beginning.
+                    // Copy occurs only if `f` or `{A,B}::drop` panics.
+                    ptr::copy(
+                        self.vec.aaa_ptr().as_ptr().add(self.next),
+                        self.vec.aaa_ptr().as_ptr().add(self.written),
+                        self.vec.len - self.next,
+                    );
+                    ptr::copy(
+                        self.vec.bbb_ptr().as_ptr().add(self.next),
+                        self.vec.bbb_ptr().as_ptr().add(self.written),
+                        self.vec.len - self.next,
+                    );
+
+                    // Set correct length.
+                    self.vec.len = self.written + self.vec.len - self.next;
+                }
+            }
+        }
+
+        let mut retain = Retain {
+            vec: self,
+            next: 0,
+            written: 0,
+        };
+
+        unsafe {
+            while retain.next < retain.vec.len {
+                let (a, b) = retain.vec.get_unchecked_mut(retain.next);
+                let retain_elem = f(a, b);
+                let a = ptr::read(a);
+                let b = ptr::read(b);
+                retain.next += 1;
+                if retain_elem {
+                    ptr::write(retain.vec.aaa_ptr().as_ptr().add(retain.written), a);
+                    ptr::write(retain.vec.bbb_ptr().as_ptr().add(retain.written), b);
+                    retain.written += 1;
+                } else {
+                    drop((a, b));
+                }
+            }
         }
     }
 
@@ -518,6 +630,9 @@ impl<A: Allocative, B: Allocative> Allocative for Vec2<A, B> {
 mod tests {
     use std::alloc::Layout;
     use std::marker::PhantomData;
+    use std::rc::Rc;
+
+    use dupe::Dupe;
 
     use crate::vec2::Vec2;
     use crate::vec2::Vec2Layout;
@@ -605,6 +720,41 @@ mod tests {
                     .collect::<Vec<_>>()
             );
         }
+    }
+
+    #[test]
+    fn test_truncate() {
+        let mut v = Vec2::new();
+        let rs = (0..6).map(|i| Rc::new(i * 100)).collect::<Vec<_>>();
+        v.push(rs[0].dupe(), rs[1].dupe());
+        v.push(rs[2].dupe(), rs[3].dupe());
+        v.push(rs[4].dupe(), rs[5].dupe());
+        v.truncate(1);
+        assert_eq!(Rc::strong_count(&rs[0]), 2);
+        assert_eq!(Rc::strong_count(&rs[1]), 2);
+        assert_eq!(Rc::strong_count(&rs[2]), 1);
+        assert_eq!(Rc::strong_count(&rs[3]), 1);
+        assert_eq!(Rc::strong_count(&rs[4]), 1);
+        assert_eq!(Rc::strong_count(&rs[5]), 1);
+    }
+
+    #[test]
+    fn test_retain() {
+        let mut v = Vec2::new();
+        v.push(1, 2);
+        v.push(2, 3);
+        v.push(3, 4);
+        v.retain(|a, b| {
+            if *a == 2 {
+                assert_eq!(b, &3);
+                false
+            } else {
+                true
+            }
+        });
+        assert_eq!(2, v.len());
+        assert_eq!(Some((&1, &2)), v.get(0));
+        assert_eq!(Some((&3, &4)), v.get(1));
     }
 
     #[test]

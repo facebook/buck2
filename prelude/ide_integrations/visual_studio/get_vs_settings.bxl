@@ -1,0 +1,260 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("constants.bxl", "ADDITIONAL_TARGETS", "BY_MODES", "DEBUG_ARGS", "DEBUG_CMD", "DEBUG_ENV", "DEBUG_PWD", "EXTRA_BUCK_OPTIONS", "IMMEDIATE_BUCK_OPTIONS")
+load("get_attrs.bxl", "get_attrs", "get_unified_value")
+load("get_compiler_settings.bxl", "get_compiler_settings", "get_exported_compiler_settings")
+load("get_linker_settings.bxl", "get_exported_linker_settings", "get_linker_settings")
+load("utils.bxl", "dedupe_by_value", "dirname", "flatten_lists", "gen_guid", "get_output_path", "get_project_file_path", "get_vs_configuration", "infer_settings_by_modes", "log_debug", "log_warn", "merge", "suffix")
+
+def _get_application_type_and_platform(mode_file):
+    if "android" in mode_file:
+        return "Android", "ARM64"
+
+    # Windows Desktop application doesn't set ApplicationType https://learn.microsoft.com/en-us/visualstudio/extensibility/visual-cpp-project-extensibility?view=vs-2022
+    return None, "x64"
+
+# List of options: https://learn.microsoft.com/en-us/dotnet/api/microsoft.visualstudio.vcproject.configurationtypes?view=visualstudiosdk-2022
+def _get_vs_configuration_type(buck_type):
+    if buck_type.endswith("_library"):
+        return "DynamicLibrary"
+    elif buck_type.endswith("_binary"):
+        return "Application"
+
+    return "DynamicLibrary"
+
+def _get_all_header_files(attrs: dict):
+    header_list = attrs["headers"] + attrs["exported_headers"].values() + attrs["raw_headers"]
+    return dedupe_by_value(header_list)
+
+# Buck target can have same file declared in both headers and srcs and buck will work without any problem,
+# while VS will error out: The item "xxx" already exists under the filter "".
+# e.g., fbsource//xplat/QNNPACK:operators
+def _get_headers_and_sources(attrs):
+    headers_dict = {h: True for h in _get_all_header_files(attrs)}
+    sources_dict = attrs["srcs"]
+
+    def is_header(filename):
+        return suffix(filename) in ["h", "hh", "hpp", "hxx", "hm", "inl", "inc", "ipp", "xsd"]
+
+    headers_list = [h for h in headers_dict if h not in sources_dict or is_header(h)]
+    sources_dict = {s: o for s, o in sources_dict.items() if s not in headers_dict or not is_header(s)}
+    return headers_list, sources_dict
+
+def _unescape_arg(arg):
+    if arg.startswith("\\-\\-"):
+        return "--" + arg[4:]
+    if arg.startswith("\\-"):
+        return "-" + arg[2:]
+    return arg
+
+def _get_debug_settings(target: bxl.ConfiguredTargetNode, attrs: dict, attrs_lazy, vs_settings_dict: dict, cli_args, bxl_ctx):
+    default_mode_file = cli_args.mode_files[0]
+    debug_settings = {
+        DEBUG_CMD: get_output_path(target, bxl_ctx),
+        DEBUG_ARGS: flatten_lists(attrs["args"]),
+        DEBUG_PWD: "",
+        DEBUG_ENV: {
+            key: ";".join(value_list)
+            for (key, value_list) in attrs["env"].items()
+        },
+        # When dependency is referenced in [exe] subtarget form, PDB is not automatically materialized and debugging will not be able to load symbols nor stop at breakpoints.
+        # See T197712426 and D56372580. Add additional full buck targets to force buck to build/materialize PDBs to make debugging work.
+        ADDITIONAL_TARGETS: [],
+        # Unescape option prefix.
+        EXTRA_BUCK_OPTIONS: [_unescape_arg(o) for o in cli_args.extra_buck_options],
+        IMMEDIATE_BUCK_OPTIONS: [_unescape_arg(o) for o in cli_args.immediate_buck_options],
+    }
+
+    if attrs["buck_type"] == "alias":
+        actual_target_label = attrs_lazy.get("actual").label.configured_target()
+        actual_target_debug_settings = vs_settings_dict[actual_target_label][BY_MODES][default_mode_file]
+        debug_settings = {key: actual_target_debug_settings[key] for key in debug_settings}
+    elif attrs["buck_type"] == "command_alias" and target.label.name.endswith("_oxx_runner"):
+        # Replicate oxx_runner as it invokes base binary via child process which Visual Studio cannot debug into. https://fburl.com/code/i1pkehjo
+        base_binary_target = bxl_ctx.configured_targets(
+            target.label.cell + "//" + target.label.package + ":" + target.label.name.removesuffix("_oxx_runner"),
+            modifiers = bxl_ctx.modifiers,
+        )
+        debug_settings[DEBUG_CMD] = vs_settings_dict[base_binary_target.label][BY_MODES][default_mode_file][DEBUG_CMD]
+        debug_settings[ADDITIONAL_TARGETS] += [base_binary_target.label.raw_target()]
+        oxx_runner_path = []
+        for key, value in debug_settings[DEBUG_ENV].items():
+            if key == "BUCK_EXTRA_LIB_SEARCH_PATH_COUNT" or not key.startswith("BUCK_EXTRA_LIB_SEARCH_PATH_"):
+                continue
+            for path in value.split(";"):
+                if suffix(path) in ["dll", "pdb"]:
+                    path = dirname(path, separator = "\\")
+                if path:
+                    oxx_runner_path.append(path)
+        if oxx_runner_path:
+            debug_settings[DEBUG_ENV].setdefault("PATH", "%PATH%")
+            debug_settings[DEBUG_ENV]["PATH"] = ";".join(oxx_runner_path) + ";" + debug_settings[DEBUG_ENV]["PATH"]
+    elif attrs["buck_type"] == "command_alias" and attrs["exe"] == "fbsource//arvr/tools/buck:launcher":
+        # Replicate launcher behavior as it launches binary via child process which Visual Studio cannot debug into. https://fburl.com/code/sb7e6zi7
+        debug_settings[DEBUG_CMD] = "$(RepoRoot)\\" + debug_settings[DEBUG_ARGS][0]
+        debug_settings[DEBUG_PWD] = "$(RepoRoot)\\" + dirname(debug_settings[DEBUG_ARGS][0], separator = "\\")
+        debug_settings[DEBUG_ARGS].pop(0)
+    elif attrs["buck_type"] == "command_alias" and attrs["exe"]:
+        # Replicate generic command_alias as buck launches exe binary via child process which Visual Studio cannot debug into.
+        exe_target = bxl_ctx.configured_targets(attrs["exe"], modifiers = bxl_ctx.modifiers)
+        if exe_target.label in vs_settings_dict:
+            debug_settings[DEBUG_CMD] = vs_settings_dict[exe_target.label][BY_MODES][default_mode_file][DEBUG_CMD]
+            debug_settings[DEBUG_ENV].update(vs_settings_dict[exe_target.label][BY_MODES][default_mode_file][DEBUG_ENV])
+            debug_settings[ADDITIONAL_TARGETS] += vs_settings_dict[exe_target.label][BY_MODES][default_mode_file][ADDITIONAL_TARGETS]
+        else:
+            log_warn("Failed to infer debug settings for command_alias target ({}).", target.label)
+    elif attrs["buck_type"] == "cxx_test" and "BUCK_BASE_BINARY" in attrs["env"]:
+        test_binary_path = attrs["env"]["BUCK_BASE_BINARY"][0]
+        debug_settings[DEBUG_CMD] = test_binary_path
+    elif attrs["buck_type"] == "cxx_test" and "AVATAR_LAUNCHER_TARGET" in attrs["env"]:
+        # Replicate Avatar launcher script https://fburl.com/code/wylf2zjx
+        test_binary_path = attrs["env"]["AVATAR_LAUNCHER_TARGET"][0]
+        debug_settings[DEBUG_CMD] = test_binary_path
+        debug_settings[DEBUG_PWD] = dirname(test_binary_path, separator = "\\")
+
+    return debug_settings
+
+def get_basic_vs_settings(target: bxl.ConfiguredTargetNode, cli_args):
+    mode_files = cli_args.mode_files
+
+    application_type, platform = _get_application_type_and_platform(mode_files[0])
+
+    basic_vs_settings = {}
+
+    basic_vs_settings["Globals"] = {
+        "ProjectGuid": gen_guid(str(target.label)),
+    }
+    if application_type == "Android":
+        basic_vs_settings["Globals"].update({
+            "ApplicationType": "Android",
+            # Find latest ApplicationTypeRevision at $(VCTargetsPath)/Application Type/Android/.
+            "ApplicationTypeRevision": "3.0",
+        })
+
+    basic_vs_settings["ProjectConfigurations"] = [
+        {
+            "Configuration": get_vs_configuration(m),
+            "Platform": platform,
+        }
+        for m in mode_files
+    ]
+
+    return basic_vs_settings
+
+def get_vs_settings(target: bxl.ConfiguredTargetNode, attrs: dict, vs_settings_dict: dict, cli_args, buck_root, bxl_ctx):
+    log_debug("# Getting VS settings for {}", target.label.raw_target(), log_level = cli_args.log_level)
+    mode_files = cli_args.mode_files
+
+    vs_settings = get_basic_vs_settings(target, cli_args)
+
+    vs_settings["Headers"], vs_settings["Sources"] = _get_headers_and_sources(attrs)
+
+    configuration_type = _get_vs_configuration_type(attrs["buck_type"])
+    for i in range(len(mode_files)):
+        vs_settings["ProjectConfigurations"][i].update({
+            "ConfigurationType": configuration_type,
+        })
+
+    attrs_lazy = target.resolved_attrs_lazy(bxl_ctx)
+
+    # NB: We want to keep dep label as a label type to find rel path, instead of using strings like the rest of attrs
+    deps = get_unified_value(attrs_lazy, "deps", "platform_deps")
+    deps = flatten_lists([d.values() if isinstance(d, dict) else d for d in deps])
+    exported_deps = get_unified_value(attrs_lazy, "exported_deps", "exported_platform_deps")
+    exported_deps = flatten_lists([d.values() if isinstance(d, dict) else d for d in exported_deps])
+    if attrs["buck_type"] == "alias":
+        exported_deps.append(attrs_lazy.get("actual"))
+    if attrs_lazy.get("reexport_all_header_dependencies"):
+        # Turn all normal dependencies to exported dependencies so that dependents on this target can find headers of transitive dependencies.
+        # Might bring in additional exported dependencies, but does the job.
+        # e.g., fbsource//arvr/projects/hsr/libraries/common/tooling/code_gen:idl_serializer
+        exported_deps.extend(deps)
+        deps = []
+    deps = [d.label.configured_target() for d in deps]  # list[configured_target_label]
+    exported_deps = [d.label.configured_target() for d in exported_deps]  # list[configured_target_label]
+
+    # NB: We can safely assume that dependencies have been processed before this loop as cquery_ctx.deps return dependencies tree in post-order.
+    aggregated_exported_compiler_settings = {}
+    aggregated_exported_linker_settings = {}
+    for dep in exported_deps:
+        aggregated_exported_compiler_settings = merge(
+            aggregated_exported_compiler_settings,
+            vs_settings_dict.get(dep, {}).get("ExportedCompilerSettings", {}),
+        )
+        aggregated_exported_linker_settings = merge(
+            aggregated_exported_linker_settings,
+            vs_settings_dict.get(dep, {}).get("ExportedLinkerSettings", {}),
+        )
+    aggregated_exported_compiler_settings = merge(aggregated_exported_compiler_settings, get_exported_compiler_settings(target, attrs, bxl_ctx))
+    vs_settings["ExportedCompilerSettings"] = aggregated_exported_compiler_settings
+    aggregated_exported_linker_settings = merge(aggregated_exported_linker_settings, get_exported_linker_settings(attrs, buck_root))
+    vs_settings["ExportedLinkerSettings"] = aggregated_exported_linker_settings
+
+    # Exported settings are also applicable to current target.
+    aggregated_private_compiler_settings = merge({}, aggregated_exported_compiler_settings)
+    aggregated_private_linker_settings = merge({}, aggregated_exported_linker_settings)
+    for dep in deps:
+        aggregated_private_compiler_settings = merge(
+            aggregated_private_compiler_settings,
+            vs_settings_dict.get(dep, {}).get("ExportedCompilerSettings", {}),
+        )
+        aggregated_private_linker_settings = merge(
+            aggregated_private_linker_settings,
+            vs_settings_dict.get(dep, {}).get("ExportedLinkerSettings", {}),
+        )
+    vs_settings["CompilerSettings"] = merge(
+        aggregated_private_compiler_settings,
+        get_compiler_settings(target, attrs),
+    )
+    vs_settings["LinkerSettings"] = merge(
+        aggregated_private_linker_settings,
+        get_linker_settings(attrs, buck_root),
+    )
+
+    debug_settings = _get_debug_settings(target, attrs, attrs_lazy, vs_settings_dict, cli_args, bxl_ctx)
+    debug_settings_by_modes = infer_settings_by_modes(debug_settings, cli_args.mode_files, cli_args.mode_hashes)
+    debug_settings_overrides = (cli_args.debug_settings or {}).get(str(target.label.raw_target()), {})
+    debug_settings_by_modes_with_overrides = merge(debug_settings_by_modes, debug_settings_overrides)
+    vs_settings[BY_MODES] = debug_settings_by_modes_with_overrides
+
+    return vs_settings
+
+def _main(bxl_ctx):
+    target_label = bxl_ctx.cli_args.target
+    target_node = bxl_ctx.configured_targets(target_label)
+    actions = bxl_ctx.bxl_actions().actions
+
+    attrs = get_attrs(target_node, bxl_ctx)
+    attrs_artifact = actions.write_json(get_project_file_path(target_node.label, ".attrs.json"), attrs, pretty = True)
+    vs_settings_artifact = actions.declare_output(get_project_file_path(target_node.label, ".vs_settings.json"))
+
+    def f(ctx, artifacts, outputs, cli_args = bxl_ctx.cli_args, root = bxl_ctx.root()):
+        attrs = artifacts[attrs_artifact].read_json()
+        vs_settings = get_vs_settings(target_node, attrs, {}, cli_args, root, ctx)
+        ctx.bxl_actions().actions.write_json(outputs[vs_settings_artifact].as_output(), vs_settings, pretty = True)
+
+    actions.dynamic_output(
+        dynamic = [attrs_artifact],
+        inputs = [],
+        outputs = [vs_settings_artifact.as_output()],
+        f = f,
+    )
+    bxl_ctx.output.print(bxl_ctx.output.ensure(vs_settings_artifact))
+
+main = bxl_main(
+    impl = _main,
+    cli_args = {
+        "debug_settings": cli_args.option(cli_args.json()),  # target label => debug_settings.
+        "extra_buck_options": cli_args.list(cli_args.string(), default = []),
+        "immediate_buck_options": cli_args.list(cli_args.string(), default = []),
+        "log_level": cli_args.int(default = 30),
+        "mode_files": cli_args.list(cli_args.string(), default = ["fbsource//arvr/mode/win/dev"]),
+        "mode_hashes": cli_args.option(cli_args.json()),  # mode => configuration hash.
+        "target": cli_args.target_label(),
+    },
+)

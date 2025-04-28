@@ -24,10 +24,22 @@
 
 pub mod build;
 pub mod target_cfg;
+pub mod timeout;
 pub mod ui;
 
-use buck2_cli_proto::config_override::ConfigType;
+use std::path::Path;
+
 use buck2_cli_proto::ConfigOverride;
+use buck2_cli_proto::RepresentativeConfigFlag;
+use buck2_cli_proto::config_override::ConfigType;
+use buck2_cli_proto::representative_config_flag::Source as RepresentativeConfigFlagSource;
+use buck2_common::argv::ArgFileKind;
+use buck2_common::argv::ArgFilePath;
+use buck2_common::argv::ExpandedArgSource;
+use buck2_common::argv::ExpandedArgv;
+use buck2_common::argv::FlagfileArgSource;
+use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
@@ -115,6 +127,11 @@ pub struct CommonEventLogOptions {
     /// regarding the stability of the format.
     #[clap(long, value_name = "PATH")]
     pub(crate) unstable_write_invocation_record: Option<PathArg>,
+
+    /// Write the command report to this path. A command report is always
+    /// written to `buck-out/v2/<uuid>/command_report` even without this flag.
+    #[clap(long, value_name = "PATH")]
+    pub(crate) command_report_path: Option<PathArg>,
 }
 
 impl CommonEventLogOptions {
@@ -123,9 +140,21 @@ impl CommonEventLogOptions {
             event_log: None,
             no_event_log: false,
             write_build_id: None,
+            command_report_path: None,
             unstable_write_invocation_record: None,
         };
         &DEFAULT
+    }
+
+    pub fn no_event_log_ref() -> &'static Self {
+        static NO_EVENT_LOG: CommonEventLogOptions = CommonEventLogOptions {
+            event_log: None,
+            no_event_log: true,
+            write_build_id: None,
+            command_report_path: None,
+            unstable_write_invocation_record: None,
+        };
+        &NO_EVENT_LOG
     }
 }
 
@@ -196,15 +225,16 @@ impl CommonBuildConfigurationOptions {
     /// hence they're merged into a single list.
     pub fn config_overrides(
         &self,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         immediate_ctx: &ImmediateConfigContext<'_>,
-    ) -> anyhow::Result<Vec<ConfigOverride>> {
+        cwd: &AbsWorkingDir,
+    ) -> buck2_error::Result<Vec<ConfigOverride>> {
         fn with_indices<'a, T>(
             collection: &'a [T],
             name: &str,
-            matches: &'a clap::ArgMatches,
+            matches: BuckArgMatches<'a>,
         ) -> impl Iterator<Item = (usize, &'a T)> + 'a {
-            let indices = matches.indices_of(name);
+            let indices = matches.inner.indices_of(name);
             let indices = indices.unwrap_or_default();
             assert_eq!(
                 indices.len(),
@@ -227,7 +257,7 @@ impl CommonBuildConfigurationOptions {
                     _ => (None, config_value.as_str()),
                 };
 
-                anyhow::Ok((
+                buck2_error::Ok((
                     index,
                     ConfigOverride {
                         cell,
@@ -236,7 +266,7 @@ impl CommonBuildConfigurationOptions {
                     },
                 ))
             })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect::<buck2_error::Result<Vec<_>>>()?;
 
         let config_file_args = with_indices(&self.config_files, "config_files", matches)
             .map(|(index, file)| {
@@ -246,20 +276,26 @@ impl CommonBuildConfigurationOptions {
                         let cell = immediate_ctx
                             .resolve_alias_to_path_in_cwd(cell)?
                             .to_string();
-                        (Some(cell), val)
+                        (Some(cell), val.to_owned())
                     }
-                    _ => (None, file.as_str()),
+                    None => {
+                        let abs_path = match AbsPath::new(file) {
+                            Ok(p) => p.to_owned(),
+                            Err(_) => cwd.resolve(Path::new(file)),
+                        };
+                        (None, abs_path.to_string())
+                    }
                 };
                 Ok((
                     index,
                     ConfigOverride {
                         cell,
-                        config_override: path.to_owned(),
+                        config_override: path,
                         config_type: ConfigType::File as i32,
                     },
                 ))
             })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect::<buck2_error::Result<Vec<_>>>()?;
 
         let mut ordered_merged_configs: Vec<(usize, ConfigOverride)> = config_file_args;
         ordered_merged_configs.extend(config_values_args);
@@ -381,4 +417,300 @@ pub enum PrintOutputsFormat {
     Plain,
     Simple,
     Json,
+}
+
+#[derive(Clone, Copy)]
+pub struct BuckArgMatches<'a> {
+    inner: &'a clap::ArgMatches,
+    expanded_argv: &'a ExpandedArgv,
+}
+
+impl<'a> BuckArgMatches<'a> {
+    pub fn from_clap(inner: &'a clap::ArgMatches, expanded_argv: &'a ExpandedArgv) -> Self {
+        Self {
+            inner,
+            expanded_argv,
+        }
+    }
+
+    pub fn unwrap_subcommand(&self) -> Self {
+        match self.inner.subcommand().map(|s| s.1) {
+            Some(submatches) => Self {
+                inner: submatches,
+                expanded_argv: self.expanded_argv,
+            },
+            None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
+        }
+    }
+
+    /// A subset of the expanded argv containing config flags. When a config flag is from an argfile in the project,
+    /// it will be represented with the argfile rather than the raw config flag. This gives a compact, stable, and
+    /// recognizable form of the flags.
+    pub fn get_representative_config_flags(&self) -> buck2_error::Result<Vec<String>> {
+        self.get_representative_config_flags_by_source()
+            .map(|flags| {
+                flags
+                    .into_iter()
+                    .map(|flag| match flag.source {
+                        Some(RepresentativeConfigFlagSource::ConfigFlag(v)) => format!("-c {}", v),
+                        Some(RepresentativeConfigFlagSource::ConfigFile(v)) => {
+                            format!("--config-file {}", v)
+                        }
+                        Some(RepresentativeConfigFlagSource::ConfigModifier(v)) => {
+                            format!("-m {}", v)
+                        }
+                        Some(RepresentativeConfigFlagSource::ModeFile(v)) => v,
+                        None => unreachable!("impossible flag"),
+                    })
+                    .collect()
+            })
+    }
+
+    pub fn get_representative_config_flags_by_source(
+        &self,
+    ) -> buck2_error::Result<Vec<RepresentativeConfigFlag>> {
+        fn get_flagfile_for_logging<'a>(
+            flagfile: &'a FlagfileArgSource,
+        ) -> Option<&'a FlagfileArgSource> {
+            if let Some(parent) = &flagfile.parent {
+                if let Some(v) = get_flagfile_for_logging(parent) {
+                    return Some(v);
+                }
+            }
+            match &flagfile.kind {
+                ArgFileKind::Path(ArgFilePath::External(_))
+                | ArgFileKind::PythonExecutable(ArgFilePath::External(_), _)
+                | ArgFileKind::Stdin => None,
+                _ => Some(flagfile),
+            }
+        }
+        // FIXME: Ideally we'd be able to recover this from the clap ArgMatches, but that only
+        // tracks clap's index concept which doesn't map directly to argv index.
+        enum State {
+            None,
+            Matched(&'static str),
+        }
+        let mut state = State::None;
+        let config_args = self
+            .expanded_argv
+            .iter()
+            .filter_map(move |(value, source)| {
+                match state {
+                    State::None => match value {
+                        "-c" => {
+                            state = State::Matched("-c");
+                            None
+                        }
+                        "--config" => {
+                            state = State::Matched("-c");
+                            None
+                        }
+                        "--config-file" => {
+                            state = State::Matched("--config-file");
+                            None
+                        }
+                        "-m" => {
+                            state = State::Matched("-m");
+                            None
+                        }
+                        "--modifier" => {
+                            state = State::Matched("--modifier");
+                            None
+                        }
+                        v if v.starts_with("--config=") || v.starts_with("-c=") => {
+                            Some(RepresentativeConfigFlagSource::ConfigFlag(
+                                v.split_once("=").unwrap().1.to_owned(),
+                            ))
+                        }
+                        v if v.starts_with("--config-file=") => {
+                            Some(RepresentativeConfigFlagSource::ConfigFile(
+                                v.split_at("--config-file=".len()).1.to_owned(),
+                            ))
+                        }
+                        v if v.starts_with("--modifier=") || v.starts_with("-m=") => {
+                            Some(RepresentativeConfigFlagSource::ConfigModifier(
+                                v.split_once("=").unwrap().1.to_owned(),
+                            ))
+                        }
+                        _ => None,
+                    },
+                    State::Matched(flag) => {
+                        state = State::None;
+                        match flag {
+                            "-c" => {
+                                Some(RepresentativeConfigFlagSource::ConfigFlag(value.to_owned()))
+                            }
+                            "--config-file" => {
+                                Some(RepresentativeConfigFlagSource::ConfigFile(value.to_owned()))
+                            }
+                            "-m" => Some(RepresentativeConfigFlagSource::ConfigModifier(
+                                value.to_owned(),
+                            )),
+                            "--modifier" => Some(RepresentativeConfigFlagSource::ConfigModifier(
+                                value.to_owned(),
+                            )),
+                            _ => unreachable!("impossible flag"),
+                        }
+                    }
+                }
+                .map(|flag_value| (flag_value, source))
+            });
+
+        let mut args: Vec<RepresentativeConfigFlag> = Vec::new();
+        let mut last_flagfile = None;
+
+        for (flag_value, source) in config_args {
+            let flagfile = match source {
+                ExpandedArgSource::Inline => None,
+                ExpandedArgSource::Flagfile(file) => get_flagfile_for_logging(&file),
+            };
+
+            match flagfile {
+                Some(flagfile) => {
+                    if Some(flagfile) != last_flagfile {
+                        args.push(RepresentativeConfigFlag {
+                            source: Some(RepresentativeConfigFlagSource::ModeFile(
+                                flagfile.kind.to_string(),
+                            )),
+                        });
+                    }
+                }
+                None => {
+                    args.push(RepresentativeConfigFlag {
+                        source: Some(flag_value),
+                    });
+                }
+            }
+            last_flagfile = flagfile;
+        }
+
+        Ok(args)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_common::argv::ExpandedArgvBuilder;
+    use buck2_core::cells::cell_path::CellPath;
+    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+    use buck2_core::fs::project::ProjectRootTemp;
+
+    use super::*;
+
+    #[test]
+    fn test_get_representative_config_flags() -> anyhow::Result<()> {
+        let mut argv = ExpandedArgvBuilder::new();
+
+        argv.push("-c".to_owned());
+        argv.push("section.option=value".to_owned());
+
+        argv.push("--other-flag".to_owned());
+        argv.push("value".to_owned());
+        argv.push("--other-flag2".to_owned());
+        argv.push("value".to_owned());
+
+        argv.push("--config".to_owned());
+        argv.push("section.option2=value".to_owned());
+
+        argv.push("--config=section.option3=value".to_owned());
+        argv.push("-c=section.option4=value".to_owned());
+
+        argv.push("--config-file=//1.bcfg".to_owned());
+        argv.push("--config-file".to_owned());
+        argv.push("//2.bcfg".to_owned());
+
+        argv.push("-m".to_owned());
+        argv.push("//bar:baz".to_owned());
+        argv.push("--modifier=//foo:bar".to_owned());
+        argv.push("--modifier".to_owned());
+        argv.push("//bar:foo".to_owned());
+
+        let argv = argv.build();
+
+        let clap = clap::ArgMatches::default(); // we don't actually inspect this right now so just use an empty one.
+        let matches = BuckArgMatches::from_clap(&clap, &argv);
+
+        let flags = matches.get_representative_config_flags()?;
+
+        assert_eq!(
+            flags,
+            vec![
+                "-c section.option=value",
+                "-c section.option2=value",
+                "-c section.option3=value",
+                "-c section.option4=value",
+                "--config-file //1.bcfg",
+                "--config-file //2.bcfg",
+                "-m //bar:baz",
+                "-m //foo:bar",
+                "-m //bar:foo"
+            ]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_representative_config_flags_for_flagfiles() -> anyhow::Result<()> {
+        let project_argfile = |path: &str| ArgFilePath::Project(CellPath::testing_new(path));
+
+        let external_root = ProjectRootTemp::new().unwrap();
+        let external_root = external_root.path();
+        let external_argfile = |path: &str| {
+            ArgFilePath::External(
+                external_root
+                    .root()
+                    .join(ForwardRelativePathBuf::new(path.to_owned()).unwrap()),
+            )
+        };
+
+        let mut argv = ExpandedArgvBuilder::new();
+        argv.push("-m".to_owned());
+        argv.push("//bar:baz".to_owned());
+
+        argv.argfile_scope(ArgFileKind::Path(project_argfile("root//mode/1")), |argv| {
+            argv.push("-c=a.b=c".to_owned());
+            argv.push("-c=a.b2=c".to_owned());
+            argv.push("-c=a.b3=c".to_owned());
+            argv.push("--modifier=//foo:bar".to_owned());
+            argv.push("--modifier".to_owned());
+            argv.push("//bar:foo".to_owned());
+        });
+
+        argv.argfile_scope(ArgFileKind::Path(external_argfile("mode/1")), |argv| {
+            argv.argfile_scope(ArgFileKind::Path(external_argfile("mode/2")), |argv| {
+                argv.argfile_scope(ArgFileKind::Path(project_argfile("root//mode/2")), |argv| {
+                    argv.push("-c=a.b4=c".to_owned());
+                });
+
+                argv.push("-c=a.b5=c".to_owned());
+            });
+            argv.push("-c=a.b6=c".to_owned());
+        });
+
+        // Ignored because other-flag is not a config flag
+        argv.argfile_scope(ArgFileKind::Path(project_argfile("root//mode/3")), |argv| {
+            argv.push("--other-flag".to_owned());
+        });
+
+        let argv = argv.build();
+
+        let clap = clap::ArgMatches::default(); // we don't actually inspect this right now so just use an empty one.
+        let matches = BuckArgMatches::from_clap(&clap, &argv);
+
+        let flags = matches.get_representative_config_flags()?;
+
+        assert_eq!(
+            flags,
+            vec![
+                "-m //bar:baz",
+                "@root//mode/1",
+                "@root//mode/2",
+                "-c a.b5=c",
+                "-c a.b6=c"
+            ]
+        );
+
+        Ok(())
+    }
 }

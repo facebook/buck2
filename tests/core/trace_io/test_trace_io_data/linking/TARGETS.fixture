@@ -1,0 +1,44 @@
+load("//:defs.bzl", "my_binary", "my_library")
+
+oncall("buck2")
+
+my_binary(
+    name = "root",
+    srcs = [
+        "main.cpp",
+    ],
+    deps = [
+        ":any",
+        ":shared",
+        ":shared2",
+        ":static",
+    ],
+)
+
+my_library(
+    name = "static",
+    srcs = [
+        "static.cpp",
+    ],
+)
+
+my_library(
+    name = "shared",
+    srcs = [
+        "shared.cpp",
+    ],
+)
+
+my_library(
+    name = "shared2",
+    srcs = [
+        "shared2.cpp",
+    ],
+)
+
+my_library(
+    name = "any",
+    srcs = [
+        "any.cpp",
+    ],
+)

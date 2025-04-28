@@ -1,0 +1,45 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "strings",
+    srcs = glob(["*.java"]),
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem/impl:utils",
+        "prelude//toolchains/android/src/com/facebook/buck/io/pathformat:pathformat",
+        "prelude//toolchains/android/src/com/facebook/buck/util/xml:xml",
+        "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jsr305",
+    ],
+)
+
+buck_java_binary(
+    name = "copy_string_resources_binary",
+    main_class = "com.facebook.buck.android.resources.strings.CopyStringResourcesExecutableMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":strings",
+    ],
+)
+
+buck_java_binary(
+    name = "package_strings_as_assets_binary",
+    main_class = "com.facebook.buck.android.resources.strings.PackageStringsAsAssetsExecutableMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":strings",
+    ],
+)

@@ -1,0 +1,16 @@
+load(":alias.bzl", "alias")
+
+platform(
+    name = "ppp",
+    constraint_values = [],
+)
+
+alias(
+    name = "ppp-alias",
+    actual = ":ppp",
+)
+
+trivial_build(
+    name = "gr",
+    default_target_platform = ":ppp-alias",
+)

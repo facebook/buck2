@@ -10,15 +10,17 @@
 //! Parses imports for load_file() calls in build files.
 
 use buck2_core::bzl::ImportPath;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
-use buck2_core::cells::CellAliasResolver;
+use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum ImportParseError {
     #[error(
         "Unable to parse import spec. Expected format `(@<cell>)//package/name:filename.bzl` or `:filename.bzl`. Got `{0}`"
@@ -30,8 +32,6 @@ enum ImportParseError {
     EmptyFileName(String),
     #[error("Unexpected relative import spec. Got `{0}`")]
     ProhibitedRelativeImport(String),
-    #[error("Invalid path `{0}` for file relative import path. Should be a forward relative path.")]
-    InvalidCurrentPathWhenFileRelativeImport(String),
     #[error(
         "Unable to parse import spec. Expected format `(@<cell>)//package/name:filename.bzl` or `:filename.bzl`, but got a path. Got `{0}`"
     )]
@@ -39,7 +39,9 @@ enum ImportParseError {
 }
 
 pub enum RelativeImports<'a> {
-    Allow { current_dir: &'a CellPath },
+    Allow {
+        current_dir_with_allowed_relative: &'a CellPathWithAllowedRelativeDir,
+    },
     Disallow,
 }
 
@@ -70,14 +72,12 @@ fn parse_import_cell_path_parts(path: &str, allow_missing_at_symbol: bool) -> Op
 
 pub fn parse_import(
     cell_resolver: &CellAliasResolver,
-    current_path: &CellPath,
+    relative_import_option: RelativeImports,
     import: &str,
-) -> anyhow::Result<CellPath> {
+) -> buck2_error::Result<CellPath> {
     let opts: ParseImportOptions = ParseImportOptions {
         allow_missing_at_symbol: false,
-        relative_import_option: RelativeImports::Allow {
-            current_dir: current_path,
-        },
+        relative_import_option,
     };
     parse_import_with_config(cell_resolver, import, &opts)
 }
@@ -94,24 +94,21 @@ pub fn parse_import_with_config(
     cell_resolver: &CellAliasResolver,
     import: &str,
     opts: &ParseImportOptions,
-) -> anyhow::Result<CellPath> {
+) -> buck2_error::Result<CellPath> {
     match import.split_once(':') {
         None => {
             // import without `:`, so just try to parse the cell and cell relative paths
 
             match parse_import_cell_path_parts(import, opts.allow_missing_at_symbol) {
                 None => {
-                    if let RelativeImports::Allow { current_dir } = opts.relative_import_option {
-                        let rel_path = ForwardRelativePath::new(import).map_err(|_e| {
-                            ImportParseError::InvalidCurrentPathWhenFileRelativeImport(
-                                import.to_owned(),
-                            )
-                        })?;
-                        Ok(current_dir.join(rel_path))
+                    if let RelativeImports::Allow {
+                        current_dir_with_allowed_relative,
+                    } = opts.relative_import_option
+                    {
+                        current_dir_with_allowed_relative
+                            .join_normalized(RelativePath::from_path(import)?)
                     } else {
-                        Err(anyhow::anyhow!(ImportParseError::ProhibitedRelativeImport(
-                            import.to_owned()
-                        )))
+                        Err(ImportParseError::ProhibitedRelativeImport(import.to_owned()).into())
                     }
                 }
                 Some((alias, cell_relative_path)) => {
@@ -125,21 +122,20 @@ pub fn parse_import_with_config(
         }
         Some((path, filename)) => {
             if filename.is_empty() {
-                return Err(anyhow::anyhow!(ImportParseError::EmptyFileName(
-                    import.to_owned()
-                )));
+                return Err(ImportParseError::EmptyFileName(import.to_owned()).into());
             }
 
             let filename = FileName::new(filename)
                 .map_err(|_| ImportParseError::NotAFileName(import.to_owned()))?;
 
             if path.is_empty() {
-                if let RelativeImports::Allow { current_dir } = opts.relative_import_option {
-                    Ok(current_dir.join(filename))
+                if let RelativeImports::Allow {
+                    current_dir_with_allowed_relative,
+                } = opts.relative_import_option
+                {
+                    Ok(current_dir_with_allowed_relative.join(filename))
                 } else {
-                    Err(anyhow::anyhow!(ImportParseError::ProhibitedRelativeImport(
-                        import.to_owned()
-                    )))
+                    Err(ImportParseError::ProhibitedRelativeImport(import.to_owned()).into())
                 }
             } else {
                 let (alias, cell_relative_path) =
@@ -160,7 +156,7 @@ pub fn parse_bzl_path_with_config(
     import: &str,
     opts: &ParseImportOptions,
     build_cell_path: BuildFileCell,
-) -> anyhow::Result<ImportPath> {
+) -> buck2_error::Result<ImportPath> {
     let path = parse_import_with_config(cell_resolver, import, opts)?;
     ImportPath::new_with_build_file_cells(path, build_cell_path)
 }
@@ -195,12 +191,17 @@ mod tests {
     }
 
     #[test]
-    fn root_package() -> anyhow::Result<()> {
+    fn root_package() -> buck2_error::Result<()> {
         assert_eq!(
             path("root", "package/path", "import.bzl"),
             parse_import(
                 &resolver(),
-                &CellPath::testing_new("passport//"),
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        CellPath::testing_new("passport//"),
+                        None,
+                    ),
+                },
                 "//package/path:import.bzl"
             )?
         );
@@ -208,12 +209,17 @@ mod tests {
     }
 
     #[test]
-    fn cell_package() -> anyhow::Result<()> {
+    fn cell_package() -> buck2_error::Result<()> {
         assert_eq!(
             path("cell1", "package/path", "import.bzl"),
             parse_import(
                 &resolver(),
-                &CellPath::testing_new("root//"),
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        CellPath::testing_new("root//"),
+                        None,
+                    ),
+                },
                 "@cell1//package/path:import.bzl"
             )?
         );
@@ -221,12 +227,17 @@ mod tests {
     }
 
     #[test]
-    fn package_relative() -> anyhow::Result<()> {
+    fn package_relative() -> buck2_error::Result<()> {
         assert_eq!(
             path("cell1", "package/path", "import.bzl"),
             parse_import(
                 &resolver(),
-                &CellPath::testing_new("cell1//package/path"),
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        CellPath::testing_new("cell1//package/path"),
+                        None,
+                    ),
+                },
                 ":import.bzl"
             )?
         );
@@ -234,19 +245,37 @@ mod tests {
     }
 
     #[test]
-    fn missing_colon() -> anyhow::Result<()> {
+    fn missing_colon() -> buck2_error::Result<()> {
         let import = "//package/path/import.bzl".to_owned();
         assert_eq!(
-            parse_import(&resolver(), &CellPath::testing_new("lighter//"), &import)?,
+            parse_import(
+                &resolver(),
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        CellPath::testing_new("lighter//"),
+                        None,
+                    ),
+                },
+                &import
+            )?,
             path("root", "package/path", "import.bzl")
         );
         Ok(())
     }
 
     #[test]
-    fn empty_filename() -> anyhow::Result<()> {
+    fn empty_filename() -> buck2_error::Result<()> {
         let path = "//package/path:".to_owned();
-        match parse_import(&resolver(), &CellPath::testing_new("root//"), &path) {
+        match parse_import(
+            &resolver(),
+            RelativeImports::Allow {
+                current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                    CellPath::testing_new("root//"),
+                    None,
+                ),
+            },
+            &path,
+        ) {
             Ok(import) => panic!("Expected parse failure for {}, got result {}", path, import),
             Err(e) => {
                 assert_eq!(
@@ -259,9 +288,18 @@ mod tests {
     }
 
     #[test]
-    fn bad_alias() -> anyhow::Result<()> {
+    fn bad_alias() -> buck2_error::Result<()> {
         let path = "bad_alias//package/path:".to_owned();
-        match parse_import(&resolver(), &CellPath::testing_new("root//"), &path) {
+        match parse_import(
+            &resolver(),
+            RelativeImports::Allow {
+                current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                    CellPath::testing_new("root//"),
+                    None,
+                ),
+            },
+            &path,
+        ) {
             Ok(import) => panic!("Expected parse failure for {}, got result {}", path, import),
             Err(_) => {
                 // TODO: should we verify the contents of the error?
@@ -271,12 +309,17 @@ mod tests {
     }
 
     #[test]
-    fn file_relative_import_given_relative_paths_allowed() -> anyhow::Result<()> {
+    fn file_relative_import_given_relative_paths_allowed() -> buck2_error::Result<()> {
         assert_eq!(
             path("cell1", "package/path", "bar.bzl"),
             parse_import(
                 &resolver(),
-                &CellPath::testing_new("cell1//package/path"),
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        CellPath::testing_new("cell1//package/path"),
+                        None,
+                    ),
+                },
                 "bar.bzl",
             )?
         );
@@ -284,7 +327,12 @@ mod tests {
             path("cell1", "package/path", "foo/bar.bzl"),
             parse_import(
                 &resolver(),
-                &CellPath::testing_new("cell1//package/path"),
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        CellPath::testing_new("cell1//package/path"),
+                        None,
+                    ),
+                },
                 "foo/bar.bzl",
             )?
         );
@@ -292,24 +340,37 @@ mod tests {
     }
 
     #[test]
-    fn cell_relative_import_given_relative_paths_allowed() -> anyhow::Result<()> {
+    fn cell_relative_import_given_relative_paths_allowed() -> buck2_error::Result<()> {
         let importer = CellPath::testing_new("cell1//package/path");
         let importee = "foo/bar.bzl";
 
         assert_eq!(
-            parse_import(&resolver(), &importer, importee)?,
+            parse_import(
+                &resolver(),
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        importer, None,
+                    ),
+                },
+                importee
+            )?,
             path("cell1", "package/path/foo", "bar.bzl")
         );
         Ok(())
     }
 
     #[test]
-    fn regular_import_given_relative_paths_allowed() -> anyhow::Result<()> {
+    fn regular_import_given_relative_paths_allowed() -> buck2_error::Result<()> {
         assert_eq!(
             path("cell1", "package/path", "import.bzl"),
             parse_import(
                 &resolver(),
-                &CellPath::testing_new("root//foo/bar"),
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                        CellPath::testing_new("root//foo/bar"),
+                        None,
+                    ),
+                },
                 "@cell1//package/path:import.bzl",
             )?
         );
@@ -317,7 +378,7 @@ mod tests {
     }
 
     #[test]
-    fn allows_non_at_symbols() -> anyhow::Result<()> {
+    fn allows_non_at_symbols() -> buck2_error::Result<()> {
         assert_eq!(
             path("cell1", "package/path", "import.bzl"),
             parse_import_with_config(
@@ -326,8 +387,11 @@ mod tests {
                 &ParseImportOptions {
                     allow_missing_at_symbol: true,
                     relative_import_option: RelativeImports::Allow {
-                        current_dir: &CellPath::testing_new("root//")
-                    }
+                        current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                            CellPath::testing_new("root//"),
+                            None,
+                        ),
+                    },
                 }
             )?,
         );
@@ -335,7 +399,7 @@ mod tests {
     }
 
     #[test]
-    fn fails_relative_import_if_disallowed() -> anyhow::Result<()> {
+    fn fails_relative_import_if_disallowed() -> buck2_error::Result<()> {
         let imported_file = ":bar.bzl";
         let res = parse_import_with_config(
             &resolver(),

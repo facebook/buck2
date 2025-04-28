@@ -17,8 +17,8 @@
 
 use crate::collections::SmallMap;
 use crate::debug::inspect::to_scope_names_by_local_slot_id;
-use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::eval::Evaluator;
+use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::syntax::AstModule;
 use crate::values::FrozenStringValue;
 use crate::values::Value;
@@ -122,8 +122,8 @@ mod tests {
             code: String,
             eval: &mut Evaluator<'v, '_, '_>,
         ) -> anyhow::Result<Value<'v>> {
-            let ast =
-                AstModule::parse("interactive", code, &Dialect::Extended).into_anyhow_result()?;
+            let ast = AstModule::parse("interactive", code, &Dialect::AllOptionsInternal)
+                .into_anyhow_result()?;
             eval.eval_statements(ast).into_anyhow_result()
         }
     }

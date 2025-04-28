@@ -7,25 +7,27 @@
  * of this source tree.
  */
 
-use std::path::Path;
 use std::sync::OnceLock;
 use std::time::SystemTime;
 
-use anyhow::Context as _;
+use buck2_common::argv::ArgFileKind;
+use buck2_common::argv::ArgFilePath;
 use buck2_common::init::DaemonStartupConfig;
+use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::buck2_env;
-use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
+use buck2_error::BuckErrorContext;
 use prost::Message;
 
 /// Limited view of the root config. This does not follow includes.
@@ -39,26 +41,22 @@ impl ImmediateConfig {
     /// Performs a parse of the root `.buckconfig` for the cell _only_ without following includes
     /// and without parsing any configs for any referenced cells. This means this function might return
     /// an empty mapping if the root `.buckconfig` does not contain the cell definitions.
-    fn parse(
-        project_fs: &ProjectRoot,
-        cwd: &ProjectRelativePath,
-    ) -> anyhow::Result<ImmediateConfig> {
+    fn parse(roots: &InvocationRoots) -> buck2_error::Result<ImmediateConfig> {
         // This function is non-reentrant, and blocking for a bit should be ok
         let cells = futures::executor::block_on(BuckConfigBasedCells::parse_with_config_args(
-            project_fs,
+            &roots.project_root,
             &[],
-            cwd,
         ))?;
 
         let cwd_cell_alias_resolver = futures::executor::block_on(
-            cells.get_cell_alias_resolver_for_cwd_fast(project_fs, cwd),
+            cells.get_cell_alias_resolver_for_cwd_fast(&roots.project_root, &roots.cwd),
         )?;
 
         Ok(ImmediateConfig {
             cell_resolver: cells.cell_resolver,
             cwd_cell_alias_resolver,
             daemon_startup_config: DaemonStartupConfig::new(&cells.root_config)
-                .context("Error loading daemon startup config")?,
+                .buck_error_context("Error loading daemon startup config")?,
         })
     }
 }
@@ -74,17 +72,17 @@ struct ImmediateConfigContextData {
 
 pub struct ImmediateConfigContext<'a> {
     // Deliberately use `OnceLock` rather than `Lazy` because `Lazy` forces
-    // us to have a shared reference to the underlying `anyhow::Error` which
+    // us to have a shared reference to the underlying `buck2_error::Error` which
     // we cannot use to correct chain the errors. Using `OnceLock` means
     // we don't get the result by a shared reference but instead as local
     // value which can be returned.
     data: OnceLock<ImmediateConfigContextData>,
-    cwd: &'a WorkingDir,
+    cwd: &'a AbsWorkingDir,
     trace: Vec<AbsNormPathBuf>,
 }
 
 impl<'a> ImmediateConfigContext<'a> {
-    pub fn new(cwd: &'a WorkingDir) -> Self {
+    pub fn new(cwd: &'a AbsWorkingDir) -> Self {
         Self {
             data: OnceLock::new(),
             cwd,
@@ -100,12 +98,8 @@ impl<'a> ImmediateConfigContext<'a> {
         &self.trace
     }
 
-    pub fn daemon_startup_config(&self) -> anyhow::Result<&DaemonStartupConfig> {
+    pub fn daemon_startup_config(&self) -> buck2_error::Result<&DaemonStartupConfig> {
         Ok(&self.data()?.daemon_startup_config)
-    }
-
-    pub(crate) fn canonicalize(&self, path: &Path) -> anyhow::Result<AbsNormPathBuf> {
-        fs_util::canonicalize(self.cwd.path().as_abs_path().join(path))
     }
 
     /// Resolves a cell path (i.e., contains `//`) into an absolute path. The cell path must have
@@ -117,7 +111,7 @@ impl<'a> ImmediateConfigContext<'a> {
         &self,
         cell_alias: &str,
         cell_relative_path: &str,
-    ) -> anyhow::Result<AbsNormPathBuf> {
+    ) -> buck2_error::Result<AbsNormPathBuf> {
         let data = self.data()?;
 
         let cell = data.cwd_cell_alias_resolver.resolve(cell_alias)?;
@@ -126,27 +120,33 @@ impl<'a> ImmediateConfigContext<'a> {
         Ok(data.project_filesystem.resolve(&path))
     }
 
-    pub(crate) fn resolve_alias_to_path_in_cwd(
+    pub(crate) fn resolve_project_path(
+        &self,
+        path: CellPathRef,
+    ) -> buck2_error::Result<AbsNormPathBuf> {
+        let data = self.data()?;
+        Ok(data
+            .project_filesystem
+            .resolve(data.cell_resolver.resolve_path(path)?))
+    }
+
+    pub fn resolve_alias_to_path_in_cwd(
         &self,
         alias: &str,
-    ) -> anyhow::Result<CellRootPathBuf> {
+    ) -> buck2_error::Result<CellRootPathBuf> {
         let data = self.data()?;
         let cell = data.cwd_cell_alias_resolver.resolve(alias)?;
         Ok(data.cell_resolver.get(cell)?.path().to_buf())
     }
 
-    fn data(&self) -> anyhow::Result<&ImmediateConfigContextData> {
+    fn data(&self) -> buck2_error::Result<&ImmediateConfigContextData> {
         self.data
             .get_or_try_init(|| {
-                let roots = find_invocation_roots(self.cwd.path())?;
+                let roots = find_invocation_roots(self.cwd)?;
                 let paranoid_info_path = roots.paranoid_info_path()?;
 
                 // See comment in `ImmediateConfig` about why we use `OnceLock` rather than `Lazy`
-                let project_filesystem = roots.project_root;
-                let cfg = ImmediateConfig::parse(
-                    &project_filesystem,
-                    project_filesystem.relativize(self.cwd.path())?.as_ref(),
-                )?;
+                let cfg = ImmediateConfig::parse(&roots)?;
 
                 // It'd be nice to deal with this a little differently by having this be a separate
                 // type.
@@ -165,18 +165,44 @@ impl<'a> ImmediateConfigContext<'a> {
                     }
                 };
 
-                anyhow::Ok(ImmediateConfigContextData {
+                buck2_error::Ok(ImmediateConfigContextData {
                     cell_resolver: cfg.cell_resolver,
                     cwd_cell_alias_resolver: cfg.cwd_cell_alias_resolver,
                     daemon_startup_config,
-                    project_filesystem,
+                    project_filesystem: roots.project_root,
                 })
             })
-            .context("Error creating cell resolver")
+            .buck_error_context("Error creating cell resolver")
+    }
+
+    pub(crate) fn resolve_argfile_kind(
+        &self,
+        canonicalized_path: AbsNormPathBuf,
+        flag: Option<&str>,
+    ) -> Result<buck2_common::argv::ArgFileKind, buck2_error::Error> {
+        let is_py = canonicalized_path.extension() == Some("py".as_ref());
+        let resolved_path =
+            match self.data() {
+                Ok(data) if canonicalized_path.starts_with(data.project_filesystem.root()) => {
+                    ArgFilePath::Project(data.cell_resolver.get_cell_path_from_abs_path(
+                        &canonicalized_path,
+                        &data.project_filesystem,
+                    )?)
+                }
+                _ => ArgFilePath::External(canonicalized_path),
+            };
+        if is_py {
+            Ok(ArgFileKind::PythonExecutable(
+                resolved_path,
+                flag.map(ToOwned::to_owned),
+            ))
+        } else {
+            Ok(ArgFileKind::Path(resolved_path))
+        }
     }
 }
 
-fn is_paranoid_enabled(path: &AbsPath) -> anyhow::Result<bool> {
+fn is_paranoid_enabled(path: &AbsPath) -> buck2_error::Result<bool> {
     if let Some(p) = buck2_env!("BUCK_PARANOID", type=bool)? {
         return Ok(p);
     }
@@ -186,10 +212,12 @@ fn is_paranoid_enabled(path: &AbsPath) -> anyhow::Result<bool> {
         None => return Ok(false),
     };
 
-    let info = buck2_cli_proto::ParanoidInfo::decode(bytes.as_slice()).context("Invalid data ")?;
+    let info = buck2_cli_proto::ParanoidInfo::decode(bytes.as_slice())
+        .buck_error_context("Invalid data ")?;
 
     let now = SystemTime::now();
-    let expires_at = SystemTime::try_from(info.expires_at.context("Missing expires_at")?)
-        .context("Invalid expires_at")?;
+    let expires_at =
+        SystemTime::try_from(info.expires_at.buck_error_context("Missing expires_at")?)
+            .buck_error_context("Invalid expires_at")?;
     Ok(now < expires_at)
 }

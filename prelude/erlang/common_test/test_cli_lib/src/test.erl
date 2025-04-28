@@ -14,8 +14,9 @@
 %%% % @format
 
 -module(test).
+-eqwalizer(ignore).
 
--include_lib("common/include/tpx_records.hrl").
+-include_lib("common/include/buck_ct_records.hrl").
 
 %% Public API
 -export([
@@ -40,10 +41,12 @@
     list_impl/1
 ]).
 
--type test_id() :: string() | non_neg_integer().
+-type test_id() :: string() | non_neg_integer() | atom().
 -type test_info() :: #{name := string(), suite := atom()}.
 -type run_spec() :: test_id() | [test_info()].
 -type run_result() :: {non_neg_integer(), non_neg_integer()}.
+
+-type provided_test_info() :: test_info:test_info().
 
 -spec start() -> ok.
 start() ->
@@ -203,7 +206,7 @@ run(RegExOrId) ->
     end.
 
 %% @doc restarts the test node, enabling a clean test state
--spec reset() -> ok | {error, debugger_mode}.
+-spec reset() -> ok | {error, term()}.
 reset() ->
     case is_debug_session() of
         true ->
@@ -211,7 +214,8 @@ reset() ->
         false ->
             Type = ct_daemon_node:get_domain_type(),
             NodeName = ct_daemon_node:stop(),
-            ct_daemon:start(#{
+            #test_info{erl_cmd = ErlCmd} = get_provided_test_info(),
+            ct_daemon:start(ErlCmd, #{
                 type => Type, name => NodeName, cookie => erlang:get_cookie(), options => []
             })
     end.
@@ -273,11 +277,11 @@ init_utility_app(RunningApps, UtilityApp) ->
                 {ok, _} ->
                     true;
                 Error ->
-                    io:format("ERROR: could not start utility applications:~n~p~n", [Error]),
-                    io:format("exiting...~n"),
-                    erlang:halt(-1)
+                    abort("could not start utility applications:~n~p", [Error])
             end
     end.
+
+-define(TYPE_IS_OK(Type), (Type =:= shortnames orelse Type =:= longnames)).
 
 -spec init_node() -> boolean().
 init_node() ->
@@ -286,16 +290,20 @@ init_node() ->
             false;
         false ->
             io:format("starting test node...~n", []),
+            #test_info{erl_cmd = ErlCmd} = get_provided_test_info(),
             case application:get_env(test_cli_lib, node_config) of
                 undefined ->
-                    ct_daemon:start();
-                {ok, {Type, NodeName, Cookie}} ->
-                    ct_daemon:start(#{
-                        name => NodeName,
-                        type => Type,
-                        cookie => Cookie,
-                        options => [{multiply_timetraps, infinity} || is_debug_session()]
-                    })
+                    ct_daemon:start(ErlCmd);
+                {ok, {Type, NodeName, Cookie}} when ?TYPE_IS_OK(Type), is_atom(NodeName), is_atom(Cookie) ->
+                    ct_daemon:start(
+                        ErlCmd,
+                        #{
+                            name => NodeName,
+                            type => Type,
+                            cookie => Cookie,
+                            options => [{multiply_timetraps, infinity} || is_debug_session()]
+                        }
+                    )
             end,
             case is_debug_session() of
                 true ->
@@ -305,6 +313,25 @@ init_node() ->
             end,
             true
     end.
+
+-spec get_provided_test_info() -> provided_test_info().
+get_provided_test_info() ->
+    case application:get_env(test_cli_lib, test_info_file, undefined) of
+        undefined ->
+            abort("test_info_file not provided.");
+        TestInfoFile when is_binary(TestInfoFile) ->
+            test_info:load_from_file(TestInfoFile)
+    end.
+
+-spec abort(Message :: string()) -> no_return().
+abort(Message) ->
+    abort(Message, []).
+
+-spec abort(Format :: string(), Args :: [term()]) -> no_return().
+abort(Format, Args) ->
+    io:format(standard_error, "ERROR: " ++ Format ++ "~n", Args),
+    io:format(standard_error, "exiting...~n", []),
+    erlang:halt(1).
 
 -spec watchdog() -> no_return().
 watchdog() ->
@@ -360,10 +387,16 @@ collect_results(PerSuite) ->
                 erlang:length(Tests), Suite, ct_daemon:output_dir()
             ]),
             %% run all tests for the current SUITE
-            maps:merge(
-                Acc,
-                ct_daemon:run({discovered, [#{suite => Suite, name => Test} || Test <- Tests]})
-            )
+            case ct_daemon:run({discovered, [#{suite => Suite, name => Test} || Test <- Tests]}) of
+                node_down ->
+                    io:format("test node shut down during test execution, aborting~n", []),
+                    Acc;
+                RunResult ->
+                    maps:merge(
+                        Acc,
+                        RunResult
+                    )
+            end
         end,
         #{},
         PerSuite
@@ -385,9 +418,16 @@ ensure_per_suite_encapsulation(Suite) ->
             end
     end.
 
--spec discover(string() | non_neg_integer()) -> [test_info()].
+-spec discover(string() | non_neg_integer() | atom()) -> [test_info()].
 discover(RegExOrId) ->
-    case ct_daemon:discover(RegExOrId) of
+    StringOrId =
+        case is_atom(RegExOrId) of
+            true ->
+                atom_to_list(RegExOrId);
+            false ->
+                RegExOrId
+        end,
+    case ct_daemon:discover(StringOrId) of
         {error, not_listed_yet} ->
             ct_daemon:list(""),
             discover(RegExOrId);

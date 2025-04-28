@@ -16,7 +16,6 @@ from enum import auto, Enum
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Tuple
 
-from buck2.tests.e2e_util.api.executable_type import ExecutableType
 from buck2.tests.e2e_util.api.result import E, R, Result
 
 
@@ -103,17 +102,23 @@ class BuckException(Exception, BuckResult):
         buck_build_id: str,
     ) -> None:
         cmd = " ".join(str(e) for e in cmd_to_run)
-        indented_stderr = textwrap.indent(stderr, " " * 8)
+        if stdout != "":
+            indented_stdout = textwrap.indent(stdout, " " * 8)
+            rendered_stdout = "\n<stdout>\n" + indented_stdout + "\n</stdout>"
+        else:
+            rendered_stdout = ""
+        rendered_stderr = (
+            "\n<stderr>\n" + textwrap.indent(stderr, " " * 8) + "\n</stderr>"
+        )
         error_msg = (
             textwrap.dedent(
                 f"""
             <cmd> {cmd}
             <working_dir> {working_dir}
-            <stderr>
             """
             )
-            + indented_stderr
-            + "\n</stderr>"
+            + rendered_stdout
+            + rendered_stderr
         )
         Exception.__init__(
             self,
@@ -244,11 +249,9 @@ class BuildResult(BuckResult):
         stdout: str,
         stderr: str,
         buck_build_id: str,
-        executable_type: ExecutableType,
         *argv: str,
     ) -> None:
         self.args = " ".join(argv)
-        self.executable_type = executable_type
         super().__init__(process, stdout, stderr, buck_build_id)
 
     def get_target_to_build_output(self) -> Dict[str, str]:
@@ -282,9 +285,6 @@ class BuildResult(BuckResult):
         Looks for a '{' and parses the build stdout starting from '{' as a json.
         """
         try:
-            assert (
-                self.executable_type == ExecutableType.buck2
-            ), "--build-report only works in v2"
             start = self.stdout.index("{")
             end = self.stdout.index("\n", start)
             parsed = json.loads(self.stdout[start:end])

@@ -12,12 +12,10 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::typing::Ty;
-use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
-use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 
 impl AttrTypeCoerce for PluginDepAttrType {
     fn coerce_item(
@@ -25,12 +23,9 @@ impl AttrTypeCoerce for PluginDepAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
-        let label = value
-            .unpack_str()
-            .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
-
-        ctx.coerce_target_label(label).map(CoercedAttr::PluginDep)
+    ) -> buck2_error::Result<CoercedAttr> {
+        ctx.coerce_target_label(value.unpack_str_err()?)
+            .map(CoercedAttr::PluginDep)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

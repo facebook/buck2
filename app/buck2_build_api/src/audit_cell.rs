@@ -22,7 +22,7 @@ pub static AUDIT_CELL: LateBinding<
         aliases: bool,
         cwd: &'v ProjectRelativePath,
         fs: &'v ProjectRoot,
-    ) -> BoxFuture<'v, anyhow::Result<IndexMap<String, AbsNormPathBuf>>>,
+    ) -> BoxFuture<'v, buck2_error::Result<IndexMap<String, AbsNormPathBuf>>>,
 > = LateBinding::new("AUDIT_CELL");
 
 pub fn audit_cell<'v>(
@@ -31,7 +31,7 @@ pub fn audit_cell<'v>(
     aliases: bool,
     cwd: &'v ProjectRelativePath,
     fs: &'v ProjectRoot,
-) -> anyhow::Result<BoxFuture<'v, anyhow::Result<IndexMap<String, AbsNormPathBuf>>>> {
+) -> buck2_error::Result<BoxFuture<'v, buck2_error::Result<IndexMap<String, AbsNormPathBuf>>>> {
     Ok((AUDIT_CELL.get()?)(
         ctx,
         aliases_to_resolve,

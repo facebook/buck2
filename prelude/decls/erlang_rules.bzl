@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//erlang/erlang_application.bzl", "StartTypeValues")
+load("@prelude//erlang:erlang_application.bzl", "StartTypeValues")
 load(":common.bzl", "prelude_rule")
 load(":re_test_common.bzl", "re_test_common")
 
@@ -71,6 +71,9 @@ common_application_attributes = {
 
 rules_attributes = {
     "erlang_app": {
+        "app_name": attrs.option(attrs.string(), default = None, doc = """
+                This attribute allows the user to overwrite the Erlang application name, which otherwise defaults to the target name.
+            """),
         "app_src": attrs.option(attrs.source(), default = None, doc = """
                 The `app_src` field allows to optionally reference a `*.app.src` template file. This template file will then be used by
                 buck2 to generate the `*.app` output file in the applications `ebin/` directory. This is useful during the migration from
@@ -127,7 +130,7 @@ rules_attributes = {
         "includes": attrs.list(attrs.source(), default = [], doc = """
                 The public header files accessible via `-include_lib("appname/include/header.hrl")` from other erlang files.
             """),
-        "mod": attrs.option(attrs.tuple(attrs.string(), attrs.list(attrs.string())), default = None, doc = """
+        "mod": attrs.option(attrs.tuple(attrs.string(), attrs.string()), default = None, doc = """
                 The `mod` field specifies the equivalent field in the generated `*.app` files. The format is similar, with the
                 difference, that the module name, and the individual start arguments need to be given as the string representation
                 of the corresponding Erlang terms.
@@ -159,9 +162,12 @@ rules_attributes = {
         "yrl_includefile": attrs.option(attrs.source(), default = None, doc = """
                 Customised prologue file to replace the default. See [`includefile` option](https://www.erlang.org/doc/apps/parsetools/yecc.html#file/2) for details.
         """),
+        "_includes_target": attrs.option(attrs.dep(), default = None, doc = """
+                Internal, used by the `erlang_application` macro to link the proper application target and include_only targets.
+            """),
     } | common_application_attributes,
     "erlang_app_includes": {
-        "application_name": attrs.string(),
+        "app_name": attrs.string(),
         "includes": attrs.list(attrs.source(), default = []),
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
     },
@@ -288,7 +294,6 @@ rules_attributes = {
         "_cli_lib": attrs.dep(default = "prelude//erlang/common_test/test_cli_lib:test_cli_lib"),
         "_ct_opts": attrs.string(default = read_root_config("erlang", "erlang_test_ct_opts", "")),
         "_providers": attrs.string(default = ""),
-        "_test_binary": attrs.dep(default = "prelude//erlang/common_test/test_binary:escript"),
         "_test_binary_lib": attrs.dep(default = "prelude//erlang/common_test/test_binary:test_binary"),
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
         "_trampoline": attrs.option(attrs.dep(), default = None, doc = "DEPRECATED. Use _trampolines instead."),

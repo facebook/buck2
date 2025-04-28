@@ -15,34 +15,36 @@ use buck2_core::plugins::PluginKind;
 use buck2_interpreter::plugins::PLUGIN_KIND_FROM_VALUE;
 use derive_more::Display;
 use dupe::Dupe;
+use either::Either;
 use starlark::environment::GlobalsBuilder;
-use starlark::environment::Methods;
-use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
+use starlark::typing::Ty;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
-use starlark::StarlarkDocs;
+use starlark::values::ValueTypedComplex;
+use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::build_context::BuildContext;
 
 #[derive(Debug, derive_more::Display, Allocative)]
 enum InnerStarlarkPluginKind {
-    #[display(fmt = "<plugin_kind <unbound>>")]
+    #[display("<plugin_kind <unbound>>")]
     Unbound(CellPath),
-    #[display(fmt = "<plugin_kind _0>")]
+    #[display("<plugin_kind _0>")]
     Bound(PluginKind),
 }
 
@@ -57,7 +59,7 @@ enum InnerStarlarkPluginKind {
     Trace,
     Allocative
 )]
-#[display(fmt = "{}", "RefCell::borrow(_0)")]
+#[display("{}", RefCell::borrow(_0))]
 pub struct StarlarkPluginKind(RefCell<InnerStarlarkPluginKind>);
 
 #[starlark_value(type = "PluginKind")]
@@ -80,6 +82,7 @@ impl<'v> StarlarkValue<'v> for StarlarkPluginKind {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum PluginKindError {
     #[error("Plugin kind has not yet been assigned to a global")]
     NotBound,
@@ -88,7 +91,7 @@ enum PluginKindError {
 }
 
 impl StarlarkPluginKind {
-    pub fn expect_bound(&self) -> anyhow::Result<PluginKind> {
+    pub fn expect_bound(&self) -> buck2_error::Result<PluginKind> {
         match &*self.0.borrow() {
             InnerStarlarkPluginKind::Unbound(_) => Err(PluginKindError::NotBound.into()),
             InnerStarlarkPluginKind::Bound(kind) => Ok(kind.dupe()),
@@ -109,7 +112,7 @@ impl<'v> AllocValue<'v> for StarlarkPluginKind {
     NoSerialize,
     Allocative
 )]
-#[display(fmt = "{_0}")]
+#[display("{_0}")]
 pub struct FrozenStarlarkPluginKind(PluginKind);
 starlark_simple_value!(FrozenStarlarkPluginKind);
 
@@ -120,40 +123,71 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkPluginKind {
 
 impl Freeze for StarlarkPluginKind {
     type Frozen = FrozenStarlarkPluginKind;
-    fn freeze(self, _: &Freezer) -> anyhow::Result<Self::Frozen> {
-        self.expect_bound().map(FrozenStarlarkPluginKind)
+    fn freeze(self, _: &Freezer) -> FreezeResult<Self::Frozen> {
+        self.expect_bound()
+            .map(FrozenStarlarkPluginKind)
+            .map_err(|e| FreezeError::new(e.to_string()))
     }
 }
 
-pub(crate) fn plugin_kind_from_value<'v>(v: Value<'v>) -> anyhow::Result<PluginKind> {
-    if let Some(unfrozen) = v.downcast_ref::<StarlarkPluginKind>() {
-        unfrozen.expect_bound()
-    } else if let Some(frozen) = v.downcast_ref::<FrozenStarlarkPluginKind>() {
-        Ok(frozen.0.dupe())
-    } else {
-        Err(PluginKindError::NotAPluginKind(v.to_repr()).into())
+fn plugin_kind_from_value_typed<'v>(
+    v: ValueTypedComplex<'v, StarlarkPluginKind>,
+) -> buck2_error::Result<PluginKind> {
+    match v.unpack() {
+        Either::Left(unfrozen) => unfrozen.expect_bound(),
+        Either::Right(frozen) => Ok(frozen.0.dupe()),
+    }
+}
+
+fn plugin_kind_from_value<'v>(v: Value<'v>) -> buck2_error::Result<PluginKind> {
+    let Some(v) = ValueTypedComplex::new(v) else {
+        return Err(PluginKindError::NotAPluginKind(v.to_repr()).into());
+    };
+    plugin_kind_from_value_typed(v)
+}
+
+pub(crate) struct PluginKindArg {
+    pub(crate) plugin_kind: PluginKind,
+}
+
+impl StarlarkTypeRepr for PluginKindArg {
+    type Canonical = <StarlarkPluginKind as StarlarkTypeRepr>::Canonical;
+
+    fn starlark_type_repr() -> Ty {
+        <Self::Canonical as StarlarkTypeRepr>::starlark_type_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for PluginKindArg {
+    type Error = starlark::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        let Some(v) = ValueTypedComplex::new(value) else {
+            return Ok(None);
+        };
+        Ok(
+            plugin_kind_from_value_typed(v)
+                .map(|kind| Some(PluginKindArg { plugin_kind: kind }))?,
+        )
     }
 }
 
 /// The value yielded by `plugins.ALL`
 #[derive(Display, Debug, Allocative, ProvidesStaticType, NoSerialize)]
-#[display(fmt = "<all_plugins>")]
+#[display("<all_plugins>")]
 pub struct AllPlugins;
 starlark_simple_value!(AllPlugins);
 
-#[starlark_value(type = "all_plugins")]
+#[starlark_value(type = "AllPlugins")]
 impl<'v> StarlarkValue<'v> for AllPlugins {}
 
 #[starlark_module]
-fn plugins_module(registry: &mut MethodsBuilder) {
+fn register_plugins_methods(r: &mut GlobalsBuilder) {
     /// Create a new plugin kind.
     ///
     /// The value returned should always be immediately bound to a global, like `MyPluginKind =
     /// plugins.kind()`
-    fn kind<'v>(
-        #[starlark(this)] _this: Value<'v>,
-        eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkPluginKind> {
+    fn kind<'v>(eval: &mut Evaluator<'v, '_, '_>) -> starlark::Result<StarlarkPluginKind> {
         let cell_path = BuildContext::from_context(eval)?
             .starlark_path()
             .path()
@@ -171,41 +205,14 @@ fn plugins_module(registry: &mut MethodsBuilder) {
     ///
     /// This value is not supported on `uses_plugins` at this time, and hence it is not useful on
     /// `pulls_plugins` either.
-    #[starlark(attribute)]
-    fn All<'v>(#[starlark(this)] _this: Value<'v>) -> anyhow::Result<AllPlugins> {
-        Ok(AllPlugins)
-    }
+    const All: AllPlugins = AllPlugins;
 
     /// Type symbol for `PluginKind`.
-    #[starlark(attribute, speculative_exec_safe)]
-    fn PluginKind(
-        #[starlark(this)] _this: Value,
-    ) -> anyhow::Result<StarlarkValueAsType<StarlarkPluginKind>> {
-        Ok(StarlarkValueAsType::new())
-    }
-}
-
-#[derive(
-    Display,
-    Debug,
-    StarlarkDocs,
-    Allocative,
-    ProvidesStaticType,
-    NoSerialize
-)]
-#[display(fmt = "<plugins>")]
-struct Plugins;
-
-#[starlark_value(type = "plugins")]
-impl<'v> StarlarkValue<'v> for Plugins {
-    fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(plugins_module)
-    }
+    const PluginKind: StarlarkValueAsType<StarlarkPluginKind> = StarlarkValueAsType::new();
 }
 
 pub(crate) fn register_plugins(globals: &mut GlobalsBuilder) {
-    globals.set("plugins", globals.frozen_heap().alloc_simple(Plugins));
+    globals.namespace("plugins", register_plugins_methods);
 }
 
 pub(crate) fn init_plugin_kind_from_value_impl() {

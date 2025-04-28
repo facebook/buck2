@@ -21,9 +21,9 @@ use starlark_syntax::syntax::ast::Expr;
 use starlark_syntax::syntax::module::AstModuleFields;
 use thiserror::Error;
 
+use crate::analysis::EvalSeverity;
 use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
-use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
 use crate::syntax::AstModule;
 
@@ -58,7 +58,7 @@ impl LintWarning for Performance {
 fn match_dict_copy(codemap: &CodeMap, x: &AstExpr, res: &mut Vec<LintT<Performance>>) {
     // If we see `dict(**x)` suggest `dict(x)`
     match &**x {
-        Expr::Call(fun, args) if args.len() == 1 => match (&***fun, &*args[0]) {
+        Expr::Call(fun, args) if args.args.len() == 1 => match (&***fun, &*args.args[0]) {
             (Expr::Identifier(f), Argument::KwArgs(arg)) if f.node.ident == "dict" => {
                 res.push(LintT::new(
                     codemap,
@@ -74,7 +74,7 @@ fn match_dict_copy(codemap: &CodeMap, x: &AstExpr, res: &mut Vec<LintT<Performan
 
 fn match_inefficient_bool_check(codemap: &CodeMap, x: &AstExpr, res: &mut Vec<LintT<Performance>>) {
     match &**x {
-        Expr::Call(fun, args) if args.len() == 1 => match (&***fun, &*args[0]) {
+        Expr::Call(fun, args) if args.args.len() == 1 => match (&***fun, &*args.args[0]) {
             (Expr::Identifier(f), Argument::Positional(arg))
                 if f.node.ident == "any" || f.node.ident == "all" =>
             {
@@ -136,7 +136,7 @@ mod tests {
     use crate::syntax::Dialect;
 
     fn module(x: &str) -> AstModule {
-        AstModule::parse("bad.bzl", x.to_owned(), &Dialect::Extended).unwrap()
+        AstModule::parse("bad.bzl", x.to_owned(), &Dialect::AllOptionsInternal).unwrap()
     }
 
     #[test]

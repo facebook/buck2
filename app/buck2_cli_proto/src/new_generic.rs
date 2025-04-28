@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
+
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use serde::Deserialize;
 use serde::Serialize;
@@ -18,7 +21,7 @@ pub enum NewGenericRequest {
     Materialize(MaterializeRequest),
     DebugEval(DebugEvalRequest),
     Explain(ExplainRequest),
-    ExpandExternalCell(ExpandExternalCellRequest),
+    ExpandExternalCells(ExpandExternalCellsRequest),
     Complete(CompleteRequest),
     Docs(DocsRequest),
 }
@@ -28,7 +31,7 @@ pub enum NewGenericResponse {
     Materialize(MaterializeResponse),
     DebugEval(DebugEvalResponse),
     Explain(ExplainResponse),
-    ExpandExternalCell(ExpandExternalCellResponse),
+    ExpandExternalCells(ExpandExternalCellsResponse),
     Complete(CompleteResponse),
     Docs(DocsResponse),
 }
@@ -55,8 +58,8 @@ pub struct ExplainRequest {
     pub output: Option<AbsPathBuf>,
     pub target: String,
     pub fbs_dump: Option<AbsPathBuf>,
-    pub allow_vpnless: bool,
     pub manifold_path: Option<String>,
+    pub log_path: AbsPathBuf,
     // build options
     pub target_universe: Vec<String>,
     pub target_cfg: TargetCfg,
@@ -66,13 +69,14 @@ pub struct ExplainRequest {
 pub struct ExplainResponse {}
 
 #[derive(Serialize, Deserialize)]
-pub struct ExpandExternalCellRequest {
-    pub cell_name: String,
+pub enum ExpandExternalCellsRequest {
+    All,
+    Specific(BTreeSet<String>),
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct ExpandExternalCellResponse {
-    pub path: String,
+pub struct ExpandExternalCellsResponse {
+    pub paths: BTreeMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -98,10 +102,7 @@ pub enum DocsOutputFormat {
 #[derive(Serialize, Deserialize)]
 pub struct DocsStarlarkRequest {
     pub symbol_patterns: Vec<String>,
-    pub retrieve_builtins: bool,
     pub format: DocsOutputFormat,
-    pub markdown_native_subdir: String,
-    pub markdown_starlark_subdir: String,
 }
 
 #[derive(Serialize, Deserialize)]

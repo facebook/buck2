@@ -7,11 +7,9 @@
  * of this source tree.
  */
 
-use std::ops::Add;
 use std::time::Duration;
 use std::time::Instant;
 
-use anyhow::Context as _;
 use async_recursion::async_recursion;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileDigestConfig;
@@ -19,24 +17,25 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::FileType;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::fs::paths::RelativePath;
 use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_error::BuckErrorContext;
 use buck2_util::future::try_join_all;
 use derive_more::Add;
 use faccess::PathExt;
-use futures::future::try_join;
 use futures::Future;
+use futures::future::try_join;
 use once_cell::sync::Lazy;
 use pathdiff::diff_paths;
 use tokio::sync::Semaphore;
 
-use crate::directory::new_symlink;
 use crate::directory::ActionDirectoryBuilder;
 use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;
+use crate::directory::new_symlink;
 use crate::execute::blocking::BlockingExecutor;
 
 #[derive(Add, Default)]
@@ -59,7 +58,7 @@ pub async fn build_entry_from_disk(
     digest_config: FileDigestConfig,
     blocking_executor: &dyn BlockingExecutor,
     project_root: &AbsNormPath,
-) -> anyhow::Result<(
+) -> buck2_error::Result<(
     Option<ActionDirectoryEntry<ActionDirectoryBuilder>>,
     HashingInfo,
 )> {
@@ -88,7 +87,8 @@ pub async fn build_entry_from_disk(
             DirectoryEntry::Dir(dir)
         }
         FileType::Unknown => {
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
                 "Path {:?} is of an unknown file type.",
                 path
             ));
@@ -104,7 +104,7 @@ async fn build_dir_from_disk(
     digest_config: FileDigestConfig,
     blocking_executor: &dyn BlockingExecutor,
     project_root: &AbsNormPath,
-) -> anyhow::Result<(ActionDirectoryBuilder, HashingInfo)> {
+) -> buck2_error::Result<(ActionDirectoryBuilder, HashingInfo)> {
     let mut builder = ActionDirectoryBuilder::empty();
     let mut hashing_info = HashingInfo::default();
 
@@ -123,9 +123,11 @@ async fn build_dir_from_disk(
 
         let filename = filename
             .to_str()
-            .context("Filename is not UTF-8")
+            .buck_error_context("Filename is not UTF-8")
             .and_then(|f| FileNameBuf::try_from(f.to_owned()))
-            .with_context(|| format!("Invalid filename: {}", disk_path.clone().display()))?;
+            .with_buck_error_context(|| {
+                format!("Invalid filename: {}", disk_path.clone().display())
+            })?;
 
         let mut child_disk_path = disk_path.clone();
         child_disk_path.push(&filename);
@@ -182,7 +184,7 @@ fn build_file_metadata(
     disk_path: AbsNormPathBuf,
     digest_config: FileDigestConfig,
     blocking_executor: &dyn BlockingExecutor,
-) -> impl Future<Output = anyhow::Result<(FileMetadata, HashingInfo)>> + '_ {
+) -> impl Future<Output = buck2_error::Result<(FileMetadata, HashingInfo)>> + '_ {
     static SEMAPHORE: Lazy<Semaphore> = Lazy::new(|| Semaphore::new(100));
     let exec_path = disk_path.clone();
     let executable = blocking_executor.execute_io_inline(move || Ok(exec_path.executable()));
@@ -206,27 +208,27 @@ fn build_file_metadata(
 fn create_symlink(
     path: &AbsNormPathBuf,
     project_root: &AbsNormPath,
-) -> anyhow::Result<ActionDirectoryMember> {
+) -> buck2_error::Result<ActionDirectoryMember> {
     let mut symlink_target = fs_util::read_link(path)?;
     if cfg!(windows) && symlink_target.is_relative() {
         let directory_path = path
             .parent()
-            .context(format!("failed to get parent of {}", path.display()))?;
-        let canonical_path = fs_util::canonicalize(directory_path).context(format!(
+            .buck_error_context(format!("failed to get parent of {}", path.display()))?;
+        let canonical_path = fs_util::canonicalize(directory_path).buck_error_context(format!(
             "failed to get canonical path of {}",
             directory_path.display()
         ))?;
         if !canonical_path.starts_with(project_root) {
             let normalized_target = symlink_target
                 .to_str()
-                .context("can't convert path to str")?
+                .buck_error_context("can't convert path to str")?
                 .replace('\\', "/");
             let target_abspath =
                 canonical_path.join_normalized(RelativePath::from_path(&normalized_target)?)?;
             // Recalculate symlink target if it points from symlinked buck-out to the files inside project root.
             if target_abspath.starts_with(project_root) {
                 symlink_target = diff_paths(target_abspath, directory_path)
-                    .context("can't calculate relative path")?;
+                    .buck_error_context("can't calculate relative path")?;
             }
         }
     }

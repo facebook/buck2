@@ -36,6 +36,7 @@ pub use self::transitive_set_json_projection::TransitiveSetJsonProjection;
 pub use self::traversal::TransitiveSetOrdering;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub(crate) enum TransitiveSetError {
     #[error(
         "Transitive set type must be assigned to a top-level variable, e.g. `MySet = transitive_set()`"
@@ -85,18 +86,15 @@ pub(crate) enum TransitiveSetError {
         name: String,
 
         #[source]
-        error: anyhow::Error,
+        error: buck2_error::Error,
     },
-
-    #[error("Expected args_projection `{}` function to take a single argument", .name)]
-    ProjectionSignatureError { name: String },
 
     #[error("Error evaluating transitive set reduction {}", .name)]
     ReductionError {
         name: String,
 
         #[source]
-        error: anyhow::Error,
+        error: buck2_error::Error,
     },
 
     #[error(

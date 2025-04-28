@@ -12,14 +12,16 @@
 use std::any::Any;
 use std::future;
 
+use dice_error::result::CancellableResult;
+use dice_error::result::CancellationReason;
 use dupe::Dupe;
+use futures::Future;
+use futures::FutureExt;
+use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::pin_mut;
 use futures::stream;
 use futures::stream::FuturesUnordered;
-use futures::Future;
-use futures::FutureExt;
-use futures::StreamExt;
 use gazebo::variants::VariantName;
 use itertools::Either;
 use tracing::Instrument;
@@ -33,26 +35,27 @@ use crate::impls::core::versions::VersionEpoch;
 use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::deps::iterator::SeriesParallelDepsIteratorItem;
 use crate::impls::evaluator::AsyncEvaluator;
+use crate::impls::evaluator::KeyEvaluationResult;
 use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
+use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::task::dice::DiceTask;
+use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::promise::DiceSyncResult;
 use crate::impls::task::spawn_dice_task;
-use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
+use crate::impls::value::TrackedInvalidationPaths;
 use crate::impls::worker::state::ActivationInfo;
 use crate::impls::worker::state::DiceWorkerStateAwaitingPrevious;
 use crate::impls::worker::state::DiceWorkerStateEvaluating;
 use crate::impls::worker::state::DiceWorkerStateFinishedAndCached;
 use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::impls::worker::state::DiceWorkerStateLookupNode;
-use crate::result::CancellableResult;
-use crate::result::Cancelled;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
 
@@ -70,7 +73,6 @@ mod tests;
 /// automatically deduplicated, so that identical requests share the same set of
 /// work. It is guaranteed that there is at most one computation in flight at a
 /// time if they share the same key and version.
-
 pub(crate) struct DiceTaskWorker {
     k: DiceKey,
     eval: AsyncEvaluator,
@@ -104,22 +106,32 @@ impl DiceTaskWorker {
             // NOTE: important to run prevent cancellation eagerly in the sync scope to prevent
             // cancellations so that we don't cancel the current task before we finish waiting
             // for the previously cancelled task
-            let prevent_cancellation = handle.cancellation_ctx().begin_ignore_cancellation();
-            let state =
-                DiceWorkerStateAwaitingPrevious::new(k, cycles, handle, prevent_cancellation);
+            let prevent_cancellation = handle.cancellation_ctx().enter_critical_section();
+            let state = DiceWorkerStateAwaitingPrevious::new(k, cycles, prevent_cancellation);
 
             async move {
                 let previous_result = match previously_cancelled_task {
-                    Some(v) => state.await_previous(v).await,
-                    None => Either::Right(state.no_previous_task().await),
+                    Some(v) => state.await_previous(handle, v).await,
+                    None => Either::Right(state.no_previous_task(handle).await),
                 };
 
-                match previous_result {
-                    Either::Left(_) => {
+                let result = match previous_result {
+                    Either::Left(previous_result) => {
                         // previous result actually finished
+                        previous_result
                     }
-                    Either::Right(state) => {
-                        let _ignore = worker.do_work(state_handle, state).await;
+                    Either::Right(state) => worker.do_work(handle, state_handle, state).await,
+                };
+
+                match result {
+                    Ok(DiceWorkerStateFinishedAndCached {
+                        _prevent_cancellation,
+                        value,
+                    }) => {
+                        handle.finished(value);
+                    }
+                    Err(reason) => {
+                        handle.cancelled(reason);
                     }
                 }
 
@@ -133,8 +145,9 @@ impl DiceTaskWorker {
     /// This is the primary flow of how a key is computed or re-computed.
     pub(crate) async fn do_work(
         &self,
+        handle: &mut DiceTaskHandle<'_>,
         state_handle: CoreStateHandle,
-        task_state: DiceWorkerStateLookupNode<'_, '_>,
+        task_state: DiceWorkerStateLookupNode,
     ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
         let v = self.eval.per_live_version_ctx.get_version();
 
@@ -145,12 +158,12 @@ impl DiceTaskWorker {
         // handle cancelled/cache hits before sending started events
         let deps_to_check = match state_result {
             VersionedGraphResult::Match(entry) => {
-                return task_state.lookup_matches(entry);
+                return task_state.lookup_matches(handle, entry);
             }
             VersionedGraphResult::CheckDeps(mismatch2) => Some(mismatch2),
             VersionedGraphResult::Compute => None,
             VersionedGraphResult::Rejected(..) => {
-                return Err(Cancelled);
+                return Err(CancellationReason::Rejected);
             }
         };
 
@@ -164,7 +177,7 @@ impl DiceTaskWorker {
         let mismatch;
         let (task_state, deps_check_continuables) = match deps_to_check {
             Some(mismatch2) => {
-                let (task_state, cycles2) = task_state.checking_deps(&self.eval);
+                let (task_state, cycles2) = task_state.checking_deps(handle, &self.eval);
                 cycles = cycles2;
                 mismatch = mismatch2;
 
@@ -185,10 +198,11 @@ impl DiceTaskWorker {
                 };
 
                 match check_deps_result {
-                    CheckDependenciesResult::NoChange => {
-                        drop(check_deps_result);
+                    CheckDependenciesResult::NoChange { .. } => {
+                        let invalidation_paths =
+                            check_deps_result.unwrap_no_change_invalidation_paths();
 
-                        let task_state = task_state.deps_match()?;
+                        let task_state = task_state.deps_match(handle)?;
 
                         let activation_info = self.activation_info(
                             mismatch.deps_to_validate.iter_keys(),
@@ -201,6 +215,7 @@ impl DiceTaskWorker {
                                 self.version_epoch,
                                 self.eval.storage_type(self.k),
                                 mismatch,
+                                invalidation_paths,
                             )
                             .await;
 
@@ -209,15 +224,15 @@ impl DiceTaskWorker {
                     CheckDependenciesResult::NoDeps => {
                         // TODO(cjhopman): Why do we treat nodeps as deps not matching? There seems to be some
                         // implicit meaning to a node having no deps at this point, but it's unclear what that is.
-                        (task_state.deps_not_match(), None)
+                        (task_state.deps_not_match(handle), None)
                     }
                     CheckDependenciesResult::Changed { continuables } => {
-                        (task_state.deps_not_match(), Some(continuables))
+                        (task_state.deps_not_match(handle), Some(continuables))
                     }
                 }
             }
             None => {
-                let (task_state, cycles2) = task_state.lookup_dirtied(&self.eval);
+                let (task_state, cycles2) = task_state.lookup_dirtied(handle, &self.eval);
                 cycles = cycles2;
                 (task_state, None)
             }
@@ -227,9 +242,9 @@ impl DiceTaskWorker {
             state,
             activation_data,
             result,
-        } = self.compute(task_state, &cycles).await?;
+        } = self.compute(handle, task_state, &cycles).await?;
 
-        // explicitly drop this here to make it explicit that its important that we hold onto it, it
+        // explicitly drop this here to make it clear that its important that we hold onto it, it
         // otherwise appears unused, but we don't want to cancel anything that it has started requesting
         // before compute finishes.
         // TODO(cjhopman): we could be polling this future, it might eagerly request deps more quickly than
@@ -249,12 +264,14 @@ impl DiceTaskWorker {
                             result.storage,
                             value,
                             Arc::new(result.deps),
+                            result.invalidation_paths,
                         )
                         .await
                 }
                 Err(value) => Ok(DiceComputedValue::new(
                     value,
                     Arc::new(VersionRange::begins_with(v).into_ranges()),
+                    result.invalidation_paths,
                 )),
             }
         };
@@ -262,11 +279,12 @@ impl DiceTaskWorker {
         res.map(|res| state.cached(res, activation_info))
     }
 
-    async fn compute<'a, 'b>(
+    async fn compute(
         &self,
-        task_state: DiceWorkerStateEvaluating<'a, 'b>,
+        handle: &mut DiceTaskHandle<'_>,
+        task_state: DiceWorkerStateEvaluating,
         cycles: &KeyComputingUserCycleDetectorData,
-    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a, 'b>> {
+    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating> {
         self.event_dispatcher.compute_started(self.k);
         scopeguard::defer! {
             self.event_dispatcher.compute_finished(self.k);
@@ -275,7 +293,9 @@ impl DiceTaskWorker {
         // TODO(bobyf) these also make good locations where we want to perform instrumentation
         debug!(msg = "running evaluator");
 
-        self.eval.evaluate(self.k, task_state, cycles.clone()).await
+        self.eval
+            .evaluate(handle, self.k, task_state, cycles.clone())
+            .await
     }
 
     fn activation_info<'a>(
@@ -317,8 +337,8 @@ pub(crate) async fn check_dependencies<'a>(
         let combined = stream::select(inner.into_stream(), parallel);
         pin_mut!(combined);
         while let Some(v) = combined.next().await {
-            if let Err(Cancelled) = v {
-                return Err(Cancelled);
+            if let Err(cancelled) = v {
+                return Err(cancelled);
             }
         }
         Ok(())
@@ -331,19 +351,22 @@ pub(crate) async fn check_dependencies<'a>(
         version: VersionNumber,
         cycles: &'a KeyComputingUserCycleDetectorData,
     ) -> BoxFuture<'a, CancellableResult<CheckDependenciesResult<'a>>> {
+        let mut invalidation_paths = TrackedInvalidationPaths::clean();
         async move {
             for v in deps {
                 match v {
                     SeriesParallelDepsIteratorItem::Key(k) => {
                         match check_dependency(eval, parent_key, *k, cycles, version).await {
-                            Ok(true) => {}
-                            Ok(false) => {
+                            Ok(CheckDependencyResult::NoChange(dep_paths)) => {
+                                invalidation_paths.update(dep_paths);
+                            }
+                            Ok(CheckDependencyResult::Changed) => {
                                 return Ok(CheckDependenciesResult::Changed {
                                     continuables: std::future::ready(Ok(())).boxed(),
                                 });
                             }
-                            Err(Cancelled) => {
-                                return Err(Cancelled);
+                            Err(cancelled) => {
+                                return Err(cancelled);
                             }
                         }
                     }
@@ -357,8 +380,12 @@ pub(crate) async fn check_dependencies<'a>(
 
                         while let Some(v) = futures.next().await {
                             match v? {
-                                CheckDependenciesResult::NoChange
-                                | CheckDependenciesResult::NoDeps => {}
+                                CheckDependenciesResult::NoChange {
+                                    invalidation_paths: deps_paths,
+                                } => {
+                                    invalidation_paths.update(deps_paths);
+                                }
+                                CheckDependenciesResult::NoDeps => {}
                                 CheckDependenciesResult::Changed { continuables } => {
                                     return Ok(CheckDependenciesResult::Changed {
                                         continuables: drain_continuables(continuables, futures)
@@ -370,7 +397,7 @@ pub(crate) async fn check_dependencies<'a>(
                     }
                 }
             }
-            Ok(CheckDependenciesResult::NoChange)
+            Ok(CheckDependenciesResult::NoChange { invalidation_paths })
         }
         .boxed()
     }
@@ -384,14 +411,19 @@ pub(crate) async fn check_dependencies<'a>(
     check_dependencies_series(eval, parent_key, deps.iter(), version, cycles).await
 }
 
+enum CheckDependencyResult {
+    Changed,
+    NoChange(TrackedInvalidationPaths),
+}
+
 async fn check_dependency(
     eval: &AsyncEvaluator,
     parent_key: ParentKey,
     dep: DiceKey,
     cycles: &KeyComputingUserCycleDetectorData,
     version: VersionNumber,
-) -> CancellableResult<bool> {
-    Ok(eval
+) -> CancellableResult<CheckDependencyResult> {
+    let dep_result = eval
         .per_live_version_ctx
         .compute_opaque(
             dep,
@@ -399,15 +431,21 @@ async fn check_dependency(
             &eval,
             cycles.subrequest(dep, &eval.dice.key_index),
         )
-        .await?
-        .versions()
-        .contains(version))
+        .await?;
+
+    if dep_result.versions().contains(version) {
+        Ok(CheckDependencyResult::NoChange(dep_result.into_parts().1))
+    } else {
+        Ok(CheckDependencyResult::Changed)
+    }
 }
 
 #[derive(VariantName)]
 enum CheckDependenciesResult<'a> {
     NoDeps,
-    NoChange,
+    NoChange {
+        invalidation_paths: TrackedInvalidationPaths,
+    },
     Changed {
         /// If any dep has changed, the deps checking doesn't need to be stopped, when something has
         /// changed in a dep in a parallel series we can continue to request and compute the other
@@ -417,6 +455,14 @@ enum CheckDependenciesResult<'a> {
         /// and polling it will continue that deps check process.
         continuables: BoxFuture<'a, CancellableResult<()>>,
     },
+}
+impl CheckDependenciesResult<'_> {
+    fn unwrap_no_change_invalidation_paths(self) -> TrackedInvalidationPaths {
+        match self {
+            Self::NoChange { invalidation_paths } => invalidation_paths,
+            _ => panic!(),
+        }
+    }
 }
 
 #[cfg_attr(debug_assertions, instrument(
@@ -442,19 +488,26 @@ pub(crate) fn project_for_key(
 
         debug!(msg = "projection finished. updating caches");
 
-        let (res, future) = {
+        let (res, invalidation_paths, future) = {
+            let KeyEvaluationResult {
+                value,
+                deps,
+                storage,
+                invalidation_paths,
+            } = eval_result;
             // send the update but don't wait for it
-            let state_future = match eval_result.value.dupe().into_valid_value() {
+            let state_future = match value.dupe().into_valid_value() {
                 Ok(value) => {
                     let rx = state.update_computed(
                         VersionedGraphKey::new(v, k),
                         version_epoch,
-                        eval_result.storage,
+                        storage,
                         value,
-                        Arc::new(eval_result.deps),
+                        Arc::new(deps),
+                        invalidation_paths.dupe(),
                     );
 
-                    Some(rx.map(|res| res.map_err(|_channel_drop| Cancelled)).boxed())
+                    Some(rx.map(|res| res).boxed())
                 }
                 Err(_transient_result) => {
                     // transients are never stored in the state, but the result should be shared
@@ -463,14 +516,17 @@ pub(crate) fn project_for_key(
                 }
             };
 
-            (eval_result.value, state_future)
+            (value, invalidation_paths, state_future)
         };
 
         debug!(msg = "update future completed");
         event_dispatcher.finished(k);
 
-        let computed_value =
-            DiceComputedValue::new(res, Arc::new(VersionRange::begins_with(v).into_ranges()));
+        let computed_value = DiceComputedValue::new(
+            res,
+            Arc::new(VersionRange::begins_with(v).into_ranges()),
+            invalidation_paths,
+        );
         let state_future =
             future.unwrap_or_else(|| future::ready(Ok(computed_value.dupe())).boxed());
 
@@ -494,7 +550,7 @@ pub(crate) mod testing {
         fn is_changed(&self) -> bool {
             match self {
                 CheckDependenciesResult::Changed { .. } => true,
-                CheckDependenciesResult::NoChange => false,
+                CheckDependenciesResult::NoChange { .. } => false,
                 CheckDependenciesResult::NoDeps => false,
             }
         }

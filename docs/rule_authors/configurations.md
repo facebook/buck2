@@ -74,11 +74,10 @@ Once the top-level nodes have been configured via the target platform
 resolution, the configuration is propagated to dependencies (possibly altered by
 transitions).
 
-<!-- prettier-ignore -->
 :::note
+
 The target platform resolution is not applied to all nodes in the graph.
 
-<!-- prettier-ignore -->
 :::
 
 ## Transitions
@@ -227,6 +226,7 @@ The path macros vary along two axes:
 Specifically:
 
 - `$location`: `DefaultInfo` path source, inherits configuration
+- `$location_exec`: `DefaultInfo` path source, exec platform configuration
 - `$exe`: `RunInfo` path source, exec platform configuration
 - `$exe_target`: `RunInfo` path source, inherits configuration
 

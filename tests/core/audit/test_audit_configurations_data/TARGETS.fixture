@@ -1,0 +1,9 @@
+platform(
+    name = "p",
+    constraint_values = [],
+)
+
+trivial_build(
+    name = "genrule",
+    default_target_platform = ":p",
+)

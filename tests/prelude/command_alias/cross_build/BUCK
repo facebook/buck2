@@ -1,0 +1,38 @@
+load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
+
+oncall("build_infra")
+
+prelude = native
+
+# Test that producing trampoline scripts works when the target and exec platform don't match
+prelude.command_alias(
+    name = "exec_unix",
+    args = ["ls"],
+    exec_compatible_with = ["ovr_config//os:linux"],
+)
+
+py_assertion(
+    name = "check_exec_unix",
+    script = """
+import subprocess
+import sys
+subprocess.check_output([sys.argv[1]])
+""",
+    script_args = ["$(location :exec_unix)"],
+)
+
+prelude.command_alias(
+    name = "exec_windows",
+    args = ["ls"],
+    exec_compatible_with = ["ovr_config//os:windows"],
+)
+
+py_assertion(
+    name = "check_exec_windows",
+    script = """
+import subprocess
+import sys
+subprocess.check_output([sys.argv[1]])
+""",
+    script_args = ["$(location :exec_windows)"],
+)

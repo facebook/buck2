@@ -3,6 +3,8 @@ id: getting_started
 title: Getting Started
 ---
 
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 ## Installing Buck2
 
 The latest set of `buck2` executables can be found under the
@@ -18,8 +20,8 @@ To get started, first install [rustup](https://rustup.rs/), then compile the
 `buck2` executable:
 
 ```bash
-rustup install nightly-2024-06-08
-cargo +nightly-2024-06-08 install --git https://github.com/facebook/buck2.git buck2
+rustup install nightly-2025-02-16
+cargo +nightly-2025-02-16 install --git https://github.com/facebook/buck2.git buck2
 ```
 
 The above commands install `buck2` into a suitable directory, such as
@@ -141,7 +143,7 @@ buck2 init --git
 
 Next, add the source code `main.cpp` ,
 
-```c++
+```cpp
 #include <iostream>
 int main() {
     std::cout << "Hello from a C++ Buck2 program!" << std::endl;

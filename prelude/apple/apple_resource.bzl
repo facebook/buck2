@@ -6,29 +6,33 @@
 # of this source tree.
 
 load(
-    "@prelude//ide_integrations:xcode.bzl",
+    "@prelude//ide_integrations/xcode:data.bzl",
     "XCODE_DATA_SUB_TARGET",
+    "XcodeDataInfoKeys",
     "generate_xcode_data",
 )
 load(":apple_resource_types.bzl", "AppleResourceDestination", "AppleResourceSpec")
 load(":resource_groups.bzl", "create_resource_graph")
 
-def _artifacts(deps: (list[[Artifact, Dependency]])) -> list[Artifact]:
-    artifacts = []
-    for dep in deps:
-        if isinstance(dep, Dependency):
-            artifacts.extend(dep[DefaultInfo].default_outputs)
-        else:
-            artifacts.append(dep)
-    return artifacts
-
 def _xcode_populate_attributes(ctx) -> dict[str, typing.Any]:
-    data = {
-        "product_name": ctx.attrs.name.replace(".", "_"),
-    }
-    artifacts = _artifacts(ctx.attrs.files)
-    if artifacts:
-        data["extra_xcode_files"] = artifacts
+    extra_xcode_files = []
+
+    # ctx.attrs.files can contain Dependency
+    for file in ctx.attrs.files:
+        if isinstance(file, Dependency):
+            extra_xcode_files.extend(file[DefaultInfo].default_outputs)
+        else:
+            extra_xcode_files.append(file)
+
+    extra_xcode_files += ctx.attrs.dirs + ctx.attrs.variants
+
+    # Named varients map a str to a set, so we need to add the values from the set
+    for val in ctx.attrs.named_variants.values():
+        extra_xcode_files.extend(val)
+
+    data = {}
+    if extra_xcode_files:
+        data[XcodeDataInfoKeys.EXTRA_XCODE_FILES] = extra_xcode_files
 
     return data
 

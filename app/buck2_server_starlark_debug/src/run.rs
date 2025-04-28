@@ -8,7 +8,7 @@
  */
 
 use buck2_events::dispatch::span_async;
-use buck2_server_ctx::command_end::command_end;
+use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
@@ -18,8 +18,8 @@ use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use tracing::debug;
 
-use crate::error::StarlarkDebuggerInternalError;
 use crate::ServerConnection;
+use crate::error::StarlarkDebuggerInternalError;
 
 /// Messages from the debugger server to its client (the cli `buck2 starlark debug-attach` which
 /// then forwards them along through its stdout).
@@ -27,11 +27,11 @@ use crate::ServerConnection;
 pub(crate) enum ToClientMessage {
     Event(dap::Event),
     Response(dap::Response),
-    Shutdown(anyhow::Result<()>),
+    Shutdown(buck2_error::Result<()>),
 }
 
 impl ToClientMessage {
-    fn pretty_string(&self) -> anyhow::Result<String> {
+    fn pretty_string(&self) -> buck2_error::Result<String> {
         match self {
             ToClientMessage::Event(ev) => Ok(serde_json::to_string_pretty(&ev)?),
             ToClientMessage::Response(resp) => Ok(serde_json::to_string_pretty(&resp)?),
@@ -45,7 +45,7 @@ pub async fn run_dap_server_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::DapMessage>,
     req: StreamingRequestHandler<buck2_cli_proto::DapRequest>,
-) -> anyhow::Result<buck2_cli_proto::DapResponse> {
+) -> buck2_error::Result<buck2_cli_proto::DapResponse> {
     let start_event = buck2_data::CommandStart {
         metadata: ctx.request_metadata().await?,
         data: Some(buck2_data::StarlarkDebugAttachCommandStart {}.into()),
@@ -64,7 +64,7 @@ async fn run_dap_server(
     ctx: &dyn ServerCommandContextTrait,
     mut partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::DapMessage>,
     mut req: StreamingRequestHandler<buck2_cli_proto::DapRequest>,
-) -> anyhow::Result<buck2_cli_proto::DapResponse> {
+) -> buck2_error::Result<buck2_cli_proto::DapResponse> {
     let (to_client_send, mut to_client_recv) = mpsc::unbounded_channel();
     let server_connection = ServerConnection::new(to_client_send, ctx.project_root().clone())?;
 
@@ -78,7 +78,7 @@ async fn run_dap_server(
         select! {
             request = req.next() => {
                 let request = match request {
-                    Some(Err(e)) => return Err(e),
+                    Some(Err(e)) => return Err(e.into()),
                     Some(Ok(v)) => v,
                     None => {
                         // client disconnected.
@@ -118,7 +118,7 @@ fn handle_outgoing_message(
     seq: &mut u32,
     partial_result_dispatcher: &mut PartialResultDispatcher<buck2_cli_proto::DapMessage>,
     message: ToClientMessage,
-) -> anyhow::Result<Option<buck2_cli_proto::DapResponse>> {
+) -> buck2_error::Result<Option<buck2_cli_proto::DapResponse>> {
     debug!("sending message {}", &message.pretty_string()?);
 
     let this_seq = *seq as i64;

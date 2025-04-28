@@ -7,21 +7,18 @@
  * of this source tree.
  */
 
-use std::path::Path;
-
-use anyhow::Context;
-use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
+use buck2_cli_proto::config_override::ConfigType;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_core::fs::project::ProjectRoot;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::BuckErrorContext;
 
-use crate::legacy_configs::configs::parse_config_section_and_key;
 use crate::legacy_configs::configs::ConfigArgumentParseError;
 use crate::legacy_configs::configs::ConfigSectionAndKey;
 use crate::legacy_configs::configs::LegacyBuckConfig;
+use crate::legacy_configs::configs::parse_config_section_and_key;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::file_ops::ConfigPath;
 use crate::legacy_configs::parser::LegacyConfigParser;
@@ -40,7 +37,14 @@ pub(crate) enum ResolvedConfigFile {
     /// If the config file is project relative, the path of the file
     Project(ProjectRelativePathBuf),
     /// If the config file is external, we pre-parse it to be able to insert the results into dice
-    Global(LegacyConfigParser),
+    Global(ExternalConfigFile),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, allocative::Allocative)]
+pub(crate) struct ExternalConfigFile {
+    pub(crate) parser: LegacyConfigParser,
+    // The origin path of the config file
+    origin_path: AbsPathBuf,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, allocative::Allocative)]
@@ -56,7 +60,7 @@ pub(crate) struct ResolvedConfigFlag {
 fn resolve_config_flag_arg(
     cell: Option<CellRootPathBuf>,
     raw_arg: &str,
-) -> anyhow::Result<ResolvedConfigFlag> {
+) -> buck2_error::Result<ResolvedConfigFlag> {
     let (raw_section_and_key, raw_value) = raw_arg
         .split_once('=')
         .ok_or_else(|| ConfigArgumentParseError::NoEqualsSeparator(raw_arg.to_owned()))?;
@@ -79,45 +83,37 @@ fn resolve_config_flag_arg(
 async fn resolve_config_file_arg(
     cell: Option<CellRootPathBuf>,
     arg: &str,
-    project_filesystem: &ProjectRoot,
-    cwd: &ProjectRelativePath,
     file_ops: &mut dyn ConfigParserFileOps,
-) -> anyhow::Result<ResolvedConfigFile> {
+) -> buck2_error::Result<ResolvedConfigFile> {
     if let Some(cell_path) = cell {
         let proj_path = cell_path.as_project_relative_path().join_normalized(arg)?;
         return Ok(ResolvedConfigFile::Project(proj_path));
     }
 
-    let path = Path::new(arg);
-    let path = if path.is_absolute() {
-        AbsPath::new(path)?.to_owned()
-    } else {
-        let cwd = project_filesystem.resolve(cwd);
-        cwd.into_abs_path_buf().join(path)
-    };
-
-    Ok(ResolvedConfigFile::Global(
-        LegacyBuckConfig::start_parse_for_external_files(
-            &[ConfigPath::Global(path)],
-            file_ops,
-            // Note that when reading immediate configs that don't follow includes, we don't apply
-            // config args either
-            true, // follow includes
-        )
-        .await?,
-    ))
+    let path = AbsPath::new(arg).internal_error("Client always produces absolute paths")?;
+    Ok(ResolvedConfigFile::Global(ExternalConfigFile {
+        origin_path: AbsPathBuf::new(arg)?,
+        parser: LegacyConfigParser::combine(
+            LegacyBuckConfig::start_parse_for_external_files(
+                &[ConfigPath::Global(path.to_owned())],
+                file_ops,
+                // Note that when reading immediate configs that don't follow includes, we don't apply
+                // config args either
+                true, // follow includes
+            )
+            .await?,
+        ),
+    }))
 }
 
 pub(crate) async fn resolve_config_args(
     args: &[ConfigOverride],
-    project_fs: &ProjectRoot,
-    cwd: &ProjectRelativePath,
     file_ops: &mut dyn ConfigParserFileOps,
-) -> anyhow::Result<Vec<ResolvedLegacyConfigArg>> {
+) -> buck2_error::Result<Vec<ResolvedLegacyConfigArg>> {
     let mut resolved_args = Vec::new();
 
     for u in args {
-        let config_type = ConfigType::from_i32(u.config_type).with_context(|| {
+        let config_type = ConfigType::try_from(u.config_type).with_buck_error_context(|| {
             format!(
                 "Unknown ConfigType enum value `{}` when trying to deserialize",
                 u.config_type
@@ -132,8 +128,7 @@ pub(crate) async fn resolve_config_args(
             ConfigType::File => {
                 let cell = u.get_cell()?.map(|p| p.to_buf());
                 let resolved_path =
-                    resolve_config_file_arg(cell, &u.config_override, project_fs, cwd, file_ops)
-                        .await?;
+                    resolve_config_file_arg(cell, &u.config_override, file_ops).await?;
                 ResolvedLegacyConfigArg::File(resolved_path)
             }
         };
@@ -143,12 +138,57 @@ pub(crate) async fn resolve_config_args(
     Ok(resolved_args)
 }
 
+pub(crate) fn to_proto_config_args(
+    args: &[ResolvedLegacyConfigArg],
+) -> Vec<buck2_data::BuckconfigComponent> {
+    use buck2_data::buckconfig_component::Data::ConfigFile;
+    use buck2_data::buckconfig_component::Data::ConfigValue;
+    use buck2_data::config_file::Data::GlobalExternalConfig;
+    use buck2_data::config_file::Data::ProjectRelativePath;
+
+    args.iter()
+        .map(|arg| {
+            let data = match arg {
+                ResolvedLegacyConfigArg::Flag(resolved_config_flag) => {
+                    ConfigValue(buck2_data::ConfigValue {
+                        section: resolved_config_flag.section.to_owned(),
+                        key: resolved_config_flag.key.to_owned(),
+                        value: resolved_config_flag
+                            .value
+                            .clone()
+                            .unwrap_or("not_set".to_owned()),
+                        cell: resolved_config_flag
+                            .cell
+                            .clone()
+                            .map(|flag| flag.to_string()),
+                        is_cli: true,
+                    })
+                }
+                ResolvedLegacyConfigArg::File(ResolvedConfigFile::Project(p)) => {
+                    ConfigFile(buck2_data::ConfigFile {
+                        data: Some(ProjectRelativePath(p.to_string())),
+                    })
+                }
+                ResolvedLegacyConfigArg::File(ResolvedConfigFile::Global(p)) => {
+                    ConfigFile(buck2_data::ConfigFile {
+                        data: Some(GlobalExternalConfig(buck2_data::GlobalExternalConfig {
+                            values: p.parser.to_proto_external_config_values(true),
+                            origin_path: p.origin_path.to_str().unwrap_or("").to_owned(),
+                        })),
+                    })
+                }
+            };
+            buck2_data::BuckconfigComponent { data: Some(data) }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::resolve_config_flag_arg;
 
     #[test]
-    fn test_argument_pair() -> anyhow::Result<()> {
+    fn test_argument_pair() -> buck2_error::Result<()> {
         // Valid Formats
 
         let normal_pair = resolve_config_flag_arg(None, "apple.key=value")?;

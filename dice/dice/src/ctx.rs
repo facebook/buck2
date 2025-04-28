@@ -11,13 +11,16 @@ use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use futures::future::BoxFuture;
+use dice_error::DiceResult;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 use gazebo::variants::UnpackVariants;
 
+use crate::LinearRecomputeDiceComputations;
+use crate::ProjectionKey;
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
-use crate::api::error::DiceResult;
+use crate::api::invalidation_tracking::DiceKeyTrackedInvalidationPaths;
 use crate::api::key::Key;
 use crate::api::opaque::OpaqueValue;
 use crate::api::user_data::UserComputationData;
@@ -26,8 +29,6 @@ use crate::impls::ctx::LinearRecomputeModern;
 use crate::impls::ctx::ModernComputeCtx;
 use crate::opaque::OpaqueValueImpl;
 use crate::versions::VersionNumber;
-use crate::LinearRecomputeDiceComputations;
-use crate::ProjectionKey;
 
 /// This is just a dispatcher to either of Legacy or Modern Dice.
 ///
@@ -177,6 +178,12 @@ impl<'d> DiceComputationsImpl<'d> {
     pub(crate) fn get_version(&self) -> VersionNumber {
         match self {
             DiceComputationsImpl::Modern(delegate) => delegate.get_version(),
+        }
+    }
+
+    pub fn get_invalidation_paths(&mut self) -> DiceKeyTrackedInvalidationPaths {
+        match self {
+            DiceComputationsImpl::Modern(delegate) => delegate.get_invalidation_paths(),
         }
     }
 }

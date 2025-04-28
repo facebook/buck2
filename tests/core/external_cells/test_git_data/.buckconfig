@@ -1,0 +1,23 @@
+[cells]
+  root = .
+  nano_prelude = nano_prelude
+  libfoo = libfoo
+
+[cell_aliases]
+  prelude = nano_prelude
+
+[buildfile]
+  name = TARGETS.fixture
+
+[buck2]
+  materializations = deferred
+  sqlite_materializer_state = true
+
+[external_cells]
+  nano_prelude = bundled
+  libfoo = git
+
+# Written by each test before invoking buck
+[external_cell_libfoo]
+  git_origin = <PLACEHOLDER>
+  commit_hash = <PLACEHOLDER>

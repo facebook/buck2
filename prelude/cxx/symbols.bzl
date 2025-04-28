@@ -6,9 +6,13 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "CxxToolchainInfo",
+    "LinkerType",
+)
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 
 def _extract_symbol_names(
         ctx: AnalysisContext,
@@ -48,14 +52,14 @@ def _extract_symbol_names(
         nm_flags += "u"
 
     # darwin objects don't have dynamic symbol tables.
-    if dynamic and cxx_toolchain.linker_info.type != "darwin":
+    if dynamic and cxx_toolchain.linker_info.type != LinkerType("darwin"):
         nm_flags += "D"
 
     # llvm-nm supports -U for this but gnu nm doesn't.
     if defined_only:
         nm_flags += " --defined-only"
 
-    is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
 
     if is_windows:
         script = (
@@ -234,10 +238,11 @@ def extract_undefined_syms(
         prefer_local: bool = False,
         anonymous: bool = False,
         allow_cache_upload: bool = False) -> Artifact:
+    name = "extracted_symbol_names/{}.undefined_syms.txt".format(str(hash(output.short_path)))
     return extract_symbol_names(
         ctx = ctx,
         cxx_toolchain = cxx_toolchain,
-        name = output.short_path + ".undefined_syms.txt",
+        name = name,
         objects = [output],
         dynamic = True,
         global_only = True,
@@ -308,23 +313,11 @@ def _create_symbols_file_from_script(
 
 def get_undefined_symbols_args(
         ctx: AnalysisContext,
-        cxx_toolchain: CxxToolchainInfo,
         name: str,
         symbol_files: list[Artifact],
         category: [str, None] = None,
         identifier: [str, None] = None,
         prefer_local: bool = False) -> cmd_args:
-    if cxx_toolchain.linker_info.type == "gnu":
-        # linker script is only supported in gnu linkers
-        linker_script = create_undefined_symbols_linker_script(
-            ctx.actions,
-            name,
-            symbol_files,
-            category,
-            identifier,
-            prefer_local,
-        )
-        return cmd_args(linker_script, format = "-Wl,--script={}")
     argsfile = create_undefined_symbols_argsfile(
         ctx.actions,
         name,

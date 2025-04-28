@@ -7,14 +7,6 @@
 
 load("@prelude//:artifacts.bzl", "ArtifactExt")
 
-# Work-around for buck2 bug causing "transitive values must be of the same
-# transitive set type" errors:
-# https://fb.prod.workplace.com/groups/buck2users/posts/3637287806527574/
-ThirdPartyBuildTSet = transitive_set()
-ThirdPartyBuildInfo = provider(fields = {
-    "_tset": provider_field(ThirdPartyBuildTSet),
-})
-
 ThirdPartyBuild = record(
     # A logical project name for the project, currently used for logging.
     project = field(str),
@@ -28,6 +20,15 @@ ThirdPartyBuild = record(
     # TODO(agallagher): Can this move into the manifest?
     exported_env = field(dict[str, str], {}),
 )
+
+# Work-around for buck2 bug causing "transitive values must be of the same
+# transitive set type" errors:
+# https://fb.prod.workplace.com/groups/buck2users/posts/3637287806527574/
+ThirdPartyBuildTSet = transitive_set()
+ThirdPartyBuildInfo = provider(fields = {
+    "build": provider_field(ThirdPartyBuild | None),
+    "_tset": provider_field(ThirdPartyBuildTSet),
+})
 
 def third_party_build_info(
         actions,
@@ -47,5 +48,6 @@ def third_party_build_info(
             if ThirdPartyBuildInfo in dep
         ]
     return ThirdPartyBuildInfo(
+        build = build,
         _tset = actions.tset(ThirdPartyBuildTSet, **kwargs),
     )

@@ -10,44 +10,66 @@
 use async_trait::async_trait;
 use buck2_cli_proto::UnstableCrashRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
+#[derive(Debug, Clone, clap::ValueEnum)]
+enum CrashType {
+    Panic,
+    Abort,
+}
+
+impl CrashType {
+    fn to_proto(&self) -> i32 {
+        let crash_type = match self {
+            CrashType::Panic => buck2_cli_proto::unstable_crash_request::CrashType::Panic,
+            CrashType::Abort => buck2_cli_proto::unstable_crash_request::CrashType::Abort,
+        };
+        crash_type as i32
+    }
+}
+
 #[derive(Debug, clap::Parser)]
 pub struct CrashCommand {
+    #[arg(value_enum)]
+    crash_type: CrashType,
     /// Event-log options.
     #[clap(flatten)]
     pub event_log_opts: CommonEventLogOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for CrashCommand {
     const COMMAND_NAME: &'static str = "crash";
-
-    fn existing_only() -> bool {
-        true
-    }
 
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         _ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        let _err = buckd
+        buckd
             .with_flushing()
-            .unstable_crash(UnstableCrashRequest {})
-            .await;
-        ExitResult::success()
+            .unstable_crash(
+                UnstableCrashRequest {
+                    crash_type: self.crash_type.to_proto(),
+                },
+                events_ctx,
+            )
+            .await??;
+        unreachable!("request should have failed")
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
-        CommonConsoleOptions::simple_ref()
+        CommonConsoleOptions::default_ref()
     }
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {

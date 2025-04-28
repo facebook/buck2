@@ -1,0 +1,5 @@
+print("<<root=%s>>" % read_root_config("unlike", "harsh"))  # buildifier: disable=print
+print("<<root_ignore_default=%s>>" % read_root_config("unlike", "harsh", "release"))  # buildifier: disable=print
+print("<<root_use_default=%s>>" % read_root_config("unlike", "powder", "predict"))  # buildifier: disable=print
+
+print("<<local=%s>>" % read_config("unlike", "harsh"))  # buildifier: disable=print

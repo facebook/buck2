@@ -9,12 +9,14 @@
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+use std::ffi::OsString;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::Deref;
 use std::path::Path;
 
 use allocative::Allocative;
+use buck2_util::arc_str::StringInside;
 use compact_str::CompactString;
 use derive_more::Display;
 use ref_cast::RefCast;
@@ -26,6 +28,7 @@ use crate::package::package_relative_path::PackageRelativePath;
 
 /// Errors from ForwardRelativePath creation
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum FileNameError {
     #[error("file name is empty")]
     Empty,
@@ -35,9 +38,11 @@ enum FileNameError {
     DotDot,
     #[error("slashes in path: `{0}`")]
     Slashes(String),
+    #[error("file name is not unicode: `{0:?}`")]
+    NotUnicode(OsString),
 }
 
-fn verify_file_name(file_name: &str) -> anyhow::Result<()> {
+fn verify_file_name(file_name: &str) -> buck2_error::Result<()> {
     if file_name.is_empty() {
         Err(FileNameError::Empty.into())
     } else if file_name == "." {
@@ -59,6 +64,16 @@ fn verify_file_name(file_name: &str) -> anyhow::Result<()> {
 #[repr(transparent)]
 #[derive(Display, Debug, RefCast, PartialOrd, Ord, Eq)]
 pub struct FileName(str);
+
+impl StringInside for FileName {
+    fn as_str(wrapper: &Self) -> &str {
+        &wrapper.0
+    }
+
+    fn from_str(s: &str) -> &Self {
+        FileName::unchecked_new(s)
+    }
+}
 
 impl PartialEq<str> for FileName {
     #[inline]
@@ -138,9 +153,17 @@ impl FileName {
     /// assert!(FileName::new("foo\\bar").is_err());
     /// ```
     #[inline]
-    pub fn new<S: ?Sized + AsRef<str>>(s: &S) -> anyhow::Result<&Self> {
+    pub fn new<S: ?Sized + AsRef<str>>(s: &S) -> buck2_error::Result<&Self> {
         verify_file_name(s.as_ref())?;
         Ok(Self::unchecked_new(s.as_ref()))
+    }
+
+    pub fn from_os_string(file_name: &OsString) -> buck2_error::Result<&FileName> {
+        let file_name = file_name
+            .to_str()
+            .ok_or_else(|| FileNameError::NotUnicode(file_name.clone()))?;
+
+        FileName::new(file_name)
     }
 
     #[inline]
@@ -154,6 +177,11 @@ impl FileName {
     #[inline]
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    #[inline]
+    pub fn as_forward_rel_path(&self) -> &ForwardRelativePath {
+        ForwardRelativePath::unchecked_new(&self.0)
     }
 
     /// Extracts the stem (non-extension) portion of [`self.file_name`].
@@ -173,7 +201,7 @@ impl FileName {
     ///
     /// assert_eq!(Some("foo"), path.file_stem());
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     #[inline]
     pub fn file_stem(&self) -> Option<&str> {
@@ -187,7 +215,7 @@ impl FileName {
     ///
     /// assert_eq!(Some("rs"), FileName::new("foo.rs")?.extension());
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     #[inline]
     pub fn extension(&self) -> Option<&str> {
@@ -337,11 +365,20 @@ impl AsRef<ForwardRelativePath> for FileNameBuf {
     }
 }
 
-impl TryFrom<String> for FileNameBuf {
-    type Error = anyhow::Error;
+impl<'a> TryFrom<&'a str> for &'a FileName {
+    type Error = buck2_error::Error;
 
     #[inline]
-    fn try_from(value: String) -> anyhow::Result<FileNameBuf> {
+    fn try_from(value: &'a str) -> buck2_error::Result<&'a FileName> {
+        FileName::new(value)
+    }
+}
+
+impl TryFrom<String> for FileNameBuf {
+    type Error = buck2_error::Error;
+
+    #[inline]
+    fn try_from(value: String) -> buck2_error::Result<FileNameBuf> {
         // NOTE: This does not turn a String into an inlined string.
         verify_file_name(value.as_str())?;
         Ok(FileNameBuf(value.into()))
@@ -349,10 +386,10 @@ impl TryFrom<String> for FileNameBuf {
 }
 
 impl TryFrom<CompactString> for FileNameBuf {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     #[inline]
-    fn try_from(value: CompactString) -> anyhow::Result<FileNameBuf> {
+    fn try_from(value: CompactString) -> buck2_error::Result<FileNameBuf> {
         verify_file_name(value.as_str())?;
         Ok(FileNameBuf(value))
     }

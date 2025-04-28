@@ -9,9 +9,12 @@
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_error::BuckErrorContext;
+use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_futures::cancellation::CancellationContext;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
-use buck2_interpreter::error::BuckStarlarkError;
+use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use dice::DiceComputations;
 use dice::Key;
@@ -19,9 +22,9 @@ use indoc::indoc;
 use starlark::environment::Globals;
 use starlark::environment::Module;
 use starlark::syntax::AstModule;
-use starlark::syntax::Dialect;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum CheckStarlarkStackSizeError {
     #[error("Error checking starlark stack size")]
     CheckStarlarkStackSizeError,
@@ -33,7 +36,7 @@ enum CheckStarlarkStackSizeError {
 // before the native stack overflows
 pub(crate) async fn check_starlark_stack_size(
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     #[derive(Debug, derive_more::Display, Clone, Allocative, Eq, PartialEq, Hash)]
     struct StarlarkStackSizeChecker;
 
@@ -49,7 +52,7 @@ pub(crate) async fn check_starlark_stack_size(
             with_starlark_eval_provider(
                 ctx,
                 &mut StarlarkProfilerOpt::disabled(),
-                "Check starlark stack size".to_owned(),
+                &StarlarkEvalKind::Unknown("Check starlark stack size".into()),
                 move |provider, _| {
                     let env = Module::new();
                     let (mut eval, _) = provider.make(&env)?;
@@ -60,11 +63,27 @@ pub(crate) async fn check_starlark_stack_size(
                                 f()
                         "#
                     );
-                    let ast = AstModule::parse("x.star", content.to_owned(), &Dialect::Extended)
-                        .map_err(BuckStarlarkError::new)?;
+                    let ast = AstModule::parse(
+                        "x.star",
+                        content.to_owned(),
+                        &StarlarkFileType::Bzl.dialect(false),
+                    )
+                    .map_err(|e| {
+                        from_starlark_with_options(
+                            e,
+                            buck2_error::starlark_error::NativeErrorHandling::Unknown,
+                            false,
+                        )
+                    })
+                    .internal_error("Failed to parse check module")?;
                     match eval.eval_module(ast, &Globals::standard()) {
                         Err(e) if e.to_string().contains("Starlark call stack overflow") => Ok(()),
-                        Err(p) => Err(BuckStarlarkError::new(p).into()),
+                        Err(p) => Err(from_starlark_with_options(
+                            p,
+                            buck2_error::starlark_error::NativeErrorHandling::Unknown,
+                            false,
+                        )
+                        .into()),
                         Ok(_) => {
                             Err(CheckStarlarkStackSizeError::CheckStarlarkStackSizeError.into())
                         }
@@ -87,7 +106,5 @@ pub(crate) async fn check_starlark_stack_size(
         }
     }
 
-    ctx.compute(&StarlarkStackSizeChecker)
-        .await?
-        .map_err(anyhow::Error::from)
+    ctx.compute(&StarlarkStackSizeChecker).await?
 }

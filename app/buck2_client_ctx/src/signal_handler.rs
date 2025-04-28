@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
+use futures::Future;
 use futures::future;
 use futures::future::Either;
-use futures::Future;
 
 /// A simple SIGINT handler that lets `work` and ctrl+c future race. When ctrl+c
 /// is hit, it allows the `work` future and the other clean-up implementations

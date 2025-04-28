@@ -20,18 +20,21 @@ use crate::legacy_configs::key::BuckconfigKeyRef;
 /// * simple implementation which is backed by a buckconfig object, used in tests
 /// * DICE-backed implementation which records a dependency on buckconfig property in DICE
 pub trait LegacyBuckConfigView: Debug {
-    fn get(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>>;
+    fn get(&mut self, key: BuckconfigKeyRef) -> buck2_error::Result<Option<Arc<str>>>;
 
-    fn parse<T: FromStr>(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<T>>
+    fn parse<T: FromStr>(&mut self, key: BuckconfigKeyRef) -> buck2_error::Result<Option<T>>
     where
-        anyhow::Error: From<<T as FromStr>::Err>,
+        buck2_error::Error: From<<T as FromStr>::Err>,
     {
         LegacyBuckConfig::parse_value(key, self.get(key)?.as_deref())
     }
 
-    fn parse_list<T: FromStr>(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Vec<T>>>
+    fn parse_list<T: FromStr>(
+        &mut self,
+        key: BuckconfigKeyRef,
+    ) -> buck2_error::Result<Option<Vec<T>>>
     where
-        anyhow::Error: From<<T as FromStr>::Err>,
+        buck2_error::Error: From<<T as FromStr>::Err>,
     {
         LegacyBuckConfig::parse_list_value(key, self.get(key)?.as_deref())
     }

@@ -17,10 +17,10 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 #[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct CellRoot(CellPath);
@@ -40,7 +40,7 @@ impl CellRoot {
 
 starlark_simple_value!(CellRoot);
 
-#[starlark_value(type = "cell_root")]
+#[starlark_value(type = "CellRoot")]
 impl<'v> StarlarkValue<'v> for CellRoot {}
 
 #[starlark_module]

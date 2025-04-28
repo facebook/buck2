@@ -18,14 +18,14 @@ use buck2_wrapper_common::kill;
 use buck2_wrapper_common::pid::Pid;
 use sysinfo::ProcessRefreshKind;
 use sysinfo::System;
+use tonic::Request;
 use tonic::codegen::InterceptedService;
 use tonic::transport::Channel;
-use tonic::Request;
 
-use crate::daemon::client::connect::buckd_startup_timeout;
+use crate::daemon::client::BuckdLifecycleLock;
 use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
 use crate::daemon::client::connect::BuckdProcessInfo;
-use crate::daemon::client::BuckdLifecycleLock;
+use crate::daemon::client::connect::buckd_startup_timeout;
 
 const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
 /// Kill request does not wait for the process to exit.
@@ -35,7 +35,7 @@ const FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 pub async fn kill_command_impl(
     lifecycle_lock: &BuckdLifecycleLock,
     reason: &str,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let process = match BuckdProcessInfo::load(lifecycle_lock.daemon_dir()) {
         Ok(p) => p,
         Err(e) => {
@@ -59,8 +59,11 @@ pub async fn kill_command_impl(
             // No time out: we just errored out. This is likely indicative that there is no
             // buckd (i.e. our connection got rejected), so let's check for this and then
             // provide some information.
+            let e: buck2_error::Error = e.into();
 
-            if e.is::<tonic::transport::Error>() {
+            // TODO(minglunli): Look into checking for explicit 'Connection Refused' or something more
+            // concretely pointing to `no server running` instead of all transport errors
+            if e.has_tag(ErrorTag::ServerTransportError) {
                 // OK, looks like the server
                 tracing::debug!("Connect failed with a Tonic error: {:#}", e);
                 crate::eprintln!("no buckd server running")?;
@@ -101,7 +104,7 @@ pub(crate) async fn kill(
     client: &mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
     info: &DaemonProcessInfo,
     reason: &str,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let pid = Pid::from_i64(info.pid)?;
     let callers = get_callers_for_kill();
 
@@ -154,7 +157,7 @@ pub(crate) async fn kill(
     hard_kill_impl(pid, time_req_sent, time_to_kill).await
 }
 
-pub(crate) async fn hard_kill(info: &DaemonProcessInfo) -> anyhow::Result<()> {
+pub(crate) async fn hard_kill(info: &DaemonProcessInfo) -> buck2_error::Result<()> {
     let pid = Pid::from_i64(info.pid)?;
 
     hard_kill_impl(pid, Instant::now(), FORCE_SHUTDOWN_TIMEOUT).await
@@ -163,14 +166,18 @@ pub(crate) async fn hard_kill(info: &DaemonProcessInfo) -> anyhow::Result<()> {
 pub(crate) async fn hard_kill_until(
     info: &DaemonProcessInfo,
     deadline: Instant,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let pid = Pid::from_i64(info.pid)?;
 
     let now = Instant::now();
     hard_kill_impl(pid, now, deadline.saturating_duration_since(now)).await
 }
 
-async fn hard_kill_impl(pid: Pid, start_at: Instant, deadline: Duration) -> anyhow::Result<()> {
+async fn hard_kill_impl(
+    pid: Pid,
+    start_at: Instant,
+    deadline: Duration,
+) -> buck2_error::Result<()> {
     tracing::info!(
         "Killing PID {} with status {}",
         pid,
@@ -200,7 +207,7 @@ async fn hard_kill_impl(pid: Pid, start_at: Instant, deadline: Duration) -> anyh
 
     let elapsed_s = timestamp_after_kill.elapsed().as_secs_f32();
     Err(buck2_error!(
-        [ErrorTag::DaemonWontDieFromKill],
+        ErrorTag::DaemonWontDieFromKill,
         "Daemon pid {pid} did not die after kill within {elapsed_s:.1}s (status: {status})"
     ))
 }

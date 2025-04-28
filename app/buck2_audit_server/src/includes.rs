@@ -14,8 +14,8 @@ use buck2_audit::includes::AuditIncludesCommand;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -30,9 +30,9 @@ use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_query::query::graph::node::LabeledNode;
 use buck2_query::query::graph::node::NodeKey;
 use buck2_query::query::graph::successors::AsyncChildVisitor;
-use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::ChildVisitor;
+use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -40,19 +40,20 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
-use futures::stream::FuturesOrdered;
 use futures::StreamExt;
+use futures::stream::FuturesOrdered;
 use gazebo::prelude::*;
 use indexmap::indexmap;
 use itertools::Itertools;
 use ref_cast::RefCast;
-use serde::ser::SerializeMap;
 use serde::Serialize;
 use serde::Serializer;
+use serde::ser::SerializeMap;
 
 use crate::ServerAuditSubcommand;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum AuditIncludesError {
     #[error("Error loading buildfile for `{0}` found a mismatched buildfile name (`{1}`)")]
     WrongBuildfilePath(CellPath, FileNameBuf),
@@ -63,7 +64,7 @@ enum AuditIncludesError {
 async fn get_transitive_includes(
     ctx: &mut DiceComputations<'_>,
     load_result: &EvaluationResult,
-) -> anyhow::Result<Vec<ImportPath>> {
+) -> buck2_error::Result<Vec<ImportPath>> {
     // We define a simple graph of LoadedModules to traverse.
     #[derive(Clone, Dupe)]
     struct Node(LoadedModule);
@@ -97,7 +98,7 @@ async fn get_transitive_includes(
 
     #[async_trait]
     impl AsyncNodeLookup<Node> for Lookup<'_, '_> {
-        async fn get(&self, label: &NodeRef) -> anyhow::Result<Node> {
+        async fn get(&self, label: &NodeRef) -> buck2_error::Result<Node> {
             Ok(Node(
                 self.ctx
                     .get()
@@ -120,7 +121,7 @@ async fn get_transitive_includes(
             &self,
             target: &Node,
             mut func: impl ChildVisitor<Node>,
-        ) -> anyhow::Result<()> {
+        ) -> buck2_error::Result<()> {
             for import in target.0.imports() {
                 func.visit(&NodeRef(import.clone()))?;
             }
@@ -149,7 +150,7 @@ async fn load_and_collect_includes(
 ) -> buck2_error::Result<Vec<ImportPath>> {
     let parent = path
         .parent()
-        .ok_or_else(|| anyhow::anyhow!(AuditIncludesError::InvalidPath(path.clone())))?;
+        .ok_or_else(|| AuditIncludesError::InvalidPath(path.clone()))?;
     let package = PackageLabel::from_cell_path(parent);
     let load_result = ctx.get_interpreter_results(package).await?;
 
@@ -160,14 +161,14 @@ async fn load_and_collect_includes(
             .file_name()
             .expect("checked that this has a parent above")
     {
-        return Err(anyhow::anyhow!(AuditIncludesError::WrongBuildfilePath(
+        return Err(AuditIncludesError::WrongBuildfilePath(
             path.clone(),
             buildfile_name.to_owned(),
-        ))
+        )
         .into());
     }
 
-    Ok(get_transitive_includes(ctx, &load_result).await?)
+    get_transitive_includes(ctx, &load_result).await
 }
 
 fn resolve_path(
@@ -175,7 +176,7 @@ fn resolve_path(
     fs: &ProjectRoot,
     current_cell_abs_path: &AbsNormPath,
     path: &str,
-) -> anyhow::Result<CellPath> {
+) -> buck2_error::Result<CellPath> {
     // To match buck1, if the path is absolute we use it as-is, but if not it is treated
     // as relative to the working dir cell root (not the working dir).
     // The easiest way to consistently handle non-canonical paths
@@ -197,8 +198,8 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let cells = ctx.get_cell_resolver().await?;
                 let cwd = server_ctx.working_dir();
@@ -227,7 +228,7 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
 
                 let results: Vec<(_, buck2_error::Result<Vec<_>>)> = futures.collect().await;
                 // This is expected to not return any errors, and so we're not careful about not propagating it.
-                let to_absolute_path = move |include: ImportPath| -> anyhow::Result<_> {
+                let to_absolute_path = move |include: ImportPath| -> buck2_error::Result<_> {
                     let include = include.path();
                     let cell = cells.get(include.cell())?;
                     let path = cell.path().join(include.path());
@@ -235,7 +236,7 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
                 };
                 let absolutize_paths =
                     |paths: Vec<ImportPath>| -> buck2_error::Result<Vec<AbsNormPathBuf>> {
-                        Ok(paths.into_try_map(&to_absolute_path)?)
+                        paths.into_try_map(&to_absolute_path)
                     };
                 let results: Vec<(String, buck2_error::Result<Vec<AbsNormPathBuf>>)> = results
                     .into_map(|(path, includes)| (path, includes.and_then(absolutize_paths)));
@@ -297,6 +298,6 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
 
                 Ok(())
             })
-            .await
+            .await?)
     }
 }

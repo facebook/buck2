@@ -39,10 +39,10 @@ use crate::eval::compiler::expr::ExprLogicalBinOp;
 use crate::eval::compiler::expr::MaybeNot;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
-use crate::values::layout::value_not_special::FrozenValueNotSpecial;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::ValueLike;
+use crate::values::layout::value_not_special::FrozenValueNotSpecial;
 
 /// Try extract consecutive definitely initialized locals from expressions.
 fn try_slot_range<'a>(
@@ -234,25 +234,35 @@ impl IrSpanned<ExprCompiled> {
     ) {
         if xs.is_empty() {
             bc.write_instr::<InstrDictNew>(span, target);
-        } else if let Some(d) = Self::try_dict_of_consts(xs) {
-            bc.write_instr::<InstrDictOfConsts>(span, (d, target));
-        } else if let Some(keys) = Self::try_dict_const_keys(xs) {
-            assert_eq!(keys.len(), xs.len());
-            write_exprs(xs.iter().map(|(_, v)| v), bc, |values, bc| {
-                assert_eq!(values.len() as usize, keys.len());
-                bc.write_instr::<InstrDictConstKeys>(span, (keys, values.to_range_from(), target));
-            });
         } else {
-            let key_spans = xs.map(|(k, _v)| k.span);
-            write_exprs(xs.iter().flat_map(|(k, v)| [k, v]), bc, |kvs, bc| {
-                bc.write_instr_explicit::<InstrDictNPop>(
-                    BcInstrSlowArg {
-                        span,
-                        spans: key_spans,
-                    },
-                    (kvs, target),
-                );
-            });
+            match Self::try_dict_of_consts(xs) {
+                Some(d) => {
+                    bc.write_instr::<InstrDictOfConsts>(span, (d, target));
+                }
+                _ => {
+                    if let Some(keys) = Self::try_dict_const_keys(xs) {
+                        assert_eq!(keys.len(), xs.len());
+                        write_exprs(xs.iter().map(|(_, v)| v), bc, |values, bc| {
+                            assert_eq!(values.len() as usize, keys.len());
+                            bc.write_instr::<InstrDictConstKeys>(
+                                span,
+                                (keys, values.to_range_from(), target),
+                            );
+                        });
+                    } else {
+                        let key_spans = xs.map(|(k, _v)| k.span);
+                        write_exprs(xs.iter().flat_map(|(k, v)| [k, v]), bc, |kvs, bc| {
+                            bc.write_instr_explicit::<InstrDictNPop>(
+                                BcInstrSlowArg {
+                                    span,
+                                    spans: key_spans,
+                                },
+                                (kvs, target),
+                            );
+                        });
+                    }
+                }
+            }
         }
     }
 
@@ -322,7 +332,7 @@ impl IrSpanned<ExprCompiled> {
                     bc.write_instr::<InstrTupleNPop>(span, (xs, target));
                 });
             }
-            ExprCompiled::List(ref xs) => {
+            ExprCompiled::List(xs) => {
                 if xs.is_empty() {
                     bc.write_instr::<InstrListNew>(span, target);
                 } else if xs.iter().all(|x| x.as_value().is_some()) {
@@ -334,8 +344,8 @@ impl IrSpanned<ExprCompiled> {
                     });
                 }
             }
-            ExprCompiled::Dict(ref xs) => Self::write_dict(span, xs, target, bc),
-            ExprCompiled::Compr(ref compr) => compr.write_bc(span, target, bc),
+            ExprCompiled::Dict(xs) => Self::write_dict(span, xs, target, bc),
+            ExprCompiled::Compr(compr) => compr.write_bc(span, target, bc),
             ExprCompiled::Slice(l_start_stop_step) => {
                 let (l, start, stop, step) = &**l_start_stop_step;
                 l.write_bc_cb(bc, |l, bc| {
@@ -445,8 +455,8 @@ impl IrSpanned<ExprCompiled> {
                     bc.write_instr::<InstrArrayIndex2>(span, (a, i0, i1, target))
                 });
             }
-            ExprCompiled::Call(ref call) => call.write_bc(target, bc),
-            ExprCompiled::Def(ref def) => def.write_bc(span, target, bc),
+            ExprCompiled::Call(call) => call.write_bc(target, bc),
+            ExprCompiled::Def(def) => def.write_bc(span, target, bc),
         }
     }
 

@@ -7,11 +7,12 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_error::BuckErrorContext;
 
 use crate::commands::rage::thread_dump::thread_dump_command;
 
@@ -20,7 +21,7 @@ use crate::commands::rage::thread_dump::thread_dump_command;
 pub struct ThreadDumpCommand {}
 
 impl ThreadDumpCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let paths = ctx.paths()?;
         let daemon_dir = paths.daemon_dir()?;
         let Ok(info) = BuckdProcessInfo::load(&daemon_dir) else {
@@ -31,14 +32,14 @@ impl ThreadDumpCommand {
         ctx.with_runtime(|_| async move {
             let status = thread_dump_command(&info)?
                 .spawn()
-                .context("Could not run LLDB to grab a thread-dump")?
+                .buck_error_context("Could not run LLDB to grab a thread-dump")?
                 .wait()
                 .await?;
             if status.success() {
-                anyhow::Ok(ExitResult::success())
+                buck2_error::Ok(ExitResult::success())
             } else {
                 // We don't capture stderr, so lldb should have printed an error
-                anyhow::Ok(ExitResult::status(ExitCode::InfraError))
+                buck2_error::Ok(ExitResult::status(ExitCode::InfraError))
             }
         })?
     }

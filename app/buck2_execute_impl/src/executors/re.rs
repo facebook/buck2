@@ -12,8 +12,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
-use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -33,13 +33,16 @@ use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
+use buck2_execute::execute::result::CommandCancellationReason;
 use buck2_execute::execute::result::CommandExecutionErrorType;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
+use buck2_execute::re::client::CancellationReason;
 use buck2_execute::re::client::ExecuteResponseOrCancelled;
 use buck2_execute::re::error::RemoteExecutionError;
+use buck2_execute::re::error::get_re_error_tag;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
 use buck2_futures::cancellation::CancellationContext;
@@ -51,14 +54,15 @@ use remote_execution::ExecuteResponse;
 use remote_execution::TCode;
 use tracing::info;
 
-use crate::re::download::download_action_results;
 use crate::re::download::DownloadResult;
+use crate::re::download::download_action_results;
 use crate::re::paranoid_download::ParanoidDownloader;
 use crate::storage_resource_exhausted::is_storage_resource_exhausted;
 
 #[derive(Debug, buck2_error::Error)]
 pub enum RemoteExecutorError {
     #[error("Trying to execute a `local_only = True` action on remote executor")]
+    #[buck2(input)]
     LocalOnlyAction,
 }
 
@@ -67,7 +71,6 @@ pub struct ReExecutor {
     pub project_fs: ProjectRoot,
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
-    pub re_use_case: RemoteExecutorUseCase,
     pub re_action_key: Option<String>,
     pub knobs: ExecutorGlobalKnobs,
     pub skip_cache_read: bool,
@@ -76,6 +79,7 @@ pub struct ReExecutor {
     pub re_resource_units: Option<i64>,
     pub paranoid: Option<ParanoidDownloader>,
     pub materialize_failed_inputs: bool,
+    pub materialize_failed_outputs: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
 }
 
@@ -98,7 +102,6 @@ impl ReExecutor {
                     blobs,
                     ProjectRelativePath::empty(),
                     paths.input_directory(),
-                    self.re_use_case,
                     Some(identity),
                     digest_config,
                 )
@@ -120,10 +123,11 @@ impl ReExecutor {
         match upload_response {
             Ok(()) => {}
             Err(e) => {
+                let e: buck2_error::Error = e.into();
                 let is_storage_resource_exhausted = e
-                    .downcast_ref::<RemoteExecutionError>()
-                    .map_or(false, |re_client_error| {
-                        is_storage_resource_exhausted(re_client_error)
+                    .find_typed_context::<RemoteExecutionError>()
+                    .is_some_and(|re_client_error| {
+                        is_storage_resource_exhausted(re_client_error.as_ref())
                     });
                 let error_type = if is_storage_resource_exhausted {
                     CommandExecutionErrorType::StorageResourceExhausted
@@ -150,6 +154,7 @@ impl ReExecutor {
         digest_config: DigestConfig,
         platform: &RE::Platform,
         dependencies: impl IntoIterator<Item = &'a RemoteExecutorDependency>,
+        meta_internal_extra_params: &MetaInternalExtraParams,
     ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponse)> {
         info!(
             "RE command line:\n```\n$ {}\n```\n for action `{}`",
@@ -163,7 +168,6 @@ impl ReExecutor {
                 action_digest.dupe(),
                 platform,
                 dependencies,
-                self.re_use_case,
                 &identity,
                 &mut manager,
                 self.skip_cache_read,
@@ -171,27 +175,38 @@ impl ReExecutor {
                 self.re_max_queue_time_ms.map(Duration::from_millis),
                 self.re_resource_units,
                 &self.knobs,
+                meta_internal_extra_params,
             )
             .await;
 
         let response = match execute_response {
             Ok(ExecuteResponseOrCancelled::Response(result)) => result,
-            Ok(ExecuteResponseOrCancelled::Cancelled) => {
-                return ControlFlow::Break(manager.cancel());
+            Ok(ExecuteResponseOrCancelled::Cancelled(cancelled)) => {
+                let reason = cancelled.reason.map(|reason| match reason {
+                    CancellationReason::NotSpecified => CommandCancellationReason::NotSpecified,
+                    CancellationReason::ReQueueTimeout => CommandCancellationReason::ReQueueTimeout,
+                });
+                return ControlFlow::Break(manager.cancel(reason));
             }
             Err(e) => return ControlFlow::Break(manager.error("remote_call_error", e)),
         };
 
-        let remote_details = RemoteCommandExecutionDetails {
-            action_digest: action_digest.dupe(),
-            session_id: self.re_client.get_session_id().await.ok(),
-            use_case: self.re_use_case,
-            platform: platform.clone(),
-            remote_dep_file_key: None,
-        };
+        let remote_details = RemoteCommandExecutionDetails::new(
+            action_digest.dupe(),
+            None,
+            self.re_client.get_session_id().await.ok(),
+            self.re_client.use_case,
+            &platform,
+        );
 
         let execution_kind = response.execution_kind(remote_details);
         let manager = manager.with_execution_kind(execution_kind.clone());
+        let additional_message = if response.status.message.is_empty() {
+            None
+        } else {
+            Some(response.status.message.clone())
+        };
+
         if response.status.code != TCode::OK {
             let res = if let Some(out) = as_missing_outputs_error(&response.status) {
                 // TODO: Add a dedicated report variant for this.
@@ -207,6 +222,7 @@ impl ReExecutor {
                     // We also don't get this output so don't put trash in here.
                     None,
                     Default::default(),
+                    additional_message,
                 )
             } else if is_timeout_error(&response.status) && request.timeout().is_some() {
                 manager.timeout(
@@ -214,12 +230,9 @@ impl ReExecutor {
                     // Checked above: we fallthrough to the error path if we didn't set a timeout
                     // and yet received one.
                     request.timeout().unwrap(),
-                    CommandStdStreams::Remote(response.std_streams(
-                        &self.re_client,
-                        self.re_use_case,
-                        digest_config,
-                    )),
+                    CommandStdStreams::Remote(response.std_streams(&self.re_client, digest_config)),
                     response.timing(),
+                    additional_message,
                 )
             } else {
                 let error_type = if is_storage_resource_exhausted(&response.status) {
@@ -246,7 +259,8 @@ impl ReExecutor {
             if execution_time > timeout {
                 let res = soft_error!(
                     "re_timeout_exceeded",
-                    anyhow::anyhow!(
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Tier0,
                         "Command {} exceeded its timeout (ran for {}s, timeout was {}s)",
                         &identity.action_key,
                         execution_time.as_secs(),
@@ -285,17 +299,18 @@ impl PreparedCommandExecutor for ReExecutor {
             digest_config,
         } = command;
 
-        let details = RemoteCommandExecutionDetails {
-            action_digest: command.prepared_action.digest(),
-            remote_dep_file_key: command.request.remote_dep_file_key,
-            session_id: self.re_client.get_session_id().await.ok(),
-            use_case: self.re_use_case,
-            platform: platform.clone(),
-        };
+        let details = RemoteCommandExecutionDetails::new(
+            command.prepared_action.digest(),
+            command.request.remote_dep_file_key,
+            self.re_client.get_session_id().await.ok(),
+            self.re_client.use_case,
+            &platform,
+        );
         let manager = manager.with_execution_kind(CommandExecutionKind::Remote {
             details: details.clone(),
             queue_time: Duration::ZERO,
             materialized_inputs_for_failed: None,
+            materialized_outputs_for_failed_actions: None,
         });
 
         if command.request.executor_preference().requires_local() {
@@ -329,15 +344,21 @@ impl PreparedCommandExecutor for ReExecutor {
                 self.dependencies
                     .iter()
                     .chain(remote_execution_dependencies.iter()),
+                &command.request.meta_internal_extra_params(),
             )
             .await?;
 
         let exit_code = response.action_result.exit_code;
+        let additional_message = if response.status.message.is_empty() {
+            None
+        } else {
+            Some(response.status.message.clone())
+        };
+
         let res = download_action_results(
             request,
             &*self.materializer,
             &self.re_client,
-            self.re_use_case,
             *digest_config,
             manager,
             &identity,
@@ -354,6 +375,8 @@ impl PreparedCommandExecutor for ReExecutor {
             exit_code,
             &self.artifact_fs,
             self.materialize_failed_inputs,
+            self.materialize_failed_outputs,
+            additional_message,
         )
         .boxed()
         .await;
@@ -371,11 +394,12 @@ impl PreparedCommandExecutor for ReExecutor {
 #[derive(buck2_error::Error, Debug)]
 #[error(
     "action_digest={}, re_code={}, re_message={}",
-    .action_digest,
-    .inner.code,
-    .inner.message
+    action_digest,
+    inner.code,
+    inner.message
 )]
-pub struct ReErrorWrapper {
+#[buck2(tier0, tag = get_re_error_tag(&inner.code))]
+struct ReErrorWrapper {
     action_digest: ActionDigest,
     inner: remote_execution::TStatus,
 }

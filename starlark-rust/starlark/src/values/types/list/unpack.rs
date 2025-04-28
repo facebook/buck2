@@ -19,10 +19,11 @@ use std::slice;
 use std::vec;
 
 use crate::typing::Ty;
-use crate::values::list::ListRef;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::list::ListRef;
+use crate::values::list::ListType;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// Unpack a value of type `list<T>` into a vec.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -38,10 +39,10 @@ impl<T> Default for UnpackList<T> {
 }
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for UnpackList<T> {
-    type Canonical = <Vec<T> as StarlarkTypeRepr>::Canonical;
+    type Canonical = <ListType<T> as StarlarkTypeRepr>::Canonical;
 
     fn starlark_type_repr() -> Ty {
-        Vec::<T>::starlark_type_repr()
+        ListType::<T>::starlark_type_repr()
     }
 }
 
@@ -93,9 +94,9 @@ impl<'a, T> IntoIterator for &'a mut UnpackList<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::values::list::UnpackList;
     use crate::values::Heap;
     use crate::values::UnpackValue;
+    use crate::values::list::UnpackList;
 
     #[test]
     fn test_unpack() {

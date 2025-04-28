@@ -16,7 +16,7 @@ use dupe::Dupe;
 use indoc::indoc;
 
 #[test]
-fn test_with_sub_target() -> anyhow::Result<()> {
+fn test_with_sub_target() -> buck2_error::Result<()> {
     let mut tester = Tester::new().unwrap();
     tester.additional_globals(|globals| {
         let target = TargetLabel::testing_parse("cell//pkg:target");

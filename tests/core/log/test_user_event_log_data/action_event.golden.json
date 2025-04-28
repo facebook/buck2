@@ -1,0 +1,4 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{"ActionExecutionEvent": {"kind": "Write", "name": {"category": "write", "identifier": "my_output"}, "duration_millis": "<NUMBER>", "output_size": <NUMBER>, "input_materialization_duration_millis": "<NUMBER>", "execution_kind": "Simple", "owner": "root//test.bxl:action"}, "epoch_millis": <NUMBER>}
+{"BxlEnsureArtifactsEvent": {"duration_millis": "<NUMBER>"}, "epoch_millis": <NUMBER>}

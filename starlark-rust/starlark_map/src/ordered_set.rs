@@ -22,10 +22,10 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 
-use crate::small_set;
-use crate::small_set::SmallSet;
 use crate::Equivalent;
 use crate::Hashed;
+use crate::small_set;
+use crate::small_set::SmallSet;
 
 /// `SmallSet` wrapper, but equality and hash of self depends on iteration order.
 #[derive(Debug, Clone, Allocative)]

@@ -24,11 +24,8 @@ use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::dict::AllocDict;
-use starlark::values::dict::DictRef;
-use starlark::values::dict::UnpackDictEntries;
-use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Heap;
 use starlark::values::Trace;
 use starlark::values::UnpackAndDiscard;
@@ -37,7 +34,12 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::dict::AllocDict;
+use starlark::values::dict::DictRef;
+use starlark::values::dict::DictType;
+use starlark::values::dict::UnpackDictEntries;
 
+use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::ConstraintSettingInfo;
 use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::ConstraintValueInfo;
 use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::FrozenConstraintValueInfo;
@@ -85,7 +87,7 @@ impl<'v, V: ValueLike<'v>> ConfigurationInfoGen<V> {
         }
     }
 
-    pub fn to_configuration_data(&self) -> anyhow::Result<ConfigurationDataData> {
+    pub fn to_configuration_data(&self) -> buck2_error::Result<ConfigurationDataData> {
         let ConfigSettingData {
             constraints,
             buckconfigs,
@@ -126,6 +128,7 @@ impl<'v> ConfigurationInfo<'v> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ConfigurationInfoError {
     #[error("key `{0}` in constraints dict does not match constraint value `{1}`")]
     ConstraintsKeyValueMismatch(String, String),
@@ -146,7 +149,7 @@ fn configuration_info_creator(globals: &mut GlobalsBuilder) {
             UnpackDictEntries<&'v str, UnpackAndDiscard<&'v str>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ConfigurationInfo<'v>> {
+    ) -> starlark::Result<ConfigurationInfo<'v>> {
         let mut new_constraints = SmallMap::new();
         for (constraint_setting, constraint_value) in constraints.entries {
             let constraint_setting_hashed = constraint_setting
@@ -156,9 +159,11 @@ fn configuration_info_creator(globals: &mut GlobalsBuilder) {
             let constraint_setting_from_constraint_value =
                 constraint_value.typed.setting().typed.label();
             if *constraint_setting.typed != *constraint_setting_from_constraint_value {
-                return Err(ConfigurationInfoError::ConstraintsKeyValueMismatch(
-                    constraint_setting.value.to_string(),
-                    constraint_value.to_string(),
+                return Err(buck2_error::Error::from(
+                    ConfigurationInfoError::ConstraintsKeyValueMismatch(
+                        constraint_setting.value.to_string(),
+                        constraint_value.to_string(),
+                    ),
                 )
                 .into());
             }

@@ -1,0 +1,45 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _impl_instant_event(ctx):
+    metadata = {
+        "bool_value": True,
+    }
+    ctx.instant_event(id = "foo", metadata = metadata)
+
+    metadata = {
+        "bool_value": False,
+    }
+    ctx.instant_event(id = "bar", metadata = metadata)
+
+    my_dict = {"foo": "bar"}
+    metadata = {
+        "dict_value": my_dict,
+    }
+    ctx.instant_event(id = "metadata_with_dict", metadata = metadata)
+
+    my_list = ["a", "b", "c"]
+    metadata = {
+        "list_value": my_list,
+    }
+    ctx.instant_event(id = "metadata_with_list", metadata = metadata)
+
+instant_event = bxl_main(
+    impl = _impl_instant_event,
+    cli_args = {},
+)
+
+def _impl_action(ctx):
+    actions = ctx.bxl_actions().actions
+    output = actions.write("my_output", "my_content")
+    ensured = ctx.output.ensure(output)
+    ctx.output.print(ensured)
+
+action = bxl_main(
+    impl = _impl_action,
+    cli_args = {},
+)

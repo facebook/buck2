@@ -11,14 +11,15 @@
 %% each suite execution.
 
 -module(epmd_manager).
+-eqwalizer(ignore).
 
 -include_lib("common/include/buck_ct_records.hrl").
 
 %% UI methods
--export([start_link/1, get_epmd_out_path/1]).
+-export([start_link/1, get_epmd_out_path/1, get_port/0]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, handle_continue/2]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 
 -behaviour(gen_server).
 
@@ -26,33 +27,34 @@
 %% and set up the env variable ERL_EPMD_PORT to the port this daemon is working.
 -spec start_link(file:filename_all()) -> {ok, reference()} | {error, term()}.
 start_link(#test_env{} = TestEnv) ->
-    gen_server:start_link(?MODULE, [TestEnv], [debugs, [trace, log]]).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [TestEnv], [debugs, [trace, log]]).
+
+-spec get_port() -> inet:port_number().
+get_port() ->
+    gen_server:call(?MODULE, get_port).
 
 %% ---------------- gen_server callbacks---------------
 
-init([TestEnv]) ->
+init([#test_env{output_dir = OutputDir}]) ->
     process_flag(trap_exit, true),
-    {ok, #{}, {continue, {start_epmd, TestEnv}}}.
+    GlobalEpmdPort = application:get_env(test_exec, global_epmd_port),
 
-handle_continue({start_epmd, #test_env{output_dir = OutputDir} = TestEnv}, _State) ->
-    case application:get_env(text_exec, global_epmd_port) of
+    case GlobalEpmdPort of
         undefined ->
             EpmdOutPath = get_epmd_out_path(OutputDir),
             case start_epmd(EpmdOutPath) of
                 {ok, Port, PortEpmd, LogHandle} ->
-                    {ok, _Pid} = test_exec_sup:start_ct_runner(TestEnv, Port),
-                    {noreply, #{epmd_port => PortEpmd, log_handle => LogHandle, global_epmd => false}};
+                    {ok, #{epmd_port => Port, epmd_erlang_port => PortEpmd, log_handle => LogHandle, global_epmd => false}};
                 Error ->
                     {stop, {epmd_start_failed, Error}, #{}}
             end;
         {ok, Port} ->
-            {ok, _Pid} = test_exec_sup:start_ct_runner(TestEnv, Port),
-            {noreply, #{epmd_port => Port, log_handle => undefined, global_epmd => true}}
+            {ok, #{epmd_port => Port, log_handle => undefined, global_epmd => true}}
     end.
 
 handle_cast(_Request, State) -> {ok, State}.
 
-handle_call(_Request, _From, State) -> {reply, ok, State}.
+handle_call(get_port, _From, State = #{epmd_port := Port}) -> {reply, Port, State}.
 
 handle_info({PortEpmd, {exit_status, ExitStatus}}, #{epmd_port := PortEpmd} = State) ->
     {stop, {epmd_crashed, ExitStatus}, State};
@@ -60,13 +62,18 @@ handle_info({PortEpmd, closed}, #{epmd_port := PortEpmd} = State) ->
     {stop, epmd_port_closed, State};
 handle_info({'EXIT', PortEpmd, Reason}, #{epmd_port := PortEpmd} = State) ->
     {stop, {epmd_exit, Reason}, State};
-handle_info({PortEpmd, {data, Data}}, #{epmd_port := PortEpmd, log_handle := LogHandle} = State) ->
-    log_input_data(Data, LogHandle),
+handle_info({PortEpmd, {data, TaggedData}}, #{epmd_port := PortEpmd, log_handle := LogHandle} = State) ->
+    UntaggedData =
+        case TaggedData of
+            {noeol, Data} -> Data;
+            {eol, Data} -> Data
+        end,
+    log_input_data(UntaggedData, LogHandle),
     {noreply, State};
 handle_info(_Info, State) ->
     {noreply, State}.
 
-terminate(_Reason, #{epmd_port := EpmdPort, global_epmd := false}) ->
+terminate(_Reason, #{epmd_erlang_port := EpmdPort, global_epmd := false}) ->
     test_exec:kill_process(EpmdPort);
 terminate(_Reason, _State) ->
     ok.
@@ -131,9 +138,9 @@ start_epmd_instance(Port, EpmdOutPath) ->
                 " "
             )
         },
-        [stderr_to_stdout, exit_status, use_stdio]
+        [stderr_to_stdout, exit_status, use_stdio, {line, 4096}]
     ),
-    case listen_loop(ProcessPort, LogHandle) of
+    case listen_loop(ProcessPort, LogHandle, []) of
         ok ->
             {ok, ProcessPort, LogHandle};
         Error ->
@@ -141,16 +148,23 @@ start_epmd_instance(Port, EpmdOutPath) ->
             Error
     end.
 
--spec listen_loop(port(), pid()) -> {failed, term()} | ok.
-listen_loop(ProcessPort, LogHandle) ->
+-spec listen_loop(port(), pid(), Acc :: [string()]) -> {failed, term()} | ok.
+listen_loop(ProcessPort, LogHandle, Acc) ->
     receive
         {ProcessPort, {exit_status, Exit}} ->
             {failed, {epmd_exit, Exit}};
-        {ProcessPort, {data, Data}} ->
+        {ProcessPort, {data, {noeol, Data}}} ->
             log_input_data(Data, LogHandle),
-            case string:find(Data, "entering the main select() loop") of
-                nomatch -> listen_loop(ProcessPort, LogHandle);
-                _ -> ok
+            listen_loop(ProcessPort, LogHandle, [Data | Acc]);
+        {ProcessPort, {data, {eol, Data}}} ->
+            log_input_data(Data, LogHandle),
+
+            FullLine = string:join([Data | lists:reverse(Acc)], ""),
+            case string:find(FullLine, "entering the main select() loop") of
+                nomatch ->
+                    listen_loop(ProcessPort, LogHandle, []);
+                _ ->
+                    ok
             end
     after 1000 ->
         test_exec:kill_process(ProcessPort),
@@ -166,7 +180,7 @@ get_log_handle(EpmdOutPath) ->
     {ok, LogHandle} = file:open(EpmdOutPath, [write]),
     LogHandle.
 
--spec log_input_data(binary(), pid()) -> ok.
+-spec log_input_data(string(), pid()) -> ok.
 log_input_data(Data, LogHandle) ->
     io:format(LogHandle, "~ts", [Data]).
 

@@ -10,23 +10,21 @@
 import React, {useContext} from 'react'
 import {DataContext} from './App'
 import {Target} from './Target'
-import {RouterContext, TARGET_TAB} from './Router'
-import {SearchBox} from './SearchBox'
+import {QueryKey, RouterContext} from './Router'
 
-export function TargetView(props: {view: string}) {
+export function TargetView(props: {view: QueryKey}) {
   const {allTargets, build} = useContext(DataContext)
   const {params} = useContext(RouterContext)
 
   const urlParams = new URLSearchParams(params)
   const targetLabel = urlParams.get(props.view) ?? null
-  const target = targetLabel == null ? null : build?.targets(allTargets[targetLabel])
+  if (build == null) {
+    return <p>Loading...</p>
+  }
+  const target = targetLabel == null ? null : build.targets(allTargets.get(targetLabel)!)
 
-  const tab = urlParams.get(TARGET_TAB)
+  const tab = urlParams.get(QueryKey.TargetTab)
 
-  return (
-    <>
-      <SearchBox />
-      {target == null ? <p>No target found</p> : <Target target={target} tab={tab} />}
-    </>
-  )
+  const view = target == null ? <p>No target found</p> : <Target target={target} tab={tab} />
+  return <div className="mx-4">{view}</div>
 }

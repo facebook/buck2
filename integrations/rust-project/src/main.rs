@@ -26,10 +26,10 @@ use clap::ArgAction;
 use clap::Parser;
 use clap::Subcommand;
 use serde::Deserialize;
-use tracing_subscriber::filter::LevelFilter;
-use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::Layer;
+use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::layer::SubscriberExt;
 
 use crate::cli::ProjectKind;
 use crate::json_project::Crate;
@@ -100,26 +100,22 @@ enum Command {
         #[clap(long)]
         check_cycles: bool,
 
-        /// Use paths relative to the project root in `rust-project.json`.
-        #[clap(long, hide = true)]
-        relative_paths: bool,
+        /// The name of the client invoking rust-project, such as 'vscode'.
+        #[clap(long)]
+        client: Option<String>,
 
         /// Optional argument specifying build mode.
         #[clap(short = 'm', long)]
         mode: Option<String>,
 
-        /// Write Scuba sample to stdout.
-        #[clap(long, hide = true)]
-        log_scuba_to_stdout: bool,
+        /// Include a `build` section for every crate, including dependencies. Otherwise, `build` is only included for crates in the workspace.
+        #[clap(long)]
+        include_all_buildfiles: bool,
     },
     /// `DevelopJson` is a more limited, stripped down [`Command::Develop`].
     ///
     /// This is meant to be called by rust-analyzer directly.
     DevelopJson {
-        /// Write Scuba sample to stdout instead.
-        #[clap(long, hide = true)]
-        log_scuba_to_stdout: bool,
-
         // FIXME XXX: remove this after everything in fbcode is migrated off
         // of buckconfig implicitly.
         #[cfg(fbcode_build)]
@@ -130,6 +126,10 @@ enum Command {
         #[clap(long, default_value = "rustc")]
         sysroot_mode: SysrootMode,
 
+        /// The name of the client invoking rust-project, such as 'vscode'.
+        #[clap(long)]
+        client: Option<String>,
+
         args: JsonArguments,
     },
     /// Build the saved file's owning target. This is meant to be used by IDEs to provide diagnostics on save.
@@ -137,13 +137,16 @@ enum Command {
         /// Optional argument specifying build mode.
         #[clap(short = 'm', long)]
         mode: Option<String>,
+
         #[clap(short = 'c', long, default_value = "true", action = ArgAction::Set)]
         use_clippy: bool,
+
+        /// The name of the client invoking rust-project, such as 'vscode'.
+        #[clap(long)]
+        client: Option<String>,
+
         /// The file saved by the user. `rust-project` will infer the owning target(s) of the saved file and build them.
         saved_file: PathBuf,
-        /// Write Scuba sample to stdout.
-        #[clap(long, hide = true)]
-        log_scuba_to_stdout: bool,
     },
 }
 
@@ -196,7 +199,12 @@ impl FromStr for JsonArguments {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_json::from_str(s).map_err(|e| anyhow::anyhow!("Error parsing my struct: {}", e))
+        serde_json::from_str(s).map_err(|_| {
+            anyhow::anyhow!(
+                "Expected a JSON object with a key of `path`, `buildfile`, or `label`. Got: {}",
+                s
+            )
+        })
     }
 }
 
@@ -228,19 +236,15 @@ fn main() -> Result<(), anyhow::Error> {
         .with_writer(io::stderr);
 
     match command {
-        c @ Command::Develop {
-            log_scuba_to_stdout,
-            ..
-        } => {
-            let subscriber = tracing_subscriber::registry()
-                .with(fmt.with_filter(filter))
-                .with(scuba::ScubaLayer::new(log_scuba_to_stdout));
+        c @ Command::Develop { .. } => {
+            let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
             tracing::subscriber::set_global_default(subscriber)?;
 
             let (develop, input, out) = cli::Develop::from_command(c);
-            match develop.run(input, out) {
+            match develop.run(input.clone(), out) {
                 Ok(_) => Ok(()),
                 Err(e) => {
+                    crate::scuba::log_develop_error(&e, input, false);
                     tracing::error!(
                         error = <anyhow::Error as AsRef<
                             dyn std::error::Error + Send + Sync + 'static,
@@ -252,20 +256,16 @@ fn main() -> Result<(), anyhow::Error> {
                 }
             }
         }
-        c @ Command::DevelopJson {
-            log_scuba_to_stdout,
-            ..
-        } => {
+        c @ Command::DevelopJson { .. } => {
             let subscriber = tracing_subscriber::registry()
-                .with(fmt.json().with_filter(LevelFilter::INFO))
-                .with(progress::ProgressLayer::new(std::io::stdout).with_filter(filter))
-                .with(scuba::ScubaLayer::new(log_scuba_to_stdout));
+                .with(progress::ProgressLayer::new(std::io::stdout).with_filter(filter));
             tracing::subscriber::set_global_default(subscriber)?;
 
             let (develop, input, out) = cli::Develop::from_command(c);
-            match develop.run(input, out) {
+            match develop.run(input.clone(), out) {
                 Ok(_) => Ok(()),
                 Err(e) => {
+                    crate::scuba::log_develop_error(&e, input, true);
                     tracing::error!(
                         error = <anyhow::Error as AsRef<
                             dyn std::error::Error + Send + Sync + 'static,
@@ -287,13 +287,14 @@ fn main() -> Result<(), anyhow::Error> {
             mode,
             use_clippy,
             saved_file,
-            log_scuba_to_stdout,
+            ..
         } => {
-            let subscriber = tracing_subscriber::registry()
-                .with(fmt.with_filter(filter))
-                .with(scuba::ScubaLayer::new(log_scuba_to_stdout));
+            let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
             tracing::subscriber::set_global_default(subscriber)?;
-            cli::Check::new(mode, use_clippy, saved_file).run()
+
+            cli::Check::new(mode, use_clippy, saved_file.clone())
+                .run()
+                .inspect_err(|e| crate::scuba::log_check_error(&e, &saved_file, use_clippy))
         }
     }
 }
@@ -374,7 +375,7 @@ fn json_args_pass() {
         command: Some(Command::DevelopJson {
             args,
             sysroot_mode: SysrootMode::Rustc,
-            log_scuba_to_stdout: false,
+            client: None,
         }),
         version: false,
     };
@@ -391,7 +392,7 @@ fn json_args_pass() {
         command: Some(Command::DevelopJson {
             args,
             sysroot_mode: SysrootMode::Rustc,
-            log_scuba_to_stdout: false,
+            client: None,
         }),
         version: false,
     };
@@ -408,7 +409,7 @@ fn json_args_pass() {
         command: Some(Command::DevelopJson {
             args,
             sysroot_mode: SysrootMode::Rustc,
-            log_scuba_to_stdout: false,
+            client: None,
         }),
         version: false,
     };

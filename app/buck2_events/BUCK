@@ -1,5 +1,4 @@
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
 
@@ -24,7 +23,6 @@ rust_library(
     ],
     test_deps = ["fbsource//third-party/rust:tokio"],
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:crossbeam-channel",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:futures",
@@ -32,9 +30,9 @@ rust_library(
         "fbsource//third-party/rust:is_proc_translated",
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:pin-project",
-        # @oss-disable: "fbsource//third-party/rust:prost", 
+        # @oss-disable[end= ]: "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:serde",
-        # @oss-disable: "fbsource//third-party/rust:serde_json", 
+        # @oss-disable[end= ]: "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:smallvec",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:uuid",
@@ -48,8 +46,11 @@ rust_library(
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",
-        # @oss-disable: "//buck2/shed/scribe_client:scribe_client", 
+        # @oss-disable[end= ]: "//buck2/shed/scribe_client:scribe_client",
+        # @oss-disable[end= ]: "//common/rust/devserver_fingerprint/devserver_fingerprint:devserver_fingerprint",
         "//common/rust/shed/fbinit:fbinit",
-        # @oss-disable: "//common/rust/user:user", 
+        # @oss-disable[end= ]: "//common/rust/user:user",
+        # @oss-disable[end= ]: "//devx_www/cross_env_session_id:cross_env_session_id",
+        # @oss-disable[end= ]: "//devx_www/devx_session_id_rust:devx_session_id",
     ],
 )

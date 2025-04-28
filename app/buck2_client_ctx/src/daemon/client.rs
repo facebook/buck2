@@ -7,12 +7,11 @@
  * of this source tree.
  */
 
-use std::fs::create_dir_all;
 use std::fs::File;
+use std::fs::create_dir_all;
 use std::mem;
 use std::time::Duration;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::daemon_api_client::*;
 use buck2_cli_proto::new_generic::NewGenericRequest;
@@ -21,19 +20,20 @@ use buck2_cli_proto::*;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_data::error::ErrorTag;
+use buck2_error::BuckErrorContext;
 use buck2_event_log::stream_value::StreamValue;
-use fs4::FileExt;
-use futures::future::BoxFuture;
-use futures::pin_mut;
-use futures::stream;
 use futures::Stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
-use tonic::codegen::InterceptedService;
-use tonic::transport::Channel;
+use futures::future::BoxFuture;
+use futures::pin_mut;
+use futures::stream;
 use tonic::Request;
 use tonic::Status;
+use tonic::codegen::InterceptedService;
+use tonic::transport::Channel;
 
 use crate::command_outcome::CommandOutcome;
 use crate::console_interaction_stream::ConsoleInteractionStream;
@@ -42,7 +42,6 @@ use crate::events_ctx::EventsCtx;
 use crate::events_ctx::PartialResultCtx;
 use crate::events_ctx::PartialResultHandler;
 use crate::file_tailers::tailers::FileTailers;
-use crate::subscribers::observer::ErrorObserver;
 
 pub mod connect;
 pub mod kill;
@@ -50,6 +49,7 @@ pub mod kill;
 use crate::startup_deadline::StartupDeadline;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 enum LifecycleError {
     #[error("Missing `{}` file in `{}` directory", BuckdLifecycleLock::BUCKD_LIFECYCLE, _0.display())]
     MissingLifecycle(AbsNormPathBuf),
@@ -57,12 +57,12 @@ enum LifecycleError {
 
 /// We need to make sure that all calls to the daemon in buckd flush the tailers after completion.
 /// The connector wraps all buckd calls with flushing.
-pub struct BuckdClientConnector<'a> {
-    client: BuckdClient<'a>,
+pub struct BuckdClientConnector {
+    client: BuckdClient,
 }
 
-impl<'a> BuckdClientConnector<'a> {
-    pub fn with_flushing(&mut self) -> FlushingBuckdClient<'_, 'a> {
+impl BuckdClientConnector {
+    pub fn with_flushing(&mut self) -> FlushingBuckdClient {
         FlushingBuckdClient {
             inner: &mut self.client,
         }
@@ -70,10 +70,6 @@ impl<'a> BuckdClientConnector<'a> {
 
     pub fn daemon_constraints(&self) -> &buck2_cli_proto::DaemonConstraints {
         &self.client.constraints
-    }
-
-    pub fn error_observers(&self) -> impl Iterator<Item = &dyn ErrorObserver> {
-        self.client.events_ctx.subscribers.error_observers()
     }
 }
 
@@ -84,11 +80,12 @@ pub struct BuckdLifecycleLock {
 
 impl BuckdLifecycleLock {
     const BUCKD_LIFECYCLE: &'static str = "buckd.lifecycle";
+    const BUCKD_PREV_DIR: &'static str = "prev";
 
     pub async fn lock_with_timeout(
         daemon_dir: DaemonDir,
         deadline: StartupDeadline,
-    ) -> anyhow::Result<BuckdLifecycleLock> {
+    ) -> buck2_error::Result<BuckdLifecycleLock> {
         create_dir_all(&daemon_dir.path)?;
         let lifecycle_path = daemon_dir.path.as_path().join(Self::BUCKD_LIFECYCLE);
         let file = File::create(lifecycle_path)?;
@@ -98,7 +95,7 @@ impl BuckdLifecycleLock {
                 "locking buckd lifecycle",
                 Duration::from_millis(5),
                 Duration::from_millis(100),
-                || async { Ok(fileref.try_lock_exclusive()?) },
+                || async { Ok(fs4::FileExt::try_lock_exclusive(fileref)?) },
             )
             .await?;
 
@@ -109,7 +106,19 @@ impl BuckdLifecycleLock {
     }
 
     /// Remove everything except `buckd.lifecycle` file which is the lock file.
-    pub fn clean_daemon_dir(&self) -> anyhow::Result<()> {
+    /// If `keep_prev` is true, backup previous daemon logs to `prev` dir for debugging.
+    pub fn clean_daemon_dir(&self, keep_prev: bool) -> buck2_error::Result<()> {
+        let prev_daemon_dir = self
+            .daemon_dir
+            .path
+            .join(FileName::new(Self::BUCKD_PREV_DIR).unwrap());
+        if keep_prev {
+            if prev_daemon_dir.is_dir() {
+                fs_util::remove_dir_all(&prev_daemon_dir)?;
+            }
+            fs_util::create_dir_all(&prev_daemon_dir)?;
+        }
+
         let mut seen_lifecycle = false;
         for p in fs_util::read_dir(&self.daemon_dir.path)? {
             let p = p?;
@@ -117,7 +126,15 @@ impl BuckdLifecycleLock {
                 seen_lifecycle = true;
                 continue;
             }
-            fs_util::remove_all(p.path())?;
+            if keep_prev {
+                if p.file_name() != Self::BUCKD_PREV_DIR {
+                    let file_name = p.file_name();
+                    let file_name = FileName::from_os_string(&file_name)?;
+                    fs_util::rename(p.path(), prev_daemon_dir.join(file_name))?;
+                }
+            } else {
+                fs_util::remove_all(p.path())?;
+            }
         }
         if !seen_lifecycle {
             // Self-check.
@@ -133,8 +150,7 @@ impl BuckdLifecycleLock {
 
 impl Drop for BuckdLifecycleLock {
     fn drop(&mut self) {
-        self.lock_file
-            .unlock()
+        fs4::FileExt::unlock(&self.lock_file)
             .expect("Unexpected failure to unlock buckd.lifecycle file.")
     }
 }
@@ -143,16 +159,16 @@ impl Drop for BuckdLifecycleLock {
 /// some of the complexity/verbosity of making calls with that. For example, the user
 /// doesn't need to deal with tonic::Response/Request and this may provide functions
 /// that take more primitive types than the protobuf structure itself.
-pub struct BuckdClient<'a> {
+pub struct BuckdClient {
     client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
     constraints: buck2_cli_proto::DaemonConstraints,
     daemon_dir: DaemonDir,
     // TODO(brasselsprouts): events_ctx should own tailers
     tailers: Option<FileTailers>,
-    pub(crate) events_ctx: EventsCtx<'a>,
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum GrpcToStreamError {
     #[error("buck daemon returned an empty CommandProgress")]
     EmptyCommandProgress,
@@ -161,7 +177,7 @@ enum GrpcToStreamError {
 /// Convert tonic error to our error.
 ///
 /// This function **must** be used explicitly to convert the error, because we want a tag.
-pub(crate) fn tonic_status_to_error(status: tonic::Status) -> anyhow::Error {
+pub(crate) fn tonic_status_to_error(status: tonic::Status) -> buck2_error::Error {
     let mut tags = vec![ErrorTag::ClientGrpc];
     if status.code() == tonic::Code::ResourceExhausted {
         // The error looks like this:
@@ -177,14 +193,14 @@ pub(crate) fn tonic_status_to_error(status: tonic::Status) -> anyhow::Error {
             tags.push(ErrorTag::GrpcResponseMessageTooLarge);
         }
     }
-    buck2_error::Error::from(status).tag(tags).into()
+    buck2_error::Error::from(status).tag(tags)
 }
 
 /// Translates a tonic streaming response into a stream of StreamValues, the set of things that can flow across the gRPC
 /// event stream.
 fn grpc_to_stream(
-    response: anyhow::Result<tonic::Response<tonic::Streaming<MultiCommandProgress>>>,
-) -> impl Stream<Item = anyhow::Result<StreamValue>> {
+    response: buck2_error::Result<tonic::Response<tonic::Streaming<MultiCommandProgress>>>,
+) -> impl Stream<Item = buck2_error::Result<StreamValue>> {
     let stream = match response {
         Ok(response) => response.into_inner(),
         Err(e) => return futures::stream::once(futures::future::ready(Err(e))).left_stream(),
@@ -192,7 +208,7 @@ fn grpc_to_stream(
 
     let stream = stream
         .map_err(tonic_status_to_error)
-        .map_ok(|e| stream::iter(e.messages.into_iter().map(anyhow::Ok)))
+        .map_ok(|e| stream::iter(e.messages.into_iter().map(buck2_error::Ok)))
         .try_flatten();
 
     stream::unfold(stream, |mut stream| async {
@@ -215,8 +231,8 @@ fn grpc_to_stream(
     .right_stream()
 }
 
-impl<'a> BuckdClient<'a> {
-    fn open_tailers(&mut self) -> anyhow::Result<()> {
+impl BuckdClient {
+    fn open_tailers(&mut self) -> buck2_error::Result<()> {
         let tailers = FileTailers::new(&self.daemon_dir)?;
         self.tailers = Some(tailers);
 
@@ -229,9 +245,10 @@ impl<'a> BuckdClient<'a> {
         &mut self,
         command: Command,
         request: T,
+        events_ctx: &mut EventsCtx,
         partial_result_handler: &mut Handler,
         console_interaction: Option<ConsoleInteractionStream<'i>>,
-    ) -> anyhow::Result<CommandOutcome<Res>>
+    ) -> buck2_error::Result<CommandOutcome<Res>>
     where
         Command: for<'b> FnOnce(
             &'b mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
@@ -243,14 +260,12 @@ impl<'a> BuckdClient<'a> {
         Res: TryFrom<command_result::Result, Error = command_result::Result>,
         Handler: PartialResultHandler,
     {
-        let Self {
-            client, events_ctx, ..
-        } = self;
+        let Self { client, .. } = self;
 
         let response = command(client, Request::new(request))
             .await
             .map_err(tonic_status_to_error)
-            .context("Error dispatching request");
+            .buck_error_context("Error dispatching request");
         let stream = grpc_to_stream(response);
         pin_mut!(stream);
         events_ctx
@@ -263,47 +278,52 @@ impl<'a> BuckdClient<'a> {
             .await
     }
 
-    pub async fn status(&mut self, snapshot: bool) -> anyhow::Result<StatusResponse> {
-        let outcome = self
-            .events_ctx
+    pub async fn status(
+        &mut self,
+        events_ctx: &mut EventsCtx,
+        snapshot: bool,
+    ) -> buck2_error::Result<StatusResponse> {
+        let outcome = events_ctx
             // Safe to unwrap tailers here because they are instantiated prior to a command being called.
             .unpack_oneshot(mem::take(&mut self.tailers), {
                 self.client.status(Request::new(StatusRequest { snapshot }))
             })
             .await;
-        // TODO(nmj): We have a number of things that wish to use status() and return an anyhow::Result,
+        // TODO(nmj): We have a number of things that wish to use status() and return an buck2_error::Result,
         // for now we'll just turn a "CommandMessage" into a error, but that's really not what we
         // want long term.
         match outcome? {
             CommandOutcome::Success(r) => Ok(r),
-            CommandOutcome::Failure(_) => {
-                Err(anyhow::anyhow!("Unexpected failure message in status()"))
-            }
+            CommandOutcome::Failure(_) => Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::DaemonStatus,
+                "Unexpected failure message in status()"
+            )),
         }
     }
 
-    pub async fn set_log_filter(&mut self, req: SetLogFilterRequest) -> anyhow::Result<()> {
+    pub async fn set_log_filter(
+        &mut self,
+        _events_ctx: &mut EventsCtx,
+        req: SetLogFilterRequest,
+    ) -> buck2_error::Result<()> {
         self.client.set_log_filter(Request::new(req)).await?;
 
         Ok(())
     }
 }
 
-pub struct FlushingBuckdClient<'a, 'b> {
-    inner: &'a mut BuckdClient<'b>,
+pub struct FlushingBuckdClient<'a> {
+    inner: &'a mut BuckdClient,
 }
 
-impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
-    fn enter(&mut self) -> anyhow::Result<()> {
+impl<'a> FlushingBuckdClient<'a> {
+    fn enter(&mut self) -> buck2_error::Result<()> {
         self.inner.open_tailers()?;
         Ok(())
     }
 
-    async fn exit(&mut self) -> anyhow::Result<()> {
-        self.inner
-            .events_ctx
-            .flush(mem::take(&mut self.inner.tailers))
-            .await?;
+    async fn exit(&mut self, events_ctx: &mut EventsCtx) -> buck2_error::Result<()> {
+        events_ctx.flush(mem::take(&mut self.inner.tailers)).await?;
 
         Ok(())
     }
@@ -327,9 +347,9 @@ impl PartialResultHandler for NoPartialResultHandler {
 
     async fn handle_partial_result(
         &mut self,
-        _ctx: PartialResultCtx<'_, '_>,
+        _ctx: PartialResultCtx<'_>,
         partial_res: Self::PartialResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match partial_res {}
     }
 }
@@ -343,9 +363,9 @@ impl PartialResultHandler for StdoutPartialResultHandler {
 
     async fn handle_partial_result(
         &mut self,
-        mut ctx: PartialResultCtx<'_, '_>,
+        mut ctx: PartialResultCtx<'_>,
         partial_res: Self::PartialResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         ctx.stdout(&partial_res.data).await
     }
 }
@@ -357,18 +377,20 @@ macro_rules! stream_method {
     };
 
     ($method: ident, $grpc_method: ident, $req: ty, $res: ty, $message: ty) => {
-        pub async fn $method(
+        pub async fn $method<'i, 'j: 'i>(
             &mut self,
             req: $req,
-            console_interaction: Option<ConsoleInteractionStream<'_>>,
+            events_ctx: &mut EventsCtx,
+            console_interaction: Option<ConsoleInteractionStream<'j>>,
             handler: &mut impl PartialResultHandler<PartialResult = $message>,
-        ) -> anyhow::Result<CommandOutcome<$res>> {
+        ) -> buck2_error::Result<CommandOutcome<$res>> {
             self.enter()?;
             let res = self
                 .inner
                 .stream(
                     |d, r| Box::pin(DaemonApiClient::$grpc_method(d, r)),
                     req,
+                    events_ctx,
                     // For now we only support handlers that can be constructed like so, and we
                     // don't let anything go out. Eventually if we wanted to stream structured
                     // data, that could change.
@@ -376,7 +398,7 @@ macro_rules! stream_method {
                     console_interaction,
                 )
                 .await;
-            self.exit().await?;
+            self.exit(events_ctx).await?;
             res
         }
     };
@@ -393,8 +415,9 @@ macro_rules! bidirectional_stream_method {
             &mut self,
             context: ClientContext,
             requests: impl Stream<Item = $req> + Send + Sync + 'static,
+            events_ctx: &mut EventsCtx,
             handler: &mut impl PartialResultHandler<PartialResult = $message>,
-        ) -> anyhow::Result<CommandOutcome<$res>> {
+        ) -> buck2_error::Result<CommandOutcome<$res>> {
             self.enter()?;
             let req = create_client_stream(context, requests);
             let res = self
@@ -402,11 +425,12 @@ macro_rules! bidirectional_stream_method {
                 .stream(
                     |d, r| Box::pin(DaemonApiClient::$method(d, r)),
                     req,
+                    events_ctx,
                     handler,
                     None,
                 )
                 .await;
-            self.exit().await?;
+            self.exit(events_ctx).await?;
             res
         }
     };
@@ -419,16 +443,18 @@ macro_rules! oneshot_method {
     };
 
     ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
-        pub async fn $method(&mut self, req: $req) -> anyhow::Result<CommandOutcome<$res>> {
+        pub async fn $method(
+            &mut self,
+            req: $req,
+            events_ctx: &mut EventsCtx,
+        ) -> buck2_error::Result<CommandOutcome<$res>> {
             self.enter()?;
-            let res = self
-                .inner
-                .events_ctx
+            let res = events_ctx
                 .unpack_oneshot(mem::take(&mut self.inner.tailers), {
                     self.inner.client.$method(Request::new(req))
                 })
                 .await;
-            self.exit().await?;
+            self.exit(events_ctx).await?;
             res
         }
     };
@@ -441,10 +467,14 @@ macro_rules! debug_method {
     };
 
     ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
-        pub async fn $method(&mut self, req: $req) -> anyhow::Result<$res> {
+        pub async fn $method(
+            &mut self,
+            req: $req,
+            events_ctx: &mut EventsCtx,
+        ) -> buck2_error::Result<$res> {
             self.enter()?;
             let out = self.inner.client.$method(Request::new(req)).await;
-            self.exit().await?;
+            self.exit(events_ctx).await?;
             Ok(out?.into_inner())
         }
     };
@@ -453,19 +483,19 @@ macro_rules! debug_method {
 /// Wrap a method that exists on the BuckdClient, with flushing.
 macro_rules! wrap_method {
      ($method: ident ($($param: ident : $param_type: ty),*), $res: ty) => {
-         pub async fn $method(&mut self, $($param: $param_type)*) -> anyhow::Result<$res> {
+         pub async fn $method(&mut self, events_ctx: &mut EventsCtx, $($param: $param_type)*) -> buck2_error::Result<$res> {
              self.enter()?;
              let out = self
                  .inner
-                 .$method($($param)*)
+                 .$method(events_ctx, $($param)*)
                  .await;
-             self.exit().await?;
+             self.exit(events_ctx).await?;
              out
          }
      };
  }
 
-impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
+impl<'a> FlushingBuckdClient<'a> {
     stream_method!(
         aquery,
         AqueryRequest,
@@ -562,7 +592,6 @@ impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
     oneshot_method!(flush_dep_files, FlushDepFilesRequest, GenericResponse);
 
     oneshot_method!(unstable_crash, UnstableCrashRequest, GenericResponse);
-    debug_method!(segfault, SegfaultRequest, SegfaultResponse);
     debug_method!(
         unstable_heap_dump,
         UnstableHeapDumpRequest,
@@ -587,20 +616,22 @@ impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
         &mut self,
         context: buck2_cli_proto::ClientContext,
         req: NewGenericRequest,
+        events_ctx: &mut EventsCtx,
         stdin: Option<ConsoleInteractionStream<'_>>,
-    ) -> anyhow::Result<CommandOutcome<NewGenericResponse>> {
-        let req = serde_json::to_string(&req).context("Could not serialize `NewGenericRequest`")?;
+    ) -> buck2_error::Result<CommandOutcome<NewGenericResponse>> {
+        let req = serde_json::to_string(&req)
+            .buck_error_context("Could not serialize `NewGenericRequest`")?;
         let req = buck2_cli_proto::NewGenericRequestMessage {
             context: Some(context),
             new_generic_request: req,
         };
         let command_outcome: CommandOutcome<buck2_cli_proto::NewGenericResponseMessage> = self
-            .new_generic_impl(req, stdin, &mut NoPartialResultHandler)
+            .new_generic_impl(req, events_ctx, stdin, &mut NoPartialResultHandler)
             .await?;
         match command_outcome {
             CommandOutcome::Success(resp) => {
                 let resp = serde_json::from_str(&resp.new_generic_response)
-                    .context("Could not deserialize `NewGenericResponse`")?;
+                    .buck_error_context("Could not deserialize `NewGenericResponse`")?;
                 Ok(CommandOutcome::Success(resp))
             }
             CommandOutcome::Failure(code) => Ok(CommandOutcome::Failure(code)),

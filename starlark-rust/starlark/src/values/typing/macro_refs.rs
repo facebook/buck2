@@ -16,13 +16,10 @@
  */
 
 #![doc(hidden)]
-
-use anyhow::Context;
-
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 #[derive(Debug, thiserror::Error)]
 enum TypingMacroRefsError {
@@ -44,6 +41,6 @@ pub fn starlark_value_bit_or_for_type<'v, S: StarlarkValue<'v>>(
         )));
     };
     let this = TypeCompiled::from_ty(&this, heap);
-    let other = TypeCompiled::new(other, heap).context("converting RHS to type")?;
+    let other = TypeCompiled::new(other, heap)?;
     Ok(TypeCompiled::type_any_of_two(this, other, heap).to_inner())
 }

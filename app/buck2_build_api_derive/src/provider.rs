@@ -10,9 +10,9 @@
 use convert_case::Case;
 use convert_case::Casing;
 use gazebo::prelude::*;
+use quote::ToTokens;
 use quote::format_ident;
 use quote::quote;
-use quote::ToTokens;
 use syn::Fields;
 use syn::TypeParamBound;
 
@@ -244,7 +244,7 @@ impl ProviderCodegen {
         }
 
         Ok(syn::parse_quote_spanned! {self.span=>
-            fn documentation(&self) -> Option<starlark::docs::DocItem> {
+            fn documentation(&self) -> starlark::docs::DocItem {
                 let docstring = #provider_docstring;
                 let field_names = [
                     #(#field_names),*
@@ -255,14 +255,14 @@ impl ProviderCodegen {
                 let field_types = [
                     #(#field_types),*
                 ];
-                Some(crate::interpreter::rule_defs::provider::doc::provider_callable_documentation(
+                buck2_build_api::interpreter::rule_defs::provider::doc::provider_callable_documentation(
                     Some(#create_func),
                     BUILTIN_PROVIDER_TY.instance(),
                     &docstring,
                     &field_names,
                     &field_docs,
                     &field_types,
-                ))
+                )
             }
         })
     }
@@ -271,11 +271,11 @@ impl ProviderCodegen {
         let gen_name = &self.input.ident;
         let callable_name = self.callable_name()?;
         Ok(syn::parse_quote_spanned! { self.span =>
-            static BUILTIN_PROVIDER_TY: crate::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy<
+            static BUILTIN_PROVIDER_TY: buck2_build_api::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy<
                     #gen_name<starlark::values::Value>,
                     #callable_name,
             > =
-                crate::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy::new();
+                buck2_build_api::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy::new();
         })
     }
 
@@ -296,7 +296,7 @@ impl ProviderCodegen {
         Ok(syn::parse_quote_spanned! { self.span=>
             impl<V: starlark::values::ValueLifetimeless> std::fmt::Display for #gen_name<V> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    display_container::fmt_keyed_container(
+                    buck2_build_api::__derive_refs::display_container::fmt_keyed_container(
                         f,
                         &format!("{}(", #name_str),
                         ")",
@@ -339,7 +339,7 @@ impl ProviderCodegen {
 
                     fn provide(&'v self, demand: &mut starlark::values::Demand<'_, 'v>) {
                         demand.provide_value::<
-                            &dyn crate::interpreter::rule_defs::provider::ProviderLike>(self);
+                            &dyn buck2_build_api::interpreter::rule_defs::provider::ProviderLike>(self);
                     }
 
                     fn equals(&self, other: starlark::values::Value<'v>) -> starlark::Result<bool> {
@@ -372,11 +372,11 @@ impl ProviderCodegen {
         let field_names = self.field_names()?;
         let field_len = field_names.len();
         Ok(syn::parse_quote_spanned! { self.span=>
-            impl<'v, V: starlark::values::ValueLike<'v>> serde::Serialize
+            impl<'v, V: starlark::values::ValueLike<'v>> buck2_build_api::__derive_refs::serde::Serialize
                 for #gen_name<V>
             {
-                fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error> where S : serde::Serializer {
-                    use serde::ser::SerializeMap;
+                fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error> where S : buck2_build_api::__derive_refs::serde::Serializer {
+                    use buck2_build_api::__derive_refs::serde::ser::SerializeMap;
 
                     let mut s = s.serialize_map(Some(#field_len))?;
                     #(
@@ -396,19 +396,12 @@ impl ProviderCodegen {
         let field_names = self.field_names()?;
         let callable_name = self.callable_name()?;
         Ok(syn::parse_quote_spanned! { self.span=>
-            impl<'v, V: starlark::values::ValueLike<'v>> crate::interpreter::rule_defs::provider::ProviderLike<'v> for #gen_name<V>
+            impl<'v, V: starlark::values::ValueLike<'v>> buck2_build_api::interpreter::rule_defs::provider::ProviderLike<'v> for #gen_name<V>
             where
                 Self: std::fmt::Debug,
             {
                 fn id(&self) -> &std::sync::Arc<buck2_core::provider::id::ProviderId> {
                     #callable_name::provider_id()
-                }
-
-                fn get_field(&self, name: &str) -> Option<starlark::values::Value<'v>> {
-                    match name {
-                        #(stringify!(#field_names) => Some(self.#field_names.get().to_value()),)*
-                        _ => None,
-                    }
                 }
 
                 fn items(&self) -> Vec<(&str, starlark::values::Value<'v>)> {
@@ -424,7 +417,7 @@ impl ProviderCodegen {
         let frozen_name = self.frozen_name()?;
         let callable_name = self.callable_name()?;
         Ok(syn::parse_quote_spanned! { self.span=>
-            impl crate::interpreter::rule_defs::provider::FrozenBuiltinProviderLike for #frozen_name {
+            impl buck2_build_api::interpreter::rule_defs::provider::FrozenBuiltinProviderLike for #frozen_name {
                 fn builtin_provider_id() -> &'static std::sync::Arc<buck2_core::provider::id::ProviderId> {
                     #callable_name::provider_id()
                 }
@@ -490,8 +483,8 @@ impl ProviderCodegen {
         let callable_name = self.callable_name()?;
         Ok(syn::parse_quote_spanned! { self.span=>
             impl buck2_interpreter::types::provider::callable::ProviderCallableLike for #callable_name {
-                fn id(&self) -> Option<&std::sync::Arc<buck2_core::provider::id::ProviderId>> {
-                    Some(self.id)
+                fn id(&self) -> buck2_error::Result<&std::sync::Arc<buck2_core::provider::id::ProviderId>> {
+                    Ok(self.id)
                 }
             }
         })
@@ -579,8 +572,8 @@ impl ProviderCodegen {
                 fn #provider_methods_func_name(builder: &mut starlark::environment::MethodsBuilder) {
                     #(
                         #[starlark(attribute)]
-                        fn #field_names<'v>(this: & #name)
-                                -> anyhow::Result<starlark::values::ValueOfUnchecked<'v, #field_types>>
+                        fn #field_names<'v>(this: &#name<'v>)
+                                -> starlark::Result<starlark::values::ValueOfUnchecked<'v, #field_types>>
                         {
                             Ok(this.#field_names.to_value())
                         }
@@ -597,8 +590,8 @@ impl ProviderCodegen {
 
     fn inventory(&self) -> syn::Result<syn::Item> {
         Ok(syn::parse_quote_spanned! { self.span=>
-            inventory::submit! {
-                crate::interpreter::rule_defs::provider::registration::ProviderRegistration {
+            buck2_build_api::__derive_refs::inventory::submit! {
+                buck2_build_api::interpreter::rule_defs::provider::registration::ProviderRegistration {
                     register_globals: |globals| {
                         register_provider(globals)
                     }

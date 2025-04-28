@@ -23,7 +23,7 @@ use crate::executors::to_re_platform::RePlatformFieldsToRePlatform;
 /// Create an empty action result for permission check.
 pub(crate) fn empty_action_result(
     platform: &RePlatformFields,
-) -> anyhow::Result<(ActionDigestAndBlobs, TActionResult2)> {
+) -> buck2_error::Result<(ActionDigestAndBlobs, TActionResult2)> {
     static DIGEST_CONFIG: OnceCell<DigestConfig> = OnceCell::new();
     let digest_config = *DIGEST_CONFIG
         .get_or_try_init(|| DigestConfig::leak_new(vec![DigestAlgorithm::Sha1], None))?;

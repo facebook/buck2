@@ -1,0 +1,16 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "apk_builder",
+    srcs = glob(["*.java"]),
+    required_for_source_only_abi = True,
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/third-party:guava",
+    ],
+)

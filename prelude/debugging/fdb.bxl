@@ -18,12 +18,12 @@
 # buck2 bxl prelude//debugging/fdb.bxl:inspect_target -- --target=//some:target
 # This outputs file containing JSON serialized `ExecInfo` (see types.bzl)
 
-load("@prelude//debugging/common.bzl", "rule_type")
-load("@prelude//debugging/inspect_dbg_exec.bzl", "inspect_dbg_exec")
-load("@prelude//debugging/inspect_default.bzl", "inspect_default")
-load("@prelude//debugging/inspect_java.bzl", "inspect_java_rule")
-load("@prelude//debugging/labels.bzl", "DBG_INFO_EXEC", "DBG_INFO_REF", "get_info_ref", "get_label_or_mark")
-load("@prelude//debugging/types.bzl", "ScriptSettings")
+load("@prelude//debugging:common.bzl", "rule_type")
+load("@prelude//debugging:inspect_dbg_exec.bzl", "inspect_dbg_exec")
+load("@prelude//debugging:inspect_default.bzl", "inspect_default")
+load("@prelude//debugging:inspect_java.bzl", "inspect_java_rule")
+load("@prelude//debugging:labels.bzl", "DBG_INFO_EXEC", "DBG_INFO_REF", "get_info_ref", "get_label_or_mark")
+load("@prelude//debugging:types.bzl", "ScriptSettings")
 
 def inspect_alias_rule(ctx: bxl.Context, actions: AnalysisActions, target: bxl.ConfiguredTargetNode, settings: ScriptSettings):
     attrs = target.attrs_lazy()

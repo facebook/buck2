@@ -54,7 +54,6 @@ EXIT_CODE_TEST_FAILURE = 70
 
 
 class TestStatus:
-
     ABORTED = "FAILURE"
     PASSED = "SUCCESS"
     FAILED = "FAILURE"
@@ -233,7 +232,6 @@ class BuckTestResult(unittest.TextTestResult):
         """
 
         for test in suite:
-
             # We identify test suites by test that are iterable (as is done in
             # the builtin python test harness).  If we see one, recurse on it.
             if hasattr(test, "__iter__"):

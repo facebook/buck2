@@ -21,15 +21,13 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::starlark_value;
 use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::ValueTyped;
-use starlark::StarlarkDocs;
+use starlark::values::starlark_value;
 
-#[derive(ProvidesStaticType, Debug, NoSerialize, StarlarkDocs, Allocative)]
-#[starlark_docs(directory = "bxl")]
+#[derive(ProvidesStaticType, Debug, NoSerialize, Allocative)]
 pub(crate) struct StarlarkAnalysisResult {
     // Invariant: The subtarget specified on the label is present in the analysis result.
     analysis: AnalysisResult,
@@ -54,7 +52,7 @@ impl StarlarkAnalysisResult {
     pub(crate) fn new(
         analysis: AnalysisResult,
         label: ConfiguredProvidersLabel,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         // Check that the specified subtarget actually exists
         drop(analysis.lookup_inner(&label)?);
         Ok(Self { analysis, label })
@@ -78,7 +76,7 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
     /// providers of dependencies within a rule implementation.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_providers(ctx):
     ///     node = ctx.configured_targets("root//bin:the_binary")
     ///     providers = ctx.analysis(node).providers()
@@ -86,7 +84,7 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
     ///     providers = ctx.analysis("//:bin").providers()
     ///     ctx.output.print(providers[FooInfo])
     /// ```
-    fn providers<'v>(this: &'v StarlarkAnalysisResult) -> anyhow::Result<FrozenValue> {
+    fn providers<'v>(this: &'v StarlarkAnalysisResult) -> starlark::Result<FrozenValue> {
         unsafe {
             // SAFETY:: this actually just returns a FrozenValue from in the StarlarkAnalysisResult
             // which is kept alive for 'v
@@ -100,13 +98,13 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
 
     /// Converts the analysis result into a `dependency`. Currently, you can only get a `dependency` without any
     /// transitions. This means that you cannot create an exec dep or toolchain from an analysis result.
-
+    ///
     /// We may support other dependency transition types in the future.
-
+    ///
     /// This is useful for passing in the results of `ctx.analysis()` into anon targets.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_dependency(ctx):
     ///     node = ctx.configured_targets("root//bin:the_binary")
     ///     dependency = ctx.analysis(node).as_dependency()
@@ -114,7 +112,7 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
     fn as_dependency<'v>(
         this: &'v StarlarkAnalysisResult,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, Dependency<'v>>> {
+    ) -> starlark::Result<ValueTyped<'v, Dependency<'v>>> {
         Ok(eval.heap().alloc_typed(Dependency::new(
             eval.heap(),
             this.label.dupe(),

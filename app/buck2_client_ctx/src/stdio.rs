@@ -33,7 +33,7 @@ pub fn has_written_to_stdout() -> bool {
 
 static STDOUT_LOCKED: AtomicBool = AtomicBool::new(false);
 
-fn stdout() -> anyhow::Result<io::Stdout> {
+fn stdout() -> buck2_error::Result<io::Stdout> {
     if STDOUT_LOCKED.load(Ordering::Relaxed) {
         return Err(internal_error!("stdout is already locked"));
     }
@@ -87,37 +87,37 @@ macro_rules! eprintln {
     };
 }
 
-pub fn _print(fmt: Arguments) -> anyhow::Result<()> {
+pub fn _print(fmt: Arguments) -> buck2_error::Result<()> {
     stdout()?
         .lock()
         .write_fmt(fmt)
-        .map_err(|e| ClientIoError::new(e).into())
+        .map_err(|e| ClientIoError::from(e).into())
 }
 
-pub fn _eprint(fmt: Arguments) -> anyhow::Result<()> {
+pub fn _eprint(fmt: Arguments) -> buck2_error::Result<()> {
     io::stderr()
         .lock()
         .write_fmt(fmt)
-        .map_err(|e| ClientIoError::new(e).into())
+        .map_err(|e| ClientIoError::from(e).into())
 }
 
-pub fn print_bytes(bytes: &[u8]) -> anyhow::Result<()> {
+pub fn print_bytes(bytes: &[u8]) -> buck2_error::Result<()> {
     stdout()?
         .lock()
         .write_all(bytes)
-        .map_err(|e| ClientIoError::new(e).into())
+        .map_err(|e| ClientIoError::from(e).into())
 }
 
-pub fn eprint_line(line: &Line) -> anyhow::Result<()> {
+pub fn eprint_line(line: &Line) -> buck2_error::Result<()> {
     let line = line.render();
     crate::eprintln!("{}", line)
 }
 
-pub fn flush() -> anyhow::Result<()> {
-    stdout()?.flush().map_err(|e| ClientIoError::new(e).into())
+pub fn flush() -> buck2_error::Result<()> {
+    stdout()?.flush().map_err(|e| ClientIoError::from(e).into())
 }
 
-fn stdout_to_file(stdout: &Stdout) -> anyhow::Result<File> {
+fn stdout_to_file(stdout: &Stdout) -> buck2_error::Result<File> {
     #[cfg(not(windows))]
     {
         use std::os::fd::AsFd;
@@ -130,10 +130,10 @@ fn stdout_to_file(stdout: &Stdout) -> anyhow::Result<File> {
     }
 }
 
-pub fn print_with_writer<E, F>(f: F) -> anyhow::Result<()>
+pub async fn print_with_writer<E, F>(f: F) -> buck2_error::Result<()>
 where
-    E: Into<anyhow::Error>,
-    F: FnOnce(&mut (dyn Write + Send)) -> Result<(), E>,
+    E: Into<buck2_error::Error>,
+    F: AsyncFnOnce(&mut (dyn Write + Send)) -> Result<(), E>,
 {
     let stdout = stdout()?;
 
@@ -159,15 +159,9 @@ where
     let _guard = stdout.lock();
     let file = stdout_to_file(&stdout)?;
     let mut w = LineWriter::new(file);
-    match f(&mut w) {
+    match f(&mut w).await {
         Ok(()) => {}
-        Err(e) => {
-            let e: anyhow::Error = e.into();
-            return match e.downcast::<io::Error>() {
-                Ok(io_error) => Err(ClientIoError::new(io_error).into()),
-                Err(e) => Err(e),
-            };
-        }
+        Err(e) => return Err(e.into()),
     }
     w.flush()?;
     Ok(())

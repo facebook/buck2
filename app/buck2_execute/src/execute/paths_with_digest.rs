@@ -50,7 +50,7 @@ impl<'a> PathsWithDigestBuilder<'a> {
         self.paths.push(PathWithDigest { path, digest });
     }
 
-    pub fn build(self) -> anyhow::Result<PathsWithDigestBlobData> {
+    pub fn build(self) -> buck2_error::Result<PathsWithDigestBlobData> {
         let json = MetadataJson {
             digests: self.paths,
             // Increment this version if format changes

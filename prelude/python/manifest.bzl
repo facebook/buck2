@@ -6,13 +6,13 @@
 # of this source tree.
 
 load("@prelude//:artifact_tset.bzl", "project_artifacts")
+load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibrary",
     "gen_shared_libs_action",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
-load(":toolchain.bzl", "PythonToolchainInfo")
 
 # Manifests are files containing information how to map sources into a package.
 # The files are JSON lists with an entry per source, where each source is 3-tuple
@@ -24,33 +24,6 @@ ManifestInfo = record(
     # All artifacts that are referenced in the manifest.
     artifacts = field(list[[Artifact, ArgLike]]),
 )
-
-# Parse imports from a *.py file to generate a list of required modules
-def create_dep_manifest_for_source_map(
-        ctx: AnalysisContext,
-        python_toolchain: PythonToolchainInfo,
-        srcs: dict[str, Artifact]) -> ManifestInfo:
-    entries = []
-    artifacts = []
-    for path, artifact in srcs.items():
-        out_name = "__dep_manifests__/{}".format(path)
-        if not (path.endswith(".py") or path.endswith(".pyi")):
-            continue
-
-        dep_manifest = ctx.actions.declare_output(out_name)
-        cmd = cmd_args(python_toolchain.parse_imports)
-        cmd.add("--ignore-syntax-errors")
-        cmd.add(cmd_args(artifact))
-        cmd.add(cmd_args(dep_manifest.as_output()))
-        ctx.actions.run(cmd, category = "generate_dep_manifest", identifier = out_name)
-        entries.append((dep_manifest, path, ctx.label.raw_target()))
-        artifacts.append(dep_manifest)
-
-    manifest = ctx.actions.write_json("dep.manifest", entries)
-    return ManifestInfo(
-        manifest = manifest,
-        artifacts = artifacts,
-    )
 
 def _write_manifest(
         ctx: AnalysisContext,
@@ -94,7 +67,8 @@ def get_srcs_from_manifest(
 def create_manifest_for_shared_libs(
         actions: AnalysisActions,
         name: str,
-        shared_libs: list[SharedLibrary]) -> ManifestInfo:
+        shared_libs: list[SharedLibrary],
+        lib_dir: str = "") -> ManifestInfo:
     """
     Generate a source manifest for the given list of sources.
     """
@@ -106,7 +80,7 @@ def create_manifest_for_shared_libs(
             gen_action = lambda actions, output, shared_libs: actions.write_json(
                 output,
                 [
-                    (soname, shlib.lib.output, name)
+                    (paths.join(lib_dir, soname), shlib.lib.output, name)
                     for soname, shlib in shared_libs.items()
                 ],
             ),

@@ -187,8 +187,8 @@ mod tests {
 
     mod horizontal {
         use super::*;
-        use crate::components::echo::Echo;
         use crate::Dimensions;
+        use crate::components::echo::Echo;
         #[test]
         fn test_adaptive() {
             let kind = SplitKind::Adaptive;
@@ -328,8 +328,8 @@ mod tests {
 
     mod vertical {
         use super::*;
-        use crate::components::echo::Echo;
         use crate::Dimensions;
+        use crate::components::echo::Echo;
 
         #[test]
         fn test_equal() {
@@ -352,9 +352,9 @@ mod tests {
             );
 
             let mut output = top;
-            output.extend(iter::repeat(Line::default()).take(8));
+            output.extend(iter::repeat_n(Line::default(), 8));
             output.extend(bottom);
-            output.extend(iter::repeat(Line::default()).take(7));
+            output.extend(iter::repeat_n(Line::default(), 7));
 
             let drawn = splitter
                 .draw(Dimensions::new(20, 20), DrawMode::Normal)
@@ -443,8 +443,8 @@ mod tests {
 
     mod panics {
         use super::*;
-        use crate::components::Blank;
         use crate::Dimensions;
+        use crate::components::Blank;
 
         #[test]
         fn test_no_children() {

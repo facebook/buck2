@@ -3,6 +3,9 @@ id: starlark_peak_mem
 title: Debugging Excess Starlark Peak Memory
 ---
 
+import { FbInternalOnly, OssOnly } from
+'docusaurus-plugin-internaldocs-fb/internal';
+
 ## Wut memory?
 
 Peak memory is the maximum amount of memory used during evaluation of that
@@ -27,15 +30,15 @@ To see the Starlark peak memory usage of a build file, you can inspect the event
 log for your build file. Here is an example entry from the event log for buck2
 uquery `target` showing that it uses 1.5GB:
 
-```
-{"Event":{..."data":{"Load":{"module_id":"target:BUCK","cell":"...","error":null,"starlark_peak_allocated_bytes":1610608640}}}}}}
+```json
+{"Event":{..."data":{"Load":{"module_id":"target:BUCK","cell":"...","error":null,"starlark_peak_allocated_bytes":1610608640}}}}
 ```
 
 ## Profiler to the rescue!
 
 If you want to see more detailed breakdown where the memory is used, you should
 profile Starlark's evaluation of build files. See
-[this page](../../rule_authors/optimization.md/#starlark-profiling) for details
+[this page](../../../rule_authors/optimization/#starlark-profiling) for details
 of profiling in the loading stage. This is a great starting point for
 troubleshooting.
 
@@ -57,7 +60,7 @@ A common case where memory usage might accumulate is repeatedly allocating
 memory in a loop. For instance, below we call a memory intensive function in a
 loop unnecessarily:
 
-```
+```python
 for target in huge_target_list:
     memory_intensive_fun(x,y)
     ...
@@ -66,7 +69,7 @@ for target in huge_target_list:
 Instead, if we know that arguments `x` and `y` don't change, we could hoist the
 call to `memory_intensive_fun` outside of the loop as follows:
 
-```
+```python
 memory_intensive_fun(x,y)
 for target in huge_target_list:
     ...
@@ -78,7 +81,7 @@ Another reason why Starlark uses a lot of memory could simply be because the
 build file allocates a very big-data structure. For instance, below we allocate
 a list with 1 billion integers!
 
-```
+```python
 million_list = [1 for i in range(1 << 20)]
 billion_list = million_list * (1 << 10)
 
@@ -92,18 +95,17 @@ Another reason could be because memory efficiency of your code is bad, i.e. you
 are unnecessarily allocating a lot of memory. Let's look at an example where we
 try to process a bunch of targets inefficiently:
 
-```
+```python
 targets = generate_targets(n)
 for target in targets:
     process(target)
-
 ```
 
 If `targets` list is big **and** each target takes a lot of space in memory,
 memory usage might exceed the limit. Instead, a more efficient version might be
 to process each target as you generate it:
 
-```
+```python
 for i in range(n):
     target = generate_target(i)
     process(target)
@@ -117,7 +119,7 @@ store more than one target in memory.
 A more subtle reason could be unknowingly invoking library calls that allocate
 each time they are called. A well-known case of this is the `dict.items()` call.
 
-```
+```python
 for project, version in constraints.items():
     # process each project ....
 ```
@@ -126,7 +128,7 @@ We do an allocation on every call to `constraints.items()`. Especially if this
 is a hot code in Starlark, this could cause an OOM. Instead, a potential fix is
 to hoist the call out:
 
-```
+```python
 constraints = constraints.items()
 for project, version in constraints:
     # process each project ....
@@ -141,7 +143,7 @@ you would get functionally different code. A similar case occurs for
 Finally, another pattern is allocating memory for the rare cases. For instance,
 consdier the following example
 
-```
+```python
 for target in huge_target_list:
     if memory_intensive_condition([target])
         fail(...)
@@ -149,7 +151,7 @@ for target in huge_target_list:
 
 Above program could be optimized as follows:
 
-```
+```python
 if memory_intensive_condition(huge_target_list)
     for target in huge_target_list:
         if memory_intensive_condition([target])

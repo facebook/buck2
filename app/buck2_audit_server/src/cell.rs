@@ -33,8 +33,8 @@ impl ServerAuditSubcommand for AuditCellCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let fs = server_ctx.project_root();
                 let cwd = server_ctx.working_dir();
@@ -62,7 +62,7 @@ impl ServerAuditSubcommand for AuditCellCommand {
 
                 Ok(())
             })
-            .await
+            .await?)
     }
 }
 
@@ -72,7 +72,7 @@ pub(crate) async fn audit_cell(
     aliases: bool,
     cwd: &ProjectRelativePath,
     fs: &ProjectRoot,
-) -> anyhow::Result<IndexMap<String, AbsNormPathBuf>> {
+) -> buck2_error::Result<IndexMap<String, AbsNormPathBuf>> {
     let cells = ctx.get_cell_resolver().await?;
     let this_resolver = ctx.get_cell_alias_resolver_for_dir(cwd).await?;
     let mappings: IndexMap<_, _> = {
@@ -119,7 +119,7 @@ pub(crate) async fn audit_cell(
                         ),
                     ))
                 })
-                .collect::<anyhow::Result<_>>()?
+                .collect::<buck2_error::Result<_>>()?
         }
     };
     Ok(mappings)

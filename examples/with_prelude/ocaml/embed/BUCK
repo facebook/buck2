@@ -1,4 +1,4 @@
-load("//test_utils.bzl", "assert_output")
+load("//:test_utils.bzl", "assert_output")
 
 _SUPPORTED = not host_info().os.is_windows
 
@@ -12,6 +12,7 @@ ocaml_object(
 cxx_binary(
     name = "fib-cpp",
     srcs = ["fib.cpp"],
+    compiler_flags = ["-std=c++17"],
     deps = [
         ":fib-ml",
         "//third-party/ocaml:ocaml-dev",

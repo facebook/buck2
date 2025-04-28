@@ -13,14 +13,14 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use gazebo::prelude::*;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
 use starlark::values::list::ListRef;
 use starlark::values::tuple::TupleRef;
-use starlark::values::Value;
 
-use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::attr_type::AttrTypeExt;
-use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
+use crate::attrs::coerce::attr_type::AttrTypeExt;
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 
 impl AttrTypeCoerce for ListAttrType {
     fn coerce_item(
@@ -28,7 +28,7 @@ impl AttrTypeCoerce for ListAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         let list = coerce_list(value)?;
         Ok(CoercedAttr::List(ListLiteral(ctx.intern_list(
             list.try_map(|v| (self.inner).coerce(configurable, ctx, *v))?,
@@ -40,12 +40,10 @@ impl AttrTypeCoerce for ListAttrType {
     }
 }
 
-pub(crate) fn coerce_list<'v>(value: Value<'v>) -> anyhow::Result<&'v [Value<'v>]> {
-    if let Some(list) = ListRef::from_value(value) {
-        Ok(list.content())
-    } else if let Some(list) = TupleRef::from_value(value) {
+pub(crate) fn coerce_list<'v>(value: Value<'v>) -> buck2_error::Result<&'v [Value<'v>]> {
+    if let Some(list) = TupleRef::from_value(value) {
         Ok(list.content())
     } else {
-        Err(CoercionError::type_error(ListRef::TYPE, value).into())
+        Ok(<&ListRef>::unpack_value_err(value)?.content())
     }
 }

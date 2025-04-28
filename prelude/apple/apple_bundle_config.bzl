@@ -41,5 +41,6 @@ def apple_bundle_config() -> dict[str, typing.Any]:
         "_incremental_bundling_enabled": _maybe_get_bool("incremental_bundling_enabled", True),
         "_info_plist_identify_build_system_default": _maybe_get_bool("info_plist_identify_build_system", True),
         "_profile_bundling_enabled": _maybe_get_bool("profile_bundling_enabled", False),
+        "_skip_adhoc_resigning_scrubbed_frameworks_override": _maybe_get_bool("skip_adhoc_resigning_scrubbed_frameworks_override", None),
         "_use_entitlements_when_adhoc_code_signing": _maybe_get_bool("use_entitlements_when_adhoc_code_signing", None),
     }

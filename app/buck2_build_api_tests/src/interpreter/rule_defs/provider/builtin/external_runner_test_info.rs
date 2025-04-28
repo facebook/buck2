@@ -8,6 +8,7 @@
  */
 
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
+use buck2_build_api::interpreter::rule_defs::required_test_local_resource::register_required_test_local_resource;
 use buck2_core::bzl::ImportPath;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;
@@ -15,6 +16,7 @@ use indoc::indoc;
 fn tester() -> Tester {
     let mut tester = Tester::new().unwrap();
     tester.additional_globals(register_rule_defs);
+    tester.additional_globals(register_required_test_local_resource);
     tester
 }
 
@@ -34,6 +36,7 @@ fn test_construction() -> anyhow::Result<()> {
             ExternalRunnerTestInfo(type = "foo", labels = ("foo",))
             ExternalRunnerTestInfo(type = "foo", use_project_relative_paths = True)
             ExternalRunnerTestInfo(type = "foo", run_from_project_root = True)
+            ExternalRunnerTestInfo(type = "foo", local_resources = {"bar": None}, required_local_resources = [RequiredTestLocalResource("bar", listing=False)])
         "#
     );
     let mut tester = tester();
@@ -182,6 +185,26 @@ fn test_validation() -> anyhow::Result<()> {
         "#
         ),
         "`executor_overrides`",
+    );
+
+    tester.run_starlark_bzl_test_expecting_error(
+        indoc!(
+            r#"
+        def test():
+            ExternalRunnerTestInfo(type = "foo", required_local_resources = ["bar"])
+        "#
+        ),
+        "`required_local_resources` should only contain `RequiredTestLocalResource` values, got \"bar\"",
+    );
+
+    tester.run_starlark_bzl_test_expecting_error(
+        indoc!(
+            r#"
+        def test():
+            ExternalRunnerTestInfo(type = "foo", required_local_resources = [RequiredTestLocalResource("bar")])
+        "#
+        ),
+        "`required_local_resources` contains `bar` which is not present in `local_resources`",
     );
 
     Ok(())

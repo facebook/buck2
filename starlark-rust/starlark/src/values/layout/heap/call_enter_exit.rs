@@ -20,8 +20,8 @@
 use std::fmt::Debug;
 
 use allocative::Allocative;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -59,7 +59,7 @@ impl MaybeDrop for NoDrop {}
     NoSerialize,
     Allocative
 )]
-#[display(fmt = "CallEnter")]
+#[display("CallEnter")]
 pub(crate) struct CallEnter<'v, D: MaybeDrop + 'static> {
     pub(crate) function: Value<'v>,
     pub(crate) time: ProfilerInstant,
@@ -78,7 +78,7 @@ impl<'v, D: MaybeDrop + Trace<'v> + 'v> StarlarkValue<'v> for CallEnter<'v, D> {
     NoSerialize,
     Allocative
 )]
-#[display(fmt = "CallExit")]
+#[display("CallExit")]
 pub(crate) struct CallExit<D: MaybeDrop + 'static> {
     pub(crate) time: ProfilerInstant,
     pub(crate) maybe_drop: D,

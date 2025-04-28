@@ -20,27 +20,16 @@ pub use producer::Message;
 use tokio::runtime::Builder;
 
 use crate::producer::ProducerCounters;
+pub use crate::producer::ScribeConfig;
 use crate::producer::ScribeProducer;
 
 static PRODUCER: OnceLock<Arc<ScribeProducer>> = OnceLock::new();
 
 /// Initializes the Scribe producer that backs all Scribe clients. Returns an error if a connection can't be
 /// established to a remote Scribe daemon process.
-fn initialize(
-    fb: FacebookInit,
-    buffer_size: usize,
-    retry_backoff: Duration,
-    retry_attempts: usize,
-    message_batch_size: Option<usize>,
-) -> anyhow::Result<&'static ScribeProducer> {
+fn initialize(fb: FacebookInit, config: ScribeConfig) -> anyhow::Result<&'static ScribeProducer> {
     Ok(&**PRODUCER.get_or_try_init(|| -> anyhow::Result<_> {
-        let producer = Arc::new(ScribeProducer::new(
-            fb,
-            buffer_size,
-            retry_backoff,
-            retry_attempts,
-            message_batch_size,
-        )?);
+        let producer = Arc::new(ScribeProducer::new(fb, config)?);
 
         // Instead of relying on any existing runtimes, we bootstrap a new tokio runtime bound to a single thread that
         // we spawn here. Running on the same runtime as the rest of the program runs the risk of the producer loop not
@@ -68,7 +57,7 @@ async fn producer_loop(producer: &ScribeProducer) {
     const SLEEP_INTERVAL: Duration = Duration::from_millis(500);
 
     loop {
-        producer.run_once().await;
+        let _res = producer.run_once().await;
         tokio::time::sleep(SLEEP_INTERVAL).await;
     }
 }
@@ -79,20 +68,8 @@ pub struct ScribeClient {
 }
 
 impl ScribeClient {
-    pub fn new(
-        fb: FacebookInit,
-        buffer_size: usize,
-        retry_backoff: Duration,
-        retry_attempts: usize,
-        message_batch_size: Option<usize>,
-    ) -> anyhow::Result<ScribeClient> {
-        let scribe_producer = initialize(
-            fb,
-            buffer_size,
-            retry_backoff,
-            retry_attempts,
-            message_batch_size,
-        )?;
+    pub fn new(fb: FacebookInit, config: ScribeConfig) -> anyhow::Result<ScribeClient> {
+        let scribe_producer = initialize(fb, config)?;
         Ok(ScribeClient { scribe_producer })
     }
 
@@ -106,7 +83,10 @@ impl ScribeClient {
     }
 
     /// Sends all messages in `messages` now (bypass internal message queue.)
-    pub async fn send_messages_now(&self, messages: Vec<Message>) {
-        self.scribe_producer.send_messages_now(messages).await
+    pub async fn send_messages_now(&self, messages: Vec<Message>) -> anyhow::Result<()> {
+        self.scribe_producer
+            .send_messages_now(messages)
+            .await
+            .map_err(|e| e.into())
     }
 }

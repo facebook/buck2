@@ -8,8 +8,8 @@
  */
 
 use quote::quote;
-use syn::parse_macro_input;
 use syn::DeriveInput;
+use syn::parse_macro_input;
 
 use crate::util::duplicate_impl;
 
@@ -19,7 +19,7 @@ pub fn derive_clone_(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
     let name = &input.ident;
     let body = duplicate_impl(&input.data, &quote! { ::std::clone::Clone::clone });
-    let gen = quote! {
+    let r#gen = quote! {
         // Clippy wants us to use Copy if we can - we prefer to be agnostic.
         // Add unknown_lints temporarily.
         #[allow(unknown_lints)]
@@ -30,5 +30,5 @@ pub fn derive_clone_(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
             }
         }
     };
-    gen.into()
+    r#gen.into()
 }

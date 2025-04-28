@@ -13,9 +13,10 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
 
-use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::provider_id_set::ProviderIdSet;
 
@@ -29,7 +30,7 @@ impl ExplicitConfiguredDepAttrType {
     pub(crate) fn configure(
         ctx: &dyn AttrConfigurationContext,
         dep_attr: &UnconfiguredExplicitConfiguredDep,
-    ) -> anyhow::Result<ConfiguredAttr> {
+    ) -> buck2_error::Result<ConfiguredAttr> {
         let configured = Self::configure_target_with_platform(ctx, dep_attr)?;
         Ok(ConfiguredAttr::ExplicitConfiguredDep(Box::new(configured)))
     }
@@ -37,7 +38,7 @@ impl ExplicitConfiguredDepAttrType {
     fn configure_target_with_platform(
         ctx: &dyn AttrConfigurationContext,
         dep_attr: &UnconfiguredExplicitConfiguredDep,
-    ) -> anyhow::Result<ConfiguredExplicitConfiguredDep> {
+    ) -> buck2_error::Result<ConfiguredExplicitConfiguredDep> {
         let configuration = ctx.platform_cfg(&dep_attr.platform)?;
         let configured_label = dep_attr.label.configure(configuration.dupe());
         Ok(ConfiguredExplicitConfiguredDep::new(
@@ -50,7 +51,7 @@ impl ExplicitConfiguredDepAttrType {
 /// Represents the value of an `attrs.configured_dep()`
 /// in its unconfigured form.
 #[derive(derive_more::Display, Debug, Hash, PartialEq, Eq, Clone, Allocative)]
-#[display(fmt = "({}, {})", label, platform)]
+#[display("({}, {})", label, platform)]
 pub struct UnconfiguredExplicitConfiguredDep {
     pub attr_type: ExplicitConfiguredDepAttrType,
     pub label: ProvidersLabel,
@@ -60,7 +61,7 @@ pub struct UnconfiguredExplicitConfiguredDep {
 /// Represents the value of an `attrs.configured_dep()`
 /// in its configured form.
 #[derive(derive_more::Display, Hash, PartialEq, Eq, Debug, Clone, Allocative)]
-#[display(fmt = "{}", label)]
+#[display("{}", label)]
 pub struct ConfiguredExplicitConfiguredDep {
     pub attr_type: ExplicitConfiguredDepAttrType,
     pub label: ConfiguredProvidersLabel,
@@ -72,35 +73,47 @@ impl ConfiguredExplicitConfiguredDep {
     }
 }
 
-impl UnconfiguredExplicitConfiguredDep {
-    pub fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn CoercedAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
-        traversal.dep(self.label.target())?;
-        traversal.platform_dep(&self.platform)
-    }
-}
-
-impl ExplicitConfiguredDepMaybeConfigured for ConfiguredExplicitConfiguredDep {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+impl ConfiguredExplicitConfiguredDep {
+    pub(crate) fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
         Ok(serde_json::to_value(self.to_string())?)
     }
 
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+    pub(crate) fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         filter(&self.to_string())
+    }
+
+    pub(crate) fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn ConfiguredAttrTraversal,
+    ) -> buck2_error::Result<()> {
+        traversal.dep(&self.label)
     }
 }
 
-impl ExplicitConfiguredDepMaybeConfigured for UnconfiguredExplicitConfiguredDep {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+impl UnconfiguredExplicitConfiguredDep {
+    pub(crate) fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
         Ok(serde_json::to_value([
             self.label.to_string(),
             self.platform.to_string(),
         ])?)
     }
 
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+    pub(crate) fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         filter(&self.to_string())
+    }
+
+    pub fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn CoercedAttrTraversal<'a>,
+    ) -> buck2_error::Result<()> {
+        traversal.dep(&self.label)?;
+        let label = ProvidersLabel::default_for(self.platform.dupe());
+        traversal.configuration_dep(&label, ConfigurationDepKind::ConfiguredDepPlatform)
     }
 }

@@ -17,20 +17,23 @@ use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_futures::cancellation::CancellationContext;
 use cmp_any::PartialEqAny;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
+use dice::InvalidationSourcePriority;
 use dice::Key;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 
 use crate::buildfiles::HasBuildfiles;
 use crate::dice::file_ops::delegate::get_delegated_file_ops;
+use crate::file_ops::DirectorySubListingMatchingOutput;
 use crate::file_ops::FileOps;
 use crate::file_ops::FileOpsError;
 use crate::file_ops::RawPathMetadata;
@@ -53,25 +56,44 @@ impl DiceFileComputations {
     pub async fn read_dir(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<ReadDirOutput> {
+    ) -> buck2_error::Result<ReadDirOutput> {
         ctx.compute(&ReadDirKey {
             path: path.to_owned(),
             check_ignores: CheckIgnores::Yes,
         })
         .await?
-        .map_err(anyhow::Error::from)
+    }
+
+    /// Returns the entries in the given directory with the provided filename, matching up to case.
+    ///
+    /// This is intended to make it possible to reason about not-fully-case-sensitive file
+    /// systems without picking up a dependency on the whole `ReadDirKey` which depends on the entire
+    /// computation graph causing invalidation to the entire graph when any file changes in a directory.
+    /// Instead we introduce this injected key which depends on the outside state (i.e. directory listing).
+    ///
+    /// A key use case for this function is finding PACKAGE files in a directory, regardless of their
+    /// actual casing (e.g., "package", "Package", "PACKAGE", etc.).
+    pub async fn directory_sublisting_matching_any_case(
+        ctx: &mut DiceComputations<'_>,
+        directory_path: CellPathRef<'_>,
+        filename: &FileName,
+    ) -> buck2_error::Result<DirectorySubListingMatchingOutput> {
+        ctx.compute(&DirectorySubListingMatchingInAnyCaseKey {
+            directory_path: directory_path.to_owned(),
+            filename: filename.to_owned(),
+        })
+        .await?
     }
 
     pub async fn read_dir_include_ignores(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<ReadDirOutput> {
+    ) -> buck2_error::Result<ReadDirOutput> {
         ctx.compute(&ReadDirKey {
             path: path.to_owned(),
             check_ignores: CheckIgnores::No,
         })
         .await?
-        .map_err(anyhow::Error::from)
     }
 
     /// Like read_dir, but with extended error information. This may add additional dice dependencies.
@@ -88,7 +110,7 @@ impl DiceFileComputations {
     pub async fn read_file_if_exists(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> buck2_error::Result<Option<String>> {
         let file_ops = get_delegated_file_ops(ctx, path.cell(), CheckIgnores::No).await?;
         let () = ctx.compute(&ReadFileKey(Arc::new(path.to_owned()))).await?;
         // FIXME(JakobDegen): We intentionally avoid storing the result of this function in dice.
@@ -101,7 +123,7 @@ impl DiceFileComputations {
     pub async fn read_file(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<String> {
+    ) -> buck2_error::Result<String> {
         Self::read_file_if_exists(ctx, path)
             .await?
             .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
@@ -111,17 +133,15 @@ impl DiceFileComputations {
     pub async fn read_path_metadata_if_exists(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<Option<RawPathMetadata>> {
-        ctx.compute(&PathMetadataKey(path.to_owned()))
-            .await?
-            .map_err(anyhow::Error::from)
+    ) -> buck2_error::Result<Option<RawPathMetadata>> {
+        ctx.compute(&PathMetadataKey(path.to_owned())).await?
     }
 
     /// Does not check if the path is ignored
     pub async fn read_path_metadata(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<RawPathMetadata> {
+    ) -> buck2_error::Result<RawPathMetadata> {
         Self::read_path_metadata_if_exists(ctx, path)
             .await?
             .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
@@ -130,17 +150,17 @@ impl DiceFileComputations {
     pub async fn is_ignored(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<FileIgnoreResult> {
+    ) -> buck2_error::Result<FileIgnoreResult> {
         get_delegated_file_ops(ctx, path.cell(), CheckIgnores::Yes)
             .await?
             .is_ignored(path.path())
             .await
     }
 
-    pub async fn buildfiles<'a>(
+    pub async fn buildfiles(
         ctx: &mut DiceComputations<'_>,
         cell: CellName,
-    ) -> anyhow::Result<Arc<[FileNameBuf]>> {
+    ) -> buck2_error::Result<Arc<[FileNameBuf]>> {
         ctx.get_buildfiles(cell).await
     }
 }
@@ -156,6 +176,19 @@ pub struct FileChangeTracker {
     files_to_dirty: HashSet<ReadFileKey>,
     dirs_to_dirty: HashSet<ReadDirKey>,
     paths_to_dirty: HashSet<PathMetadataKey>,
+
+    /// Normally, we ignore directory modification events from file watchers and instead compute
+    /// them ourselves when a file in the directory is reported as having been added or removed.
+    /// However, watchman has a bug in which it sometimes incorrectly doesn't report files as having
+    /// been added/removed. We work around this by implementing some logic that marks a directory
+    /// listing as being invalid if both the directory and at least one of its entries is reported
+    /// as having been modified.
+    ///
+    /// We cannot unconditionally respect directory modification events from the file watcher, as it
+    /// is not aware of our ignore rules.
+    maybe_modified_dirs: HashSet<CellPath>,
+
+    directory_sublisting_matching_any_case: HashSet<DirectorySubListingMatchingInAnyCaseKey>,
 }
 
 impl FileChangeTracker {
@@ -164,13 +197,26 @@ impl FileChangeTracker {
             files_to_dirty: Default::default(),
             dirs_to_dirty: Default::default(),
             paths_to_dirty: Default::default(),
+            maybe_modified_dirs: Default::default(),
+            directory_sublisting_matching_any_case: Default::default(),
         }
     }
 
-    pub fn write_to_dice(self, ctx: &mut DiceTransactionUpdater) -> anyhow::Result<()> {
+    pub fn write_to_dice(mut self, ctx: &mut DiceTransactionUpdater) -> buck2_error::Result<()> {
+        // See comment on `maybe_modified_dirs`
+        for p in self.paths_to_dirty.clone() {
+            if let Some(dir) = p.0.parent() {
+                if self.maybe_modified_dirs.contains(&dir.to_owned()) {
+                    self.insert_dir_keys(dir.to_owned());
+                    self.insert_sublisting_matching_any_case(p.0.to_owned());
+                }
+            }
+        }
+
         ctx.changed(self.files_to_dirty)?;
         ctx.changed(self.dirs_to_dirty)?;
         ctx.changed(self.paths_to_dirty)?;
+        ctx.changed(self.directory_sublisting_matching_any_case)?;
 
         Ok(())
     }
@@ -178,7 +224,21 @@ impl FileChangeTracker {
     fn file_contents_modify(&mut self, path: CellPath) {
         self.files_to_dirty
             .insert(ReadFileKey(Arc::new(path.clone())));
-        self.paths_to_dirty.insert(PathMetadataKey(path));
+        self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
+    }
+
+    fn insert_sublisting_matching_any_case(&mut self, path: CellPath) {
+        if let Some(parent) = &path.parent() {
+            if let Some(file_name) = path.path().file_name() {
+                let lower_case_file_name = file_name.to_string().to_lowercase();
+                self.directory_sublisting_matching_any_case.insert(
+                    DirectorySubListingMatchingInAnyCaseKey {
+                        directory_path: parent.to_owned(),
+                        filename: FileName::unchecked_new(&lower_case_file_name).to_owned(),
+                    },
+                );
+            }
+        }
     }
 
     fn insert_dir_keys(&mut self, path: CellPath) {
@@ -196,6 +256,7 @@ impl FileChangeTracker {
         let parent = path.parent();
 
         self.file_contents_modify(path.clone());
+        self.insert_sublisting_matching_any_case(path.clone());
         if let Some(parent) = parent {
             // The above can be None (validly!) if we have a cell we either create or delete.
             // That never happens in established repos, but if you are setting one up, it's not uncommon.
@@ -207,6 +268,7 @@ impl FileChangeTracker {
 
     pub fn dir_added_or_removed(&mut self, path: CellPath) {
         self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
+        self.insert_sublisting_matching_any_case(path.clone());
         if let Some(parent) = path.parent() {
             let parent = parent.to_owned();
             // The above can be None (validly!) if we have a cell we either create or delete.
@@ -234,6 +296,10 @@ impl FileChangeTracker {
         self.insert_dir_keys(path);
     }
 
+    pub fn dir_maybe_changed(&mut self, path: CellPath) {
+        self.maybe_modified_dirs.insert(path);
+    }
+
     pub fn dir_added(&mut self, path: CellPath) {
         self.dir_added_or_removed(path)
     }
@@ -259,10 +325,14 @@ impl Key for ReadFileKey {
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
         false
     }
+
+    fn invalidation_source_priority() -> InvalidationSourcePriority {
+        InvalidationSourcePriority::High
+    }
 }
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{}", path)]
+#[display("{}", path)]
 struct ReadDirKey {
     path: CellPath,
     check_ignores: CheckIgnores,
@@ -276,11 +346,45 @@ impl Key for ReadDirKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        get_delegated_file_ops(ctx, self.path.cell(), self.check_ignores)
-            .await?
-            .read_dir(self.path.as_ref().path())
+        let file_ops = get_delegated_file_ops(ctx, self.path.cell(), self.check_ignores).await?;
+        let user_data = ctx.per_transaction_data();
+        file_ops
+            .read_dir(user_data, self.path.as_ref().path())
             .await
             .map_err(buck2_error::Error::from)
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+
+    fn validity(x: &Self::Value) -> bool {
+        x.is_ok()
+    }
+}
+
+#[derive(Clone, Display, Allocative, Debug, Eq, Hash, PartialEq)]
+#[display("{}, {}", directory_path, filename)]
+struct DirectorySubListingMatchingInAnyCaseKey {
+    directory_path: CellPath,
+    filename: FileNameBuf,
+}
+
+#[async_trait]
+impl Key for DirectorySubListingMatchingInAnyCaseKey {
+    type Value = buck2_error::Result<DirectorySubListingMatchingOutput>;
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        get_delegated_file_ops(ctx, self.directory_path.cell(), CheckIgnores::Yes)
+            .await?
+            .read_matching_files_from_dir(self.directory_path.path(), &self.filename, ctx)
+            .await
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -334,6 +438,10 @@ impl Key for PathMetadataKey {
     fn validity(x: &Self::Value) -> bool {
         x.is_ok()
     }
+
+    fn invalidation_source_priority() -> InvalidationSourcePriority {
+        InvalidationSourcePriority::High
+    }
 }
 
 #[async_trait]
@@ -341,25 +449,28 @@ impl FileOps for DiceFileOps<'_, '_> {
     async fn read_file_if_exists(
         &self,
         path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> buck2_error::Result<Option<String>> {
         DiceFileComputations::read_file_if_exists(&mut self.0.get(), path).await
     }
 
-    async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput> {
+    async fn read_dir(
+        &self,
+        path: CellPathRef<'async_trait>,
+    ) -> buck2_error::Result<ReadDirOutput> {
         DiceFileComputations::read_dir(&mut self.0.get(), path).await
     }
 
     async fn read_path_metadata_if_exists(
         &self,
         path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<Option<RawPathMetadata>> {
+    ) -> buck2_error::Result<Option<RawPathMetadata>> {
         DiceFileComputations::read_path_metadata_if_exists(&mut self.0.get(), path).await
     }
 
     async fn is_ignored(
         &self,
         path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<FileIgnoreResult> {
+    ) -> buck2_error::Result<FileIgnoreResult> {
         DiceFileComputations::is_ignored(&mut self.0.get(), path).await
     }
 
@@ -369,7 +480,7 @@ impl FileOps for DiceFileOps<'_, '_> {
         PartialEqAny::always_false()
     }
 
-    async fn buildfiles<'a>(&self, cell: CellName) -> anyhow::Result<Arc<[FileNameBuf]>> {
+    async fn buildfiles<'a>(&self, cell: CellName) -> buck2_error::Result<Arc<[FileNameBuf]>> {
         DiceFileComputations::buildfiles(&mut self.0.get(), cell).await
     }
 }

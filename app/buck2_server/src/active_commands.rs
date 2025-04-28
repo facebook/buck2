@@ -16,9 +16,9 @@ use buck2_event_observer::pending_estimate::pending_estimate;
 use buck2_event_observer::span_tracker;
 use buck2_event_observer::span_tracker::RootData;
 use buck2_event_observer::span_tracker::Roots;
+use buck2_events::BuckEvent;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::span::SpanId;
-use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
@@ -162,9 +162,9 @@ impl ActiveCommandStateWriter {
                     return;
                 }
 
-                let is_root = buck_event.parent_id().map_or(true, |id| {
-                    !self.roots.contains(id) && !self.non_roots.contains(&id)
-                });
+                let is_root = buck_event
+                    .parent_id()
+                    .is_none_or(|id| !self.roots.contains(id) && !self.non_roots.contains(&id));
 
                 if is_root {
                     self.roots.insert(span_id, false, RootData::new(buck_event));
@@ -231,10 +231,10 @@ impl ActiveCommand {
             // Scope the guard so it's locked as little as possible
             let mut active_commands = ACTIVE_COMMANDS.lock();
 
-            let existing_active_commands = if active_commands.len() > 0 {
-                Some(active_commands.clone())
-            } else {
+            let existing_active_commands = if active_commands.is_empty() {
                 None
+            } else {
+                Some(active_commands.clone())
             };
 
             active_commands.insert(
@@ -277,8 +277,8 @@ mod tests {
     use std::time::SystemTime;
 
     use assert_matches::assert_matches;
-    use buck2_events::source::ChannelEventSource;
     use buck2_events::Event;
+    use buck2_events::source::ChannelEventSource;
 
     use super::*;
 

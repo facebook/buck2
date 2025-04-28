@@ -12,8 +12,7 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainIn
 def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     sdk_path = ctx.attrs._internal_sdk_path or ctx.attrs.sdk_path
     platform_path = ctx.attrs._internal_platform_path or ctx.attrs.platform_path
-
-    return [
+    providers = [
         DefaultInfo(),
         AppleToolchainInfo(
             actool = ctx.attrs.actool[RunInfo],
@@ -33,6 +32,7 @@ def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             libtool = ctx.attrs.libtool[RunInfo],
             lipo = ctx.attrs.lipo[RunInfo],
             mapc = ctx.attrs.mapc[RunInfo] if ctx.attrs.mapc else None,
+            merge_index_store = ctx.attrs.merge_index_store[RunInfo],
             momc = ctx.attrs.momc[RunInfo],
             objdump = ctx.attrs.objdump[RunInfo] if ctx.attrs.objdump else None,
             platform_path = platform_path,
@@ -40,9 +40,12 @@ def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             sdk_name = ctx.attrs.sdk_name,
             sdk_path = sdk_path,
             sdk_version = ctx.attrs.version,
-            swift_toolchain_info = ctx.attrs.swift_toolchain[SwiftToolchainInfo] if ctx.attrs.swift_toolchain else None,
             xcode_build_version = ctx.attrs.xcode_build_version,
             xcode_version = ctx.attrs.xcode_version,
             xctest = ctx.attrs.xctest[RunInfo],
         ),
     ]
+    if ctx.attrs.swift_toolchain:
+        providers.append(ctx.attrs.swift_toolchain[SwiftToolchainInfo])
+
+    return providers

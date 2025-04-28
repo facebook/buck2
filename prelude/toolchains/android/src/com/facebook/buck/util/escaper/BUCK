@@ -1,0 +1,47 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "quoter",
+    srcs = ["Quoter.java"],
+    # @oss-disable[end= ]: source = "8",
+    # @oss-disable[end= ]: target = "8",
+    source = "17", # @oss-enable
+    target = "17", # @oss-enable
+    visibility = ["PUBLIC"],
+    deps = [
+    ],
+)
+
+buck_java_library(
+    name = "utils",
+    srcs = ["EscaperUtils.java"],
+    # @oss-disable[end= ]: source = "8",
+    # @oss-disable[end= ]: target = "8",
+    source = "17", # @oss-enable
+    target = "17", # @oss-enable
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/third-party:guava",
+        ":quoter",
+    ],
+)
+
+buck_java_library(
+    name = "bash",
+    srcs = ["BashEscaper.java"],
+    # @oss-disable[end= ]: source = "8",
+    # @oss-disable[end= ]: target = "8",
+    source = "17", # @oss-enable
+    target = "17", # @oss-enable
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/third-party:guava",
+        ":quoter",
+        ":utils",
+    ],
+)

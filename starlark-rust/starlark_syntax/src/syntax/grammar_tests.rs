@@ -19,10 +19,10 @@ use std::fmt::Write;
 
 use crate::golden_test_template::golden_test_template;
 use crate::slice_vec_ext::SliceExt;
-use crate::syntax::ast::Stmt;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::syntax::DialectTypes;
+use crate::syntax::ast::Stmt;
 
 fn parse_fails_with_dialect(name: &str, dialect: &Dialect, programs: &[&str]) {
     let mut out = String::new();
@@ -51,11 +51,11 @@ fn parse_fail_with_dialect(name: &str, dialect: &Dialect, program: &str) {
 }
 
 fn parse_fail(name: &str, program: &str) {
-    parse_fail_with_dialect(name, &Dialect::Extended, program);
+    parse_fail_with_dialect(name, &Dialect::AllOptionsInternal, program);
 }
 
 fn parse_fails(name: &str, programs: &[&str]) {
-    parse_fails_with_dialect(name, &Dialect::Extended, programs);
+    parse_fails_with_dialect(name, &Dialect::AllOptionsInternal, programs);
 }
 
 #[test]
@@ -92,7 +92,7 @@ fn test_top_level_comment() {
 
 #[test]
 fn test_top_level_load() {
-    let want = "load(\"//top/level/load.bzl\"top-level = \"top-level\")\n";
+    let want = "load(\"//top/level/load.bzl\", top-level = \"top-level\")\n";
     assert_eq!(
         parse("\nload(\"//top/level/load.bzl\", \"top-level\")\n"),
         want
@@ -130,7 +130,7 @@ fn test_top_level_def() {
         "top_level_def",
         &Dialect {
             enable_def: false,
-            ..Dialect::Extended
+            ..Dialect::AllOptionsInternal
         },
         "def toto():\n  pass",
     );
@@ -151,7 +151,7 @@ fn test_top_level_def() {
 fn test_top_level_statements() {
     let no_top_leve_stmt = Dialect {
         enable_top_level_stmt: false,
-        ..Dialect::Extended
+        ..Dialect::AllOptionsInternal
     };
     parse_fails_with_dialect(
         "top_level_statements",
@@ -288,7 +288,7 @@ fn test_lambda() {
         "lambda",
         &Dialect {
             enable_lambda: false,
-            ..Dialect::Extended
+            ..Dialect::AllOptionsInternal
         },
         "x = lambda y: y + 1",
     );
@@ -321,7 +321,7 @@ fn test_ellipsis() {
         "ellipsis",
         &Dialect {
             enable_types: DialectTypes::Disable,
-            ..Dialect::Extended
+            ..Dialect::AllOptionsInternal
         },
         &["x = ..."],
     );
@@ -347,7 +347,8 @@ fn test_op_associativity() {
     assert_eq!(parse("1 * 2 * 3"), "((1 * 2) * 3)\n");
     // Comparisons are not associative
     // TODO - create a better error message for this case
-    let err = AstModule::parse("x", "0 <= 1 < 2".to_owned(), &Dialect::Extended).unwrap_err();
+    let err =
+        AstModule::parse("x", "0 <= 1 < 2".to_owned(), &Dialect::AllOptionsInternal).unwrap_err();
     assert!(err.to_string().contains("Parse error"), "{}", err);
 }
 
@@ -377,7 +378,7 @@ pub fn parse(program: &str) -> String {
 }
 
 pub fn parse_ast(program: &str) -> AstModule {
-    parse_ast_with_dialect(program, &Dialect::Extended)
+    parse_ast_with_dialect(program, &Dialect::AllOptionsInternal)
 }
 
 fn parse_with_dialect(program: &str, dialect: &Dialect) -> String {

@@ -20,10 +20,10 @@ use starlark_map::small_map::SmallMap;
 
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::small_duration::SmallDuration;
+use crate::util::arc_str::ArcStr;
 use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::layout::heap::profile::aggregated::StackFrame;
 use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
-use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::layout::heap::profile::string_index::StringId;
 use crate::values::layout::heap::profile::string_index::StringIndex;
 
@@ -213,8 +213,8 @@ impl HeapSummaryByFunction {
 mod tests {
     use crate::environment::Globals;
     use crate::environment::Module;
-    use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::eval::Evaluator;
+    use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
     use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
@@ -231,7 +231,7 @@ _ignore = {1: 2}       # allocate a dict in drop
 _ignore = str([1])     # allocate a string in non_drop
         "
             .to_owned(),
-            &Dialect::Extended,
+            &Dialect::AllOptionsInternal,
         )
         .unwrap();
 

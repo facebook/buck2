@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -37,7 +37,7 @@ impl FromStr for PathArg {
 
 impl PathArg {
     /// Resolve path to absolute path using provided current directory.
-    pub fn resolve(&self, cwd: &WorkingDir) -> AbsPathBuf {
+    pub fn resolve(&self, cwd: &AbsWorkingDir) -> AbsPathBuf {
         cwd.resolve(&self.path)
     }
 

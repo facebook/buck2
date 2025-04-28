@@ -13,10 +13,10 @@ use std::str::FromStr;
 
 pub use linkme;
 
-pub fn convert_from_str<T>(v: &str) -> anyhow::Result<T>
+pub fn convert_from_str<T>(v: &str) -> buck2_error::Result<T>
 where
     T: FromStr,
-    anyhow::Error: From<<T as FromStr>::Err>,
+    buck2_error::Error: From<<T as FromStr>::Err>,
 {
     Ok(T::from_str(v)?)
 }
@@ -37,12 +37,31 @@ where
 ///  - `applicability=<internal|testing>` - to indicate that the variable is not used in OSS or only
 ///    for self-testing of buck2
 ///
-/// The macro expands to an expression of type `anyhow::Result<Type>` if a default is set, and
-/// `anyhow::Result<Option<Type>` otherwise.
+/// The macro expands to an expression of type `buck2_error::Result<Type>` if a default is set, and
+/// `buck2_error::Result<Option<Type>` otherwise.
 pub macro buck2_env {
     ($var:expr, bool $(, $($rest:tt)*)?) => {{
-        let v: anyhow::Result<bool> = $crate::env::__macro_refs::buck2_env!($var, type=bool, default=false, $($($rest)*)?);
+        let v: buck2_error::Result<bool> = $crate::env::__macro_refs::buck2_env!($var, type=bool, default=false, converter = |s| {
+            match s.to_lowercase().as_str() {
+                "1" | "true" => Ok(true),
+                "0" | "false" => Ok(false),
+                _ => Err(buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "Invalid bool value: {}", s).into()),
+            }
+        }, $($($rest)*)?);
         v
+    }},
+    ($var:expr, type=$ty:ty, default=$default:expr, converter=$converter:expr $(, $($rest:tt)*)?) => {{
+        $crate::env::__macro_refs::parse2!(
+            (
+            var=$var,
+            parser=$converter,
+            stored_type=$ty,
+            processor=|x| x.copied().unwrap_or_else(|| $default),
+            output_type=$ty,
+            default_repr=std::option::Option::Some(stringify!($default)),
+            ),
+            $($($rest)*)?
+        )
     }},
     ($var:expr, type=$ty:ty, default=$default:expr $(, $($rest:tt)*)?) => {{
         $crate::env::__macro_refs::parse2!(
@@ -110,6 +129,7 @@ pub macro buck2_env_name($var:expr) {{
     $var
 }}
 
+#[allow(unused_macros)]
 macro parse2 {
     (
         $already_parsed:tt,
@@ -131,7 +151,8 @@ macro parse2 {
     },
 }
 
-/// `parser` is `&str -> anyhow::Result<$stored_type>`, `processor` is `Option<& $stored_type> -> $output_type`
+#[allow(unused_macros)]
+/// `parser` is `&str -> buck2_error::Result<$stored_type>`, `processor` is `Option<& $stored_type> -> $output_type`
 ///
 /// The extra set of parentheses is a trick to let us pass things through `parse2` transparently
 macro expand(
@@ -153,7 +174,7 @@ macro expand(
     );
     static ENV_HELPER: $crate::env::helper::EnvHelper<$stored_ty> =
         $crate::env::helper::EnvHelper::with_converter_from_macro($var, $parser);
-    let v: anyhow::Result<$output_ty> = ENV_HELPER.get().map($processor);
+    let v: buck2_error::Result<$output_ty> = ENV_HELPER.get().map($processor);
     v
 }}
 

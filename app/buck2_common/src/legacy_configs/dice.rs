@@ -16,6 +16,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
+use buck2_error::BuckErrorContext;
+use buck2_events::dispatch::get_dispatcher;
 use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -31,7 +33,6 @@ use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::cells::ExternalBuckconfigData;
 use crate::legacy_configs::configs::LegacyBuckConfig;
-use crate::legacy_configs::diffs::ConfigDiffTracker;
 use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 
@@ -54,7 +55,7 @@ impl OpaqueLegacyBuckConfigOnDice {
         &self,
         ctx: &mut DiceComputations,
         key: BuckconfigKeyRef,
-    ) -> anyhow::Result<Option<Arc<str>>> {
+    ) -> buck2_error::Result<Option<Arc<str>>> {
         let BuckconfigKeyRef { section, property } = key;
         Ok(ctx.projection(
             &*self.config,
@@ -79,9 +80,9 @@ pub struct LegacyBuckConfigOnDice<'a, 'd> {
 }
 
 impl LegacyBuckConfigOnDice<'_, '_> {
-    pub fn parse<T: FromStr>(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<T>>
+    pub fn parse<T: FromStr>(&mut self, key: BuckconfigKeyRef) -> buck2_error::Result<Option<T>>
     where
-        anyhow::Error: From<<T as FromStr>::Err>,
+        buck2_error::Error: From<<T as FromStr>::Err>,
     {
         LegacyBuckConfig::parse_value(key, self.get(key)?.as_deref())
     }
@@ -96,7 +97,7 @@ impl std::fmt::Debug for LegacyBuckConfigOnDice<'_, '_> {
 }
 
 impl<'a, 'd> LegacyBuckConfigView for LegacyBuckConfigOnDice<'a, 'd> {
-    fn get(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>> {
+    fn get(&mut self, key: BuckconfigKeyRef) -> buck2_error::Result<Option<Arc<str>>> {
         self.config.lookup(self.ctx, key)
     }
 }
@@ -104,11 +105,11 @@ impl<'a, 'd> LegacyBuckConfigView for LegacyBuckConfigOnDice<'a, 'd> {
 pub trait HasInjectedLegacyConfigs {
     fn get_injected_external_buckconfig_data(
         &mut self,
-    ) -> impl Future<Output = anyhow::Result<Arc<ExternalBuckconfigData>>>;
+    ) -> impl Future<Output = buck2_error::Result<Arc<ExternalBuckconfigData>>>;
 
     fn is_injected_external_buckconfig_data_key_set(
         &mut self,
-    ) -> impl Future<Output = anyhow::Result<bool>>;
+    ) -> impl Future<Output = buck2_error::Result<bool>>;
 }
 
 #[async_trait]
@@ -120,11 +121,11 @@ pub trait HasLegacyConfigs {
     async fn get_legacy_config_on_dice(
         &mut self,
         cell_name: CellName,
-    ) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice>;
+    ) -> buck2_error::Result<OpaqueLegacyBuckConfigOnDice>;
 
     async fn get_legacy_root_config_on_dice(
         &mut self,
-    ) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice>;
+    ) -> buck2_error::Result<OpaqueLegacyBuckConfigOnDice>;
 
     /// Use this function carefully: a computation which fetches this key will be recomputed
     /// if any buckconfig property changes.
@@ -139,15 +140,15 @@ pub trait HasLegacyConfigs {
         &mut self,
         cell_name: CellName,
         key: BuckconfigKeyRef<'_>,
-    ) -> anyhow::Result<Option<Arc<str>>>;
+    ) -> buck2_error::Result<Option<Arc<str>>>;
 
     async fn parse_legacy_config_property<T: FromStr>(
         &mut self,
         cell_name: CellName,
         key: BuckconfigKeyRef<'_>,
-    ) -> anyhow::Result<Option<T>>
+    ) -> buck2_error::Result<Option<T>>
     where
-        anyhow::Error: From<<T as FromStr>::Err>,
+        buck2_error::Error: From<<T as FromStr>::Err>,
         T: Send + Sync + 'static;
 }
 
@@ -155,13 +156,13 @@ pub trait SetLegacyConfigs {
     fn set_legacy_config_external_data(
         &mut self,
         overrides: Arc<ExternalBuckconfigData>,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
 
-    fn set_none_legacy_config_external_data(&mut self) -> anyhow::Result<()>;
+    fn set_none_legacy_config_external_data(&mut self) -> buck2_error::Result<()>;
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct LegacyExternalBuckConfigDataKey;
 
 impl InjectedKey for LegacyExternalBuckConfigDataKey {
@@ -173,7 +174,7 @@ impl InjectedKey for LegacyExternalBuckConfigDataKey {
 }
 
 #[derive(Clone, Display, Debug, Hash, Eq, PartialEq, Allocative)]
-#[display(fmt = "LegacyBuckConfigForCellKey({})", "self.cell_name")]
+#[display("LegacyBuckConfigForCellKey({})", self.cell_name)]
 struct LegacyBuckConfigForCellKey {
     cell_name: CellName,
 }
@@ -189,10 +190,17 @@ impl Key for LegacyBuckConfigForCellKey {
     ) -> buck2_error::Result<LegacyBuckConfig> {
         let cells = ctx.get_cell_resolver().await?;
         let this_cell = cells.get(self.cell_name)?;
-        let config =
-            BuckConfigBasedCells::parse_single_cell_with_dice(ctx, this_cell.path()).await?;
+        let config = BuckConfigBasedCells::parse_single_cell_with_dice(ctx, this_cell.path())
+            .await
+            .with_buck_error_context(|| {
+                format!("Computing legacy buckconfigs for cell `{}`", self.cell_name)
+            })?;
+        let config = config.filter_values(should_keep_config_change);
 
-        ConfigDiffTracker::report_computed_config(ctx, self.cell_name, &config);
+        let event = buck2_data::CellHasNewConfigs {
+            cell: self.cell_name.as_str().to_owned(),
+        };
+        get_dispatcher().instant_event(event);
 
         Ok(config)
     }
@@ -233,7 +241,7 @@ impl ProjectionKey for LegacyBuckConfigErrorKey {
 }
 
 #[derive(Debug, Display, Hash, Eq, PartialEq, Clone, Allocative)]
-#[display(fmt = "{}.{}", section, property)]
+#[display("{}.{}", section, property)]
 struct LegacyBuckConfigPropertyProjectionKey {
     section: String,
     property: String,
@@ -266,13 +274,13 @@ impl ProjectionKey for LegacyBuckConfigPropertyProjectionKey {
 impl HasInjectedLegacyConfigs for DiceComputations<'_> {
     async fn get_injected_external_buckconfig_data(
         &mut self,
-    ) -> anyhow::Result<Arc<ExternalBuckconfigData>> {
-        self.compute(&LegacyExternalBuckConfigDataKey).await?.ok_or_else(|| {
-            panic!("Tried to retrieve LegacyBuckConfigOverridesKey from the graph, but key has None value")
-        })
+    ) -> buck2_error::Result<Arc<ExternalBuckconfigData>> {
+        self.compute(&LegacyExternalBuckConfigDataKey).await?.internal_error(
+            "Tried to retrieve LegacyExternalBuckConfigDataKey from the graph, but key has None value"
+        )
     }
 
-    async fn is_injected_external_buckconfig_data_key_set(&mut self) -> anyhow::Result<bool> {
+    async fn is_injected_external_buckconfig_data_key_set(&mut self) -> buck2_error::Result<bool> {
         Ok(self
             .compute(&LegacyExternalBuckConfigDataKey)
             .await?
@@ -280,12 +288,22 @@ impl HasInjectedLegacyConfigs for DiceComputations<'_> {
     }
 }
 
+pub fn inject_legacy_config_for_test(
+    dice: &mut DiceTransactionUpdater,
+    cell_name: CellName,
+    configs: LegacyBuckConfig,
+) -> buck2_error::Result<()> {
+    dice.changed_to([(LegacyBuckConfigForCellKey { cell_name }, Ok(configs))])?;
+    dice.changed_to([(LegacyExternalBuckConfigDataKey, None)])?;
+    Ok(())
+}
+
 #[async_trait]
 impl HasLegacyConfigs for DiceComputations<'_> {
     async fn get_legacy_config_on_dice(
         &mut self,
         cell_name: CellName,
-    ) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice> {
+    ) -> buck2_error::Result<OpaqueLegacyBuckConfigOnDice> {
         let config = self
             .compute_opaque(&LegacyBuckConfigForCellKey { cell_name })
             .await?;
@@ -299,7 +317,7 @@ impl HasLegacyConfigs for DiceComputations<'_> {
 
     async fn get_legacy_root_config_on_dice(
         &mut self,
-    ) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice> {
+    ) -> buck2_error::Result<OpaqueLegacyBuckConfigOnDice> {
         let cell_resolver = self.get_cell_resolver().await?;
         self.get_legacy_config_on_dice(cell_resolver.root_cell())
             .await
@@ -317,7 +335,7 @@ impl HasLegacyConfigs for DiceComputations<'_> {
         &mut self,
         cell_name: CellName,
         key: BuckconfigKeyRef<'_>,
-    ) -> anyhow::Result<Option<Arc<str>>> {
+    ) -> buck2_error::Result<Option<Arc<str>>> {
         self.get_legacy_config_on_dice(cell_name)
             .await?
             .lookup(self, key)
@@ -327,9 +345,9 @@ impl HasLegacyConfigs for DiceComputations<'_> {
         &mut self,
         cell_name: CellName,
         key: BuckconfigKeyRef<'_>,
-    ) -> anyhow::Result<Option<T>>
+    ) -> buck2_error::Result<Option<T>>
     where
-        anyhow::Error: From<<T as FromStr>::Err>,
+        buck2_error::Error: From<<T as FromStr>::Err>,
         T: Send + Sync + 'static,
     {
         LegacyBuckConfig::parse_value(
@@ -345,13 +363,22 @@ impl SetLegacyConfigs for DiceTransactionUpdater {
     fn set_legacy_config_external_data(
         &mut self,
         data: Arc<ExternalBuckconfigData>,
-    ) -> anyhow::Result<()> {
-        Ok(self.changed_to(vec![(LegacyExternalBuckConfigDataKey, Some(data))])?)
+    ) -> buck2_error::Result<()> {
+        // Don't invalidate state if RE use case is overridden.
+        let data = data.filter_values(should_keep_config_change);
+        Ok(self.changed_to(vec![(
+            LegacyExternalBuckConfigDataKey,
+            Some(Arc::new(data)),
+        )])?)
     }
 
-    fn set_none_legacy_config_external_data(&mut self) -> anyhow::Result<()> {
+    fn set_none_legacy_config_external_data(&mut self) -> buck2_error::Result<()> {
         Ok(self.changed_to(vec![(LegacyExternalBuckConfigDataKey, None)])?)
     }
+}
+
+fn should_keep_config_change(config_key: &BuckconfigKeyRef) -> bool {
+    !(config_key.section == "buck2_re_client" && config_key.property == "override_use_case")
 }
 
 #[cfg(test)]
@@ -361,7 +388,7 @@ mod tests {
     use crate::legacy_configs::configs::testing::parse_with_config_args;
 
     #[test]
-    fn config_equals() -> anyhow::Result<()> {
+    fn config_equals() -> buck2_error::Result<()> {
         let path = "test";
         let config1 = parse_with_config_args(
             &[("test", "[sec1]\na=b\n[sec2]\nx=y")],

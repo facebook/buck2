@@ -29,10 +29,11 @@ use std::mem;
 
 use allocative::Allocative;
 use equivalent::Equivalent;
-use hashbrown::raw::RawTable;
+use hashbrown::HashTable;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::StarlarkHashValue;
 use crate::hashed::Hashed;
 pub use crate::small_map::iter::IntoIter;
 pub use crate::small_map::iter::IntoIterHashed;
@@ -46,7 +47,6 @@ pub use crate::small_map::iter::Keys;
 pub use crate::small_map::iter::Values;
 pub use crate::small_map::iter::ValuesMut;
 use crate::vec_map::VecMap;
-use crate::StarlarkHashValue;
 
 mod iter;
 
@@ -59,20 +59,19 @@ const NO_INDEX_THRESHOLD: usize = 32;
 #[cfg(not(rust_nightly))]
 const NO_INDEX_THRESHOLD: usize = 16;
 
-/// An memory-efficient key-value map with deterministic order.
+/// A map with deterministic iteration order.
 ///
-/// Provides the standard container operations, modelled most closely on `indexmap::IndexMap`, plus:
-///
-/// * Variants which take an already hashed value, e.g. [`get_hashed`](SmallMap::get_hashed).
-///
-/// * Functions which work with the position, e.g. [`get_index_of`](SmallMap::get_index_of).
+/// This map is similar to [`indexmap::IndexMap`](https://docs.rs/indexmap)
+/// with the following differences:
+/// - [Small hashes](StarlarkHashValue) are stored next to keys
+/// - Index is not created for small maps
 #[repr(C)]
 #[derive(Clone, Allocative)]
 pub struct SmallMap<K, V> {
     entries: VecMap<K, V>,
     /// Map a key to the index in `entries`.
     /// This field is initialized when the size of the map exceeds `NO_INDEX_THRESHOLD`.
-    index: Option<Box<RawTable<usize>>>,
+    index: Option<Box<HashTable<usize>>>,
 }
 
 impl<K, V> Default for SmallMap<K, V> {
@@ -109,7 +108,7 @@ impl<K, V> SmallMap<K, V> {
         } else {
             SmallMap {
                 entries: VecMap::with_capacity(n),
-                index: Some(Box::new(RawTable::with_capacity(n))),
+                index: Some(Box::new(HashTable::with_capacity(n))),
             }
         }
     }
@@ -124,7 +123,7 @@ impl<K, V> SmallMap<K, V> {
             assert_eq!(index.len(), self.entries.len());
             for (i, (k, _)) in self.entries.iter_hashed().enumerate() {
                 let j = *index
-                    .get(k.hash().promote(), |j| {
+                    .find(k.hash().promote(), |j| {
                         &self.entries.get_index(*j).unwrap().0 == k.key()
                     })
                     .unwrap();
@@ -296,10 +295,10 @@ impl<K, V> SmallMap<K, V> {
         &self,
         hash: StarlarkHashValue,
         mut eq: impl FnMut(&K) -> bool,
-        index: &RawTable<usize>,
+        index: &HashTable<usize>,
     ) -> Option<usize> {
         index
-            .get(hash.promote(), |&index| unsafe {
+            .find(hash.promote(), |&index| unsafe {
                 eq(self.entries.get_unchecked(index).0.key())
             })
             .copied()
@@ -399,10 +398,7 @@ impl<K, V> SmallMap<K, V> {
 
     /// Reserve capacity for at least `additional` more elements to be inserted.
     #[inline]
-    pub fn reserve(&mut self, additional: usize)
-    where
-        K: Eq,
-    {
+    pub fn reserve(&mut self, additional: usize) {
         self.entries.reserve(additional);
         if let Some(index) = &mut self.index {
             index.reserve(additional, Self::hasher(&self.entries));
@@ -431,12 +427,25 @@ impl<K, V> SmallMap<K, V> {
     fn create_index(&mut self, capacity: usize) {
         debug_assert!(self.index.is_none());
         debug_assert!(capacity >= self.entries.len());
-        let mut index = RawTable::with_capacity(capacity);
+        let mut index = HashTable::with_capacity(capacity);
         for (i, (k, _)) in self.entries.iter_hashed().enumerate() {
-            // SAFETY: capacity >= self.entries.len()
-            unsafe { index.insert_no_grow(k.hash().promote(), i) };
+            index.insert_unique(k.hash().promote(), i, |_| {
+                unreachable!("Must have enough capacity")
+            });
         }
         self.index = Some(Box::new(index));
+    }
+
+    /// Rebuild the index after entries are reordered or removed.
+    fn rebuild_index(&mut self) {
+        if let Some(index) = &mut self.index {
+            index.clear();
+            for (i, (k, _)) in self.entries.iter_hashed().enumerate() {
+                index.insert_unique(k.hash().promote(), i, |_| {
+                    unreachable!("Must have enough capacity")
+                });
+            }
+        }
     }
 
     /// Hasher for index resize.
@@ -455,7 +464,7 @@ impl<K, V> SmallMap<K, V> {
         let entry_index = self.entries.len();
         self.entries.insert_hashed_unique_unchecked(key, val);
         if let Some(index) = &mut self.index {
-            index.insert(hash.promote(), entry_index, Self::hasher(&self.entries));
+            index.insert_unique(hash.promote(), entry_index, Self::hasher(&self.entries));
         } else if self.entries.len() == NO_INDEX_THRESHOLD + 1 {
             self.create_index(self.entries.len());
         } else {
@@ -507,34 +516,35 @@ impl<K, V> SmallMap<K, V> {
     /// Remove the entry for the key.
     ///
     /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the map.
-    pub fn remove_hashed<Q>(&mut self, key: Hashed<&Q>) -> Option<V>
+    pub fn shift_remove_hashed<Q>(&mut self, key: Hashed<&Q>) -> Option<V>
     where
         Q: ?Sized + Equivalent<K>,
     {
-        self.remove_hashed_entry(key).map(|(_k, v)| v)
+        self.shift_remove_hashed_entry(key).map(|(_k, v)| v)
     }
 
     /// Remove the entry for the key.
     ///
     /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the map.
-    pub fn remove_hashed_entry<Q>(&mut self, key: Hashed<&Q>) -> Option<(K, V)>
+    pub fn shift_remove_hashed_entry<Q>(&mut self, key: Hashed<&Q>) -> Option<(K, V)>
     where
         Q: ?Sized + Equivalent<K>,
     {
         let hash = key.hash();
         if let Some(index) = &mut self.index {
             let entries = &self.entries;
-            let i = index.remove_entry(hash.promote(), |&i| unsafe {
+            let i = match index.find_entry(hash.promote(), |&i| unsafe {
                 key.key().equivalent(entries.get_unchecked(i).0.key())
-            })?;
-            unsafe {
-                // No need to update the index when the last entry is removed.
-                if i != self.entries.len() - 1 {
-                    for bucket in index.iter() {
-                        debug_assert!(*bucket.as_ref() != i);
-                        if *bucket.as_mut() > i {
-                            *bucket.as_mut() -= 1;
-                        }
+            }) {
+                Ok(found) => found.remove().0,
+                Err(_) => return None,
+            };
+            // No need to update the index when the last entry is removed.
+            if i != self.entries.len() - 1 {
+                for bucket in index.iter_mut() {
+                    debug_assert!(*bucket != i);
+                    if *bucket > i {
+                        *bucket -= 1;
                     }
                 }
             }
@@ -545,24 +555,54 @@ impl<K, V> SmallMap<K, V> {
         }
     }
 
-    /// Remove the entry for the key.
-    ///
-    /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the map.
-    pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
-    where
-        Q: ?Sized + Hash + Equivalent<K>,
-    {
-        self.remove_hashed(Hashed::new(key))
+    /// Remove the entry by index. This is *O(N)* operation.
+    pub fn shift_remove_index_hashed(&mut self, i: usize) -> Option<(Hashed<K>, V)> {
+        if i >= self.len() {
+            return None;
+        }
+        if let Some(index) = &mut self.index {
+            let mut removed = false;
+            index.retain(|j| {
+                if *j == i {
+                    debug_assert!(!removed);
+                    removed = true;
+                    false
+                } else if *j > i {
+                    *j -= 1;
+                    true
+                } else {
+                    true
+                }
+            });
+            debug_assert!(removed);
+        }
+        Some(self.entries.remove(i))
+    }
+
+    /// Remove the entry by index. This is *O(N)* operation.
+    pub fn shift_remove_index(&mut self, i: usize) -> Option<(K, V)> {
+        let (key, value) = self.shift_remove_index_hashed(i)?;
+        Some((key.into_key(), value))
     }
 
     /// Remove the entry for the key.
     ///
     /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the map.
-    pub fn remove_entry<Q>(&mut self, key: &Q) -> Option<(K, V)>
+    pub fn shift_remove<Q>(&mut self, key: &Q) -> Option<V>
     where
         Q: ?Sized + Hash + Equivalent<K>,
     {
-        self.remove_hashed_entry(Hashed::new(key))
+        self.shift_remove_hashed(Hashed::new(key))
+    }
+
+    /// Remove the entry for the key.
+    ///
+    /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the map.
+    pub fn shift_remove_entry<Q>(&mut self, key: &Q) -> Option<(K, V)>
+    where
+        Q: ?Sized + Hash + Equivalent<K>,
+    {
+        self.shift_remove_hashed_entry(Hashed::new(key))
     }
 
     /// Get the entry (occupied or not) for the key.
@@ -589,9 +629,17 @@ impl<K, V> SmallMap<K, V> {
             None => None,
             Some((key, value)) => {
                 if let Some(index) = &mut self.index {
-                    let removed =
-                        index.remove_entry(key.hash().promote(), |&i| i == self.entries.len());
-                    debug_assert!(removed.unwrap() == self.entries.len());
+                    match index.find_entry(key.hash().promote(), |&i| i == self.entries.len()) {
+                        Ok(found) => {
+                            let removed = found.remove().0;
+                            debug_assert!(removed == self.entries.len());
+                        }
+                        Err(_) => {
+                            if cfg!(debug_assertions) {
+                                unreachable!("The entry must be in the index")
+                            }
+                        }
+                    }
                 }
                 Some((key.into_key(), value))
             }
@@ -640,12 +688,10 @@ impl<K, V> SmallMap<K, V> {
         if let Some(index) = &self.index {
             assert_eq!(self.entries.len(), index.len());
             let mut set_fields = vec![false; self.entries.len()];
-            unsafe {
-                for bucket in index.iter() {
-                    let i = *bucket.as_ref();
-                    let prev = mem::replace(&mut set_fields[i], true);
-                    assert!(!prev);
-                }
+            for bucket in index.iter() {
+                let i = *bucket;
+                let prev = mem::replace(&mut set_fields[i], true);
+                assert!(!prev);
             }
         } else {
             assert!(self.entries.len() <= NO_INDEX_THRESHOLD);
@@ -677,13 +723,7 @@ impl<K, V> SmallMap<K, V> {
 
         impl<'a, K, V> Drop for RebuildIndexOnDrop<'a, K, V> {
             fn drop(&mut self) {
-                if let Some(index) = &mut self.map.index {
-                    index.clear();
-                    for (i, (k, _)) in self.map.entries.iter_hashed().enumerate() {
-                        // SAFETY: capacity >= self.entries.len()
-                        unsafe { index.insert_no_grow(k.hash().promote(), i) };
-                    }
-                }
+                self.map.rebuild_index();
             }
         }
 
@@ -716,13 +756,37 @@ impl<K, V> SmallMap<K, V> {
         self.entries.reverse();
         if let Some(index) = &mut self.index {
             let len = self.entries.len();
-            // Safety: iterator does not escape.
-            unsafe {
-                for entry in index.iter() {
-                    *entry.as_mut() = len - 1 - *entry.as_ref();
+            for entry in index.iter_mut() {
+                *entry = len - 1 - *entry;
+            }
+        }
+    }
+
+    /// Retains only the elements specified by the predicate.
+    pub fn retain<F>(&mut self, f: F)
+    where
+        F: FnMut(&K, &mut V) -> bool,
+    {
+        struct RebuildIndexOnDrop<'a, K, V> {
+            original_len: usize,
+            map: &'a mut SmallMap<K, V>,
+        }
+
+        impl<'a, K, V> Drop for RebuildIndexOnDrop<'a, K, V> {
+            fn drop(&mut self) {
+                debug_assert!(self.map.entries.len() <= self.original_len);
+                if self.map.len() < self.original_len {
+                    self.map.rebuild_index();
                 }
             }
         }
+
+        let work = RebuildIndexOnDrop {
+            original_len: self.len(),
+            map: self,
+        };
+
+        work.map.entries.retain(f);
     }
 }
 
@@ -945,10 +1009,10 @@ where
 #[macro_export]
 macro_rules! smallmap {
     (@single $($x:tt)*) => (());
-    (@count $($rest:expr),*) => (<[()]>::len(&[$(smallmap!(@single $rest)),*]));
+    (@count $($rest:expr_2021),*) => (<[()]>::len(&[$(smallmap!(@single $rest)),*]));
 
-    ($($key:expr => $value:expr,)+) => { smallmap!($($key => $value),+) };
-    ($($key:expr => $value:expr),*) => {
+    ($($key:expr_2021 => $value:expr_2021,)+) => { smallmap!($($key => $value),+) };
+    ($($key:expr_2021 => $value:expr_2021),*) => {
         {
             let cap = smallmap!(@count $($key),*);
             #[allow(unused_mut)]
@@ -1017,8 +1081,8 @@ where
 #[cfg(test)]
 mod tests {
     use std::cmp::Ordering;
-    use std::panic::catch_unwind;
     use std::panic::AssertUnwindSafe;
+    use std::panic::catch_unwind;
 
     use super::*;
 
@@ -1100,7 +1164,7 @@ mod tests {
 
         let not_m1 = {
             let mut m = m1.clone();
-            m.remove(&1);
+            m.shift_remove(&1);
             m
         };
         assert_ne!(m1, not_m1);
@@ -1159,7 +1223,7 @@ mod tests {
         assert_eq!(map.insert(K(2), "magic"), None);
         assert_eq!(map.get(&K(2)), Some(&"magic"));
 
-        assert_eq!(map.remove(&K(1)), Some("test"));
+        assert_eq!(map.shift_remove(&K(1)), Some("test"));
         assert_eq!(map.get(&K(1)), None);
         assert_eq!(map.keys().collect::<Vec<_>>(), vec![&K(3), &K(2)]);
     }
@@ -1222,7 +1286,7 @@ mod tests {
         assert_eq!(map.first(), Some((&1, &10)));
         map.insert(2, 20);
         assert_eq!(map.first(), Some((&1, &10)));
-        map.remove(&1);
+        map.shift_remove(&1);
         assert_eq!(map.first(), Some((&2, &20)));
     }
 
@@ -1311,20 +1375,30 @@ mod tests {
     }
 
     #[test]
-    fn test_remove() {
+    fn test_shift_remove() {
         // Large enough so the index is used.
         let mut m = (0..100).map(|i| (i, i * 10)).collect::<SmallMap<_, _>>();
-        assert_eq!(Some((1, 10)), m.remove_entry(&1));
+        assert_eq!(Some((1, 10)), m.shift_remove_entry(&1));
         assert_eq!(Some(&30), m.get(&3));
         m.assert_invariants();
     }
 
     #[test]
-    fn test_remove_last() {
+    fn test_shift_remove_last() {
         // Large enough so the index is used.
         let mut m = (0..100).map(|i| (i, i * 10)).collect::<SmallMap<_, _>>();
-        assert_eq!(Some((99, 990)), m.remove_entry(&99));
+        assert_eq!(Some((99, 990)), m.shift_remove_entry(&99));
         assert_eq!(Some(&980), m.get(&98));
+        m.assert_invariants();
+    }
+
+    #[test]
+    fn test_shift_remove_index() {
+        let mut m = (0..100).map(|i| (i, i * 10)).collect::<SmallMap<_, _>>();
+        m.shift_remove_index(5);
+        assert_eq!(Some(&40), m.get(&4));
+        assert_eq!(None, m.get(&5));
+        assert_eq!(Some(&60), m.get(&6));
         m.assert_invariants();
     }
 
@@ -1385,5 +1459,21 @@ mod tests {
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn test_retain() {
+        let mut map = SmallMap::new();
+        for i in 0..100 {
+            map.insert(i.to_string(), i);
+        }
+        map.retain(|_, v| {
+            let res = *v % 2 == 0;
+            *v += 3;
+            res
+        });
+        assert_eq!(map.len(), 50);
+        assert_eq!(map.get("7"), None);
+        assert_eq!(map.get("8"), Some(&11));
     }
 }

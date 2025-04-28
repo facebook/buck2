@@ -7,14 +7,15 @@
  * of this source tree.
  */
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 
-use crate::cells::paths::CellRelativePath;
 use crate::cells::CellAliasResolver;
+use crate::cells::paths::CellRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::package::PackageLabel;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum ParsePackageError {
     #[error("Package should contain `//`: `{0}`")]
     NoSlashSlash(String),
@@ -24,7 +25,7 @@ enum ParsePackageError {
 pub fn parse_package(
     package: &str,
     cell_alias_resolver: &CellAliasResolver,
-) -> anyhow::Result<PackageLabel> {
+) -> buck2_error::Result<PackageLabel> {
     // There's no ready to use parser for package, so create simple one here.
     let (cell, cell_relative) = package
         .split_once("//")
@@ -32,7 +33,7 @@ pub fn parse_package(
 
     let cell = cell_alias_resolver.resolve(cell)?;
     let cell_relative =
-        ForwardRelativePath::new(cell_relative).context("Parsing package argument")?;
+        ForwardRelativePath::new(cell_relative).buck_error_context("Parsing package argument")?;
     let cell_relative = CellRelativePath::new(cell_relative);
 
     Ok(PackageLabel::new(cell, cell_relative))
@@ -41,9 +42,9 @@ pub fn parse_package(
 #[cfg(test)]
 mod tests {
 
+    use crate::cells::CellAliasResolver;
     use crate::cells::alias::NonEmptyCellAlias;
     use crate::cells::name::CellName;
-    use crate::cells::CellAliasResolver;
     use crate::pattern::parse_package::parse_package;
 
     #[test]

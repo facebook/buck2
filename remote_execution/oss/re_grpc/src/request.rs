@@ -101,6 +101,8 @@ pub struct TDependency {
 pub struct TExecutionPolicy {
     pub priority: i32,
     pub affinity_keys: Vec<String>,
+    pub region_preference: String,
+    pub setup_preference_key: String,
     pub _dot_dot: (),
 }
 

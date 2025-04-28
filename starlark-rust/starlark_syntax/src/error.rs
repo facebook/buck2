@@ -22,8 +22,8 @@ use crate::call_stack::CallStack;
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Span;
-use crate::diagnostic::diagnostic_display;
 use crate::diagnostic::WithDiagnostic;
+use crate::diagnostic::diagnostic_display;
 
 /// An error produced by starlark.
 ///
@@ -39,7 +39,7 @@ const _: () = assert!(mem::size_of::<Error>() == mem::size_of::<usize>());
 impl Error {
     /// Create a new error
     #[cold]
-    pub fn new(kind: ErrorKind) -> Self {
+    pub fn new_kind(kind: ErrorKind) -> Self {
         Self(WithDiagnostic::new_empty(kind))
     }
 
@@ -53,6 +53,12 @@ impl Error {
     #[cold]
     pub fn new_other(e: impl Into<anyhow::Error>) -> Self {
         Self(WithDiagnostic::new_empty(ErrorKind::Other(e.into())))
+    }
+
+    /// Create a new error with no diagnostic and of kind [`ErrorKind::Native`]
+    #[cold]
+    pub fn new_native(e: impl Into<anyhow::Error>) -> Self {
+        Self(WithDiagnostic::new_empty(ErrorKind::Native(e.into())))
     }
 
     /// Create a new error with no diagnostic and of kind [`ErrorKind::Value`]
@@ -113,6 +119,10 @@ impl Error {
         self.0.span()
     }
 
+    pub fn call_stack(&self) -> &CallStack {
+        self.0.call_stack()
+    }
+
     /// Set the span, unless it's already been set.
     pub fn set_span(&mut self, span: Span, codemap: &CodeMap) {
         self.0.set_span(span, codemap);
@@ -136,6 +146,15 @@ impl Error {
             eprint!("{}", stderr);
         } else {
             eprintln!("{:#}", self)
+        }
+    }
+
+    /// Change error kind to internal error.
+    pub fn into_internal_error(self) -> Error {
+        if let ErrorKind::Internal(_) = self.kind() {
+            self
+        } else {
+            Error(self.0.map(ErrorKind::into_internal_error))
         }
     }
 }
@@ -177,16 +196,20 @@ pub enum ErrorKind {
     Function(anyhow::Error),
     /// Out of scope variables and similar
     Scope(anyhow::Error),
-    /// Error when lexing a file
-    Lexer(anyhow::Error),
+    /// Syntax error.
+    Parser(anyhow::Error),
+    /// Freeze errors. Should have no metadata attached
+    Freeze(anyhow::Error),
     /// Indicates a logic bug in starlark
     Internal(anyhow::Error),
+    /// Error from user provided native function
+    /// (but not from native functions provided by starlark crate).
+    /// When a native function declares `anyhow::Result<_>`
+    /// return type, it is automatically converted to this variant.
+    Native(anyhow::Error),
     /// Fallback option
     ///
-    /// This is used in two cases:
-    ///  1. For errors produced by starlark which have not yet been assigned their own kind
-    ///  2. When a native function invoked as a part of starlark evaluation returns a
-    ///     `anyhow::Error`
+    /// For errors produced by starlark which have not yet been assigned their own kind
     Other(anyhow::Error),
 }
 
@@ -199,9 +222,27 @@ impl ErrorKind {
             Self::Value(_) => None,
             Self::Function(_) => None,
             Self::Scope(_) => None,
-            Self::Lexer(_) => None,
+            Self::Freeze(_) => None,
+            Self::Parser(_) => None,
             Self::Internal(_) => None,
+            Self::Native(e) => e.source(),
             Self::Other(e) => e.source(),
+        }
+    }
+
+    /// Change type to `Internal`.
+    pub(crate) fn into_internal_error(self) -> ErrorKind {
+        match self {
+            ErrorKind::Internal(e)
+            | ErrorKind::Fail(e)
+            | ErrorKind::Value(e)
+            | ErrorKind::Function(e)
+            | ErrorKind::Scope(e)
+            | ErrorKind::Freeze(e)
+            | ErrorKind::Parser(e)
+            | ErrorKind::StackOverflow(e)
+            | ErrorKind::Native(e)
+            | ErrorKind::Other(e) => ErrorKind::Internal(e),
         }
     }
 }
@@ -214,8 +255,10 @@ impl fmt::Debug for ErrorKind {
             Self::StackOverflow(e) => fmt::Debug::fmt(e, f),
             Self::Function(e) => fmt::Debug::fmt(e, f),
             Self::Scope(e) => fmt::Debug::fmt(e, f),
-            Self::Lexer(e) => fmt::Debug::fmt(e, f),
+            Self::Freeze(e) => fmt::Debug::fmt(e, f),
+            Self::Parser(e) => fmt::Debug::fmt(e, f),
             Self::Internal(e) => write!(f, "Internal error: {}", e),
+            Self::Native(e) => fmt::Debug::fmt(e, f),
             Self::Other(e) => fmt::Debug::fmt(e, f),
         }
     }
@@ -229,8 +272,10 @@ impl fmt::Display for ErrorKind {
             Self::Value(e) => fmt::Display::fmt(e, f),
             Self::Function(e) => fmt::Display::fmt(e, f),
             Self::Scope(e) => fmt::Display::fmt(e, f),
-            Self::Lexer(e) => fmt::Display::fmt(e, f),
+            Self::Freeze(e) => fmt::Display::fmt(e, f),
+            Self::Parser(e) => fmt::Display::fmt(e, f),
             Self::Internal(e) => write!(f, "Internal error: {}", e),
+            Self::Native(e) => fmt::Display::fmt(e, f),
             Self::Other(e) => fmt::Display::fmt(e, f),
         }
     }
@@ -254,21 +299,38 @@ impl<T> StarlarkResultExt<T> for crate::Result<T> {
     }
 }
 
+#[doc(hidden)]
+#[cold]
+pub fn internal_error_impl(args: fmt::Arguments<'_>) -> Error {
+    Error::new_kind(ErrorKind::Internal(anyhow::anyhow!("{}", args)))
+}
+
+#[doc(hidden)]
+#[cold]
+pub fn other_error_impl(args: fmt::Arguments<'_>) -> Error {
+    Error::new_kind(ErrorKind::Other(anyhow::anyhow!("{}", args)))
+}
+
+#[doc(hidden)]
+#[cold]
+pub fn value_error_impl(args: fmt::Arguments<'_>) -> Error {
+    Error::new_kind(ErrorKind::Value(anyhow::anyhow!("{}", args)))
+}
+
+#[doc(hidden)]
+#[cold]
+pub fn function_error_impl(args: fmt::Arguments<'_>) -> Error {
+    Error::new_kind(ErrorKind::Function(anyhow::anyhow!("{}", args)))
+}
+
 /// Internal error of starlark.
 #[macro_export]
 macro_rules! internal_error {
     ($format:literal) => {
         internal_error!($format,)
     };
-    ($format:literal, $($args:expr),*) => {
-        $crate::Error::new(
-            $crate::ErrorKind::Internal(
-                anyhow::anyhow!(
-                    $format,
-                    $($args),*
-                )
-            )
-        )
+    ($format:literal, $($args:tt)*) => {
+        $crate::error::internal_error_impl(format_args!($format, $($args)*))
     };
 }
 
@@ -277,15 +339,8 @@ macro_rules! other_error {
     ($format:literal) => {
         other_error!($format,)
     };
-    ($format:literal, $($args:expr),*) => {
-        $crate::Error::new(
-            $crate::ErrorKind::Other(
-                anyhow::anyhow!(
-                    $format,
-                    $($args),*
-                )
-            )
-        )
+    ($format:literal, $($args:tt)*) => {
+        $crate::error::other_error_impl(format_args!($format, $($args)*))
     };
 }
 
@@ -294,14 +349,17 @@ macro_rules! value_error {
     ($format:literal) => {
         value_error!($format,)
     };
-    ($format:literal, $($args:expr),*) => {
-        $crate::Error::new(
-            $crate::ErrorKind::Value(
-                anyhow::anyhow!(
-                    $format,
-                    $($args),*
-                )
-            )
-        )
+    ($format:literal, $($args:tt)*) => {
+        $crate::error::value_error_impl(format_args!($format, $($args)*))
+    };
+}
+
+#[macro_export]
+macro_rules! function_error {
+    ($format:literal) => {
+        function_error!($format,)
+    };
+    ($format:literal, $($args:tt)*) => {
+        $crate::error::function_error_impl(format_args!($format, $($args)*))
     };
 }

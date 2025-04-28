@@ -8,7 +8,6 @@ version = "0.1.0"
 
 [dependencies]
 allocative = { workspace = true }
-anyhow = { workspace = true }
 async-compression = { workspace = true }
 chrono = { workspace = true }
 dupe = { workspace = true }
@@ -21,7 +20,6 @@ regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 shlex = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
@@ -31,6 +29,7 @@ buck2_cli_proto = { workspace = true }
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
+buck2_error = { workspace = true }
 buck2_event_observer = { workspace = true }
 buck2_events = { workspace = true }
 buck2_util = { workspace = true }

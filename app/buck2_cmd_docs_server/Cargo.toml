@@ -7,10 +7,10 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-anyhow = { workspace = true }
 async-trait = { workspace = true }
 dice = { workspace = true }
-itertools = { workspace = true }
+dupe = { workspace = true }
+futures = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 starlark = { workspace = true }
@@ -24,4 +24,3 @@ buck2_events = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }
 buck2_server_ctx = { workspace = true }
-buck2_util = { workspace = true }

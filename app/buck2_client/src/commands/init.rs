@@ -10,8 +10,8 @@
 use std::io::ErrorKind;
 use std::io::Write;
 
-use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -21,6 +21,8 @@ use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use buck2_util::process::background_command;
 
 /// Initializes a buck2 project at the provided path.
@@ -49,7 +51,7 @@ pub struct InitCommand {
 }
 
 impl InitCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let console = self.console_opts.final_console();
 
         match exec_impl(self, ctx, &console) {
@@ -72,14 +74,15 @@ fn exec_impl(
     cmd: InitCommand,
     ctx: ClientCommandContext<'_>,
     console: &FinalConsole,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let path = cmd.path.resolve(&ctx.working_dir);
     fs_util::create_dir_all(&path)?;
     let absolute = fs_util::canonicalize(&path)?;
     let git = cmd.git;
 
     if absolute.is_file() {
-        return Err(anyhow::anyhow!(
+        return Err(buck2_error!(
+            buck2_error::ErrorTag::Input,
             "Target path {} cannot be an existing file",
             absolute.display()
         ));
@@ -97,7 +100,7 @@ fn exec_impl(
                 )?;
                 None
             }
-            r => Some(r.context("Couldn't detect dirty status of folder.")?),
+            r => Some(r.buck_error_context("Couldn't detect dirty status of folder.")?),
         };
 
         let changes = status.filter(|o| o.status.success()).map(|o| {
@@ -108,7 +111,8 @@ fn exec_impl(
         });
 
         if let (Some(true), false) = (changes, cmd.allow_dirty) {
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
                 "Refusing to initialize in a dirty repo. Stash your changes or use `--allow-dirty` to override."
             ));
         }
@@ -117,7 +121,7 @@ fn exec_impl(
     set_up_project(&absolute, git, !cmd.no_prelude)
 }
 
-fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> anyhow::Result<()> {
+fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> buck2_error::Result<()> {
     let mut buckconfig = std::fs::File::create(repo_root.join(".buckconfig"))?;
     writeln!(buckconfig, "[cells]")?;
     writeln!(buckconfig, "  root = .")?;
@@ -168,7 +172,7 @@ fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> anyho
     Ok(())
 }
 
-fn initialize_toolchains_buck(repo_root: &AbsPath) -> anyhow::Result<()> {
+fn initialize_toolchains_buck(repo_root: &AbsPath) -> buck2_error::Result<()> {
     std::fs::write(
         repo_root.join("BUCK"),
         r#"
@@ -183,13 +187,13 @@ system_demo_toolchains()
     Ok(())
 }
 
-fn initialize_root_buck(repo_root: &AbsPath, prelude: bool) -> anyhow::Result<()> {
+fn initialize_root_buck(repo_root: &AbsPath, prelude: bool) -> buck2_error::Result<()> {
     let mut buck = std::fs::File::create(repo_root.join("BUCK"))?;
 
     if prelude {
         writeln!(
             buck,
-            "# A list of available rules and their signatures can be found here: https://buck2.build/docs/api/rules/"
+            "# A list of available rules and their signatures can be found here: https://buck2.build/docs/prelude/globals/"
         )?;
         writeln!(buck)?;
         writeln!(buck, "genrule(")?;
@@ -202,7 +206,7 @@ fn initialize_root_buck(repo_root: &AbsPath, prelude: bool) -> anyhow::Result<()
     Ok(())
 }
 
-fn set_up_gitignore(repo_root: &AbsPath) -> anyhow::Result<()> {
+fn set_up_gitignore(repo_root: &AbsPath) -> buck2_error::Result<()> {
     let gitignore = repo_root.join(".gitignore");
     // If .gitignore is empty or doesn't exist, add in buck-out
     if !gitignore.exists() || fs_util::metadata(&gitignore)?.len() == 0 {
@@ -211,12 +215,12 @@ fn set_up_gitignore(repo_root: &AbsPath) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn set_up_buckroot(repo_root: &AbsPath) -> anyhow::Result<()> {
+fn set_up_buckroot(repo_root: &AbsPath) -> buck2_error::Result<()> {
     fs_util::write(repo_root.join(".buckroot"), "")?;
     Ok(())
 }
 
-fn set_up_project(repo_root: &AbsPath, git: bool, prelude: bool) -> anyhow::Result<()> {
+fn set_up_project(repo_root: &AbsPath, git: bool, prelude: bool) -> buck2_error::Result<()> {
     set_up_buckroot(repo_root)?;
 
     if git {
@@ -226,7 +230,10 @@ fn set_up_project(repo_root: &AbsPath, git: bool, prelude: bool) -> anyhow::Resu
             .status()?
             .success()
         {
-            return Err(anyhow::anyhow!("Failure when running `git init`."));
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Failure when running `git init`."
+            ));
         };
         set_up_gitignore(repo_root)?;
     }
@@ -264,7 +271,7 @@ mod tests {
     use crate::commands::init::set_up_project;
 
     #[test]
-    fn test_set_up_project_with_prelude_no_git() -> anyhow::Result<()> {
+    fn test_set_up_project_with_prelude_no_git() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let tempdir_path = tempdir.path();
         let tempdir_path = AbsPath::new(tempdir_path)?;
@@ -280,7 +287,7 @@ mod tests {
     }
 
     #[test]
-    fn test_default_gitignore() -> anyhow::Result<()> {
+    fn test_default_gitignore() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let tempdir_path = tempdir.path();
         let tempdir_path = AbsPath::new(tempdir_path)?;
@@ -312,7 +319,7 @@ mod tests {
     }
 
     #[test]
-    fn test_buckconfig_generation_with_prelude() -> anyhow::Result<()> {
+    fn test_buckconfig_generation_with_prelude() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let tempdir_path = tempdir.path();
         let tempdir_path = AbsPath::new(tempdir_path)?;
@@ -354,7 +361,7 @@ mod tests {
     }
 
     #[test]
-    fn test_buckconfig_generation_without_prelude() -> anyhow::Result<()> {
+    fn test_buckconfig_generation_without_prelude() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let tempdir_path = tempdir.path();
         let tempdir_path = AbsPath::new(tempdir_path)?;
@@ -372,7 +379,7 @@ mod tests {
     }
 
     #[test]
-    fn test_buckfile_generation_with_prelude() -> anyhow::Result<()> {
+    fn test_buckfile_generation_with_prelude() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let tempdir_path = tempdir.path();
         let tempdir_path = AbsPath::new(tempdir_path)?;
@@ -381,7 +388,7 @@ mod tests {
         let buck_path = tempdir_path.join("BUCK");
         initialize_root_buck(tempdir_path, true)?;
         let actual_buck = fs_util::read_to_string(buck_path)?;
-        let expected_buck = "# A list of available rules and their signatures can be found here: https://buck2.build/docs/api/rules/
+        let expected_buck = "# A list of available rules and their signatures can be found here: https://buck2.build/docs/prelude/globals/
 
 genrule(
     name = \"hello_world\",

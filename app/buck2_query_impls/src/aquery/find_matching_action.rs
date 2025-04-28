@@ -14,9 +14,9 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::actions::query::FIND_MATCHING_ACTION;
 use buck2_build_api::analysis::AnalysisResult;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
@@ -36,7 +36,7 @@ enum ActionKeyMatch<'v> {
 fn check_output_path<'v>(
     build_artifact: &'v BuildArtifact,
     path_to_check: &ForwardRelativePathBuf,
-) -> anyhow::Result<Option<ActionKeyMatch<'v>>> {
+) -> buck2_error::Result<Option<ActionKeyMatch<'v>>> {
     let path = build_artifact.get_path().path();
 
     debug!(
@@ -61,7 +61,7 @@ async fn find_matching_action(
     global_cfg_options: &GlobalCfgOptions,
     analysis: &AnalysisResult,
     path_after_target_name: ForwardRelativePathBuf,
-) -> anyhow::Result<Option<ActionQueryNode>> {
+) -> buck2_error::Result<Option<ActionQueryNode>> {
     ctx.with_linear_recompute(|ctx| async move {
         let dice_aquery_delegate =
             get_dice_aquery_delegate(&ctx, working_dir, global_cfg_options.dupe()).await?;
@@ -83,8 +83,7 @@ async fn find_matching_action(
 
         for build_artifact in analysis
             .analysis_values()
-            .iter_dynamic_lambdas()
-            .flat_map(|v| v.static_fields.outputs.iter().duped())
+            .iter_dynamic_lambda_outputs()
             .chain(analysis.analysis_values().iter_actions().flat_map(
                 |v| match v.action().outputs() {
                     Cow::Borrowed(v) => Either::Left(v.iter().duped()),
@@ -99,7 +98,9 @@ async fn find_matching_action(
                     }
                     ActionKeyMatch::OutputsOf(artifact) => match &maybe_match {
                         Some(maybe) => {
-                            if artifact.get_path().len() < maybe.get_path().len() {
+                            if artifact.get_path().path().as_str().len()
+                                < maybe.get_path().path().as_str().len()
+                            {
                                 maybe_match = Some(artifact.dupe());
                             }
                         }

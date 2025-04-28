@@ -24,27 +24,25 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use serde::Serialize;
-use starlark_derive::starlark_value;
 use starlark_derive::Freeze;
 use starlark_derive::Trace;
-use starlark_map::small_map::SmallMap;
+use starlark_derive::starlark_value;
 use starlark_map::Hashed;
 use starlark_map::StarlarkHasher;
+use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::coerce::coerce;
 use crate::coerce::Coerce;
+use crate::coerce::coerce;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocProperty;
 use crate::starlark_complex_value;
 use crate::typing::Ty;
 use crate::typing::TyStruct;
-use crate::values::comparison::compare_small_map;
-use crate::values::comparison::equals_small_map;
-use crate::values::layout::heap::profile::arc_str::ArcStr;
-use crate::values::structs::unordered_hasher::UnorderedHasher;
+use crate::util::arc_str::ArcStr;
+use crate::values::FreezeResult;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -54,6 +52,9 @@ use crate::values::StringValueLike;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
+use crate::values::comparison::compare_small_map;
+use crate::values::comparison::equals_small_map;
+use crate::values::structs::unordered_hasher::UnorderedHasher;
 
 impl<'v, V: ValueLike<'v>> StructGen<'v, V> {
     /// The result of calling `type()` on a struct.
@@ -179,16 +180,13 @@ where
         self.fields.keys().map(|x| x.as_str().to_owned()).collect()
     }
 
-    fn documentation(&self) -> Option<DocItem> {
+    fn documentation(&self) -> DocItem {
         // This treats structs as being value-like, and intentionally generates bad docs in the case
         // of namespace-like usage. See
         // <https://fb.workplace.com/groups/starlark/permalink/1463680027654154/> for some
         // additional discussion
         let typ = self.self_ty();
-        Some(DocItem::Member(DocMember::Property(DocProperty {
-            docs: None,
-            typ,
-        })))
+        DocItem::Member(DocMember::Property(DocProperty { docs: None, typ }))
     }
 
     fn get_type_starlark_repr() -> Ty {

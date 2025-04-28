@@ -8,20 +8,23 @@
  */
 
 use std::future::Future;
+use std::time::Duration;
+use std::time::Instant;
 
-use futures::stream::FuturesUnordered;
 use futures::StreamExt;
+use futures::stream::FuturesUnordered;
 
+use crate::exit_result::ExitResult;
 use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;
 
 #[derive(Default)]
-pub struct EventSubscribers<'a> {
-    subscribers: Vec<Box<dyn EventSubscriber + 'a>>,
+pub struct EventSubscribers {
+    subscribers: Vec<Box<dyn EventSubscriber>>,
 }
 
-impl<'a> EventSubscribers<'a> {
-    pub fn new(subscribers: Vec<Box<dyn EventSubscriber + 'a>>) -> EventSubscribers<'a> {
+impl EventSubscribers {
+    pub fn new(subscribers: Vec<Box<dyn EventSubscriber>>) -> EventSubscribers {
         EventSubscribers { subscribers }
     }
 
@@ -29,10 +32,10 @@ impl<'a> EventSubscribers<'a> {
     /// Quits on the first error encountered.
     pub(crate) async fn for_each_subscriber<'b, Fut>(
         &'b mut self,
-        f: impl FnMut(&'b mut Box<dyn EventSubscriber + 'a>) -> Fut,
-    ) -> anyhow::Result<()>
+        f: impl FnMut(&'b mut Box<dyn EventSubscriber>) -> Fut,
+    ) -> buck2_error::Result<()>
     where
-        Fut: Future<Output = anyhow::Result<()>> + 'b,
+        Fut: Future<Output = buck2_error::Result<()>> + 'b,
     {
         let mut futures: FuturesUnordered<_> = self.subscribers.iter_mut().map(f).collect();
         while let Some(res) = futures.next().await {
@@ -41,7 +44,7 @@ impl<'a> EventSubscribers<'a> {
         Ok(())
     }
 
-    pub(crate) async fn handle_exit(&mut self) -> anyhow::Result<()> {
+    pub(crate) async fn handle_exit(&mut self) -> buck2_error::Result<()> {
         let mut r = Ok(());
         for subscriber in &mut self.subscribers {
             // Exit all subscribers, do not stop on first one.
@@ -54,9 +57,9 @@ impl<'a> EventSubscribers<'a> {
         r
     }
 
-    pub(crate) fn handle_daemon_connection_failure(&mut self, error: &buck2_error::Error) {
+    pub(crate) fn handle_daemon_connection_failure(&mut self) {
         for subscriber in &mut self.subscribers {
-            subscriber.handle_daemon_connection_failure(error);
+            subscriber.handle_daemon_connection_failure();
         }
     }
 
@@ -66,17 +69,57 @@ impl<'a> EventSubscribers<'a> {
         }
     }
 
+    pub(crate) fn handle_should_restart(&mut self) {
+        for subscriber in &mut self.subscribers {
+            subscriber.handle_should_restart();
+        }
+    }
+
+    pub(crate) fn handle_instant_command_outcome(&mut self, is_success: bool) {
+        for subscriber in &mut self.subscribers {
+            subscriber.handle_instant_command_outcome(is_success);
+        }
+    }
+
+    pub(crate) fn handle_exit_result(&mut self, exit_result: &ExitResult) {
+        for subscriber in &mut self.subscribers {
+            subscriber.handle_exit_result(exit_result);
+        }
+    }
+
     pub(crate) fn error_observers(&self) -> impl Iterator<Item = &dyn ErrorObserver> {
         self.subscribers
             .iter()
             .filter_map(|s| s.as_error_observer())
     }
 
-    pub(crate) async fn eprintln(&mut self, message: &str) -> anyhow::Result<()> {
+    pub(crate) async fn eprintln(&mut self, message: &str) -> buck2_error::Result<()> {
         self.for_each_subscriber(|s| {
             // TODO(nga): this is not a tailer.
             s.handle_tailer_stderr(message)
         })
         .await
+    }
+
+    pub(crate) async fn finalize(&mut self) -> Vec<String> {
+        let mut errors = Vec::new();
+        for subscriber in &mut self.subscribers {
+            let start = Instant::now();
+            let res = subscriber.finalize().await;
+            let elapsed = start.elapsed();
+            if elapsed > Duration::from_millis(1000) {
+                tracing::warn!("Finalizing \'{}\' took {:?}", subscriber.name(), elapsed);
+            } else {
+                tracing::info!("Finalizing \'{}\' took {:?}", subscriber.name(), elapsed);
+            };
+
+            if let Err(e) = res {
+                errors.push(format!(
+                    "{:?}",
+                    e.context(format!("\'{}\' failed to finalize", subscriber.name()))
+                ));
+            }
+        }
+        errors
     }
 }

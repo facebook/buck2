@@ -1,0 +1,8 @@
+platform(
+    name = "p",
+    constraint_values = [],
+)
+
+trivial_build(
+    name = "existing",
+)

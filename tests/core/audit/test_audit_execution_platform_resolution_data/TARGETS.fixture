@@ -1,0 +1,9 @@
+platform(name = "p")
+
+stub(
+    name = "target",
+    exec_compatible_with = [
+        "//config:minix",
+    ],
+    default_target_platform = ":p",
+)

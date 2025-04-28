@@ -8,6 +8,7 @@
 load("@prelude//:paths.bzl", "paths")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
+# Modeled after: https://pkg.go.dev/cmd/go/internal/list#pkg-variables
 GoListOut = record(
     name = field(str),
     imports = field(list[str], default = []),
@@ -28,10 +29,11 @@ GoListOut = record(
     cgo_cppflags = field(list[str], default = []),
 )
 
-def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_root: str, force_disable_cgo: bool, with_tests: bool, asan: bool) -> Artifact:
+def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_root: str, build_tags: list[str], cgo_enabled: bool, with_tests: bool, asan: bool) -> Artifact:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    env = get_toolchain_env_vars(go_toolchain, force_disable_cgo = force_disable_cgo)
+    env = get_toolchain_env_vars(go_toolchain)
     env["GO111MODULE"] = "off"
+    env["CGO_ENABLED"] = "1" if cgo_enabled else "0"
 
     go_list_out = ctx.actions.declare_output(paths.basename(pkg_name) + "_go_list.json")
 
@@ -41,23 +43,42 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
         "__{}_srcs_dir__".format(paths.basename(pkg_name)),
         {src.short_path.removeprefix(package_root).lstrip("/"): src for src in srcs},
     )
-    tags = go_toolchain.tags + ctx.attrs._tags
+    all_tags = [] + go_toolchain.build_tags + build_tags
     if asan:
-        tags.append("asan")
+        all_tags.append("asan")
 
-    required_felds = "Name,Imports,GoFiles,CgoFiles,HFiles,CFiles,CXXFiles,SFiles,EmbedFiles,CgoCFLAGS,CgoCPPFLAGS,IgnoredGoFiles,IgnoredOtherFiles"
+    required_felds = [
+        "Name",
+        "Imports",
+        "GoFiles",
+        "CgoFiles",
+        "HFiles",
+        "CFiles",
+        "CXXFiles",
+        "SFiles",
+        "EmbedFiles",
+        "CgoCFLAGS",
+        "CgoCPPFLAGS",
+        "IgnoredGoFiles",
+        "IgnoredOtherFiles",
+    ]
     if with_tests:
-        required_felds += ",TestImports,XTestImports,TestGoFiles,XTestGoFiles"
+        required_felds += [
+            "TestImports",
+            "XTestImports",
+            "TestGoFiles",
+            "XTestGoFiles",
+        ]
 
     go_list_args = [
         go_toolchain.go_wrapper,
-        go_toolchain.go,
+        ["--go", go_toolchain.go],
         ["--workdir", srcs_dir],
         ["--output", go_list_out.as_output()],
         "list",
         "-e",
-        "-json=" + required_felds,
-        ["-tags", ",".join(tags) if tags else []],
+        "-json=" + ",".join(required_felds),
+        ["-tags", ",".join(all_tags) if all_tags else []],
         ".",
     ]
 

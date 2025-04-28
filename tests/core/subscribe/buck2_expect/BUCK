@@ -1,0 +1,20 @@
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+
+oncall("build_infra")
+
+rust_binary(
+    name = "buck2_expect",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:prost",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tokio-util",
+        "//buck2/app/buck2_cli_proto:buck2_cli_proto",
+        "//buck2/app/buck2_subscription_proto:buck2_subscription_proto",
+    ],
+)

@@ -16,23 +16,28 @@ use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
+use buck2_common::init::ResourceControlConfig;
+use buck2_common::systemd::ParentSlice;
+use buck2_common::systemd::SystemdRunner;
+use buck2_common::systemd::SystemdRunnerConfig;
+use buck2_common::systemd::replace_unit_delimiter;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
-use buck2_forkserver_proto::forkserver_server::Forkserver;
+use buck2_error::BuckErrorContext;
 use buck2_forkserver_proto::CommandRequest;
 use buck2_forkserver_proto::RequestEvent;
 use buck2_forkserver_proto::SetLogFilterRequest;
 use buck2_forkserver_proto::SetLogFilterResponse;
+use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_grpc::to_tonic;
 use buck2_util::process::background_command;
-use futures::future::select;
 use futures::future::FutureExt;
+use futures::future::select;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use rand::distributions::Alphanumeric;
@@ -43,14 +48,14 @@ use tonic::Status;
 use tonic::Streaming;
 
 use crate::convert::encode_event_stream;
+use crate::run::DefaultKillProcess;
+use crate::run::GatherOutputStatus;
 use crate::run::maybe_absolutize_exe;
 use crate::run::process_group::ProcessCommand;
 use crate::run::status_decoder::DefaultStatusDecoder;
 use crate::run::status_decoder::MiniperfStatusDecoder;
 use crate::run::stream_command_events;
 use crate::run::timeout_into_cancellation;
-use crate::run::DefaultKillProcess;
-use crate::run::GatherOutputStatus;
 
 // Not quite BoxStream: it has to be Sync (...)
 type RunStream =
@@ -61,18 +66,29 @@ pub struct UnixForkserverService {
 
     /// State for Miniperf.
     miniperf: Option<MiniperfContainer>,
+
+    /// Systemd runner for resource control
+    systemd_runner: Option<SystemdRunner>,
 }
 
 impl UnixForkserverService {
     pub fn new(
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         state_dir: &AbsNormPath,
-    ) -> anyhow::Result<Self> {
+        resource_control: ResourceControlConfig,
+    ) -> buck2_error::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
-
+        let systemd_runner =
+            SystemdRunner::create_if_enabled(&SystemdRunnerConfig::action_runner_config(
+                &resource_control,
+                // we want to create forkserver in the same hierarchy where buck-daemon scope
+                // for this we inherit slice
+                ParentSlice::Inherit("forkserver".to_owned()),
+            ))?;
         Ok(Self {
             log_reload_handle,
             miniperf,
+            systemd_runner,
         })
     }
 }
@@ -93,7 +109,7 @@ impl Forkserver for UnixForkserverService {
                 .await?
                 .and_then(|m| m.data)
                 .and_then(|m| m.into_command_request())
-                .context("RequestEvent was not a CommandRequest!")?;
+                .buck_error_context("RequestEvent was not a CommandRequest!")?;
 
             let cancel = async move {
                 stream
@@ -101,9 +117,9 @@ impl Forkserver for UnixForkserverService {
                     .await?
                     .and_then(|m| m.data)
                     .and_then(|m| m.into_cancel_request())
-                    .context("RequestEvent was not a CancelRequest!")?;
+                    .buck_error_context("RequestEvent was not a CancelRequest!")?;
 
-                anyhow::Ok(GatherOutputStatus::Cancelled)
+                Ok(GatherOutputStatus::Cancelled)
             };
 
             let CommandRequest {
@@ -115,29 +131,44 @@ impl Forkserver for UnixForkserverService {
                 enable_miniperf,
                 std_redirects,
                 graceful_shutdown_timeout_s,
+                action_digest,
             } = msg;
 
             let exe = OsStr::from_bytes(&exe);
-            let cwd = OsStr::from_bytes(&cwd.as_ref().context("Missing cwd")?.path);
-            let cwd = AbsPath::new(Path::new(cwd)).context("Inalid cwd")?;
+            let cwd = OsStr::from_bytes(&cwd.as_ref().buck_error_context("Missing cwd")?.path);
+            let cwd = AbsPath::new(Path::new(cwd)).buck_error_context("Inalid cwd")?;
+
             let argv = argv.iter().map(|a| OsStr::from_bytes(a));
             let timeout = timeout
                 .map(|t| t.try_into_duration())
                 .transpose()
-                .context("Invalid timeout")?;
+                .buck_error_context("Invalid timeout")?;
 
             let exe = maybe_absolutize_exe(exe, cwd)?;
+            let systemd_context = self.systemd_runner.as_ref().zip(action_digest);
 
-            let (mut cmd, miniperf_output) = match (enable_miniperf, &self.miniperf) {
-                (true, Some(miniperf)) => {
-                    let mut cmd = background_command(miniperf.miniperf.as_path());
-                    let output_path = miniperf.allocate_output_path();
-                    cmd.arg(output_path.as_path());
-                    cmd.arg(exe.as_ref());
-                    (cmd, Some(output_path))
-                }
-                _ => (background_command(exe.as_ref()), None),
-            };
+            let (mut cmd, miniperf_output) =
+                match (enable_miniperf, &self.miniperf, &systemd_context) {
+                    (true, Some(miniperf), None) => {
+                        let mut cmd = background_command(miniperf.miniperf.as_path());
+                        let output_path = miniperf.allocate_output_path();
+                        cmd.arg(output_path.as_path());
+                        cmd.arg(exe.as_ref());
+                        (cmd, Some(output_path))
+                    }
+                    (_, Some(miniperf), Some((runner, action_digest))) => {
+                        let mut cmd = runner.background_command_linux(
+                            miniperf.miniperf.as_path(),
+                            &replace_unit_delimiter(&action_digest),
+                            &AbsNormPath::new(cwd)?,
+                        );
+                        let output_path = miniperf.allocate_output_path();
+                        cmd.arg(output_path.as_path());
+                        cmd.arg(exe.as_ref());
+                        (cmd, Some(output_path))
+                    }
+                    _ => (background_command(exe.as_ref()), None),
+                };
 
             cmd.current_dir(cwd);
             cmd.args(argv);
@@ -146,7 +177,10 @@ impl Forkserver for UnixForkserverService {
                 use buck2_forkserver_proto::env_directive::Data;
 
                 for directive in env {
-                    match directive.data.context("EnvDirective is missing data")? {
+                    match directive
+                        .data
+                        .buck_error_context("EnvDirective is missing data")?
+                    {
                         Data::Clear(..) => {
                             cmd.env_clear();
                         }
@@ -160,6 +194,19 @@ impl Forkserver for UnixForkserverService {
                 }
             }
 
+            // Some actions clear env and don't pass XDG_RUNTIME_DIR
+            // This env var is required for systemd-run,
+            // without passing it systemd returns "Failed to connect to bus: No medium found"
+            #[cfg(fbcode_build)]
+            if let Ok(value) = std::env::var("XDG_RUNTIME_DIR") {
+                cmd.env("XDG_RUNTIME_DIR", value);
+            }
+
+            if systemd_context.is_some() {
+                // we set env var to enable reading peak memory from cgroup in miniperf
+                cmd.env("MINIPERF_READ_CGROUP", "1");
+            }
+
             let stream_stdio = std_redirects.is_none();
             let mut cmd = ProcessCommand::new(cmd);
             if let Some(std_redirects) = std_redirects {
@@ -167,7 +214,7 @@ impl Forkserver for UnixForkserverService {
                 cmd.stderr(File::create(OsStr::from_bytes(&std_redirects.stderr))?);
             }
 
-            let process_group = cmd.spawn().map_err(anyhow::Error::from);
+            let process_group = cmd.spawn().map_err(buck2_error::Error::from);
 
             let timeout = timeout_into_cancellation(timeout);
 
@@ -195,7 +242,6 @@ impl Forkserver for UnixForkserverService {
                 )?
                 .right_stream(),
             };
-
             let stream = encode_event_stream(stream);
             Ok(Box::pin(stream) as _)
         })
@@ -208,7 +254,7 @@ impl Forkserver for UnixForkserverService {
     ) -> Result<Response<SetLogFilterResponse>, Status> {
         self.log_reload_handle
             .update_log_filter(&req.get_ref().log_filter)
-            .context("Error updating forkserver filter")
+            .buck_error_context("Error updating forkserver filter")
             .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
 
         Ok(Response::new(SetLogFilterResponse {}))
@@ -224,12 +270,12 @@ struct MiniperfContainer {
 }
 
 impl MiniperfContainer {
-    fn new(forkserver_state_dir: &AbsNormPath) -> anyhow::Result<Option<Self>> {
+    fn new(forkserver_state_dir: &AbsNormPath) -> buck2_error::Result<Option<Self>> {
         let miniperf_bin: Option<&'static [u8]>;
 
         #[cfg(all(fbcode_build, target_os = "linux"))]
         {
-            miniperf_bin = Some(include_bytes!("miniperf.bin").as_slice());
+            miniperf_bin = Some(buck2_miniperf_data::get());
         }
 
         #[cfg(not(all(fbcode_build, target_os = "linux")))]
@@ -261,12 +307,14 @@ impl MiniperfContainer {
 
         let mut miniperf_writer = opts
             .open(miniperf.as_path())
-            .with_context(|| format!("Error opening: `{}`", miniperf.display()))?;
+            .with_buck_error_context(|| format!("Error opening: `{}`", miniperf.display()))?;
 
         miniperf_writer
             .write_all(miniperf_bin)
             .and_then(|()| miniperf_writer.flush())
-            .with_context(|| format!("Error writing miniperf to `{}`", miniperf.display()))?;
+            .with_buck_error_context(|| {
+                format!("Error writing miniperf to `{}`", miniperf.display())
+            })?;
 
         Ok(Some(Self {
             miniperf,

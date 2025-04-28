@@ -12,7 +12,11 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::io::Write;
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
+use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_data::ReUploadMetrics;
 use buck2_event_log::stream_value::StreamValue;
@@ -20,10 +24,10 @@ use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use tokio_stream::StreamExt;
 
-use crate::commands::log::options::EventLogOptions;
-use crate::commands::log::transform_format;
 use crate::commands::log::LogCommandOutputFormat;
 use crate::commands::log::LogCommandOutputFormatWithWriter;
+use crate::commands::log::options::EventLogOptions;
+use crate::commands::log::transform_format;
 
 /// Outputs stats about uploads to RE from the selected invocation.
 #[derive(Debug, clap::Parser)]
@@ -106,7 +110,7 @@ fn get_action_record(
 fn print_uploads(
     output: &mut LogCommandOutputFormatWithWriter,
     record: &ActionRecord,
-) -> anyhow::Result<()> {
+) -> Result<(), ClientIoError> {
     match output {
         LogCommandOutputFormatWithWriter::Tabulated(w) => Ok(writeln!(w, "{}", record)?),
         LogCommandOutputFormatWithWriter::Csv(writer) => Ok(writer.serialize(record)?),
@@ -121,7 +125,7 @@ fn print_uploads(
 fn print_extension_stats(
     output: &mut LogCommandOutputFormatWithWriter,
     stats_by_extension: &HashMap<String, ReUploadMetrics>,
-) -> anyhow::Result<()> {
+) -> Result<(), ClientIoError> {
     let mut records: Vec<ExtensionRecord> = stats_by_extension
         .iter()
         .map(|(ext, m)| ExtensionRecord {
@@ -151,90 +155,90 @@ struct ReUploadEvent<'a> {
     pub inner: &'a buck2_data::ReUploadEnd,
 }
 
-impl WhatUploadedCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+impl BuckSubcommand for WhatUploadedCommand {
+    const COMMAND_NAME: &'static str = "log-what-uploaded";
+
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
         let Self {
             event_log,
             output,
             aggregate_by_extension,
         } = self;
 
-        buck2_client_ctx::stdio::print_with_writer::<anyhow::Error, _>(|w| {
+        buck2_client_ctx::stdio::print_with_writer::<buck2_error::Error, _>(async move |w| {
             let mut output = transform_format(output, w);
-            ctx.with_runtime(|ctx| async move {
-                let log_path = event_log.get(&ctx).await?;
+            let log_path = event_log.get(&ctx).await?;
 
-                let (invocation, mut events) = log_path.unpack_stream().await?;
-                buck2_client_ctx::eprintln!(
-                    "Showing uploads from: {}",
-                    invocation.display_command_line()
-                )?;
+            let (invocation, mut events) = log_path.unpack_stream().await?;
+            buck2_client_ctx::eprintln!(
+                "Showing uploads from: {}",
+                invocation.display_command_line()
+            )?;
 
-                let mut total_digests_uploaded = 0;
-                let mut total_bytes_uploaded = 0;
-                let mut state = HashMap::new();
-                let mut stats_by_extension: HashMap<String, ReUploadMetrics> = HashMap::new();
-                while let Some(event) = events.try_next().await? {
-                    match event {
-                        // Insert parent span information so we can refer back to it later.
-                        StreamValue::Event(event) => match event.data {
-                            Some(buck2_data::buck_event::Data::SpanStart(start)) => {
-                                match start.data {
-                                    Some(buck2_data::span_start_event::Data::ActionExecution(
-                                        action,
-                                    )) => {
-                                        state.insert(event.span_id, action);
-                                    }
-                                    _ => {}
-                                }
-                            }
-
-                            Some(buck2_data::buck_event::Data::SpanEnd(end)) => {
-                                match end.data.as_ref() {
-                                    Some(buck2_data::span_end_event::Data::ReUpload(ref u)) => {
-                                        let upload = ReUploadEvent {
-                                            parent_span_id: event.parent_id,
-                                            inner: u,
-                                        };
-                                        if aggregate_by_extension {
-                                            for (extension, metrics) in
-                                                &upload.inner.stats_by_extension
-                                            {
-                                                let entry = stats_by_extension
-                                                    .entry(extension.to_owned())
-                                                    .or_default();
-                                                entry.bytes_uploaded += metrics.bytes_uploaded;
-                                                entry.digests_uploaded += metrics.digests_uploaded;
-                                            }
-                                        } else {
-                                            let record = get_action_record(&state, &upload);
-                                            total_digests_uploaded += record.digests_uploaded;
-                                            total_bytes_uploaded += record.bytes_uploaded;
-                                            print_uploads(&mut output, &record)?;
-                                        }
-                                    }
-                                    _ => {}
-                                }
+            let mut total_digests_uploaded = 0;
+            let mut total_bytes_uploaded = 0;
+            let mut state = HashMap::new();
+            let mut stats_by_extension: HashMap<String, ReUploadMetrics> = HashMap::new();
+            while let Some(event) = events.try_next().await? {
+                match event {
+                    // Insert parent span information so we can refer back to it later.
+                    StreamValue::Event(event) => match event.data {
+                        Some(buck2_data::buck_event::Data::SpanStart(start)) => match start.data {
+                            Some(buck2_data::span_start_event::Data::ActionExecution(action)) => {
+                                state.insert(event.span_id, action);
                             }
                             _ => {}
                         },
-                        StreamValue::Result(..) | StreamValue::PartialResult(..) => {}
-                    }
-                }
-                if aggregate_by_extension {
-                    print_extension_stats(&mut output, &stats_by_extension)?;
-                } else {
-                    buck2_client_ctx::eprintln!(
-                        "total: digests: {}, bytes: {}",
-                        total_digests_uploaded,
-                        total_bytes_uploaded
-                    )?;
-                }
 
-                anyhow::Ok(())
-            })?;
-            anyhow::Ok(())
-        })?;
+                        Some(buck2_data::buck_event::Data::SpanEnd(end)) => {
+                            match end.data.as_ref() {
+                                Some(buck2_data::span_end_event::Data::ReUpload(ref u)) => {
+                                    let upload = ReUploadEvent {
+                                        parent_span_id: event.parent_id,
+                                        inner: u,
+                                    };
+                                    if aggregate_by_extension {
+                                        for (extension, metrics) in &upload.inner.stats_by_extension
+                                        {
+                                            let entry = stats_by_extension
+                                                .entry(extension.to_owned())
+                                                .or_default();
+                                            entry.bytes_uploaded += metrics.bytes_uploaded;
+                                            entry.digests_uploaded += metrics.digests_uploaded;
+                                        }
+                                    } else {
+                                        let record = get_action_record(&state, &upload);
+                                        total_digests_uploaded += record.digests_uploaded;
+                                        total_bytes_uploaded += record.bytes_uploaded;
+                                        print_uploads(&mut output, &record)?;
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        _ => {}
+                    },
+                    StreamValue::Result(..) | StreamValue::PartialResult(..) => {}
+                }
+            }
+            if aggregate_by_extension {
+                print_extension_stats(&mut output, &stats_by_extension)?;
+            } else {
+                buck2_client_ctx::eprintln!(
+                    "total: digests: {}, bytes: {}",
+                    total_digests_uploaded,
+                    total_bytes_uploaded
+                )?;
+            }
+
+            Ok(())
+        })
+        .await?;
         ExitResult::success()
     }
 }

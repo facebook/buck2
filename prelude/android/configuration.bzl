@@ -24,8 +24,6 @@ load("@prelude//utils:expect.bzl", "expect")
 # platforms). We only use the "arm64" native libraries if it is one of the specified platforms. We
 # "throw away" the non-native libraries for all other configured sub-graphs.
 
-_DEFAULT_PLATFORM = "config//platform/android:arm64-fbsource"
-
 _REFS = {
     "arm64": "config//cpu/constraints:arm64",
     "armv7": "config//cpu/constraints:arm32",
@@ -38,11 +36,14 @@ _REFS = {
     "x86": "config//cpu/constraints:x86_32",
     "x86_64": "config//cpu/constraints:x86_64",
 }
+
+_DEFAULT_PLATFORM = read_root_config("android", "primary_platform_for_build", None)
+if _DEFAULT_PLATFORM:
+    _REFS["default_platform"] = _DEFAULT_PLATFORM
+
 for min_sdk in get_min_sdk_version_range():
     constraint_value_name = get_min_sdk_version_constraint_value_name(min_sdk)
     _REFS[constraint_value_name] = "prelude//android/constraints:{}".format(constraint_value_name)
-
-_REFS["default_platform"] = read_root_config("build", "default_platform", _DEFAULT_PLATFORM)
 
 def _cpu_split_transition_impl(
         platform: PlatformInfo,
@@ -73,7 +74,13 @@ def _cpu_split_transition(
     arm64 = refs.arm64[ConstraintValueInfo]
 
     if len(cpu_filters) == 1 and cpu_filters[0] == "default":
-        default = refs.default_platform[PlatformInfo]
+        default_platform = getattr(refs, "default_platform", None)
+        expect(
+            default_platform != None,
+            "Cannot specify 'is_force_single_default_cpu' but not specify a default platform!",
+        )
+
+        default = default_platform[PlatformInfo]
 
         # Use `cfg_name` function from modifier resolution so that we get the same cfg as default cfg
         # of android libraries.

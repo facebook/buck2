@@ -14,25 +14,27 @@ use buck2_audit::output::command::AuditOutputCommand;
 use buck2_build_api::actions::query::FIND_MATCHING_ACTION;
 use buck2_build_api::actions::query::PRINT_ACTION_NODE;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::audit_output::AuditOutputResult;
 use buck2_build_api::audit_output::AUDIT_OUTPUT;
+use buck2_build_api::audit_output::AuditOutputResult;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dice::DiceComputations;
+use dupe::Dupe;
 
+use crate::ServerAuditSubcommand;
 use crate::output::buck_out_path_parser::BuckOutPathParser;
 use crate::output::buck_out_path_parser::BuckOutPathType;
-use crate::ServerAuditSubcommand;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub(crate) enum AuditOutputError {
     #[error(
         "BXL, anonymous target, test, and tmp artifacts are not supported for audit output. Only rule output artifacts are supported. Path: `{0}`"
@@ -43,10 +45,10 @@ pub(crate) enum AuditOutputError {
 async fn audit_output<'v>(
     output_path: &'v str,
     working_dir: &'v ProjectRelativePath,
-    cell_resolver: &'v CellResolver,
+    cell_resolver: CellResolver,
     dice_ctx: &'v mut DiceComputations<'_>,
     global_cfg_options: &'v GlobalCfgOptions,
-) -> anyhow::Result<Option<AuditOutputResult>> {
+) -> buck2_error::Result<Option<AuditOutputResult>> {
     let buck_out_parser = BuckOutPathParser::new(cell_resolver);
     let parsed = buck_out_parser.parse(output_path)?;
 
@@ -62,9 +64,7 @@ async fn audit_output<'v>(
             path_after_target_name,
         ),
         _ => {
-            return Err(anyhow::anyhow!(AuditOutputError::UnsupportedPathType(
-                output_path.to_owned()
-            )));
+            return Err(AuditOutputError::UnsupportedPathType(output_path.to_owned()).into());
         }
     };
 
@@ -100,7 +100,7 @@ pub(crate) fn init_audit_output() {
             Box::pin(audit_output(
                 output_path,
                 working_dir,
-                cell_resolver,
+                cell_resolver.dupe(),
                 dice_ctx,
                 global_cfg_options,
             ))
@@ -115,8 +115,8 @@ impl ServerAuditSubcommand for AuditOutputCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(|server_ctx, mut dice_ctx| async move {
                 // First, we parse the buck-out path to get a target label. Next, we configure the target
                 // label and run analysis on it to get the `DeferredTable`. Then, we iterate through the
@@ -135,7 +135,7 @@ impl ServerAuditSubcommand for AuditOutputCommand {
                 )
                 .await?;
 
-                let result = audit_output(&self.output_path, working_dir, &cell_resolver, &mut dice_ctx, &global_cfg_options).await?;
+                let result = audit_output(&self.output_path, working_dir, cell_resolver.dupe(), &mut dice_ctx, &global_cfg_options).await?;
 
                 let mut stdout = stdout.as_writer();
 
@@ -165,6 +165,6 @@ impl ServerAuditSubcommand for AuditOutputCommand {
 
                 Ok(())
             })
-            .await
+            .await?)
     }
 }

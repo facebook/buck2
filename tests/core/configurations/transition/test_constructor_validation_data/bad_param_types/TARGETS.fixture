@@ -1,0 +1,5 @@
+# @nolint
+
+load(":bad_param_types.bzl", "bad_param_types")
+
+_keep_the_import = bad_param_types

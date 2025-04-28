@@ -1,0 +1,10 @@
+load(":defs.bzl", "clay_library")
+
+platform(
+    name = "p",
+    constraint_values = [],
+)
+
+clay_library(
+    name = "candy",
+)

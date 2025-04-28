@@ -8,14 +8,14 @@
  */
 
 use buck2_analysis::attrs::resolve::configured_attr::ConfiguredAttrExt;
-use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
-use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_common::package_listing::listing::testing::PackageListingExt;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::CellResolver;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -378,7 +378,7 @@ fn test_coerced_deps() -> anyhow::Result<()> {
         ..
     } = visitor;
     let deps: Vec<_> = deps.iter().map(|t| t.to_string()).collect();
-    let config_deps: Vec<_> = configuration_deps.iter().map(|t| t.to_string()).collect();
+    let config_deps: Vec<_> = configuration_deps.iter().map(|t| t.0.to_string()).collect();
 
     let expected_deps = vec![
         "root//some:target",
@@ -528,10 +528,9 @@ fn test_dep_requires_providers() -> anyhow::Result<()> {
     let err = configured
         .resolve_single(PackageLabel::testing(), &resolution_ctx)
         .expect_err("Should have failed");
-    assert_eq!(
-        true,
+    assert!(
         err.to_string()
-            .contains("required provider `BarInfo` was not found")
+            .contains("Attribute requires a dep that provides `BarInfo`")
     );
 
     let foo_and_bar = heap.alloc("//sub/dir:foo[foo_and_bar]");
@@ -658,7 +657,7 @@ fn test_source_label_deps() -> anyhow::Result<()> {
         ..
     } = visitor;
     let deps: Vec<_> = deps.iter().map(|t| t.to_string()).collect();
-    let config_deps: Vec<_> = configuration_deps.iter().map(|t| t.to_string()).collect();
+    let config_deps: Vec<_> = configuration_deps.iter().map(|t| t.0.to_string()).collect();
 
     let expected_deps = vec![
         "root//some:target",

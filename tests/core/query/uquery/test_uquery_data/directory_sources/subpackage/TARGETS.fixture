@@ -1,0 +1,4 @@
+test(
+    name = "a_subpackage",
+    src = "subpackage",
+)

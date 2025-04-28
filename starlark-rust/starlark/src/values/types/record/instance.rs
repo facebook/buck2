@@ -33,19 +33,20 @@ use crate::collections::SmallMap;
 use crate::collections::StarlarkHasher;
 use crate::starlark_complex_value;
 use crate::typing::Ty;
-use crate::values::comparison::equals_slice;
-use crate::values::record::field::FieldGen;
-use crate::values::record::record_type::record_fields;
-use crate::values::record::record_type::FrozenRecordType;
-use crate::values::record::record_type::RecordType;
-use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
+use crate::values::comparison::equals_slice;
+use crate::values::record::field::FieldGen;
+use crate::values::record::record_type::FrozenRecordType;
+use crate::values::record::record_type::RecordType;
+use crate::values::record::record_type::record_fields;
+use crate::values::types::type_instance_id::TypeInstanceId;
 
 /// An actual record.
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]

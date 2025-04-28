@@ -1,0 +1,4 @@
+load(":attributes.bzl", "default_source_fails", "source")
+
+source(name = "source")
+default_source_fails(name = "default_source_fails")

@@ -16,6 +16,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -25,6 +26,7 @@ use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
 
+use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 
@@ -37,7 +39,7 @@ pub struct PlatformInfoGen<V: ValueLifetimeless> {
 }
 
 impl<'v, V: ValueLike<'v>> PlatformInfoGen<V> {
-    pub fn to_configuration(&self) -> anyhow::Result<ConfigurationData> {
+    pub fn to_configuration(&self) -> buck2_error::Result<ConfigurationData> {
         ConfigurationData::from_platform(
             self.label
                 .to_value()
@@ -56,7 +58,7 @@ impl<'v> PlatformInfo<'v> {
     pub fn from_configuration(
         cfg: &ConfigurationData,
         heap: &'v Heap,
-    ) -> anyhow::Result<PlatformInfo<'v>> {
+    ) -> buck2_error::Result<PlatformInfo<'v>> {
         let label = heap.alloc_str(cfg.label()?);
         let configuration = heap.alloc(ConfigurationInfo::from_configuration_data(
             cfg.data()?,
@@ -75,25 +77,10 @@ fn platform_info_creator(globals: &mut GlobalsBuilder) {
     fn PlatformInfo<'v>(
         #[starlark(require = named)] label: StringValue<'v>,
         #[starlark(require = named)] configuration: ValueOf<'v, &'v ConfigurationInfo<'v>>,
-    ) -> anyhow::Result<PlatformInfo<'v>> {
+    ) -> starlark::Result<PlatformInfo<'v>> {
         Ok(PlatformInfo {
             label: label.to_value_of_unchecked().cast(),
             configuration: ValueOfUnchecked::<FrozenConfigurationInfo>::new(configuration.value),
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use buck2_node::attrs::internal::internal_attrs_platform_info_provider_id;
-
-    use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfoCallable;
-
-    #[test]
-    fn test_platform_info_provider_id_in_internal_attrs_correct() {
-        assert_eq!(
-            internal_attrs_platform_info_provider_id(),
-            PlatformInfoCallable::provider_id()
-        );
     }
 }

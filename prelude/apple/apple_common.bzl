@@ -10,6 +10,9 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
+load(":apple_toolchain_types.bzl", "AppleToolsInfo")
+
 def _headers_arg():
     return {
         "headers": attrs.named_set(attrs.source(), sorted = True, default = [], doc = """
@@ -153,6 +156,88 @@ def _debug_artifacts_validators_arg():
         ),
     }
 
+def _serialize_debugging_options_arg():
+    return {
+        # Need ability to distinguish between no value provided by users
+        # vs value explicitly set to `True` (in the latter case, we should
+        # show warning if value cannot be respected in mixed modules while
+        # in the former, we do not show a warning).
+        #
+        # Lack of value defaults to enabling serialized debugging options.
+        "serialize_debugging_options": attrs.option(attrs.bool(), default = None),
+    }
+
+def _uses_explicit_modules_arg():
+    return {
+        "uses_explicit_modules": attrs.bool(default = False),
+    }
+
+def _enable_private_swift_module_arg():
+    return {
+        "enable_private_swift_module": attrs.bool(default = False),
+    }
+
+def _meta_apple_library_validation_enabled_default_value():
+    if not is_full_meta_repo():
+        return False
+
+    meta_apple_library_validation_enabled_default = (read_root_config("apple", "meta_apple_library_validation", "false").lower() == "true")
+
+    is_arvr_build = (read_root_config("fb", "arvr_build", "false").lower() == "true")
+    if is_arvr_build:
+        # Not all arvr builds have `arvr_mode_enabled` constraint, so under arvr
+        # build mode, always disable suffixing checks as those graphs are not suffixed
+        return False
+
+    return select({
+        "DEFAULT": select({
+            "DEFAULT": meta_apple_library_validation_enabled_default,
+            "config//features/apple:fb_xplat_suffixing_check_disabled": False,
+            "config//features/apple:fb_xplat_suffixing_check_enabled": True,
+        }),
+        # arvr targets do not use suffixed targets, as any xplat target deps
+        # get rewritten without the Apple-specific suffixes.
+        "config//build_mode/constraints:arvr_mode_enabled": False,
+    })
+
+def _meta_apple_library_validation_enabled_arg():
+    return {
+        "_meta_apple_library_validation_enabled": attrs.bool(default = _meta_apple_library_validation_enabled_default_value()),
+    }
+
+def _skip_universal_resource_dedupe_default_value():
+    if not is_full_meta_repo():
+        return False
+
+    return select({
+        "DEFAULT": False,
+        "config//features/apple:skip_universal_resource_dedupe_disabled": False,
+        "config//features/apple:skip_universal_resource_dedupe_enabled": True,
+    })
+
+def _skip_universal_resource_dedupe_arg():
+    return {
+        "skip_universal_resource_dedupe": attrs.bool(default = _skip_universal_resource_dedupe_default_value()),
+    }
+
+def _apple_sanitizer_compatibility_arg():
+    if not is_full_meta_repo():
+        return {}
+
+    return {
+        "_sanitizer_compatibility": attrs.default_only(attrs.dep(default = "fbsource//tools/build_defs/apple/sanitizers:sanitizer_compatibility")),
+    }
+
+def _apple_tools_arg():
+    return {
+        "_apple_tools": attrs.dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
+    }
+
+def _product_name_from_module_name_arg():
+    return {
+        "product_name_from_module_name": attrs.bool(default = False),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -165,4 +250,12 @@ apple_common = struct(
     extra_xcode_files = _extra_xcode_files,
     privacy_manifest_arg = _privacy_manifest_arg,
     debug_artifacts_validators_arg = _debug_artifacts_validators_arg,
+    serialize_debugging_options_arg = _serialize_debugging_options_arg,
+    uses_explicit_modules_arg = _uses_explicit_modules_arg,
+    meta_apple_library_validation_enabled_arg = _meta_apple_library_validation_enabled_arg,
+    skip_universal_resource_dedupe_arg = _skip_universal_resource_dedupe_arg,
+    apple_sanitizer_compatibility_arg = _apple_sanitizer_compatibility_arg,
+    enable_private_swift_module_arg = _enable_private_swift_module_arg,
+    apple_tools_arg = _apple_tools_arg,
+    product_name_from_module_name_arg = _product_name_from_module_name_arg,
 )

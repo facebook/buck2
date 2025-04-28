@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use buck2_client_ctx::common::target_cfg::TargetCfgUnusedOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgUnusedOptions;
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(

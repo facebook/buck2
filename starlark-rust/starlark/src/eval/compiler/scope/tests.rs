@@ -28,25 +28,25 @@ use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::module::AstModuleFields;
 use starlark_syntax::syntax::uniplate::Visit;
 
-use crate::environment::names::MutableNames;
 use crate::environment::Globals;
-use crate::eval::compiler::scope::payload::CstAssignIdent;
-use crate::eval::compiler::scope::payload::CstAssignTarget;
-use crate::eval::compiler::scope::payload::CstExpr;
-use crate::eval::compiler::scope::payload::CstStmt;
-use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
+use crate::environment::names::MutableNames;
 use crate::eval::compiler::scope::AssignCount;
 use crate::eval::compiler::scope::Captured;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
+use crate::eval::compiler::scope::payload::CstAssignIdent;
+use crate::eval::compiler::scope::payload::CstAssignTarget;
+use crate::eval::compiler::scope::payload::CstExpr;
+use crate::eval::compiler::scope::payload::CstStmt;
+use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 
 fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
-    let ast = AstModule::parse("t.star", program.to_owned(), &Dialect::Extended).unwrap();
+    let ast = AstModule::parse("t.star", program.to_owned(), &Dialect::AllOptionsInternal).unwrap();
     let frozen_heap = FrozenHeap::new();
     let codemap = frozen_heap.alloc_any(ast.codemap().dupe());
     let ModuleScopes {
@@ -60,7 +60,7 @@ fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
             globals: Some(FrozenRef::new(Globals::empty())),
         },
         codemap,
-        &Dialect::Extended,
+        &Dialect::AllOptionsInternal,
     )
     .unwrap();
     let mut r = String::new();

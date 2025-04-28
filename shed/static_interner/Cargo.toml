@@ -11,3 +11,4 @@ allocative = { workspace = true }
 dupe = { workspace = true }
 equivalent = { workspace = true }
 lock_free_hashtable = { workspace = true }
+strong_hash = { workspace = true }

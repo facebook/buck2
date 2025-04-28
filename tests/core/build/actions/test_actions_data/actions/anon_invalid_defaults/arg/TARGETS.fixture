@@ -1,0 +1,4 @@
+load(":attributes.bzl", "arg_not_compatible", "default_arg_fails")
+
+default_arg_fails(name = "default_arg_fails")
+arg_not_compatible(name = "arg_not_compatible")

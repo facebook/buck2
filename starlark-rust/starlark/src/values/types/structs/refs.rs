@@ -20,15 +20,15 @@ use std::convert::Infallible;
 use dupe::Dupe;
 
 use crate::typing::Ty;
-use crate::values::starlark_type_id::StarlarkTypeId;
-use crate::values::structs::value::FrozenStruct;
-use crate::values::structs::value::Struct;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::StringValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::starlark_type_id::StarlarkTypeId;
+use crate::values::structs::value::FrozenStruct;
+use crate::values::structs::value::Struct;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// Reference to a struct allocated on the heap.
 ///
@@ -77,7 +77,9 @@ pub struct FrozenStructRef<'f>(pub(crate) &'f FrozenStruct);
 
 impl<'f> FrozenStructRef<'f> {
     /// Iterate over struct fields.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (FrozenStringValue, FrozenValue)> + 'f {
+    pub fn iter(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (FrozenStringValue, FrozenValue)> + 'f + use<'f> {
         self.0.iter_frozen()
     }
 

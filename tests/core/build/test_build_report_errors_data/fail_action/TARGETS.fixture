@@ -1,0 +1,73 @@
+load(":fail_action.bzl", "action_alias", "fail_one", "fail_script", "fail_shared_dep", "fail_two", "fail_two_deps")
+load(":fail_action_with_error_handler.bzl", "error_handler_failed", "error_handler_produced_multiple_categories", "error_handler_wrong_return_type", "fail_error_handler_with_output", "fail_many_with_error_handler", "fail_one_with_error_handler", "fail_one_with_error_handler_no_op")
+
+fail_one(
+    name = "fail_one",
+    default_target_platform = "//config:dog_platform",
+)
+
+fail_two(
+    name = "fail_two",
+    default_target_platform = "//config:dog_platform",
+)
+
+fail_shared_dep(
+    name = "fail_shared_dep",
+    default_target_platform = "//config:dog_platform",
+)
+
+action_alias(
+    name = "alias_a",
+    actual = ":fail_one",
+    default_target_platform = "//config:dog_platform",
+)
+
+action_alias(
+    name = "alias_b",
+    actual = ":fail_one",
+    default_target_platform = "//config:dog_platform",
+)
+
+fail_two_deps(
+    name = "fail_two_deps",
+)
+
+fail_script(
+    name = "fail_script",
+)
+
+fail_one_with_error_handler(
+    name = "fail_one_with_error_handler",
+    src = "fail_compile.py",
+)
+
+fail_many_with_error_handler(
+    name = "fail_many_with_error_handler",
+    srcs = ["fail_compile.py", "fail_indent.py"],
+)
+
+fail_one_with_error_handler_no_op(
+    name = "fail_one_with_error_handler_no_op",
+)
+
+error_handler_failed(
+    name = "error_handler_failed",
+)
+
+error_handler_wrong_return_type(
+    name = "error_handler_wrong_return_type",
+)
+
+error_handler_produced_multiple_categories(
+    name = "error_handler_produced_multiple_categories",
+)
+
+fail_error_handler_with_output(
+    name = "fail_error_handler_with_output",
+    src = "fail_with_output.py",
+)
+
+fail_error_handler_with_output(
+    name = "fail_error_handler_output_not_written",
+    src = "fail_compile.py",
+)

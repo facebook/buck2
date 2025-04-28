@@ -9,8 +9,11 @@
 
 use std::fmt;
 
-use buck2_event_observer::display::display_action_error;
+use buck2_error::__for_macro::AsDynError;
+use buck2_error::ErrorTag;
+use buck2_error::source_location::SourceLocation;
 use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_event_observer::display::display_action_error;
 
 use crate::actions::execute::error::ExecuteError;
 
@@ -25,10 +28,6 @@ pub struct ActionError {
 
 impl std::error::Error for ActionError {
     fn provide<'a>(&'a self, request: &mut std::error::Request<'a>) {
-        if let ExecuteError::Error { error } = &self.execute_error {
-            error.provide(request);
-        }
-
         let is_command_failure = self.last_command.as_ref().is_some_and(|c| {
             matches!(
                 c.status,
@@ -36,48 +35,46 @@ impl std::error::Error for ActionError {
             )
         });
 
-        let typ = match &self.execute_error {
-            ExecuteError::CommandExecutionError => {
-                if is_command_failure {
-                    Some(buck2_error::ErrorType::ActionCommandFailure)
-                } else {
-                    None
+        let mut tags = vec![ErrorTag::AnyActionExecution];
+        let mut string_tags = vec![];
+        let mut source_location = SourceLocation::new(std::file!()).with_type_name("ActionError");
+        match &self.execute_error {
+            ExecuteError::CommandExecutionError { error } => {
+                if let Some(err) = error {
+                    tags.extend(err.tags());
+                    string_tags.extend(err.string_tags());
+                    source_location = err.source_location().clone();
                 }
-            }
-            _ => None,
-        };
 
-        let category = match &self.execute_error {
-            ExecuteError::CommandExecutionError => {
                 if is_command_failure {
-                    Some(buck2_error::Tier::Input)
-                } else {
-                    None
+                    tags.push(ErrorTag::ActionCommandFailure)
                 }
             }
             // Returning extra outputs is a bug in the executor
-            ExecuteError::MismatchedOutputs { .. } => Some(buck2_error::Tier::Tier0),
+            ExecuteError::MismatchedOutputs { .. } => tags.push(ErrorTag::ActionMismatchedOutputs),
             // However outputs may be legitimately missing if the action didn't produce them
-            ExecuteError::MissingOutputs { .. } => Some(buck2_error::Tier::Input),
+            ExecuteError::MissingOutputs { .. } => tags.push(ErrorTag::ActionMissingOutputs),
             // Or if the action produced the wrong type
-            ExecuteError::WrongOutputType { .. } => Some(buck2_error::Tier::Input),
-            ExecuteError::Error { .. } => None,
+            ExecuteError::WrongOutputType { .. } => tags.push(ErrorTag::ActionWrongOutputType),
+            ExecuteError::Error { error } => {
+                tags.extend(error.tags());
+                string_tags.extend(error.string_tags());
+                source_location = error.source_location().clone();
+            }
         };
 
         buck2_error::provide_metadata(
             request,
-            category,
-            typ,
-            [buck2_error::ErrorTag::AnyActionExecution],
-            std::file!(),
-            Some("ActionError"),
+            tags,
+            string_tags,
+            source_location,
             Some(self.as_proto_event()),
         );
     }
 
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match &self.execute_error {
-            ExecuteError::Error { error } => error.source(),
+            ExecuteError::Error { error } => Some(error.as_dyn_error()),
             _ => None,
         }
     }
@@ -130,7 +127,7 @@ impl ActionError {
             }
             .into(),
             ExecuteError::Error { error } => format!("{:#}", error).into(),
-            ExecuteError::CommandExecutionError => buck2_data::CommandExecutionError {}.into(),
+            ExecuteError::CommandExecutionError { .. } => buck2_data::CommandExecutionError {}.into(),
         }
     }
 
@@ -164,4 +161,55 @@ fn error_items<T: fmt::Display>(xs: &[T]) -> String {
         write!(res, "`{}`", x).unwrap();
     }
     res
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_error::ErrorTag;
+    use buck2_error::buck2_error;
+    use buck2_error::conversion::from_any_with_tag;
+
+    use super::*;
+
+    #[test]
+    fn test_error_conversion() {
+        let error = buck2_error!(ErrorTag::Http, "error");
+
+        let execute_error = ExecuteError::Error {
+            error: error.into(),
+        };
+
+        let action_error = ActionError::new(
+            execute_error,
+            buck2_data::ActionName {
+                category: "category".to_owned(),
+                identifier: "identifier".to_owned(),
+            },
+            buck2_data::ActionKey {
+                id: vec![],
+                key: "key".to_owned(),
+                owner: Some(buck2_data::action_key::Owner::TargetLabel(
+                    buck2_data::ConfiguredTargetLabel {
+                        label: Some(buck2_data::TargetLabel {
+                            package: "package".to_owned(),
+                            name: "name".to_owned(),
+                        }),
+                        configuration: Some(buck2_data::Configuration {
+                            full_name: "conf".into(),
+                        }),
+                        execution_configuration: None,
+                    },
+                )),
+            },
+            None,
+            None,
+        );
+
+        let buck2_error = from_any_with_tag(action_error, ErrorTag::AnyActionExecution);
+
+        assert_eq!(
+            buck2_error.tags(),
+            vec![ErrorTag::AnyActionExecution, ErrorTag::Http]
+        );
+    }
 }

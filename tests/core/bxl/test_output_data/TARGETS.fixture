@@ -1,0 +1,30 @@
+stub(name = "the_binary")
+
+platform(
+    name = "platform",
+)
+
+constraint_setting(
+    name = "constraint",
+)
+
+constraint_value(
+    name = "disable",
+    constraint_setting = ":constraint",
+)
+
+stub(
+    name = "incompatible",
+    default_target_platform = ":platform",
+    target_compatible_with = [":disable"],
+)
+
+platform(
+    name = "platform1",
+    visibility = ["PUBLIC"],
+)
+
+platform(
+    name = "platform2",
+    visibility = ["PUBLIC"],
+)

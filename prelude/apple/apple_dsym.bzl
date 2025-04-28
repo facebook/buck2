@@ -7,9 +7,11 @@
 
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
+load(":debug.bzl", "AppleSelectiveDebuggableMetadata")  # @unused Used as a type
 
 DSYM_SUBTARGET = "dsym"
 DSYM_INFO_SUBTARGET = "dsym-info"
+EXTENDED_DSYM_INFO_SUBTARGET = "extended-dsym-info"
 DWARF_AND_DSYM_SUBTARGET = "dwarf-and-dsym"
 
 def get_apple_dsym(ctx: AnalysisContext, executable: Artifact, debug_info: list[ArgLike], action_identifier: str, output_path_override: [str, None] = None) -> Artifact:
@@ -18,37 +20,46 @@ def get_apple_dsym(ctx: AnalysisContext, executable: Artifact, debug_info: list[
 
 # TODO(T110672942): Things which are still unsupported:
 # - oso_prefix
-# - dsym_verification
 def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], debug_info: list[ArgLike], action_identifier: str, output_path: str) -> Artifact:
     dsymutil = ctx.attrs._apple_toolchain[AppleToolchainInfo].dsymutil
     output = ctx.actions.declare_output(output_path, dir = True)
-
     cmd = cmd_args(
         [
             dsymutil,
-            # https://github.com/llvm/llvm-project/blob/e3eb12cce97fa75d1d2443bcc2c2b26aa660fe34/llvm/tools/dsymutil/dsymutil.cpp#L94-L98
-            # The validation default changes depending on build mode, so
-            # explicitly set validation as disabled to unify behavior.
-            "--verify-dwarf=none",
+            "--verify-dwarf={}".format(ctx.attrs._dsymutil_verify_dwarf),
             # Reproducers are not useful, we can reproduce from the action digest.
             "--reproducer=Off",
-        ] + ctx.attrs._dsymutil_extra_flags + [
-            "-o",
-            output.as_output(),
         ],
-        executable,
         # Mach-O executables don't contain DWARF data.
         # Instead, they contain paths to the object files which themselves contain DWARF data.
-        #
         # So, those object files are needed for dsymutil to be to create the dSYM bundle.
         hidden = debug_info,
     )
+    if ctx.attrs.dsym_uses_parallel_linker:
+        cmd.add("--linker=parallel")
 
+    cmd.add(ctx.attrs._dsymutil_extra_flags)
+    cmd.add(
+        [
+            "-o",
+            output.as_output(),
+            executable,
+        ],
+    )
     ctx.actions.run(cmd, category = "apple_dsym", identifier = action_identifier)
-
     return output
 
-def get_apple_dsym_info_json(binary_dsyms: list[Artifact], dep_dsyms: list[Artifact]) -> dict[str, typing.Any]:
+AppleDsymJsonInfo = record(
+    # JSON object containing the list of dSYMs
+    json_object = field(dict[str, typing.Any]),
+    # A list of all artifacts referenced in `json_object`
+    outputs = field(list[Artifact]),
+)
+
+def get_apple_dsym_info_json(
+        binary_dsyms: list[Artifact],
+        dep_dsyms: list[Artifact],
+        metadata: list[AppleSelectiveDebuggableMetadata] | None = None) -> AppleDsymJsonInfo:
     dsym_info = {}
 
     if len(binary_dsyms) == 1:
@@ -61,4 +72,16 @@ def get_apple_dsym_info_json(binary_dsyms: list[Artifact], dep_dsyms: list[Artif
         # through multiple paths in a graph (e.g., including both a binary
         # + bundle in the `deps` field of a parent bundle).
         dsym_info["deps"] = dedupe(dep_dsyms)
-    return dsym_info
+
+    metadata_dsym_outputs = []
+    if metadata != None:
+        metadata_json_obj = {}
+        for debuggable_metadata in metadata:
+            metadata_json_obj[debuggable_metadata.dsym] = debuggable_metadata.metadata
+            metadata_dsym_outputs += [debuggable_metadata.dsym, debuggable_metadata.metadata]
+        dsym_info["selective_metadata"] = metadata_json_obj
+
+    return AppleDsymJsonInfo(
+        json_object = dsym_info,
+        outputs = binary_dsyms + dep_dsyms + metadata_dsym_outputs,
+    )

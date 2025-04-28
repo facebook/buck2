@@ -3,7 +3,7 @@ description: Setup Linux environment
 runs:
   using: composite
   steps:
-  - uses: SebRollen/toml-action@v1.0.2
+  - uses: SebRollen/toml-action@v1.2.0
     id: read_rust_toolchain
     with:
       file: rust-toolchain
@@ -12,9 +12,6 @@ runs:
     with:
       toolchain: ${{ steps.read_rust_toolchain.outputs.value }}
       components: clippy
-  - uses: Swatinem/rust-cache@v2
-    with:
-      prefix-key: buck2-upload
   - run: sudo apt-get update
     shell: bash
   - run: sudo apt-get install opam libzstd-dev python3-pip
@@ -22,10 +19,12 @@ runs:
   - uses: haskell-actions/setup@v2
     with:
       ghc-version: '9.10.1'
+  - name: Install uv
+    uses: astral-sh/setup-uv@v5
   - name: Install conan
-    run: sudo pip3 install conan==1.*
+    run: uv tool install conan==1.*
     shell: bash
-  - uses: actions/checkout@v4
   - uses: actions/setup-go@v5
     with:
+      cache: false
       go-version: '~1.22.0'

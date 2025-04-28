@@ -9,94 +9,79 @@
 
 import React, {useContext, useState} from 'react'
 import {DataContext} from './App'
-import {Link, RouterContext, TARGET_VIEW} from './Router'
-import {indexCache, indexEverything} from './flexSearch'
-import {SearchBox} from './SearchBox'
+import {Link, QueryKey, RouterContext} from './Router'
+import {indexCache, indexEverything, searchableText} from './flexSearch'
+import {HighlightedText, searchRegex} from './HighlightedText'
+import {formatTargetLabel} from './formatTargetLabel'
 
-function Checkbox(props: {
-  checked: boolean
-  onChange: (event: {target: {checked: boolean | ((prevState: boolean) => boolean)}}) => void
-}) {
-  const {checked, onChange} = props
+function SearchResult(props: {id: number; regex: RegExp}) {
+  const {id, regex} = props
+  const {build} = useContext(DataContext)
+  const target = build?.targets(id)!
+
+  const label = target.label()!
+  const searchables = searchableText(target)
+
+  const matches = searchables
+    .filter(s => regex.test(s))
+    .map((s, i) => (
+      <span key={i} className="has-text-grey">
+        . . .
+        <HighlightedText text={s} regex={regex} />. . .{'  '}
+      </span>
+    ))
+
   return (
-    <div className="checkbox">
-      <input type="checkbox" checked={checked} onChange={onChange} className="mr-2" />
-      <label>
-        Search everywhere (this may make the page unresponsive for a while, but eventually it
-        finishes)
-      </label>
-    </div>
+    <li key={id} className="mt-3">
+      <Link to={{target: formatTargetLabel(label)}} className="is-size-5">
+        {/* TODO iguridi: show configuration for targets built in multiple configurations */}
+        <HighlightedText text={label.targetLabel()!} regex={regex} />
+      </Link>
+      <br />
+      {matches}
+    </li>
   )
 }
 
-export function SearchView(props: {view: string}) {
-  const {build, allTargets} = useContext(DataContext)
+export function SearchView(props: {view: QueryKey}) {
   const {params} = useContext(RouterContext)
-
-  const [universalSearch, setUniversalSearch] = useState(false)
-  function handleChange(event: {target: {checked: boolean | ((prevState: boolean) => boolean)}}) {
-    setUniversalSearch(event.target.checked)
-    if (build != null) {
-      if (indexCache) {
-        return
-      } else {
-        indexEverything(build)
-      }
-    }
+  const {build, graph} = useContext(DataContext)
+  if (build == null) {
+    return null
   }
 
   const urlParams = new URLSearchParams(params)
   const search = urlParams.get(props.view)
 
   if (search == null || search.length < 3) {
-    return <p>Invalid search "{search}", try again</p>
+    return <p>Invalid search "{search}", try again with a text of 3 or more characters</p>
   }
 
-  let res = null
-  if (universalSearch) {
-    res = indexCache?.search(search)
-  } else {
-    res = []
-    for (let k of Object.keys(allTargets)) {
-      if (k.includes(search)) {
-        res.push(k)
-      }
-    }
+  if (!indexCache) {
+    indexEverything(build, graph)
   }
+  let res = indexCache!.search(search) as number[]
 
-  if (res == null || res.length == 0) {
-    return (
+  // This regex is used to highlight results
+  const regex = searchRegex(search)
+
+  const view =
+    res == null || res.length == 0 ? (
       <>
-        <Checkbox checked={universalSearch} onChange={handleChange} />
         <p>No results for search</p>
       </>
+    ) : (
+      <>
+        <h5 className="title is-5 mt-4">
+          Showing {res.length} targets containing "{search}"
+        </h5>
+        <ul>
+          {res.map(i => (
+            <SearchResult key={i} id={i} regex={regex} />
+          ))}
+        </ul>
+      </>
     )
-  }
 
-  // Not sure where the dups are coming from, but we want to dedup to prevent
-  // undefined behavior in React
-  const deduped = dedupeArray(res.map(v => v.toString()))
-
-  return (
-    <>
-      <SearchBox />
-      <Checkbox checked={universalSearch} onChange={handleChange} />
-      <h5 className="title is-5 mt-4">Showing targets labels containing "{search}"</h5>
-      <ul>
-        {deduped.map(label => (
-          <li key={label} className="mt-3">
-            <Link to={{[TARGET_VIEW]: label}}>{label}</Link>
-          </li>
-        ))}
-      </ul>
-    </>
-  )
-}
-
-function dedupeArray(res: string[]): string[] {
-  const array = res.map((value, index) => [value, index])
-  const deduped = Array.from(
-    new Map(array as Iterable<readonly [unknown, unknown]>).keys(),
-  ) as string[]
-  return deduped
+  return <div className="mx-4">{view}</div>
 }

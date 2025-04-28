@@ -1,5 +1,4 @@
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
 
@@ -7,11 +6,11 @@ rust_library(
     name = "buck2_anon_target",
     srcs = glob(["src/**/*.rs"]),
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:fxhash",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "//buck2/allocative/allocative:allocative",
@@ -33,6 +32,7 @@ rust_library(
         "//buck2/gazebo/cmp_any:cmp_any",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/gazebo/strong_hash:strong_hash",
         "//buck2/starlark-rust/starlark:starlark",
         "//buck2/starlark-rust/starlark_map:starlark_map",
     ],

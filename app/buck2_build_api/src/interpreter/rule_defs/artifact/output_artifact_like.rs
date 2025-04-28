@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
 use starlark::values::ValueTyped;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;

@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-use anyhow::Context;
 use buck2_common::file_ops::FileType;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
@@ -27,8 +26,10 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_data::CleanStaleResultKind;
 use buck2_data::CleanStaleStats;
+use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
+use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_events::errors::create_error_report;
 use buck2_events::metadata;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
@@ -38,18 +39,18 @@ use chrono::DateTime;
 use chrono::Utc;
 use derivative::Derivative;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 use tokio::sync::oneshot::Sender;
 use tracing::error;
 
+use crate::materializers::deferred::ArtifactMaterializationStage;
+use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
+use crate::materializers::deferred::artifact_tree::ArtifactMaterializationData;
+use crate::materializers::deferred::artifact_tree::ArtifactTree;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::join_all_existing_futs;
-use crate::materializers::deferred::ArtifactMaterializationData;
-use crate::materializers::deferred::ArtifactMaterializationStage;
-use crate::materializers::deferred::ArtifactTree;
-use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::sqlite::MaterializerStateSqliteDb;
 
 #[derive(Debug, Clone)]
@@ -65,7 +66,7 @@ pub struct CleanStaleArtifactsCommand {
 pub struct CleanStaleArtifactsExtensionCommand {
     pub cmd: CleanStaleArtifactsCommand,
     #[derivative(Debug = "ignore")]
-    pub sender: Sender<BoxFuture<'static, anyhow::Result<CleanResult>>>,
+    pub sender: Sender<BoxFuture<'static, buck2_error::Result<CleanResult>>>,
 }
 
 #[derive(Clone)]
@@ -76,7 +77,7 @@ pub struct CleanResult {
 
 enum PendingCleanResult {
     Finished(CleanResult),
-    Pending(BoxFuture<'static, anyhow::Result<CleanResult>>),
+    Pending(BoxFuture<'static, buck2_error::Result<CleanResult>>),
 }
 
 impl From<CleanStaleResultKind> for PendingCleanResult {
@@ -126,7 +127,7 @@ fn create_result(
         Err(e) => (
             CleanStaleResultKind::Failed,
             CleanStaleStats::default(),
-            Some(create_error_report(&e)),
+            Some((&e).into()),
         ),
     };
     stats.total_duration_s = total_duration_s;
@@ -148,11 +149,11 @@ impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifactsExtensionCommand {
 }
 
 impl CleanStaleArtifactsCommand {
-    pub(crate) fn create_clean_fut<T: IoHandler>(
+    pub(super) fn create_clean_fut<T: IoHandler>(
         &self,
         processor: &mut DeferredMaterializerCommandProcessor<T>,
         trace_id: Option<TraceId>,
-    ) -> BoxFuture<'static, anyhow::Result<CleanResult>> {
+    ) -> BoxFuture<'static, buck2_error::Result<CleanResult>> {
         let start_time = Instant::now();
         let pending_result = self.create_pending_clean_result(processor);
         let dispatcher_dup = self.dispatcher.dupe();
@@ -179,7 +180,7 @@ impl CleanStaleArtifactsCommand {
     fn create_pending_clean_result<T: IoHandler>(
         &self,
         processor: &mut DeferredMaterializerCommandProcessor<T>,
-    ) -> anyhow::Result<PendingCleanResult> {
+    ) -> buck2_error::Result<PendingCleanResult> {
         let (liveliness_observer, liveliness_guard) = LivelinessGuard::create_sync();
         *processor.command_sender.clean_guard.lock() = Some(liveliness_guard);
 
@@ -207,7 +208,7 @@ impl CleanStaleArtifactsCommand {
         io: &Arc<T>,
         cancellations: &'static CancellationContext,
         liveliness_observer: Arc<dyn LivelinessObserverSync>,
-    ) -> anyhow::Result<PendingCleanResult> {
+    ) -> buck2_error::Result<PendingCleanResult> {
         let start_time = Instant::now();
         let gen_path = io
             .buck_out_path()
@@ -224,7 +225,7 @@ impl CleanStaleArtifactsCommand {
         } else {
             let gen_subtree = tree
                 .get_subtree(&mut gen_path.iter())
-                .context("Found a file where gen dir expected")?;
+                .buck_error_context("Found a file where gen dir expected")?;
 
             let empty;
 
@@ -311,6 +312,7 @@ impl CleanStaleArtifactsCommand {
 
 #[derive(Debug, Clone, buck2_error::Error)]
 #[error("Internal error: materializer state exists (num db entries: {}) but no artifacts were found by clean ({:?}). Not cleaning untracked artifacts.", .db_size, .stats)]
+#[buck2(tag = CleanStale)]
 pub(crate) struct CleanStaleError {
     db_size: usize,
     stats: buck2_data::CleanStaleStats,
@@ -345,7 +347,7 @@ fn create_clean_fut<T: IoHandler>(
     io: &Arc<T>,
     cancellations: &'static CancellationContext,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
-) -> anyhow::Result<BoxFuture<'static, anyhow::Result<CleanResult>>> {
+) -> buck2_error::Result<BoxFuture<'static, buck2_error::Result<CleanResult>>> {
     let io = io.dupe();
 
     let paths_to_invalidate: Vec<ProjectRelativePathBuf> = found_paths
@@ -356,14 +358,29 @@ fn create_clean_fut<T: IoHandler>(
         })
         .collect();
 
-    let existing_futs =
+    let existing_clean_futs =
         tree.invalidate_paths_and_collect_futures(paths_to_invalidate, Some(sqlite_db))?;
+    let mut existing_materialization_futs = vec![];
+    for data in tree.iter_without_paths() {
+        match &data.processing {
+            super::Processing::Active {
+                future: super::ProcessingFuture::Materializing(future),
+                ..
+            } => existing_materialization_futs.push(future.clone()),
+            _ => (),
+        };
+    }
 
     let fut = async move {
         let start_time = Instant::now();
         // Wait for all in-progress operations to finish on the paths we are about to
         // remove from disk.
-        join_all_existing_futs(existing_futs).await?;
+        join_all_existing_futs(existing_clean_futs).await?;
+        // Untracked artifacts can be produced during materialization that should not be cleaned while materialization is in progress.
+        // Wait for all materializations since the path for the future may not be associated with the untracked path.
+        for fut in existing_materialization_futs.into_iter() {
+            fut.await.ok();
+        }
 
         // Then actually delete them. Note that we kick off one CleanOutputPaths per path. We
         // do this to get parallelism.
@@ -398,10 +415,10 @@ fn create_clean_fut<T: IoHandler>(
 async fn clean_artifact<T: IoHandler>(
     path: ProjectRelativePathBuf,
     size: u64,
-    cancellations: &'static CancellationContext<'_>,
+    cancellations: &'static CancellationContext,
     io: &Arc<T>,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
-) -> anyhow::Result<Option<u64>> {
+) -> buck2_error::Result<Option<u64>> {
     match io
         .clean_invalidated_path(
             CleanInvalidatedPathRequest {
@@ -414,11 +431,11 @@ async fn clean_artifact<T: IoHandler>(
     {
         Ok(()) => Ok(Some(size)),
         Err(e) => {
-            // Not downcasting would require larger clean up to IoRequest
-            if e.downcast_ref::<CleanInterrupt>().is_some() {
+            let e: buck2_error::Error = e.into();
+            if e.has_tag(ErrorTag::CleanInterrupt) {
                 Ok(None)
             } else {
-                Err(e)
+                Err(e.into())
             }
         }
     }
@@ -429,14 +446,10 @@ pub struct CleanInvalidatedPathRequest {
     pub(crate) liveliness_observer: Arc<dyn LivelinessObserverSync>,
 }
 
-#[derive(buck2_error::Error, Debug)]
-#[error("Interrupt")]
-struct CleanInterrupt;
-
 impl IoRequest for CleanInvalidatedPathRequest {
-    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
+    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
         if !self.liveliness_observer.is_alive_sync() {
-            return Err(CleanInterrupt.into());
+            return Err(buck2_error!(ErrorTag::CleanInterrupt, "Interrupt").into());
         }
         cleanup_path(project_fs, &self.path)?;
         Ok(())
@@ -444,7 +457,7 @@ impl IoRequest for CleanInvalidatedPathRequest {
 }
 
 /// Get file size or directory size, without following symlinks
-pub fn get_size(path: &AbsNormPath) -> anyhow::Result<u64> {
+pub fn get_size(path: &AbsNormPath) -> buck2_error::Result<u64> {
     let mut result = 0;
     if path.is_dir() {
         for entry in fs_util::read_dir(path)? {
@@ -478,7 +491,7 @@ impl<'a, T: IoHandler> StaleFinder<'a, T> {
         &mut self,
         path: ProjectRelativePathBuf,
         subtree: &'t HashMap<FileNameBuf, ArtifactTree>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let mut queue = vec![(path, subtree)];
 
         while let Some((path, tree)) = queue.pop() {
@@ -500,7 +513,7 @@ impl<'a, T: IoHandler> StaleFinder<'a, T> {
             ProjectRelativePathBuf,
             &'t HashMap<FileNameBuf, ArtifactTree>,
         )>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let abs_path = self.io.fs().resolve(path);
 
         for child in self.io.read_dir(&abs_path)? {
@@ -577,7 +590,7 @@ fn find_stale_tracked_only(
     tree: &ArtifactTree,
     keep_since_time: DateTime<Utc>,
     found_paths: &mut Vec<FoundPath>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     for (f_path, v) in tree.iter_with_paths() {
         if let ArtifactMaterializationStage::Materialized {
             last_access_time,
@@ -607,7 +620,7 @@ pub struct CleanStaleConfig {
 }
 
 impl CleanStaleConfig {
-    pub fn from_buck_config(root_config: &LegacyBuckConfig) -> anyhow::Result<Option<Self>> {
+    pub fn from_buck_config(root_config: &LegacyBuckConfig) -> buck2_error::Result<Option<Self>> {
         let clean_stale_enabled = root_config
             .parse(BuckconfigKeyRef {
                 section: "buck2",

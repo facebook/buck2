@@ -1,0 +1,7 @@
+[repositories]
+cell = cell
+root = .
+prelude = cell
+
+[buildfile]
+name = OUTER

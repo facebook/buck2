@@ -11,16 +11,21 @@ macro_rules! impl_fingerprinted_directory {
     (
         $this: ident
     ) => {
-        impl<L, H> $crate::directory::fingerprinted_directory::FingerprintedDirectory<L, H> for $this<L, H>
+        impl<L, H> $crate::directory::fingerprinted_directory::FingerprintedDirectory<L, H>
+            for $this<L, H>
         where
             H: DirectoryDigest,
         {
-            type FingerprintedDirectoryRef<'a> = <Self as $crate::directory::directory::Directory<L, H>>::DirectoryRef<'a>
-                where
-                    Self: Sized + 'a,
-                    L: 'a;
+            type FingerprintedDirectoryRef<'a>
+                = <Self as $crate::directory::directory::Directory<L, H>>::DirectoryRef<'a>
+            where
+                Self: Sized + 'a,
+                L: 'a;
 
-            fn as_fingerprinted_ref<'a>(&'a self) -> Self::FingerprintedDirectoryRef<'a> where Self: Sized + 'a {
+            fn as_fingerprinted_ref<'a>(&'a self) -> Self::FingerprintedDirectoryRef<'a>
+            where
+                Self: Sized + 'a,
+            {
                 self.as_ref()
             }
 

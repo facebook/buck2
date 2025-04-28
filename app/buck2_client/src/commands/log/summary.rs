@@ -10,9 +10,13 @@
 use std::cmp::max;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::time::Duration;
 use std::time::SystemTime;
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::subscribers::recorder::process_memory;
 use buck2_data::ActionExecutionKind;
@@ -21,6 +25,7 @@ use buck2_event_observer::fmt_duration;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_event_observer::humanized::HumanizedBytesPerSecond;
 use buck2_util::network_speed_average::NetworkSpeedAverage;
+use buck2_util::sliding_window::SlidingWindow;
 use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;
@@ -34,6 +39,7 @@ struct Stats {
     total_local_actions: u64,
     // TODO(yurysamkevich): split by RE platform - mac/windows/linux once available in log
     total_remote_actions: u64,
+    total_cached_actions: u64,
     total_other_actions: u64,
     total_targets_analysed: u64,
     peak_process_memory_bytes: Option<u64>,
@@ -43,6 +49,10 @@ struct Stats {
     peak_used_disk_space_bytes: Option<u64>,
     total_disk_space_bytes: Option<u64>,
     system_total_memory_bytes: Option<u64>,
+    re_max_download_speeds: Vec<SlidingWindow>,
+    re_max_upload_speeds: Vec<SlidingWindow>,
+    hg_revision: Option<String>,
+    has_local_changes: Option<bool>,
 }
 
 impl Stats {
@@ -57,10 +67,10 @@ impl Stats {
                     self.total_bytes_materialized += data.total_bytes;
                 }
                 Some(buck2_data::span_end_event::Data::ActionExecution(ref data)) => {
-                    match ActionExecutionKind::from_i32(data.execution_kind) {
-                        Some(ActionExecutionKind::Local) => self.total_local_actions += 1,
-                        Some(ActionExecutionKind::Remote) => self.total_remote_actions += 1,
-                        Some(ActionExecutionKind::ActionCache) => self.total_remote_actions += 1,
+                    match ActionExecutionKind::try_from(data.execution_kind) {
+                        Ok(ActionExecutionKind::Local) => self.total_local_actions += 1,
+                        Ok(ActionExecutionKind::Remote) => self.total_remote_actions += 1,
+                        Ok(ActionExecutionKind::ActionCache) => self.total_cached_actions += 1,
                         _ => self.total_other_actions += 1,
                     }
                 }
@@ -87,11 +97,33 @@ impl Stats {
                                 .update(ts, snapshot.re_download_bytes);
                             self.re_avg_upload_speed
                                 .update(ts, snapshot.re_upload_bytes);
+
+                            for s in self.re_max_download_speeds.iter_mut() {
+                                s.update(ts, snapshot.re_download_bytes);
+                            }
+
+                            for s in self.re_max_upload_speeds.iter_mut() {
+                                s.update(ts, snapshot.re_upload_bytes);
+                            }
                         }
                     }
                     Some(buck2_data::instant_event::Data::SystemInfo(system_info)) => {
                         self.total_disk_space_bytes = system_info.total_disk_space_bytes;
                         self.system_total_memory_bytes = system_info.system_total_memory_bytes;
+                    }
+                    Some(buck2_data::instant_event::Data::VersionControlRevision(vcs)) => {
+                        match vcs.hg_revision {
+                            Some(ref revision) => {
+                                self.hg_revision = Some(revision.clone());
+                            }
+                            None => {}
+                        }
+                        match vcs.has_local_changes {
+                            Some(ref has_local_changes) => {
+                                self.has_local_changes = Some(*has_local_changes);
+                            }
+                            None => {}
+                        }
                     }
                     _ => {}
                 }
@@ -121,6 +153,7 @@ impl Display for Stats {
         writeln!(f, "total bytes uploaded: {}", self.total_bytes_uploaded)?;
         writeln!(f, "local actions: {}", self.total_local_actions)?;
         writeln!(f, "remote actions: {}", self.total_remote_actions)?;
+        writeln!(f, "cached actions: {}", self.total_cached_actions)?;
         writeln!(f, "other actions: {}", self.total_other_actions)?;
         writeln!(f, "targets analysed: {}", self.total_targets_analysed)?;
         if let (Some(peak_process_memory_bytes), Some(system_total_memory_bytes)) = (
@@ -158,13 +191,49 @@ impl Display for Stats {
                 HumanizedBytesPerSecond::fixed_width(re_avg_upload_speed)
             )?;
         }
+
+        if let Some(re_max_download_speed) = self
+            .re_max_download_speeds
+            .iter()
+            .map(|w| w.max_per_second().unwrap_or_default())
+            .max()
+        {
+            writeln!(
+                f,
+                "max download speed: {}",
+                HumanizedBytesPerSecond::fixed_width(re_max_download_speed)
+            )?;
+        }
+
+        if let Some(re_max_upload_speed) = self
+            .re_max_upload_speeds
+            .iter()
+            .map(|w| w.max_per_second().unwrap_or_default())
+            .max()
+        {
+            writeln!(
+                f,
+                "max upload speed: {}",
+                HumanizedBytesPerSecond::fixed_width(re_max_upload_speed)
+            )?;
+        }
+
         if let Some(duration) = &self.duration {
             let duration = std::time::Duration::new(duration.seconds as u64, duration.nanos as u32);
-            writeln!(f, "duration: {}", fmt_duration::fmt_duration(duration, 1.0))
+            writeln!(f, "duration: {}", fmt_duration::fmt_duration(duration, 1.0))?;
         } else {
             // TODO(ezgi): when there is no CommandEnd, take the timestamp from the last event and calculate the duration
-            Ok(())
         }
+        if let Some(hg_revision) = &self.hg_revision {
+            writeln!(f, "hg revision: {}", hg_revision)?;
+        }
+
+        if let Some(has_local_changes) = self.has_local_changes {
+            writeln!(f, "has local changes: {}", has_local_changes)?;
+        } else {
+            writeln!(f, "has local changes: unknown")?;
+        }
+        Ok(())
     }
 }
 
@@ -175,31 +244,46 @@ pub struct SummaryCommand {
     event_log: EventLogOptions,
 }
 
-impl SummaryCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        ctx.with_runtime(|ctx| async move {
-            let log_path = self.event_log.get(&ctx).await?;
+impl BuckSubcommand for SummaryCommand {
+    const COMMAND_NAME: &'static str = "log-summary";
 
-            let (invocation, mut events) = log_path.unpack_stream().await?;
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
+        let log_path = self.event_log.get(&ctx).await?;
 
-            buck2_client_ctx::eprintln!(
-                "Showing summary from: {}",
-                invocation.display_command_line()
-            )?;
-            buck2_client_ctx::eprintln!("build ID: {}", invocation.trace_id)?;
+        let (invocation, mut events) = log_path.unpack_stream().await?;
 
-            let mut stats = Stats::default();
+        buck2_client_ctx::eprintln!(
+            "Showing summary from: {}",
+            invocation.display_command_line()
+        )?;
+        buck2_client_ctx::eprintln!("build ID: {}", invocation.trace_id)?;
 
-            while let Some(event) = events.try_next().await? {
-                match event {
-                    StreamValue::Event(event) => stats.update_with_event(&event),
-                    StreamValue::Result(..) | StreamValue::PartialResult(..) => {}
-                }
+        let mut stats = Stats {
+            re_max_download_speeds: vec![
+                SlidingWindow::new(Duration::from_secs(1)),
+                SlidingWindow::new(Duration::from_secs(5)),
+                SlidingWindow::new(Duration::from_secs(10)),
+            ],
+            re_max_upload_speeds: vec![
+                SlidingWindow::new(Duration::from_secs(1)),
+                SlidingWindow::new(Duration::from_secs(5)),
+                SlidingWindow::new(Duration::from_secs(10)),
+            ],
+            ..Default::default()
+        };
+
+        while let Some(event) = events.try_next().await? {
+            match event {
+                StreamValue::Event(event) => stats.update_with_event(&event),
+                StreamValue::Result(..) | StreamValue::PartialResult(..) => {}
             }
-            buck2_client_ctx::eprintln!("{}", stats)?;
-            anyhow::Ok(())
-        })?;
-
+        }
+        buck2_client_ctx::eprintln!("{}", stats)?;
         ExitResult::success()
     }
 }

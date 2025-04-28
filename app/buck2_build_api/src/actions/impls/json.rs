@@ -7,20 +7,25 @@
  * of this source tree.
  */
 
-use std::io::sink;
 use std::io::Write;
+use std::io::sink;
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_interpreter::types::cell_path::StarlarkCellPath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
 use either::Either;
 use serde::Serialize;
 use serde::Serializer;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
+use starlark::values::ValueTypedComplex;
 use starlark::values::dict::DictRef;
 use starlark::values::enumeration::EnumValue;
 use starlark::values::list::ListRef;
@@ -29,24 +34,22 @@ use starlark::values::record::Record;
 use starlark::values::structs::StructRef;
 use starlark::values::tuple::TupleRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
-use starlark::values::UnpackValue;
-use starlark::values::Value;
-use starlark::values::ValueLike;
-use starlark::values::ValueTypedComplex;
 
 use crate::artifact_groups::ArtifactGroup;
+use crate::bxl::select::StarlarkSelectConcat;
+use crate::bxl::select::StarlarkSelectDict;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
-use crate::interpreter::rule_defs::artifact_tagging::TaggedValue;
-use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
-use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
+use crate::interpreter::rule_defs::artifact_tagging::StarlarkTaggedValue;
 use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
+use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
+use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetJsonProjection;
 
@@ -57,11 +60,11 @@ pub struct SerializeValue<'a, 'v> {
     pub absolute: bool,
 }
 
-struct AnyhowResultOfSerializedValue<'a, 'v> {
-    result: anyhow::Result<SerializeValue<'a, 'v>>,
+struct Buck2ErrorResultOfSerializedValue<'a, 'v> {
+    result: buck2_error::Result<SerializeValue<'a, 'v>>,
 }
 
-impl<'a, 'v> Serialize for AnyhowResultOfSerializedValue<'a, 'v> {
+impl<'a, 'v> Serialize for Buck2ErrorResultOfSerializedValue<'a, 'v> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -74,18 +77,20 @@ impl<'a, 'v> Serialize for AnyhowResultOfSerializedValue<'a, 'v> {
 }
 
 impl<'a, 'v> SerializeValue<'a, 'v> {
-    fn with_value(&self, x: Value<'v>) -> AnyhowResultOfSerializedValue<'a, 'v> {
-        AnyhowResultOfSerializedValue {
-            result: JsonUnpack::unpack_value_err(x).map(|value| SerializeValue {
-                value,
-                fs: self.fs,
-                absolute: self.absolute,
-            }),
+    fn with_value(&self, x: Value<'v>) -> Buck2ErrorResultOfSerializedValue<'a, 'v> {
+        Buck2ErrorResultOfSerializedValue {
+            result: JsonUnpack::unpack_value_err(x)
+                .map_err(buck2_error::Error::from)
+                .map(|value| SerializeValue {
+                    value,
+                    fs: self.fs,
+                    absolute: self.absolute,
+                }),
         }
     }
 }
 
-fn err<R, E: serde::ser::Error>(res: anyhow::Result<R>) -> Result<R, E> {
+fn err<R, E: serde::ser::Error>(res: buck2_error::Result<R>) -> Result<R, E> {
     match res {
         Ok(v) => Ok(v),
         Err(e) => Err(serde::ser::Error::custom(format!("{:#}", e))),
@@ -119,7 +124,7 @@ pub enum JsonArtifact<'v> {
 }
 
 impl<'v> JsonArtifact<'v> {
-    fn artifact(&self) -> anyhow::Result<Artifact> {
+    fn artifact(&self) -> buck2_error::Result<Artifact> {
         match self {
             JsonArtifact::ValueAsArtifactLike(x) => Ok(x.0.get_bound_artifact()?.dupe()),
             JsonArtifact::StarlarkOutputArtifact(x) => match x.unpack() {
@@ -148,10 +153,13 @@ pub enum JsonUnpack<'v> {
     TransitiveSetJsonProjection(&'v TransitiveSetJsonProjection<'v>),
     TargetLabel(&'v StarlarkTargetLabel),
     ConfiguredProvidersLabel(&'v StarlarkConfiguredProvidersLabel),
+    CellPath(&'v StarlarkCellPath),
     Artifact(JsonArtifact<'v>),
     CommandLine(CommandLineArg<'v>),
     Provider(ValueAsProviderLike<'v>),
-    TaggedValue(&'v TaggedValue<'v>),
+    TaggedValue(&'v StarlarkTaggedValue<'v>),
+    BxlSelectConcat(&'v StarlarkSelectConcat),
+    BxlSelectDict(&'v StarlarkSelectDict),
 }
 
 impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
@@ -189,6 +197,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                 // Users could do this with `str(ctx.label)`, but a bit wasteful
                 x.serialize(serializer)
             }
+            JsonUnpack::CellPath(x) => x.serialize(serializer),
             JsonUnpack::Artifact(x) => {
                 match self.fs {
                     None => {
@@ -241,6 +250,8 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                 serializer.collect_map(x.0.items().iter().map(|(k, v)| (k, self.with_value(*v))))
             }
             JsonUnpack::TaggedValue(x) => self.with_value(*x.value()).serialize(serializer),
+            JsonUnpack::BxlSelectConcat(x) => x.serialize(serializer),
+            JsonUnpack::BxlSelectDict(x) => x.serialize(serializer),
         }
     }
 }
@@ -255,7 +266,7 @@ fn is_singleton_cmdargs(x: CommandLineArg) -> bool {
     }
 }
 
-pub fn validate_json(x: JsonUnpack) -> anyhow::Result<()> {
+pub fn validate_json(x: JsonUnpack) -> buck2_error::Result<()> {
     write_json(x, None, &mut sink(), false, false)
 }
 
@@ -265,7 +276,7 @@ pub fn write_json(
     mut writer: &mut dyn Write,
     pretty: bool,
     absolute: bool,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let value = SerializeValue {
         value,
         fs,
@@ -280,15 +291,15 @@ pub fn write_json(
         } else {
             serde_json::to_writer(&mut writer, &value)?;
         }
-        anyhow::Ok(())
+        buck2_error::Ok(())
     })()
-    .context("Error converting to JSON for `write_json`")
+    .buck_error_context("Error converting to JSON for `write_json`")
 }
 
 pub fn visit_json_artifacts(
     v: Value,
     visitor: &mut dyn CommandLineArtifactVisitor,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     match JsonUnpack::unpack_value_err(v)? {
         JsonUnpack::None(_)
         | JsonUnpack::String(_)
@@ -296,7 +307,10 @@ pub fn visit_json_artifacts(
         | JsonUnpack::Bool(_)
         | JsonUnpack::TargetLabel(_)
         | JsonUnpack::Enum(_)
-        | JsonUnpack::ConfiguredProvidersLabel(_) => {}
+        | JsonUnpack::ConfiguredProvidersLabel(_)
+        | JsonUnpack::BxlSelectConcat(_)
+        | JsonUnpack::BxlSelectDict(_)
+        | JsonUnpack::CellPath(_) => {}
 
         JsonUnpack::List(x) => {
             for x in x.iter() {

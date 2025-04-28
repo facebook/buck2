@@ -32,21 +32,23 @@ use dupe::Dupe;
 use starlark_map::StarlarkHasher;
 
 use crate::codemap::Span;
-use crate::codemap::Spanned;
-use crate::typing::callable::TyCallable;
-use crate::typing::error::TypingOrInternalError;
-use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TyFunction;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
+use crate::typing::call_args::TyCallArgs;
+use crate::typing::callable::TyCallable;
+use crate::typing::error::InternalError;
+use crate::typing::error::TypingNoContextError;
+use crate::typing::error::TypingNoContextOrInternalError;
+use crate::typing::error::TypingOrInternalError;
+use crate::values::Value;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
 use crate::values::typing::type_compiled::matcher::TypeMatcherBox;
 use crate::values::typing::type_compiled::matcher::TypeMatcherBoxAlloc;
-use crate::values::Value;
 
 /// Custom type implementation. [`Display`] must implement the representation of the type.
 pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync + 'static {
@@ -54,7 +56,7 @@ pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync 
     fn validate_call(
         &self,
         span: Span,
-        _args: &[Spanned<Arg>],
+        _args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         Err(oracle.msg_error(span, format!("Value of type `{}` is not callable", self)))
@@ -66,18 +68,27 @@ pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync 
     fn as_function(&self) -> Option<&TyFunction> {
         None
     }
-    fn bin_op(&self, bin_op: TypingBinOp, rhs: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()> {
+    fn bin_op(
+        &self,
+        bin_op: TypingBinOp,
+        rhs: &TyBasic,
+        ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         let _unused = (bin_op, rhs, ctx);
-        Err(())
+        Err(TypingNoContextOrInternalError::Typing)
     }
-    fn iter_item(&self) -> Result<Ty, ()> {
-        Err(())
+    fn iter_item(&self) -> Result<Ty, TypingNoContextError> {
+        Err(TypingNoContextError)
     }
-    fn index(&self, item: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()> {
+    fn index(
+        &self,
+        item: &TyBasic,
+        ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         let _unused = (item, ctx);
-        Err(())
+        Err(TypingNoContextOrInternalError::Typing)
     }
-    fn attribute(&self, attr: &str) -> Result<Ty, ()>;
+    fn attribute(&self, attr: &str) -> Result<Ty, TypingNoContextError>;
     fn union2(x: Arc<Self>, other: Arc<Self>) -> Result<Arc<Self>, (Arc<Self>, Arc<Self>)> {
         if x == other { Ok(x) } else { Err((x, other)) }
     }
@@ -105,21 +116,25 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
     fn validate_call_dyn(
         &self,
         span: Span,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError>;
     fn is_intersects_with_dyn(&self, other: &TyBasic) -> bool;
     fn as_callable_dyn(&self) -> Option<TyCallable>;
     fn as_function_dyn(&self) -> Option<&TyFunction>;
-    fn iter_item_dyn(&self) -> Result<Ty, ()>;
-    fn index_dyn(&self, index: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()>;
-    fn attribute_dyn(&self, attr: &str) -> Result<Ty, ()>;
+    fn iter_item_dyn(&self) -> Result<Ty, TypingNoContextError>;
+    fn index_dyn(
+        &self,
+        index: &TyBasic,
+        ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError>;
+    fn attribute_dyn(&self, attr: &str) -> Result<Ty, TypingNoContextError>;
     fn bin_op_dyn(
         &self,
         bin_op: TypingBinOp,
         rhs: &TyBasic,
         ctx: &TypingOracleCtx,
-    ) -> Result<Ty, ()>;
+    ) -> Result<Ty, TypingNoContextOrInternalError>;
     fn union2_dyn(
         self: Arc<Self>,
         other: Arc<dyn TyCustomDyn>,
@@ -164,7 +179,7 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
     fn validate_call_dyn(
         &self,
         span: Span,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         self.validate_call(span, args, oracle)
@@ -182,15 +197,19 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         self.as_function()
     }
 
-    fn attribute_dyn(&self, attr: &str) -> Result<Ty, ()> {
+    fn attribute_dyn(&self, attr: &str) -> Result<Ty, TypingNoContextError> {
         self.attribute(attr)
     }
 
-    fn iter_item_dyn(&self) -> Result<Ty, ()> {
+    fn iter_item_dyn(&self) -> Result<Ty, TypingNoContextError> {
         self.iter_item()
     }
 
-    fn index_dyn(&self, index: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()> {
+    fn index_dyn(
+        &self,
+        index: &TyBasic,
+        ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         self.index(index, ctx)
     }
 
@@ -199,7 +218,7 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         bin_op: TypingBinOp,
         rhs: &TyBasic,
         ctx: &TypingOracleCtx,
-    ) -> Result<Ty, ()> {
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         self.bin_op(bin_op, rhs, ctx)
     }
 
@@ -259,21 +278,21 @@ impl TyCustom {
         x.0.intersects_dyn(&*y.0)
     }
 
-    pub(crate) fn intersects_with(&self, other: &TyBasic, ctx: TypingOracleCtx) -> bool {
+    pub(crate) fn intersects_with(
+        &self,
+        other: &TyBasic,
+        ctx: TypingOracleCtx,
+    ) -> Result<bool, InternalError> {
         if self.0.is_intersects_with_dyn(other) {
-            return true;
+            return Ok(true);
         }
         match other {
-            TyBasic::Custom(other) => Self::intersects(self, other),
-            TyBasic::Name(name) => self.as_name() == Some(name.as_str()),
-            TyBasic::Callable(c) => {
-                if let Some(this) = self.0.as_callable_dyn() {
-                    ctx.callables_intersect(&this, c)
-                } else {
-                    false
-                }
-            }
-            _ => false,
+            TyBasic::Custom(other) => Ok(Self::intersects(self, other)),
+            TyBasic::Callable(c) => match self.0.as_callable_dyn() {
+                Some(this) => ctx.callables_intersect(&this, c),
+                _ => Ok(false),
+            },
+            _ => Ok(false),
         }
     }
 

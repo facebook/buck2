@@ -13,18 +13,13 @@ use std::collections::BTreeSet as Set;
 
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
+use quote::ToTokens;
 use quote::format_ident;
 use quote::quote;
-use quote::quote_spanned;
-use quote::ToTokens;
-use syn::spanned::Spanned;
-use syn::Data;
 use syn::DeriveInput;
-use syn::Ident;
 use syn::Member;
 use syn::Result;
 use syn::Token;
-use syn::Visibility;
 
 use crate::ast::Enum;
 use crate::ast::Field;
@@ -46,49 +41,63 @@ pub fn derive(node: &DeriveInput) -> Result<TokenStream> {
 
 fn impl_struct(input: Struct) -> TokenStream {
     let ty = &input.ident;
+    let arg_token = quote! { value };
     let (impl_generics, ty_generics, _) = input.generics.split_for_impl();
     let mut error_inferred_bounds = InferredBounds::new();
 
-    let source_body = if input.attrs.transparent.is_some() {
-        let only_field = &input.fields[0];
-        if only_field.contains_generic {
-            error_inferred_bounds.insert(only_field.ty, quote!(std::error::Error));
-        }
-        let member = &only_field.member;
-        Some(quote! {
-            std::error::Error::source(self.#member.as_dyn_error())
-        })
-    } else if let Some(source_field) = input.source_field() {
-        let source = &source_field.member;
-        if source_field.contains_generic {
-            error_inferred_bounds.insert(source_field.ty, quote!(std::error::Error + 'static));
-        }
-        let dyn_error = quote_spanned!(source.span()=> self.#source .as_dyn_error());
-        Some(quote! {
-            std::option::Option::Some(#dyn_error)
-        })
-    } else {
-        None
+    if input.generics.type_params().next().is_some() {
+        let self_token = <Token![Self]>::default();
+        error_inferred_bounds.insert(self_token, Trait::Debug);
+        error_inferred_bounds.insert(self_token, Trait::Display);
+        error_inferred_bounds.insert(self_token, quote!(std::marker::Send));
+        error_inferred_bounds.insert(self_token, quote!(std::marker::Sync));
+        error_inferred_bounds.insert(self_token, quote!('static));
+    }
+
+    let tags = get_tags(&input.attrs);
+    let mut members = input.fields.iter().map(|field| &field.member).peekable();
+    let field_pats: TokenStream = match members.peek() {
+        Some(Member::Named(_)) => quote!( #(let #members = &#arg_token.#members);*; ),
+        _ => quote!(),
     };
-    let source_method = source_body.map(|body| {
+
+    let content = if input.attrs.transparent.is_some() {
+        let member = &input.fields[0].member;
         quote! {
-            fn source(&self) -> std::option::Option<&(dyn std::error::Error + 'static)> {
-                use buck2_error::__for_macro::AsDynError;
-                #body
-            }
-        }
-    });
+            #field_pats
+            #tags
 
-    let provide_body = gen_provide_contents(&input.attrs, &input.fields, ty, None);
-    let pat = fields_pat(&input.fields);
-    let provide_method = quote! {
-        fn provide<'__macro>(&'__macro self, __request: &mut std::error::Request<'__macro>) {
-            #[allow(unused_variables, deprecated)]
-            let Self #pat = self;
-            #provide_body
+            // All errors called by transparent should have From implemented
+            let error: buck2_error::Error = #arg_token.#member.into();
+            error.tag(tags)
+        }
+    } else if let Some(source_field) = input.source_field() {
+        let member = &source_field.member;
+
+        quote! {
+            #field_pats
+            #tags
+            let error_msg = format!("{}", &#arg_token);
+
+            // All errors called by source should have From implemented
+            let error: buck2_error::Error = #arg_token.#member.into();
+            let error = error.tag(tags);
+            error.context(error_msg)
+        }
+    } else {
+        let source_location_type_name = syn::LitStr::new(&ty.to_string(), Span::call_site());
+
+        quote! {
+            #field_pats
+            #tags
+
+            let source_location = buck2_error::source_location::SourceLocation::new(core::file!()).with_type_name(#source_location_type_name);
+            let root_error = buck2_error::Error::new(format!("{}", #arg_token), tags[0], source_location, None);
+            root_error.tag(tags)
         }
     };
 
+    let pat = fields_pat(&input.fields);
     let mut display_implied_bounds = Set::new();
     let display_body = if input.attrs.transparent.is_some() {
         let only_field = &input.fields[0].member;
@@ -118,7 +127,6 @@ fn impl_struct(input: Struct) -> TokenStream {
         quote! {
             #[allow(unused_qualifications)]
             impl #impl_generics std::fmt::Display for #ty #ty_generics #display_where_clause {
-                #[allow(clippy::used_underscore_binding)]
                 fn fmt(&self, __formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                     #body
                 }
@@ -126,109 +134,36 @@ fn impl_struct(input: Struct) -> TokenStream {
         }
     });
 
-    let error_trait = spanned_error_trait(input.original);
-    if input.generics.type_params().next().is_some() {
-        let self_token = <Token![Self]>::default();
-        error_inferred_bounds.insert(self_token, Trait::Debug);
-        error_inferred_bounds.insert(self_token, Trait::Display);
-        error_inferred_bounds.insert(self_token, quote!(std::marker::Send));
-        error_inferred_bounds.insert(self_token, quote!(std::marker::Sync));
-        error_inferred_bounds.insert(self_token, quote!('static));
-    }
     let error_where_clause = error_inferred_bounds.augment_where_clause(input.generics);
 
     quote! {
         #[allow(unused_qualifications)]
-        impl #impl_generics #error_trait for #ty #ty_generics #error_where_clause {
-            #source_method
-            #provide_method
+        impl #impl_generics From<#ty #ty_generics> for buck2_error::Error #error_where_clause
+        {
+            #[cold]
+            #[allow(unused_variables, deprecated)]
+            fn from(#arg_token: #ty #ty_generics) -> buck2_error::Error {
+                #content
+            }
         }
+
         #display_impl
     }
 }
 
 fn impl_enum(mut input: Enum) -> TokenStream {
     let ty = &input.ident;
+    let arg_token: TokenStream = quote! { value };
     let (impl_generics, ty_generics, _) = input.generics.split_for_impl();
-    let mut error_inferred_bounds = InferredBounds::new();
+    let mut display_inferred_bounds = InferredBounds::new();
 
     // We let people specify these on the type or variant, so make sure that they always show up on
     // the variant and we don't have to re-check the type
     for variant in &mut input.variants {
-        if input.attrs.category.is_some() {
-            variant.attrs.category = input.attrs.category.clone();
-        }
-        if input.attrs.typ.is_some() {
-            variant.attrs.typ = input.attrs.typ.clone();
-        }
         variant.attrs.tags.extend(input.attrs.tags.iter().cloned());
     }
 
-    let source_method = if input.has_source() {
-        let arms = input.variants.iter().map(|variant| {
-            let ident = &variant.ident;
-            if variant.attrs.transparent.is_some() {
-                let only_field = &variant.fields[0];
-                if only_field.contains_generic {
-                    error_inferred_bounds.insert(only_field.ty, quote!(std::error::Error));
-                }
-                let member = &only_field.member;
-                let source = quote!(std::error::Error::source(transparent.as_dyn_error()));
-                quote! {
-                    #ty::#ident {#member: transparent} => #source,
-                }
-            } else if let Some(source_field) = variant.source_field() {
-                let source = &source_field.member;
-                if source_field.contains_generic {
-                    error_inferred_bounds
-                        .insert(source_field.ty, quote!(std::error::Error + 'static));
-                }
-                let varsource = quote!(source);
-                let dyn_error = quote_spanned!(source.span()=> #varsource.as_dyn_error());
-                quote! {
-                    #ty::#ident {#source: #varsource, ..} => std::option::Option::Some(#dyn_error),
-                }
-            } else {
-                quote! {
-                    #ty::#ident {..} => std::option::Option::None,
-                }
-            }
-        });
-        Some(quote! {
-            fn source(&self) -> std::option::Option<&(dyn std::error::Error + 'static)> {
-                use buck2_error::__for_macro::AsDynError;
-                #[allow(deprecated)]
-                match self {
-                    #(#arms)*
-                }
-            }
-        })
-    } else {
-        None
-    };
-
-    let provide_arms = input.variants.iter().map(|variant| {
-        let content =
-            gen_provide_contents(&variant.attrs, &variant.fields, ty, Some(&variant.ident));
-        let ident = &variant.ident;
-        let pat = fields_pat(&variant.fields);
-        quote! {
-            #[allow(unused_variables, deprecated)]
-            #ty::#ident #pat => {
-                #content
-            },
-        }
-    });
-    let provide_method = quote! {
-        fn provide<'__macro>(&'__macro self, __request: &mut std::error::Request<'__macro>) {
-            match self {
-                #(#provide_arms)*
-            }
-        }
-    };
-
     let display_impl = if input.has_display() {
-        let mut display_inferred_bounds = InferredBounds::new();
         let void_deref = if input.variants.is_empty() {
             Some(quote!(*))
         } else {
@@ -276,8 +211,8 @@ fn impl_enum(mut input: Enum) -> TokenStream {
             }
 
             impl #impl_generics From<#ty #ty_generics> for buck2_error::__for_macro::ContextValue #display_where_clause  {
-                fn from(value: #ty #ty_generics) -> buck2_error::__for_macro::ContextValue {
-                    format!("{}", value).into()
+                fn from(#arg_token: #ty #ty_generics) -> buck2_error::__for_macro::ContextValue {
+                    format!("{}", #arg_token).into()
                 }
             }
         })
@@ -285,100 +220,105 @@ fn impl_enum(mut input: Enum) -> TokenStream {
         None
     };
 
-    let error_trait = spanned_error_trait(input.original);
-    if input.generics.type_params().next().is_some() {
-        let self_token = <Token![Self]>::default();
-        error_inferred_bounds.insert(self_token, Trait::Debug);
-        error_inferred_bounds.insert(self_token, Trait::Display);
-        error_inferred_bounds.insert(self_token, quote!(std::marker::Send));
-        error_inferred_bounds.insert(self_token, quote!(std::marker::Sync));
-        error_inferred_bounds.insert(self_token, quote!('static));
-    }
-    let error_where_clause = error_inferred_bounds.augment_where_clause(input.generics);
+    let from_impl_arms = input.variants.iter().map(|variant| {
+        let tags = get_tags(&variant.attrs);
+
+        let content = if variant.attrs.transparent.is_some() {
+            let only_field = match &variant.fields[0].member {
+                Member::Named(ident) => ident.clone(),
+                Member::Unnamed(index) => format_ident!("_{}", index),
+            };
+
+            quote! {
+                #tags
+
+                // All errors called by transparent must have From implemented
+                let error: buck2_error::Error = #only_field.into();
+                error.tag(tags)
+            }
+        } else if let Some(source_field) = variant.source_field() {
+            let member = match &source_field.member {
+                Member::Named(ident) => ident.clone(),
+                Member::Unnamed(index) => format_ident!("_{}", index),
+            };
+
+            quote! {
+                #tags
+
+                // All errors called by source must have From implemented
+                let error = buck2_error::Error::from(#member);
+                let error = error.tag(tags);
+
+                error.context(err_msg)
+            }
+        } else {
+            let source_location_type_name =
+                syn::LitStr::new(&format!("{}::{}", &ty, &variant.ident), Span::call_site());
+            quote! {
+                #tags
+
+                let source_location = buck2_error::source_location::SourceLocation::new(core::file!()).with_type_name(#source_location_type_name);
+                let root_error = buck2_error::Error::new(err_msg, tags[0], source_location, None);
+                root_error.tag(tags)
+            }
+        };
+
+        let ident = &variant.ident;
+        let pat = fields_pat(&variant.fields);
+        quote! {
+            #[allow(unused_variables, deprecated)]
+            #ty::#ident #pat => {
+                #content
+            },
+        }
+    });
+    let error_where_clause = display_inferred_bounds.augment_where_clause(input.generics);
 
     quote! {
-        #[allow(unused_qualifications)]
-        impl #impl_generics #error_trait for #ty #ty_generics #error_where_clause {
-            #source_method
-            #provide_method
+        impl #impl_generics From<#ty #ty_generics> for buck2_error::Error #error_where_clause  {
+            #[cold]
+            fn from(#arg_token: #ty #ty_generics) -> buck2_error::Error {
+                // This is a bit hacky but match moves #arg_token so we need this to be before the match
+                let err_msg = format!("{}", #arg_token);
+
+                match #arg_token {
+                    #(#from_impl_arms)*
+                }
+            }
         }
         #display_impl
     }
 }
 
-/// Generates the provided data for either a variant or the whole struct
-fn gen_provide_contents(
-    attrs: &Attrs,
-    fields: &[Field],
-    type_name: &Ident,
-    variant_name: Option<&Ident>,
-) -> syn::Stmt {
-    let type_and_variant = match variant_name {
-        Some(variant_name) => format!("{}::{}", type_name, variant_name),
-        None => type_name.to_string(),
-    };
-    let source_location_extra = syn::LitStr::new(&type_and_variant, Span::call_site());
-    let category: syn::Expr = match &attrs.category {
-        Some(OptionStyle::Explicit(cat)) => syn::parse_quote! {
-            core::option::Option::Some(buck2_error::Tier::#cat)
-        },
-        Some(OptionStyle::ByExpr(e)) => e.clone(),
-        None => syn::parse_quote! {
-            core::option::Option::None
-        },
-    };
-    let typ: syn::Expr = match &attrs.typ {
-        Some(OptionStyle::Explicit(typ)) => syn::parse_quote! {
-            core::option::Option::Some(buck2_error::ErrorType::#typ)
-        },
-        Some(OptionStyle::ByExpr(e)) => e.clone(),
-        None => syn::parse_quote! {
-            core::option::Option::None
-        },
-    };
-    let tags: Vec<syn::Expr> = attrs
+/// Generates the from implementation to buck2_error for a provided error type
+fn get_tags(attrs: &Attrs) -> TokenStream {
+    let individual_tags: Vec<syn::Expr> = attrs
         .tags
         .iter()
         .map(|tag| match tag {
             OptionStyle::Explicit(tag) => syn::parse_quote! {
-                core::option::Option::Some(buck2_error::ErrorTag::#tag)
+                buck2_error::ErrorTag::#tag
             },
             OptionStyle::ByExpr(e) => e.clone(),
         })
         .collect();
-    let num_tags = syn::LitInt::new(&format!("{}", tags.len()), Span::call_site());
 
-    let metadata: syn::Stmt = syn::parse_quote! {
-        buck2_error::provide_metadata(
-            __request,
-            #category,
-            #typ,
-            <[Option<buck2_error::ErrorTag>; #num_tags] as IntoIterator>::into_iter([#(#tags,)*]).flatten(),
-            core::file!(),
-            core::option::Option::Some(#source_location_extra),
-            core::option::Option::None,
-        );
+    let tags_expr: Option<syn::Expr> = match &attrs.tags_expr {
+        Some(OptionStyle::ByExpr(e)) => Some(e.clone()),
+        Some(OptionStyle::Explicit(_)) => unreachable!("tags must be an expression"),
+        None => None,
     };
 
-    let forward_transparent = if attrs.transparent.is_some() {
-        let only_field = match &fields[0].member {
-            Member::Named(ident) => ident.clone(),
-            Member::Unnamed(index) => format_ident!("_{}", index),
-        };
+    if let Some(tags_expr) = tags_expr {
         quote! {
-            use buck2_error::__for_macro::AsDynError;
-            std::error::Error::provide(#only_field.as_dyn_error(), __request);
+            let mut tags: Vec<buck2_error::ErrorTag> = #tags_expr;
+            for tag in [#(#individual_tags,)*] {
+                tags.push(tag);
+            }
         }
     } else {
-        quote! {}
-    };
-    // When the same type is provided to the `request` more than once, the first value is used and
-    // later values are ignored. As such, make sure we put the `forward_transparent` first, so that
-    // if the underlying error has metadata, that's the one that gets used
-    syn::parse_quote! {
-        {
-            #forward_transparent
-            #metadata
+        quote! {
+            let tags = [#(#individual_tags,)*];
         }
     }
 }
@@ -396,22 +336,4 @@ fn fields_pat(fields: &[Field]) -> TokenStream {
         }
         None => quote!({}),
     }
-}
-
-fn spanned_error_trait(input: &DeriveInput) -> TokenStream {
-    let vis_span = match &input.vis {
-        Visibility::Public(vis) => Some(vis.span),
-        Visibility::Restricted(vis) => Some(vis.pub_token.span),
-        Visibility::Inherited => None,
-    };
-    let data_span = match &input.data {
-        Data::Struct(data) => data.struct_token.span,
-        Data::Enum(data) => data.enum_token.span,
-        Data::Union(data) => data.union_token.span,
-    };
-    let first_span = vis_span.unwrap_or(data_span);
-    let last_span = input.ident.span();
-    let path = quote_spanned!(first_span=> std::error::);
-    let error = quote_spanned!(last_span=> Error);
-    quote!(#path #error)
 }

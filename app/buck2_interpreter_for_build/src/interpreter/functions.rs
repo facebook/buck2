@@ -14,6 +14,7 @@ pub(crate) mod load_symbols;
 pub(crate) mod path;
 pub(crate) mod read_config;
 pub(crate) mod regex;
+pub(crate) mod sha1;
 pub(crate) mod sha256;
 pub(crate) mod soft_error;
 pub(crate) mod starlark;

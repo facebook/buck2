@@ -8,14 +8,16 @@
  */
 
 use async_trait::async_trait;
-use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_cli_proto::UnstableDiceDumpRequest;
+use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
@@ -31,7 +33,7 @@ pub struct DiceDumpCommand {
     serde_pretty: bool,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for DiceDumpCommand {
     const COMMAND_NAME: &'static str = "connected";
 
@@ -42,8 +44,9 @@ impl StreamingCommand for DiceDumpCommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let format = if self.serde {
             DiceDumpFormat::Bincode
@@ -54,10 +57,13 @@ impl StreamingCommand for DiceDumpCommand {
         };
         buckd
             .with_flushing()
-            .unstable_dice_dump(UnstableDiceDumpRequest {
-                destination_path: self.path.resolve(&ctx.working_dir).into_string()?,
-                format: format.into(),
-            })
+            .unstable_dice_dump(
+                UnstableDiceDumpRequest {
+                    destination_path: self.path.resolve(&ctx.working_dir).into_string()?,
+                    format: format.into(),
+                },
+                events_ctx,
+            )
             .await?;
         ExitResult::success()
     }

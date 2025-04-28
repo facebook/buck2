@@ -1,0 +1,29 @@
+stub(
+    name = "declared_dep",
+    deps = [],
+)
+
+stub(
+    name = "has_a_missing_dep",
+    deps = [":declared_dep", ":undeclared_dep"],
+)
+
+stub(
+    name = "has_a_dep_with_package_listing_err",
+    deps = [":declared_dep", "//missing:package"],
+)
+
+stub(
+    name = "has_a_dep_from_nonexistent_buildfile",
+    deps = ["root//missing_buildfile:nonexistent"],
+)
+
+stub(
+    name = "has_a_dep_from_malformed_buildfile",
+    deps = ["root//bad_buildfile:bad"],
+)
+
+stub(
+    name = "has_a_dep_not_visible",
+    deps = ["root//not_visible:not_visible"],
+)

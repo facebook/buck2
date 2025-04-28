@@ -1,0 +1,5 @@
+load(":prelude.bzl", "my_rule")
+
+my_rule(
+    name = "my_rule",
+)

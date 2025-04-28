@@ -17,9 +17,9 @@
 
 use allocative::Allocative;
 use derive_more::Display;
+use starlark_derive::NoSerialize;
 use starlark_derive::starlark_attrs;
 use starlark_derive::starlark_value;
-use starlark_derive::NoSerialize;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -38,7 +38,7 @@ fn test_derive_attrs() {
         NoSerialize,
         Allocative
     )]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct Example {
         hello: String,
         #[starlark(skip)]
@@ -64,7 +64,7 @@ fn test_derive_attrs() {
         NoSerialize,
         Allocative
     )]
-    #[display(fmt = "{}", foo)]
+    #[display("{}", foo)]
     struct Nested {
         foo: String,
     }

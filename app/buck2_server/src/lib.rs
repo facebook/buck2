@@ -14,6 +14,7 @@
 
 pub mod active_commands;
 mod clean_stale;
+mod cpu_usage_collector;
 mod ctx;
 pub mod daemon;
 mod dice_tracker;
@@ -29,3 +30,4 @@ pub mod profile;
 mod snapshot;
 mod subscription;
 mod trace_io;
+mod version_control_revision;

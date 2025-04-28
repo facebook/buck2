@@ -1,0 +1,33 @@
+load(":rules.bzl", "constraint_setting", "constraint_value", "test_platform", "test_rule")
+
+constraint_setting(
+    name = "test_constraint_setting",
+)
+
+constraint_value(
+    name = "test_constraint_value",
+    setting = ":test_constraint_setting",
+)
+
+constraint_value(
+    name = "other_constraint_value",
+    setting = ":test_constraint_setting",
+)
+
+test_platform(
+    name = "platform",
+)
+
+test_rule(
+    name = "test",
+    default_target_platform = ":platform",
+)
+
+test_rule(
+    name = "test_unbound",
+    metadata = {
+        "cfg_modifiers.target": {
+            "root//:test_constraint_setting": "root//:other_constraint_value",
+        },
+    },
+)

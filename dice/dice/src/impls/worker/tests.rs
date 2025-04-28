@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::atomic::AtomicBool;
@@ -21,10 +20,12 @@ use assert_matches::assert_matches;
 use async_trait::async_trait;
 use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
+use dice_error::result::CancellableResult;
+use dice_error::result::CancellationReason;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use futures::pin_mut;
 use futures::Future;
+use futures::pin_mut;
 use gazebo::prelude::SliceExt;
 use gazebo::variants::VariantName;
 use tokio::sync::Mutex;
@@ -33,6 +34,7 @@ use tokio::sync::Semaphore;
 
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
+use crate::api::key::InvalidationSourcePriority;
 use crate::api::key::Key;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::NoOpTracker;
@@ -41,8 +43,8 @@ use crate::arc::Arc;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::ctx::SharedLiveTransactionCtx;
-use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::deps::RecordingDepsTracker;
+use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::dice::DiceModern;
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
@@ -58,11 +60,11 @@ use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::DiceValidity;
 use crate::impls::value::MaybeValidDiceValue;
-use crate::impls::worker::check_dependencies;
-use crate::impls::worker::testing::CheckDependenciesResultExt;
+use crate::impls::value::TrackedInvalidationPaths;
 use crate::impls::worker::CheckDependenciesResult;
 use crate::impls::worker::DiceTaskWorker;
-use crate::result::CancellableResult;
+use crate::impls::worker::check_dependencies;
+use crate::impls::worker::testing::CheckDependenciesResultExt;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
 use crate::versions::VersionRanges;
@@ -88,7 +90,7 @@ impl Key for K {
 }
 
 #[derive(Allocative, Clone, Debug, Display)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct IsRan(Arc<AtomicBool>);
 
 #[async_trait]
@@ -149,6 +151,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         DiceComputedValue::new(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(VersionRange::begins_with(VersionNumber::new(1)).into_ranges()),
+            TrackedInvalidationPaths::clean(),
         ),
     );
     let eval = AsyncEvaluator {
@@ -175,6 +178,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         DiceComputedValue::new(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(VersionRange::begins_with(VersionNumber::new(1)).into_ranges()),
+            TrackedInvalidationPaths::clean(),
         ),
     );
 
@@ -205,6 +209,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         DiceComputedValue::new(
             MaybeValidDiceValue::transient(std::sync::Arc::new(DiceKeyValue::<K>::new(1))),
             Arc::new(VersionRange::begins_with(VersionNumber::new(2)).into_ranges()),
+            TrackedInvalidationPaths::clean(),
         ),
     );
 
@@ -250,7 +255,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     }
 
     #[derive(Allocative, Clone, Debug, Display)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct InstanceEqualKey(Arc<AtomicUsize>);
 
     #[async_trait]
@@ -300,15 +305,15 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         events.dupe(),
         None,
     );
-    let res = task
-        .depended_on_by(ParentKey::None)
-        .not_cancelled()
-        .unwrap()
-        .await?;
+    let res = task.depended_on_by(ParentKey::None).unwrap().await?;
 
     let v = dice
         .state_handle
-        .update_state(vec![(key.dupe(), ChangeType::Invalidate)])
+        .update_state(vec![(
+            key.dupe(),
+            ChangeType::Invalidate,
+            InvalidationSourcePriority::Normal,
+        )])
         .await;
 
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
@@ -326,11 +331,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         events.dupe(),
         None,
     );
-    let res2 = task
-        .depended_on_by(ParentKey::None)
-        .not_cancelled()
-        .unwrap()
-        .await?;
+    let res2 = task.depended_on_by(ParentKey::None).unwrap().await?;
 
     // verify that we incremented the total instance counter
     assert_eq!(instance.load(Ordering::SeqCst), 2);
@@ -383,13 +384,7 @@ async fn spawn_with_no_previously_cancelled_task() {
         previously_cancelled_task,
     );
 
-    assert!(
-        task.depended_on_by(ParentKey::None)
-            .not_cancelled()
-            .unwrap()
-            .await
-            .is_ok()
-    );
+    assert!(task.depended_on_by(ParentKey::None).unwrap().await.is_ok());
 
     assert!(is_ran.load(Ordering::SeqCst));
 }
@@ -439,7 +434,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
         None,
     );
 
-    previous_task.cancel();
+    previous_task.cancel(CancellationReason::ByTest);
 
     let previously_cancelled_task = Some(PreviouslyCancelledTask {
         previous: previous_task,
@@ -457,13 +452,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
         previously_cancelled_task,
     );
 
-    assert!(
-        task.depended_on_by(ParentKey::None)
-            .not_cancelled()
-            .unwrap()
-            .await
-            .is_ok()
-    );
+    assert!(task.depended_on_by(ParentKey::None).unwrap().await.is_ok());
 
     assert!(is_ran.load(Ordering::SeqCst));
 }
@@ -514,11 +503,10 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     // wait for it to finish then trigger cancel
     previous_task
         .depended_on_by(ParentKey::None)
-        .not_cancelled()
         .unwrap()
         .await
         .unwrap();
-    previous_task.cancel();
+    previous_task.cancel(CancellationReason::ByTest);
 
     let previously_cancelled_task = Some(PreviouslyCancelledTask {
         previous: previous_task,
@@ -536,13 +524,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
         previously_cancelled_task,
     );
 
-    assert!(
-        task.depended_on_by(ParentKey::None)
-            .not_cancelled()
-            .unwrap()
-            .await
-            .is_ok()
-    );
+    assert!(task.depended_on_by(ParentKey::None).unwrap().await.is_ok());
 
     assert!(!is_ran.load(Ordering::SeqCst));
 }
@@ -577,7 +559,6 @@ async fn mismatch_epoch_results_in_cancelled_result() {
     // wait for it to finish then trigger cancel
     assert_matches!(
         task.depended_on_by(ParentKey::None)
-            .not_cancelled()
             .unwrap()
             .await,
         Err(_) => {}
@@ -587,7 +568,7 @@ async fn mismatch_epoch_results_in_cancelled_result() {
 #[tokio::test]
 async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Result<()> {
     #[derive(Allocative, Clone, Debug, Display)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     #[allocative(skip)]
     struct DontRunTwice {
         is_started: Arc<Notify>,
@@ -684,7 +665,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         None,
     );
     is_started.notified().await;
-    first_task.cancel();
+    first_task.cancel(CancellationReason::ByTest);
 
     let cycles = UserCycleDetectorData::testing_new();
     let second_task = DiceTaskWorker::spawn(
@@ -698,7 +679,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         }),
     );
 
-    second_task.cancel();
+    second_task.cancel(CancellationReason::ByTest);
 
     let cycles = UserCycleDetectorData::testing_new();
     let third_task = DiceTaskWorker::spawn(
@@ -712,10 +693,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         }),
     );
 
-    let promise = third_task
-        .depended_on_by(ParentKey::None)
-        .not_cancelled()
-        .unwrap();
+    let promise = third_task.depended_on_by(ParentKey::None).unwrap();
 
     pin_mut!(promise);
 
@@ -736,7 +714,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
 async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 -> anyhow::Result<()> {
     #[derive(Allocative, Clone, Debug, Display)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct NeverEqual;
 
     #[async_trait]
@@ -809,6 +787,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
             DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
                 Arc::new(dep_history),
+                TrackedInvalidationPaths::clean(),
             ),
         );
 
@@ -846,11 +825,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         events.dupe(),
         None,
     );
-    let computed_res = task
-        .depended_on_by(ParentKey::None)
-        .not_cancelled()
-        .unwrap()
-        .await?;
+    let computed_res = task.depended_on_by(ParentKey::None).unwrap().await?;
     assert_eq!(
         computed_res.versions(),
         &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
@@ -879,11 +854,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         events.dupe(),
         None,
     );
-    let computed_res = task
-        .depended_on_by(ParentKey::None)
-        .not_cancelled()
-        .unwrap()
-        .await?;
+    let computed_res = task.depended_on_by(ParentKey::None).unwrap().await?;
     assert_eq!(
         computed_res.versions(),
         &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
@@ -895,7 +866,11 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 
 async fn soft_dirty(dice: &std::sync::Arc<DiceModern>, key: DiceKey) -> VersionNumber {
     dice.state_handle
-        .update_state(vec![(key.dupe(), ChangeType::TestingSoftDirty)])
+        .update_state(vec![(
+            key.dupe(),
+            ChangeType::TestingSoftDirty,
+            InvalidationSourcePriority::Normal,
+        )])
         .await
 }
 
@@ -913,6 +888,7 @@ fn update_computed_value(
         StorageType::Normal,
         value,
         deps,
+        TrackedInvalidationPaths::clean(),
     )
 }
 
@@ -1075,32 +1051,72 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
     *data.compute_behavior[3].lock().unwrap() = ComputeBehavior::WaitFor(semaphore.dupe());
     *data.compute_behavior[13].lock().unwrap() = ComputeBehavior::WaitFor(semaphore.dupe());
 
-    let mut deps = RecordingDepsTracker::new();
-    deps.record(keys[0], DiceValidity::Valid);
-    deps.record(keys[1], DiceValidity::Valid);
-    deps.record(keys[2], DiceValidity::Valid);
+    let mut deps = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
+    deps.record(
+        keys[0],
+        DiceValidity::Valid,
+        TrackedInvalidationPaths::clean(),
+    );
+    deps.record(
+        keys[1],
+        DiceValidity::Valid,
+        TrackedInvalidationPaths::clean(),
+    );
+    deps.record(
+        keys[2],
+        DiceValidity::Valid,
+        TrackedInvalidationPaths::clean(),
+    );
     {
-        let parallel = deps.push_parallel(0);
+        let parallel = deps.push_parallel(0).0;
         for i in 0..3 {
             let offset = i * 5;
-            let mut deps = RecordingDepsTracker::new();
-            deps.record(keys[3 + offset], DiceValidity::Valid);
-            deps.record(keys[4 + offset], DiceValidity::Valid);
+            let mut deps = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
+            deps.record(
+                keys[3 + offset],
+                DiceValidity::Valid,
+                TrackedInvalidationPaths::clean(),
+            );
+            deps.record(
+                keys[4 + offset],
+                DiceValidity::Valid,
+                TrackedInvalidationPaths::clean(),
+            );
             {
-                let parallel = deps.push_parallel(2);
-                let mut deps = RecordingDepsTracker::new();
-                deps.record(keys[5 + offset], DiceValidity::Valid);
+                let parallel = deps.push_parallel(2).0;
+                let mut deps = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
+                deps.record(
+                    keys[5 + offset],
+                    DiceValidity::Valid,
+                    TrackedInvalidationPaths::clean(),
+                );
                 parallel.alloc(deps.collect_deps());
-                let mut deps = RecordingDepsTracker::new();
-                deps.record(keys[6 + offset], DiceValidity::Valid);
+                let mut deps = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
+                deps.record(
+                    keys[6 + offset],
+                    DiceValidity::Valid,
+                    TrackedInvalidationPaths::clean(),
+                );
                 parallel.alloc(deps.collect_deps());
             }
-            deps.record(keys[7 + offset], DiceValidity::Valid);
+            deps.record(
+                keys[7 + offset],
+                DiceValidity::Valid,
+                TrackedInvalidationPaths::clean(),
+            );
             parallel.alloc(deps.collect_deps());
         }
     }
-    deps.record(keys[18], DiceValidity::Valid);
-    deps.record(keys[19], DiceValidity::Valid);
+    deps.record(
+        keys[18],
+        DiceValidity::Valid,
+        TrackedInvalidationPaths::clean(),
+    );
+    deps.record(
+        keys[19],
+        DiceValidity::Valid,
+        TrackedInvalidationPaths::clean(),
+    );
 
     let deps = deps.collect_deps();
     let cycles = KeyComputingUserCycleDetectorData::Untracked;

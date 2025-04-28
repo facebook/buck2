@@ -1,0 +1,11 @@
+load("@root//visibility:rules.bzl", "nop", "plugin_dep")
+
+nop(
+    name = "hidden",
+    visibility = [],
+)
+
+plugin_dep(
+    name = "unhidden",
+    actual = ":hidden",
+)

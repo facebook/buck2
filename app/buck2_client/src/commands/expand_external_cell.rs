@@ -7,18 +7,19 @@
  * of this source tree.
  */
 
-use buck2_cli_proto::new_generic::ExpandExternalCellRequest;
+use buck2_cli_proto::new_generic::ExpandExternalCellsRequest;
 use buck2_cli_proto::new_generic::NewGenericRequest;
 use buck2_cli_proto::new_generic::NewGenericResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
-use clap::ArgMatches;
 
 /// Expand the contents of an external cell into the repo.
 ///
@@ -31,45 +32,57 @@ use clap::ArgMatches;
 /// you eg change the git commit of the cell in the future.
 #[derive(Debug, clap::Parser)]
 #[clap(name = "expand-external-cell")]
-pub struct ExpandExternalCellCommand {
-    cell: String,
+pub struct ExpandExternalCellsCommand {
+    /// Expand all cells that Buck2 knows about
+    #[clap(long, conflicts_with = "cells")]
+    all_cells: bool,
+
+    cells: Vec<String>,
 }
 
 const REMINDER_TEXT: &str = "Reminder: For edits to the expanded cell to take effect on \
 your build, you must additionally remove the entry from the `external_cells` section of your \
 buckconfig";
 
-#[async_trait::async_trait]
-impl StreamingCommand for ExpandExternalCellCommand {
+#[async_trait::async_trait(?Send)]
+impl StreamingCommand for ExpandExternalCellsCommand {
     const COMMAND_NAME: &'static str = "expand-external-cell";
 
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
+        let req = if self.all_cells {
+            ExpandExternalCellsRequest::All
+        } else {
+            ExpandExternalCellsRequest::Specific(self.cells.into_iter().collect())
+        };
         let resp = buckd
             .with_flushing()
             .new_generic(
                 context,
-                NewGenericRequest::ExpandExternalCell(ExpandExternalCellRequest {
-                    cell_name: self.cell,
-                }),
+                NewGenericRequest::ExpandExternalCells(req),
+                events_ctx,
                 None,
             )
             .await??;
-        let NewGenericResponse::ExpandExternalCell(resp) = resp else {
+        let NewGenericResponse::ExpandExternalCells(resp) = resp else {
             return ExitResult::bail("Unexpected response type from generic command");
         };
 
-        let stdout = format!(
-            "Expanded external cell to {}.\n\n{}",
-            resp.path, REMINDER_TEXT,
-        );
+        let mut lines: Vec<String> = resp
+            .paths
+            .into_iter()
+            .map(|(cell, path)| format!("Expanded external cell {} to {}.", cell, path))
+            .collect();
+        lines.push(String::new());
+        lines.push(REMINDER_TEXT.to_owned());
 
-        ExitResult::success().with_stdout(stdout.into_bytes())
+        ExitResult::success().with_stdout(lines.join("\n").into_bytes())
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {

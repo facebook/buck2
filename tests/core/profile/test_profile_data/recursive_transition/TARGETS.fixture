@@ -1,0 +1,34 @@
+load(":defs.bzl", "ooo")
+
+constraint_setting(
+    name = "constr",
+)
+
+constraint_value(name = "a", constraint_setting = ":constr")
+constraint_value(name = "b", constraint_setting = ":constr")
+constraint_value(name = "c", constraint_setting = ":constr")
+
+platform(name = "p")
+
+ooo(
+    name = "aaa",
+    deps = [],
+    use_constraint = "a",
+)
+
+ooo(
+    name = "bbb",
+    deps = [
+        ":aaa",
+    ],
+    use_constraint = "b",
+)
+
+ooo(
+    name = "ccc",
+    deps = [
+        ":bbb",
+    ],
+    use_constraint = "c",
+    default_target_platform = ":p",
+)

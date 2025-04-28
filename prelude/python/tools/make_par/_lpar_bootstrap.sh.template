@@ -1,9 +1,9 @@
-
 #!/usr/bin/env bash
 # {argcomplete_hint}
 
 BASE_DIR={base_dir}
 DIR={base_dir}
+
 # OSX is not Linux.  To get date to give nanoseconds, we must use gnu date
 if [[ $(uname) == "Darwin" ]]
 then

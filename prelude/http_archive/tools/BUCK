@@ -1,0 +1,18 @@
+load("@prelude//http_archive:exec_deps.bzl", "http_archive_exec_deps")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
+
+prelude = native
+
+http_archive_exec_deps(
+    name = "exec_deps",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "create_exclusion_list",
+    main = "create_exclusion_list.py",
+)

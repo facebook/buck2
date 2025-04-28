@@ -12,16 +12,16 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_audit::execution_platform_resolution::AuditExecutionPlatformResolutionCommand;
 use buck2_cli_proto::ClientContext;
-use buck2_node::execution::GetExecutionPlatforms;
 use buck2_node::execution::EXECUTION_PLATFORMS_BUCKCONFIG;
+use buck2_node::execution::GetExecutionPlatforms;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use indent_write::io::IndentWriter;
 
-use crate::common::configured_target_labels::audit_command_configured_target_labels;
 use crate::ServerAuditSubcommand;
+use crate::common::configured_target_labels::audit_command_configured_target_labels;
 
 #[async_trait]
 impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
@@ -30,8 +30,8 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let configured_patterns = audit_command_configured_target_labels(
                     &mut ctx,
@@ -102,6 +102,6 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
 
                 Ok(())
             })
-            .await
+            .await?)
     }
 }

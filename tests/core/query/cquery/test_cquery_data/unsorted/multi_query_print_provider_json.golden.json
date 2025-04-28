@@ -1,0 +1,39 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "root//bin:the_binary": {
+    "root//bin:the_binary (root//platforms:platform1#<HASH>)": {
+      "buck.providers": {
+        "DefaultInfo": {
+          "sub_targets": {},
+          "default_outputs": [],
+          "other_outputs": []
+        },
+        "RunInfo": {
+          "args": {
+            "items": [],
+            "hidden": [],
+            "options": null
+          }
+        },
+        "FooInfo": {
+          "foo": "the_binary_foo"
+        }
+      }
+    }
+  },
+  "//lib:lib1": {
+    "root//lib:lib1 (root//platforms:platform1#<HASH>)": {
+      "buck.providers": {
+        "DefaultInfo": {
+          "sub_targets": {},
+          "default_outputs": [],
+          "other_outputs": []
+        },
+        "FooInfo": {
+          "foo": "lib1_foo"
+        }
+      }
+    }
+  }
+}

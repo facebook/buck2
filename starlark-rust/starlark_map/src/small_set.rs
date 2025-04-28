@@ -93,6 +93,12 @@ impl<T> SmallSet<T> {
         Self(SmallMap::with_capacity(n))
     }
 
+    /// Reserve capacity for at least `additional` more elements to be inserted.
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) {
+        self.0.reserve(additional);
+    }
+
     /// Current capacity of the set.
     #[inline]
     pub fn capacity(&self) -> usize {
@@ -236,12 +242,34 @@ impl<T> SmallSet<T> {
     ///
     /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the set.
     #[inline]
-    pub fn remove<Q>(&mut self, key: &Q) -> bool
+    pub fn shift_remove<Q>(&mut self, key: &Q) -> bool
     where
         Q: ?Sized + Hash + Equivalent<T>,
         T: Eq,
     {
-        self.0.remove(key).is_some()
+        self.0.shift_remove(key).is_some()
+    }
+
+    /// Remove the element by index. This is *O(N)* operation.
+    #[inline]
+    pub fn shift_remove_index_hashed(&mut self, i: usize) -> Option<Hashed<T>> {
+        Some(self.0.shift_remove_index_hashed(i)?.0)
+    }
+
+    /// Remove the element by index. This is *O(N)* operation.
+    #[inline]
+    pub fn shift_remove_index(&mut self, i: usize) -> Option<T> {
+        Some(self.shift_remove_index_hashed(i)?.into_key())
+    }
+
+    /// Remove the entry for the key.
+    ///
+    /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the set.
+    pub fn shift_remove_hashed<Q>(&mut self, key: Hashed<&Q>) -> bool
+    where
+        Q: ?Sized + Equivalent<T>,
+    {
+        self.0.shift_remove_hashed(key).is_some()
     }
 
     /// Insert entry if it doesn't exist.
@@ -287,7 +315,7 @@ impl<T> SmallSet<T> {
         Q: ?Sized + Hash + Equivalent<T>,
         T: Eq,
     {
-        self.0.remove_entry(key).map(|(k, _)| k)
+        self.0.shift_remove_entry(key).map(|(k, _)| k)
     }
 
     /// Remove the last element from the set.
@@ -405,6 +433,14 @@ impl<T> SmallSet<T> {
     pub fn reverse(&mut self) {
         self.0.reverse();
     }
+
+    /// Retains only the elements specified by the predicate.
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.0.retain(|k, _| f(k))
+    }
 }
 
 impl<'a, T> IntoIterator for &'a SmallSet<T> {
@@ -505,10 +541,10 @@ where
 #[macro_export]
 macro_rules! smallset {
     (@single $($x:tt)*) => (());
-    (@count $($rest:expr),*) => (<[()]>::len(&[$(smallset!(@single $rest)),*]));
+    (@count $($rest:expr_2021),*) => (<[()]>::len(&[$(smallset!(@single $rest)),*]));
 
-    ($($key:expr,)+) => { smallset!($($key),+) };
-    ($($key:expr),*) => {
+    ($($key:expr_2021,)+) => { smallset!($($key),+) };
+    ($($key:expr_2021),*) => {
         {
             let cap = smallset!(@count $($key),*);
             let mut set = $crate::small_set::SmallSet::with_capacity(cap);
@@ -641,7 +677,7 @@ mod tests {
 
         let not_m1 = {
             let mut s = m1.clone();
-            s.remove(&'a');
+            s.shift_remove(&'a');
             s
         };
         assert_ne!(m1, not_m1);
@@ -689,7 +725,7 @@ mod tests {
         assert_eq!(s.first(), Some(&1));
         s.insert(2);
         assert_eq!(s.first(), Some(&1));
-        s.remove(&1);
+        s.shift_remove(&1);
         assert_eq!(s.first(), Some(&2));
     }
 
@@ -703,13 +739,13 @@ mod tests {
     }
 
     #[test]
-    fn test_remove() {
+    fn test_shift_remove() {
         let mut h: HashSet<u32> = HashSet::from_iter([17]);
         let mut s: SmallSet<u32> = SmallSet::from_iter([17]);
         assert!(h.remove(&17));
-        assert!(s.remove(&17));
+        assert!(s.shift_remove(&17));
         assert!(!h.remove(&17));
-        assert!(!s.remove(&17));
+        assert!(!s.shift_remove(&17));
     }
 
     #[test]

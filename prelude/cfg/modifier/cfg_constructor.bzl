@@ -8,8 +8,9 @@
 load("@prelude//utils:graph_utils.bzl", "post_order_traversal")
 load(
     ":common.bzl",
+    "apply_buckconfig_backed_modifiers",
+    "get_and_insert_modifier_info",
     "get_constraint_setting_deps",
-    "get_modifier_info",
     "json_to_tagged_modifiers",
     "modifier_to_refs",
     "resolve_alias",
@@ -18,6 +19,7 @@ load(
 load(":name.bzl", "cfg_name")
 load(
     ":types.bzl",
+    "BuckconfigBackedModifierInfo",
     "Modifier",  # @unused
     "ModifierCliLocation",
     "ModifierTargetLocation",
@@ -26,8 +28,10 @@ load(
 
 PostConstraintAnalysisParams = record(
     legacy_platform = PlatformInfo | None,
-    # Merged modifier from PACKAGE, target, and cli modifiers.
-    merged_modifiers = list[TaggedModifiers],
+    package_modifiers = list[TaggedModifiers],
+    target_modifiers = list[Modifier],
+    cli_modifiers = list[Modifier],
+    extra_data = struct,
 )
 
 def cfg_constructor_pre_constraint_analysis(
@@ -40,6 +44,7 @@ def cfg_constructor_pre_constraint_analysis(
         cli_modifiers: list[str],
         rule_name: str,
         aliases: struct,
+        extra_data: struct,
         **_kwargs) -> (list[str], PostConstraintAnalysisParams):
     """
     First stage of cfg constructor for modifiers.
@@ -55,6 +60,8 @@ def cfg_constructor_pre_constraint_analysis(
             modifiers specified from `--modifier` flag, `?modifier`, or BXL
         aliases:
             A struct that contains mapping of modifier aliases to modifier.
+        extra_data:
+            Some extra data that is for extra logging/validation for our internal modifier implementation.
 
     Returns `(refs, PostConstraintAnalysisParams)`, where `refs` is a list of fully qualified configuration
     targets we need providers for.
@@ -68,27 +75,29 @@ def cfg_constructor_pre_constraint_analysis(
     # Filter PACKAGE modifiers based on rule name.
     # This only filters out PACKAGE modifiers from `extra_cfg_modifiers_per_rule` argument of `set_cfg_modifiers` function.
     package_modifiers = [tagged_modifiers for tagged_modifiers in package_modifiers if tagged_modifiers.rule_name == None or tagged_modifiers.rule_name == rule_name]
-    merged_modifiers = package_modifiers
-
-    # Add target modifiers as `TaggedModifiers`
-    if target_modifiers:
-        merged_modifiers.append(TaggedModifiers(modifiers = target_modifiers, location = ModifierTargetLocation(), rule_name = None))
 
     # Resolve all aliases in CLI modifiers
     cli_modifiers = [resolved_modifier for modifier in cli_modifiers for resolved_modifier in resolve_alias(modifier, aliases)]
 
-    # Convert CLI modifiers to `TaggedModifier`
-    if cli_modifiers:
-        merged_modifiers.append(TaggedModifiers(modifiers = cli_modifiers, location = ModifierCliLocation(), rule_name = None))
-
     refs = []
-    for tagged_modifiers in merged_modifiers:
+    buckconfig_backed_modifiers = getattr(extra_data, "buckconfig_backed_modifiers", None)
+    if buckconfig_backed_modifiers:
+        refs.append(buckconfig_backed_modifiers)
+
+    for tagged_modifiers in package_modifiers:
         for modifier in tagged_modifiers.modifiers:
             refs.extend(modifier_to_refs(modifier, tagged_modifiers.location))
+    for modifier in target_modifiers:
+        refs.extend(modifier_to_refs(modifier, ModifierTargetLocation()))
+    for modifier in cli_modifiers:
+        refs.extend(modifier_to_refs(modifier, ModifierCliLocation()))
 
     return refs, PostConstraintAnalysisParams(
         legacy_platform = legacy_platform,
-        merged_modifiers = merged_modifiers,
+        package_modifiers = package_modifiers,
+        target_modifiers = target_modifiers,
+        cli_modifiers = cli_modifiers,
+        extra_data = extra_data,
     )
 
 def cfg_constructor_post_constraint_analysis(
@@ -105,7 +114,7 @@ def cfg_constructor_post_constraint_analysis(
     Returns a PlatformInfo
     """
 
-    if not params.merged_modifiers:
+    if not (params.package_modifiers or params.target_modifiers or params.cli_modifiers):
         # If there is no modifier and legacy platform is specified,
         # then return the legacy platform as is without changing the label or
         # configuration.
@@ -119,22 +128,51 @@ def cfg_constructor_post_constraint_analysis(
         )
 
     constraint_setting_to_modifier_infos = {}
+    cli_modifier_validation = getattr(params.extra_data, "cli_modifier_validation", None)
+    buckconfig_backed_modifiers = getattr(params.extra_data, "buckconfig_backed_modifiers", None)
+
+    if buckconfig_backed_modifiers:
+        apply_buckconfig_backed_modifiers(constraint_setting_to_modifier_infos, refs[buckconfig_backed_modifiers][BuckconfigBackedModifierInfo].pre_platform_modifiers)
 
     if params.legacy_platform:
         for constraint_setting, constraint_value_info in params.legacy_platform.configuration.constraints.items():
             constraint_setting_to_modifier_infos[constraint_setting] = [constraint_value_info]
 
-    for tagged_modifiers in params.merged_modifiers:
+    if buckconfig_backed_modifiers:
+        apply_buckconfig_backed_modifiers(constraint_setting_to_modifier_infos, refs[buckconfig_backed_modifiers][BuckconfigBackedModifierInfo].post_platform_modifiers)
+
+    for tagged_modifiers in params.package_modifiers:
         for modifier in tagged_modifiers.modifiers:
             if modifier:
-                constraint_setting_label, modifier_info = get_modifier_info(
+                get_and_insert_modifier_info(
+                    constraint_setting_to_modifier_infos = constraint_setting_to_modifier_infos,
                     refs = refs,
                     modifier = modifier,
                     location = tagged_modifiers.location,
                 )
-                modifier_infos = constraint_setting_to_modifier_infos.get(constraint_setting_label) or []
-                modifier_infos.append(modifier_info)
-                constraint_setting_to_modifier_infos[constraint_setting_label] = modifier_infos
+
+    for modifier in params.target_modifiers:
+        if modifier:
+            get_and_insert_modifier_info(
+                constraint_setting_to_modifier_infos = constraint_setting_to_modifier_infos,
+                refs = refs,
+                modifier = modifier,
+                location = ModifierTargetLocation(),
+            )
+
+    if buckconfig_backed_modifiers:
+        apply_buckconfig_backed_modifiers(constraint_setting_to_modifier_infos, refs[buckconfig_backed_modifiers][BuckconfigBackedModifierInfo].pre_cli_modifiers)
+
+    for modifier in params.cli_modifiers:
+        if modifier:
+            constraint_setting_label, _ = get_and_insert_modifier_info(
+                constraint_setting_to_modifier_infos = constraint_setting_to_modifier_infos,
+                refs = refs,
+                modifier = modifier,
+                location = ModifierCliLocation(),
+            )
+            if cli_modifier_validation:
+                cli_modifier_validation(constraint_setting_label, modifier)
 
     # Modifiers are resolved in topological ordering of modifier selects. For example, if the CPU modifier
     # is a modifier_select on OS constraint, then the OS modifier must be resolved before the CPU modifier.

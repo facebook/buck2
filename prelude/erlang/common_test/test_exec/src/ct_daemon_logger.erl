@@ -17,6 +17,7 @@
 %%% % @format
 
 -module(ct_daemon_logger).
+-eqwalizer(ignore).
 
 -include_lib("kernel/include/logger.hrl").
 

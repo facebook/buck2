@@ -6,13 +6,13 @@
 # of this source tree.
 
 load("@prelude//apple:apple_error_handler_types.bzl", "AppleErrorCategories")
-# @oss-disable: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_META_STDERR_ERROR_CATEGORIES") 
-load("@prelude//utils:set.bzl", "set", "set_type")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_META_STDERR_ERROR_CATEGORIES")
 
 _APPLE_STDERR_ERROR_CATEGORIES = [
     #codesigning issues
     AppleErrorCategories(string_match = "codesignprovisioningerror", categories = ["apple_code_sign_error", "code_sign_provisioning_error"]),
     AppleErrorCategories(string_match = "the timestamp service is not available", categories = ["apple_code_sign_error"]),
+
     #compilation issues
     AppleErrorCategories(string_match = "failed to emit precompiled module", categories = ["apple_compilation_failure", "apple_pcm_compilation_failure"]),
     AppleErrorCategories(string_match = "please rebuild precompiled header", categories = ["apple_compilation_failure", "apple_pcm_compilation_failure"]),
@@ -26,6 +26,7 @@ _APPLE_STDERR_ERROR_CATEGORIES = [
     AppleErrorCategories(string_match = ".modulemap:", categories = ["apple_compilation_failure", "apple_modulemap_compilation_failure"]),
     AppleErrorCategories(string_match = "missing required modules", categories = ["apple_compilation_failure", "apple_missing_required_modules_error"]),
     AppleErrorCategories(string_match = "has a minimum deployment target", categories = ["apple_compilation_failure", "apple_deployment_target_error"]),
+    AppleErrorCategories(string_match = "file not found", categories = ["apple_compilation_failure", "apple_file_not_found_error"]),
 
     #toolchain / genrule issues
     AppleErrorCategories(string_match = "stack dump:", categories = ["apple_binary_execution_failure"]),
@@ -49,7 +50,7 @@ _APPLE_STDERR_ERROR_CATEGORIES = [
     AppleErrorCategories(string_match = "unknown cell alias", categories = ["apple_buck_configuration_failure", "apple_unknown_cell_alias_failure"]),
 ]
 
-def _add_category_strings(lowercase_stderr: str, category_string_target: set_type, source: list[AppleErrorCategories]):
+def _add_category_strings(lowercase_stderr: str, category_string_target: set[str], source: list[AppleErrorCategories]):
     for error_category in source:
         if error_category.string_match in lowercase_stderr:
             for category_string in error_category.categories:
@@ -59,6 +60,6 @@ def apple_build_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     lowercase_stderr = ctx.stderr.lower()
     categories = set()
     _add_category_strings(lowercase_stderr, categories, _APPLE_STDERR_ERROR_CATEGORIES)
-    # @oss-disable: _add_category_strings(lowercase_stderr, categories, APPLE_META_STDERR_ERROR_CATEGORIES) 
+    # @oss-disable[end= ]: _add_category_strings(lowercase_stderr, categories, APPLE_META_STDERR_ERROR_CATEGORIES)
 
-    return [ctx.new_sub_error(category = category_string) for category_string in sorted(categories.list())]
+    return [ctx.new_sub_error(category = category_string) for category_string in sorted(categories)]

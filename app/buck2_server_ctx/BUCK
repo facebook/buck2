@@ -1,5 +1,4 @@
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
 
@@ -12,9 +11,9 @@ rust_library(
         "fbsource//third-party/rust:tokio",
     ],
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-condvar-fair",
         "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:const_format",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:itertools",

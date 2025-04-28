@@ -25,9 +25,10 @@ use crate::dot_format_parser::FormatConv;
 use crate::dot_format_parser::FormatParser;
 use crate::dot_format_parser::FormatToken;
 use crate::eval_exception::EvalException;
-use crate::lexer::lex_exactly_one_identifier;
 use crate::lexer::TokenFString;
+use crate::lexer::lex_exactly_one_identifier;
 use crate::slice_vec_ext::VecExt;
+use crate::syntax::DialectTypes;
 use crate::syntax::ast::AssignIdentP;
 use crate::syntax::ast::AssignOp;
 use crate::syntax::ast::AssignP;
@@ -37,17 +38,14 @@ use crate::syntax::ast::AstAssignIdent;
 use crate::syntax::ast::AstAssignTarget;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstFString;
-use crate::syntax::ast::AstParameter;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstString;
 use crate::syntax::ast::AstTypeExpr;
 use crate::syntax::ast::Comma;
-use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::FStringP;
 use crate::syntax::ast::IdentP;
-use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::LoadArgP;
 use crate::syntax::ast::LoadP;
 use crate::syntax::ast::Stmt;
@@ -55,11 +53,8 @@ use crate::syntax::ast::StmtP;
 use crate::syntax::ast::ToAst;
 use crate::syntax::ast::TypeExpr;
 use crate::syntax::ast::TypeExprP;
-use crate::syntax::def::DefParams;
 use crate::syntax::state::ParserState;
 use crate::syntax::type_expr::TypeExprUnpackP;
-use crate::syntax::Dialect;
-use crate::syntax::DialectTypes;
 
 #[derive(Debug, thiserror::Error)]
 enum GrammarUtilError {
@@ -151,46 +146,6 @@ pub fn check_assignment(
     })
 }
 
-fn check_parameters<'a>(parameters: &[AstParameter], parser_state: &mut ParserState<'a>) {
-    if let Err(e) = DefParams::unpack(parameters, parser_state.codemap) {
-        parser_state.errors.push(e.into());
-    }
-}
-
-pub fn check_lambda(
-    params: Vec<AstParameter>,
-    body: AstExpr,
-    parser_state: &mut ParserState,
-) -> Expr {
-    check_parameters(&params, parser_state);
-    Expr::Lambda(LambdaP {
-        params,
-        body: Box::new(body),
-        payload: (),
-    })
-}
-
-pub fn check_def(
-    name: AstString,
-    params: Vec<AstParameter>,
-    return_type: Option<Box<AstTypeExpr>>,
-    stmts: AstStmt,
-    parser_state: &mut ParserState,
-) -> Stmt {
-    check_parameters(&params, parser_state);
-    let name = name.map(|s| AssignIdentP {
-        ident: s,
-        payload: (),
-    });
-    Stmt::Def(DefP {
-        name,
-        params,
-        return_type,
-        body: Box::new(stmts),
-        payload: (),
-    })
-}
-
 pub(crate) fn check_load_0(module: AstString, parser_state: &mut ParserState) -> Stmt {
     parser_state.errors.push(EvalException::new_anyhow(
         GrammarUtilError::LoadRequiresAtLeastTwoArguments.into(),
@@ -235,20 +190,7 @@ pub(crate) fn check_load(
     })
 }
 
-#[derive(thiserror::Error, Debug)]
-enum FStringError {
-    #[error("Not a valid identifier: `{}`", .capture)]
-    InvalidIdentifier { capture: String },
-
-    // Always render the causes for this, but don't expose the error when traversing sources.
-    #[error("Invalid format: {:#}", .inner)]
-    InvalidFormat { inner: anyhow::Error },
-
-    #[error("Your Starlark dialect must enable f-strings to use them")]
-    NotEnabled,
-}
-
-pub fn fstring(
+pub(crate) fn fstring(
     fstring: TokenFString,
     begin: usize,
     end: usize,
@@ -257,7 +199,7 @@ pub fn fstring(
     if !parser_state.dialect.enable_f_strings {
         parser_state.error(
             Span::new(Pos::new(begin as _), Pos::new(end as _)),
-            FStringError::NotEnabled,
+            "Your Starlark dialect must enable f-strings to use them",
         );
     }
 
@@ -286,9 +228,7 @@ pub fn fstring(
                     None => {
                         parser_state.error(
                             Span::new(Pos::new(capture_begin as _), Pos::new(capture_end as _)),
-                            FStringError::InvalidIdentifier {
-                                capture: capture.to_owned(),
-                            },
+                            format_args!("Not a valid identifier: `{capture}`"),
                         );
                         // Might as well keep going here. This doesn't compromise the parsing of
                         // the rest of the format string.
@@ -311,7 +251,7 @@ pub fn fstring(
                 // TODO: Reporting the exact position of the error would be better.
                 parser_state.error(
                     Span::new(Pos::new(begin as _), Pos::new(end as _)),
-                    FStringError::InvalidFormat { inner },
+                    format_args!("Invalid format: {inner:#}"),
                 );
                 break;
             }
@@ -329,12 +269,6 @@ pub fn fstring(
 
 #[derive(thiserror::Error, Debug)]
 enum DialectError {
-    #[error("`def` is not allowed in this dialect")]
-    Def,
-    #[error("`lambda` is not allowed in this dialect")]
-    Lambda,
-    #[error("* keyword-only-arguments is not allowed in this dialect")]
-    KeywordOnlyArguments,
     #[error("type annotations are not allowed in this dialect")]
     Types,
 }
@@ -343,46 +277,7 @@ fn err<T>(codemap: &CodeMap, span: Span, err: DialectError) -> Result<T, EvalExc
     Err(EvalException::new_anyhow(err.into(), span, codemap))
 }
 
-pub fn dialect_check_lambda<T>(
-    dialect: &Dialect,
-    codemap: &CodeMap,
-    x: Spanned<T>,
-) -> Result<Spanned<T>, EvalException> {
-    if dialect.enable_lambda {
-        Ok(x)
-    } else {
-        err(codemap, x.span, DialectError::Lambda)
-    }
-}
-
-pub fn dialect_check_def<T>(
-    dialect: &Dialect,
-    codemap: &CodeMap,
-    x: Spanned<T>,
-) -> Result<Spanned<T>, EvalException> {
-    if dialect.enable_def {
-        Ok(x)
-    } else {
-        err(codemap, x.span, DialectError::Def)
-    }
-}
-
-pub fn dialect_check_keyword_only_arguments<T>(
-    dialect: &Dialect,
-    codemap: &CodeMap,
-    begin: usize,
-    end: usize,
-    x: T,
-) -> Result<T, EvalException> {
-    let span = Span::new(Pos::new(begin as u32), Pos::new(end as u32));
-    if dialect.enable_keyword_only_arguments {
-        Ok(x)
-    } else {
-        err(codemap, span, DialectError::KeywordOnlyArguments)
-    }
-}
-
-pub fn dialect_check_type(
+pub(crate) fn dialect_check_type(
     state: &ParserState,
     x: Spanned<Expr>,
 ) -> Result<Spanned<TypeExpr>, EvalException> {

@@ -21,20 +21,20 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 
-use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
-use crate::values::function::BoundMethodGen;
-use crate::values::function::NativeAttr;
-use crate::values::function::NativeAttribute;
-use crate::values::function::NativeMeth;
-use crate::values::function::NativeMethod;
+use crate::eval::runtime::frame_span::FrameSpan;
 use crate::values::FrozenRef;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::function::BoundMethodGen;
+use crate::values::function::NativeAttr;
+use crate::values::function::NativeAttribute;
+use crate::values::function::NativeMeth;
+use crate::values::function::NativeMethod;
 
 /// A value or an unbound method or unbound attribute.
 #[derive(Clone)]

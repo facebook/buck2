@@ -9,4 +9,5 @@
 
 pub(crate) mod action;
 pub(crate) mod configured;
+pub(crate) mod node_attrs;
 pub(crate) mod unconfigured;

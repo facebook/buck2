@@ -1,0 +1,47 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _assert_eq(a, b):
+    if a != b:
+        fail("Expected {} == {}".format(a, b))
+
+def _target_universe_keep_going_no_errors(ctx):
+    pattern = "//good_targets/..."
+    target_universe = ctx.target_universe(pattern).target_set()
+    kind = ctx.cquery().kind(".*1", target_universe)
+
+    target_universe_keep_going = ctx.target_universe(pattern, keep_going = True).target_set()
+    kind_with_keep_going = ctx.cquery().kind(".*1", target_universe_keep_going)
+
+    _assert_eq(kind, kind_with_keep_going)
+
+target_universe_keep_going_no_errors = bxl_main(
+    impl = _target_universe_keep_going_no_errors,
+    cli_args = {},
+)
+
+def _target_universe_universe_target_set(ctx):
+    pattern = "some_cell//:inner"
+
+    target_universe = ctx.target_universe(pattern)
+    direct_target_set = target_universe.target_set()
+    universe_target_set = target_universe.universe_target_set()
+
+    # should include just the direct targets used to construct the universe
+    _assert_eq(direct_target_set, ctx.configured_targets(["some_cell//:inner"]))
+
+    # should include all targets in the universe, including the ones outside of
+    # the direct targets' cells
+    expected_universe_set = ctarget_set()
+    expected_universe_set += ctx.configured_targets("root//good_targets/...")
+    expected_universe_set += ctx.configured_targets("some_cell//...")
+    _assert_eq(universe_target_set, expected_universe_set)
+
+target_universe_universe_target_set = bxl_main(
+    impl = _target_universe_universe_target_set,
+    cli_args = {},
+)

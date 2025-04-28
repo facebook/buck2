@@ -119,9 +119,9 @@
 //! use starlark::eval::Evaluator;
 //! use starlark::syntax::AstModule;
 //! use starlark::syntax::Dialect;
-//! use starlark::values::none::NoneType;
 //! use starlark::values::Value;
 //! use starlark::values::ValueLike;
+//! use starlark::values::none::NoneType;
 //!
 //! let content = r#"
 //! emit(1)
@@ -293,7 +293,7 @@
 //! quadratic
 //! "#;
 //!
-//! let ast = AstModule::parse("quadratic.star", content.to_owned(), &Dialect::Extended)?;
+//! let ast = AstModule::parse("quadratic.star", content.to_owned(), &Dialect::Standard)?;
 //! let globals = Globals::standard();
 //! let module = Module::new();
 //! let mut eval = Evaluator::new(&module);
@@ -429,12 +429,11 @@
 mod macros;
 
 pub use starlark_derive::starlark_module;
-pub use starlark_derive::StarlarkDocs;
-pub use starlark_syntax::codemap;
 pub use starlark_syntax::Error;
 pub use starlark_syntax::ErrorKind;
 pub use starlark_syntax::Result;
 pub use starlark_syntax::StarlarkResultExt;
+pub use starlark_syntax::codemap;
 pub use stdlib::PrintHandler;
 
 pub mod analysis;
@@ -455,7 +454,7 @@ pub mod typing;
 pub(crate) mod cast;
 mod hint;
 mod stdlib;
-mod util;
+pub mod util;
 pub mod values;
 pub mod wasm;
 
@@ -474,15 +473,4 @@ pub mod __macro_refs {
     pub use crate::coerce::coerce;
 }
 
-/// __derive_refs allows us to reference other crates in starlark_derive without users needing to be
-///  aware of those dependencies. We make them public here and then can reference them like
-///  `starlark::__derive_refs::foo`.
-#[doc(hidden)]
-pub mod __derive_refs {
-    pub mod serde {
-        pub use serde::ser::Error;
-        pub use serde::Serialize;
-        pub use serde::Serializer;
-    }
-    pub use inventory;
-}
+pub mod __derive_refs;

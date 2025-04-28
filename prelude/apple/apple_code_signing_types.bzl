@@ -21,3 +21,7 @@ CodeSignConfiguration = enum(
     "fast-adhoc",
     "none",
 )
+
+def get_code_signing_configuration_attr_value(ctx: AnalysisContext) -> [CodeSignConfiguration, None]:
+    configuration_value = ctx.attrs.code_signing_configuration or ctx.attrs._code_signing_configuration
+    return CodeSignConfiguration(configuration_value)

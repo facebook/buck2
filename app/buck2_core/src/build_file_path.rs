@@ -19,7 +19,7 @@ use crate::package::PackageLabel;
 
 /// Path of a build file (e.g. `BUCK`) only. (`bzl` files are not included).
 #[derive(Clone, Hash, Eq, PartialEq, Debug, derive_more::Display, Allocative)]
-#[display(fmt = "{}:{}", package, filename)]
+#[display("{}:{}", package, filename)]
 pub struct BuildFilePath {
     /// The package of this build file
     package: PackageLabel,

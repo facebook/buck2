@@ -37,7 +37,6 @@ from .action_metadata import action_metadata_if_present
 from .assemble_bundle import assemble_bundle
 from .assemble_bundle_types import BundleSpecItem, IncrementalContext
 from .incremental_state import (
-    CodesignedOnCopy,
     IncrementalState,
     IncrementalStateItem,
     IncrementalStateJSONEncoder,
@@ -276,6 +275,77 @@ def _args_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _get_codesigned_paths_for_spec_item(
+    bundle_path: CodesignedPath,
+    args: argparse.Namespace,
+    item: BundleSpecItem,
+    codesign_configuration: Optional[CodesignConfiguration],
+) -> List[CodesignedPath]:
+    if not item.codesign_on_copy:
+        return []
+
+    entitlements = (
+        Path(item.codesign_entitlements) if item.codesign_entitlements else None
+    )
+    flags = (
+        item.codesign_flags_override
+        if (item.codesign_flags_override is not None)
+        else args.codesign_args
+    )
+
+    codesigned_paths = []
+    extra_file_paths = []
+
+    is_dry_run = codesign_configuration is CodesignConfiguration.dryRun
+    extra_codesign_paths = item.extra_codesign_paths or []
+    for extra_codesign_path in extra_codesign_paths:
+        path = bundle_path.path / item.dst / extra_codesign_path
+        if not path.exists():
+            raise RuntimeError(
+                f"Found non-existing extra path to codesign: {extra_codesign_path} for {item.src}"
+            )
+
+        if path.is_file() and is_dry_run:
+            # In dry-run mode, non-bundle items should be signed as part of the containing bundle.
+            extra_file_paths.append(extra_codesign_path)
+        else:
+            codesigned_paths.append(
+                CodesignedPath(
+                    path=path,
+                    entitlements=entitlements,
+                    flags=flags,
+                    extra_file_paths=None,
+                )
+            )
+
+    codesigned_paths.append(
+        CodesignedPath(
+            path=bundle_path.path / item.dst,
+            entitlements=entitlements,
+            flags=flags,
+            extra_file_paths=extra_file_paths,
+        )
+    )
+
+    return codesigned_paths
+
+
+def _get_codesigned_paths_from_spec(
+    bundle_path: CodesignedPath,
+    args: argparse.Namespace,
+    spec: List[BundleSpecItem],
+) -> List[CodesignedPath]:
+    codesigned_paths = []
+    for item in spec:
+        codesigned_paths += _get_codesigned_paths_for_spec_item(
+            bundle_path=bundle_path,
+            args=args,
+            item=item,
+            codesign_configuration=args.codesign_configuration,
+        )
+    return codesigned_paths
+
+
 def _main() -> None:
     args_parser = _args_parser()
     args = args_parser.parse_args()
@@ -419,27 +489,19 @@ def _main() -> None:
             )
 
         bundle_path = CodesignedPath(
-            path=args.output, entitlements=args.entitlements, flags=args.codesign_args
+            path=args.output,
+            entitlements=args.entitlements,
+            flags=args.codesign_args,
+            extra_file_paths=None,
         )
-        codesign_on_copy_paths = [
-            CodesignedPath(
-                path=bundle_path.path / i.dst,
-                entitlements=(
-                    Path(i.codesign_entitlements) if i.codesign_entitlements else None
-                ),
-                flags=(
-                    i.codesign_flags_override
-                    if (i.codesign_flags_override is not None)
-                    else args.codesign_args
-                ),
-            )
-            for i in spec
-            if i.codesign_on_copy
-        ] + [
+        codesign_on_copy_paths = _get_codesigned_paths_from_spec(
+            bundle_path=bundle_path, spec=spec, args=args
+        ) + [
             CodesignedPath(
                 path=bundle_path.path / path,
                 entitlements=None,
                 flags=args.codesign_args,
+                extra_file_paths=None,
             )
             for path in swift_stdlib_paths
         ]
@@ -599,6 +661,7 @@ def _write_incremental_state(
                 ),
                 incremental_context=incremental_context,
                 codesign_flags_override=i.codesign_flags_override,
+                extra_codesign_paths=i.extra_codesign_paths,
             )
             for i in spec
             if i.codesign_on_copy
@@ -659,7 +722,6 @@ def _setup_logging(
 
 
 class ColoredLogFormatter(logging.Formatter):
-
     _colors: Dict[int, str] = {
         logging.DEBUG: "\x1b[m",
         logging.INFO: "\x1b[37m",

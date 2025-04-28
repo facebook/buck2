@@ -1,0 +1,89 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library", "buck_java_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "testutil",
+    srcs = glob(
+        ["*.java"],
+        exclude = ["*Test.java"],
+    ),
+    visibility = [
+        "fbsource//xplat/buck2/platform/apple/installer/test/...",
+        "prelude//toolchains/android/test/...",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/core:core",
+        "prelude//toolchains/android/src/com/facebook/buck/step:step",
+        "prelude//toolchains/android/src/com/facebook/buck/test/result/type:type",
+        "prelude//toolchains/android/src/com/facebook/buck/test/selectors:selectors",
+        "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/src/com/facebook/buck/util/concurrent:concurrent",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:environment",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
+        "prelude//toolchains/android/src/com/facebook/buck/util/string:string",
+        "prelude//toolchains/android/test/com/facebook/buck/testutil:testutil",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:infer-annotations",
+        "prelude//toolchains/android/third-party:jackson-annotations",
+        "prelude//toolchains/android/third-party:jackson-core",
+        "prelude//toolchains/android/third-party:jackson-databind",
+        "prelude//toolchains/android/third-party:jsr305",
+        "prelude//toolchains/android/third-party:junit",
+        "prelude//toolchains/android/third-party:nuprocess",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/util/function:function",
+    ],
+)
+
+buck_java_test(
+    name = "util",
+    srcs = glob(["*Test.java"]),
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/android:helpers",
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/core:core",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java:steps",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java:support",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/source/api:api",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/classes:classes",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/fatjar:fat_jar_utils",
+        "prelude//toolchains/android/src/com/facebook/buck/step:step",
+        "prelude//toolchains/android/src/com/facebook/buck/test/result/type:type",
+        "prelude//toolchains/android/src/com/facebook/buck/test/selectors:selectors",
+        "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/src/com/facebook/buck/util/concurrent:concurrent",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:environment",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
+        "prelude//toolchains/android/src/com/facebook/buck/util/function:function",
+        "prelude//toolchains/android/src/com/facebook/buck/util/json:json",
+        "prelude//toolchains/android/src/com/facebook/buck/util/string:string",
+        "prelude//toolchains/android/src/com/facebook/buck/util/unit:unit",
+        "prelude//toolchains/android/test/com/facebook/buck/testutil:testutil",
+        "prelude//toolchains/android/test/com/facebook/buck/testutil/integration:util",
+        "prelude//toolchains/android/test/com/facebook/buck/util:testutil",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:asm",
+        "prelude//toolchains/android/third-party:dd-plist",
+        "prelude//toolchains/android/third-party:ddmlib",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:infer-annotations",
+        "prelude//toolchains/android/third-party:jackson-annotations",
+        "prelude//toolchains/android/third-party:jackson-core",
+        "prelude//toolchains/android/third-party:jackson-databind",
+        "prelude//toolchains/android/third-party:jsr305",
+        "prelude//toolchains/android/third-party:junit",
+        "prelude//toolchains/android/third-party:nuprocess",
+        "prelude//toolchains/android/third-party:okhttp",
+        "prelude//toolchains/android/third-party:okio",
+        "prelude//toolchains/android/third-party:tools-sdk-common",
+    ],
+)

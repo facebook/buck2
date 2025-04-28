@@ -30,7 +30,7 @@ pub enum ExternalCellOrigin {
     Eq,
     Hash
 )]
-#[display(fmt = "git({}, {})", git_origin, commit)]
+#[display("git({}, {})", git_origin, commit)]
 pub struct GitCellSetup {
     pub git_origin: Arc<str>,
     // Guaranteed to be a valid sha1 commit hash

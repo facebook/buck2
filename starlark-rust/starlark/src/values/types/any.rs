@@ -33,8 +33,8 @@
 //!
 //! use starlark::assert::Assert;
 //! use starlark::environment::GlobalsBuilder;
-//! use starlark::values::any::StarlarkAny;
 //! use starlark::values::Value;
+//! use starlark::values::any::StarlarkAny;
 //!
 //! #[derive(Debug)]
 //! struct MyInstant(Instant);
@@ -70,8 +70,8 @@ use std::fmt;
 use std::fmt::Debug;
 
 use allocative::Allocative;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -90,7 +90,7 @@ use crate::values::ValueLike;
 /// [`StarlarkAnyComplex`](crate::values::types::any_complex::StarlarkAnyComplex).
 #[derive(ProvidesStaticType, NoSerialize, Allocative, derive_more::Display)]
 #[allocative(bound = "")]
-#[display(fmt = "{:?}", "self")]
+#[display("{:?}", self)]
 pub struct StarlarkAny<T: Debug + Send + Sync + 'static>(
     #[allocative(skip)] // TODO(nga): do not skip.
     pub  T,

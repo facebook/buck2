@@ -12,15 +12,13 @@ use std::borrow::Cow;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::Action;
+use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::actions::box_slice_set::BoxSliceSet;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
-use buck2_build_api::actions::Action;
-use buck2_build_api::actions::ActionExecutable;
-use buck2_build_api::actions::ActionExecutionCtx;
-use buck2_build_api::actions::PristineActionExecutable;
-use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_core::category::Category;
 use buck2_core::category::CategoryRef;
@@ -92,7 +90,7 @@ impl UnregisteredAction for SimpleUnregisteredAction {
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
-    ) -> anyhow::Result<Box<dyn Action>> {
+    ) -> buck2_error::Result<Box<dyn Action>> {
         Ok(Box::new(SimpleAction {
             inputs: BoxSliceSet::from(inputs),
             outputs: BoxSliceSet::from(outputs),
@@ -109,7 +107,7 @@ impl Action for SimpleAction {
         buck2_data::ActionKind::NotSet
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+    fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
         Ok(Cow::Borrowed(self.inputs.as_slice()))
     }
 
@@ -121,10 +119,6 @@ impl Action for SimpleAction {
         &self.outputs.as_slice()[0]
     }
 
-    fn as_executable(&self) -> ActionExecutable<'_> {
-        ActionExecutable::Pristine(self)
-    }
-
     fn category(&self) -> CategoryRef {
         self.category.as_ref()
     }
@@ -132,10 +126,7 @@ impl Action for SimpleAction {
     fn identifier(&self) -> Option<&str> {
         self.identifier.as_deref()
     }
-}
 
-#[async_trait]
-impl PristineActionExecutable for SimpleAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
@@ -161,8 +152,13 @@ impl PristineActionExecutable for SimpleAction {
         let prepared_action = ctx.prepare_action(&req)?;
         let manager = ctx.command_execution_manager();
         let result = ctx.exec_cmd(manager, &req, &prepared_action).await;
-        let (outputs, meta) =
-            ctx.unpack_command_execution_result(req.executor_preference, result, false, false)?;
+        let (outputs, meta) = ctx.unpack_command_execution_result(
+            req.executor_preference,
+            result,
+            false,
+            false,
+            None,
+        )?;
 
         Ok((outputs, meta))
     }

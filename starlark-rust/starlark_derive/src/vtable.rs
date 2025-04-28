@@ -20,16 +20,16 @@ use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
-use syn::parse::ParseStream;
-use syn::parse_macro_input;
-use syn::spanned::Spanned;
-use syn::visit_mut::VisitMut;
 use syn::FnArg;
 use syn::ItemTrait;
 use syn::Pat;
 use syn::ReturnType;
 use syn::TraitItem;
 use syn::TraitItemFn;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::spanned::Spanned;
+use syn::visit_mut::VisitMut;
 
 /// Constant/field name for a flag whether a member is overridden.
 pub(crate) fn vtable_has_field_name(name: &syn::Ident) -> syn::Ident {
@@ -346,8 +346,8 @@ pub(crate) fn starlark_internal_vtable(
 ) -> proc_macro::TokenStream {
     let starlark_value = parse_macro_input!(input as ItemTrait);
 
-    let gen = Gen { starlark_value };
-    let generated = match gen.gen_starlark_value_vtable() {
+    let r#gen = Gen { starlark_value };
+    let generated = match r#gen.gen_starlark_value_vtable() {
         Ok(generated) => generated,
         Err(error) => {
             return error.to_compile_error().into();

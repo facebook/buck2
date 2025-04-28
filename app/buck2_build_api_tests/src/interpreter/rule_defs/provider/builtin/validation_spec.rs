@@ -8,8 +8,8 @@
  */
 
 use buck2_build_api::interpreter::rule_defs::validation_spec;
-use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
+use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use indoc::indoc;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
@@ -165,6 +165,25 @@ fn test_validation_failure() -> anyhow::Result<()> {
             test,
             "Expected type `bool` but got `str`",
         );
+    }
+    Ok(())
+}
+
+#[test]
+fn test_attributes() -> anyhow::Result<()> {
+    let mut tester = new_tester();
+    {
+        let test = indoc!(
+            r#"
+            def test():
+                a = declared_bound_artifact("//foo:bar", "baz/quz.h")
+                s = ValidationSpec(name="foo", validation_result=a)
+                assert_eq(s.name, "foo")
+                assert_eq_ignore_hash("<build artifact baz/quz.h bound to root//foo:bar (<testing>#<HASH>)>", repr(s.validation_result))
+                assert_eq(s.optional, False)
+            "#
+        );
+        tester.run_starlark_bzl_test(test)?;
     }
     Ok(())
 }

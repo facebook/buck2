@@ -21,7 +21,7 @@ Soname = record(
     # artifact.
     ensure_str = field(typing.Callable),
     # Return `True` if the SONAME is respresented as a string.
-    is_str = field(typing.Callable),
+    is_str = field(bool),
     # The the actual SONAME can be rerepsented by a static string, or the
     # contents of a file genrated at build time.
     _soname = field(str | Artifact),
@@ -42,6 +42,7 @@ SharedLibrary = record(
     for_primary_apk = field(bool, False),
     soname = field(Soname),
     label = field(Label),
+    extra_outputs = field(dict[str, list[DefaultInfo]], default = {}),
 )
 
 def _ensure_str(soname: str | Artifact) -> str:
@@ -51,10 +52,11 @@ def _ensure_str(soname: str | Artifact) -> str:
 def to_soname(soname: str | Artifact | Soname) -> Soname:
     if isinstance(soname, Soname):
         return soname
+    soname_is_str = isinstance(soname, str)
     return Soname(
-        as_str = lambda: soname if type(soname) == type("") else None,
+        as_str = lambda: soname if soname_is_str else None,
         ensure_str = lambda: _ensure_str(soname),
-        is_str = lambda: type(soname) == type(""),
+        is_str = soname_is_str,
         _soname = soname,
     )
 
@@ -192,7 +194,7 @@ def with_unique_str_sonames(
         shared_libs = [
             shlib
             for shlib in shared_libs
-            if shlib.soname.is_str() or not skip_dynamic
+            if shlib.soname.is_str or not skip_dynamic
         ],
         resolve_soname = lambda s: s.ensure_str(),
     )
@@ -215,7 +217,7 @@ def gen_shared_libs_action(
 
     def func(actions, artifacts, output):
         def resolve_soname(soname):
-            if soname.is_str():
+            if soname.is_str:
                 return soname._soname
             else:
                 return artifacts[soname._soname].read_string().strip()
@@ -229,10 +231,10 @@ def gen_shared_libs_action(
             ),
         )
 
-    dynamic_sonames = [shlib.soname._soname for shlib in shared_libs if not shlib.soname.is_str()]
+    dynamic_sonames = [shlib.soname._soname for shlib in shared_libs if not shlib.soname.is_str]
     if dynamic_sonames:
         actions.dynamic_output(
-            dynamic = [shlib.soname._soname for shlib in shared_libs if not shlib.soname.is_str()],
+            dynamic = dynamic_sonames,
             inputs = [],
             outputs = [output.as_output()],
             f = lambda ctx, artifacts, outputs: func(ctx.actions, artifacts, outputs[output]),
@@ -277,6 +279,18 @@ def create_shlib_symlink_tree(actions: AnalysisActions, out: str, shared_libs: l
         gen_action = lambda actions, output, shared_libs: actions.symlinked_dir(
             output,
             {name: shlib.lib.output for name, shlib in shared_libs.items()},
+        ),
+        dir = True,
+    )
+
+def create_shlib_dwp_tree(actions: AnalysisActions, out: str, shared_libs: list[SharedLibrary]) -> Artifact:
+    return gen_shared_libs_action(
+        actions = actions,
+        out = out,
+        shared_libs = shared_libs,
+        gen_action = lambda actions, output, shared_libs: actions.symlinked_dir(
+            output,
+            {name + ".dwp": shlib.lib.dwp for name, shlib in shared_libs.items() if shlib.lib.dwp != None},
         ),
         dir = True,
     )

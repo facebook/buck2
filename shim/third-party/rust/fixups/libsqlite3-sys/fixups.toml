@@ -1,11 +1,15 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
 # libsqlite3-sys uses a bindgen binding to libsqlite.
 # We can't easily import bindgen because of its libclang dependency,
 # so in the meantime we need to use pre-generated bindgen files.
 
-extra_mapped_srcs = {"sqlite3/bindgen_bundled_version.rs" = "src/bindgen.rs"}
-
-[env]
-OUT_DIR = "."
+env = { "OUT_DIR" = "$(location //third-party/rust/fixups/libsqlite3-sys:out_dir)" }
 
 [[buildscript]]
 [buildscript.cxx_library]

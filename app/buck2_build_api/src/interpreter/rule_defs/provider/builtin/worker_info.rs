@@ -12,15 +12,15 @@ use std::sync::atomic;
 use std::sync::atomic::AtomicU64;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_build_api_derive::internal_provider;
+use buck2_error::BuckErrorContext;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::list::AllocList;
-use starlark::values::none::NoneOr;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -29,11 +29,15 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::list::AllocList;
+use starlark::values::none::NoneOr;
+use starlark::values::none::NoneType;
 
-use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
+use crate as buck2_build_api;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
+use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 
 /// Provider that signals that a rule is a worker tool
 #[internal_provider(worker_info_creator)]
@@ -45,6 +49,10 @@ pub struct WorkerInfoGen<V: ValueLifetimeless> {
     pub exe: ValueOfUncheckedGeneric<V, FrozenStarlarkCmdArgs>,
     // Maximum number of concurrent commands to execute on a worker instance without queuing
     pub concurrency: ValueOfUncheckedGeneric<V, NoneOr<usize>>,
+    // Whether to always run actions using this worker via the streaming API
+    pub streaming: ValueOfUncheckedGeneric<V, bool>,
+    // Bazel remote persistent worker protocol capable worker
+    pub supports_bazel_remote_persistent_worker_protocol: ValueOfUncheckedGeneric<V, bool>,
 
     pub id: u64,
 }
@@ -62,8 +70,11 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] concurrency: NoneOr<
             ValueOf<'v, usize>,
         >,
+        #[starlark(require = named, default = NoneType)] streaming: Value<'v>,
+        #[starlark(require = named, default = false)]
+        supports_bazel_remote_persistent_worker_protocol: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<WorkerInfo<'v>> {
+    ) -> starlark::Result<WorkerInfo<'v>> {
         let heap = eval.heap();
         let valid_exe = StarlarkCmdArgs::try_from_value(exe)?;
         let exe = ValueOfUnchecked::new(heap.alloc(valid_exe));
@@ -72,6 +83,10 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
             exe,
             id,
             concurrency: heap.alloc_typed_unchecked(concurrency).cast(),
+            streaming: ValueOfUnchecked::new(streaming),
+            supports_bazel_remote_persistent_worker_protocol: heap
+                .alloc_typed_unchecked(supports_bazel_remote_persistent_worker_protocol)
+                .cast(),
         })
     }
 }
@@ -90,20 +105,38 @@ impl<'v, V: ValueLike<'v>> WorkerInfoGen<V> {
             .expect("validated at construction")
             .into_option()
     }
+
+    pub fn streaming(&self) -> bool {
+        NoneOr::<bool>::unpack_value(self.streaming.get().to_value())
+            .unwrap()
+            .unwrap()
+            .into_option()
+            .unwrap_or(false)
+    }
+
+    pub fn supports_bazel_remote_persistent_worker_protocol(&self) -> bool {
+        self.supports_bazel_remote_persistent_worker_protocol
+            .to_value()
+            .unpack()
+            .expect("validated at construction")
+    }
 }
 
-fn validate_worker_info<'v, V>(info: &WorkerInfoGen<V>) -> anyhow::Result<()>
+fn validate_worker_info<'v, V>(info: &WorkerInfoGen<V>) -> buck2_error::Result<()>
 where
     V: ValueLike<'v>,
 {
-    let exe = StarlarkCmdArgs::try_from_value(info.exe.get().to_value()).with_context(|| {
-        format!(
-            "Value for `exe` field is not a command line: `{}`",
-            info.exe
-        )
-    })?;
+    let exe = StarlarkCmdArgs::try_from_value(info.exe.get().to_value()).with_buck_error_context(
+        || {
+            format!(
+                "Value for `exe` field is not a command line: `{}`",
+                info.exe
+            )
+        },
+    )?;
     if exe.is_empty() {
-        return Err(anyhow::anyhow!(
+        return Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
             "Value for `exe` field is an empty command line: `{}`",
             info.exe
         ));

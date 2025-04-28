@@ -18,7 +18,7 @@ pub(crate) fn register_warning(builder: &mut GlobalsBuilder) {
     ///
     /// If you are not writing a warning, use `print` instead. Be aware that printing
     /// lots of output (warnings or not) can be cause all information to be ignored by the user.
-    fn warning(#[starlark(require = pos)] x: &str) -> anyhow::Result<NoneType> {
+    fn warning(#[starlark(require = pos)] x: &str) -> starlark::Result<NoneType> {
         tracing::warn!("{}", x);
         Ok(NoneType)
     }

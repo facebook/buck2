@@ -19,13 +19,13 @@
 
 use either::Either;
 
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// Trait for things that can be created on a [`Heap`] producing a [`Value`].
 ///
@@ -61,8 +61,8 @@ use crate::values::Value;
 /// `AllocValue` can be derived for enums, like this:
 ///
 /// ```
-/// use starlark::values::type_repr::StarlarkTypeRepr;
 /// use starlark::values::AllocValue;
+/// use starlark::values::type_repr::StarlarkTypeRepr;
 ///
 /// #[derive(StarlarkTypeRepr, AllocValue)]
 /// enum AllocIntOrStr {
@@ -96,18 +96,6 @@ impl<'v> AllocValue<'v> for Value<'v> {
     }
 }
 
-impl<'v, T> AllocValue<'v> for Option<T>
-where
-    T: AllocValue<'v>,
-{
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        match self {
-            Some(v) => v.alloc_value(heap),
-            None => Value::new_none(),
-        }
-    }
-}
-
 impl<'v, A: AllocValue<'v>, B: AllocValue<'v>> AllocValue<'v> for Either<A, B> {
     #[inline]
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
@@ -135,8 +123,8 @@ impl<A: AllocFrozenValue, B: AllocFrozenValue> AllocFrozenValue for Either<A, B>
 /// `AllocFrozenValue` can be derived for enums, like this:
 ///
 /// ```
-/// use starlark::values::type_repr::StarlarkTypeRepr;
 /// use starlark::values::AllocFrozenValue;
+/// use starlark::values::type_repr::StarlarkTypeRepr;
 ///
 /// #[derive(StarlarkTypeRepr, AllocFrozenValue)]
 /// enum AllocIntOrStr {

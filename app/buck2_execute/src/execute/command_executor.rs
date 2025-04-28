@@ -11,14 +11,17 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Context;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::OutputPathsBehavior;
+use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
+use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use remote_execution as RE;
@@ -117,7 +120,7 @@ impl CommandExecutor {
         &self,
         manager: CommandExecutionManager,
         prepared_command: &PreparedCommand<'_, '_>,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         self.0
             .cache_checker
@@ -132,7 +135,7 @@ impl CommandExecutor {
         re_result: Option<TActionResult2>,
         dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
-    ) -> anyhow::Result<CacheUploadResult> {
+    ) -> buck2_error::Result<CacheUploadResult> {
         self.0
             .cache_uploader
             .upload(
@@ -154,7 +157,7 @@ impl CommandExecutor {
         &self,
         manager: CommandExecutionManager,
         prepared_command: &PreparedCommand<'_, '_>,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
         self.0
             .inner
@@ -172,7 +175,7 @@ impl CommandExecutor {
         &self,
         request: &CommandExecutionRequest,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<PreparedAction> {
+    ) -> buck2_error::Result<PreparedAction> {
         executor_stage(buck2_data::PrepareAction {}, || {
             let input_digest = request.paths().input_directory().fingerprint();
 
@@ -183,23 +186,54 @@ impl CommandExecutor {
                 }
                 CommandExecutionInput::ScratchPath(_) => None,
             });
+            let mut platform = self.0.re_platform.clone();
+            let args = if self.0.options.use_bazel_protocol_remote_persistent_workers
+                && let Some(worker) = request.worker()
+                && let Some(key) = worker.remote_key.as_ref()
+            {
+                platform.properties.push(RE::Property {
+                    name: "persistentWorkerKey".to_owned(),
+                    value: key.to_string(),
+                });
+                // TODO[AH] Ideally, Buck2 could generate an argfile on the fly.
+                for arg in request.args() {
+                    if !(arg.starts_with("@")
+                        || arg.starts_with("-flagfile")
+                        || arg.starts_with("--flagfile"))
+                    {
+                        return Err(buck2_error!(
+                            buck2_error::ErrorTag::Input,
+                            "Remote persistent worker arguments must be passed as `@argfile`, `-flagfile=argfile`, or `--flagfile=argfile`."
+                        ));
+                    }
+                }
+                worker
+                    .exe
+                    .iter()
+                    .chain(request.args().iter())
+                    .cloned()
+                    .collect()
+            } else {
+                request.all_args_vec()
+            };
             let action = re_create_action(
-                request.all_args_vec(),
+                args,
                 request.paths().output_paths(),
-                request.working_directory().map(|p| p.as_str().to_owned()),
+                request.working_directory(),
                 request.env(),
                 input_digest,
                 action_metadata_blobs,
                 request.timeout(),
-                self.0.re_platform.clone(),
+                platform,
                 false,
                 digest_config,
                 self.0.options.output_paths_behavior,
                 request.unique_input_inodes(),
                 request.remote_execution_dependencies(),
+                request.remote_execution_custom_image(),
             )?;
 
-            anyhow::Ok(action)
+            buck2_error::Ok(action)
         })
     }
 }
@@ -207,7 +241,7 @@ impl CommandExecutor {
 fn re_create_action(
     args: Vec<String>,
     outputs: &[(ProjectRelativePathBuf, OutputType)],
-    workdir: Option<String>,
+    working_directory: &ProjectRelativePath,
     environment: &SortedVectorMap<String, String>,
     input_digest: &TrackedFileDigest,
     blobs: impl IntoIterator<Item = (PathsWithDigestBlobData, TrackedFileDigest)>,
@@ -218,11 +252,12 @@ fn re_create_action(
     output_paths_behavior: OutputPathsBehavior,
     unique_input_inodes: bool,
     remote_execution_dependencies: &Vec<RemoteExecutorDependency>,
-) -> anyhow::Result<PreparedAction> {
+    remote_execution_custom_image: &Option<RemoteExecutorCustomImage>,
+) -> buck2_error::Result<PreparedAction> {
     let mut command = RE::Command {
         arguments: args,
         platform: Some(platform),
-        working_directory: workdir.unwrap_or_default(),
+        working_directory: working_directory.as_str().to_owned(),
         environment_variables: environment
             .iter()
             .map(|(k, v)| RE::EnvironmentVariable {
@@ -264,7 +299,8 @@ fn re_create_action(
         OutputPathsBehavior::OutputPaths => {
             #[cfg(fbcode_build)]
             {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error!(
+                    buck2_error::ErrorTag::Input,
                     "output_paths is not supported in fbcode_build"
                 ));
             }
@@ -284,29 +320,34 @@ fn re_create_action(
         action_and_blobs.add_paths(digest, data);
     }
 
-    // Required by the RE spec to be sorted:
-    // https://github.com/bazelbuild/remote-apis/blob/1f36c310b28d762b258ea577ed08e8203274efae/build/bazel/remote/execution/v2/remote_execution.proto#L589
-    command.output_directories.sort();
-    command.output_files.sort();
-    #[cfg(not(fbcode_build))]
-    {
-        command.output_paths.sort();
-        command.output_node_properties.sort();
-    }
-    command
-        .environment_variables
-        .sort_by(|e1, e2| e1.name.cmp(&e2.name));
-
     let mut action = RE::Action {
         input_root_digest: Some(input_digest.to_grpc()),
         command_digest: Some(action_and_blobs.add_command(&command).to_grpc()),
         timeout: timeout
             .map(|t| t.try_into())
             .transpose()
-            .context("Cannot convert timeout to GRPC")?,
+            .buck_error_context("Cannot convert timeout to GRPC")?,
         do_not_cache,
         ..Default::default()
     };
+
+    #[cfg(fbcode_build)]
+    if let Some(custom_image) = remote_execution_custom_image {
+        action.caf_image_fbpkg = Some(RE::CafImageFbpkg {
+            id: Some(RE::CafFbpkgIdentifier {
+                name: custom_image.identifier.name.clone(),
+                uuid: custom_image.identifier.uuid.clone(),
+                ..Default::default()
+            }),
+            drop_host_mount_globs: custom_image.drop_host_mount_globs.clone(),
+            ..Default::default()
+        });
+    }
+
+    #[cfg(not(fbcode_build))]
+    {
+        let _unused = remote_execution_custom_image;
+    }
 
     if unique_input_inodes {
         #[cfg(fbcode_build)]

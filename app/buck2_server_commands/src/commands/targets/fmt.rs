@@ -11,16 +11,16 @@ use std::collections::BTreeSet;
 use std::fmt::Write;
 use std::sync::Arc;
 
+use buck2_cli_proto::HasClientContext;
+use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::OutputFormat;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
-use buck2_cli_proto::HasClientContext;
-use buck2_cli_proto::TargetsRequest;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_node::attrs::hacks::value_to_json;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::attributes::DEPS;
@@ -318,7 +318,6 @@ impl TargetFormatter for JsonFormat {
 pub(crate) struct Stats {
     pub(crate) errors: u64,
     error_tags: BTreeSet<buck2_error::ErrorTag>,
-    error_category: Option<buck2_error::Tier>,
     pub(crate) success: u64,
     pub(crate) targets: u64,
 }
@@ -332,13 +331,10 @@ impl Stats {
 
     pub(crate) fn add_error(&mut self, e: &buck2_error::Error) {
         self.error_tags.extend(e.tags());
-        if let Some(category) = e.get_tier() {
-            self.error_category = Some(category.combine(self.error_category.take()));
-        }
         self.errors += 1;
     }
 
-    pub(crate) fn to_error(&self) -> Option<anyhow::Error> {
+    pub(crate) fn to_error(&self) -> Option<buck2_error::Error> {
         if self.errors == 0 {
             return None;
         }
@@ -350,6 +346,7 @@ impl Stats {
         };
 
         #[derive(buck2_error::Error, Debug)]
+        #[buck2(tag = Input)]
         enum TargetsError {
             #[error("Failed to parse {0} {1}")]
             FailedToParse(u64, &'static str),
@@ -357,9 +354,6 @@ impl Stats {
 
         let mut e = buck2_error::Error::from(TargetsError::FailedToParse(self.errors, package_str));
         e = e.tag(self.error_tags.iter().copied());
-        if let Some(category) = self.error_category {
-            e = e.context(category);
-        }
         Some(e.into())
     }
 }
@@ -403,8 +397,8 @@ pub(crate) fn print_target_call_stack_after_target(out: &mut String, call_stack:
 pub(crate) fn create_formatter(
     request: &TargetsRequest,
     other: &targets_request::Other,
-) -> anyhow::Result<Arc<dyn TargetFormatter>> {
-    let output_format = OutputFormat::from_i32(request.output_format)
+) -> buck2_error::Result<Arc<dyn TargetFormatter>> {
+    let output_format = OutputFormat::try_from(request.output_format)
         .internal_error("Invalid value of `output_format`")?;
 
     let target_call_stacks = request.client_context()?.target_call_stacks;
@@ -426,7 +420,7 @@ pub(crate) fn create_formatter(
         OutputFormat::Stats => Ok(Arc::new(StatsFormat)),
         OutputFormat::Text => Ok(Arc::new(TargetNameFormat {
             target_call_stacks,
-            target_hash_graph_type: TargetHashGraphType::from_i32(other.target_hash_graph_type)
+            target_hash_graph_type: TargetHashGraphType::try_from(other.target_hash_graph_type)
                 .expect("buck cli should send valid target hash graph type"),
         })),
         OutputFormat::Json | OutputFormat::JsonLines => Ok(Arc::new(JsonFormat {

@@ -18,11 +18,6 @@ use tokio::sync::OwnedRwLockWriteGuard;
 use tokio::sync::RwLock;
 use tokio::time::Sleep;
 
-#[derive(Debug, buck2_error::Error, Copy, Clone, Dupe)]
-#[error("LivelinessObserver reports this session is shutting down")]
-#[allow(dead_code)]
-struct NotAlive;
-
 /// A LivelinessObserver can be passed to notify callees that they should stop work and return
 /// early.
 ///
@@ -221,7 +216,7 @@ where
 }
 
 #[async_trait]
-impl LivelinessObserver for buck2_futures::cancellable_future::CancellationObserver {
+impl LivelinessObserver for buck2_futures::cancellation::CancellationObserver {
     async fn while_alive(&self) {
         self.dupe().await
     }

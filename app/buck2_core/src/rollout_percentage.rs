@@ -10,6 +10,7 @@
 use std::ffi::OsString;
 use std::str::FromStr;
 
+use buck2_error::buck2_error;
 use dupe::Dupe;
 use os_str_bytes::OsStrBytes;
 use rand::Rng;
@@ -17,12 +18,12 @@ use rand::Rng;
 /// Returns true or false for percentage-based feature rollouts based on a configuration string.
 /// Configurations supported today are random and hostname.
 ///
-/// - Random: Enabled by directly setting a decimal value.
-///   Checks whether to enable feature based on a random roll
+/// - Daemon: Enabled by setting `daemon:<value>`, ex. `daemon:0.5`.
+///   Checks whether to enable feature based on a random roll on daemon startup.
 ///
-/// - Hostname: Set by `hostname:<value>`, ex. `hostname:0.5`. Checks whether to roll out feature
-///   based on hash of hostname. Useful when you want the same host to consistently get the
-///   same feature enabled/disabled.
+/// - Hostname: Set by `hostname:<value>`, ex. `hostname:0.5`, or by setting value directly,
+///   ex. `0.5`. Checks whether to roll out feature based on hash of hostname. Useful when you
+///   want the same host to consistently get the same feature enabled/disabled.
 ///
 /// It's possible to extend this system to support per-username rollout as well in addition to
 /// per-host rollout.
@@ -78,7 +79,7 @@ impl RolloutPercentage {
 }
 
 impl FromStr for RolloutPercentage {
-    type Err = anyhow::Error;
+    type Err = buck2_error::Error;
 
     fn from_str(val: &str) -> Result<Self, Self::Err> {
         Ok(Self {
@@ -95,35 +96,39 @@ enum Inner {
 }
 
 impl FromStr for Inner {
-    type Err = anyhow::Error;
+    type Err = buck2_error::Error;
 
     fn from_str(val: &str) -> Result<Self, Self::Err> {
         if let Some(val) = val.strip_prefix("hostname:") {
-            let val = val.parse()?;
-            let val = rate(val)?;
-            return Ok(Inner::Hostname(val));
+            return Ok(Inner::Hostname(rate(val.parse()?)?));
+        }
+
+        if let Some(val) = val.strip_prefix("daemon:") {
+            return Ok(Inner::Rate(rate(val.parse()?)?));
         }
 
         if let Ok(val) = val.parse() {
-            let val = rate(val)?;
-            return Ok(Inner::Rate(val));
+            return Ok(Inner::Hostname(rate(val)?));
         }
 
         if let Ok(val) = val.parse() {
             return Ok(Inner::Bool(val));
         }
 
-        Err(anyhow::anyhow!(
-            "RolloutPercentage must be either a float or a bool"
+        Err(buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "RolloutPercentage must be either a float, a bool, a `daemon:<float>` or a `hostname:<float>` (got: {})",
+            &val,
         ))
     }
 }
 
-fn rate(val: f64) -> anyhow::Result<f64> {
+fn rate(val: f64) -> buck2_error::Result<f64> {
     if (0.0..=1.0).contains(&val) {
         Ok(val)
     } else {
-        Err(anyhow::anyhow!(
+        Err(buck2_error!(
+            buck2_error::ErrorTag::Input,
             "RolloutPercentage floats must be within [0,1] (got: {})",
             val
         ))
@@ -143,8 +148,11 @@ mod tests {
         assert_matches!("true".parse(), Ok(Inner::Bool(true)));
 
         // NOTE: 0.5 and 1 are exact values for floats
-        assert_matches!("0.5".parse(), Ok(Inner::Rate(v)) if v == 0.5);
-        assert_matches!("1".parse(), Ok(Inner::Rate(v)) if v == 1.0);
+        assert_matches!("0.5".parse(), Ok(Inner::Hostname(v)) if v == 0.5);
+        assert_matches!("1".parse(), Ok(Inner::Hostname(v)) if v == 1.0);
+
+        assert_matches!("daemon:0.5".parse(), Ok(Inner::Rate(v)) if v == 0.5);
+        assert_matches!("hostname:0.5".parse(), Ok(Inner::Hostname(v)) if v == 0.5);
     }
 
     #[test]

@@ -22,7 +22,16 @@ use crate::attrs::fmt_context::AttrFmtContext;
 pub struct StringAttrType;
 
 #[derive(
-    Default, Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Serialize
+    Default,
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    Clone,
+    Dupe,
+    Allocative,
+    Serialize,
+    strong_hash::StrongHash
 )]
 #[serde(transparent)]
 pub struct StringLiteral(pub ArcStr);

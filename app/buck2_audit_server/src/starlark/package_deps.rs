@@ -14,8 +14,8 @@ use buck2_audit::starlark::package_deps::StarlarkPackageDepsCommand;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::pattern::parse_package::parse_package;
+use buck2_error::buck2_error;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_interpreter::paths::module::StarlarkModulePath;
@@ -28,13 +28,12 @@ pub(crate) async fn server_execute(
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     _client_ctx: ClientContext,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     server_ctx
         .with_dice_ctx(|server_ctx, mut dice_ctx| async move {
             let cell_resolver = dice_ctx.get_cell_resolver().await?;
             let cwd = server_ctx.working_dir();
             let current_cell_path = cell_resolver.get_cell_path(cwd)?;
-            let current_cell = BuildFileCell::new(current_cell_path.cell());
             let cell_alias_resolver = dice_ctx
                 .get_cell_alias_resolver(current_cell_path.cell())
                 .await?;
@@ -43,7 +42,7 @@ pub(crate) async fn server_execute(
 
             let module_deps = INTERPRETER_CALCULATION_IMPL
                 .get()?
-                .get_module_deps(&mut dice_ctx, package, current_cell)
+                .get_module_deps(&mut dice_ctx, package)
                 .await?;
 
             let mut stdout = stdout.as_writer();
@@ -58,11 +57,11 @@ pub(crate) async fn server_execute(
                     &mut self,
                     module: &LoadedModule,
                     stdout: &mut dyn Write,
-                ) -> anyhow::Result<()> {
+                ) -> buck2_error::Result<()> {
                     let path = match module.path() {
                         StarlarkModulePath::LoadFile(path) => path,
                         StarlarkModulePath::BxlFile(_) => {
-                            return Err(anyhow::anyhow!("bxl be here"));
+                            return Err(buck2_error!(buck2_error::ErrorTag::Tier0, "bxl be here"));
                         }
                     };
 

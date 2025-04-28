@@ -6,10 +6,6 @@
 # of this source tree.
 
 load("@prelude//linking:types.bzl", "Linkage")
-load(
-    "@prelude//utils:build_target_pattern.bzl",
-    "BuildTargetPattern",
-)
 
 # Label for special group mapping which makes every target associated with it to be included in all groups
 MATCH_ALL_LABEL = "MATCH_ALL"
@@ -30,29 +26,14 @@ Traversal = enum(
     "intersect_any_roots",
 )
 
-# Optional type of filtering
-FilterType = enum(
-    # Filters for targets with labels matching the regex pattern defined after `label:`.
-    "label",
-    # Filters for targets for the build target pattern defined after "pattern:".
-    "pattern",
-    # Filters for targets matching the regex pattern defined after "target_regex:".
-    "target_regex",
-)
-
-BuildTargetFilter = record(
-    pattern = field(BuildTargetPattern),
-    _type = field(FilterType, FilterType("pattern")),
-)
-
-LabelFilter = record(
-    regex = regex,
-    _type = field(FilterType, FilterType("label")),
-)
-
-TargetRegexFilter = record(
-    regex = regex,
-    _type = field(FilterType, FilterType("target_regex")),
+GroupFilterInfo = provider(
+    fields = {
+        # What should be dumped in the link-groups-info subtarget.
+        "info": provider_field(dict[str, typing.Any]),
+        # A function which is given a target label and list[str] and returns whether
+        # it matches.
+        "matches": provider_field(typing.Callable[[Label, list[str]], bool]),
+    },
 )
 
 # Representation of a parsed group mapping
@@ -62,7 +43,7 @@ GroupMapping = record(
     # The type of traversal to use.
     traversal = field(Traversal, Traversal("tree")),
     # Optional filter type to apply to the traversal.
-    filters = field(list[[BuildTargetFilter, LabelFilter, TargetRegexFilter]], []),
+    filters = field(list[GroupFilterInfo], []),
     # Preferred linkage for this target when added to a link group.
     preferred_linkage = field([Linkage, None], None),
 )
@@ -81,6 +62,10 @@ GroupAttrs = record(
     # Adds additional linker flags to apply to dependents that link against the
     # link group's shared object.
     exported_linker_flags = field(list, []),
+    # Wraps the link group shared library with `--no-as-needed/--as-needed`,
+    # used for link groups that are required at runtime but not statically referenced.
+    # Only applicable to gnu.
+    no_as_needed = field(bool, False),
     # Requires root nodes in specs to always exist in dependency graph.
     # Otherwise fails.
     requires_root_node_exists = field(bool, True),
@@ -88,6 +73,8 @@ GroupAttrs = record(
     # initial duplicate analysis. This is useful for detecting dduplicated symbols problem early
     # for automatoc link groups that we not aware about (e.g. evicting whole root package folder into link group)
     prohibit_file_duplicates = field(bool, False),
+    # Uses optimized compilation outputs if available.
+    prefer_optimized_experimental = field(bool, False),
 )
 
 # Types of group traversal
@@ -109,3 +96,6 @@ Group = record(
     attrs = GroupAttrs,
     definition_type = field(GroupDefinition, GroupDefinition("explicit")),
 )
+
+def should_discard_group(group: [Group, None]) -> bool:
+    return group != None and group.attrs.discard_group

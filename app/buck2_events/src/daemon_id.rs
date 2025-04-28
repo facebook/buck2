@@ -11,7 +11,7 @@ use once_cell::sync::Lazy;
 use uuid::Uuid;
 
 #[derive(derive_more::Display)]
-#[display(fmt = "{}", uuid.hyphenated())]
+#[display("{}", uuid.hyphenated())]
 pub struct DaemonId {
     uuid: Uuid,
 }

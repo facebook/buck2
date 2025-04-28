@@ -9,8 +9,8 @@
 
 use buck2_artifact::artifact::artifact_type::Artifact;
 use dupe::Dupe;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
@@ -23,7 +23,7 @@ pub enum UnpackArtifactOrDeclaredArtifact<'v> {
 }
 
 impl<'v> UnpackArtifactOrDeclaredArtifact<'v> {
-    pub fn artifact(&self) -> anyhow::Result<Artifact> {
+    pub fn artifact(&self) -> buck2_error::Result<Artifact> {
         match self {
             UnpackArtifactOrDeclaredArtifact::Artifact(x) => Ok(x.artifact.dupe()),
             UnpackArtifactOrDeclaredArtifact::DeclaredArtifact(x) => x.get_bound_artifact(),

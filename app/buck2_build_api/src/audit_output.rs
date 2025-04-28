@@ -10,9 +10,9 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
@@ -35,8 +35,9 @@ pub static AUDIT_OUTPUT: LateBinding<
         &'v CellResolver,
         &'v mut DiceComputations,
         &'v GlobalCfgOptions,
-    )
-        -> Pin<Box<dyn Future<Output = anyhow::Result<Option<AuditOutputResult>>> + 'v>>,
+    ) -> Pin<
+        Box<dyn Future<Output = buck2_error::Result<Option<AuditOutputResult>>> + 'v>,
+    >,
 > = LateBinding::new("AUDIT_OUTPUT");
 
 pub async fn audit_output<'v>(
@@ -45,7 +46,7 @@ pub async fn audit_output<'v>(
     cell_resolver: &'v CellResolver,
     dice_ctx: &'v mut DiceComputations<'_>,
     global_cfg_options: &'v GlobalCfgOptions,
-) -> anyhow::Result<Option<AuditOutputResult>> {
+) -> buck2_error::Result<Option<AuditOutputResult>> {
     (AUDIT_OUTPUT.get()?)(
         output_path,
         working_dir,

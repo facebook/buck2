@@ -22,8 +22,8 @@ use derivative::Derivative;
 use derive_more::Display;
 use dice::CancellationContext;
 use dice::DiceComputations;
-use dice::DiceError;
 use dice::Key;
+use dice_error::DiceError;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use either::Either;
@@ -166,12 +166,6 @@ enum TreatValidationFailureAsError {
 impl From<buck2_error::Error> for TreatValidationFailureAsError {
     fn from(value: buck2_error::Error) -> Self {
         TreatValidationFailureAsError::Transient(value)
-    }
-}
-
-impl From<anyhow::Error> for TreatValidationFailureAsError {
-    fn from(value: anyhow::Error) -> Self {
-        TreatValidationFailureAsError::Transient(buck2_error::Error::from(value))
     }
 }
 

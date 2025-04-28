@@ -22,7 +22,7 @@ import re
 import shutil
 
 from pathlib import Path
-from typing import Callable, Iterable, Pattern
+from typing import Callable, Iterable
 
 
 def _should_ignore(

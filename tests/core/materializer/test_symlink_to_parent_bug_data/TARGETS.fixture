@@ -1,0 +1,7 @@
+whistle(
+    name = "whistle",
+)
+
+flute(
+    name = "flute",
+)

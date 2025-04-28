@@ -18,11 +18,11 @@ use crate::attrs::resolve::attr_type::dep::DepAttrTypeExt;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 pub(crate) trait ConfiguredQueryAttrExt {
-    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>>;
+    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> buck2_error::Result<Value<'v>>;
 }
 
 impl ConfiguredQueryAttrExt for QueryAttr<ConfiguredProvidersLabel> {
-    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> anyhow::Result<Value<'v>> {
+    fn resolve<'v>(&self, ctx: &dyn AttrResolutionContext<'v>) -> buck2_error::Result<Value<'v>> {
         let query_results = ctx.resolve_query(&self.query.query)?;
         let mut dependencies = Vec::new();
 

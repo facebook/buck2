@@ -33,7 +33,7 @@ impl WinapiHandle {
     }
 
     /// Wrap a handle, call `last_os_error` if it's null.
-    pub unsafe fn new_check_last_os_error(handle: HANDLE) -> anyhow::Result<WinapiHandle> {
+    pub unsafe fn new_check_last_os_error(handle: HANDLE) -> buck2_error::Result<WinapiHandle> {
         if let Some(handle) = WinapiHandle::new(handle) {
             Ok(handle)
         } else {

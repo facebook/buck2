@@ -1,0 +1,63 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load(":error_handler_impl.bzl", "error_handler_impl")
+
+def _assert_eq(a, b):
+    if a != b:
+        fail("Expected {} == {}".format(a, b))
+
+def _test_action_error_handler_types(ctx):
+    action_factory = ctx.bxl_actions().actions
+
+    stdout = action_factory.write("stdout", "foo")
+    stderr = action_factory.write("stderr", "bar")
+    unused_out = action_factory.declare_output("out")
+
+    def validate_action_error_handler_impl(ctx, artifacts, outputs):
+        stdout_content = artifacts[stdout].read_string()
+        stderr_content = artifacts[stderr].read_string()
+
+        action_error_ctx = __internal__.new_test_action_error_ctx(stderr = stderr_content, stdout = stdout_content)
+        actual_error_categories = error_handler_impl(action_error_ctx)
+
+        expected_foo_error = action_error_ctx.new_sub_error(
+            category = "foo_category",
+            message = "foo message",
+            locations = [
+                action_error_ctx.new_error_location(file = "foo_file", line = 1),
+            ],
+        )
+
+        expected_bar_error = action_error_ctx.new_sub_error(
+            category = "bar_category",
+            message = "bar message",
+            locations = [
+                action_error_ctx.new_error_location(file = "bar_file", line = 1),
+            ],
+        )
+
+        expected_error_categories = [expected_foo_error, expected_bar_error]
+
+        _assert_eq(expected_error_categories, actual_error_categories)
+
+        ctx.bxl_actions().actions.write(outputs[unused_out], "")
+
+    action_factory.dynamic_output(
+        dynamic = [stderr, stdout],
+        inputs = [],
+        outputs = [unused_out.as_output()],
+        f = validate_action_error_handler_impl,
+    )
+
+    ctx.output.ensure(unused_out)
+
+test_action_error_handler_types = bxl_main(
+    impl = _test_action_error_handler_types,
+    cli_args = {
+    },
+)

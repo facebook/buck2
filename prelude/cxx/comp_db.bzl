@@ -9,7 +9,7 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load(
-    ":compile.bzl",
+    ":compile_types.bzl",
     "CxxSrcCompileCommand",  # @unused Used as a type
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
@@ -32,10 +32,7 @@ def create_compilation_database(
         ctx: AnalysisContext,
         src_compile_cmds: list[CxxSrcCompileCommand],
         identifier: str) -> DefaultInfo:
-    mk_comp_db = get_cxx_toolchain_info(ctx).mk_comp_db
-    if mk_comp_db == None:
-        return DefaultInfo()
-    mk_comp_db = mk_comp_db[RunInfo]
+    mk_comp_db = get_cxx_toolchain_info(ctx).internal_tools.make_comp_db
 
     # Generate the per-source compilation DB entries.
     entries = {}

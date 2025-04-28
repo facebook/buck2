@@ -10,21 +10,19 @@
 use std::borrow::Cow;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::Action;
+use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::actions::box_slice_set::BoxSliceSet;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
-use buck2_build_api::actions::Action;
-use buck2_build_api::actions::ActionExecutable;
-use buck2_build_api::actions::ActionExecutionCtx;
-use buck2_build_api::actions::IncrementalActionExecutable;
-use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_core::category::CategoryRef;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -35,6 +33,7 @@ use indexmap::IndexSet;
 use starlark::values::OwnedFrozenValue;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum CopyActionValidationError {
     #[error("Exactly one input file must be specified for a copy action, got {0}")]
     WrongNumberOfInputs(usize),
@@ -68,7 +67,7 @@ impl UnregisteredAction for UnregisteredCopyAction {
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
-    ) -> anyhow::Result<Box<dyn Action>> {
+    ) -> buck2_error::Result<Box<dyn Action>> {
         Ok(Box::new(CopyAction::new(self.copy, inputs, outputs)?))
     }
 }
@@ -85,7 +84,7 @@ impl CopyAction {
         copy: CopyMode,
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         // TODO: Exclude other variants once they become available here. For now, this is a noop.
         match inputs.iter().into_singleton() {
             Some(ArtifactGroup::Artifact(..) | ArtifactGroup::Promise(..)) => {}
@@ -96,9 +95,7 @@ impl CopyAction {
         };
 
         if outputs.len() != 1 {
-            Err(anyhow::anyhow!(
-                CopyActionValidationError::WrongNumberOfOutputs(outputs.len())
-            ))
+            Err(CopyActionValidationError::WrongNumberOfOutputs(outputs.len()).into())
         } else {
             Ok(CopyAction {
                 copy,
@@ -129,7 +126,7 @@ impl Action for CopyAction {
         buck2_data::ActionKind::Copy
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+    fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
         Ok(Cow::Borrowed(self.inputs.as_slice()))
     }
 
@@ -141,10 +138,6 @@ impl Action for CopyAction {
         self.output()
     }
 
-    fn as_executable(&self) -> ActionExecutable<'_> {
-        ActionExecutable::Incremental(self)
-    }
-
     fn category(&self) -> CategoryRef {
         CategoryRef::unchecked_new("copy")
     }
@@ -152,10 +145,7 @@ impl Action for CopyAction {
     fn identifier(&self) -> Option<&str> {
         Some(self.output().get_path().path().as_str())
     }
-}
 
-#[async_trait]
-impl IncrementalActionExecutable for CopyAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
@@ -164,11 +154,11 @@ impl IncrementalActionExecutable for CopyAction {
             .artifact_values(self.input())
             .iter()
             .into_singleton()
-            .context("Input did not dereference to exactly one artifact")?;
+            .buck_error_context("Input did not dereference to exactly one artifact")?;
 
         let artifact_fs = ctx.fs();
         let src = input.resolve_path(artifact_fs)?;
-        let dest = artifact_fs.resolve_build(self.output().get_path());
+        let dest = artifact_fs.resolve_build(self.output().get_path())?;
 
         let value = {
             let fs = artifact_fs.fs();
@@ -206,6 +196,7 @@ impl IncrementalActionExecutable for CopyAction {
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData::default(),
+                input_files_bytes: None,
             },
         ))
     }

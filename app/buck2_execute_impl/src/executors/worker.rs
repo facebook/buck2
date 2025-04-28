@@ -10,6 +10,8 @@
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use buck2_common::client_utils::get_channel_uds;
@@ -19,6 +21,7 @@ use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
+use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
@@ -31,20 +34,31 @@ use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_forkserver::client::ForkserverClient;
 use buck2_forkserver::run::GatherOutputStatus;
-use buck2_worker_proto::execute_command::EnvironmentEntry;
-use buck2_worker_proto::worker_client::WorkerClient;
 use buck2_worker_proto::ExecuteCommand;
+use buck2_worker_proto::ExecuteCommandStream;
 use buck2_worker_proto::ExecuteResponse;
+use buck2_worker_proto::ExecuteResponseStream;
+use buck2_worker_proto::execute_command::EnvironmentEntry;
+use buck2_worker_proto::worker_client;
+use buck2_worker_proto::worker_streaming_client;
+use dashmap::DashMap;
+use dupe::Dupe;
+use futures::FutureExt;
 use futures::future::BoxFuture;
 use futures::future::Shared;
-use futures::FutureExt;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
 use indexmap::IndexMap;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
+use tokio_stream::wrappers::UnboundedReceiverStream;
+use tonic::Status;
 use tonic::transport::Channel;
 
+const MAX_MESSAGE_SIZE_BYTES: usize = 8 * 1024 * 1024; // 8MB
+
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = WorkerInit)]
 pub enum WorkerInitError {
     #[error("Worker failed to spawn: {0}")]
     SpawnFailed(String),
@@ -92,6 +106,7 @@ impl WorkerInitError {
                     std_streams,
                     *exit_code,
                     CommandExecutionMetadata::default(),
+                    None,
                 )
             }
             // TODO(ctolliday) as above, use a new failure type (worker_init_failure) that indicates this is a worker initialization error.
@@ -105,6 +120,7 @@ impl WorkerInitError {
                     },
                     None,
                     CommandExecutionMetadata::default(),
+                    None,
                 ),
             WorkerInitError::InternalError(error) => {
                 manager.error("get_worker_failed", error.clone())
@@ -125,7 +141,7 @@ fn spawn_via_forkserver(
     stderr_path: &AbsNormPathBuf,
     socket_path: &AbsNormPathBuf,
     graceful_shutdown_timeout_s: Option<u32>,
-) -> JoinHandle<anyhow::Result<GatherOutputStatus>> {
+) -> JoinHandle<buck2_error::Result<GatherOutputStatus>> {
     use std::os::unix::ffi::OsStrExt;
 
     use crate::executors::local::apply_local_execution_environment;
@@ -149,6 +165,7 @@ fn spawn_via_forkserver(
                 stderr: stderr_path.as_os_str().as_bytes().into(),
             }),
             graceful_shutdown_timeout_s,
+            action_digest: None,
         };
         apply_local_execution_environment(&mut req, &working_directory, env, None);
         let res = forkserver
@@ -177,7 +194,7 @@ fn spawn_via_forkserver(
     _stderr_path: &AbsNormPathBuf,
     _socket_path: &AbsNormPathBuf,
     _graceful_shutdown_timeout_s: Option<u32>,
-) -> JoinHandle<anyhow::Result<GatherOutputStatus>> {
+) -> JoinHandle<buck2_error::Result<GatherOutputStatus>> {
     unreachable!("workers should not be initialized off unix")
 }
 
@@ -197,7 +214,12 @@ async fn spawn_worker(
     let socket_path = worker_dir.join(FileName::unchecked_new("socket"));
     if fs_util::try_exists(&worker_dir).map_err(|e| WorkerInitError::InternalError(e.into()))? {
         return Err(WorkerInitError::InternalError(
-            anyhow::anyhow!("Directory for worker already exists: {:?}", worker_dir).into(),
+            buck2_error!(
+                buck2_error::ErrorTag::WorkerDirectoryExists,
+                "Directory for worker already exists: {:?}",
+                worker_dir
+            )
+            .into(),
         ));
     }
     // TODO(ctolliday) put these in buck-out/<iso>/workers and only use /tmp dir for sockets
@@ -236,7 +258,7 @@ async fn spawn_worker(
     let max_delay = Duration::from_millis(500);
     // Might want to make this configurable, and/or measure impact of worker initialization on critical path
     let timeout = Duration::from_secs(60);
-    let channel = {
+    let (channel, check_exit) = {
         let stdout_path = &stdout_path;
         let stderr_path = &stderr_path;
         let socket_path = &socket_path;
@@ -251,18 +273,20 @@ async fn spawn_worker(
             spawn_fut
                 .await
                 .map_err(|e| WorkerInitError::InternalError(e.into()))?
-        };
+        }
+        .boxed();
         futures::pin_mut!(connect);
-        futures::pin_mut!(check_exit);
 
         match futures::future::select(connect, check_exit).await {
-            futures::future::Either::Left((connection_result, _)) => match connection_result {
-                Ok(channel) => Ok(channel),
-                Err(e) => Err(WorkerInitError::ConnectionTimeout(
-                    timeout.as_secs_f64(),
-                    e.to_string(),
-                )),
-            },
+            futures::future::Either::Left((connection_result, check_exit)) => {
+                match connection_result {
+                    Ok(channel) => Ok((channel, check_exit)),
+                    Err(e) => Err(WorkerInitError::ConnectionTimeout(
+                        timeout.as_secs_f64(),
+                        e.to_string(),
+                    )),
+                }
+            }
             futures::future::Either::Right((command_result, _)) => Err(match command_result {
                 Ok(GatherOutputStatus::SpawnFailed(e)) => WorkerInitError::SpawnFailed(e),
                 Ok(GatherOutputStatus::Finished { exit_code, .. }) => {
@@ -278,7 +302,11 @@ async fn spawn_worker(
                 }
                 Ok(GatherOutputStatus::Cancelled | GatherOutputStatus::TimedOut(_)) => {
                     WorkerInitError::InternalError(
-                        anyhow::anyhow!("Worker cancelled by buck").into(),
+                        buck2_error!(
+                            buck2_error::ErrorTag::WorkerCancelled,
+                            "Worker cancelled by buck"
+                        )
+                        .into(),
                     )
                 }
                 Err(e) => WorkerInitError::InternalError(e.into()),
@@ -286,10 +314,24 @@ async fn spawn_worker(
         }?
     };
 
+    let (child_exited_observer, child_exited_guard) = LivelinessGuard::create();
+    tokio::spawn(async move {
+        drop(check_exit.await);
+        drop(child_exited_guard);
+    });
+
     tracing::info!("Connected to socket for spawned worker: {}", socket_path);
-    let client = WorkerClient::new(channel);
+    let client = if worker_spec.streaming {
+        WorkerClient::stream(channel)
+            .await
+            .map_err(|e| WorkerInitError::SpawnFailed(e.to_string()))?
+    } else {
+        WorkerClient::single(channel)
+    };
+
     Ok(WorkerHandle::new(
         client,
+        child_exited_observer,
         stdout_path,
         stderr_path,
         liveliness_guard,
@@ -370,8 +412,117 @@ impl WorkerPool {
     }
 }
 
+#[derive(Clone)]
+enum WorkerClient {
+    Single(worker_client::WorkerClient<Channel>),
+    Stream {
+        ids: Arc<AtomicU64>,
+        stream: UnboundedSender<ExecuteCommandStream>,
+        stream_closed_observer: Arc<dyn LivelinessObserver>,
+        waiters: Arc<DashMap<u64, tokio::sync::oneshot::Sender<ExecuteResponseStream>>>,
+    },
+}
+
+impl WorkerClient {
+    fn single(channel: Channel) -> Self {
+        Self::Single(
+            worker_client::WorkerClient::new(channel)
+                .max_encoding_message_size(MAX_MESSAGE_SIZE_BYTES)
+                .max_decoding_message_size(MAX_MESSAGE_SIZE_BYTES),
+        )
+    }
+
+    async fn stream(channel: Channel) -> Result<Self, Status> {
+        let mut client = worker_streaming_client::WorkerStreamingClient::new(channel)
+            .max_encoding_message_size(MAX_MESSAGE_SIZE_BYTES)
+            .max_decoding_message_size(MAX_MESSAGE_SIZE_BYTES);
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let stream = client
+            .execute_stream(tonic::Request::new(UnboundedReceiverStream::new(rx)))
+            .await?;
+        let waiters: Arc<DashMap<u64, tokio::sync::oneshot::Sender<ExecuteResponseStream>>> =
+            Default::default();
+        let (stream_closed_observer, stream_closed_guard) = LivelinessGuard::create();
+        {
+            let waiters = waiters.dupe();
+            tokio::spawn(async move {
+                use futures::StreamExt;
+
+                let mut stream = stream.into_inner();
+                while let Some(response) = stream.next().await {
+                    match response {
+                        Ok(response) => {
+                            match waiters.remove(&response.id) {
+                                Some(waiter) => {
+                                    let id = response.id;
+                                    if waiter.1.send(response).is_err() {
+                                        tracing::warn!(
+                                            id = id,
+                                            "Error passing streaming worker response to waiter"
+                                        );
+                                    }
+                                }
+                                None => {
+                                    tracing::warn!(
+                                        id = response.id,
+                                        "Missing waiter for streaming worker response",
+                                    );
+                                }
+                            };
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                error = e.to_string(),
+                                "Response error in worker stream"
+                            );
+                        }
+                    };
+                }
+                drop(stream_closed_guard);
+            });
+        }
+        Ok(Self::Stream {
+            ids: Default::default(),
+            stream: tx,
+            stream_closed_observer,
+            waiters,
+        })
+    }
+
+    async fn execute(&mut self, request: ExecuteCommand) -> anyhow::Result<ExecuteResponse> {
+        match self {
+            Self::Single(client) => Ok(client
+                .execute(request)
+                .await
+                .map(|response| response.into_inner())?),
+            Self::Stream {
+                ids,
+                stream,
+                stream_closed_observer,
+                waiters,
+            } => {
+                let id = ids.fetch_add(1, Ordering::Acquire);
+                let req = ExecuteCommandStream {
+                    request: Some(request),
+                    id,
+                };
+                let (tx, rx) = tokio::sync::oneshot::channel();
+                waiters.insert(id, tx);
+                stream.send(req)?;
+                tokio::select! {
+                    response = rx => Ok(response.map(|response| response.response.unwrap())?),
+                    _ = stream_closed_observer.while_alive() => {
+                        Err(anyhow::anyhow!("Stream closed while waiting for response"))
+                    },
+                }
+            }
+        }
+    }
+}
+
 pub struct WorkerHandle {
-    client: WorkerClient<Channel>,
+    client: WorkerClient,
+    child_exited_observer: Arc<dyn LivelinessObserver>,
     stdout_path: AbsNormPathBuf,
     stderr_path: AbsNormPathBuf,
     _liveliness_guard: LivelinessGuard,
@@ -379,13 +530,15 @@ pub struct WorkerHandle {
 
 impl WorkerHandle {
     fn new(
-        client: WorkerClient<Channel>,
+        client: WorkerClient,
+        child_exited_observer: Arc<dyn LivelinessObserver>,
         stdout_path: AbsNormPathBuf,
         stderr_path: AbsNormPathBuf,
         liveliness_guard: LivelinessGuard,
     ) -> Self {
         Self {
             client,
+            child_exited_observer,
             stdout_path,
             stderr_path,
             _liveliness_guard: liveliness_guard,
@@ -429,36 +582,49 @@ impl WorkerHandle {
             env,
             timeout_s: timeout.map(|v| v.as_secs()),
         };
-        let response = self.client.clone().execute(request).await;
 
-        match response {
-            Ok(response) => {
-                let exec_response: ExecuteResponse = response.into_inner();
-                tracing::info!("Worker response:\n{:?}\n", exec_response);
-                if let Some(timeout) = exec_response.timed_out_after_s {
-                    (
-                        GatherOutputStatus::TimedOut(Duration::from_secs(timeout)),
-                        vec![],
-                        exec_response.stderr.into(),
-                    )
-                } else {
-                    (
-                        GatherOutputStatus::Finished {
-                            exit_code: exec_response.exit_code,
-                            execution_stats: None,
-                        },
-                        vec![],
-                        exec_response.stderr.into(),
-                    )
+        let mut client = self.client.clone();
+        tokio::select! {
+            response = client.execute(request) => {
+                match response {
+                    Ok(exec_response) => {
+                        tracing::info!("Worker response:\n{:?}\n", exec_response);
+                        if let Some(timeout) = exec_response.timed_out_after_s {
+                            (
+                                GatherOutputStatus::TimedOut(Duration::from_secs(timeout)),
+                                vec![],
+                                exec_response.stderr.into(),
+                            )
+                        } else {
+                            (
+                                GatherOutputStatus::Finished {
+                                    exit_code: exec_response.exit_code,
+                                    execution_stats: None,
+                                },
+                                vec![],
+                                exec_response.stderr.into(),
+                            )
+                        }
+                    }
+                    Err(err) => {
+                        (
+                            GatherOutputStatus::SpawnFailed(format!(
+                                "Error sending ExecuteCommand to worker: {:?}, see worker logs:\n{}\n{}",
+                                err, self.stdout_path, self.stderr_path,
+                            )),
+                            // stdout/stderr logs for worker are for multiple commands, probably do not want to dump contents here
+                            vec![],
+                            vec![],
+                        )
+                    }
                 }
             }
-            Err(err) => {
+            _ = self.child_exited_observer.while_alive() => {
                 (
                     GatherOutputStatus::SpawnFailed(format!(
-                        "Error sending ExecuteCommand to worker: {:?}, see worker logs:\n{}\n{}",
-                        err, self.stdout_path, self.stderr_path,
+                        "Worker exited while running command, see worker logs:\n{}\n{}",
+                        self.stdout_path, self.stderr_path,
                     )),
-                    // stdout/stderr logs for worker are for multiple commands, probably do not want to dump contents here
                     vec![],
                     vec![],
                 )

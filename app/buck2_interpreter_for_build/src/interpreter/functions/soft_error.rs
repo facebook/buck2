@@ -14,6 +14,7 @@ use starlark::starlark_module;
 use starlark::values::none::NoneType;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum SoftErrorError {
     #[error("Error produced by Starlark: {category}: {message}\n{call_stack}")]
     StarlarkSoftError {
@@ -52,9 +53,12 @@ pub(crate) fn register_soft_error(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] quiet: Option<bool>,
         #[starlark(require = named)] stack: Option<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         if !category.starts_with("starlark_") {
-            return Err(SoftErrorError::InvalidCategory(category.to_owned()).into());
+            return Err(buck2_error::Error::from(SoftErrorError::InvalidCategory(
+                category.to_owned(),
+            ))
+            .into());
         }
 
         let err = if stack.unwrap_or(true) {

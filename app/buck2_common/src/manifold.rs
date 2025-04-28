@@ -12,16 +12,19 @@ use std::time::Duration;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
-use buck2_http::retries::http_retry;
-use buck2_http::retries::AsHttpError;
-use buck2_http::retries::HttpError;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
+use buck2_http::retries::AsBuck2Error;
+use buck2_http::retries::HttpError;
+use buck2_http::retries::HttpErrorForRetry;
+use buck2_http::retries::http_retry;
 use bytes::Bytes;
 use dupe::Dupe;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use hyper::Response;
+use tokio::fs::File;
 use tokio::io::AsyncRead;
 
 use crate::chunk_reader::ChunkReader;
@@ -57,34 +60,49 @@ impl Default for Ttl {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Http)]
 enum HttpWriteError {
     #[error(transparent)]
     Client(HttpError),
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Http)]
 enum HttpAppendError {
     #[error(transparent)]
     Client(HttpError),
 }
 
-impl AsHttpError for HttpWriteError {
-    fn as_http_error(&self) -> Option<&HttpError> {
+impl HttpErrorForRetry for HttpWriteError {
+    fn is_retryable(&self) -> bool {
         match self {
-            Self::Client(e) => Some(e),
+            Self::Client(e) => e.is_retryable(),
         }
     }
 }
 
-impl AsHttpError for HttpAppendError {
-    fn as_http_error(&self) -> Option<&HttpError> {
+impl HttpErrorForRetry for HttpAppendError {
+    fn is_retryable(&self) -> bool {
         match self {
-            Self::Client(e) => Some(e),
+            Self::Client(e) => e.is_retryable(),
         }
+    }
+}
+
+impl AsBuck2Error for HttpWriteError {
+    fn as_buck2_error(self) -> buck2_error::Error {
+        buck2_error::Error::from(self)
+    }
+}
+
+impl AsBuck2Error for HttpAppendError {
+    fn as_buck2_error(self) -> buck2_error::Error {
+        buck2_error::Error::from(self)
     }
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 pub enum UploadError {
     #[error(
         "No result code from uploading path `{0}` to Manifold, probably due to signal interrupt"
@@ -105,7 +123,7 @@ pub enum UploadError {
     #[error("File not found")]
     FileNotFound,
     #[error(transparent)]
-    Other(anyhow::Error),
+    Other(buck2_error::Error),
 }
 
 impl From<io::Error> for UploadError {
@@ -135,6 +153,16 @@ impl Bucket {
         name: "buck2_re_logs",
         key: "buck2_re_logs-key",
     };
+
+    pub const INSTALLER_LOGS: Bucket = Bucket {
+        name: "buck2_installer_logs",
+        key: "buck2_installer_logs-key",
+    };
+}
+
+fn manifold_url(bucket: &Bucket, filename: String) -> String {
+    let full_path = format!("{}/{}", bucket.name, filename);
+    format!("https://interncache-all.fbcdn.net/manifold/{}", full_path)
 }
 
 /// Return the place to upload logs, or None to not upload logs at all
@@ -160,8 +188,8 @@ pub struct ManifoldClient {
 }
 
 impl ManifoldClient {
-    pub async fn new(allow_vpnless: bool) -> anyhow::Result<Self> {
-        let client = HttpClientBuilder::internal(allow_vpnless).await?.build();
+    pub async fn new() -> buck2_error::Result<Self> {
+        let client = HttpClientBuilder::internal().await?.build();
         let manifold_url = log_upload_url(client.supports_vpnless()).map(|s| s.to_owned());
 
         Ok(Self {
@@ -176,7 +204,7 @@ impl ManifoldClient {
         manifold_bucket_path: &str,
         buf: bytes::Bytes,
         ttl: Ttl,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let manifold_url = match &self.manifold_url {
             None => return Ok(()),
             Some(x) => x,
@@ -220,7 +248,7 @@ impl ManifoldClient {
         manifold_bucket_path: &str,
         buf: bytes::Bytes,
         offset: u64,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let manifold_url = match &self.manifold_url {
             None => return Ok(()),
             Some(x) => x,
@@ -252,7 +280,7 @@ impl ManifoldClient {
         path: &str,
         ttl: Ttl,
         read: &mut R,
-    ) -> anyhow::Result<()>
+    ) -> buck2_error::Result<()>
     where
         R: AsyncRead + Unpin,
     {
@@ -267,7 +295,7 @@ impl ManifoldClient {
             first = false;
             upload.write(chunk.into()).await?;
         }
-        anyhow::Ok(())
+        buck2_error::Ok(())
     }
 
     pub fn start_chunked_upload<'a>(
@@ -283,6 +311,20 @@ impl ManifoldClient {
             path,
             ttl,
         }
+    }
+
+    pub async fn upload_file(
+        &self,
+        local_path: &AbsPath,
+        filename: String,
+        bucket: Bucket,
+        ttl: Ttl,
+    ) -> buck2_error::Result<String> {
+        let mut file = File::open(&local_path).await?;
+        self.read_and_upload(bucket, &filename, ttl, &mut file)
+            .await?;
+
+        Ok(manifold_url(&bucket, filename))
     }
 }
 
@@ -301,7 +343,7 @@ pub struct ManifoldChunkedUploader<'a> {
 }
 
 impl<'a> ManifoldChunkedUploader<'a> {
-    pub async fn write(&mut self, chunk: Bytes) -> anyhow::Result<()> {
+    pub async fn write(&mut self, chunk: Bytes) -> buck2_error::Result<()> {
         let len = u64::try_from(chunk.len())?;
 
         if self.position == 0 {

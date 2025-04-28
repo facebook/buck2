@@ -41,12 +41,15 @@ impl FileSet {
         Self { files }
     }
 
-    pub(crate) fn filter_name(&self, regex: &str) -> anyhow::Result<Self> {
+    pub(crate) fn filter_name(&self, regex: &str) -> buck2_error::Result<Self> {
         let re = Regex::new(regex)?;
         self.filter(|node| Ok(re.is_match(&node.0.to_string())?))
     }
 
-    fn filter<F: Fn(&FileNode) -> anyhow::Result<bool>>(&self, filter: F) -> anyhow::Result<Self> {
+    fn filter<F: Fn(&FileNode) -> buck2_error::Result<bool>>(
+        &self,
+        filter: F,
+    ) -> buck2_error::Result<Self> {
         let mut files = IndexSet::new();
         for file in self.files.iter() {
             if filter(file)? {
@@ -77,10 +80,8 @@ impl FileSet {
     pub fn owner<T: QueryTarget>(
         &self,
         _env: &impl QueryEnvironment<Target = T>,
-    ) -> anyhow::Result<TargetSet<T>> {
-        Err(anyhow::anyhow!(QueryError::FunctionUnimplemented(
-            "owner()"
-        )))
+    ) -> buck2_error::Result<TargetSet<T>> {
+        Err(QueryError::FunctionUnimplemented("owner()").into())
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &CellPath> + '_ {
@@ -102,11 +103,11 @@ impl FileSet {
         self.files.contains(item)
     }
 
-    pub fn intersect(&self, right: &FileSet) -> anyhow::Result<FileSet> {
+    pub fn intersect(&self, right: &FileSet) -> buck2_error::Result<FileSet> {
         self.filter(|file| Ok(right.contains(file)))
     }
 
-    pub fn difference(&self, right: &FileSet) -> anyhow::Result<FileSet> {
+    pub fn difference(&self, right: &FileSet) -> buck2_error::Result<FileSet> {
         self.filter(|file| Ok(!right.contains(file)))
     }
 }

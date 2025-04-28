@@ -10,13 +10,6 @@
 use std::collections::HashMap;
 use std::time::Instant;
 
-use buck2_data::analysis_stage_start;
-use buck2_data::executor_stage_start;
-use buck2_data::instant_event;
-use buck2_data::local_stage;
-use buck2_data::re_stage;
-use buck2_data::span_end_event;
-use buck2_data::span_start_event;
 use buck2_data::ActionExecutionStart;
 use buck2_data::AnalysisEnd;
 use buck2_data::AnalysisStageStart;
@@ -25,14 +18,19 @@ use buck2_data::ExecutorStageStart;
 use buck2_data::LoadBuildFileEnd;
 use buck2_data::LocalStage;
 use buck2_data::ReStage;
-use buck2_events::span::SpanId;
+use buck2_data::analysis_stage_start;
+use buck2_data::executor_stage_start;
+use buck2_data::instant_event;
+use buck2_data::local_stage;
+use buck2_data::re_stage;
+use buck2_data::span_end_event;
+use buck2_data::span_start_event;
 use buck2_events::BuckEvent;
+use buck2_events::span::SpanId;
 
-use crate::last_command_execution_kind::get_last_command_execution_kind;
 use crate::last_command_execution_kind::get_last_command_execution_time;
-use crate::last_command_execution_kind::LastCommandExecutionKind;
-use crate::unpack_event::unpack_event;
 use crate::unpack_event::UnpackedBuckEvent;
+use crate::unpack_event::unpack_event;
 
 #[derive(Debug, Clone, Copy)]
 enum State {
@@ -197,7 +195,7 @@ impl BuildProgressStateTracker {
         &mut self,
         _processed_time: Instant,
         event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let ev = unpack_event(event)?;
 
         self.handle_load(&ev)?;
@@ -258,7 +256,7 @@ impl BuildProgressStateTracker {
         Ok(())
     }
 
-    fn handle_load(&mut self, ev: &UnpackedBuckEvent) -> anyhow::Result<()> {
+    fn handle_load(&mut self, ev: &UnpackedBuckEvent) -> buck2_error::Result<()> {
         match ev {
             UnpackedBuckEvent::SpanStart(
                 BuckEvent {
@@ -290,7 +288,7 @@ impl BuildProgressStateTracker {
         Ok(())
     }
 
-    fn handle_analysis(&mut self, ev: &UnpackedBuckEvent) -> anyhow::Result<()> {
+    fn handle_analysis(&mut self, ev: &UnpackedBuckEvent) -> buck2_error::Result<()> {
         match ev {
             UnpackedBuckEvent::SpanStart(
                 BuckEvent {
@@ -344,7 +342,7 @@ impl BuildProgressStateTracker {
         }
     }
 
-    fn handle_actions(&mut self, ev: &UnpackedBuckEvent) -> anyhow::Result<()> {
+    fn handle_actions(&mut self, ev: &UnpackedBuckEvent) -> buck2_error::Result<()> {
         match ev {
             UnpackedBuckEvent::SpanStart(
                 BuckEvent {
@@ -369,16 +367,16 @@ impl BuildProgressStateTracker {
                         stage: Some(re_stage::Stage::Execute(..)),
                     }) => {
                         if let Some(data) = self.actions.running(*parent_id) {
-                            data.running_local = true;
-                            self.stats.running_local += 1;
+                            data.running_remote = true;
+                            self.stats.running_remote += 1;
                         }
                     }
                     executor_stage_start::Stage::Local(LocalStage {
                         stage: Some(local_stage::Stage::Execute(..)),
                     }) => {
                         if let Some(data) = self.actions.running(*parent_id) {
-                            data.running_remote = true;
-                            self.stats.running_remote += 1;
+                            data.running_local = true;
+                            self.stats.running_local += 1;
                         }
                     }
                     _ => {}
@@ -397,16 +395,9 @@ impl BuildProgressStateTracker {
                     self.action_finished(data);
                 }
 
-                let exec_time = get_last_command_execution_time(end).unwrap_or(0);
-                self.stats.exec_time_ms += exec_time;
-
-                match get_last_command_execution_kind(end) {
-                    LastCommandExecutionKind::Cached
-                    | LastCommandExecutionKind::RemoteDepFileCached => {
-                        self.stats.cached_exec_time_ms += exec_time;
-                    }
-                    _ => {}
-                }
+                let exec_time = get_last_command_execution_time(end);
+                self.stats.exec_time_ms += exec_time.exec_time_ms;
+                self.stats.cached_exec_time_ms += exec_time.cached_exec_time_ms;
             }
             _ => {}
         }
@@ -431,7 +422,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_span_map() -> anyhow::Result<()> {
+    fn test_span_map() -> buck2_error::Result<()> {
         let mut map: SpanMap<u64> = SpanMap::default();
 
         assert_eq!(

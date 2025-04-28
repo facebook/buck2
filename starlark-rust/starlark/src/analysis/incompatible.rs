@@ -32,9 +32,9 @@ use starlark_syntax::syntax::ast::Stmt;
 use starlark_syntax::syntax::module::AstModuleFields;
 use thiserror::Error;
 
+use crate::analysis::EvalSeverity;
 use crate::analysis::types::LintT;
 use crate::analysis::types::LintWarning;
-use crate::analysis::EvalSeverity;
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Span;
@@ -87,7 +87,7 @@ fn match_bad_type_equality(
     // Return true if this expression matches `type($x)`
     fn is_type_call(x: &AstExpr) -> bool {
         match &**x {
-            Expr::Call(fun, args) if args.len() == 1 => match &***fun {
+            Expr::Call(fun, args) if args.args.len() == 1 => match &***fun {
                 Expr::Identifier(x) => x.node.ident == "type",
                 _ => false,
             },
@@ -167,7 +167,7 @@ fn duplicate_top_level_assignment(module: &AstModule, res: &mut Vec<LintT<Incomp
             Stmt::Assign(assign) => match (&assign.lhs.node, &assign.rhs.node) {
                 (AssignTarget::Identifier(x), Expr::Identifier(y))
                     if x.node.ident == y.node.ident
-                        && defined.get(x.node.ident.as_str()).map_or(false, |x| x.1)
+                        && defined.get(x.node.ident.as_str()).is_some_and(|x| x.1)
                         && !exported.contains(x.node.ident.as_str()) =>
                 {
                     // Normally this would be an error, but if we load()'d it, this is how we'd reexport through Starlark.
@@ -216,7 +216,7 @@ mod tests {
     use crate::syntax::Dialect;
 
     fn module(x: &str) -> AstModule {
-        AstModule::parse("bad.py", x.to_owned(), &Dialect::Extended).unwrap()
+        AstModule::parse("bad.py", x.to_owned(), &Dialect::AllOptionsInternal).unwrap()
     }
 
     #[test]

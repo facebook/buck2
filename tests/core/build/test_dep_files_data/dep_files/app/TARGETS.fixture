@@ -1,0 +1,12 @@
+c_binary(
+    name = "app",
+    main = "app.c",
+    headers = ["app.h", "other.h"],
+)
+
+c_binary(
+    name = "app_with_dummy_config",
+    main = "app.c",
+    headers = ["app.h", "other.h"],
+    _ignored = read_config("test", "dummy_config"),
+)

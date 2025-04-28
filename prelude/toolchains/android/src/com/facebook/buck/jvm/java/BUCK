@@ -1,0 +1,200 @@
+load(
+    "@prelude//toolchains/android/tools:build_rules.bzl",
+    "buck_java_library",
+    "buck_kotlin_library",
+)
+load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+# Temporary alias because wa_android toolchain references this target and fbsource target
+# determinator doesn't allow mixed changes to whatsapp/android
+fb_native.alias(
+    name = "fat-jar-main-binary",
+    actual = "prelude//toolchains/android/src/com/facebook/buck/jvm/java/fatjar:fat-jar-main-binary",
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+buck_java_library(
+    name = "javac-internals",
+    srcs = [
+        "ZipEntryJavaFileObject.java",
+    ],
+    deps = [
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jsr305",
+    ],
+)
+
+buck_kotlin_library(
+    name = "support",
+    srcs = [
+        "ActionMetadata.java",
+        "AnnotationProcessorFactory.java",
+        "ClassUsageFileWriter.java",
+        "ClassUsageTracker.java",
+        "ClassUsageURIParser.java",
+        "CompileToJarStepFactory.java",
+        "CompilerOutputPaths.kt",
+        "CompilerOutputPathsValue.kt",
+        "CompilerParameters.kt",
+        "DefaultClassUsageFileWriter.java",
+        "DefaultSourceOnlyAbiRuleInfo.java",
+        "DefaultSourceOnlyAbiRuleInfoFactory.kt",
+        "DiagnosticCleaner.java",
+        "DiagnosticPrettyPrinter.java",
+        "ExternalJavac.java",
+        "FileManagerListener.java",
+        "ForwardingStandardJavaFileManager.java",
+        "JarDiffer.java",
+        "JarDumper.java",
+        "JarFileObject.java",
+        "JarParameters.kt",
+        "JavaInMemoryFileManager.java",
+        "JavaInMemoryFileObject.java",
+        "JavaNoOpFileObject.java",
+        "JavaPaths.java",
+        "JavacExecutionContext.kt",
+        "JavacLanguageLevelOptions.kt",
+        "JavacPluginParams.kt",
+        "JdkProvidedInMemoryJavac.java",
+        "Jsr199Javac.java",
+        "Jsr199JavacInvocation.java",
+        "ListenableFileManager.java",
+        "MergingClassUsageFileWriter.java",
+        "OptionsConsumer.java",
+        "PluginFactory.java",
+        "PluginLoaderJavaFileManager.java",
+        "ResolvedJavac.java",
+        "ResolvedJavacOptions.kt",
+        "ResolvedJavacPluginProperties.java",
+        "TracingProcessorWrapper.java",
+    ],
+    provided_deps = [
+        # Plugin API is loaded by the bootstrapper at runtime; don't need to depend on it strongly
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/plugin/api:api",
+    ],
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java:java",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem:filesystem",
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem/impl:utils",
+        "prelude//toolchains/android/src/com/facebook/buck/io/pathformat:pathformat",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/core:core",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java:javac-internals",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/source/api:api",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/javax:javax",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/lang/model:model",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/plugin:plugin",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/version:version",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/compilerplugins/usedclasses:usedclasses",
+        "prelude//toolchains/android/src/com/facebook/buck/step:step",
+        "prelude//toolchains/android/src/com/facebook/buck/step/isolatedsteps:isolatedsteps",
+        "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/src/com/facebook/buck/util/concurrent:concurrent",
+        "prelude//toolchains/android/src/com/facebook/buck/util/function:function",
+        "prelude//toolchains/android/src/com/facebook/buck/util/json:json",
+        "prelude//toolchains/android/src/com/facebook/buck/util/string:string",
+        "prelude//toolchains/android/src/com/facebook/buck/util/unarchive:unarchive",
+        "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip",
+        "prelude//toolchains/android/third-party:asm",
+        "prelude//toolchains/android/third-party:diffutils",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:infer-annotations",
+        "prelude//toolchains/android/third-party:jackson-annotations",
+        "prelude//toolchains/android/third-party:jackson-core",
+        "prelude//toolchains/android/third-party:jackson-databind",
+        "prelude//toolchains/android/third-party:jsr305",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/core:core",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi:abi",
+        ":remove_classes_patterns_matcher",
+    ],
+)
+
+buck_java_library(
+    name = "remove_classes_patterns_matcher",
+    srcs = [
+        "RemoveClassesPatternsMatcher.java",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/third-party:guava",
+    ],
+    exported_deps = [
+    ],
+)
+
+buck_kotlin_library(
+    name = "steps",
+    srcs = [
+        "BaseCompileToJarStepFactory.java",
+        "BaseJavacToJarStepFactory.java",
+        "CalculateClassAbiStep.java",
+        "ClasspathChecker.java",
+        "CompileToJarStepFactory.java",
+        "CopyResourcesStep.java",
+        "DaemonJavacToJarStepFactory.java",
+        "JavaExtraParams.kt",
+        "JavaStepsBuilder.java",
+        "JavacPipelineState.java",
+        "JavacStep.java",
+    ],
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java:java",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem:filesystem",
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem/impl:utils",
+        "prelude//toolchains/android/src/com/facebook/buck/io/pathformat:pathformat",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/command:command",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/command/java:command",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/serialization:serialization",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/serialization/java:java",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/core:core",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java:support",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi:abi",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/source/api:api",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/runner:runner",
+        "prelude//toolchains/android/src/com/facebook/buck/step:step",
+        "prelude//toolchains/android/src/com/facebook/buck/step/isolatedsteps:isolatedsteps",
+        "prelude//toolchains/android/src/com/facebook/buck/step/isolatedsteps/java:java",
+        "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:environment",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
+        "prelude//toolchains/android/src/com/facebook/buck/util/unarchive:unarchive",
+        "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jackson-annotations",
+        "prelude//toolchains/android/third-party:jackson-databind",
+        "prelude//toolchains/android/third-party:jsr305",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd:cd",
+    ],
+)

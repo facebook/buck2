@@ -1,0 +1,29 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
+
+erlang_application(
+    name = "test_binary",
+    srcs = glob([
+        "src/*.erl",
+        "src/*.hrl",
+    ]),
+    applications = [
+        "kernel",
+        "stdlib",
+        "syntax_tools",
+        "xmerl",
+        "prelude//erlang/common_test/common:common",
+        "prelude//erlang/common_test/cth_hooks:cth_hooks",
+        "prelude//erlang/common_test/test_exec:test_exec",
+    ],
+    erl_opts = [
+        "+debug_info",
+        "+warnings_as_errors",
+    ],
+    includes = glob(["include/*.hrl"]),
+    use_global_parse_transforms = False,
+    visibility = ["PUBLIC"],
+)

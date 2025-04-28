@@ -11,23 +11,24 @@ use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
 use anyhow::Context as _;
-use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetIndex;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
-use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
 use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
+use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
+use buck2_core::deferred::key::DeferredHolderKey;
 use indoc::indoc;
+use starlark::StarlarkResultExt;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::FreezeErrorContext;
 use starlark::values::FrozenValueTyped;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
-use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 
@@ -68,7 +69,7 @@ pub(crate) fn new_transitive_set(
 
     buck2_interpreter_for_build::attrs::coerce::testing::to_value(&env, &globals, code);
 
-    let frozen = env.freeze().context("Freeze failed")?;
+    let frozen = env.freeze().freeze_error_context("Freeze failed")?;
 
     let make = frozen.get("make").context("`make` was not found")?;
 
@@ -81,10 +82,11 @@ pub(crate) fn new_transitive_set(
 
     let frozen = env2.freeze()?;
 
-    frozen
+    Ok(frozen
         .owned_extra_value()
         .context("Frozen value must be in extra value")?
-        .downcast_anyhow()
+        .downcast_starlark()
+        .map_err(buck2_error::Error::from)?)
 }
 
 #[test]

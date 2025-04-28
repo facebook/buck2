@@ -17,9 +17,9 @@
 // data in the right format and maybe escaping. It's not been imported to tp2 so we implement it
 // ourselves for now.
 
+use std::collections::HashMap;
 use std::collections::hash_map::Entry::Occupied;
 use std::collections::hash_map::Entry::Vacant;
-use std::collections::HashMap;
 use std::fmt::Display;
 use std::io::Write;
 
@@ -60,8 +60,8 @@ impl Display for DotNodeAttrs {
 }
 
 /// A node in the graph.
-pub trait DotNode {
-    fn attrs(&self) -> anyhow::Result<DotNodeAttrs>;
+pub(crate) trait DotNode {
+    fn attrs(&self) -> buck2_error::Result<DotNodeAttrs>;
     fn id(&self) -> String;
 }
 
@@ -71,20 +71,20 @@ pub struct DotEdge<'a> {
     to: &'a str,
 }
 
-pub trait DotDigraph<'a> {
+pub(crate) trait DotDigraph<'a> {
     type Node: DotNode;
 
     fn name(&self) -> &str;
 
-    fn for_each_node<F: FnMut(&Self::Node) -> anyhow::Result<()>>(
+    fn for_each_node<F: FnMut(&Self::Node) -> buck2_error::Result<()>>(
         &'a self,
         f: F,
-    ) -> anyhow::Result<()>;
-    fn for_each_edge<F: FnMut(&DotEdge) -> anyhow::Result<()>>(
+    ) -> buck2_error::Result<()>;
+    fn for_each_edge<F: FnMut(&DotEdge) -> buck2_error::Result<()>>(
         &'a self,
         node: &Self::Node,
         f: F,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
 }
 
 /// ids in dot format need to have the '"' escaped.
@@ -113,7 +113,10 @@ fn escape_id(value: &str) -> String {
 pub struct Dot {}
 
 impl Dot {
-    pub fn render<'a, T: DotDigraph<'a>, W: Write>(graph: &'a T, mut w: W) -> anyhow::Result<()> {
+    pub(crate) fn render<'a, T: DotDigraph<'a>, W: Write>(
+        graph: &'a T,
+        mut w: W,
+    ) -> buck2_error::Result<()> {
         writeln!(w, "digraph {} {{", graph.name())?;
         graph.for_each_node(|node| {
             let attrs = node.attrs()?;
@@ -132,7 +135,10 @@ impl Dot {
 pub struct DotCompact {}
 
 impl DotCompact {
-    pub fn render<'a, T: DotDigraph<'a>, W: Write>(graph: &'a T, mut w: W) -> anyhow::Result<()> {
+    pub(crate) fn render<'a, T: DotDigraph<'a>, W: Write>(
+        graph: &'a T,
+        mut w: W,
+    ) -> buck2_error::Result<()> {
         writeln!(w, "digraph {} {{", graph.name())?;
 
         let mut next_id: u32 = 0;

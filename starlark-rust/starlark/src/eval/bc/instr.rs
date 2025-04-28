@@ -17,10 +17,10 @@
 
 //! Define the bytecode instruction.
 
+use crate::eval::Evaluator;
 use crate::eval::bc::addr::BcPtrAddr;
 use crate::eval::bc::frame::BcFramePtr;
 use crate::eval::bc::instr_arg::BcInstrArg;
-use crate::eval::Evaluator;
 use crate::values::Value;
 
 /// Result of instruction evaluation.

@@ -22,9 +22,9 @@ use lsp_types::MarkupContent;
 use lsp_types::MarkupKind;
 use starlark::codemap::FileSpan;
 use starlark::collections::SmallMap;
-use starlark::docs::markdown::render_doc_item;
 use starlark::docs::DocItem;
 use starlark::docs::DocMember;
+use starlark::docs::markdown::render_doc_item_no_link;
 use starlark::syntax::AstModule;
 use starlark_syntax::syntax::ast::AstAssignIdent;
 use starlark_syntax::syntax::ast::Expr;
@@ -88,7 +88,7 @@ impl From<Symbol> for CompletionItem {
         let documentation = value.docs.map(|docs| {
             Documentation::MarkupContent(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: render_doc_item(&value.name, &docs),
+                value: render_doc_item_no_link(&value.name, &docs),
             })
         });
         Self {
@@ -164,7 +164,7 @@ impl AstModuleExportedSymbols for AstModule {
                                 .collect(),
                         },
                         || {
-                            get_doc_item_for_def(def)
+                            get_doc_item_for_def(def, self.codemap())
                                 .map(|x| DocItem::Member(DocMember::Function(x)))
                         },
                     );
@@ -185,7 +185,7 @@ mod tests {
     use super::*;
 
     fn module(x: &str) -> AstModule {
-        AstModule::parse("X", x.to_owned(), &Dialect::Extended).unwrap()
+        AstModule::parse("X", x.to_owned(), &Dialect::AllOptionsInternal).unwrap()
     }
 
     #[test]

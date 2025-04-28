@@ -3,6 +3,8 @@ id: common_issues
 title: Common Issues
 ---
 
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 ## Why is stdin being swallowed?
 
 Buck2 offers an interactive console by default.
@@ -68,8 +70,9 @@ genrules and tests. For example:
   `buck2 test`, you have a recursive invocation where the outer command is
   `buck2 test` and the inner command is `buck2 build`
 
-Recursive invocations should specify an `--isolation-dir`, or else buck2 will
-return an error.
+Recursive invocations should specify an
+[`--isolation-dir`](../../concepts/isolation_dir.md), or else buck2 will return
+an error.
 
 ## Why did my build OOM?
 

@@ -1,5 +1,4 @@
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
 
@@ -13,8 +12,8 @@ rust_library(
             "linux",
             [
                 "//buck2/app/buck2_forkserver_proto:buck2_forkserver_proto",
-                # @oss-disable: "//common/rust/shed/hostcaps:hostcaps", 
-                # @oss-disable: "//justknobs/rust:justknobs", 
+                # @oss-disable[end= ]: "//common/rust/shed/hostcaps:hostcaps",
+                # @oss-disable[end= ]: "//justknobs/rust:justknobs",
             ],
         ),
         (

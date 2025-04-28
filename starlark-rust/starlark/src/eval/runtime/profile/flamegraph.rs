@@ -22,7 +22,7 @@ use std::fmt::Write;
 use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
-use crate::values::layout::heap::profile::arc_str::ArcStr;
+use crate::util::arc_str::ArcStr;
 
 /// Node in flamegraph tree.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

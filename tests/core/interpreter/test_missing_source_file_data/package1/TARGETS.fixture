@@ -1,0 +1,1 @@
+test_target(name = "bad_target", srcs = ["non_existent_source_file.txt"])

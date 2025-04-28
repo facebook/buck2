@@ -1,0 +1,16 @@
+stub(
+    name = "python_and_asic",
+    default_target_platform = "//config:platform_windows",
+    toolchain_deps = [
+        "//toolchains:asic",
+        "//toolchains:python",
+    ],
+)
+
+stub(
+    name = "python_only",
+    default_target_platform = "//config:platform_windows",
+    toolchain_deps = [
+        "//toolchains:python",
+    ],
+)

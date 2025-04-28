@@ -9,8 +9,8 @@
 
 use allocator_stats::AllocatorStatsCommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use chrome_trace::ChromeTraceCommand;
@@ -29,7 +29,6 @@ use crate::commands::debug::exe::ExeCommand;
 use crate::commands::debug::log_perf::LogPerfCommand;
 use crate::commands::debug::paranoid::ParanoidCommand;
 use crate::commands::debug::persist_event_logs::PersistEventLogsCommand;
-use crate::commands::debug::segfault::SegfaultCommand;
 use crate::commands::debug::set_log_filter::SetLogFilterCommand;
 use crate::commands::debug::thread_dump::ThreadDumpCommand;
 use crate::commands::debug::trace_io::TraceIoCommand;
@@ -53,7 +52,6 @@ mod log_perf;
 mod materialize;
 mod paranoid;
 mod persist_event_logs;
-mod segfault;
 mod set_log_filter;
 mod thread_dump;
 mod trace_io;
@@ -64,10 +62,6 @@ pub(crate) mod upload_re_logs;
 pub enum DebugCommand {
     /// Deliberately crashes the Buck daemon, for testing purposes.
     Crash(CrashCommand),
-    /// Causes a segfault in the daemon.
-    ///
-    /// Useful to make sure that we're reporting it correctly.
-    SegFault(SegfaultCommand),
     HeapDump(HeapDumpCommand),
     /// Dumps allocator stat
     AllocatorStats(AllocatorStatsCommand),
@@ -109,31 +103,30 @@ pub enum DebugCommand {
 }
 
 impl DebugCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        let matches = matches.subcommand().expect("subcommand not found").1;
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+        let matches = matches.unwrap_subcommand();
         match self {
-            DebugCommand::DiceDump(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::Crash(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::HeapDump(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::AllocatorStats(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::DiceDump(cmd) => ctx.exec(cmd, matches),
+            DebugCommand::Crash(cmd) => ctx.exec(cmd, matches),
+            DebugCommand::HeapDump(cmd) => ctx.exec(cmd, matches),
+            DebugCommand::AllocatorStats(cmd) => ctx.exec(cmd, matches),
             DebugCommand::Replay(cmd) => cmd.exec(matches, ctx),
             DebugCommand::InternalVersion(cmd) => cmd.exec(matches, ctx),
             DebugCommand::ChromeTrace(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::SegFault(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::FlushDepFiles(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::FlushDepFiles(cmd) => ctx.exec(cmd, matches),
             DebugCommand::WhatRan(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::Materialize(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::Materialize(cmd) => ctx.exec(cmd, matches),
             DebugCommand::UploadReLogs(cmd) => cmd.exec(matches, ctx),
             DebugCommand::DaemonDir(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Exe(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::Allocative(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::Allocative(cmd) => ctx.exec(cmd, matches),
             DebugCommand::SetLogFilter(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::FileStatus(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::FileStatus(cmd) => ctx.exec(cmd, matches),
             DebugCommand::LogPerf(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::TraceIo(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::TraceIo(cmd) => ctx.exec(cmd, matches),
             DebugCommand::PersistEventLogs(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Paranoid(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::Eval(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::Eval(cmd) => ctx.exec(cmd, matches),
             DebugCommand::ThreadDump(cmd) => cmd.exec(matches, ctx),
         }
     }

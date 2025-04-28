@@ -33,7 +33,7 @@ os_version: {}
     }
 }
 
-pub(crate) async fn get() -> anyhow::Result<SystemInfo> {
+pub(crate) async fn get() -> buck2_error::Result<SystemInfo> {
     let info = buck2_events::metadata::system_info();
     let output = SystemInfo {
         username: info.username,

@@ -22,12 +22,6 @@ load(
 load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name")
 load("@prelude//utils:expect.bzl", "expect")
 
-def add_java_7_8_bootclasspath(target_level: int, bootclasspath_entries: list[Artifact], java_toolchain: JavaToolchainInfo) -> list[Artifact]:
-    # bootclasspath_7 is deprecated.
-    if target_level == 8:
-        return bootclasspath_entries + java_toolchain.bootclasspath_8
-    return bootclasspath_entries
-
 def declare_prefixed_output(actions: AnalysisActions, prefix: [str, None], output: str, dir: bool = False) -> Artifact:
     return actions.declare_output(declare_prefixed_name(output, prefix), dir = dir)
 
@@ -64,15 +58,14 @@ def get_abi_generation_mode(
 # a bunch of nested structs and then use write_json to get a json-encoded
 # protobuf message.
 #
-# The definition is in xplat/build_infra/buck_client/src/com/facebook/buck/cd/resources/proto/javacd.proto
-# and is, sadly, poorly documented.
-#
-# As we are generally trying to match buck1 for now, you can get buck1 to dump the protos for a build
-# by running `export JAVACD_DUMP_PROTOS=1; buck build foo -c javacd.pass_env_variables_to_javacd=true`
+# The definition is in xplat/toolchains/android/sdk/src/com/facebook/buck/cd/resources/proto/javacd.proto
+# and xplat/toolchains/android/sdk/src/com/facebook/buck/cd/resources/proto/kotlincd.proto and is, sadly,
+# poorly documented.
 
 # Our protobuf format mostly encodes paths in RelPath/AbsPath structs with a single "path" field.
 # Note that we don't actually use abspath and instead enable JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD
 TargetType = enum("library", "source_abi", "source_only_abi")
+BuildMode = enum("LIBRARY", "ABI")
 
 def encode_abi_generation_mode(mode: AbiGenerationMode) -> str:
     return {
@@ -92,11 +85,9 @@ def encode_target_type(target_type: TargetType) -> str:
     fail()
 
 OutputPaths = record(
-    jar_parent = Artifact,
     jar = Artifact,
     classes = Artifact,
     annotations = Artifact,
-    scratch = Artifact,
 )
 
 def qualified_name_with_subtarget(label: Label) -> str:
@@ -120,34 +111,17 @@ def define_output_paths(actions: AnalysisActions, prefix: [str, None], label: La
     # currently, javacd requires that at least some outputs are in the root
     # output dir. so we put all of them there. If javacd is updated we
     # could consolidate some of these into one subdir.
-    jar_parent = declare_prefixed_output(actions, prefix, "jar", dir = True)
     return OutputPaths(
-        jar_parent = jar_parent,
-        jar = jar_parent.project("{}.jar".format(label.name)),
+        jar = declare_prefixed_output(actions, prefix, "jar/{}.jar".format(label.name)),
         classes = declare_prefixed_output(actions, prefix, "__classes__", dir = True),
         annotations = declare_prefixed_output(actions, prefix, "__gen__", dir = True),
-        scratch = declare_prefixed_output(actions, prefix, "scratch", dir = True),
     )
-
-# buildifier: disable=uninitialized
-def output_paths_to_hidden_cmd_args(output_paths: OutputPaths, path_to_class_hashes: Artifact | None) -> cmd_args:
-    hidden = []
-    if path_to_class_hashes != None:
-        hidden.append(path_to_class_hashes.as_output())
-    hidden.append(output_paths.jar_parent.as_output())
-    hidden.append(output_paths.jar.as_output())
-    hidden.append(output_paths.classes.as_output())
-    hidden.append(output_paths.annotations.as_output())
-    hidden.append(output_paths.scratch.as_output())
-    return cmd_args(hidden = hidden)
 
 def encode_output_paths(label: Label, paths: OutputPaths, target_type: TargetType) -> struct:
     paths = struct(
         classesDir = paths.classes.as_output(),
-        outputJarDirPath = paths.jar_parent.as_output(),
+        outputJarDirPath = cmd_args(paths.jar.as_output(), parent = 1),
         annotationPath = paths.annotations.as_output(),
-        pathToSourcesList = cmd_args([paths.scratch.as_output(), "/", "__srcs__"], delimiter = ""),
-        workingDirectory = paths.scratch.as_output(),
         outputJarPath = paths.jar.as_output(),
     )
 
@@ -178,30 +152,16 @@ def command_abi_generation_mode(target_type: TargetType, abi_generation_mode: [A
         return AbiGenerationMode("source_only")
     return abi_generation_mode
 
-# TODO(cjhopman): Get correct output root (and figure out whether its even actually necessary).
-# TODO(cjhopman): Get correct ignore paths.
-filesystem_params = struct(
-    # For buck2, everything is relative to the project root.
-    rootPath = "",
-    configuredBuckOut = "buck-out/v2",
-    globIgnorePaths = [],
-)
-
 def get_compiling_deps_tset(
         actions: AnalysisActions,
         deps: list[Dependency],
-        additional_classpath_entries: list[Artifact]) -> [JavaCompilingDepsTSet, None]:
+        additional_classpath_entries: JavaCompilingDepsTSet | None) -> [JavaCompilingDepsTSet, None]:
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
     if additional_classpath_entries:
-        children = [compiling_deps_tset] if compiling_deps_tset else []
-        for entry in additional_classpath_entries:
-            children.append(actions.tset(JavaCompilingDepsTSet, value = JavaClasspathEntry(
-                full_library = entry,
-                abi = entry,
-                abi_as_dir = None,
-                required_for_source_only_abi = True,
-            )))
-        compiling_deps_tset = actions.tset(JavaCompilingDepsTSet, children = children)
+        if compiling_deps_tset == None:
+            compiling_deps_tset = additional_classpath_entries
+        else:
+            compiling_deps_tset = actions.tset(JavaCompilingDepsTSet, children = [compiling_deps_tset, additional_classpath_entries])
 
     return compiling_deps_tset
 
@@ -243,6 +203,7 @@ def encode_ap_params(annotation_processor_properties: AnnotationProcessorPropert
                         canReuseClassLoader = not ap.isolate_class_loader,
                         doesNotAffectAbi = not ap.affects_abi,
                         supportsAbiGenerationFromSource = ap.supports_source_only_abi,
+                        runsOnJavaOnly = ap.runs_on_java_only,
                         processorNames = ap.processors,
                         classpath = ap.deps.project_as_json("javacd_json") if ap.deps else [],
                         pathParams = {},
@@ -267,6 +228,7 @@ def encode_plugin_properties(processor: str, arguments: cmd_args, plugin_params:
         canReuseClassLoader = False,
         doesNotAffectAbi = False,
         supportsAbiGenerationFromSource = False,
+        runsOnJavaOnly = False,
         processorNames = [processor],
         classpath = plugin_params.deps.project_as_json("javacd_json") if plugin_params.deps else [],
         pathParams = {},
@@ -292,20 +254,27 @@ def encode_base_jar_command(
         manifest_file: Artifact | None,
         extra_arguments: cmd_args,
         source_only_abi_compiling_deps: list[JavaClasspathEntry],
-        track_class_usage: bool) -> struct:
-    library_jar_params = encode_jar_params(remove_classes, output_paths, manifest_file)
+        track_class_usage: bool,
+        provide_classpath_snapshot: bool = False) -> struct:
+    jar_parameters = encode_jar_params(remove_classes, output_paths, manifest_file)
     qualified_name = get_qualified_name(label, target_type)
     if target_type == TargetType("source_only_abi"):
         compiling_classpath = classpath_jars_tag.tag_artifacts([dep.abi for dep in source_only_abi_compiling_deps])
+        compiling_classpath_snapshot = {}
     else:
         expect(len(source_only_abi_compiling_deps) == 0)
+        compiling_deps_list = filter(None, list(compiling_deps_tset.traverse(ordering = "topological"))) if compiling_deps_tset else []
         compiling_classpath = classpath_jars_tag.tag_artifacts(
-            compiling_deps_tset.project_as_json("javacd_json") if compiling_deps_tset else None,
+            [dep.abi for dep in compiling_deps_list],
         )
+
+        # The snapshot inputs are tagged for association with dep_files, but they are not marked as used,
+        # as they serve the incremental compiler's internal needs,
+        # which are utilized after the build system has determined whether a rebuild is necessary.
+        compiling_classpath_snapshot = classpath_jars_tag.tag_artifacts({dep.abi: dep.abi_jar_snapshot or "" for dep in compiling_deps_list}) if provide_classpath_snapshot else {}
 
     build_target_value = struct(
         fullyQualifiedName = qualified_name,
-        buildTargetConfigHash = label.configured_target().config().hash,
         type = encode_target_type(target_type),
     )
     if javac_tool:
@@ -332,18 +301,14 @@ def encode_base_jar_command(
     return struct(
         outputPathsValue = encode_output_paths(label, output_paths, target_type),
         compileTimeClasspathPaths = compiling_classpath,
+        compileTimeClasspathSnapshotPaths = compiling_classpath_snapshot,
         javaSrcs = srcs,
-        # TODO(cjhopman): populate jar infos. I think these are only used for unused dependencies (and appear to be broken in buck1 w/javacd anyway).
-        fullJarInfos = [],
-        abiJarInfos = [],
         # We use "class" abi compatibility to match buck1 (other compatibility modes are used for abi verification.
         abiCompatibilityMode = encode_abi_generation_mode(AbiGenerationMode("class")),
         abiGenerationMode = encode_abi_generation_mode(command_abi_generation_mode(target_type, abi_generation_mode)),
         trackClassUsage = track_class_usage,
-        filesystemParams = filesystem_params,
+        configuredBuckOut = "buck-out/v2",
         buildTargetValue = build_target_value,
-        # TODO(cjhopman): Populate this or remove it.
-        cellToPathMappings = {},
         resourcesMap = [
             {
                 "key": v,
@@ -353,15 +318,19 @@ def encode_base_jar_command(
         ],
         resolvedJavac = resolved_javac,
         resolvedJavacOptions = resolved_java_options,
-        libraryJarParameters = library_jar_params,
+        jarParameters = jar_parameters,
+        pathToClasses = output_paths.jar.as_output(),
+        annotationsPath = output_paths.annotations.as_output(),
     )
 
 def setup_dep_files(
         actions: AnalysisActions,
         actions_identifier: [str, None],
         cmd: cmd_args,
+        post_build_params: dict,
         classpath_jars_tag: ArtifactTag,
-        used_classes_json_outputs: list[Artifact],
+        used_classes_json_outputs: list[cmd_args],
+        used_jars_json_output: Artifact,
         abi_to_abi_dir_map: [TransitiveSetArgsProjection, list[cmd_args], None],
         hidden = ["artifact"]) -> cmd_args:
     dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
@@ -369,29 +338,20 @@ def setup_dep_files(
     new_cmd_args = []
     new_cmd_hidden = []
     new_cmd_args.append(cmd)
-    new_cmd_args.append([
-        "--used-classes",
-    ] + [
-        used_classes_json.as_output()
-        for used_classes_json in used_classes_json_outputs
-    ] + [
-        "--dep-file",
-        classpath_jars_tag.tag_artifacts(dep_file.as_output()),
-    ])
+    post_build_params["usedClasses"] = used_classes_json_outputs
+    post_build_params["depFile"] = classpath_jars_tag.tag_artifacts(dep_file.as_output())
+    post_build_params["usedJarsFile"] = used_jars_json_output.as_output()
 
     if abi_to_abi_dir_map:
         abi_to_abi_dir_map_file = declare_prefixed_output(actions, actions_identifier, "abi_to_abi_dir_map")
         actions.write(abi_to_abi_dir_map_file, abi_to_abi_dir_map)
-        new_cmd_args.extend([
-            "--jar-to-jar-dir-map",
-            abi_to_abi_dir_map_file,
-        ])
+        post_build_params["jarToJarDirMap"] = abi_to_abi_dir_map_file
         if isinstance(abi_to_abi_dir_map, TransitiveSetArgsProjection):
             new_cmd_hidden.append(classpath_jars_tag.tag_artifacts(abi_to_abi_dir_map))
         for hidden_artifact in hidden:
             new_cmd_hidden.append(classpath_jars_tag.tag_artifacts(hidden_artifact))
 
-    return cmd_args(new_cmd_args, hidden = new_cmd_hidden)
+    return cmd_args(hidden = new_cmd_hidden)
 
 FORCE_PERSISTENT_WORKERS = read_root_config("build", "require_persistent_workers", "false").lower() == "true"
 
@@ -493,10 +453,12 @@ def prepare_final_jar(
         output_paths: OutputPaths,
         additional_compiled_srcs: Artifact | None,
         jar_builder: RunInfo,
-        jar_postprocessor: [RunInfo, None]) -> FinalJarOutput:
+        jar_postprocessor: [RunInfo, None],
+        jar_postprocessor_runner: RunInfo,
+        zip_scrubber: RunInfo) -> FinalJarOutput:
     def make_output(jar: Artifact) -> FinalJarOutput:
         if jar_postprocessor:
-            postprocessed_jar = postprocess_jar(actions, jar_postprocessor, jar, actions_identifier)
+            postprocessed_jar = postprocess_jar(actions, zip_scrubber, jar_postprocessor, jar_postprocessor_runner, jar, actions_identifier)
             return FinalJarOutput(final_jar = postprocessed_jar, preprocessed_jar = jar)
         else:
             return FinalJarOutput(final_jar = jar, preprocessed_jar = jar)
@@ -528,6 +490,65 @@ def prepare_final_jar(
 
     return make_output(merged_jar)
 
+def encode_command(
+        javac_tool: [str, RunInfo, Artifact, None],
+        label: Label,
+        srcs: list[Artifact],
+        remove_classes: list[str],
+        annotation_processor_properties: AnnotationProcessorProperties,
+        plugin_params: [PluginParams, None],
+        manifest_file: Artifact | None,
+        source_level: int,
+        target_level: int,
+        compiling_deps_tset: [JavaCompilingDepsTSet, None],
+        bootclasspath_entries: list[Artifact],
+        abi_generation_mode: AbiGenerationMode,
+        resources_map: dict[str, Artifact],
+        extra_arguments: cmd_args,
+        kotlin_extra_params: [struct, None],
+        provide_classpath_snapshot: bool,
+        build_mode: BuildMode,
+        target_type: TargetType,
+        output_paths: OutputPaths,
+        classpath_jars_tag: ArtifactTag,
+        source_only_abi_compiling_deps: list[JavaClasspathEntry],
+        track_class_usage: bool) -> struct:
+    base_jar_command = encode_base_jar_command(
+        javac_tool,
+        target_type,
+        output_paths,
+        remove_classes,
+        label,
+        compiling_deps_tset,
+        classpath_jars_tag,
+        bootclasspath_entries,
+        source_level,
+        target_level,
+        abi_generation_mode,
+        srcs,
+        resources_map,
+        annotation_processor_properties = annotation_processor_properties,
+        plugin_params = plugin_params,
+        manifest_file = manifest_file,
+        extra_arguments = cmd_args(extra_arguments),
+        source_only_abi_compiling_deps = source_only_abi_compiling_deps,
+        track_class_usage = track_class_usage,
+        provide_classpath_snapshot = provide_classpath_snapshot,
+    )
+
+    if kotlin_extra_params:
+        return struct(
+            buildMode = build_mode,
+            baseJarCommand = base_jar_command,
+            kotlinExtraParams = kotlin_extra_params,
+        )
+    else:
+        return struct(
+            buildMode = build_mode,
+            baseJarCommand = base_jar_command,
+        )
+
+# buildifier: disable=unused-variable
 def generate_abi_jars(
         actions: AnalysisActions,
         actions_identifier: [str, None],
@@ -541,6 +562,7 @@ def generate_abi_jars(
         source_only_abi_deps: list[Dependency],
         class_abi_jar: Artifact | None,
         class_abi_output_dir: Artifact | None,
+        track_class_usage: bool,
         encode_abi_command: typing.Callable,
         define_action: typing.Callable) -> tuple:
     class_abi = None
@@ -560,7 +582,14 @@ def generate_abi_jars(
             source_abi_output_paths = define_output_paths(actions, source_abi_identifier, label)
             source_abi_classpath_jars_tag = actions.artifact_tag()
             source_abi_dir = declare_prefixed_output(actions, source_abi_identifier, "source-abi-dir", dir = True)
-            source_abi_command = encode_abi_command(source_abi_output_paths, source_abi_target_type, source_abi_classpath_jars_tag)
+            source_abi_command = encode_abi_command(
+                build_mode = BuildMode("ABI"),
+                target_type = source_abi_target_type,
+                output_paths = source_abi_output_paths,
+                classpath_jars_tag = source_abi_classpath_jars_tag,
+                source_only_abi_compiling_deps = [],
+                track_class_usage = track_class_usage,
+            )
             define_action(
                 "source_abi_",
                 source_abi_identifier,
@@ -570,7 +599,6 @@ def generate_abi_jars(
                 source_abi_classpath_jars_tag,
                 source_abi_dir,
                 source_abi_target_type,
-                path_to_class_hashes = None,
             )
             source_abi = source_abi_output_paths.jar
 
@@ -586,7 +614,14 @@ def generate_abi_jars(
             source_only_abi_classpath_jars_tag = actions.artifact_tag()
             source_only_abi_dir = declare_prefixed_output(actions, source_only_abi_identifier, "dir", dir = True)
             source_only_abi_compiling_deps = _get_source_only_abi_compiling_deps(compiling_deps_tset, source_only_abi_deps)
-            source_only_abi_command = encode_abi_command(source_only_abi_output_paths, source_only_abi_target_type, source_only_abi_classpath_jars_tag, source_only_abi_compiling_deps)
+            source_only_abi_command = encode_abi_command(
+                build_mode = BuildMode("ABI"),
+                target_type = source_only_abi_target_type,
+                output_paths = source_only_abi_output_paths,
+                classpath_jars_tag = source_only_abi_classpath_jars_tag,
+                source_only_abi_compiling_deps = source_only_abi_compiling_deps,
+                track_class_usage = track_class_usage,
+            )
             define_action(
                 "source_only_abi_",
                 source_only_abi_identifier,
@@ -596,7 +631,6 @@ def generate_abi_jars(
                 source_only_abi_classpath_jars_tag,
                 source_only_abi_dir,
                 source_only_abi_target_type,
-                path_to_class_hashes = None,
                 source_only_abi_compiling_deps = source_only_abi_compiling_deps,
             )
             source_only_abi = source_only_abi_output_paths.jar
@@ -619,17 +653,29 @@ def generate_abi_jars(
 
 def postprocess_jar(
         actions: AnalysisActions,
+        zip_scrubber: RunInfo,
         jar_postprocessor: RunInfo,
+        jar_postprocessor_runner: RunInfo,
         original_jar: Artifact,
         actions_identifier: [str, None]) -> Artifact:
-    postprocessed_output = actions.declare_output("postprocessed_{}".format(original_jar.short_path))
-    processor_cmd_args = cmd_args(
-        jar_postprocessor,
-        original_jar,
+    jar_path = original_jar.short_path
+    postprocessed_output = actions.declare_output("postprocessed_{}".format(jar_path))
+
+    postprocess_jar_cmd = cmd_args(
+        jar_postprocessor_runner,
+        "--postprocessor_cmd",
+        cmd_args([
+            jar_postprocessor,
+            original_jar,
+            postprocessed_output.as_output(),
+        ], delimiter = " "),
+        "--zip_scrubber",
+        cmd_args(zip_scrubber, delimiter = " "),
+        "--output",
         postprocessed_output.as_output(),
     )
 
     identifier = actions_identifier if actions_identifier else ""
-    actions.run(processor_cmd_args, category = "postprocessed{}".format(identifier))
+    actions.run(postprocess_jar_cmd, category = "postprocessed{}".format(identifier))
 
     return postprocessed_output

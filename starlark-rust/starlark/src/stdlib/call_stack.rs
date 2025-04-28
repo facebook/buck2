@@ -31,8 +31,6 @@ use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::eval::Evaluator;
-use crate::values::none::NoneOr;
-use crate::values::starlark_value;
 use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::NoSerialize;
@@ -40,17 +38,10 @@ use crate::values::ProvidesStaticType;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
-use crate::StarlarkDocs;
+use crate::values::none::NoneOr;
+use crate::values::starlark_value;
 
-#[derive(
-    ProvidesStaticType,
-    Trace,
-    Allocative,
-    StarlarkDocs,
-    Debug,
-    NoSerialize,
-    Clone
-)]
+#[derive(ProvidesStaticType, Trace, Allocative, Debug, NoSerialize, Clone)]
 /// A frame of the call-stack.
 struct StackFrame {
     /// The name of the entry on the call-stack.
@@ -83,16 +74,16 @@ impl Display for StackFrame {
 fn stack_frame_methods(builder: &mut MethodsBuilder) {
     /// Returns the name of the entry on the call-stack.
     #[starlark(attribute)]
-    fn func_name(this: &StackFrame) -> anyhow::Result<String> {
+    fn func_name(this: &StackFrame) -> starlark::Result<String> {
         Ok(this.name.clone())
     }
 
     /// Returns a path of the module from which the entry was called, or [`None`] for native Rust functions.
     #[starlark(attribute)]
-    fn module_path(this: &StackFrame) -> anyhow::Result<Option<String>> {
+    fn module_path(this: &StackFrame) -> starlark::Result<NoneOr<String>> {
         match this.location {
-            Some(ref location) => Ok(Some(location.file.filename().to_owned())),
-            None => Ok(None),
+            Some(ref location) => Ok(NoneOr::Other(location.file.filename().to_owned())),
+            None => Ok(NoneOr::None),
         }
     }
 }

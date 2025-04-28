@@ -13,11 +13,11 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::typing::Ty;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 
-use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 
 impl AttrTypeCoerce for BoolAttrType {
     fn coerce_item(
@@ -25,11 +25,10 @@ impl AttrTypeCoerce for BoolAttrType {
         _configurable: AttrIsConfigurable,
         _ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
-        match value.unpack_bool() {
-            Some(s) => Ok(CoercedAttr::Bool(BoolLiteral(s))),
-            None => Err(anyhow::anyhow!(CoercionError::type_error("bool", value))),
-        }
+    ) -> buck2_error::Result<CoercedAttr> {
+        Ok(CoercedAttr::Bool(BoolLiteral(
+            UnpackValue::unpack_value_err(value)?,
+        )))
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

@@ -21,11 +21,11 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 
+use crate::Equivalent;
 use crate::ordered_set::OrderedSet;
 use crate::small_set;
 use crate::small_set::SmallSet;
 use crate::sorted_vec::SortedVec;
-use crate::Equivalent;
 
 /// An immutable `SmallSet` with values guaranteed to be sorted.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]
@@ -71,18 +71,18 @@ where
 
     /// Get the element in the set.
     #[inline]
-    pub fn get<Q: ?Sized>(&self, value: &Q) -> Option<&T>
+    pub fn get<Q>(&self, value: &Q) -> Option<&T>
     where
-        Q: Hash + Equivalent<T>,
+        Q: ?Sized + Hash + Equivalent<T>,
     {
         self.inner.get(value)
     }
 
     /// Check if the set contains the given value.
     #[inline]
-    pub fn contains<Q: ?Sized>(&self, value: &Q) -> bool
+    pub fn contains<Q>(&self, value: &Q) -> bool
     where
-        Q: Hash + Equivalent<T>,
+        Q: ?Sized + Hash + Equivalent<T>,
     {
         self.inner.contains(value)
     }

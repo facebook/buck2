@@ -1,0 +1,15 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
+
+prelude = native
+
+prelude.sh_binary(
+    name = "win_python_wrapper",
+    copy_resources = True,
+    main = "win_python_wrapper.bat",
+    target_compatible_with = ["config//os:windows"],
+    visibility = ["PUBLIC"],
+)

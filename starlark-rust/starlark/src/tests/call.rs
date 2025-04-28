@@ -72,10 +72,10 @@ def rec6(): rec2()
     assert::is_true("NAME=True\ndef f(*args, pkg=NAME, **kwargs): return pkg\nf()");
     assert::is_true("def f(*args, pkg=False, **kwargs): return pkg\nf(pkg=True)");
     assert::is_true("def f(a, b=1, *args, c=False): return c\nf(a=1,c=True)");
-    assert::fail("def f(a, **kwargs, b=1): pass", "Default parameter after");
+    assert::fail("def f(a, **kwargs, b=1): pass", "Parameter after kwargs");
     assert::fail(
         "def f(a, b=1, **kwargs, c=1): pass",
-        "Default parameter after",
+        "Parameter after kwargs",
     );
     assert::fail("def f(a, **kwargs, *args): pass", "parameter after another");
 }
@@ -240,7 +240,7 @@ def f(x, *, y):
     pass
 noop(f)(1)
 "#,
-        "Missing parameter `y`",
+        "Missing named-only parameter `y`",
     );
 }
 
@@ -253,6 +253,31 @@ def f(*args, x, y = 42, z):
 assert_eq(f(x = 1, z = 3), ((), 1, 42, 3))
 assert_eq(f(2, 4, y = 7, x = 1, z = 3), ((2, 4), 1, 7, 3))
 "#,
+    );
+}
+
+#[test]
+fn test_pos_only_pass() {
+    assert::pass(
+        r#"
+def f(x, /, y):
+    return x, y
+assert_eq((1, 2), f(1, y=2))
+"#,
+    );
+}
+
+#[test]
+fn test_pos_only_fail() {
+    assert::fail(
+        r#"
+def f(x, /, y):
+    return x, y
+g = noop(f) # Hide from static type checker.
+g(x=1, y=2)
+"#,
+        // TODO(nga): bad message.
+        "Missing positional-only parameter `x` for call",
     );
 }
 

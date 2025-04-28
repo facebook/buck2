@@ -12,6 +12,8 @@ use std::hash::Hash;
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
 use derive_more::Display;
+use serde::Serialize;
+use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
@@ -20,28 +22,27 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
-use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark::StarlarkDocs;
+use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
-#[derive(
-    Debug,
-    PartialEq,
-    Display,
-    ProvidesStaticType,
-    NoSerialize,
-    Allocative,
-    StarlarkDocs
-)]
+#[derive(Debug, PartialEq, Display, ProvidesStaticType, Allocative)]
 pub struct StarlarkCellPath(pub CellPath);
 
 starlark_simple_value!(StarlarkCellPath);
 
-#[starlark_value(type = "label_relative_path")]
+impl Serialize for StarlarkCellPath {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        s.collect_str(self)
+    }
+}
+
+#[starlark_value(type = "CellPath")]
 impl<'v> StarlarkValue<'v> for StarlarkCellPath {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -63,7 +64,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCellPath {
 
 #[starlark_module]
 fn cell_path_methods(builder: &mut MethodsBuilder) {
-    fn add(this: &StarlarkCellPath, arg: &str) -> anyhow::Result<StarlarkCellPath> {
+    fn add(this: &StarlarkCellPath, arg: &str) -> starlark::Result<StarlarkCellPath> {
         Ok(StarlarkCellPath((this).0.join_normalized(arg)?))
     }
 }

@@ -1,0 +1,17 @@
+[package]
+description = "Tests for buck2_error"
+edition = "2021"
+license = { workspace = true }
+name = "buck2_error_tests"
+repository = { workspace = true }
+version = "0.1.0"
+
+[dev-dependencies]
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+starlark = { workspace = true }
+starlark_syntax = { workspace = true }
+
+buck2_error = { workspace = true }
+buck2_util = { workspace = true }

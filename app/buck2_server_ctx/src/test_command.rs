@@ -22,6 +22,6 @@ pub static TEST_COMMAND: LateBinding<
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::TestRequest,
     ) -> Pin<
-        Box<dyn Future<Output = anyhow::Result<buck2_cli_proto::TestResponse>> + Send + 'a>,
+        Box<dyn Future<Output = buck2_error::Result<buck2_cli_proto::TestResponse>> + Send + 'a>,
     >,
 > = LateBinding::new("TEST_COMMAND");

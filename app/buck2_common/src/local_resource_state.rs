@@ -11,10 +11,10 @@ use std::sync::Arc;
 
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use derivative::Derivative;
+use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
-use tokio::sync::Mutex;
 
 #[derive(Debug, PartialEq)]
 pub struct EnvironmentVariable {
@@ -133,7 +133,7 @@ mod tests {
     use crate::local_resource_state::LocalResourceState;
 
     #[tokio::test]
-    async fn test_canary() -> anyhow::Result<()> {
+    async fn test_canary() -> buck2_error::Result<()> {
         let target =
             ConfiguredTargetLabel::testing_parse("foo//bar:baz", ConfigurationData::testing_new());
         let specs = vec![

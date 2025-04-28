@@ -8,6 +8,11 @@
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:linker.bzl", "get_default_shared_library_name")
 load(
+    "@prelude//cxx:preprocessor.bzl",
+    "cxx_inherited_preprocessor_infos",
+    "cxx_merge_cpreprocessors",
+)
+load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
 )
@@ -45,20 +50,26 @@ load(
 )
 load(":link.bzl", "GoBuildMode", "link")
 load(":package_builder.bzl", "build_package")
+load(":packages.bzl", "cgo_exported_preprocessor", "go_attr_pkg_name")
+load(":toolchain.bzl", "evaluate_cgo_enabled")
 
 def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
+    cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
+    pkg_name = go_attr_pkg_name(ctx)
+
     lib, pkg_info = build_package(
-        ctx,
-        "main",
-        ctx.attrs.srcs,
+        ctx = ctx,
+        pkg_name = pkg_name,
+        main = True,
+        srcs = ctx.attrs.srcs,
         package_root = ctx.attrs.package_root,
         deps = ctx.attrs.deps,
         compiler_flags = ctx.attrs.compiler_flags,
+        build_tags = ctx.attrs._build_tags,
         race = ctx.attrs._race,
         asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,
-        # We need to set CGO_DESABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
-        force_disable_cgo = True,
+        cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled),
     )
 
     def link_variant(build_mode: GoBuildMode):
@@ -113,6 +124,8 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     ])
 
+    own_exported_preprocessors = [cgo_exported_preprocessor(ctx, pkg_info)] if ctx.attrs.generate_exported_header else []
+
     return [
         DefaultInfo(
             default_output = c_archive if ctx.attrs.build_mode == "c_archive" else c_shared,
@@ -143,5 +156,6 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ),
             deps = ctx.attrs.deps,
         ),
+        cxx_merge_cpreprocessors(ctx, own_exported_preprocessors, cxx_inherited_preprocessor_infos(ctx.attrs.deps)),
         pkg_info,
     ]

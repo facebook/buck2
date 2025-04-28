@@ -73,7 +73,7 @@ fn test_named_only() {
     let mut a = Assert::new();
     a.globals_add(named_positional_functions);
     a.eq("31", "named_only(x=31)");
-    a.fail("noop(named_only)(37)", "Missing parameter");
+    a.fail("noop(named_only)(37)", "Missing named-only parameter");
 }
 
 #[test]
@@ -81,7 +81,10 @@ fn test_named_after_args() {
     let mut a = Assert::new();
     a.globals_add(named_positional_functions);
     a.eq("13", "named_after_args(1, 2, x=10)");
-    a.fail("noop(named_after_args)(1, 2, 3)", "Missing parameter");
+    a.fail(
+        "noop(named_after_args)(1, 2, 3)",
+        "Missing named-only parameter",
+    );
 }
 
 #[test]
@@ -91,6 +94,6 @@ fn test_named_after_args_explicitly_marked() {
     a.eq("13", "named_after_args_explicitly_marked(1, 2, x=10)");
     a.fail(
         "noop(named_after_args_explicitly_marked)(1, 2, 3)",
-        "Missing parameter",
+        "Missing named-only parameter",
     );
 }

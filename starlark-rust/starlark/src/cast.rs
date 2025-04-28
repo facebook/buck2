@@ -26,12 +26,12 @@ pub(crate) fn ptr_to_usize<T: ?Sized>(x: &T) -> usize {
 pub(crate) unsafe fn usize_to_ptr<'a, T>(x: usize) -> &'a T {
     debug_assert!(x != 0, "Zero is not a valid pointer");
     debug_assert!(x % std::mem::align_of::<T>() == 0, "Pointer is not aligned");
-    &*(x as *const T)
+    unsafe { &*(x as *const T) }
 }
 
 #[inline(always)]
 pub(crate) unsafe fn ptr_lifetime<'a, 'b, T: ?Sized>(x: &'a T) -> &'b T {
-    &*(x as *const T)
+    unsafe { &*(x as *const T) }
 }
 
 /// `transmute!(from-type, to-type, value)` will do a [`transmute`](std::mem::transmute),

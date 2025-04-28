@@ -73,6 +73,7 @@ buck2_test = { workspace = true }
 buck2_util = { workspace = true }
 buck2_validation = { workspace = true }
 buck2_wrapper_common = { workspace = true }
+dashmap = { workspace = true }
 host_sharing = { workspace = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]

@@ -17,19 +17,16 @@
 
 //! Function types, including native functions and `object.member` functions.
 
-use std::collections::HashMap;
-
 use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
-use crate::docs::DocFunction;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocProperty;
@@ -37,21 +34,17 @@ use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
-use crate::eval::ParametersParser;
-use crate::eval::ParametersSpec;
 use crate::private::Private;
 use crate::starlark_complex_value;
 use crate::starlark_simple_value;
-use crate::typing::arc_ty::ArcTy;
-use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::ellipsis::Ellipsis;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
+use crate::typing::arc_ty::ArcTy;
+use crate::typing::tuple::TyTuple;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenValue;
@@ -63,6 +56,9 @@ use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::ellipsis::Ellipsis;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 #[derive(Debug, thiserror::Error)]
 enum FunctionError {
@@ -90,6 +86,7 @@ pub enum SpecialBuiltinFunction {
     List,
     Dict,
     Tuple,
+    Set,
 }
 
 /// A native function that can be evaluated.
@@ -102,22 +99,6 @@ pub trait NativeFunc: Send + Sync + 'static {
         eval: &mut Evaluator<'v, '_, '_>,
         args: &Arguments<'v, '_>,
     ) -> crate::Result<Value<'v>>;
-}
-
-impl<T> NativeFunc for T
-where
-    T: for<'v> Fn(&mut Evaluator<'v, '_, '_>, &Arguments<'v, '_>) -> crate::Result<Value<'v>>
-        + Send
-        + Sync
-        + 'static,
-{
-    fn invoke<'v>(
-        &self,
-        eval: &mut Evaluator<'v, '_, '_>,
-        args: &Arguments<'v, '_>,
-    ) -> crate::Result<Value<'v>> {
-        (*self)(eval, args)
-    }
 }
 
 /// Native method implementation.
@@ -133,27 +114,6 @@ pub trait NativeMeth: Send + Sync + 'static {
     ) -> crate::Result<Value<'v>>;
 }
 
-impl<T> NativeMeth for T
-where
-    T: for<'v> Fn(
-            &mut Evaluator<'v, '_, '_>,
-            Value<'v>,
-            &Arguments<'v, '_>,
-        ) -> crate::Result<Value<'v>>
-        + Send
-        + Sync
-        + 'static,
-{
-    fn invoke<'v>(
-        &self,
-        eval: &mut Evaluator<'v, '_, '_>,
-        this: Value<'v>,
-        args: &Arguments<'v, '_>,
-    ) -> crate::Result<Value<'v>> {
-        (*self)(eval, this, args)
-    }
-}
-
 /// A native function that can be evaluated.
 pub trait NativeAttr:
     for<'v> Fn(Value<'v>, &'v Heap) -> crate::Result<Value<'v>> + Send + Sync + 'static
@@ -165,97 +125,30 @@ impl<T> NativeAttr for T where
 {
 }
 
-/// Enough details to get the documentation for a callable ([`NativeFunction`] or [`NativeMethod`])
-#[doc(hidden)]
-#[derive(Allocative)]
-pub struct NativeCallableRawDocs {
-    pub rust_docstring: Option<&'static str>,
-    pub signature: ParametersSpec<FrozenValue>,
-    pub parameter_types: Vec<Ty>,
-    pub return_type: Ty,
-    pub as_type: Option<Ty>,
-}
-
-#[doc(hidden)]
-impl NativeCallableRawDocs {
-    pub fn documentation(&self) -> DocFunction {
-        DocFunction::from_docstring(
-            DocStringKind::Rust,
-            self.signature
-                .documentation(self.parameter_types.clone(), HashMap::new()),
-            self.return_type.clone(),
-            self.rust_docstring,
-            self.as_type.clone(),
-        )
-    }
-}
-
 /// Starlark representation of native (Rust) functions.
 ///
 /// Almost always created with [`#[starlark_module]`](macro@crate::starlark_module).
 #[derive(Derivative, ProvidesStaticType, Display, NoSerialize, Allocative)]
 #[derivative(Debug)]
-#[display(fmt = "{}", name)]
-pub struct NativeFunction {
+#[display("{}", name)]
+pub(crate) struct NativeFunction {
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
     pub(crate) function: Box<dyn NativeFunc>,
     pub(crate) name: String,
     /// `.type` attribute and a type when this function is used in type expression.
-    pub(crate) type_attr: Option<Ty>,
-    pub(crate) ty: Option<Ty>,
+    pub(crate) as_type: Option<Ty>,
+    pub(crate) ty: Ty,
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     #[derivative(Debug = "ignore")]
-    pub(crate) raw_docs: Option<NativeCallableRawDocs>,
+    pub(crate) docs: DocItem,
     pub(crate) special_builtin_function: Option<SpecialBuiltinFunction>,
 }
 
 impl AllocFrozenValue for NativeFunction {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc_simple(self)
-    }
-}
-
-impl NativeFunction {
-    /// Create a new [`NativeFunction`] from the Rust function which works directly on the parameters.
-    /// The called function is responsible for validating the parameters are correct.
-    pub fn new_direct<F>(function: F, name: String) -> Self
-    where
-        // If I switch this to the trait alias then it fails to resolve the usages
-        F: for<'v> Fn(&mut Evaluator<'v, '_, '_>, &Arguments<'v, '_>) -> crate::Result<Value<'v>>
-            + Send
-            + Sync
-            + 'static,
-    {
-        NativeFunction {
-            function: Box::new(function),
-            name,
-            type_attr: None,
-            ty: None,
-            speculative_exec_safe: false,
-            raw_docs: None,
-            special_builtin_function: None,
-        }
-    }
-
-    /// Create a new [`NativeFunction`] from the Rust function, plus the parameter specification.
-    pub fn new<F>(function: F, name: String, parameters: ParametersSpec<FrozenValue>) -> Self
-    where
-        F: for<'v> Fn(
-                &mut Evaluator<'v, '_, '_>,
-                ParametersParser<'v, '_>,
-            ) -> crate::Result<Value<'v>>
-            + Send
-            + Sync
-            + 'static,
-    {
-        Self::new_direct(
-            move |eval, params| {
-                parameters.parser(params, eval, |parser, eval| function(eval, parser))
-            },
-            name,
-        )
     }
 }
 
@@ -278,7 +171,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     }
 
     fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
-        if let Some(s) = self.type_attr.as_ref().map(|t| t.as_name()) {
+        if let Some(s) = self.as_type.as_ref().and_then(|t| t.as_name()) {
             if attribute == "type" {
                 return Some(heap.alloc(s));
             }
@@ -287,7 +180,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     }
 
     fn eval_type(&self) -> Option<Ty> {
-        self.type_attr.clone()
+        self.as_type.clone()
     }
 
     fn has_attr(&self, _attribute: &str, _heap: &'v Heap) -> bool {
@@ -296,28 +189,30 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     }
 
     fn dir_attr(&self) -> Vec<String> {
-        if self.type_attr.is_some() {
+        if self.as_type.is_some() {
             vec!["type".to_owned()]
         } else {
             Vec::new()
         }
     }
 
-    fn documentation(&self) -> Option<DocItem> {
-        self.raw_docs
-            .as_ref()
-            .map(|raw_docs| DocItem::Member(DocMember::Function(raw_docs.documentation())))
+    fn documentation(&self) -> DocItem {
+        self.docs.clone()
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
-        self.ty.clone()
+        Some(self.ty.dupe())
     }
 
     fn at(&self, index: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match &self.special_builtin_function {
             Some(SpecialBuiltinFunction::List) => {
-                let index = TypeCompiled::new_with_string(index, heap)?;
+                let index = TypeCompiled::new(index, heap)?;
                 Ok(TypeCompiled::type_list_of(index, heap).to_inner())
+            }
+            Some(SpecialBuiltinFunction::Set) => {
+                let index = TypeCompiled::new(index, heap)?;
+                Ok(TypeCompiled::type_set_of(index, heap).to_inner())
             }
             _ => ValueError::unsupported(self, "[]"),
         }
@@ -332,12 +227,12 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     ) -> crate::Result<Value<'v>> {
         match &self.special_builtin_function {
             Some(SpecialBuiltinFunction::Dict) => {
-                let index0 = TypeCompiled::new_with_string(index0, heap)?;
-                let index1 = TypeCompiled::new_with_string(index1, heap)?;
+                let index0 = TypeCompiled::new(index0, heap)?;
+                let index1 = TypeCompiled::new(index1, heap)?;
                 Ok(TypeCompiled::type_dict_of(index0, index1, heap).to_inner())
             }
             Some(SpecialBuiltinFunction::Tuple) => {
-                let item = TypeCompiled::new_with_string(index0, heap)?;
+                let item = TypeCompiled::new(index0, heap)?;
                 if index1.downcast_ref::<Ellipsis>().is_some() {
                     Ok(TypeCompiled::from_ty(
                         &Ty::basic(TyBasic::Tuple(TyTuple::Of(ArcTy::new(
@@ -357,7 +252,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
 
 #[derive(Derivative, Display, NoSerialize, ProvidesStaticType, Allocative)]
 #[derivative(Debug)]
-#[display(fmt = "{}", name)]
+#[display("{}", name)]
 pub(crate) struct NativeMethod {
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
@@ -367,17 +262,15 @@ pub(crate) struct NativeMethod {
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     #[derivative(Debug = "ignore")]
-    pub(crate) raw_docs: NativeCallableRawDocs,
+    pub(crate) docs: DocItem,
 }
 
 starlark_simple_value!(NativeMethod);
 
 #[starlark_value(type = "native_method")]
 impl<'v> StarlarkValue<'v> for NativeMethod {
-    fn documentation(&self) -> Option<DocItem> {
-        Some(DocItem::Member(DocMember::Function(
-            self.raw_docs.documentation(),
-        )))
+    fn documentation(&self) -> DocItem {
+        self.docs.clone()
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -388,7 +281,7 @@ impl<'v> StarlarkValue<'v> for NativeMethod {
 /// Used by the `#[starlark(attribute)]` tag of [`#[starlark_module]`](macro@starlark_module)
 /// to define a function that pretends to be an attribute.
 #[derive(Derivative, Display, NoSerialize, ProvidesStaticType, Allocative)]
-#[display(fmt = "Attribute")]
+#[display("Attribute")]
 #[derivative(Debug)]
 pub(crate) struct NativeAttribute {
     /// Safe to evaluate speculatively.
@@ -414,16 +307,13 @@ impl NativeAttribute {
 
 #[starlark_value(type = "attribute")]
 impl<'v> StarlarkValue<'v> for NativeAttribute {
-    fn documentation(&self) -> Option<DocItem> {
+    fn documentation(&self) -> DocItem {
         let ds = self
             .docstring
             .as_ref()
             .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));
         let typ = self.typ.clone();
-        Some(DocItem::Member(DocMember::Property(DocProperty {
-            docs: ds,
-            typ,
-        })))
+        DocItem::Member(DocMember::Property(DocProperty { docs: ds, typ }))
     }
 }
 
@@ -440,7 +330,7 @@ impl<'v> StarlarkValue<'v> for NativeAttribute {
     Allocative
 )]
 #[repr(C)]
-#[display(fmt = "{}", method)]
+#[display("{}", method)]
 pub(crate) struct BoundMethodGen<V: ValueLifetimeless> {
     pub(crate) method: FrozenValueTyped<'static, NativeMethod>,
     pub(crate) this: V,
@@ -472,7 +362,7 @@ where
             .invoke(eval, self.this.to_value(), args)
     }
 
-    fn documentation(&self) -> Option<DocItem> {
+    fn documentation(&self) -> DocItem {
         self.method.documentation()
     }
 }

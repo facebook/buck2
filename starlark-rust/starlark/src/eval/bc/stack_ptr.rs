@@ -36,7 +36,7 @@ use dupe::Dupe;
     Hash,
     derive_more::Display
 )]
-#[display(fmt = "&{}", _0)]
+#[display("&{}", _0)]
 pub(crate) struct BcSlot(pub(crate) u32);
 
 impl BcSlot {
@@ -79,7 +79,7 @@ impl<const N: usize> BcSlotsN<N> {
 }
 
 #[derive(Copy, Clone, Dupe, Debug, derive_more::Display)]
-#[display(fmt = "{}..{}", start, end)]
+#[display("{}..{}", start, end)]
 pub(crate) struct BcSlotRange {
     pub(crate) start: BcSlot,
     pub(crate) end: BcSlot,
@@ -129,7 +129,7 @@ impl BcSlotIn {
 }
 
 #[derive(Copy, Clone, Dupe, Debug, derive_more::Display)]
-#[display(fmt = "{}..{}", start, end)]
+#[display("{}..{}", start, end)]
 pub(crate) struct BcSlotInRange {
     pub(crate) start: BcSlotIn,
     pub(crate) end: BcSlotIn,

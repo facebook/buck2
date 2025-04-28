@@ -1,6 +1,5 @@
 load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
 
@@ -10,6 +9,7 @@ rust_binary(
         ["src/**/*.rs"],
     ),
     allocator = "malloc",
+    allow_cache_upload = True,
     # JEMalloc isn't super lean (and we don't actually allocate anything here),
     # so dont use it.
     default_strip_mode = "full",
@@ -24,6 +24,7 @@ rust_binary(
             "fbsource//third-party/rust:smallvec",
             "fbsource//third-party/rust:thiserror",
             "//buck2/app/buck2_miniperf_proto:buck2_miniperf_proto",
+            "//buck2/app/buck2_util:buck2_util",
         ],
     }),
 )

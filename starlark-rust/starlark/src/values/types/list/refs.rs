@@ -22,20 +22,20 @@ use std::iter;
 use std::ops::Deref;
 use std::slice;
 
-use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
+use ref_cast::ref_cast_custom;
 
 use crate::coerce::coerce;
 use crate::typing::Ty;
-use crate::values::list::value::display_list;
-use crate::values::list::value::FrozenListData;
-use crate::values::list::value::ListGen;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::list::value::ListData;
 use crate::values::FrozenValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::list::value::FrozenListData;
+use crate::values::list::value::ListGen;
+use crate::values::list::value::display_list;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::list::value::ListData;
 
 /// Reference to list content (mutable or frozen).
 #[repr(transparent)]

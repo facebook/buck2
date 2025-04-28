@@ -9,9 +9,9 @@
 
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::sync::Arc;
 use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -47,7 +47,7 @@ impl Key for BaseK {
 #[tokio::test]
 async fn concurrent_identical_requests_are_reused() -> anyhow::Result<()> {
     #[derive(Allocative, Clone, Debug, Display)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct ComputeOnce(#[allocative(skip)] Arc<AtomicU8>);
 
     impl PartialEq for ComputeOnce {

@@ -10,21 +10,20 @@
 use std::sync::Arc;
 
 use buck2_core::target::label::label::TargetLabel;
-use buck2_core::target::name::TargetNameRef;
 use buck2_node::attrs::coerced_deps_collector::CoercedDeps;
 use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
-use buck2_node::attrs::values::AttrValues;
 use buck2_node::call_stack::StarlarkCallStack;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::package::Package;
 use buck2_node::rule::Rule;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use starlark::eval::CallStack;
 use starlark::eval::ParametersParser;
 use starlark::values::Value;
 
+use crate::call_stack::StarlarkCallStackWrapper;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::nodes::attr_spec::AttributeSpecExt;
 
@@ -33,18 +32,18 @@ pub trait TargetNodeExt: Sized {
         rule: Arc<Rule>,
         package: Arc<Package>,
         internals: &ModuleInternals,
-        param_parser: ParametersParser<'v, '_>,
-    ) -> anyhow::Result<Self>;
+        param_parser: &mut ParametersParser<'v, '_>,
+    ) -> buck2_error::Result<Self>;
 
     fn from_params<'v>(
         rule: Arc<Rule>,
         package: Arc<Package>,
         internals: &ModuleInternals,
-        param_parser: ParametersParser<'v, '_>,
+        param_parser: &mut ParametersParser<'v, '_>,
         arg_count: usize,
         ignore_attrs_for_profiling: bool,
         call_stack: Option<CallStack>,
-    ) -> anyhow::Result<Self>;
+    ) -> buck2_error::Result<Self>;
 }
 
 impl TargetNodeExt for TargetNode {
@@ -53,26 +52,27 @@ impl TargetNodeExt for TargetNode {
         rule: Arc<Rule>,
         package: Arc<Package>,
         internals: &ModuleInternals,
-        mut param_parser: ParametersParser<'v, '_>,
-    ) -> anyhow::Result<Self> {
-        for (attr_name, _attr_idx, _attr) in rule.attributes.attr_specs() {
-            let value: Value = param_parser.next(attr_name)?;
-            if attr_name == NAME_ATTRIBUTE_FIELD {
-                let label = TargetLabel::new(
-                    internals.buildfile_path().package().dupe(),
-                    TargetNameRef::new(value.unpack_str().unwrap()).unwrap(),
-                );
-                return Ok(TargetNode::new(
-                    rule.dupe(),
-                    package,
-                    label,
-                    AttrValues::with_capacity(0),
-                    CoercedDeps::default(),
-                    None,
-                ));
-            }
+        param_parser: &mut ParametersParser<'v, '_>,
+    ) -> buck2_error::Result<Self> {
+        let (name, indices, attr_values) = rule.attributes.start_parse(param_parser, 1)?;
+
+        for (_, _, _) in indices {
+            // Consume all the arguments.
+            // We call `next_opt` even for non-optional parameters. starlark-rust doesn't check.
+            param_parser.next_opt::<Value>()?;
         }
-        unreachable!("`name` attribute not found");
+
+        let package_cfg_modifiers = internals.super_package.cfg_modifiers().duped();
+        let label = TargetLabel::new(internals.buildfile_path().package().dupe(), name);
+        Ok(TargetNode::new(
+            rule.dupe(),
+            package,
+            label,
+            attr_values,
+            CoercedDeps::default(),
+            None,
+            package_cfg_modifiers,
+        ))
     }
 
     /// The body of the callable returned by `rule()`. Records the target in this package's `TargetMap`
@@ -81,11 +81,11 @@ impl TargetNodeExt for TargetNode {
         rule: Arc<Rule>,
         package: Arc<Package>,
         internals: &ModuleInternals,
-        param_parser: ParametersParser<'v, '_>,
+        param_parser: &mut ParametersParser<'v, '_>,
         arg_count: usize,
         ignore_attrs_for_profiling: bool,
         call_stack: Option<CallStack>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         if ignore_attrs_for_profiling {
             return Self::from_params_ignore_attrs_for_profiling(
                 rule,
@@ -107,13 +107,18 @@ impl TargetNodeExt for TargetNode {
             a.traverse(label.pkg(), &mut deps_cache)?;
         }
 
+        let package_cfg_modifiers = internals.super_package.cfg_modifiers().duped();
+
         Ok(TargetNode::new(
             rule,
             package,
             label,
             attr_values,
             CoercedDeps::from(deps_cache),
-            call_stack.map(StarlarkCallStack::new),
+            call_stack
+                .map(StarlarkCallStackWrapper)
+                .map(StarlarkCallStack::new),
+            package_cfg_modifiers,
         ))
     }
 }

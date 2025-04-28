@@ -22,7 +22,7 @@ pub mod functions;
 pub mod global_interpreter_state;
 pub mod globals;
 pub mod globspec;
-pub mod interpreter_for_cell;
+pub mod interpreter_for_dir;
 pub mod interpreter_setup;
 pub mod module_internals;
 pub(crate) mod natives;

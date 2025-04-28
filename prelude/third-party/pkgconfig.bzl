@@ -23,29 +23,58 @@ load("@prelude//:prelude.bzl", "native")
 # different machines from reusing the outputs of these rules.
 def external_pkgconfig_library(
         name,
+        package = None,
         visibility = ["PUBLIC"],
         labels = [],
         default_target_platform = "prelude//platforms:default",
-        deps = []):
+        deps = [],
+        fallback = None):
+    if package == None:
+        package = name
+
+    cmd_cflags = "pkg-config --cflags {} > $OUT".format(package)
+    cmd_libs = "pkg-config --libs {} > $OUT".format(package)
+
+    if fallback != None:
+        preprocessor_flags = (
+            fallback.preprocessor_flags if hasattr(fallback, "preprocessor_flags") else []
+        )
+        linker_flags = (
+            fallback.linker_flags if hasattr(fallback, "linker_flags") else []
+        )
+
+        cmd_cflags = "if pkg-config --exists {}; then {}; else echo {} > $OUT; fi".format(
+            package,
+            cmd_cflags,
+            " ".join(preprocessor_flags),
+        )
+
+        cmd_libs = "if pkg-config --exists {}; then {}; else echo {} > $OUT; fi".format(
+            package,
+            cmd_libs,
+            " ".join(linker_flags),
+        )
+
     pkg_config_cflags = name + "__pkg_config_cflags"
     native.genrule(
         name = pkg_config_cflags,
         default_target_platform = default_target_platform,
         out = "out",
-        cmd = "pkg-config --cflags {} > $OUT".format(name),
+        cmd = cmd_cflags,
         remote = False,
     )
+
     pkg_config_libs = name + "__pkg_config_libs"
     native.genrule(
         name = pkg_config_libs,
         default_target_platform = default_target_platform,
         out = "out",
-        cmd = "pkg-config --libs {} > $OUT".format(name),
+        cmd = cmd_libs,
         remote = False,
     )
 
     labels = list(labels)
-    labels.append("third-party:pkg-config:{}".format(name))
+    labels.append("third-party:pkg-config:{}".format(package))
 
     native.prebuilt_cxx_library(
         name = name,

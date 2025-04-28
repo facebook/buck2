@@ -30,6 +30,7 @@ use starlark_syntax::syntax::ast::StmtP;
 use crate::codemap::Spanned;
 use crate::docs::DocFunction;
 use crate::docs::DocParam;
+use crate::docs::DocParams;
 use crate::docs::DocReturn;
 use crate::docs::DocString;
 use crate::typing::Ty;
@@ -42,7 +43,7 @@ pub enum DocStringKind {
     /// For functions, they are the piece in `"""` that come right after the `def foo():` line,
     /// and they have sections for additional details. An example from a starlark file might be:
     ///
-    /// ```starlark
+    /// ```python
     /// """ Module level docs here """
     ///
     /// def some_function(val: "string") -> "string":
@@ -75,7 +76,7 @@ pub enum DocStringKind {
     /// fn add_some_value(builder: &mut MethodsBuilder) {
     ///     /// attr1 is an attribute that does nothing interesting.
     ///     #[starlark(attribute)]
-    ///     fn attr1<'v>(this: Value<'v>) -> anyhow::Result<String> {
+    ///     fn attr1<'v>(this: Value<'v>) -> starlark::Result<String> {
     ///         let _ = this;
     ///         Ok("attr1".to_owned())
     ///     }
@@ -297,10 +298,9 @@ impl DocFunction {
     ///                    The format is determined by `kind`.
     pub fn from_docstring(
         kind: DocStringKind,
-        mut params: Vec<DocParam>,
+        mut params: DocParams,
         return_type: Ty,
         raw_docstring: Option<&str>,
-        as_type: Option<Ty>,
     ) -> Self {
         match raw_docstring.and_then(|raw| DocString::from_docstring(kind, raw)) {
             Some(ds) => {
@@ -310,15 +310,11 @@ impl DocFunction {
                 match sections.get("arguments").or_else(|| sections.get("args")) {
                     Some(args) => {
                         let entries = Self::parse_params(kind, args);
-                        for x in &mut params {
-                            match x {
-                                DocParam::Arg { name, docs, .. }
-                                | DocParam::Args { name, docs, .. }
-                                | DocParam::Kwargs { name, docs, .. } => match entries.get(name) {
-                                    Some(raw) => *docs = DocString::from_docstring(kind, raw),
-                                    _ => (),
-                                },
-                                _ => (),
+                        for x in &mut params.doc_params_mut() {
+                            let DocParam { name, docs, .. } = x;
+                            match entries.get(name) {
+                                Some(raw) => *docs = DocString::from_docstring(kind, raw),
+                                None => {}
                             }
                         }
                     }
@@ -337,7 +333,6 @@ impl DocFunction {
                         docs: return_docs,
                         typ: return_type,
                     },
-                    as_type,
                 }
             }
             None => DocFunction {
@@ -347,7 +342,6 @@ impl DocFunction {
                     docs: None,
                     typ: return_type,
                 },
-                as_type,
             },
         }
     }
@@ -360,7 +354,7 @@ impl DocFunction {
     /// docstring (e.g. if a user wants both the `Args:` and `Returns:` sections)
     fn parse_params(kind: DocStringKind, args_section: &str) -> HashMap<String, String> {
         static STARLARK_ARG_RE: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r"^(\*{0,2}\w+):\s*(.*)").unwrap());
+            Lazy::new(|| Regex::new(r"^\*{0,2}(\w+):\s*(.*)").unwrap());
         static RUST_ARG_RE: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"^(?:\* )?`(\w+)`:?\s*(.*)").unwrap());
 
@@ -657,7 +651,7 @@ mod tests {
     }
 
     fn arg(name: &str) -> DocParam {
-        DocParam::Arg {
+        DocParam {
             name: name.to_owned(),
             docs: None,
             typ: Ty::any(),
@@ -687,57 +681,60 @@ mod tests {
         let return_type = Ty::int();
         let expected = DocFunction {
             docs: DocString::from_docstring(kind, "This is an example docstring\n\nDetails here"),
-            params: vec![
-                DocParam::Arg {
-                    name: "**kwargs".to_owned(),
+            params: DocParams {
+                kwargs: Some(DocParam {
+                    name: "kwargs".to_owned(),
                     docs: DocString::from_docstring(kind, "Docs for kwargs"),
                     typ: Ty::any(),
                     default_value: None,
-                },
-                DocParam::Arg {
-                    name: "*args".to_owned(),
+                }),
+                args: Some(DocParam {
+                    name: "args".to_owned(),
                     docs: DocString::from_docstring(kind, "Docs for args"),
                     typ: Ty::any(),
                     default_value: None,
-                },
-                DocParam::Arg {
-                    name: "arg_bar".to_owned(),
-                    docs: DocString::from_docstring(
-                        kind,
-                        concat!(
-                            "The argument named bar. It has\n",
-                            "a longer doc string that spans\n",
-                            "over three lines"
+                }),
+                pos_or_named: vec![
+                    DocParam {
+                        name: "arg_bar".to_owned(),
+                        docs: DocString::from_docstring(
+                            kind,
+                            concat!(
+                                "The argument named bar. It has\n",
+                                "a longer doc string that spans\n",
+                                "over three lines"
+                            ),
                         ),
-                    ),
-                    typ: Ty::any(),
-                    default_value: None,
-                },
-                DocParam::Arg {
-                    name: "arg_foo".to_owned(),
-                    docs: DocString::from_docstring(kind, "The argument named foo"),
-                    typ: Ty::any(),
-                    default_value: None,
-                },
-            ],
+                        typ: Ty::any(),
+                        default_value: None,
+                    },
+                    DocParam {
+                        name: "arg_foo".to_owned(),
+                        docs: DocString::from_docstring(kind, "The argument named foo"),
+                        typ: Ty::any(),
+                        default_value: None,
+                    },
+                ],
+                pos_only: Vec::new(),
+                named_only: Vec::new(),
+            },
             ret: DocReturn {
                 docs: DocString::from_docstring(kind, "A value"),
                 typ: return_type.clone(),
             },
-            as_type: None,
         };
 
         let function_docs = DocFunction::from_docstring(
             kind,
-            vec![
-                arg("**kwargs"),
-                arg("*args"),
-                arg("arg_bar"),
-                arg("arg_foo"),
-            ],
+            DocParams {
+                kwargs: Some(arg("kwargs")),
+                args: Some(arg("args")),
+                pos_or_named: vec![arg("arg_bar"), arg("arg_foo")],
+                pos_only: Vec::new(),
+                named_only: Vec::new(),
+            },
             return_type,
             Some(docstring),
-            None,
         );
 
         assert_eq!(expected, function_docs);
@@ -763,40 +760,47 @@ mod tests {
         let return_type = Ty::int();
         let expected = DocFunction {
             docs: DocString::from_docstring(kind, "This is an example docstring\n\nDetails here"),
-            params: vec![
-                DocParam::Arg {
-                    name: "arg_bar".to_owned(),
-                    docs: DocString::from_docstring(
-                        kind,
-                        concat!(
-                            "The argument named bar. It has\n",
-                            "a longer doc string that spans\n",
-                            "over three lines"
+            params: DocParams {
+                pos_or_named: vec![
+                    DocParam {
+                        name: "arg_bar".to_owned(),
+                        docs: DocString::from_docstring(
+                            kind,
+                            concat!(
+                                "The argument named bar. It has\n",
+                                "a longer doc string that spans\n",
+                                "over three lines"
+                            ),
                         ),
-                    ),
-                    typ: Ty::any(),
-                    default_value: None,
-                },
-                DocParam::Arg {
-                    name: "arg_foo".to_owned(),
-                    docs: DocString::from_docstring(kind, "The argument named foo"),
-                    typ: Ty::any(),
-                    default_value: None,
-                },
-            ],
+                        typ: Ty::any(),
+                        default_value: None,
+                    },
+                    DocParam {
+                        name: "arg_foo".to_owned(),
+                        docs: DocString::from_docstring(kind, "The argument named foo"),
+                        typ: Ty::any(),
+                        default_value: None,
+                    },
+                ],
+                kwargs: None,
+                args: None,
+                pos_only: Vec::new(),
+                named_only: Vec::new(),
+            },
             ret: DocReturn {
                 docs: DocString::from_docstring(kind, "A value"),
                 typ: return_type.clone(),
             },
-            as_type: None,
         };
 
         let function_docs = DocFunction::from_docstring(
             kind,
-            vec![arg("arg_bar"), arg("arg_foo")],
+            DocParams {
+                pos_or_named: vec![arg("arg_bar"), arg("arg_foo")],
+                ..DocParams::default()
+            },
             return_type,
             Some(docstring),
-            None,
         );
 
         assert_eq!(expected, function_docs);

@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.facebook.buck.worker.model";
+option java_outer_classname = "WorkerProto";
+
+package worker;
+
+message ExecuteCommand {
+  message EnvironmentEntry {
+    bytes key = 1;
+    bytes value = 2;
+  }
+
+  repeated bytes argv = 1;
+  repeated EnvironmentEntry env = 2;
+}
+
+message ExecuteResponse {
+  int32 exit_code = 1;
+  string stderr = 2;
+}
+
+message ExecuteCancel {}
+
+message ExecuteEvent {
+  oneof data {
+    ExecuteCommand command = 1;
+    ExecuteCancel cancel = 2;
+  }
+}
+
+service Worker {
+  // TODO(ctolliday) delete once workers switch to Exec
+  rpc Execute(ExecuteCommand) returns (ExecuteResponse) {};
+
+  rpc Exec(stream ExecuteEvent) returns (ExecuteResponse) {};
+}

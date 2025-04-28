@@ -1,0 +1,31 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "adapter",
+    # We use conditional compilation to support building against both Java 8 and 11, despite
+    # breaking interface changes in the JDK.
+    srcs = glob(["*.java"]),
+    provided_deps = [
+        # api modules are included in the bootstrapper at runtime, so we don't need direct deps on them
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/plugin/api:api",
+    ],
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/source:source",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/plugin:javac-plugin",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/abi/source:",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/plugin/adapter:",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/testutil/compiler:compiler",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/version/utils:utils",
+        # This module is loaded as a plugin into the compiler itself; don't take dependencies on Buck
+        # internals or large libraries like Guava
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/lang/model:model",
+        "prelude//toolchains/android/src/com/facebook/buck/util/liteinfersupport:liteinfersupport",
+    ],
+)

@@ -9,10 +9,13 @@
 
 #![feature(error_generic_member_access)]
 #![feature(try_blocks)]
+#![feature(iterator_try_collect)]
+#![feature(substr_range)]
 
 use std::sync::Once;
 
 pub mod attrs;
+pub mod call_stack;
 pub mod interpreter;
 pub mod label;
 pub mod nodes;

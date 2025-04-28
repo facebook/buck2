@@ -15,8 +15,8 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_CFG_CONSTRUCTOR_GLOBALS;
 use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::build_context::PerFileTypeContext;
-use buck2_interpreter_for_build::interpreter::package_file_extra::PackageFileExtra;
 use buck2_interpreter_for_build::interpreter::package_file_extra::MAKE_CFG_CONSTRUCTOR;
+use buck2_interpreter_for_build::interpreter::package_file_extra::PackageFileExtra;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::metadata::key::MetadataKeyRef;
 use dupe::Dupe;
@@ -24,10 +24,8 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::none::NoneOr;
-use starlark::values::none::NoneType;
-use starlark::values::starlark_value;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
@@ -35,10 +33,14 @@ use starlark::values::OwnedFrozenValue;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::none::NoneOr;
+use starlark::values::none::NoneType;
+use starlark::values::starlark_value;
 
 use crate::CfgConstructor;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum RegisterCfgConstructorError {
     #[error("`set_cfg_constructor()` can only be called from the repository root `PACKAGE` file")]
     NotPackageRoot,
@@ -56,12 +58,13 @@ enum RegisterCfgConstructorError {
     ProvidesStaticType,
     Allocative
 )]
-#[display(fmt = "{:?}", "self")]
+#[display("{:?}", self)]
 struct StarlarkCfgConstructor<'v> {
     stage0: Value<'v>,
     stage1: Value<'v>,
     key: String,
     aliases: Option<Value<'v>>,
+    extra_data: Option<Value<'v>>,
 }
 
 #[derive(
@@ -71,12 +74,13 @@ struct StarlarkCfgConstructor<'v> {
     ProvidesStaticType,
     Allocative
 )]
-#[display(fmt = "{:?}", "self")]
+#[display("{:?}", self)]
 struct FrozenStarlarkCfgConstructor {
     stage0: FrozenValue,
     stage1: FrozenValue,
     key: String,
     aliases: Option<FrozenValue>,
+    extra_data: Option<FrozenValue>,
 }
 
 #[starlark_value(type = "StarlarkCfgConstructor")]
@@ -90,37 +94,44 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkCfgConstructor {
 impl<'v> Freeze for StarlarkCfgConstructor<'v> {
     type Frozen = FrozenStarlarkCfgConstructor;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let StarlarkCfgConstructor {
             stage0,
             stage1,
             key,
             aliases,
+            extra_data,
         } = self;
-        let (stage0, stage1, aliases) = (stage0, stage1, aliases).freeze(freezer)?;
+        let (stage0, stage1, aliases, extra_data) =
+            (stage0, stage1, aliases, extra_data).freeze(freezer)?;
         Ok(FrozenStarlarkCfgConstructor {
             stage0,
             stage1,
             key,
             aliases,
+            extra_data,
         })
     }
 }
 
 fn make_cfg_constructor(
     cfg_constructor: OwnedFrozenValue,
-) -> anyhow::Result<Arc<dyn CfgConstructorImpl>> {
-    let cfg_constructor = cfg_constructor.downcast_anyhow::<FrozenStarlarkCfgConstructor>()?;
+) -> buck2_error::Result<Arc<dyn CfgConstructorImpl>> {
+    let cfg_constructor = cfg_constructor.downcast_starlark::<FrozenStarlarkCfgConstructor>()?;
     let (
         cfg_constructor_pre_constraint_analysis,
         cfg_constructor_post_constraint_analysis,
         aliases,
+        extra_data,
     ) = unsafe {
         (
             OwnedFrozenValue::new(cfg_constructor.owner().dupe(), cfg_constructor.stage0),
             OwnedFrozenValue::new(cfg_constructor.owner().dupe(), cfg_constructor.stage1),
             cfg_constructor
                 .aliases
+                .map(|v| OwnedFrozenValue::new(cfg_constructor.owner().dupe(), v)),
+            cfg_constructor
+                .extra_data
                 .map(|v| OwnedFrozenValue::new(cfg_constructor.owner().dupe(), v)),
         )
     };
@@ -130,6 +141,7 @@ fn make_cfg_constructor(
         cfg_constructor_post_constraint_analysis,
         key,
         aliases,
+        extra_data,
     }))
 }
 
@@ -143,17 +155,25 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
     ///   stage0: The first cfg constructor that will be invoked before configuration rules are analyzed.
     ///   stage1: The second cfg constructor that will be invoked after configuration rules are analyzed.
     ///   key: The key for cfg modifiers on PACKAGE values and metadata.
+    ///   aliases: The aliases map to use for input modifiers.
+    ///   extra_data: Some extra data that may be used by `set_cfg_constructor` implementation that is
+    ///     custom to our implementation and may not be used in other context like open-source.
     fn set_cfg_constructor<'v>(
         #[starlark(require=named)] stage0: Value<'v>,
         #[starlark(require=named)] stage1: Value<'v>,
         #[starlark(require=named)] key: &str,
         #[starlark(require = named, default = NoneOr::None)] aliases: NoneOr<Value<'v>>,
+        #[starlark(require = named, default = NoneOr::None)] extra_data: NoneOr<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         let build_context = BuildContext::from_context(eval)?;
         let ctx = match &build_context.additional {
             PerFileTypeContext::Package(ctx) => ctx,
-            _ => return Err(RegisterCfgConstructorError::NotPackageRoot.into()),
+            _ => {
+                return Err(
+                    buck2_error::Error::from(RegisterCfgConstructorError::NotPackageRoot).into(),
+                );
+            }
         };
         if ctx.path.dir()
             != CellPathRef::new(
@@ -161,11 +181,15 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
                 CellRelativePath::empty(),
             )
         {
-            return Err(RegisterCfgConstructorError::NotPackageRoot.into());
+            return Err(
+                buck2_error::Error::from(RegisterCfgConstructorError::NotPackageRoot).into(),
+            );
         }
         let package_file_extra: &PackageFileExtra = PackageFileExtra::get_or_init(eval)?;
         if package_file_extra.cfg_constructor.get().is_some() {
-            return Err(RegisterCfgConstructorError::AlreadyRegistered.into());
+            return Err(
+                buck2_error::Error::from(RegisterCfgConstructorError::AlreadyRegistered).into(),
+            );
         }
         package_file_extra.cfg_constructor.get_or_init(|| {
             eval.heap().alloc_complex(StarlarkCfgConstructor {
@@ -173,6 +197,7 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
                 stage1,
                 key: key.to_owned(),
                 aliases: aliases.into_option(),
+                extra_data: extra_data.into_option(),
             })
         });
         Ok(NoneType)

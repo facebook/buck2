@@ -5,13 +5,16 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@shim//third-party:third_party.bzl", "third_party_library")
+load("@//third-party:defs.bzl", "pkgconfig_system_library")
 
 oncall("open_source")
 
-third_party_library(
+pkgconfig_system_library(
     name = "python",
-    homebrew_header_path = "Frameworks/Python.framework/Headers",
-    homebrew_package_name = "python3",
+    packages = {
+        "//os:linux-fedora": ["python3-devel"],
+        "//os:linux-ubuntu": ["python3-dev"],
+        "//os:macos-homebrew": ["python3"],
+    },
     pkgconfig_name = "python3",
 )

@@ -26,9 +26,6 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::io::StreamReader;
 
-use crate::common::ui::CommonConsoleOptions;
-use crate::console_interaction_stream::ConsoleInteractionStream;
-
 #[pin_project]
 pub struct Stdin {
     #[pin]
@@ -51,7 +48,7 @@ impl AsyncRead for Stdin {
 }
 
 impl Stdin {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new() -> buck2_error::Result<Self> {
         let buffer_size = buck2_env!(
             "BUCK2_TEST_STDIN_BUFFER_SIZE",
             type=usize,
@@ -67,18 +64,6 @@ impl Stdin {
             stream: StreamReader::new(ReceiverStream::new(rx).fuse()),
             state: State::Pending { buffer_size, tx },
         })
-    }
-
-    pub fn console_interaction_stream(
-        &mut self,
-        opts: &CommonConsoleOptions,
-    ) -> Option<ConsoleInteractionStream<'_>> {
-        if opts.no_interactive_console {
-            tracing::debug!("Disabling console interaction: no_interactive_console is set");
-            return None;
-        }
-
-        ConsoleInteractionStream::new(self)
     }
 }
 
@@ -141,7 +126,6 @@ fn read_and_forward(
                 if n > 0 {
                     tracing::debug!("stdin: {} bytes", n);
                     tx.blocking_send(Ok(Bytes::copy_from_slice(&buff[0..n])))?;
-                    continue;
                 } else {
                     tracing::debug!("eof");
                     break;
@@ -149,7 +133,6 @@ fn read_and_forward(
             }
             Err(e) if e.kind() == io::ErrorKind::Interrupted => {
                 tracing::debug!("interrupted");
-                continue;
             }
             Err(e) => {
                 tracing::debug!("err: {:#}", e);

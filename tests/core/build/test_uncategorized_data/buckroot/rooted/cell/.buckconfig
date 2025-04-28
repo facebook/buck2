@@ -1,0 +1,7 @@
+[repositories]
+cell = .
+root = ..
+prelude = .
+
+[buildfile]
+name = INNER

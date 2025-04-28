@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from apple.tools.code_signing.codesign_bundle import CodesignConfiguration
 
-_VERSION = 7
+_VERSION = 8
 
 
 @dataclass
@@ -51,6 +51,10 @@ class CodesignedOnCopy:
     """
     If present, overrides codesign arguments (which are used for root bundle) when the given path is codesigned on copy
     """
+    extra_codesign_paths: Optional[List[str]]
+    """
+    If present, a list of extra paths to be codesigned on copy
+    """
 
     def __hash__(self: CodesignedOnCopy) -> int:
         return hash(
@@ -60,6 +64,11 @@ class CodesignedOnCopy:
                 (
                     tuple(self.codesign_flags_override)
                     if self.codesign_flags_override is not None
+                    else hash(None)
+                ),
+                (
+                    tuple(self.extra_codesign_paths)
+                    if self.extra_codesign_paths is not None
                     else hash(None)
                 ),
             )
@@ -116,13 +125,15 @@ class IncrementalStateJSONEncoder(json.JSONEncoder):
                 result["entitlements_digest"] = str(o.entitlements_digest)
             if o.codesign_flags_override is not None:
                 result["codesign_flags_override"] = o.codesign_flags_override
+            if o.extra_codesign_paths is not None:
+                result["extra_codesign_paths"] = o.extra_codesign_paths
             return result
         else:
             return super().default(o)
 
 
 def _object_hook(
-    dict: Dict[str, Any]
+    dict: Dict[str, Any],
 ) -> Union[IncrementalState, IncrementalStateItem, CodesignedOnCopy]:
     if "version" in dict:
         codesign_configuration = dict.pop("codesign_configuration")
@@ -146,6 +157,7 @@ def _object_hook(
         dict["path"] = Path(dict.pop("path"))
         dict["entitlements_digest"] = dict.pop("entitlements_digest", None)
         dict["codesign_flags_override"] = dict.pop("codesign_flags_override", None)
+        dict["extra_codesign_paths"] = dict.pop("extra_codesign_paths", None)
         return CodesignedOnCopy(**dict)
 
 

@@ -17,12 +17,14 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
 
-use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use buck2_event_log::file_names::retrieve_nth_recent_log;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
@@ -32,8 +34,8 @@ use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_events::BuckEvent;
 use derive_more::Display;
 use dupe::Dupe;
-use futures::stream::BoxStream;
 use futures::TryStreamExt;
+use futures::stream::BoxStream;
 use serde::Serialize;
 use serde_json::json;
 
@@ -99,7 +101,7 @@ impl ChromeTraceFirstPass {
         }
     }
 
-    fn handle_event(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
+    fn handle_event(&mut self, event: &BuckEvent) -> buck2_error::Result<()> {
         match event.data() {
             buck2_data::buck_event::Data::SpanStart(ref start) => {
                 match start.data.as_ref() {
@@ -210,7 +212,7 @@ struct ChromeTraceClosedSpan {
 }
 
 impl ChromeTraceClosedSpan {
-    fn to_json(self) -> anyhow::Result<serde_json::Value> {
+    fn to_json(self) -> buck2_error::Result<serde_json::Value> {
         Ok(json!(
             {
                 "name": self.open.name,
@@ -320,7 +322,7 @@ where
     }
 
     /// Process the given timestamp and flush if needed and update next_flush accordingly
-    fn process_timestamp(&mut self, timestamp: SystemTime) -> anyhow::Result<()> {
+    fn process_timestamp(&mut self, timestamp: SystemTime) -> buck2_error::Result<()> {
         if self.next_flush == SystemTime::UNIX_EPOCH {
             self.next_flush = timestamp + Self::BUCKET_DURATION;
         }
@@ -341,28 +343,28 @@ where
             })
     }
 
-    fn set(&mut self, timestamp: SystemTime, key: &str, amount: T) -> anyhow::Result<()> {
+    fn set(&mut self, timestamp: SystemTime, key: &str, amount: T) -> buck2_error::Result<()> {
         self.process_timestamp(timestamp)?;
         let entry = self.counter_entry(key);
         entry.value = amount;
         Ok(())
     }
 
-    fn bump(&mut self, timestamp: SystemTime, key: &str, amount: T) -> anyhow::Result<()> {
+    fn bump(&mut self, timestamp: SystemTime, key: &str, amount: T) -> buck2_error::Result<()> {
         self.process_timestamp(timestamp)?;
         let entry = self.counter_entry(key);
         entry.value += amount;
         Ok(())
     }
 
-    fn subtract(&mut self, timestamp: SystemTime, key: &str, amount: T) -> anyhow::Result<()> {
+    fn subtract(&mut self, timestamp: SystemTime, key: &str, amount: T) -> buck2_error::Result<()> {
         self.process_timestamp(timestamp)?;
         let entry = self.counter_entry(key);
         entry.value -= amount;
         Ok(())
     }
 
-    fn flush(&mut self) -> anyhow::Result<()> {
+    fn flush(&mut self) -> buck2_error::Result<()> {
         // Output size optimization: omit counters that were previously, and still are, zero.
         let mut counters_to_zero = Vec::new();
         let mut counters_to_output = json!({});
@@ -426,7 +428,7 @@ where
         Ok(())
     }
 
-    pub fn flush_all_to(&mut self, output: &mut Vec<serde_json::Value>) -> anyhow::Result<()> {
+    pub fn flush_all_to(&mut self, output: &mut Vec<serde_json::Value>) -> buck2_error::Result<()> {
         self.flush()?;
         output.append(&mut self.trace_events);
         Ok(())
@@ -456,7 +458,7 @@ impl AverageRateOfChangeCounters {
         timestamp: SystemTime,
         key: &str,
         amount: u64,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // We only plot if there exists a previous item to compute the rate of change off of
         if let Some(previous) = self.previous_timestamp_and_amount_by_key.get(key) {
             let secs_since_last_datapoint =
@@ -496,7 +498,7 @@ impl SpanCounters {
         event: &BuckEvent,
         key: &'static str,
         amount: i32,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.open_spans
             .insert(event.span_id().unwrap(), (key, amount));
         self.counter.bump(event.timestamp(), key, amount)
@@ -506,7 +508,7 @@ impl SpanCounters {
         &mut self,
         _end: &buck2_data::SpanEndEvent,
         event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if let Some((key, value)) = self.open_spans.remove(&event.span_id().unwrap()) {
             self.counter.subtract(event.timestamp(), key, value)?;
         }
@@ -529,9 +531,9 @@ struct ChromeTraceWriter {
 
 #[derive(Copy, Clone, Dupe, Debug, Display, Hash, PartialEq, Eq)]
 enum SpanCategorization {
-    #[display(fmt = "uncategorized")]
+    #[display("uncategorized")]
     Uncategorized,
-    #[display(fmt = "critical-path")]
+    #[display("critical-path")]
     CriticalPath,
 }
 
@@ -556,7 +558,7 @@ impl ChromeTraceWriter {
         &mut self,
         track_key: SpanCategorization,
         event: &BuckEvent,
-    ) -> anyhow::Result<Option<SpanTrackAssignment>> {
+    ) -> buck2_error::Result<Option<SpanTrackAssignment>> {
         let parent_track_id = event.parent_id().and_then(|parent_id| {
             self.open_spans
                 .get(&parent_id)
@@ -587,7 +589,7 @@ impl ChromeTraceWriter {
         }
     }
 
-    pub fn to_writer<W>(mut self, file: W) -> anyhow::Result<()>
+    pub fn to_writer<W>(mut self, file: W) -> buck2_error::Result<()>
     where
         W: Write,
     {
@@ -611,7 +613,11 @@ impl ChromeTraceWriter {
         Ok(())
     }
 
-    fn open_span(&mut self, event: &BuckEvent, span: ChromeTraceOpenSpan) -> anyhow::Result<()> {
+    fn open_span(
+        &mut self,
+        event: &BuckEvent,
+        span: ChromeTraceOpenSpan,
+    ) -> buck2_error::Result<()> {
         self.open_spans.insert(event.span_id().unwrap(), span);
         Ok(())
     }
@@ -621,7 +627,7 @@ impl ChromeTraceWriter {
         event: &BuckEvent,
         name: String,
         track_key: SpanCategorization,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // Allocate this span to its parent's track or to a new track.
         let track = self.assign_track_for_span(track_key, event)?;
         if let Some(track) = track {
@@ -643,12 +649,12 @@ impl ChromeTraceWriter {
         Ok(())
     }
 
-    fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    fn handle_event(&mut self, event: &Arc<BuckEvent>) -> buck2_error::Result<()> {
         match event.data() {
             buck2_data::buck_event::Data::SpanStart(buck2_data::SpanStartEvent {
                 data: Some(start_data),
             }) => {
-                let on_critical_path = event.span_id().map_or(false, |span_id| {
+                let on_critical_path = event.span_id().is_some_and(|span_id| {
                     self.first_pass
                         .critical_path_span_ids
                         .contains(&span_id.into())
@@ -817,7 +823,7 @@ impl ChromeTraceWriter {
                     Categorization::ShowIfParent { name } => {
                         let parent_is_open = event
                             .parent_id()
-                            .map_or(false, |id| self.open_spans.contains_key(&id));
+                            .is_some_and(|id| self.open_spans.contains_key(&id));
 
                         if parent_is_open {
                             // Inherit the parent's track.
@@ -839,13 +845,13 @@ impl ChromeTraceWriter {
             buck2_data::buck_event::Data::Instant(buck2_data::InstantEvent {
                 data: Some(ref instant_data),
             }) => {
-                if let buck2_data::instant_event::Data::Snapshot(_snapshot) = instant_data {
+                if let buck2_data::instant_event::Data::Snapshot(snapshot) = instant_data {
                     self.process_memory_counters.set(
                         event.timestamp(),
                         "max_rss_gigabyte",
-                        (_snapshot.buck2_max_rss) as f64 / Self::BYTES_PER_GIGABYTE,
+                        (snapshot.buck2_max_rss) as f64 / Self::BYTES_PER_GIGABYTE,
                     )?;
-                    if let Some(malloc_bytes_active) = _snapshot.malloc_bytes_active {
+                    if let Some(malloc_bytes_active) = snapshot.malloc_bytes_active {
                         self.process_memory_counters.set(
                             event.timestamp(),
                             "malloc_active_gigabyte",
@@ -856,20 +862,36 @@ impl ChromeTraceWriter {
                         .set_average_rate_of_change_per_s(
                             event.timestamp(),
                             "average_user_cpu_in_usecs_per_s",
-                            _snapshot.buck2_user_cpu_us,
+                            snapshot.buck2_user_cpu_us,
                         )?;
                     self.rate_of_change_counters
                         .set_average_rate_of_change_per_s(
                             event.timestamp(),
                             "average_system_cpu_in_usecs_per_s",
-                            _snapshot.buck2_system_cpu_us,
+                            snapshot.buck2_system_cpu_us,
                         )?;
+                    if let Some(cpu_usage_system) = snapshot.host_cpu_usage_system_ms {
+                        self.rate_of_change_counters
+                            .set_average_rate_of_change_per_s(
+                                event.timestamp(),
+                                "host_cpu_usage_system_in_msecs_per_s",
+                                cpu_usage_system,
+                            )?;
+                    }
+                    if let Some(cpu_usage_user) = snapshot.host_cpu_usage_user_ms {
+                        self.rate_of_change_counters
+                            .set_average_rate_of_change_per_s(
+                                event.timestamp(),
+                                "host_cpu_usage_user_in_msecs_per_s",
+                                cpu_usage_user,
+                            )?;
+                    }
                     self.snapshot_counters.set(
                         event.timestamp(),
                         "blocking_executor_io_queue_size",
-                        _snapshot.blocking_executor_io_queue_size,
+                        snapshot.blocking_executor_io_queue_size,
                     )?;
-                    for (nic, stats) in &_snapshot.network_interface_stats {
+                    for (nic, stats) in &snapshot.network_interface_stats {
                         self.rate_of_change_counters
                             .set_average_rate_of_change_per_s(
                                 event.timestamp(),
@@ -887,19 +909,19 @@ impl ChromeTraceWriter {
                         .set_average_rate_of_change_per_s(
                             event.timestamp(),
                             "re_upload_bytes",
-                            _snapshot.re_upload_bytes,
+                            snapshot.re_upload_bytes,
                         )?;
                     self.rate_of_change_counters
                         .set_average_rate_of_change_per_s(
                             event.timestamp(),
                             "re_download_bytes",
-                            _snapshot.re_download_bytes,
+                            snapshot.re_download_bytes,
                         )?;
                     self.rate_of_change_counters
                         .set_average_rate_of_change_per_s(
                             event.timestamp(),
                             "http_download_bytes",
-                            _snapshot.http_download_bytes,
+                            snapshot.http_download_bytes,
                         )?;
                 }
             }
@@ -915,13 +937,13 @@ impl ChromeTraceWriter {
         &mut self,
         end: &buck2_data::SpanEndEvent,
         event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.span_counters.handle_event_end(end, event)?;
         if let Some(open) = self.open_spans.remove(&event.span_id().unwrap()) {
             let duration = end
                 .duration
                 .as_ref()
-                .context("Expected SpanEndEvent to have duration")?
+                .buck_error_context("Expected SpanEndEvent to have duration")?
                 .try_into_duration()?;
             if let SpanTrackAssignment::Owned(track_id) = &open.track {
                 self.unused_track_ids
@@ -939,7 +961,10 @@ impl ChromeTraceWriter {
 impl ChromeTraceCommand {
     async fn load_events(
         log_path: EventLogPathBuf,
-    ) -> anyhow::Result<(Invocation, BoxStream<'static, anyhow::Result<BuckEvent>>)> {
+    ) -> buck2_error::Result<(
+        Invocation,
+        BoxStream<'static, buck2_error::Result<BuckEvent>>,
+    )> {
         let (invocation, stream_values) = log_path.unpack_stream().await?;
         let stream = stream_values.try_filter_map(|stream_value| async move {
             match stream_value {
@@ -951,9 +976,13 @@ impl ChromeTraceCommand {
         Ok((invocation, Box::pin(stream)))
     }
 
-    fn trace_path_from_dir(dir: AbsPathBuf, log: &std::path::Path) -> anyhow::Result<AbsPathBuf> {
+    fn trace_path_from_dir(
+        dir: AbsPathBuf,
+        log: &std::path::Path,
+    ) -> buck2_error::Result<AbsPathBuf> {
         match log.file_name() {
-            None => Err(anyhow::anyhow!(
+            None => Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
                 "Could not determine filename from event log path: `{:#}`",
                 log.display()
             )),
@@ -966,11 +995,12 @@ impl ChromeTraceCommand {
         }
     }
 
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let log = match self.path {
             Some(path) => path.resolve(&ctx.working_dir),
             None => retrieve_nth_recent_log(
-                ctx.paths().context("Error identifying log dir")?,
+                ctx.paths()
+                    .buck_error_context("Error identifying log dir")?,
                 self.recent.unwrap_or(0),
             )?
             .path()
@@ -979,7 +1009,8 @@ impl ChromeTraceCommand {
 
         let trace_path = self.trace_path.resolve(&ctx.working_dir);
         let dest_path = if trace_path.is_dir() {
-            Self::trace_path_from_dir(trace_path, &log).context("Could not determine trace path")?
+            Self::trace_path_from_dir(trace_path, &log)
+                .buck_error_context("Could not determine trace path")?
         } else {
             trace_path
         };
@@ -998,13 +1029,15 @@ impl ChromeTraceCommand {
         ExitResult::success()
     }
 
-    async fn trace_writer(log: EventLogPathBuf) -> anyhow::Result<ChromeTraceWriter> {
+    async fn trace_writer(log: EventLogPathBuf) -> buck2_error::Result<ChromeTraceWriter> {
         let (invocation, mut stream) = Self::load_events(log.clone()).await?;
         let mut first_pass = ChromeTraceFirstPass::new();
         while let Some(event) = tokio_stream::StreamExt::try_next(&mut stream).await? {
             first_pass
                 .handle_event(&event)
-                .with_context(|| display::InvalidBuckEvent(Arc::new(event.clone())))?;
+                .with_buck_error_context(|| {
+                    display::InvalidBuckEvent(Arc::new(event.clone())).to_string()
+                })?;
         }
 
         let mut writer = ChromeTraceWriter::new(invocation, first_pass);
@@ -1015,7 +1048,7 @@ impl ChromeTraceCommand {
             let event = Arc::new(event);
             writer
                 .handle_event(&event)
-                .with_context(|| display::InvalidBuckEvent(event))?;
+                .with_buck_error_context(|| display::InvalidBuckEvent(event).to_string())?;
         }
         Ok(writer)
     }

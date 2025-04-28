@@ -33,7 +33,7 @@ pub trait IntoRemoteDepFile: Send {
         digest_config: DigestConfig,
         fs: &ArtifactFs,
         materializer: &dyn Materializer,
-    ) -> anyhow::Result<RemoteDepFile>;
+    ) -> buck2_error::Result<RemoteDepFile>;
 }
 
 pub struct CacheUploadResult {
@@ -42,7 +42,7 @@ pub struct CacheUploadResult {
 }
 
 // This is for quick testing of cache upload without configuring executors.
-pub fn force_cache_upload() -> anyhow::Result<bool> {
+pub fn force_cache_upload() -> buck2_error::Result<bool> {
     buck2_env!(
         "BUCK2_TEST_FORCE_CACHE_UPLOAD",
         bool,
@@ -63,7 +63,7 @@ pub trait UploadCache: Send + Sync {
         re_result: Option<TActionResult2>,
         dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
-    ) -> anyhow::Result<CacheUploadResult>;
+    ) -> buck2_error::Result<CacheUploadResult>;
 }
 
 /// A no-op cache uploader for when cache uploading is disabled
@@ -78,7 +78,7 @@ impl UploadCache for NoOpCacheUploader {
         _re_result: Option<TActionResult2>,
         _dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
         _action_digest_and_blobs: &ActionDigestAndBlobs,
-    ) -> anyhow::Result<CacheUploadResult> {
+    ) -> buck2_error::Result<CacheUploadResult> {
         Ok(CacheUploadResult {
             did_cache_upload: false,
             did_dep_file_cache_upload: false,

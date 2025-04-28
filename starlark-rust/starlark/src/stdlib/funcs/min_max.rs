@@ -22,8 +22,8 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
-use crate::values::tuple::UnpackTuple;
 use crate::values::Value;
+use crate::values::tuple::UnpackTuple;
 
 fn min_max_iter<'v>(
     mut it: impl Iterator<Item = Value<'v>>,

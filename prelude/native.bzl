@@ -11,6 +11,9 @@
 # This is buck2's shim import. Any public symbols here will be available within
 # **all** interpreted files.
 
+load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
+load("@prelude//:paths.bzl", "paths")
+load("@prelude//:rules.bzl", __rules__ = "rules")
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEFAULT_PLATFORM")
 load("@prelude//apple:apple_macro_layer.bzl", "apple_binary_macro_impl", "apple_bundle_macro_impl", "apple_library_macro_impl", "apple_package_macro_impl", "apple_test_macro_impl", "apple_universal_executable_macro_impl", "apple_xcuitest_macro_impl", "prebuilt_apple_framework_macro_impl")
 load("@prelude//apple/swift:swift_toolchain_macro_layer.bzl", "swift_toolchain_macro_impl")
@@ -19,15 +22,14 @@ load("@prelude//cxx:cxx_toolchain_macro_layer.bzl", "cxx_toolchain_macro_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", _cxx = "cxx")
 load("@prelude//erlang:erlang.bzl", _erlang_application = "erlang_application", _erlang_tests = "erlang_tests")
 load("@prelude//python:toolchain.bzl", _python = "python")
+load("@prelude//rust:link_info.bzl", "RustLinkInfo")
 load("@prelude//rust:rust_common.bzl", "rust_common_macro_wrapper")
 load("@prelude//rust:rust_library.bzl", "rust_library_macro_wrapper")
 load("@prelude//rust:with_workspace.bzl", "with_rust_workspace")
 load("@prelude//user:all.bzl", _user_rules = "rules")
+load("@prelude//utils:buckconfig.bzl", _read_config = "read_config_with_logging", _read_root_config = "read_root_config_with_logging", log_buckconfigs = "LOG_BUCKCONFIGS")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:selects.bzl", "selects")
-load(":is_full_meta_repo.bzl", "is_full_meta_repo")
-load(":paths.bzl", "paths")
-load(":rules.bzl", __rules__ = "rules")
 
 def __struct_to_dict(s):
     vals = {}
@@ -202,10 +204,21 @@ def _android_binary_macro_stub(
             # Pin this to the primary for apps with no primary dex classes.
             "^com/facebook/buck_generated/AppWithoutResourcesStub^",
         ]
+
+    # TODO: T218493860 Accept `select` for `cpu_filters` and apply the same logic as for non-select cases
     __rules__["android_binary"](
         allow_r_dot_java_in_secondary_dex = allow_r_dot_java_in_secondary_dex,
-        cpu_filters = _get_valid_cpu_filters(cpu_filters),
+        cpu_filters = cpu_filters if type(cpu_filters) == "selector" else _get_valid_cpu_filters(cpu_filters),
         primary_dex_patterns = primary_dex_patterns,
+        **kwargs
+    )
+
+def _android_bundle_macro_stub(
+        cpu_filters = None,
+        **kwargs):
+    __rules__["android_bundle"](
+        # TODO: T218493860 Accept `select` for `cpu_filters` and apply the same logic as for non-select cases
+        cpu_filters = cpu_filters if type(cpu_filters) == "selector" else _get_valid_cpu_filters(cpu_filters),
         **kwargs
     )
 
@@ -264,10 +277,22 @@ def _prebuilt_cxx_library_macro_stub(
             exported_lang_platform_preprocessor_flags,
             _versioned_param_to_select(versioned_exported_lang_platform_preprocessor_flags),
         ),
-        static_lib = _at_most_one(static_lib, _versioned_param_to_select(versioned_static_lib)),
-        static_pic_lib = _at_most_one(static_pic_lib, _versioned_param_to_select(versioned_static_pic_lib)),
-        shared_lib = _at_most_one(shared_lib, _versioned_param_to_select(versioned_shared_lib)),
-        header_dirs = _at_most_one(header_dirs, _versioned_param_to_select(versioned_header_dirs)),
+        static_lib = selects.apply_n(
+            [static_lib, selects.apply(versioned_static_lib, _versioned_param_to_select)],
+            _at_most_one,
+        ),
+        static_pic_lib = selects.apply_n(
+            [static_pic_lib, selects.apply(versioned_static_pic_lib, _versioned_param_to_select)],
+            _at_most_one,
+        ),
+        shared_lib = selects.apply_n(
+            [shared_lib, selects.apply(versioned_shared_lib, _versioned_param_to_select)],
+            _at_most_one,
+        ),
+        header_dirs = selects.apply_n(
+            [header_dirs, selects.apply(versioned_header_dirs, _versioned_param_to_select)],
+            _at_most_one,
+        ),
         **kwargs
     )
 
@@ -335,6 +360,13 @@ def _apple_watchos_bundle_macro_stub(**kwargs):
         **kwargs
     )
 
+def _apple_macos_bundle_macro_stub(**kwargs):
+    apple_bundle_macro_impl(
+        apple_bundle_rule = _user_rules["apple_macos_bundle"],
+        apple_resource_bundle_rule = _user_rules["apple_resource_bundle"],
+        **kwargs
+    )
+
 def _apple_test_macro_stub(**kwargs):
     apple_test_macro_impl(
         apple_test_rule = __rules__["apple_test"],
@@ -387,9 +419,7 @@ def _cxx_toolchain_macro_stub(**kwargs):
         cache_links = kwargs.get("cache_links")
         kwargs["cache_links"] = select({
             "DEFAULT": cache_links,
-            "ovr_config//build_mode:fbcode-build-info-mode-disable": True,
-            "ovr_config//build_mode:fbcode-build-info-mode-full": False,
-            "ovr_config//build_mode:fbcode-build-info-mode-stable": True,
+            "ovr_config//platform/execution/constraints:execution-platform-transitioned": True,
         })
     cxx_toolchain_macro_impl(
         cxx_toolchain_rule = cxx_toolchain_inheriting_target_platform,
@@ -441,10 +471,12 @@ def _prebuilt_apple_framework_macro_stub(**kwargs):
 __extra_rules__ = {
     "android_aar": _android_aar_macro_stub,
     "android_binary": _android_binary_macro_stub,
+    "android_bundle": _android_bundle_macro_stub,
     "android_instrumentation_apk": _android_instrumentation_apk_macro_stub,
     "apple_binary": _apple_binary_macro_stub,
     "apple_bundle": _apple_bundle_macro_stub,
     "apple_library": _apple_library_macro_stub,
+    "apple_macos_bundle": _apple_macos_bundle_macro_stub,
     "apple_package": _apple_package_macro_stub,
     "apple_test": _apple_test_macro_stub,
     "apple_universal_executable": _apple_universal_executable_macro_stub,
@@ -467,12 +499,23 @@ __extra_rules__ = {
     "versioned_alias": _versioned_alias_macro_stub,
 }
 
+__overridden_builtins__ = {
+    "read_config": _read_config,
+    "read_root_config": _read_root_config,
+} if log_buckconfigs else {}
+
 __shimmed_native__ = __struct_to_dict(__buck2_builtins__)
+__shimmed_native__.update(__overridden_builtins__)
 __shimmed_native__.update(__rules__)
 __shimmed_native__.update(_user_rules)
 
 # Should come after the rules which are macro overridden
 __shimmed_native__.update(__extra_rules__)
 __shimmed_native__.update({"cxx": _cxx, "python": _python})
+__shimmed_native__.update({
+    "__internal_autodeps_hacks__": struct(
+        rust_link_info = RustLinkInfo,
+    ),
+})
 
 native = struct(**__shimmed_native__)

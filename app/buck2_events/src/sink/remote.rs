@@ -10,33 +10,34 @@
 //! A Sink for forwarding events directly to Remote service.
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
-use std::time::Duration;
 
 use fbinit::FacebookInit;
 
 #[cfg(fbcode_build)]
 mod fbcode {
     use std::sync::Arc;
-    use std::time::Duration;
     use std::time::SystemTime;
 
     use buck2_core::buck2_env;
     use buck2_data::InstantEvent;
     use buck2_data::Location;
     use buck2_data::StructuredError;
+    use buck2_error::ErrorTag;
+    use buck2_error::conversion::from_any_with_tag;
     use buck2_util::truncate::truncate;
     use fbinit::FacebookInit;
     use prost::Message;
+    pub use scribe_client::ScribeConfig;
 
-    use crate::metadata;
-    use crate::schedule_type::ScheduleType;
-    use crate::sink::smart_truncate_event::smart_truncate_event;
     use crate::BuckEvent;
     use crate::Event;
     use crate::EventSink;
     use crate::EventSinkStats;
     use crate::EventSinkWithStats;
     use crate::TraceId;
+    use crate::metadata;
+    use crate::schedule_type::ScheduleType;
+    use crate::sink::smart_truncate_event::smart_truncate_event;
 
     // 1 MiB limit
     static SCRIBE_MESSAGE_SIZE_LIMIT: usize = 1024 * 1024;
@@ -55,18 +56,10 @@ mod fbcode {
         pub fn new(
             fb: FacebookInit,
             category: String,
-            buffer_size: usize,
-            retry_backoff: Duration,
-            retry_attempts: usize,
-            message_batch_size: Option<usize>,
-        ) -> anyhow::Result<RemoteEventSink> {
-            let client = scribe_client::ScribeClient::new(
-                fb,
-                buffer_size,
-                retry_backoff,
-                retry_attempts,
-                message_batch_size,
-            )?;
+            config: ScribeConfig,
+        ) -> buck2_error::Result<RemoteEventSink> {
+            let client = scribe_client::ScribeClient::new(fb, config)
+                .map_err(|e| from_any_with_tag(e, ErrorTag::Tier0))?;
 
             // schedule_type can change for the same daemon, because on OD some builds are pre warmed for users
             // This would be problematic, because this is run just once on the daemon
@@ -80,12 +73,12 @@ mod fbcode {
         }
 
         // Send this event now, bypassing internal message queue.
-        pub async fn send_now(&self, event: BuckEvent) {
-            self.send_messages_now(vec![event]).await;
+        pub async fn send_now(&self, event: BuckEvent) -> buck2_error::Result<()> {
+            self.send_messages_now(vec![event]).await
         }
 
         // Send multiple events now, bypassing internal message queue.
-        pub async fn send_messages_now(&self, events: Vec<BuckEvent>) {
+        pub async fn send_messages_now(&self, events: Vec<BuckEvent>) -> buck2_error::Result<()> {
             let messages = events
                 .into_iter()
                 .filter_map(|e| {
@@ -97,7 +90,10 @@ mod fbcode {
                     })
                 })
                 .collect();
-            self.client.send_messages_now(messages).await;
+            self.client
+                .send_messages_now(messages)
+                .await
+                .map_err(|e| from_any_with_tag(e, ErrorTag::Tier0))
         }
 
         // Send this event by placing it on the internal message queue.
@@ -115,14 +111,11 @@ mod fbcode {
         // Encodes message into something scribe understands.
         fn encode_message(mut event: BuckEvent, is_truncated: bool) -> Option<Vec<u8>> {
             smart_truncate_event(event.data_mut());
-            let proto: Box<buck2_data::BuckEvent> = event.into();
+            let mut proto: Box<buck2_data::BuckEvent> = event.into();
 
-            // Add a header byte to indicate this is _not_ base64 encoding.
-            let mut buf = Vec::with_capacity(proto.encoded_len() + 1);
-            buf.push(b'!');
-            let mut proto_bytes = proto.encode_to_vec();
-            buf.append(&mut proto_bytes);
+            Self::prepare_event(&mut proto);
 
+            let buf = proto.encode_to_vec();
             if buf.len() > SCRIBE_MESSAGE_SIZE_LIMIT {
                 // if this BuckEvent is already a truncated one but the buffer byte size exceeds the limit,
                 // do not send Scribe another truncated version
@@ -151,7 +144,7 @@ mod fbcode {
                                     backtrace: Vec::new(),
                                     quiet: false,
                                     task: Some(true),
-                                    soft_error_category: Some("oversized_scribe".to_owned()),
+                                    soft_error_category: Some(buck2_data::SoftError {category: "oversized_scribe".to_owned(), is_quiet:false}),
                                     daemon_in_memory_state_is_corrupted: false,
                                     daemon_materializer_state_is_corrupted: false,
                                     action_cache_is_corrupted: false,
@@ -165,6 +158,52 @@ mod fbcode {
                 )
             } else {
                 Some(buf)
+            }
+        }
+
+        fn prepare_event(event: &mut buck2_data::BuckEvent) {
+            use buck2_data::buck_event::Data;
+
+            match &mut event.data {
+                Some(Data::SpanEnd(s)) => match &mut s.data {
+                    Some(buck2_data::span_end_event::Data::ActionExecution(action)) => {
+                        let mut is_cache_hit = false;
+
+                        for command in action.commands.iter_mut() {
+                            let Some(details) = command.details.as_mut() else {
+                                continue;
+                            };
+
+                            {
+                                let Some(ref command_kind) = details.command_kind else {
+                                    continue;
+                                };
+                                let Some(ref command) = command_kind.command else {
+                                    continue;
+                                };
+                                let buck2_data::command_execution_kind::Command::RemoteCommand(
+                                    ref remote,
+                                ) = command
+                                else {
+                                    continue;
+                                };
+                                if !remote.cache_hit {
+                                    continue;
+                                }
+                            }
+
+                            is_cache_hit = true;
+                            details.metadata = None;
+                        }
+
+                        if is_cache_hit {
+                            action.dep_file_key = None;
+                            action.outputs.clear();
+                        }
+                    }
+                    _ => {}
+                },
+                _ => {}
             }
         }
     }
@@ -202,6 +241,7 @@ mod fbcode {
                 failures_unknown: counters.failures_unknown,
                 buffered: counters.queue_depth,
                 dropped: counters.dropped,
+                bytes_written: counters.bytes_written,
             }
         }
     }
@@ -220,19 +260,20 @@ mod fbcode {
                 }
             }
             Data::SpanEnd(s) => {
-                use buck2_data::span_end_event::Data;
                 use buck2_data::ActionExecutionKind;
+                use buck2_data::span_end_event::Data;
 
                 match &s.data {
                     Some(Data::Command(..)) => true,
                     Some(Data::ActionExecution(a)) => {
-                        match ActionExecutionKind::from_i32(a.execution_kind) {
-                            // Those kinds are not used in downstreams
-                            Some(ActionExecutionKind::Simple) => false,
-                            Some(ActionExecutionKind::Deferred) => false,
-                            Some(ActionExecutionKind::NotSet) => false,
-                            _ => true,
-                        }
+                        a.failed
+                            || match ActionExecutionKind::try_from(a.execution_kind) {
+                                // Those kinds are not used in downstreams
+                                Ok(ActionExecutionKind::Simple) => false,
+                                Ok(ActionExecutionKind::Deferred) => false,
+                                Ok(ActionExecutionKind::NotSet) => false,
+                                _ => true,
+                            }
                     }
                     Some(Data::Analysis(..)) => !schedule_type.is_diff(),
                     Some(Data::Load(..)) => true,
@@ -255,6 +296,7 @@ mod fbcode {
                     Some(Data::StructuredError(..)) => true,
                     Some(Data::PersistEventLogSubprocess(..)) => true,
                     Some(Data::CleanStaleResult(..)) => true,
+                    Some(Data::ConfigurationCreated(..)) => true,
                     None => false,
                     _ => false,
                 }
@@ -271,7 +313,7 @@ mod fbcode {
         }
     }
 
-    pub fn scribe_category() -> anyhow::Result<String> {
+    pub(crate) fn scribe_category() -> buck2_error::Result<String> {
         const DEFAULT_SCRIBE_CATEGORY: &str = "buck2_events";
         // Note that both daemon and client are emitting events, and that changing this variable has
         // no effect on the daemon until buckd is restarted but has effect on the client.
@@ -286,6 +328,7 @@ mod fbcode {
 #[cfg(not(fbcode_build))]
 mod fbcode {
     use std::sync::Arc;
+    use std::time::Duration;
 
     use crate::BuckEvent;
     use crate::Event;
@@ -296,8 +339,12 @@ mod fbcode {
     pub enum RemoteEventSink {}
 
     impl RemoteEventSink {
-        pub async fn send_now(&self, _event: BuckEvent) {}
-        pub async fn send_messages_now(&self, _events: Vec<BuckEvent>) {}
+        pub async fn send_now(&self, _event: BuckEvent) -> buck2_error::Result<()> {
+            Ok(())
+        }
+        pub async fn send_messages_now(&self, _events: Vec<BuckEvent>) -> buck2_error::Result<()> {
+            Ok(())
+        }
     }
 
     impl EventSink for RemoteEventSink {
@@ -313,56 +360,40 @@ mod fbcode {
             match *self {}
         }
     }
+
+    #[derive(Default)]
+    pub struct ScribeConfig {
+        pub buffer_size: usize,
+        pub retry_backoff: Duration,
+        pub retry_attempts: usize,
+        pub message_batch_size: Option<usize>,
+        pub thrift_timeout: Duration,
+    }
 }
 
 pub use fbcode::*;
 
 fn new_remote_event_sink_if_fbcode(
     fb: FacebookInit,
-    buffer_size: usize,
-    retry_backoff: Duration,
-    retry_attempts: usize,
-    message_batch_size: Option<usize>,
-) -> anyhow::Result<Option<RemoteEventSink>> {
+    config: ScribeConfig,
+) -> buck2_error::Result<Option<RemoteEventSink>> {
     #[cfg(fbcode_build)]
     {
-        Ok(Some(RemoteEventSink::new(
-            fb,
-            scribe_category()?,
-            buffer_size,
-            retry_backoff,
-            retry_attempts,
-            message_batch_size,
-        )?))
+        Ok(Some(RemoteEventSink::new(fb, scribe_category()?, config)?))
     }
     #[cfg(not(fbcode_build))]
     {
-        let _ = (
-            fb,
-            buffer_size,
-            retry_backoff,
-            retry_attempts,
-            message_batch_size,
-        );
+        let _ = (fb, config);
         Ok(None)
     }
 }
 
 pub fn new_remote_event_sink_if_enabled(
     fb: FacebookInit,
-    buffer_size: usize,
-    retry_backoff: Duration,
-    retry_attempts: usize,
-    message_batch_size: Option<usize>,
-) -> anyhow::Result<Option<RemoteEventSink>> {
+    config: ScribeConfig,
+) -> buck2_error::Result<Option<RemoteEventSink>> {
     if is_enabled() {
-        new_remote_event_sink_if_fbcode(
-            fb,
-            buffer_size,
-            retry_backoff,
-            retry_attempts,
-            message_batch_size,
-        )
+        new_remote_event_sink_if_fbcode(fb, config)
     } else {
         Ok(None)
     }

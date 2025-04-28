@@ -10,11 +10,13 @@
 use async_trait::async_trait;
 use buck2_cli_proto::UnstableAllocatorStatsRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
@@ -25,9 +27,12 @@ pub struct AllocatorStatsCommand {
     /// configuration prints minimal output, formatted as JSON.
     #[clap(short, long, default_value = "Jmdablxg", value_name = "OPTION")]
     options: String,
+
+    #[clap(flatten)]
+    common_event_opts: CommonEventLogOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for AllocatorStatsCommand {
     const COMMAND_NAME: &'static str = "allocator_stats";
 
@@ -38,14 +43,18 @@ impl StreamingCommand for AllocatorStatsCommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         _ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let res = buckd
             .with_flushing()
-            .unstable_allocator_stats(UnstableAllocatorStatsRequest {
-                options: self.options,
-            })
+            .unstable_allocator_stats(
+                UnstableAllocatorStatsRequest {
+                    options: self.options,
+                },
+                events_ctx,
+            )
             .await?;
 
         buck2_client_ctx::println!("{}", res.response)?;
@@ -58,7 +67,7 @@ impl StreamingCommand for AllocatorStatsCommand {
     }
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {
-        CommonEventLogOptions::default_ref()
+        &self.common_event_opts
     }
 
     fn build_config_opts(&self) -> &CommonBuildConfigurationOptions {

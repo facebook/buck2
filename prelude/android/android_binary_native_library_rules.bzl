@@ -17,6 +17,7 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_PRIMARY_PLATFORM", "CPU_FILTER_TO_ABI_DIRECTORY")
 load("@prelude//android:util.bzl", "EnhancementContext")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
+# @oss-disable[end= ]: load("@prelude//android/meta_only:gatorade.bzl", "add_gatorade_relinker_args", "gatorade_libraries")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "PicBehavior")
 load(
     "@prelude//cxx:link.bzl",
@@ -29,14 +30,14 @@ load(
     "extract_undefined_syms",
 )
 load("@prelude//java:java_library.bzl", "compile_to_jar")  # @unused
-load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")  # @unused
-load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "get_action_execution_attributes")
 load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",
     "LinkArgs",
     "LinkInfo",
     "LinkOrdering",
+    "LinkedObject",
     "SharedLibLinkable",
     "get_lib_output_style",
     "set_link_info_link_whole",
@@ -63,9 +64,9 @@ load(
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:argfile.bzl", "argfile")
+load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//utils:graph_utils.bzl", "GraphTraversal", "depth_first_traversal_by", "post_order_traversal", "pre_order_traversal")
-load("@prelude//utils:set.bzl", "set", "set_type")  # @unused Used as a type
+load("@prelude//utils:graph_utils.bzl", "post_order_traversal", "pre_order_traversal", "rust_matching_topological_traversal")
 load("@prelude//utils:utils.bzl", "dedupe_by_value")
 
 # Native libraries on Android are built for a particular Application Binary Interface (ABI). We
@@ -96,15 +97,15 @@ def get_android_binary_native_library_info(
         android_packageable_info: AndroidPackageableInfo,
         deps_by_platform: dict[str, list[Dependency]],
         apk_module_graph_file: Artifact | None = None,
-        prebuilt_native_library_dirs_to_exclude: [set_type, None] = None,
-        shared_libraries_to_exclude: [set_type, None] = None) -> AndroidBinaryNativeLibsInfo:
+        prebuilt_native_library_dirs_to_exclude: set[TargetLabel] = set(),
+        shared_libraries_to_exclude: set[TargetLabel] = set()) -> AndroidBinaryNativeLibsInfo:
     ctx = enhance_ctx.ctx
 
     traversed_prebuilt_native_library_dirs = android_packageable_info.prebuilt_native_library_dirs.traverse() if android_packageable_info.prebuilt_native_library_dirs else []
     all_prebuilt_native_library_dirs = [
         native_lib
         for native_lib in traversed_prebuilt_native_library_dirs
-        if not (prebuilt_native_library_dirs_to_exclude and prebuilt_native_library_dirs_to_exclude.contains(native_lib.raw_target))
+        if native_lib.raw_target not in prebuilt_native_library_dirs_to_exclude
     ]
 
     included_shared_lib_targets = []
@@ -118,6 +119,7 @@ def get_android_binary_native_library_info(
         original_shared_libs_by_platform[platform] = shared_libs
 
     if not all_prebuilt_native_library_dirs and not included_shared_lib_targets:
+        enhance_ctx.debug_output("native_libs", ctx.actions.write("native_libs", []))
         enhance_ctx.debug_output("unstripped_native_libraries", ctx.actions.write("unstripped_native_libraries", []))
         enhance_ctx.debug_output("unstripped_native_libraries_json", ctx.actions.write_json("unstripped_native_libraries_json", {}))
         return AndroidBinaryNativeLibsInfo(
@@ -183,6 +185,7 @@ def get_android_binary_native_library_info(
     linkable_nodes_by_platform = {}
     native_library_merge_sequence = getattr(ctx.attrs, "native_library_merge_sequence", None)
     native_library_merge_map = getattr(ctx.attrs, "native_library_merge_map", None)
+    native_library_merge_non_asset_libs = getattr(ctx.attrs, "native_library_merge_non_asset_libs", False)
     has_native_merging = native_library_merge_sequence or native_library_merge_map
     enable_relinker = getattr(ctx.attrs, "enable_relinker", False)
 
@@ -211,6 +214,8 @@ def get_android_binary_native_library_info(
         mergemap_cmd.add(cmd_args(native_library_merge_input_file, format = "--mergemap-input={}"))
         if apk_module_graph_file:
             mergemap_cmd.add(cmd_args(apk_module_graph_file, format = "--apk-module-graph={}"))
+        if native_library_merge_non_asset_libs:
+            mergemap_cmd.add(cmd_args("--merge-non-asset-libs"))
         native_library_merge_dir = ctx.actions.declare_output("merge_sequence_output")
         native_library_merge_map = native_library_merge_dir.project("merge.map")
         split_groups_map = native_library_merge_dir.project("split_groups.map")
@@ -225,24 +230,19 @@ def get_android_binary_native_library_info(
     if has_native_merging and ctx.attrs.native_library_merge_code_generator:
         mergemap_gencode_jar = ctx.actions.declare_output("MergedLibraryMapping.jar")
         dynamic_outputs.append(mergemap_gencode_jar)
-        library_output = JavaClasspathEntry(
-            full_library = mergemap_gencode_jar,
-            abi = mergemap_gencode_jar,
-            abi_as_dir = None,
-            required_for_source_only_abi = False,
-        )
-        generated_java_code.append(
-            JavaLibraryInfo(
-                compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
-                library_output = library_output,
-                output_for_classpath_macro = library_output.full_library,
-            ),
-        )
+        generated_java_code.append(mergemap_gencode_jar)
 
     def dynamic_native_libs_info(ctx: AnalysisContext, artifacts, outputs):
         get_module_from_target = all_targets_in_root_module
+        get_module_tdeps = all_targets_in_root_module
+        get_calculated_module_deps = all_targets_in_root_module
+        get_deps_debug_data = None
         if apk_module_graph_file:
-            get_module_from_target = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts).target_to_module_mapping_function
+            apk_module_graph = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts)
+            get_module_from_target = apk_module_graph.target_to_module_mapping_function
+            get_module_tdeps = apk_module_graph.transitive_module_deps_function
+            get_calculated_module_deps = apk_module_graph.calculated_deps_function
+            get_deps_debug_data = apk_module_graph.get_deps_debug_data
 
         split_groups = None
         merged_shared_lib_targets_by_platform = {}  # dict[str, dict[Label, str]]
@@ -344,48 +344,87 @@ def get_android_binary_native_library_info(
             final_shared_libs_by_platform = relink_libraries(ctx, final_shared_libs_by_platform)
             _link_library_subtargets(ctx, outputs, lib_outputs_by_platform, original_shared_libs_by_platform, unrelinked_shared_libs_by_platform, merged_shared_lib_targets_by_platform, split_groups, native_merge_debug, unrelinked = True)
 
-        _link_library_subtargets(ctx, outputs, lib_outputs_by_platform, original_shared_libs_by_platform, final_shared_libs_by_platform, merged_shared_lib_targets_by_platform, split_groups, native_merge_debug)
+        if ctx.attrs._android_toolchain[AndroidToolchainInfo].cross_module_native_deps_check:
+            # note: can only detect these if linkable_nodes_by_platform is created, ie. if using relinker or merging
+            cross_module_link_errors = []
+            for linkable_nodes in linkable_nodes_by_platform.values():
+                for target, node in linkable_nodes.items():
+                    node_target = str(target.raw_target())
+                    node_module = get_module_from_target(node_target)
+                    for dep in node.deps:
+                        dep_target = str(dep.raw_target())
+                        dep_module = get_module_from_target(dep_target)
+                        if not is_root_module(dep_module) and node_module != dep_module and dep_module not in get_module_tdeps(node_module) and dep_module not in get_calculated_module_deps(node_module):
+                            cross_module_link_errors.append("{} (module: {}) -> {} (module: {}) ".format(node_target, node_module, dep_target, dep_module))
 
-        unstripped_libs = {}
-        for platform, libs in final_shared_libs_by_platform.items():
-            for lib in libs.values():
-                unstripped_libs[lib.lib.output] = platform
-        ctx.actions.write(outputs[unstripped_native_libraries], unstripped_libs.keys())
-        ctx.actions.write_json(outputs[unstripped_native_libraries_json], unstripped_libs)
-        ctx.actions.symlinked_dir(outputs[unstripped_native_libraries_files], {
-            "{}/{}".format(platform, lib.short_path): lib
-            for lib, platform in unstripped_libs.items()
-        })
+            if cross_module_link_errors:
+                cross_module_link_errors.append(get_deps_debug_data())
+                fail("Native libraries in modules should only depend on libraries in the same module or the root. Remove these deps:\n" + "\n".join(cross_module_link_errors))
 
-        dynamic_info = _get_native_libs_and_assets(
+        native_lib_dynamic_outputs = {
+            "native_lib_assets_for_primary_apk": outputs[native_lib_assets_for_primary_apk],
+            "native_libs": outputs[native_libs],
+            "native_libs_always_in_primary_apk": outputs[native_libs_always_in_primary_apk],
+            "native_libs_metadata": outputs[native_libs_metadata],
+            "non_root_module_lib_assets": outputs[non_root_module_lib_assets],
+            "non_root_module_metadata_assets": outputs[non_root_module_metadata_assets],
+            "root_module_metadata_assets": outputs[root_module_metadata_assets],
+            "stripped_native_linkable_assets_for_primary_apk": outputs[stripped_native_linkable_assets_for_primary_apk],
+            "unstripped_native_libraries": outputs[unstripped_native_libraries],
+            "unstripped_native_libraries_files": outputs[unstripped_native_libraries_files],
+            "unstripped_native_libraries_json": outputs[unstripped_native_libraries_json],
+        }
+
+        if getattr(ctx.attrs, "enable_gatorade", False):
+            # Prevent Buildifier from moving comments in a way that breaks things.
+            args = [
+                ctx,
+                final_shared_libs_by_platform,
+                _post_native_lib_graph_finalization_steps,
+                all_prebuilt_native_library_dirs,
+                get_module_from_target,
+                native_lib_dynamic_outputs,
+            ]
+            # @oss-disable[end= ]: subtarget_shared_libs_by_platform = gatorade_libraries(*args)
+        else:
+            subtarget_shared_libs_by_platform = _post_native_lib_graph_finalization_steps(
+                ctx,
+                final_shared_libs_by_platform,
+                all_prebuilt_native_library_dirs,
+                get_module_from_target,
+                **native_lib_dynamic_outputs
+            )
+
+        # Subtargets can't be created or changed from within dynamic actions, so the individual
+        # library subtargets can't reflect any changes to the set of libraries made by a dynamic
+        # action. All other logic should be in _post_native_lib_graph_finalization_steps, which
+        # receives the final set of native libraries.
+        _link_library_subtargets(
             ctx,
-            get_module_from_target,
-            all_prebuilt_native_library_dirs,
-            final_shared_libs_by_platform,
+            outputs,
+            lib_outputs_by_platform,
+            original_shared_libs_by_platform,
+            subtarget_shared_libs_by_platform,
+            merged_shared_lib_targets_by_platform,
+            split_groups,
+            native_merge_debug,
         )
-
-        # Since we are using a dynamic action, we need to declare the outputs in advance.
-        # Rather than passing the created outputs into `_get_native_libs_and_assets`, we
-        # just symlink to the outputs that function produces.
-        ctx.actions.symlink_file(outputs[native_libs], dynamic_info.native_libs)
-        ctx.actions.symlink_file(outputs[native_libs_metadata], dynamic_info.native_libs_metadata)
-        ctx.actions.symlink_file(outputs[native_libs_always_in_primary_apk], dynamic_info.native_libs_always_in_primary_apk)
-        ctx.actions.symlink_file(outputs[native_lib_assets_for_primary_apk], dynamic_info.native_lib_assets_for_primary_apk if dynamic_info.native_lib_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_native_lib_assets", {}))
-        ctx.actions.symlink_file(outputs[stripped_native_linkable_assets_for_primary_apk], dynamic_info.stripped_native_linkable_assets_for_primary_apk if dynamic_info.stripped_native_linkable_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_stripped_native_linkable_assets", {}))
-        ctx.actions.symlink_file(outputs[root_module_metadata_assets], dynamic_info.root_module_metadata_assets)
-        ctx.actions.symlink_file(outputs[non_root_module_metadata_assets], dynamic_info.non_root_module_metadata_assets)
-        ctx.actions.symlink_file(outputs[non_root_module_lib_assets], dynamic_info.non_root_module_lib_assets if dynamic_info.non_root_module_lib_assets else ctx.actions.symlinked_dir("empty_non_root_module_lib_assets", {}))
 
     ctx.actions.dynamic_output(dynamic = dynamic_inputs, inputs = [], outputs = [o.as_output() for o in dynamic_outputs], f = dynamic_native_libs_info)
     all_native_libs = ctx.actions.symlinked_dir("debug_all_native_libs", {"others": native_libs, "primary": native_libs_always_in_primary_apk})
 
-    lib_subtargets = _create_library_subtargets(lib_outputs_by_platform, native_libs)
+    lib_subtargets = _create_library_subtargets(
+        lib_outputs_by_platform,
+        native_libs,
+        create_default_outputs = not getattr(ctx.attrs, "enable_gatorade", False),
+    )
     enhance_ctx.debug_output("native_libs", all_native_libs, sub_targets = lib_subtargets)
     if native_merge_debug:
         enhance_ctx.debug_output("native_merge_debug", native_merge_debug)
 
     enhance_ctx.debug_output("unstripped_native_libraries", unstripped_native_libraries, other_outputs = [unstripped_native_libraries_files])
     enhance_ctx.debug_output("unstripped_native_libraries_json", unstripped_native_libraries_json, other_outputs = [unstripped_native_libraries_files])
+    enhance_ctx.debug_output("unstripped_native_libraries_files", unstripped_native_libraries_files)
 
     native_libs_for_primary_apk, exopackage_info = _get_exopackage_info(ctx, native_libs_always_in_primary_apk, native_libs, native_libs_metadata)
     return AndroidBinaryNativeLibsInfo(
@@ -403,6 +442,58 @@ _NativeLibSubtargetArtifacts = record(
     default = Artifact,
     unrelinked = Artifact | None,
 )
+
+def _post_native_lib_graph_finalization_steps(
+        ctx: AnalysisContext,
+        final_shared_libs_by_platform: dict[str, dict[str, SharedLibrary]],
+        all_prebuilt_native_library_dirs: list[PrebuiltNativeLibraryDir],
+        get_module_from_target: typing.Callable,
+        unstripped_native_libraries: Artifact,
+        unstripped_native_libraries_json: Artifact,
+        unstripped_native_libraries_files: Artifact,
+        native_libs: Artifact,
+        native_libs_metadata: Artifact,
+        native_libs_always_in_primary_apk: Artifact,
+        native_lib_assets_for_primary_apk: Artifact,
+        stripped_native_linkable_assets_for_primary_apk: Artifact,
+        root_module_metadata_assets: Artifact,
+        non_root_module_metadata_assets: Artifact,
+        non_root_module_lib_assets: Artifact) -> dict[str, dict[str, SharedLibrary]]:
+    bolt_args = getattr(ctx.attrs, "native_library_bolt_args", None)
+    if bolt_args and len(bolt_args) != 0:
+        final_shared_libs_by_platform = _bolt_libraries(ctx, final_shared_libs_by_platform, bolt_args)
+
+    unstripped_libs = {}
+    for platform, libs in final_shared_libs_by_platform.items():
+        for lib in libs.values():
+            unstripped_libs[lib.lib.output] = platform
+    ctx.actions.write(unstripped_native_libraries, unstripped_libs.keys())
+    ctx.actions.write_json(unstripped_native_libraries_json, unstripped_libs)
+    ctx.actions.symlinked_dir(unstripped_native_libraries_files, {
+        "{}/{}".format(platform, lib.basename): lib
+        for lib, platform in unstripped_libs.items()
+    })
+
+    dynamic_info = _get_native_libs_and_assets(
+        ctx,
+        get_module_from_target,
+        all_prebuilt_native_library_dirs,
+        final_shared_libs_by_platform,
+    )
+
+    # Since we are using a dynamic action, we need to declare the outputs in advance.
+    # Rather than passing the created outputs into `_get_native_libs_and_assets`, we
+    # just symlink to the outputs that function produces.
+    ctx.actions.symlink_file(native_libs, dynamic_info.native_libs)
+    ctx.actions.symlink_file(native_libs_metadata, dynamic_info.native_libs_metadata)
+    ctx.actions.symlink_file(native_libs_always_in_primary_apk, dynamic_info.native_libs_always_in_primary_apk)
+    ctx.actions.symlink_file(native_lib_assets_for_primary_apk, dynamic_info.native_lib_assets_for_primary_apk if dynamic_info.native_lib_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_native_lib_assets", {}))
+    ctx.actions.symlink_file(stripped_native_linkable_assets_for_primary_apk, dynamic_info.stripped_native_linkable_assets_for_primary_apk if dynamic_info.stripped_native_linkable_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_stripped_native_linkable_assets", {}))
+    ctx.actions.symlink_file(root_module_metadata_assets, dynamic_info.root_module_metadata_assets)
+    ctx.actions.symlink_file(non_root_module_metadata_assets, dynamic_info.non_root_module_metadata_assets)
+    ctx.actions.symlink_file(non_root_module_lib_assets, dynamic_info.non_root_module_lib_assets if dynamic_info.non_root_module_lib_assets else ctx.actions.symlinked_dir("empty_non_root_module_lib_assets", {}))
+
+    return final_shared_libs_by_platform
 
 # Merged libraries are dynamic dependencies, but outputs need to be declared in advance to be used by subtargets.
 # This means we have to declare outputs for all possible merged libs (every merged name and every unmerged library name).
@@ -428,7 +519,7 @@ def _declare_library_subtargets(
                     sonames.add(soname)
 
         lib_outputs = {}
-        for soname in sonames.list():
+        for soname in sonames:
             output_path = _platform_output_path(soname, platform if len(original_shared_libs_by_platform) > 1 else None)
             lib_output = ctx.actions.declare_output(output_path, dir = True)
             dynamic_outputs.append(lib_output)
@@ -491,17 +582,27 @@ def _link_library_subtargets(
                 output = lib_outputs.unrelinked
             ctx.actions.symlinked_dir(outputs[output], group_outputs)
 
-def _create_library_subtargets(lib_outputs_by_platform: dict[str, dict[str, _NativeLibSubtargetArtifacts]], native_libs: Artifact):
-    def create_library_subtarget(output: _NativeLibSubtargetArtifacts):
+def _create_library_subtargets(
+        lib_outputs_by_platform: dict[str, dict[str, _NativeLibSubtargetArtifacts]],
+        native_libs: Artifact,
+        create_default_outputs: bool):
+    def create_library_subtarget(output: _NativeLibSubtargetArtifacts, create_default_outputs: bool):
+        if not create_default_outputs and not output.unrelinked:
+            fail("create_default_outputs can only be False when relinking")
         if output.unrelinked:
             sub_targets = {"unrelinked": [DefaultInfo(default_outputs = [output.unrelinked])]}
-            return [DefaultInfo(default_outputs = [output.default], sub_targets = sub_targets)]
+            if create_default_outputs:
+                default_outputs = [output.default]
+            else:
+                sub_targets |= {"relinked": [DefaultInfo(default_outputs = [output.default])]}
+                default_outputs = []
+            return [DefaultInfo(default_outputs = default_outputs, sub_targets = sub_targets)]
         return [DefaultInfo(default_outputs = [output.default])]
 
     if len(lib_outputs_by_platform) > 1:
         return {
             platform: [DefaultInfo(default_outputs = [native_libs], sub_targets = {
-                soname: create_library_subtarget(output)
+                soname: create_library_subtarget(output, create_default_outputs)
                 for soname, output in lib_outputs.items()
             })]
             for platform, lib_outputs in lib_outputs_by_platform.items()
@@ -509,7 +610,7 @@ def _create_library_subtargets(lib_outputs_by_platform: dict[str, dict[str, _Nat
     elif len(lib_outputs_by_platform) == 1:
         lib_outputs = list(lib_outputs_by_platform.values())[0]
         return {
-            soname: create_library_subtarget(output)
+            soname: create_library_subtarget(output, create_default_outputs)
             for soname, output in lib_outputs.items()
         }
     else:
@@ -648,6 +749,8 @@ def _get_native_libs_and_assets(
 
     combined_native_libs = ctx.actions.declare_output("combined_native_libs", dir = True)
     native_libs_metadata = ctx.actions.declare_output("native_libs_metadata.txt")
+    native_library_pick_first = getattr(ctx.attrs, "native_library_pick_first", [])
+    native_library_pick_first_arg = ["--pick-first"] + native_library_pick_first if native_library_pick_first else []
     ctx.actions.run(cmd_args([
         ctx.attrs._android_toolchain[AndroidToolchainInfo].combine_native_library_dirs[RunInfo],
         "--output-dir",
@@ -657,7 +760,7 @@ def _get_native_libs_and_assets(
         stripped_linkables.linkables,
         "--metadata-file",
         native_libs_metadata.as_output(),
-    ]), category = "combine_native_libs")
+    ] + native_library_pick_first_arg), category = "combine_native_libs")
 
     combined_native_libs_always_in_primary_apk = ctx.actions.declare_output("combined_native_libs_always_in_primary_apk", dir = True)
     ctx.actions.run(cmd_args([
@@ -816,7 +919,7 @@ def get_default_shared_libs(ctx: AnalysisContext, deps: list[Dependency], shared
     return {
         soname: shared_lib
         for soname, shared_lib in with_unique_str_sonames(traverse_shared_library_info(shared_library_info)).items()
-        if not (shared_libraries_to_exclude and shared_libraries_to_exclude.contains(shared_lib.label.raw_target()))
+        if shared_lib.label.raw_target() not in shared_libraries_to_exclude
     }
 
 _LinkableSharedNode = record(
@@ -918,7 +1021,7 @@ def write_merged_library_map(ctx: AnalysisContext, shared_libs_by_platform: dict
 
     lines = []
     for final_soname in sorted(solib_map.keys()):
-        for original_soname in solib_map[final_soname].list():
+        for original_soname in solib_map[final_soname]:
             lines.append("{} {}".format(original_soname, final_soname))
 
     # we wanted it sorted by original_soname
@@ -1129,8 +1232,9 @@ def _get_merged_linkables_for_platform(
         group_deps = link_groups_graph_builder.setdefault(target_group, {})
         for dep in linkable_nodes_graph[target]:
             dep_group = target_to_link_group[dep]
-            if target_group != dep_group:
-                group_deps[dep_group] = True
+            if target_group != dep_group and dep_group not in group_deps:
+                # Store one example of why target_group depends on dep_group
+                group_deps[dep_group] = (target, dep)
     link_groups_graph = {k: list(v.keys()) for k, v in link_groups_graph_builder.items()}
 
     archive_output_style = LibOutputStyle("pic_archive")
@@ -1140,9 +1244,17 @@ def _get_merged_linkables_for_platform(
     group_shared_libs = {}
     included_default_solibs = {}
 
+    def edge_explainer(src_group, dest_group):
+        """Explains in an error why src_group has a dependency on dest_group"""
+        if src_group not in link_groups_graph_builder or dest_group not in link_groups_graph_builder[src_group]:
+            return ["Unknown"]
+
+        src_target, dest_target = link_groups_graph_builder[src_group][dest_group]
+        return ["   " + str(src_target), "-> " + str(dest_target)]
+
     # Now we will traverse from the leaves up the graph (the link groups graph). As we traverse, we will produce
     # a link group linkablenode for each group.
-    for group in post_order_traversal(link_groups_graph):
+    for group in post_order_traversal(link_groups_graph, edge_explainer = edge_explainer):
         group_data = link_groups[group]
         is_actually_merged = len(group_data.constituents) > 1
 
@@ -1256,8 +1368,10 @@ def _get_merged_linkables_for_platform(
             cxx_toolchain = cxx_toolchain,
         )
         link_args = [link_args]
+        if ctx.attrs.native_library_merge_linker_args_all:
+            link_args += [LinkArgs(flags = ctx.attrs.native_library_merge_linker_args_all)]
         if soname in merge_linker_args:
-            link_args += [LinkArgs(infos = [LinkInfo(pre_flags = merge_linker_args[soname])])]
+            link_args += [LinkArgs(flags = merge_linker_args[soname])]
 
         shared_lib = create_shared_lib(
             ctx,
@@ -1421,42 +1535,6 @@ def _create_relinkable_links(
 
     return {lib.soname.ensure_str(): lib for lib in shared_libs.values()}, debug_link_deps
 
-# To support migration from a tset-based link strategy, we are trying to match buck's internal tset
-# traversal logic here.  Look for implementation of TopologicalTransitiveSetIteratorGen
-def _rust_matching_topological_traversal(
-        roots: list[typing.Any],
-        get_nodes_to_traverse_func: typing.Callable) -> list[typing.Any]:
-    counts = {}
-
-    for label in depth_first_traversal_by(None, roots, get_nodes_to_traverse_func, GraphTraversal("preorder-right-to-left")):
-        for dep in get_nodes_to_traverse_func(label):
-            if dep in counts:
-                counts[dep] += 1
-            else:
-                counts[dep] = 1
-
-    # some of the targets in roots might be transitive deps of others, we only put those that are true roots
-    # in the stack at this point
-    stack = [root_target for root_target in roots if not root_target in counts]
-    true_roots = len(stack)
-
-    result = []
-    for _ in range(2000000000):
-        if not stack:
-            break
-        next = stack.pop()
-        result.append(next)
-        deps = get_nodes_to_traverse_func(next)
-        for child in deps[::-1]:  # reverse order ensures we put things on the stack in the same order as rust's tset traversal
-            counts[child] -= 1
-            if counts[child] == 0:
-                stack.append(child)
-
-    if len(result) != true_roots + len(counts):
-        fail()  # fail_cycle
-
-    return result
-
 def _create_link_args(
         *,
         cxx_toolchain: CxxToolchainInfo,
@@ -1494,7 +1572,7 @@ def _create_link_args(
 
     links = []
     shlib_deps = []
-    for target in _rust_matching_topological_traversal([root_target], link_traversal):
+    for target in rust_matching_topological_traversal(None, [root_target], link_traversal):
         is_root = target == root_target
         node = graph[target]
         preferred_linkable_type = get_lib_output_style(link_strategy, node.preferred_linkage, PicBehavior("supported"))
@@ -1552,7 +1630,7 @@ def _create_merged_link_args(
 
     links = []
     shlib_deps = []
-    for label in _rust_matching_topological_traversal([root_target.label], link_traversal):
+    for label in rust_matching_topological_traversal(None, [root_target.label], link_traversal):
         if label == root_target.label:
             links.extend(root_target.constituent_link_infos)
         else:
@@ -1565,6 +1643,32 @@ def _create_merged_link_args(
     if extra_runtime_flags:
         links.append(LinkInfo(pre_flags = extra_runtime_flags))
     return LinkArgs(infos = links), shlib_deps, link_traversal_cache
+
+def _bolt_libraries(
+        ctx: AnalysisContext,
+        libraries_by_platform: dict[str, dict[str, SharedLibrary]],
+        bolt_args: dict[str, ArgLike]) -> dict[str, dict[str, SharedLibrary]]:
+    bolted_libraries_by_platform = {}
+    for platform, shared_libraries in libraries_by_platform.items():
+        cxx_toolchain = ctx.attrs._cxx_toolchain[platform][CxxToolchainInfo]
+        bolted_libraries = bolted_libraries_by_platform.setdefault(platform, {})
+        for soname, _ in shared_libraries.items():
+            original_shared_library = shared_libraries[soname]
+            if not soname in bolt_args:
+                bolted_libraries[soname] = original_shared_library
+                continue
+
+            output_path = "bolt-libs/{}/{}".format(platform, soname)
+
+            bolted_libraries[soname] = _create_bolt_lib(
+                ctx = ctx,
+                cxx_toolchain = cxx_toolchain,
+                prebolt_lib = original_shared_library,
+                output_path = output_path,
+                bolt_args = bolt_args[soname],
+            )
+
+    return bolted_libraries_by_platform
 
 # When linking shared libraries, by default, all symbols are exported from the library. In a
 # particular application, though, many of those symbols may never be used. Ideally, in each apk,
@@ -1641,10 +1745,14 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
             )
             relinker_link_args = (
                 original_shared_library.link_args +
-                [LinkArgs(flags = [cmd_args(relinker_version_script, format = "-Wl,--version-script={}")])] +
-                ([LinkArgs(infos = [set_link_info_link_whole(red_linkable[1]) for red_linkable in red_linkables[platform]])] if len(red_linkables) > 0 else [])
+                [LinkArgs(flags = ctx.attrs.relinker_extra_args)] +
+                ([LinkArgs(infos = [set_link_info_link_whole(red_linkable[1]) for red_linkable in red_linkables[platform]])] if len(red_linkables) > 0 else []) +
+                # We add the version script last to allow easy post-processing if needed.
+                [LinkArgs(flags = [cmd_args(relinker_version_script, format = "-Wl,--version-script={}")])]
             )
 
+            extra_args = {} # @oss-enable
+            # @oss-disable[end= ]: extra_args = add_gatorade_relinker_args(ctx, cxx_toolchain, output_path)
             shared_lib = create_shared_lib(
                 ctx,
                 output_path = output_path,
@@ -1654,6 +1762,7 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
                 shared_lib_deps = original_shared_library.shlib_deps,
                 label = original_shared_library.label,
                 can_be_asset = original_shared_library.can_be_asset,
+                **extra_args
             )
             needed_symbols_from_this = extract_undefined_symbols(ctx, cxx_toolchain, shared_lib.lib.output)
             unioned_needed_symbols_file = ctx.actions.declare_output(output_path + ".all_needed_symbols")
@@ -1679,9 +1788,9 @@ def create_relinker_version_script(actions: AnalysisActions, relinker_allowlist:
             keep_symbol = False
             if symbol in all_needed_symbols:
                 keep_symbol = True
-            elif "JNI_OnLoad" in symbol:
+            elif symbol == "JNI_OnLoad":
                 keep_symbol = True
-            elif "Java_" in symbol:
+            elif symbol.startswith("Java_"):
                 keep_symbol = True
             else:
                 for pattern in relinker_allowlist:
@@ -1736,7 +1845,9 @@ def create_shared_lib(
         cxx_toolchain: CxxToolchainInfo,
         shared_lib_deps: list[str],
         label: Label,
-        can_be_asset: bool) -> SharedLibrary:
+        can_be_asset: bool,
+        extra_linker_outputs_factory: typing.Callable | None = None,
+        extra_linker_outputs_flags_factory: typing.Callable | None = None) -> SharedLibrary:
     for link_arg in link_args:
         flags = link_arg.flags or []
         for info in link_arg.infos or []:
@@ -1756,6 +1867,8 @@ def create_shared_lib(
             identifier = output_path,
             strip = False,
             cxx_toolchain = cxx_toolchain,
+            extra_linker_outputs_factory = extra_linker_outputs_factory,
+            extra_linker_outputs_flags_factory = extra_linker_outputs_flags_factory,
         ),
     )
 
@@ -1769,4 +1882,46 @@ def create_shared_lib(
         for_primary_apk = False,
         soname = soname,
         label = label,
+        extra_outputs = link_result.extra_outputs,
+    )
+
+def _create_bolt_lib(
+        ctx: AnalysisContext,
+        cxx_toolchain: CxxToolchainInfo,
+        prebolt_lib: SharedLibrary,
+        output_path: str,
+        bolt_args: list[ArgLike]) -> SharedLibrary:
+    soname = prebolt_lib.soname.ensure_str()
+    bolt_output = ctx.actions.declare_output(output_path)
+    action_execution_properties = get_action_execution_attributes(LinkExecutionPreference("any"))
+
+    args = cmd_args(
+        cmd_args(cxx_toolchain.binary_utilities_info.bolt),
+        prebolt_lib.lib.output,
+        "-o",
+        bolt_output.as_output(),
+        bolt_args,
+    )
+
+    ctx.actions.run(
+        args,
+        category = "bolt",
+        prefer_local = action_execution_properties.prefer_local,
+        prefer_remote = action_execution_properties.prefer_remote,
+        local_only = action_execution_properties.local_only,
+        identifier = output_path,
+    )
+
+    linked_object = LinkedObject(
+        output = bolt_output,
+        unstripped_output = bolt_output,
+    )
+
+    return create_shlib(
+        lib = linked_object,
+        stripped_lib = strip_lib(ctx, cxx_toolchain, linked_object.output),
+        can_be_asset = prebolt_lib.can_be_asset,
+        for_primary_apk = False,
+        soname = soname,
+        label = prebolt_lib.label,
     )

@@ -18,10 +18,10 @@ use pin_project::pin_project;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tokio::io::ReadBuf;
-use tonic::transport::server::Connected;
 use tonic::transport::Channel;
 use tonic::transport::Endpoint;
 use tonic::transport::Uri;
+use tonic::transport::server::Connected;
 use tower::service_fn;
 
 #[pin_project]

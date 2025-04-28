@@ -1,0 +1,5 @@
+a_target(name = "target1")
+a_target(name = "target2")
+a_target(name = "target3")
+a_target(name = "target4")
+a_target(name = "target5")

@@ -11,18 +11,30 @@ load("@prelude//:paths.bzl", "paths")
 
 # ------------------ IMPL ------------------
 
+def _add_includes_to_map(includes_map, includes):
+    for inc in includes:
+        includes_map[inc["value"]] = inc["type"]
+    return includes_map
+
 def _clean_up_includes(includes):
     # - Strip to just dir, not file name
     # - Remove duplicates
     # Note: Sometimes the buck rule generating the includes has an excludes glob for a directory.
     #       This flattening will potentially expose excluded files in the directory.
     #       But we do it, because otherwise the performance in erlang_service parsing is too poor.
-    include_paths = [_as_path(paths.dirname(p["value"])) for p in includes if p["type"] == "path"]
-    targets = [t for t in includes if t["type"] == "target"]
-    return include_paths + targets
+    #       For generated include files we cannot perform this optimisation, instead we list them
+    #       individually.
+    include_paths = [paths.dirname(p["value"]) for p in includes if p["type"] == "path"]
+    include_paths = [_as_path(p) for p in _list_dedupe(include_paths)]
+    builds = [b for b in includes if b["type"] == "build"]
+
+    return include_paths + builds
 
 def _get_includes(ctx, includes_target):
-    return _clean_up_includes([_get_absolute_path(ctx, inc) for inc in includes_target.value()])
+    includes = []
+    for inc in includes_target.value():
+        includes += _get_absolute_path(ctx, inc)
+    return _clean_up_includes(includes)
 
 def _dep_includes(ctx, dep, target_universe):
     lookup_val = "{}:{}".format(dep.path, dep.name)
@@ -37,60 +49,111 @@ def _dep_includes(ctx, dep, target_universe):
     else:
         return _get_includes(ctx, includes)
 
-def _get_absolute_path(ctx, src) -> dict[str, str]:
+def _cached_includes(ctx, cache, dep, target_universe):
+    if dep in cache:
+        dep_includes = cache[dep]
+    else:
+        dep_includes = _dep_includes(ctx, dep, target_universe)
+        cache[dep] = dep_includes
+    return (cache, dep_includes)
+
+def _recursive_includes(ctx, cells, cache, seen, app, target_universe):
+    """
+    Recursive includes are used for resolving include_lib only (AZ:I hope).
+    So all we need to do is built out the recursive tree of apps, and for each
+    put in the parent directory
+    """
+    ct = app.configured_target()
+    lookup_val = "{}:{}".format(ct.path, ct.name)
+    app_target = target_universe.lookup(lookup_val)
+    if app_target and len(app_target) > 0:
+        app_target = app_target[0]
+        if app_target.label in seen:
+            return (cache, seen, [])
+        else:
+            (cache, res) = _cached_includes(ctx, cache, ct, target_universe)
+
+            res.append(_as_path(str(_file_node_to_path(cells, app.path))))
+            seen[app_target.label] = True
+
+            # Run through dependent apps. Should we do deps too?
+            app_apps = app_target.attrs_lazy().get("applications")
+            if app_apps:
+                for sub_app in app_apps.value():
+                    res.append(_as_path(str(_file_node_to_path(cells, sub_app.path))))
+
+                    (cache, seen, sub_res) = _recursive_includes(ctx, cells, cache, seen, sub_app, target_universe)
+
+                    res += sub_res
+            return (cache, seen, res)
+    else:
+        return (cache, seen, [])
+
+def _get_absolute_path(ctx, src, allow_multiple = True) -> list[dict[str, str | bxl.EnsuredArtifact]]:
     """
     Get the absolute path of the thing passed in, which is either an artifact or a target label.
     """
-    if isinstance(src, ConfiguredProvidersLabel):
-        return _as_target(str(src.raw_target()))
+    if isinstance(src, ConfiguredProvidersLabel) and ctx.cli_args.build_generated_code:
+        target = src.configured_target()
+        build_results = ctx.build(src)
+        build_result = build_results[src]
+        failed_targets = []
+        for _ in build_result.failures():
+            failed_targets.append(str(target))
+        if failed_targets != []:
+            return [_as_error("target {} failed to build due to failures on the following targets [{}]".format(target, ", ".join(failed_targets)))]
+        paths = ctx.output.ensure_multiple(build_result.artifacts())
+        if not allow_multiple and len(paths) != 1:
+            return [_as_error("target {} has multiple outputs: {}".format(target, ", ".join([str(p) for p in paths])))]
+        return [_as_build(path.abs_path()) for path in paths]
+    elif isinstance(src, ConfiguredProvidersLabel):
+        return [_as_target(str(src.raw_target()))]
     else:
-        return _as_path(get_path_without_materialization(src, ctx, abs = True))
+        return [_as_path(get_path_without_materialization(src, ctx, abs = True))]
 
 def _elp_config(ctx):
-    cells = {
-        cell: cell_path
-        for cell, cell_path in ctx.audit().cell(aliases = True).items()
-    }
-
     included_targets = ctx.cli_args.included_targets
-    target_universe = ctx.target_universe(included_targets)
 
-    all = ctx.cquery().kind("^(erlang_app|erlang_test)$", ctx.configured_targets(included_targets))
-    if ctx.cli_args.deps_target:
-        all += ctx.cquery().kind("^erlang_app$", ctx.configured_targets(ctx.cli_args.deps_target))
+    # Load the prelude targets first, so if we are working in the prelude they will be overwritten
+    # by included or deps targets, and processed in ELP
+
+    included_targets = ctx.configured_targets(included_targets, None)
+    all_targets = ctx.cquery().deps(ctx.configured_targets(included_targets, None))
+    deps_targets = all_targets - included_targets
+
+    all = {tgt.label.raw_target(): ("app", tgt) for tgt in ctx.cquery().kind("^(erlang_app|erlang_test)$", included_targets)}
+    all.update({tgt.label.raw_target(): ("dep", tgt) for tgt in ctx.cquery().kind("^erlang_app$", deps_targets)})
+
     result = {}
-    dep_includes_cache = {}  # Cache of includes per dependency
-    for target in all:
-        label = target.label
-        label_name = label.raw_target()
-        deps = target.attrs_lazy().get("deps")
-
+    for label_name, (typ, target) in all.items():
+        includes_map = {}
         includes = target.attrs_lazy().get("includes")
         if not includes:
             includes = []
         else:
             includes = _get_includes(ctx, includes)
+        includes_map = _add_includes_to_map(includes_map, includes)
 
-        if ctx.cli_args.deps_includes:
-            if deps:
-                for dep in deps.value():
-                    if dep in dep_includes_cache:
-                        dep_includes = dep_includes_cache[dep]
-                    else:
-                        dep_includes = _dep_includes(ctx, dep, target_universe)
-                        dep_includes_cache[dep] = dep_includes
-                    includes = includes + dep_includes
-            apps = target.attrs_lazy().get("applications")
+        deps_list = []
+        apps_list = []
+        included_apps_list = []
+        deps = target.attrs_lazy().get("deps")
+        if deps:
+            deps_list = [tgt.raw_target() for tgt in deps.value()]
 
-            if apps:
-                for app in apps.value():
-                    includes.append(_as_path(str(_file_node_to_path(cells, app.path))))
+        apps = target.attrs_lazy().get("applications")
+        if apps:
+            apps_list = [tgt.raw_target() for tgt in apps.value()]
 
-        srcs = target.attrs_lazy().get("srcs")
-        if not srcs:
-            srcs = []
-        else:
-            srcs = [_get_absolute_path(ctx, src) for src in srcs.value()]
+        included_apps = target.attrs_lazy().get("included_applications")
+        if included_apps:
+            included_apps_list = [tgt.raw_target() for tgt in included_apps.value()]
+
+        srcs_attr = target.attrs_lazy().get("srcs")
+        srcs = []
+        if srcs_attr:
+            for src in srcs_attr.value():
+                srcs += _get_absolute_path(ctx, src)
 
         suite = target.attrs_lazy().get("suite")
         if not suite:
@@ -98,20 +161,25 @@ def _elp_config(ctx):
         elif suite.value() == None:
             suite = None
         else:
-            suite_info = _get_absolute_path(ctx, suite.value())
-            if suite_info["type"] == "path":
+            [suite_info] = _get_absolute_path(ctx, suite.value(), allow_multiple = False)
+            if suite_info["type"] == "path" or suite_info["type"] == "build":
                 suite = suite_info["value"]
             else:
                 suite = None
 
-        includes = _build_output(includes)
-        srcs = _build_output(srcs)
+        includes = [t for t in includes_map.keys() if includes_map[t] == "path" or includes_map[t] == "build"]
+        srcs = _construct_output(srcs)
         result[label_name] = dict(
             name = target.attrs_lazy().get("name"),
+            app_name = target.attrs_lazy().get("app_name"),
             suite = suite,
             srcs = srcs,
             includes = includes,
             labels = target.attrs_lazy().get("labels"),
+            deps = deps_list,
+            apps = apps_list,
+            included_apps = included_apps_list,
+            origin = typ,
         )
     ctx.output.print_json(result)
 
@@ -119,12 +187,12 @@ def _file_node_to_path(cells: dict[str, str], file_node) -> str:
     cell, path = str(file_node).split("//", 1)
     return paths.join(cells[cell], path)
 
-def _build_output(items: list[dict[str, str]]) -> list[str]:
+def _construct_output(items: list[dict[str, str | bxl.EnsuredArtifact]]) -> list[str | bxl.EnsuredArtifact]:
     # we completely ignore targets, since we don't have support for generated files in ELP
-    paths = _list_dedupe([p["value"] for p in items if p["type"] == "path"])
+    paths = _list_dedupe([p.get("value") for p in items if p.get("type") in ["path", "build"]])
     return paths
 
-def _list_dedupe(xs: list[str]) -> list[str]:
+def _list_dedupe(xs):
     return {x: True for x in xs}.keys()
 
 def _as_path(src):
@@ -133,13 +201,20 @@ def _as_path(src):
 def _as_target(src):
     return {"type": "target", "value": src}
 
+def _as_build(artifact):
+    return {"type": "build", "value": artifact}
+
+def _as_error(error):
+    warning("ERROR: {}".format(error))
+    return {"type": "error", "value": error}
+
 # ------------------ INTERFACE ------------------
 
 elp_config = bxl_main(
     impl = _elp_config,
     cli_args = {
-        "deps_includes": cli_args.bool(False, doc = "Use include paths from the dependencies too."),
-        "deps_target": cli_args.option(cli_args.string(), doc = "Target to include deps from, if specified. See corresponding field in .elp.toml"),
+        "build_generated_code": cli_args.option(cli_args.bool(), default = False, doc = "Enable builds for generated sources"),
+        "deps_targets": cli_args.option(cli_args.list(cli_args.string()), doc = "Target to include deps from, if specified. See corresponding field in .elp.toml"),
         "included_targets": cli_args.list(cli_args.string(), doc = "Targets to include in the query. See corresponding field in .elp.toml"),
     },
 )
@@ -147,4 +222,3 @@ elp_config = bxl_main(
 # Run with `buck2 bxl prelude//erlang/elp.bxl:elp_config`
 # e.g.
 # buck2 bxl prelude//erlang/elp.bxl:elp_config -- --included_targets cell//...
-# buck2 bxl prelude//erlang/elp.bxl:elp_config -- --included_targets cell//... --deps_includes true

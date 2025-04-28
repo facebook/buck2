@@ -1,0 +1,27 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _profile_without_actions(ctx):
+    ctx.build("//bxl:test")
+
+profile_without_actions = bxl_main(
+    impl = _profile_without_actions,
+    cli_args = {},
+)
+
+def _profile_with_actions(ctx):
+    actions = ctx.bxl_actions().actions
+
+    output = actions.write("my_output", "out")
+
+    ensured = ctx.output.ensure(output)
+    ctx.output.print(ensured)
+
+profile_with_actions = bxl_main(
+    impl = _profile_with_actions,
+    cli_args = {},
+)

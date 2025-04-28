@@ -1,0 +1,13 @@
+load(":defs.bzl", "test")
+
+test(name = "target_without_dependencies")
+
+test(
+    name = "good_target_with_dependencies",
+    remote_execution_dependencies = [{"id": "foo", "smc_tier": "noop"}],
+)
+
+test(
+    name = "bad_target_with_dependencies",
+    remote_execution_dependencies = [{"extra_field": "abc", "id": "foo", "smc_tier": "noop"}],
+)

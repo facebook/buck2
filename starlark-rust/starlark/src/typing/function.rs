@@ -15,53 +15,38 @@
  * limitations under the License.
  */
 
-use std::fmt;
 use std::fmt::Debug;
-use std::fmt::Display;
-use std::fmt::Formatter;
 use std::hash::Hash;
 
 use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::codemap::Span;
-use crate::codemap::Spanned;
-use crate::typing::callable::TyCallable;
-use crate::typing::callable_param::Param;
-use crate::typing::custom::TyCustomImpl;
-use crate::typing::error::TypingOrInternalError;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
+use crate::typing::call_args::TyCallArgs;
+use crate::typing::callable::TyCallable;
+use crate::typing::custom::TyCustomImpl;
+use crate::typing::error::TypingNoContextError;
+use crate::typing::error::TypingNoContextOrInternalError;
+use crate::typing::error::TypingOrInternalError;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
-
-/// An argument being passed to a function
-#[derive(Debug)]
-pub enum Arg<'a> {
-    /// A positional argument.
-    Pos(Ty),
-    /// A named argument.
-    Name(&'a str, Ty),
-    /// A `*args`.
-    Args(Ty),
-    /// A `**kwargs`.
-    Kwargs(Ty),
-}
 
 /// Custom function typechecker.
 pub trait TyCustomFunctionImpl:
     Debug + Eq + Ord + Hash + Allocative + Send + Sync + 'static
 {
-    fn has_type_attr(&self) -> bool {
+    fn is_type(&self) -> bool {
         false
     }
 
     fn validate_call(
         &self,
         span: Span,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError>;
 
@@ -82,7 +67,11 @@ pub trait TyCustomFunctionImpl:
     Debug,
     derive_more::Display
 )]
-#[display(fmt = "\"function\"")]
+#[display(
+    "def({}) -> {}",
+    self.0.as_callable().params(),
+    self.0.as_callable().result(),
+)]
 pub struct TyCustomFunction<F: TyCustomFunctionImpl>(pub F);
 
 impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
@@ -93,7 +82,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
     fn validate_call(
         &self,
         span: Span,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         self.0.validate_call(span, args, oracle)
@@ -112,25 +101,26 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         bin_op: TypingBinOp,
         _rhs: &TyBasic,
         _ctx: &TypingOracleCtx,
-    ) -> Result<Ty, ()> {
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         match bin_op {
             // `str | list`.
-            TypingBinOp::BitOr if self.0.has_type_attr() => {
-                // TODO(nga): result is type, but we don't have a type for type yet.
-                Ok(Ty::any())
-            }
-            _ => Err(()),
+            TypingBinOp::BitOr if self.0.is_type() => Ok(Ty::basic(TyBasic::Type)),
+            _ => Err(TypingNoContextOrInternalError::Typing),
         }
     }
 
-    fn index(&self, _item: &TyBasic, _ctx: &TypingOracleCtx) -> Result<Ty, ()> {
+    fn index(
+        &self,
+        _item: &TyBasic,
+        _ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         // TODO(nga): this is hack for `enum` (type) which pretends to be a function.
         //   Should be a custom type.
         Ok(Ty::any())
     }
 
-    fn attribute(&self, _attr: &str) -> Result<Ty, ()> {
-        Err(())
+    fn attribute(&self, _attr: &str) -> Result<Ty, TypingNoContextError> {
+        Err(TypingNoContextError)
     }
 
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
@@ -148,19 +138,19 @@ pub struct TyFunction {
 
 impl TyFunction {
     /// Constructor.
-    pub fn new_with_type_attr(params: Vec<Param>, result: Ty, type_attr: Ty) -> Self {
+    pub fn new_with_type_attr(params: ParamSpec, result: Ty, type_attr: Ty) -> Self {
         // TODO(nga): validate params are in correct order.
         TyFunction {
             type_attr: Some(type_attr),
-            callable: TyCallable::new(ParamSpec::new(params), result),
+            callable: TyCallable::new(params, result),
         }
     }
 
     /// Constructor.
-    pub fn new(params: Vec<Param>, result: Ty) -> Self {
+    pub fn new(params: ParamSpec, result: Ty) -> Self {
         TyFunction {
             type_attr: None,
-            callable: TyCallable::new(ParamSpec::new(params), result),
+            callable: TyCallable::new(params, result),
         }
     }
 
@@ -170,24 +160,15 @@ impl TyFunction {
     }
 }
 
-impl Display for TyFunction {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let TyFunction { callable, .. } = self;
-        let params = callable.params();
-        let result = callable.result();
-        write!(f, "def({params}) -> {result}")
-    }
-}
-
 impl TyCustomFunctionImpl for TyFunction {
-    fn has_type_attr(&self) -> bool {
+    fn is_type(&self) -> bool {
         self.type_attr.is_some()
     }
 
     fn validate_call(
         &self,
         span: Span,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         oracle.validate_fn_call(span, &self.callable, args)

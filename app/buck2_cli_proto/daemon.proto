@@ -78,6 +78,7 @@ message StatusResponse {
   optional bool http2 = 13;
   optional bool valid_working_directory = 14;
   optional bool valid_buck_out_mount = 15;
+  optional string io_provider = 16;
 }
 
 message PingRequest {
@@ -94,6 +95,15 @@ message TargetCfg {
   /// Empty string means not specified.
   string target_platform = 1;
   repeated string cli_modifiers = 2;
+}
+
+message RepresentativeConfigFlag {
+  oneof source {
+    string config_flag = 1;
+    string config_file = 2;
+    string mode_file = 3;
+    string config_modifier = 4;
+  }
 }
 
 message ClientContext {
@@ -147,6 +157,8 @@ message ClientContext {
   // whether the new build will preempt (ie kill) the current build and take its
   // place.
   PreemptibleWhen preemptible = 22;
+  // Used for logging purposes; gives the config flags needed to repro the run
+  repeated RepresentativeConfigFlag representative_config_flags = 23;
 }
 
 message TargetsRequest {
@@ -246,6 +258,7 @@ enum QueryOutputFormat {
   DOT = 2;
   DOT_COMPACT = 3;
   STARLARK = 4;
+  HTML = 5;
 }
 
 message AqueryRequest {
@@ -311,8 +324,14 @@ message ConfigOverride {
   //  - If its a value, then this is the cell the value should be applied to
   //  - If its a file, then the file path is relative to this cell
   optional string cell = 3;
-  // The value passed either to `--config` or `--config-file`. This does not
-  // include the cell, which is instead included above
+  // If the config type is a value, then this is the value passed to `--config`,
+  // verbatim.
+  //
+  // If the config type is a file, then:
+  //  - If the cell is set above, a not-necessarily-normalized relative path to
+  //    that cell root
+  //  - If the cell above is not set, this is the absolute path of the config
+  //    file
   string config_override = 1;
   enum ConfigType {
     VALUE = 0;
@@ -378,6 +397,9 @@ message CommonBuildOptions {
   /// Validations to run that are marked optional.
   repeated string enable_optional_validations = 19;
 
+  /// Materializes outputs for failed actions which ran on RE.
+  bool materialize_failed_outputs = 20;
+
   // These should possibly be deleted and never become real options. Let's not
   // pollute the low ids (and then forever need a comment about them). The only
   // one of these that might stick around is print_build_report, it's unclear if
@@ -386,10 +408,11 @@ message CommonBuildOptions {
   string unstable_build_report_filename = 4242003;
   bool unstable_include_failures_build_report = 4242004;
   bool unstable_include_package_project_relative_paths = 4242005;
+  bool unstable_include_artifact_hash_information = 4242006;
 }
 
 message BuildRequest {
-  reserved 2, 5, 4242001;
+  reserved 2, 5, 9, 4242001;
 
   ClientContext context = 1;
   repeated string target_patterns = 10;
@@ -431,8 +454,17 @@ message BuildRequest {
   // Materialize final artifacts?
   Materializations final_artifact_materializations = 7;
 
-  // File name where built artifact hash information should be saved
-  optional string output_hashes_file = 9;
+  enum Uploads {
+    ALWAYS = 0;
+    NEVER = 1;
+  }
+  // Upload final artifacts?
+  Uploads final_artifact_uploads = 11;
+
+  // How long to build for? If the timeout is exceeded, Buck2 will exit as
+  // quickly as possible and drop in-flight builds. The exit code will be a
+  // user failure.
+  optional google.protobuf.Duration timeout = 12;
 }
 
 message TestSessionOptions {
@@ -496,6 +528,8 @@ message BxlRequest {
   BuildRequest.Materializations final_artifact_materializations = 6;
 
   bool print_stacktrace = 7;
+
+  BuildRequest.Uploads final_artifact_uploads = 8;
 }
 
 message BxlResponse {
@@ -542,7 +576,7 @@ message BuildTarget {
 }
 
 message BuildResponse {
-  reserved 101;
+  reserved 101, 200;
   repeated BuildTarget build_targets = 1;
   // Absolute path to the repo root
   string project_root = 2;
@@ -570,6 +604,7 @@ message TestResponse {
     CounterWithExamples fatals = 13;
     CounterWithExamples listing_success = 14;
     CounterWithExamples listing_failed = 15;
+    uint64 build_errors = 16;
   }
   TestStatuses test_statuses = 3;
   string executor_stdout = 4;
@@ -577,6 +612,7 @@ message TestResponse {
   // these are messages that the test executor wants to show the user at the
   // end of the run
   repeated string executor_info_messages = 6;
+  repeated string target_rule_type_names = 7;
 }
 
 message InstallResponse {}
@@ -599,24 +635,21 @@ message NewGenericResponseMessage {
   string new_generic_response = 1;
 }
 
-message UnstableCrashRequest {}
+message UnstableCrashRequest {
+  enum CrashType {
+    PANIC = 0;
+    ABORT = 2;
+  }
+  CrashType crash_type = 1;
+}
 
 message UnstableCrashResponse {}
-
-message SegfaultRequest {}
-
-message SegfaultResponse {}
-
-message CommandError {
-  reserved 1;
-  repeated buck.data.ErrorReport errors = 2;
-}
 
 message CommandResult {
   reserved 10;
 
   oneof result {
-    CommandError error = 1;
+    buck.data.ErrorReport error = 1;
     // Ideally, this would be an Any, but tonic/prost doesn't support it yet.
     KillResponse kill_response = 2;
     StatusResponse status_response = 3;
@@ -783,14 +816,17 @@ message TargetProfile {
 enum ProfileMode {
   HEAP_FLAME_ALLOCATED = 0;
   HEAP_FLAME_RETAINED = 10;
+  HEAP_ALLOCATED = 12;
   HEAP_SUMMARY_ALLOCATED = 1;
   HEAP_SUMMARY_RETAINED = 11;
+  HEAP_RETAINED = 13;
   TIME_FLAME = 2;
   STATEMENT = 3;
   BYTECODE = 4;
   BYTECODE_PAIRS = 5;
   TYPECHECK = 6;
   COVERAGE = 7;
+  NONE = 8;
 }
 
 message ProfileRequest {
@@ -837,7 +873,9 @@ message FileStatusRequest {
   bool show_matches = 3;
 }
 
-message FlushDepFilesRequest {}
+message FlushDepFilesRequest {
+  bool retain_locally_produced_dep_files = 1;
+}
 
 message SetLogFilterRequest {
   string log_filter = 1;
@@ -920,12 +958,8 @@ service DaemonApi {
       returns (stream MultiCommandProgress);
 
   // Crashes the Buck daemon. Unless you are writing tests or checking Buck2's
-  // panic behavior, you probably don't want this.
+  // behavior when it crashes, you probably don't want this.
   rpc Unstable_Crash(UnstableCrashRequest) returns (CommandResult);
-
-  // Crashes the Buck daemon with a segfault.  Unless you are writing tests or
-  // checking Buck2's segfault behavior, you probably don't want this.
-  rpc Segfault(SegfaultRequest) returns (SegfaultResponse);
 
   // Requests the daemon to perform a heap dump and save the dump to a file.
   rpc Unstable_HeapDump(UnstableHeapDumpRequest)

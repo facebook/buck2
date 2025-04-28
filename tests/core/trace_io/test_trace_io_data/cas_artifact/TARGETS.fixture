@@ -1,0 +1,10 @@
+load("@prelude//:prelude.bzl", "cas_artifact")
+
+cas_artifact(
+    name = "tree",
+    # A small tree uploaded in RE with a very large expiration
+    digest = "0424991a08d1a857d9a4ea858b2f0c9d17f41abbc927d18a8147f0d9e708a77b:77",
+    use_case = "apple_build_infra_tools",
+    expires_after_timestamp = 0,
+    is_tree = True,
+)

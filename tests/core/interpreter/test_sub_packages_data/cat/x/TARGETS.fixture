@@ -1,0 +1,2 @@
+# buildifier: disable=print
+print("Pkgs: " + str(__internal__.sub_packages()))

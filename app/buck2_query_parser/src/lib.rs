@@ -55,6 +55,7 @@ use dupe::Dupe;
 use enum_map::Enum;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
+use nom::IResult;
 use nom::branch::alt;
 use nom::bytes::complete::is_a;
 use nom::bytes::complete::tag;
@@ -68,10 +69,10 @@ use nom::character::complete::multispace1;
 use nom::combinator::all_consuming;
 use nom::combinator::cut;
 use nom::combinator::recognize;
-use nom::error::context;
-use nom::error::convert_error;
 use nom::error::ErrorKind;
 use nom::error::VerboseError;
+use nom::error::context;
+use nom::error::convert_error;
 use nom::multi::many0;
 use nom::multi::many1;
 use nom::multi::separated_list0;
@@ -79,7 +80,6 @@ use nom::sequence::delimited;
 use nom::sequence::pair;
 use nom::sequence::preceded;
 use nom::sequence::terminated;
-use nom::IResult;
 
 use crate::span::Span;
 use crate::spanned::Spanned;
@@ -207,12 +207,11 @@ impl Display for BinaryOp {
 }
 
 /// Wraps a parser producing `O` with one producing `Spanned<O>` by marking the output with a span covering all of the consumed input.
-fn spanned<'a, O, E: NomParseError<'a>, F: FnMut(Span<'a>) -> IResult<Span<'a>, O, E>>(
-    mut func: F,
-) -> impl FnMut(Span<'a>) -> IResult<Span<'a>, Spanned<O>, E>
+fn spanned<'a, O, E, F>(mut func: F) -> impl FnMut(Span<'a>) -> IResult<Span<'a>, Spanned<O>, E>
 where
     O: 'a,
-    F: 'a,
+    E: NomParseError<'a>,
+    F: FnMut(Span<'a>) -> IResult<Span<'a>, O, E> + 'a,
 {
     move |original_input| {
         let start = original_input.location_offset();
@@ -236,7 +235,7 @@ fn convert_to_str_error(err: VerboseError<Span>) -> VerboseError<&str> {
 }
 
 /// Parses a query string into a SpannedExpr. Requires that the entire input is consumed.
-pub fn parse_expr(input: &str) -> anyhow::Result<SpannedExpr> {
+pub fn parse_expr(input: &str) -> buck2_error::Result<SpannedExpr> {
     let span = Span::new(input);
     // Parse with fast error (`()`) first,
     // and on error reparse again with `VerboseError` to get detailed errors.
@@ -493,7 +492,7 @@ mod tests {
     }
 
     #[test]
-    fn test_expr() -> anyhow::Result<()> {
+    fn test_expr() -> buck2_error::Result<()> {
         run_tests(
             expr,
             &[
@@ -577,7 +576,7 @@ mod tests {
     }
 
     #[test]
-    fn test_function() -> anyhow::Result<()> {
+    fn test_function() -> buck2_error::Result<()> {
         run_tests(
             expr_function,
             &["a()", "a(a)", "a(a, b, c)", "a(a,   b,   c)"],
@@ -590,7 +589,7 @@ mod tests {
     }
 
     #[test]
-    fn test_set() -> anyhow::Result<()> {
+    fn test_set() -> buck2_error::Result<()> {
         run_tests(
             expr_set,
             &["set(a)", "set(a b c)", "set(a   b   c)", "set(%s)", "set()"],
@@ -603,7 +602,7 @@ mod tests {
     }
 
     #[test]
-    fn test_word() -> anyhow::Result<()> {
+    fn test_word() -> buck2_error::Result<()> {
         run_tests(
             expr_word,
             &[
@@ -623,13 +622,13 @@ mod tests {
     }
 
     #[test]
-    fn test_integer() -> anyhow::Result<()> {
+    fn test_integer() -> buck2_error::Result<()> {
         run_tests(expr_int, &["0", "1234"], &["w123", ".1", ""], &["0123"]);
         Ok(())
     }
 
     #[test]
-    fn test_trailing_infix() -> anyhow::Result<()> {
+    fn test_trailing_infix() -> buck2_error::Result<()> {
         run_tests(
             trailing_infix,
             &[

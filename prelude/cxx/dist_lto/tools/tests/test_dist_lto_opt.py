@@ -8,7 +8,7 @@
 
 import unittest
 
-from cxx.dist_lto.tools.dist_lto_opt import _filter_flags
+from cxx.dist_lto.tools.dist_lto_opt_gnu import _filter_flags
 
 
 class TestDistLtoOpt(unittest.TestCase):

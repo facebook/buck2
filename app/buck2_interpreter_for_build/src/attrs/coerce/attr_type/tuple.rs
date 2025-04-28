@@ -16,14 +16,21 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use dupe::IterDupedExt;
 use gazebo::prelude::SliceExt;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
 use starlark::values::list::ListRef;
 use starlark::values::tuple::TupleRef;
-use starlark::values::Value;
 
-use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::attr_type::AttrTypeExt;
-use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
+use crate::attrs::coerce::attr_type::AttrTypeExt;
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
+
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+enum TupleError {
+    #[error("Expected tuple of at most {0} elements")]
+    TooManyElements(usize),
+}
 
 impl AttrTypeCoerce for TupleAttrType {
     fn coerce_item(
@@ -31,8 +38,8 @@ impl AttrTypeCoerce for TupleAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
-        let coerce = |value, items: &[Value]| {
+    ) -> buck2_error::Result<CoercedAttr> {
+        let coerce = |items: &[Value]| {
             // Use comparison rather than equality below. If the tuple is too short,
             // it is implicitly extended using None.
             if items.len() <= self.xs.len() {
@@ -46,21 +53,13 @@ impl AttrTypeCoerce for TupleAttrType {
                 }
                 Ok(CoercedAttr::Tuple(TupleLiteral(ctx.intern_list(res))))
             } else {
-                Err(anyhow::anyhow!(CoercionError::type_error(
-                    &format!("Tuple of at most length {}", self.xs.len()),
-                    value
-                )))
+                Err(TupleError::TooManyElements(self.xs.len()).into())
             }
         };
-        if let Some(list) = TupleRef::from_value(value) {
-            coerce(value, list.content())
-        } else if let Some(list) = ListRef::from_value(value) {
-            coerce(value, list.content())
+        if let Some(list) = ListRef::from_value(value) {
+            coerce(list.content())
         } else {
-            Err(anyhow::anyhow!(CoercionError::type_error(
-                TupleRef::TYPE,
-                value,
-            )))
+            coerce(<&TupleRef>::unpack_value_err(value)?.content())
         }
     }
 

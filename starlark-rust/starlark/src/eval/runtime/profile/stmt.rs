@@ -16,15 +16,15 @@
  */
 
 use std::cmp::Reverse;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::hash_map::Entry;
 use std::fmt::Write;
 
-use anyhow::Context;
 use dupe::Dupe;
 use starlark_map::StarlarkHasherBuilder;
 use starlark_syntax::codemap::CodeMaps;
+use starlark_syntax::internal_error;
 
 use crate::codemap::CodeMap;
 use crate::codemap::CodeMapId;
@@ -32,13 +32,13 @@ use crate::codemap::FileSpan;
 use crate::codemap::FileSpanRef;
 use crate::codemap::ResolvedFileSpan;
 use crate::codemap::Span;
+use crate::eval::ProfileMode;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::profile::profiler_type::ProfilerType;
 use crate::eval::runtime::small_duration::SmallDuration;
-use crate::eval::ProfileMode;
 
 pub(crate) struct StmtProfilerType;
 pub(crate) struct CoverageProfileType;
@@ -181,7 +181,7 @@ impl StmtProfileState {
                             file: data
                                 .files
                                 .get(*file)
-                                .context("no file corresponding to file id (internal error)")?
+                                .ok_or_else(|| internal_error!("no file corresponding to file id"))?
                                 .dupe(),
                             span: *span,
                         },
@@ -297,7 +297,7 @@ impl StmtProfile {
     }
 
     // None = not applicable because not enabled
-    pub(crate) fn gen(&self) -> crate::Result<ProfileData> {
+    pub(crate) fn r#gen(&self) -> crate::Result<ProfileData> {
         match &self.0 {
             Some(data) => Ok(ProfileData {
                 profile: ProfileDataImpl::Statement(data.finish()?),
@@ -339,14 +339,14 @@ mod tests {
     use crate::assert::test_functions;
     use crate::environment::GlobalsBuilder;
     use crate::environment::Module;
+    use crate::eval::Evaluator;
+    use crate::eval::ProfileData;
     use crate::eval::runtime::profile::data::ProfileDataImpl;
     use crate::eval::runtime::profile::instant::ProfilerInstant;
     use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::eval::runtime::profile::stmt::StmtProfile;
     use crate::eval::runtime::profile::stmt::StmtProfileData;
     use crate::eval::runtime::small_duration::SmallDuration;
-    use crate::eval::Evaluator;
-    use crate::eval::ProfileData;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
 
@@ -365,7 +365,7 @@ xx(*[1])
 xx(*[2])
 "#
             .to_owned(),
-            &Dialect::Extended,
+            &Dialect::AllOptionsInternal,
         )
         .unwrap();
         eval.enable_profile(&ProfileMode::Coverage).unwrap();
@@ -413,7 +413,7 @@ xx(*[2])
             file: &y,
             span: Span::new(Pos::new(2), Pos::new(4)),
         });
-        let a = a.gen().unwrap();
+        let a = a.r#gen().unwrap();
 
         let mut b = StmtProfile::new();
         b.enable();
@@ -425,7 +425,7 @@ xx(*[2])
             file: &z,
             span: Span::new(Pos::new(3), Pos::new(5)),
         });
-        let b = b.gen().unwrap();
+        let b = b.r#gen().unwrap();
 
         let ProfileDataImpl::Statement(merged) = ProfileData::merge([&a, &b]).unwrap().profile
         else {

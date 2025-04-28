@@ -1,0 +1,23 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _assert_eq(a, b):
+    if a != b:
+        fail("Expected {} == {}".format(a, b))
+
+def _pass_cquery_ctx(cquery_ctx: bxl.CqueryContext):
+    print(cquery_ctx)
+
+def _check_cquery_context(ctx: bxl.Context):
+    cquery_ctx = ctx.cquery()
+    _assert_eq(type(cquery_ctx), "bxl.CqueryContext")
+    _pass_cquery_ctx(cquery_ctx)
+
+cquery_ctx = bxl_main(
+    impl = _check_cquery_context,
+    cli_args = {},
+)

@@ -8,7 +8,6 @@
  */
 
 use std::fmt;
-use std::fmt::Display;
 use std::fmt::Formatter;
 use std::iter;
 
@@ -23,9 +22,9 @@ use static_assertions::assert_eq_size;
 use triomphe::Arc;
 
 use crate::ascii_char_set::AsciiCharSet;
-use crate::cells::name::CellName;
 use crate::cells::CellAliasResolver;
 use crate::cells::CellResolver;
+use crate::cells::name::CellName;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
 use crate::configuration::pair::ConfigurationNoExec;
@@ -35,15 +34,25 @@ use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::label::label::TargetLabel;
 
 #[derive(
-    Display, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
+    Display,
+    Clone,
+    Debug,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
 )]
 pub struct ProviderName(String);
 
 #[derive(buck2_error::Error, Debug)]
 #[error(
-    "Invalid provider name `{}`. Inner providers names can only contain non-empty alpha numeric characters, and symbols `,`, '=', `-`, `/`, `+` and `_`. No other characters are allowed.",
+    "Invalid provider name `{}`. Inner providers names can only contain non-empty alpha numeric characters, and symbols `,`, `=`, `-`, `/`, `+` and `_`. No other characters are allowed.",
     _0
 )]
+#[buck2(tag = Input)]
 struct InvalidProviderName(String);
 
 impl ProviderName {
@@ -55,12 +64,12 @@ impl ProviderName {
         ProviderName(name)
     }
 
-    pub fn new(name: String) -> anyhow::Result<ProviderName> {
+    pub fn new(name: String) -> buck2_error::Result<ProviderName> {
         Self::verify(&name)?;
         Ok(ProviderName(name))
     }
 
-    fn verify(name: &str) -> anyhow::Result<()> {
+    fn verify(name: &str) -> buck2_error::Result<()> {
         const VALID_CHARS: &str =
             r"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_\\/.=,+-";
         const SET: AsciiCharSet = AsciiCharSet::new(VALID_CHARS);
@@ -73,7 +82,18 @@ impl ProviderName {
     }
 }
 
-#[derive(Clone, Dupe, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
+)]
 pub enum NonDefaultProvidersName {
     Named(ArcSlice<ProviderName>),
     // For some flavors from buck1, we can translate them to ProvidersName::Named
@@ -91,7 +111,17 @@ pub enum NonDefaultProvidersName {
 /// It should be non-empty alphanumeric characters, '/', '.', ',', '-','=',
 /// and'_' character. All other special characters including spaces are
 /// prohibited.
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(
+    Clone,
+    Debug,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
+)]
 pub enum ProvidersName {
     Default,
     NonDefault(Arc<NonDefaultProvidersName>),
@@ -150,9 +180,19 @@ impl ProvidersName {
 /// the 'ProvidersName' referring to the specific set of inner providers of a
 /// rule.
 #[derive(
-    Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
+    Clone,
+    Dupe,
+    Debug,
+    Display,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
 )]
-#[display(fmt = "{}{}", target, name)]
+#[display("{}{}", target, name)]
 pub struct ProvidersLabel {
     target: TargetLabel,
     name: ProvidersName,
@@ -186,7 +226,7 @@ impl ProvidersLabel {
         cell_name: CellName,
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
-    ) -> anyhow::Result<ProvidersLabel> {
+    ) -> buck2_error::Result<ProvidersLabel> {
         let providers_label = ParsedPattern::<ProvidersPatternExtra>::parse_precise(
             label,
             cell_name,
@@ -230,13 +270,6 @@ impl ProvidersLabel {
     pub fn configure_pair_no_exec(&self, cfg: ConfigurationNoExec) -> ConfiguredProvidersLabel {
         self.configure_pair(cfg.cfg_pair().dupe())
     }
-
-    /// Determines whether a string, **IF IT IS LATER COERCED** would be a relative label.
-    ///
-    /// This function **DOES NOT** validate the entire label string.
-    pub fn maybe_relative_label(raw_label: &str) -> bool {
-        raw_label.starts_with(':')
-    }
 }
 
 impl Serialize for ProvidersLabel {
@@ -251,9 +284,19 @@ impl Serialize for ProvidersLabel {
 ///
 /// A configured 'ProvidersLabel'.
 #[derive(
-    Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
+    Clone,
+    Dupe,
+    Debug,
+    Display,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
 )]
-#[display(fmt = "{}{} ({})", "target.unconfigured()", "name", "target.cfg()")]
+#[display("{}{} ({})", target.unconfigured(), name, target.cfg())]
 pub struct ConfiguredProvidersLabel {
     target: ConfiguredTargetLabel,
     name: ProvidersName,
@@ -346,7 +389,6 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
     use crate::provider::label::ProviderName;
-    use crate::provider::label::ProvidersLabel;
 
     #[test]
     fn providers_name_validation() {
@@ -354,17 +396,5 @@ mod tests {
         ProviderName::new("foo_-,.=+/1".to_owned()).unwrap();
         assert!(ProviderName::new("foo bar".to_owned()).is_err());
         assert!(ProviderName::new("foo@bar".to_owned()).is_err());
-    }
-
-    #[test]
-    fn providers_label_maybe_relative() {
-        assert!(ProvidersLabel::maybe_relative_label(":foo"));
-        assert!(ProvidersLabel::maybe_relative_label(":foo[bar]"));
-        assert!(ProvidersLabel::maybe_relative_label(":invalid@label"));
-        assert!(!ProvidersLabel::maybe_relative_label("root//:bar"));
-        assert!(!ProvidersLabel::maybe_relative_label("root//foo:foo"));
-        assert!(!ProvidersLabel::maybe_relative_label(
-            "root//foo:invalid@label"
-        ));
     }
 }

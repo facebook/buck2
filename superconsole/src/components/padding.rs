@@ -7,11 +7,11 @@
  * of this source tree.
  */
 
+use crate::Component;
+use crate::Lines;
 use crate::components::Blank;
 use crate::components::Dimensions;
 use crate::components::DrawMode;
-use crate::Component;
-use crate::Lines;
 
 /// The `Padded` [`Component`] wraps its child by padding left, right, above, and below its content.
 /// This can be used to shift the content to a different location and ensure that following content comes after a certain distance.
@@ -76,13 +76,13 @@ impl<C: Component> Component for Padded<C> {
 mod tests {
     use derive_more::AsRef;
 
-    use crate::components::echo::Echo;
-    use crate::components::Padded;
     use crate::Component;
     use crate::Dimensions;
     use crate::DrawMode;
     use crate::Line;
     use crate::Lines;
+    use crate::components::Padded;
+    use crate::components::echo::Echo;
 
     #[derive(Debug, AsRef)]
     #[allow(dead_code)]

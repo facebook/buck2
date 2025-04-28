@@ -1,0 +1,30 @@
+load(":rules.bzl", "genrule", "sh_binary")
+
+sh_binary(
+    name = "bin",
+    main = "bin.sh",
+)
+
+constraint_setting(
+    name = "cs",
+)
+
+constraint_value(
+    name = "cv",
+    constraint_setting = ":cs",
+)
+
+platform(
+    name = "p",
+    constraint_values = [
+        ":cv",
+    ],
+)
+
+genrule(
+    name = "test",
+    out = "test.txt",
+    # We use exe to switch configuration.
+    cmd = "echo $(exe :bin) > $OUT",
+    default_target_platform = ":p",
+)

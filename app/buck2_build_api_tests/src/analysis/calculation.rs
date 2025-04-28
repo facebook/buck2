@@ -19,21 +19,23 @@ use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
-use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
-use buck2_configured::configuration::calculation::ExecutionPlatformsKey;
+use buck2_common::package_listing::listing::testing::PackageListingExt;
+use buck2_configured::execution::ExecutionPlatformsKey;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::cell_root_path::CellRootPathBuf;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
+use buck2_core::cells::cell_root_path::CellRootPathBuf;
+use buck2_core::cells::name::CellName;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::package::PackageLabel;
-use buck2_core::provider::id::testing::ProviderIdExt;
 use buck2_core::provider::id::ProviderId;
+use buck2_core::provider::id::testing::ProviderIdExt;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_events::dispatch::EventDispatcher;
@@ -50,8 +52,8 @@ use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::testing
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter_basic;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::rule::register_rule_function;
-use dice::testing::DiceBuilder;
 use dice::UserComputationData;
+use dice::testing::DiceBuilder;
 use dupe::Dupe;
 use indoc::indoc;
 use itertools::Itertools;
@@ -74,6 +76,7 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
         CellAliasResolver::new(CellName::testing_new("cell"), HashMap::new())?,
         resolver.dupe(),
         LegacyBuckConfig::empty(),
+        CellPathWithAllowedRelativeDir::new(CellPath::testing_new("cell//pkg"), None),
     ))?;
     interpreter.additional_globals(register_rule_function);
     interpreter.additional_globals(register_provider);
@@ -176,7 +179,6 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
         .require_compatible()?;
 
     assert_eq!(analysis.analysis_values().iter_actions().count(), 0);
-    assert_eq!(analysis.analysis_values().iter_dynamic_lambdas().count(), 0);
 
     assert_eq!(
         analysis

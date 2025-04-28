@@ -12,7 +12,6 @@ cmp_any = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 
-anyhow = { workspace = true }
 async-trait = { workspace = true }
 derive_more = { workspace = true }
 tokio = { workspace = true }

@@ -15,7 +15,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, IO, NamedTuple
+from typing import Any, Dict, IO, NamedTuple, Optional
 
 
 IS_WINDOWS: bool = os.name == "nt"
@@ -113,10 +113,10 @@ def create_cwd(path: Path, manifest_dir: Path) -> Path:
 def ensure_rustc_available(
     env: Dict[str, str],
     cwd: Path,
+    target: str,
 ) -> None:
-    rustc, target = env.get("RUSTC"), env.get("TARGET")
+    rustc = env.get("RUSTC")
     assert rustc is not None, "RUSTC env is missing"
-    assert target is not None, "TARGET env is missing"
 
     # NOTE: `HOST` is optional.
     host = env.get("HOST")
@@ -178,6 +178,7 @@ def run_buildscript(
 class Args(NamedTuple):
     buildscript: str
     rustc_cfg: Path
+    rustc_host_tuple: Optional[Path]
     manifest_dir: Path
     create_cwd: Path
     outfile: IO[str]
@@ -187,6 +188,7 @@ def arg_parse() -> Args:
     parser = argparse.ArgumentParser(description="Run Rust build script")
     parser.add_argument("--buildscript", type=str, required=True)
     parser.add_argument("--rustc-cfg", type=Path, required=True)
+    parser.add_argument("--rustc-host-tuple", type=Path)
     parser.add_argument("--manifest-dir", type=Path, required=True)
     parser.add_argument("--create-cwd", type=Path, required=True)
     parser.add_argument("--outfile", type=argparse.FileType("w"), required=True)
@@ -209,7 +211,18 @@ def main() -> None:  # noqa: C901
 
     env = dict(os.environ, **env)
 
-    ensure_rustc_available(env=env, cwd=cwd)
+    target = env.get("TARGET")
+    if target is None:
+        assert args.rustc_host_tuple, "TARGET env is missing"
+        with args.rustc_host_tuple.open(encoding="utf-8") as f:
+            target = f.read().strip()
+            env["TARGET"] = target
+
+    ensure_rustc_available(
+        env=env,
+        cwd=cwd,
+        target=target,
+    )
 
     script_output = run_buildscript(args.buildscript, env=env, cwd=cwd)
 

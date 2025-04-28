@@ -1,0 +1,38 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_kotlin_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_kotlin_test(
+    name = "buildtools",
+    srcs = glob(
+        [
+            "**/*.kt",
+        ],
+    ),
+    friend_paths = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/buildtools:buildtools",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics:analytics",
+    ],
+    runtime_deps = [
+        "prelude//toolchains/android/third-party:kotlin-compiler-embeddable",
+        "prelude//toolchains/android/third-party:kotlin-build-tools-impl",
+        "prelude//toolchains/android/third-party:trove",
+        "prelude//toolchains/android/third-party:kotlin-daemon-client",
+        "prelude//toolchains/android/third-party:kotlinx-coroutines-core-jvm",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/buildtools:buildtools",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/buildtools/snapshot:cp_snapshot_generator_lib",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics:analytics",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/kotlinc/incremental:incremental",
+        "prelude//toolchains/android/test/com/facebook/buck/testutil:testutil",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:junit",
+        "prelude//toolchains/android/third-party:kotlin-build-tools-api",
+        "prelude//toolchains/android/third-party:mockito-kotlin",
+    ],
+)

@@ -7,23 +7,23 @@
  * of this source tree.
  */
 
-use std::io;
 use std::io::BufRead;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::fs_util::IoError;
+use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::BuckErrorContext;
 use dice::DiceComputations;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 
 use crate::dice::file_ops::DiceFileComputations;
 use crate::file_ops::FileType;
@@ -31,9 +31,9 @@ use crate::file_ops::RawPathMetadata;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, derive_more::Display)]
 pub enum ConfigPath {
-    #[display(fmt = "{}", .0)]
+    #[display("{}", _0)]
     Project(ProjectRelativePathBuf),
-    #[display(fmt = "{}", .0)]
+    #[display("{}", _0)]
     Global(AbsPathBuf),
 }
 
@@ -45,16 +45,19 @@ impl ConfigPath {
         }
     }
 
-    pub(crate) fn join_to_parent_normalized(&self, rel: &RelativePath) -> anyhow::Result<Self> {
+    pub(crate) fn join_to_parent_normalized(
+        &self,
+        rel: &RelativePath,
+    ) -> buck2_error::Result<Self> {
         match self {
-            ConfigPath::Project(path) => path
+            ConfigPath::Project(path) => Ok(path
                 .parent()
-                .context("file has no parent")?
+                .buck_error_context("file has no parent")?
                 .join_normalized(rel)
-                .map(ConfigPath::Project),
+                .map(ConfigPath::Project)?),
             ConfigPath::Global(path) => Ok(ConfigPath::Global(
                 path.parent()
-                    .context("file has no parent")?
+                    .buck_error_context("file has no parent")?
                     .join(rel.as_str()),
             )),
         }
@@ -79,12 +82,13 @@ pub trait ConfigParserFileOps: Send + Sync {
     async fn read_file_lines_if_exists(
         &mut self,
         path: &ConfigPath,
-    ) -> anyhow::Result<Option<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>>;
+    ) -> buck2_error::Result<Option<Vec<String>>>;
 
-    async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>>;
+    async fn read_dir(&mut self, path: &ConfigPath) -> buck2_error::Result<Vec<ConfigDirEntry>>;
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum ReadDirError {
     #[error("Non-utf8 entry `{0}` in directory `{1}`")]
     NotUtf8(String, String),
@@ -99,19 +103,25 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
     async fn read_file_lines_if_exists(
         &mut self,
         path: &ConfigPath,
-    ) -> anyhow::Result<Option<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>>
-    {
+    ) -> buck2_error::Result<Option<Vec<String>>> {
         let path = path.resolve_absolute(&self.project_fs);
         let Some(f) = fs_util::open_file_if_exists(&path)
-            .with_context(|| format!("Reading file `{:?}`", path))?
+            .with_buck_error_context(|| format!("Reading file `{:?}`", path))?
         else {
             return Ok(None);
         };
         let file = std::io::BufReader::new(f);
-        Ok(Some(Box::new(file.lines())))
+
+        let lines = file
+            .lines()
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| IoError::new_with_path("read_line", path, e))?;
+
+        Ok(Some(lines))
     }
 
-    async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+    async fn read_dir(&mut self, path: &ConfigPath) -> buck2_error::Result<Vec<ConfigDirEntry>> {
         let path = path.resolve_absolute(&self.project_fs);
         let read_dir = match std::fs::read_dir(path.as_path()) {
             Ok(read_dir) => read_dir,
@@ -180,9 +190,7 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
     async fn read_file_lines_if_exists(
         &mut self,
         path: &ConfigPath,
-    ) -> anyhow::Result<
-        Option<Box<(dyn Iterator<Item = Result<String, io::Error>> + Send + 'static)>>,
-    > {
+    ) -> buck2_error::Result<Option<Vec<String>>> {
         let ConfigPath::Project(path) = path else {
             return self.io_ops.read_file_lines_if_exists(path).await;
         };
@@ -192,10 +200,10 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
             return Ok(None);
         };
         let lines = data.lines().map(ToOwned::to_owned).collect::<Vec<_>>();
-        Ok(Some(Box::new(lines.into_iter().map(Ok))))
+        Ok(Some(lines))
     }
 
-    async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+    async fn read_dir(&mut self, path: &ConfigPath) -> buck2_error::Result<Vec<ConfigDirEntry>> {
         let ConfigPath::Project(path) = path else {
             return self.io_ops.read_dir(path).await;
         };
@@ -232,7 +240,7 @@ pub(crate) fn push_all_files_from_a_directory<'a>(
     buckconfig_paths: &'a mut Vec<ConfigPath>,
     folder_path: &'a ConfigPath,
     file_ops: &'a mut dyn ConfigParserFileOps,
-) -> BoxFuture<'a, anyhow::Result<()>> {
+) -> BoxFuture<'a, buck2_error::Result<()>> {
     async move {
         for entry in file_ops.read_dir(folder_path).await? {
             let entry_path = folder_path.join(&entry.name);
@@ -251,13 +259,21 @@ pub(crate) fn push_all_files_from_a_directory<'a>(
 #[cfg(test)]
 mod tests {
     use buck2_core::fs::fs_util;
+    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::abs_path::AbsPath;
 
     use super::*;
-    use crate::legacy_configs::cells::create_project_filesystem;
+
+    fn create_project_filesystem() -> ProjectRoot {
+        #[cfg(not(windows))]
+        let root_path = "/".to_owned();
+        #[cfg(windows)]
+        let root_path = "C:/".to_owned();
+        ProjectRoot::new_unchecked(AbsNormPathBuf::try_from(root_path).unwrap())
+    }
 
     #[test]
-    fn dir_with_file() -> anyhow::Result<()> {
+    fn dir_with_file() -> buck2_error::Result<()> {
         let mut v = vec![];
         let dir = tempfile::tempdir()?;
         let root = AbsPath::new(dir.path())?;
@@ -280,7 +296,7 @@ mod tests {
     }
 
     #[test]
-    fn empty_dir() -> anyhow::Result<()> {
+    fn empty_dir() -> buck2_error::Result<()> {
         let mut v = vec![];
         let dir = tempfile::tempdir()?;
         let dir = AbsPath::new(dir.path())?;
@@ -298,7 +314,7 @@ mod tests {
     }
 
     #[test]
-    fn non_existent_dir() -> anyhow::Result<()> {
+    fn non_existent_dir() -> buck2_error::Result<()> {
         let mut v = vec![];
         let dir = tempfile::tempdir()?;
         let dir = dir.path().join("bad");
@@ -317,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn dir_in_dir() -> anyhow::Result<()> {
+    fn dir_in_dir() -> buck2_error::Result<()> {
         let mut v = vec![];
         let dir = tempfile::tempdir()?;
         let dir = AbsPath::new(dir.path())?;
@@ -336,7 +352,7 @@ mod tests {
     }
 
     #[test]
-    fn file() -> anyhow::Result<()> {
+    fn file() -> buck2_error::Result<()> {
         let mut v = vec![];
         let file = tempfile::NamedTempFile::new()?;
         let file = AbsPath::new(file.path())?;
@@ -354,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    fn dir_with_file_in_dir() -> anyhow::Result<()> {
+    fn dir_with_file_in_dir() -> buck2_error::Result<()> {
         let mut v = vec![];
         let dir = tempfile::tempdir()?;
         let dir = AbsPath::new(dir.path())?;

@@ -1,0 +1,46 @@
+load("@prelude//apple/tools:defs.bzl", "meta_python_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
+
+python_binary(
+    name = "assemble_bundle",
+    main = "main.py",
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//apple/tools/code_signing:lib",
+        "prelude//apple/tools/re_compatibility_utils:re_compatibility_utils",
+        ":lib",
+    ],
+)
+
+python_library(
+    name = "lib",
+    srcs = glob(
+        [
+            "*.py",
+        ],
+        exclude = [
+            "*_test.py",
+            "main.py",
+        ],
+    ),
+    deps = [
+        "prelude//apple/tools/code_signing:lib",
+        "prelude//apple/tools/re_compatibility_utils:re_compatibility_utils",
+    ],
+)
+
+meta_python_test(
+    name = "bundling_test",
+    srcs = glob(["*_test.py"]),
+    resources = glob([
+        "test_resources/*",
+    ]),
+    deps = [
+        "fbsource//third-party/pypi/setuptools:setuptools",
+        ":lib",
+    ],
+)

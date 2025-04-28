@@ -1,0 +1,102 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "failures": {},
+  "results": {
+    "root//:dir1": {
+      "configured": {
+        "<unspecified>": {
+          "artifact_info": {
+            "DEFAULT": {
+              "digest": "<DIGEST>",
+              "kind": "directory"
+            }
+          },
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {
+            "DEFAULT": [
+              "buck-out/v2/gen/root/<HASH>/__dir1__/out"
+            ]
+          },
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {
+        "DEFAULT": [
+          "buck-out/v2/gen/root/<HASH>/__dir1__/out"
+        ]
+      },
+      "success": "SUCCESS"
+    },
+    "root//:rule1": {
+      "configured": {
+        "<unspecified>": {
+          "artifact_info": {
+            "DEFAULT": {
+              "digest": "<DIGEST>",
+              "is_exec": false,
+              "kind": "file"
+            }
+          },
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {
+            "DEFAULT": [
+              "buck-out/v2/gen/root/<HASH>/__rule1__/out.txt"
+            ]
+          },
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {
+        "DEFAULT": [
+          "buck-out/v2/gen/root/<HASH>/__rule1__/out.txt"
+        ]
+      },
+      "success": "SUCCESS"
+    },
+    "root//subdir:rule": {
+      "configured": {
+        "<unspecified>": {
+          "artifact_info": {
+            "DEFAULT": {
+              "digest": "<DIGEST>",
+              "is_exec": false,
+              "kind": "file"
+            }
+          },
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {
+            "DEFAULT": [
+              "buck-out/v2/gen/root/<HASH>/subdir/__rule__/out.txt"
+            ]
+          },
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {
+        "DEFAULT": [
+          "buck-out/v2/gen/root/<HASH>/subdir/__rule__/out.txt"
+        ]
+      },
+      "success": "SUCCESS"
+    }
+  },
+  "strings": {},
+  "success": true,
+  "truncated": false
+}

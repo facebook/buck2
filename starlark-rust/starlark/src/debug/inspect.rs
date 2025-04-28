@@ -16,10 +16,10 @@
  */
 
 use crate::collections::SmallMap;
+use crate::eval::Evaluator;
 use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::FrozenDef;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
-use crate::eval::Evaluator;
 use crate::values::FrozenStringValue;
 use crate::values::Value;
 use crate::values::ValueLike;

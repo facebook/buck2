@@ -21,15 +21,15 @@ use starlark_derive::ProvidesStaticType;
 
 use crate as starlark;
 use crate::typing::Ty;
-use crate::values::layout::avalue::alloc_static;
-use crate::values::layout::avalue::AValueBasic;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::starlark_value;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
+use crate::values::layout::avalue::AValueBasic;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::starlark_value;
 
 #[derive(
     Debug,
@@ -38,7 +38,7 @@ use crate::values::StarlarkValue;
     ProvidesStaticType,
     NoSerialize
 )]
-#[display(fmt = "{}", Self::TYPE)]
+#[display("{}", Self::TYPE)]
 pub(crate) struct TypingAny;
 
 #[starlark_value(type = "typing.Any")]

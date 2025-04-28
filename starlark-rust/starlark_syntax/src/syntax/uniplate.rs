@@ -335,13 +335,11 @@ impl<P: AstPayload> ParameterP<P> {
         Option<&AstExprP<P>>,
     ) {
         match self {
-            ParameterP::Normal(a, b) | ParameterP::Args(a, b) | ParameterP::KwArgs(a, b) => {
+            ParameterP::Normal(a, b, None) | ParameterP::Args(a, b) | ParameterP::KwArgs(a, b) => {
                 (Some(a), b.as_ref().map(|x| &**x), None)
             }
-            ParameterP::WithDefaultValue(a, b, c) => {
-                (Some(a), b.as_ref().map(|x| &**x), Some(&**c))
-            }
-            ParameterP::NoArgs => (None, None, None),
+            ParameterP::Normal(a, b, Some(c)) => (Some(a), b.as_ref().map(|x| &**x), Some(&**c)),
+            ParameterP::NoArgs | ParameterP::Slash => (None, None, None),
         }
     }
 
@@ -354,13 +352,13 @@ impl<P: AstPayload> ParameterP<P> {
         Option<&mut AstExprP<P>>,
     ) {
         match self {
-            ParameterP::Normal(a, b) | ParameterP::Args(a, b) | ParameterP::KwArgs(a, b) => {
+            ParameterP::Normal(a, b, None) | ParameterP::Args(a, b) | ParameterP::KwArgs(a, b) => {
                 (Some(a), b.as_mut().map(|x| &mut **x), None)
             }
-            ParameterP::WithDefaultValue(a, b, c) => {
+            ParameterP::Normal(a, b, Some(c)) => {
                 (Some(a), b.as_mut().map(|x| &mut **x), Some(&mut **c))
             }
-            ParameterP::NoArgs => (None, None, None),
+            ParameterP::NoArgs | ParameterP::Slash => (None, None, None),
         }
     }
 
@@ -388,7 +386,7 @@ impl<P: AstPayload> ExprP<P> {
             ExprP::Dot(x, _) => f(x),
             ExprP::Call(a, b) => {
                 f(a);
-                b.iter().for_each(|x| f(x.expr()));
+                b.args.iter().for_each(|x| f(x.expr()));
             }
             ExprP::Index(a_b) => {
                 let (a, b) = &**a_b;
@@ -488,7 +486,7 @@ impl<P: AstPayload> ExprP<P> {
             ExprP::Dot(x, _) => f(x),
             ExprP::Call(a, b) => {
                 f(a);
-                b.iter_mut().for_each(|x| f(x.expr_mut()));
+                b.args.iter_mut().for_each(|x| f(x.expr_mut()));
             }
             ExprP::Index(a_b) => {
                 let (a, b) = &mut **a_b;
@@ -559,15 +557,12 @@ impl<P: AstPayload> ExprP<P> {
         &mut self,
         f: &mut impl FnMut(&mut AstTypeExprP<P>) -> Result<(), E>,
     ) -> Result<(), E> {
-        match self {
-            ExprP::Lambda(lambda) => {
-                for param in &mut lambda.params {
-                    if let (_, Some(ty), _) = param.split_mut() {
-                        f(ty)?;
-                    }
+        if let ExprP::Lambda(lambda) = self {
+            for param in &mut lambda.params {
+                if let (_, Some(ty), _) = param.split_mut() {
+                    f(ty)?;
                 }
             }
-            _ => {}
         }
         self.visit_expr_err_mut(|expr| expr.visit_type_expr_err_mut(f))
     }
@@ -617,7 +612,7 @@ impl<P: AstPayload> AssignTargetP<P> {
             f: &mut impl FnMut(&'a mut AstExprP<P>),
         ) {
             match x {
-                AssignTargetP::Tuple(ref mut xs) => xs.iter_mut().for_each(|x| recurse(&mut *x, f)),
+                AssignTargetP::Tuple(xs) => xs.iter_mut().for_each(|x| recurse(&mut *x, f)),
                 AssignTargetP::Dot(a, _) => f(a),
                 AssignTargetP::Index(a_b) => {
                     let (a, b) = &mut **a_b;

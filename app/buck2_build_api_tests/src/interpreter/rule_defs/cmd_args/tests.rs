@@ -7,21 +7,21 @@
  * of this source tree.
  */
 
-use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_core::bzl::ImportPath;
 use buck2_interpreter::types::regex::register_buck_regex;
-use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
+use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::label::testing::label_creator;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
-use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 use crate::interpreter::rule_defs::cmd_args::testing;
@@ -30,7 +30,7 @@ use crate::interpreter::rule_defs::cmd_args::testing;
 pub(crate) fn inputs_helper(builder: &mut GlobalsBuilder) {
     fn make_inputs<'v>(
         values: UnpackListOrTuple<Value<'v>>,
-    ) -> anyhow::Result<StarlarkCommandLineInputs> {
+    ) -> starlark::Result<StarlarkCommandLineInputs> {
         let mut visitor = SimpleCommandLineArtifactVisitor::new();
         for v in values {
             let cli = ValueAsCommandLineLike::unpack_value_err(v)?.0;
@@ -43,7 +43,7 @@ pub(crate) fn inputs_helper(builder: &mut GlobalsBuilder) {
     }
 }
 
-fn tester() -> anyhow::Result<Tester> {
+fn tester() -> buck2_error::Result<Tester> {
     let mut tester = Tester::new()?;
     tester.additional_globals(testing::command_line_stringifier);
     tester.additional_globals(inputs_helper);
@@ -95,7 +95,7 @@ fn stringifies_correctly() -> buck2_error::Result<()> {
     expect_error(
         tester.run_starlark_bzl_test(contents),
         contents,
-        "Expected `artifact |",
+        "Expected `CellPath | CellRoot | OutputArtifact",
     );
 
     Ok(())
@@ -252,12 +252,12 @@ fn command_line_builder() -> buck2_error::Result<()> {
     expect_error(
         tester.run_starlark_bzl_test(content_invalid_type_1),
         content_invalid_type_1,
-        "Expected `artifact | cell_root",
+        "Expected `CellPath | CellRoot | OutputArtifact",
     );
     expect_error(
         tester.run_starlark_bzl_test(content_invalid_type_3),
         content_invalid_type_3,
-        "Expected `artifact | cell_root",
+        "Expected `CellPath | CellRoot | OutputArtifact",
     );
 
     Ok(())

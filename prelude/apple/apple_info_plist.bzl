@@ -18,6 +18,7 @@ load(
     "WatchSimulatorSdkMetadata",
     "get_apple_sdk_metadata_for_sdk_name",
 )
+load(":apple_target_sdk_version.bzl", "get_platform_name_for_sdk", "get_platform_version_for_sdk_version")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 
 def process_info_plist(ctx: AnalysisContext, override_input: Artifact | None) -> AppleBundlePart:
@@ -94,14 +95,19 @@ def _additional_keys_as_json_file(ctx: AnalysisContext) -> Artifact:
 
 def _info_plist_additional_keys(ctx: AnalysisContext) -> dict[str, typing.Any]:
     sdk_name = get_apple_sdk_name(ctx)
+    platform_name = get_platform_name_for_sdk(sdk_name)
     sdk_metadata = get_apple_sdk_metadata_for_sdk_name(sdk_name)
     result = _extra_mac_info_plist_keys(sdk_metadata, ctx.attrs.extension)
     result["CFBundleSupportedPlatforms"] = sdk_metadata.info_plist_supported_platforms_values
-    result["DTPlatformName"] = sdk_name
+    result["DTPlatformName"] = platform_name
     sdk_version = ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_version
     if sdk_version:
-        result["DTPlatformVersion"] = sdk_version
-        result["DTSDKName"] = sdk_name + sdk_version
+        platform_version = get_platform_version_for_sdk_version(
+            sdk_name = sdk_name,
+            sdk_version = sdk_version,
+        )
+        result["DTPlatformVersion"] = platform_version
+        result["DTSDKName"] = platform_name + platform_version
     sdk_build_version = ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_build_version
     if sdk_build_version:
         result["DTPlatformBuild"] = sdk_build_version
@@ -112,7 +118,10 @@ def _info_plist_additional_keys(ctx: AnalysisContext) -> dict[str, typing.Any]:
     xcode_version = ctx.attrs._apple_toolchain[AppleToolchainInfo].xcode_version
     if xcode_version:
         result["DTXcode"] = xcode_version
-    result[sdk_metadata.min_version_plist_info_key] = get_bundle_min_target_version(ctx, get_default_binary_dep(ctx.attrs.binary))
+    result[sdk_metadata.min_version_plist_info_key] = get_platform_version_for_sdk_version(
+        sdk_name = sdk_name,
+        sdk_version = get_bundle_min_target_version(ctx, get_default_binary_dep(ctx.attrs.binary)),
+    )
 
     identify_build_system = ctx.attrs._info_plist_identify_build_system_default
     if ctx.attrs.info_plist_identify_build_system != None:

@@ -1,0 +1,8 @@
+stub(
+    name = "inner",
+    deps = ["root//good_targets:target2", ":inner_declared_dep"],
+)
+
+stub(
+    name = "inner_declared_dep",
+)

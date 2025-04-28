@@ -10,7 +10,6 @@
 use std::collections::HashSet;
 use std::path;
 
-use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_build_api::build::BuildProviderType;
 use buck2_build_api::build::ProviderArtifacts;
@@ -19,6 +18,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_error::BuckErrorContext;
 use buck2_query::__derive_refs::indexmap::IndexMap;
 use itertools::Itertools;
 use tracing::info;
@@ -27,7 +27,7 @@ pub(crate) fn create_unhashed_outputs(
     provider_artifacts: Vec<ProviderArtifacts>,
     artifact_fs: &ArtifactFs,
     fs: &ProjectRoot,
-) -> anyhow::Result<u64> {
+) -> buck2_error::Result<u64> {
     let buck_out_root = fs.resolve(artifact_fs.buck_out_path_resolver().root());
 
     let start = std::time::Instant::now();
@@ -44,7 +44,7 @@ pub(crate) fn create_unhashed_outputs(
                     if let Some(unhashed_path) =
                         artifact_fs.retrieve_unhashed_location(build.get_path())
                     {
-                        let path = artifact_fs.resolve_build(build.get_path());
+                        let path = artifact_fs.resolve_build(build.get_path())?;
                         let abs_unhashed_path = fs.resolve(&unhashed_path);
                         let entry = unhashed_to_hashed
                             .entry(abs_unhashed_path)
@@ -84,7 +84,7 @@ fn create_unhashed_link(
     unhashed_path: &AbsNormPathBuf,
     original_path: &AbsNormPathBuf,
     buck_out_root: &AbsNormPathBuf,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     // Remove the final path separator if it exists so that the path looks like a file and not a directory or else symlink() fails.
     tracing::debug!("Creating link: `{}` -> `{}`", unhashed_path, original_path);
 
@@ -109,29 +109,33 @@ fn create_unhashed_link(
             };
 
             if meta.is_file() || meta.is_symlink() {
-                fs_util::remove_file(prefix)
-                    .with_context(|| "was not able to remove file while cleaning up prefixes")?;
+                fs_util::remove_file(prefix).with_buck_error_context(
+                    || "was not able to remove file while cleaning up prefixes",
+                )?;
             }
         }
 
         fs_util::create_dir_all(parent)
-            .with_context(|| "while creating unhashed directory for symlink")?;
+            .with_buck_error_context(|| "while creating unhashed directory for symlink")?;
     }
 
     match fs_util::symlink_metadata(&abs_unhashed_path) {
         Ok(metadata) => {
             if metadata.is_dir() {
-                fs_util::remove_dir_all(&abs_unhashed_path)
-                    .with_context(|| "was not able to remove absolute unhashed path (directory)")?
+                fs_util::remove_dir_all(&abs_unhashed_path).with_buck_error_context(
+                    || "was not able to remove absolute unhashed path (directory)",
+                )?
             } else {
-                fs_util::remove_file(&abs_unhashed_path)
-                    .with_context(|| "was not able to remove absolute unhashed path (file)")?
+                fs_util::remove_file(&abs_unhashed_path).with_buck_error_context(
+                    || "was not able to remove absolute unhashed path (file)",
+                )?
             }
         }
         Err(_) => {}
     }
-    fs_util::symlink(original_path, abs_unhashed_path)
-        .with_context(|| "was not able to symlink original path to absolute unhashed path")?;
+    fs_util::symlink(original_path, abs_unhashed_path).with_buck_error_context(
+        || "was not able to symlink original path to absolute unhashed path",
+    )?;
     Ok(())
 }
 

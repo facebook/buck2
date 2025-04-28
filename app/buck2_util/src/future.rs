@@ -11,9 +11,9 @@ use std::future::Future;
 use std::iter;
 use std::mem;
 
-use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
+use futures::stream::FuturesUnordered;
 
 // patternlint-disable-next-line buck2-no-futures-try-join-all
 /// Semantically the same as `futures::future::try_join_all`, but bug free.

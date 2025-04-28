@@ -7,11 +7,11 @@
  * of this source tree.
  */
 
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Barrier;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use assert_matches::assert_matches;
@@ -19,25 +19,26 @@ use async_trait::async_trait;
 use buck2_futures::cancellation::CancellationContext;
 use derivative::Derivative;
 use derive_more::Display;
+use dice_error::DiceErrorImpl;
 use dupe::Dupe;
 use futures::FutureExt;
 use tokio::sync::oneshot;
 
+use crate::Dice;
+use crate::DiceData;
+use crate::DynKey;
+use crate::UserCycleDetector;
+use crate::UserCycleDetectorGuard;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
-use crate::api::error::DiceErrorImpl;
 use crate::api::injected::InjectedKey;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::impls::dice::DiceModern;
 use crate::versions::VersionNumber;
-use crate::Dice;
-use crate::DiceData;
-use crate::UserCycleDetector;
-use crate::UserCycleDetectorGuard;
 
 #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct Foo(i32);
 
 #[async_trait]
@@ -51,7 +52,7 @@ impl InjectedKey for Foo {
 
 #[derive(Clone, Dupe, Debug, Derivative, Allocative, Display)]
 #[derivative(PartialEq, Eq, Hash)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 #[allocative(skip)]
 struct KeyThatRuns {
     #[derivative(Hash = "ignore", PartialEq = "ignore")]
@@ -133,7 +134,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct K(i32);
 
 #[async_trait]
@@ -176,7 +177,7 @@ fn dice_computations_are_parallel() {
 
     #[derive(Clone, Debug, Display, Derivative, Allocative)]
     #[derivative(Hash, PartialEq, Eq)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct Blocking {
         index: usize,
         #[derivative(PartialEq = "ignore", Hash = "ignore")]
@@ -237,7 +238,7 @@ async fn different_data_per_compute_ctx() {
     struct U(usize);
 
     #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct DataRequest(u8);
     #[async_trait]
     impl Key for DataRequest {
@@ -312,7 +313,7 @@ fn invalid_update() {
 }
 
 #[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct Fib(u8);
 
 #[async_trait]
@@ -369,10 +370,7 @@ struct CycleDetectorGuard {
 }
 
 impl UserCycleDetector for CycleDetector {
-    fn start_computing_key(
-        &self,
-        key: &dyn std::any::Any,
-    ) -> Option<Arc<dyn UserCycleDetectorGuard>> {
+    fn start_computing_key(&self, key: &DynKey) -> Option<Arc<dyn UserCycleDetectorGuard>> {
         let f = key.downcast_ref::<Fib>().unwrap();
         self.events
             .lock()
@@ -384,7 +382,7 @@ impl UserCycleDetector for CycleDetector {
         }))
     }
 
-    fn finished_computing_key(&self, key: &dyn std::any::Any) {
+    fn finished_computing_key(&self, key: &DynKey) {
         let f = key.downcast_ref::<Fib>().unwrap();
         self.events
             .lock()
@@ -394,7 +392,7 @@ impl UserCycleDetector for CycleDetector {
 }
 
 impl UserCycleDetectorGuard for CycleDetectorGuard {
-    fn add_edge(&self, key: &dyn std::any::Any) {
+    fn add_edge(&self, key: &DynKey) {
         let f = key.downcast_ref::<Fib>().unwrap();
         self.events
             .lock()
@@ -486,7 +484,7 @@ async fn dropping_request_future_cancels_execution() {
 
     #[derive(Clone, Dupe, Debug, Derivative, Allocative, Display)]
     #[derivative(PartialEq, Eq, Hash)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     #[allocative(skip)]
     struct KeyThatShouldntRun {
         #[derivative(Hash = "ignore", PartialEq = "ignore")]
@@ -600,7 +598,7 @@ async fn user_cycle_detector_is_present_modern() -> anyhow::Result<()> {
 
 async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
     #[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct AccessCycleGuardKey;
 
     #[async_trait]
@@ -630,18 +628,15 @@ async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
     struct AccessCycleDetectorGuard;
 
     impl UserCycleDetector for AccessCycleDetector {
-        fn start_computing_key(
-            &self,
-            _key: &dyn std::any::Any,
-        ) -> Option<Arc<dyn UserCycleDetectorGuard>> {
+        fn start_computing_key(&self, _key: &DynKey) -> Option<Arc<dyn UserCycleDetectorGuard>> {
             Some(Arc::new(AccessCycleDetectorGuard))
         }
 
-        fn finished_computing_key(&self, _key: &dyn std::any::Any) {}
+        fn finished_computing_key(&self, _key: &DynKey) {}
     }
 
     impl UserCycleDetectorGuard for AccessCycleDetectorGuard {
-        fn add_edge(&self, _key: &dyn std::any::Any) {}
+        fn add_edge(&self, _key: &DynKey) {}
 
         fn type_name(&self) -> &'static str {
             std::any::type_name::<Self>()
@@ -696,4 +691,34 @@ async fn test_dice_usable_after_cancellations() {
     req2.await.unwrap();
 
     assert!(is_ran.load(Ordering::SeqCst));
+}
+
+#[tokio::test]
+async fn test_is_idle_respects_active_transactions() {
+    let dice = DiceModern::builder().build(DetectCycles::Disabled);
+
+    let mut ctx = dice.updater().commit().await;
+
+    let barrier1 = Arc::new(tokio::sync::Semaphore::new(0));
+    let barrier2 = Arc::new(tokio::sync::Semaphore::new(0));
+    let is_ran = Arc::new(AtomicBool::new(false));
+
+    let key = KeyThatRuns {
+        barrier1: barrier1.dupe(),
+        barrier2: barrier2.dupe(),
+        is_ran: is_ran.dupe(),
+    };
+
+    let req1 = ctx.compute(&key);
+
+    // FIXME(JakobDegen): This is a pretty silly behavior for a function called `is_idle`, dice is
+    // obviously not idle.
+    assert!(dice.is_idle().await);
+    dice.wait_for_idle().await;
+
+    barrier2.add_permits(1);
+    req1.await.unwrap();
+
+    assert!(dice.is_idle().await);
+    dice.wait_for_idle().await;
 }

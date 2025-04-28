@@ -13,7 +13,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, FrozenSet, Set
+from typing import Any, Dict, FrozenSet
 
 from apple.tools.plistlib_utils import detect_format_and_loads
 

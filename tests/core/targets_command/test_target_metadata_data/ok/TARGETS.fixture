@@ -1,0 +1,1 @@
+stub(name = "ok", metadata = {"bar.baz": {"stuff": 456}, "foo.bar": 123})

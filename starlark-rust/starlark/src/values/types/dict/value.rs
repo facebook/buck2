@@ -31,34 +31,24 @@ use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use serde::Serialize;
 use starlark_derive::starlark_value;
-use starlark_derive::StarlarkDocs;
 use starlark_map::Equivalent;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::cast::transmute;
-use crate::coerce::coerce;
 use crate::coerce::Coerce;
+use crate::coerce::coerce;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::environment::Methods;
 use crate::environment::MethodsStatic;
 use crate::hint::unlikely;
 use crate::typing::Ty;
-use crate::values::comparison::equals_small_map;
-use crate::values::dict::refcell::unleak_borrow;
-use crate::values::dict::DictRef;
-use crate::values::error::ValueError;
-use crate::values::layout::avalue::alloc_static;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalue::AValueSimple;
-use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::string::str_type::hash_string_value;
-use crate::values::type_repr::DictType;
-use crate::values::type_repr::StarlarkTypeRepr;
+use crate::util::refcell::unleak_borrow;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;
@@ -69,17 +59,18 @@ use crate::values::StringValue;
 use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::comparison::equals_small_map;
+use crate::values::dict::DictRef;
+use crate::values::error::ValueError;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::AValueSimple;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::string::str_type::hash_string_value;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::dict::dict_type::DictType;
 
-#[derive(
-    Clone,
-    Default,
-    Trace,
-    Debug,
-    ProvidesStaticType,
-    StarlarkDocs,
-    Allocative
-)]
-#[starlark_docs(builtin = "standard")]
+#[derive(Clone, Default, Trace, Debug, ProvidesStaticType, Allocative)]
 pub(crate) struct DictGen<T>(pub(crate) T);
 
 impl<'v, T: DictLike<'v>> Display for DictGen<T> {
@@ -99,7 +90,7 @@ impl<'v> Display for Dict<'v> {
 #[repr(transparent)]
 pub struct Dict<'v> {
     /// The data stored by the dictionary. The keys must all be hashable values.
-    content: SmallMap<Value<'v>, Value<'v>>,
+    pub(crate) content: SmallMap<Value<'v>, Value<'v>>,
 }
 
 impl<'v> StarlarkTypeRepr for Dict<'v> {
@@ -161,8 +152,10 @@ impl<'v> Dict<'v> {
     }
 
     pub(crate) unsafe fn from_value_unchecked_mut(x: Value<'v>) -> RefMut<'v, Self> {
-        let dict = &x.downcast_ref_unchecked::<DictGen<RefCell<Dict<'v>>>>().0;
-        dict.borrow_mut()
+        unsafe {
+            let dict = &x.downcast_ref_unchecked::<DictGen<RefCell<Dict<'v>>>>().0;
+            dict.borrow_mut()
+        }
     }
 }
 
@@ -295,7 +288,7 @@ impl<'v> Dict<'v> {
 
     /// Remove given key from the dictionary.
     pub fn remove_hashed(&mut self, key: Hashed<Value<'v>>) -> Option<Value<'v>> {
-        self.content.remove_hashed(key.as_ref())
+        self.content.shift_remove_hashed(key.as_ref())
     }
 
     /// Remove all elements from the dictionary.
@@ -319,7 +312,7 @@ impl FrozenDictData {
 
 impl<'v> Freeze for DictGen<RefCell<Dict<'v>>> {
     type Frozen = DictGen<FrozenDictData>;
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let content = self.0.into_inner().content.freeze(freezer)?;
         Ok(DictGen(FrozenDictData { content }))
     }
@@ -340,7 +333,11 @@ trait DictLike<'v>: Debug + Allocative {
 }
 
 impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
-    type ContentRef<'a> = Ref<'a, SmallMap<Value<'v>, Value<'v>>> where Self: 'a, 'v: 'a;
+    type ContentRef<'a>
+        = Ref<'a, SmallMap<Value<'v>, Value<'v>>>
+    where
+        Self: 'a,
+        'v: 'a;
 
     fn content<'a>(&'a self) -> Ref<'a, SmallMap<Value<'v>, Value<'v>>> {
         Ref::map(self.borrow(), |x| &x.content)
@@ -353,13 +350,17 @@ impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
 
     #[inline]
     unsafe fn iter_stop(&self) {
-        unleak_borrow(self);
+        unsafe {
+            unleak_borrow(self);
+        }
     }
 
     #[inline]
     unsafe fn content_unchecked(&self) -> &SmallMap<Value<'v>, Value<'v>> {
-        // SAFETY: this function contract is, caller must ensure that the value is borrowed.
-        &self.try_borrow_unguarded().ok().unwrap_unchecked().content
+        unsafe {
+            // SAFETY: this function contract is, caller must ensure that the value is borrowed.
+            &self.try_borrow_unguarded().ok().unwrap_unchecked().content
+        }
     }
 
     fn set_at(&self, index: Hashed<Value<'v>>, alloc_value: Value<'v>) -> crate::Result<()> {
@@ -374,7 +375,11 @@ impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
 }
 
 impl<'v> DictLike<'v> for FrozenDictData {
-    type ContentRef<'a> = &'a SmallMap<Value<'v>, Value<'v>> where Self: 'a, 'v: 'a;
+    type ContentRef<'a>
+        = &'a SmallMap<Value<'v>, Value<'v>>
+    where
+        Self: 'a,
+        'v: 'a;
 
     fn content<'a>(&'a self) -> &'a SmallMap<Value<'v>, Value<'v>> {
         coerce(&self.content)
@@ -397,7 +402,7 @@ impl<'v> DictLike<'v> for FrozenDictData {
 
 pub(crate) fn dict_methods() -> Option<&'static Methods> {
     static RES: MethodsStatic = MethodsStatic::new();
-    RES.methods(crate::stdlib::dict::dict_methods)
+    RES.methods(crate::values::types::dict::methods::dict_methods)
 }
 
 #[starlark_value(type = Dict::TYPE)]
@@ -463,8 +468,10 @@ where
     }
 
     unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
-        self.0.iter_start();
-        Ok(me)
+        unsafe {
+            self.0.iter_start();
+            Ok(me)
+        }
     }
 
     unsafe fn iter_size_hint(&self, index: usize) -> (usize, Option<usize>) {
@@ -474,11 +481,13 @@ where
     }
 
     unsafe fn iter_next(&self, index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
-        self.0.content_unchecked().keys().nth(index).copied()
+        unsafe { self.0.content_unchecked().keys().nth(index).copied() }
     }
 
     unsafe fn iter_stop(&self) {
-        self.0.iter_stop();
+        unsafe {
+            self.0.iter_stop();
+        }
     }
 
     fn set_at(&self, index: Value<'v>, alloc_value: Value<'v>) -> crate::Result<()> {
@@ -509,6 +518,14 @@ where
     fn get_type_starlark_repr() -> Ty {
         Ty::any_dict()
     }
+
+    fn try_freeze_static(&self) -> Option<FrozenValue> {
+        if self.0.content().is_empty() {
+            Some(FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_DICT))
+        } else {
+            None
+        }
+    }
 }
 
 impl<'v, T: DictLike<'v>> Serialize for DictGen<T> {
@@ -525,8 +542,8 @@ mod tests {
     use crate::assert;
     use crate::coerce::coerce;
     use crate::collections::SmallMap;
-    use crate::values::dict::Dict;
     use crate::values::Heap;
+    use crate::values::dict::Dict;
 
     #[test]
     fn test_mutate_dict() {

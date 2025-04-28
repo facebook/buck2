@@ -1,5 +1,4 @@
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
 
@@ -7,11 +6,9 @@ rust_library(
     name = "buck2_client",
     srcs = glob([
         "src/**/*.rs",
-        "src/commands/completion/completion-wrapper.*",
     ]),
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
-        "fbsource//third-party/rust:paste",
         "fbsource//third-party/rust:tempfile",
     ],
     deps = [
@@ -22,13 +19,13 @@ rust_library(
         "fbsource//third-party/rust:bytesize",
         "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:clap",
-        "fbsource//third-party/rust:clap_complete",
         "fbsource//third-party/rust:csv",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:humantime",
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:libc",
+        "fbsource//third-party/rust:linked-hash-map",
         "fbsource//third-party/rust:lsp-server",
         "fbsource//third-party/rust:num_cpus",
         "fbsource//third-party/rust:once_cell",

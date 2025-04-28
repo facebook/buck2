@@ -1,0 +1,4 @@
+load(":defs.bzl", "action_fail", "undeclared_output")
+
+action_fail(name = "action_fail")
+undeclared_output(name = "undeclared_output")

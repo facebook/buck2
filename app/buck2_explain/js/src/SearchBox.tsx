@@ -8,13 +8,13 @@
  */
 
 import React, {useContext, useState} from 'react'
-import {RouterContext, SEARCH_VIEW} from './Router'
+import {RouterContext, QueryKey} from './Router'
 
 export function SearchBox() {
   const {params, setParams} = useContext(RouterContext)
   const urlParams = new URLSearchParams(params)
 
-  const [searchTerm, setSearchTerm] = useState(urlParams.get(SEARCH_VIEW) ?? '')
+  const [searchTerm, setSearchTerm] = useState(urlParams.get(QueryKey.SearchView) ?? '')
 
   const goSearch = () => {
     const url = new URL(window.location.toString())
@@ -24,28 +24,28 @@ export function SearchBox() {
       params.delete(k)
     }
 
-    params.set(SEARCH_VIEW, searchTerm)
+    params.set(QueryKey.SearchView, searchTerm)
 
     setParams(params.toString())
   }
   return (
-    <div className="is-flex is-flex-direction-row">
+    <>
       <input
         type="text"
-        className="input is-one-fifth column mr-2 is-small"
+        className="input mr-2 has-text-info-bold"
         value={searchTerm}
         onChange={event => setSearchTerm(event.target.value)}
-        placeholder="Search targets"
+        placeholder="Search"
         onKeyDown={event => {
           event.key == 'Enter' ? goSearch() : null
         }}
       />
-      <button type="submit" onPointerDown={goSearch} className="button is-dark is-small">
+      <button type="submit" onPointerDown={goSearch} className="button has-text-info-bold">
         <span>Search</span>
         <span className="icon">
           <i className="fa fa-search"></i>
         </span>
       </button>
-    </div>
+    </>
   )
 }

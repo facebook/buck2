@@ -5,6 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:headers.bzl", "prepare_headers")
+load(
+    "@prelude//cxx:preprocessor.bzl",
+    "CPreprocessor",
+    "CPreprocessorArgs",
+)
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 load("@prelude//utils:utils.bzl", "value_or")
 
@@ -16,6 +22,9 @@ GoPackageInfo = provider(
         "go_list_out": provider_field(Artifact),
         "package_name": provider_field(str),
         "package_root": provider_field(str),
+        # Full list of package source files
+        # including generated and files of the package under test
+        "srcs": provider_field(list[Artifact]),
     },
 )
 
@@ -24,7 +33,7 @@ GoPkg = record(
     pkg = field(Artifact),
     pkg_shared = field(Artifact),
     coverage_vars = field(cmd_args),
-    srcs_list = field(cmd_args),
+    test_go_files = field(cmd_args),
 )
 
 GoStdlib = provider(
@@ -71,8 +80,7 @@ def make_importcfg(
         ctx: AnalysisContext,
         prefix_name: str,
         own_pkgs: dict[str, GoPkg],
-        shared: bool,
-        with_importmap: bool) -> cmd_args:
+        shared: bool) -> cmd_args:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     stdlib = ctx.attrs._go_stdlib[GoStdlib]
     suffix = "__shared" if shared else ""  # suffix to make artifacts unique
@@ -82,14 +90,6 @@ def make_importcfg(
     for name_, pkg_ in pkg_artifacts_map.items():
         # Hack: we use cmd_args get "artifact" valid path and write it to a file.
         content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = ""))
-
-        # Note: matters for packages which do not specify package_name
-        # Future work: support importmap in buck rules instead of hacking here.
-        # BUG: Should use go.vendor_path instead of hard-coding values.
-        for vendor_prefix in ["third-party-source/go/", "third-party-go/vendor/"]:
-            if with_importmap and name_.startswith(vendor_prefix):
-                real_name_ = name_.removeprefix(vendor_prefix)
-                content.append(cmd_args("importmap ", real_name_, "=", name_, delimiter = ""))
 
     own_importcfg = ctx.actions.declare_output("{}{}.importcfg".format(prefix_name, suffix))
     ctx.actions.write(own_importcfg, content)
@@ -108,3 +108,14 @@ def make_importcfg(
     )
 
     return cmd_args(final_importcfg, hidden = [stdlib.pkgdir_shared if shared else stdlib.pkgdir, pkg_artifacts_map.values()])
+
+# Return "_cgo_export.h" to expose exported C declarations to non-Go rules
+def cgo_exported_preprocessor(ctx: AnalysisContext, pkg_info: GoPackageInfo) -> CPreprocessor:
+    return CPreprocessor(args = CPreprocessorArgs(args = [
+        "-I",
+        prepare_headers(
+            ctx,
+            {"{}/{}.h".format(ctx.label.package, ctx.label.name): pkg_info.cgo_gen_dir.project("_cgo_export.h")},
+            "cgo-exported-headers",
+        ).include_path,
+    ]))

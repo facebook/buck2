@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//java:proguard.bzl", "get_proguard_output")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info", "get_classpath_subtarget")
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -22,29 +23,6 @@ load(
     "get_java_packaging_info",
 )
 
-def _should_use_incremental_build(ctx: AnalysisContext):
-    # use incremental build only for __unstamped jars (which includes inner.jar)
-    return ctx.label.name.startswith("__unstamped") and (
-        "incremental_build" in ctx.attrs.labels or read_config("java", "inc_build", "false").lower() == "true"
-    )
-
-def _is_nested_package(ctx: AnalysisContext, pkg: str) -> bool:
-    return pkg == ctx.label.package or pkg.startswith(ctx.label.package + "/")
-
-def _get_dependencies_jars(ctx: AnalysisContext, package_deps: typing.Any) -> cmd_args:
-    jars = cmd_args()
-    for dep in package_deps.transitive_set.traverse():
-        if dep.jar and not _is_nested_package(ctx, dep.label.package):
-            jars.add(dep.jar)
-    return jars
-
-def _get_incremental_jars(ctx: AnalysisContext, package_deps: typing.Any) -> cmd_args:
-    jars = cmd_args()
-    for dep in package_deps.transitive_set.traverse():
-        if dep.jar and _is_nested_package(ctx, dep.label.package):
-            jars.add(dep.jar)
-    return jars
-
 def _generate_script(generate_wrapper: bool, native_libs: list[SharedLibrary]) -> bool:
     # if `generate_wrapper` is set and no native libs then it should be a wrapper script as result,
     # otherwise fat jar will be generated (inner jar or script will be included inside a final fat jar)
@@ -53,8 +31,9 @@ def _generate_script(generate_wrapper: bool, native_libs: list[SharedLibrary]) -
 def _create_fat_jar(
         ctx: AnalysisContext,
         jars: cmd_args,
-        native_libs: list[SharedLibrary],
+        native_libs: list[SharedLibrary] = [],
         name_prefix: str = "",
+        concat_jars: bool = False,
         do_not_create_inner_jar: bool = True,
         generate_wrapper: bool = False,
         main_class: [str, None] = None,
@@ -75,6 +54,8 @@ def _create_fat_jar(
         ctx.actions.write("{}jars_file".format(name_prefix), jars),
     ]
 
+    if concat_jars:
+        args += ["--concat_jars"]
     if append_jar:
         args += ["--append_jar", append_jar]
 
@@ -97,7 +78,7 @@ def _create_fat_jar(
                 java_toolchain.fat_jar_main_class_lib,
                 # fat jar's main class
                 "--fat_jar_main_class",
-                "com.facebook.buck.jvm.java.FatJarMain",
+                "com.facebook.buck.jvm.java.fatjar.FatJarMain",
                 # native libraries directory name. Main class expects to find libraries packed inside this directory.
                 "--fat_jar_native_libs_directory_name",
                 "nativelibs",
@@ -106,11 +87,14 @@ def _create_fat_jar(
     if main_class:
         args += ["--main_class", main_class]
 
-    manifest_file = ctx.attrs.manifest_file
-    if manifest_file:
-        args += ["--manifest", manifest_file]
+    if ctx.attrs.manifest_file:
+        args += ["--manifest", ctx.attrs.manifest_file]
 
-    blocklist = ctx.attrs.blacklist
+    build_manifest = ctx.attrs.build_manifest
+    if build_manifest:
+        args += ["--build_manifest", build_manifest]
+
+    blocklist = ctx.attrs.blocklist
     if blocklist:
         args += ["--blocklist", ctx.actions.write("{}blocklist_args".format(name_prefix), blocklist)]
 
@@ -194,35 +178,77 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     native_deps = traverse_shared_library_info(shared_library_info)
 
+    base_dep = ctx.attrs.base_dep
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
+    concat_deps = ctx.attrs.concat_deps
     need_to_generate_wrapper = ctx.attrs.generate_wrapper == True
     do_not_create_inner_jar = ctx.attrs.do_not_create_inner_jar == True
-    packaging_jar_args = packaging_info.packaging_deps.project_as_args("full_jar_args")
+    packaging_deps = list(packaging_info.packaging_deps.traverse())
+    incremental_target_prefix = ctx.attrs.incremental_target_prefix
     main_class = ctx.attrs.main_class
+    packaging_dep_infos = {dep.jar: dep.label.raw_target() for dep in packaging_deps if dep and dep.jar}
 
     other_outputs = []
 
-    if _should_use_incremental_build(ctx):
-        # collect all dependencies
-        dependencies_jars = _get_dependencies_jars(ctx, packaging_jar_args)
+    if ctx.attrs.proguard_config:
+        java_base = ([java_toolchain.java_base_jar] if java_toolchain.java_base_jar else [])
+        library_jars = ctx.attrs.proguard_library_jars + java_base
+        proguard_output = get_proguard_output(
+            ctx = ctx,
+            input_jars = packaging_dep_infos,
+            java_packaging_deps = packaging_deps,
+            additional_proguard_configs = [],
+            additional_jars = library_jars,
+            sdk_proguard_config_mode = None,
+            sdk_proguard_config = None,
+            sdk_optimized_proguard_config = None,
+            proguard_jar = java_toolchain.proguard_jar,
+            skip_proguard = False,
+        )
+        packaging_dep_infos = proguard_output.jars_to_owners
+    packaging_jar_args = cmd_args(packaging_dep_infos.keys())
 
-        # collect nested targets
-        incremental_jars = _get_incremental_jars(ctx, packaging_jar_args)
+    if incremental_target_prefix:
+        base_jar = None
+        incremental_jars = []
+        dependency_jars = []
+
+        # separate jars in groups
+        for (dep_jar, owner) in packaging_dep_infos.items():
+            # lookup for the base jar that can be used to append all other dependencies
+            if base_dep and owner == base_dep.label.raw_target():
+                expect(
+                    base_jar == None,
+                    "JAR can only have one base JAR file.",
+                )
+                base_jar = dep_jar
+            elif str(owner).startswith(incremental_target_prefix):
+                # if it's not a base jar, it can be an incremental jar or dependency only
+                incremental_jars.append(dep_jar)
+            else:
+                dependency_jars.append(dep_jar)
+
+        # collect incremental targets
+        expect(
+            len(incremental_jars) > 0,
+            "No incremental dependencies found that starts with {}.".format(incremental_target_prefix),
+        )
 
         # generate intermediary jar only with dependencies
         deps_outputs = _create_fat_jar(
             ctx,
-            dependencies_jars,
-            native_deps,
+            cmd_args(dependency_jars),
+            concat_jars = concat_deps,
             name_prefix = "deps_",
+            append_jar = base_jar,
         )
         other_outputs = [deps_outputs[0]]
 
         # generate final jar appending modules to the dependencies jar
         outputs = _create_fat_jar(
             ctx,
-            incremental_jars,
-            native_deps,
+            cmd_args(incremental_jars),
+            native_libs = native_deps,
             do_not_create_inner_jar = do_not_create_inner_jar,
             generate_wrapper = need_to_generate_wrapper,
             main_class = main_class,
@@ -231,8 +257,9 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     else:
         outputs = _create_fat_jar(
             ctx,
-            cmd_args(packaging_jar_args),
-            native_deps,
+            packaging_jar_args,
+            concat_jars = concat_deps,
+            native_libs = native_deps,
             do_not_create_inner_jar = do_not_create_inner_jar,
             generate_wrapper = need_to_generate_wrapper,
             main_class = main_class,

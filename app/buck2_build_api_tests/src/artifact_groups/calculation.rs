@@ -13,38 +13,40 @@ use std::sync::Arc;
 use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
-use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::actions::registry::RecordedActions;
-use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::analysis::AnalysisResult;
-use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
-use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
+use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::TransitiveSetProjectionKey;
+use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
+use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
 use buck2_build_api::context::SetBuildContextData;
 use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
-use buck2_common::file_ops::testing::TestFileOps;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_common::file_ops::testing::TestFileOps;
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
+use buck2_common::legacy_configs::dice::inject_legacy_config_for_test;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePathBuf;
-use buck2_core::cells::CellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
-use dice::testing::DiceBuilder;
 use dice::UserComputationData;
+use dice::testing::DiceBuilder;
 use dupe::Dupe;
 use indoc::indoc;
 use maplit::btreemap;
@@ -82,7 +84,7 @@ fn mock_analysis_for_tsets(
                 RecordedAnalysisValues::testing_new(
                     DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
                     tsets,
-                    RecordedActions::new(),
+                    RecordedActions::new(0),
                 ),
                 None,
                 HashMap::new(),
@@ -197,6 +199,7 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
     let mut dice = dice_builder.build(extra)?;
     dice.set_cell_resolver(cell_resolver)?;
     dice.set_buck_out_path(None)?;
+    inject_legacy_config_for_test(&mut dice, cell_parent, LegacyBuckConfig::empty())?;
     let mut dice = dice.commit().await;
 
     let result = dice

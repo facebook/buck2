@@ -8,6 +8,7 @@
 load("@prelude//:artifacts.bzl", "single_artifact")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//cxx:headers.bzl", "CHeader")
 load(
     "@prelude//linking:link_info.bzl",
     "CxxSanitizerRuntimeInfo",
@@ -24,14 +25,15 @@ load(
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleTypeAppClip", "AppleBundleTypeDefault", "AppleBundleTypeExtensionKitExtension", "AppleBundleTypeWatchApp")
-load(":apple_bundle_utility.bzl", "get_bundle_resource_processing_options", "get_default_binary_dep", "get_extension_attr", "get_flattened_binary_deps", "get_product_name")
+load(":apple_bundle_utility.bzl", "get_bundle_resource_processing_options", "get_default_binary_dep", "get_extension_attr", "get_flattened_binary_deps", "get_is_watch_bundle", "get_product_name")
 load(":apple_core_data.bzl", "compile_apple_core_data")
 load(
     ":apple_core_data_types.bzl",
     "AppleCoreDataSpec",  # @unused Used as a type
 )
 load(":apple_info_plist.bzl", "process_info_plist", "process_plist")
-load(":apple_library.bzl", "AppleLibraryForDistributionInfo", "AppleLibraryInfo")
+load(":apple_library.bzl", "AppleLibraryForDistributionInfo")
+load(":apple_library_types.bzl", "AppleLibraryInfo")
 load(
     ":apple_resource_types.bzl",
     "AppleResourceDestination",
@@ -39,6 +41,7 @@ load(
     "CxxResourceSpec",  # @unused Used as a type
 )
 load(":apple_resource_utility.bzl", "apple_bundle_destination_from_resource_destination")
+load(":modulemap.bzl", "create_modulemap")
 load(
     ":resource_groups.bzl",
     "create_resource_graph",
@@ -158,7 +161,7 @@ def _copy_privacy_manifest_if_needed(ctx: AnalysisContext) -> list[AppleBundlePa
     else:
         output = ctx.actions.declare_output("PrivacyInfo.xcprivacy")
         artifact = ctx.actions.copy_file(output.as_output(), privacy_manifest)
-    return [AppleBundlePart(source = artifact, destination = AppleBundleDestination("metadata"))]
+    return [AppleBundlePart(source = artifact, destination = AppleBundleDestination("resources"))]
 
 def _select_resources(ctx: AnalysisContext) -> ((list[AppleResourceSpec], list[AppleAssetCatalogSpec], list[AppleCoreDataSpec], list[SceneKitAssetsSpec], list[CxxResourceSpec])):
     resource_group_info = get_resource_group_info(ctx)
@@ -196,11 +199,15 @@ def _copy_swift_library_evolution_support(ctx: AnalysisContext) -> list[AppleBun
         if apple_library_for_distribution_info == None:
             continue
         module_name = apple_library_for_distribution_info.module_name
-        swiftmodule_files.update({
-            apple_library_for_distribution_info.target_triple + ".swiftinterface": apple_library_for_distribution_info.swiftinterface,
-            apple_library_for_distribution_info.target_triple + ".private.swiftinterface": apple_library_for_distribution_info.private_swiftinterface,
-            apple_library_for_distribution_info.target_triple + ".swiftdoc": apple_library_for_distribution_info.swiftdoc,
-        })
+        if apple_library_for_distribution_info.swiftinterface != None:
+            swiftmodule_files.update({
+                apple_library_for_distribution_info.target_triple + ".swiftinterface": apple_library_for_distribution_info.swiftinterface,
+                apple_library_for_distribution_info.target_triple + ".private.swiftinterface": apple_library_for_distribution_info.private_swiftinterface,
+            })
+        if apple_library_for_distribution_info.swiftdoc != None:
+            swiftmodule_files.update({
+                apple_library_for_distribution_info.target_triple + ".swiftdoc": apple_library_for_distribution_info.swiftdoc,
+            })
 
     if len(swiftmodule_files) == 0 or module_name == None:
         return []
@@ -208,6 +215,28 @@ def _copy_swift_library_evolution_support(ctx: AnalysisContext) -> list[AppleBun
     framework_module_dir = ctx.actions.declare_output(module_name + "framework.swiftmodule", dir = True)
     ctx.actions.copied_dir(framework_module_dir.as_output(), swiftmodule_files)
     return [AppleBundlePart(source = framework_module_dir, destination = AppleBundleDestination("modules"), new_name = module_name + ".swiftmodule")]
+
+def _public_headers(ctx: AnalysisContext) -> list[Artifact]:
+    if not ctx.attrs.copy_public_framework_headers:
+        return []
+    binary_deps = getattr(ctx.attrs, "binary")
+    if binary_deps == None:
+        return []
+
+    binary = get_default_binary_dep(binary_deps)
+    apple_library_info = binary.get(AppleLibraryInfo)
+    if apple_library_info == None:
+        return []
+    tset = apple_library_info.public_framework_headers
+
+    headers = []
+    if tset._tset:
+        for public_framework_headers in tset._tset.traverse():
+            for public_framework_header in public_framework_headers:
+                for artifact in public_framework_header.artifacts:
+                    headers.append(artifact)
+
+    return headers
 
 def _copy_public_headers(ctx: AnalysisContext) -> list[AppleBundlePart]:
     if not ctx.attrs.copy_public_framework_headers:
@@ -234,13 +263,44 @@ def _copy_public_headers(ctx: AnalysisContext) -> list[AppleBundlePart]:
 
     return bundle_parts
 
+def _create_framework_module_map(ctx: AnalysisContext) -> Artifact:
+    binary = get_default_binary_dep(ctx.attrs.binary)
+    apple_library_for_distribution_info = binary.get(AppleLibraryForDistributionInfo)
+    if apple_library_for_distribution_info == None:
+        fail("Tried to generate an automatic modulemap for an unsupported binary dep. Please make sure it is a modular apple_library")
+    headers = _public_headers(ctx)
+    cheaders = []
+    for header in headers:
+        cheaders.append(CHeader(
+            artifact = header,
+            name = header.basename,
+            namespace = "",
+            named = False,
+        ))
+
+    module_name = apple_library_for_distribution_info.module_name
+    _, module_map = create_modulemap(
+        ctx,
+        "module",
+        module_name,
+        cheaders,
+        None,
+        False,
+        None,
+        is_framework = True,
+    )
+    return module_map
+
 def _copy_module_map(ctx: AnalysisContext) -> list[AppleBundlePart]:
     extension = get_extension_attr(ctx)
     if not extension == "framework":
         return []
     module_map = ctx.attrs.module_map
-    if not module_map:
+    if module_map == None:
         return []
+    if module_map == "auto":
+        module_map = _create_framework_module_map(ctx)
+
     return [AppleBundlePart(source = module_map, destination = AppleBundleDestination("modules"))]
 
 def _copy_resources(ctx: AnalysisContext, specs: list[AppleResourceSpec]) -> list[AppleBundlePart]:
@@ -314,6 +374,7 @@ def _copied_bundle_spec(bundle_info: AppleBundleInfo) -> [None, AppleBundlePart]
         source = bundle,
         destination = destination,
         codesign_on_copy = codesign_on_copy,
+        extra_codesign_paths = bundle_info.extra_codesign_paths,
     )
 
 def _bundle_parts_for_dirs(generated_dirs: list[Artifact], destination: AppleBundleDestination, copy_contents_only: bool) -> list[AppleBundlePart]:
@@ -399,7 +460,14 @@ def _run_ibtool(
         command = ibtool_command
 
     processing_options = get_bundle_resource_processing_options(ctx)
-    ctx.actions.run(command, prefer_local = processing_options.prefer_local, allow_cache_upload = processing_options.allow_cache_upload, category = "apple_ibtool", identifier = action_identifier)
+    ctx.actions.run(
+        command,
+        prefer_local = processing_options.prefer_local,
+        prefer_remote = processing_options.prefer_remote,
+        allow_cache_upload = processing_options.allow_cache_upload,
+        category = "apple_ibtool",
+        identifier = action_identifier,
+    )
 
 def _ibtool_identifier(action: str, raw_file: Artifact) -> str:
     "*.xib files can live in .lproj folders and have the same name, so we need to split the id"
@@ -500,6 +568,3 @@ def _get_dest_subpath_for_variant_file(variant_file: Artifact) -> str:
 def _get_variant_dirname(variant_file: Artifact) -> str | None:
     dir_name = paths.basename(paths.dirname(variant_file.short_path))
     return dir_name if dir_name.endswith("lproj") else None
-
-def get_is_watch_bundle(ctx: AnalysisContext) -> bool:
-    return ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_name.startswith("watch")

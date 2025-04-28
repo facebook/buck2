@@ -16,7 +16,7 @@ use derive_more::Display;
 /// the references into the input so that this has a 'static lifetime. To be useful, it'll need to be
 /// recombined with the input string.
 #[derive(Debug, Display)]
-#[display(fmt = "{}", value)]
+#[display("{}", value)]
 pub struct Spanned<T> {
     pub position: Range<usize>,
     pub value: T,

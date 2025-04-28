@@ -10,12 +10,8 @@
 use std::cell::RefCell;
 
 use allocative::Allocative;
-use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_build_api::dynamic_value::DynamicValue;
-use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
-use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
@@ -23,16 +19,15 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::starlark_value;
 
+use crate::dynamic::attrs::DynamicAttrValues;
 use crate::dynamic::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallable;
 
 #[derive(Debug, Trace, Allocative)]
 pub(crate) struct StarlarkDynamicActionsData<'v> {
     pub(crate) callable: FrozenValueTyped<'v, FrozenStarlarkDynamicActionsCallable>,
-    pub(crate) dynamic: IndexSet<Artifact>,
-    pub(crate) dynamic_values: IndexSet<DynamicValue>,
-    pub(crate) outputs: IndexSet<OutputArtifact>,
-    pub(crate) arg: Value<'v>,
+    pub(crate) attr_values: DynamicAttrValues<Value<'v>, OutputArtifact>,
 }
 
 #[derive(
@@ -43,7 +38,7 @@ pub(crate) struct StarlarkDynamicActionsData<'v> {
     Trace,
     Allocative
 )]
-#[display(fmt = "DynamicActions<...>")]
+#[display("DynamicActions<...>")]
 pub(crate) struct StarlarkDynamicActions<'v> {
     pub(crate) data: RefCell<Option<StarlarkDynamicActionsData<'v>>>,
 }

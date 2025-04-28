@@ -20,7 +20,7 @@
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 
-pub fn unpack_args_item_ty(ty: Ty) -> Ty {
+pub(crate) fn unpack_args_item_ty(ty: Ty) -> Ty {
     Ty::unions(
         ty.iter_union()
             .iter()
@@ -32,7 +32,7 @@ pub fn unpack_args_item_ty(ty: Ty) -> Ty {
     )
 }
 
-pub fn unpack_kwargs_value_ty(ty: Ty) -> Ty {
+pub(crate) fn unpack_kwargs_value_ty(ty: Ty) -> Ty {
     Ty::unions(
         ty.iter_union()
             .iter()

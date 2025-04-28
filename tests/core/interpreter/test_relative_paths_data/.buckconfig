@@ -1,0 +1,7 @@
+[repositories]
+    root = .
+[buildfile]
+    name = TARGETS.fixture
+[buck2]
+    directories_to_allow_relative_paths = \
+        //foo

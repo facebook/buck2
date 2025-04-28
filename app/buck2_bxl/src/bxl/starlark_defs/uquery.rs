@@ -28,10 +28,6 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::list::UnpackList;
-use starlark::values::none::NoneOr;
-use starlark::values::starlark_value;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -39,12 +35,16 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::StarlarkDocs;
+use starlark::values::ValueTyped;
+use starlark::values::list::UnpackList;
+use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use super::file_set::StarlarkFileSet;
 use super::target_list_expr::TargetListExpr;
 use crate::bxl::starlark_defs::context::BxlContext;
-use crate::bxl::starlark_defs::context::BxlContextNoDice;
+use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::file_set::FileSetExpr;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExprArg;
@@ -56,17 +56,14 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
     Display,
     Trace,
     NoSerialize,
-    Allocative,
-    StarlarkDocs
+    Allocative
 )]
-#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 #[allocative(skip)]
 pub(crate) struct StarlarkUQueryCtx<'v> {
-    #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
-    ctx: &'v BxlContext<'v>,
+    ctx: ValueTyped<'v, BxlContext<'v>>,
 }
 
 #[starlark_value(type = "bxl.UqueryContext", StarlarkTypeRepr, UnpackValue)]
@@ -77,9 +74,9 @@ impl<'v> StarlarkValue<'v> for StarlarkUQueryCtx<'v> {
     }
 }
 
-pub(crate) async fn get_uquery_env<'v>(
-    ctx: &BxlContextNoDice<'v>,
-) -> anyhow::Result<Box<dyn BxlUqueryFunctions>> {
+pub(crate) async fn get_uquery_env(
+    ctx: &BxlContextCoreData,
+) -> buck2_error::Result<Box<dyn BxlUqueryFunctions>> {
     (NEW_BXL_UQUERY_FUNCTIONS.get()?)(
         ctx.project_root().dupe(),
         ctx.cell_name(),
@@ -95,7 +92,7 @@ impl<'v> AllocValue<'v> for StarlarkUQueryCtx<'v> {
 }
 
 impl<'v> StarlarkUQueryCtx<'v> {
-    pub(crate) fn new(ctx: &'v BxlContext<'v>) -> anyhow::Result<Self> {
+    pub(crate) fn new(ctx: ValueTyped<'v, BxlContext<'v>>) -> buck2_error::Result<Self> {
         Ok(Self { ctx })
     }
 }
@@ -104,7 +101,7 @@ async fn unpack_targets<'c, 'v>(
     this: &'c StarlarkUQueryCtx<'v>,
     dice: &'c mut DiceComputations<'_>,
     targets: TargetListExprArg<'v>,
-) -> anyhow::Result<Cow<'v, TargetSet<TargetNode>>> {
+) -> buck2_error::Result<Cow<'v, TargetSet<TargetNode>>> {
     TargetListExpr::<'v, TargetNode>::unpack(targets, &this.ctx.data, dice)
         .await?
         .get(dice)
@@ -120,21 +117,30 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkUQueryCtx<'v>,
         from: TargetListExprArg<'v>,
         to: TargetListExprArg<'v>,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
-        this.ctx.via_dice(|dice, ctx| {
+        #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
+        Ok(this.ctx.via_dice(|dice, ctx| {
             dice.via(|dice| {
                 async {
+                    let filter = filter
+                        .into_option()
+                        .try_map(buck2_query_parser::parse_expr)?;
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
                     get_uquery_env(ctx)
                         .await?
-                        .allpaths(dice, &from, &to)
+                        .allpaths(
+                            dice,
+                            &from,
+                            &to,
+                            filter.as_ref().map(|expr| CapturedExpr { expr }).as_ref(),
+                        )
                         .await
                         .map(StarlarkTargetSet::from)
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// The somepaths query, which returns the graph of nodes on some arbitrary path from a start to destination target.
@@ -142,21 +148,31 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkUQueryCtx<'v>,
         from: TargetListExprArg<'v>,
         to: TargetListExprArg<'v>,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
-        this.ctx.via_dice(|dice, ctx| {
+        #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
+        Ok(this.ctx.via_dice(|dice, ctx| {
             dice.via(|dice| {
                 async {
+                    let filter = filter
+                        .into_option()
+                        .try_map(buck2_query_parser::parse_expr)?;
+
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
                     get_uquery_env(ctx)
                         .await?
-                        .somepath(dice, &from, &to)
+                        .somepath(
+                            dice,
+                            &from,
+                            &to,
+                            filter.as_ref().map(|expr| CapturedExpr { expr }).as_ref(),
+                        )
                         .await
                         .map(StarlarkTargetSet::from)
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// The attrfilter query for rule attribute filtering.
@@ -165,8 +181,8 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         attr: &str,
         value: &str,
         targets: TargetListExprArg<'v>,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
-        this.ctx.via_dice(|dice, _| {
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
+        Ok(this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
                     let targets = unpack_targets(this, dice, targets).await?;
@@ -176,13 +192,13 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// The inputs query for finding input files.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_inputs(ctx):
     ///     result = ctx.uquery().inputs("root//bin:the_binary")
     ///     ctx.output.print(result)
@@ -190,8 +206,9 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     fn inputs<'v>(
         this: &StarlarkUQueryCtx<'v>,
         targets: TargetListExprArg<'v>,
-    ) -> anyhow::Result<StarlarkFileSet> {
-        this.ctx
+    ) -> starlark::Result<StarlarkFileSet> {
+        Ok(this
+            .ctx
             .via_dice(|dice, _| {
                 dice.via(|dice| {
                     async {
@@ -201,23 +218,24 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                     .boxed_local()
                 })
             })
-            .map(StarlarkFileSet::from)
+            .map(StarlarkFileSet::from)?)
     }
 
-    /// The kind query for filtering targets by rule type.
+    /// Filter targets by rule type.
+    /// Returns a subset of `targets` where the rule type matches the specified `regex`. The specified pattern can be a regular expression.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_kind(ctx):
-    ///     kind = ctx.uquery().kind(".*1", "bin/kind/...")
-    ///     ctx.output.print(kind)
+    ///     kind = ctx.uquery().kind("cpp.*", "bin/libs/...")
+    ///     ctx.output.print(nodes)
     /// ```
     fn kind<'v>(
         this: &StarlarkUQueryCtx<'v>,
         regex: &str,
         targets: TargetListExprArg<'v>,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
-        this.ctx.via_dice(|dice, _| {
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
+        Ok(this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
                     let targets = unpack_targets(this, dice, targets).await?;
@@ -225,13 +243,13 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// The deps query for finding the transitive closure of dependencies.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_deps(ctx):
     ///     result = ctx.uquery().deps("root//bin:the_binary", 1)
     ///     ctx.output.print(result)
@@ -241,8 +259,9 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         universe: TargetListExprArg<'v>,
         #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
-        this.ctx
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
+        Ok(this
+            .ctx
             .via_dice(|dice, ctx| {
                 dice.via(|dice| {
                     async {
@@ -258,23 +277,20 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                                 dice,
                                 &targets,
                                 depth.into_option(),
-                                filter
-                                    .as_ref()
-                                    .map(|span| CapturedExpr { expr: span })
-                                    .as_ref(),
+                                filter.as_ref().map(|expr| CapturedExpr { expr }).as_ref(),
                             )
                             .await
                     }
                     .boxed_local()
                 })
             })
-            .map(StarlarkTargetSet::from)
+            .map(StarlarkTargetSet::from)?)
     }
 
     /// The rdeps query for finding the transitive closure of reverse dependencies.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_rdeps(ctx):
     ///     result = ctx.uquery().rdeps("root//bin:the_binary", "//lib:file1", 100)
     ///     ctx.output.print(result)
@@ -283,30 +299,42 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkUQueryCtx<'v>,
         universe: TargetListExprArg<'v>,
         from: TargetListExprArg<'v>,
-        depth: Option<i32>,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
-        this.ctx
+        #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
+        #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
+        Ok(this
+            .ctx
             .via_dice(|dice, ctx| {
                 dice.via(|dice| {
                     async {
+                        let filter = filter
+                            .into_option()
+                            .try_map(buck2_query_parser::parse_expr)?;
+
                         let universe = unpack_targets(this, dice, universe).await?;
                         let targets = unpack_targets(this, dice, from).await?;
 
                         get_uquery_env(ctx)
                             .await?
-                            .rdeps(dice, &universe, &targets, depth)
+                            .rdeps(
+                                dice,
+                                &universe,
+                                &targets,
+                                depth.into_option(),
+                                filter.as_ref().map(|expr| CapturedExpr { expr }).as_ref(),
+                            )
                             .await
                     }
                     .boxed_local()
                 })
             })
-            .map(StarlarkTargetSet::from)
+            .map(StarlarkTargetSet::from)?)
     }
 
     /// The filter query for filtering targets by name.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_filter(ctx):
     ///     result = ctx.uquery().filter(".*the_binary", "root//...")
     ///     ctx.output.print(result)
@@ -315,8 +343,9 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkUQueryCtx<'v>,
         regex: &str,
         targets: TargetListExprArg<'v>,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
-        this.ctx
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
+        Ok(this
+            .ctx
             .via_dice(|dice, _| {
                 dice.via(|dice| {
                     async {
@@ -326,13 +355,13 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                     .boxed_local()
                 })
             })
-            .map(StarlarkTargetSet::from)
+            .map(StarlarkTargetSet::from)?)
     }
 
     /// The testsof query for listing the tests of the specified targets.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _testsof_impl(ctx):
     ///     result = ctx.uquery().testsof("//:foo_lib")
     ///     ctx.output.print(result)
@@ -340,8 +369,9 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     fn testsof<'v>(
         this: &StarlarkUQueryCtx<'v>,
         targets: TargetListExprArg<'v>,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
-        this.ctx
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
+        Ok(this
+            .ctx
             .via_dice(|dice, ctx| {
                 dice.via(|dice| {
                     async {
@@ -351,13 +381,13 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                     .boxed_local()
                 })
             })
-            .map(StarlarkTargetSet::from)
+            .map(StarlarkTargetSet::from)?)
     }
 
     /// Find the build file(s) that defines a target or a target set.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _buildfile_impl(ctx):
     ///     owner = ctx.uquery().owner(["bin/TARGET", "bin/kind"])
     ///     result = ctx.uquery().buildfile(owner)
@@ -366,8 +396,9 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     fn buildfile<'v>(
         this: &StarlarkUQueryCtx<'v>,
         targets: TargetListExprArg<'v>,
-    ) -> anyhow::Result<StarlarkFileSet> {
-        this.ctx
+    ) -> starlark::Result<StarlarkFileSet> {
+        Ok(this
+            .ctx
             .via_dice(|dice, _| {
                 dice.via(|dice| {
                     async {
@@ -377,7 +408,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                     .boxed_local()
                 })
             })
-            .map(StarlarkFileSet::from)
+            .map(StarlarkFileSet::from)?)
     }
 
     /// The owner query for finding targets that own specified files. Note that if you do not pass in a cell
@@ -386,7 +417,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     /// the fully qualified cell path.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _owner_impl(ctx):
     ///     owner = ctx.uquery().owner("bin/TARGETS.fixture")
     ///     ctx.output.print(owner)
@@ -394,8 +425,9 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     fn owner<'v>(
         this: &StarlarkUQueryCtx,
         files: FileSetExpr,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
-        this.ctx
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
+        Ok(this
+            .ctx
             .via_dice(|dice, ctx| {
                 dice.via(|dice| {
                     async {
@@ -407,13 +439,13 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                     .boxed_local()
                 })
             })
-            .map(StarlarkTargetSet::from)
+            .map(StarlarkTargetSet::from)?)
     }
 
     /// Given a set of buildfiles, return all targets within those buildfiles.
     ///
     /// Usage:
-    /// ```text
+    /// ```python
     /// def _targets_in_buildfile_impl(ctx):
     ///     targets = ctx.uquery().targets_in_buildfile("bin/TARGETS.fixture")
     ///     ctx.output.print(targets)
@@ -423,8 +455,9 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     fn targets_in_buildfile<'v>(
         this: &StarlarkUQueryCtx,
         files: FileSetExpr,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
-        this.ctx
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
+        Ok(this
+            .ctx
             .via_dice(|dice, ctx| {
                 dice.via(|dice| {
                     async {
@@ -436,13 +469,13 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                     .boxed_local()
                 })
             })
-            .map(StarlarkTargetSet::from)
+            .map(StarlarkTargetSet::from)?)
     }
 
     /// The attrregexfilter query for rule attribute filtering with regex.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_attrregexfilter(ctx):
     ///     filtered = ctx.uquery().attrregexfilter("foo", "he.lo", "bin/kind/...")
     ///     ctx.output.print(filtered)
@@ -452,8 +485,8 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         attribute: &str,
         value: &str,
         targets: TargetListExprArg<'v>,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
-        this.ctx.via_dice(|dice, _| {
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
+        Ok(this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
                     let targets = unpack_targets(this, dice, targets).await?;
@@ -463,7 +496,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// Evaluates some general query string, `query_args` can be a target_set of unconfigured nodes, or
@@ -471,7 +504,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     /// was passed in, otherwise returns a single `target_set`.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_eval(ctx):
     ///     result1 = ctx.uquery().eval("inputs(cell//path/to/file:target)")
     ///     ctx.output.print(result1)
@@ -484,13 +517,13 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         query: &'v str,
         #[starlark(default = NoneOr::None)] query_args: NoneOr<UnpackUnconfiguredQueryArgs<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         let query_args = match query_args {
             NoneOr::None => Vec::new(),
             NoneOr::Other(query_args) => query_args.into_strings(),
         };
 
-        this.ctx.via_dice(|dice, _| {
+        Ok(this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
                     parse_query_evaluation_result(
@@ -498,12 +531,12 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                             .get()?
                             .eval_uquery(dice, &this.ctx.working_dir()?, query, &query_args)
                             .await?,
-                        eval,
+                        eval.heap(),
                     )
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 }
 

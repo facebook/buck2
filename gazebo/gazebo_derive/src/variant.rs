@@ -9,11 +9,11 @@
 
 use proc_macro2::Span;
 use quote::quote;
-use syn::spanned::Spanned;
 use syn::Data;
 use syn::DeriveInput;
 use syn::Fields;
 use syn::Ident;
+use syn::spanned::Spanned;
 
 pub(crate) fn derive_variant_names(input: DeriveInput) -> syn::Result<proc_macro::TokenStream> {
     if let Data::Enum(data_enum) = input.data {
@@ -39,7 +39,7 @@ pub(crate) fn derive_variant_names(input: DeriveInput) -> syn::Result<proc_macro
         let name = &input.ident;
         let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-        let gen = quote! {
+        let r#gen = quote! {
             impl #impl_generics gazebo::variants::VariantName for #name #ty_generics #where_clause {
                 fn variant_name(&self) -> &'static str {
                     match self {
@@ -55,7 +55,7 @@ pub(crate) fn derive_variant_names(input: DeriveInput) -> syn::Result<proc_macro
             }
         };
 
-        Ok(gen.into())
+        Ok(r#gen.into())
     } else {
         Err(syn::Error::new(
             input.span(),
@@ -137,13 +137,13 @@ pub(crate) fn derive_unpack_variants(input: DeriveInput) -> syn::Result<proc_mac
         let name = &input.ident;
         let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-        let gen = quote! {
+        let r#gen = quote! {
             impl #impl_generics #name #ty_generics #where_clause {
                 #(#variant_fns)*
             }
         };
 
-        Ok(gen.into())
+        Ok(r#gen.into())
     } else {
         Err(syn::Error::new(
             input.span(),

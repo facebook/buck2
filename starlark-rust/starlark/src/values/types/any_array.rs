@@ -23,8 +23,8 @@ use std::mem;
 use std::ptr;
 
 use allocative::Allocative;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -32,7 +32,7 @@ use crate::values::StarlarkValue;
 
 #[derive(derive_more::Display, ProvidesStaticType, NoSerialize, Allocative)]
 #[repr(C)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 #[allocative(bound = "")]
 pub(crate) struct AnyArray<T: Debug + 'static> {
     pub(crate) len: usize,
@@ -86,9 +86,9 @@ impl<'v, T: Debug + 'static> StarlarkValue<'v> for AnyArray<T> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
     use std::sync::atomic::AtomicU32;
     use std::sync::atomic::Ordering;
-    use std::sync::Arc;
 
     use dupe::Dupe;
 

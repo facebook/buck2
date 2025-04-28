@@ -1,0 +1,34 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "filter",
+    srcs = glob(["*.java"]),
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem/impl:utils",
+        "prelude//toolchains/android/src/com/facebook/buck/io/pathformat:pathformat",
+        "prelude//toolchains/android/src/com/facebook/buck/util/json:json",
+        "prelude//toolchains/android/src/com/facebook/buck/util/string:string",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jsr305",
+    ],
+)
+
+buck_java_binary(
+    name = "filter_resources_binary",
+    main_class = "com.facebook.buck.android.resources.filter.FilterResourcesExecutableMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":filter",
+    ],
+)

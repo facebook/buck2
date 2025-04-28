@@ -7,7 +7,7 @@
 
 # Utility functions used by "fdb.bxl"
 
-load("@prelude//debugging/types.bzl", "TargetInfo")
+load("@prelude//debugging:types.bzl", "TargetInfo")
 
 def target_name(node: bxl.ConfiguredTargetNode) -> str:
     return "{}:{}".format(str(node.label.path), node.label.name)

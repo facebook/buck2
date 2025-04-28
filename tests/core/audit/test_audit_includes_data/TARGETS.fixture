@@ -1,0 +1,3 @@
+load("incl.bzl", "x")
+
+print(x)  # buildifier: disable=print

@@ -77,37 +77,37 @@ mod sse2 {
     impl Vector for __m128i {
         #[inline(always)]
         unsafe fn splat(byte: u8) -> Self {
-            _mm_set1_epi8(byte as i8)
+            unsafe { _mm_set1_epi8(byte as i8) }
         }
 
         #[inline(always)]
         unsafe fn load_unaligned(ptr: *const u8) -> Self {
-            _mm_loadu_si128(ptr as *const _)
+            unsafe { _mm_loadu_si128(ptr as *const _) }
         }
 
         #[inline(always)]
         unsafe fn store_unaligned(self, ptr: *mut u8) {
-            _mm_storeu_si128(ptr as *mut _, self)
+            unsafe { _mm_storeu_si128(ptr as *mut _, self) }
         }
 
         #[inline(always)]
         unsafe fn cmplt(self, other: Self) -> Self {
-            _mm_cmplt_epi8(self, other)
+            unsafe { _mm_cmplt_epi8(self, other) }
         }
 
         #[inline(always)]
         unsafe fn cmpeq(self, other: Self) -> Self {
-            _mm_cmpeq_epi8(self, other)
+            unsafe { _mm_cmpeq_epi8(self, other) }
         }
 
         #[inline(always)]
         unsafe fn or(self, other: Self) -> Self {
-            _mm_or_si128(self, other)
+            unsafe { _mm_or_si128(self, other) }
         }
 
         #[inline(always)]
         unsafe fn movemask(self) -> u32 {
-            _mm_movemask_epi8(self) as u32
+            unsafe { _mm_movemask_epi8(self) as u32 }
         }
     }
 }

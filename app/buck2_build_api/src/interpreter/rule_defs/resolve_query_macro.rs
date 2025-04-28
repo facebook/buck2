@@ -17,9 +17,9 @@ use static_assertions::assert_eq_size;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
-use crate::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
+use crate::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
 use crate::interpreter::rule_defs::resolved_macro::add_output_to_arg;
 
 #[derive(Debug, PartialEq, Allocative)]
@@ -58,7 +58,7 @@ impl ResolvedQueryMacro {
         &self,
         builder: &mut dyn ArgBuilder,
         ctx: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self {
             Self::Outputs(list) => {
                 let mut first = true;
@@ -103,7 +103,7 @@ impl ResolvedQueryMacro {
     pub fn visit_artifacts(
         &self,
         visitor: &mut dyn CommandLineArtifactVisitor,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self {
             Self::Outputs(list) => {
                 for target_outputs in list.iter() {

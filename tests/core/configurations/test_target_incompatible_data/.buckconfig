@@ -1,0 +1,20 @@
+[buildfile]
+name=TARGETS.fixture
+
+[cells]
+root = .
+nano_prelude = nano_prelude
+
+[cell_aliases]
+prelude = nano_prelude
+
+[external_cells]
+nano_prelude = bundled
+
+[build]
+execution_platforms = root//exec_dep:execution_platforms
+
+[buck2]
+error_on_dep_only_incompatible = \
+    //dep_incompatible:dep_incompatible_conf1, \
+    //dep_incompatible:dep_incompatible_conf2

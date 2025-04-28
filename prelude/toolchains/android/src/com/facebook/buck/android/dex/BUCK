@@ -1,0 +1,158 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_graalvm_binary", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+CANARY = "CanaryUtils.java"
+
+D8_EXECUTABLE_MAIN = "D8ExecutableMain.java"
+
+JAR_SPLITTER_EXECUTABLE_MAIN = "JarSplitterExecutableMain.java"
+
+MULTI_DEX_EXECUTABLE_MAIN = "MultiDexExecutableMain.java"
+
+SECONDARY_DEX_COMPRESSION_EXECUTABLE_MAIN = "SecondaryDexCompressionExecutableMain.java"
+
+buck_java_library(
+    name = "canary",
+    srcs = [CANARY],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/third-party:guava",
+    ],
+)
+
+buck_java_library(
+    name = "dex",
+    srcs = glob(
+        ["*.java"],
+        exclude = [
+            CANARY,
+            D8_EXECUTABLE_MAIN,
+            JAR_SPLITTER_EXECUTABLE_MAIN,
+            MULTI_DEX_EXECUTABLE_MAIN,
+            SECONDARY_DEX_COMPRESSION_EXECUTABLE_MAIN,
+        ],
+    ),
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/android/apkmodule:module-only",
+        "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip",
+        "prelude//toolchains/android/third-party:d8",
+        "prelude//toolchains/android/third-party:guava",
+    ],
+)
+
+buck_java_library(
+    name = "d8_executable_main",
+    srcs = [D8_EXECUTABLE_MAIN],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:d8",
+        "prelude//toolchains/android/third-party:guava",
+        ":dex",
+    ],
+)
+
+buck_java_graalvm_binary(
+    name = "run_d8_binary",
+    main_class = "com.facebook.buck.android.dex.D8ExecutableMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":d8_executable_main",
+        ":dex",
+    ],
+)
+
+buck_java_library(
+    name = "multi_dex_executable_main",
+    srcs = [MULTI_DEX_EXECUTABLE_MAIN],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/android/apkmodule:module-only",
+        "prelude//toolchains/android/src/com/facebook/buck/android/proguard:translator",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:d8",
+        "prelude//toolchains/android/third-party:guava",
+        ":canary",
+        ":dex",
+    ],
+)
+
+buck_java_binary(
+    name = "multi_dex_binary",
+    main_class = "com.facebook.buck.android.dex.MultiDexExecutableMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":dex",
+        ":multi_dex_executable_main",
+    ],
+)
+
+buck_java_library(
+    name = "secondary_dex_compression_executable_main",
+    srcs = [SECONDARY_DEX_COMPRESSION_EXECUTABLE_MAIN],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/android/apkmodule:module-only",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:xz",
+        ":canary",
+        ":dex",
+    ],
+)
+
+buck_java_binary(
+    name = "secondary_dex_compression_binary",
+    main_class = "com.facebook.buck.android.dex.SecondaryDexCompressionExecutableMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":secondary_dex_compression_executable_main",
+    ],
+)
+
+buck_java_library(
+    name = "jar_splitter_executable_main",
+    srcs = [JAR_SPLITTER_EXECUTABLE_MAIN],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/android/proguard:translator",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        ":dex",
+    ],
+)
+
+buck_java_binary(
+    name = "jar_splitter_binary",
+    main_class = "com.facebook.buck.android.dex.JarSplitterExecutableMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":jar_splitter_executable_main",
+    ],
+)

@@ -1,0 +1,39 @@
+load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
+
+oncall("build_infra")
+
+prelude = native
+
+prelude.export_file(
+    name = "exe.sh",
+    mode = "reference",
+)
+
+prelude.export_file(
+    name = "exe.bat",
+    mode = "reference",
+)
+
+prelude.command_alias(
+    name = "rule",
+    platform_exe = {
+        "linux": ":exe.sh",
+        "macos": ":exe.sh",
+        "windows": ":exe.bat",
+    },
+    resources = [
+        "resource.dat",
+    ],
+)
+
+py_assertion(
+    name = "check",
+    script = """
+import subprocess
+import sys
+assert "HELLO" in subprocess.check_output([sys.argv[1]]).decode()
+""",
+    script_args = [
+        "$(exe_target :rule)",
+    ],
+)

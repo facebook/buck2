@@ -5,34 +5,75 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//python/sourcedb:filter.bxl", "BUCK_PYTHON_RULE_KINDS")
 load("@prelude//utils:utils.bzl", "flatten")
-load("@prelude//python/sourcedb/filter.bxl", "do_filter")
 
-def check_targets(ctx: bxl.Context, targets: typing.Any) -> None:
-    checked_targets = ctx.configured_targets(do_filter(ctx.uquery(), targets))
-
-    build_result = ctx.build([
-        target.label.with_sub_target("typecheck")
-        for target in checked_targets
-    ])
+def _check_targets_batched(ctx: bxl.Context, checked_targets: list[Label]) -> typing.Any:
+    build_result = ctx.build(checked_targets)
     output = ctx.output.ensure_multiple(build_result)
+    return {
+        label.raw_target(): [artifact.rel_path() for artifact in artifacts]
+        for label, artifacts in output.items()
+    }
 
-    ctx.output.print_json({
-        "artifacts": {
-            label.raw_target(): [artifact.rel_path() for artifact in artifacts]
-            for label, artifacts in output.items()
+def _is_python_target(rule_type: str) -> bool:
+    for kind in BUCK_PYTHON_RULE_KINDS:
+        if rule_type.endswith(kind):
+            return True
+    return False
+
+def _should_type_check_unconfigured(unconfigured_target: bxl.UnconfiguredTargetNode) -> bool:
+    return _is_python_target(unconfigured_target.rule_type)
+
+def _should_type_check_configured(configured_target: bxl.ConfiguredTargetNode, analysis_result: bxl.AnalysisResult) -> bool:
+    # NOTE(grievejia): This is NOT the same as `configured_target.sources()`.
+    # See https://fb.workplace.com/groups/617497306123691/permalink/1104965664043517/
+    srcs = configured_target.get_attr("srcs")
+    return (
+        # NOTE(grievejia): This is NOT the same as checking `srcs` on the unconfigured target, as
+        # empty `srcs` on unconfigured target does not necessarily imply empty `srcs` on configured
+        # target (due to, e.g. `select()`).
+        srcs != None and
+        len(srcs) > 0 and
+        "typecheck" in analysis_result.providers()[DefaultInfo].sub_targets
+    )
+
+def _filter_unconfigured_targets(targets: bxl.UnconfiguredTargetSet) -> list[bxl.UnconfiguredTargetNode]:
+    return [target for target in targets if _should_type_check_unconfigured(target)]
+
+def filter_and_get_typecheck_subtargets(ctx: bxl.Context, targets: bxl.UnconfiguredTargetSet) -> list[Label]:
+    unconfigured_targets = _filter_unconfigured_targets(targets)
+    configured_targets = ctx.configured_targets(unconfigured_targets)
+    analysis_results = ctx.analysis(configured_targets)
+    return [
+        configured_target.label.with_sub_target("typecheck")
+        for configured_target in configured_targets
+        if _should_type_check_configured(configured_target, analysis_results[configured_target.label.with_sub_target()])
+    ]
+
+def check_targets(ctx: bxl.Context, targets: bxl.UnconfiguredTargetSet) -> None:
+    checked_targets = filter_and_get_typecheck_subtargets(ctx, targets)
+    artifacts = _check_targets_batched(ctx, checked_targets)
+
+    ctx.output.print_json(
+        {
+            "artifacts": artifacts,
+            "root": ctx.root(),
         },
-        "root": ctx.root(),
-    })
+    )
 
 def _run_entry_point(ctx: bxl.Context) -> None:
     targets = flatten(ctx.cli_args.target)
-    check_targets(ctx, targets)
+    check_targets(ctx, ctx.unconfigured_targets(targets))
 
 run = bxl_main(
     doc = "Run [typecheck] on a set of targets or target patterns.",
     impl = _run_entry_point,
     cli_args = {
+        "enable-sharding": cli_args.bool(
+            default = False,
+            doc = "Shard type checking within each target",
+        ),
         "target": cli_args.list(
             cli_args.target_expr(
                 doc = "Target pattern to run type checking on",

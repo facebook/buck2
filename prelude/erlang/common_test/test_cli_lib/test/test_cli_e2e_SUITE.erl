@@ -7,8 +7,10 @@
 -module(test_cli_e2e_SUITE).
 
 -include_lib("stdlib/include/assert.hrl").
+-include_lib("common_test/include/ct.hrl").
+-include_lib("common/include/buck_ct_records.hrl").
 
--export([all/0]).
+-export([all/0, init_per_suite/1, end_per_suite/1]).
 
 -export([
     test_list/1
@@ -16,6 +18,30 @@
 
 all() ->
     [test_list].
+
+init_per_suite(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    TestInfoFile = filename:join(PrivDir, <<"test_info">>),
+
+    {ok, [ErlCmd]} = init:get_argument(progname),
+
+    test_info:write_to_file(TestInfoFile, #test_info{
+        dependencies = [],
+        test_suite = list_to_binary(code:which(test_list_SUITE)),
+        config_files = [],
+        providers = [],
+        ct_opts = [],
+        erl_cmd = ErlCmd,
+        extra_flags = [],
+        artifact_annotation_mfa = {foo, bar, 42}
+    }),
+
+    application:set_env(test_cli_lib, test_info_file, TestInfoFile),
+
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 test_list(_Config) ->
     Expected =

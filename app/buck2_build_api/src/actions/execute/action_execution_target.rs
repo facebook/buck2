@@ -9,8 +9,8 @@
 
 use std::fmt::Write;
 
-use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::CategoryRef;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::buck_out_path::BuckOutScratchPath;
 use buck2_data::ToProtoMessage;
 use buck2_execute::execute::target::CommandExecutionTarget;
@@ -24,15 +24,11 @@ use crate::actions::RegisteredAction;
 #[derivative(Debug)]
 pub struct ActionExecutionTarget<'a> {
     action: &'a RegisteredAction,
-    new_style_scratch_path: bool,
 }
 
 impl<'a> ActionExecutionTarget<'a> {
-    pub(crate) fn new(action: &'a RegisteredAction, new_style_scratch_path: bool) -> Self {
-        Self {
-            action,
-            new_style_scratch_path,
-        }
+    pub(crate) fn new(action: &'a RegisteredAction) -> Self {
+        ActionExecutionTarget { action }
     }
 
     pub fn owner(&self) -> &'a BaseDeferredKey {
@@ -52,7 +48,7 @@ impl<'a> ActionExecutionTarget<'a> {
             self.action.owner().dupe(),
             self.action.category(),
             self.action.identifier(),
-            self.action.action_key(self.new_style_scratch_path),
+            self.action.action_key(),
         )
         .unwrap()
     }

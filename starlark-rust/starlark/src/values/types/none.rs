@@ -17,6 +17,7 @@
 
 //! The `None` type.
 
+pub(crate) mod globals;
 mod none_or;
 pub(crate) mod none_type;
 

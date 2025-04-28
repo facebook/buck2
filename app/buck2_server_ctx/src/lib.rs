@@ -10,11 +10,13 @@
 #![feature(let_chains)]
 #![feature(error_generic_member_access)]
 #![feature(used_with_arg)]
+#![feature(anonymous_lifetime_in_impl_trait)]
 
 pub mod bxl;
-pub mod command_end;
+pub mod commands;
 pub mod concurrency;
 pub mod ctx;
+pub mod experiment_util;
 pub mod global_cfg_options;
 pub mod late_bindings;
 pub mod partial_result_dispatcher;

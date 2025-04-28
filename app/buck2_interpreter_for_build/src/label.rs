@@ -22,6 +22,7 @@ pub mod testing {
     use crate::interpreter::build_context::BuildContext;
 
     #[derive(Debug, buck2_error::Error)]
+    #[buck2(tag = Input)]
     enum LabelCreatorError {
         #[error("Expected provider, found something else: `{0}`")]
         ExpectedProvider(String),
@@ -34,7 +35,7 @@ pub mod testing {
         fn label<'v>(
             s: &str,
             eval: &mut Evaluator<'v, '_, '_>,
-        ) -> anyhow::Result<StarlarkConfiguredProvidersLabel> {
+        ) -> starlark::Result<StarlarkConfiguredProvidersLabel> {
             let c = BuildContext::from_context(eval)?;
             let target = match ParsedPattern::<ProvidersPatternExtra>::parse_precise(
                 s,
@@ -45,7 +46,12 @@ pub mod testing {
                 ParsedPattern::Target(package, target_name, providers) => {
                     providers.into_providers_label(package, target_name.as_ref())
                 }
-                _ => return Err(LabelCreatorError::ExpectedProvider(s.to_owned()).into()),
+                _ => {
+                    return Err(
+                        buck2_error::Error::from(LabelCreatorError::ExpectedProvider(s.to_owned()))
+                            .into(),
+                    );
+                }
             };
             Ok(StarlarkConfiguredProvidersLabel::new(
                 target.configure(ConfigurationData::testing_new()),
@@ -55,7 +61,7 @@ pub mod testing {
         fn target_label<'v>(
             s: &str,
             eval: &mut Evaluator<'v, '_, '_>,
-        ) -> anyhow::Result<StarlarkTargetLabel> {
+        ) -> starlark::Result<StarlarkTargetLabel> {
             let c = BuildContext::from_context(eval)?;
             let target = match ParsedPattern::<TargetPatternExtra>::parse_precise(
                 s,
@@ -66,81 +72,14 @@ pub mod testing {
                 ParsedPattern::Target(package, target_name, TargetPatternExtra) => {
                     TargetLabel::new(package, target_name.as_ref())
                 }
-                _ => return Err(LabelCreatorError::ExpectedTarget(s.to_owned()).into()),
+                _ => {
+                    return Err(buck2_error::Error::from(LabelCreatorError::ExpectedTarget(
+                        s.to_owned(),
+                    ))
+                    .into());
+                }
             };
             Ok(StarlarkTargetLabel::new(target))
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use indoc::indoc;
-
-    use super::testing::label_creator;
-    use crate::interpreter::testing::expect_error;
-    use crate::interpreter::testing::Tester;
-
-    #[test]
-    fn labels_are_usable() -> anyhow::Result<()> {
-        fn new_tester() -> anyhow::Result<Tester> {
-            let mut tester = Tester::new()?;
-            tester.additional_globals(label_creator);
-            Ok(tester)
-        }
-
-        let mut tester = new_tester()?;
-        tester.run_starlark_bzl_test(indoc!(
-            r#"
-            frozen_l_default = label("root//foo/bar:baz")
-            frozen_l = label("root//foo/bar:baz[something]")
-            def test():
-                l_default = label("root//foo/bar:baz")
-                l = label("root//foo/bar:baz[something]")
-
-                assert_eq_ignore_hash("root//foo/bar:baz (<testing>#<HASH>)", repr(frozen_l_default))
-                assert_eq_ignore_hash("root//foo/bar:baz (<testing>#<HASH>)", str(frozen_l_default))
-                assert_eq("foo/bar", frozen_l_default.package)
-                assert_eq("baz", frozen_l_default.name)
-                assert_eq(None, frozen_l_default.sub_target)
-                assert_eq("root", frozen_l_default.cell)
-
-                assert_eq_ignore_hash("root//foo/bar:baz[something] (<testing>#<HASH>)", repr(frozen_l))
-                assert_eq_ignore_hash("root//foo/bar:baz[something] (<testing>#<HASH>)", str(frozen_l))
-                assert_eq("foo/bar", frozen_l.package)
-                assert_eq("baz", frozen_l.name)
-                assert_eq(["something"], frozen_l.sub_target)
-
-                assert_eq_ignore_hash("root//foo/bar:baz (<testing>#<HASH>)", repr(l_default))
-                assert_eq_ignore_hash("root//foo/bar:baz (<testing>#<HASH>)", str(l_default))
-                assert_eq("foo/bar", l_default.package)
-                assert_eq("baz", l_default.name)
-                assert_eq(None, l_default.sub_target)
-
-                assert_eq_ignore_hash("root//foo/bar:baz[something] (<testing>#<HASH>)", repr(l))
-                assert_eq_ignore_hash("root//foo/bar:baz[something] (<testing>#<HASH>)", str(l))
-                assert_eq("foo/bar", l.package)
-                assert_eq("baz", l.name)
-                assert_eq(["something"], l.sub_target)
-                assert_eq("root", l.cell)
-
-            "#
-        ))?;
-
-        let mut tester = new_tester()?;
-        let invalid_fields = indoc!(
-            r#"
-            l = label("root//foo:bar[baz]")
-            def hide_type(v): return v
-            def test():
-                hide_type(l).invalid_field
-            "#
-        );
-        expect_error(
-            tester.run_starlark_test(invalid_fields),
-            invalid_fields,
-            "Object of type `label` has no attribute `invalid_field`",
-        );
-        Ok(())
     }
 }

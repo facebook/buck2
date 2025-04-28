@@ -11,6 +11,7 @@ use std::os::unix::io::FromRawFd;
 use std::os::unix::io::RawFd;
 use std::os::unix::net::UnixStream as StdUnixStream;
 
+use anyhow::Context;
 use buck2_grpc::DuplexChannel;
 use clap::Parser;
 use tokio::net::UnixStream;
@@ -40,11 +41,11 @@ impl Buck2TestRunnerUnix {
         // descriptors at worse, which is basically the best we can do anyway.
         let orchestrator_io =
             UnixStream::from_std(unsafe { StdUnixStream::from_raw_fd(self.orchestrator_fd) })
-                .expect("Failed to create orchestrator_io");
+                .context("Failed to create orchestrator_io")?;
 
         let executor_io =
             UnixStream::from_std(unsafe { StdUnixStream::from_raw_fd(self.executor_fd) })
-                .expect("Failed to create executor_io");
+                .context("Failed to create executor_io")?;
 
         let executor_io = {
             let (read, write) = tokio::io::split(executor_io);

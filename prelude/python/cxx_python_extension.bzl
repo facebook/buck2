@@ -18,7 +18,6 @@ load(
     "@prelude//cxx:cxx_sources.bzl",
     "get_srcs_with_flags",
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
     "@prelude//cxx:cxx_types.bzl",
     "CxxRuleConstructorParams",
@@ -60,26 +59,27 @@ load(
     "merge_shared_libraries",
 )
 load("@prelude//linking:types.bzl", "Linkage")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
-load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
+load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo", "get_platform_attr")
+load(
+    "@prelude//python/linking:native_python_util.bzl",
+    "merge_cxx_extension_info",
+    "rewrite_static_symbols",
+)
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":manifest.bzl", "create_manifest_for_source_map")
-load(
-    ":native_python_util.bzl",
-    "merge_cxx_extension_info",
-    "rewrite_static_symbols",
-)
 load(":python.bzl", "PythonLibraryInfo")
 load(":python_library.bzl", "create_python_library_info", "dest_prefix", "gather_dep_libraries", "qualify_srcs")
+load(":versions.bzl", "gather_versioned_dependencies")
 
 # This extension is basically cxx_library, plus base_module.
 # So we augment with default attributes so it has everything cxx_library has, and then call cxx_library_parameterized and work from that.
 def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
 
-    if ctx.attrs._target_os_type[OsLookup].platform == "windows":
+    if ctx.attrs._target_os_type[OsLookup].os == Os("windows"):
         library_extension = ".pyd"
     else:
         library_extension = ".so"
@@ -100,6 +100,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         compilation_database = True,
         default = False,  # We need to do some postprocessing to make sure the shared library is our default output
         java_packaging_info = False,
+        java_global_code_info = False,
         linkable_graph = False,  # We create this here so we can correctly apply exclusions
         link_style_outputs = False,
         merged_native_link_info = False,
@@ -110,6 +111,9 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         template_placeholders = False,
         preprocessor_for_tests = False,
     )
+
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
+    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
 
     impl_params = CxxRuleConstructorParams(
         build_empty_so = True,
@@ -123,11 +127,13 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         compiler_flags = ctx.attrs.compiler_flags,
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         platform_compiler_flags = ctx.attrs.platform_compiler_flags,
+        extra_link_flags = python_toolchain.extension_linker_flags,
         lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
+        error_handler = cxx_toolchain.cxx_error_handler,
     )
 
     cxx_library_info = cxx_library_parameterized(ctx, impl_params)
@@ -141,7 +147,6 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     if extension.pdb:
         sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = extension.pdb, binary = extension.output)
 
-    cxx_toolchain = get_cxx_toolchain_info(ctx)
     dumpbin_toolchain_path = cxx_toolchain.dumpbin_toolchain_path
     if dumpbin_toolchain_path:
         sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, extension.output, dumpbin_toolchain_path)
@@ -262,18 +267,20 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Export library info.
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
-    cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
+    cxx_toolchain = ctx.attrs._cxx_toolchain
     raw_deps = ctx.attrs.deps
     raw_deps.extend(
-        get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps),
+        get_platform_attr(python_platform, cxx_toolchain, ctx.attrs.platform_deps),
     )
-    deps, shared_deps = gather_dep_libraries(raw_deps)
+
+    deps, shared_deps = gather_dep_libraries(raw_deps, resolve_versioned_deps = False)
+    providers.append(gather_versioned_dependencies(raw_deps))
     library_info = create_python_library_info(
         ctx.actions,
         ctx.label,
         extensions = qualify_srcs(ctx.label, ctx.attrs.base_module, {name: extension}),
         deps = deps,
-        shared_libraries = shared_deps,
+        extension_shared_libraries = shared_deps,
         src_types = src_type_manifest,
     )
     providers.append(library_info)

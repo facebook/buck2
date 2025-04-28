@@ -20,25 +20,24 @@ use std::cell::OnceCell;
 use std::cell::RefCell;
 use std::cell::UnsafeCell;
 use std::marker;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicI8;
 use std::sync::atomic::AtomicI16;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::AtomicI64;
-use std::sync::atomic::AtomicI8;
 use std::sync::atomic::AtomicIsize;
+use std::sync::atomic::AtomicU8;
 use std::sync::atomic::AtomicU16;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::AtomicU64;
-use std::sync::atomic::AtomicU8;
 use std::sync::atomic::AtomicUsize;
-use std::sync::Arc;
-use std::sync::Mutex;
 
 use either::Either;
-use hashbrown::raw::RawTable;
 use hashbrown::HashTable;
-use starlark_map::small_set::SmallSet;
 use starlark_map::Hashed;
+use starlark_map::small_set::SmallSet;
 
 use crate::collections::SmallMap;
 use crate::values::FrozenValue;
@@ -78,14 +77,6 @@ unsafe impl<'v, T: Trace<'v>> Trace<'v> for Vec<T> {
 unsafe impl<'v, T: Trace<'v>> Trace<'v> for [T] {
     fn trace(&mut self, tracer: &Tracer<'v>) {
         self.iter_mut().for_each(|x| x.trace(tracer));
-    }
-}
-
-unsafe impl<'v, T: Trace<'v>> Trace<'v> for RawTable<T> {
-    fn trace(&mut self, tracer: &Tracer<'v>) {
-        unsafe {
-            self.iter().for_each(|e| e.as_mut().trace(tracer));
-        }
     }
 }
 

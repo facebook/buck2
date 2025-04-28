@@ -23,14 +23,13 @@ pub(crate) struct ReHeader<'a> {
 impl<'a> Component for ReHeader<'a> {
     fn draw_unchecked(
         &self,
-
         _dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
-        self.re_state.render(
+        Ok(self.re_state.render(
             self.two_snapshots,
             self.super_console_config.enable_detailed_re,
             mode,
-        )
+        )?)
     }
 }

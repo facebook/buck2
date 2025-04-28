@@ -7,7 +7,7 @@
 
 import copy
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List
 
@@ -183,6 +183,56 @@ class TestSelection(unittest.TestCase):
             ".+second",
         )
         # Check the middle profile got chosen (i.e., not first or last)
+        self.assertEqual(selected_profile_info.profile, second)
+
+    def test_multiple_matching_profiles_nonstrict_mode(self):
+        info_plist = InfoPlistMetadata("com.company.application", None, False)
+        identity = CodeSigningIdentity(
+            "fingerprint",
+            "name",
+        )
+        first = ProvisioningProfileMetadata(
+            Path("/foo.first"),
+            "00000000-0000-0000-0000-000000000000",
+            datetime.max - timedelta(days=2),
+            {"iOS"},
+            {identity.fingerprint},
+            {"application-identifier": "AAAAAAAAAA.*"},
+        )
+        second = ProvisioningProfileMetadata(
+            Path("/foo.second"),
+            "00000000-0000-0000-0000-000000000000",
+            datetime.max - timedelta(days=1),
+            {"iOS"},
+            {identity.fingerprint},
+            {"application-identifier": "AAAAAAAAAA.*"},
+        )
+        third = ProvisioningProfileMetadata(
+            Path("/foo.third"),
+            "00000000-0000-0000-0000-000000000000",
+            datetime.max - timedelta(days=3),
+            {"iOS"},
+            {identity.fingerprint},
+            {"application-identifier": "AAAAAAAAAA.*"},
+        )
+        profiles = [
+            first,
+            second,
+            third,
+        ]
+
+        selected_profile_info, _ = select_best_provisioning_profile(
+            info_plist,
+            [identity],
+            profiles,
+            {"keychain-access-groups": ["AAAAAAAAAA.*"]},
+            ApplePlatform.ios_device,
+            False,
+            None,
+        )
+
+        # Check that we selected the profile with the latest expiration date
+        # given multiple matches in non-strict mode
         self.assertEqual(selected_profile_info.profile, second)
 
     def test_prefix_override(self):

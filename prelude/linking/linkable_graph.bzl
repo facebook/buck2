@@ -8,7 +8,9 @@
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:platform.bzl", "cxx_by_platform")
-load("@prelude//cxx:shared_library_interface.bzl", "SharedInterfaceInfo")
+
+# TODO(mattpayne): Add this back once the type is supported by dependency mgmt
+# load("@prelude//cxx:shared_library_interface.bzl", "SharedInterfaceInfo")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//utils:expect.bzl", "expect")
@@ -109,7 +111,13 @@ LinkableNode = record(
     ignore_force_static_follows_dependents = field(bool),
 
     # Shared interface provider for this node.
-    shared_interface_info = field(SharedInterfaceInfo | None),
+    # TODO(mattpayne): This type is incompatible with Autodeps.
+    # Once the pyautotargets service is rolled out, we can change it back.
+    # It should be SharedInterfaceInfo | None
+    shared_interface_info = field(typing.Any),
+
+    # Should this library only be used for build time linkage
+    stub = field(bool),
 
     # Only allow constructing within this file.
     _private = _DisallowConstruction,
@@ -177,7 +185,11 @@ def create_linkable_node(
         include_in_android_mergemap: bool = True,
         linker_flags: [LinkerFlags, None] = None,
         ignore_force_static_follows_dependents: bool = False,
-        shared_interface_info: SharedInterfaceInfo | None = None) -> LinkableNode:
+        # TODO(mattpayne): This type is incompatible with Autodeps.
+        # Once the pyautotargets service is rolled out, we can change it back.
+        # It should be SharedInterfaceInfo | None
+        shared_interface_info: typing.Any = None,
+        stub: bool = False) -> LinkableNode:
     for output_style in _get_required_outputs_for_linkage(preferred_linkage):
         expect(
             output_style in link_infos,
@@ -203,6 +215,7 @@ def create_linkable_node(
         linker_flags = linker_flags,
         ignore_force_static_follows_dependents = ignore_force_static_follows_dependents,
         shared_interface_info = shared_interface_info,
+        stub = stub,
         _private = _DisallowConstruction(),
     )
 
@@ -236,8 +249,8 @@ def create_linkable_graph(
             if graph:
                 graph_deps.append(graph)
 
-    deps_labels = {x.label: True for x in graph_deps}
     if node and node.linkable:
+        deps_labels = set([x.label for x in graph_deps])
         for l in [node.linkable.deps, node.linkable.exported_deps]:  # buildifier: disable=confusing-name
             for d in l:
                 if not d in deps_labels:
@@ -256,6 +269,41 @@ def create_linkable_graph(
     return LinkableGraph(
         label = label,
         nodes = ctx.actions.tset(LinkableGraphTSet, **kwargs),
+    )
+
+ReducedLinkableGraph = record(
+    # Label to information map for whole graph.
+    # Does not have entry for executable
+    nodes = field(dict[Label, LinkableNode]),
+
+    # Order of linkable in the graph as it would go into linker argsfile
+    # when building executable in static link strategy
+    link_order = field(dict[Label, int]),
+)
+
+def reduce_linkable_graph(graph: LinkableGraph) -> ReducedLinkableGraph:
+    linkable_nodes = {}
+    link_order = {}
+
+    # Link groups machinery may be used by something that does not
+    # store all information in dependency graph. E.g. python native dlopen
+    # So gathering link ordering starting from executable label may not collect all
+    # dependencies correctly. To account for that we add remaining pieces to
+    # final result. There is no particular reasoning behing putting remaining linkables first,
+    # but it is just more convenient to implement.
+    # So to make it work properly we start with `1` instead of `0` and return default `0` for linkables
+    # that we did not put into linkable graph nodes.
+    link_order_idx = 1
+
+    for node in filter(None, graph.nodes.traverse()):
+        if node.linkable:
+            linkable_nodes[node.label] = node.linkable
+            link_order[node.label] = link_order_idx
+            link_order_idx += 1
+
+    return ReducedLinkableGraph(
+        nodes = linkable_nodes,
+        link_order = link_order,
     )
 
 def get_linkable_graph_node_map_func(graph: LinkableGraph):
@@ -307,32 +355,31 @@ def linkable_graph(dep: Dependency) -> [LinkableGraph, None]:
 def get_link_info(
         node: LinkableNode,
         output_style: LibOutputStyle,
-        prefer_stripped: bool = False) -> LinkInfo:
+        prefer_stripped: bool = False,
+        prefer_optimized: bool = False) -> LinkInfo:
     info = _get_link_info(
         node.link_infos[output_style],
         prefer_stripped = prefer_stripped,
+        prefer_optimized = prefer_optimized,
     )
     return info
 
 def get_deps_for_link(
         node: LinkableNode,
         strategy: LinkStrategy,
-        pic_behavior: PicBehavior) -> list[Label]:
+        pic_behavior: PicBehavior,
+        overridden_preferred_linkage: Linkage | None = None) -> list[Label]:
     """
     Return deps to follow when linking against this node with the given link
     style.
     """
 
-    # Avoid making a copy of the list until we know have to modify it.
-    deps = node.exported_deps
-
     # If we're linking statically, include non-exported deps.
-    output_style = get_lib_output_style(strategy, node.preferred_linkage, pic_behavior)
-    if output_style != LibOutputStyle("shared_lib") and node.deps:
-        # Important that we don't mutate deps, but create a new list
-        deps = deps + node.deps
-
-    return deps
+    output_style = get_lib_output_style(strategy, overridden_preferred_linkage if overridden_preferred_linkage else node.preferred_linkage, pic_behavior)
+    if output_style != LibOutputStyle("shared_lib"):
+        return node.all_deps
+    else:
+        return node.exported_deps
 
 def get_transitive_deps(
         link_infos: dict[Label, LinkableNode],
@@ -344,6 +391,4 @@ def get_transitive_deps(
     def find_transitive_deps(node: Label):
         return link_infos[node].all_deps
 
-    all_deps = depth_first_traversal_by(link_infos, roots, find_transitive_deps)
-
-    return all_deps
+    return depth_first_traversal_by(link_infos, roots, find_transitive_deps)

@@ -15,16 +15,19 @@
  * limitations under the License.
  */
 
+use starlark_syntax::syntax::def::DefParamIndices;
+use starlark_syntax::syntax::def::DefRegularParamMode;
+
 use crate::collections::symbol::symbol::Symbol;
 use crate::environment::slots::ModuleSlotId;
 use crate::eval::compiler::expr::CompareOp;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FrozenRef;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::StarlarkValue;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 /// Visitor for code spans in the IR.
 pub(crate) trait VisitSpanMut {
@@ -124,4 +127,12 @@ impl<V: VisitSpanMut> VisitSpanMut for Option<V> {
             v.visit_spans(visitor);
         }
     }
+}
+
+impl VisitSpanMut for DefRegularParamMode {
+    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
+}
+
+impl VisitSpanMut for DefParamIndices {
+    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
 }

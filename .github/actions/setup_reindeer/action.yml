@@ -5,5 +5,7 @@ runs:
   - name: Install Reindeer
     run: |-
       cargo install --locked --git https://github.com/facebookincubator/reindeer reindeer
+      # Remove any dirty BUCK and Cargo.lock files
+      rm -f shim/third-party/rust/Cargo.lock shim/third-party/rust/BUCK
       reindeer --third-party-dir shim/third-party/rust buckify
     shell: bash

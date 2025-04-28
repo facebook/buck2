@@ -1,0 +1,106 @@
+load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
+
+# Test that the use of env vars, platform_exe, or run_using_single_arg don't
+# make `$(exe ...)` expand to multiple args. Even though this is technically
+# fine, a lot of use-cases expect expansions to a single arg.
+
+oncall("build_infra")
+
+prelude = native
+
+prelude.export_file(
+    name = "foo",
+    src = select({
+        "DEFAULT": "foo.sh",
+        "ovr_config//os:windows": "foo.bat",
+    }),
+    out = select({
+        "DEFAULT": "foo.sh",
+        "ovr_config//os:windows": "foo.bat",
+    }),
+)
+
+prelude.command_alias(
+    name = "foo_with_env",
+    env = {"FOO": "hello-world"},
+    exe = ":foo",
+)
+
+py_assertion(
+    name = "check_with_env",
+    script = """
+import subprocess
+import sys
+from pathlib import Path
+
+assert len(sys.argv) - 1 == 1
+assert len(sys.argv[1].split(" ")) == 1
+assert subprocess.check_output(sys.argv[1]).decode().strip() == "hello-world"
+""",
+    script_args = [
+        "$(exe_target :foo_with_env)",
+    ],
+)
+
+prelude.command_alias(
+    name = "foo_with_platform",
+    platform_exe = {
+        "linux": ":foo_with_env",
+        "macos": ":foo_with_env",
+        "windows": ":foo_with_env",
+    },
+)
+
+py_assertion(
+    name = "check_with_platform",
+    script = """
+import subprocess
+import sys
+from pathlib import Path
+
+assert len(sys.argv) - 1 == 1
+assert len(sys.argv[1].split(" ")) == 1
+assert subprocess.check_output(sys.argv[1]).decode().strip() == "hello-world"
+""",
+    script_args = [
+        "$(exe_target :foo_with_platform)",
+    ],
+)
+
+prelude.export_file(
+    name = "echo_args",
+    src = select({
+        "DEFAULT": "echo_args.sh",
+        "ovr_config//os:windows": "echo_args.bat",
+    }),
+    out = select({
+        "DEFAULT": "echo_args.sh",
+        "ovr_config//os:windows": "echo_args.bat",
+    }),
+)
+
+prelude.command_alias(
+    name = "echo_using_single_arg",
+    args = [
+        "hello",
+        "world",
+    ],
+    exe = ":echo_args",
+    run_using_single_arg = True,
+)
+
+py_assertion(
+    name = "check_echo_using_single_arg",
+    script = """
+import subprocess
+import sys
+from pathlib import Path
+
+assert len(sys.argv) - 1 == 1
+assert len(sys.argv[1].split(" ")) == 1
+assert subprocess.check_output(sys.argv[1]).decode().strip() == "hello world"
+""",
+    script_args = [
+        "$(exe_target :echo_using_single_arg)",
+    ],
+)

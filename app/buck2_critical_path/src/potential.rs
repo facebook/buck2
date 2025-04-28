@@ -9,9 +9,10 @@
 
 use std::collections::BinaryHeap;
 
-use anyhow::Context as _;
+use buck2_error::BuckErrorContext;
 use crossbeam::thread;
 
+use crate::critical_path_accessor::CriticalPathAccessor;
 use crate::graph::Graph;
 use crate::graph::PathCost;
 use crate::types::CriticalPathIndex;
@@ -20,13 +21,20 @@ use crate::types::OptionalCriticalPathIndex;
 use crate::types::VertexData;
 use crate::types::VertexId;
 
+/// This returns:
+/// - The critical path, as a list of vertices.
+/// - Its cost.
+/// - For each of the vertices in the critical path, the new critical path cost
+///   if that were vertex's runtime was 0.
+/// - An accessor to obtain critical path for arbitary vertices.
 pub fn compute_critical_path_potentials(
     deps: &Graph,
     weights: &VertexData<u64>,
-) -> anyhow::Result<(
+) -> buck2_error::Result<(
     CriticalPathVertexData<VertexId>,
     PathCost,
     CriticalPathVertexData<PathCost>,
+    CriticalPathAccessor,
 )> {
     let mut rdeps = None;
     let mut topo_order = None;
@@ -40,7 +48,7 @@ pub fn compute_critical_path_potentials(
         });
     })
     .ok()
-    .context("Threads panicked")?;
+    .buck_error_context("Threads panicked")?;
 
     let rdeps = rdeps.unwrap();
     let topo_order = topo_order.unwrap()?;
@@ -61,15 +69,23 @@ pub fn compute_critical_path_potentials(
         });
     })
     .ok()
-    .context("Threads panicked")?;
+    .buck_error_context("Threads panicked")?;
 
     let cost_to_sink = cost_to_sink.unwrap();
     let cost_from_source = cost_from_source.unwrap();
     let predecessors = predecessors.unwrap();
 
+    let critical_path_accessor = CriticalPathAccessor {
+        predecessors,
+        cost_from_source,
+    };
+
     // Look up the critical path. Find the node with the highest cost from a source, then iterate
     // over predecessors to reconstruct the critical path.
-    let critical_path_end = cost_from_source.iter().max_by_key(|(_idx, cost)| *cost);
+    let critical_path_end = critical_path_accessor
+        .cost_from_source
+        .iter()
+        .max_by_key(|(_idx, cost)| *cost);
 
     let (critical_path_sink, critical_path_cost) = match critical_path_end {
         Some(c) => c,
@@ -79,6 +95,7 @@ pub fn compute_critical_path_potentials(
                 CriticalPathVertexData::new(Vec::new()),
                 PathCost::default(),
                 CriticalPathVertexData::new(Vec::new()),
+                critical_path_accessor,
             ));
         }
     };
@@ -86,20 +103,8 @@ pub fn compute_critical_path_potentials(
     let critical_path_cost = *critical_path_cost;
 
     // Now, traverse predecessors to actually get the list of ndoes on the critical path.
-    let critical_path = {
-        let critical_path_len = critical_path_cost.len as usize;
-        let mut critical_path = vec![VertexId::new(0); critical_path_len];
-        let mut idx: VertexId = critical_path_sink;
-        for i in 0..critical_path_len {
-            critical_path[critical_path_len - 1 - i] = idx;
-            if i != critical_path_len - 1 {
-                idx = predecessors[idx].into_option().unwrap();
-            }
-        }
-        CriticalPathVertexData::new(critical_path)
-    };
-
-    drop(predecessors); // We no longer need this.
+    let critical_path = critical_path_accessor
+        .critical_path_for_vertex_and_cost(critical_path_sink, critical_path_cost);
 
     // For each node, we now identify:
 
@@ -155,7 +160,7 @@ pub fn compute_critical_path_potentials(
         });
     })
     .ok()
-    .context("Threads panicked")?;
+    .buck_error_context("Threads panicked")?;
 
     // Compute the cost of the longest path through each vertex. We do this here instead of inline
     // later to avoid jumping around 3 arrays later (whereas here we can do so linearly).
@@ -163,7 +168,7 @@ pub fn compute_critical_path_potentials(
     let mut vertices_cost = deps.allocate_vertex_data(PathCost::default());
 
     for idx in deps.iter_vertices() {
-        let mut cost = cost_from_source[idx] + cost_to_sink[idx];
+        let mut cost = critical_path_accessor.cost_from_source[idx] + cost_to_sink[idx];
         // Don't double-count the vertex at `idx`.
         cost.runtime -= weights[idx];
         cost.len -= 1;
@@ -220,7 +225,7 @@ pub fn compute_critical_path_potentials(
             *idx,
             match item {
                 WorkItem::NodeValid { .. } => 0,
-                WorkItem::Compute { .. } => 1,
+                WorkItem::Compute => 1,
             },
         )
     });
@@ -277,6 +282,7 @@ pub fn compute_critical_path_potentials(
         critical_path,
         critical_path_cost,
         updated_critical_path_cost,
+        critical_path_accessor,
     ))
 }
 
@@ -288,11 +294,14 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use super::*;
+    use crate::test_utils::TestDag;
     use crate::test_utils::make_dag;
     use crate::test_utils::seeded_rng;
-    use crate::test_utils::TestDag;
 
-    fn naive_critical_path_cost(dag: &TestDag, replacement: Option<(VertexId, u64)>) -> PathCost {
+    fn naive_critical_path_costs(
+        dag: &TestDag,
+        replacement: Option<(VertexId, u64)>,
+    ) -> VertexData<PathCost> {
         // By construction, TestDag guarantees `vertices` is a topological order, so we iterate in
         // reverse order.
         let mut costs = dag.graph.allocate_vertex_data(PathCost::default());
@@ -326,6 +335,11 @@ mod tests {
             costs[idx] = cost;
         }
 
+        costs
+    }
+
+    fn naive_critical_path_cost(dag: &TestDag, replacement: Option<(VertexId, u64)>) -> PathCost {
+        let costs = naive_critical_path_costs(dag, replacement);
         costs.values().max().copied().unwrap()
     }
 
@@ -334,7 +348,7 @@ mod tests {
         eprintln!("{} edges", dag.graph.edges.len());
 
         let fast = Instant::now();
-        let (critical_path, critical_path_cost, replacement_costs) =
+        let (critical_path, critical_path_cost, replacement_costs, _) =
             compute_critical_path_potentials(&dag.graph, &dag.weights).unwrap();
 
         for (cp_idx, _) in critical_path.iter() {
@@ -408,6 +422,22 @@ mod tests {
             let mut this_rng = ChaCha8Rng::seed_from_u64(i);
             let dag = make_dag(1000, &mut this_rng);
             do_test(&dag);
+        }
+    }
+
+    #[test]
+    fn test_accessor() {
+        let dag = make_dag(100, &mut seeded_rng());
+        let naive = naive_critical_path_costs(&dag, None);
+
+        let (_critical_path, _critical_path_cost, _replacement_costs, accessor) =
+            compute_critical_path_potentials(&dag.graph, &dag.weights).unwrap();
+
+        for (idx, _) in dag.keys.iter() {
+            assert_eq!(
+                accessor.critical_path_for_vertex(idx).unwrap().0,
+                naive[idx]
+            );
         }
     }
 }

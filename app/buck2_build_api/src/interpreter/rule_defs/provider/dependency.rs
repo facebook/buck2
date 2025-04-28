@@ -12,11 +12,10 @@ use std::fmt::Display;
 use std::mem;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
-use buck2_interpreter::error::BuckStarlarkError;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -25,10 +24,8 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::typing::Ty;
-use starlark::values::none::NoneOr;
-use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
@@ -40,13 +37,16 @@ use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
-use starlark::StarlarkResultExt;
+use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use crate::interpreter::rule_defs::provider::execution_platform::StarlarkExecutionPlatformResolution;
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum DependencyError {
     #[error("Unknown subtarget, could not find `{0}`")]
     UnknownSubtarget(String),
@@ -63,8 +63,7 @@ enum DependencyError {
     Freeze,
     ProvidesStaticType,
     NoSerialize,
-    Allocative,
-    StarlarkDocs
+    Allocative
 )]
 #[repr(C)]
 pub struct DependencyGen<V: ValueLifetimeless> {
@@ -81,6 +80,12 @@ impl<V: ValueLifetimeless> Display for DependencyGen<V> {
         write!(f, "<dependency ")?;
         Display::fmt(&self.label, f)?;
         write!(f, ">")
+    }
+}
+
+impl<'v, V: ValueLike<'v>> DependencyGen<V> {
+    pub fn label(&self) -> &'v StarlarkConfiguredProvidersLabel {
+        StarlarkConfiguredProvidersLabel::from_value(self.label.get().to_value()).unwrap()
     }
 }
 
@@ -110,21 +115,17 @@ impl<'v> Dependency<'v> {
         }
     }
 
-    pub fn label(&self) -> &StarlarkConfiguredProvidersLabel {
-        StarlarkConfiguredProvidersLabel::from_value(self.label.get()).unwrap()
-    }
-
-    pub fn execution_platform(&self) -> anyhow::Result<Option<&ExecutionPlatformResolution>> {
+    pub fn execution_platform(&self) -> buck2_error::Result<Option<&ExecutionPlatformResolution>> {
         let execution_platform: ValueOfUnchecked<NoneOr<&StarlarkExecutionPlatformResolution>> =
             self.execution_platform.cast();
-        match execution_platform.unpack().into_anyhow_result()? {
+        match execution_platform.unpack()? {
             NoneOr::None => Ok(None),
             NoneOr::Other(e) => Ok(Some(&e.0)),
         }
     }
 }
 
-#[starlark_value(type = "dependency")]
+#[starlark_value(type = "Dependency")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for DependencyGen<V>
 where
     Self: ProvidesStaticType<'v>,
@@ -142,13 +143,23 @@ where
         self.provider_collection
             .to_value()
             .at(index, heap)
-            .map_err(BuckStarlarkError::new)
-            .with_context(|| format!("Error accessing dependencies of `{}`", self.label))
+            .with_buck_error_context(|| format!("Error accessing dependencies of `{}`", self.label))
             .map_err(Into::into)
     }
 
     fn is_in(&self, other: Value<'v>) -> starlark::Result<bool> {
         self.provider_collection.to_value().is_in(other)
+    }
+
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
+        let other = match other.downcast_ref::<Dependency<'v>>() {
+            Some(other) => other.label(),
+            None => match other.downcast_ref::<FrozenDependency>() {
+                Some(other) => other.label(),
+                None => return Ok(false),
+            },
+        };
+        Ok(self.label().inner() == other.inner())
     }
 }
 
@@ -157,14 +168,14 @@ where
 fn dependency_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn label<'v>(
-        this: &Dependency,
-    ) -> anyhow::Result<ValueOfUnchecked<'v, StarlarkConfiguredProvidersLabel>> {
+        this: &Dependency<'v>,
+    ) -> starlark::Result<ValueOfUnchecked<'v, StarlarkConfiguredProvidersLabel>> {
         Ok(this.label)
     }
 
     // TODO(nga): should return provider collection.
     #[starlark(attribute)]
-    fn providers<'v>(this: &Dependency) -> anyhow::Result<Vec<FrozenValue>> {
+    fn providers<'v>(this: &Dependency) -> starlark::Result<Vec<FrozenValue>> {
         Ok(this
             .provider_collection
             .providers
@@ -181,11 +192,11 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
         this: &Dependency<'v>,
         #[starlark(require = pos)] subtarget: &str,
         heap: &'v Heap,
-    ) -> anyhow::Result<Dependency<'v>> {
+    ) -> starlark::Result<Dependency<'v>> {
         let di = this.provider_collection.default_info()?;
-        let providers = di
-            .get_sub_target_providers(subtarget)
-            .ok_or_else(|| DependencyError::UnknownSubtarget(subtarget.to_owned()))?;
+        let providers = di.get_sub_target_providers(subtarget).ok_or_else(|| {
+            buck2_error::Error::from(DependencyError::UnknownSubtarget(subtarget.to_owned()))
+        })?;
         let lbl = StarlarkConfiguredProvidersLabel::from_value(this.label.get())
             .unwrap()
             .inner();
@@ -207,10 +218,13 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
     fn get<'v>(
         this: &Dependency<'v>,
         index: Value<'v>,
-    ) -> anyhow::Result<NoneOr<ValueOfUnchecked<'v, AbstractProvider>>> {
-        this.provider_collection
+    ) -> starlark::Result<NoneOr<ValueOfUnchecked<'v, AbstractProvider>>> {
+        Ok(this
+            .provider_collection
             .get(index)
-            .with_context(|| format!("Error accessing dependencies of `{}`", this.label))
+            .with_buck_error_context(|| {
+                format!("Error accessing dependencies of `{}`", this.label)
+            })?)
     }
 }
 

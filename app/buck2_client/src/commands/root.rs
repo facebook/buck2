@@ -10,14 +10,17 @@
 use std::str::FromStr;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::immediate_config::ImmediateConfigContext;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::invocation_roots::find_invocation_roots;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 enum RootKind {
-    Package,
     Cell,
     Project,
     Daemon,
@@ -27,7 +30,6 @@ impl FromStr for RootKind {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "package" => Ok(Self::Package),
             "cell" => Ok(Self::Cell),
             "project" => Ok(Self::Project),
             "daemon" => Ok(Self::Daemon),
@@ -57,32 +59,40 @@ pub struct RootCommand {
     dir: Option<PathArg>,
 }
 
-#[derive(Debug, buck2_error::Error)]
-enum RootError {
-    #[error("Finding package root isn't yet implemented.")]
-    PackageRootUnimplemented,
-}
-
 impl RootCommand {
     pub fn exec(
         self,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         ctx: ClientCommandContext<'_>,
-    ) -> anyhow::Result<()> {
-        let root = match self.kind {
-            RootKind::Package => return Err(RootError::PackageRootUnimplemented.into()),
-            RootKind::Cell => match self.dir {
-                Some(dir) => find_invocation_roots(&dir.resolve(&ctx.working_dir))?.cell_root,
-                None => ctx.paths()?.cell_root().to_owned(),
-            },
-            RootKind::Project => match self.dir {
-                Some(dir) => find_invocation_roots(&dir.resolve(&ctx.working_dir))?
-                    .project_root
-                    .root()
-                    .to_owned(),
-                None => ctx.paths()?.project_root().root().to_owned(),
-            },
-            RootKind::Daemon => ctx.paths()?.daemon_dir()?.path,
+    ) -> buck2_error::Result<()> {
+        let root = if matches!(self.kind, RootKind::Daemon) {
+            ctx.paths()?.daemon_dir()?.path
+        } else {
+            let working_dir_data;
+            let imm_ctx_data;
+            let (roots, imm_ctx) = match self.dir.clone() {
+                Some(dir) => {
+                    let base_dir = dir.resolve(&ctx.working_dir);
+                    // Note: While `canonicalize` is usually wrong, in this case it's necessary
+                    // because our definition of where the project root is doesn't make sense for
+                    // non-normalized paths
+                    let base_dir = fs_util::canonicalize(&base_dir)?;
+                    working_dir_data = AbsWorkingDir::unchecked_new(base_dir);
+                    let roots = find_invocation_roots(&working_dir_data)?;
+                    imm_ctx_data = ImmediateConfigContext::new(&working_dir_data);
+                    (roots, &imm_ctx_data)
+                }
+                None => (ctx.paths()?.roots.clone(), ctx.immediate_config),
+            };
+            match self.kind {
+                RootKind::Cell => {
+                    let root = imm_ctx.resolve_alias_to_path_in_cwd("")?;
+                    roots.project_root.resolve(&*root)
+                }
+                RootKind::Project => roots.project_root.root().to_owned(),
+                // Handled above
+                RootKind::Daemon => unreachable!(),
+            }
         };
 
         buck2_client_ctx::println!("{}", root.to_string_lossy())?;

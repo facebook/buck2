@@ -24,21 +24,16 @@ use std::fmt::Formatter;
 use std::marker::PhantomData;
 
 use allocative::Allocative;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
-use starlark_map::small_map::SmallMap;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::docs::DocItem;
+use crate::docs::DocMember;
+use crate::docs::DocProperty;
 use crate::docs::DocType;
 use crate::typing::Ty;
-use crate::values::layout::avalue::alloc_static;
-use crate::values::layout::avalue::AValueBasic;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::typing::ty::AbstractType;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -46,9 +41,16 @@ use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
+use crate::values::layout::avalue::AValueBasic;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::typing::TypeType;
+use crate::values::typing::ty::AbstractType;
 
 #[derive(Debug, NoSerialize, Allocative, ProvidesStaticType)]
-struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty, fn() -> Option<DocType>);
+struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty, fn() -> DocItem);
 
 #[starlark_value(type = "type")]
 impl<'v> StarlarkValue<'v> for StarlarkValueAsTypeStarlarkValue {
@@ -58,8 +60,8 @@ impl<'v> StarlarkValue<'v> for StarlarkValueAsTypeStarlarkValue {
         Some((self.0)())
     }
 
-    fn documentation(&self) -> Option<DocItem> {
-        Some(DocItem::Type((self.1)()?))
+    fn documentation(&self) -> DocItem {
+        (self.1)()
     }
 }
 
@@ -77,10 +79,10 @@ impl Display for StarlarkValueAsTypeStarlarkValue {
 /// use allocative::Allocative;
 /// use starlark::any::ProvidesStaticType;
 /// use starlark::environment::GlobalsBuilder;
-/// use starlark::values::starlark_value;
-/// use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 /// use starlark::values::NoSerialize;
 /// use starlark::values::StarlarkValue;
+/// use starlark::values::starlark_value;
+/// use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 /// #[derive(
 ///     Debug,
 ///     derive_more::Display,
@@ -120,18 +122,6 @@ impl<T: StarlarkTypeRepr> Display for StarlarkValueAsType<T> {
     }
 }
 
-fn docs_for_type<T: StarlarkValue<'static>>() -> DocType {
-    let ty = T::starlark_type_repr();
-    match T::get_methods() {
-        Some(methods) => methods.documentation(ty),
-        None => DocType {
-            docs: None,
-            members: SmallMap::new(),
-            ty,
-        },
-    }
-}
-
 impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
     /// Constructor.
     ///
@@ -144,7 +134,7 @@ impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
             &const {
                 alloc_static(StarlarkValueAsTypeStarlarkValue(
                     T::starlark_type_repr,
-                    || Some(docs_for_type::<T>()),
+                    || DocItem::Type(DocType::from_starlark_value::<T>()),
                 ))
             },
             PhantomData,
@@ -157,7 +147,12 @@ impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
             &const {
                 alloc_static(StarlarkValueAsTypeStarlarkValue(
                     T::starlark_type_repr,
-                    || None,
+                    || {
+                        DocItem::Member(DocMember::Property(DocProperty {
+                            docs: None,
+                            typ: AbstractType::starlark_type_repr(),
+                        }))
+                    },
                 ))
             },
             PhantomData,
@@ -166,10 +161,10 @@ impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
 }
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for StarlarkValueAsType<T> {
-    type Canonical = <AbstractType as StarlarkTypeRepr>::Canonical;
+    type Canonical = <TypeType as StarlarkTypeRepr>::Canonical;
 
     fn starlark_type_repr() -> Ty {
-        AbstractType::starlark_type_repr()
+        <Self::Canonical as StarlarkTypeRepr>::starlark_type_repr()
     }
 }
 
@@ -188,20 +183,20 @@ impl<T: StarlarkTypeRepr> AllocFrozenValue for StarlarkValueAsType<T> {
 #[cfg(test)]
 mod tests {
     use allocative::Allocative;
-    use starlark_derive::starlark_module;
-    use starlark_derive::starlark_value;
     use starlark_derive::NoSerialize;
     use starlark_derive::ProvidesStaticType;
+    use starlark_derive::starlark_module;
+    use starlark_derive::starlark_value;
 
     use crate as starlark;
     use crate::assert::Assert;
     use crate::environment::GlobalsBuilder;
-    use crate::values::types::starlark_value_as_type::tests;
-    use crate::values::types::starlark_value_as_type::StarlarkValueAsType;
     use crate::values::AllocValue;
     use crate::values::Heap;
     use crate::values::StarlarkValue;
     use crate::values::Value;
+    use crate::values::types::starlark_value_as_type::StarlarkValueAsType;
+    use crate::values::types::starlark_value_as_type::tests;
 
     #[derive(
         derive_more::Display,

@@ -99,10 +99,6 @@ def _bundled_escript_impl(ctx: AnalysisContext, dependencies: ErlAppDependencies
                 fail("multiple artifacts defined for path %s", (artifact.short_path))
             artifacts[artifact.short_path] = artifact
 
-    # magic tag to make vendored json available to the test binary
-    if "erlang_test_runner" in ctx.attrs.labels:
-        artifacts["utility_modules/ebin"] = toolchain.utility_modules
-
     escript_name = _escript_name(ctx)
     output = ctx.actions.declare_output(escript_name)
 

@@ -29,15 +29,15 @@ use dupe::Dupe;
 use crate::eval::bc::if_debug::IfDebug;
 use crate::eval::bc::instr::BcInstr;
 use crate::eval::bc::opcode::BcOpcode;
+use crate::eval::bc::repr::BC_INSTR_ALIGN;
 use crate::eval::bc::repr::BcInstrHeader;
 use crate::eval::bc::repr::BcInstrRepr;
-use crate::eval::bc::repr::BC_INSTR_ALIGN;
 
 /// Address relative to bytecode start.
 #[derive(
     Eq, PartialEq, Copy, Clone, Dupe, Debug, PartialOrd, Ord, Display, Hash, Default
 )]
-#[display(fmt = "@{}", _0)]
+#[display("@{}", _0)]
 pub(crate) struct BcAddr(pub(crate) u32);
 
 impl BcAddr {

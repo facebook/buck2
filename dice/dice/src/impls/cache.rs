@@ -14,6 +14,7 @@ use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use dashmap::DashMap;
+use dice_error::result::CancellationReason;
 use dupe::Dupe;
 use fxhash::FxBuildHasher;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
@@ -146,7 +147,7 @@ impl SharedCache {
             .iter()
             .filter_map(|entry| {
                 if entry.value().is_pending() {
-                    entry.value().cancel();
+                    entry.value().cancel(CancellationReason::TransactionDropped);
                     Some(entry.value().clone())
                 } else {
                     None
@@ -189,6 +190,7 @@ mod tests {
     use buck2_futures::cancellation::CancellationContext;
     use buck2_futures::spawner::TokioSpawner;
     use derive_more::Display;
+    use dice_error::result::CancellationReason;
     use dupe::Dupe;
     use futures::FutureExt;
 
@@ -205,6 +207,7 @@ mod tests {
     use crate::impls::value::DiceKeyValue;
     use crate::impls::value::DiceValidValue;
     use crate::impls::value::MaybeValidDiceValue;
+    use crate::impls::value::TrackedInvalidationPaths;
     use crate::versions::VersionRanges;
 
     #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
@@ -235,6 +238,7 @@ mod tests {
                         DiceKeyValue::<K>::new(val),
                     )),
                     Arc::new(VersionRanges::new()),
+                    TrackedInvalidationPaths::clean(),
                 ));
 
                 Box::new(()) as Box<dyn Any + Send>
@@ -242,11 +246,7 @@ mod tests {
             .boxed()
         });
 
-        task.depended_on_by(ParentKey::None)
-            .not_cancelled()
-            .unwrap()
-            .await
-            .unwrap();
+        task.depended_on_by(ParentKey::None).unwrap().await.unwrap();
 
         task
     }
@@ -259,7 +259,7 @@ mod tests {
             }
             .boxed()
         });
-        finished_cancelling_tasks.cancel();
+        finished_cancelling_tasks.cancel(CancellationReason::ByTest);
 
         finished_cancelling_tasks.await_termination().await;
 

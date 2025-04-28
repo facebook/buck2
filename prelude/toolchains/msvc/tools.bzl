@@ -5,8 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerType")
+load("@prelude//os_lookup:defs.bzl", "ScriptLanguage")
 load("@prelude//toolchains:cxx.bzl", "CxxToolsInfo")
-load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
+load("@prelude//utils:cmd_script.bzl", "cmd_script")
 
 def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
     cl_exe_json = ctx.actions.declare_output("cl.exe.json")
@@ -43,25 +45,25 @@ def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx = ctx,
             name = "cl",
             cmd = cmd_args(run_msvc_tool, cl_exe_json),
-            os = ScriptOs("windows"),
+            language = ScriptLanguage("bat"),
         )
         cvtres_exe_script = cmd_script(
             ctx = ctx,
             name = "cvtres",
             cmd = cmd_args(run_msvc_tool, cvtres_exe_json),
-            os = ScriptOs("windows"),
+            language = ScriptLanguage("bat"),
         )
         ml64_exe_script = cmd_script(
             ctx = ctx,
             name = "ml64",
             cmd = cmd_args(run_msvc_tool, ml64_exe_json),
-            os = ScriptOs("windows"),
+            language = ScriptLanguage("bat"),
         )
         rc_exe_script = cmd_script(
             ctx = ctx,
             name = "rc",
             cmd = cmd_args(run_msvc_tool, rc_exe_json),
-            os = ScriptOs("windows"),
+            language = ScriptLanguage("bat"),
         )
 
     if ctx.attrs.use_path_linkers:
@@ -72,13 +74,13 @@ def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx = ctx,
             name = "lib",
             cmd = cmd_args(run_msvc_tool, lib_exe_json),
-            os = ScriptOs("windows"),
+            language = ScriptLanguage("bat"),
         )
         link_exe_script = cmd_script(
             ctx = ctx,
             name = "link",
             cmd = cmd_args(run_msvc_tool, link_exe_json),
-            os = ScriptOs("windows"),
+            language = ScriptLanguage("bat"),
         )
 
     return [
@@ -133,7 +135,7 @@ def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
             archiver = lib_exe_script,
             archiver_type = "windows",
             linker = _windows_linker_wrapper(ctx, link_exe_script),
-            linker_type = "windows",
+            linker_type = LinkerType("windows"),
         ),
     ]
 
@@ -157,7 +159,7 @@ def _windows_linker_wrapper(ctx: AnalysisContext, linker: [cmd_args, str]) -> cm
             ctx.attrs.linker_wrapper[RunInfo],
             linker,
         ),
-        os = ScriptOs("windows"),
+        language = ScriptLanguage("bat"),
     )
 
 find_msvc_tools = rule(

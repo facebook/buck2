@@ -7,10 +7,10 @@
  * of this source tree.
  */
 
-use crate::components::Dimensions;
-use crate::components::DrawMode;
 use crate::Component;
 use crate::Lines;
+use crate::components::Dimensions;
+use crate::components::DrawMode;
 
 /// The `Blank` component is a dead-end component that emits nothing.
 /// It can be used for testing purposes or to make a portion of a dividing component empty.
@@ -29,11 +29,11 @@ impl Component for Blank {
 mod tests {
     use derive_more::AsRef;
 
-    use crate::components::echo::Echo;
-    use crate::components::DrawMode;
     use crate::Component;
     use crate::Dimensions;
     use crate::Lines;
+    use crate::components::DrawMode;
+    use crate::components::echo::Echo;
 
     #[derive(AsRef, Debug)]
     #[allow(dead_code)]

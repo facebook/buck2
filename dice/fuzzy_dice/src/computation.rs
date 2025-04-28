@@ -21,15 +21,15 @@ use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
 use dupe::Dupe;
+use futures::FutureExt;
 use futures::future;
 use futures::future::BoxFuture;
-use futures::FutureExt;
 use serde::Deserialize;
 use serde::Serialize;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Display, Debug, Allocative)]
 #[derive(Serialize, Deserialize)]
-#[display(fmt = "key{}", _0)]
+#[display("key{}", _0)]
 #[serde(transparent)]
 pub struct Var(pub usize);
 
@@ -74,7 +74,7 @@ async fn lookup_unit(ctx: &mut DiceComputations<'_>, var: Var) -> anyhow::Result
 }
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "Lookup({})", _0)]
+#[display("Lookup({})", _0)]
 struct LookupVar(Var);
 impl InjectedKey for LookupVar {
     type Value = Arc<Expr>;
@@ -159,7 +159,7 @@ impl FuzzState {
 
 #[derive(Derivative, Clone, Display, Allocative)]
 #[derivative(Hash, Debug)]
-#[display(fmt = "Eval({})", key)]
+#[display("Eval({})", key)]
 pub struct EvalVar {
     key: Var,
     #[derivative(Debug = "ignore", Hash = "ignore")]
@@ -248,7 +248,7 @@ impl Key for EvalVar {
     }
 
     fn validity(x: &Self::Value) -> bool {
-        x.as_ref().map_or(false, |x| !x.is_transient())
+        x.as_ref().is_ok_and(|x| !x.is_transient())
     }
 }
 

@@ -25,13 +25,12 @@ use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
 use dupe::Dupe;
+use futures::FutureExt;
 use futures::future;
 use futures::future::BoxFuture;
-use futures::FutureExt;
-use gazebo::prelude::*;
 
 #[derive(Clone, Dupe, PartialEq, Eq, Hash, Display, Debug, Allocative)]
-#[display(fmt = "Var({})", _0)]
+#[display("Var({})", _0)]
 pub struct Var(pub Arc<String>);
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Allocative)]
@@ -86,7 +85,9 @@ pub fn parse_math_equations<'a>(
 }
 
 pub fn parse_math_equation(math: &str) -> anyhow::Result<(Var, Equation)> {
-    let (l, r) = math.split1("=");
+    let Some((l, r)) = math.split_once("=") else {
+        return Err(anyhow::anyhow!("= must have left and right"));
+    };
     if l.is_empty() || r.is_empty() {
         return Err(anyhow::anyhow!("= must have left and right"));
     }
@@ -125,7 +126,7 @@ impl MathEquations for DiceTransactionUpdater {
 }
 
 #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "Eval({})", _0)]
+#[display("Eval({})", _0)]
 pub struct EvalVar(pub Var);
 #[async_trait]
 impl Key for EvalVar {
@@ -187,7 +188,7 @@ async fn lookup_unit(ctx: &mut DiceComputations<'_>, var: &Var) -> anyhow::Resul
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "Lookup({})", _0)]
+#[display("Lookup({})", _0)]
 struct LookupVar(Var);
 impl InjectedKey for LookupVar {
     type Value = Arc<Equation>;

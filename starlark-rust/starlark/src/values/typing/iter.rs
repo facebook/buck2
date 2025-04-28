@@ -18,21 +18,21 @@
 use std::marker::PhantomData;
 
 use allocative::Allocative;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::typing::Ty;
-use crate::values::layout::avalue::alloc_static;
-use crate::values::layout::avalue::AValueBasic;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
+use crate::values::layout::avalue::AValueBasic;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 enum NonInstantiable {}
 
@@ -54,7 +54,7 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for StarlarkIter<T> {
     ProvidesStaticType,
     NoSerialize
 )]
-#[display(fmt = "{}", Self::TYPE)]
+#[display("{}", Self::TYPE)]
 pub(crate) struct TypingIterable;
 
 #[starlark_value(type = "typing.Iterable")]

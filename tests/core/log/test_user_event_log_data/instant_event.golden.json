@@ -1,0 +1,6 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{"StarlarkUserEvent":{"id":"foo","metadata":{"bool_value":true}},"epoch_millis":<NUMBER>}
+{"StarlarkUserEvent":{"id":"bar","metadata":{"bool_value":false}},"epoch_millis":<NUMBER>}
+{"StarlarkUserEvent":{"id":"metadata_with_dict","metadata":{"dict_value":{"foo":"bar"}}},"epoch_millis":<NUMBER>}
+{"StarlarkUserEvent":{"id":"metadata_with_list","metadata":{"list_value":["a","b","c"]}},"epoch_millis":<NUMBER>}

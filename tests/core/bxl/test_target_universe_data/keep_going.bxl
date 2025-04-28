@@ -1,0 +1,25 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _assert_eq(a, b):
+    if a != b:
+        fail("Expected {} == {}".format(a, b))
+
+def _target_universe_keep_going_with_errors(ctx):
+    # recursive target pattern
+    result = ctx.target_universe("//bad_targets/...", keep_going = True).target_set()
+    _assert_eq(len(result), 1)
+    _assert_eq("root//bad_targets:declared_dep", str(result[0].label.raw_target()))
+
+    # single target
+    result = ctx.target_universe("//bad_targets:has_a_missing_dep", keep_going = True).target_set()
+    _assert_eq(len(result), 0)
+
+target_universe_keep_going_with_errors = bxl_main(
+    impl = _target_universe_keep_going_with_errors,
+    cli_args = {},
+)

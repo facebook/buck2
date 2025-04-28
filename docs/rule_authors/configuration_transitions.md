@@ -8,41 +8,23 @@ depending on a target.
 
 Currently, Buck2 has incoming and outgoing transitions:
 
-- **Incoming** - (or per-rule transitions) declared on the rule.
-- **Outgoing** - (or per-attribute transitions) declared on the attribute.
+- **Incoming** transitions are specified per-target and take effect when
+  depending on that target.
+- **Outgoing** transitions are specified on an attribute and take effect on
+  dependencies that appear in that attribute.
 
-## Transition rule
+## Defining transitions
 
-Transition rules are defined in `.bzl` files using the `transition` built-in.
-
-The `transition` function creates a configuration-related object. The
-`transition` object is opaque, it does not have any operations, and can only be
-used as an argument to `rule` function or attribute constructor. The
-`transition` function call must be assigned to a global variable (this is
-similar to user-defined provider declarations).
-
-The `transition` function takes three arguments:
-
-- `implementation` - a function.
-- `refs` - references to configuration rules to be resolved and passed to the
-  implementation function.
-- `split` - (optional) `bool` flag (default `False`) to indicate whether
-  transition is a split transition (used in per attribute transitions).
-
-The `implementation` function takes two arguments:
-
-- `platform` - a configuration to transition.
-- `refs` - resolved references as a struct.
-
-Example transition from ios to watchos (for example, to build a watchOS bundle
-as part of an iOS build):
+The meat of any transition definition is the transition implementation, a
+function which accepts the pre-transition `PlatformInfo` as an argument, and
+returns the modified `PlatformInfo` that should be transitioned to. Here's an
+example of what such a function might look like:
 
 ```python
-def _impl(platform: PlatformInfo.type, refs: struct.type) -> PlatformInfo.type:
-    # Operating system constraint setting.
-    os = refs.os[ConstraintSettingInfo]
-    # Watchos constraint value.
-    watchos = refs.watchos[ConstraintValueInfo]
+def _transition_impl_with_refs(platform: PlatformInfo) -> PlatformInfo:
+    # Not bound in this function, see below for where these come from
+    os = os[ConstraintSettingInfo]
+    watchos = watchos[ConstraintValueInfo]
     # Remove operating system constraint from input platform.
     constraints = {
         s: v
@@ -65,53 +47,187 @@ def _impl(platform: PlatformInfo.type, refs: struct.type) -> PlatformInfo.type:
         label = "<transitioned-to-watch>",
         configuration = new_cfg,
     )
-
-iphone_to_watch_transition = transition(_impl, refs = {
-    "os": "//constraints:os",
-    "watchos": "//constraints:watchos",
-})
 ```
 
-A transition function applied twice must produce the configuration identical to
-the configuration produced after applying transition once.
+Much like constraints and platforms, transitions make their way into the graph
+by means of a target that returns a built-in provider - specifically, the
+`TransitionInfo` provider. The `TransitionInfo` provider accepts only one
+parameter, `impl` a callable with signature `PlatformInfo -> PlatformInfo`. With
+that in mind, we can a transition rule:
 
 ```python
-assert tr(tr(platform=platform, refs=refs), refs=refs) == tr(platform=platform, refs=refs)
-```
+def _transition_to_watchos_impl(_ctx: AnalysisContext) -> list[Provider]:
 
-If this invariant is not held, certain operations produce incorrect and possibly
-infinite graphs. This is not yet enforced.
+    # From above
+    def _transition_impl_with_refs(platform: PlatformInfo) -> PlatformInfo:
+        # Not bound in this function, see below for where these come from
+        os = os[ConstraintSettingInfo]
+        watchos = watchos[ConstraintValueInfo]
+        ...
 
-## Per rule transition
+    return [
+        DefaultInfo(),
+        TransitionInfo(
+            impl = _transition_impl_with_refs,
+        ),
+    ]
 
-The `rule` function has an optional `cfg` attribute, which takes a reference to
-the `transition` object (created with the `transition` function; not a string).
-
-When such a rule is called, it is instantiated, not with the requested
-configuration, but with the requested configuration transformed with a given
-rule transition.
-
-For example, the transition for watchos when the iOS target depends on watchos
-resource:
-
-```python
-watchos_resource = rule(
-    cfg = iphone_to_watch_transition,
-    ...
+transition_to_watchos = rule(
+    impl = _transition_to_watchos_impl,
+    attrs = {},
+    # Rules that define transitions must be configuration rules
+    is_configuration_rule = True,
 )
 ```
 
-## Per attribute transition
+Most transition functions will require access to the analysis outputs of other
+configuration rules, typically to extract a `ConstraintSettingInfo`,
+`ConstraintValueInfo`, or `PlatformInfo` from them. The example above does as
+well - it needs the `os` constraint setting and `watchos` constraint value.
 
-The `attrs` object has two attribute constructors:
+Analysis results from other configuration rules are made available by depending
+on those rules as dependencies like in any other analysis. We can use that to
+finish the example above:
 
-- `attrs.transition_dep(cfg)`
-- `attrs.split_transition_dep(cfg)`
+```python
+def _transition_to_watchos_impl(ctx: AnalysisContext) -> list[Provider]:
+    os = ctx.attrs.os
+    watchos = ctx.attrs.watchos
 
-These attributes are similar to the `dep` attribute. When dependencies are
-resolved for the rule instance, then they are resolved not with the rule
-instance configuration, but with the configuration transformed with the given
-transition.
+    # From above
+    def _transition_impl_with_refs(platform: PlatformInfo) -> PlatformInfo:
+        # These values are captured into the `def` from above
+        os = os[ConstraintSettingInfo]
+        watchos = watchos[ConstraintValueInfo]
+        ...
+
+    return [
+        DefaultInfo(),
+        TransitionInfo(
+            impl = _transition_impl_with_refs,
+        ),
+    ]
+
+transition_to_watchos = rule(
+    impl = _transition_to_watchos_impl,
+    attrs = {
+        "os": attrs.dep(default = "//constraints:os"),
+        "watchos": attrs.dep(default = "//constraints:watchos"),
+    },
+    is_configuration_rule = True,
+)
+```
+
+#### Idempotence
+
+A transition function applied twice must produce the configuration identical to
+the configuration produced after applying transition once. Violating this
+requirement is an error.
+
+```python
+assert tr(tr(platform=platform)) == tr(platform=platform)
+```
+
+## Incoming edge transitions
+
+With a suitable transition target defined, you can set an incoming edge
+transition on a target by passing the transition target to the built-in
+`incoming_transition` attribute, like this:
+
+```python
+# BUCK
+transition_to_watchos(
+    name = "transition_to_watchos",
+)
+
+my_binary(
+    name = "watchos_binary",
+    deps = ...
+    incoming_transition = ":transition_to_watchos",
+)
+```
+
+`incoming_transition` attributes are not available on all rules - instead, rules
+must declare that they support them by setting
+`supports_incoming_transition = True` as a parameter to the `rule` call
+
+## Outgoing edge transitions
+
+Outgoing edge transitions are declared via use of
+`attrs.transition_dep(cfg = ":transition_target")`. Such attributes act much
+like an `attrs.dep()`, except that the transition is applied.
+
+## Access rule attributes in transition function implementation
+
+It might be useful for the transition function to be able to query rule
+attributes (for example, to perform transition to different configurations
+depending on `java_version` attribute).
+
+Both incoming (per rule) and outgoing (per dependency) transitions can access
+rule attributes. For outgoing transitions, transition rule implementation
+accesses the attributes of the target that has dependencies with transitions,
+not attributes of dependency targets.
+
+```python
+def _tr(platform, attrs):
+    # NB: There are some restrictions on what attrs can be made accessible:
+    # - Only primitive values for now (providers are not resolved)
+    # - Only unconfigured attributes for now
+    attrs.my_list_attribute # == [12345, 67890]
+
+
+def _transition_target_impl(ctx):
+    return [
+        DefaultInfo(),
+        TransitionInfo(
+            impl = _tr,
+            attrs = {
+                "my_list_attribute": attr.list(...),
+            },
+        ),
+    ]
+_transition_target = rule(
+    impl = _transition_target_impl,
+    is_configuration_rule = True,
+)
+
+_transition_target(
+    name = "my_transition_target",
+)
+
+my_rule = rule(..., supports_incoming_transition)
+
+my_rule(
+    ...,
+    my_list_attribute = [12345, 67890],
+    incoming_transition = ":my_transition_target",
+)
+```
+
+## Deprecated transition declarations with `transition` objects
+
+There is an old, soft-deprecated mechanism to declare transitions that used
+objects returned by the `transition` object. These work substantially similarly
+with the objects replacing transition targets, but there are some key
+differences (uquery correctness bugs, first class refs, etc.).
+
+The new API is strictly more powerful - it should be used instead in new code.
+
+## Split transitions
+
+Along with the old transition API, there is first class support for a notion of
+"split transitions." It is currently unclear whether split transitions will
+remain supported as a first-class concept going forward. It is probably wise to
+use something along the lines of the following instead:
+
+```python
+attrs.tuple(
+    attrs.transition_dep(cfg = tr_1),
+    attrs.transition_dep(cfg = tr_2),
+)
+```
+
+For completeness, below are the old docs for split transitions:
 
 For split transition, each dependency is resolved into a dict of marker to
 providers.
@@ -154,63 +270,9 @@ attribute:
 }
 ```
 
-<!-- prettier-ignore -->
 :::note
-It is an error to pass a split transition object to `attrs.transition_dep` and a non-split transition to `attrs.split_transition_dep`.
 
-<!-- prettier-ignore -->
+It is an error to pass a split transition object to `attrs.transition_dep` and a
+non-split transition to `attrs.split_transition_dep`.
+
 :::
-
-## Per target transition
-
-The Buck2 team is considering the implementation of per target transitions (that
-is, transitions referenced at a rule instantiation site as opposed to rule
-declaration site). No specific plans or APIs exists at the moment.
-
-It _could_ be something like the following:
-
-```python
-cxx_binary(
-    name = "foo",
-    cfg = "//transitions:opengl-es-1.0",
-    ...
-)
-```
-
-## Request transition on command line
-
-For information, see [RFC](../rfcs/drafts/configuration-at-syntax.md).
-
-## Access rule attributes in transition function implementation
-
-It might be useful for the transition function to be able to query rule
-attributes (for example, to perform transition to different configurations
-depending on `java_version` attribute).
-
-Both incoming (per rule) and outgoing (per dependency) transitions can access
-rule attributes. For outgoing transitions, transition rule implementation
-accesses the attributes of the target that has dependencies with transitions,
-not attributes of dependency targets.
-
-```python
-def _tr(platform, refs, attrs):
-    # NB: There are some restrictions on what attrs can be made accessible:
-    # - Only primitive values for now (providers are not resolved)
-    # - Only unconfigured attributes for now
-    attrs.my_list_attribute # == [12345, 67890]
-
-tr = transition(
-  _tr,
-  refs = {},
-  attrs = {
-    "my_list_attribute": attr.list(...),
-  },
-)
-
-my_rule = rule(..., cfg=tr)
-
-my_rule(
-  ...,
-  my_list_attribute = [12345, 67890],
-)
-```

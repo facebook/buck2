@@ -1,0 +1,12 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+root//bin:the_binary (root//platforms:platform1#<HASH>)
+  Providers([
+    DefaultInfo(
+      sub_targets={},
+      default_outputs=[],
+      other_outputs=[]
+    ),
+    RunInfo( args=cmd_args() ),
+    FooInfo( foo="the_binary_foo" )
+  ])

@@ -20,6 +20,7 @@ pub mod digest_config;
 pub mod label_relative_path;
 pub mod plugins;
 pub mod provider;
+pub mod required_test_local_resource;
 pub mod resolve_query_macro;
 pub mod resolved_macro;
 pub mod transitive_set;

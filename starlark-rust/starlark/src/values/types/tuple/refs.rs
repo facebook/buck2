@@ -19,18 +19,18 @@ use std::convert::Infallible;
 use std::iter;
 use std::slice;
 
-use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
+use ref_cast::ref_cast_custom;
 
 use crate::typing::Ty;
-use crate::values::tuple::UnpackTuple;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::tuple::value::FrozenTuple;
-use crate::values::types::tuple::value::Tuple;
 use crate::values::FrozenValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::tuple::UnpackTuple;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::tuple::value::FrozenTuple;
+use crate::values::types::tuple::value::Tuple;
 
 /// Reference to tuple data in Starlark heap.
 #[derive(RefCastCustom, Debug)]

@@ -20,7 +20,6 @@ use std::fmt;
 use std::marker::PhantomData;
 
 use allocative::Allocative;
-use anyhow::Context;
 use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
@@ -28,10 +27,11 @@ use either::Either;
 use starlark_syntax::value_error;
 
 use crate::typing::Ty;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocValue;
 use crate::values::ComplexValue;
 use crate::values::Freeze;
+use crate::values::FreezeError;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValueTyped;
 use crate::values::StarlarkValue;
@@ -41,6 +41,7 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueTyped;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// Value which is either a complex mutable value or a frozen value.
 #[derive(Copy_, Clone_, Dupe_, Allocative)]
@@ -69,15 +70,14 @@ where
     }
 
     /// Downcast.
-    pub fn new_err(value: Value<'v>) -> anyhow::Result<Self> {
+    pub fn new_err(value: Value<'v>) -> crate::Result<Self> {
         match Self::new(value) {
             Some(v) => Ok(v),
             None => Err(value_error!(
                 "Expected value of type `{}`, got: `{}`",
                 T::TYPE,
                 value.to_string_for_type_error()
-            )
-            .into_anyhow()),
+            )),
         }
     }
 
@@ -176,8 +176,9 @@ where
 {
     type Frozen = FrozenValueTyped<'static, T::Frozen>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        FrozenValueTyped::new(self.0.freeze(freezer)?).context("Incorrect type")
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+        FrozenValueTyped::new_err(self.0.freeze(freezer)?)
+            .map_err(|e| FreezeError::new(format!("{e}")))
     }
 }
 
@@ -192,8 +193,8 @@ mod tests {
     use crate::const_frozen_string;
     use crate::environment::GlobalsBuilder;
     use crate::tests::util::TestComplexValue;
-    use crate::values::layout::complex::ValueTypedComplex;
     use crate::values::Value;
+    use crate::values::layout::complex::ValueTypedComplex;
 
     #[starlark_module]
     fn test_module(globals: &mut GlobalsBuilder) {

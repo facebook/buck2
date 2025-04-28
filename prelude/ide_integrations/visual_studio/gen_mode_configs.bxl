@@ -1,0 +1,258 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("constants.bxl", "ANDROID", "CLANG", "CXXFLAGS", "CXXPPFLAGS", "FLAGS_LOCATION", "LANGUAGE_STANDARD", "LDFLAGS", "TOOLSET", "VS2019", "VS2022")
+load("flags_parser_utils.bxl", "get_compiler_settings_from_flags", "get_linker_settings_from_flags")
+load("get_compiler_settings.bxl", "gen_compiler_settings")
+load("get_linker_settings.bxl", "gen_linker_settings")
+load("utils.bxl", "dedupe_by_value", "get_mode_config_path", "h")
+
+# Query all the flags in advcance because the flags must be queried with string literal(e.g. "cxx_#default") but not variables
+STD_CXXPPFLAGS = read_root_config("cxx_#default", "cxxppflags") or ""
+STD_CXXFLAGS = read_root_config("cxx_#default", "cxxflags") or ""
+STD_LDFLAGS = read_root_config("cxx_#default", "ldflags") or ""
+
+# Simple enum used to determine where flags come from.
+_FlagsLocation = enum(
+    # Flags come from the dict itsself
+    "dict",
+    # Flags come from the CxxToolchain
+    "CxxToolchain",
+)
+
+# @unsorted-dict-items
+LANGUAGE_STANDARD_AND_TOOLSET_MAP = {
+    ANDROID: {
+        FLAGS_LOCATION: _FlagsLocation("CxxToolchain"),
+        CXXFLAGS: None,
+        CXXPPFLAGS: None,
+        LDFLAGS: None,
+        LANGUAGE_STANDARD: None,
+        TOOLSET: "Clang_5_0",
+    },
+    CLANG: {
+        FLAGS_LOCATION: _FlagsLocation("dict"),
+        CXXFLAGS: STD_CXXFLAGS,
+        CXXPPFLAGS: STD_CXXPPFLAGS,
+        LDFLAGS: STD_LDFLAGS,
+        LANGUAGE_STANDARD: "stdcpp20",
+        TOOLSET: "ClangCL",
+    },
+    VS2019: {
+        FLAGS_LOCATION: _FlagsLocation("dict"),
+        CXXFLAGS: STD_CXXFLAGS,
+        CXXPPFLAGS: STD_CXXPPFLAGS,
+        LDFLAGS: STD_LDFLAGS,
+        LANGUAGE_STANDARD: "stdcpp17",
+        TOOLSET: "v142",
+    },
+    VS2022: {
+        FLAGS_LOCATION: _FlagsLocation("dict"),
+        CXXFLAGS: STD_CXXFLAGS,
+        CXXPPFLAGS: STD_CXXPPFLAGS,
+        LDFLAGS: STD_LDFLAGS,
+        LANGUAGE_STANDARD: "stdcpp20",
+        TOOLSET: "v143",
+    },
+}
+
+ABSOLUTIZE_PATH_EXE = "prelude//ide_integrations/visual_studio:absolutize_path_exe"
+VS_BUCK_BUILD_PROPS = "prelude//ide_integrations/visual_studio:vs_buck_build_props"
+
+def _get_platform(vs_version: str) -> str:
+    if "android" in (read_root_config("build", "default_target_platform") or ""):
+        return "android"
+    elif "clang" in (read_root_config("cxx_#default", "cxx_type") or ""):
+        return "clang"
+    else:
+        return "vs" + vs_version
+
+def _remove_flags_with_macros(flags: list) -> list:
+    # Hacky way to find macros since regex sub is not available in bxl
+    flags = [item for item in flags if "$(" not in item and ")" not in item]
+    return dedupe_by_value(flags)
+
+# Simple record type that holds flags read from the `cxx_toolchain`.
+_CxxToolchainFlags = record(
+    cxxflags = list[str],
+    cxxppflags = list[str],
+    ldflags = list[str],
+)
+
+def _get_compiler_settings(cxx_toolchain_flags: _CxxToolchainFlags) -> dict:
+    compiler_flags = cxx_toolchain_flags.cxxppflags + cxx_toolchain_flags.cxxflags
+    compiler_flags = _remove_flags_with_macros(compiler_flags)
+    return get_compiler_settings_from_flags(compiler_flags)
+
+def _get_linker_settings(cxx_toolchain_flags: _CxxToolchainFlags, buck_root: str) -> dict:
+    linker_flags = _remove_flags_with_macros(cxx_toolchain_flags.ldflags)
+    return get_linker_settings_from_flags(linker_flags, buck_root)
+
+def _get_provider_output_path(provider, bxl_ctx):
+    default_outputs = provider.default_outputs
+    if default_outputs:
+        return get_path_without_materialization(default_outputs[0], bxl_ctx, abs = True)
+    else:
+        return None
+
+def _get_path(target: str, bxl_ctx):
+    target_node = bxl_ctx.configured_targets(target)
+    providers = bxl_ctx.analysis(target_node).providers()
+    absolute_path = _get_provider_output_path(providers[DefaultInfo], bxl_ctx)
+    return absolute_path
+
+def _produce_proj_artifact_with_async_cxx_toolchain(bxl_ctx, actions, fbsource: bool, output_artifact: Artifact, root: str, platform: str) -> None:
+    """Reads the cxx_toolchain's flags with `actions.dynamic_output` before continuing to produce the final output project artifact.
+
+    The cxx_toolchain's flags cannot be directly read because they are type `cmd_args`.
+    The flags are indirectly read after dynamically materializing them to an output artifact
+    (i.e., write them to an artifact, and read them inside of `dynamic_output`'s callback).
+    """
+    cxx_toolchain_analysis_result = bxl_ctx.analysis("toolchains//:cxx", target_platform = "ovr_config//platform/linux:x86_64-fbcode")
+    cxx_toolchain = cxx_toolchain_analysis_result.providers().get(CxxToolchainInfo)
+
+    cxxflags_artifact, cxxflags_macro_artifacts = actions.write("cxxflags", cxx_toolchain.cxx_compiler_info.compiler_flags, allow_args = True)
+
+    cxxppflags_artifact, cxxppflags_macro_artifacts = actions.write("cxxppflags", cxx_toolchain.cxx_compiler_info.preprocessor_flags, allow_args = True)
+
+    ldflags_artifact, ldflags_macro_artifacts = actions.write("ldflags", cxx_toolchain.linker_info.linker_flags, allow_args = True)
+
+    def dyn_output_continuation(ctx, dynamic: dict[Artifact, ArtifactValue], outputs: dict[Artifact, typing.Any]) -> None:
+        """async continuation/callback for the `dynamic_output` call that reads the cxx_toolchain flags from materialized artifacts and continues to produce the final project file artifact.
+
+        The cxx_toolchain flags are stored in `dynamic` and are now readable becuase their artifacts were materialized by the `dynamic_output`.
+        """
+        cxxflags = dynamic[cxxflags_artifact].read_string().splitlines()
+        cxxppflags = dynamic[cxxppflags_artifact].read_string().splitlines()
+        ldflags = dynamic[ldflags_artifact].read_string().splitlines()
+        cxx_toolchain_flags = _CxxToolchainFlags(
+            cxxflags = cxxflags,
+            cxxppflags = cxxppflags,
+            ldflags = ldflags,
+        )
+
+        # the actions are grabbed again because the outer ones cannot be frozen
+        actions = ctx.bxl_actions().actions
+        hidden_artifacts = cxxflags_macro_artifacts + cxxppflags_macro_artifacts + ldflags_macro_artifacts
+        _produce_proj_artifact(ctx, actions, fbsource, cxx_toolchain_flags, outputs[output_artifact], root = root, platform = platform, hidden_artifacts = hidden_artifacts)
+
+    dyn_artifacts = [
+        cxxflags_artifact,
+        cxxppflags_artifact,
+        ldflags_artifact,
+    ]
+    actions.dynamic_output(dynamic = dyn_artifacts, inputs = [], outputs = [output_artifact.as_output()], f = dyn_output_continuation)
+
+    bxl_ctx.output.ensure_multiple(dyn_artifacts)
+
+def _main(bxl_ctx):
+    actions = bxl_ctx.bxl_actions().actions
+
+    # Capture `fbsource` and `root` because those attributes on `bxl_ctx` are not avaliable on the dynamic_output's ctx and `bxl_ctx` cannot be captured.
+    fbsource = bxl_ctx.cli_args.fbsource
+    root = bxl_ctx.root()
+
+    output_artifact = actions.declare_output(get_mode_config_path(bxl_ctx.cli_args.mode_name))
+
+    platform = _get_platform(bxl_ctx.cli_args.vs_version_year)
+
+    flags_location = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][FLAGS_LOCATION]
+
+    if flags_location == _FlagsLocation("dict"):
+        cxxppflags = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][CXXPPFLAGS].split(" ")
+        cxxflags = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][CXXFLAGS].split(" ")
+        ldflags = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][LDFLAGS].split(" ")
+        cxx_toolchain_flags = _CxxToolchainFlags(
+            cxxflags = cxxflags,
+            cxxppflags = cxxppflags,
+            ldflags = ldflags,
+        )
+        _produce_proj_artifact(bxl_ctx, actions, fbsource, cxx_toolchain_flags, output_artifact, root = root, platform = platform)
+    elif flags_location == _FlagsLocation("CxxToolchain"):
+        _produce_proj_artifact_with_async_cxx_toolchain(bxl_ctx, actions, fbsource, output_artifact, root = root, platform = platform)
+    else:
+        fail("Unknown flags_location '%s' in platform '%s'" % (flags_location, platform))
+
+    bxl_ctx.output.print(bxl_ctx.output.ensure(output_artifact).abs_path())
+
+def _produce_proj_artifact(bxl_ctx, actions, fbsource: bool, cxx_toolchain_flags: _CxxToolchainFlags, output_artifact: Artifact, root: str, platform: str, hidden_artifacts: None | list[Artifact] = None):
+    """Produce the <Project> file output artifact"""
+    compiler_settings = _get_compiler_settings(cxx_toolchain_flags)
+    linker_settings = _get_linker_settings(cxx_toolchain_flags, root)
+    platform_toolset = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][TOOLSET]
+
+    # Set default language standard if not specified
+    if "LanguageStandard" not in compiler_settings:
+        compiler_settings["LanguageStandard"] = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][LANGUAGE_STANDARD]
+
+    # Overwrite configs for android projects
+    if platform == ANDROID:
+        compiler_settings.pop("LanguageStandard")
+
+    compiler_settings_content = gen_compiler_settings(compiler_settings)
+    linker_settings_content = gen_linker_settings(linker_settings)
+
+    toolchains_props = ""
+    if fbsource and platform != ANDROID:
+        toolchains_props = "        <Import Project=\"$(RepoRoot)\\third-party\\toolchains\\visual_studio\\toolchain.props\"/>"
+
+    absolutize_path_exe = _get_path(ABSOLUTIZE_PATH_EXE, bxl_ctx)
+    vs_buck_build_props_path = _get_path(VS_BUCK_BUILD_PROPS, bxl_ctx)
+    vs_buck_build_props = """        <Import Project="{}"/>""".format(vs_buck_build_props_path)
+
+    content = cmd_args(
+        """<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+""",
+        """    <ImportGroup Label="PropertySheets">""",
+        """        <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.default.props" />""",
+        """    </ImportGroup>""",
+        h(
+            "PropertyGroup",
+            [
+                h("PlatformToolset", platform_toolset, indent_level = 2),
+                h("AbsolutizePathExe", absolutize_path_exe, indent_level = 2),
+            ],
+            indent_level = 1,
+        ),
+        """    <ImportGroup Label="PropertySheets">""",
+        """        <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.props" />""",
+        """        <Import Condition="exists('$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" Project="$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props"/>""",
+        toolchains_props,
+        """    </ImportGroup>""",
+        """    <ItemDefinitionGroup>""",
+        compiler_settings_content,
+        linker_settings_content,
+        """    </ItemDefinitionGroup>""",
+        """    <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.Targets" />""",
+        """    <ImportGroup Label="PropertySheets">""",
+        vs_buck_build_props,
+        """    </ImportGroup>""",
+        """</Project>""",
+        delimiter = "\n",
+        hidden = hidden_artifacts or [],
+    )
+
+    actions.write(output_artifact.as_output(), content, allow_args = True)
+
+main = bxl_main(
+    impl = _main,
+    cli_args = {
+        "fbsource": cli_args.bool(
+            default = False,
+            doc = "Whether to turn on fbsource specific behaviors.",
+        ),
+        "mode_name": cli_args.string(
+            doc = "Single mode file to generate projects for.",
+        ),
+        "vs_version_year": cli_args.string(
+            default = "2022",
+            doc = "Generate mode configs for Visual Studio <vs_version_year> projects",
+        ),
+    },
+)

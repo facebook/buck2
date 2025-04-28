@@ -30,7 +30,7 @@ pub struct EnvInfoEntry {
 
 impl EnvInfoEntry {
     pub fn ty_short(&self) -> &'static str {
-        self.ty.rfind(':').map_or(self.ty, |i| &self.ty[i + 1..])
+        self.ty.rfind(':').map_or(self.ty, |i| &self.ty[i + 2..])
     }
 }
 
@@ -41,8 +41,8 @@ pub static ENV_INFO: [EnvInfoEntry];
 mod tests {
     use crate::buck2_env;
     use crate::env::registry::Applicability;
-    use crate::env::registry::EnvInfoEntry;
     use crate::env::registry::ENV_INFO;
+    use crate::env::registry::EnvInfoEntry;
 
     #[test]
     fn test_env_info() {
@@ -53,7 +53,7 @@ mod tests {
         assert_eq!(
             &EnvInfoEntry {
                 name: "TEST_VAR_1",
-                ty: "std::string::String",
+                ty: "std :: string :: String",
                 default: None,
                 applicability: Applicability::Internal,
             },

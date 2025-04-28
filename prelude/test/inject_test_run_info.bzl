@@ -5,10 +5,21 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//tests:re_utils.bzl",
+    "maybe_add_run_as_bundle_label",
+)
+
 def inject_test_run_info(ctx: AnalysisContext, test_info: ExternalRunnerTestInfo) -> list[Provider]:
     # Access this here so we get failures in CI if we forget to inject it
     # anywhere, regardless of whether an `env` is used.
     inject_test_env = ctx.attrs._inject_test_env[RunInfo]
+
+    # `if test_info.labels != None` doesn't work because `None` is not of type `list[str]`,
+    # yet it is None in some cases... this hack lets us check for None without a type error.
+    if getattr(test_info, "labels", None) != None:
+        # If forcing RE on tpx, check if the test suite should be run as a bundle
+        maybe_add_run_as_bundle_label(ctx, test_info.labels)
 
     if (not test_info.env) or _exclude_test_env_from_run_info(ctx):
         return [test_info, RunInfo(args = test_info.command)]

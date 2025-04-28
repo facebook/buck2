@@ -11,13 +11,13 @@ use std::sync::Arc;
 
 use dice::DetectCycles;
 use dice::Dice;
-use dice_examples::math_computation::parse_math_equation;
-use dice_examples::math_computation::parse_math_equations;
 use dice_examples::math_computation::Equation;
 use dice_examples::math_computation::Math;
 use dice_examples::math_computation::MathEquations;
 use dice_examples::math_computation::Unit;
 use dice_examples::math_computation::Var;
+use dice_examples::math_computation::parse_math_equation;
+use dice_examples::math_computation::parse_math_equations;
 use dupe::Dupe;
 
 fn var(name: &str) -> Var {

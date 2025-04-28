@@ -5,11 +5,11 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
-    "generate": "../docs.py --prod",
-    "generate_local": "../docs.py",
-    "build": "../docs.py && docusaurus build",
-    "build_cargo": "../docs.py --cargo && docusaurus build",
-    "build_prebuilt": "../docs.py --buck2 $BUCK2_BIN && docusaurus build",
+    "generate": "./gen_docs.py --prod",
+    "generate_local": "./gen_docs.py",
+    "build": "./gen_docs.py && docusaurus build",
+    "build_cargo": "./gen_docs.py --cargo && docusaurus build",
+    "build_prebuilt": "./gen_docs.py --buck2 $BUCK2_BIN && docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
@@ -18,19 +18,20 @@
     "write-heading-ids": "docusaurus write-heading-ids"
   },
   "dependencies": {
-    "@docusaurus/core": "2.3.1",
-    "@docusaurus/plugin-google-gtag": "^2.3.1",
-    "@docusaurus/preset-classic": "2.3.1",
-    "@docusaurus/plugin-client-redirects": "2.3.1",
-    "@mdx-js/react": "^1.6.21",
-    "@svgr/webpack": "^5.5.0",
+    "@babel/traverse": "^7.27.0",
+    "@docusaurus/core": "3.7.0",
+    "@docusaurus/plugin-client-redirects": "3.7.0",
+    "@docusaurus/plugin-google-gtag": "3.7.0",
+    "@docusaurus/preset-classic": "3.7.0",
+    "@docusaurus/theme-mermaid": "3.7.0",
+    "@mdx-js/react": "^3.0.0",
+    "@svgr/webpack": "^6.5.1",
     "clsx": "^1.1.1",
-    "docusaurus-lunr-search": "^2.2.0",
-    "docusaurus-plugin-internaldocs-fb": "1.8.0",
+    "docusaurus-plugin-internaldocs-fb": "^1.19.1",
     "file-loader": "^6.2.0",
-    "prism-react-renderer": "^1.2.1",
-    "react": "^17.0.1",
-    "react-dom": "^17.0.1",
+    "prism-react-renderer": "^2.3.1",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
     "url-loader": "^4.1.1"
   },
   "browserslist": {
@@ -46,8 +47,11 @@
     ]
   },
   "resolutions": {
+    "estree-util-value-to-estree": "^3.3.3",
+    "http-proxy-middleware": "2.0.9",
+    "image-size": "^1.2.1",
     "shelljs": "^0.8.5",
     "ansi-html": "0.0.8",
-    "@babel/traverse": "^7.23.2"
+    "dompurify": "^3.2.4"
   }
 }

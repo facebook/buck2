@@ -381,7 +381,7 @@ mod tests {
             R: AsyncRead + Unpin,
             D: AsyncRead + Unpin + DrainerFromReader<R>,
         {
-            type Output = anyhow::Result<Vec<u8>>;
+            type Output = buck2_error::Result<Vec<u8>>;
 
             fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
                 let mut this = self.project();
@@ -487,7 +487,7 @@ mod tests {
         use super::*;
 
         #[tokio::test]
-        async fn test_timeout_drainer() -> anyhow::Result<()> {
+        async fn test_timeout_drainer() -> buck2_error::Result<()> {
             // 64 bytes of a. Tokio allocates a 32 byte buffer for read_to_end so this is good to
             //    ensure we get 2 reads.
             let s = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -515,7 +515,7 @@ mod tests {
         use super::*;
 
         #[tokio::test]
-        async fn test_unix_non_blocking_drainer() -> anyhow::Result<()> {
+        async fn test_unix_non_blocking_drainer() -> buck2_error::Result<()> {
             // See above.
             let s = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 

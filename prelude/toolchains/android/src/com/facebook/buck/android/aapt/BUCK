@@ -1,0 +1,88 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+MERGE_ANDROID_RESOURCE_SOURCES_SRCS = [
+    "MergeAndroidResourceSourcesExecutableMain.java",
+    "MergeAndroidResourceSourcesUtils.java",
+]
+
+MINI_AAPT_SOURCES = [
+    "MiniAapt.java",
+    "MiniAaptExecutableMain.java",
+]
+
+R_DOT_TXT_SOURCES = [
+    "RDotTxtEntry.java",
+    "FakeRDotTxtEntry.java",
+]
+
+buck_java_library(
+    name = "r_dot_txt",
+    srcs = R_DOT_TXT_SOURCES,
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/android/aapt:aapt",
+    ],
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jsr305",
+    ],
+)
+
+buck_java_library(
+    name = "mini_aapt",
+    srcs = MINI_AAPT_SOURCES,
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/android/...",
+        "prelude//toolchains/android/test/com/facebook/buck/...",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem/impl:utils",
+        "prelude//toolchains/android/src/com/facebook/buck/util:throwing_print_writer",
+        "prelude//toolchains/android/src/com/facebook/buck/util/string:string",
+        "prelude//toolchains/android/src/com/facebook/buck/util/xml:xml",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jsr305",
+        ":r_dot_txt",
+    ],
+)
+
+buck_java_binary(
+    name = "mini_aapt_binary",
+    main_class = "com.facebook.buck.android.aapt.MiniAaptExecutableMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":mini_aapt",
+    ],
+)
+
+buck_java_library(
+    name = "merge_android_resource_sources",
+    srcs = MERGE_ANDROID_RESOURCE_SOURCES_SRCS,
+    deps = [
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:layoutlib-api",
+        "prelude//toolchains/android/third-party:tools-sdk-common",
+    ],
+)
+
+buck_java_binary(
+    name = "merge_android_resource_sources_binary",
+    blocklist = ["META-INF/BC2048KE"],
+    main_class = "com.facebook.buck.android.aapt.MergeAndroidResourceSourcesExecutableMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/third-party:kotlin-stdlib",
+        ":merge_android_resource_sources",
+    ],
+)

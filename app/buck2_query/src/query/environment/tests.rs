@@ -13,9 +13,9 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
+use buck2_query::query::traversal::NodeLookup;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
-use buck2_query::query::traversal::NodeLookup;
 use derive_more::Display;
 use derive_more::From;
 use indexmap::IndexSet;
@@ -92,8 +92,8 @@ impl QueryTarget for TestTarget {
 
     fn attr_any_matches(
         _attr: &Self::Attr<'_>,
-        _filter: &dyn Fn(&str) -> anyhow::Result<bool>,
-    ) -> anyhow::Result<bool> {
+        _filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         unimplemented!()
     }
 
@@ -121,6 +121,10 @@ impl QueryTarget for TestTarget {
     fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, _key: &str, _func: F) -> R {
         unimplemented!()
     }
+
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, _key: &str, _func: F) -> R {
+        unimplemented!()
+    }
 }
 
 struct TestEnv {
@@ -128,21 +132,24 @@ struct TestEnv {
 }
 
 impl NodeLookup<TestTarget> for TestEnv {
-    fn get(&self, label: &<TestTarget as LabeledNode>::Key) -> anyhow::Result<TestTarget> {
+    fn get(&self, label: &<TestTarget as LabeledNode>::Key) -> buck2_error::Result<TestTarget> {
         self.graph
             .get(label)
             .duped()
-            .with_context(|| format!("Invalid node: {:?}", label))
+            .with_buck_error_context(|| format!("Invalid node: {:?}", label))
     }
 }
 
 #[async_trait]
 impl AsyncNodeLookup<TestTarget> for TestEnv {
-    async fn get(&self, label: &<TestTarget as LabeledNode>::Key) -> anyhow::Result<TestTarget> {
+    async fn get(
+        &self,
+        label: &<TestTarget as LabeledNode>::Key,
+    ) -> buck2_error::Result<TestTarget> {
         self.graph
             .get(label)
             .duped()
-            .with_context(|| format!("Invalid node: {:?}", label))
+            .with_buck_error_context(|| format!("Invalid node: {:?}", label))
     }
 }
 
@@ -153,22 +160,25 @@ impl QueryEnvironment for TestEnv {
     async fn get_node(
         &self,
         node_ref: &<Self::Target as LabeledNode>::Key,
-    ) -> anyhow::Result<Self::Target> {
+    ) -> buck2_error::Result<Self::Target> {
         <Self as NodeLookup<TestTarget>>::get(self, node_ref)
     }
 
     async fn get_node_for_default_configured_target(
         &self,
         _node_ref: &<Self::Target as LabeledNode>::Key,
-    ) -> anyhow::Result<MaybeCompatible<Self::Target>> {
+    ) -> buck2_error::Result<MaybeCompatible<Self::Target>> {
         unimplemented!()
     }
 
-    async fn eval_literals(&self, _literal: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {
+    async fn eval_literals(
+        &self,
+        _literal: &[&str],
+    ) -> buck2_error::Result<TargetSet<Self::Target>> {
         unimplemented!()
     }
 
-    async fn eval_file_literal(&self, _literal: &str) -> anyhow::Result<FileSet> {
+    async fn eval_file_literal(&self, _literal: &str) -> buck2_error::Result<FileSet> {
         unimplemented!()
     }
 
@@ -176,8 +186,8 @@ impl QueryEnvironment for TestEnv {
         &self,
         root: &TargetSet<Self::Target>,
         delegate: impl AsyncChildVisitor<Self::Target>,
-        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
-    ) -> anyhow::Result<()> {
+        visit: impl FnMut(Self::Target) -> buck2_error::Result<()> + Send,
+    ) -> buck2_error::Result<()> {
         // TODO: Should this be part of QueryEnvironment's default impl?
         async_depth_first_postorder_traversal(self, root.iter_names(), delegate, visit).await
     }
@@ -186,30 +196,30 @@ impl QueryEnvironment for TestEnv {
         &self,
         root: &TargetSet<Self::Target>,
         delegate: impl AsyncChildVisitor<Self::Target>,
-        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
+        visit: impl FnMut(Self::Target) -> buck2_error::Result<()> + Send,
         depth: u32,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         async_depth_limited_traversal(self, root.iter_names(), delegate, visit, depth).await
     }
 
-    async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
+    async fn owner(&self, _paths: &FileSet) -> buck2_error::Result<TargetSet<Self::Target>> {
         unimplemented!()
     }
 
     async fn targets_in_buildfile(
         &self,
         _paths: &FileSet,
-    ) -> anyhow::Result<TargetSet<Self::Target>> {
+    ) -> buck2_error::Result<TargetSet<Self::Target>> {
         unimplemented!()
     }
 }
 
 impl TestEnv {
     /// A helper to get e.g. stuff like "1,2,3" into a TargetSet.
-    fn set(&self, entries: &str) -> anyhow::Result<TargetSet<TestTarget>> {
+    fn set(&self, entries: &str) -> buck2_error::Result<TargetSet<TestTarget>> {
         let mut set = TargetSet::new();
         for c in entries.split(',') {
-            let id = TestTargetId(c.parse().context("Invalid ID")?);
+            let id = TestTargetId(c.parse().buck_error_context("Invalid ID")?);
             set.insert(<Self as NodeLookup<TestTarget>>::get(self, &id)?);
         }
         Ok(set)
@@ -243,7 +253,7 @@ impl TestEnvBuilder {
 }
 
 #[tokio::test]
-async fn test_one_path() -> anyhow::Result<()> {
+async fn test_one_path() -> buck2_error::Result<()> {
     let mut env = TestEnvBuilder::default();
     // The actual path
     env.edge(1, 2);
@@ -254,19 +264,19 @@ async fn test_one_path() -> anyhow::Result<()> {
     env.edge(1, 12);
     let env = env.build();
 
-    let path = env.allpaths(&env.set("1")?, &env.set("3")?).await?;
+    let path = env.allpaths(&env.set("1")?, &env.set("3")?, None).await?;
     let expected = env.set("1,2,3")?;
     assert_eq!(path, expected);
 
-    let path = env.somepath(&env.set("1")?, &env.set("3")?).await?;
-    let expected = env.set("3,2,1")?;
+    let path = env.somepath(&env.set("1")?, &env.set("3")?, None).await?;
+    let expected = env.set("1,2,3")?;
     assert_eq!(path, expected);
 
     Ok(())
 }
 
 #[tokio::test]
-async fn test_many_paths() -> anyhow::Result<()> {
+async fn test_many_paths() -> buck2_error::Result<()> {
     let mut env = TestEnvBuilder::default();
     env.edge(1, 2);
     env.edge(2, 3);
@@ -278,19 +288,19 @@ async fn test_many_paths() -> anyhow::Result<()> {
     env.edge(10, 20);
     let env = env.build();
 
-    let path = env.allpaths(&env.set("1")?, &env.set("3")?).await?;
+    let path = env.allpaths(&env.set("1")?, &env.set("3")?, None).await?;
     let expected = env.set("1,10,11,2,3")?;
     assert_eq!(path, expected);
 
-    let path = env.somepath(&env.set("1")?, &env.set("3")?).await?;
-    let expected = env.set("3,2,1")?;
+    let path = env.somepath(&env.set("1")?, &env.set("3")?, None).await?;
+    let expected = env.set("1,2,3")?;
     assert_eq!(path, expected);
 
     Ok(())
 }
 
 #[tokio::test]
-async fn test_distinct_paths() -> anyhow::Result<()> {
+async fn test_distinct_paths() -> buck2_error::Result<()> {
     let mut env = TestEnvBuilder::default();
     env.edge(1, 10);
     env.edge(10, 100);
@@ -298,30 +308,34 @@ async fn test_distinct_paths() -> anyhow::Result<()> {
     env.edge(20, 200);
     let env = env.build();
 
-    let path = env.allpaths(&env.set("1,2")?, &env.set("100,200")?).await?;
+    let path = env
+        .allpaths(&env.set("1,2")?, &env.set("100,200")?, None)
+        .await?;
     let expected = env.set("2,20,200,1,10,100")?;
     assert_eq!(path, expected);
 
     // Same as above
-    let path = env.somepath(&env.set("1,2")?, &env.set("100,200")?).await?;
-    let expected = env.set("100,10,1")?;
+    let path = env
+        .somepath(&env.set("1,2")?, &env.set("100,200")?, None)
+        .await?;
+    let expected = env.set("1,10,100")?;
     assert_eq!(path, expected);
 
     Ok(())
 }
 
 #[tokio::test]
-async fn test_no_path() -> anyhow::Result<()> {
+async fn test_no_path() -> buck2_error::Result<()> {
     let mut env = TestEnvBuilder::default();
     env.edge(1, 10);
     env.edge(2, 20);
     let env = env.build();
 
-    let path = env.allpaths(&env.set("1")?, &env.set("20")?).await?;
+    let path = env.allpaths(&env.set("1")?, &env.set("20")?, None).await?;
     let expected = TargetSet::new();
     assert_eq!(path, expected);
 
-    let path = env.somepath(&env.set("1")?, &env.set("20")?).await?;
+    let path = env.somepath(&env.set("1")?, &env.set("20")?, None).await?;
     let expected = TargetSet::new();
     assert_eq!(path, expected);
 
@@ -329,24 +343,24 @@ async fn test_no_path() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_nested_paths() -> anyhow::Result<()> {
+async fn test_nested_paths() -> buck2_error::Result<()> {
     let mut env = TestEnvBuilder::default();
     env.edge(1, 2);
     env.edge(2, 3);
     env.edge(3, 4);
     let env = env.build();
 
-    let path = env.allpaths(&env.set("1")?, &env.set("2,4")?).await?;
+    let path = env.allpaths(&env.set("1")?, &env.set("2,4")?, None).await?;
     assert_eq!(path, env.set("1,2,3,4")?);
 
-    let path = env.somepath(&env.set("1")?, &env.set("2,4")?).await?;
-    assert_eq!(path, env.set("2,1")?);
+    let path = env.somepath(&env.set("1")?, &env.set("2,4")?, None).await?;
+    assert_eq!(path, env.set("1,2")?);
 
     Ok(())
 }
 
 #[tokio::test]
-async fn test_paths_with_cycles_present() -> anyhow::Result<()> {
+async fn test_paths_with_cycles_present() -> buck2_error::Result<()> {
     let mut env = TestEnvBuilder::default();
     env.edge(1, 2);
     env.edge(2, 3);
@@ -357,23 +371,25 @@ async fn test_paths_with_cycles_present() -> anyhow::Result<()> {
     env.edge(4, 3);
     let env = env.build();
 
-    let path = env.allpaths(&env.set("3")?, &env.set("4")?).await?;
+    let path = env.allpaths(&env.set("3")?, &env.set("4")?, None).await?;
     assert_eq!(path, env.set("1,2,3,4")?);
 
-    let path = env.allpaths(&env.set("1")?, &env.set("1")?).await?;
+    let path = env.allpaths(&env.set("1")?, &env.set("1")?, None).await?;
     assert_eq!(path, env.set("2,3,4,1")?);
 
-    let path = env.allpaths(&env.set("1")?, &env.set("5")?).await?;
+    let path = env.allpaths(&env.set("1")?, &env.set("5")?, None).await?;
     assert_eq!(path, env.set("1,2,3,4,5")?);
 
-    let path = env.rdeps(&env.set("1")?, &env.set("3")?, Some(2)).await?;
+    let path = env
+        .rdeps(&env.set("1")?, &env.set("3")?, Some(2), None)
+        .await?;
     assert_eq!(path, env.set("4,1,2,3")?);
 
     Ok(())
 }
 
 #[tokio::test]
-async fn test_rdeps() -> anyhow::Result<()> {
+async fn test_rdeps() -> buck2_error::Result<()> {
     let mut env = TestEnvBuilder::default();
     env.edge(1, 2);
     env.edge(2, 3);
@@ -383,22 +399,34 @@ async fn test_rdeps() -> anyhow::Result<()> {
     env.edge(3, 6);
     let env = env.build();
 
-    let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(0)).await?;
+    let path = env
+        .rdeps(&env.set("1")?, &env.set("6")?, Some(0), None)
+        .await?;
     assert_eq!(path, env.set("6")?);
 
-    let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(1)).await?;
+    let path = env
+        .rdeps(&env.set("1")?, &env.set("6")?, Some(1), None)
+        .await?;
     assert_eq!(path, env.set("3,6")?);
 
-    let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(2)).await?;
+    let path = env
+        .rdeps(&env.set("1")?, &env.set("6")?, Some(2), None)
+        .await?;
     assert_eq!(path, env.set("1,2,3,6")?);
 
-    let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(3)).await?;
+    let path = env
+        .rdeps(&env.set("1")?, &env.set("6")?, Some(3), None)
+        .await?;
     assert_eq!(path, env.set("1,2,3,6")?);
 
-    let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(4)).await?;
+    let path = env
+        .rdeps(&env.set("1")?, &env.set("6")?, Some(4), None)
+        .await?;
     assert_eq!(path, env.set("1,2,3,6")?);
 
-    let path = env.rdeps(&env.set("1")?, &env.set("6")?, None).await?;
+    let path = env
+        .rdeps(&env.set("1")?, &env.set("6")?, None, None)
+        .await?;
     assert_eq!(path, env.set("1,2,3,6")?);
 
     Ok(())

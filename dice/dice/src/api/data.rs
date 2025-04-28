@@ -49,10 +49,10 @@
 //! assert_eq!(data.my_data(), 1);
 //! ```
 
+use std::any::Any;
 use std::collections::BTreeSet;
 
 use allocative::Allocative;
-use anymap::any::Any;
 use anymap::Map;
 use itertools::Itertools;
 use thiserror::Error;

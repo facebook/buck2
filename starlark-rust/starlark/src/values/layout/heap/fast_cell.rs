@@ -77,22 +77,28 @@ impl<T> FastCell<T> {
     /// there are no other references to the value, and nobody is going
     /// to obtain references to value while mutable reference exists.
     pub(crate) unsafe fn get_mut(&self) -> *mut T {
-        debug_assert!(self.init.get());
-        (*self.value.get()).as_mut_ptr()
+        unsafe {
+            debug_assert!(self.init.get());
+            (*self.value.get()).as_mut_ptr()
+        }
     }
 
     /// Take the value out of the cell.
     pub(crate) unsafe fn take(&self) -> T {
-        assert!(self.init.get());
-        self.init.set(false);
-        // Replace the `value` field with zeros so that accessing it will crash.
-        mem::replace(&mut *self.value.get(), MaybeUninit::zeroed()).assume_init()
+        unsafe {
+            assert!(self.init.get());
+            self.init.set(false);
+            // Replace the `value` field with zeros so that accessing it will crash.
+            mem::replace(&mut *self.value.get(), MaybeUninit::zeroed()).assume_init()
+        }
     }
 
     /// Put the value into the cell.
     pub(crate) unsafe fn set(&self, value: T) {
-        assert!(!self.init.get());
-        self.init.set(true);
-        *self.value.get() = MaybeUninit::new(value);
+        unsafe {
+            assert!(!self.init.get());
+            self.init.set(true);
+            *self.value.get() = MaybeUninit::new(value);
+        }
     }
 }

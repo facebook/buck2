@@ -14,22 +14,20 @@ use allocative::Allocative;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
-use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::prelude_path::PreludePath;
 use buck2_node::super_package::SuperPackage;
 use dupe::Dupe;
-use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::functions::host_info::HostInfo;
-use crate::interpreter::globals::base_globals;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::module_internals::PackageImplicits;
 
@@ -84,7 +82,7 @@ impl BuildInterpreterConfiguror {
         skip_targets_with_duplicate_names: bool,
         additional_globals: Option<AdditionalGlobalsFn>,
         global_target_interner: Arc<ConcurrentTargetLabelInterner>,
-    ) -> anyhow::Result<Arc<Self>> {
+    ) -> buck2_error::Result<Arc<Self>> {
         Ok(Arc::new(Self {
             prelude_import,
             host_info: HostInfo::new(host_platform, host_architecture, host_xcode_version),
@@ -95,17 +93,11 @@ impl BuildInterpreterConfiguror {
         }))
     }
 
-    pub(crate) fn globals(&self) -> Globals {
-        base_globals()
-            .with(|g| {
-                if let Some(additional_globals) = &self.additional_globals {
-                    (additional_globals.0)(g);
-                }
-            })
-            .build()
+    pub(crate) fn additional_globals(&self) -> Option<&AdditionalGlobalsFn> {
+        self.additional_globals.as_ref()
     }
 
-    pub(crate) fn host_info(&self) -> &HostInfo {
+    pub fn host_info(&self) -> &HostInfo {
         &self.host_info
     }
 
@@ -118,7 +110,7 @@ impl BuildInterpreterConfiguror {
         package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
         implicit_import: Option<&Arc<ImplicitImport>>,
-    ) -> anyhow::Result<ModuleInternals> {
+    ) -> buck2_error::Result<ModuleInternals> {
         let record_target_call_stack = self.record_target_call_stack;
         let skip_targets_with_duplicate_names = self.skip_targets_with_duplicate_names;
         let package_implicits = implicit_import.map(|spec| {

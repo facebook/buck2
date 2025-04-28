@@ -61,7 +61,7 @@ def _analyze_artifacts(
                 cmd_args([
                     analysis_tool,
                     "--artifacts",
-                    input.argsfile,
+                    cmd_args(input.argsfile, format = "@{}"),
                     "--output",
                     output.as_output(),
                 ]),

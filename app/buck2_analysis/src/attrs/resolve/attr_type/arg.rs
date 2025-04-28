@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfoCallable;
@@ -15,9 +14,10 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeho
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacrosPart;
-use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
+use buck2_core::package::source_path::SourcePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_error::BuckErrorContext;
 use buck2_node::attrs::attr_type::arg::ConfiguredMacro;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
@@ -33,6 +33,7 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 pub mod query;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ResolveMacroError {
     #[error(
         "The mapping for {0} in the TemplatePlaceholderInfo for {1} was not a dictionary (required because requested arg `{2}`)."
@@ -61,7 +62,7 @@ pub trait ConfiguredStringWithMacrosExt {
         &self,
         ctx: &dyn AttrResolutionContext<'v>,
         pkg: PackageLabel,
-    ) -> anyhow::Result<Value<'v>>;
+    ) -> buck2_error::Result<Value<'v>>;
 }
 
 impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
@@ -69,7 +70,7 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
         &self,
         ctx: &dyn AttrResolutionContext<'v>,
         pkg: PackageLabel,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> buck2_error::Result<Value<'v>> {
         let resolved_parts = match &self.string_with_macros {
             StringWithMacros::StringPart(s) => {
                 vec![ResolvedStringWithMacrosPart::String(s.dupe())]
@@ -84,8 +85,9 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
                         ConfiguredStringWithMacrosPart::Macro(write_to_file, m) => {
                             resolved_parts.push(ResolvedStringWithMacrosPart::Macro(
                                 *write_to_file,
-                                resolve_configured_macro(m, ctx, pkg)
-                                    .with_context(|| format!("Error resolving `{}`.", part))?,
+                                resolve_configured_macro(m, ctx, pkg).with_buck_error_context(
+                                    || format!("Error resolving `{}`.", part),
+                                )?,
                             ));
                         }
                     }
@@ -100,6 +102,18 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
             None
         };
 
+        // SAFETY: FIXME(JakobDegen): This isn't quite right. We know that this is safe because we
+        // know that the underlying references point into frozen heaps kept alive by this module.
+        // However, it's also possible to get `'v`-lifetimed references into the non-frozen heap in
+        // the current module, in which case this is unsound. Ergonomic support for this pattern
+        // would require adopting an additional lifetime to represent the distinction.
+        let resolved_parts = unsafe {
+            std::mem::transmute::<
+                Vec<ResolvedStringWithMacrosPart<'v>>,
+                Vec<ResolvedStringWithMacrosPart<'static>>,
+            >(resolved_parts)
+        };
+
         Ok(ctx.heap().alloc(ResolvedStringWithMacros::new(
             resolved_parts,
             configured_macros,
@@ -107,15 +121,18 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
     }
 }
 
-fn resolve_configured_macro(
+fn resolve_configured_macro<'v>(
     configured_macro: &ConfiguredMacro,
-    ctx: &dyn AttrResolutionContext,
+    ctx: &dyn AttrResolutionContext<'v>,
     pkg: PackageLabel,
-) -> anyhow::Result<ResolvedMacro> {
+) -> buck2_error::Result<ResolvedMacro<'v>> {
     match configured_macro {
-        ConfiguredMacro::Location(target) => {
-            let providers_value = ctx.get_dep(target)?;
-            Ok(ResolvedMacro::Location(providers_value.default_info()?))
+        ConfiguredMacro::Location { label, .. } => {
+            // Don't need to consider exec_dep as it already was applied when configuring the label.
+            let providers_value = ctx.get_dep(label)?;
+            Ok(ResolvedMacro::Location(
+                providers_value.as_ref().default_info()?,
+            ))
         }
         ConfiguredMacro::Exe { label, .. } => {
             // Don't need to consider exec_dep as it already was applied when configuring the label.
@@ -185,8 +202,8 @@ fn resolve_configured_macro(
         ConfiguredMacro::UnrecognizedMacro(box UnrecognizedMacro {
             macro_type,
             args: _,
-        }) => Err(anyhow::anyhow!(
-            ResolveMacroError::UnrecognizedMacroUnimplemented((**macro_type).to_owned())
-        )),
+        }) => {
+            Err(ResolveMacroError::UnrecognizedMacroUnimplemented((**macro_type).to_owned()).into())
+        }
     }
 }

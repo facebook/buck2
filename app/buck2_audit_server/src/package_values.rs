@@ -34,12 +34,12 @@ impl ServerAuditSubcommand for PackageValuesCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_server_ctx: buck2_cli_proto::ClientContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if self.packages.is_empty() {
             console_message("No packages specified".to_owned());
         }
 
-        server_ctx
+        Ok(server_ctx
             .with_dice_ctx(|server_ctx, mut dice_ctx| async move {
                 let cell_alias_resolver = dice_ctx
                     .get_cell_alias_resolver_for_dir(server_ctx.working_dir())
@@ -56,7 +56,7 @@ impl ServerAuditSubcommand for PackageValuesCommand {
                                 .get()?
                                 .package_values(ctx, package.dupe())
                                 .await?;
-                            anyhow::Ok((package, package_values))
+                            buck2_error::Ok((package, package_values))
                         }
                         .boxed()
                     })
@@ -72,6 +72,6 @@ impl ServerAuditSubcommand for PackageValuesCommand {
                 writeln!(stdout)?;
                 Ok(())
             })
-            .await
+            .await?)
     }
 }

@@ -24,7 +24,7 @@ use crate::codemap::Span;
 
 static LINT_SUPPRESISON_PREFIX: &str = "starlark-lint-disable ";
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct SuppressionInfo {
     /// The original span of the comment token containing the suppression
     token_span: Span,
@@ -33,7 +33,7 @@ struct SuppressionInfo {
     /// Does the suppression cover the next line?
     suppress_next_line: bool,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct LintSuppressions {
     /// A map from lint short names to spans where they are suppressed
     suppressions: HashMap<String, Vec<SuppressionInfo>>,

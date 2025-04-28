@@ -32,7 +32,7 @@ def _test_func(value):
 
 def _assert_eq(expected, actual):
     if type(expected) == type(select({"DEFAULT": []})):
-        result = select_equal_internal(expected, actual)
+        result = __internal__.select_equal(expected, actual)
     else:
         result = expected == actual
 
@@ -130,5 +130,25 @@ def test():
     "#
             ))
             .is_err()
+    );
+}
+
+#[test]
+fn test_failing_nested_select() {
+    let mut tester = Tester::new().unwrap();
+    let test = indoc!(
+        r#"
+def _test_func(value):
+    return "TEST" in value
+
+def test():
+    expr_select = select_test(select(select({"config/windows:x86_64": "flag_TEST"})), _test_func)
+    "#
+    );
+    let err_msg = tester.run_starlark_test(test).unwrap_err().to_string();
+    assert!(
+        err_msg.contains("Expected type `dict[str, typing.Any]` but got `selector`"),
+        "Should have gotten: {}",
+        err_msg
     );
 }

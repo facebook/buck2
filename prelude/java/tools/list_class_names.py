@@ -7,7 +7,6 @@
 
 
 import argparse
-import os
 import pathlib
 import zipfile
 
@@ -86,7 +85,7 @@ def main():
 
     classes = _get_class_names(sources, jar)
     with open(output, "a") as output_file:
-        output_file.write(os.linesep.join(classes))
+        output_file.write("\n".join(classes))
 
 
 if __name__ == "__main__":

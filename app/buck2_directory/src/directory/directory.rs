@@ -47,10 +47,7 @@ pub trait Directory<L, H> {
         H: 'a,
         L: 'a,
     {
-        self.unordered_walk().filter_map(|entry| match entry {
-            DirectoryEntry::Leaf(leaf) => Some(leaf),
-            DirectoryEntry::Dir(_) => None,
-        })
+        self.unordered_walk().leaves()
     }
 
     fn ordered_walk<'a>(&'a self) -> OrderedDirectoryWalk<'a, Self::DirectoryRef<'a>>
@@ -66,10 +63,7 @@ pub trait Directory<L, H> {
         H: 'a,
         L: 'a,
     {
-        self.ordered_walk().filter_map(|entry| match entry {
-            DirectoryEntry::Leaf(leaf) => Some(leaf),
-            DirectoryEntry::Dir(_) => None,
-        })
+        self.ordered_walk().leaves()
     }
 
     fn to_builder(&self) -> DirectoryBuilder<L, H>

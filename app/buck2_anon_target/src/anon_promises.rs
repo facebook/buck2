@@ -10,6 +10,7 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
@@ -17,9 +18,9 @@ use dice::DiceComputations;
 use either::Either;
 use futures::FutureExt;
 use starlark::eval::Evaluator;
-use starlark::values::list::AllocList;
 use starlark::values::Trace;
 use starlark::values::ValueTyped;
+use starlark::values::list::AllocList;
 
 use crate::anon_targets::AnonTargetKey;
 
@@ -53,35 +54,35 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
         self: Box<Self>,
         dice: &mut DiceComputations,
         eval: &mut Evaluator<'v, '_, '_>,
-        description: String,
-    ) -> anyhow::Result<()> {
+        eval_kind: &StarlarkEvalKind,
+    ) -> buck2_error::Result<()> {
         // Resolve all the targets in parallel
         // We have vectors of vectors, so we create a "shape" which has the same shape but with indices
         let mut shape = Vec::new();
-        let mut targets = Vec::new();
+        let mut anon_target_keys = Vec::new();
         for (promise, xs) in self.entries {
             match xs {
                 Either::Left(x) => {
                     shape.push((promise, Either::Left(shape.len())));
-                    targets.push(x);
+                    anon_target_keys.push(x);
                 }
                 Either::Right(xs) => {
                     shape.push((promise, Either::Right(shape.len()..shape.len() + xs.len())));
-                    targets.extend(xs);
+                    anon_target_keys.extend(xs);
                 }
             }
         }
 
         let values = dice
-            .try_compute_join(targets.iter(), |ctx, target| {
-                async move { target.resolve(ctx).await }.boxed()
+            .try_compute_join(anon_target_keys.iter(), |dice, anon_target_key| {
+                async move { anon_target_key.resolve(dice).await }.boxed()
             })
             .await?;
 
-        with_starlark_eval_provider(
+        Ok(with_starlark_eval_provider(
             dice,
             &mut StarlarkProfilerOpt::disabled(),
-            description,
+            &eval_kind,
             |_provider, _| {
                 // But must bind the promises sequentially
                 for (promise, xs) in shape {
@@ -95,7 +96,7 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
                                 .map(|i| {
                                     Ok(values[i].providers()?.add_heap_ref(eval.frozen_heap()))
                                 })
-                                .collect::<anyhow::Result<_>>()?;
+                                .collect::<buck2_error::Result<_>>()?;
                             let list = eval.heap().alloc(AllocList(xs));
                             promise.resolve(list, eval)?
                         }
@@ -104,6 +105,6 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
                 Ok(())
             },
         )
-        .await
+        .await?)
     }
 }

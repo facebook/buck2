@@ -15,16 +15,16 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use rustc_hash::FxHashMap;
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
 use serde::de::Error as _;
 use serde::de::MapAccess;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
 
 use crate::json_project::Edition;
-use crate::path::canonicalize;
+use crate::path::canonicalize_to_vcs_path;
 
 #[derive(Serialize, Debug, Default, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub(crate) struct Target(String);
@@ -115,8 +115,7 @@ pub(crate) struct TargetInfo {
     #[serde(rename = "crate")]
     pub(crate) crate_name: Option<String>,
     pub(crate) crate_dynamic: Option<PathBuf>,
-    pub(crate) crate_root: Option<PathBuf>,
-    #[serde(rename = "buck.deps", alias = "buck.direct_dependencies", default)]
+    pub(crate) crate_root: PathBuf,
     pub(crate) deps: Vec<Target>,
     #[serde(rename = "tests")]
     pub(crate) test_deps: Vec<Target>,
@@ -132,7 +131,6 @@ pub(crate) struct TargetInfo {
     pub(crate) source_folder: PathBuf,
     pub(crate) project_relative_buildfile: PathBuf,
     pub(crate) in_workspace: bool,
-    pub(crate) out_dir: Option<PathBuf>,
     pub(crate) rustc_flags: Vec<String>,
 }
 
@@ -159,60 +157,9 @@ impl TargetInfo {
         name.to_owned()
     }
 
-    pub(crate) fn root_module(&self) -> PathBuf {
-        if let Some(crate_root) = &self.crate_root {
-            // If provided with a crate_root directly, and it's valid, use it.
-            if let Ok(path) = canonicalize(self.source_folder.join(crate_root)) {
-                return path;
-            }
-        }
-
-        // Matches buck crate_root fetching logic
-        let root_candidates =
-            // Use buck rust build.bxl fallback logic
-            vec![
-                PathBuf::from("lib.rs"),
-                PathBuf::from("main.rs"),
-                PathBuf::from(&self.name.replace('-', "_")),
-            ];
-
-        tracing::trace!(
-            ?self,
-            ?root_candidates,
-            "trying to discover a good root module"
-        );
-        // for all normal sources, we need to reference the file on the fbcode tree so navigation works
-        match self.srcs.iter().find(|src| {
-            root_candidates
-                .iter()
-                .any(|candidate| src.ends_with(candidate))
-        }) {
-            // If a real source is provided, returns it's absolute path.
-            // This will not work with crate using more than one target as a direct src.
-            // Fortunately this is not used at the moment. Likely to be fixed in BXL instead
-            Some(path) => return path.to_path_buf(),
-            None => tracing::debug!(?self, "unable to find root for crate"),
-        };
-
-        for (dest, _) in self.mapped_srcs.iter() {
-            if root_candidates.iter().any(|c| dest.ends_with(c)) {
-                // Returns the files as seen in the materialized source
-                return self.source_folder.join(dest);
-            }
-        }
-
-        if let Some(fallback_path) = self.srcs.first().cloned().or_else(|| {
-            self.mapped_srcs
-                .keys()
-                .next()
-                .map(|mapped_path| self.source_folder.join(mapped_path))
-        }) {
-            return fallback_path;
-        }
-
-        tracing::error!(?self, "no crate root can be found");
-
-        panic!("Invariant broken: rust-project is unable to determine a root module")
+    pub(crate) fn root_module(&self, project_root: &Path) -> PathBuf {
+        let p = self.source_folder.join(&self.crate_root);
+        canonicalize_to_vcs_path(&p, project_root)
     }
 
     pub(crate) fn overridden_dep_names(&self) -> FxHashMap<Target, String> {
@@ -234,20 +181,9 @@ impl TargetInfo {
             .iter()
             .filter_map(|flag| flag.strip_prefix("--cfg=").map(str::to_string));
 
-        let mut cfg = feature_cfgs
+        feature_cfgs
             .chain(rustc_flags_cfgs)
-            .collect::<Vec<String>>();
-
-        // Include "test" cfg so rust-analyzer picks up #[cfg(test)] code.
-        cfg.push("test".to_owned());
-
-        #[cfg(fbcode_build)]
-        {
-            // FIXME(JakobDegen): This should be set via a configuration mechanism of some kind.
-            cfg.push("fbcode_build".to_owned());
-        }
-
-        cfg
+            .collect::<Vec<String>>()
     }
 }
 
@@ -315,7 +251,7 @@ fn test_cfg() {
         mapped_srcs: FxHashMap::default(),
         crate_name: None,
         crate_dynamic: None,
-        crate_root: None,
+        crate_root: PathBuf::default(),
         deps: vec![],
         test_deps: vec![],
         named_deps: FxHashMap::default(),
@@ -325,24 +261,11 @@ fn test_cfg() {
         source_folder: PathBuf::from("/tmp"),
         project_relative_buildfile: PathBuf::from("bar/BUCK"),
         in_workspace: false,
-        out_dir: None,
         rustc_flags: vec!["--cfg=foo_cfg".to_owned(), "--other".to_owned()],
     };
 
-    let expected = if cfg!(fbcode_build) {
-        vec![
-            "feature=\"foo_feature\"".to_owned(),
-            "foo_cfg".to_owned(),
-            "test".to_owned(),
-            "fbcode_build".to_owned(),
-        ]
-    } else {
-        vec![
-            "feature=\"foo_feature\"".to_owned(),
-            "foo_cfg".to_owned(),
-            "test".to_owned(),
-        ]
-    };
-
-    assert_eq!(info.cfg(), expected);
+    assert_eq!(
+        info.cfg(),
+        vec!["feature=\"foo_feature\"".to_owned(), "foo_cfg".to_owned()]
+    );
 }

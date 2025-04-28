@@ -9,6 +9,8 @@
 
 use starlark::environment::GlobalsBuilder;
 
+use crate::super_package::modifiers::register_get_parent_package_cfg_modifiers;
+use crate::super_package::modifiers::register_set_package_cfg_modifiers;
 use crate::super_package::package::register_package_function;
 use crate::super_package::package_value::register_write_package_value;
 
@@ -16,4 +18,6 @@ use crate::super_package::package_value::register_write_package_value;
 pub(crate) fn register_package_natives(globals: &mut GlobalsBuilder) {
     register_package_function(globals);
     register_write_package_value(globals);
+    register_set_package_cfg_modifiers(globals);
+    register_get_parent_package_cfg_modifiers(globals);
 }

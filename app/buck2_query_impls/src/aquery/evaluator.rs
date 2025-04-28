@@ -12,8 +12,8 @@ use std::sync::Arc;
 
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_common::events::HasEvents;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
@@ -35,7 +35,7 @@ impl AqueryEvaluator<'_, '_> {
         &self,
         query: &str,
         query_args: &[String],
-    ) -> anyhow::Result<QueryEvaluationResult<ActionQueryNode>> {
+    ) -> buck2_error::Result<QueryEvaluationResult<ActionQueryNode>> {
         let functions = aquery_functions();
 
         eval_query(
@@ -70,7 +70,7 @@ pub(crate) async fn get_aquery_evaluator<'a, 'c: 'a, 'd>(
     ctx: &'c LinearRecomputeDiceComputations<'d>,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,
-) -> anyhow::Result<AqueryEvaluator<'c, 'd>> {
+) -> buck2_error::Result<AqueryEvaluator<'c, 'd>> {
     let dice_query_delegate =
         get_dice_aquery_delegate(ctx, working_dir, global_cfg_options).await?;
     Ok(AqueryEvaluator {
@@ -83,7 +83,7 @@ pub(crate) async fn get_dice_aquery_delegate<'a, 'c: 'a, 'd>(
     ctx: &'c LinearRecomputeDiceComputations<'d>,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,
-) -> anyhow::Result<Arc<DiceAqueryDelegate<'c, 'd>>> {
+) -> buck2_error::Result<Arc<DiceAqueryDelegate<'c, 'd>>> {
     let dice_query_delegate = get_dice_query_delegate(ctx, working_dir, global_cfg_options).await?;
     let dice_query_delegate = Arc::new(DiceAqueryDelegate::new(dice_query_delegate).await?);
     Ok(dice_query_delegate)

@@ -1,0 +1,16 @@
+load(":defs.bzl", "fail_test", "noop", "noop_self_transition", "ok_test", "platform")
+
+platform(name = "platform")
+
+ok_test(name = "ok")
+fail_test(name = "fail")
+
+noop(name = "noop_references_fail", tests = [":fail"])
+noop(name = "noop_transitively_references_fail", tests = [":noop_references_fail"])
+noop_self_transition(
+    name = "noop_self_transition_references_fail",
+    tests = [":fail"],
+    default_target_platform = ":platform",
+)
+noop(name = "noop_cycle1", tests = [":noop_cycle2"])
+noop(name = "noop_cycle2", tests = [":noop_cycle1"])

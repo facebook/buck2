@@ -1,0 +1,6 @@
+[cells]
+  root = .
+  cell1 = cell1
+
+[foo]
+  bar = 0

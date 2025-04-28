@@ -22,7 +22,6 @@
 use std::collections::HashMap;
 
 use dupe::OptionDupedExt;
-use starlark_syntax::syntax::ast::AstArgumentP;
 use starlark_syntax::syntax::ast::AstAssignIdentP;
 use starlark_syntax::syntax::ast::AstAssignTargetP;
 use starlark_syntax::syntax::ast::AstExprP;
@@ -41,9 +40,9 @@ use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ModuleScopeData;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::ScopeId;
+use crate::typing::Ty;
 use crate::typing::error::InternalError;
 use crate::typing::interface::Interface;
-use crate::typing::Ty;
 
 /// Compiler-specific AST payload.
 #[derive(Debug, Clone)]
@@ -148,6 +147,5 @@ pub(crate) type CstTypeExpr = AstTypeExprP<CstPayload>;
 pub(crate) type CstAssignTarget = AstAssignTargetP<CstPayload>;
 pub(crate) type CstAssignIdent = AstAssignIdentP<CstPayload>;
 pub(crate) type CstIdent = AstIdentP<CstPayload>;
-pub(crate) type CstArgument = AstArgumentP<CstPayload>;
 pub(crate) type CstParameter = AstParameterP<CstPayload>;
 pub(crate) type CstStmt = AstStmtP<CstPayload>;

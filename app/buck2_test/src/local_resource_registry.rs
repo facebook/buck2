@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -15,57 +17,48 @@ use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ReleaseLocalResourcesEnd;
 use buck2_data::ReleaseLocalResourcesStart;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async_simple;
-use dashmap::DashMap;
-use futures::future::BoxFuture;
-use futures::future::Shared;
+use dice::DiceComputations;
+use dice::UserComputationData;
+use dupe::Dupe;
+use tokio::sync::Mutex;
 
-pub struct LocalResourceRegistry<'a>(
-    pub  DashMap<
-        ConfiguredTargetLabel,
-        Shared<BoxFuture<'a, buck2_error::Result<LocalResourceState>>>,
-    >,
+#[derive(Default)]
+pub struct LocalResourceRegistry(
+    pub Arc<Mutex<HashMap<ConfiguredTargetLabel, buck2_error::Result<LocalResourceState>>>>,
 );
 
-impl<'a> LocalResourceRegistry<'a> {
-    pub(crate) fn new() -> Self {
-        LocalResourceRegistry(DashMap::new())
-    }
-
+impl LocalResourceRegistry {
     pub(crate) async fn release_all_resources(&self) -> anyhow::Result<()> {
-        // We setup resources prior to running tests so at this point everything should be set up, so just resolve all futures.
-        let resource_futs = self
-            .0
-            .iter()
-            .map(|entry| entry.value().clone())
-            .collect::<Vec<_>>();
+        let resources = {
+            let mut lock = self.0.lock().await;
+            lock.drain().flat_map(|(_, v)| v).collect::<Vec<_>>()
+        };
 
-        if resource_futs.is_empty() {
+        if resources.is_empty() {
             return Ok(());
         }
 
         let cleanup = || async move {
-            let futs = futures::future::join_all(resource_futs)
-                .await
+            let resource_futs = resources
                 .into_iter()
-                // Failed setup most likely means the test failed and problem will be reported in the test status.
-                .flat_map(|r| r.into_iter())
                 .filter(|s| s.owning_pid().is_some())
                 .map(|s| async move {
                     let pid = s.owning_pid().unwrap();
                     try_terminate_process_gracefully(pid, Duration::from_secs(20))
                         .await
-                        .context(format!(
+                        .buck_error_context_anyhow(format!(
                             "Failed to kill a process with `{}` PID to release local resource `{}`",
                             pid,
                             s.source_target()
                         ))
                 });
 
-            futures::future::join_all(futs)
+            futures::future::join_all(resource_futs)
                 .await
                 .into_iter()
-                .collect::<Result<_, _>>()?;
+                .collect::<Result<(), _>>()?;
 
             Ok::<(), anyhow::Error>(())
         };
@@ -76,5 +69,31 @@ impl<'a> LocalResourceRegistry<'a> {
         span_async_simple(start, cleanup(), end).await?;
 
         Ok::<(), anyhow::Error>(())
+    }
+}
+
+pub trait InitLocalResourceRegistry {
+    fn init_local_resource_registry(&mut self);
+}
+
+pub trait HasLocalResourceRegistry {
+    fn get_local_resource_registry(&self) -> anyhow::Result<Arc<LocalResourceRegistry>>;
+}
+
+impl InitLocalResourceRegistry for UserComputationData {
+    fn init_local_resource_registry(&mut self) {
+        self.data.set(Arc::new(LocalResourceRegistry::default()));
+    }
+}
+
+impl HasLocalResourceRegistry for DiceComputations<'_> {
+    fn get_local_resource_registry(&self) -> anyhow::Result<Arc<LocalResourceRegistry>> {
+        let data = self
+            .per_transaction_data()
+            .data
+            .get::<Arc<LocalResourceRegistry>>()
+            .context("LocalResourceRegistry should be set")?;
+
+        Ok(data.dupe())
     }
 }

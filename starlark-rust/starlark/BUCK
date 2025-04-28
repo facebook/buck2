@@ -1,6 +1,5 @@
 load("@fbcode_macros//build_defs:native_rules.bzl", "alias", "buck_filegroup")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
 
@@ -12,7 +11,7 @@ alias(
 buck_filegroup(
     name = "testcases",
     srcs = glob([
-        "src/**/golden/*",
+        "src/**/golden/**",
         "src/**/*.golden",
         "testcases/**",
     ]),

@@ -1,0 +1,37 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _impl(ctx):
+    print("ran me")  # buildifier: disable=print
+
+    ctx.output.print("result print")
+
+print_caching = bxl_main(
+    impl = _impl,
+    cli_args = {
+    },
+)
+
+def _print_error_caching_impl(ctx):
+    print("ran me")  # buildifier: disable=print
+    ctx.configured_targets("//:incompatible")
+
+print_error_caching = bxl_main(
+    impl = _print_error_caching_impl,
+    cli_args = {},
+)
+
+def _impl_caching_with_target_platforms(ctx):
+    print("ran me")  # buildifier: disable=print
+
+    ctx.output.print(ctx.configured_targets("root//:the_binary"))
+
+caching_with_target_platforms = bxl_main(
+    impl = _impl_caching_with_target_platforms,
+    cli_args = {
+    },
+)

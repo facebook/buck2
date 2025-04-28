@@ -1,0 +1,13 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+Checking each target against execution platforms defined by root//execution_platforms:execution_platforms
+root//:target (root//:p#<HASH>):
+  Execution platform: root//execution_platforms:minix
+    Execution platform configuration: root//execution_platforms:minix#<HASH>
+    Execution deps:
+    Toolchain deps:
+    Configuration deps:
+    Skipped root//execution_platforms:haiku
+      exec_compatible_with requires `root//config:minix` but it was not satisfied
+    Skipped root//execution_platforms:hurd
+      exec_compatible_with requires `root//config:minix` but it was not satisfied

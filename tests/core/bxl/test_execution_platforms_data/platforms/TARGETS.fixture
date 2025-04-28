@@ -1,0 +1,22 @@
+load("//:rules.bzl", "config_setting", "platform", "platforms", "target_platform")
+
+config_setting(name = "remote_setting")
+
+config_setting(name = "local_setting")
+
+target_platform(name = "target")
+
+platform(
+    name = "local_only",
+    setting = ":local_setting",
+)
+
+platform(
+    name = "remote_only",
+    setting = ":remote_setting",
+)
+
+platforms(
+    name = "platforms",
+    platforms = [":local_only", ":remote_only"],
+)

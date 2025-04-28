@@ -9,16 +9,20 @@
 
 //! Processing and reporting the the results of the build
 
-use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::io::BufWriter;
 use std::sync::Arc;
 
-use anyhow::Context as _;
+use buck2_artifact::artifact::artifact_dump::ArtifactInfo;
+use buck2_artifact::artifact::artifact_dump::DirectoryInfo;
+use buck2_artifact::artifact::artifact_dump::ExternalSymlinkInfo;
+use buck2_artifact::artifact::artifact_dump::FileInfo;
+use buck2_artifact::artifact::artifact_dump::SymlinkInfo;
 use buck2_cli_proto::CommonBuildOptions;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
@@ -36,9 +40,14 @@ use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_data::ErrorReport;
+use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_error::BuckErrorContext;
 use buck2_error::UniqueRootId;
-use buck2_events::errors::create_error_report;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+use buck2_execute::directory::ActionDirectoryEntry;
+use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::ActionSharedDirectory;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derivative::Derivative;
 use dice::DiceComputations;
@@ -49,9 +58,9 @@ use itertools::Itertools;
 use serde::Serialize;
 use starlark_map::small_set::SmallSet;
 
-use crate::build::action_error::BuildReportActionError;
 use crate::build::BuildProviderType;
 use crate::build::ConfiguredBuildTargetResult;
+use crate::build::action_error::BuildReportActionError;
 
 #[derive(Debug, Serialize)]
 #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
@@ -108,8 +117,14 @@ struct MaybeConfiguredBuildReportEntry {
 pub(crate) struct ConfiguredBuildReportEntry {
     /// A list of errors that occurred while building this target
     errors: Vec<BuildReportError>,
+    /// Remote artifact information, including hashes, etc.
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    artifact_info: HashMap<Arc<str>, ArtifactInfo>,
     #[serde(flatten)]
     inner: MaybeConfiguredBuildReportEntry,
+    /// The serialized graph sketch for this target, if it was produced.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    configured_graph_sketch: Option<String>,
 }
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
@@ -142,6 +157,7 @@ struct BuildReportEntry {
 struct BuildReportError {
     message_content: String,
     action_error: Option<BuildReportActionError>,
+    error_tags: Vec<String>,
     /// An opaque index that can be use to de-duplicate errors. Two errors with the same
     /// cause index have the same cause
     ///
@@ -160,9 +176,9 @@ enum EntryLabel {
 
 pub struct BuildReportOpts {
     pub print_unconfigured_section: bool,
-    pub unstable_include_other_outputs: bool,
     pub unstable_include_failures_build_report: bool,
     pub unstable_include_package_project_relative_paths: bool,
+    pub unstable_include_artifact_hash_information: bool,
     pub unstable_build_report_filename: String,
 }
 
@@ -171,13 +187,13 @@ pub struct BuildReportCollector<'a> {
     cell_resolver: &'a CellResolver,
     overall_success: bool,
     include_unconfigured_section: bool,
-    include_other_outputs: bool,
     error_cause_cache: HashMap<buck2_error::UniqueRootId, usize>,
     next_cause_index: usize,
     strings: BTreeMap<String, String>,
     failures: HashMap<EntryLabel, String>,
     include_failures: bool,
     include_package_project_relative_paths: bool,
+    include_artifact_hash_information: bool,
 }
 
 impl<'a> BuildReportCollector<'a> {
@@ -187,9 +203,9 @@ impl<'a> BuildReportCollector<'a> {
         cell_resolver: &'a CellResolver,
         project_root: &ProjectRoot,
         include_unconfigured_section: bool,
-        include_other_outputs: bool,
         include_failures: bool,
         include_package_project_relative_paths: bool,
+        include_artifact_hash_information: bool,
         configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
         other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     ) -> BuildReport {
@@ -198,13 +214,13 @@ impl<'a> BuildReportCollector<'a> {
             cell_resolver,
             overall_success: true,
             include_unconfigured_section,
-            include_other_outputs,
             error_cause_cache: HashMap::default(),
             next_cause_index: 0,
             strings: BTreeMap::default(),
             failures: HashMap::default(),
             include_failures,
             include_package_project_relative_paths,
+            include_artifact_hash_information,
         };
         let mut entries = HashMap::new();
 
@@ -218,7 +234,7 @@ impl<'a> BuildReportCollector<'a> {
         // to do a little iterator munging to achieve that ourselves
         let results_by_unconfigured = configured
             .iter()
-            .group_by(|x| x.0.target().unconfigured().dupe());
+            .chunk_by(|x| x.0.target().unconfigured().dupe());
         let errors_by_unconfigured = other_errors
             .iter()
             .filter_map(|(l, e)| Some((l.as_ref()?.target().dupe(), e)));
@@ -294,7 +310,7 @@ impl<'a> BuildReportCollector<'a> {
             .into_iter()
             // We omit skipped targets here.
             .filter_map(|(label, result)| Some((label, result.as_ref()?)))
-            .group_by(|x| x.0.target().dupe())
+            .chunk_by(|x| x.0.target().dupe())
         {
             let configured_report = self.collect_results_for_configured(target.dupe(), results);
             if let Some(report) = unconfigured_report.as_mut() {
@@ -356,60 +372,41 @@ impl<'a> BuildReportCollector<'a> {
         for (label, result) in results {
             let provider_name: Arc<str> = report_providers_name(label).into();
 
-            result.outputs.iter().for_each(|res| {
-                match res {
-                    Ok(artifacts) => {
-                        let mut is_default = false;
-                        let mut is_other = false;
-
-                        match artifacts.provider_type {
-                            BuildProviderType::Default => {
-                                // as long as we have requested it as a default info, it should  be
-                                // considered a default output whether or not it also appears as an other
-                                // non-main output
-                                is_default = true;
+            result.outputs.iter().for_each(|res| match res {
+                Ok(artifacts) => {
+                    if artifacts.provider_type == BuildProviderType::Default {
+                        for (artifact, value) in artifacts.values.iter() {
+                            if self.include_artifact_hash_information {
+                                update_artifact_info(
+                                    &mut configured_report.artifact_info,
+                                    provider_name.dupe(),
+                                    &value.entry(),
+                                );
                             }
-                            BuildProviderType::DefaultOther
-                            | BuildProviderType::Run
-                            | BuildProviderType::Test => {
-                                // as long as the output isn't the default, we add it to other outputs.
-                                // This means that the same artifact may appear twice if its part of the
-                                // default AND the other outputs, but this is intended as it accurately
-                                // describes the type of the artifact
-                                is_other = true;
-                            }
-                        }
-
-                        for (artifact, _value) in artifacts.values.iter() {
-                            if is_default {
-                                configured_report
-                                    .inner
-                                    .outputs
-                                    .entry(provider_name.clone())
-                                    .or_default()
-                                    .insert(artifact.resolve_path(self.artifact_fs).unwrap());
-                            }
-
-                            if is_other && self.include_other_outputs {
-                                configured_report
-                                    .inner
-                                    .other_outputs
-                                    .entry(provider_name.clone())
-                                    .or_default()
-                                    .insert(artifact.resolve_path(self.artifact_fs).unwrap());
-                            }
+                            configured_report
+                                .inner
+                                .outputs
+                                .entry(provider_name.dupe())
+                                .or_default()
+                                .insert(artifact.resolve_path(self.artifact_fs).unwrap());
                         }
                     }
-                    Err(e) => errors.push(e.dupe()),
                 }
+                Err(e) => errors.push(e.dupe()),
             });
 
             errors.extend(result.errors.iter().cloned());
 
-            if let Some(Ok(MaybeCompatible::Compatible(configured_graph_size))) =
-                result.configured_graph_size
+            if let Some(Ok(MaybeCompatible::Compatible(ref graph_properties))) =
+                &result.graph_properties
             {
-                configured_report.inner.configured_graph_size = Some(configured_graph_size);
+                configured_report.inner.configured_graph_size =
+                    graph_properties.configured_graph_size;
+
+                configured_report.configured_graph_sketch = graph_properties
+                    .configured_graph_sketch
+                    .as_ref()
+                    .map(|s| s.serialize());
             }
         }
         configured_report.errors = self.convert_error_list(&errors, target);
@@ -436,6 +433,7 @@ impl<'a> BuildReportCollector<'a> {
             root: UniqueRootId,
             cause_index: Option<usize>,
             message: String,
+            error_tags: Vec<String>,
             action_error: Option<BuildReportActionError>,
         }
 
@@ -444,16 +442,23 @@ impl<'a> BuildReportCollector<'a> {
             // we initially avoid assigning new cause indexes and instead use a sentinal value.
             // This is to make sure that we can be deterministic
             let root = e.root_id();
-            let error_report = create_error_report(e);
+            let error_report: ErrorReport = e.into();
             let message = if let Some(telemetry_message) = error_report.telemetry_message {
                 telemetry_message
             } else {
                 error_report.message
             };
+            let error_tags = e
+                .tags()
+                .into_iter()
+                .map(|tag| tag.as_str_name().to_owned())
+                .collect_vec();
+
             temp.push(ExpandedErrorInfo {
                 root,
                 cause_index: self.error_cause_cache.get(&root).copied(),
                 message,
+                error_tags,
                 action_error: e
                     .action_error()
                     .map(|e| BuildReportActionError::new(e, self)),
@@ -503,6 +508,7 @@ impl<'a> BuildReportCollector<'a> {
             out.push(BuildReportError {
                 message_content,
                 action_error: info.action_error,
+                error_tags: info.error_tags,
                 cause_index,
             });
         }
@@ -526,6 +532,54 @@ impl<'a> BuildReportCollector<'a> {
     }
 }
 
+fn update_artifact_info(
+    artifact_info: &mut HashMap<Arc<str>, ArtifactInfo>,
+    provider_name: Arc<str>,
+    entry: &ActionDirectoryEntry<ActionSharedDirectory>,
+) {
+    match entry {
+        DirectoryEntry::Dir(dir) => {
+            artifact_info.insert(
+                provider_name,
+                ArtifactInfo::Directory(DirectoryInfo {
+                    digest: dir.fingerprint().clone(),
+                }),
+            );
+        }
+        DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)) => {
+            let cas_digest = metadata.digest.data();
+            artifact_info.insert(
+                provider_name,
+                ArtifactInfo::File(FileInfo {
+                    digest: *cas_digest,
+                    is_exec: metadata.is_executable,
+                }),
+            );
+        }
+        DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink_target)) => {
+            artifact_info.insert(
+                provider_name,
+                ArtifactInfo::Symlink(SymlinkInfo {
+                    symlink_rel_path: symlink_target.target().into(),
+                }),
+            );
+        }
+        DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => {
+            artifact_info.insert(
+                provider_name,
+                ArtifactInfo::ExternalSymlink(ExternalSymlinkInfo {
+                    target: external_symlink.target().into(),
+                    remaining_path: if external_symlink.remaining_path().is_empty() {
+                        None
+                    } else {
+                        Some(external_symlink.remaining_path().to_owned())
+                    },
+                }),
+            );
+        }
+    }
+}
+
 fn report_providers_name(label: &ConfiguredProvidersLabel) -> String {
     match label.name() {
         ProvidersName::Default => "DEFAULT".to_owned(),
@@ -542,7 +596,7 @@ pub async fn build_report_opts<'a>(
     ctx: &mut DiceComputations<'a>,
     cell_resolver: &CellResolver,
     build_opts: &CommonBuildOptions,
-) -> anyhow::Result<BuildReportOpts> {
+) -> buck2_error::Result<BuildReportOpts> {
     let esto = &build_opts.unstable_build_report_filename;
     let build_report_opts = BuildReportOpts {
         print_unconfigured_section: ctx
@@ -555,19 +609,11 @@ pub async fn build_report_opts<'a>(
             )
             .await?
             .unwrap_or(true),
-        unstable_include_other_outputs: ctx
-            .parse_legacy_config_property(
-                cell_resolver.root_cell(),
-                BuckconfigKeyRef {
-                    section: "build_report",
-                    property: "unstable_include_other_outputs",
-                },
-            )
-            .await?
-            .unwrap_or(false),
         unstable_include_failures_build_report: build_opts.unstable_include_failures_build_report,
         unstable_include_package_project_relative_paths: build_opts
             .unstable_include_package_project_relative_paths,
+        unstable_include_artifact_hash_information: build_opts
+            .unstable_include_artifact_hash_information,
         unstable_build_report_filename: esto.clone(),
     };
 
@@ -590,9 +636,9 @@ pub fn generate_build_report(
         cell_resolver,
         project_root,
         opts.print_unconfigured_section,
-        opts.unstable_include_other_outputs,
         opts.unstable_include_failures_build_report,
         opts.unstable_include_package_project_relative_paths,
+        opts.unstable_include_artifact_hash_information,
         configured,
         other_errors,
     );
@@ -600,13 +646,15 @@ pub fn generate_build_report(
     let mut serialized_build_report = None;
 
     if !opts.unstable_build_report_filename.is_empty() {
-        let file = fs_util::create_file(
-            project_root
-                .resolve(cwd)
-                .as_abs_path()
-                .join(opts.unstable_build_report_filename),
-        )
-        .context("Error writing build report")?;
+        let path = project_root
+            .resolve(cwd)
+            .as_abs_path()
+            .join(opts.unstable_build_report_filename);
+        if let Some(parent) = path.parent() {
+            fs_util::create_dir_all(parent)?;
+        }
+        let file =
+            fs_util::create_file(path.clone()).buck_error_context("Error writing build report")?;
         let mut file = BufWriter::new(file);
         serde_json::to_writer_pretty(&mut file, &build_report)?
     } else {

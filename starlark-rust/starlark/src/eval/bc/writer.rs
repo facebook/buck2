@@ -40,6 +40,7 @@ use crate::eval::bc::instr_impl::InstrMov;
 use crate::eval::bc::instr_impl::InstrStoreLocalCaptured;
 use crate::eval::bc::instrs::BcInstrsWriter;
 use crate::eval::bc::instrs::PatchAddr;
+use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::bc::repr::BC_INSTR_ALIGN;
 use crate::eval::bc::slow_arg::BcInstrSlowArg;
 use crate::eval::bc::stack_ptr::BcSlot;
@@ -73,6 +74,8 @@ pub(crate) struct BcStatementLocations {
 }
 
 impl BcStatementLocations {
+    const CONTINUED_BIT: u32 = 1 << 31;
+
     pub(crate) fn new() -> Self {
         Self {
             locs: Vec::new(),
@@ -89,6 +92,7 @@ impl BcStatementLocations {
     fn push(&mut self, addr: BcAddr, span: BcStmtLoc) {
         let idx = Self::idx_for(addr);
         let stmt_idx = self.locs.len().try_into().unwrap();
+        debug_assert_eq!(0, stmt_idx & Self::CONTINUED_BIT);
         self.locs.push(span);
         while self.stmts.len() <= idx {
             self.stmts.push(u32::MAX);
@@ -97,10 +101,39 @@ impl BcStatementLocations {
         self.stmts[idx] = stmt_idx;
     }
 
-    pub(crate) fn stmt_at(&self, offset: BcAddr) -> Option<&BcStmtLoc> {
+    fn last_stmt_idx(&self) -> Option<u32> {
+        for stmt_idx in (&self.stmts).iter().rev() {
+            if *stmt_idx != u32::MAX {
+                return Some(*stmt_idx & !Self::CONTINUED_BIT);
+            }
+        }
+        None
+    }
+
+    fn push_prev(&mut self, addr: BcAddr) {
+        if let Some(stmt_idx) = self.last_stmt_idx() {
+            let idx = Self::idx_for(addr);
+            while self.stmts.len() <= idx {
+                self.stmts.push(u32::MAX);
+            }
+            // If the preceding statement ended in a call opcode, and the
+            // current opcode is the start of a new statement, it may already be
+            // marked. If so, preserve that, rather than marking it as a part of
+            // the previous statement (which it is not).
+            if self.stmts[idx] == u32::MAX {
+                self.stmts[idx] = stmt_idx | Self::CONTINUED_BIT;
+            }
+        }
+    }
+
+    pub(crate) fn stmt_at(&self, offset: BcAddr) -> Option<(&BcStmtLoc, bool)> {
         match self.stmts.get(Self::idx_for(offset)) {
             None | Some(&u32::MAX) => None,
-            Some(v) => Some(&self.locs[*v as usize]),
+            Some(v) => {
+                let continued = 0 != (v & Self::CONTINUED_BIT);
+                let idx = v & !Self::CONTINUED_BIT;
+                Some((&self.locs[idx as usize], continued))
+            }
         }
     }
 }
@@ -123,8 +156,10 @@ pub(crate) struct BcWriter<'f> {
     instrs: BcInstrsWriter,
     /// Instruction spans, used for errors.
     slow_args: Vec<(BcAddr, BcInstrSlowArg)>,
-    /// For each statement, will store the span and the BcAddr for the first instruction.
+    /// For each statement, will store the span for the first instruction and any instruction after a call.
     stmt_locs: BcStatementLocations,
+    /// The last-written opcode
+    last_opcode: BcOpcode,
     /// Current stack size.
     stack_size: u32,
     /// Local slot count.
@@ -159,6 +194,7 @@ impl<'f> BcWriter<'f> {
             instrs: BcInstrsWriter::new(),
             slow_args: Vec::new(),
             stmt_locs: BcStatementLocations::new(),
+            last_opcode: BcOpcode::End,
             stack_size: 0,
             local_names,
             definitely_assigned,
@@ -176,6 +212,7 @@ impl<'f> BcWriter<'f> {
             instrs,
             slow_args: spans,
             stmt_locs,
+            last_opcode: _,
             stack_size,
             local_names,
             definitely_assigned,
@@ -219,6 +256,15 @@ impl<'f> BcWriter<'f> {
         slow_arg: BcInstrSlowArg,
         arg: I::Arg,
     ) -> (BcAddr, *const I::Arg) {
+        // If the previously written instruction was a form of a call
+        // instruction, instrument this instruction with the current statement
+        // span so that the time this and following instructions take can be
+        // attributed to the correct statement.
+        if self.last_opcode.is_call() {
+            self.stmt_locs.push_prev(self.ip());
+        }
+        self.last_opcode = BcOpcode::for_instr::<I>();
+
         self.slow_args.push((self.ip(), slow_arg));
         self.instrs.write::<I>(arg)
     }

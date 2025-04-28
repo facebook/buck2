@@ -7,12 +7,20 @@
  * of this source tree.
  */
 
+use std::fmt;
+
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
 
 #[allow(unused)]
-#[derive(Eq, PartialEq, Copy, Clone, Display, Debug, Hash, Allocative)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug, Hash, Allocative)]
 pub struct NoHash(!);
+
+impl Display for NoHash {
+    fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0
+    }
+}
 
 impl Dupe for NoHash {}

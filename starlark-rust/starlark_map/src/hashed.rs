@@ -24,6 +24,7 @@ use std::ops::Deref;
 use allocative::Allocative;
 use dupe::Dupe;
 use equivalent::Equivalent;
+use strong_hash::StrongHash;
 
 use crate::hash_value::StarlarkHashValue;
 
@@ -40,6 +41,13 @@ impl<K> Hash for Hashed<K> {
     fn hash<S: Hasher>(&self, state: &mut S) {
         // Only hash the hash, not the key.
         self.hash.hash(state)
+    }
+}
+
+impl<K: StrongHash> StrongHash for Hashed<K> {
+    fn strong_hash<S: Hasher>(&self, state: &mut S) {
+        // Only hash the key, not the (weak) hash.
+        self.key.strong_hash(state);
     }
 }
 

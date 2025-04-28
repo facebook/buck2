@@ -1,0 +1,7 @@
+stub(name = "ddd")
+
+stub(name = "test", deps = [":ddd"])
+
+stub(name = "xxx")
+stub(name = "yyy")
+stub(name = "zzz")

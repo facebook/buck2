@@ -1,0 +1,216 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("utils.bxl", "log_debug")
+
+def get_attrs(target: bxl.ConfiguredTargetNode, bxl_ctx) -> dict:
+    """
+    Parse the target's resolved_attrs and return the needed entries in form of a dictionary
+
+    This should be the only api to get anything from target's attrs
+    (With one exception of querying dependencies in get_vs_settings)
+    The rest of the functions in this file are all intended to be private helper functions
+    """
+
+    log_debug("# Getting attributes for {}", target.label.raw_target(), bxl_ctx = bxl_ctx)
+
+    # TODO: Compare between resolved_attrs_lazy and resolved_attrs_eager after everything is done
+    attrs = target.resolved_attrs_lazy(bxl_ctx)
+    output = {}
+    output["buck_type"] = _get_buck_type(attrs)
+    output["srcs"] = _get_srcs(attrs)
+    output["headers"] = _get_headers(attrs)
+    output["exported_headers"] = _get_exported_headers(attrs)
+    output["header_namespace"] = _get_header_namespace(attrs)
+    output["raw_headers"] = _get_raw_headers(attrs)
+    output["compiler_flags"] = _get_compiler_flags(attrs)
+    output["linker_flags"] = _get_linker_flags(attrs)
+    output["exported_linker_flags"] = _get_exported_linker_flags(attrs)
+    output["preprocessor_flags"] = _get_preprocessor_flags(attrs)
+    output["exported_preprocessor_flags"] = _get_exported_preprocessor_flags(attrs)
+    output["include_directories"] = _get_include_directories(attrs)
+    output["public_include_directories"] = _get_public_include_directories(attrs)
+    output["public_system_include_directories"] = _get_public_system_include_directories(attrs)
+
+    output["args"] = _get_args(attrs)
+    output["env"] = _get_env(attrs)
+    output["exe"] = _get_exe(attrs)
+    return output
+
+def get_unified_value(attrs, common_key: str, platform_key: str, toolchain = "windows", take_values = False) -> list:
+    """
+    Return unified list of common and platform value for given keys.
+    If the attr resolve to a dictionary, the keys are taken, except if take_values is set to True, in which case
+    values are taken.
+    """
+    all_flags = []
+
+    if attrs.get(common_key):
+        common_flags = attrs.get(common_key)
+        if isinstance(common_flags, dict):
+            common_flags = (
+                common_flags.values() if take_values else common_flags
+            )
+        all_flags.extend(common_flags)
+
+    if attrs.get(platform_key):
+        platform_flags = attrs.get(platform_key)
+        if isinstance(platform_flags, dict):
+            platform_flags = (
+                platform_flags.values() if take_values else platform_flags
+            )
+        for plat, flags in platform_flags:
+            if _platform_regex_match(plat, toolchain):
+                all_flags.extend(flags)
+    return all_flags
+
+# TODO: Implement actual toolchain names
+def _platform_regex_match(plat, toolchain = "windows") -> bool:
+    """Return if given platform entry matches specified toolchain"""
+    if not plat:
+        return True
+    if "(?=" in plat or "(?<=" in plat:
+        # Hacky workaround that look-around isn't supported: https://github.com/rust-lang/regex/discussions/910
+        return toolchain in plat
+    if "(?!" in plat or "(?<!" in plat:
+        # Hacky workaround that look-around isn't supported: https://github.com/rust-lang/regex/discussions/910
+        return toolchain not in plat
+    return regex_match(plat, toolchain)
+
+############## headers ##############
+
+def _get_headers(attrs) -> list:
+    return get_unified_value(attrs, "headers", "platform_headers", take_values = True)
+
+def _get_exported_headers(attrs) -> dict:
+    # TODO: support get dict without taking keys or values in get_unified_value.
+    return dict(zip(
+        get_unified_value(attrs, "exported_headers", "exported_platform_headers", take_values = False),
+        get_unified_value(attrs, "exported_headers", "exported_platform_headers", take_values = True),
+    ))
+
+def _get_raw_headers(attrs) -> list:
+    return attrs.get("raw_headers") or []
+
+############## include directories ##############
+
+def _get_include_directories(attrs) -> list:
+    return get_unified_value(attrs, "include_directories", "none_exist_platform_key")
+
+def _get_public_include_directories(attrs) -> list:
+    return get_unified_value(attrs, "public_include_directories", "none_exist_platform_key")
+
+def _get_public_system_include_directories(attrs) -> list:
+    return get_unified_value(attrs, "public_system_include_directories", "none_exist_platform_key")
+
+############## flags ##############
+
+def _get_compiler_flags(attrs) -> list:
+    """Return list of compiler flags"""
+    return get_unified_value(attrs, "compiler_flags", "platform_compiler_flags")
+
+def _get_linker_flags(attrs) -> list:
+    """Return list of linker flags"""
+    return get_unified_value(attrs, "linker_flags", "platform_linker_flags")
+
+def _get_exported_linker_flags(attrs) -> list:
+    """Return list of exported linker flags"""
+    return get_unified_value(attrs, "exported_linker_flags", "exported_platform_linker_flags")
+
+def _get_preprocessor_flags(attrs) -> list:
+    """Return list of preprocessor flags"""
+    return get_unified_value(attrs, "preprocessor_flags", "platform_preprocessor_flags")
+
+def _get_exported_preprocessor_flags(attrs) -> list:
+    """Return list of exported preprocessor flags"""
+    return get_unified_value(
+        attrs,
+        "exported_preprocessor_flags",
+        "exported_platform_preprocessor_flags",
+    )
+
+############## others ##############
+
+def _get_srcs(attrs) -> dict:
+    """Returns list of source associated with its src property"""
+
+    # take_values as genrule target src properties can be a map of target location to source
+    # location, and this function is defined to always return the source location.
+    raw_srcs = get_unified_value(attrs, "srcs", "platform_srcs", take_values = True)
+
+    srcs = {}
+
+    for src in raw_srcs:
+        obj = None
+        if isinstance(src, Artifact):
+            obj = src.short_path + ".o"
+
+        # Flatten the list to remove any per-file compile flags, these won't
+        # get carried thru to the vcxproj file.
+        if isinstance(src, tuple):
+            src = src[0]
+
+        srcs[src] = obj
+
+    return srcs
+
+def _get_buck_type(attrs) -> str:
+    return attrs.get("buck.type")
+
+def _get_args(attrs) -> list:
+    args = attrs.get("args")
+    if args == None:
+        return []
+    elif isinstance(args, list):
+        return args
+    else:
+        # args can be non-list, e.g., ci_skycastle has dict type args. We're not generating vcxproj for them, but still need to get attrs.
+        return []
+
+def _get_env(attrs) -> dict:
+    env_raw = attrs.get("env") or {}
+    env = {}
+    for (key, value) in env_raw.items():
+        # Environmental variables such as PATH have to use absolute path as PWD of Visual Studio can be arbitrary.
+        env[key] = cmd_args(value, absolute_prefix = "$(RepoRoot)\\")
+    return env
+
+def _get_exe(attrs):
+    exe = None
+    platform_exe = attrs.get("platform_exe")
+    if platform_exe:
+        for (p, e) in platform_exe.items():
+            if _platform_regex_match(p):
+                exe = e
+                break
+
+    if not exe:
+        exe = attrs.get("exe")
+
+    if not exe:
+        return None
+    return exe.label.raw_target()
+
+def _get_header_namespace(attrs):
+    return attrs.get("header_namespace")
+
+def _main(bxl_ctx):
+    target_label = bxl_ctx.cli_args.target
+    target_node = bxl_ctx.configured_targets(target_label)
+    output = get_attrs(target_node, bxl_ctx)
+    action_factory = bxl_ctx.bxl_actions().actions
+    outfile = action_factory.declare_output("attrs.json")
+    action_factory.write_json(outfile, output, pretty = True)
+    bxl_ctx.output.print(bxl_ctx.output.ensure(outfile))
+
+main = bxl_main(
+    impl = _main,
+    cli_args = {
+        "log_level": cli_args.int(default = 30),
+        "target": cli_args.target_label(),
+    },
+)

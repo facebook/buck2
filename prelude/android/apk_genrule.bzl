@@ -10,15 +10,17 @@ load("@prelude//android:android_apk.bzl", "get_install_info")
 load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidApkInfo", "AndroidApkUnderTestInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:bundletool_util.bzl", "derive_universal_apk")
+load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 load("@prelude//java:java_providers.bzl", "KeystoreInfo")
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//java/class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 
 def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     expect((ctx.attrs.apk == None) != (ctx.attrs.aab == None), "Exactly one of 'apk' and 'aab' must be specified")
 
     input_android_apk_under_test_info = None
     input_unstripped_shared_libraries = None
+    input_android_apk_subtargets = None
+    input_android_aab_subtargets = None
     if ctx.attrs.apk != None:
         # TODO(T104150125) The underlying APK should not have exopackage enabled
         input_android_apk_info = ctx.attrs.apk[AndroidApkInfo]
@@ -28,6 +30,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
         input_materialized_artifacts = input_android_apk_info.materialized_artifacts
         input_unstripped_shared_libraries = input_android_apk_info.unstripped_shared_libraries
         input_android_apk_under_test_info = ctx.attrs.apk[AndroidApkUnderTestInfo]
+        input_android_apk_subtargets = ctx.attrs.apk[DefaultInfo].sub_targets
 
         env_vars = {
             "APK": cmd_args(input_apk),
@@ -40,6 +43,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
         input_apk = input_android_aab_info.aab
         input_manifest = input_android_aab_info.manifest
         input_materialized_artifacts = input_android_aab_info.materialized_artifacts
+        input_android_aab_subtargets = ctx.attrs.aab[DefaultInfo].sub_targets
 
         env_vars = {
             "AAB": cmd_args(input_apk),
@@ -94,17 +98,41 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                         "aab": [DefaultInfo(
                             default_outputs = [genrule_default_output],
                         )],
+                        "native_libs": [input_android_aab_subtargets["native_libs"][DefaultInfo]],
                     },
                 ),
             ] + filter(lambda x: not isinstance(x, DefaultInfo), genrule_providers)
         else:
-            default_providers = genrule_providers
+            sub_targets = {k: [v[DefaultInfo]] for k, v in genrule_default_info[0].sub_targets.items()}
+            sub_targets.update({
+                "native_libs": [input_android_aab_subtargets["native_libs"][DefaultInfo]],
+            })
+            default_providers = [
+                DefaultInfo(
+                    default_output = genrule_default_output,
+                    other_outputs = genrule_default_info[0].other_outputs,
+                    sub_targets = sub_targets,
+                ),
+            ] + filter(lambda x: not isinstance(x, DefaultInfo), genrule_providers)
 
     else:
-        default_providers = genrule_providers
+        sub_targets = {k: [v[DefaultInfo]] for k, v in genrule_default_info[0].sub_targets.items()}
+        sub_targets.update({
+            "manifest": [input_android_apk_subtargets["manifest"][DefaultInfo]],
+            "native_libs": [input_android_apk_subtargets["native_libs"][DefaultInfo]],
+            "unstripped_native_libraries": [input_android_apk_subtargets["unstripped_native_libraries"][DefaultInfo]],
+            "unstripped_native_libraries_json": [input_android_apk_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
+        })
         expect(genrule_default_output_is_apk, "apk_genrule output must end in '.apk'")
         output_apk = genrule_default_output
         output_aab_info = None
+        default_providers = [
+            DefaultInfo(
+                default_output = output_apk,
+                other_outputs = genrule_default_info[0].other_outputs,
+                sub_targets = sub_targets,
+            ),
+        ] + filter(lambda x: not isinstance(x, DefaultInfo), genrule_providers)
 
     class_to_src_map = [ctx.attrs.apk[JavaClassToSourceMapInfo]] if (ctx.attrs.apk and JavaClassToSourceMapInfo in ctx.attrs.apk) else []
 

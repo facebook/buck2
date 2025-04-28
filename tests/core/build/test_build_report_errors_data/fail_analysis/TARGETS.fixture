@@ -1,0 +1,11 @@
+load("//:utils.bzl", "alias")
+load(":fail_analysis.bzl", "fail_analysis")
+
+fail_analysis(
+    name = "fail_analysis",
+)
+
+alias(
+    name = "alias",
+    actual = ":fail_analysis",
+)

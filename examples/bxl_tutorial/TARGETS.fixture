@@ -1,0 +1,27 @@
+load(":prelude.bzl", "binary", "library", "resource")
+
+library(
+    name = "a",
+    deps = [
+        ":c",
+        ":d",
+        ":data_a",
+    ],
+)
+
+library(name = "b")
+
+library(
+    name = "c",
+    deps = [
+        ":e",
+    ],
+)
+
+library(name = "d")
+
+library(name = "e")
+
+resource(name = "data_a")
+
+binary(name = "bin", deps = [":a", ":b"])

@@ -5,11 +5,30 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@shim//third-party:third_party.bzl", "third_party_library")
+load("@//third-party:defs.bzl", "system_library")
 
 oncall("open_source")
 
-third_party_library(
+FEDORA_JVM_ROOT = "/usr/lib/jvm/java-23-openjdk-23.0.1.0.11-1.rolling.fc40.x86_64"
+
+UBUNTU_JVM_ROOT = "/usr/lib/jvm/java-21-openjdk-amd64"
+
+system_library(
     name = "jvm",
-    homebrew_package_name = "openjdk",
+    exported_preprocessor_flags = select({
+        "//os:linux-fedora": [
+            "-I{root}/include/".format(root = FEDORA_JVM_ROOT),
+            "-I{root}/include/linux/".format(root = FEDORA_JVM_ROOT),
+        ],
+        "//os:linux-ubuntu": [
+            "-I{root}/include/".format(root = UBUNTU_JVM_ROOT),
+            "-I{root}/include/linux/".format(root = UBUNTU_JVM_ROOT),
+        ],
+        "DEFAULT": [],
+    }),
+    packages = {
+        "//os:linux-fedora": ["java-latest-openjdk-devel"],
+        "//os:linux-ubuntu": ["openjdk-21-jdk-headless"],
+        "//os:macos-homebrew": ["openjdk"],
+    },
 )

@@ -1,0 +1,9 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "node1": "configured_target_node(name = root//:rule1 (root//platforms:platform1#<HASH>), ...)",
+  "node2": "configured_target_node(name = root//:rule1 (root//platforms:platform2#<HASH>), ...)",
+  "node1_providers": "Providers([DefaultInfo(sub_targets={}, default_outputs=[], other_outputs=[]), FooInfo(name=\"rule1_foo\", env=\"$(location ...)\")])",
+  "node1_resolved_env_attr_eager": "{\"OUTPUT\": \"$(location ...)\"}",
+  "node1_resolved_env_attr_lazy": "{\"OUTPUT\": \"$(location ...)\"}"
+}

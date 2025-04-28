@@ -31,10 +31,6 @@ use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::typing::Ty;
-use crate::values::layout::avalue::alloc_static;
-use crate::values::layout::avalue::AValueBasic;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -43,10 +39,14 @@ use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::layout::avalue::AValueBasic;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::heap::repr::AValueRepr;
 
 /// Define the None type, use [`NoneType`] in Rust.
 #[derive(Debug, Clone, Dupe, ProvidesStaticType, Display, Allocative)]
-#[display(fmt = "None")]
+#[display("None")]
 pub struct NoneType;
 
 impl NoneType {

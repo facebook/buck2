@@ -22,7 +22,7 @@ use dupe::Dupe;
 #[tokio::test]
 async fn test_dice_recompute_doesnt_reuse_wrong_deps() -> anyhow::Result<()> {
     #[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct Leaf(u32);
 
     impl InjectedKey for Leaf {
@@ -33,7 +33,7 @@ async fn test_dice_recompute_doesnt_reuse_wrong_deps() -> anyhow::Result<()> {
     }
 
     #[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct Derived;
 
     #[async_trait]
@@ -78,7 +78,7 @@ async fn test_dice_recompute_doesnt_reuse_wrong_deps() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_dice_clear_doesnt_break_ongoing_computation() -> anyhow::Result<()> {
     #[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct Fib(u32);
 
     #[async_trait]
@@ -136,7 +136,7 @@ fn test_dice_clear_doesnt_cause_inject_compute() {
     // Spawn the root task
     rt.block_on(async {
         #[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
-        #[display(fmt = "{:?}", self)]
+        #[display("{:?}", self)]
         struct Node;
 
         #[async_trait]
@@ -158,7 +158,7 @@ fn test_dice_clear_doesnt_cause_inject_compute() {
         }
 
         #[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
-        #[display(fmt = "{:?}", self)]
+        #[display("{:?}", self)]
         struct Leaf;
 
         impl InjectedKey for Leaf {

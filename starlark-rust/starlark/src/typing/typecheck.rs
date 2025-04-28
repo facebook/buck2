@@ -32,13 +32,13 @@ use crate::codemap::CodeMap;
 use crate::codemap::FileSpanRef;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::environment::names::MutableNames;
 use crate::environment::Globals;
-use crate::eval::compiler::scope::payload::CstStmt;
-use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
+use crate::environment::names::MutableNames;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::BindingSource;
 use crate::eval::compiler::scope::ModuleScopes;
+use crate::eval::compiler::scope::payload::CstStmt;
+use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::typing::bindings::Bindings;
@@ -46,8 +46,8 @@ use crate::typing::bindings::BindingsCollect;
 use crate::typing::ctx::TypingContext;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
-use crate::typing::fill_types_for_lint::fill_types_for_lint_typechecker;
 use crate::typing::fill_types_for_lint::ModuleVarTypes;
+use crate::typing::fill_types_for_lint::fill_types_for_lint_typechecker;
 use crate::typing::interface::Interface;
 use crate::typing::mode::TypecheckMode;
 use crate::typing::oracle::ctx::TypingOracleCtx;
@@ -118,7 +118,7 @@ pub(crate) fn solve_bindings(
                 span: *span,
             },
             require,
-        );
+        )?;
     }
     Ok((
         ctx.errors.into_inner(),
@@ -166,6 +166,14 @@ impl TypeMap {
             )
             .collect()
     }
+
+    #[cfg(test)]
+    pub(crate) fn find_first_binding<'a>(&'a self) -> Option<&'a Ty> {
+        self.bindings
+            .entries_unordered()
+            .min_by_key(|(id, _)| *id)
+            .map(|(_, (_, _, ty))| ty)
+    }
 }
 
 /// Typecheck a module.
@@ -203,7 +211,7 @@ impl AstModuleTypecheck for AstModule {
                 globals: Some(frozen_heap.alloc_any(globals.dupe())),
             },
             frozen_heap.alloc_any(codemap.dupe()),
-            &Dialect::Extended,
+            &Dialect::AllOptionsInternal,
         );
         let scope_errors = scope_errors.into_map(TypingError::from_eval_exception);
         // We don't really need to properly unpack top-level statements,

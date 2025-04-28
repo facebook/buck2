@@ -11,9 +11,9 @@ use std::cell::OnceCell;
 use std::cell::RefCell;
 use std::sync::OnceLock;
 
-use crate::impls::common::DATA_NAME;
 use crate::Allocative;
 use crate::Visitor;
+use crate::impls::common::DATA_NAME;
 
 impl<T: Allocative> Allocative for RefCell<T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {

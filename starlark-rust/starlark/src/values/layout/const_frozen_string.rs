@@ -18,7 +18,7 @@
 /// Create a [`FrozenStringValue`](crate::values::FrozenStringValue).
 #[macro_export]
 macro_rules! const_frozen_string {
-    ($s:expr) => {{
+    ($s:expr_2021) => {{
         $crate::values::constant_string($s).unwrap_or_else(|| {
             // `$s.len() <= 1`, `StarlarkStrNRepr::new` should not be called
             // because it fails and it should be handled by `constant_string`.

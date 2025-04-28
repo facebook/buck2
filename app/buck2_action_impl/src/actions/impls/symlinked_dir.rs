@@ -10,25 +10,23 @@
 use std::borrow::Cow;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::actions::Action;
+use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::actions::box_slice_set::BoxSliceSet;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
-use buck2_build_api::actions::Action;
-use buck2_build_api::actions::ActionExecutable;
-use buck2_build_api::actions::ActionExecutionCtx;
-use buck2_build_api::actions::IncrementalActionExecutable;
-use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_core::category::CategoryRef;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -37,12 +35,13 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use itertools::Itertools;
-use starlark::values::dict::UnpackDictEntries;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::ValueError;
+use starlark::values::dict::UnpackDictEntries;
 use starlark_map::small_set::SmallSet;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum SymlinkedDirError {
     #[error("Paths to symlink_dir must be non-overlapping, but got `{0}` and `{1}`")]
     OverlappingPaths(Box<ForwardRelativePath>, Box<ForwardRelativePath>),
@@ -64,7 +63,9 @@ impl UnregisteredSymlinkedDirAction {
     /// Validate that no output path is duplicated or overlapping.
     /// Duplicates are easy - overlapping only happens with symlinks to directories (a bad idea),
     /// and would look like `a` and `a/b` both being given.
-    fn validate_args(args: &mut [(ArtifactGroup, Box<ForwardRelativePath>)]) -> anyhow::Result<()> {
+    fn validate_args(
+        args: &mut [(ArtifactGroup, Box<ForwardRelativePath>)],
+    ) -> buck2_error::Result<()> {
         // We sort the inputs. They are morally a set, so it shouldn't matter too much,
         // and this lets us implement the overlap check more easily.
         args.sort_by(|x, y| x.1.cmp(&y.1));
@@ -94,7 +95,7 @@ impl UnregisteredSymlinkedDirAction {
     // them into an optional tuple of vector and an index set respectively
     fn unpack_args<'v>(
         srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
-    ) -> anyhow::Result<(
+    ) -> buck2_error::Result<(
         Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,
         SmallSet<ArtifactGroup>,
     )> {
@@ -105,11 +106,11 @@ impl UnregisteredSymlinkedDirAction {
             .into_iter()
             .map(|(k, as_artifact)| {
                 let associates = as_artifact.0.get_associated_artifacts();
-                anyhow::Ok((
+                buck2_error::Ok((
                     (
                         as_artifact.0.get_artifact_group()?,
                         ForwardRelativePathBuf::try_from(k.to_owned())
-                            .context("dict key must be a forward relative path")?
+                            .buck_error_context("dict key must be a forward relative path")?
                             .into_box(),
                     ),
                     associates,
@@ -130,11 +131,13 @@ impl UnregisteredSymlinkedDirAction {
     pub(crate) fn new<'v>(
         copy: bool,
         srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let (mut args, unioned_associated_artifacts) = Self::unpack_args(srcs)
             // FIXME: This warning is talking about the Starlark-level argument name `srcs`.
             //        Once we use a proper Value parser this should all get cleaned up.
-            .with_context(|| ValueError::IncorrectParameterTypeNamed("srcs".to_owned()))?;
+            .buck_error_context(
+                ValueError::IncorrectParameterTypeNamed("srcs".to_owned()).to_string(),
+            )?;
         // Overlapping check make sense for non-copy mode only.
         // When directories are copied into the same destination, the ordering defines how files are overwritten.
         if !copy {
@@ -163,7 +166,7 @@ impl UnregisteredAction for UnregisteredSymlinkedDirAction {
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
-    ) -> anyhow::Result<Box<dyn Action>> {
+    ) -> buck2_error::Result<Box<dyn Action>> {
         Ok(Box::new(SymlinkedDirAction {
             copy: self.copy,
             args: self.args,
@@ -196,7 +199,7 @@ impl Action for SymlinkedDirAction {
         buck2_data::ActionKind::SymlinkedDir
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+    fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
         Ok(Cow::Borrowed(self.inputs.as_slice()))
     }
 
@@ -208,10 +211,6 @@ impl Action for SymlinkedDirAction {
         self.output()
     }
 
-    fn as_executable(&self) -> ActionExecutable<'_> {
-        ActionExecutable::Incremental(self)
-    }
-
     fn category(&self) -> CategoryRef {
         CategoryRef::unchecked_new("symlinked_dir")
     }
@@ -219,16 +218,13 @@ impl Action for SymlinkedDirAction {
     fn identifier(&self) -> Option<&str> {
         Some(self.output().get_path().path().as_str())
     }
-}
 
-#[async_trait]
-impl IncrementalActionExecutable for SymlinkedDirAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let fs = ctx.fs().fs();
-        let output = ctx.fs().resolve_build(self.output().get_path());
+        let output = ctx.fs().resolve_build(self.output().get_path())?;
         let mut builder = ArtifactValueBuilder::new(fs, ctx.digest_config());
         let mut srcs = Vec::new();
 
@@ -237,7 +233,7 @@ impl IncrementalActionExecutable for SymlinkedDirAction {
                 .artifact_values(group)
                 .iter()
                 .into_singleton()
-                .context("Input did not dereference to exactly one artifact")?;
+                .buck_error_context("Input did not dereference to exactly one artifact")?;
 
             let src = src_artifact.resolve_path(ctx.fs())?;
             let dest = output.join(dest);
@@ -263,6 +259,7 @@ impl IncrementalActionExecutable for SymlinkedDirAction {
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData::default(),
+                input_files_bytes: None,
             },
         ))
     }
@@ -288,7 +285,7 @@ mod tests {
 
     #[test]
     fn test_symlinked_dir_validation() {
-        fn validate(paths: &[&str]) -> anyhow::Result<()> {
+        fn validate(paths: &[&str]) -> buck2_error::Result<()> {
             let a = ArtifactGroup::Artifact(mk_artifact());
             let mut xs = paths.map(|x| {
                 (

@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
@@ -20,6 +21,8 @@ load(
     "CxxHeadersNaming",
     "HeaderStyle",
     "HeadersAsRawHeadersMode",
+    "RawHeadersAsHeadersMode",
+    "as_headers",
     "as_raw_headers",
     "cxx_attr_exported_header_style",
     "cxx_attr_exported_headers",
@@ -42,6 +45,14 @@ CPreprocessorArgs = record(
     file_prefix_args = field(list[typing.Any], []),
 )
 
+HeaderUnit = record(
+    name = field(str),
+    module = field(Artifact),
+    include_dir = field(Artifact),
+    import_include = field(str | None),
+    clang_trace = field(Artifact | None),
+)
+
 # Note: Any generic attributes are assumed to be relative.
 CPreprocessor = record(
     # Relative path args to be used for build operations.
@@ -58,7 +69,10 @@ CPreprocessor = record(
     uses_modules = field(bool, False),
     # Modular args to set when modules are in use, [arglike things]
     modular_args = field(list[typing.Any], []),
-    modulemap_path = field(typing.Any, None),
+    # Path to the modulemap which defines the API exposed to Swift
+    modulemap_path = field([cmd_args, None], None),
+    # Header units to load transitively and supporting args.
+    header_units = field(list[HeaderUnit], []),
 )
 
 # Methods for transitive_sets must be declared prior to their use.
@@ -73,6 +87,17 @@ def _cpreprocessor_modular_args(pres: list[CPreprocessor]):
     args = cmd_args()
     for pre in pres:
         args.add(pre.modular_args)
+    return args
+
+def _cpreprocessor_header_units_args(pres: list[CPreprocessor]):
+    args = cmd_args()
+    for pre in pres:
+        for h in pre.header_units:
+            args.add(cmd_args("-fmodule-file=", h.name, "=", h.module, delimiter = ""))
+            args.add(cmd_args(h.include_dir, format = "-I{}"))
+            args.add(cmd_args(h.include_dir, format = "-fmodule-map-file={}/module.modulemap"))
+            if h.import_include:
+                args.add(["-include", h.import_include])
     return args
 
 def _cpreprocessor_file_prefix_args(pres: list[CPreprocessor]):
@@ -106,6 +131,7 @@ CPreprocessorTSet = transitive_set(
     args_projections = {
         "args": _cpreprocessor_args,
         "file_prefix_args": _cpreprocessor_file_prefix_args,
+        "header_units_args": _cpreprocessor_header_units_args,
         "include_dirs": _cpreprocessor_include_dirs,
         "modular_args": _cpreprocessor_modular_args,
     },
@@ -209,14 +235,32 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
 
     # Add in raw headers and include dirs from attrs.
     raw_headers.extend(value_or(ctx.attrs.raw_headers, []))
-    include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_include_directories])
-    system_include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_system_include_directories])
+
+    # if raw-headers-as-headers is enabled, convert raw headers to headers
+    if raw_headers and _attr_raw_headers_as_headers_mode(ctx) != RawHeadersAsHeadersMode("disabled"):
+        exported_headers = as_headers(ctx, raw_headers, ctx.attrs.public_include_directories + ctx.attrs.public_system_include_directories)
+        exported_header_map = {
+            paths.join(h.namespace, h.name): h.artifact
+            for h in exported_headers
+        }
+        raw_headers.clear()
+
+        # Force system exported header style if any system include directories are set.
+        if ctx.attrs.public_system_include_directories:
+            style = HeaderStyle("system")
+    else:
+        include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_include_directories])
+        system_include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_system_include_directories])
 
     args = _get_exported_preprocessor_args(ctx, exported_header_map, style, compiler_type, raw_headers, extra_preprocessors)
 
     modular_args = []
     for pre in extra_preprocessors:
         modular_args.extend(pre.modular_args)
+
+    header_units = []
+    for pre in extra_preprocessors:
+        header_units.extend(pre.header_units)
 
     return CPreprocessor(
         args = CPreprocessorArgs(args = args.args, file_prefix_args = args.file_prefix_args),
@@ -225,6 +269,7 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
         include_dirs = include_dirs,
         system_include_dirs = SystemIncludeDirs(compiler_type = compiler_type, include_dirs = system_include_dirs),
         modular_args = modular_args,
+        header_units = header_units,
     )
 
 def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor]) -> CPreprocessorArgs:
@@ -321,7 +366,19 @@ def _cxx_private_preprocessor_info(
 
     # Add in raw headers and include dirs from attrs.
     all_raw_headers.extend(raw_headers)
-    include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.include_directories])
+
+    # if raw-headers-as-headers is enabled, convert raw headers to headers
+    if all_raw_headers and _attr_raw_headers_as_headers_mode(ctx) != RawHeadersAsHeadersMode("disabled"):
+        # private headers are also accessible via public_include_directories
+        # same as exported_preprocessor_flags apply to the target itself.
+        headers = as_headers(ctx, all_raw_headers, ctx.attrs.include_directories + getattr(ctx.attrs, "public_include_directories", []) + getattr(ctx.attrs, "public_system_include_directories", []))
+        header_map = {
+            paths.join(h.namespace, h.name): h.artifact
+            for h in headers
+        }
+        all_raw_headers.clear()
+    else:
+        include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.include_directories])
 
     args = _get_private_preprocessor_args(ctx, header_map, compiler_type, all_raw_headers)
 
@@ -335,7 +392,7 @@ def _cxx_private_preprocessor_info(
 
 def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], compiler_type: str, all_raw_headers: list[Artifact]) -> CPreprocessorArgs:
     # Create private header tree and propagate via args.
-    args = []
+    args = get_target_sdk_version_flags(ctx)
     file_prefix_args = []
     header_root = prepare_headers(ctx, headers, "buck-private-headers")
     if header_root != None:
@@ -361,6 +418,24 @@ def _header_style_args(style: HeaderStyle, path: cmd_args, compiler_type: str) -
     if style == HeaderStyle("system"):
         return format_system_include_arg(path, compiler_type)
     fail("unsupported header style: {}".format(style))
+
+def _attr_raw_headers_as_headers_mode(ctx: AnalysisContext) -> RawHeadersAsHeadersMode:
+    """
+    Return the `RawHeadersAsHeadersMode` setting to use for this rule.
+    """
+
+    mode = get_cxx_toolchain_info(ctx).raw_headers_as_headers_mode
+
+    # If the platform hasn't set a raw headers translation mode, we don't do anything.
+    if mode == None:
+        return RawHeadersAsHeadersMode("disabled")
+
+    # Otherwise use the rule-specific setting, if provided (not available on prebuilt_cxx_library).
+    if getattr(ctx.attrs, "raw_headers_as_headers_mode", None) != None:
+        return RawHeadersAsHeadersMode(ctx.attrs.raw_headers_as_headers_mode)
+
+    # Fallback to platform default.
+    return mode
 
 def _attr_headers_as_raw_headers_mode(ctx: AnalysisContext) -> HeadersAsRawHeadersMode:
     """
@@ -409,6 +484,6 @@ def _remap_headers_to_basename(headers: list[CHeader]) -> list[CHeader]:
 def get_flags_for_compiler_type(compiler_type: str) -> list[str]:
     # MSVC requires this flag to enable external headers
     if compiler_type in ["windows"]:
-        return ["/experimental:external", "/nologo", "/external:W0"]
+        return ["/experimental:external", "/external:W0"]
     else:
         return []

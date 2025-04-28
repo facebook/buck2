@@ -19,7 +19,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 use starlark_map::small_set::SmallSet;
 
-use crate::values::layout::heap::profile::arc_str::ArcStr;
+use crate::util::arc_str::ArcStr;
 
 /// Map strings to integers 0, 1, 2, ...
 #[derive(Default, Clone, Allocative)]

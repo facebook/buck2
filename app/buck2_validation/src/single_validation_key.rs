@@ -8,7 +8,6 @@
  */
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -26,6 +25,7 @@ use crate::cached_validation_result::CachedValidationResult;
 use crate::validator_api::parse_validation_result;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum ParseValidationResultError {
     #[error("Validation result should produce exactly one artifact")]
     WrongNumberOfArtifacts,
@@ -52,7 +52,7 @@ impl Key for SingleValidationKey {
         let gen_path = {
             let build_result = ActionCalculation::build_action(ctx, &self.0).await?;
             if build_result.iter().count() != 1 {
-                return Err(buck2_error::Error::new(
+                return Err(buck2_error::Error::from(
                     ParseValidationResultError::WrongNumberOfArtifacts,
                 ));
             }
@@ -64,7 +64,7 @@ impl Key for SingleValidationKey {
         };
 
         let fs = ctx.get_artifact_fs().await?;
-        let project_relative_path = fs.buck_out_path_resolver().resolve_gen(&gen_path);
+        let project_relative_path = fs.buck_out_path_resolver().resolve_gen(&gen_path)?;
 
         let validation_result_path = fs.fs().resolve(&project_relative_path);
 
@@ -76,7 +76,7 @@ impl Key for SingleValidationKey {
 
         let content = async_fs_util::read_to_string(&validation_result_path)
             .await
-            .context("Reading validation result")?;
+            .buck_error_context("Reading validation result")?;
 
         match parse_validation_result(&content) {
             Ok(r) => Ok(CachedValidationResult::new(

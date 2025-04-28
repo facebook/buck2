@@ -19,36 +19,36 @@ use buck2_build_api::configure_targets::get_compatible_targets;
 use buck2_common::dice::file_ops::DiceFileComputations;
 use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_or_unconfigured::ConfiguredOrUnconfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_futures::spawn::spawn_cancellable;
-use buck2_futures::spawn::DropCancelFuture;
+use buck2_futures::spawn::DropcancelJoinHandle;
+use buck2_futures::spawn::spawn_dropcancel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::environment::QueryTargetDepsSuccessors;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
-use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::AsyncNodeLookup;
+use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use futures::future::join_all;
-use futures::future::Shared;
-use futures::join;
-use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::StreamExt;
+use futures::future::Shared;
+use futures::future::join_all;
+use futures::join;
+use futures::stream::FuturesUnordered;
 use os_str_bytes::OsStrBytes;
 use siphasher::sip128::Hasher128;
 use siphasher::sip128::SipHasher24;
 
 #[derive(Clone, Dupe, derive_more::Display)]
-#[display(fmt = "{:032x}", _0)]
+#[display("{:032x}", _0)]
 pub struct BuckTargetHash(pub u128);
 
 trait BuckTargetHasher: Hasher + Send + 'static {
@@ -99,7 +99,7 @@ pub enum TargetHashesFileMode {
 #[async_trait]
 trait FileHasher: Send + Sync {
     /// Obtain information about a path in some manner.
-    async fn hash_path(&self, path: &CellPath) -> anyhow::Result<Vec<u8>>;
+    async fn hash_path(&self, path: &CellPath) -> buck2_error::Result<Vec<u8>>;
 }
 
 struct PathsOnlyFileHasher {
@@ -108,7 +108,7 @@ struct PathsOnlyFileHasher {
 
 #[async_trait]
 impl FileHasher for PathsOnlyFileHasher {
-    async fn hash_path(&self, path: &CellPath) -> anyhow::Result<Vec<u8>> {
+    async fn hash_path(&self, path: &CellPath) -> buck2_error::Result<Vec<u8>> {
         if self.pseudo_changed_paths.contains(path) {
             Ok(vec![0u8])
         } else {
@@ -123,13 +123,13 @@ struct PathsAndContentsHasher {
 
 #[async_trait]
 impl FileHasher for PathsAndContentsHasher {
-    async fn hash_path(&self, cell_path: &CellPath) -> anyhow::Result<Vec<u8>> {
+    async fn hash_path(&self, cell_path: &CellPath) -> buck2_error::Result<Vec<u8>> {
         #[async_recursion]
         async fn hash_item(
             ctx: &mut DiceComputations<'_>,
             cell_path: CellPathRef<'async_recursion>,
             res: &mut Vec<u8>,
-        ) -> anyhow::Result<()> {
+        ) -> buck2_error::Result<()> {
             let info = DiceFileComputations::read_path_metadata(ctx, cell_path.dupe()).await?;
             // Important that the different branches can never clash, so add a prefix byte to them
             match PathMetadataOrRedirection::from(info) {
@@ -183,7 +183,7 @@ impl FileHasher for PathsAndContentsHasher {
 /// This trait is purposely defined here instead of in buck2_node crate
 /// so that we can only access the public fields of these nodes.
 #[async_trait]
-pub trait TargetHashingTargetNode: QueryTarget {
+pub(crate) trait TargetHashingTargetNode: QueryTarget {
     /// We only hash this node, not its dependencies.
     /// Importantly, we look at the nodes after configuration (for the configured case).
     fn target_hash<H: Hasher>(&self, state: &mut H);
@@ -192,9 +192,9 @@ pub trait TargetHashingTargetNode: QueryTarget {
     // Target Nodes based on type of hashing specified.
     async fn get_target_nodes(
         dice: &mut DiceComputations,
-        loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
+        loaded_targets: Vec<(PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
         global_cfg_options: &GlobalCfgOptions,
-    ) -> anyhow::Result<TargetSet<Self>>;
+    ) -> buck2_error::Result<TargetSet<Self>>;
 }
 
 #[async_trait]
@@ -205,10 +205,10 @@ impl TargetHashingTargetNode for ConfiguredTargetNode {
 
     async fn get_target_nodes(
         dice: &mut DiceComputations,
-        loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
+        loaded_targets: Vec<(PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
         global_cfg_options: &GlobalCfgOptions,
-    ) -> anyhow::Result<TargetSet<Self>> {
-        get_compatible_targets(dice, loaded_targets.into_iter(), global_cfg_options).await
+    ) -> buck2_error::Result<TargetSet<Self>> {
+        Ok(get_compatible_targets(dice, loaded_targets.into_iter(), global_cfg_options).await?)
     }
 }
 
@@ -220,9 +220,9 @@ impl TargetHashingTargetNode for TargetNode {
 
     async fn get_target_nodes(
         _dice: &mut DiceComputations,
-        loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
+        loaded_targets: Vec<(PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
         _global_cfg_options: &GlobalCfgOptions,
-    ) -> anyhow::Result<TargetSet<Self>> {
+    ) -> buck2_error::Result<TargetSet<Self>> {
         let mut target_set = TargetSet::new();
         for (_package, result) in loaded_targets {
             target_set.extend(result?);
@@ -236,6 +236,7 @@ pub struct TargetHashes {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum TargetHashError {
     #[error(
         "Found a dependency `{0}` of target `{1}` which has not been hashed yet. This may indicate a dependency cycle in the unconfigured graph."
@@ -254,13 +255,13 @@ impl TargetHashes {
         targets: TargetSet<T>,
         file_hasher: Option<Arc<dyn FileHasher>>,
         use_fast_hash: bool,
-    ) -> anyhow::Result<Self>
+    ) -> buck2_error::Result<Self>
     where
         T::Key: ConfiguredOrUnconfiguredTargetLabel,
     {
         let mut hashes: HashMap<
             T::Key,
-            Shared<DropCancelFuture<buck2_error::Result<BuckTargetHash>>>,
+            Shared<DropcancelJoinHandle<buck2_error::Result<BuckTargetHash>>>,
         > = HashMap::new();
 
         let visit = |target: T| {
@@ -284,7 +285,7 @@ impl TargetHashes {
             // this allows us to start the computations for dependents before finishing the computation for a node.
             hashes.insert(
                 target.node_key().clone(),
-                spawn_cancellable(
+                spawn_dropcancel(
                     |_| {
                         async move {
                             let mut hasher = TargetHashes::new_hasher(use_fast_hash);
@@ -298,7 +299,7 @@ impl TargetHashes {
                                         let file_hash = file_hasher.hash_path(&cell_path).await;
                                         (cell_path, file_hash)
                                     });
-                                    anyhow::Ok(())
+                                    buck2_error::Ok(())
                                 })?;
                             }
 
@@ -315,7 +316,6 @@ impl TargetHashes {
                     &*dice.per_transaction_data().spawner,
                     dice.per_transaction_data(),
                 )
-                .into_drop_cancel()
                 .shared(),
             );
 
@@ -360,7 +360,7 @@ impl TargetHashes {
         targets: TargetSet<T>,
         file_hasher: Option<Arc<dyn FileHasher>>,
         use_fast_hash: bool,
-    ) -> anyhow::Result<Self>
+    ) -> buck2_error::Result<Self>
     where
         T::Key: ConfiguredOrUnconfiguredTargetLabel,
     {
@@ -369,7 +369,7 @@ impl TargetHashes {
             .map(|target| {
                 let file_hasher = file_hasher.dupe();
                 async move {
-                    let hash_result: anyhow::Result<BuckTargetHash> = try {
+                    let hash_result: buck2_error::Result<BuckTargetHash> = try {
                         let mut hasher = TargetHashes::new_hasher(use_fast_hash);
                         TargetHashes::hash_node(&target, &mut *hasher);
 
@@ -381,7 +381,7 @@ impl TargetHashes {
                                     let file_hash = file_hasher.hash_path(&cell_path).await;
                                     (cell_path, file_hash)
                                 });
-                                anyhow::Ok(())
+                                buck2_error::Ok(())
                             })?;
 
                             let input_hashes = join_all(input_futs).await;
@@ -411,15 +411,15 @@ impl TargetHashes {
         hasher.finish_u128()
     }
 
-    pub async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
+    pub(crate) async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
         mut dice: DiceTransaction,
         lookup: L,
-        targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
+        targets: Vec<(PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
         global_cfg_options: &GlobalCfgOptions,
         file_hash_mode: TargetHashesFileMode,
         use_fast_hash: bool,
         target_hash_recursive: bool,
-    ) -> anyhow::Result<Self>
+    ) -> buck2_error::Result<Self>
     where
         T::Key: ConfiguredOrUnconfiguredTargetLabel,
     {
@@ -473,7 +473,7 @@ impl TargetHashes {
     }
 
     fn hash_files(
-        file_digests: Vec<(CellPath, anyhow::Result<Vec<u8>>)>,
+        file_digests: Vec<(CellPath, buck2_error::Result<Vec<u8>>)>,
         mut hasher: &mut dyn BuckTargetHasher,
     ) -> buck2_error::Result<()> {
         for (path, digest) in file_digests {

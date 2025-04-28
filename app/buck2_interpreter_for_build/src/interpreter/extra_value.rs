@@ -10,72 +10,38 @@
 use std::cell::OnceCell;
 
 use allocative::Allocative;
+use buck2_error::BuckErrorContext;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
-use starlark::values::starlark_value;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValueTyped;
-use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::ValueLike;
+use starlark::values::any_complex::StarlarkAnyComplex;
 
 use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
 use crate::interpreter::package_file_extra::PackageFileExtra;
 
-#[derive(buck2_error::Error, Debug)]
-enum ExtraValueError {
-    #[error("Extra value is missing (internal error)")]
-    Missing,
-    #[error("Extra value had wrong type (internal error)")]
-    WrongType,
-}
-
 /// `Module.extra_value` when evaluating build, bzl, package, and bxl files.
-#[derive(
-    Default,
-    Debug,
-    NoSerialize,
-    derive_more::Display,
-    ProvidesStaticType,
-    Allocative,
-    Trace
-)]
-#[display(fmt = "{:?}", "self")]
+#[derive(Default, Debug, ProvidesStaticType, Allocative, Trace)]
 pub(crate) struct InterpreterExtraValue<'v> {
     /// Set when evaluating `PACKAGE` files.
     pub(crate) package_extra: OnceCell<PackageFileExtra<'v>>,
 }
 
-#[derive(
-    Debug,
-    NoSerialize,
-    derive_more::Display,
-    ProvidesStaticType,
-    Allocative
-)]
-#[display(fmt = "{:?}", "self")]
-pub(crate) struct FrozenExtraValue {
+#[derive(Debug, ProvidesStaticType, Allocative)]
+pub(crate) struct FrozenInterpreterExtraValue {
     pub(crate) package_extra: Option<FrozenPackageFileExtra>,
 }
 
-// TODO(nga): this does not need to be fully starlark_value,
-// but we don't have lighter machinery for that.
-#[starlark_value(type = "ExtraValue")]
-impl<'v> StarlarkValue<'v> for InterpreterExtraValue<'v> {}
-
-#[starlark_value(type = "ExtraValue")]
-impl<'v> StarlarkValue<'v> for FrozenExtraValue {
-    type Canonical = FrozenExtraValue;
-}
-
 impl<'v> Freeze for InterpreterExtraValue<'v> {
-    type Frozen = FrozenExtraValue;
+    type Frozen = FrozenInterpreterExtraValue;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        Ok(FrozenExtraValue {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+        Ok(FrozenInterpreterExtraValue {
             package_extra: self
                 .package_extra
                 .into_inner()
@@ -86,23 +52,26 @@ impl<'v> Freeze for InterpreterExtraValue<'v> {
 }
 
 impl<'v> InterpreterExtraValue<'v> {
-    pub(crate) fn get(module: &'v Module) -> anyhow::Result<&'v InterpreterExtraValue<'v>> {
-        Ok(module
+    pub(crate) fn get(module: &'v Module) -> buck2_error::Result<&'v InterpreterExtraValue<'v>> {
+        Ok(&module
             .extra_value()
-            .ok_or(ExtraValueError::Missing)?
-            .downcast_ref()
-            .ok_or(ExtraValueError::WrongType)?)
+            .internal_error("Extra value is missing")?
+            .downcast_ref::<StarlarkAnyComplex<InterpreterExtraValue>>()
+            .internal_error("Extra value had wrong type")?
+            .value)
     }
 }
 
-impl FrozenExtraValue {
+impl FrozenInterpreterExtraValue {
     pub(crate) fn get(
         module: &FrozenModule,
-    ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenExtraValue>> {
-        Ok(module
+    ) -> buck2_error::Result<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenInterpreterExtraValue>>>
+    {
+        module
             .owned_extra_value()
-            .ok_or(ExtraValueError::Missing)?
+            .internal_error("Extra value is missing")?
             .downcast()
-            .map_err(|_| ExtraValueError::WrongType)?)
+            .ok()
+            .internal_error("Extra value had wrong type")
     }
 }

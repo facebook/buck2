@@ -14,19 +14,18 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use buck2_downward_api::DownwardApi;
-use buck2_downward_api_proto::downward_api_client;
-use buck2_downward_api_proto::downward_api_server;
 use buck2_downward_api_proto::ConsoleRequest;
 use buck2_downward_api_proto::ExternalEventRequest;
 use buck2_downward_api_proto::LogRequest;
-use buck2_events::dispatch::with_dispatcher_async;
+use buck2_downward_api_proto::downward_api_client;
+use buck2_downward_api_proto::downward_api_server;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::with_dispatcher_async;
+use buck2_grpc::ServerHandle;
 use buck2_grpc::make_channel;
 use buck2_grpc::spawn_oneshot;
 use buck2_grpc::to_tonic;
-use buck2_grpc::ServerHandle;
-use buck2_test_proto::test_orchestrator_client;
-use buck2_test_proto::test_orchestrator_server;
 use buck2_test_proto::AttachInfoMessageRequest;
 use buck2_test_proto::Empty;
 use buck2_test_proto::EndOfTestResultsRequest;
@@ -36,6 +35,8 @@ use buck2_test_proto::ReportTestResultRequest;
 use buck2_test_proto::ReportTestSessionRequest;
 use buck2_test_proto::ReportTestsDiscoveredRequest;
 use buck2_test_proto::Testing;
+use buck2_test_proto::test_orchestrator_client;
+use buck2_test_proto::test_orchestrator_server;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
@@ -92,8 +93,8 @@ impl TestOrchestratorClient {
 
 #[async_trait::async_trait]
 impl DownwardApi for TestOrchestratorClient {
-    async fn console(&self, level: Level, message: String) -> anyhow::Result<()> {
-        let level = level.try_into().context("Invalid `level`")?;
+    async fn console(&self, level: Level, message: String) -> buck2_error::Result<()> {
+        let level = level.try_into().buck_error_context("Invalid `level`")?;
 
         self.downward_api_client
             .clone()
@@ -106,8 +107,8 @@ impl DownwardApi for TestOrchestratorClient {
         Ok(())
     }
 
-    async fn log(&self, level: Level, message: String) -> anyhow::Result<()> {
-        let level = level.try_into().context("Invalid `level`")?;
+    async fn log(&self, level: Level, message: String) -> buck2_error::Result<()> {
+        let level = level.try_into().buck_error_context("Invalid `level`")?;
 
         self.downward_api_client
             .clone()
@@ -120,7 +121,7 @@ impl DownwardApi for TestOrchestratorClient {
         Ok(())
     }
 
-    async fn external(&self, data: HashMap<String, String>) -> anyhow::Result<()> {
+    async fn external(&self, data: HashMap<String, String>) -> buck2_error::Result<()> {
         let event = data.into();
 
         self.downward_api_client
@@ -176,8 +177,23 @@ impl TestOrchestratorClient {
                 ExecuteResponse::Result(res.try_into().context("Invalid `result`")?)
             }
             buck2_test_proto::execute_response2::Response::Cancelled(
-                buck2_test_proto::Cancelled {},
-            ) => ExecuteResponse::Cancelled,
+                buck2_test_proto::Cancelled { reason },
+            ) => {
+                let reason = match reason {
+                    Some(reason) => buck2_test_proto::CancellationReason::try_from(reason)
+                        .map(|proto_reason| match proto_reason {
+                            buck2_test_proto::CancellationReason::NotSpecified => {
+                                crate::data::CancellationReason::NotSpecified
+                            }
+                            buck2_test_proto::CancellationReason::ReQueueTimeout => {
+                                crate::data::CancellationReason::ReQueueTimeout
+                            }
+                        })
+                        .ok(),
+                    None => None,
+                };
+                ExecuteResponse::Cancelled(reason)
+            }
         };
 
         Ok(response)
@@ -211,6 +227,7 @@ impl TestOrchestratorClient {
                 testing: Some(Testing {
                     suite,
                     testcases: tests,
+                    variant: None,
                 }),
             })
             .await?;
@@ -334,9 +351,21 @@ where
                         r.try_into().context("Failed to serialize result")?,
                     )
                 }
-                ExecuteResponse::Cancelled => {
+                ExecuteResponse::Cancelled(reason) => {
+                    let reason = if let Some(reason) = reason {
+                        match reason {
+                            crate::data::CancellationReason::NotSpecified => {
+                                Some(buck2_test_proto::CancellationReason::NotSpecified.into())
+                            }
+                            crate::data::CancellationReason::ReQueueTimeout => {
+                                Some(buck2_test_proto::CancellationReason::ReQueueTimeout.into())
+                            }
+                        }
+                    } else {
+                        None
+                    };
                     buck2_test_proto::execute_response2::Response::Cancelled(
-                        buck2_test_proto::Cancelled {},
+                        buck2_test_proto::Cancelled { reason },
                     )
                 }
             };
@@ -399,7 +428,9 @@ where
                 .try_into()
                 .context("Invalid `target`")?;
 
-            let Testing { suite, testcases } = testing.context("Missing `testing`")?;
+            let Testing {
+                suite, testcases, ..
+            } = testing.context("Missing `testing`")?;
 
             self.inner
                 .report_tests_discovered(target, suite, testcases)
@@ -499,14 +530,14 @@ where
             let ConsoleRequest { level, message } = request.into_inner();
 
             let level = level
-                .context("Missing `level`")?
+                .buck_error_context("Missing `level`")?
                 .try_into()
-                .context("Invalid `level`")?;
+                .buck_error_context("Invalid `level`")?;
 
             self.inner
                 .console(level, message)
                 .await
-                .context("Failed to console")?;
+                .buck_error_context("Failed to console")?;
 
             Ok(buck2_downward_api_proto::Empty {})
         })
@@ -521,14 +552,14 @@ where
             let LogRequest { level, message } = request.into_inner();
 
             let level = level
-                .context("Missing `level`")?
+                .buck_error_context("Missing `level`")?
                 .try_into()
-                .context("Invalid `level`")?;
+                .buck_error_context("Invalid `level`")?;
 
             self.inner
                 .log(level, message)
                 .await
-                .context("Failed to log")?;
+                .buck_error_context("Failed to log")?;
 
             Ok(buck2_downward_api_proto::Empty {})
         })
@@ -543,14 +574,14 @@ where
             let ExternalEventRequest { event } = request.into_inner();
 
             let event = event
-                .context("Missing `event`")?
+                .buck_error_context("Missing `event`")?
                 .try_into()
-                .context("Invalid `event`")?;
+                .buck_error_context("Invalid `event`")?;
 
             self.inner
                 .external(event)
                 .await
-                .context("Failed to deliver event")?;
+                .buck_error_context("Failed to deliver event")?;
 
             Ok(buck2_downward_api_proto::Empty {})
         })

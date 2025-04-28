@@ -1,0 +1,53 @@
+load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
+
+oncall("build_infra")
+
+prelude = native
+
+# Test to verify that we handle env
+prelude.command_alias(
+    name = "env",
+    args = select({
+        "DEFAULT": [
+            "sh",
+            "-c",
+            "echo $TEST_VAR",
+        ],
+        "ovr_config//os:windows": [
+            "cmd.exe",
+            "/c",
+            "echo %TEST_VAR%",
+        ],
+    }),
+    env = {"TEST_VAR": "foo bar"},
+)
+
+py_assertion(
+    name = "check_env",
+    script = """
+import subprocess
+import sys
+assert (
+    subprocess.check_output([sys.argv[1]]).decode().strip()
+    == "foo bar"
+)
+""",
+    script_args = ["$(exe_target :env)"],
+)
+
+py_assertion(
+    name = "check_env_has_priority",
+    script = """
+import subprocess
+import sys
+import os
+
+env = os.environ.copy()
+env["TEST_VAR"] = "baz qux"
+assert (
+    subprocess.check_output([sys.argv[1]], env = env).decode().strip()
+    == "foo bar"
+)
+""",
+    script_args = ["$(exe_target :env)"],
+)

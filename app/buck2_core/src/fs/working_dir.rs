@@ -20,20 +20,21 @@ use crate::fs::paths::abs_path::AbsPathBuf;
 /// Can be different from process working directory if process changes the directory.
 /// So relative paths should be resolved against this.
 #[derive(Clone, Debug, derive_more::Display)]
-#[display(fmt = "{}", path)]
-pub struct WorkingDir {
+#[display("{}", path)]
+pub struct AbsWorkingDir {
     path: AbsNormPathBuf,
 }
 
-impl WorkingDir {
-    pub fn unchecked_new(path: AbsNormPathBuf) -> WorkingDir {
-        WorkingDir { path }
+impl AbsWorkingDir {
+    pub fn unchecked_new(path: AbsNormPathBuf) -> AbsWorkingDir {
+        AbsWorkingDir { path }
     }
 
-    pub fn current_dir() -> anyhow::Result<WorkingDir> {
+    pub fn current_dir() -> buck2_error::Result<AbsWorkingDir> {
         let current_dir = AbsPathBuf::new(env::current_dir()?)?;
 
         #[derive(Debug, buck2_error::Error)]
+        #[buck2(tier0)]
         enum CurrentDirError {
             #[error("std::env::current_dir returns non-canonical path: `{}` -> `{}`", _0.display(), _1.display())]
             NotCanonical(AbsPathBuf, AbsNormPathBuf),
@@ -52,7 +53,7 @@ impl WorkingDir {
             }
         }
 
-        Ok(WorkingDir::unchecked_new(current_dir_canonical))
+        Ok(AbsWorkingDir::unchecked_new(current_dir_canonical))
     }
 
     pub fn resolve(&self, path: &Path) -> AbsPathBuf {

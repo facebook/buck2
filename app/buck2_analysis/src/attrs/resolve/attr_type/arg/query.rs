@@ -20,11 +20,11 @@ use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 pub(crate) trait ConfiguredQueryMacroBaseExt {
-    fn resolve(&self, ctx: &dyn AttrResolutionContext) -> anyhow::Result<ResolvedQueryMacro>;
+    fn resolve(&self, ctx: &dyn AttrResolutionContext) -> buck2_error::Result<ResolvedQueryMacro>;
 }
 
 impl ConfiguredQueryMacroBaseExt for QueryMacroBase<ConfiguredProvidersLabel> {
-    fn resolve(&self, ctx: &dyn AttrResolutionContext) -> anyhow::Result<ResolvedQueryMacro> {
+    fn resolve(&self, ctx: &dyn AttrResolutionContext) -> buck2_error::Result<ResolvedQueryMacro> {
         let query_result: Arc<AnalysisQueryResult> = ctx.resolve_query(&self.query.query)?;
 
         match &self.expansion_type {
@@ -39,7 +39,7 @@ impl ConfiguredQueryMacroBaseExt for QueryMacroBase<ConfiguredProvidersLabel> {
                             .default_outputs()
                             .into_boxed_slice())
                     })
-                    .collect::<anyhow::Result<_>>()?,
+                    .collect::<buck2_error::Result<_>>()?,
             )),
             QueryExpansion::Target => Ok(ResolvedQueryMacro::Targets(
                 query_result
@@ -68,7 +68,7 @@ impl ConfiguredQueryMacroBaseExt for QueryMacroBase<ConfiguredProvidersLabel> {
                                         .into_boxed_slice(),
                                 ))
                             })
-                            .collect::<anyhow::Result<_>>()?,
+                            .collect::<buck2_error::Result<_>>()?,
                     },
                 )))
             }

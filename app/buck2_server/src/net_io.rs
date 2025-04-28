@@ -7,10 +7,18 @@
  * of this source tree.
  */
 
+#[derive(Copy, Clone, Debug)]
+pub enum NetworkKind {
+    WiFi,
+    Ethernet,
+    Unknown,
+}
+
 #[derive(Clone, Debug)]
-pub struct Counters {
+pub struct NetworkStat {
     pub bytes_sent: u64,
     pub bytes_recv: u64,
+    pub network_kind: NetworkKind,
 }
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
@@ -19,7 +27,8 @@ mod collector {
     use std::sync::Arc;
     use std::sync::Mutex;
 
-    use anyhow::Context;
+    use buck2_error::BuckErrorContext;
+    use buck2_error::conversion::from_any_with_tag;
     use dupe::Dupe;
     use psutil::network::NetIoCountersCollector;
 
@@ -44,19 +53,26 @@ mod collector {
         /// * If a new NIC appears between collection periods, we'll start keeping
         ///   track of it.
         /// * If a NIC *disappears*, then we stop reporting on its stats.
-        pub fn collect(&self) -> anyhow::Result<Option<HashMap<String, Counters>>> {
+        pub fn collect(&self) -> buck2_error::Result<Option<HashMap<String, NetworkStat>>> {
             let mut collector = self.collector.lock().expect("poisoned lock");
             let counters: HashMap<_, _> = collector
                 .net_io_counters_pernic()
-                .context("collecting old counters")?
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+                .buck_error_context("collecting old counters")?
                 .into_iter()
-                .filter(|(s, _)| ["en", "eth"].iter().any(|prefix| s.starts_with(prefix)))
+                .filter(|(s, _)| {
+                    ["en", "eth", "wlan"]
+                        .iter()
+                        .any(|prefix| s.starts_with(prefix))
+                })
                 .map(|(nic, counters)| {
+                    let network_kind = NetworkKind::from_name(&nic);
                     (
                         nic,
-                        Counters {
+                        NetworkStat {
                             bytes_sent: counters.bytes_sent(),
                             bytes_recv: counters.bytes_recv(),
+                            network_kind,
                         },
                     )
                 })
@@ -65,83 +81,74 @@ mod collector {
             Ok(Some(counters))
         }
     }
+
+    impl NetworkKind {
+        #[cfg(target_os = "macos")]
+        fn from_name(name: &str) -> NetworkKind {
+            match name {
+                // on macbook en0 is always WiFi
+                // TODO(yurysamkevich): properly detect device type using SCNetworkInterfaceGetInterfaceType Apple API
+                "en0" => NetworkKind::WiFi,
+                n if n.starts_with("en") => NetworkKind::Ethernet,
+                _ => NetworkKind::Unknown,
+            }
+        }
+
+        #[cfg(target_os = "linux")]
+        fn from_name(name: &str) -> NetworkKind {
+            match name {
+                n if n.starts_with("eth") => NetworkKind::Ethernet,
+                n if n.starts_with("wlan") => NetworkKind::WiFi,
+                _ => NetworkKind::Unknown,
+            }
+        }
+    }
 }
 
 #[cfg(target_os = "windows")]
 mod collector {
     use std::collections::HashMap;
-    use std::io::Error;
-    use std::slice::from_raw_parts;
 
+    use buck2_util::os::win::network_interface_table::NetworkInterfaceTable;
     use dupe::Dupe;
-    use winapi::shared::netioapi::FreeMibTable;
-    use winapi::shared::netioapi::GetIfTable2;
-    use winapi::shared::netioapi::MIB_IF_TABLE2;
-    use winapi::shared::ntdef::FALSE;
-    use winapi::shared::winerror::NO_ERROR;
 
     use super::*;
 
     #[derive(Clone, Debug, Dupe)]
     pub struct SystemNetworkIoCollector;
 
-    struct TableGuard {
-        table: *mut MIB_IF_TABLE2,
-    }
-
-    impl Drop for TableGuard {
-        fn drop(&mut self) {
-            unsafe { FreeMibTable(self.table as *mut _) }
-        }
-    }
-
     impl SystemNetworkIoCollector {
         pub fn new() -> Self {
             Self
         }
 
-        pub fn collect(&self) -> anyhow::Result<Option<HashMap<String, Counters>>> {
+        pub fn collect(&self) -> buck2_error::Result<Option<HashMap<String, NetworkStat>>> {
             let mut counters = HashMap::new();
-            let (_guard, entries) = unsafe {
-                let mut table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
+            let table = NetworkInterfaceTable::new()?;
 
-                if GetIfTable2(&mut table) != NO_ERROR {
-                    return Err(anyhow::anyhow!(
-                        "Failed to retrieve MIB-II interface table: {}",
-                        Error::last_os_error()
-                    ));
-                };
-
-                // Ensure the table gets freed
-                let _guard = TableGuard { table };
-
-                let num_entries = (*table).NumEntries;
-                let table_ptr = (*table).Table.as_ptr();
-                (_guard, from_raw_parts(table_ptr, num_entries as usize))
-            };
-
-            for entry in entries {
-                if entry.InterfaceAndOperStatusFlags.HardwareInterface() == FALSE {
+            for interface in table {
+                if !interface.hardware_interface() {
                     continue;
                 }
 
-                let name_len = entry
-                    .Alias
-                    .iter()
-                    .position(|c| *c == 0)
-                    .unwrap_or(entry.Alias.len());
-                let interface_name = String::from_utf16(&entry.Alias[..name_len])
-                    .unwrap_or_else(|_| String::from("<Unknown>"));
-                let bytes_sent = entry.OutOctets;
-                let bytes_recv = entry.InOctets;
                 counters.insert(
-                    interface_name,
-                    Counters {
-                        bytes_sent,
-                        bytes_recv,
+                    interface.name(),
+                    NetworkStat {
+                        bytes_sent: interface.bytes_sent(),
+                        bytes_recv: interface.bytes_recv(),
+                        network_kind: match interface.network_kind() {
+                            buck2_util::os::win::network_interface::NetworkKind::Ethernet => {
+                                NetworkKind::Ethernet
+                            }
+                            buck2_util::os::win::network_interface::NetworkKind::WiFi => {
+                                NetworkKind::WiFi
+                            }
+                            _ => NetworkKind::Unknown,
+                        },
                     },
                 );
             }
+
             Ok(Some(counters))
         }
     }
@@ -164,7 +171,7 @@ mod collector {
             Self
         }
 
-        pub fn collect(&self) -> anyhow::Result<Option<HashMap<String, Counters>>> {
+        pub fn collect(&self) -> buck2_error::Result<Option<HashMap<String, NetworkStat>>> {
             Ok(None)
         }
     }

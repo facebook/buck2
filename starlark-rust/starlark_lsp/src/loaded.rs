@@ -18,7 +18,6 @@
 use dupe::Dupe;
 use starlark::syntax::AstModule;
 use starlark_syntax::syntax::ast::StmtP;
-use starlark_syntax::syntax::module::AstModuleFields;
 use starlark_syntax::syntax::top_level_stmts::top_level_stmts;
 
 /// A loaded symbol. Returned from [`AstModule::loaded_symbols`].
@@ -38,7 +37,7 @@ pub(crate) trait AstModuleLoadedSymbols {
 }
 
 impl AstModuleLoadedSymbols for AstModule {
-    fn loaded_symbols<'a>(&'a self) -> Vec<LoadedSymbol<'a>> {
+    fn loaded_symbols(&self) -> Vec<LoadedSymbol<'_>> {
         top_level_stmts(self.statement())
             .into_iter()
             .filter_map(|x| match &x.node {
@@ -63,7 +62,7 @@ mod tests {
     use super::*;
 
     fn module(x: &str) -> AstModule {
-        AstModule::parse("X", x.to_owned(), &Dialect::Extended).unwrap()
+        AstModule::parse("X", x.to_owned(), &Dialect::AllOptionsInternal).unwrap()
     }
 
     #[test]

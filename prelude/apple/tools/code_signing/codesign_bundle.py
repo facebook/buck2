@@ -73,11 +73,21 @@ class CodesignedPath:
     """
     Flags to be passed to codesign command when codesigning this particular path
     """
+    extra_file_paths: Optional[List[Path]]
+    """
+    Extra paths to be codesign. Applicable to dry-run codesigning only.
+    """
 
 
-def _log_codesign_identities(identities: List[CodeSigningIdentity]) -> None:
+def _log_codesign_identities(
+    list_codesign_identities: IListCodesignIdentities,
+    identities: List[CodeSigningIdentity],
+) -> None:
     if len(identities) == 0:
         _LOGGER.warning("ZERO codesign identities available")
+        _LOGGER.warning(
+            f"Identities were retrieved by command: {list_codesign_identities.raw_command()}"
+        )
     else:
         _LOGGER.info("Listing available codesign identities")
         for identity in identities:
@@ -101,7 +111,7 @@ def _select_provisioning_profile(
         _default_read_provisioning_profile_command_factory
     )
     identities = list_codesign_identities.list_codesign_identities()
-    _log_codesign_identities(identities)
+    _log_codesign_identities(list_codesign_identities, identities)
     _LOGGER.info(
         f"Fast provisioning profile parsing enabled: {should_use_fast_provisioning_profile_parsing}"
     )
@@ -224,6 +234,13 @@ def codesign_bundle(
     codesign_tool: Optional[Path] = None,
     codesign_configuration: Optional[CodesignConfiguration] = None,
 ) -> None:
+    codesign_on_copy_paths = sorted(
+        codesign_on_copy_paths,
+        key=lambda codesigned_path: codesigned_path.path,
+        # Paths must be signed inside out (i.e., deepest first)
+        reverse=True,
+    )
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         if isinstance(signing_context, SigningContextWithProfileSelection):
             selection_profile_context = signing_context
@@ -320,6 +337,7 @@ def _prepare_entitlements_and_info_plist(
         path=bundle_path.path,
         entitlements=prepared_entitlements_path,
         flags=bundle_path.flags,
+        extra_file_paths=None,
     )
 
 
@@ -361,7 +379,6 @@ def _read_provisioning_profiles(
     dirpath: Path,
     read_provisioning_profile_command_factory: IReadProvisioningProfileCommandFactory,
 ) -> List[ProvisioningProfileMetadata]:
-
     return [
         _provisioning_profile_from_file_path(
             dirpath / f,
@@ -453,13 +470,22 @@ def _dry_codesign_everything(
         for p in codesign_on_copy_paths
         if p.path.is_file()
     ]
-    codesign_command_factory.set_codesign_on_copy_file_paths(
-        codesign_on_copy_file_paths
+
+    if root.extra_file_paths:
+        raise RuntimeError(
+            f"Root path contains extra file paths: `{root.extra_file_paths}`"
+        )
+
+    root_with_extra_paths = CodesignedPath(
+        path=root.path,
+        entitlements=root.entitlements,
+        flags=root.flags,
+        extra_file_paths=codesign_on_copy_file_paths,
     )
 
     # Lastly sign whole bundle
     _codesign_paths(
-        paths=[root],
+        paths=[root_with_extra_paths],
         identity_fingerprint=identity_fingerprint,
         tmp_dir=tmp_dir,
         codesign_command_factory=codesign_command_factory,
@@ -564,12 +590,36 @@ def _spawn_codesign_process(
     stack: ExitStack,
 ) -> ParallelProcess:
     command = codesign_command_factory.codesign_command(
-        path.path, identity_fingerprint, path.entitlements, path.flags
+        path.path,
+        identity_fingerprint,
+        path.entitlements,
+        path.flags,
+        path.extra_file_paths,
     )
     return _spawn_process(command=command, tmp_dir=tmp_dir, stack=stack)
 
 
-def _codesign_paths(
+def _codesign_paths_serially(
+    paths: List[CodesignedPath],
+    identity_fingerprint: str,
+    tmp_dir: str,
+    codesign_command_factory: ICodesignCommandFactory,
+    platform: ApplePlatform,
+) -> None:
+    with ExitStack() as stack:
+        for path in paths:
+            p = _spawn_codesign_process(
+                path=path,
+                identity_fingerprint=identity_fingerprint,
+                tmp_dir=tmp_dir,
+                codesign_command_factory=codesign_command_factory,
+                stack=stack,
+            )
+            p.process.wait()
+            p.check_result()
+
+
+def _codesign_paths_in_parallel(
     paths: List[CodesignedPath],
     identity_fingerprint: str,
     tmp_dir: str,
@@ -592,6 +642,56 @@ def _codesign_paths(
             p.process.wait()
     for p in processes:
         p.check_result()
+
+
+def _can_codesign_paths_in_parallel(codesigned_paths: List[CodesignedPath]) -> bool:
+    # To enable parallel signing, there must be no nesting of any codesigned paths,
+    # as codesigning must be performed "inside out" - deeper items signed first,
+    # as parent items need to seal the contained items as part of their signature.
+    #
+    # To detect nesting, we reverse sort all paths and only need to check
+    # neighboring elements. For example, imagine the following elements:
+    # `a/b/c`
+    # `a/b`
+    # `b`
+    # `c`
+    #
+    # For each element, check if the element is a prefix of the previous element.
+    # In the example above, checking if `a/b` is a prefix of `a/b/c` means its
+    # unsafe to codesign in parallel.
+    paths = sorted([str(path.path) for path in codesigned_paths], reverse=True)
+    for index, current_path in enumerate(paths):
+        if index == 0:
+            continue
+        previous_path = paths[index - 1]
+        if previous_path.startswith(current_path):
+            _LOGGER.warn(
+                f"Found overlapping codesigned paths: {previous_path}, {current_path}"
+            )
+            return False
+    return True
+
+
+def _codesign_paths(
+    paths: List[CodesignedPath],
+    identity_fingerprint: str,
+    tmp_dir: str,
+    codesign_command_factory: ICodesignCommandFactory,
+    platform: ApplePlatform,
+) -> None:
+    can_codesign_in_parallel = _can_codesign_paths_in_parallel(paths)
+    signing_function = (
+        _codesign_paths_in_parallel
+        if can_codesign_in_parallel
+        else _codesign_paths_serially
+    )
+    signing_function(
+        paths=paths,
+        identity_fingerprint=identity_fingerprint,
+        tmp_dir=tmp_dir,
+        codesign_command_factory=codesign_command_factory,
+        platform=platform,
+    )
 
 
 def _filter_out_fast_adhoc_paths(
@@ -626,7 +726,10 @@ def obtain_keychain_permissions(
         shutil.copyfile(dummy_binary_path, dummy_binary_copied, follow_symlinks=True)
         p = _spawn_codesign_process(
             path=CodesignedPath(
-                path=Path(dummy_binary_copied), entitlements=None, flags=[]
+                path=Path(dummy_binary_copied),
+                entitlements=None,
+                flags=[],
+                extra_file_paths=None,
             ),
             identity_fingerprint=identity_fingerprint,
             tmp_dir=tmp_dir,

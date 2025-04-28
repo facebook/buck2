@@ -1,5 +1,4 @@
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
-load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
 
@@ -17,14 +16,8 @@ rust_library(
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:pin-project",
         "fbsource//third-party/rust:slab",
-        "fbsource//third-party/rust:take_mut",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
-        "fbsource//third-party/rust:tracing",
-        "//buck2/allocative/allocative:allocative",
-        "//buck2/app/buck2_data:buck2_data",
-        "//buck2/app/buck2_events:buck2_events",
-        "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/gazebo/dupe:dupe",
     ],
 )

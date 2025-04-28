@@ -20,11 +20,11 @@ use dupe::Dupe;
 
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
-use crate::values::function::NativeFunc;
-use crate::values::function::NativeFunction;
 use crate::values::FrozenRef;
 use crate::values::FrozenValueTyped;
 use crate::values::Value;
+use crate::values::function::NativeFunc;
+use crate::values::function::NativeFunction;
 
 /// Pointer to a native function optimized for bytecode execution.
 #[derive(Copy, Clone, Dupe, Allocative)]

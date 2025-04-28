@@ -17,18 +17,17 @@
 
 use std::str::FromStr;
 
-use anyhow::Context as _;
 use starlark_syntax::dot_format_parser::FormatConv;
 use starlark_syntax::dot_format_parser::FormatParser;
 use starlark_syntax::dot_format_parser::FormatToken;
 
 use crate::collections::string_pool::StringPool;
-use crate::values::dict::Dict;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
+use crate::values::dict::Dict;
 
 /// Try parse `"aaa{}bbb"` and return `("aaa", "bbb")`.
 pub(crate) fn parse_format_one(s: &str) -> Option<(String, String)> {
@@ -176,8 +175,9 @@ fn format_capture<'v, T: Iterator<Item = Value<'v>>>(
         conv(args.next_ordered()?, result);
         Ok(())
     } else if field.bytes().all(|c| c.is_ascii_digit()) {
-        let i = usize::from_str(field)
-            .with_context(|| format!("Error parsing `{field}` as a format string index"))?;
+        let i = usize::from_str(field).map_err(|e| {
+            anyhow::anyhow!("Error parsing `{field}` as a format string index: {e}")
+        })?;
         conv(args.by_index(i)?, result);
         Ok(())
     } else {
@@ -207,12 +207,12 @@ mod tests {
 
     use crate::assert;
     use crate::coerce::coerce;
-    use crate::values::dict::Dict;
-    use crate::values::string::dot_format::format_capture;
-    use crate::values::string::dot_format::parse_format_one;
-    use crate::values::string::dot_format::FormatArgs;
     use crate::values::Heap;
     use crate::values::Value;
+    use crate::values::dict::Dict;
+    use crate::values::string::dot_format::FormatArgs;
+    use crate::values::string::dot_format::format_capture;
+    use crate::values::string::dot_format::parse_format_one;
 
     fn format_capture_for_test<'v, T: Iterator<Item = Value<'v>>>(
         capture: &str,

@@ -1,0 +1,21 @@
+load(":defs.bzl", "cat_rule", "echo_rule")
+
+echo_rule(
+    name = "echo_file",
+    arg = "$(source foo.txt)",
+)
+
+echo_rule(
+    name = "echo_dir",
+    arg = "$(source bar)",
+)
+
+cat_rule(
+    name = "cat_file",
+    arg = "$(source foo.txt)",
+)
+
+cat_rule(
+    name = "cat_dir",
+    arg = "$(source bar)/bar.txt",
+)

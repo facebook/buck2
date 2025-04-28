@@ -7,5 +7,4 @@
  * of this source tree.
  */
 
-pub(crate) mod cycles;
 pub(crate) mod dice_futures;

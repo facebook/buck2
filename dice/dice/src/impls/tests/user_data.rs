@@ -24,7 +24,7 @@ async fn different_data_per_compute_ctx() {
     struct U(usize);
 
     #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct DataRequest(u8);
     #[async_trait]
     impl Key for DataRequest {

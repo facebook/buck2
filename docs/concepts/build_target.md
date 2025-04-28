@@ -18,14 +18,13 @@ target in order to specify that target as a _dependency_.
 Here is an example of a _fully-qualified_ build target:
 
 ```
-//java/com/facebook/share:ui
+cell//java/com/facebook/share:ui
 ```
 
 A fully-qualified build target has three components:
 
-1. The `//` prefix indicates that the subsequent path is from the _root_ of your
-   project. You can use the `buck2 root` command to identify the root of your
-   project.
+1. The `cell//` prefix indicates that the subsequent path is from the _root_ of
+   `cell`.
 2. The `java/com/facebook/share` between the `//` prefix and the colon (`:`)
    indicates that the [build file](build_file.md) (usually named `BUCK`) is
    located in the directory `java/com/facebook/share`.
@@ -57,19 +56,30 @@ _relative_ build paths, but in Buck2, that concept refers to specifying build
 targets _from within_ a build file. See **Relative build targets** below for
 more details.
 
-#### Relative build targets
+#### Cell relative build targets
 
-A _relative_ build target can be used to reference a build target _within the
-same _[_build file_](build_file.md). A relative build target starts with a colon
-(`:`) and is followed by only the third component (or _short name_) of the
-fully-qualified build target. The following snippet from a build file shows an
-example of using a relative path.
+A _cell relative_ build target omits the cell, and is inferred to be relative to
+the current cell.
 
-```
+#### Package relative build targets
+
+A _package relative_ build target can be used to reference a build target
+_within the same _[_build file_](build_file.md) (aka _package_). A relative
+build target starts with a colon (`:`) and is followed by only the third
+component (or _short name_) of the fully-qualified build target. The following
+snippet from a build file shows an example of using a relative path.
+
+```python
 ## Assume this target is in //java/com/facebook/share/BUCK#
 java_binary(
   name = 'ui_jar',
-  deps = [## The following target path##   //java/com/facebook/share:ui## is the same as using the following relative path.#':ui',],)
+  deps = [
+    ## The following target path
+    ##   //java/com/facebook/share:ui
+    ## is the same as using the following relative path.#
+    ':ui',
+  ],
+)
 ```
 
 ## Command-line Pro Tips
@@ -79,36 +89,36 @@ targets as command-line arguments to the `buck2 build` or `buck2 run` commands.
 Consider the following example of a fully-qualified build target used with the
 `buck2 build` command:
 
-```
-buck2 build //java/com/facebook/share:share
+```sh
+buck2 build cell//java/com/facebook/share:share
 ```
 
 Although Buck2 is always strict when parsing build targets in build files, Buck2
 is flexible when parsing build targets on the command-line. Specifically, the
 leading `//` is optional on the command line, so the above could be:
 
-```
+```sh
 buck2 build java/com/facebook/share:share
 ```
 
 Also, if there is a forward slash before the colon, it is ignored, so this could
 also be written as:
 
-```
+```sh
 buck2 build java/com/facebook/share/:share
 ```
 
 which enables you to produce the red text shown below using tab-completion,
 which dramatically reduces how much you need to type:
 
-```
+```sh
 buck2 build java/com/facebook/share/:share
 ```
 
 Finally, if the final path element matches the value specified after the colon,
 it can be omitted:
 
-```
+```sh
 # This is treated as //java/com/facebook/share:share.
 buck2 build java/com/facebook/share/
 ```

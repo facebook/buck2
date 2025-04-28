@@ -1,28 +1,97 @@
-# META INTERNAL NOTES:
-# If this file is changed open source it will probably not import correctly,
-# as it is the only `TARGETS` (not `TARGETS.v2`) in the prelude.
-# Configuring the tools to do it right seemed more dangerous than just having a caveat on this one file.
-
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
-oncall("build_infra")
+oncall("plf_experience")
+
+prelude = native
 
 source_listing()
 
-export_file(
+prelude.export_file(
     name = "__run_lpar_main__.py",
     src = "__run_lpar_main__.py",
     visibility = ["PUBLIC"],
 )
 
-export_file(
+prelude.export_file(
     name = "sitecustomize.py",
     src = "sitecustomize.py",
     visibility = ["PUBLIC"],
 )
 
-export_file(
+prelude.export_file(
     name = "_lpar_bootstrap.sh.template",
     src = "_lpar_bootstrap.sh.template",
+    visibility = ["PUBLIC"],
+)
+
+prelude.rust_library(
+    name = "rust_make_par_lib",
+    srcs = ["rust_make_par/src/lib.rs"],
+    crate = "rust_make_par",
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:walkdir",
+    ],
+)
+
+prelude.rust_test(
+    name = "rust_make_par_lib_test",
+    srcs = ["rust_make_par/src/lib.rs"],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:tempfile",
+        "fbsource//third-party/rust:walkdir",
+    ],
+)
+
+prelude.rust_binary(
+    name = "rust_make_par",
+    srcs = ["rust_make_par/src/main.rs"],
+    visibility = ["PUBLIC"],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:serde",
+        ":rust_make_par_lib",
+    ],
+)
+
+prelude.export_file(
+    name = "live_builder.py",
+    src = "live_builder.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_library(
+    name = "live_builder",
+    srcs = [
+        "fbcode//tools/make_par:errors.py",
+        "fbcode//tools/make_par:util.py",
+        "live_builder.py",
+        "par_builder.py",
+    ],
+)
+
+prelude.export_file(
+    name = "par_builder.py",
+    src = "par_builder.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "gen_lpar_bootstrap_bin",
+    main = "gen_lpar_bootstrap.py",
+    deps = [":live_builder"],
+)
+
+prelude.command_alias(
+    name = "gen_lpar_bootstrap",
+    args = [
+        "--template",
+        "$(location :_lpar_bootstrap.sh.template)",
+    ],
+    exe = ":gen_lpar_bootstrap_bin",
     visibility = ["PUBLIC"],
 )

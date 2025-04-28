@@ -15,21 +15,24 @@ use buck2_build_api_derive::internal_provider;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::list::ListRef;
-use starlark::values::list::UnpackList;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Trace;
-use starlark::values::UnpackAndDiscard;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::list::ListRef;
+use starlark::values::list::ListType;
 
+use crate as buck2_build_api;
 use crate::interpreter::rule_defs::validation_spec::FrozenStarlarkValidationSpec;
 use crate::interpreter::rule_defs::validation_spec::StarlarkValidationSpec;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ValidationInfoError {
     #[error("Expected `ValidationSpec` value, got `{0}`")]
     WrongSpecType(String),
@@ -53,12 +56,14 @@ pub struct ValidationInfoGen<V: ValueLifetimeless> {
     validations: ValueOfUncheckedGeneric<V, Vec<FrozenStarlarkValidationSpec>>,
 }
 
-fn validate_validation_info<'v, V>(info: &ValidationInfoGen<V>) -> anyhow::Result<()>
+fn validate_validation_info<'v, V>(info: &ValidationInfoGen<V>) -> buck2_error::Result<()>
 where
     V: ValueLike<'v>,
 {
     let values = ListRef::from_value(info.validations.get().to_value())
-        .ok_or(ValidationInfoError::ValidationsAreNotListOfSpecs)?
+        .ok_or(buck2_error::Error::from(
+            ValidationInfoError::ValidationsAreNotListOfSpecs,
+        ))?
         .iter();
     let mut spec_names = HashSet::new();
     for value in values {
@@ -90,9 +95,9 @@ fn validation_info_creator(globals: &mut GlobalsBuilder) {
     fn ValidationInfo<'v>(
         #[starlark(require = named)] validations: ValueOf<
             'v,
-            UnpackList<UnpackAndDiscard<&'v StarlarkValidationSpec<'v>>>,
+            ListType<&'v StarlarkValidationSpec<'v>>,
         >,
-    ) -> anyhow::Result<ValidationInfo<'v>> {
+    ) -> starlark::Result<ValidationInfo<'v>> {
         let result = ValidationInfo {
             validations: ValueOfUnchecked::new(validations.value),
         };

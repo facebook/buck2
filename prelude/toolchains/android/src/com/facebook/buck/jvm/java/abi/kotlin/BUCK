@@ -1,0 +1,28 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+KOTLIN_USE_OLD_VERSION = read_config("kotlin", "kotlin_version") < "2"
+
+buck_java_library(
+    name = "kotlin",
+    srcs = (["kotlin-1.4.2/KotlinMetadataReader.java"] if KOTLIN_USE_OLD_VERSION else ["KotlinMetadataReader.java"]) + ["InlineFunctionScope.java"],
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/abi:abi",
+    ],
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi:abi",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/abi/...",
+    ],
+    deps = [
+        "prelude//toolchains/android/third-party:asm",
+        "prelude//toolchains/android/third-party:kotlin-metadata-jvm",
+        "prelude//toolchains/android/third-party:kotlin-stdlib",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/third-party:guava",
+    ],
+)

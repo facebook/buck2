@@ -13,21 +13,24 @@ _MAX_DEPTH = 2147483647
 
 def _impl_check_dependencies_test(
         ctx: bxl.Context,
+        verification_mode: str,
         allowlist_patterns: list[str] | None,
         blocklist_patterns: list[str] | None,
         target: TargetLabel):
     """Test the dependencies of a given rule.
 
-    If allowlist_patterns is set, only dependencies which match a pattern
-    in the allowlist will be allowed. In this mode, blocklist_patterns can
-    be used to remove targets from the set of allowlisted items.
-    If allowlist_patterns is not set, then all targets are assumed to be
-    allowed unless they match a pattern in the blocklist_patterns.
+    The behavior is determined by the verification_mode string value:
+
+    "allowlist" mode - only targets matching allowlist and not matching blocklist will be allowed.
+    "blocklist" mode - targets matching blocklist and not matching allowlist will be rejected.
+
     Each pattern list may contain target names (e.g. //foo/bar:bar)
     or regex patterns (e.g. //foo/.*)
+
     """
     if not allowlist_patterns and not blocklist_patterns:
         fail("Self-check and self-documentation: must provide allow or block list")
+
     cquery = ctx.cquery()
     transitive_deps = cquery.deps(
         ctx.target_universe(target).target_set(),
@@ -35,34 +38,44 @@ def _impl_check_dependencies_test(
         filter = "target_deps()",
     )
 
+    allowlist_regex = rule_list_regex(allowlist_patterns)
     blocklist_regex = rule_list_regex(blocklist_patterns)
-    if allowlist_patterns != None and len(allowlist_patterns) > 0:
-        allowlist_regex = rule_list_regex(allowlist_patterns)
-        blocklisted = filter(lambda target: regex_match(blocklist_regex, str(target.label.raw_target())), transitive_deps)
-        allowlisted = filter(lambda target: regex_match(allowlist_regex, str(target.label.raw_target())), transitive_deps)
-        allowlisted_deps = ctx.target_universe(allowlisted).target_set()
-        blocklisted_deps = ctx.target_universe(blocklisted).target_set()
 
+    allowlisted = filter(lambda target: regex_match(allowlist_regex, str(target.label.raw_target())), transitive_deps)
+    blocklisted = filter(lambda target: regex_match(blocklist_regex, str(target.label.raw_target())), transitive_deps)
+
+    allowlisted_deps = ctx.target_universe(allowlisted).target_set()
+    blocklisted_deps = ctx.target_universe(blocklisted).target_set()
+
+    if verification_mode == "allowlist":
         # We expect transitive_deps = allowlisted_deps - blocklisted_deps following line means the same.
-        res = transitive_deps - allowlisted_deps + blocklisted_deps
+        res = (transitive_deps - allowlisted_deps) + (transitive_deps & blocklisted_deps)
 
         # TODO(ezgi): Add shortest path from target to the banned/blocklisted targets
         if len(res) > 0:
             fail("Found banned targets: {}! ".format(res))
-    elif blocklist_patterns != None and len(blocklist_patterns) > 0:
-        blocklisted = filter(lambda target: regex_match(blocklist_regex, str(target.label)), transitive_deps)
-        res = ctx.target_universe(blocklisted).target_set()
+    elif verification_mode == "blocklist":
+        res = blocklisted_deps & (transitive_deps - allowlisted_deps)
         if len(res) > 0:
             fail("Found blocklisted targets: {}!".format(res))
+    else:
+        fail("Invalid verification mode: " + verification_mode)
 
 def _impl(ctx: bxl.Context):
-    _impl_check_dependencies_test(ctx, ctx.cli_args.allowlist_patterns, ctx.cli_args.blocklist_patterns, ctx.cli_args.target)
+    _impl_check_dependencies_test(
+        ctx,
+        ctx.cli_args.verification_mode,
+        ctx.cli_args.allowlist_patterns,
+        ctx.cli_args.blocklist_patterns,
+        ctx.cli_args.target,
+    )
 
 test = bxl_main(
     cli_args = {
         "allowlist_patterns": cli_args.option(cli_args.list(cli_args.string())),
         "blocklist_patterns": cli_args.option(cli_args.list(cli_args.string())),
         "target": cli_args.target_label(),
+        "verification_mode": cli_args.string(),
     },
     impl = _impl,
 )

@@ -11,10 +11,10 @@
 
 use std::hash::Hash;
 
-use starlark_map::unordered_set;
-use starlark_map::unordered_set::UnorderedSet;
 use starlark_map::Hashed;
 use starlark_map::StarlarkHashValue;
+use starlark_map::unordered_set;
+use starlark_map::unordered_set::UnorderedSet;
 
 use crate::query::graph::vec_as_set::VecAsSet;
 

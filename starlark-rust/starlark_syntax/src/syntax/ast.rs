@@ -115,12 +115,17 @@ pub enum ArgumentP<P: AstPayload> {
 
 #[derive(Debug, Clone)]
 pub enum ParameterP<P: AstPayload> {
-    Normal(AstAssignIdentP<P>, Option<Box<AstTypeExprP<P>>>),
-    WithDefaultValue(
+    /// `/` marker.
+    Slash,
+    Normal(
+        /// Name.
         AstAssignIdentP<P>,
+        /// Type.
         Option<Box<AstTypeExprP<P>>>,
-        Box<AstExprP<P>>,
+        /// Default value.
+        Option<Box<AstExprP<P>>>,
     ),
+    /// `*` marker.
     NoArgs,
     Args(AstAssignIdentP<P>, Option<Box<AstTypeExprP<P>>>),
     KwArgs(AstAssignIdentP<P>, Option<Box<AstTypeExprP<P>>>),
@@ -129,11 +134,10 @@ pub enum ParameterP<P: AstPayload> {
 impl<P: AstPayload> ParameterP<P> {
     pub fn ident(&self) -> Option<&AstAssignIdentP<P>> {
         match self {
-            ParameterP::Normal(x, _)
-            | ParameterP::WithDefaultValue(x, _, _)
-            | ParameterP::Args(x, _)
-            | ParameterP::KwArgs(x, _) => Some(x),
-            ParameterP::NoArgs => None,
+            ParameterP::Normal(x, _, _) | ParameterP::Args(x, _) | ParameterP::KwArgs(x, _) => {
+                Some(x)
+            }
+            ParameterP::NoArgs | ParameterP::Slash => None,
         }
     }
 }
@@ -167,10 +171,15 @@ impl<P: AstPayload> LambdaP<P> {
 }
 
 #[derive(Debug, Clone)]
+pub struct CallArgsP<P: AstPayload> {
+    pub args: Vec<AstArgumentP<P>>,
+}
+
+#[derive(Debug, Clone)]
 pub enum ExprP<P: AstPayload> {
     Tuple(Vec<AstExprP<P>>),
     Dot(Box<AstExprP<P>>, AstString),
-    Call(Box<AstExprP<P>>, Vec<AstArgumentP<P>>),
+    Call(Box<AstExprP<P>>, CallArgsP<P>),
     Index(Box<(AstExprP<P>, AstExprP<P>)>),
     Index2(Box<(AstExprP<P>, AstExprP<P>, AstExprP<P>)>),
     Slice(
@@ -334,7 +343,7 @@ pub enum Visibility {
     Public,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DefP<P: AstPayload> {
     pub name: AstAssignIdentP<P>,
     pub params: Vec<AstParameterP<P>>,
@@ -356,7 +365,7 @@ impl<P: AstPayload> DefP<P> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ForP<P: AstPayload> {
     pub var: AstAssignTargetP<P>,
     pub over: AstExprP<P>,
@@ -371,7 +380,7 @@ pub struct FStringP<P: AstPayload> {
     pub expressions: Vec<AstExprP<P>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum StmtP<P: AstPayload> {
     Break,
     Continue,
@@ -404,6 +413,14 @@ impl<P: AstPayload> ArgumentP<P> {
             ArgumentP::Named(_, x) => x,
             ArgumentP::Args(x) => x,
             ArgumentP::KwArgs(x) => x,
+        }
+    }
+
+    /// Argument name if it is named.
+    pub fn name(&self) -> Option<&str> {
+        match self {
+            ArgumentP::Named(name, _) => Some(&name.node),
+            _ => None,
         }
     }
 }
@@ -522,7 +539,7 @@ impl Display for Expr {
             }
             Expr::Call(e, args) => {
                 write!(f, "{}(", e.node)?;
-                for (i, x) in args.iter().enumerate() {
+                for (i, x) in args.args.iter().enumerate() {
                     if i != 0 {
                         f.write_str(", ")?;
                     }
@@ -588,7 +605,7 @@ impl Display for Expr {
                 for x in c {
                     write!(f, "{}", x)?;
                 }
-                f.write_str("}}")
+                f.write_str("}")
             }
             Expr::Literal(x) => write!(f, "{}", x),
             Expr::FString(x) => {
@@ -651,8 +668,8 @@ impl Display for Argument {
 impl Display for Parameter {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let (prefix, name, typ, default) = match self {
-            Parameter::Normal(s, t) => ("", s, t, None),
-            Parameter::WithDefaultValue(s, t, e) => ("", s, t, Some(e)),
+            Parameter::Slash => return write!(f, "/"),
+            Parameter::Normal(s, t, e) => ("", s, t, e.as_ref()),
             Parameter::NoArgs => return write!(f, "*"),
             Parameter::Args(s, t) => ("*", s, t, None),
             Parameter::KwArgs(s, t) => ("**", s, t, None),
@@ -740,6 +757,7 @@ impl Stmt {
             Stmt::Load(load) => {
                 write!(f, "{}load(", tab)?;
                 fmt_string_literal(f, &load.module.node)?;
+                f.write_str(", ")?;
                 comma_separated_fmt(
                     f,
                     &load.args,

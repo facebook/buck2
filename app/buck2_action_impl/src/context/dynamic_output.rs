@@ -9,15 +9,10 @@
 
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_artifact::actions::key::ActionIndex;
 use buck2_artifact::actions::key::ActionKey;
+use buck2_artifact::artifact::artifact_type::BoundBuildArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_artifact::artifact::build_artifact::BuildArtifact;
-use buck2_artifact::deferred::key::DeferredHolderKey;
-use buck2_artifact::dynamic::DynamicLambdaResultsKey;
-use buck2_build_api::dynamic::params::DynamicLambdaParams;
-use buck2_build_api::dynamic::params::DynamicLambdaStaticFields;
 use buck2_build_api::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
@@ -25,56 +20,79 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifac
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
+use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
+use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use dupe::Dupe;
 use indexmap::IndexSet;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
+use starlark::values::FrozenValue;
+use starlark::values::ValueTyped;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
-use starlark::values::FrozenValue;
-use starlark::values::ValueTyped;
 use starlark_map::small_map::SmallMap;
 
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
 use crate::dynamic::dynamic_value::StarlarkDynamicValue;
+use crate::dynamic::params::DynamicLambdaParams;
+use crate::dynamic::params::DynamicLambdaStaticFields;
+use crate::dynamic::storage::DynamicLambdaParamsStorageImpl;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum DynamicOutputError {
     #[error("Output list may not be empty")]
     EmptyOutput,
 }
 
+pub(crate) struct DynamicActionsOutputArtifactBinder {
+    key: DeferredHolderKey,
+    index: u32,
+}
+
+impl DynamicActionsOutputArtifactBinder {
+    pub(crate) fn new(key: &DynamicLambdaResultsKey) -> Self {
+        DynamicActionsOutputArtifactBinder {
+            key: DeferredHolderKey::DynamicLambda(Arc::new(key.dupe())),
+            index: 0,
+        }
+    }
+
+    pub(crate) fn bind(
+        &mut self,
+        output: OutputArtifact,
+    ) -> buck2_error::Result<BoundBuildArtifact> {
+        // We create ActionKeys that point directly to the dynamic_lambda's
+        // output rather than our own. This saves the resolution of the key from
+        // needing to first lookup our result just to get forwarded to the lambda's result.
+        //
+        // This means that we are creating ActionKeys for the lambda and it needs to offset
+        // its key's index to account for this (see ActionRegistry where this is done).
+        let bound = output
+            .bind(ActionKey::new(
+                self.key.dupe(),
+                ActionIndex::new(self.index),
+            ))?
+            .dupe();
+        self.index += 1;
+        Ok(bound)
+    }
+}
+
 fn output_artifacts_to_lambda_build_artifacts(
     dynamic_key: &DynamicLambdaResultsKey,
     outputs: IndexSet<OutputArtifact>,
-) -> anyhow::Result<Box<[BuildArtifact]>> {
-    let dynamic_holder_key = DeferredHolderKey::DynamicLambda(Arc::new(dynamic_key.dupe()));
+) -> buck2_error::Result<Box<[BoundBuildArtifact]>> {
+    let mut bind = DynamicActionsOutputArtifactBinder::new(dynamic_key);
 
     outputs
-        .iter()
-        .enumerate()
-        .map(|(output_artifact_index, output)| {
-            // We create ActionKeys that point directly to the dynamic_lambda's
-            // output rather than our own. This saves the resolution of the key from
-            // needing to first lookup our result just to get forwarded to the lambda's result.
-            //
-            // This means that we are creating ActionKeys for the lambda and it needs to offset
-            // its key's index to account for this (see ActionRegistry where this is done).
-            //
-            // TODO(cjhopman): We should probably combine ActionRegistry and DynamicRegistry (and
-            // probably ArtifactGroupRegistry too).
-            let bound = output
-                .bind(ActionKey::new(
-                    dynamic_holder_key.dupe(),
-                    ActionIndex::new(output_artifact_index.try_into()?),
-                ))?
-                .as_base_artifact()
-                .dupe();
-            Ok(bound)
-        })
-        .collect::<anyhow::Result<_>>()
+        .into_iter()
+        .map(|output| bind.bind(output))
+        .collect::<buck2_error::Result<_>>()
 }
 
 #[starlark_module]
@@ -132,33 +150,38 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             ),
             NoneType,
         >,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         // TODO(nga): delete.
         let _unused = inputs;
 
         // Parameter validation
         if outputs.items.is_empty() {
-            return Err(DynamicOutputError::EmptyOutput.into());
+            return Err(buck2_error::Error::from(DynamicOutputError::EmptyOutput).into());
         }
 
         // Conversion
-        let dynamic = dynamic
+        let artifact_values = dynamic
             .items
             .iter()
             .map(|x| x.artifact())
-            .collect::<anyhow::Result<_>>()?;
+            .collect::<buck2_error::Result<_>>()?;
         let outputs = outputs
             .items
             .iter()
             .map(|x| x.artifact())
-            .collect::<anyhow::Result<_>>()?;
+            .collect::<buck2_error::Result<_>>()?;
 
         let attributes = this.attributes;
         let plugins = this.plugins;
 
-        let mut this = this.state();
+        let mut this = this.state()?;
 
-        let key = this.analysis_value_storage.next_dynamic_actions_key()?;
+        let execution_platform = this.actions.execution_platform.dupe();
+
+        let lambda_params_storage =
+            DynamicLambdaParamsStorageImpl::get(&mut this.analysis_value_storage)?;
+
+        let key = lambda_params_storage.next_dynamic_actions_key()?;
         let outputs = output_artifacts_to_lambda_build_artifacts(&key, outputs)?;
 
         // Registration
@@ -166,17 +189,16 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             attributes,
             plugins,
             lambda: f.erase(),
-            arg: None,
+            attr_values: None,
             static_fields: DynamicLambdaStaticFields {
                 owner: key.owner().dupe(),
-                dynamic,
+                artifact_values,
                 dynamic_values: IndexSet::new(),
                 outputs,
-                execution_platform: this.actions.execution_platform.dupe(),
+                execution_platform,
             },
         };
-        this.analysis_value_storage
-            .set_dynamic_actions(key, lambda_params)?;
+        lambda_params_storage.set_dynamic_actions(key, lambda_params)?;
         Ok(NoneType)
     }
 
@@ -186,45 +208,50 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
     fn dynamic_output_new<'v>(
         this: &'v AnalysisActions<'v>,
         #[starlark(require = pos)] dynamic_actions: ValueTyped<'v, StarlarkDynamicActions<'v>>,
-    ) -> anyhow::Result<StarlarkDynamicValue> {
+    ) -> starlark::Result<StarlarkDynamicValue> {
         let dynamic_actions = dynamic_actions
             .data
-            .try_borrow_mut()?
+            .try_borrow_mut()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
             .take()
-            .context("dynamic_action data can be used only in one `dynamic_output_new` call")?;
+            .buck_error_context(
+                "dynamic_action data can be used only in one `dynamic_output_new` call",
+            )?;
         let StarlarkDynamicActionsData {
-            dynamic,
-            dynamic_values,
-            outputs,
-            arg,
+            attr_values,
             callable,
         } = dynamic_actions;
 
-        let attributes = this.attributes;
-        let plugins = this.plugins;
+        let mut this = this.state()?;
 
-        let mut this = this.state();
+        let execution_platform = this.actions.execution_platform.dupe();
 
-        let key = this.analysis_value_storage.next_dynamic_actions_key()?;
-        let outputs = output_artifacts_to_lambda_build_artifacts(&key, outputs)?;
+        let lambda_params_storage =
+            DynamicLambdaParamsStorageImpl::get(&mut this.analysis_value_storage)?;
+        let key = lambda_params_storage.next_dynamic_actions_key()?;
+
+        let attr_values = attr_values.bind(&key)?;
+
+        let outputs = attr_values.outputs().into_iter().collect();
+        let artifact_values = attr_values.artifact_values();
+        let dynamic_values = attr_values.dynamic_values();
 
         // Registration
         let lambda_params = DynamicLambdaParams {
-            attributes,
-            plugins,
+            attributes: None,
+            plugins: None,
             lambda: callable.implementation.erase().to_callable(),
-            arg: Some(arg),
+            attr_values: Some((attr_values, callable)),
             static_fields: DynamicLambdaStaticFields {
                 owner: key.owner().dupe(),
-                dynamic,
+                artifact_values,
                 dynamic_values,
                 outputs,
-                execution_platform: this.actions.execution_platform.dupe(),
+                execution_platform,
             },
         };
 
-        this.analysis_value_storage
-            .set_dynamic_actions(key.dupe(), lambda_params)?;
+        lambda_params_storage.set_dynamic_actions(key.dupe(), lambda_params)?;
 
         Ok(StarlarkDynamicValue {
             dynamic_value: DynamicValue {

@@ -1,0 +1,14 @@
+stub(
+    name = "declared_dep",
+)
+
+stub(
+    name = "target1",
+    deps = [":declared_dep"],
+)
+
+stub(
+    name = "target2",
+    deps = [":target1"],
+    visibility = ["PUBLIC"],
+)

@@ -3,6 +3,8 @@ id: logging
 title: Logging
 ---
 
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 Buck2 produces detailed event logs for each invocation, which follow a schema
 outlined in `app/buck2_data/data.proto` in the buck2 parent directory. The event
 logs that Buck2 produces automatically are always in protobuf zstd-compressed

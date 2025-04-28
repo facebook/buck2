@@ -21,8 +21,8 @@ use std::cell::Cell;
 
 use crate::collections::SmallSet;
 use crate::hint::unlikely;
-use crate::values::layout::pointer::RawPointer;
 use crate::values::Value;
+use crate::values::layout::pointer::RawPointer;
 
 /// Pop the stack on drop.
 pub(crate) struct ReprStackGuard;

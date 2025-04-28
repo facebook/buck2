@@ -13,9 +13,9 @@
 //! This module sets up a shared panic hook to run before unwinding/termination for crash reporting.
 
 use std::panic;
-use std::panic::PanicInfo;
+use std::panic::PanicHookInfo;
 
-use anyhow::Context as _;
+use buck2_error::BuckErrorContext;
 use fbinit::FacebookInit;
 
 /// Initializes the panic hook.
@@ -40,7 +40,7 @@ pub fn initialize() -> anyhow::Result<()> {
             options,
         );
     }))
-    .context("Error initializing soft errors")?;
+    .buck_error_context_anyhow("Error initializing soft errors")?;
     Ok(())
 }
 
@@ -49,21 +49,21 @@ pub fn initialize() -> anyhow::Result<()> {
 ///
 /// The panic hook is called on the same thread that the panic occurred. It is possible to perform a backtrace here
 /// to collect additional information.
-fn the_panic_hook(fb: FacebookInit, info: &PanicInfo) {
+fn the_panic_hook(fb: FacebookInit, info: &PanicHookInfo) {
     imp::write_panic_to_scribe(fb, info);
 }
 
 mod imp {
     use std::collections::HashMap;
-    use std::panic::PanicInfo;
-    use std::time::Duration;
+    use std::panic::PanicHookInfo;
 
     use backtrace::Backtrace;
     use buck2_core::error::StructuredErrorOptions;
     use buck2_data::Location;
-    use buck2_events::metadata;
-    use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
     use buck2_events::BuckEvent;
+    use buck2_events::metadata;
+    use buck2_events::sink::remote::ScribeConfig;
+    use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
     use buck2_util::threads::thread_spawn;
     use fbinit::FacebookInit;
     use tokio::runtime::Builder;
@@ -106,13 +106,13 @@ mod imp {
             .collect()
     }
 
-    /// Extracts a stringly-formatted payload from the given PanicInfo - usually the argument to `panic!`.
-    fn get_message_for_panic(info: &PanicInfo) -> String {
+    /// Extracts a stringly-formatted payload from the given PanicHookInfo - usually the argument to `panic!`.
+    fn get_message_for_panic(info: &PanicHookInfo) -> String {
         // Rust panic payloads can be anything, but they generally take one of two forms:
         //  1. &'static str, for panics with a constant string parameter,
         //  2. String, for panics that use the format `{}` syntax to construct a message.
         //
-        // Since PanicInfo's Display implementation is implemented in libcore, it can't cover the String case (which is)
+        // Since PanicHookInfo's Display implementation is implemented in libcore, it can't cover the String case (which is)
         // a liballoc exclusive), so this code here checks for formatted messages and uses that as the message if present.
         if let Some(literal_msg) = info.payload().downcast_ref::<&str>() {
             (*literal_msg).to_owned()
@@ -144,8 +144,8 @@ mod imp {
         map
     }
 
-    /// Writes a representation of the given `PanicInfo` to Scribe, via the `StructuredError` event.
-    pub(crate) fn write_panic_to_scribe(fb: FacebookInit, info: &PanicInfo) {
+    /// Writes a representation of the given `PanicHookInfo` to Scribe, via the `StructuredError` event.
+    pub(crate) fn write_panic_to_scribe(fb: FacebookInit, info: &PanicHookInfo) {
         let message = get_message_for_panic(info);
         let location = info.location().map(|loc| Location {
             file: loc.file().to_owned(),
@@ -170,7 +170,10 @@ mod imp {
             format!("Soft Error: {}: {:#}", category, err),
             Vec::new(),
             &options,
-            Some(category),
+            Some(buck2_data::SoftError {
+                category: category.to_owned(),
+                is_quiet: options.quiet,
+            }),
         );
 
         // If the soft error was fired in a context with an ambient dispatcher, then we only send
@@ -200,7 +203,7 @@ mod imp {
         message: String,
         backtrace: Vec<buck2_data::structured_error::StackFrame>,
         options: &StructuredErrorOptions,
-        soft_error_category: Option<&str>,
+        soft_error_category: Option<buck2_data::SoftError>,
     ) -> buck2_data::StructuredError {
         let metadata = get_metadata_for_panic(options);
         buck2_data::StructuredError {
@@ -210,7 +213,8 @@ mod imp {
             backtrace,
             quiet: options.quiet,
             task: Some(options.task),
-            soft_error_category: soft_error_category.map(ToOwned::to_owned),
+            soft_error_category: soft_error_category
+                .map(|arg0: buck2_data::SoftError| ToOwned::to_owned(&arg0)),
             daemon_in_memory_state_is_corrupted: options.daemon_in_memory_state_is_corrupted,
             daemon_materializer_state_is_corrupted: options.daemon_materializer_state_is_corrupted,
             action_cache_is_corrupted: options.action_cache_is_corrupted,
@@ -232,13 +236,8 @@ mod imp {
             return;
         }
 
-        let sink = match new_remote_event_sink_if_enabled(
-            fb,
-            /* buffer size */ 100,
-            /* retry_backoff */ Duration::from_millis(500),
-            /* retry_attempts */ 5,
-            /* message_batch_size */ None,
-        ) {
+        let sink = match new_remote_event_sink_if_enabled(fb, ScribeConfig::default()) {
+            #[allow(unreachable_patterns)]
             Ok(Some(sink)) => sink,
             _ => {
                 // We're already panicking and we can't connect to the scribe daemon? Things are bad and we're SOL.
@@ -258,7 +257,7 @@ mod imp {
         // Note that if we fail to spawn a writer thread, then we just won't log.
         let _err = thread_spawn("buck2-write-panic-to-scribe", move || {
             let runtime = Builder::new_current_thread().enable_all().build().unwrap();
-            runtime.block_on(
+            let _res = runtime.block_on(
                 sink.send_now(BuckEvent::new(
                     SystemTime::now(),
                     TraceId::new(),

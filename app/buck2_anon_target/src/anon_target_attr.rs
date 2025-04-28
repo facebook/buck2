@@ -11,9 +11,11 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_build_api::artifact_groups::promise::PromiseArtifactAttr;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
@@ -21,7 +23,6 @@ use buck2_node::attrs::attr_type::dict::DictLiteral;
 use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::attr_type::tuple::TupleLiteral;
-use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr_with_type::CoercedAttrWithType;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
@@ -36,9 +37,8 @@ use serde::Serializer;
 use serde_json::to_value;
 
 use crate::anon_target_attr_resolve::AnonTargetAttrTraversal;
-use crate::promise_artifacts::PromiseArtifactAttr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, strong_hash::StrongHash)]
 pub enum AnonTargetAttr {
     Bool(BoolLiteral),
     Int(i64),
@@ -109,13 +109,14 @@ impl AttrDisplayWithContext for AnonTargetAttr {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum AnonTargetAttrError {
     #[error("Inconsistent number of elements in tuple")]
     InconsistentTupleLength,
 }
 
 impl ToJsonWithContext for AnonTargetAttr {
-    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
+    fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<serde_json::Value> {
         match self {
             AnonTargetAttr::Bool(v) => Ok(to_value(v)?),
             AnonTargetAttr::Int(v) => Ok(to_value(v)?),
@@ -135,6 +136,7 @@ impl ToJsonWithContext for AnonTargetAttr {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub(crate) enum AnonTargetFromCoercedAttrError {
     #[error("Anon targets do not support default values for `{0}`")]
     DefaultAttrTypeNotSupported(String),
@@ -146,7 +148,7 @@ impl AnonTargetAttr {
         &'a self,
         pkg: PackageLabel,
         traversal: &mut dyn ConfiguredAttrTraversal,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self {
             AnonTargetAttr::Bool(_) => Ok(()),
             AnonTargetAttr::Int(_) => Ok(()),
@@ -182,10 +184,10 @@ impl AnonTargetAttr {
     }
 
     #[allow(unused)]
-    pub fn traverse_anon_attr<'a>(
+    pub(crate) fn traverse_anon_attr<'a>(
         &'a self,
         traversal: &mut dyn AnonTargetAttrTraversal,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self {
             AnonTargetAttr::Bool(_) => Ok(()),
             AnonTargetAttr::Int(_) => Ok(()),
@@ -233,7 +235,10 @@ impl AnonTargetAttr {
     // Note that non-primitives, such as dep/source, will result in an error.
 
     // TODO(@wendyy) - find a way to coerce attr defaults used in anon targets directly to AnonTargetAttr
-    pub fn from_coerced_attr(attr: &CoercedAttr, ty: &AttrType) -> anyhow::Result<AnonTargetAttr> {
+    pub fn from_coerced_attr(
+        attr: &CoercedAttr,
+        ty: &AttrType,
+    ) -> buck2_error::Result<AnonTargetAttr> {
         Ok(match CoercedAttrWithType::pack(attr, ty)? {
             CoercedAttrWithType::AnyList(list) => AnonTargetAttr::List(ListLiteral(
                 list.try_map(|v| AnonTargetAttr::from_coerced_attr(v, ty))?
@@ -248,7 +253,7 @@ impl AnonTargetAttr {
                 dict.try_map(|(k, v)| {
                     let k2 = AnonTargetAttr::from_coerced_attr(k, ty)?;
                     let v2 = AnonTargetAttr::from_coerced_attr(v, ty)?;
-                    anyhow::Ok((k2, v2))
+                    buck2_error::Ok((k2, v2))
                 })?
                 .into(),
             )),
@@ -269,14 +274,14 @@ impl AnonTargetAttr {
                     list.iter()
                         .zip(&t.xs)
                         .map(|(v, vt)| AnonTargetAttr::from_coerced_attr(v, vt))
-                        .collect::<anyhow::Result<_>>()?,
+                        .collect::<buck2_error::Result<_>>()?,
                 ))
             }
             CoercedAttrWithType::Dict(dict, t) => AnonTargetAttr::Dict(DictLiteral(
                 dict.try_map(|(k, v)| {
                     let k2 = AnonTargetAttr::from_coerced_attr(k, &t.key)?;
                     let v2 = AnonTargetAttr::from_coerced_attr(v, &t.value)?;
-                    anyhow::Ok((k2, v2))
+                    buck2_error::Ok((k2, v2))
                 })?
                 .into(),
             )),

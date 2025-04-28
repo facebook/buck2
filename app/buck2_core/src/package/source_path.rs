@@ -13,8 +13,8 @@ use derive_more::Display;
 use dupe::Dupe;
 
 use crate::cells::cell_path::CellPath;
-use crate::package::package_relative_path::PackageRelativePath;
 use crate::package::PackageLabel;
+use crate::package::package_relative_path::PackageRelativePath;
 
 /// Represents the path of a source artifact.
 #[derive(
@@ -26,9 +26,10 @@ use crate::package::PackageLabel;
     PartialEq,
     Ord,
     PartialOrd,
-    Allocative
+    Allocative,
+    strong_hash::StrongHash
 )]
-#[display(fmt = "{}", "self.as_ref()")]
+#[display("{}", self.as_ref())]
 pub struct SourcePath {
     pkg: PackageLabel,
     path: ArcS<PackageRelativePath>,
@@ -73,7 +74,7 @@ impl SourcePath {
 }
 
 #[derive(Display, Debug, Eq, Hash, PartialEq, Copy, Clone, Dupe)]
-#[display(fmt = "{}/{}", pkg, "path.as_str()")]
+#[display("{}/{}", pkg, path.as_str())]
 pub struct SourcePathRef<'a> {
     pkg: PackageLabel,
     path: &'a ArcS<PackageRelativePath>,

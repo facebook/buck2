@@ -10,18 +10,19 @@
 use std::sync::Arc;
 
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
-use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_core::bzl::ImportPath;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::CellResolver;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use dupe::Dupe;
 use maplit::hashmap;
@@ -29,7 +30,6 @@ use starlark::environment::Globals;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
-use starlark::syntax::Dialect;
 use starlark::values::Value;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
@@ -83,7 +83,7 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
     let ast = AstModule::parse(
         &import_path.to_string(),
         content.to_owned(),
-        &Dialect::Extended,
+        &StarlarkFileType::Bzl.dialect(false),
     )
     .unwrap_or_else(|err| panic!("Failed parsing `{}`. Error: `{}`", content, err));
     let cell_info = InterpreterCellInfo::new(

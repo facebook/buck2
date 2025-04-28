@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-use std::cell::Cell;
+use std::slice;
 
+use starlark_syntax::internal_error;
 use starlark_syntax::other_error;
 
 use crate::values::UnpackValue;
@@ -25,45 +26,58 @@ use crate::values::Value;
 /// Parse a series of parameters which were specified by
 /// [`ParametersSpec`](crate::eval::ParametersSpec).
 ///
-/// This is usually created with [`ParametersSpec::parser`](crate::eval::ParametersSpec::parser).
-pub struct ParametersParser<'v, 'a>(std::slice::Iter<'a, Cell<Option<Value<'v>>>>);
+/// This is created with [`ParametersSpec::parser`](crate::eval::ParametersSpec::parser).
+pub struct ParametersParser<'v, 'a> {
+    // Invariant: `slots` and `names` are the same length.
+    slots: slice::Iter<'a, Option<Value<'v>>>,
+    names: slice::Iter<'a, String>,
+}
 
 impl<'v, 'a> ParametersParser<'v, 'a> {
     /// Create a parameter parser, which stored parameters into provided slots reference.
-    pub fn new(slots: &'a [Cell<Option<Value<'v>>>]) -> Self {
-        Self(slots.iter())
-    }
-
-    fn get_next(&mut self, name: &str) -> anyhow::Result<Option<Value<'v>>> {
-        let Some(v) = self.0.next() else {
-            return Err(other_error!("Requested parameter `{name}`, which is after the number of parameters in provided signature").into_anyhow());
-        };
-        Ok(v.get())
-    }
-
-    /// Obtain the next parameter, corresponding to
-    /// [`ParametersSpecBuilder::optional`](crate::eval::ParametersSpecBuilder::optional).
-    /// It is an error to request more parameters than were specified.
-    /// The `name` is only used for error messages.
-    pub fn next_opt<T: UnpackValue<'v>>(&mut self, name: &str) -> anyhow::Result<Option<T>> {
-        match self.get_next(name)? {
-            None => Ok(None),
-            Some(v) => Ok(Some(T::unpack_named_param(v, name)?)),
+    pub(crate) fn new(slots: &'a [Option<Value<'v>>], names: &'a [String]) -> Self {
+        // This assertion is important because we get unchecked in `get_next`.
+        assert_eq!(slots.len(), names.len());
+        ParametersParser {
+            slots: slots.iter(),
+            names: names.iter(),
         }
     }
 
-    /// Obtain the next parameter, which can't be defined by
-    /// [`ParametersSpecBuilder::optional`](crate::eval::ParametersSpecBuilder::optional).
-    /// It is an error to request more parameters than were specified.
-    /// The `name` is only used for error messages.
-    pub fn next<T: UnpackValue<'v>>(&mut self, name: &str) -> anyhow::Result<T> {
-        let Some(v) = self.get_next(name)? else {
+    #[inline]
+    fn get_next(&mut self) -> anyhow::Result<(Option<Value<'v>>, &'a str)> {
+        let Some(v) = self.slots.next() else {
+            return Err(
+                internal_error!("Requesting more parameters than were specified").into_anyhow(),
+            );
+        };
+        // SAFETY: struct fields invariant.
+        let name = unsafe { self.names.next().unwrap_unchecked() };
+        Ok((*v, name))
+    }
+
+    /// Obtain the next optional parameter (without a default value).
+    pub fn next_opt<T: UnpackValue<'v>>(&mut self) -> crate::Result<Option<T>> {
+        match self.get_next()? {
+            (None, _) => Ok(None),
+            (Some(v), name) => Ok(Some(T::unpack_named_param(v, name)?)),
+        }
+    }
+
+    /// Obtain the next parameter. Fail if the parameter is optional and not provided.
+    pub fn next<T: UnpackValue<'v>>(&mut self) -> crate::Result<T> {
+        let (v, name) = self.get_next()?;
+        let Some(v) = v else {
             return Err(other_error!(
                 "Requested non-optional param {name} which was declared optional in signature"
-            )
-            .into_anyhow());
+            ));
         };
         T::unpack_named_param(v, name)
+    }
+
+    #[inline]
+    pub(crate) fn is_eof(&self) -> bool {
+        self.slots.len() == 0
     }
 }
 
@@ -73,96 +87,56 @@ mod tests {
 
     use crate::assert::Assert;
     use crate::docs::DocParam;
+    use crate::docs::DocParams;
     use crate::docs::DocString;
     use crate::docs::DocStringKind;
+    use crate::eval::ParametersSpecParam;
     use crate::eval::compiler::def::FrozenDef;
-    use crate::eval::runtime::params::spec::ParameterKind;
+    use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
     use crate::eval::runtime::params::spec::ParametersSpec;
     use crate::typing::Ty;
     use crate::values::FrozenValue;
 
     #[test]
-    fn test_parameter_iteration() {
-        let mut p = ParametersSpec::<FrozenValue>::new("f".to_owned());
-        p.required("a");
-        p.optional("b");
-        p.no_more_positional_args();
-        p.optional("c");
-        p.kwargs();
-        let p = p.finish();
-
-        let params: Vec<(&str, &ParameterKind<FrozenValue>)> = p.iter_params().collect();
-
-        let expected: Vec<(&str, &ParameterKind<FrozenValue>)> = vec![
-            ("a", &ParameterKind::Required),
-            ("b", &ParameterKind::Optional),
-            ("c", &ParameterKind::Optional),
-            ("**kwargs", &ParameterKind::KWargs),
-        ];
-
-        assert_eq!(expected, params);
-
-        let mut p = ParametersSpec::<FrozenValue>::new("f".to_owned());
-        p.required("a");
-        p.args();
-        p.kwargs();
-        let p = p.finish();
-
-        let params: Vec<(&str, &ParameterKind<FrozenValue>)> = p.iter_params().collect();
-
-        let expected: Vec<(&str, &ParameterKind<FrozenValue>)> = vec![
-            ("a", &ParameterKind::Required),
-            ("*args", &ParameterKind::Args),
-            ("**kwargs", &ParameterKind::KWargs),
-        ];
-
-        assert_eq!(expected, params);
-
-        let mut p = ParametersSpec::<FrozenValue>::new("f".to_owned());
-        p.args();
-        p.optional("a");
-        p.optional("b");
-        let p = p.finish();
-
-        let params: Vec<(&str, &ParameterKind<FrozenValue>)> = p.iter_params().collect();
-
-        let expected: Vec<(&str, &ParameterKind<FrozenValue>)> = vec![
-            ("*args", &ParameterKind::Args),
-            ("a", &ParameterKind::Optional),
-            ("b", &ParameterKind::Optional),
-        ];
-
-        assert_eq!(expected, params);
-    }
-
-    #[test]
     fn test_documentation() -> anyhow::Result<()> {
         // Make sure that documentation for some odder parameter specs works properly.
-        let mut p = ParametersSpec::<FrozenValue>::new("f".to_owned());
-        p.args();
-        p.optional("a");
-        p.optional("b");
-        let p = p.finish();
+        let p = ParametersSpec::<FrozenValue>::new_parts(
+            "f",
+            [],
+            [],
+            true,
+            [
+                ("a", ParametersSpecParam::Optional),
+                ("b", ParametersSpecParam::Optional),
+            ],
+            false,
+        );
 
-        let expected = vec![
-            DocParam::Args {
-                name: "*args".to_owned(),
+        let expected = DocParams {
+            args: Some(DocParam {
+                name: "args".to_owned(),
                 docs: None,
-                tuple_elem_ty: Ty::any(),
-            },
-            DocParam::Arg {
-                name: "a".to_owned(),
-                docs: None,
-                typ: Ty::int(),
-                default_value: Some("_".to_owned()),
-            },
-            DocParam::Arg {
-                name: "b".to_owned(),
-                docs: DocString::from_docstring(DocStringKind::Rust, "param b docs"),
                 typ: Ty::any(),
-                default_value: Some("_".to_owned()),
-            },
-        ];
+                default_value: None,
+            }),
+            named_only: vec![
+                DocParam {
+                    name: "a".to_owned(),
+                    docs: None,
+                    typ: Ty::int(),
+                    default_value: Some(PARAM_FMT_OPTIONAL.to_owned()),
+                },
+                DocParam {
+                    name: "b".to_owned(),
+                    docs: DocString::from_docstring(DocStringKind::Rust, "param b docs"),
+                    typ: Ty::any(),
+                    default_value: Some(PARAM_FMT_OPTIONAL.to_owned()),
+                },
+            ],
+            pos_only: Vec::new(),
+            pos_or_named: Vec::new(),
+            kwargs: None,
+        };
         let types = vec![Ty::any(), Ty::int(), Ty::any()];
         let mut docs = HashMap::new();
         docs.insert("a".to_owned(), None);

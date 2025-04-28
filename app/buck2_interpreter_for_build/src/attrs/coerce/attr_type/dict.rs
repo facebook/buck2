@@ -14,14 +14,13 @@ use buck2_node::attrs::attr_type::dict::DictLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use starlark::values::dict::Dict;
-use starlark::values::dict::DictRef;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::dict::DictRef;
 
-use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::attr_type::AttrTypeExt;
-use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
+use crate::attrs::coerce::attr_type::AttrTypeExt;
+use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 
 impl AttrTypeCoerce for DictAttrType {
     fn coerce_item(
@@ -29,36 +28,30 @@ impl AttrTypeCoerce for DictAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
-        if let Some(dict) = DictRef::from_value(value) {
-            let mut res = Vec::with_capacity(dict.len());
-            if self.sorted {
-                // First sort the values
-                let mut items = dict.iter().collect::<Vec<_>>();
-                // If two things are incompatible, just return Eq. The resulting order is undefined, but safely undefined.
-                items.sort_by(|a, b| a.0.compare(b.0).unwrap_or(Ordering::Equal));
+    ) -> buck2_error::Result<CoercedAttr> {
+        let dict = DictRef::unpack_value_err(value)?;
+        let mut res = Vec::with_capacity(dict.len());
+        if self.sorted {
+            // First sort the values
+            let mut items = dict.iter().collect::<Vec<_>>();
+            // If two things are incompatible, just return Eq. The resulting order is undefined, but safely undefined.
+            items.sort_by(|a, b| a.0.compare(b.0).unwrap_or(Ordering::Equal));
 
-                for (k, v) in items {
-                    res.push((
-                        self.key.coerce(configurable, ctx, k)?,
-                        self.value.coerce(configurable, ctx, v)?,
-                    ));
-                }
-            } else {
-                for (k, v) in dict.iter() {
-                    res.push((
-                        self.key.coerce(configurable, ctx, k)?,
-                        self.value.coerce(configurable, ctx, v)?,
-                    ));
-                }
+            for (k, v) in items {
+                res.push((
+                    self.key.coerce(configurable, ctx, k)?,
+                    self.value.coerce(configurable, ctx, v)?,
+                ));
             }
-            Ok(CoercedAttr::Dict(DictLiteral(ctx.intern_dict(res))))
         } else {
-            Err(anyhow::anyhow!(CoercionError::type_error(
-                Dict::TYPE,
-                value,
-            )))
+            for (k, v) in dict.iter() {
+                res.push((
+                    self.key.coerce(configurable, ctx, k)?,
+                    self.value.coerce(configurable, ctx, v)?,
+                ));
+            }
         }
+        Ok(CoercedAttr::Dict(DictLiteral(ctx.intern_dict(res))))
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

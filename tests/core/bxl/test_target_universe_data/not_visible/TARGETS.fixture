@@ -1,0 +1,4 @@
+stub(
+    name = "not_visible",
+    visibility = ["//not_visible/..."],
+)

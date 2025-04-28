@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 
+use crate::InvalidationSourcePriority;
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
 use crate::api::storage_type::StorageType;
@@ -35,6 +36,10 @@ pub trait InjectedKey:
     type Value: Allocative + Dupe + Send + Sync + 'static;
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool;
+
+    fn invalidation_source_priority() -> InvalidationSourcePriority {
+        InvalidationSourcePriority::Normal
+    }
 }
 
 #[async_trait]
@@ -62,5 +67,9 @@ where
 
     fn storage_type() -> StorageType {
         StorageType::Injected
+    }
+
+    fn invalidation_source_priority() -> InvalidationSourcePriority {
+        K::invalidation_source_priority()
     }
 }

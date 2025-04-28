@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::collections::hash_map::Entry;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -31,15 +31,6 @@ use lsp_server::Message;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_server::ResponseError;
-use lsp_types::notification::DidChangeTextDocument;
-use lsp_types::notification::DidOpenTextDocument;
-use lsp_types::notification::Exit;
-use lsp_types::notification::Initialized;
-use lsp_types::notification::Notification;
-use lsp_types::notification::PublishDiagnostics;
-use lsp_types::request::Initialize;
-use lsp_types::request::Request;
-use lsp_types::request::Shutdown;
 use lsp_types::ClientCapabilities;
 use lsp_types::DidChangeTextDocumentParams;
 use lsp_types::DidOpenTextDocumentParams;
@@ -52,6 +43,15 @@ use lsp_types::TextDocumentContentChangeEvent;
 use lsp_types::TextDocumentItem;
 use lsp_types::Url;
 use lsp_types::VersionedTextDocumentIdentifier;
+use lsp_types::notification::DidChangeTextDocument;
+use lsp_types::notification::DidOpenTextDocument;
+use lsp_types::notification::Exit;
+use lsp_types::notification::Initialized;
+use lsp_types::notification::Notification;
+use lsp_types::notification::PublishDiagnostics;
+use lsp_types::request::Initialize;
+use lsp_types::request::Request;
+use lsp_types::request::Shutdown;
 use maplit::hashmap;
 use serde::de::DeserializeOwned;
 use starlark::analysis::AstModuleLint;
@@ -67,22 +67,14 @@ use starlark::syntax::Dialect;
 use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate::error::eval_message_to_lsp_diagnostic;
-use crate::server::new_notification;
-use crate::server::server_with_connection;
 use crate::server::LspContext;
 use crate::server::LspEvalResult;
 use crate::server::LspServerSettings;
 use crate::server::LspUrl;
 use crate::server::StringLiteralResult;
+use crate::server::new_notification;
+use crate::server::server_with_connection;
 
-/// Get the path from a URL, trimming off things like the leading slash that gets
-/// appended in some windows test environments.
-#[cfg(windows)]
-fn get_path_from_uri(uri: &str) -> PathBuf {
-    PathBuf::from(uri.trim_start_match('/'))
-}
-
-#[cfg(not(windows))]
 fn get_path_from_uri(uri: &str) -> PathBuf {
     PathBuf::from(uri)
 }
@@ -134,7 +126,11 @@ impl LspContext for TestServerContext {
     fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
         match uri {
             LspUrl::File(path) | LspUrl::Starlark(path) => {
-                match AstModule::parse(&path.to_string_lossy(), content, &Dialect::Extended) {
+                match AstModule::parse(
+                    &path.to_string_lossy(),
+                    content,
+                    &Dialect::AllOptionsInternal,
+                ) {
                     Ok(ast) => {
                         let diagnostics = ast
                             .lint(None)
@@ -338,15 +334,18 @@ impl Drop for TestServer {
             method: Shutdown::METHOD.to_owned(),
             params: Default::default(),
         };
-        if let Err(e) = self.send_request(req) {
-            eprintln!("Server was already shutdown: {}", e);
-        } else {
-            let notif = lsp_server::Notification {
-                method: Exit::METHOD.to_owned(),
-                params: Default::default(),
-            };
-            if let Err(e) = self.send_notification(notif) {
-                eprintln!("Could not send Exit notification: {}", e);
+        match self.send_request(req) {
+            Err(e) => {
+                eprintln!("Server was already shutdown: {}", e);
+            }
+            _ => {
+                let notif = lsp_server::Notification {
+                    method: Exit::METHOD.to_owned(),
+                    params: Default::default(),
+                };
+                if let Err(e) = self.send_notification(notif) {
+                    eprintln!("Could not send Exit notification: {}", e);
+                }
             }
         }
 
@@ -658,9 +657,11 @@ impl TestServer {
         Ok(())
     }
 
-    /// Set the file contents that `get_load_contents()` will return. The path must be absolute.
-    pub fn set_file_contents(&self, path: PathBuf, contents: String) -> anyhow::Result<()> {
-        let path = get_path_from_uri(&format!("{}", path.display()));
+    /// Set the file contents that `get_load_contents()` will return.
+    pub fn set_file_contents(&self, file_uri: &Url, contents: String) -> anyhow::Result<()> {
+        let path = file_uri
+            .to_file_path()
+            .map_err(|_| anyhow::anyhow!("Invalid file URI: {}", file_uri))?;
         if !path.is_absolute() {
             Err(TestServerError::SetFileNotAbsolute(path).into())
         } else {

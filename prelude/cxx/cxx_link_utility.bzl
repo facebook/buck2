@@ -7,25 +7,34 @@
 
 load("@prelude//:artifact_tset.bzl", "project_artifacts")
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "CxxToolchainInfo",
+    "LinkerType",
+)
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:linker.bzl", "get_rpath_origin")
-load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_linker_flags")
+load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkOrdering",  # @unused Used as a type
     "unpack_link_args",
-    "unpack_link_args_excluding_filelist",
-    "unpack_link_args_filelist",
+    "unpack_link_args_excluding_object_files_and_lazy_archives",
+    "unpack_link_args_object_files_and_lazy_archives_only",
 )
 load("@prelude//linking:lto.bzl", "LtoMode")
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibrary",  # @unused Used as a type
+    "create_shlib_dwp_tree",
     "create_shlib_symlink_tree",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
+load(
+    "@prelude//utils:utils.bzl",
+    "map_val",
+)
 
 def generates_split_debug(toolchain: CxxToolchainInfo):
     """
@@ -42,14 +51,14 @@ def generates_split_debug(toolchain: CxxToolchainInfo):
 
 def linker_map_args(toolchain: CxxToolchainInfo, linker_map) -> LinkArgs:
     linker_type = toolchain.linker_info.type
-    if linker_type == "darwin":
+    if linker_type == LinkerType("darwin"):
         flags = [
             "-Xlinker",
             "-map",
             "-Xlinker",
             linker_map,
         ]
-    elif linker_type == "gnu":
+    elif linker_type == LinkerType("gnu"):
         flags = [
             "-Xlinker",
             "-Map",
@@ -64,12 +73,6 @@ LinkArgsOutput = record(
     link_args = ArgLike,
     hidden = list[typing.Any],
     pdb_artifact = Artifact | None,
-    # The filelist artifact which contains the list of all object files.
-    # Only present for Darwin linkers. Note that object files referenced
-    # _inside_ the filelist are _not_ part of the `hidden` field above.
-    # That's by design - we do not want to materialise _all_ object files
-    # to inspect the filelist. Intended to be used for debugging.
-    filelist = Artifact | None,
 )
 
 def get_extra_darwin_linker_flags() -> cmd_args:
@@ -83,7 +86,6 @@ def make_link_args(
         actions: AnalysisActions,
         cxx_toolchain_info: CxxToolchainInfo,
         links: list[LinkArgs],
-        suffix = None,
         output_short_path: [str, None] = None,
         link_ordering: [LinkOrdering, None] = None) -> LinkArgsOutput:
     """
@@ -91,17 +93,18 @@ def make_link_args(
     args to work when passed to a linker, and optionally an artifact where DWO
     outputs will be written to.
     """
-    suffix = "" if suffix == None else "-" + suffix
     args = cmd_args()
     hidden = []
 
     linker_info = cxx_toolchain_info.linker_info
     linker_type = linker_info.type
 
-    if linker_type == "darwin":
+    link_ordering = link_ordering or map_val(LinkOrdering, linker_info.link_ordering)
+
+    if linker_type == LinkerType("darwin"):
         # Darwin requires a target triple specified to
         # control the deployment target being linked for.
-        args.add(get_target_sdk_version_linker_flags(ctx))
+        args.add(get_target_sdk_version_flags(ctx))
 
         # On Apple platforms, DWARF data is contained in the object files
         # and executables contains paths to the object files (N_OSO stab).
@@ -131,36 +134,30 @@ def make_link_args(
         pdb_artifact = actions.declare_output(pdb_filename)
         hidden.append(pdb_artifact.as_output())
 
-    filelists = None
-    if linker_type == "darwin":
-        filelists = filter(None, [unpack_link_args_filelist(link) for link in links])
-        hidden.extend(filelists)
-
-    for link in links:
-        if filelists:
-            # If we are using a filelist, only add argument that aren't already in the
-            # filelist. This is to avoid duplicate inputs in the link command.
-            args.add(unpack_link_args_excluding_filelist(link, link_ordering = link_ordering))
-        else:
-            args.add(unpack_link_args(link, link_ordering = link_ordering))
-
-    # On Darwin, filelist args _must_ come last as the order can affect symbol
-    # resolution and result in binary size increases.
-    filelist_file = None
-    if filelists:
-        path = actions.write("filelist%s.txt" % suffix, filelists)
-        args.add(cmd_args(["-Xlinker", "-filelist", "-Xlinker", path]))
-        filelist_file = path
+    if linker_type == LinkerType("darwin"):
+        # We order inputs partially for binary size, and partially for historical
+        # reasons. It is important that lazy object file (non link-whole archives)
+        # be listed last on the command line so they are not unnecessarily loaded.
+        # Some applications implicitly rely upon this ordering, so it is difficult
+        # to change.  Note link_ordering configuration is not respected. The
+        # link_metadata_flag is also ignored as that is a flag to the GNU linker wrapper,
+        # which does not apply to Darwin.
+        args.add(filter(None, [unpack_link_args_excluding_object_files_and_lazy_archives(link) for link in links]))
+        args.add(filter(None, [unpack_link_args_object_files_and_lazy_archives_only(link) for link in links]))
+    else:
+        args.add(filter(None, [unpack_link_args(link, link_ordering = link_ordering, link_metadata_flag = linker_info.link_metadata_flag) for link in links]))
 
     return LinkArgsOutput(
         link_args = args,
         hidden = [args] + hidden,
         pdb_artifact = pdb_artifact,
-        filelist = filelist_file,
     )
 
 def shared_libs_symlink_tree_name(output: Artifact) -> str:
     return "__{}__shared_libs_symlink_tree".format(output.short_path)
+
+def _dwp_symlink_tree_name(output: Artifact) -> str:
+    return "__{}__dwp_symlink_tree".format(output.short_path)
 
 ExecutableSharedLibArguments = record(
     extra_link_args = field(list[ArgLike], []),
@@ -174,6 +171,7 @@ ExecutableSharedLibArguments = record(
     external_debug_info = field(list[TransitiveSetArgsProjection], []),
     # Optional shared libs symlink tree symlinked_dir action.
     shared_libs_symlink_tree = field(list[Artifact] | Artifact | None, None),
+    dwp_symlink_tree = field(list[Artifact] | Artifact | None, None),
 )
 
 CxxSanitizerRuntimeArguments = record(
@@ -196,7 +194,7 @@ def cxx_sanitizer_runtime_arguments(
     if not linker_info.sanitizer_runtime_files:
         fail("C++ sanitizer runtime enabled but there are no runtime files")
 
-    if linker_info.type == "darwin":
+    if linker_info.type == LinkerType("darwin"):
         # ignore_artifacts as the runtime directory is not required at _link_ time
         runtime_rpath = cmd_args(ignore_artifacts = True)
         runtime_files = linker_info.sanitizer_runtime_files
@@ -212,17 +210,7 @@ def cxx_sanitizer_runtime_arguments(
             runtime_rpath.add(runtime_shared_lib_rpath)
 
         return CxxSanitizerRuntimeArguments(
-            extra_link_args = [
-                runtime_rpath,
-                # Add rpaths in case the binary gets bundled and the app bundle is expected to be standalone.
-                # Not all transitive callers have `CxxPlatformInfo`, so just add both iOS and macOS rpaths.
-                # There's no downsides to having both, except dyld would check in both locations (and it won't
-                # find anything for the non-current platform).
-                "-Wl,-rpath,@loader_path/Frameworks",  # iOS
-                "-Wl,-rpath,@executable_path/Frameworks",  # iOS
-                "-Wl,-rpath,@loader_path/../Frameworks",  # macOS
-                "-Wl,-rpath,@executable_path/../Frameworks",  # macOS
-            ],
+            extra_link_args = [runtime_rpath],
             sanitizer_runtime_files = runtime_files,
         )
 
@@ -246,8 +234,9 @@ def executable_shared_lib_arguments(
 
     linker_type = cxx_toolchain.linker_info.type
 
+    dwp_symlink_tree = None
     if len(shared_libs) > 0:
-        if linker_type == "windows":
+        if linker_type == LinkerType("windows"):
             shared_libs_symlink_tree = [ctx.actions.symlink_file(
                 shlib.lib.output.basename,
                 shlib.lib.output,
@@ -261,6 +250,7 @@ def executable_shared_lib_arguments(
                 out = shared_libs_symlink_tree_name(output),
                 shared_libs = shared_libs,
             )
+            dwp_symlink_tree = create_shlib_dwp_tree(ctx.actions, _dwp_symlink_tree_name(output), shared_libs)
             runtime_files.append(shared_libs_symlink_tree)
             rpath_reference = get_rpath_origin(linker_type)
 
@@ -278,6 +268,7 @@ def executable_shared_lib_arguments(
         runtime_files = runtime_files,
         external_debug_info = external_debug_info,
         shared_libs_symlink_tree = shared_libs_symlink_tree,
+        dwp_symlink_tree = dwp_symlink_tree,
     )
 
 LinkCmdParts = record(
@@ -288,7 +279,7 @@ LinkCmdParts = record(
     link_cmd = cmd_args,
 )
 
-def cxx_link_cmd_parts(toolchain: CxxToolchainInfo) -> LinkCmdParts:
+def cxx_link_cmd_parts(toolchain: CxxToolchainInfo, executable: bool) -> LinkCmdParts:
     # `toolchain_linker_flags` can either be a list of strings, `cmd_args` or `None`,
     # so we need to do a bit more work to satisfy the type checker
     toolchain_linker_flags = toolchain.linker_info.linker_flags
@@ -297,6 +288,12 @@ def cxx_link_cmd_parts(toolchain: CxxToolchainInfo) -> LinkCmdParts:
         toolchain_linker_flags = cmd_args()
     elif not type(toolchain_linker_flags) == "cmd_args":
         toolchain_linker_flags = cmd_args(toolchain_linker_flags)
+
+    if executable:
+        toolchain_linker_flags = cmd_args(
+            toolchain_linker_flags,
+            toolchain.linker_info.executable_linker_flags,
+        )
 
     if toolchain_post_linker_flags == None:
         toolchain_post_linker_flags = cmd_args()

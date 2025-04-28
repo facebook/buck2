@@ -5,7 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "LinkerType",
+    "PicBehavior",
+)
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
@@ -51,6 +55,7 @@ load("@prelude//utils:utils.bzl", "flatten_dict")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
+    "cxx_attr_dep_metadata",
     "cxx_inherited_link_info",
     "cxx_use_shlib_intfs",
 )
@@ -113,7 +118,7 @@ def _parse_macro(arg: str) -> [(str, str), None]:
 
 def _get_static_link_infos(
         ctx: AnalysisContext,
-        linker_type: str,
+        linker_type: LinkerType,
         libs: list[Artifact],
         args: list[str]) -> LinkInfos:
     """
@@ -165,11 +170,13 @@ def _get_static_link_infos(
             pre_flags = pre_flags,
             post_flags = post_flags,
             linkables = linkables,
+            metadata = cxx_attr_dep_metadata(ctx),
         ),
         stripped = LinkInfo(
             pre_flags = pre_flags,
             post_flags = post_flags,
             linkables = linkables_stripped,
+            metadata = cxx_attr_dep_metadata(ctx),
         ),
     )
 
@@ -223,6 +230,7 @@ def _get_shared_link_infos(
             pre_flags = pre_flags,
             post_flags = post_flags,
             linkables = linkables,
+            metadata = cxx_attr_dep_metadata(ctx),
         ),
     )
 

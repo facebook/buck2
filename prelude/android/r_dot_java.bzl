@@ -8,9 +8,8 @@
 load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "RDotJavaInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_library.bzl", "compile_to_jar")
-load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")
+load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "single_library_compiling_deps")
 load("@prelude//utils:argfile.bzl", "argfile")
-load("@prelude//utils:set.bzl", "set")
 
 RDotJavaSourceCode = record(
     r_dot_java_source_code_dir = Artifact,
@@ -115,7 +114,7 @@ def _generate_r_dot_java_source_code(
 
     r_dot_txt_info = cmd_args()
     deduped_android_resources = set([(android_resource.text_symbols, android_resource.r_dot_java_package, android_resource.raw_target) for android_resource in android_resources])
-    for (text_symbols, r_dot_java_package, raw_target) in deduped_android_resources.list():
+    for (text_symbols, r_dot_java_package, raw_target) in deduped_android_resources:
         r_dot_txt_info.add(cmd_args([text_symbols, r_dot_java_package, raw_target], delimiter = " "))
 
     r_dot_txt_info_file = ctx.actions.write("r_dot_txt_info_file_for_{}.txt".format(identifier), r_dot_txt_info)
@@ -189,27 +188,22 @@ def _generate_and_compile_r_dot_java(
         remove_classes: list[str] = []) -> RDotJavaInfo:
     r_dot_java_out = ctx.actions.declare_output("{}.jar".format(identifier))
 
-    compile_to_jar(
+    outputs = compile_to_jar(
         ctx,
         output = r_dot_java_out,
         actions_identifier = identifier,
         javac_tool = None,
         srcs = [r_dot_java_source_code_zipped],
         remove_classes = remove_classes,
+        required_for_source_only_abi = True,
     )
 
-    # Extracting an abi is unnecessary as there's not really anything to strip.
-    library_output = JavaClasspathEntry(
-        full_library = r_dot_java_out,
-        abi = r_dot_java_out,
-        abi_as_dir = None,
-        required_for_source_only_abi = False,
-    )
+    library_output = outputs.classpath_entry
 
     return RDotJavaInfo(
         identifier = identifier,
         library_info = JavaLibraryInfo(
-            compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
+            compiling_deps = single_library_compiling_deps(ctx.actions, library_output),
             library_output = library_output,
             output_for_classpath_macro = library_output.full_library,
         ),

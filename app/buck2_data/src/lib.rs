@@ -78,7 +78,7 @@ mod serialize_action_kind {
     where
         S: Serializer,
     {
-        let k = crate::ActionKind::from_i32(*value).ok_or_else(|| {
+        let k = crate::ActionKind::try_from(*value).map_err(|_| {
             serde::ser::Error::custom(format!("Invalid ActionKind enum value: {}", value))
         })?;
         k.serialize(serializer)
@@ -119,7 +119,7 @@ impl fmt::Display for DaemonShutdown {
                     caller
                         .chars()
                         .take(max_len)
-                        .chain(std::iter::repeat('.').take(3))
+                        .chain(std::iter::repeat_n('.', 3))
                         .collect(),
                 )
             } else {

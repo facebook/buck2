@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en-US">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Starlark evaluator</title>
+    <style type="text/css">
+        body {
+            font-family: sans-serif;
+        }
+
+        textarea {
+            width: calc(100% - 20px);
+            height: 20em;
+            box-sizing: border-box;
+            margin: 5px;
+            border-radius: 3px;
+            padding: 5px;
+            border-color: lightgray;
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        function run() {
+            WebAssembly.instantiateStreaming(fetch("starlark_js.wasm"), {}).then(({ instance }) => {
+                const readString = (offset) => {
+                    const memory = instance.exports.memory.buffer;
+                    const length = new Uint32Array(memory, offset, 1)[0];
+                    const characters = new Uint8Array(memory, offset + 4, length);
+                    return new TextDecoder().decode(characters);
+                };
+
+                const readU8 = (offset) => {
+                    return new Uint8Array(instance.exports.memory.buffer, offset, 1)[0];
+                };
+
+                const writeString = (s) => {
+                    const encoded = new TextEncoder().encode(s.trim());
+                    const offset = instance.exports.allocation(4 + encoded.byteLength);
+                    // TODO(april): this probably isn't guaranteed to be 4-byte aligned? Might need to fix.
+                    const memory = instance.exports.memory.buffer;
+                    const uint32s = new Uint32Array(memory, offset, 1);
+                    uint32s[0] = encoded.byteLength;
+                    const uint8s = new Uint8Array(memory, offset + 4, encoded.byteLength);
+                    uint8s.set(encoded);
+                    return offset;
+                };
+
+                const content = document.getElementById("input").value;
+                const offset = instance.exports.evaluate(writeString(content));
+                const ok = readU8(offset) != 0;
+                const result = readString(offset + 4);
+                const output = document.getElementById("output");
+                output.value = (ok ? "" : "ERROR\n") + result;
+            });
+        }
+
+        window.addEventListener("load", function () {
+            document.getElementById("input").addEventListener("input", run, false);
+            run()
+        })
+    </script>
+    <h1>Starlark evaluator</h1>
+    <p>
+        Using <a href="https://github.com/facebook/starlark-rust">starlark-rust</a> compiled to web assembly.
+        Change the input to see it update.
+    </p>
+    <textarea id="input">
+def hello(name):
+    return "hello " + name
+
+hello("friend")</textarea>
+    <textarea id="output" readonly="readonly" style="background-color: lightgray;">
+    </textarea>
+</body>
+
+</html>

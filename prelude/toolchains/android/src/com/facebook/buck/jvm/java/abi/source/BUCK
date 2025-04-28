@@ -1,0 +1,35 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "source",
+    srcs = glob(["*.java"]),
+    provided_deps = [
+        # Interface-only api module for communicating back to Buck core, also loaded by the bootstrapper
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/source/api:api",
+
+        # Another interface-only api module for communicating back to Buck core, also loaded by the bootstrapper
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/plugin/api:api",
+    ],
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/abi/source:source",
+    ],
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/plugin:javac-plugin",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/abi:abi",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/abi/source:source",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/abi/source:testutil",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/testutil/compiler:compiler",
+    ],
+    deps = [
+        # This module is loaded as a plugin into the compiler itself; don't take dependencies on Buck
+        # internals (outside of stuff designed for use in plugins) or large libraries like Guava
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/lang/model:model",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/plugin/adapter:adapter",
+        "prelude//toolchains/android/src/com/facebook/buck/util/liteinfersupport:liteinfersupport",
+    ],
+)

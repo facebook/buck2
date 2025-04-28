@@ -13,6 +13,7 @@ use std::ops::Deref;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use strong_hash::StrongHash;
 use triomphe::Arc;
 
 use crate::arc_str::iterator_as_exact_size_iterator::IteratorAsExactSizeIterator;
@@ -82,6 +83,14 @@ impl<T: Hash> Hash for ArcSlice<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         // This must hash as slice because we implement `Borrow<[T]>`.
         self[..].hash(state)
+    }
+}
+
+impl<T: StrongHash> StrongHash for ArcSlice<T> {
+    #[inline]
+    fn strong_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // This must hash as slice because we implement `Borrow<[T]>`.
+        self[..].strong_hash(state)
     }
 }
 

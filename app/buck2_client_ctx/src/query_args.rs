@@ -66,6 +66,7 @@ pub struct CommonAttributeArgs {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum ArgErrors {
     #[error("`--output-attributes` is deprecated, use `--output-attribute` instead")]
     OutputAttributesDeprecated,
@@ -76,7 +77,7 @@ enum ArgErrors {
 }
 
 impl CommonAttributeArgs {
-    pub fn get(&self) -> anyhow::Result<Vec<String>> {
+    pub fn get(&self) -> buck2_error::Result<Vec<String>> {
         if !self.output_attributes.is_empty() {
             soft_error!(
                 "output_attributes",

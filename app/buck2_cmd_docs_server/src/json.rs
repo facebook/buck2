@@ -9,9 +9,15 @@
 
 use std::collections::HashMap;
 
+use dupe::Dupe;
 use serde::Serialize;
 use starlark::collections::SmallMap;
+use starlark::docs::DocItem;
+use starlark::docs::DocMember;
+use starlark::docs::DocModule;
 use starlark::typing::Ty;
+
+use crate::starlark_::StarlarkFilePath;
 
 fn serialize_ty<S: serde::Serializer>(ty: &Ty, s: S) -> Result<S::Ok, S::Error> {
     s.serialize_str(&ty.to_string())
@@ -31,29 +37,10 @@ struct JsonDoc {
     custom_attrs: HashMap<String, String>,
 }
 
-impl JsonDoc {
-    fn from_starlark(doc: starlark::docs::Doc) -> Self {
-        Self {
-            id: JsonIdentifier::from_starlark(doc.id),
-            item: JsonDocItem::from_starlark(doc.item),
-            custom_attrs: doc.custom_attrs,
-        }
-    }
-}
-
 #[derive(Serialize)]
 struct JsonIdentifier {
     name: String,
     location: Option<JsonLocation>,
-}
-
-impl JsonIdentifier {
-    fn from_starlark(id: starlark::docs::Identifier) -> Self {
-        Self {
-            name: id.name,
-            location: id.location.map(JsonLocation::from_starlark),
-        }
-    }
 }
 
 #[derive(Serialize)]
@@ -61,9 +48,16 @@ struct JsonLocation {
     path: String,
 }
 
-impl JsonLocation {
-    fn from_starlark(loc: starlark::docs::Location) -> Self {
-        Self { path: loc.path }
+impl JsonDoc {
+    fn from_starlark(doc: Doc) -> Self {
+        Self {
+            id: JsonIdentifier {
+                name: doc.name,
+                location: Some(JsonLocation { path: doc.location }),
+            },
+            item: JsonDocItem::from_starlark(doc.item),
+            custom_attrs: HashMap::new(),
+        }
     }
 }
 
@@ -186,11 +180,11 @@ impl JsonDocFunction {
             docs: f.docs.map(JsonDocString::from_starlark),
             params: f
                 .params
-                .into_iter()
+                .fmt_params()
                 .map(JsonDocParam::from_starlark)
                 .collect(),
             ret: JsonDocReturn::from_starlark(f.ret),
-            as_type: f.as_type,
+            as_type: None,
         }
     }
 }
@@ -239,38 +233,40 @@ enum JsonDocParam {
 }
 
 impl JsonDocParam {
-    fn from_starlark(param: starlark::docs::DocParam) -> Self {
+    fn from_starlark(param: starlark::docs::FmtParam<&'_ starlark::docs::DocParam>) -> Self {
         match param {
-            starlark::docs::DocParam::Arg {
+            starlark::docs::FmtParam::Regular(starlark::docs::DocParam {
                 name,
                 docs,
                 typ,
                 default_value,
-            } => Self::Arg {
+            }) => Self::Arg {
+                name: name.clone(),
+                docs: docs.clone().map(JsonDocString::from_starlark),
+                typ: typ.dupe(),
+                default_value: default_value.clone(),
+            },
+            starlark::docs::FmtParam::Slash => Self::OnlyPosBefore,
+            starlark::docs::FmtParam::Star => Self::OnlyNamedAfter,
+            starlark::docs::FmtParam::Args(starlark::docs::DocParam {
                 name,
-                docs: docs.map(JsonDocString::from_starlark),
+                docs,
                 typ,
-                default_value,
+                default_value: _,
+            }) => Self::Args {
+                name: name.clone(),
+                docs: docs.clone().map(JsonDocString::from_starlark),
+                tuple_elem_ty: typ.dupe(),
             },
-            starlark::docs::DocParam::OnlyNamedAfter => Self::OnlyNamedAfter,
-            starlark::docs::DocParam::OnlyPosBefore => Self::OnlyPosBefore,
-            starlark::docs::DocParam::Args {
+            starlark::docs::FmtParam::Kwargs(starlark::docs::DocParam {
                 name,
                 docs,
-                tuple_elem_ty,
-            } => Self::Args {
-                name,
-                docs: docs.map(JsonDocString::from_starlark),
-                tuple_elem_ty,
-            },
-            starlark::docs::DocParam::Kwargs {
-                name,
-                docs,
-                dict_value_ty,
-            } => Self::Kwargs {
-                name,
-                docs: docs.map(JsonDocString::from_starlark),
-                dict_value_ty,
+                typ,
+                default_value: _,
+            }) => Self::Kwargs {
+                name: name.clone(),
+                docs: docs.clone().map(JsonDocString::from_starlark),
+                dict_value_ty: typ.dupe(),
             },
         }
     }
@@ -291,7 +287,54 @@ impl JsonDocString {
     }
 }
 
-pub(crate) fn to_json(docs: Vec<starlark::docs::Doc>) -> anyhow::Result<String> {
-    let docs: Vec<_> = docs.into_iter().map(JsonDoc::from_starlark).collect();
+// Note(JakobDegen): The particular format of the output is not really by design, but mostly a
+// historical accident.
+pub(crate) fn to_json(docs: Vec<(StarlarkFilePath, DocModule)>) -> buck2_error::Result<String> {
+    let docs: Vec<_> = docs
+        .into_iter()
+        .flat_map(|(p, d)| to_docs_list(&p, d))
+        .map(JsonDoc::from_starlark)
+        .collect();
     Ok(serde_json::to_string(&docs)?)
+}
+
+struct Doc {
+    name: String,
+    location: String,
+    item: DocItem,
+}
+
+fn to_docs_list(import_path: &StarlarkFilePath, module_docs: DocModule) -> Vec<Doc> {
+    // Do this so that we don't get the '@' in the display if we're printing targets from a
+    // different cell root. i.e. `//foo:bar.bzl`, rather than `//foo:bar.bzl @ cell`
+    let import_path_string = format!(
+        "{}:{}",
+        import_path.path().parent().unwrap(),
+        import_path.path().path().file_name().unwrap()
+    );
+
+    let mut docs = vec![];
+
+    if let Some(module_doc) = module_docs.docs {
+        docs.push(Doc {
+            name: import_path_string.clone(),
+            location: import_path_string.clone(),
+            item: DocItem::Module(DocModule {
+                docs: Some(module_doc),
+                members: SmallMap::new(),
+            }),
+        });
+    }
+    docs.extend(module_docs.members.into_iter().filter_map(|(symbol, d)| {
+        Some(Doc {
+            name: symbol,
+            location: import_path_string.clone(),
+            item: match d.try_as_member_with_collapsed_object().ok()? {
+                DocMember::Function(f) => DocItem::Member(DocMember::Function(f)),
+                DocMember::Property(p) => DocItem::Member(DocMember::Property(p)),
+            },
+        })
+    }));
+
+    docs
 }

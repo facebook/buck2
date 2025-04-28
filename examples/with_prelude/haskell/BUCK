@@ -1,4 +1,4 @@
-load("//test_utils.bzl", "assert_output", "haskell_binary", "haskell_library")
+load("//:test_utils.bzl", "assert_output", "haskell_binary", "haskell_library")
 
 _SUPPORTED = host_info().os.is_macos or host_info().os.is_linux
 

@@ -16,10 +16,10 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::Starla
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::instance::CellInstance;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::cells::CellAliasResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern::maybe_split_cell_alias_and_relative_path;
@@ -27,9 +27,9 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use starlark::typing::Ty;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 
@@ -77,7 +77,7 @@ pub(crate) enum FileExpr<'v> {
 fn parse_cell_path_as_file_expr_literal(
     val: &str,
     cell_alias_resolver: &CellAliasResolver,
-) -> anyhow::Result<Option<CellPath>> {
+) -> buck2_error::Result<Option<CellPath>> {
     Ok(match maybe_split_cell_alias_and_relative_path(val)? {
         Some((alias, path)) => {
             let cell_name = cell_alias_resolver.resolve(alias.as_str())?;
@@ -95,7 +95,7 @@ impl<'a> FileExpr<'a> {
         self,
         dice: &mut DiceComputations<'_>,
         cell_instance: &CellInstance,
-    ) -> anyhow::Result<CellPath> {
+    ) -> buck2_error::Result<CellPath> {
         match self {
             FileExpr::Literal(val) => {
                 let cell_alias_resolver =
@@ -110,7 +110,7 @@ impl<'a> FileExpr<'a> {
                         } else {
                             Cow::Borrowed(<&ProjectRelativePath>::try_from(val)?)
                         };
-                        dice.get_cell_resolver().await?.get_cell_path(&rel)
+                        Ok(dice.get_cell_resolver().await?.get_cell_path(&rel)?)
                     }
                 }
             }
@@ -130,7 +130,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_cell_path_as_file_expr_literal() -> anyhow::Result<()> {
+    fn test_parse_cell_path_as_file_expr_literal() -> buck2_error::Result<()> {
         let cell1 = CellName::testing_new("cell1");
 
         let map = hashmap![

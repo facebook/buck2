@@ -12,6 +12,7 @@ use std::collections::HashSet;
 use dupe::Dupe;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum VerbosityError {
     #[error("Can't have more than 1 level set at a time")]
     MoreThan1Level,
@@ -113,7 +114,7 @@ impl VerbosityLevel {
 }
 
 impl VerbosityItem {
-    fn from(value: &str) -> anyhow::Result<Self> {
+    fn from(value: &str) -> buck2_error::Result<Self> {
         let item = match value {
             "stderr" => Self::Stderr,
             "full_failed_command" => Self::FullFailedCommand,
@@ -143,7 +144,7 @@ impl Verbosity {
         }
 
         if levels.len() > 1 {
-            return Err(VerbosityError::MoreThan1Level.into());
+            return Err(buck2_error::Error::from(VerbosityError::MoreThan1Level).into());
         }
 
         if let Some(level) = levels.first() {

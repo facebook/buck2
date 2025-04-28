@@ -1,0 +1,9 @@
+test(
+    name = "a_file",
+    src = "file.txt",
+)
+
+test(
+    name = "a_dir",
+    src = "dir",
+)

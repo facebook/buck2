@@ -10,13 +10,15 @@
 use async_trait::async_trait;
 use buck2_cli_proto::FileStatusRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
@@ -35,7 +37,7 @@ pub struct FileStatusCommand {
     common_opts: CommonCommandOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for FileStatusCommand {
     const COMMAND_NAME: &'static str = "file-status";
 
@@ -46,8 +48,9 @@ impl StreamingCommand for FileStatusCommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
         buckd
@@ -60,8 +63,8 @@ impl StreamingCommand for FileStatusCommand {
                         .try_map(|x| x.resolve(&ctx.working_dir).into_string())?,
                     show_matches: self.show_matches,
                 },
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                events_ctx,
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut StdoutPartialResultHandler,
             )
             .await??;

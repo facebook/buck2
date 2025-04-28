@@ -11,8 +11,8 @@ use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_build_api::interpreter::rule_defs::transitive_set::globals::register_transitive_set_types;
 use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
 use buck2_core::bzl::ImportPath;
-use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
+use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use indoc::indoc;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
@@ -552,7 +552,7 @@ fn test_definition_type() -> anyhow::Result<()> {
             QuxSet = transitive_set();
             assert_eq("FooSet", FooSet.type)
             assert_eq("BarSet", BarSet.type)
-            assert_eq("transitive_set_definition", QuxSet.type)
+            assert_eq("TransitiveSetDefinition", QuxSet.type)
         "#
     ))?;
 
@@ -687,7 +687,23 @@ fn test_accessors() -> anyhow::Result<()> {
 
             s2 = make_tset(FooSet, value = 1)
             assert_eq(s2.value,  1)
-        "#
+
+            f4 = make_tset(FooSet, value = "baz")
+            assert_eq([], f4.children)
+            assert_eq([], [x.value for x in f4.children])
+
+            f3 = make_tset(FooSet, value = "bar", children = [f4])
+            assert_eq([f4], f3.children)
+            assert_eq(["baz"], [x.value for x in f3.children])
+
+            f2 = make_tset(FooSet, children = [f4, f3])
+            assert_eq([f4, f3], f2.children)
+            assert_eq(["baz", "bar"], [x.value for x in f2.children])
+
+            f1 = make_tset(FooSet, children = [f4, f3, f2])
+            assert_eq([f4, f3, f2], f1.children)
+            assert_eq(["baz", "bar"], filter(None, [x.value for x in f1.children])) 
+            "#
     ))?;
 
     Ok(())

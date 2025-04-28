@@ -1,0 +1,10 @@
+load(":defs.bzl", "action_fail")
+
+action_fail(
+    name = "action_fail",
+)
+
+stub(
+    name = "missing_dep",
+    deps = [":xxx"],
+)

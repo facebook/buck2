@@ -32,7 +32,7 @@ lint_levels = importlib.machinery.SourceFileLoader(
 
 
 def is_opensource() -> bool:
-    # @oss-disable: return False 
+    # @oss-disable[end= ]: return False
     return True # @oss-enable
 
 
@@ -64,6 +64,17 @@ def print_running(msg: str) -> None:
 def print_error(msg: str) -> None:
     print(
         Colors.FAIL.value + Colors.BOLD.value + "ERROR: " + msg + Colors.ENDC.value,
+        file=sys.stderr,
+    )
+
+
+def print_warn(msg: str) -> None:
+    print(
+        Colors.WARNING.value
+        + Colors.BOLD.value
+        + "WARNING: "
+        + msg
+        + Colors.ENDC.value,
         file=sys.stderr,
     )
 
@@ -143,6 +154,7 @@ def list_starlark_files(git: bool):
     ]
     excludes = [
         "starlark-rust/starlark/testcases/",
+        "tests/core/**/test_*_data/**",
         "tests/e2e/**/test_*_data/**",
         "**.rs",
         "**.fixture",
@@ -189,7 +201,7 @@ def rustfmt(buck2_dir: Path, ci: bool, git: bool) -> None:
     Mixing and matching cargo-fmt and rust-fmt doesn't work on Windows,
     so skip formatting for now.
     """
-    # @oss-disable: internal = True 
+    # @oss-disable[end= ]: internal = True
     internal = False # @oss-enable
     if not internal:
         return
@@ -294,6 +306,10 @@ def clippy(package_args: List[str], fix: bool) -> None:
 
 
 def starlark_linter(buck2: str, git: bool) -> None:
+    if git:
+        print_warn("Skipping starlark linter on git")
+        return
+
     print_running("starlark linter")
     starlark_files = list_starlark_files(git)
     with tempfile.NamedTemporaryFile(mode="w+t") as fp:

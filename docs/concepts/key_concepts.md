@@ -25,37 +25,61 @@ Buck2 has a number of fundamental concepts:
   separate `BUCK` file for each buildable unit of software—such as a binary or
   library. For large projects, you could have hundreds of `BUCK` files.
 
-A Buck2 **_package_** comprises of: a Buck2 build file (a `BUCK` file), all
-files—such as source files and headers—in the same directory as the `BUCK` file
-or in subdirectories, provided those subdirectories do not themselves contain a
-`BUCK` file. To say it another way, a `BUCK` file defines the root of a package,
-but Buck2 packages might not include all their subdirectories because Buck2
-packages do not overlap or contain other Buck2 packages. For example, in the
-following diagram, the BUCK file in directory `app-dir-1` defines that directory
-as the root of a package—which is labeled **Package A** in the diagram. The
-directory `app-dir-2` is part of Package A because it is a subdirectory of
-`app-dir-1`, but does not itself contain a BUCK file. Now, consider directory
-`app-dir-3`. Because `app-dir-3` contains a BUCK file it is the root of a new
-package (**Package B**). Although `app-dir-3` is a subdirectory of `app-dir-1`,
-it is _not_ part of Package A. Buck2 has the concept of a **_cell_**, which
-defines a directory tree of one or more Buck2 packages. A Buck2 build could
-involve multiple cells. Cells often correspond to repositories, but this isn't
-required. The root of a Buck2 cell contains a global configuration file called
-[**`.buckconfig`**](buckconfig.md). Note that although the cell root should
-contain a `.buckconfig`, the presence of a `.buckconfig` file doesn't in itself
-define a cell. Rather, _the cells involved in a build are defined at the time
-Buck2 is invoked_; they are specified in the `.buckconfig` for the Buck2
-_project_ (see below). A Buck2 **_project_** is defined by the `.buckconfig`
-where Buck2 is invoked, or if that directory doesn't contain a `.buckconfig`,
-the project is defined by the `.buckconfig` in the nearest ancestor directory.
-The `.buckconfig` for the project specifies the cells that constitute the Buck2
-project. Specifically, these cells are specified in the
-[cells](buckconfig.md#cells) section of the `.buckconfig`. Note that the
-directory tree rooted at this `.buckconfig` is automatically considered a cell
-by Buck2; in other words, the project's `.buckconfig` doesn't need to specify
-the project cell explicitly—although it is a good practice to do so.
+### Packages
+
+A Buck2 **_package_** is defined by:
+
+- A Buck2 build file (a `BUCK` file) that marks the root of the package
+- All files in the same directory as this `BUCK` file
+- All files in subdirectories, _unless_ those subdirectories contain their own
+  `BUCK` files
+
+In other words, Buck2 packages are hierarchical and non-overlapping: Each `BUCK`
+file creates a new package boundary. A package does not include subdirectories
+that contain their own `BUCK` files. Those subdirectories with `BUCK` files
+become roots of their own separate packages.
+
+For example, in the following diagram, the BUCK file in directory `app-dir-1`
+defines that directory as the root of a package—which is labeled **Package A**
+in the diagram. The directory `app-dir-2` is part of Package A because it is a
+subdirectory of `app-dir-1`, but does not itself contain a BUCK file. Now,
+consider directory `app-dir-3`. Because `app-dir-3` contains a BUCK file it is
+the root of a new package (**Package B**). Although `app-dir-3` is a
+subdirectory of `app-dir-1`, it is _not_ part of Package A.
 
 <img src={useBaseUrl('/img/packages-1.png')} alt='justifyContent'/>
+
+### Cells
+
+A Buck2 **_cell_** is:
+
+- A directory tree containing one or more Buck2 packages
+- Configured by a [**`.buckconfig`**](buckconfig.md) file at **its root**
+  ```
+  [cells]
+  cell_name = path_to_cell
+  ...
+  ```
+- Often (but not necessarily) corresponding to a repository
+
+Note that although the cell root should contain a `.buckconfig`, the presence of
+a `.buckconfig` file doesn't in itself define a cell. Rather, _the cells
+involved in a build are defined at the time Buck2 is invoked_; they are
+specified in the `.buckconfig` for the Buck2 _project_ (see below).
+
+### Projects
+
+A Buck2 **_project_** is:
+
+- The entry point for Buck2 builds
+- Defined by the `.buckconfig` file in the directory where Buck2 is invoked (or
+  in the nearest ancestor directory),
+- The container that specifies which cells are part of the build
+
+**_How cells and projects relate._** The project's `.buckconfig` specifies all
+cells in the [cells](buckconfig.md#cells) section. The directory containing the
+project's `.buckconfig` is automatically considered a cell. While not required,
+it's good practice to explicitly list the project cell in the configuration.
 
 ### Buck2's dependency graph
 

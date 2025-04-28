@@ -7,16 +7,19 @@
 # of this source tree.
 
 """
-Python wrapper around clang intended to optimize and codegen bitcode files
-to native object files for distributed thin lto. This script munges compiler
-flags to prepare a suitable clang invocation.
+Python wrapper around Clang intended to optimize and codegen bitcode files
+to native object files for distributed thin lto targeting darwin. This script
+exists to work around Clang bugs where Clang will fail silently.
 """
 
 import argparse
+import os
 import subprocess
 import sys
 
 from typing import List
+
+EXIT_SUCCESS, EXIT_FAILURE = 0, 1
 
 
 def main(argv: List[str]) -> int:
@@ -24,8 +27,6 @@ def main(argv: List[str]) -> int:
     parser.add_argument("--out", help="The output native object file.")
     parser.add_argument("--input", help="The input bitcode object file.")
     parser.add_argument("--index", help="The thinlto index file.")
-    # Split dwarf isn't applicable to Darwin, ignore the flag
-    parser.add_argument("--split-dwarf", required=False, help="Split dwarf option.")
     parser.add_argument(
         "--args", help="The argsfile containing unfiltered and unprocessed flags."
     )
@@ -51,12 +52,12 @@ def main(argv: List[str]) -> int:
         ]
     )
 
-    # TODO(T187767988) - Check if returning the subprocesses exit code is sufficient. Server LLVM created such a wrapper
-    # script in the first place because of a bug in Clang where it fails but does not set a non-zero exit code (T116695431). Fbcode's
-    # version of this script measure the size of the output file to determine success. The task is closed, but if the bug
-    # still persists, we may need to do the same.
-    result = subprocess.run(clang_opt_flags)
-    return result.returncode
+    subprocess.check_call(clang_opt_flags)
+    # Work around Clang bug where it fails silently: T187767815
+    if os.stat(args.out).st_size == 0:
+        print("error: opt produced empty file")
+        return EXIT_FAILURE
+    return EXIT_SUCCESS
 
 
 if __name__ == "__main__":

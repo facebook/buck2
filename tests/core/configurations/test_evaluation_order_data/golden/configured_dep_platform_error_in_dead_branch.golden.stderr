@@ -1,0 +1,11 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+Command failed: 
+Error looking up configured node root//:configured_dep_platform_error_in_dead_branch (root//:p-cat#24d70f740de80057)
+
+Caused by:
+    0: Error running analysis for `root//:doesnotexist (<unbound>)`
+    1: Error looking up configured node root//:doesnotexist (<unbound>)
+    2: looking up unconfigured target node `root//:doesnotexist`
+    3: Unknown target `doesnotexist` from package `root//`.
+       Did you mean one of the 33 targets in root//:TARGETS.fixture?

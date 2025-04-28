@@ -43,7 +43,10 @@ pub trait AtomicValue {
 
 impl<T> AtomicValue for Box<T> {
     type Raw = *mut T;
-    type Ref<'a> = &'a T where Self: 'a;
+    type Ref<'a>
+        = &'a T
+    where
+        Self: 'a;
 
     #[inline]
     fn null() -> Self::Raw {
@@ -73,7 +76,10 @@ impl<T> AtomicValue for Box<T> {
 
 impl<T> AtomicValue for Arc<T> {
     type Raw = *const T;
-    type Ref<'a> = &'a T where Self: 'a;
+    type Ref<'a>
+        = &'a T
+    where
+        Self: 'a;
 
     #[inline]
     fn null() -> Self::Raw {
@@ -167,7 +173,10 @@ pub struct RawPtr<T>(pub NonNull<T>);
 
 impl<T> AtomicValue for RawPtr<T> {
     type Raw = *mut T;
-    type Ref<'a> = NonNull<T> where Self: 'a;
+    type Ref<'a>
+        = NonNull<T>
+    where
+        Self: 'a;
 
     #[inline]
     fn null() -> *mut T {

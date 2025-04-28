@@ -37,9 +37,9 @@ use crate::eval::Evaluator;
 use crate::starlark_simple_value;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
-use crate::values::list_or_tuple::UnpackListOrTuple;
-use crate::values::none::NoneType;
+use crate::tests::util::trim_rust_backtrace;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Heap;
 use crate::values::NoSerialize;
@@ -47,6 +47,8 @@ use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::list_or_tuple::UnpackListOrTuple;
+use crate::values::none::NoneType;
 
 #[test]
 fn alias_test() {
@@ -170,7 +172,7 @@ def loop():
         if len(xs) == 3:
             xs.append(4)
 loop()"#,
-        "mutate an iterable",
+        "mutates an iterable",
     );
 }
 
@@ -270,7 +272,7 @@ def foo():
         break
 foo()
 "#,
-        "mutate an iterable",
+        "mutates an iterable",
     );
     assert::fail(
         r#"
@@ -286,7 +288,7 @@ fn test_radd() {
     // We want select append to always produce a select, much like the
     // Bazel/Buck `select` function.
     #[derive(Debug, Display, Clone, ProvidesStaticType, NoSerialize, Allocative)]
-    #[display(fmt = "${:?}", _0)]
+    #[display("${:?}", _0)]
     struct Select(Vec<i32>);
     starlark_simple_value!(Select);
 
@@ -409,19 +411,8 @@ assert_eq(names[str], "str")
     );
 }
 
-/// There's no anyhow API to print error without rust backtrace
-/// ([issue](https://github.com/dtolnay/anyhow/issues/300)).
-fn trim_rust_backtrace(error: &str) -> &str {
-    match error.find("\nStack backtrace:") {
-        Some(pos) => error[..pos].trim_end(),
-        None => error.trim_end(),
-    }
-}
-
 #[test]
 // Tests diagnostics error display.
-//
-// > EYEBALL=1 cargo test -p starlark diagnostics_display -- --nocapture
 fn test_diagnostics_display() {
     fn fail1() -> anyhow::Result<()> {
         Err(anyhow::anyhow!("fail 1"))
@@ -483,13 +474,8 @@ should_fail()"#,
 }
 
 #[test]
-// Check that errors print out "nicely" - can be used to view it.
-// First set `display` to `true` then run:
-//
-// > EYEBALL=1 cargo test -p starlark eyeball -- --nocapture
-fn test_eyeball() {
-    let display = std::env::var("EYEBALL") == Ok("1".to_owned());
-
+// Check that errors print out "nicely"
+fn test_error_display() {
     let mut a = Assert::new();
     a.module(
         "imported",
@@ -505,7 +491,8 @@ def add2(z):
 def add(z):
   x.append(z)"#,
     );
-    let diag = a.fail(
+
+    let err = a.fail(
         r#"
 load('imported', 'add2')
 def add3(z):
@@ -513,48 +500,15 @@ def add3(z):
 add3(8)"#,
         "Immutable",
     );
-    if display {
-        diag.eprint();
-    }
-    assert_eq!(
-        &format!("\n{}", diag),
-        r#"
-Traceback (most recent call last):
-  * assert.bzl:5, in <module>
-      add3(8)
-  * assert.bzl:4, in add3
-      add2(z)
-  * imported.bzl:9, in add2
-      add(z)
-  * imported.bzl:11, in add
-      x.append(z)
-error: Immutable
-  --> imported.bzl:11:3
-   |
-11 |   x.append(z)
-   |   ^^^^^^^^^^^
-   |
-"#
+
+    golden_test_template(
+        "src/tests/uncategorized_error_display.golden",
+        trim_rust_backtrace(&format!("{}", err)),
     );
-    assert_eq!(
-        &format!("\n{:#}", diag),
-        r#"
-Traceback (most recent call last):
-  * assert.bzl:5, in <module>
-      add3(8)
-  * assert.bzl:4, in add3
-      add2(z)
-  * imported.bzl:9, in add2
-      add(z)
-  * imported.bzl:11, in add
-      x.append(z)
-error: Immutable
-  --> imported.bzl:11:3
-   |
-11 |   x.append(z)
-   |   ^^^^^^^^^^^
-   |
-"#
+
+    golden_test_template(
+        "src/tests/uncategorized_error_display_hash.golden",
+        trim_rust_backtrace(&format!("{:#}", err)),
     );
 }
 
@@ -757,7 +711,7 @@ fn test_label_assign() {
     // No builtin Starlark types support it, so we have to define a custom type (wapping a dictionary)
 
     #[derive(Debug, Trace, ProvidesStaticType, Display, NoSerialize, Allocative)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct Wrapper<'v>(RefCell<SmallMap<String, Value<'v>>>);
 
     #[starlark_value(type = "wrapper")]
@@ -773,7 +727,7 @@ fn test_label_assign() {
     }
 
     #[derive(Debug, ProvidesStaticType, Display, NoSerialize, Allocative)]
-    #[display(fmt = "FrozenWrapper")]
+    #[display("FrozenWrapper")]
     struct FrozenWrapper;
 
     #[starlark_value(type = "wrapper")]
@@ -783,7 +737,7 @@ fn test_label_assign() {
 
     impl<'v> Freeze for Wrapper<'v> {
         type Frozen = FrozenWrapper;
-        fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
             Ok(FrozenWrapper)
         }
     }
@@ -1003,7 +957,7 @@ fn test_fuzzer_59102() {
     let res: Result<AstModule, crate::Error> =
         AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard);
     // The panic actually only happens when we format the result
-    format!("{:?}", res);
+    let _unused = format!("{:?}", res);
 }
 
 #[test]
@@ -1013,7 +967,7 @@ fn test_fuzzer_59371() {
     let res: Result<AstModule, crate::Error> =
         AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard);
     // The panic actually only happens when we format the result
-    format!("{:?}", res);
+    let _unused = format!("{:?}", res);
 }
 
 #[test]

@@ -8,15 +8,15 @@
  */
 
 use starlark::environment::GlobalsBuilder;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::FrozenValue;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
+use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::transitive_set::TransitiveSetGen;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_args_projection::TransitiveSetArgsProjectionGen;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_json_projection::TransitiveSetJsonProjectionGen;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProjectionTraversalGen;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTraversalGen;
-use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 
 #[starlark_module]
 pub fn register_transitive_set_types(globals: &mut GlobalsBuilder) {

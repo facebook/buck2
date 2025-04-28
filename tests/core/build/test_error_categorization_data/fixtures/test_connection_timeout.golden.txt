@@ -1,0 +1,11 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+Command failed: Failed to connect to buck daemon.
+    Try running `buck2 kill` and your command afterwards.
+    Alternatively, try running `rm -rf ~/.buck/buckd` and your command afterwards
+
+Caused by:
+    0: Error connecting to the daemon, daemon stderr follows:
+       <none>
+    1: timed out before establishing connection to Buck daemon or start a daemon
+    2: NoneError

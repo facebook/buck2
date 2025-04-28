@@ -7,12 +7,13 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 
 use crate::execute::blocking::IoRequest;
 
@@ -25,21 +26,46 @@ impl CleanOutputPaths {
     pub fn clean<'a>(
         paths: impl IntoIterator<Item = &'a ProjectRelativePath>,
         fs: &'a ProjectRoot,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         for path in paths {
             cleanup_path(fs, path)
-                .with_context(|| format!("Error cleaning up output path `{}`", path))?;
+                .with_buck_error_context(|| format!("Error cleaning up output path `{}`", path))?;
         }
         Ok(())
     }
 }
 
+#[cfg(unix)]
+fn tag_environment_error(error: buck2_error::Error) -> buck2_error::Error {
+    error
+}
+
+#[cfg(windows)]
+fn tag_environment_error(error: buck2_error::Error) -> buck2_error::Error {
+    use buck2_error::ErrorTag;
+    if error.has_tag(ErrorTag::IoWindowsSharingViolation)
+        | error.has_tag(ErrorTag::IoPermissionDenied)
+    {
+        error
+            .tag([ErrorTag::IoMaterializerFileBusy])
+            .context("Binary being executed, please close the process first")
+    } else {
+        error
+    }
+}
+
+use buck2_core::fs::fs_util::IoError;
+fn tag_cleanup_path_env_error(res: Result<(), IoError>) -> buck2_error::Result<()> {
+    res.map_err(buck2_error::Error::from)
+        .map_err(tag_environment_error)
+}
+
 #[tracing::instrument(level = "debug", skip(fs), fields(path = %path))]
-pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> anyhow::Result<()> {
+pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> buck2_error::Result<()> {
     let path = fs.resolve(path);
 
     // This will remove the path if it exists.
-    fs_util::remove_all(&path)?;
+    tag_cleanup_path_env_error(fs_util::remove_all(&path))?;
 
     let mut path: &AbsNormPath = &path;
 
@@ -52,7 +78,8 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> anyhow::Res
         path = match path.parent() {
             Some(path) => path,
             None => {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error!(
+                    buck2_error::ErrorTag::CleanOutputs,
                     "Internal Error: reached root before finding a directory that exists!"
                 ));
             }
@@ -67,7 +94,7 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> anyhow::Res
                     // There was a file or a symlink, so it's safe to delete and then we can exit
                     // because we'll be able to create a dir here.
                     tracing::trace!(path = %path, "remove_file");
-                    fs_util::remove_file(path)?;
+                    tag_cleanup_path_env_error(fs_util::remove_file(path))?;
                 }
                 return Ok(());
             }
@@ -96,7 +123,7 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> anyhow::Res
 }
 
 impl IoRequest for CleanOutputPaths {
-    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
+    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
         Self::clean(self.paths.iter().map(AsRef::as_ref), project_fs)
     }
 }

@@ -12,4 +12,4 @@
 use crate::Dupe;
 
 #[inline]
-pub const fn assert_dupe<T: Dupe + ?Sized>() {}
+pub const fn assert_dupe<T: Dupe>() {}

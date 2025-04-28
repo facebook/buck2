@@ -62,10 +62,10 @@ use std::sync::Arc;
 use buck2_core::provider::id::ProviderId;
 use starlark::any::ProvidesStaticType;
 use starlark::typing::Ty;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::StarlarkValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfo;
 use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
@@ -77,26 +77,24 @@ pub mod builtin;
 pub mod callable;
 pub mod collection;
 pub mod dependency;
-pub(crate) mod doc;
+pub mod doc;
 pub mod execution_platform;
 pub mod registration;
 pub mod test_provider;
-pub(crate) mod ty;
+pub mod ty;
 pub(crate) mod user;
 
 /// Implemented by providers (builtin or user defined).
 pub trait ProviderLike<'v>: Debug {
     /// The ID. Guaranteed to be set on the `ProviderCallable` before constructing this object
     fn id(&self) -> &Arc<ProviderId>;
-    /// Gets the value for a given field.
-    fn get_field(&self, name: &str) -> Option<Value<'v>>;
     /// Returns a list of all the keys and values.
     // TODO(cjhopman): I'd rather return an iterator. I couldn't get that to work, though.
     fn items(&self) -> Vec<(&str, Value<'v>)>;
 }
 
 /// Implemented by frozen builtin providers.
-pub trait FrozenBuiltinProviderLike: ProviderLike<'static> + StarlarkValue<'static> {
+pub trait FrozenBuiltinProviderLike: ProviderLike<'static> + for<'v> StarlarkValue<'v> {
     fn builtin_provider_id() -> &'static Arc<ProviderId>;
 }
 

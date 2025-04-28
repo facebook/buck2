@@ -1,0 +1,14 @@
+load(":rules.bzl", "proper_platform", "useless", "wrong_platform")
+
+proper_platform(
+    name = "proper_platform",
+)
+
+wrong_platform(
+    name = "wrong_platform",
+)
+
+useless(
+    name = "useless",
+    default_target_platform = ":wrong_platform",
+)

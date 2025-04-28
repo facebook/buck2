@@ -33,9 +33,12 @@ use crate::codemap::Spanned;
 use crate::eval_exception::EvalException;
 use crate::lexer::Lexer;
 use crate::lexer::Token;
+use crate::syntax::AstLoad;
+use crate::syntax::Dialect;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::CallArgsP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::IdentP;
 use crate::syntax::ast::LoadArgP;
@@ -44,8 +47,7 @@ use crate::syntax::grammar::StarlarkParser;
 use crate::syntax::lint_suppressions::LintSuppressions;
 use crate::syntax::lint_suppressions::LintSuppressionsBuilder;
 use crate::syntax::state::ParserState;
-use crate::syntax::AstLoad;
-use crate::syntax::Dialect;
+use crate::syntax::validate::validate_module;
 
 fn one_of(expected: &[String]) -> String {
     let mut result = String::new();
@@ -98,7 +100,7 @@ fn parse_error_add_span(
     };
 
     crate::Error::new_spanned(
-        crate::ErrorKind::Lexer(anyhow::anyhow!(message)),
+        crate::ErrorKind::Parser(anyhow::anyhow!(message)),
         span,
         codemap,
     )
@@ -112,7 +114,7 @@ fn parse_error_add_span(
 /// The internal details (statements/expressions) are deliberately omitted, as they change
 /// more regularly. A few methods to obtain information about the AST are provided.
 #[derive(Derivative)]
-#[derivative(Debug)]
+#[derivative(Debug, Clone)]
 pub struct AstModule {
     #[derivative(Debug = "ignore")]
     pub(crate) codemap: CodeMap,
@@ -163,7 +165,19 @@ impl AstModule {
         typecheck: bool,
         lint_suppressions: LintSuppressions,
     ) -> crate::Result<AstModule> {
-        Stmt::validate(&codemap, &statement, dialect).map_err(EvalException::into_error)?;
+        let mut errors = Vec::new();
+        validate_module(
+            &statement,
+            &mut ParserState {
+                codemap: &codemap,
+                dialect,
+                errors: &mut errors,
+            },
+        );
+        // We need the first error, so we don't use `.pop()`.
+        if let Some(err) = errors.into_iter().next() {
+            return Err(err.into_error());
+        }
         Ok(AstModule {
             codemap,
             statement,
@@ -282,6 +296,11 @@ impl AstModule {
         self.codemap.file_span(x)
     }
 
+    /// Get back the AST statement for the module
+    pub fn statement(&self) -> &AstStmt {
+        &self.statement
+    }
+
     /// Locations where statements occur.
     pub fn stmt_locations(&self) -> Vec<FileSpan> {
         fn go(x: &AstStmt, codemap: &CodeMap, res: &mut Vec<FileSpan>) {
@@ -322,16 +341,18 @@ impl AstModule {
                                 },
                             }),
                         }),
-                        vec![
-                            Spanned {
-                                span: lhs.span,
-                                node: ArgumentP::Positional(*lhs),
-                            },
-                            Spanned {
-                                span: rhs.span,
-                                node: ArgumentP::Positional(*rhs),
-                            },
-                        ],
+                        CallArgsP {
+                            args: vec![
+                                Spanned {
+                                    span: lhs.span,
+                                    node: ArgumentP::Positional(*lhs),
+                                },
+                                Spanned {
+                                    span: rhs.span,
+                                    node: ArgumentP::Positional(*rhs),
+                                },
+                            ],
+                        },
                     ),
                     None => ExprP::Op(lhs, op, rhs),
                 },

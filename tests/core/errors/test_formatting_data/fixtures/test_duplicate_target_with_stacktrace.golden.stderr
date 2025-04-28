@@ -1,0 +1,24 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+BUILD FAILED
+Error evaluating build file: `root//duplicate_target:TARGETS.fixture`
+
+Caused by:
+    Traceback (most recent call last):
+      * duplicate_target/TARGETS.fixture:5, in <module>
+          make_target("foo")
+      * duplicate_target/make_target.bzl:9, in make_target
+          stub(name = name)
+    
+    error: Attempted to register target root//duplicate_target:foo twice, first registered at:
+      Traceback (most recent call last):
+        * duplicate_target/TARGETS.fixture:3, in <module>
+            make_target("foo")
+        * duplicate_target/make_target.bzl:9, in make_target
+            stub(name = name)
+    
+     --> duplicate_target/make_target.bzl:9:5
+      |
+    9 |     stub(name = name)
+      |     ^^^^^^^^^^^^^^^^^
+      |

@@ -10,21 +10,20 @@
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
-use buck2_common::legacy_configs::configs::testing::TestConfigParserFileOps;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
-use buck2_common::package_listing::listing::testing::PackageListingExt;
+use buck2_common::legacy_configs::configs::testing::TestConfigParserFileOps;
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::project::ProjectRoot;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::path::StarlarkPath;
-use buck2_interpreter_for_build::interpreter::testing::run_simple_starlark_test;
 use buck2_interpreter_for_build::interpreter::testing::CellsData;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
+use buck2_interpreter_for_build::interpreter::testing::run_simple_starlark_test;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::unconfigured::testing::targets_to_json;
 use dupe::Dupe;
@@ -178,12 +177,8 @@ fn test_eval_build_file() {
 }
 
 fn cells() -> CellsData {
-    let repo_root = if cfg!(windows) { "C:/" } else { "/" };
-    let project_fs =
-        ProjectRoot::new_unchecked(AbsNormPathBuf::try_from(repo_root.to_owned()).unwrap());
     let BuckConfigBasedCells { cell_resolver, .. } =
         futures::executor::block_on(BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
             &mut TestConfigParserFileOps::new(&[(
                 ".buckconfig",
                 indoc!(
@@ -198,20 +193,23 @@ fn cells() -> CellsData {
             )])
             .unwrap(),
             &[],
-            ProjectRelativePath::empty(),
         ))
         .unwrap();
     (
         cell_resolver.root_cell_cell_alias_resolver().dupe(),
         cell_resolver,
         LegacyBuckConfig::empty(),
+        CellPathWithAllowedRelativeDir::new(
+            CellPath::testing_new("cell1//config/foo"),
+            Some(CellPath::testing_new("cell1//config")),
+        ),
     )
 }
 
 #[test]
 fn test_find_imports() {
     let tester = Tester::with_cells(cells()).unwrap();
-    let path = BuildFilePath::testing_new("cell1//config:BUCK");
+    let path = BuildFilePath::testing_new("cell1//config/foo:BUCK");
     let parse_result = tester.parse(
         StarlarkPath::BuildFile(&path),
         indoc!(
@@ -236,6 +234,7 @@ fn test_find_imports() {
 
             # some other comments
             load(":other.bzl", "some_macro")
+            load("../bar/three.bzl", "some_macro")
         "#
         ),
     );
@@ -245,7 +244,8 @@ fn test_find_imports() {
             "root//imports/one.bzl@cell1",
             "cell1//one.bzl",
             "cell2//two.bzl@cell1",
-            "cell1//config/other.bzl"
+            "cell1//config/foo/other.bzl",
+            "cell1//config/bar/three.bzl",
         ],
         parse_result.imports().map(|e| e.1.to_string()).as_slice()
     );
@@ -316,7 +316,7 @@ fn test_root_import() {
 }
 
 #[test]
-fn prelude_is_included() -> anyhow::Result<()> {
+fn prelude_is_included() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     let prelude_path = ImportPath::testing_new("root//prelude:prelude.bzl");
     tester.set_prelude(prelude_path.clone());
@@ -362,7 +362,7 @@ fn prelude_is_included() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_package_import() -> anyhow::Result<()> {
+fn test_package_import() -> buck2_error::Result<()> {
     let mut tester = Tester::with_cells(buck2_interpreter_for_build::interpreter::testing::cells(
         Some(indoc!(
             r#"
@@ -409,6 +409,7 @@ fn test_package_import() -> anyhow::Result<()> {
                     "exec_compatible_with": [],
                     "name": "DEFAULT",
                     "target_compatible_with": [],
+                    "modifiers": [],
                     "tests": [],
                     "visibility": [],
                     "within_view": ["PUBLIC"],
@@ -425,7 +426,7 @@ fn test_package_import() -> anyhow::Result<()> {
 }
 
 #[test]
-fn eval() -> anyhow::Result<()> {
+fn eval() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     let content = indoc!(
         r#"
@@ -455,7 +456,7 @@ fn eval() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_builtins() -> anyhow::Result<()> {
+fn test_builtins() -> buck2_error::Result<()> {
     // Test that most things end up on __buck2_builtins__
     run_simple_starlark_test(indoc!(
         r#"
@@ -479,7 +480,7 @@ fn test_builtins() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_oncall() -> anyhow::Result<()> {
+fn test_oncall() -> buck2_error::Result<()> {
     let mut tester = Tester::new().unwrap();
     tester.additional_globals(register_rule_defs);
     tester.run_starlark_test(indoc!(

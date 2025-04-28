@@ -1,0 +1,21 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+[<TIMESTAMP>] Starting new buck2 daemon...
+[<TIMESTAMP>] Connected to new buck2 daemon.
+[<TIMESTAMP>] Buck UI: https://www.internalfb.com/buck2/<UUID>
+[<TIMESTAMP>] Error parsing root//starlark_fail
+[<TIMESTAMP>] Error evaluating build file: `root//starlark_fail:TARGETS.fixture`
+[<TIMESTAMP>]
+[<TIMESTAMP>] Caused by:
+[<TIMESTAMP>]     Traceback (most recent call last):
+[<TIMESTAMP>]       * starlark_fail/TARGETS.fixture:1, in <module>
+[<TIMESTAMP>]           fail("foobar")
+[<TIMESTAMP>]     error: fail: foobar
+[<TIMESTAMP>]      --> starlark_fail/TARGETS.fixture:1:1
+[<TIMESTAMP>]       |
+[<TIMESTAMP>]     1 | fail("foobar")
+[<TIMESTAMP>]       | ^^^^^^^^^^^^^^
+[<TIMESTAMP>]       |
+[<TIMESTAMP>]     
+Command failed: 
+Failed to parse 1 package

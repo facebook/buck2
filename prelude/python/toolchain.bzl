@@ -54,17 +54,21 @@ PythonToolchainInfo = provider(
         "interpreter": provider_field(typing.Any, default = None),
         "version": provider_field(typing.Any, default = None),
         "native_link_strategy": provider_field(typing.Any, default = None),
-        "linker_flags": provider_field(typing.Any, default = None),
-        "binary_linker_flags": provider_field(typing.Any, default = None),
+        "linker_flags": provider_field(list[typing.Any], default = []),
+        "binary_linker_flags": provider_field(list[typing.Any], default = []),
+        "extension_linker_flags": provider_field(list[typing.Any], default = []),
+        "wheel_linker_flags": provider_field(list[typing.Any], default = []),
+        # site-packages-relative rpaths to emebed into libs/bins in the wheel
+        "wheel_rpaths": provider_field(list[str], default = []),
+        "gen_lpar_bootstrap": provider_field(typing.Any, default = None),
         "generate_static_extension_info": provider_field(typing.Any, default = None),
-        "parse_imports": provider_field(typing.Any, default = None),
-        "traverse_dep_manifest": provider_field(typing.Any, default = None),
         "package_style": provider_field(typing.Any, default = None),
         "strip_libpar": provider_field(typing.Any, default = None),
         "make_source_db": provider_field(typing.Any, default = None),
         "native_library_runtime_paths": provider_field(list[str], default = []),
         "make_source_db_no_deps": provider_field(typing.Any, default = None),
         "make_py_package_inplace": provider_field(typing.Any, default = None),
+        "make_py_package_live": provider_field(typing.Any, default = None),
         "make_py_package_standalone": provider_field(typing.Any, default = None),
         "make_py_package_manifest_module": provider_field(typing.Any, default = None),
         "make_py_package_modules": provider_field(typing.Any, default = None),
@@ -74,12 +78,15 @@ PythonToolchainInfo = provider(
         "typeshed_stubs": provider_field(typing.Any, default = []),
         "emit_omnibus_metadata": provider_field(typing.Any, default = None),
         "fail_with_message": provider_field(typing.Any, default = None),
-        "emit_dependency_metadata": provider_field(typing.Any, default = None),
         # A filegroup that gets added to all python executables
         "runtime_library": provider_field(Dependency | None, default = None),
         # The fully qualified name of a function that handles invoking the
         # executable's entry point
         "main_runner": provider_field(str, default = "__par__.bootstrap.run_as_main"),
+        "run_lpar_main": provider_field(typing.Any, default = None),
+        # Prefix to use when running a Python test/executable.
+        "run_prefix": provider_field(list[typing.Any], default = []),
+        "python_error_handler": provider_field(typing.Any, default = None),
     },
 )
 
@@ -95,14 +102,19 @@ def get_package_style(ctx: AnalysisContext) -> PackageStyle:
 
 def get_platform_attr(
         python_platform_info: PythonPlatformInfo,
-        cxx_platform_info: CxxPlatformInfo,
+        cxx_toolchain: Dependency,
         xs: list[(str, typing.Any)]) -> list[typing.Any]:
     """
     Take a platform_* value, and the non-platform version, and concat into a list
     of values based on the cxx/python platform
     """
+    if len(xs) == 0:
+        return []
+    cxx_info = cxx_toolchain.get(CxxPlatformInfo)
+    if cxx_info == None:
+        fail("Cannot use platform attrs in a fat platform configuration")
     python_platform = python_platform_info.name
-    cxx_platform = cxx_platform_info.name
+    cxx_platform = cxx_info.name
     return by_platform([python_platform, cxx_platform], xs)
 
 python = struct(

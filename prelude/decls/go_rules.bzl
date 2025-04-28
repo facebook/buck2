@@ -10,78 +10,15 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//decls:test_common.bzl", "test_common")
 load(":common.bzl", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":go_common.bzl", "go_common")
-load(":native_common.bzl", "native_common")
 load(":re_test_common.bzl", "re_test_common")
 
 BuildMode = ["executable", "c_shared", "c_archive"]
 
 GoTestCoverStepMode = ["set", "count", "atomic", "none"]
-
-cgo_library = prelude_rule(
-    name = "cgo_library",
-    docs = """
-        A cgo\\_library() rule builds an object from the supplied set of Go/C source files and
-        dependencies. The outputs are linked into go executable in the last step (compile).
-
-        The 'go build' command would collect the cgo directives from the source files, however
-        with buck the flags needs to be passed in the cgo\\_library manually
-
-        This rule borrows from `cxx_binary()` since C/C++ sources are being compiled.
-    """,
-    examples = """
-        ```
-
-        # A rule that builds a Go native executable with linked cgo library based on
-        # C/C++ util library.
-        go_binary(
-            name = "bin",
-            srcs = ["main.go"],
-            deps = [":lib"]
-        )
-
-        cgo_library(
-            name = "lib",
-            srcs = ["cgo_source.go"],
-            deps = [":util"],
-        )
-
-        cxx_library(
-            name = "util",
-            srcs = ["util.c"],
-            headers = ["util.h"],
-        )
-
-        ```
-    """,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        go_common.package_name_arg() |
-        go_common.srcs_arg() |
-        cxx_common.headers_arg() |
-        go_common.embedcfg_arg() |
-        go_common.package_root_arg() |
-        go_common.cxx_preprocessor_flags_arg() |
-        go_common.cxx_compiler_flags_arg() |
-        native_common.link_style() |
-        go_common.compiler_flags_arg() |
-        go_common.assembler_flags_arg() |
-        {
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "default_platform": attrs.option(attrs.string(), default = None),
-            "deps": attrs.list(attrs.dep(), default = []),
-            "exported_deps": attrs.list(attrs.dep(), default = []),
-            "header_namespace": attrs.option(attrs.string(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        } |
-        buck.allow_cache_upload_arg()
-    ),
-)
 
 go_binary = prelude_rule(
     name = "go_binary",
@@ -127,6 +64,7 @@ go_binary = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        go_common.package_name_arg() |
         go_common.srcs_arg() |
         go_common.deps_arg() |
         go_common.link_style_arg() |
@@ -140,7 +78,11 @@ go_binary = prelude_rule(
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
         go_common.asan_arg() |
-        go_common.tags_arg() |
+        go_common.build_tags_arg() |
+        cxx_common.headers_arg() |
+        cxx_common.header_namespace_arg() |
+        go_common.cxx_preprocessor_flags_arg() |
+        go_common.cxx_compiler_flags_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files to be symlinked into the working directory of the test. You can access these in your
@@ -175,7 +117,7 @@ go_exported_library = prelude_rule(
             deps = [":example"],
         )
 
-        cgo_library(
+        go_library(
             name = "example",
             package_name = "cgo",
             srcs = [
@@ -205,6 +147,7 @@ go_exported_library = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        go_common.package_name_arg() |
         go_common.srcs_arg() |
         go_common.deps_arg() |
         {
@@ -217,6 +160,10 @@ go_exported_library = prelude_rule(
                  `gcflags`, `ldflags` and `asmflags``
             """),
         } |
+        cxx_common.headers_arg() |
+        cxx_common.header_namespace_arg() |
+        go_common.cxx_preprocessor_flags_arg() |
+        go_common.cxx_compiler_flags_arg() |
         go_common.link_style_arg() |
         go_common.link_mode_arg() |
         go_common.compiler_flags_arg() |
@@ -227,7 +174,8 @@ go_exported_library = prelude_rule(
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
         go_common.asan_arg() |
-        go_common.tags_arg() |
+        go_common.build_tags_arg() |
+        go_common.generate_exported_header() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files to be symlinked into the working directory of the test. You can access these in your
@@ -277,10 +225,17 @@ go_library = prelude_rule(
         go_common.assembler_flags_arg() |
         go_common.embedcfg_arg() |
         go_common.package_root_arg() |
+        go_common.override_cgo_enabled_arg() |
+        cxx_common.headers_arg() |
+        cxx_common.header_namespace_arg() |
+        go_common.cxx_preprocessor_flags_arg() |
+        go_common.cxx_compiler_flags_arg() |
+        go_common.external_linker_flags_arg() |
+        go_common.link_style_arg() |
+        go_common.generate_exported_header() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "exported_deps": attrs.list(attrs.dep(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
         }
@@ -351,6 +306,7 @@ go_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        buck.inject_test_env_arg() |
         go_common.srcs_arg() |
         {
             "library": attrs.option(attrs.dep(), default = None, doc = """
@@ -381,7 +337,11 @@ go_test = prelude_rule(
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
         go_common.asan_arg() |
-        go_common.tags_arg() |
+        go_common.build_tags_arg() |
+        cxx_common.headers_arg() |
+        cxx_common.header_namespace_arg() |
+        go_common.cxx_preprocessor_flags_arg() |
+        go_common.cxx_compiler_flags_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files that are symlinked into the working directory of the
@@ -405,19 +365,22 @@ go_test = prelude_rule(
             "runner": attrs.option(attrs.dep(), default = None),
             "specs": attrs.option(attrs.arg(json = True), default = None),
         } |
-        re_test_common.test_args()
+        re_test_common.test_args() |
+        test_common.attributes()
     ),
 )
 go_bootstrap_binary = prelude_rule(
     name = "go_bootstrap_binary",
     attrs = (
         go_common.srcs_arg() |
-        {"entrypoints": attrs.list(attrs.string(), default = [], doc = """Package name or file names""")}
+        {
+            "entrypoints": attrs.list(attrs.string(), default = [], doc = """Package name or file names"""),
+            "workdir": attrs.string(default = "", doc = """Change to subdir before running the command"""),
+        }
     ),
 )
 
 go_rules = struct(
-    cgo_library = cgo_library,
     go_binary = go_binary,
     go_bootstrap_binary = go_bootstrap_binary,
     go_exported_library = go_exported_library,

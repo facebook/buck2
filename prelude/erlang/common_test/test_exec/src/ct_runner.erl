@@ -11,10 +11,11 @@
 %% communicates the result to the test runner.
 
 -module(ct_runner).
+-eqwalizer(ignore).
 
 -behavior(gen_server).
 
--export([start_link/2]).
+-export([start_link/1]).
 -include_lib("common/include/buck_ct_records.hrl").
 -include_lib("kernel/include/logger.hrl").
 
@@ -64,12 +65,13 @@
 
 %% Starts and monitor (through an erlang port) a ct_run.
 %% Reports the result of the execution to the test runner.
--spec start_link(#test_env{}, integer()) -> {ok, pid()} | {error, term()}.
-start_link(#test_env{} = TestEnv, PortEpmd) ->
-    gen_server:start_link(?MODULE, [TestEnv, PortEpmd], []).
+-spec start_link(#test_env{}) -> {ok, pid()} | {error, term()}.
+start_link(#test_env{} = TestEnv) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [TestEnv], []).
 
-init([#test_env{} = TestEnv, PortEpmd]) ->
+init([#test_env{} = TestEnv]) ->
     process_flag(trap_exit, true),
+    PortEpmd = epmd_manager:get_port(),
     {ok, #{test_env => TestEnv, std_out => []}, {continue, {run, PortEpmd}}}.
 
 handle_continue(
@@ -145,7 +147,8 @@ run_test(
         suite = Suite,
         erl_cmd = ErlCmd,
         extra_flags = ExtraFlags,
-        common_app_env = CommonAppEnv
+        common_app_env = CommonAppEnv0,
+        raw_target = RawTarget
     } = _TestEnv,
     PortEpmd
 ) ->
@@ -153,8 +156,9 @@ run_test(
     % where the suite is as part of the dependencies.
     SuiteFolder = filename:dirname(filename:absname(SuitePath)),
     CodePath = [SuiteFolder | Dependencies],
+    CommonAppEnv1 = CommonAppEnv0#{raw_target => lists:flatten(io_lib:format("~0p", [RawTarget]))},
 
-    Args = build_run_args(OutputDir, Providers, Suite, TestSpecFile, CommonAppEnv),
+    Args = build_run_args(OutputDir, Providers, Suite, TestSpecFile, CommonAppEnv1),
 
     {ok, ProjectRoot} = file:get_cwd(),
 
@@ -207,7 +211,7 @@ build_run_args(OutputDir, Providers, Suite, TestSpecFile, CommonAppEnv) ->
 
 -spec common_app_env_args(Env :: #{string() => string()}) -> [string()].
 common_app_env_args(Env) ->
-    lists:append([["-common", Key, Value] || {Key, Value} <- maps:to_list(Env)]).
+    lists:append([["-common", Key, Value] || Key := Value <- Env]).
 
 -spec start_test_node(
     Erl :: [binary()],
@@ -254,10 +258,7 @@ start_test_node(
     ReplayIo
 ) ->
     % split of args from Erl which can contain emulator flags
-    [_Executable | Flags] = ErlCmd,
-    % we ignore the executable we got, and use the erl command from the
-    % toolchain that executes this code
-    ErlExecutable = os:find_executable("erl"),
+    [ErlExecutable | Flags] = ErlCmd,
 
     % HomeDir is the execution directory.
     HomeDir = set_home_dir(OutputDir),
@@ -319,16 +320,48 @@ config_arg(ConfigFiles) -> ["-config"] ++ ConfigFiles.
 %% Each test execution will have a separate home dir with a
 %% erlang default cookie file, setting the default cookie to
 %% buck2-test-runner-cookie
--spec set_home_dir(file:filename()) -> file:filename().
+-spec set_home_dir(file:filename_all()) -> file:filename_all().
 set_home_dir(OutputDir) ->
     HomeDir = filename:join(OutputDir, "HOME"),
     ErlangCookieFile = filename:join(HomeDir, ".erlang.cookie"),
     ok = filelib:ensure_dir(ErlangCookieFile),
     ok = file:write_file(ErlangCookieFile, atom_to_list(cookie())),
     ok = file:change_mode(ErlangCookieFile, 8#00400),
+
+    % In case the system is using dotslash, we leave a symlink to
+    % the real dotslash cache, otherwise erl could be re-downloaded, etc
+    try_setup_dotslash_cache(HomeDir),
+
     HomeDir.
 
--spec cookie() -> string().
+-spec try_setup_dotslash_cache(FakeHomeDir :: file:filename_all()) -> ok.
+try_setup_dotslash_cache(FakeHomeDir) ->
+    case init:get_argument(home) of
+        {ok, [[RealHomeDir]]} ->
+            RealDotslashCacheDir = filename:basedir(user_cache, "dotslash"),
+
+            case filelib:is_file(RealDotslashCacheDir) of
+                false ->
+                    ok;
+                true ->
+                    RealHomeDirParts = filename:split(RealHomeDir),
+                    RealDotslashCacheDirParts = filename:split(RealDotslashCacheDir),
+
+                    case lists:split(length(RealHomeDirParts), RealDotslashCacheDirParts) of
+                        {RealHomeDirParts, GenDotslashCacheDirParts} ->
+                            FakeHomeDotslashCacheDir = filename:join([FakeHomeDir | GenDotslashCacheDirParts]),
+                            ok = filelib:ensure_path(filename:dirname(FakeHomeDotslashCacheDir)),
+                            ok = file:make_symlink(RealDotslashCacheDir, FakeHomeDotslashCacheDir),
+                            ok;
+                        _ ->
+                            ok
+                    end
+            end;
+        _ ->
+            ok
+    end.
+
+-spec cookie() -> atom().
 cookie() ->
     'buck2-test-runner-cookie'.
 

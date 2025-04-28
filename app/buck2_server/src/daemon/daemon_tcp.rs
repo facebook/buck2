@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-pub fn create_listener() -> anyhow::Result<(
+pub fn create_listener() -> buck2_error::Result<(
     buck2_common::buckd_connection::ConnectionType,
     std::net::TcpListener,
 )> {

@@ -54,7 +54,7 @@ pub enum ValueError {
     KeyNotFound(String),
     #[error("Immutable")]
     CannotMutateImmutableValue,
-    #[error("This operation mutate an iterable for an iterator while iterating.")]
+    #[error("This operation mutates an iterable for an iterator while iterating.")]
     MutationDuringIteration,
     #[error("Object of type `{0}` has no attribute `{1}`")]
     NoAttr(String, String),
@@ -64,7 +64,7 @@ pub enum ValueError {
 
 impl From<ValueError> for crate::Error {
     fn from(e: ValueError) -> Self {
-        crate::Error::new(crate::ErrorKind::Value(anyhow::Error::new(e)))
+        crate::Error::new_kind(crate::ErrorKind::Value(anyhow::Error::new(e)))
     }
 }
 
@@ -100,10 +100,7 @@ impl ValueError {
 
     /// Helper to create an [`OperationNotSupported`](ValueError::OperationNotSupported) error.
     #[cold]
-    pub fn unsupported<'v, T, V: StarlarkValue<'v> + ?Sized>(
-        _left: &V,
-        op: &str,
-    ) -> crate::Result<T> {
+    pub fn unsupported<'v, T, V: StarlarkValue<'v>>(_left: &V, op: &str) -> crate::Result<T> {
         Self::unsupported_owned(V::TYPE, op, None)
     }
 
@@ -114,7 +111,7 @@ impl ValueError {
 
     /// Helper to create an [`OperationNotSupported`](ValueError::OperationNotSupportedBinary) error.
     #[cold]
-    pub fn unsupported_with<'v, T, V: StarlarkValue<'v> + ?Sized>(
+    pub fn unsupported_with<'v, T, V: StarlarkValue<'v>>(
         _left: &V,
         op: &str,
         right: Value,

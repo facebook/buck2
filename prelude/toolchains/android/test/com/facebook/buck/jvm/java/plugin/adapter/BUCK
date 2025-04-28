@@ -1,0 +1,35 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "OPEN_JDK_COMPILER_ARGS", "buck_java_library", "standard_java_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+standard_java_test(
+    name = "adapter",
+    vm_args = OPEN_JDK_COMPILER_ARGS,
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/plugin/adapter:adapter",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/testutil/compiler:compiler",
+        "prelude//toolchains/android/third-party:asm",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:junit",
+        "prelude//toolchains/android/third-party:mockito",
+        ":testutil",
+    ],
+)
+
+buck_java_library(
+    name = "testutil",
+    srcs = glob(
+        ["*.java"],
+        exclude = [
+            "*Benchmark.java",
+            "*Test.java",
+        ],
+    ),
+    visibility = ["prelude//toolchains/android/test/..."],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/plugin/adapter:adapter",
+    ],
+)

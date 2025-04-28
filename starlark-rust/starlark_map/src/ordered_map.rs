@@ -23,10 +23,11 @@ use std::hash::Hash;
 use allocative::Allocative;
 use serde::Deserialize;
 use serde::Serialize;
+use strong_hash::StrongHash;
 
+use crate::Equivalent;
 use crate::small_map;
 use crate::small_map::SmallMap;
-use crate::Equivalent;
 
 /// Wrapper for `SmallMap` which considers map equal if iteration order is equal.
 #[derive(Debug, Clone, Allocative)]
@@ -144,7 +145,7 @@ impl<K, V> OrderedMap<K, V> {
     where
         Q: Hash + Equivalent<K> + ?Sized,
     {
-        self.0.remove(k)
+        self.0.shift_remove(k)
     }
 
     /// Clear the map.
@@ -198,6 +199,17 @@ impl<K: Hash, V: Hash> Hash for OrderedMap<K, V> {
     #[inline]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash_ordered(state)
+    }
+}
+
+impl<K: StrongHash, V: StrongHash> StrongHash for OrderedMap<K, V> {
+    #[inline]
+    fn strong_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.len().strong_hash(state);
+        for (k, v) in self.iter() {
+            k.strong_hash(state);
+            v.strong_hash(state);
+        }
     }
 }
 

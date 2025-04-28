@@ -16,24 +16,27 @@ use std::time::Duration;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
+use buck2_build_api::actions::calculation::get_target_rule_type_name;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::build::build_configured_label;
-use buck2_build_api::build::build_report::build_report_opts;
-use buck2_build_api::build::build_report::generate_build_report;
+use buck2_build_api::build::AsyncBuildTargetResultBuilder;
 use buck2_build_api::build::BuildConfiguredLabelOptions;
 use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildTargetResult;
+use buck2_build_api::build::BuildTargetResultBuilder;
 use buck2_build_api::build::ConfiguredBuildEventVariant;
 use buck2_build_api::build::ProvidersToBuild;
+use buck2_build_api::build::build_configured_label;
+use buck2_build_api::build::build_report::build_report_opts;
+use buck2_build_api::build::build_report::generate_build_report;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::test_provider::TestProvider;
-use buck2_build_api::materialize::MaterializationContext;
+use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TestRequest;
 use buck2_cli_proto::TestResponse;
+use buck2_cli_proto::representative_config_flag;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::events::HasEvents;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::liveliness_observer::LivelinessGuard;
@@ -43,11 +46,12 @@ use buck2_common::liveliness_observer::TimeoutLivelinessObserver;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::name::CellName;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
@@ -57,20 +61,24 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::tag_result;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
-use buck2_events::errors::create_error_report;
 use buck2_futures::cancellation::CancellationContext;
+use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter_for_build::interpreter::context::HasInterpreterContext;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
+use buck2_server_ctx::commands::send_target_cfg_event;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::test_command::TEST_COMMAND;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::data::TestStatus;
@@ -94,7 +102,7 @@ use crate::executor_launcher::ExecutorLaunch;
 use crate::executor_launcher::ExecutorLauncher;
 use crate::executor_launcher::OutOfProcessTestExecutor;
 use crate::executor_launcher::TestExecutorClientWrapper;
-use crate::local_resource_registry::LocalResourceRegistry;
+use crate::local_resource_registry::HasLocalResourceRegistry;
 use crate::orchestrator::BuckTestOrchestrator;
 use crate::orchestrator::ExecutorMessage;
 use crate::session::TestSession;
@@ -200,8 +208,24 @@ impl TestStatuses {
     }
 }
 
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = TestExecutor)]
+enum TestError {
+    #[error("Test execution completed but the tests failed")]
+    #[buck2(tag = Input)]
+    TestFailed,
+    #[error("Test execution completed but tests were skipped")]
+    #[buck2(tag = Input)]
+    TestSkipped,
+    #[error("Test listing failed")]
+    #[buck2(tag = Input)]
+    ListingFailed,
+    #[error("Fatal error encountered during test execution")]
+    Fatal,
+}
+
 #[derive(Debug, buck2_error_derive::Error)]
-#[buck2(input, typ = UserDeadlineExpired)]
+#[buck2(tag = TestDeadlineExpired)]
 #[error("This test run exceeded the deadline that was provided")]
 struct DeadlineExpired;
 
@@ -209,7 +233,7 @@ async fn test_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: TestRequest,
-) -> anyhow::Result<TestResponse> {
+) -> buck2_error::Result<TestResponse> {
     run_server_command(TestServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
@@ -245,19 +269,12 @@ impl ServerCommandTemplate for TestServerCommand {
         }
     }
 
-    fn additional_telemetry_errors(
-        &self,
-        response: &Self::Response,
-    ) -> Vec<buck2_data::ErrorReport> {
-        response.errors.clone()
-    }
-
     async fn command(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         test(server_ctx, ctx, &self.req).await
     }
 }
@@ -266,7 +283,7 @@ async fn test(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
     request: &TestRequest,
-) -> anyhow::Result<TestResponse> {
+) -> buck2_error::Result<TestResponse> {
     // TODO (torozco): Should the --fail-fast flag work here?
 
     let cwd = server_ctx.working_dir();
@@ -300,9 +317,58 @@ async fn test(
     let (test_executor, test_executor_args) = match test_executor_config {
         Some(config) => {
             let test_executor = post_process_test_executor(config.as_ref())
-                .with_context(|| format!("Invalid `test.v2_test_executor`: {}", config))?;
-            let test_executor_args =
+                .with_context(|| format!("Invalid `test.v2_test_executor`: {}", config))
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?;
+            let mut test_executor_args =
                 vec!["--buck-trace-id".to_owned(), client_ctx.trace_id.clone()];
+            let platform = match (*ctx)
+                .get_interpreter_configuror()
+                .await?
+                .host_info()
+                .platform
+            {
+                InterpreterHostPlatform::Linux => "linux",
+                InterpreterHostPlatform::MacOS => "mac",
+                InterpreterHostPlatform::Windows => "windows",
+                _ => "",
+            };
+            test_executor_args.push("--config-entry".to_owned());
+            test_executor_args.push(format!("host={}", platform));
+
+            let config_flags = client_ctx
+                .representative_config_flags
+                .iter()
+                .filter_map(|s| {
+                    s.source.as_ref().and_then(|source| {
+                        if let representative_config_flag::Source::ConfigFlag(s) = source {
+                            Some(s)
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .sorted()
+                .join(";");
+
+            test_executor_args.push("--config-entry".to_owned());
+            test_executor_args.push(format!("config={}", config_flags));
+
+            let flagfiles = client_ctx
+                .representative_config_flags
+                .iter()
+                .filter_map(|s| {
+                    s.source.as_ref().and_then(|source| {
+                        if let representative_config_flag::Source::ModeFile(s) = source {
+                            Some(s)
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .join(";");
+            test_executor_args.push("--config-entry".to_owned());
+            test_executor_args.push(format!("mode={}", flagfiles));
+
             (test_executor, test_executor_args)
         }
         None => {
@@ -328,7 +394,8 @@ async fn test(
     let options = request
         .session_options
         .as_ref()
-        .context("Missing `options`")?;
+        .context("Missing `options`")
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Input))?;
 
     let session = TestSession::new(TestSessionOptions {
         allow_re: options.allow_re,
@@ -339,14 +406,15 @@ async fn test(
     let build_opts = request
         .build_opts
         .as_ref()
-        .expect("should have build options");
+        .buck_error_context("should have build options")?;
 
     let timeout = request
         .timeout
         .as_ref()
         .map(|t| t.clone().try_into())
         .transpose()
-        .context("Invalid `duration`")?;
+        .context("Invalid `duration`")
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Input))?;
 
     let test_outcome = test_targets(
         ctx.dupe(),
@@ -368,10 +436,31 @@ async fn test(
         timeout,
         request.ignore_tests_attribute,
     )
-    .await?;
+    .await
+    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::TestExecutor))?;
+
+    send_target_cfg_event(
+        server_ctx.events(),
+        test_outcome.build_target_result.configured.keys(),
+        &request.target_cfg,
+    );
 
     // TODO(bobyf) remap exit code for buck reserved exit code
-    let exit_code = test_outcome.exit_code().context("No exit code available")?;
+    let exit_code = test_outcome
+        .exit_code()
+        .context("No exit code available")
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::TestExecutor))?;
+
+    // Filtering out individual types might not be best here. While we just have 1 non-build
+    // error that seems OK, but if we add more we should reconsider (we could add a type on all
+    // the build errors, but that seems potentially confusing if we only do that in the test
+    // command).
+    let build_errors_count: u64 = test_outcome
+        .errors
+        .iter()
+        .filter(|e| !e.tags().any(|t| t == ErrorTag::TestDeadlineExpired))
+        .count()
+        .try_into()?;
 
     let test_statuses = buck2_cli_proto::test_response::TestStatuses {
         passed: Some(
@@ -416,6 +505,7 @@ async fn test(
                 .listing_failed
                 .to_cli_proto_counter(),
         ),
+        build_errors: build_errors_count,
     };
 
     let serialized_build_report = if build_opts.unstable_print_build_report {
@@ -436,14 +526,64 @@ async fn test(
         None
     };
 
+    let mut target_rule_type_names: Vec<String> = Vec::new();
+    for configured in test_outcome.build_target_result.configured.keys() {
+        target_rule_type_names
+            .push(get_target_rule_type_name(&mut ctx, &configured.target()).await?);
+    }
+
+    let exit_code_overide = if test_outcome.errors.is_empty() {
+        exit_code
+    } else {
+        None
+    };
+
+    let mut errors = test_outcome.errors;
+    if let Some(failed) = &test_statuses.failed {
+        if failed.count > 0 {
+            errors.push(buck2_data::ErrorReport::from(&TestError::TestFailed.into()));
+        }
+    }
+    if let Some(fatal) = &test_statuses.fatals {
+        if fatal.count > 0 {
+            errors.push(buck2_data::ErrorReport::from(&TestError::Fatal.into()));
+        }
+    }
+    if let Some(listing_failed) = &test_statuses.listing_failed {
+        if listing_failed.count > 0 {
+            errors.push(buck2_data::ErrorReport::from(
+                &TestError::ListingFailed.into(),
+            ));
+        }
+    }
+    // If a test was skipped due to condition not being met a non-zero exit code will be returned,
+    // this doesn't seem quite right, but for now just tag it with TestSkipped to track occurrence.
+    if let Some(skipped) = &test_statuses.skipped {
+        if skipped.count > 0 && exit_code.is_none_or(|code| code != 0) {
+            errors.push(buck2_data::ErrorReport::from(
+                &TestError::TestSkipped.into(),
+            ));
+        }
+    }
+
+    if let Some(code) = exit_code {
+        if errors.is_empty() && code != 0 {
+            errors.push(buck2_data::ErrorReport::from(&buck2_error::buck2_error!(
+                buck2_error::ErrorTag::TestExecutor,
+                "Test Executor Failed with exit code {code}"
+            )))
+        }
+    }
+
     Ok(TestResponse {
-        exit_code,
-        errors: test_outcome.errors,
+        exit_code: exit_code_overide,
+        errors,
         test_statuses: Some(test_statuses),
         executor_stdout: test_outcome.executor_stdout,
         executor_stderr: test_outcome.executor_stderr,
         executor_info_messages: test_outcome.executor_report.info_messages,
         serialized_build_report,
+        target_rule_type_names,
     })
 }
 
@@ -490,7 +630,7 @@ async fn test_targets(
 
     let res = tag_result!(
         "executor_launch_failed",
-        res.map_err(|e| e.into()),
+        res.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tpx)),
         quiet: true,
         daemon_in_memory_state_is_corrupted: true,
         task: false
@@ -515,7 +655,6 @@ async fn test_targets(
             // NOTE: This is will cancel if the liveliness guard indicates we should.
             async move {
                 // Spawn our server to listen to the test runner's requests for execution.
-                let local_resource_registry = Arc::new(LocalResourceRegistry::new());
 
                 // Keep wrapper alive for the lifetime of the executor to ensure it stays registered.
                 let _test_executor_wrapper = test_executor_wrapper;
@@ -526,7 +665,6 @@ async fn test_targets(
                     liveliness_observer.dupe(),
                     test_status_sender,
                     CancellationContext::never_cancelled(), // sending the orchestrator directly to be spawned by make_server, which never calls it.
-                    local_resource_registry.dupe(),
                 )
                 .await
                 .context("Failed to create a BuckTestOrchestrator")?;
@@ -546,9 +684,9 @@ async fn test_targets(
                 });
 
                 driver.push_pattern(
-                    pattern
-                        .convert_pattern()
-                        .context("Test with explicit configuration pattern is not supported yet")?,
+                    pattern.convert_pattern().buck_error_context(
+                        "Test with explicit configuration pattern is not supported yet",
+                    )?,
                     skip_incompatible_targets,
                 );
 
@@ -586,16 +724,19 @@ async fn test_targets(
                     .await
                     .context("Failed to shutdown orchestrator")?;
 
+                let local_resource_registry = ctx.get_local_resource_registry()?;
+
                 local_resource_registry
                     .release_all_resources()
                     .await
                     .context("Failed to release local resources")?;
 
                 // Process the build errors we've collected.
-                let error_stream = futures::stream::iter(driver.error_events);
-                let error_target_result = BuildTargetResult::collect_stream(error_stream, false)
-                    .await
-                    .context("Failed to collect error events")?;
+                let mut builder = BuildTargetResultBuilder::new();
+                for event in driver.error_events {
+                    builder.event(event)?;
+                }
+                let error_target_result = builder.build();
 
                 driver.build_target_result.extend(error_target_result);
 
@@ -630,13 +771,13 @@ async fn test_targets(
 
     let mut errors = convert_error(&build_target_result)
         .iter()
-        .map(create_error_report)
+        .map(buck2_data::ErrorReport::from)
         .unique_by(|e| e.message.clone())
         .collect::<Vec<_>>();
 
     if let Some(timeout_observer) = timeout_observer {
         if !timeout_observer.is_alive().await {
-            errors.push(create_error_report(&DeadlineExpired.into()));
+            errors.push(buck2_data::ErrorReport::from(&DeadlineExpired.into()));
         }
     }
 
@@ -815,7 +956,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 if let Some(missing) = missing {
                     match state.missing_target_behavior {
                         MissingTargetBehavior::Fail => {
-                            let err = missing.into_errors().0;
+                            let err = missing.into_first_error();
                             let events = vec![BuildEvent::OtherError {
                                 label: Some(ProvidersLabel::new(
                                     TargetLabel::new(err.package.dupe(), err.target.as_ref()),
@@ -888,7 +1029,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             let node = match node {
                 MaybeCompatible::Incompatible(reason) => {
                     if skippable {
-                        eprintln!("{}", reason.skipping_message(label.target()));
+                        //TODO: add aggregated error message
+                        tracing::debug!("{}", reason.skipping_message(label.target()));
                         return ControlFlow::Continue(vec![]);
                     } else {
                         return ControlFlow::Break(vec![BuildEvent::new_configured(
@@ -950,7 +1092,9 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 Err(e) => {
                     return ControlFlow::Break(vec![BuildEvent::new_configured(
                         label,
-                        ConfiguredBuildEventVariant::Error { err: e.into() },
+                        ConfiguredBuildEventVariant::Error {
+                            err: from_any_with_tag(e, buck2_error::ErrorTag::Tier0),
+                        },
                     )]);
                 }
             };
@@ -995,7 +1139,9 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             {
                 return ControlFlow::Break(vec![BuildEvent::new_configured(
                     label,
-                    ConfiguredBuildEventVariant::Error { err: e.into() },
+                    ConfiguredBuildEventVariant::Error {
+                        err: from_any_with_tag(e, buck2_error::ErrorTag::TestExecutor),
+                    },
                 )]);
             }
 
@@ -1022,37 +1168,42 @@ async fn build_target_result(
         .require_compatible()?;
     let collections = providers.provider_collection();
 
-    match <dyn TestProvider>::from_collection(collections) {
+    let build_target_result = match <dyn TestProvider>::from_collection(collections) {
         Some(test_info) => {
             if skip_build_based_on_labels(test_info, label_filtering) {
                 return Ok((BuildTargetResult::new(), providers));
             }
-            let stream = build_configured_label(
-                &ctx,
-                &MaterializationContext::Skip,
-                label,
-                &ProvidersToBuild {
-                    default: false,
-                    default_other: false,
-                    run: false,
-                    tests: true,
-                },
-                BuildConfiguredLabelOptions {
-                    skippable: false,
-                    want_configured_graph_size: false,
-                },
-            )
-            .await
-            .map(BuildEvent::Configured);
-
-            let build_target_result = BuildTargetResult::collect_stream(stream, false).await?;
-            Ok((build_target_result, providers))
+            let materialization_and_upload = MaterializationAndUploadContext::skip();
+            let (result_builder, consumer) = AsyncBuildTargetResultBuilder::new();
+            result_builder
+                .wait_for(
+                    false,
+                    build_configured_label(
+                        &consumer,
+                        &ctx,
+                        &materialization_and_upload,
+                        label,
+                        &ProvidersToBuild {
+                            default: false,
+                            default_other: false,
+                            run: false,
+                            tests: true,
+                        },
+                        BuildConfiguredLabelOptions {
+                            skippable: false,
+                            graph_properties: Default::default(),
+                        },
+                        None, // TODO: is this right?
+                    ),
+                )
+                .await?
         }
         None => {
             // not a test
-            Ok((BuildTargetResult::new(), providers))
+            BuildTargetResult::new()
         }
-    }
+    };
+    Ok((build_target_result, providers))
 }
 
 async fn test_target(
@@ -1138,7 +1289,7 @@ fn run_tests<'a, 'b>(
 
             (async move {
                 fut.await
-                    .context("Failed to notify test executor of a new test")?;
+                    .buck_error_context_anyhow("Failed to notify test executor of a new test")?;
                 Ok(providers_label)
             })
             .boxed()
@@ -1214,7 +1365,7 @@ fn post_process_test_executor(s: &str) -> anyhow::Result<PathBuf> {
         Some(("", rest)) => {
             let exe =
                 AbsPathBuf::new(std::env::current_exe().context("Cannot get Buck2 executable")?)?;
-            let exe = fs_util::canonicalize(&exe).context(
+            let exe = fs_util::canonicalize(&exe).buck_error_context_anyhow(
                 "Failed to canonicalize path to Buck2 executable. Try running `buck2 kill`.",
             )?;
 

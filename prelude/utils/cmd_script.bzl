@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-ScriptOs = enum("unix", "windows")
+load("@prelude//os_lookup:defs.bzl", "ScriptLanguage")
 
 # Takes a cmd_args containing an executable and zero or more arguments to that
 # executable, and bundles it together into a script that is callable as a single
@@ -19,7 +19,7 @@ ScriptOs = enum("unix", "windows")
 #         ctx = ctx,
 #         name = "linker_wrapper",
 #         cmd = linker_cmd,
-#         os = ScriptOs("windows" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "unix"),
+#         language = ctx.attrs._exec_os_type[OsLookup].script,
 #     )
 #     return cmd_args(linker_wrapper, format = "-Clinker={}")
 #
@@ -27,10 +27,12 @@ def cmd_script(
         ctx: AnalysisContext,
         name: str,
         cmd: cmd_args,
-        os: ScriptOs) -> cmd_args:
-    shell_quoted = cmd_args(cmd, quote = "shell")
+        language: ScriptLanguage = ScriptLanguage("sh"),
+        quote: str | None = "shell") -> cmd_args:
+    cmd_kwargs = {} if quote == None else {"quote": quote}
+    shell_quoted = cmd_args(cmd, **cmd_kwargs)
 
-    if os == ScriptOs("unix"):
+    if language == ScriptLanguage("sh"):
         wrapper, _ = ctx.actions.write(
             ctx.actions.declare_output("{}.sh".format(name)),
             [
@@ -40,7 +42,7 @@ def cmd_script(
             is_executable = True,
             allow_args = True,
         )
-    elif os == ScriptOs("windows"):
+    elif language == ScriptLanguage("bat"):
         wrapper, _ = ctx.actions.write(
             ctx.actions.declare_output("{}.bat".format(name)),
             [
@@ -50,6 +52,6 @@ def cmd_script(
             allow_args = True,
         )
     else:
-        fail(os)
+        fail(language)
 
     return cmd_args(wrapper, hidden = cmd)

@@ -20,7 +20,7 @@ pub(crate) struct BuckOutPathTypePrinter {
 }
 
 impl BuckOutPathTypePrinter {
-    pub(crate) fn new(json: bool, attributes: &Vec<String>) -> anyhow::Result<Self> {
+    pub(crate) fn new(json: bool, attributes: &Vec<String>) -> buck2_error::Result<Self> {
         let attributes = if attributes.is_empty() {
             None
         } else {
@@ -34,7 +34,7 @@ impl BuckOutPathTypePrinter {
         &self,
         path_type: &BuckOutPathType,
         mut stdout: impl Write,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if self.json {
             writeln!(
                 &mut stdout,

@@ -1,0 +1,21 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "root//:test (<unspecified>)": {
+    "kind": "analysis"
+  },
+  "(target: `root//:test (<unspecified>)`, id: `0`)": {
+    "kind": "write",
+    "category": "write",
+    "identifier": "dep",
+    "contents": "",
+    "absolute": "false",
+    "executor_configuration": "RemoteEnabled + executor hybrid + remote cache enabled + cache upload disabled + remote dep file cache disabled"
+  },
+  "(target: `root//:test (<unspecified>)`, id: `1`)": {
+    "kind": "copy",
+    "category": "copy",
+    "identifier": "default",
+    "executor_configuration": "RemoteEnabled + executor hybrid + remote cache enabled + cache upload disabled + remote dep file cache disabled"
+  }
+}

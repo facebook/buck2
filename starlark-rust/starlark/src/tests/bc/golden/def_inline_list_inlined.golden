@@ -15,6 +15,7 @@ def returns_list():
 
 Max stack size: 1
 Instructions:
-  0: ListOfConsts [10, True] ->&0
+       # instrs.star.bzl:2:5-26
+   0: ListOfConsts [10, True] ->&0
   32: Return &0
   40: End

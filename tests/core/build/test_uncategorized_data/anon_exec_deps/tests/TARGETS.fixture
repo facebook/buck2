@@ -1,0 +1,44 @@
+load("//rules:exec_deps.bzl", "exec_dep_bad", "exec_dep_good", "exec_dep_rejects_dep", "passthrough")
+load("//rules:rules.bzl", "command")
+
+command(
+    name = "local_only",
+    command = "local_only.py",
+    local_only = True,
+    default_target_platform = "//platforms:target",
+    target_compatible_with = ["//platforms:local_only"],
+)
+
+command(
+    name = "remote_only",
+    command = "remote_only.py",
+    prefer_remote = True,
+    default_target_platform = "//platforms:target",
+    target_compatible_with = ["//platforms:remote_only"],
+)
+
+passthrough(
+    name = "passthrough_remote",
+    exec_compatible_with = ["//platforms:remote_only"],
+    exec_dep = ":remote_only",
+)
+
+exec_dep_good(
+    name = "exec_dep_good",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:remote_only"],
+    dep = ":passthrough_remote",
+)
+
+exec_dep_bad(
+    name = "exec_dep_bad",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:local_only"],
+    dep = ":passthrough_remote",
+)
+
+exec_dep_rejects_dep(
+    name = "exec_dep_rejects_dep",
+    default_target_platform = "//platforms:target",
+    dep = ":passthrough_remote",
+)

@@ -8,14 +8,15 @@
 load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",
+    "LinkStrategy",
 )
 load("@prelude//linking:types.bzl", "Linkage")
-load(":groups_types.bzl", "Group", "Traversal")
+load(":groups_types.bzl", "Group", "GroupFilterInfo", "Traversal")
 
 # These are targets or link groups that will be added to .linker.argsfile
 # Targets will be expanded to .o files, link groups will be added to NEEDS
 LinkGroupsDebugLinkableEntry = record(
-    name = field(Label | str),
+    name = field(TargetLabel | Label | str),
     output_style = field(LibOutputStyle),
 )
 
@@ -45,6 +46,15 @@ LinkGroupInfo = provider(
     },
 )
 
+LinkGroupDefinitions = provider(
+    fields = {
+        # The label is the top-level target
+        "definitions": provider_field(typing.Callable[[Label, LinkStrategy], list[Group] | None]),
+    },
+)
+
+_FILTER_ATTR = attrs.one_of(attrs.dep(providers = [GroupFilterInfo]), attrs.string())
+
 def link_group_inlined_map_attr(root_attr):
     return attrs.list(
         attrs.tuple(
@@ -60,7 +70,7 @@ def link_group_inlined_map_attr(root_attr):
                     attrs.enum(Traversal.values()),
                     # filters, either `None`, a single filter, or a list of filters
                     # (which must all match).
-                    attrs.option(attrs.one_of(attrs.list(attrs.string()), attrs.string())),
+                    attrs.option(attrs.one_of(attrs.list(_FILTER_ATTR), _FILTER_ATTR)),
                     # linkage
                     attrs.option(attrs.enum(Linkage.values())),
                 ),
@@ -74,7 +84,7 @@ def link_group_inlined_map_attr(root_attr):
 
 LINK_GROUP_MAP_ATTR = attrs.option(
     attrs.one_of(
-        attrs.dep(providers = [LinkGroupInfo]),
+        attrs.dep(),  # LinkGroupInfo or LinkGroupInfoGenerator
         link_group_inlined_map_attr(
             # Inlined `link_group_map` will parse roots as `label`s, to avoid
             # bloating deps w/ unrelated mappings (e.g. it's common to use

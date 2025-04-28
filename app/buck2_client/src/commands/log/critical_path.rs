@@ -11,24 +11,29 @@ use std::fmt;
 use std::io::Write;
 use std::time::Duration;
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
+use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use serde::Serialize;
 use tokio_stream::StreamExt;
 
-use crate::commands::log::options::EventLogOptions;
-use crate::commands::log::transform_format;
 use crate::commands::log::LogCommandOutputFormat;
 use crate::commands::log::LogCommandOutputFormatWithWriter;
+use crate::commands::log::options::EventLogOptions;
+use crate::commands::log::transform_format;
 
 /// Show the critical path for a selected build.
 ///
 /// This produces tab-delimited output listing every node on the critical path.
 ///
-/// It includes the kind of node, its name, category and identfier, as well as total duration
+/// It includes the kind of node, its name, category and identifier, as well as total duration
 /// (runtime of this node), user duration (duration the user can improve) and potential improvement
 /// before this node stops being on the critical path.
 ///
@@ -47,40 +52,39 @@ pub struct CriticalPathCommand {
     format: LogCommandOutputFormat,
 }
 
-impl CriticalPathCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+impl BuckSubcommand for CriticalPathCommand {
+    const COMMAND_NAME: &'static str = "log-critical-path";
+
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
         let Self { event_log, format } = self;
 
-        ctx.with_runtime(|ctx| async move {
-            let log_path = event_log.get(&ctx).await?;
+        let log_path = event_log.get(&ctx).await?;
 
-            let (invocation, mut events) = log_path.unpack_stream().await?;
-            buck2_client_ctx::eprintln!(
-                "Showing critical path from: {}",
-                invocation.display_command_line()
-            )?;
+        let (invocation, mut events) = log_path.unpack_stream().await?;
+        buck2_client_ctx::eprintln!(
+            "Showing critical path from: {}",
+            invocation.display_command_line()
+        )?;
 
-            while let Some(event) = events.try_next().await? {
-                match event {
-                    StreamValue::Event(event) => match event.data {
-                        Some(buck2_data::buck_event::Data::Instant(instant)) => {
-                            match instant.data {
-                                Some(buck2_data::instant_event::Data::BuildGraphInfo(
-                                    build_graph,
-                                )) => {
-                                    log_critical_path(&build_graph, format.clone())?;
-                                }
-                                _ => {}
-                            }
+        while let Some(event) = events.try_next().await? {
+            match event {
+                StreamValue::Event(event) => match event.data {
+                    Some(buck2_data::buck_event::Data::Instant(instant)) => match instant.data {
+                        Some(buck2_data::instant_event::Data::BuildGraphInfo(build_graph)) => {
+                            log_critical_path(&build_graph, format.clone()).await?;
                         }
                         _ => {}
                     },
                     _ => {}
-                }
+                },
+                _ => {}
             }
-
-            anyhow::Ok(())
-        })?;
+        }
 
         ExitResult::success()
     }
@@ -140,13 +144,13 @@ struct CriticalPathEntry<'a> {
     potential_improvement_duration: OptionalDuration,
 }
 
-fn log_critical_path(
+async fn log_critical_path(
     critical_path: &buck2_data::BuildGraphExecutionInfo,
     format: LogCommandOutputFormat,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let target_display_options = TargetDisplayOptions::for_log();
 
-    buck2_client_ctx::stdio::print_with_writer::<anyhow::Error, _>(|w| {
+    buck2_client_ctx::stdio::print_with_writer::<buck2_error::Error, _>(async move |w| {
         let mut log_writer = transform_format(format, w);
 
         for entry in &critical_path.critical_path2 {
@@ -190,13 +194,13 @@ fn log_critical_path(
                     }
 
                     critical_path.execution_kind = Some(
-                        buck2_data::ActionExecutionKind::from_i32(action_execution.execution_kind)
+                        buck2_data::ActionExecutionKind::try_from(action_execution.execution_kind)
                             .unwrap_or(buck2_data::ActionExecutionKind::NotSet)
                             .as_str_name(),
                     );
                 }
-                Some(Entry::Materialization(materialization)) => {
-                    use buck2_data::critical_path_entry2::materialization::Owner;
+                Some(Entry::FinalMaterialization(materialization)) => {
+                    use buck2_data::critical_path_entry2::final_materialization::Owner;
 
                     critical_path.kind = "materialization";
 
@@ -223,6 +227,11 @@ fn log_critical_path(
                     critical_path.kind = "listing";
                     critical_path.name = Some(listing.package.clone());
                 }
+                Some(Entry::GenericEntry(generic_entry)) => {
+                    critical_path.kind = &generic_entry.kind;
+                    critical_path.name = None;
+                }
+
                 None => continue,
             }
 
@@ -231,30 +240,37 @@ fn log_critical_path(
             critical_path.potential_improvement_duration =
                 OptionalDuration::new(entry.potential_improvement_duration.clone())?;
 
-            match &mut log_writer {
-                LogCommandOutputFormatWithWriter::Tabulated(writer) => {
-                    writeln!(
-                        writer,
-                        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-                        critical_path.kind,
-                        critical_path.name.unwrap_or_default(),
-                        critical_path.category.unwrap_or_default(),
-                        critical_path.identifier.unwrap_or_default(),
-                        critical_path.execution_kind.unwrap_or_default(),
-                        critical_path.total_duration,
-                        critical_path.user_duration,
-                        critical_path.potential_improvement_duration
-                    )?;
+            let res: Result<(), ClientIoError> = {
+                match &mut log_writer {
+                    LogCommandOutputFormatWithWriter::Tabulated(writer) => {
+                        writeln!(
+                            writer,
+                            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                            critical_path.kind,
+                            critical_path.name.unwrap_or_default(),
+                            critical_path.category.unwrap_or_default(),
+                            critical_path.identifier.unwrap_or_default(),
+                            critical_path.execution_kind.unwrap_or_default(),
+                            critical_path.total_duration,
+                            critical_path.user_duration,
+                            critical_path.potential_improvement_duration
+                        )?;
+                    }
+                    LogCommandOutputFormatWithWriter::Json(writer) => {
+                        serde_json::to_writer(writer.by_ref(), &critical_path)?;
+                        writer.write_all("\n".as_bytes())?;
+                    }
+                    LogCommandOutputFormatWithWriter::Csv(writer) => {
+                        writer
+                            .serialize(critical_path)
+                            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::LogCmd))?;
+                    }
                 }
-                LogCommandOutputFormatWithWriter::Json(writer) => {
-                    serde_json::to_writer(writer.by_ref(), &critical_path)?;
-                    writer.write_all("\n".as_bytes())?;
-                }
-                LogCommandOutputFormatWithWriter::Csv(writer) => {
-                    writer.serialize(critical_path)?;
-                }
-            }
+                Ok(())
+            };
+            res?
         }
         Ok(())
     })
+    .await
 }

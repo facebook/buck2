@@ -22,7 +22,7 @@ use dice::Key;
 #[tokio::test]
 async fn test_a_multiversion_bug() {
     #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct Leaf;
 
     #[async_trait]
@@ -36,9 +36,9 @@ async fn test_a_multiversion_bug() {
 
     #[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash)]
     enum Derived {
-        #[display(fmt = "Derived::Top")]
+        #[display("Derived::Top")]
         Top,
-        #[display(fmt = "Derived::Mid")]
+        #[display("Derived::Mid")]
         Mid,
     }
 

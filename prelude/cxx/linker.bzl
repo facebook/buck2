@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo", "LinkerType")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
 
@@ -34,19 +34,19 @@ SharedLibraryFlagOverrides = record(
 )
 
 LINKERS = {
-    "darwin": Linker(
+    LinkerType("darwin"): Linker(
         default_shared_library_extension = "dylib",
         default_shared_library_versioned_extension_format = "{}.dylib",
         shared_library_name_linker_flags_format = ["-install_name", "@rpath/{}"],
         shared_library_flags = ["-shared"],
     ),
-    "gnu": Linker(
+    LinkerType("gnu"): Linker(
         default_shared_library_extension = "so",
         default_shared_library_versioned_extension_format = "so.{}",
         shared_library_name_linker_flags_format = ["-Wl,-soname,{}"],
         shared_library_flags = ["-shared"],
     ),
-    "wasm": Linker(
+    LinkerType("wasm"): Linker(
         default_shared_library_extension = "wasm",
         default_shared_library_versioned_extension_format = "{}.wasm",
         shared_library_name_linker_flags_format = [],
@@ -54,7 +54,7 @@ LINKERS = {
         # See https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md#llvm-implementation
         shared_library_flags = ["-shared"],
     ),
-    "windows": Linker(
+    LinkerType("windows"): Linker(
         default_shared_library_extension = "dll",
         default_shared_library_versioned_extension_format = "dll",
         # NOTE(agallagher): I *think* windows doesn't support a flag to set the
@@ -138,7 +138,7 @@ def get_default_shared_library_name(linker_info: LinkerInfo, label: Label):
     short_name = "{}_{}".format(_sanitize(label.package), _sanitize(label.name))
     return get_shared_library_name(linker_info, short_name, apply_default_prefix = True)
 
-def get_shared_library_name_linker_flags(linker_type: str, soname: str, flag_overrides: [SharedLibraryFlagOverrides, None] = None) -> list[str]:
+def get_shared_library_name_linker_flags(linker_type: LinkerType, soname: str, flag_overrides: [SharedLibraryFlagOverrides, None] = None) -> list[str]:
     """
     Arguments to pass to the linker to set the given soname.
     """
@@ -152,7 +152,7 @@ def get_shared_library_name_linker_flags(linker_type: str, soname: str, flag_ove
         for f in shared_library_name_linker_flags_format
     ]
 
-def get_shared_library_flags(linker_type: str, flag_overrides: [SharedLibraryFlagOverrides, None] = None) -> list[ArgLike]:
+def get_shared_library_flags(linker_type: LinkerType, flag_overrides: [SharedLibraryFlagOverrides, None] = None) -> list[ArgLike]:
     """
     Arguments to pass to the linker to link a shared library.
     """
@@ -161,24 +161,24 @@ def get_shared_library_flags(linker_type: str, flag_overrides: [SharedLibraryFla
 
     return LINKERS[linker_type].shared_library_flags
 
-def get_link_whole_args(linker_type: str, inputs: list[Artifact]) -> list[typing.Any]:
+def get_link_whole_args(linker_type: LinkerType, inputs: list[Artifact]) -> list[typing.Any]:
     """
     Return linker args used to always link all the given inputs.
     """
 
     args = []
 
-    if linker_type == "gnu":
+    if linker_type == LinkerType("gnu"):
         args.append("-Wl,--whole-archive")
         args.extend(inputs)
         args.append("-Wl,--no-whole-archive")
-    elif linker_type == "darwin":
+    elif linker_type == LinkerType("darwin"):
         for inp in inputs:
             args.append("-Xlinker")
             args.append("-force_load")
             args.append("-Xlinker")
             args.append(inp)
-    elif linker_type == "windows":
+    elif linker_type == LinkerType("windows"):
         for inp in inputs:
             args.append(inp)
             args.append("/WHOLEARCHIVE:" + inp.basename)
@@ -187,42 +187,42 @@ def get_link_whole_args(linker_type: str, inputs: list[Artifact]) -> list[typing
 
     return args
 
-def get_objects_as_library_args(linker_type: str, objects: list[Artifact]) -> list[typing.Any]:
+def get_objects_as_library_args(linker_type: LinkerType, objects: list[Artifact]) -> list[typing.Any]:
     """
     Return linker args used to link the given objects as a library.
     """
 
     args = []
 
-    if linker_type == "gnu":
+    if linker_type == LinkerType("gnu"):
         args.append("-Wl,--start-lib")
         args.extend(objects)
         args.append("-Wl,--end-lib")
-    elif linker_type == "darwin" or linker_type == "windows":
+    elif linker_type == LinkerType("darwin") or linker_type == LinkerType("windows"):
         args.extend(objects)
     else:
         fail("Linker type {} not supported".format(linker_type))
 
     return args
 
-def get_ignore_undefined_symbols_flags(linker_type: str) -> list[str]:
+def get_ignore_undefined_symbols_flags(linker_type: LinkerType) -> list[str]:
     """
     Return linker args used to suppress undefined symbol errors.
     """
 
     args = []
 
-    if linker_type == "gnu":
+    if linker_type == LinkerType("gnu"):
         args.append("-Wl,--allow-shlib-undefined")
         args.append("-Wl,--unresolved-symbols=ignore-all")
-    elif linker_type == "darwin":
+    elif linker_type == LinkerType("darwin"):
         args.append("-Wl,-undefined,dynamic_lookup")
     else:
         fail("Linker type {} not supported".format(linker_type))
 
     return args
 
-def get_no_as_needed_shared_libs_flags(linker_type: str) -> list[str]:
+def get_no_as_needed_shared_libs_flags(linker_type: LinkerType) -> list[str]:
     """
     Return linker args used to prevent linkers from dropping unused shared
     library dependencies from the e.g. DT_NEEDED tags of the link.
@@ -230,26 +230,26 @@ def get_no_as_needed_shared_libs_flags(linker_type: str) -> list[str]:
 
     args = []
 
-    if linker_type == "gnu":
+    if linker_type == LinkerType("gnu"):
         args.append("-Wl,--no-as-needed")
-    elif linker_type == "darwin":
+    elif linker_type == LinkerType("darwin"):
         pass
     else:
         fail("Linker type {} not supported".format(linker_type))
 
     return args
 
-def get_output_flags(linker_type: str, output: Artifact) -> list[ArgLike]:
-    if linker_type == "windows":
+def get_output_flags(linker_type: LinkerType, output: Artifact) -> list[ArgLike]:
+    if linker_type == LinkerType("windows"):
         return ["/Brepro", cmd_args(output.as_output(), format = "/OUT:{}")]
     else:
         return ["-o", output.as_output()]
 
 def get_import_library(
         ctx: AnalysisContext,
-        linker_type: str,
+        linker_type: LinkerType,
         output_short_path: str) -> (Artifact | None, list[ArgLike]):
-    if linker_type == "windows":
+    if linker_type == LinkerType("windows"):
         import_library = ctx.actions.declare_output(output_short_path + ".imp.lib")
         return import_library, [cmd_args(import_library.as_output(), format = "/IMPLIB:{}")]
     else:
@@ -257,8 +257,8 @@ def get_import_library(
 
 def get_deffile_flags(
         ctx: AnalysisContext,
-        linker_type: str) -> list[ArgLike]:
-    if linker_type == "windows" and ctx.attrs.deffile != None:
+        linker_type: LinkerType) -> list[ArgLike]:
+    if linker_type == LinkerType("windows") and ctx.attrs.deffile != None:
         return [
             cmd_args(ctx.attrs.deffile, format = "/DEF:{}"),
         ]
@@ -266,23 +266,23 @@ def get_deffile_flags(
         return []
 
 def get_rpath_origin(
-        linker_type: str) -> str:
+        linker_type: LinkerType) -> str:
     """
     Return the macro that runtime loaders resolve to the main executable at
     runtime.
     """
 
-    if linker_type == "gnu":
+    if linker_type == LinkerType("gnu"):
         return "$ORIGIN"
-    if linker_type == "darwin":
+    if linker_type == LinkerType("darwin"):
         return "@loader_path"
 
     fail("Linker type {} not supported".format(linker_type))
 
 def is_pdb_generated(
-        linker_type: str,
+        linker_type: LinkerType,
         linker_flags: list[[str, ResolvedStringWithMacros]]) -> bool:
-    if linker_type != "windows":
+    if linker_type != LinkerType("windows"):
         return False
     for flag in reversed(linker_flags):
         flag = str(flag).upper()

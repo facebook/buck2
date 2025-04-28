@@ -101,7 +101,7 @@ impl MutableNames {
     }
 
     pub(crate) fn hide_name(&self, name: &str) {
-        self.0.borrow_mut().remove(name);
+        self.0.borrow_mut().shift_remove(name);
     }
 
     pub(crate) fn all_names_and_slots(&self) -> Vec<(FrozenStringValue, ModuleSlotId)> {

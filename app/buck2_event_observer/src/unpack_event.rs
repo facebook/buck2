@@ -7,13 +7,14 @@
  * of this source tree.
  */
 
-use buck2_data::buck_event;
 use buck2_data::InstantEvent;
 use buck2_data::SpanEndEvent;
 use buck2_data::SpanStartEvent;
+use buck2_data::buck_event;
 use buck2_events::BuckEvent;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = InvalidEvent)]
 pub enum VisitorError {
     #[error("Sent an event missing one or more fields: `{0:?}`")]
     MissingField(BuckEvent),
@@ -44,7 +45,7 @@ pub enum UnpackedBuckEvent<'a> {
     UnrecognizedInstant(&'a BuckEvent, &'a InstantEvent),
 }
 
-pub fn unpack_event(event: &BuckEvent) -> anyhow::Result<UnpackedBuckEvent> {
+pub fn unpack_event(event: &BuckEvent) -> buck2_error::Result<UnpackedBuckEvent> {
     match &event.data() {
         buck_event::Data::SpanStart(v) => Ok({
             if let Some(data) = v.data.as_ref() {

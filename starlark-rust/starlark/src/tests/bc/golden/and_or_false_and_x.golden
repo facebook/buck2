@@ -10,5 +10,6 @@ def test(x): return False and x
 
 Max stack size: 0
 Instructions:
-  0: ReturnConst False
+       # instrs.star.bzl:1:14-32
+   0: ReturnConst False
   16: End

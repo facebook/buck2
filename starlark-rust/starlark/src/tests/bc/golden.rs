@@ -28,10 +28,7 @@ fn test_function_bytecode(program: &str) -> String {
     let program = program.trim();
 
     let mut a = Assert::new();
-    a.dialect(&Dialect {
-        enable_f_strings: true,
-        ..Dialect::Extended
-    });
+    a.dialect(&Dialect::AllOptionsInternal);
     let def = a
         .module("instrs.star", program)
         .get("test")

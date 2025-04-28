@@ -7,13 +7,13 @@
  * of this source tree.
  */
 
-use std::fmt::Display;
 use std::sync::Arc;
 
 use buck2_common::dice::cycles::CycleAdapterDescriptor;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_util::cycle_detector::CycleDescriptor;
 use derive_more::Display;
+use dice::DynKey;
 use gazebo::prelude::VecExt;
 
 use crate::interpreter::dice_calculation_delegate::testing::EvalImportKey;
@@ -23,16 +23,15 @@ pub struct LoadCycleDescriptor;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Display)]
 pub enum LoadCycleKey {
-    #[display(fmt = "{}", _0)]
+    #[display("{}", _0)]
     Module(OwnedStarlarkModulePath),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub struct LoadCycleError {
     cycle: Arc<Vec<OwnedStarlarkModulePath>>,
 }
-
-impl std::error::Error for LoadCycleError {}
 
 impl Display for LoadCycleError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -61,7 +60,7 @@ impl CycleDescriptor for LoadCycleDescriptor {
 }
 
 impl CycleAdapterDescriptor for LoadCycleDescriptor {
-    fn to_key(key: &dyn std::any::Any) -> Option<Self::Key> {
+    fn to_key(key: &DynKey) -> Option<Self::Key> {
         key.downcast_ref::<EvalImportKey>()
             .map(|v| LoadCycleKey::Module(v.0.clone()))
     }

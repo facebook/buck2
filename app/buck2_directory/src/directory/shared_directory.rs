@@ -33,7 +33,7 @@ pub type SharedDirectoryData<L, H> = DirectoryData<SharedDirectory<L, H>, L, H>;
 
 #[derive(Derivative, Display, Allocative)]
 #[derivative(Debug(bound = "L: ::std::fmt::Debug"))]
-#[display(fmt = "{}", "self.data")]
+#[display("{}", self.data)]
 pub struct SharedDirectoryInner<L, H>
 where
     H: DirectoryDigest,
@@ -55,7 +55,7 @@ where
 
 #[derive(Derivative, Clone_, Dupe_, Display, Allocative)]
 #[derivative(Debug(bound = "L: ::std::fmt::Debug"))]
-#[display(fmt = "{}", "self.inner")]
+#[display("{}", self.inner)]
 pub struct SharedDirectory<L, H>
 where
     H: DirectoryDigest,
@@ -180,7 +180,10 @@ impl<L, H> Directory<L, H> for SharedDirectory<L, H>
 where
     H: DirectoryDigest,
 {
-    type DirectoryRef<'a> = &'a SharedDirectory<L, H> where Self: Sized + 'a;
+    type DirectoryRef<'a>
+        = &'a SharedDirectory<L, H>
+    where
+        Self: Sized + 'a;
 
     fn as_ref<'a>(&'a self) -> Self::DirectoryRef<'a>
     where

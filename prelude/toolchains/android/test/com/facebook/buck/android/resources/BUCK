@@ -1,0 +1,23 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_test(
+    name = "resources",
+    srcs = glob(["*.java"]),
+    resources = glob(
+        ["testdata/**"],
+    ),
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/android/resources:resources",
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
+        "prelude//toolchains/android/test/com/facebook/buck/testutil:testutil",
+        "prelude//toolchains/android/test/com/facebook/buck/testutil/integration:util",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:junit",
+    ],
+)

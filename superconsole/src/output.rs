@@ -13,10 +13,10 @@ use std::io::Write;
 use std::thread::JoinHandle;
 
 use anyhow::Context as _;
-use crossbeam_channel::bounded;
-use crossbeam_channel::unbounded;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
+use crossbeam_channel::bounded;
+use crossbeam_channel::unbounded;
 
 use crate::Dimensions;
 
@@ -239,7 +239,6 @@ mod tests {
         // We expect that should_render() will eventually return true.
         while !output.should_render() {
             std::thread::yield_now();
-            continue;
         }
 
         // Likewise, we expect that sending output and finalizing wold fail.

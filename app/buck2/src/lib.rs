@@ -12,16 +12,13 @@
 
 use std::thread;
 
-use anyhow::Context as _;
 use buck2_audit::AuditCommand;
 use buck2_client::commands::build::BuildCommand;
 use buck2_client::commands::bxl::BxlCommand;
 use buck2_client::commands::clean::CleanCommand;
-use buck2_client::commands::complete::CompleteCommand;
-use buck2_client::commands::completion::CompletionCommand;
 use buck2_client::commands::ctargets::ConfiguredTargetsCommand;
 use buck2_client::commands::debug::DebugCommand;
-use buck2_client::commands::expand_external_cell::ExpandExternalCellCommand;
+use buck2_client::commands::expand_external_cell::ExpandExternalCellsCommand;
 use buck2_client::commands::explain::ExplainCommand;
 use buck2_client::commands::help_env::HelpEnvCommand;
 use buck2_client::commands::init::InitCommand;
@@ -42,22 +39,24 @@ use buck2_client::commands::status::StatusCommand;
 use buck2_client::commands::subscribe::SubscribeCommand;
 use buck2_client::commands::targets::TargetsCommand;
 use buck2_client::commands::test::TestCommand;
-use buck2_client_ctx::argfiles::expand_argfiles_with_context;
+use buck2_client_ctx::argfiles::expand_argv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::client_metadata::ClientMetadata;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::immediate_config::ImmediateConfigContext;
-use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_client_ctx::version::BuckVersion;
+use buck2_cmd_starlark_client::StarlarkCommand;
 use buck2_common::argv::Argv;
-use buck2_common::invocation_paths::InvocationPaths;
-use buck2_common::invocation_roots::find_invocation_roots;
+use buck2_common::invocation_paths_result::InvocationPathsResult;
+use buck2_common::invocation_roots::get_invocation_paths_result;
 use buck2_core::buck2_env;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::verbosity::Verbosity;
-use buck2_starlark::StarlarkCommand;
-use buck2_util::cleanup_ctx::AsyncCleanupContextGuard;
 use buck2_util::threads::thread_spawn_scoped;
 use clap::CommandFactory;
 use clap::FromArgMatches;
@@ -73,7 +72,8 @@ pub mod panic;
 pub mod process_context;
 
 fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
-    FileNameBuf::try_from(s.to_owned()).context("isolation dir must be a directory name")
+    FileNameBuf::try_from(s.to_owned())
+        .buck_error_context_anyhow("isolation dir must be a directory name")
 }
 
 /// Options of `buck2` command, before subcommand.
@@ -172,13 +172,10 @@ impl Opt {
         self,
         process: ProcessContext<'_>,
         immediate_config: &ImmediateConfigContext,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         argv: Argv,
     ) -> ExitResult {
-        let subcommand_matches = match matches.subcommand().map(|s| s.1) {
-            Some(submatches) => submatches,
-            None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
-        };
+        let subcommand_matches = matches.unwrap_subcommand();
 
         self.cmd.exec(
             process,
@@ -192,40 +189,70 @@ impl Opt {
 
 pub fn exec(process: ProcessContext<'_>) -> ExitResult {
     let mut immediate_config = ImmediateConfigContext::new(process.working_dir);
-    let mut expanded_args =
-        expand_argfiles_with_context(process.args.to_vec(), &mut immediate_config)
-            .context("Error expanding argsfiles")?;
-
-    // Override arg0 in `buck2 help`.
-    if let Some(arg0) = buck2_env!("BUCK2_ARG0")? {
-        expanded_args[0] = arg0.to_owned();
-    }
-
-    let clap = Opt::command();
-    let matches = clap.get_matches_from(&expanded_args);
-    let opt: Opt = Opt::from_arg_matches(&matches)?;
-
-    if opt.common_opts.help_wrapper {
-        return ExitResult::err(anyhow::anyhow!(
-            "`--help-wrapper` should have been handled by the wrapper"
-        ));
-    }
-
-    match &opt.cmd {
-        #[cfg(not(client_only))]
-        CommandKind::Daemon(..) | CommandKind::Forkserver(..) => {}
-        CommandKind::Clean(..) => {}
-        _ => {
-            check_user_allowed()?;
-        }
-    }
+    let arg0_override = buck2_env!("BUCK2_ARG0")?;
+    let expanded_args = expand_argv(
+        arg0_override,
+        process.args.to_vec(),
+        &mut immediate_config,
+        process.working_dir,
+    )
+    .buck_error_context("Error expanding argsfiles")?;
 
     let argv = Argv {
         argv: process.args.to_vec(),
         expanded_argv: expanded_args,
     };
 
-    opt.exec(process, &immediate_config, &matches, argv)
+    let opt = ParsedArgv::parse(argv)?;
+
+    opt.exec(process, &immediate_config)
+}
+
+struct ParsedArgv {
+    opt: Opt,
+    argv: Argv,
+    matches: clap::ArgMatches,
+}
+
+impl ParsedArgv {
+    fn parse(argv: Argv) -> buck2_error::Result<Self> {
+        let clap = Opt::command();
+        let matches = clap.get_matches_from(argv.expanded_argv.args());
+
+        let opt: Opt = Opt::from_arg_matches(&matches)?;
+
+        if opt.common_opts.help_wrapper {
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "`--help-wrapper` should have been handled by the wrapper"
+            ));
+        }
+
+        match &opt.cmd {
+            #[cfg(not(client_only))]
+            CommandKind::Daemon(..) | CommandKind::Forkserver(..) => {}
+            CommandKind::Clean(..) => {}
+            _ => {
+                check_user_allowed()?;
+            }
+        }
+
+        Ok(ParsedArgv { opt, argv, matches })
+    }
+
+    fn exec(
+        self,
+        process: ProcessContext<'_>,
+        immediate_config: &ImmediateConfigContext,
+    ) -> ExitResult {
+        let expanded_args = self.argv.expanded_argv.clone();
+        self.opt.exec(
+            process,
+            &immediate_config,
+            BuckArgMatches::from_clap(&self.matches, &expanded_args),
+            self.argv,
+        )
+    }
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -250,9 +277,8 @@ pub(crate) enum CommandKind {
     Test(TestCommand),
     Cquery(CqueryCommand),
     Init(InitCommand),
-    #[clap(hide = true)] // TODO iguridi: remove
     Explain(ExplainCommand),
-    ExpandExternalCell(ExpandExternalCellCommand),
+    ExpandExternalCell(ExpandExternalCellsCommand),
     Install(InstallCommand),
     Kill(KillCommand),
     Killall(KillallCommand),
@@ -272,8 +298,8 @@ pub(crate) enum CommandKind {
     #[clap(subcommand, hide = true)]
     Debug(DebugCommand),
     #[clap(hide = true)]
-    Complete(CompleteCommand),
-    Completion(CompletionCommand),
+    Complete(buck2_cmd_completion_client::complete::CompleteCommand),
+    Completion(buck2_cmd_completion_client::completion::CompletionCommand),
     Docs(buck2_cmd_docs::DocsCommand),
     #[clap(subcommand)]
     Profile(ProfileCommand),
@@ -291,30 +317,37 @@ impl CommandKind {
         self,
         process: ProcessContext<'_>,
         immediate_config: &ImmediateConfigContext,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         argv: Argv,
         common_opts: BeforeSubcommandOptions,
     ) -> ExitResult {
-        let roots = find_invocation_roots(process.working_dir.path());
-        let paths = roots
-            .map(|r| InvocationPaths {
-                roots: r,
-                isolation: common_opts.isolation_dir.clone(),
-            })
-            .map_err(buck2_error::Error::from);
+        let paths_result =
+            get_invocation_paths_result(process.working_dir, common_opts.isolation_dir.clone());
 
         // Handle the daemon command earlier: it wants to fork, but the things we do below might
         // want to create threads.
         #[cfg(not(client_only))]
         if let CommandKind::Daemon(cmd) = self {
             return cmd
-                .exec(process.log_reload_handle.dupe(), paths?, false, || {})
+                .exec(
+                    process.log_reload_handle.dupe(),
+                    paths_result.get_result()?,
+                    false,
+                    || {},
+                )
                 .into();
         }
         thread::scope(|scope| {
             // Spawn a thread to have stack size independent on linker/environment.
             match thread_spawn_scoped("buck2-main", scope, move || {
-                self.exec_no_daemon(common_opts, process, immediate_config, matches, argv, paths)
+                self.exec_no_daemon(
+                    common_opts,
+                    process,
+                    immediate_config,
+                    matches,
+                    argv,
+                    paths_result,
+                )
             }) {
                 Ok(t) => match t.join() {
                     Ok(res) => res,
@@ -330,9 +363,9 @@ impl CommandKind {
         common_opts: BeforeSubcommandOptions,
         process: ProcessContext<'_>,
         immediate_config: &ImmediateConfigContext,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         argv: Argv,
-        paths: buck2_error::Result<InvocationPaths>,
+        paths: InvocationPathsResult,
     ) -> ExitResult {
         if common_opts.no_buckd {
             // `no_buckd` can't work in a client-only binary
@@ -344,13 +377,12 @@ impl CommandKind {
         let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
 
         let runtime = client_tokio_runtime()?;
-        let async_cleanup = AsyncCleanupContextGuard::new(&runtime);
 
         let start_in_process_daemon = if common_opts.no_buckd {
             #[cfg(not(client_only))]
             let v = buck2_daemon::no_buckd::start_in_process_daemon(
                 immediate_config.daemon_startup_config()?,
-                paths.clone()?,
+                paths.clone().get_result()?,
                 &runtime,
             )?;
             #[cfg(client_only)]
@@ -370,13 +402,14 @@ impl CommandKind {
             start_in_process_daemon,
             argv,
             process.trace_id.dupe(),
-            async_cleanup.ctx().dupe(),
             process.stdin,
             process.restarter,
             process.restarted_trace_id.dupe(),
             &runtime,
             common_opts.oncall,
             common_opts.client_metadata,
+            common_opts.isolation_dir,
+            process.start_time,
         );
 
         match self {
@@ -385,34 +418,38 @@ impl CommandKind {
             #[cfg(not(client_only))]
             CommandKind::Forkserver(cmd) => cmd
                 .exec(matches, command_ctx, process.log_reload_handle.dupe())
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
                 .into(),
             #[cfg(not(client_only))]
-            CommandKind::InternalTestRunner(cmd) => cmd.exec(matches, command_ctx).into(),
-            CommandKind::Aquery(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Build(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Bxl(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Test(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Cquery(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::InternalTestRunner(cmd) => cmd
+                .exec(matches, command_ctx)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+                .into(),
+            CommandKind::Aquery(cmd) => command_ctx.exec(cmd, matches),
+            CommandKind::Build(cmd) => command_ctx.exec(cmd, matches),
+            CommandKind::Bxl(cmd) => command_ctx.exec(cmd, matches),
+            CommandKind::Test(cmd) => command_ctx.exec(cmd, matches),
+            CommandKind::Cquery(cmd) => command_ctx.exec(cmd, matches),
             CommandKind::HelpEnv(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Kill(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Killall(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Kill(cmd) => command_ctx.exec(cmd, matches),
+            CommandKind::Killall(cmd) => command_ctx.exec(cmd, matches),
             CommandKind::Clean(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Root(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Query(cmd) => {
                 buck2_client_ctx::eprintln!(
                     "WARNING: \"buck2 query\" is an alias for \"buck2 uquery\". Consider using \"buck2 cquery\" or \"buck2 uquery\" explicitly."
                 )?;
-                cmd.exec(matches, command_ctx)
+                command_ctx.exec(cmd, matches)
             }
-            CommandKind::Server(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Server(cmd) => command_ctx.exec(cmd, matches),
             CommandKind::Status(cmd) => cmd.exec(matches, command_ctx).into(),
-            CommandKind::Targets(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Utargets(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Ctargets(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Audit(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Targets(cmd) => command_ctx.exec(cmd, matches),
+            CommandKind::Utargets(cmd) => command_ctx.exec(cmd, matches),
+            CommandKind::Ctargets(cmd) => command_ctx.exec(cmd, matches),
+            CommandKind::Audit(cmd) => command_ctx.exec(cmd, matches),
             CommandKind::Starlark(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Run(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Uquery(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Run(cmd) => command_ctx.exec(cmd, matches),
+            CommandKind::Uquery(cmd) => command_ctx.exec(cmd, matches),
             CommandKind::Debug(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Complete(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Completion(cmd) => cmd.exec(Opt::command(), matches, command_ctx),
@@ -420,12 +457,12 @@ impl CommandKind {
             CommandKind::Profile(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Rage(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Init(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Explain(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Install(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Explain(cmd) => command_ctx.exec(cmd, matches),
+            CommandKind::Install(cmd) => command_ctx.exec(cmd, matches),
             CommandKind::Log(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Lsp(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Subscribe(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::ExpandExternalCell(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Lsp(cmd) => command_ctx.exec(cmd, matches),
+            CommandKind::Subscribe(cmd) => command_ctx.exec(cmd, matches),
+            CommandKind::ExpandExternalCell(cmd) => command_ctx.exec(cmd, matches),
         }
     }
 }

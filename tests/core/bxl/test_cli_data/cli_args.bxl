@@ -1,0 +1,129 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _impl(ctx):
+    ctx.output.print("bool_arg: " + repr(ctx.cli_args.bool_arg))
+    ctx.output.print("bool_arg_with_default: " + repr(ctx.cli_args.bool_arg_with_default))
+    ctx.output.print("string_arg: " + repr(ctx.cli_args.string_arg))
+    ctx.output.print("int_arg: " + repr(ctx.cli_args.int_arg))
+    ctx.output.print("float_arg: " + repr(ctx.cli_args.float_arg))
+    ctx.output.print("optional: " + repr(ctx.cli_args.optional))
+    ctx.output.print("enum_type: " + repr(ctx.cli_args.enum_type))
+    ctx.output.print("target: " + repr(ctx.cli_args.target))
+    ctx.output.print("sub_target: " + repr(ctx.cli_args.sub_target))
+    ctx.output.print("list: " + repr(ctx.cli_args.list_type))
+
+cli_test = bxl_main(
+    impl = _impl,
+    cli_args = {
+        "bool_arg": cli_args.bool(),
+        "bool_arg_with_default": cli_args.bool(True),
+        "enum_type": cli_args.enum(["a", "b"]),
+        "float_arg": cli_args.float(),
+        "int_arg": cli_args.int(),
+        "list_type": cli_args.list(cli_args.int()),
+        "optional": cli_args.option(cli_args.string()),
+        "string_arg": cli_args.string("default"),
+        "sub_target": cli_args.sub_target(),
+        "target": cli_args.target_label(),
+    },
+)
+
+def _target_expr_impl(ctx):
+    ctx.output.print(repr(ctx.cli_args.targets))
+
+target_expr_test = bxl_main(
+    impl = _target_expr_impl,
+    cli_args = {
+        "targets": cli_args.target_expr(),
+    },
+)
+
+def _sub_target_expr_impl(ctx):
+    ctx.output.print(repr(ctx.cli_args.sub_targets))
+
+sub_target_expr_test = bxl_main(
+    impl = _sub_target_expr_impl,
+    cli_args = {
+        "sub_targets": cli_args.sub_target_expr(),
+    },
+)
+
+def _impl_cli_test_short(ctx):
+    ctx.output.print("bool_arg: " + repr(ctx.cli_args.bool_arg))
+    ctx.output.print("string_arg: " + repr(ctx.cli_args.string_arg))
+    ctx.output.print("int_arg: " + repr(ctx.cli_args.int_arg))
+    ctx.output.print("float_arg: " + repr(ctx.cli_args.float_arg))
+    ctx.output.print("optional: " + repr(ctx.cli_args.optional))
+    ctx.output.print("enum_type: " + repr(ctx.cli_args.enum_type))
+    ctx.output.print("target: " + repr(ctx.cli_args.target))
+    ctx.output.print("list: " + repr(ctx.cli_args.list_type))
+
+cli_test_short = bxl_main(
+    impl = _impl_cli_test_short,
+    cli_args = {
+        "bool_arg": cli_args.bool(short = "b"),
+        "enum_type": cli_args.enum(["a", "b"], short = "e"),
+        "float_arg": cli_args.float(short = "f"),
+        "int_arg": cli_args.int(short = "i"),
+        "list_type": cli_args.list(cli_args.int(), short = "l"),
+        "optional": cli_args.option(cli_args.string(), short = "o"),
+        "string_arg": cli_args.string(short = "s"),
+        "target": cli_args.target_label(short = "t"),
+    },
+)
+
+def _impl_cli_test_snakecase_access(ctx):
+    ctx.output.print("my-arg: " + repr(ctx.cli_args.my_arg))
+
+cli_test_snakecase_access = bxl_main(
+    impl = _impl_cli_test_snakecase_access,
+    cli_args = {
+        "my-arg": cli_args.string("default", short = "a"),
+    },
+)
+
+def _assert_eq(a, b):
+    if a != b:
+        fail("Expected {} == {}".format(a, b))
+
+def _impl_cli_json_arg(ctx):
+    ctx.output.print("my-json: " + repr(ctx.cli_args.my_json))
+    my_int = ctx.cli_args.my_json["int"]
+    my_string = ctx.cli_args.my_json["string"]
+    my_float = ctx.cli_args.my_json["float"]
+    my_bool = ctx.cli_args.my_json["bool"]
+    my_none = ctx.cli_args.my_json["none"]
+    my_list = ctx.cli_args.my_json["list"]
+    my_nested = ctx.cli_args.my_json["nested"]
+
+    _assert_eq(type(my_int), "int")
+    _assert_eq(type(my_string), "string")
+    _assert_eq(type(my_float), "float")
+    _assert_eq(type(my_bool), "bool")
+    _assert_eq(type(my_none), "NoneType")
+    _assert_eq(type(my_list), "list")
+    _assert_eq(type(my_nested), "dict")
+
+    _assert_eq(my_int, 1)
+    _assert_eq(my_string, "foo")
+    _assert_eq(my_float, 1.0)
+    _assert_eq(my_bool, True)
+    _assert_eq(my_none, None)
+    _assert_eq(my_list, [1, 2, 3])
+
+    expected_nested = {}
+    expected_nested["nested_string"] = "bar"
+    expected_nested["nested_int"] = -1
+    _assert_eq(my_nested, expected_nested)
+
+cli_json_arg = bxl_main(
+    impl = _impl_cli_json_arg,
+    cli_args = {
+        "my-json": cli_args.json(short = "j"),
+    },
+)

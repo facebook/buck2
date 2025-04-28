@@ -1,0 +1,4 @@
+load(":defs.bzl", "run_rel_action", "write_rel_action")
+
+write_rel_action(name = "write")
+run_rel_action(name = "run")

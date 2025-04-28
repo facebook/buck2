@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load(":zip_file_toolchain.bzl", "ZipFileToolchainInfo")
 
 def _zip_file_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -26,6 +26,7 @@ def _zip_file_impl(ctx: AnalysisContext) -> list[Provider]:
 
     on_duplicate_entry = ctx.attrs.on_duplicate_entry
     entries_to_exclude = ctx.attrs.entries_to_exclude
+    hardcode_permissions_for_deterministic_output = ctx.attrs.hardcode_permissions_for_deterministic_output
     zip_srcs = ctx.attrs.zip_srcs
     srcs = ctx.attrs.srcs
 
@@ -58,6 +59,9 @@ def _zip_file_impl(ctx: AnalysisContext) -> list[Provider]:
     if entries_to_exclude:
         create_zip_cmd.append("--entries_to_exclude")
         create_zip_cmd.append(entries_to_exclude)
+
+    if hardcode_permissions_for_deterministic_output:
+        create_zip_cmd.append("--hardcode_permissions_for_deterministic_output")
 
     ctx.actions.run(cmd_args(create_zip_cmd), category = "zip")
 

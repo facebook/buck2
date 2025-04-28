@@ -1,0 +1,34 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _test_dynamic_output(ctx):
+    bxl_actions = ctx.bxl_actions(target_platform = "//platforms:target")
+    actions = bxl_actions.actions
+
+    dynamic = actions.declare_output("dynamic")
+    foo = actions.write("foo", "content")
+
+    def my_deferred(ctx, _artifacts, outputs):
+        ctx.bxl_actions().actions.run(
+            [
+                "python3",
+                "executor_fallback_tests/local_only.py",
+                outputs[dynamic].as_output(),
+            ],
+            category = "command",
+            env = {"cache_buster": read_config("test", "cache_buster", "")},
+            local_only = True,
+        )
+
+    actions.dynamic_output(dynamic = [foo], inputs = [], outputs = [dynamic.as_output()], f = my_deferred)
+
+    ctx.output.print(ctx.output.ensure(dynamic))
+
+test_dynamic_output = bxl_main(
+    impl = _test_dynamic_output,
+    cli_args = {},
+)

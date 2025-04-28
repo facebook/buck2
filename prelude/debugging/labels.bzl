@@ -21,6 +21,8 @@ DBG_INFO_EXEC = "dbg:info:exec"
 # specific information that help debugging tools to properly configure a debugger. (Support for any given language/rule needs to be implemented in fdb.bxl)
 DBG_INFO_REF = "dbg:info:ref"
 
+DBG_INFO_DISABLE_INCOMPATIBLE_SANITIZERS = "dbg:info:disable-sanitizers"
+
 def dbg_info_exec(target_label) -> list[str]:
     return ["{}={}".format(DBG_INFO_EXEC, target_label)]
 

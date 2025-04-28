@@ -1,0 +1,12 @@
+load("@fbcode_macros//build_defs:rust_unittest.bzl", "rust_unittest")
+
+oncall("build_infra")
+
+rust_unittest(
+    name = "strong_hash_tests",
+    srcs = glob(["src/**/*.rs"]),
+    deps = [
+        "fbsource//third-party/rust:blake3",
+        "//buck2/gazebo/strong_hash:strong_hash",
+    ],
+)

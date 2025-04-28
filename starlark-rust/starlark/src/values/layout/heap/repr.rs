@@ -21,19 +21,18 @@ use std::mem::ManuallyDrop;
 use std::ptr;
 
 use dupe::Dupe;
-use either::Either;
 
 use crate::any::AnyLifetime;
 use crate::cast;
+use crate::values::FrozenValue;
+use crate::values::StarlarkValue;
+use crate::values::Value;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
-use crate::values::FrozenValue;
-use crate::values::StarlarkValue;
-use crate::values::Value;
 
 #[derive(Clone)]
 #[repr(C)]
@@ -77,9 +76,20 @@ pub(crate) struct AValueRepr<T> {
 pub(crate) struct ForwardPtr(usize);
 
 impl ForwardPtr {
-    pub(crate) fn new(ptr: usize) -> ForwardPtr {
+    fn new(ptr: usize) -> ForwardPtr {
         debug_assert!(ptr & 1 == 0);
         ForwardPtr(ptr)
+    }
+
+    /// Create a forward pointer to a frozen value. This is used during heap freeze.
+    pub(crate) fn new_frozen(value: FrozenValue) -> ForwardPtr {
+        ForwardPtr::new(value.0.raw().ptr_value())
+    }
+
+    /// Create a forward pointer to an unfrozen value. This is used during heap GC.
+    pub(crate) fn new_unfrozen(value: Value) -> ForwardPtr {
+        debug_assert!(value.unpack_frozen().is_none());
+        ForwardPtr::new(value.0.raw().ptr_value() & !1)
     }
 
     /// It's caller responsibility to ensure that forward pointer points to a frozen value.
@@ -89,19 +99,22 @@ impl ForwardPtr {
 
     /// It's caller responsibility to ensure that forward pointer points to an unfrozen value.
     pub(crate) unsafe fn unpack_unfrozen_value<'v>(self) -> Value<'v> {
-        Value::new_ptr_usize_with_str_tag(self.0)
+        unsafe { Value::new_ptr_usize_with_str_tag(self.0) }
     }
 
     pub(crate) unsafe fn unpack_value<'v>(self, heap_kind: HeapKind) -> Value<'v> {
-        match heap_kind {
-            HeapKind::Unfrozen => self.unpack_unfrozen_value(),
-            HeapKind::Frozen => self.unpack_frozen_value().to_value(),
+        unsafe {
+            match heap_kind {
+                HeapKind::Unfrozen => self.unpack_unfrozen_value(),
+                HeapKind::Frozen => self.unpack_frozen_value().to_value(),
+            }
         }
     }
 }
 
 /// This is object written over [`AValueRepr`] during GC.
 #[repr(C)]
+#[derive(Debug)]
 pub(crate) struct AValueForward {
     /// Moved object pointer with lowest bit set.
     forward_ptr: usize,
@@ -149,18 +162,12 @@ impl AValueOrForward {
         }
     }
 
-    /// Unpack something that might have been overwritten.
-    pub(crate) fn unpack_overwrite<'v>(&'v self) -> Either<ForwardPtr, AValueDyn<'v>> {
-        match self.unpack() {
-            AValueOrForwardUnpack::Header(header) => Either::Right(header.unpack()),
-            AValueOrForwardUnpack::Forward(forward) => Either::Left(forward.forward_ptr()),
-        }
-    }
-
     #[inline]
     pub(crate) unsafe fn unpack_header_unchecked(&self) -> &AValueHeader {
-        debug_assert!(!self.is_forward());
-        &self.header
+        unsafe {
+            debug_assert!(!self.is_forward());
+            &self.header
+        }
     }
 
     pub(crate) fn unpack_header(&self) -> Option<&AValueHeader> {
@@ -228,15 +235,19 @@ impl AValueHeader {
     }
 
     pub(crate) unsafe fn payload<'v, T: StarlarkValue<'v>>(&self) -> &T {
-        debug_assert_eq!(self.0.static_type_of_value.get(), T::static_type_id());
-        &*self.payload_ptr().value_ptr::<T>()
+        unsafe {
+            debug_assert_eq!(self.0.static_type_of_value.get(), T::static_type_id());
+            &*self.payload_ptr().value_ptr::<T>()
+        }
     }
 
     pub(crate) unsafe fn unpack_value<'v>(&'v self, heap_kind: HeapKind) -> Value<'v> {
-        match heap_kind {
-            HeapKind::Unfrozen => Value::new_ptr_query_is_str(self),
-            HeapKind::Frozen => {
-                FrozenValue::new_ptr_query_is_str(cast::ptr_lifetime(self)).to_value()
+        unsafe {
+            match heap_kind {
+                HeapKind::Unfrozen => Value::new_ptr_query_is_str(self),
+                HeapKind::Frozen => {
+                    FrozenValue::new_ptr_query_is_str(cast::ptr_lifetime(self)).to_value()
+                }
             }
         }
     }
@@ -261,20 +272,24 @@ impl AValueHeader {
         me: *mut AValueRepr<T>,
         forward_ptr: ForwardPtr,
     ) -> T {
-        // TODO(nga): we don't need to do virtual call to obtain memory size
-        let sz = (*me).header.unpack().memory_size();
-        let p = me as *const AValueRepr<T>;
-        let res = ptr::read(p).payload;
-        let p = me as *mut AValueForward;
-        *p = AValueForward::new(forward_ptr, sz);
-        res
+        unsafe {
+            // TODO(nga): we don't need to do virtual call to obtain memory size
+            let sz = (*me).header.unpack().memory_size();
+            let p = me as *const AValueRepr<T>;
+            let res = ptr::read(p).payload;
+            let p = me as *mut AValueForward;
+            *p = AValueForward::new(forward_ptr, sz);
+            res
+        }
     }
 
     /// Cast header pointer to repr pointer.
     #[inline]
     pub(crate) unsafe fn as_repr<'v, T: StarlarkValue<'v>>(&self) -> &AValueRepr<T> {
-        debug_assert_eq!(T::static_type_id(), self.0.static_type_of_value.get());
-        &*(self as *const AValueHeader as *const AValueRepr<T>)
+        unsafe {
+            debug_assert_eq!(T::static_type_id(), self.0.static_type_of_value.get());
+            &*(self as *const AValueHeader as *const AValueRepr<T>)
+        }
     }
 
     fn as_avalue_or_header(&self) -> &AValueOrForward {

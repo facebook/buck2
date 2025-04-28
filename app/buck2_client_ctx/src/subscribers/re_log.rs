@@ -12,49 +12,40 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_event_log::FutureChildOutput;
 use buck2_event_log::should_block_on_log_upload;
 use buck2_event_log::should_upload_log;
 use buck2_event_log::wait_for_child_and_log;
-use buck2_event_log::FutureChildOutput;
-use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::unpack_event::UnpackedBuckEvent;
+use buck2_event_observer::unpack_event::unpack_event;
 use buck2_events::BuckEvent;
-use buck2_util::cleanup_ctx::AsyncCleanupContext;
 use futures::Future;
-use futures::FutureExt;
 
 use crate::subscribers::subscriber::EventSubscriber;
 
-pub(crate) struct ReLog<'a> {
+pub(crate) struct ReLog {
     re_session_id: Option<String>,
     isolation_dir: FileNameBuf,
-    async_cleanup_context: AsyncCleanupContext<'a>,
-    allow_vpnless: bool,
 }
 
-impl<'a> ReLog<'a> {
-    pub(crate) fn new(
-        isolation_dir: FileNameBuf,
-        async_cleanup_context: AsyncCleanupContext<'a>,
-        allow_vpnless: bool,
-    ) -> Self {
+impl ReLog {
+    pub(crate) fn new(isolation_dir: FileNameBuf) -> Self {
         Self {
             re_session_id: None,
             isolation_dir,
-            async_cleanup_context,
-            allow_vpnless,
         }
     }
 
-    fn log_upload(&mut self) -> impl Future<Output = anyhow::Result<()>> + 'static + Send + Sync {
+    fn log_upload(
+        &mut self,
+    ) -> impl Future<Output = buck2_error::Result<()>> + 'static + Send + Sync {
         // We put `None` in place of re_session_id which means we will only attempt to upload
         // the logs once no matter how many times this function is called
         let session_id = self.re_session_id.take();
         let isolation_dir = self.isolation_dir.clone();
-        let allow_vpnless = self.allow_vpnless;
         async move {
             if let Some(s_id) = session_id {
-                log_upload_impl(s_id, isolation_dir, allow_vpnless).await?;
+                log_upload_impl(s_id, isolation_dir).await?;
             }
             Ok(())
         }
@@ -62,12 +53,16 @@ impl<'a> ReLog<'a> {
 }
 
 #[async_trait]
-impl<'a> EventSubscriber for ReLog<'a> {
-    async fn exit(&mut self) -> anyhow::Result<()> {
+impl EventSubscriber for ReLog {
+    fn name(&self) -> &'static str {
+        "RE log"
+    }
+
+    async fn exit(&mut self) -> buck2_error::Result<()> {
         self.log_upload().await
     }
 
-    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
+    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> buck2_error::Result<()> {
         for event in events {
             match unpack_event(event)? {
                 UnpackedBuckEvent::Instant(
@@ -82,28 +77,16 @@ impl<'a> EventSubscriber for ReLog<'a> {
         }
         Ok(())
     }
-}
 
-impl<'a> Drop for ReLog<'a> {
-    fn drop(&mut self) {
-        let upload = self.log_upload();
-        self.async_cleanup_context.register(
-            "RE log upload",
-            async move {
-                if let Err(e) = upload.await {
-                    tracing::warn!("Failed to cleanup ReLog: {:#}", e);
-                }
-            }
-            .boxed(),
-        );
+    async fn finalize(&mut self) -> buck2_error::Result<()> {
+        self.log_upload().await
     }
 }
 
 async fn log_upload_impl(
     session_id: String,
     isolation_dir: FileNameBuf,
-    allow_vpnless: bool,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     if !should_upload_log()? {
         return Ok(());
     }
@@ -118,11 +101,6 @@ async fn log_upload_impl(
         .arg(session_id)
         .stdin(Stdio::null())
         .stdout(Stdio::null());
-
-    if allow_vpnless {
-        command.arg("--allow-vpnless");
-    }
-
     if should_block_on_log_upload()? {
         let child = command.stderr(Stdio::piped()).spawn()?;
         wait_for_child_and_log(FutureChildOutput::new(child), "RE Log").await;

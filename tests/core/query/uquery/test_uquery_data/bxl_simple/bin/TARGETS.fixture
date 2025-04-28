@@ -1,0 +1,43 @@
+load("//rules:rules.bzl", "foo_binary")
+
+constraint_setting(name = "setting")
+
+constraint_value(name = "my_config", constraint_setting = ":setting")
+
+platform(
+    name = "my_platform",
+    deps = ["root//platforms:platform1"],
+    constraint_values = [":my_config"],
+)
+
+foo_binary(
+    name = "the_binary",
+    deps = [
+        "//lib:lib1",
+        "//lib:lib2",
+        "//lib:lib3",
+    ],
+    target_compatible_with = [":my_config"],
+    default_target_platform = ":my_platform",
+    srcs = [
+        "TARGETS.fixture",
+    ],
+    cmd = ["$(exe //:bin)", "$(location //:data)"],
+)
+
+foo_binary(
+    name = "the_binary_with_dir_srcs",
+    deps = [
+        "//lib:lib1",
+        "//lib:lib2",
+        "//lib:lib3",
+    ],
+    srcs = [
+        "kind",
+    ],
+    cmd = ["$(exe //:bin)", "$(location //:data)"],
+)
+
+platform(
+    name = "platform",
+)

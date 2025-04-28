@@ -1,0 +1,23 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "compiler",
+    srcs = glob(["*.java"]),
+    visibility = [
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/...",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:environment",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/testutil/compiler:compiler",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:junit",
+        "prelude//toolchains/android/third-party:kotlin-compiler-embeddable",
+        "prelude//toolchains/android/third-party:kotlin-stdlib",
+        "prelude//toolchains/android/third-party:trove",
+    ],
+)

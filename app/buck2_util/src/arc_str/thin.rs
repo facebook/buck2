@@ -48,7 +48,18 @@ unsafe impl ArcStrLenStrategy for ThinArcStrProperties {
 }
 
 /// Wrapper for `Arc<str>`.
-#[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Allocative, Clone, Dupe, Default)]
+#[derive(
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Allocative,
+    Clone,
+    Dupe,
+    Default,
+    strong_hash::StrongHash
+)]
 pub struct ThinArcStr {
     base: ArcStrBase<ThinArcStrProperties>,
 }

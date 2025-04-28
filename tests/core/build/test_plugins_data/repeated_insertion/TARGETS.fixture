@@ -1,0 +1,23 @@
+load(":rules.bzl", "alias", "different_deps", "introduce_plugin", "plugin")
+
+plugin(
+    name = "plugin",
+)
+
+introduce_plugin(
+    name = "has_plugin",
+    plugin = ":plugin",
+)
+
+# `:plugin` appears as a plugin twice for this target. Make sure that it is propagated
+different_deps(
+    name = "different_deps",
+    direct = ":plugin",
+    no_propagate = ":has_plugin",
+)
+
+# This one we just use to be able to inspect whether it's propagated or not
+alias(
+    name = "different_deps_alias",
+    actual = ":different_deps",
+)

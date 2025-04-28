@@ -5,7 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "CxxToolchainInfo",
+    "LinkerType",
+)
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 
 # Styles of LTO.
@@ -50,7 +54,7 @@ def get_split_debug_lto_info(actions: AnalysisActions, cxx_toolchain: CxxToolcha
 
     # TODO: It might be nice to generalize a but more and move the darwin v. gnu
     # differences into toolchain settings (e.g. `split_debug_lto_flags_fmt`).
-    if linker_info.type == "darwin":
+    if linker_info.type == LinkerType("darwin"):
         # https://releases.llvm.org/14.0.0/tools/clang/docs/CommandGuide/clang.html#cmdoption-flto
         # We need to pass -object_path_lto to keep the temporary LTO object files around to use
         # for dSYM generation.
@@ -74,7 +78,7 @@ def get_split_debug_lto_info(actions: AnalysisActions, cxx_toolchain: CxxToolcha
             linker_flags = linker_args,
         )
 
-    if linker_info.type == "gnu":
+    if linker_info.type == LinkerType("gnu"):
         dwo_dir = actions.declare_output(name + ".dwo.d", dir = True)
 
         linker_flags = cmd_args([

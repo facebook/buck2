@@ -21,7 +21,7 @@ pub trait SuperPackageValues: Debug + Allocative + Any + Send + Sync + 'static {
     fn is_empty(&self) -> bool;
     /// Only error is internal error: all values must be serializable to JSON,
     /// validated at construction time.
-    fn package_values_json(&self) -> anyhow::Result<SmallMap<MetadataKey, serde_json::Value>>;
+    fn package_values_json(&self) -> buck2_error::Result<SmallMap<MetadataKey, serde_json::Value>>;
     fn contains_key(&self, key: &MetadataKeyRef) -> bool;
     /// Gets package value as a JSON for the given key.
     /// Only error is internal error: all values must be serializable to JSON,
@@ -29,5 +29,5 @@ pub trait SuperPackageValues: Debug + Allocative + Any + Send + Sync + 'static {
     fn get_package_value_json(
         &self,
         key: &MetadataKeyRef,
-    ) -> anyhow::Result<Option<serde_json::Value>>;
+    ) -> buck2_error::Result<Option<serde_json::Value>>;
 }

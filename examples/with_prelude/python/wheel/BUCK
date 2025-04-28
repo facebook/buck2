@@ -1,0 +1,22 @@
+load("@prelude//python:python_wheel.bzl", "python_wheel")
+load("//:test_utils.bzl", "assert_output")
+
+python_wheel(
+    name = "wheel",
+    libraries = ["//python/library:printlib"],
+    python = "py310",
+)
+
+python_binary(
+    name = "wheel_checker",
+    main = "wheel_checker.py",
+    resources = {
+        "printlib.whl": ":wheel",
+    },
+)
+
+assert_output(
+    name = "check_wheel",
+    command = "$(exe_target :wheel_checker)",
+    output = "Wheel OK",
+)

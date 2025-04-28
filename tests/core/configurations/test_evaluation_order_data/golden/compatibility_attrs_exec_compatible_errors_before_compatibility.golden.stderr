@@ -1,0 +1,13 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+Command failed: 
+Error looking up configured node root//:compatibility_attrs_exec_compatible_errors_before_compatibility (root//:p-cat#24d70f740de80057)
+
+Caused by:
+    0: Error resolving configuration deps of `root//:compatibility_attrs_exec_compatible_errors_before_compatibility (root//:p-cat#24d70f740de80057)`
+    1: Error getting configuration node of `root//:doesnotexist` within the `root//:p-cat#24d70f740de80057` configuration
+    2: Error running analysis for `root//:doesnotexist (<unbound>)`
+    3: Error looking up configured node root//:doesnotexist (<unbound>)
+    4: looking up unconfigured target node `root//:doesnotexist`
+    5: Unknown target `doesnotexist` from package `root//`.
+       Did you mean one of the 33 targets in root//:TARGETS.fixture?

@@ -11,13 +11,14 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use anyhow::Context;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
+use crate::cells::CellAliasResolver;
+use crate::cells::CellResolver;
 use crate::cells::alias::CellAlias;
 use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathCow;
@@ -25,19 +26,17 @@ use crate::cells::cell_path::CellPathRef;
 use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
-use crate::cells::CellAliasResolver;
-use crate::cells::CellResolver;
 use crate::configuration::bound_label::BoundConfigurationLabel;
 use crate::configuration::builtin::BuiltinPlatform;
 use crate::configuration::hash::ConfigurationHash;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::package::PackageLabel;
-use crate::pattern::ascii_pattern::split1_opt_ascii;
-use crate::pattern::ascii_pattern::strip_suffix_ascii;
-use crate::pattern::ascii_pattern::trim_prefix_ascii;
 use crate::pattern::ascii_pattern::AsciiChar;
 use crate::pattern::ascii_pattern::AsciiStr;
 use crate::pattern::ascii_pattern::AsciiStr2;
+use crate::pattern::ascii_pattern::split1_opt_ascii;
+use crate::pattern::ascii_pattern::strip_suffix_ascii;
+use crate::pattern::ascii_pattern::trim_prefix_ascii;
 use crate::pattern::package::PackagePattern;
 use crate::pattern::pattern_type::ConfigurationPredicate;
 use crate::pattern::pattern_type::ConfiguredProvidersPatternExtra;
@@ -57,11 +56,13 @@ use crate::target_aliases::TargetAliasResolver;
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]
 enum TargetPatternParseError {
-    #[error("Expected a `:`, a trailing `/...` or the literal `...`.")]
+    #[error("Expected pattern to contain `:`, trailing `/...` or literal `...`.")]
     UnexpectedFormat,
     #[error("Package is empty")]
     PackageIsEmpty,
-    #[error("Must be absolute, with a `//` or no package just `:`.")]
+    #[error(
+        "Must be absolute. Starting with either `//` for a cell alias or `:` for a relative target."
+    )]
     AbsoluteRequired,
     #[error(
         "Packages may not end with a trailing `/` (except when provided on the command line where it's tolerated)"
@@ -87,7 +88,7 @@ pub fn display_precise_pattern<'a, T: PatternType>(
     extra: &'a T,
 ) -> impl Display + 'a {
     #[derive(derive_more::Display)]
-    #[display(fmt = "{}:{}{}", package, target_name, extra)]
+    #[display("{}:{}{}", package, target_name, extra)]
     struct Impl<'a, T: PatternType> {
         package: &'a PackageLabel,
         target_name: &'a TargetNameRef,
@@ -101,7 +102,7 @@ pub fn display_precise_pattern<'a, T: PatternType>(
 }
 
 /// Extract provider name from a target pattern.
-pub(crate) fn split_providers_name(s: &str) -> anyhow::Result<(&str, ProvidersName)> {
+pub(crate) fn split_providers_name(s: &str) -> buck2_error::Result<(&str, ProvidersName)> {
     if let Some((t, flavors)) = split1_opt_ascii(s, AsciiChar::new('#')) {
         let name = map_flavors(flavors, s)?;
         Ok((t, name))
@@ -112,7 +113,8 @@ pub(crate) fn split_providers_name(s: &str) -> anyhow::Result<(&str, ProvidersNa
             names.push(ProviderName::new(p.to_owned())?);
             r
         } else {
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
                 "target pattern with `[` must end with `]` to mark end of providers set label"
             ));
         };
@@ -125,7 +127,8 @@ pub(crate) fn split_providers_name(s: &str) -> anyhow::Result<(&str, ProvidersNa
                     continue;
                 }
             }
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
                 "target pattern with `[` must end with `]` to mark end of providers set label"
             ));
         }
@@ -180,7 +183,7 @@ pub enum ParsedPattern<T: PatternType> {
 
 impl ParsedPattern<TargetPatternExtra> {
     /// Extract [`TargetLabel`] from a [`ParsedPattern`].
-    pub fn as_target_label(self, original: &str) -> anyhow::Result<TargetLabel> {
+    pub fn as_target_label(self, original: &str) -> buck2_error::Result<TargetLabel> {
         let (target_label, TargetPatternExtra) = self.as_literal(original)?;
         Ok(target_label)
     }
@@ -202,7 +205,7 @@ impl ParsedPattern<TargetPatternExtra> {
 
 impl ParsedPattern<ProvidersPatternExtra> {
     /// Extract [`ProvidersLabel`] from a [`ParsedPattern`].
-    pub fn as_providers_label(self, original: &str) -> anyhow::Result<ProvidersLabel> {
+    pub fn as_providers_label(self, original: &str) -> buck2_error::Result<ProvidersLabel> {
         let (target_label, ProvidersPatternExtra { providers }) = self.as_literal(original)?;
         Ok(ProvidersLabel::new(target_label, providers))
     }
@@ -219,8 +222,8 @@ impl<T: PatternType> ParsedPattern<T> {
 
     pub fn try_map<U: PatternType>(
         self,
-        f: impl FnOnce(T) -> anyhow::Result<U>,
-    ) -> anyhow::Result<ParsedPattern<U>> {
+        f: impl FnOnce(T) -> buck2_error::Result<U>,
+    ) -> buck2_error::Result<ParsedPattern<U>> {
         match self {
             ParsedPattern::Target(package, target_name, val) => {
                 Ok(ParsedPattern::Target(package, target_name, f(val)?))
@@ -248,7 +251,7 @@ impl<T: PatternType> ParsedPattern<T> {
     }
 
     /// Extract a literal from a [ParsedPattern], or `Err` if it is not a literal.
-    pub fn as_literal(self, original: &str) -> anyhow::Result<(TargetLabel, T)> {
+    pub fn as_literal(self, original: &str) -> buck2_error::Result<(TargetLabel, T)> {
         // FIXME: Would be better if we had a Display on self, so we could produce a nice error message.
         //        For now, just require the original string to be passed in for good errors.
         match self {
@@ -259,22 +262,24 @@ impl<T: PatternType> ParsedPattern<T> {
         }
     }
 
-    /// Parse a TargetPattern, but where there there is no relative directory.
+    /// `parse_not_relaxed` with `TargetParsingRel::RequiresAbsolute`
     pub fn parse_precise(
         pattern: &str,
         cell: CellName,
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         parse_target_pattern(
-            cell,
             cell_resolver,
             cell_alias_resolver,
-            None,
-            TargetParsingOptions::precise(),
+            TargetParsingOptions {
+                relative: TargetParsingRel::RequireAbsolute(cell),
+                infer_target: false,
+                strip_package_trailing_slash: false,
+            },
             pattern,
         )
-        .with_context(|| {
+        .with_buck_error_context(|| {
             format!(
                 "Invalid absolute target pattern `{}` is not allowed",
                 pattern
@@ -282,61 +287,23 @@ impl<T: PatternType> ParsedPattern<T> {
         })
     }
 
-    pub fn parsed_opt_absolute(
+    pub fn parse_not_relaxed(
         pattern: &str,
-        relative_dir: Option<CellPathRef>,
-        cell: CellName,
+        relative: TargetParsingRel<'_>,
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         parse_target_pattern(
-            cell,
             cell_resolver,
             cell_alias_resolver,
-            None,
             TargetParsingOptions {
-                relative: TargetParsingRel::RequireAbsolute(relative_dir),
+                relative,
                 infer_target: false,
                 strip_package_trailing_slash: false,
             },
             pattern,
         )
-        .with_context(|| {
-            format!(
-                "Invalid absolute target pattern `{}` is not allowed",
-                pattern
-            )
-        })
-    }
-
-    /// Parse a TargetPattern out, resolving aliases via `cell_resolver`, and resolving relative
-    /// targets via `enclosing_package`, if provided.
-    /// Allows everything from `parse_absolute`, plus relative patterns.
-    pub fn parse_relative(
-        target_alias_resolver: &dyn TargetAliasResolver,
-        relative_dir: CellPathRef,
-        pattern: &str,
-        cell_resolver: &CellResolver,
-        cell_alias_resolver: &CellAliasResolver,
-    ) -> anyhow::Result<Self> {
-        parse_target_pattern(
-            relative_dir.cell(),
-            cell_resolver,
-            cell_alias_resolver,
-            Some(target_alias_resolver),
-            TargetParsingOptions {
-                relative: TargetParsingRel::AllowRelative(relative_dir),
-                infer_target: false,
-                strip_package_trailing_slash: false,
-            },
-            pattern,
-        )
-        .with_context(|| {
-            format!(
-                "Invalid relative target pattern `{}` is not allowed",
-                pattern
-            )
-        })
+        .with_buck_error_context(|| format!("Invalid target pattern `{}` is not allowed", pattern))
     }
 
     /// Parse a TargetPattern out, resolving aliases via `cell_resolver`, resolving relative
@@ -352,20 +319,18 @@ impl<T: PatternType> ParsedPattern<T> {
         pattern: &str,
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         parse_target_pattern(
-            relative_dir.cell(),
             cell_resolver,
             cell_alias_resolver,
-            Some(target_alias_resolver),
             TargetParsingOptions {
-                relative: TargetParsingRel::AllowRelative(relative_dir),
+                relative: TargetParsingRel::AllowRelative(relative_dir, target_alias_resolver),
                 infer_target: true,
                 strip_package_trailing_slash: true,
             },
             pattern,
         )
-        .with_context(|| format!("Parsing target pattern `{}`", pattern))
+        .with_buck_error_context(|| format!("Parsing target pattern `{}`", pattern))
     }
 
     pub fn testing_parse(pattern: &str) -> Self {
@@ -432,10 +397,10 @@ pub struct PatternParts<'a, T: PatternType> {
 }
 
 impl<'a, T: PatternType> PatternParts<'a, T> {
-    fn try_map<U: PatternType, F: FnOnce(T) -> anyhow::Result<U>>(
+    fn try_map<U: PatternType, F: FnOnce(T) -> buck2_error::Result<U>>(
         self,
         f: F,
-    ) -> anyhow::Result<PatternParts<'a, U>> {
+    ) -> buck2_error::Result<PatternParts<'a, U>> {
         let PatternParts {
             cell_alias,
             pattern,
@@ -467,8 +432,8 @@ pub enum PatternDataOrAmbiguous<'a, T: PatternType> {
 impl<'a, T: PatternType> PatternDataOrAmbiguous<'a, T> {
     fn try_map<U: PatternType>(
         self,
-        f: impl FnOnce(T) -> anyhow::Result<U>,
-    ) -> anyhow::Result<PatternDataOrAmbiguous<'a, U>> {
+        f: impl FnOnce(T) -> buck2_error::Result<U>,
+    ) -> buck2_error::Result<PatternDataOrAmbiguous<'a, U>> {
         match self {
             PatternDataOrAmbiguous::PatternData(d) => {
                 Ok(PatternDataOrAmbiguous::PatternData(d.try_map(f)?))
@@ -492,7 +457,7 @@ where
 {
     /// If the pattern is ambiguous, try to infer a target. This would convert `foo/bar` into
     /// `foo/bar:bar`.
-    pub fn infer_target(self) -> anyhow::Result<PatternData<'a, T>> {
+    pub fn infer_target(self) -> buck2_error::Result<PatternData<'a, T>> {
         match self {
             Self::PatternData(d) => Ok(d),
             Self::Ambiguous {
@@ -504,7 +469,7 @@ where
 
                 let target = package
                     .file_name()
-                    .context(TargetPatternParseError::PackageIsEmpty)?;
+                    .buck_error_context(TargetPatternParseError::PackageIsEmpty)?;
 
                 let target_name = TargetName::new(target.as_ref())?;
 
@@ -518,7 +483,7 @@ where
     }
 
     /// If the pattern is ambiguous, error out.
-    pub fn reject_ambiguity(self) -> anyhow::Result<PatternData<'a, T>> {
+    pub fn reject_ambiguity(self) -> buck2_error::Result<PatternData<'a, T>> {
         match self {
             Self::PatternData(d) => Ok(d),
             Self::Ambiguous { pattern, .. } => {
@@ -556,8 +521,8 @@ pub enum PatternData<'a, T: PatternType> {
 impl<'a, T: PatternType> PatternData<'a, T> {
     fn try_map<U: PatternType>(
         self,
-        f: impl FnOnce(T) -> anyhow::Result<U>,
-    ) -> anyhow::Result<PatternData<'a, U>> {
+        f: impl FnOnce(T) -> buck2_error::Result<U>,
+    ) -> buck2_error::Result<PatternData<'a, U>> {
         match self {
             PatternData::Recursive { package } => Ok(PatternData::Recursive { package }),
             PatternData::AllTargetsInPackage { package } => {
@@ -602,7 +567,7 @@ impl<'a, T: PatternType> PatternData<'a, T> {
 // Splits a pattern into cell alias and forward relative path if "//" is present, otherwise returns None,
 pub fn maybe_split_cell_alias_and_relative_path<'a>(
     pattern: &'a str,
-) -> anyhow::Result<Option<(CellAlias, &'a ForwardRelativePath)>> {
+) -> buck2_error::Result<Option<(CellAlias, &'a ForwardRelativePath)>> {
     Ok(match split1_opt_ascii(pattern, AsciiStr2::new("//")) {
         Some((a, p)) => Some((
             CellAlias::new(trim_prefix_ascii(a, AsciiChar::new('@')).to_owned()),
@@ -615,7 +580,7 @@ pub fn maybe_split_cell_alias_and_relative_path<'a>(
 fn lex_provider_pattern<'a>(
     pattern: &'a str,
     strip_package_trailing_slash: bool,
-) -> anyhow::Result<PatternParts<ProvidersPatternExtra>> {
+) -> buck2_error::Result<PatternParts<'a, ProvidersPatternExtra>> {
     let (cell_alias, pattern) = match split1_opt_ascii(pattern, AsciiStr2::new("//")) {
         Some((a, p)) => (Some(trim_prefix_ascii(a, AsciiChar::new('@'))), p),
         None => (None, pattern),
@@ -667,13 +632,13 @@ fn lex_provider_pattern<'a>(
     })
 }
 
-fn lex_configuration_predicate(pattern: &str) -> anyhow::Result<ConfigurationPredicate> {
-    let pattern = pattern
-        .strip_prefix('(')
-        .context(TargetPatternParseError::ConfigurationPartMustBeEnclosedInParentheses)?;
-    let pattern = pattern
-        .strip_suffix(')')
-        .context(TargetPatternParseError::ConfigurationPartMustBeEnclosedInParentheses)?;
+fn lex_configuration_predicate(pattern: &str) -> buck2_error::Result<ConfigurationPredicate> {
+    let pattern = pattern.strip_prefix('(').buck_error_context(
+        TargetPatternParseError::ConfigurationPartMustBeEnclosedInParentheses,
+    )?;
+    let pattern = pattern.strip_suffix(')').buck_error_context(
+        TargetPatternParseError::ConfigurationPartMustBeEnclosedInParentheses,
+    )?;
     match pattern.split_once('#') {
         Some((cfg, hash)) => {
             let cfg = BoundConfigurationLabel::new(cfg.to_owned())?;
@@ -721,7 +686,7 @@ fn split_cfg(s: &str) -> Option<(&str, &str)> {
 pub fn lex_configured_providers_pattern<'a>(
     pattern: &'a str,
     strip_package_trailing_slash: bool,
-) -> anyhow::Result<PatternParts<ConfiguredProvidersPatternExtra>> {
+) -> buck2_error::Result<PatternParts<'a, ConfiguredProvidersPatternExtra>> {
     let (provider_pattern, cfg) = match split_cfg(pattern) {
         Some((providers, cfg)) => {
             let provider_pattern = lex_provider_pattern(providers, strip_package_trailing_slash)?;
@@ -742,11 +707,11 @@ pub fn lex_configured_providers_pattern<'a>(
 pub fn lex_target_pattern<'a, T: PatternType>(
     pattern: &'a str,
     strip_package_trailing_slash: bool,
-) -> anyhow::Result<PatternParts<T>> {
+) -> buck2_error::Result<PatternParts<'a, T>> {
     let provider_pattern = lex_configured_providers_pattern(pattern, strip_package_trailing_slash)?;
     provider_pattern
         .try_map(|extra| T::from_configured_providers(extra))
-        .with_context(|| {
+        .with_buck_error_context(|| {
             // This can only fail when `PatternType = TargetName`, so the message is correct.
             TargetPatternParseError::ExpectingPatternOfType(T::NAME, pattern.to_owned())
         })
@@ -755,13 +720,13 @@ pub fn lex_target_pattern<'a, T: PatternType>(
 fn normalize_package<'a>(
     package: &'a str,
     strip_package_trailing_slash: bool,
-) -> anyhow::Result<&'a ForwardRelativePath> {
+) -> buck2_error::Result<&'a ForwardRelativePath> {
     // Strip or reject trailing `/`, such as in `foo/:bar`.
     if let Some(stripped) = strip_suffix_ascii(package, AsciiChar::new('/')) {
         if strip_package_trailing_slash {
             return ForwardRelativePath::new(stripped);
         } else {
-            return Err(anyhow::Error::from(
+            return Err(buck2_error::Error::from(
                 TargetPatternParseError::PackageTrailingSlash,
             ));
         }
@@ -771,26 +736,47 @@ fn normalize_package<'a>(
 }
 
 #[derive(Clone, Dupe)]
-enum TargetParsingRel<'a> {
-    /// The dir this pattern should be interpreted relative to.
-    AllowRelative(CellPathRef<'a>),
-    /// The dir this pattern should be interpreted relative to.
-    /// This is only used for targets such as `:foo`.
-    RequireAbsolute(Option<CellPathRef<'a>>),
+pub enum TargetParsingRel<'a> {
+    /// Parse the pattern relative to this package path
+    AllowRelative(CellPathRef<'a>, &'a dyn TargetAliasResolver),
+    /// Allows relative patterns, but only if they're like `:foo`, not `bar:foo`
+    AllowLimitedRelative(CellPathRef<'a>),
+    /// Require the pattern to be absolute.
+    ///
+    /// Still allows reference to the self-cell (`//foo:bar`)
+    RequireAbsolute(CellName),
 }
 
 impl<'a> TargetParsingRel<'a> {
     fn dir(&self) -> Option<CellPathRef<'a>> {
         match self {
-            TargetParsingRel::AllowRelative(dir) => Some(*dir),
-            TargetParsingRel::RequireAbsolute(dir) => *dir,
+            TargetParsingRel::AllowRelative(dir, _) => Some(*dir),
+            TargetParsingRel::AllowLimitedRelative(dir) => Some(*dir),
+            TargetParsingRel::RequireAbsolute(_) => None,
         }
     }
 
-    fn allow_relative(&self) -> bool {
+    fn allow_full_relative(&self) -> bool {
         match self {
-            TargetParsingRel::AllowRelative(_) => true,
+            TargetParsingRel::AllowRelative(_, _) => true,
+            TargetParsingRel::AllowLimitedRelative(_) => false,
             TargetParsingRel::RequireAbsolute(_) => false,
+        }
+    }
+
+    fn target_alias_resolver(&self) -> Option<&dyn TargetAliasResolver> {
+        match self {
+            TargetParsingRel::AllowRelative(_, r) => Some(*r),
+            TargetParsingRel::AllowLimitedRelative(_) => None,
+            TargetParsingRel::RequireAbsolute(_) => None,
+        }
+    }
+
+    fn cell(&self) -> CellName {
+        match self {
+            TargetParsingRel::AllowRelative(p, _) => p.cell(),
+            TargetParsingRel::AllowLimitedRelative(p) => p.cell(),
+            TargetParsingRel::RequireAbsolute(c) => *c,
         }
     }
 }
@@ -806,35 +792,21 @@ struct TargetParsingOptions<'a> {
     strip_package_trailing_slash: bool,
 }
 
-impl<'a> TargetParsingOptions<'a> {
-    fn precise() -> TargetParsingOptions<'a> {
-        TargetParsingOptions {
-            relative: TargetParsingRel::RequireAbsolute(None),
-            infer_target: false,
-            strip_package_trailing_slash: false,
-        }
-    }
-}
-
 /// Parse a TargetPattern out, resolving aliases via `cell_resolver`, and resolving relative
 /// targets via `enclosing_package`, if provided.
 fn parse_target_pattern<T>(
-    cell_name: CellName,
     cell_resolver: &CellResolver,
     cell_alias_resolver: &CellAliasResolver,
-    target_alias_resolver: Option<&dyn TargetAliasResolver>,
     opts: TargetParsingOptions,
     pattern: &str,
-) -> anyhow::Result<ParsedPattern<T>>
+) -> buck2_error::Result<ParsedPattern<T>>
 where
     T: PatternType,
 {
-    let res: anyhow::Result<_> = try {
+    let res: buck2_error::Result<_> = try {
         let parsed_pattern = parse_target_pattern_no_validate::<T>(
-            cell_name,
             cell_resolver,
             cell_alias_resolver,
-            target_alias_resolver,
             opts,
             pattern,
         )?;
@@ -868,17 +840,15 @@ where
         parsed_pattern
     };
 
-    res.input()
+    res.tag(buck2_error::ErrorTag::Input)
 }
 
 fn parse_target_pattern_no_validate<T>(
-    cell_name: CellName,
     cell_resolver: &CellResolver,
     cell_alias_resolver: &CellAliasResolver,
-    target_alias_resolver: Option<&dyn TargetAliasResolver>,
     opts: TargetParsingOptions,
     pattern: &str,
-) -> anyhow::Result<ParsedPattern<T>>
+) -> buck2_error::Result<ParsedPattern<T>>
 where
     T: PatternType,
 {
@@ -888,19 +858,11 @@ where
         strip_package_trailing_slash,
     } = opts;
 
-    if let Some(dir) = relative.dir() {
-        if dir.cell() != cell_name {
-            return Err(internal_error!(
-                "Cell resolver cell `{cell_name}` does not match the given relative dir `{dir}`"
-            ));
-        }
-    }
-
     let lex = lex_target_pattern(pattern, strip_package_trailing_slash)?;
 
-    if let Some(target_alias_resolver) = target_alias_resolver {
+    if let Some(target_alias_resolver) = relative.target_alias_resolver() {
         if let Some(aliased) = resolve_target_alias(
-            cell_name,
+            relative.cell(),
             cell_resolver,
             cell_alias_resolver,
             target_alias_resolver,
@@ -925,7 +887,7 @@ where
     // just relative target). This is a bit of a wonky  definition of "is_absolute" but we rely on
     // it.
     let is_absolute_or_adjacent = cell_alias.is_some() || pattern.is_adjacent_target();
-    if !relative.allow_relative() && !is_absolute_or_adjacent {
+    if !relative.allow_full_relative() && !is_absolute_or_adjacent {
         return Err(TargetPatternParseError::AbsoluteRequired.into());
     }
 
@@ -940,11 +902,7 @@ where
     let package_path = pattern.package_path();
 
     let path = match relative.dir() {
-        Some(rel)
-            if cell_alias.is_none() && (relative.allow_relative() || package_path.is_empty()) =>
-        {
-            CellPathCow::Owned(rel.join(package_path))
-        }
+        Some(rel) if cell_alias.is_none() => CellPathCow::Owned(rel.join(package_path)),
         _ => CellPathCow::Borrowed(CellPathRef::new(cell, CellRelativePath::new(package_path))),
     };
 
@@ -964,6 +922,7 @@ where
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tier0)]
 enum ResolveTargetAliasError {
     #[error("Error dereferencing alias `{}` -> `{}`", target, alias)]
     ErrorDereferencing { target: String, alias: String },
@@ -981,7 +940,7 @@ fn resolve_target_alias<T>(
     cell_alias_resolver: &CellAliasResolver,
     target_alias_resolver: &dyn TargetAliasResolver,
     lex: &PatternParts<T>,
-) -> anyhow::Result<Option<ParsedPattern<T>>>
+) -> buck2_error::Result<Option<ParsedPattern<T>>>
 where
     T: PatternType,
 {
@@ -1018,14 +977,16 @@ where
 
     // We found a matching alias. Parse the alias as a target.
     let res = parse_target_pattern::<TargetPatternExtra>(
-        cell_name,
         cell_resolver,
         cell_alias_resolver,
-        None,
-        TargetParsingOptions::precise(),
+        TargetParsingOptions {
+            relative: TargetParsingRel::RequireAbsolute(cell_name),
+            infer_target: false,
+            strip_package_trailing_slash: false,
+        },
         alias,
     )
-    .with_context(|| ResolveTargetAliasError::ErrorDereferencing {
+    .with_buck_error_context(|| ResolveTargetAliasError::ErrorDereferencing {
         target: target.to_owned(),
         alias: alias.to_owned(),
     })?;
@@ -1066,19 +1027,20 @@ mod tests {
     use gazebo::prelude::*;
     use test_case::test_case;
 
+    use crate::cells::CellAliasResolver;
+    use crate::cells::CellResolver;
     use crate::cells::alias::NonEmptyCellAlias;
     use crate::cells::cell_path::CellPath;
     use crate::cells::cell_root_path::CellRootPathBuf;
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePath;
     use crate::cells::paths::CellRelativePathBuf;
-    use crate::cells::CellAliasResolver;
-    use crate::cells::CellResolver;
     use crate::configuration::bound_label::BoundConfigurationLabel;
     use crate::configuration::builtin::BuiltinPlatform;
     use crate::configuration::hash::ConfigurationHash;
     use crate::package::PackageLabel;
     use crate::pattern::pattern::ParsedPattern;
+    use crate::pattern::pattern::TargetParsingRel;
     use crate::pattern::pattern::TargetPatternParseError;
     use crate::pattern::pattern_type::ConfigurationPredicate;
     use crate::pattern::pattern_type::ConfiguredProvidersPatternExtra;
@@ -1148,7 +1110,7 @@ mod tests {
             .unwrap()
     }
 
-    fn fails<R>(x: anyhow::Result<R>, msgs: &[&str]) {
+    fn fails<R>(x: buck2_error::Result<R>, msgs: &[&str]) {
         match x {
             Err(e) => {
                 let s = format!("{:#}", e);
@@ -1165,7 +1127,7 @@ mod tests {
     struct NoAliases;
 
     impl TargetAliasResolver for NoAliases {
-        fn get<'a>(&'a self, _name: &str) -> anyhow::Result<Option<&'a str>> {
+        fn get<'a>(&'a self, _name: &str) -> buck2_error::Result<Option<&'a str>> {
             Ok(None)
         }
     }
@@ -1174,7 +1136,7 @@ mod tests {
         struct Aliases(Vec<(String, String)>);
 
         impl TargetAliasResolver for Aliases {
-            fn get<'a>(&'a self, name: &str) -> anyhow::Result<Option<&'a str>> {
+            fn get<'a>(&'a self, name: &str) -> buck2_error::Result<Option<&'a str>> {
                 Ok(self
                     .0
                     .iter()
@@ -1305,10 +1267,9 @@ mod tests {
         );
         assert_eq!(
             mk_recursive::<T>("root", "package/path"),
-            ParsedPattern::<T>::parse_relative(
-                &NoAliases,
-                package.as_ref(),
+            ParsedPattern::<T>::parse_not_relaxed(
                 "...",
+                TargetParsingRel::AllowRelative(package.as_ref(), &NoAliases),
                 &resolver(),
                 &alias_resolver(),
             )
@@ -1316,10 +1277,9 @@ mod tests {
         );
         assert_eq!(
             mk_recursive::<T>("root", "package/path/foo"),
-            ParsedPattern::<T>::parse_relative(
-                &NoAliases,
-                package.as_ref(),
+            ParsedPattern::<T>::parse_not_relaxed(
                 "foo/...",
+                TargetParsingRel::AllowRelative(package.as_ref(), &NoAliases),
                 &resolver(),
                 &alias_resolver(),
             )
@@ -1328,7 +1288,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_relative_pattern() -> anyhow::Result<()> {
+    fn parse_relative_pattern() -> buck2_error::Result<()> {
         let package = CellPath::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package/path").to_owned(),
@@ -1345,10 +1305,9 @@ mod tests {
         );
         assert_eq!(
             mk_target("root", "package/path/foo", "target"),
-            ParsedPattern::parse_relative(
-                &NoAliases,
-                package.as_ref(),
+            ParsedPattern::parse_not_relaxed(
                 "foo:target",
+                TargetParsingRel::AllowRelative(package.as_ref(), &NoAliases),
                 &resolver(),
                 &alias_resolver(),
             )?
@@ -1357,17 +1316,16 @@ mod tests {
     }
 
     #[test]
-    fn test_relaxed() -> anyhow::Result<()> {
+    fn test_relaxed() -> buck2_error::Result<()> {
         let package = CellPath::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package").to_owned(),
         );
 
         assert_matches!(
-            ParsedPattern::<TargetPatternExtra>::parse_relative(
-                &NoAliases,
-                package.as_ref(),
+            ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
                 "path",
+                TargetParsingRel::AllowRelative(package.as_ref(), &NoAliases),
                 &resolver(),
                 &alias_resolver(),
             ),
@@ -1486,7 +1444,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parsed_opt_absolute() -> anyhow::Result<()> {
+    fn test_parsed_opt_absolute() -> buck2_error::Result<()> {
         let package = CellPath::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package/path").to_owned(),
@@ -1494,55 +1452,50 @@ mod tests {
 
         assert_eq!(
             mk_target("root", "other", "target"),
-            ParsedPattern::parsed_opt_absolute(
+            ParsedPattern::parse_not_relaxed(
                 "//other:target",
-                Some(package.as_ref()),
-                CellName::testing_new("root"),
+                TargetParsingRel::AllowLimitedRelative(package.as_ref()),
                 &resolver(),
                 &alias_resolver(),
             )?
         );
         assert_eq!(
             mk_target("root", "package/path", "target"),
-            ParsedPattern::parsed_opt_absolute(
+            ParsedPattern::parse_not_relaxed(
                 ":target",
-                Some(package.as_ref()),
-                CellName::testing_new("root"),
+                TargetParsingRel::AllowLimitedRelative(package.as_ref()),
                 &resolver(),
                 &alias_resolver(),
             )?
         );
-        let err = ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
+        let err = ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
             ":target",
-            None,
-            CellName::testing_new("root"),
+            TargetParsingRel::RequireAbsolute(CellName::testing_new("root")),
             &resolver(),
             &alias_resolver(),
         )
         .unwrap_err();
         assert!(
             err.to_string()
-                .contains("Invalid absolute target pattern `:target` is not allowed"),
+                .contains("Invalid target pattern `:target` is not allowed"),
             "{}",
             err
         );
         // But this should be fine.
         assert_eq!(
             mk_target("cell1", "", "target"),
-            ParsedPattern::parsed_opt_absolute(
+            ParsedPattern::parse_not_relaxed(
                 "cell1//:target",
-                None,
-                CellName::testing_new("root"),
+                TargetParsingRel::RequireAbsolute(CellName::testing_new("root")),
                 &resolver(),
                 &alias_resolver(),
             )?
         );
 
         assert_matches!(
-            ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
+            ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
                 "foo/bar",
-                Some(package.as_ref()),
-                CellName::testing_new("root"),
+                TargetParsingRel::AllowLimitedRelative(package.as_ref()),
                 &resolver(),
                 &alias_resolver(),
             ),
@@ -1554,10 +1507,9 @@ mod tests {
         );
 
         assert_matches!(
-            ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
+            ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
                 "foo/bar:bar",
-                Some(package.as_ref()),
-                CellName::testing_new("root"),
+                TargetParsingRel::AllowLimitedRelative(package.as_ref()),
                 &resolver(),
                 &alias_resolver(),
             ),
@@ -1568,10 +1520,9 @@ mod tests {
             }
         );
         assert_matches!(
-            ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
+            ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
                 "foo/bar:bar",
-                None,
-                CellName::testing_new("root"),
+                TargetParsingRel::RequireAbsolute(CellName::testing_new("root")),
                 &resolver(),
                 &alias_resolver(),
             ),
@@ -1586,7 +1537,7 @@ mod tests {
     }
 
     #[test]
-    fn test_aliases() -> anyhow::Result<()> {
+    fn test_aliases() -> buck2_error::Result<()> {
         let package = CellPath::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package").to_owned(),
@@ -1643,7 +1594,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_providers_pattern() -> anyhow::Result<()> {
+    fn parse_providers_pattern() -> buck2_error::Result<()> {
         assert_eq!(
             mk_providers("root", "package/path", "target", None),
             ParsedPattern::parse_precise(
@@ -1697,7 +1648,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_providers_pattern_with_alias() -> anyhow::Result<()> {
+    fn parse_providers_pattern_with_alias() -> buck2_error::Result<()> {
         let package = CellPath::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package").to_owned(),
@@ -1720,7 +1671,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_configured_providers_pattern() -> anyhow::Result<()> {
+    fn test_parse_configured_providers_pattern() -> buck2_error::Result<()> {
         assert_eq!(
             mk_configured_providers(
                 "root",
@@ -1916,7 +1867,7 @@ mod tests {
     }
 
     #[test]
-    fn parsed_pattern_contains() -> anyhow::Result<()> {
+    fn parsed_pattern_contains() -> buck2_error::Result<()> {
         let pkg1 = PackageLabel::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package/path"),

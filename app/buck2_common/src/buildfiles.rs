@@ -27,7 +27,7 @@ const DEFAULT_BUILDFILES: &[&str] = &["BUCK.v2", "BUCK"];
 /// Deal with the `buildfile.name` key (and `name_v2`)
 pub fn parse_buildfile_name(
     mut config: impl LegacyBuckConfigView,
-) -> anyhow::Result<Vec<FileNameBuf>> {
+) -> buck2_error::Result<Vec<FileNameBuf>> {
     // For buck2, we support a slightly different mechanism for setting the buildfile to
     // assist with easier migration from v1 to v2.
     // First, we check the key `buildfile.name_v2`, if this is provided, we use it.
@@ -70,7 +70,7 @@ pub trait HasBuildfiles {
     fn get_buildfiles(
         &mut self,
         cell: CellName,
-    ) -> impl Future<Output = anyhow::Result<Arc<[FileNameBuf]>>>;
+    ) -> impl Future<Output = buck2_error::Result<Arc<[FileNameBuf]>>>;
 }
 
 #[derive(
@@ -82,7 +82,7 @@ pub trait HasBuildfiles {
     PartialEq,
     allocative::Allocative
 )]
-#[display(fmt = "BuildfilesKey({})", "self.0")]
+#[display("BuildfilesKey({})", self.0)]
 struct BuildfilesKey(CellName);
 
 #[async_trait::async_trait]
@@ -107,17 +107,14 @@ impl Key for BuildfilesKey {
 }
 
 impl HasBuildfiles for DiceComputations<'_> {
-    async fn get_buildfiles(&mut self, cell: CellName) -> anyhow::Result<Arc<[FileNameBuf]>> {
-        Ok(self.compute(&BuildfilesKey(cell)).await??)
+    async fn get_buildfiles(&mut self, cell: CellName) -> buck2_error::Result<Arc<[FileNameBuf]>> {
+        self.compute(&BuildfilesKey(cell)).await?
     }
 }
 
 #[cfg(test)]
 mod tests {
     use buck2_core::cells::name::CellName;
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-    use buck2_core::fs::project::ProjectRoot;
-    use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use gazebo::prelude::SliceExt;
     use indoc::indoc;
 
@@ -125,16 +122,8 @@ mod tests {
     use crate::legacy_configs::cells::BuckConfigBasedCells;
     use crate::legacy_configs::configs::testing::TestConfigParserFileOps;
 
-    fn create_project_filesystem() -> ProjectRoot {
-        #[cfg(not(windows))]
-        let root_path = "/".to_owned();
-        #[cfg(windows)]
-        let root_path = "C:/".to_owned();
-        ProjectRoot::new_unchecked(AbsNormPathBuf::try_from(root_path).unwrap())
-    }
-
     #[tokio::test]
-    async fn test_buildfiles() -> anyhow::Result<()> {
+    async fn test_buildfiles() -> buck2_error::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 ".buckconfig",
@@ -173,14 +162,7 @@ mod tests {
             ),
         ])?;
 
-        let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?;
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await?;
 
         let config = cells
             .parse_single_cell_with_file_ops(CellName::testing_new("root"), &mut file_ops)

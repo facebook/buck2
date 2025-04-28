@@ -136,7 +136,7 @@ impl<S: ArgSymbol> BcCallArgs<S> for BcCallArgsFull<S> {
         ArgumentsFull {
             pos,
             named,
-            names: ArgNames::new(coerce(&self.names)),
+            names: ArgNames::new_unique(coerce(&self.names)),
             args,
             kwargs,
         }
@@ -150,7 +150,7 @@ impl<S: ArgSymbol> BcCallArgs<S> for BcCallArgsPos {
         ArgumentsFull {
             pos,
             named: &[],
-            names: ArgNames::new(&[]),
+            names: ArgNames::new_unique(&[]),
             args: None,
             kwargs: None,
         }
@@ -159,9 +159,9 @@ impl<S: ArgSymbol> BcCallArgs<S> for BcCallArgsPos {
 
 impl BcCallArgsForDef for BcCallArgsFull<ResolvedArgName> {
     type Args<'v, 'a>
-    = ArgumentsFull<'v, 'a, ResolvedArgName> where
-        'v: 'a,
-    ;
+        = ArgumentsFull<'v, 'a, ResolvedArgName>
+    where
+        'v: 'a;
 
     #[inline]
     fn pop_from_stack<'a, 'v>(
@@ -175,7 +175,7 @@ impl BcCallArgsForDef for BcCallArgsFull<ResolvedArgName> {
         ArgumentsFull {
             pos,
             named,
-            names: ArgNames::new(coerce(&self.names)),
+            names: ArgNames::new_unique(coerce(&self.names)),
             args,
             kwargs,
         }
@@ -183,7 +183,10 @@ impl BcCallArgsForDef for BcCallArgsFull<ResolvedArgName> {
 }
 
 impl BcCallArgsForDef for BcCallArgsPos {
-    type Args<'v, 'a> = ArgumentsPos<'v, 'a, ResolvedArgName> where 'v: 'a;
+    type Args<'v, 'a>
+        = ArgumentsPos<'v, 'a, ResolvedArgName>
+    where
+        'v: 'a;
 
     #[inline]
     fn pop_from_stack<'a, 'v>(

@@ -1,0 +1,16 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+BUILD FAILED
+Error evaluating build file: `root//during_load:TARGETS.fixture`
+
+Caused by:
+    Traceback (most recent call last):
+      * during_load/TARGETS.fixture:3, in <module>
+          get([1, 2, 3])
+    error: Index `5` is out of bound
+     --> during_load/access.bzl:9:12
+      |
+    9 |     return ls[5]
+      |            ^^^^^
+      |
+    

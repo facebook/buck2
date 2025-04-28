@@ -8,32 +8,33 @@
  */
 
 #[cfg(windows)]
-pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
+pub(crate) fn check_user_allowed() -> buck2_error::Result<()> {
     use std::io;
     use std::mem;
     use std::mem::MaybeUninit;
     use std::ptr;
 
-    use anyhow::Context;
     use buck2_core::ci::is_ci;
+    use buck2_error::BuckErrorContext;
     use buck2_wrapper_common::win::winapi_handle::WinapiHandle;
     use winapi::ctypes::c_void;
     use winapi::shared::minwindef::DWORD;
     use winapi::um::processthreadsapi::GetCurrentProcess;
     use winapi::um::processthreadsapi::OpenProcessToken;
     use winapi::um::securitybaseapi::GetTokenInformation;
-    use winapi::um::winnt::TokenElevation;
     use winapi::um::winnt::TOKEN_ELEVATION;
     use winapi::um::winnt::TOKEN_QUERY;
+    use winapi::um::winnt::TokenElevation;
 
     let mut handle = ptr::null_mut();
     let token_ok = unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut handle) };
     if token_ok == 0 {
-        return Err(io::Error::last_os_error()).context("OpenProcessToken failed");
+        return Err(io::Error::last_os_error()).buck_error_context("OpenProcessToken failed");
     }
 
-    let handle =
-        unsafe { WinapiHandle::new_check_last_os_error(handle).context("OpenProcessToken")? };
+    let handle = unsafe {
+        WinapiHandle::new_check_last_os_error(handle).buck_error_context("OpenProcessToken")?
+    };
     let size = mem::size_of::<TOKEN_ELEVATION>();
     let elevation: MaybeUninit<TOKEN_ELEVATION> = MaybeUninit::zeroed();
     let mut ret_size = 0;
@@ -48,7 +49,7 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
         )
     };
     if success_get == 0 {
-        return Err(io::Error::last_os_error()).context("GetTokenInformation failed");
+        return Err(io::Error::last_os_error()).buck_error_context("GetTokenInformation failed");
     }
 
     let elevation_struct: TOKEN_ELEVATION = unsafe { elevation.assume_init() };
@@ -66,20 +67,21 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
 }
 
 #[cfg(not(windows))]
-pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
+pub(crate) fn check_user_allowed() -> buck2_error::Result<()> {
     use std::os::unix::fs::MetadataExt;
 
-    use anyhow::Context;
     use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::abs_path::AbsPath;
     use buck2_core::soft_error;
+    use buck2_error::BuckErrorContext;
 
     #[derive(Debug, buck2_error::Error)]
     #[error("buck2 is not allowed to run as root (unless home dir is owned by root)")]
+    #[buck2(tag = Input)]
     struct RootError;
 
     if nix::unistd::geteuid().is_root() {
-        let home_dir = dirs::home_dir().context("home dir not found")?;
+        let home_dir = dirs::home_dir().buck_error_context("home dir not found")?;
         if let Ok(home_dir) = AbsPath::new(&home_dir) {
             let home_dir_metadata = fs_util::metadata(home_dir)?;
             if home_dir_metadata.uid() != 0 {
