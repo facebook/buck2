@@ -830,6 +830,7 @@ def _compile_with_argsfile(
         local_only = local_only,
         prefer_local = prefer_local,
         dep_files = dep_files,
+        allow_dep_file_cache_upload = True,
         # Swift compiler requires unique inodes for all input files.
         unique_input_inodes = True,
     )
