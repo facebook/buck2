@@ -104,13 +104,22 @@ def _rewrite_dependency_file(command):
                 break
 
     # Sanity check that we only track relative paths
+    cwd = os.getcwd()
+    relative_paths = []
     for path in dependencies:
-        if path.startswith("/"):
+        if path.startswith(cwd):
+            # The driver passes the host plugins path as an absolute path.
+            # Until that is fixed upstream we need to remove the prefix
+            # from any macro library dependencies.
+            relative_paths.append(path[len(cwd) + 1 :])
+        elif path.startswith("/"):
             print(f"Dependency file contains absolute path: {path}", file=sys.stderr)
             sys.exit(1)
+        else:
+            relative_paths.append(path)
 
     with open(deps_file_path, "w") as f:
-        f.write("\n".join(sorted(dependencies)))
+        f.write("\n".join(sorted(relative_paths)))
         f.write("\n")
 
 
