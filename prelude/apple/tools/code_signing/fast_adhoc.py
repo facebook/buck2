@@ -94,7 +94,7 @@ def should_skip_adhoc_signing_path(
         # sanitizer dylibs have been signed within a different context).
         return False
 
-    codesign_args = ["/usr/bin/codesign", "-d", "-v", path]
+    codesign_args = ["codesign", "-d", "-v", path]
     codesign_result = _logged_subprocess_run(
         "codesign", "check pre-existing signature", codesign_args
     )

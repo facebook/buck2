@@ -74,7 +74,7 @@ def _args_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--codesign-tool",
-        metavar="</usr/bin/codesign>",
+        metavar="<codesign>",
         type=Path,
         required=False,
         help="Path to code signing utility. If not provided standard `codesign` tool will be used.",
