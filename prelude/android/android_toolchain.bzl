@@ -28,6 +28,7 @@ AndroidToolchainInfo = provider(
         "copy_string_resources": provider_field(typing.Any, default = None),
         "cross_module_native_deps_check": provider_field(typing.Any, default = None),
         "d8_command": provider_field(typing.Any, default = None),
+        "duplicate_class_checker": provider_field(typing.Any, default = None),
         "exo_resources_rewriter": provider_field(typing.Any, default = None),
         "exopackage_agent_apk": provider_field(typing.Any, default = None),
         "filter_dex_class_names": provider_field(typing.Any, default = None),

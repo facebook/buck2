@@ -7,6 +7,23 @@ source_listing()
 prelude = native  # Avoid warnings and auto-formatters
 
 prelude.python_bootstrap_binary(
+    name = "duplicate_class_checker",
+    main = "duplicate_class_checker.py",
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//java/tools:utils_lib",
+        ":duplicate_class_checker_lib",
+    ],
+)
+
+prelude.python_bootstrap_library(
+    name = "duplicate_class_checker_lib",
+    srcs = [
+        "duplicate_class_checker.py",
+    ],
+)
+
+prelude.python_bootstrap_binary(
     name = "unpack_aar",
     main = "unpack_aar.py",
     visibility = ["PUBLIC"],
