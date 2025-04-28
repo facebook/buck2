@@ -42,9 +42,9 @@ buck_java_library(
         "PUBLIC",
     ],
     deps = [
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/d8:d8",
         "prelude//toolchains/android/src/com/facebook/buck/android/apkmodule:module-only",
         "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip",
+        "prelude//toolchains/android/third-party:d8",
         "prelude//toolchains/android/third-party:guava",
     ],
 )
@@ -56,9 +56,9 @@ buck_java_library(
         "PUBLIC",
     ],
     deps = [
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/d8:d8",
         "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip",
         "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:d8",
         "prelude//toolchains/android/third-party:guava",
         ":dex",
     ],
@@ -83,10 +83,10 @@ buck_java_library(
         "PUBLIC",
     ],
     deps = [
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/d8:d8",
         "prelude//toolchains/android/src/com/facebook/buck/android/apkmodule:module-only",
         "prelude//toolchains/android/src/com/facebook/buck/android/proguard:translator",
         "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:d8",
         "prelude//toolchains/android/third-party:guava",
         ":canary",
         ":dex",

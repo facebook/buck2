@@ -1272,3 +1272,17 @@ third_party_jar(
     ],
 )
 # ===   End: objenesis
+
+# === Begin: third party libraries with internal patching
+third_party_jar(
+    name = "d8",
+    # @oss-disable[end= ]: internal_alias = "fbsource//xplat/toolchains/android/sdk/third-party/java/d8:d8",
+    sha1 = "3d41953fbdda2adf1a75baee10851cd9de7c1b24",
+    url = "https://github.com/facebook/buck2/releases/download/androidToolchain%2F2025-04-03/d8_dexer_patched.jar",
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/android/dex:d8_executable_main",
+        "prelude//toolchains/android/src/com/facebook/buck/android/dex:dex",
+        "prelude//toolchains/android/src/com/facebook/buck/android/dex:multi_dex_executable_main",
+    ],
+)
+# ===   end: third party libraries with internal patching
