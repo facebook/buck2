@@ -686,7 +686,7 @@ def _get_erl_opts(
 
 def _preserved_opts(opts: list[str]) -> cmd_args:
     """Options that should be preserved in the beam file despite +determinstic"""
-    preservable = set(["+inline", "+line_coverage"])
+    preservable = set(["+beam_debug_info", "+debug_info", "+inline", "+line_coverage"])
     preserved = [opt.lstrip("+") for opt in preservable.intersection(opts)]
 
     joined = cmd_args(preserved, delimiter = ", ")
