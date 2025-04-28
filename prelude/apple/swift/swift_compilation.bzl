@@ -394,13 +394,14 @@ def compile_swift(
         )
 
     object_output = _compile_object(
-        ctx,
-        toolchain,
-        shared_flags,
-        srcs,
-        output_swiftmodule,
-        output_header,
-        compile_category,
+        ctx = ctx,
+        toolchain = toolchain,
+        shared_flags = shared_flags,
+        srcs = srcs,
+        output_swiftmodule = output_swiftmodule,
+        output_header = output_header,
+        inputs_tag = inputs_tag,
+        category = compile_category,
     )
 
     index_store = _compile_index_store(ctx, toolchain, shared_flags, srcs)
@@ -591,18 +592,18 @@ def _compile_swiftmodule(
         output_file_map = {
             "": {
                 "dependencies": cmd_args(tagged_dep_file, delimiter = ""),
+                "emit-module-dependencies": cmd_args(tagged_dep_file, delimiter = ""),
             },
         }
         output_file_map_json = ctx.actions.write_json(
             ctx.attrs.name + "_swiftmodule_output_file_map.json",
             output_file_map,
             pretty = True,
-            with_inputs = True,
         )
         cmd.add([
             "-emit-dependencies",
             "-output-file-map",
-            output_file_map_json,
+            cmd_args(output_file_map_json, hidden = [tagged_dep_file]),
         ])
         dep_files["swiftmodule"] = inputs_tag
 
@@ -639,7 +640,9 @@ def _compile_object(
         srcs: list[CxxSrcWithFlags],
         output_swiftmodule: Artifact,
         output_header: Artifact,
+        inputs_tag: ArtifactTag,
         category: str) -> SwiftObjectOutput:
+    dep_files = {}
     if should_build_swift_incrementally(ctx):
         incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs, output_swiftmodule, output_header)
         num_threads = incremental_compilation_output.num_threads
@@ -647,6 +650,10 @@ def _compile_object(
         objects = incremental_compilation_output.artifacts
         cmd = incremental_compilation_output.incremental_flags_cmd
         swiftdeps = incremental_compilation_output.swiftdeps
+
+        # TODO: add .d file support for incremental compilation, at a minimum
+        # for the swiftmodule output.
+
     else:
         num_threads = 1
         output_map_artifact = None
@@ -669,10 +676,41 @@ def _compile_object(
         if embed_bitcode:
             cmd.add("--embed-bitcode")
 
+        if toolchain.use_depsfiles:
+            dep_file = ctx.actions.declare_output("__depfiles__/" + ctx.attrs.name + "-object.d").as_output()
+            tagged_dep_file = inputs_tag.tag_artifacts(dep_file)
+            output_file_map = {
+                "": {
+                    "dependencies": cmd_args(tagged_dep_file, delimiter = ""),
+                    "emit-module-dependencies": cmd_args(tagged_dep_file, delimiter = ""),
+                },
+            }
+            output_file_map_json = ctx.actions.write_json(
+                ctx.attrs.name + "_swift_output_file_map.json",
+                output_file_map,
+                pretty = True,
+            )
+            cmd.add([
+                "-emit-dependencies",
+                "-output-file-map",
+                cmd_args(output_file_map_json, hidden = [tagged_dep_file]),
+            ])
+            dep_files["object"] = inputs_tag
+
     if _should_compile_with_evolution(ctx):
         cmd.add(["-enable-library-evolution"])
 
-    argsfiles = _compile_with_argsfile(ctx, category, SWIFT_EXTENSION, shared_flags, srcs, cmd, toolchain, num_threads = num_threads)
+    argsfiles = _compile_with_argsfile(
+        ctx = ctx,
+        category_prefix = category,
+        extension = SWIFT_EXTENSION,
+        shared_flags = shared_flags,
+        srcs = srcs,
+        additional_flags = cmd,
+        toolchain = toolchain,
+        num_threads = num_threads,
+        dep_files = dep_files,
+    )
 
     return SwiftObjectOutput(
         object_files = objects,

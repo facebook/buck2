@@ -93,10 +93,13 @@ def _rewrite_dependency_file(command):
     with open(deps_file_path, encoding="utf-8") as f:
         for line in f:
             # We have multiple entries for the supplementary outputs of the
-            # compilation action. We only care about the swiftmodule file,
-            # we can drop the rest of the lines.
+            # compilation action. We have two cases we care about:
+            #  1. swiftmodule output
+            #  2. object file output
+            # Other supplemenatary outputs like swiftsourceinfo are not
+            # tracked.
             output, inputs = line.split(" : ")
-            if output.endswith(".swiftmodule"):
+            if output.endswith(".swiftmodule") or output.endswith(".o"):
                 dependencies = shlex.split(inputs)
                 break
 
