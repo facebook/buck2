@@ -137,7 +137,11 @@ fn register_all_internals(builder: &mut GlobalsBuilder) {
 ///
 /// This does not include the implicit prelude and cell imports which are only available in `BUCK`
 /// files, but does include everything else.
-pub fn base_globals() -> GlobalsBuilder {
+///
+/// Note: As long as starlark/buck have any notion of reference equality, it is important for
+/// correctness that this be called just once. The result should be accessed via
+/// `ctx.get_global_interpreter_state()`
+pub(crate) fn base_globals() -> GlobalsBuilder {
     let mut global_env = GlobalsBuilder::standard().with(register_all_natives);
     global_env.namespace("__internal__", |x| {
         register_all_internals(x);

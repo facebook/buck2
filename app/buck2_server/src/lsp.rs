@@ -43,7 +43,7 @@ use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
-use buck2_interpreter_for_build::interpreter::globals::base_globals;
+use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_interpreter_for_build::interpreter::interpreter_for_dir::ParseData;
 use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -132,7 +132,7 @@ impl DocsCacheManager {
         let mut builtin_docs = Vec::new();
 
         let cell_resolver = dice_ctx.get_cell_resolver().await?;
-        builtin_docs.push((None, get_builtin_globals_docs()));
+        builtin_docs.push((None, get_builtin_globals_docs(dice_ctx).await?));
 
         let builtin_names = builtin_docs
             .iter()
@@ -145,8 +145,14 @@ impl DocsCacheManager {
     }
 }
 
-fn get_builtin_globals_docs() -> DocModule {
-    base_globals().build().documentation()
+async fn get_builtin_globals_docs(
+    dice_ctx: &mut DiceTransaction,
+) -> buck2_error::Result<DocModule> {
+    Ok(dice_ctx
+        .get_global_interpreter_state()
+        .await?
+        .globals()
+        .documentation())
 }
 
 async fn get_prelude_docs(
