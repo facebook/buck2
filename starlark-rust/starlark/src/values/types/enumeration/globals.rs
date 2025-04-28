@@ -52,7 +52,7 @@ pub fn register_enum(builder: &mut GlobalsBuilder) {
         heap: &'v Heap,
     ) -> starlark::Result<Value<'v>> {
         // Every Value must either be a field or a value (the type)
-        EnumType::new(args.items, heap)
+        Ok(EnumType::new(args.items, heap)?.to_value())
     }
 }
 

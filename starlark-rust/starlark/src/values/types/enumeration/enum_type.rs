@@ -57,6 +57,7 @@ use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::ValueTyped;
 use crate::values::enumeration::EnumValue;
 use crate::values::enumeration::matcher::EnumTypeMatcher;
 use crate::values::enumeration::ty_enum_type::TyEnumData;
@@ -169,11 +170,14 @@ pub type EnumType<'v> = EnumTypeGen<Value<'v>>;
 pub type FrozenEnumType = EnumTypeGen<FrozenValue>;
 
 impl<'v> EnumType<'v> {
-    pub(crate) fn new(elements: Vec<StringValue<'v>>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub(crate) fn new(
+        elements: Vec<StringValue<'v>>,
+        heap: &'v Heap,
+    ) -> crate::Result<ValueTyped<'v, EnumType<'v>>> {
         // We are constructing the enum and all elements in one go.
         // They both point at each other, which adds to the complexity.
         let id = TypeInstanceId::r#gen();
-        let typ = heap.alloc(EnumType {
+        let typ = heap.alloc_typed(EnumType {
             id,
             ty_enum_data: OnceCell::new(),
             elements: UnsafeCell::new(SmallMap::new()),
@@ -183,7 +187,7 @@ impl<'v> EnumType<'v> {
         for (i, x) in elements.iter().enumerate() {
             let v = heap.alloc(EnumValue {
                 id,
-                typ,
+                typ: typ.to_value(),
                 index: i as i32,
                 value: x.to_value(),
             });
@@ -195,10 +199,9 @@ impl<'v> EnumType<'v> {
         }
 
         // Here we tie the cycle
-        let t = typ.downcast_ref::<EnumType>().unwrap();
         unsafe {
             // SAFETY: we own unique reference to `t`.
-            *t.elements.get() = res;
+            *typ.elements.get() = res;
         }
         Ok(typ)
     }
