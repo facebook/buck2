@@ -7,6 +7,19 @@
 
 load("@prelude//java:java_toolchain.bzl", "JavaPlatformInfo", "JavaToolchainInfo", "PrebuiltJarToolchainInfo")
 
+def _system_java_tool_impl(ctx):
+    return [
+        DefaultInfo(),
+        RunInfo([ctx.attrs.tool_name]),
+    ]
+
+system_java_tool = rule(
+    impl = _system_java_tool_impl,
+    attrs = {
+        "tool_name": attrs.string(),
+    },
+)
+
 def system_prebuilt_jar_bootstrap_toolchain(name, visibility = None):
     kwargs = {}
 
@@ -31,12 +44,14 @@ _prebuilt_jar_toolchain_rule = rule(
 
 def system_java_bootstrap_toolchain(
         name,
+        java,
         visibility = None):
     kwargs = {}
 
     _java_toolchain(
         name = name,
         visibility = visibility,
+        java = java,
         **kwargs
     )
 
@@ -51,11 +66,11 @@ def _java_toolchain_impl(ctx):
             gen_class_to_source_map = ctx.attrs.gen_class_to_source_map,
             gen_class_to_source_map_include_sourceless_compiled_packages = ctx.attrs.gen_class_to_source_map_include_sourceless_compiled_packages,
             gen_class_to_source_map_debuginfo = None,
-            fat_jar = None,
+            fat_jar = ctx.attrs.fat_jar,
             jar = None,
-            java = None,
-            jar_builder = RunInfo(["java", "-jar", ctx.attrs.jar_builder]),
-            zip_scrubber = RunInfo(["java", "-jar", ctx.attrs.zip_scrubber]),
+            java = ctx.attrs.java,
+            jar_builder = RunInfo(cmd_args([ctx.attrs.java[RunInfo], "-jar", ctx.attrs.jar_builder])),
+            zip_scrubber = RunInfo(cmd_args([ctx.attrs.java[RunInfo], "-jar", ctx.attrs.zip_scrubber])),
             track_class_usage = False,
             is_bootstrap_toolchain = True,
             class_abi_generator = None,
@@ -77,6 +92,7 @@ _java_toolchain = rule(
     attrs = {
         "class_abi_generator": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "compile_and_package": attrs.dep(default = "prelude//java/tools:compile_and_package"),
+        "fat_jar": attrs.dep(default = "prelude//java/tools:fat_jar"),
         "gen_class_to_source_map": attrs.exec_dep(
             default = "prelude//java/tools:gen_class_to_source_map",
             providers = [RunInfo],
@@ -86,6 +102,7 @@ _java_toolchain = rule(
         ]),
         "is_bootstrap_toolchain": attrs.bool(default = False),
         "jar_builder": attrs.source(default = "prelude//toolchains/android/src/com/facebook/buck/util/zip:jar_builder"),
+        "java": attrs.dep(),
         "zip_scrubber": attrs.source(default = "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip_scrubber"),
     },
 )
