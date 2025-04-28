@@ -17,6 +17,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
+use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
@@ -126,6 +127,7 @@ fn attr_coercer_coerces() -> buck2_error::Result<()> {
             CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
                 package.as_cell_path().to_owned(),
             ),
+            InferTargetNames::No,
         );
         let label_coercer = AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY);
         let string_coercer = AttrType::string();
@@ -305,12 +307,14 @@ fn coercing_src_to_path_works() -> buck2_error::Result<()> {
         CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
             package.as_cell_path().to_owned(),
         ),
+        InferTargetNames::No,
     );
     let no_package_ctx = BuildAttrCoercionContext::new_no_package(
         cell_resolver,
         CellName::testing_new("root"),
         cell_alias_resolver,
         Arc::new(ConcurrentTargetLabelInterner::default()),
+        InferTargetNames::No,
     );
 
     let err = no_package_ctx

@@ -23,6 +23,7 @@ use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
+use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern::TargetParsingRel;
 use buck2_core::pattern::pattern_type::PatternType;
@@ -86,6 +87,10 @@ pub struct BuildAttrCoercionContext {
     current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
     /// Does this package (if present) have a package boundary exception on it.
     package_boundary_exception: bool,
+    /// Whether to infer a target name when a pattern does not provide one,
+    /// making `//foo/bar` equivalent to `//foo/bar:bar`. Controlled by the
+    /// `buck2.infer_target_names` buckconfig.
+    infer_target_names: InferTargetNames,
     /// Allocator for `label_cache`.
     alloc: Bump,
     global_label_interner: Arc<ConcurrentTargetLabelInterner>,
@@ -121,6 +126,7 @@ impl BuildAttrCoercionContext {
         package_boundary_exception: bool,
         global_label_interner: Arc<ConcurrentTargetLabelInterner>,
         current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
+        infer_target_names: InferTargetNames,
     ) -> Self {
         Self {
             cell_resolver,
@@ -129,6 +135,7 @@ impl BuildAttrCoercionContext {
             enclosing_package,
             current_dir_with_allowed_relative_dirs,
             package_boundary_exception,
+            infer_target_names,
             alloc: Bump::new(),
             global_label_interner,
             label_cache: RefCell::new(HashTable::new()),
@@ -144,6 +151,7 @@ impl BuildAttrCoercionContext {
         cell_name: CellName,
         cell_alias_resolver: CellAliasResolver,
         global_label_interner: Arc<ConcurrentTargetLabelInterner>,
+        infer_target_names: InferTargetNames,
     ) -> Self {
         Self::new(
             cell_resolver,
@@ -156,6 +164,7 @@ impl BuildAttrCoercionContext {
                 cell_name,
                 CellRelativePathBuf::unchecked_new("".into()),
             )),
+            infer_target_names,
         )
     }
 
@@ -166,6 +175,7 @@ impl BuildAttrCoercionContext {
         package_boundary_exception: bool,
         global_label_interner: Arc<ConcurrentTargetLabelInterner>,
         current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
+        infer_target_names: InferTargetNames,
     ) -> Self {
         Self::new(
             cell_resolver,
@@ -175,6 +185,7 @@ impl BuildAttrCoercionContext {
             package_boundary_exception,
             global_label_interner,
             current_dir_with_allowed_relative_dirs,
+            infer_target_names,
         )
     }
 
@@ -203,6 +214,7 @@ impl BuildAttrCoercionContext {
             target_parsing_rel,
             &self.cell_resolver,
             &self.cell_alias_resolver,
+            self.infer_target_names,
         )
     }
 

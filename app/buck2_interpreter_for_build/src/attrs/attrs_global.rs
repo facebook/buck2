@@ -109,6 +109,7 @@ pub(crate) fn attr_coercion_context_for_bzl<'v>(
         build_context.cell_info().cell_alias_resolver().dupe(),
         // It is OK to not deduplicate because we don't coerce a lot of labels in bzl files.
         Arc::new(ConcurrentTargetLabelInterner::default()),
+        build_context.infer_target_names,
     ))
 }
 

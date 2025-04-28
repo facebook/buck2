@@ -509,6 +509,7 @@ impl InterpreterForDir {
             host_info,
             extra_context,
             self.ignore_attrs_for_profiling,
+            self.global_state.configuror.infer_target_names(),
         );
 
         let print = EventDispatcherPrintHandler(get_dispatcher());

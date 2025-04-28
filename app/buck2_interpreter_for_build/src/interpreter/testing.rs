@@ -25,6 +25,7 @@ use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedR
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
@@ -214,6 +215,7 @@ impl Tester {
                     None,
                     false,
                     false,
+                    InferTargetNames::No,
                     Some(AdditionalGlobalsFn(Arc::new(FnWrapper(Box::new(
                         move |globals_builder| {
                             for additional_globals in &additional_globals {

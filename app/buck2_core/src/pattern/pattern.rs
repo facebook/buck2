@@ -336,7 +336,7 @@ impl<T: PatternType> ParsedPattern<T> {
             cell_alias_resolver,
             TargetParsingOptions {
                 relative: TargetParsingRel::RequireAbsolute(cell),
-                infer_target: false,
+                infer_target: InferTargetNames::No,
                 strip_package_trailing_slash: false,
             },
             pattern,
@@ -372,7 +372,7 @@ impl<T: PatternType> ParsedPattern<T> {
                     ),
                     Some(target_alias_resolver),
                 ),
-                infer_target: true,
+                infer_target: InferTargetNames::Yes,
                 strip_package_trailing_slash: true,
             },
             pattern,
@@ -382,18 +382,23 @@ impl<T: PatternType> ParsedPattern<T> {
         Self::from_parsed_pattern_with_modifiers(pattern_with_modifiers)
     }
 
+    /// Parse a TargetPattern out, resolving aliases via `cell_resolver` and resolving
+    /// relative targets as permitted by `relative`. If `infer_target` is `Yes`, a target
+    /// name is inferred when none is provided (e.g. `//foo/bar` is interpreted as
+    /// `//foo/bar:bar`).
     pub fn parse_not_relaxed(
         pattern: &str,
         relative: TargetParsingRel<'_>,
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
+        infer_target: InferTargetNames,
     ) -> buck2_error::Result<Self> {
         let pattern_with_modifiers = parse_target_pattern(
             cell_resolver,
             cell_alias_resolver,
             TargetParsingOptions {
                 relative,
-                infer_target: false,
+                infer_target,
                 strip_package_trailing_slash: false,
             },
             pattern,
@@ -476,7 +481,7 @@ impl<T: PatternType> ParsedPatternWithModifiers<T> {
             cell_alias_resolver,
             TargetParsingOptions {
                 relative: TargetParsingRel::RequireAbsolute(cell),
-                infer_target: false,
+                infer_target: InferTargetNames::No,
                 strip_package_trailing_slash: false,
             },
             pattern,
@@ -503,7 +508,7 @@ impl<T: PatternType> ParsedPatternWithModifiers<T> {
                     ),
                     Some(target_alias_resolver),
                 ),
-                infer_target: true,
+                infer_target: InferTargetNames::Yes,
                 strip_package_trailing_slash: true,
             },
             pattern,
@@ -522,7 +527,7 @@ impl<T: PatternType> ParsedPatternWithModifiers<T> {
             cell_alias_resolver,
             TargetParsingOptions {
                 relative,
-                infer_target: false,
+                infer_target: InferTargetNames::No,
                 strip_package_trailing_slash: false,
             },
             pattern,
@@ -1059,11 +1064,19 @@ impl<'a> TargetParsingRel<'a> {
     }
 }
 
+/// Whether to infer a target name from the last component of a package path when
+/// a pattern does not name one, making `//foo/bar` equivalent to `//foo/bar:bar`.
+#[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq, Allocative, Pagable)]
+pub enum InferTargetNames {
+    Yes,
+    No,
+}
+
 #[derive(Clone, Dupe)]
 struct TargetParsingOptions<'a> {
     relative: TargetParsingRel<'a>,
     /// Whether to infer the target in a pattern such as `foo/bar` (to `foo/bar:bar`).
-    infer_target: bool,
+    infer_target: InferTargetNames,
     /// Whether to strip trailing slashes in package names, in e.g. `foo/bar/` or `foo/bar/:qux`.
     /// If not set, trailing slashes are an error. Note that this happens before target inference
     /// (if enabled), so e.g. `foo/bar/` becomes `foo/bar:bar`.
@@ -1119,10 +1132,9 @@ where
         pattern,
     } = lex;
 
-    let pattern = if infer_target {
-        pattern.infer_target()?
-    } else {
-        pattern.reject_ambiguity()?
+    let pattern = match infer_target {
+        InferTargetNames::Yes => pattern.infer_target()?,
+        InferTargetNames::No => pattern.reject_ambiguity()?,
     };
 
     // This allows things of the form `//foo` (having a cell alias) or `:bar` (no cell, no package,
@@ -1237,7 +1249,7 @@ where
         cell_alias_resolver,
         TargetParsingOptions {
             relative: TargetParsingRel::RequireAbsolute(cell_name),
-            infer_target: false,
+            infer_target: InferTargetNames::No,
             strip_package_trailing_slash: false,
         },
         alias,
@@ -1296,6 +1308,7 @@ mod tests {
     use crate::configuration::builtin::BuiltinPlatform;
     use crate::configuration::hash::ConfigurationHash;
     use crate::package::PackageLabel;
+    use crate::pattern::pattern::InferTargetNames;
     use crate::pattern::pattern::Modifiers;
     use crate::pattern::pattern::ParsedPattern;
     use crate::pattern::pattern::ParsedPatternWithModifiers;
@@ -1540,6 +1553,7 @@ mod tests {
                 ),
                 &resolver(),
                 &alias_resolver(),
+                InferTargetNames::No,
             )
             .unwrap()
         );
@@ -1553,6 +1567,7 @@ mod tests {
                 ),
                 &resolver(),
                 &alias_resolver(),
+                InferTargetNames::No,
             )
             .unwrap()
         );
@@ -1584,6 +1599,7 @@ mod tests {
                 ),
                 &resolver(),
                 &alias_resolver(),
+                InferTargetNames::No,
             )?
         );
         Ok(())
@@ -1596,6 +1612,22 @@ mod tests {
             CellRelativePath::unchecked_new("package").to_owned(),
         );
 
+        assert_eq!(
+            mk_target("root", "package/path", "path"),
+            ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
+                "path",
+                TargetParsingRel::AllowRelative(
+                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
+                        package.clone()
+                    ),
+                    Some(&NoAliases),
+                ),
+                &resolver(),
+                &alias_resolver(),
+                InferTargetNames::Yes,
+            )?
+        );
+
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
                 "path",
@@ -1605,6 +1637,7 @@ mod tests {
                 ),
                 &resolver(),
                 &alias_resolver(),
+                InferTargetNames::No,
             ),
             Err(e) => {
                 assert!(
@@ -1734,6 +1767,7 @@ mod tests {
                 TargetParsingRel::AllowLimitedRelative(package.as_ref()),
                 &resolver(),
                 &alias_resolver(),
+                InferTargetNames::No,
             )?
         );
         assert_eq!(
@@ -1743,6 +1777,7 @@ mod tests {
                 TargetParsingRel::AllowLimitedRelative(package.as_ref()),
                 &resolver(),
                 &alias_resolver(),
+                InferTargetNames::No,
             )?
         );
         let err = ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
@@ -1750,6 +1785,7 @@ mod tests {
             TargetParsingRel::RequireAbsolute(CellName::testing_new("root")),
             &resolver(),
             &alias_resolver(),
+            InferTargetNames::No,
         )
         .unwrap_err();
         assert!(
@@ -1766,6 +1802,7 @@ mod tests {
                 TargetParsingRel::RequireAbsolute(CellName::testing_new("root")),
                 &resolver(),
                 &alias_resolver(),
+                InferTargetNames::No,
             )?
         );
 
@@ -1775,6 +1812,22 @@ mod tests {
                 TargetParsingRel::AllowLimitedRelative(package.as_ref()),
                 &resolver(),
                 &alias_resolver(),
+                InferTargetNames::Yes,
+            ),
+            Err(e) => {
+                assert!(
+                    format!("{e:?}").contains(&format!("{}", TargetPatternParseError::AbsoluteRequired))
+                );
+            }
+        );
+
+        assert_matches!(
+            ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
+                "foo/bar",
+                TargetParsingRel::AllowLimitedRelative(package.as_ref()),
+                &resolver(),
+                &alias_resolver(),
+                InferTargetNames::No,
             ),
             Err(e) => {
                 assert!(
@@ -1789,6 +1842,7 @@ mod tests {
                 TargetParsingRel::AllowLimitedRelative(package.as_ref()),
                 &resolver(),
                 &alias_resolver(),
+                InferTargetNames::No,
             ),
             Err(e) => {
                 assert!(
@@ -1802,6 +1856,7 @@ mod tests {
                 TargetParsingRel::RequireAbsolute(CellName::testing_new("root")),
                 &resolver(),
                 &alias_resolver(),
+                InferTargetNames::No,
             ),
             Err(e) => {
                 assert!(
@@ -2310,6 +2365,7 @@ mod tests {
                 ),
                 &resolver(),
                 &alias_resolver(),
+                InferTargetNames::No,
             )?
         );
 
@@ -2324,6 +2380,7 @@ mod tests {
                 ),
                 &resolver(),
                 &alias_resolver(),
+                InferTargetNames::No,
             ),
             &["Error parsing target pattern `../sibling:target`"],
         );
@@ -2340,6 +2397,7 @@ mod tests {
                 ),
                 &resolver(),
                 &alias_resolver(),
+                InferTargetNames::No,
             ),
             &["Error parsing target pattern `../../not_allowed:target`"],
         );
@@ -2522,6 +2580,7 @@ mod tests {
                 TargetParsingRel::RequireAbsolute(CellName::testing_new("root")),
                 &resolver(),
                 &alias_resolver(),
+                InferTargetNames::No,
             ),
             &["The ?modifier syntax is unsupported for this command"],
         );

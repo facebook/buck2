@@ -17,6 +17,8 @@ use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_cli_proto::*;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::file_ops::dice::DiceFileComputations;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;
@@ -27,6 +29,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
+use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern::TargetParsingRel;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
@@ -492,16 +495,33 @@ impl<'a> BuckLspContext<'a> {
         current_package: CellPathRef<'_>,
         literal: &str,
     ) -> buck2_error::Result<Option<StringLiteralResult>> {
-        let (artifact_fs, cell_alias_resolver, dir_with_allowed_relative_dirs) = self
-            .with_dice_ctx(|mut dice_ctx| async move {
+        let (artifact_fs, cell_alias_resolver, dir_with_allowed_relative_dirs, infer_target_names) =
+            self.with_dice_ctx(|mut dice_ctx| async move {
+                let artifact_fs = dice_ctx.get_artifact_fs().await?;
+                let infer_target_names = if dice_ctx
+                    .parse_legacy_config_property(
+                        artifact_fs.cell_resolver().root_cell(),
+                        BuckconfigKeyRef {
+                            section: "buck2",
+                            property: "infer_target_names",
+                        },
+                    )
+                    .await?
+                    .unwrap_or(false)
+                {
+                    InferTargetNames::Yes
+                } else {
+                    InferTargetNames::No
+                };
                 Ok((
-                    dice_ctx.get_artifact_fs().await?,
+                    artifact_fs,
                     dice_ctx
                         .get_cell_alias_resolver(current_package.cell())
                         .await?,
                     dice_ctx
                         .dirs_allowing_relative_paths(current_package.to_owned())
                         .await?,
+                    infer_target_names,
                 ))
             })
             .await?;
@@ -515,6 +535,7 @@ impl<'a> BuckLspContext<'a> {
             },
             cell_resolver,
             &cell_alias_resolver,
+            infer_target_names,
         ) {
             Ok(ParsedPattern::Target(package, target, _)) => {
                 let res = self
