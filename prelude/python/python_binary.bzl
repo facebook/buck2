@@ -182,9 +182,6 @@ def python_executable(
 
     source_db_no_deps = create_source_db_no_deps(ctx, srcs)
 
-    dbg_source_db_output = ctx.actions.declare_output("dbg-db.json")
-    dbg_source_db = create_dbg_source_db(ctx, dbg_source_db_output, src_manifest, python_deps)
-
     exe = _convert_python_library_to_executable(
         ctx,
         _qualify_entry_point(
@@ -195,10 +192,12 @@ def python_executable(
         raw_deps,
         compile,
         allow_cache_upload,
-        dbg_source_db_output,
+        src_manifest,
+        python_deps,
+        source_db_no_deps,
     )
 
-    return _add_executable_subtargets(ctx, exe, dbg_source_db, dbg_source_db_output, library_info, main, source_db_no_deps, src_manifest, python_deps)
+    return exe
 
 def _add_executable_subtargets(
         ctx,
@@ -250,7 +249,9 @@ def _add_executable_subtargets(
 
 def _compute_pex_providers(
         ctx,
-        dbg_source_db_output: Artifact | None,
+        src_manifest: ManifestInfo | None,
+        python_deps: list[PythonLibraryInfo],
+        source_db_no_deps: DefaultInfo,
         main: EntryPoint,
         compile: bool,
         library: PythonLibraryInfo,
@@ -260,6 +261,9 @@ def _compute_pex_providers(
         link_args: list[LinkArgs],
         extra: dict[str, typing.Any],
         extra_artifacts: dict[str, typing.Any]) -> PexProviders:
+    dbg_source_db_output = ctx.actions.declare_output("dbg-db.json")
+    dbg_source_db = create_dbg_source_db(ctx, dbg_source_db_output, src_manifest, python_deps)
+
     link_strategy = compute_link_strategy(ctx)
     build_args = ctx.attrs.build_args
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
@@ -377,7 +381,7 @@ def _compute_pex_providers(
 
     pex.sub_targets.update(extra)
 
-    return pex
+    return _add_executable_subtargets(ctx, pex, dbg_source_db, dbg_source_db_output, library, main, source_db_no_deps, src_manifest, python_deps)
 
 def _convert_python_library_to_executable(
         ctx: AnalysisContext,
@@ -386,7 +390,9 @@ def _convert_python_library_to_executable(
         deps: list[Dependency],
         compile: bool,
         allow_cache_upload: bool,
-        dbg_source_db_output: Artifact | None) -> PexProviders:
+        src_manifest: ManifestInfo | None,
+        python_deps: list[PythonLibraryInfo],
+        source_db_no_deps: DefaultInfo) -> PexProviders:
     extra = {}
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
@@ -426,7 +432,9 @@ def _convert_python_library_to_executable(
 
     return _compute_pex_providers(
         ctx,
-        dbg_source_db_output,
+        src_manifest,
+        python_deps,
+        source_db_no_deps,
         main,
         compile,
         library,
