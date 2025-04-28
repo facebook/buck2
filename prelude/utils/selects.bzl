@@ -56,7 +56,7 @@ def _apply_n(objs, func):
     """
     return _apply(
         _tie_n(*objs),
-        # Unpack n-tuple and call user-suppled function.
+        # Unpack n-tuple and call user-supplied function.
         partial(_apply_n_inner, func),
     )
 
