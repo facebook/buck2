@@ -19,6 +19,7 @@ load(
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load(
     "@prelude//linking:link_info.bzl",
+    "LinkArgs",  # @unused Used as a type
     "LinkedObject",
 )
 load(
@@ -233,56 +234,25 @@ def python_executable(
 
     return exe
 
-def _convert_python_library_to_executable(
-        ctx: AnalysisContext,
+def _compute_pex_providers(
+        ctx,
+        dbg_source_db: Artifact | None,
         main: EntryPoint,
-        library: PythonLibraryInfo,
-        deps: list[Dependency],
         compile: bool,
+        library: PythonLibraryInfo,
         allow_cache_upload: bool,
-        dbg_source_db: [Artifact, None]) -> PexProviders:
-    extra = {}
-
-    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
-    package_style = get_package_style(ctx)
-
-    # Convert preloaded deps to a set of their names to be loaded by.
-    preload_labels = set([_linkable_graph(d).label for d in ctx.attrs.preload_deps if _linkable_graph(d)])
-
-    extra_artifacts = {}
-    link_args = []
+        shared_libs: list[(SharedLibrary, str)],
+        extensions: dict[str, (LinkedObject, Label)],
+        link_args: list[LinkArgs],
+        extra: dict[str, typing.Any],
+        extra_artifacts: dict[str, typing.Any]) -> PexProviders:
     link_strategy = compute_link_strategy(ctx)
     build_args = ctx.attrs.build_args
+    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
 
     if link_strategy == NativeLinkStrategy("native"):
         entry_point = "runtime/bin/{}".format(ctx.attrs.executable_name)
         build_args.append(cmd_args("--passthrough=--runtime-binary={}".format(entry_point)))
-        shared_libs, extensions, link_args, extra, extra_artifacts = process_native_linking(
-            ctx,
-            deps,
-            python_toolchain,
-            package_style,
-            allow_cache_upload,
-        )
-    else:
-        extensions = {}
-        for manifest in library.manifests.traverse():
-            if manifest.extensions:
-                _merge_extensions(extensions, manifest.label, manifest.extensions)
-        if link_strategy == NativeLinkStrategy("merged"):
-            shared_libs, extensions = process_omnibus_linking(ctx, deps, extensions, python_toolchain, extra)
-        else:
-            shared_libs = [
-                (shared_lib, "")
-                for shared_lib in traverse_shared_library_info(library.shared_libraries)
-            ]
-
-            # darwin and windows expect self-contained dynamically linked
-            # python extensions without additional transitive shared libraries
-            shared_libs += [
-                (extension_shared_lib, "")
-                for extension_shared_lib in traverse_shared_library_info(library.extension_shared_libraries)
-            ]
 
     if dbg_source_db:
         extra_artifacts["dbg-db.json"] = dbg_source_db
@@ -306,6 +276,7 @@ def _convert_python_library_to_executable(
             extra_artifacts["runtime/include/{}".format(bundle.include.basename)] = bundle.include
 
     extra_manifests = create_manifest_for_source_map(ctx, "extra_manifests", extra_artifacts)
+    package_style = get_package_style(ctx)
 
     # Strip native libraries and extensions and update the .gnu_debuglink references if we are extracting
     # debug symbols from the par
@@ -371,6 +342,9 @@ def _convert_python_library_to_executable(
         ) if extensions else None,
     )
 
+    # Convert preloaded deps to a set of their names to be loaded by.
+    preload_labels = set([_linkable_graph(d).label for d in ctx.attrs.preload_deps if _linkable_graph(d)])
+
     # Build the PEX.
     pex = make_py_package(
         ctx = ctx,
@@ -390,6 +364,65 @@ def _convert_python_library_to_executable(
     pex.sub_targets.update(extra)
 
     return pex
+
+def _convert_python_library_to_executable(
+        ctx: AnalysisContext,
+        main: EntryPoint,
+        library: PythonLibraryInfo,
+        deps: list[Dependency],
+        compile: bool,
+        allow_cache_upload: bool,
+        dbg_source_db: [Artifact, None]) -> PexProviders:
+    extra = {}
+
+    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
+    package_style = get_package_style(ctx)
+
+    extra_artifacts = {}
+    link_args = []
+    link_strategy = compute_link_strategy(ctx)
+
+    if link_strategy == NativeLinkStrategy("native"):
+        shared_libs, extensions, link_args, extra, extra_artifacts = process_native_linking(
+            ctx,
+            deps,
+            python_toolchain,
+            package_style,
+            allow_cache_upload,
+        )
+    else:
+        extensions = {}
+        for manifest in library.manifests.traverse():
+            if manifest.extensions:
+                _merge_extensions(extensions, manifest.label, manifest.extensions)
+        if link_strategy == NativeLinkStrategy("merged"):
+            shared_libs, extensions = process_omnibus_linking(ctx, deps, extensions, python_toolchain, extra)
+        else:
+            shared_libs = [
+                (shared_lib, "")
+                for shared_lib in traverse_shared_library_info(library.shared_libraries)
+            ]
+
+            # darwin and windows expect self-contained dynamically linked
+            # python extensions without additional transitive shared libraries
+            shared_libs += [
+                (extension_shared_lib, "")
+                for extension_shared_lib in traverse_shared_library_info(library.extension_shared_libraries)
+            ]
+
+    return _compute_pex_providers(
+        ctx,
+        dbg_source_db,
+        main,
+        compile,
+        library,
+        allow_cache_upload,
+        shared_libs,
+        extensions,
+        link_args,
+        extra,
+        extra_artifacts,
+    )
 
 def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     main_module = ctx.attrs.main_module
