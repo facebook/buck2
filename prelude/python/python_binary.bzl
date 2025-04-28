@@ -45,6 +45,7 @@ load(
 load(":make_py_package.bzl", "PexModules", "PexProviders", "make_default_info", "make_py_package", "make_run_info")
 load(
     ":manifest.bzl",
+    "ManifestInfo",  # @unused Used as a type
     "create_manifest_for_extensions",
     "create_manifest_for_source_map",
 )
@@ -197,6 +198,19 @@ def python_executable(
         dbg_source_db_output,
     )
 
+    return _add_executable_subtargets(ctx, exe, dbg_source_db, dbg_source_db_output, library_info, main, source_db_no_deps, src_manifest, python_deps)
+
+def _add_executable_subtargets(
+        ctx,
+        exe: PexProviders,
+        dbg_source_db: DefaultInfo,
+        dbg_source_db_output: Artifact | None,
+        library_info: PythonLibraryInfo,
+        main: EntryPoint,
+        source_db_no_deps: DefaultInfo,
+        src_manifest: ManifestInfo | None,
+        python_deps: list[PythonLibraryInfo]) -> PexProviders:
+    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
     exe = PexProviders(
         default_output = exe.default_output,
         other_outputs = exe.other_outputs,
