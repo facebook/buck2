@@ -805,6 +805,14 @@ third_party_jar(
     visibility = ["PUBLIC"],
 )
 
+third_party_jar(
+    name = "jvm-abi-gen",
+    # @oss-disable[end= ]: internal_alias = "fbsource//xplat/kotlin/jvm-abi-gen:jvm-abi-gen",
+    sha1 = "ec44cc7ca0ffc6c21358b0628b5eaafb34a1a20c",
+    url = "mvn:org.jetbrains.kotlin:jvm-abi-gen:jar:2.1.0",
+    visibility = ["PUBLIC"],
+)
+
 # We need to figure out how to handle JAR patches
 third_party_jar(
     name = "kotlin-compiler-embeddable",
