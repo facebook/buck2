@@ -298,7 +298,7 @@ impl<T: PatternType> ParsedPattern<T> {
             cell_alias_resolver,
             TargetParsingOptions {
                 relative,
-                infer_target: false,
+                infer_target: true,
                 strip_package_trailing_slash: false,
             },
             pattern,
