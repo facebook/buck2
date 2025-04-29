@@ -351,7 +351,8 @@ async def test_version_control_collector_slow(buck: Buck, tmp_path: Path) -> Non
     assert record["hg_revision"] is not None
 
 
-@buck_test(setup_eden=True, skip_for_os=["darwin"])
+# NOTE: Delete or disable if flaky, ran a bunch of times on my devserver and it passes fine
+@buck_test(setup_eden=True, skip_for_os=["darwin", "windows"])
 async def test_version_control_collector_fast(buck: Buck, tmp_path: Path) -> None:
     record = tmp_path / "record.json"
 
@@ -364,5 +365,4 @@ async def test_version_control_collector_fast(buck: Buck, tmp_path: Path) -> Non
     record = read_invocation_record(record)
 
     assert "has_local_changes" in record and "hg_revision" in record
-    # FIXME(minglunli): This is wrong, but `buck2 targets` command finishes too fast for shelling out for hg
-    assert record["hg_revision"] is None
+    assert record["hg_revision"] is not None

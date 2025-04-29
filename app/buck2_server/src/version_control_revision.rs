@@ -86,7 +86,7 @@ async fn create_revision_data(
     match repo_type(repo_root).await {
         Ok(repo_vcs) => {
             match repo_vcs {
-                RepoVcs::Hg => create_hg_data(&mut revision, revision_type).await,
+                RepoVcs::Hg => create_hg_data(&mut revision, revision_type, repo_root).await,
                 RepoVcs::Git => {
                     // TODO(rajneeshl): Implement the git data
                     // Add a message for now so we can actually tell if revision is null due to git
@@ -107,77 +107,45 @@ async fn create_revision_data(
 async fn create_hg_data(
     revision: &mut buck2_data::VersionControlRevision,
     revision_type: RevisionDataType,
+    repo_root: &AbsNormPathBuf,
 ) {
     match revision_type {
-        RevisionDataType::CurrentRevision => add_hg_whereami(revision).await,
-        RevisionDataType::Status => add_hg_status(revision).await,
+        RevisionDataType::CurrentRevision => get_hg_revision(revision, repo_root).await,
+        RevisionDataType::Status => get_hg_status(revision).await,
     }
 }
 
-async fn add_hg_whereami(revision: &mut buck2_data::VersionControlRevision) {
-    // `hg whereami` returns the full hash of the revision
-    let whereami_output = match reap_on_drop_command("hg", &["whereami"], Some(&[("HGPLAIN", "1")]))
-    {
-        Ok(command) => command.output().await,
-        Err(e) => {
-            revision.command_error = Some(format!(
-                "reap_on_drop_command for `hg whereami` failed\n {:#}",
-                e
-            ));
-            return;
-        }
-    };
+async fn get_hg_revision(
+    revision: &mut buck2_data::VersionControlRevision,
+    repo_root: &AbsNormPathBuf,
+) {
+    // The contents of dirstate may be arbitrarily large, but the id is always
+    // in the first 20 bytes, so we only need to read the first 20 bytes
+    let mut buffer = [0; 20];
+    let dirstate = repo_root
+        .join(ForwardRelativePath::new(".hg").unwrap())
+        .join(ForwardRelativePath::new("dirstate").unwrap());
 
-    match whereami_output {
-        Ok(result) => {
-            if !result.status.success() {
-                let stderr = match std::str::from_utf8(&result.stderr) {
-                    Ok(s) => s,
-                    Err(e) => {
-                        revision.command_error =
-                            Some(format!("hg whereami stderr is not utf8: {}", e));
-                        return;
-                    }
-                };
+    if let Err(e) = async_fs_util::read(&dirstate, &mut buffer).await {
+        revision.command_error = Some(format!(
+            "Failed to read the first 20 bytes of {}: {:#}",
+            dirstate.display(),
+            e
+        ));
+        return;
+    }
 
-                revision.command_error = Some(format!(
-                    "Command `hg whereami` failed with error code {}; stderr:\n{}",
-                    result.status, stderr
-                ));
-                return;
-            }
-
-            let stdout = match std::str::from_utf8(&result.stdout) {
-                Ok(s) => s.trim(),
-                Err(e) => {
-                    revision.command_error = Some(format!("hg whereami stdout is not utf8: {}", e));
-                    return;
-                }
-            };
-            // whereami will sometimes return multiple revisions (Possibly due to merge state not handled well)
-            // This is not a common pattern (less than 1%) and the last revision should be accurate enough
-            // `hg log -r . -T '{node}'`` handles this properly but it's ~40% slower, we should switch if that becomes more performant
-            let last_line = stdout.split('\n').next_back().unwrap_or(stdout);
-            if last_line.len() == 40 {
-                revision.hg_revision = Some(last_line.to_owned());
-            } else {
-                revision.command_error = Some(format!("Unexpected revision: {}", stdout));
-            }
-        }
-        Err(e) => {
-            revision.command_error =
-                Some(format!("Command `hg whereami` failed with error: {:?}", e));
-        }
-    };
+    let curr_revision = buffer.iter().map(|b| format!("{:02x}", b)).collect();
+    revision.hg_revision = Some(curr_revision);
 }
 
-async fn add_hg_status(revision: &mut buck2_data::VersionControlRevision) {
+async fn get_hg_status(revision: &mut buck2_data::VersionControlRevision) {
     // `hg status` returns if there are any local changes
     let status_output = match reap_on_drop_command("hg", &["status"], Some(&[("HGPLAIN", "1")])) {
         Ok(command) => command.output().await,
         Err(e) => {
             revision.command_error = Some(format!(
-                "reap_on_drop_command for `hg status` failed\n {}",
+                "reap_on_drop_command for `hg status` failed: {}",
                 e
             ));
             return;
@@ -196,7 +164,7 @@ async fn add_hg_status(revision: &mut buck2_data::VersionControlRevision) {
                     }
                 };
                 revision.command_error = Some(format!(
-                    "Command `hg status` failed with error code {}; stderr:\n{}",
+                    "Command `hg status` failed with error code {}; stderr: {}",
                     result.status, stderr
                 ));
                 return;
