@@ -140,6 +140,9 @@ fn main() -> ! {
         // Log the start timestamp
         tracing::debug!("Client initialized logging");
 
+        #[cfg(unix)]
+        raise_file_descriptor_limits()?;
+
         let args = std::env::args().collect::<Vec<String>>();
         let cwd = AbsWorkingDir::current_dir()?;
         let mut stdin = Stdin::new()?;
@@ -205,4 +208,51 @@ fn main() -> ! {
     }
 
     main_with_result().report()
+}
+
+#[cfg(unix)]
+fn raise_file_descriptor_limits() -> nix::Result<()> {
+    use nix::sys::resource;
+    use nix::sys::resource::Resource;
+
+    let (soft_limit, hard_limit) = resource::getrlimit(Resource::RLIMIT_NOFILE)?;
+
+    // If the soft limit is already maxxed out or "big enough", don't mess with it.
+    //
+    // The "big enough" value is the default value on Linux.
+    if soft_limit == hard_limit || soft_limit >= 0x80_000 {
+        return Ok(());
+    }
+
+    // We don't care if the limits were already set, so ignore any errors.
+    let _ = buck2_forkserver::unix::set_default_file_descriptor_limits(soft_limit, hard_limit);
+
+    // > The hard limit acts as a ceiling for the soft limit: an unprivileged process may set only
+    // > its soft limit to a value in the range from 0 up to the hard limit, and (irreversibly)
+    // > lower its hard limit.
+    //
+    // See: https://man7.org/linux/man-pages/man2/getrlimit.2.html
+    let new_soft_limit = soft_limit.max(hard_limit);
+
+    // Set the number of open file descriptors.
+    //
+    // The `systemd.exec` man page says this about setting the limits with `ulimit -n`
+    // directly:
+    //
+    // > Don't use. Be careful when raising the soft limit above 1024, since `select(2)`
+    // > cannot function with file descriptors above 1023 on Linux. Nowadays, the hard
+    // > limit defaults to 524288, a very high value compared to historical defaults.
+    // > Typically applications should increase their soft limit to the hard limit on
+    // > their own, if they are OK with working with file descriptors above 1023, i.e.
+    // > do not use `select(2)`. Note that file descriptors are nowadays accounted like
+    // > any other form of memory, thus there should not be any need to lower the hard
+    // > limit.
+    //
+    // Therefore, we are careful to reset the limits when spawning new processes; see
+    // `buck2_forkserver::unix::process_group` for details.
+    //
+    // See: https://www.freedesktop.org/software/systemd/man/devel/systemd.exec.html
+    resource::setrlimit(Resource::RLIMIT_NOFILE, new_soft_limit, hard_limit)?;
+
+    Ok(())
 }
