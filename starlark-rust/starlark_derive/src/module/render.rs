@@ -17,8 +17,6 @@
 
 mod fun;
 
-use std::collections::HashSet;
-
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use quote::format_ident;
@@ -168,75 +166,11 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
     }
 }
 
-/// Get the lifetimes that are mentioned in a given type and its nested generics.
-fn get_lifetimes_inner<'a>(ret: &mut HashSet<&'a syn::Lifetime>, typ: &'a syn::Type) {
-    match typ {
-        syn::Type::Path(path) => {
-            if let Some(segment) = path.path.segments.last() {
-                match &segment.arguments {
-                    syn::PathArguments::None => {}
-                    syn::PathArguments::AngleBracketed(args) => {
-                        for arg in &args.args {
-                            match arg {
-                                syn::GenericArgument::Lifetime(l) => {
-                                    ret.insert(l);
-                                }
-                                syn::GenericArgument::Type(t) => get_lifetimes_inner(ret, t),
-                                _ => {}
-                            };
-                        }
-                    }
-                    syn::PathArguments::Parenthesized(args) => {
-                        for t in &args.inputs {
-                            get_lifetimes_inner(ret, t);
-                        }
-                        match &args.output {
-                            syn::ReturnType::Default => {}
-                            syn::ReturnType::Type(_, t) => get_lifetimes_inner(ret, t),
-                        };
-                    }
-                };
-            }
-        }
-        syn::Type::Group(g) => get_lifetimes_inner(ret, &g.elem),
-        syn::Type::Paren(p) => get_lifetimes_inner(ret, &p.elem),
-        syn::Type::Ptr(p) => get_lifetimes_inner(ret, &p.elem),
-        syn::Type::Reference(r) => {
-            if let Some(l) = &r.lifetime {
-                ret.insert(l);
-            };
-            get_lifetimes_inner(ret, &r.elem);
-        }
-        syn::Type::Tuple(t) => {
-            for t in &t.elems {
-                get_lifetimes_inner(ret, t);
-            }
-        }
-        _ => {}
-    };
-}
-
-/// Get the lifetime specifications to use with a function based on the lifetimes mentioned in `typ`.
-///
-/// e.g. `i32` would return ``, `Vec<(&'a str, &'b str)>` would return `<'a, 'b>`
-fn get_lifetimes(typ: &syn::Type) -> TokenStream {
-    let mut ret = HashSet::new();
-    get_lifetimes_inner(&mut ret, typ);
-    if ret.is_empty() {
-        TokenStream::new()
-    } else {
-        let mut ret: Vec<_> = ret.into_iter().filter(|l| l.ident != "_").collect();
-        ret.sort_by(|l, r| l.ident.cmp(&r.ident));
-        quote!(<#(#ret),*>)
-    }
-}
-
 pub(crate) fn render_starlark_type(typ: &syn::Type) -> syn::Expr {
-    let lifetimes = get_lifetimes(typ);
     syn::parse_quote! {
         {
             #[allow(clippy::extra_unused_lifetimes)]
-            fn get_type_string #lifetimes() -> starlark::typing::Ty {
+            fn get_type_string<'v>() -> starlark::typing::Ty {
                 <#typ as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
             }
             get_type_string()
