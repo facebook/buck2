@@ -241,7 +241,7 @@ impl StarlarkSelectorBase<'_> for FrozenStarlarkSelector {
     type Item = FrozenValue;
 }
 
-#[starlark_value(type = "selector")] // TODO(nga): rename to `"Select"` to match constant name.
+#[starlark_value(type = "Select")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkSelectorGen<V>
 where
     Self: ProvidesStaticType<'v> + StarlarkSelectorBase<'v, Item = V>,

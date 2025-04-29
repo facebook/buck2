@@ -147,7 +147,7 @@ def test():
     );
     let err_msg = tester.run_starlark_test(test).unwrap_err().to_string();
     assert!(
-        err_msg.contains("Expected type `dict[str, typing.Any]` but got `selector`"),
+        err_msg.contains("Expected type `dict[str, typing.Any]` but got `Select`"),
         "Should have gotten: {}",
         err_msg
     );
