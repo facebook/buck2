@@ -87,7 +87,7 @@ rules_attributes = {
                 or `included_applications` buck2 checks that the target definitions and information in the template are equivalent to
                 prevent these definitions from drifting apart during migration._
             """),
-        "build_edoc_chunks": attrs.bool(default = True, doc = """
+        "build_edoc_chunks": attrs.bool(default = False, doc = """
                 This attribute controls if the output of the builds also create edoc chunks.
             """),
         "env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None, doc = """
