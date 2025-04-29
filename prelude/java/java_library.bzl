@@ -704,4 +704,5 @@ def build_java_library(
         template_placeholder_info = template_placeholder_info,
         default_info = default_info,
         class_to_src_map = class_to_src_map,
+        validation_info = None,
     )

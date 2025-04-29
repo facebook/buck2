@@ -252,6 +252,7 @@ JavaProviders = record(
     template_placeholder_info = TemplatePlaceholderInfo,
     default_info = DefaultInfo,
     class_to_src_map = [JavaClassToSourceMapInfo, None],
+    validation_info = [ValidationInfo, None],
 )
 
 def to_list(java_providers: JavaProviders) -> list[Provider]:
@@ -268,6 +269,10 @@ def to_list(java_providers: JavaProviders) -> list[Provider]:
     ]
     if java_providers.class_to_src_map != None:
         providers.append(java_providers.class_to_src_map)
+
+    if java_providers.validation_info != None:
+        providers.append(java_providers.validation_info)
+
     return providers
 
 # Creates a JavaCompileOutputs. `classpath_abi` can be set to specify a
