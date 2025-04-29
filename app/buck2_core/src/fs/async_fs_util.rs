@@ -7,7 +7,10 @@
  * of this source tree.
  */
 
+use std::fs::Metadata;
+
 use buck2_error::BuckErrorContext;
+use tokio::io::AsyncReadExt;
 
 use crate::fs::fs_util;
 use crate::fs::paths::abs_path::AbsPath;
@@ -18,6 +21,18 @@ pub async fn open<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<tokio::fs::
     tokio::fs::File::open(path.as_ref().as_maybe_relativized())
         .await
         .with_buck_error_context(|| format!("open({})", path.as_ref().display()))
+}
+
+pub async fn read<P: AsRef<AbsPath>>(path: P, buf: &mut [u8]) -> buck2_error::Result<usize> {
+    match open(path.as_ref()).await {
+        Ok(mut file) => {
+            let _guard = IoCounterKey::Read.guard();
+            file.read(buf)
+                .await
+                .with_buck_error_context(|| format!("read({})", path.as_ref().display()))
+        }
+        Err(e) => Err(e),
+    }
 }
 
 pub async fn write<P: AsRef<AbsPath>>(
@@ -44,4 +59,9 @@ pub async fn read_to_string_if_exists<P: AsRef<AbsPath>>(
 pub async fn create_dir_all<P: AsRef<AbsPath>>(dir: P) -> buck2_error::Result<()> {
     let dir = dir.as_ref().to_owned();
     Ok(tokio::task::spawn_blocking(move || fs_util::create_dir_all(dir)).await??)
+}
+
+pub async fn metadata<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<Metadata> {
+    let path = path.as_ref().to_owned();
+    Ok(tokio::task::spawn_blocking(move || fs_util::metadata(path)).await??)
 }
