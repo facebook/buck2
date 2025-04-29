@@ -305,10 +305,10 @@ public class KaptStepsBuilder {
 
   private static String getKapt4Flag(LanguageVersion kotlinLanguageVersion) {
     if (kotlinLanguageVersion.isGreaterOrEqual(KotlinSupportedLanguageVersion.V2_1)) {
-      return KOTLINC_KAPT_USE_K2;
+      return KOTLINC_KAPT_USE_USE_KAPT4_OLD;
     }
 
-    return KOTLINC_KAPT_USE_USE_KAPT4_OLD;
+    return KOTLINC_KAPT_USE_K2;
   }
 
   public static boolean isKaptSupportedForCurrentKotlinLanguageVersion(
