@@ -71,6 +71,7 @@ def process_omnibus_linking(
             ctx.attrs.linker_flags
         ),
         prefer_stripped_objects = ctx.attrs.prefer_stripped_native_objects,
+        enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
     )
 
     # Extract re-linked extensions.

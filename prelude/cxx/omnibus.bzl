@@ -439,7 +439,8 @@ def _create_omnibus(
         pic_behavior: PicBehavior,
         extra_ldflags: list[typing.Any] = [],
         prefer_stripped_objects: bool = False,
-        allow_cache_upload: bool = False) -> CxxLinkResult:
+        allow_cache_upload: bool = False,
+        enable_distributed_thinlto = False) -> CxxLinkResult:
     inputs = []
 
     # Undefined symbols roots...
@@ -554,7 +555,7 @@ def _create_omnibus(
             # just use it for omnibus.
             link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, [], False, toolchain_info),
             link_weight = linker_info.link_weight,
-            enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
+            enable_distributed_thinlto = enable_distributed_thinlto,
             identifier = soname,
             allow_cache_upload = allow_cache_upload,
         ),
@@ -686,7 +687,8 @@ def create_omnibus_libraries(
         ctx: AnalysisContext,
         graph: OmnibusGraph,
         extra_ldflags: list[typing.Any] = [],
-        prefer_stripped_objects: bool = False) -> OmnibusSharedLibraries:
+        prefer_stripped_objects: bool = False,
+        enable_distributed_thinlto = False) -> OmnibusSharedLibraries:
     spec = _build_omnibus_spec(ctx, graph)
     pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
 
@@ -731,6 +733,7 @@ def create_omnibus_libraries(
             pic_behavior,
             extra_ldflags,
             prefer_stripped_objects,
+            enable_distributed_thinlto = enable_distributed_thinlto,
             allow_cache_upload = True,
         )
         libraries.append(
