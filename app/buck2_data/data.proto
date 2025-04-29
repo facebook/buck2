@@ -2312,6 +2312,18 @@ message InvocationRecord {
   // If there is no exit code because this is a run command that called exec,
   // this will be EXEC.
   optional string exit_result_name = 250;
+
+  // High level outcome of the command.
+  optional InvocationOutcome outcome = 251;
+}
+
+enum InvocationOutcome {
+  // Indicates the exit code/result did not match errors reported.
+  Unknown = 0;
+  Success = 1;
+  Failed = 2;
+  Cancelled = 3;
+  Crashed = 4;
 }
 
 // Record event sent directly to scribe.

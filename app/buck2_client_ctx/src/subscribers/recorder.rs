@@ -31,6 +31,7 @@ use buck2_core::soft_error;
 use buck2_data::ErrorReport;
 use buck2_data::FileWatcherProvider;
 use buck2_data::FileWatcherStart;
+use buck2_data::InvocationOutcome;
 use buck2_data::ProcessedErrorReport;
 use buck2_data::SoftError;
 use buck2_data::SystemInfo;
@@ -69,6 +70,7 @@ use crate::client_ctx::ClientCommandContext;
 use crate::client_metadata::ClientMetadata;
 use crate::common::CommonEventLogOptions;
 use crate::console_interaction_stream::SuperConsoleToggle;
+use crate::exit_result::ExitCode;
 use crate::exit_result::ExitResult;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::observer::ErrorObserver;
@@ -197,6 +199,7 @@ pub(crate) struct InvocationRecorder {
     command_errors: Vec<ErrorReport>,
     exit_code: Option<u32>,
     exit_result_name: Option<String>,
+    outcome: Option<InvocationOutcome>,
     /// To append to gRPC errors.
     server_stderr: String,
     target_rule_type_names: Vec<String>,
@@ -348,6 +351,7 @@ impl InvocationRecorder {
             command_errors: Vec::new(),
             exit_code: None,
             exit_result_name: None,
+            outcome: None,
             server_stderr: String::new(),
             target_rule_type_names: Vec::new(),
             re_max_download_speeds: vec![
@@ -420,6 +424,35 @@ impl InvocationRecorder {
         }
 
         Ok(Default::default())
+    }
+
+    fn outcome(&self, exit_result: &ExitResult) -> InvocationOutcome {
+        let has_errors = exit_result.get_all_errors().is_empty();
+
+        // Could be replaced with an error tag check.
+        let crashed =
+            self.daemon_connection_failure || (self.has_end_of_stream && !self.has_command_result);
+
+        match (exit_result.exit_code(), has_errors) {
+            // Only report success if no errors are reported.
+            (Some(ExitCode::Success), false) => InvocationOutcome::Success,
+            // Should not have returned success.
+            (Some(ExitCode::Success), true) => InvocationOutcome::Unknown,
+            // Ignore errors if the command was cancelled.
+            (Some(ExitCode::SignalInterrupt), _) => InvocationOutcome::Cancelled,
+            // Remaining exit codes indicate failed commands, these should always have errors.
+            (Some(_), true) => match crashed {
+                true => InvocationOutcome::Crashed,
+                false => InvocationOutcome::Failed,
+            },
+            // Error should have been reported.
+            (Some(_), false) => InvocationOutcome::Unknown,
+            // No exit code means a run command succeeded in calling exec (result of exec is unknown but buck succeeded).
+            // This should probably be a separate outcome.
+            (None, false) => InvocationOutcome::Success,
+            // Exec should not have been called if there were errors in buck.
+            (None, true) => InvocationOutcome::Unknown,
+        }
     }
 
     fn finalize_errors(&mut self) -> Vec<ProcessedErrorReport> {
@@ -802,6 +835,7 @@ impl InvocationRecorder {
             exec_time_ms: self.exec_time_ms,
             exit_code: self.exit_code.take(),
             exit_result_name: self.exit_result_name.take(),
+            outcome: self.outcome.take().map(|out| out.into()),
         };
 
         let event = BuckEvent::new(
@@ -1762,6 +1796,7 @@ impl EventSubscriber for InvocationRecorder {
         self.command_errors = exit_result.get_all_errors();
         self.exit_code = exit_result.exit_code().map(|code| code.exit_code());
         self.exit_result_name = Some(exit_result.name().to_owned());
+        self.outcome = Some(self.outcome(exit_result));
     }
 
     async fn handle_tailer_stderr(&mut self, stderr: &str) -> buck2_error::Result<()> {
