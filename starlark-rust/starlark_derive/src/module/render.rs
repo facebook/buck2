@@ -42,10 +42,7 @@ pub(crate) fn render(x: StarModule) -> syn::Result<TokenStream> {
 
 fn render_impl(x: StarModule) -> syn::Result<syn::ItemFn> {
     let StarModule {
-        name,
-        globals_builder,
-        visibility,
-        attrs,
+        mut input,
         docstring,
         stmts,
         module_kind,
@@ -56,19 +53,31 @@ fn render_impl(x: StarModule) -> syn::Result<syn::ItemFn> {
         .map(render_stmt)
         .collect::<syn::Result<_>>()?;
     let set_docstring = docstring.map(|ds| quote!(globals_builder.set_docstring(#ds);));
-    Ok(syn::parse_quote! {
-        #( #attrs )*
-        #visibility fn #name(globals_builder: #globals_builder) {
-            fn build(globals_builder: #globals_builder) {
+
+    let inner_fn = syn::ItemFn {
+        attrs: Default::default(),
+        vis: syn::Visibility::Inherited,
+        sig: syn::Signature {
+            ident: syn::Ident::new("build", input.sig.ident.span()),
+            ..input.sig.clone()
+        },
+        block: syn::parse_quote! {
+            {
                 #set_docstring
                 #( #stmts )*
                 // Mute warning if stmts is empty.
                 let _ = globals_builder;
             }
+        },
+    };
+    input.block = syn::parse_quote! {
+        {
+            #inner_fn
             static RES: starlark::environment::#statics = starlark::environment::#statics::new();
             RES.populate(build, globals_builder);
         }
-    })
+    };
+    Ok(input)
 }
 
 fn render_stmt(x: StarStmt) -> syn::Result<syn::Stmt> {

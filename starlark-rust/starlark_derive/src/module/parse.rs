@@ -56,26 +56,23 @@ impl ModuleKind {
 }
 
 pub(crate) fn parse(mut input: ItemFn) -> syn::Result<StarModule> {
-    let (module_docstring, attrs) = parse_module_attributes(&input)?;
-    let visibility = input.vis;
-    let sig_span = input.sig.span();
-    let name = input.sig.ident;
+    let module_docstring = parse_module_docstring(&input)?;
 
     if input.sig.inputs.len() != 1 {
         return Err(syn::Error::new(
-            sig_span,
+            input.sig.span(),
             "function must have exactly one argument",
         ));
     }
-    let arg = input.sig.inputs.pop().unwrap();
+    let arg = input.sig.inputs.last_mut().unwrap();
     let arg_span = arg.span();
 
-    let (ty, module_kind) = match arg.into_value() {
-        FnArg::Typed(PatType { ty, .. }) if is_mut_globals_builder(&ty) => {
-            (ty, ModuleKind::Globals)
+    let (pat, module_kind) = match arg {
+        FnArg::Typed(PatType { ty, pat, .. }) if is_mut_globals_builder(&ty) => {
+            (pat, ModuleKind::Globals)
         }
-        FnArg::Typed(PatType { ty, .. }) if is_mut_methods_builder(&ty) => {
-            (ty, ModuleKind::Methods)
+        FnArg::Typed(PatType { ty, pat, .. }) if is_mut_methods_builder(&ty) => {
+            (pat, ModuleKind::Methods)
         }
         _ => {
             return Err(syn::Error::new(
@@ -84,19 +81,36 @@ pub(crate) fn parse(mut input: ItemFn) -> syn::Result<StarModule> {
             ));
         }
     };
+    // FIXME(JakobDegen): Pick one form and enforce it
+    let (syn::Pat::Ident(_) | syn::Pat::Wild(_)) = &mut **pat else {
+        return Err(syn::Error::new(pat.span(), "Expected ident"));
+    };
+    // Replace the argument with a known one - the user can't depend on it anyway
+    *pat = Box::new(syn::Pat::Ident(syn::PatIdent {
+        attrs: Default::default(),
+        by_ref: None,
+        mutability: None,
+        ident: syn::Ident::new("globals_builder", pat.span()),
+        subpat: None,
+    }));
+
+    let stmts = std::mem::replace(
+        &mut input.block,
+        Box::new(syn::Block {
+            brace_token: Default::default(),
+            stmts: Vec::new(),
+        }),
+    )
+    .stmts
+    .into_iter()
+    .map(|stmt| parse_stmt(stmt, module_kind))
+    .collect::<syn::Result<_>>()?;
+
     Ok(StarModule {
         module_kind,
-        visibility,
-        globals_builder: *ty,
-        name,
-        attrs,
+        input,
         docstring: module_docstring,
-        stmts: input
-            .block
-            .stmts
-            .into_iter()
-            .map(|stmt| parse_stmt(stmt, module_kind))
-            .collect::<syn::Result<_>>()?,
+        stmts,
     })
 }
 
@@ -127,22 +141,18 @@ fn is_attribute_docstring(x: &Attribute) -> syn::Result<Option<String>> {
 }
 
 /// Return (docstring, other attributes)
-fn parse_module_attributes(input: &ItemFn) -> syn::Result<(Option<String>, Vec<Attribute>)> {
+fn parse_module_docstring(input: &ItemFn) -> syn::Result<Option<String>> {
     let mut doc_attrs = Vec::new();
-    let mut attrs = Vec::new();
     for attr in &input.attrs {
         if let Some(ds) = is_attribute_docstring(attr)? {
             doc_attrs.push(ds);
-        } else {
-            attrs.push(attr.clone());
         }
     }
-    let docs = if doc_attrs.is_empty() {
-        None
+    if doc_attrs.is_empty() {
+        Ok(None)
     } else {
-        Some(doc_attrs.join("\n"))
-    };
-    Ok((docs, attrs))
+        Ok(Some(doc_attrs.join("\n")))
+    }
 }
 
 fn parse_stmt(stmt: Stmt, module_kind: ModuleKind) -> syn::Result<StarStmt> {

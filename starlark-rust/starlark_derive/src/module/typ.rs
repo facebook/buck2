@@ -22,7 +22,6 @@ use syn::Attribute;
 use syn::Block;
 use syn::Expr;
 use syn::Type;
-use syn::Visibility;
 use syn::spanned::Spanned;
 
 use crate::module::parse::ModuleKind;
@@ -32,15 +31,12 @@ use crate::module::util::unpack_option;
 
 #[derive(Debug)]
 pub(crate) struct StarModule {
-    pub module_kind: ModuleKind,
-    pub visibility: Visibility,
-    // We reuse the users globals_builder to make sure `use` statements etc
-    // make sense
-    pub globals_builder: Type,
-    pub name: Ident,
-    pub attrs: Vec<Attribute>,
-    pub docstring: Option<String>,
-    pub stmts: Vec<StarStmt>,
+    pub(crate) module_kind: ModuleKind,
+    /// The input `ItemFn`, with the body replaced by an empty block, and the one parameter having
+    /// been renamed to `globals_builder`
+    pub(crate) input: syn::ItemFn,
+    pub(crate) docstring: Option<String>,
+    pub(crate) stmts: Vec<StarStmt>,
 }
 
 #[allow(clippy::large_enum_variant)]

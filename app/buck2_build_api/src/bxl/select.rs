@@ -269,7 +269,7 @@ impl<'v> StarlarkValue<'v> for StarlarkSelectConcat {
 
 /// In bxl, `Select = bxl.SelectDict | bxl.SelectConcat`. `bxl.SelectConcat` is a list-like object that represents a select.
 /// One example of this type is:
-/// ```
+/// ```python
 /// ["--flags"] + select({
 //     "root//constraints:a": ["--foo"],
 //     "root//constraints:b": ["--bar"],
