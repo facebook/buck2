@@ -50,7 +50,12 @@ class WheelBuilder(contextlib.AbstractContextManager):
 
     def write(self, dst: str, src: str) -> None:
         self._record.append(dst)
-        zinfo = zipfile.ZipInfo.from_file(filename=src, arcname=dst)
+        zinfo = zipfile.ZipInfo.from_file(
+            filename=src,
+            arcname=dst,
+            # Allow older timestamps, as we're gonna overwrite them below anyway.
+            strict_timestamps=False,
+        )
         zinfo.date_time = (1980, 1, 1, 0, 0, 0)
         with open(src, "rb") as fsrc, self._outf.open(zinfo, "w") as fdst:
             shutil.copyfileobj(fsrc, fdst, 1024 * 8)
