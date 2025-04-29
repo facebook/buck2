@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
@@ -686,6 +687,15 @@ def build_java_library(
         used_jars_json = outputs.used_jars_json if outputs else None,
     )
 
+    validation_specs = get_attrs_validation_specs(ctx)
+    if hasattr(ctx.attrs, "validation_specs"):
+        validation_specs.extend([
+            ValidationSpec(name = name, validation_result = result)
+            for name, result in ctx.attrs.validation_specs.items()
+        ])
+
+    validation_info = ValidationInfo(validations = validation_specs) if validation_specs else None
+
     default_info = get_default_info(
         ctx.actions,
         java_toolchain,
@@ -704,5 +714,5 @@ def build_java_library(
         template_placeholder_info = template_placeholder_info,
         default_info = default_info,
         class_to_src_map = class_to_src_map,
-        validation_info = None,
+        validation_info = validation_info,
     )
