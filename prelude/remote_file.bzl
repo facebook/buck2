@@ -9,7 +9,7 @@ load("@prelude//:http_file.bzl", "http_file_shared")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
 
-_ROOT = "https://maven.thefacebook.com/nexus/content/groups/public"
+_DEFAULT_MAVEN_REPO = read_config("http", "maven_repo", "https://repo1.maven.org/maven2")
 
 def _from_mvn_url(url: str) -> str:
     """
@@ -21,11 +21,11 @@ def _from_mvn_url(url: str) -> str:
 
     if count == 4:
         mvn, group, id, typ, version = url.split(":")
-        repo = _ROOT
+        repo = _DEFAULT_MAVEN_REPO
     elif count == 5:
         mvn, group, id, typ, mod, version = url.split(":")
         mod = "-" + mod
-        repo = _ROOT
+        repo = _DEFAULT_MAVEN_REPO
     elif count == 6:
         mvn, repo_protocol, repo_host, group, id, typ, version = url.split(":")
         repo = repo_protocol + ":" + repo_host
