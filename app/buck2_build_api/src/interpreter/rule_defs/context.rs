@@ -126,7 +126,7 @@ impl<'v> AnalysisActions<'v> {
     }
 }
 
-#[starlark_value(type = "actions", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "AnalysisActions", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for AnalysisActions<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
