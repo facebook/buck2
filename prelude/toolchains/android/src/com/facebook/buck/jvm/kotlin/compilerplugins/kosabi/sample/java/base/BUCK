@@ -9,6 +9,6 @@ buck_java_library(
     name = "sample-no-deps",
     visibility = ["prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/compilerplugins/kosabi/sample/..."],
     deps = [
-        "fbsource//fbandroid/third-party/java/infer-annotations:infer-annotations",
+        "prelude//toolchains/android/third-party:infer-annotations",
     ],
 )

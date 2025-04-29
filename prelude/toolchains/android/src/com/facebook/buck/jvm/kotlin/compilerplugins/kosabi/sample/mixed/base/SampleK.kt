@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-package com.facebook.kotlin.compilerplugins.kosabi.sample.mixed.base
+package com.facebook.buck.jvm.kotlin.compilerplugins.kosabi.sample.mixed.base
 
 class SampleK {
   fun foo() {}

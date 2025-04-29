@@ -8,7 +8,7 @@ source_listing()
 buck_java_library(
     name = "sub",
     deps = [
-        "fbsource//fbandroid/third-party/java/infer-annotations:infer-annotations",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/compilerplugins/kosabi/sample/java/base:sample-no-deps",
+        "prelude//toolchains/android/third-party:infer-annotations",
     ],
 )

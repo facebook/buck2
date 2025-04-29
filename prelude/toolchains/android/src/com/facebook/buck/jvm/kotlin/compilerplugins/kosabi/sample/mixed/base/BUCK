@@ -8,6 +8,6 @@ source_listing()
 buck_kotlin_library(
     name = "sample-no-deps",
     deps = [
-        "fbsource//fbandroid/third-party/java/infer-annotations:infer-annotations",
+        "prelude//toolchains/android/third-party:infer-annotations",
     ],
 )
