@@ -456,10 +456,11 @@ impl BuckdServer {
         dispatch.instant_event(Box::new(snapshot_collector.create_snapshot()));
         let cert_state = self.0.cert_state.dupe();
 
+        let repo_root = daemon_state.paths.project_root().root().to_buf();
         // Spawn an async task to collect expensive info
         // We start collecting immediately, and emit the event as soon as it is ready
         let version_control_revision_collector =
-            version_control_revision::spawn_version_control_collector(dispatch.dupe());
+            version_control_revision::spawn_version_control_collector(dispatch.dupe(), repo_root);
 
         let resp = streaming(
             req,

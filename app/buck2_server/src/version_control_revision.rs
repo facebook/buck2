@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use buck2_core::fs::async_fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::soft_error;
 use buck2_data::VersionControlRevision;
 use buck2_events::dispatch::EventDispatcher;
@@ -18,14 +21,21 @@ use tokio_stream::StreamExt;
 
 /// Spawn tasks to collect version control information
 /// and return a droppable handle that will cancel them on drop.
-pub(crate) fn spawn_version_control_collector(dispatch: EventDispatcher) -> AbortOnDropHandle {
+pub(crate) fn spawn_version_control_collector(
+    dispatch: EventDispatcher,
+    repo_root: AbsNormPathBuf,
+) -> AbortOnDropHandle {
     let handle = tokio::spawn(async move {
         let mut tasks = FuturesUnordered::<BoxFuture<VersionControlRevision>>::new();
 
         tasks.push(Box::pin(create_revision_data(
+            &repo_root,
             RevisionDataType::CurrentRevision,
         )));
-        tasks.push(Box::pin(create_revision_data(RevisionDataType::Status)));
+        tasks.push(Box::pin(create_revision_data(
+            &repo_root,
+            RevisionDataType::Status,
+        )));
 
         while let Some(event) = tasks.next().await {
             if let Some(error) = &event.command_error {
@@ -69,10 +79,11 @@ enum RevisionDataType {
 }
 
 async fn create_revision_data(
+    repo_root: &AbsNormPathBuf,
     revision_type: RevisionDataType,
 ) -> buck2_data::VersionControlRevision {
     let mut revision = buck2_data::VersionControlRevision::default();
-    match repo_type().await {
+    match repo_type(repo_root).await {
         Ok(repo_vcs) => {
             match repo_vcs {
                 RepoVcs::Hg => create_hg_data(&mut revision, revision_type).await,
@@ -207,20 +218,16 @@ async fn add_hg_status(revision: &mut buck2_data::VersionControlRevision) {
     };
 }
 
-async fn repo_type() -> buck2_error::Result<&'static RepoVcs> {
+async fn repo_type(repo_root: &AbsNormPathBuf) -> buck2_error::Result<&'static RepoVcs> {
     static REPO_TYPE: OnceCell<buck2_error::Result<RepoVcs>> = OnceCell::const_new();
-    async fn repo_type_impl() -> buck2_error::Result<RepoVcs> {
-        let (hg_output, git_output) = tokio::join!(
-            reap_on_drop_command("hg", &["root"], Some(&[("HGPLAIN", "1")]))?.output(),
-            reap_on_drop_command("git", &["rev-parse", "--is-inside-work-tree"], None)?.output()
+    async fn repo_type_impl(repo_root: &AbsNormPathBuf) -> buck2_error::Result<RepoVcs> {
+        let (hg_metadata, git_metadata) = tokio::join!(
+            async_fs_util::metadata(repo_root.join(ForwardRelativePath::new(".hg").unwrap())),
+            async_fs_util::metadata(repo_root.join(ForwardRelativePath::new(".git").unwrap()))
         );
 
-        let is_hg = hg_output.is_ok_and(|output| {
-            std::str::from_utf8(&output.stdout).is_ok_and(|s| !s.trim().is_empty())
-        });
-        let is_git = git_output.is_ok_and(|output| {
-            std::str::from_utf8(&output.stdout).is_ok_and(|s| s.trim() == "true")
-        });
+        let is_hg = hg_metadata.is_ok_and(|output| output.is_dir());
+        let is_git = git_metadata.is_ok_and(|output| output.is_dir());
 
         if is_hg {
             Ok(RepoVcs::Hg)
@@ -230,8 +237,9 @@ async fn repo_type() -> buck2_error::Result<&'static RepoVcs> {
             Ok(RepoVcs::Unknown)
         }
     }
+
     REPO_TYPE
-        .get_or_init(repo_type_impl)
+        .get_or_init(|| repo_type_impl(repo_root))
         .await
         .as_ref()
         .map_err(|e| e.clone())
