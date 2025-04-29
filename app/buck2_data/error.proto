@@ -370,6 +370,9 @@ enum ErrorTag {
   // From `buck2 debug crash`
   CRASH_REQUESTED = 8022;
 
+  // From ExitResult::bail
+  BAIL = 8023;
+
   // None turned into an error. This carries no useful information whatsoever.
   UNEXPECTED_NONE = 6001;
 

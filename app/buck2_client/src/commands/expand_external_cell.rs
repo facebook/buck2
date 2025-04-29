@@ -20,6 +20,8 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
+use buck2_error::ErrorTag;
+use buck2_error::buck2_error;
 
 /// Expand the contents of an external cell into the repo.
 ///
@@ -71,7 +73,11 @@ impl StreamingCommand for ExpandExternalCellsCommand {
             )
             .await??;
         let NewGenericResponse::ExpandExternalCells(resp) = resp else {
-            return ExitResult::bail("Unexpected response type from generic command");
+            return buck2_error!(
+                ErrorTag::InvalidEvent,
+                "Unexpected response type from generic command"
+            )
+            .into();
         };
 
         let mut lines: Vec<String> = resp

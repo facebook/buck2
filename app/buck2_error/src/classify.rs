@@ -261,6 +261,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::CopyOutputs => rank!(tier0),
         ErrorTag::LogFilter => rank!(tier0),
         ErrorTag::TestOnly => rank!(tier0),
+        ErrorTag::Bail => rank!(tier0),
 
         ErrorTag::EventLogUpload => rank!(tier0),
         ErrorTag::EventLog => rank!(tier0),

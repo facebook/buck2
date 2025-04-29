@@ -142,7 +142,7 @@ impl ExitResult {
 
     pub fn bail(msg: impl Display) -> Self {
         Self::err(buck2_error::buck2_error!(
-            buck2_error::ErrorTag::ActionCommandFailure,
+            buck2_error::ErrorTag::Bail,
             "Command failed: {}",
             msg
         ))

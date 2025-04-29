@@ -24,6 +24,8 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
+use buck2_error::buck2_error;
 use dupe::Dupe;
 
 #[derive(Debug, Clone, Dupe, clap::ValueEnum)]
@@ -106,7 +108,11 @@ impl StreamingCommand for DocsStarlarkCommand {
             .await??;
 
         let buck2_cli_proto::new_generic::NewGenericResponse::Docs(response) = response else {
-            return ExitResult::bail("Unexpected response type from generic command");
+            return buck2_error!(
+                ErrorTag::InvalidEvent,
+                "Unexpected response type from generic command"
+            )
+            .into();
         };
 
         if let Some(json_output) = response.json_output {

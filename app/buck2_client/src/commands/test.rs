@@ -36,6 +36,8 @@ use buck2_client_ctx::subscribers::superconsole::test::span_from_build_failure_c
 use buck2_core::fs::fs_util;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
+use buck2_error::buck2_error;
 use superconsole::Line;
 use superconsole::Span;
 
@@ -307,7 +309,11 @@ impl StreamingCommand for TestCommand {
         } else {
             // But if we had no build errors, and Tpx did not provide an exit code, then that's
             // going to be an error.
-            ExitResult::bail("Test executor did not provide an exit code")
+            buck2_error!(
+                ErrorTag::TestExecutor,
+                "Test executor did not provide an exit code"
+            )
+            .into()
         };
 
         match self.test_executor_stdout {
