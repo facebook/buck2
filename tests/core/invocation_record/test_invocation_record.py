@@ -333,9 +333,10 @@ async def test_peak_memory_and_disk(buck: Buck, tmp_path: Path) -> None:
 
 
 @buck_test(setup_eden=True, skip_for_os=["darwin"])
-async def test_version_control_collector(buck: Buck, tmp_path: Path) -> None:
+async def test_version_control_collector_slow(buck: Buck, tmp_path: Path) -> None:
     record = tmp_path / "record.json"
 
+    # Force a 5 second sleep, hg commands should finish within that period of time
     await buck.build(
         ":sleep",
         "--unstable-write-invocation-record",
@@ -348,3 +349,20 @@ async def test_version_control_collector(buck: Buck, tmp_path: Path) -> None:
 
     assert "has_local_changes" in record and "hg_revision" in record
     assert record["hg_revision"] is not None
+
+
+@buck_test(setup_eden=True, skip_for_os=["darwin"])
+async def test_version_control_collector_fast(buck: Buck, tmp_path: Path) -> None:
+    record = tmp_path / "record.json"
+
+    await buck.targets(
+        ":",
+        "--unstable-write-invocation-record",
+        str(record),
+    )
+
+    record = read_invocation_record(record)
+
+    assert "has_local_changes" in record and "hg_revision" in record
+    # FIXME(minglunli): This is wrong, but `buck2 targets` command finishes too fast for shelling out for hg
+    assert record["hg_revision"] is None
