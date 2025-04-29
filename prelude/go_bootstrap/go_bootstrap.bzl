@@ -41,7 +41,7 @@ def go_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         ["--workdir", srcs_dir],
         "build",
         ["-o", cmd_args(output.as_output(), relative_to = srcs_dir)],
-        ctx.attrs.entrypoints,
+        ctx.attrs.build_args,
     ])
 
     env = {

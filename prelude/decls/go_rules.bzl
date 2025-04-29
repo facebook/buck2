@@ -374,7 +374,7 @@ go_bootstrap_binary = prelude_rule(
     attrs = (
         go_common.srcs_arg() |
         {
-            "entrypoints": attrs.list(attrs.string(), default = [], doc = """Package name or file names"""),
+            "build_args": attrs.list(attrs.string(), default = [], doc = """Package name, file names and build flags"""),
             "workdir": attrs.string(default = "", doc = """Change to subdir before running the command"""),
         }
     ),
