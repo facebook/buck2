@@ -208,7 +208,7 @@ def _android_binary_macro_stub(
     # TODO: T218493860 Accept `select` for `cpu_filters` and apply the same logic as for non-select cases
     __rules__["android_binary"](
         allow_r_dot_java_in_secondary_dex = allow_r_dot_java_in_secondary_dex,
-        cpu_filters = cpu_filters if type(cpu_filters) == "selector" else _get_valid_cpu_filters(cpu_filters),
+        cpu_filters = cpu_filters if isinstance(cpu_filters, Select) else _get_valid_cpu_filters(cpu_filters),
         primary_dex_patterns = primary_dex_patterns,
         **kwargs
     )
@@ -218,7 +218,7 @@ def _android_bundle_macro_stub(
         **kwargs):
     __rules__["android_bundle"](
         # TODO: T218493860 Accept `select` for `cpu_filters` and apply the same logic as for non-select cases
-        cpu_filters = cpu_filters if type(cpu_filters) == "selector" else _get_valid_cpu_filters(cpu_filters),
+        cpu_filters = cpu_filters if isinstance(cpu_filters, Select) else _get_valid_cpu_filters(cpu_filters),
         **kwargs
     )
 
