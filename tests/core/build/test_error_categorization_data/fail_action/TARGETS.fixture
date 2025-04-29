@@ -1,0 +1,5 @@
+load(":fail_action_with_error_handler.bzl", "error_handler_produced_error_categories")
+
+error_handler_produced_error_categories(
+    name = "error_handler_produced_error_categories",
+)

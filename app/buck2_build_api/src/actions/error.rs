@@ -47,6 +47,19 @@ impl std::error::Error for ActionError {
                 }
 
                 if is_command_failure {
+                    if let Some(diagnostic) = &self.error_diagnostics {
+                        if let Some(buck2_data::action_error_diagnostics::Data::SubErrors(
+                            sub_errors,
+                        )) = diagnostic.data.as_ref()
+                        {
+                            // Only adding the first error category as multiple would likely cause too many variants and
+                            // cause the data to be less useful. We can revisit this once we have more categories if needed.
+                            if !sub_errors.sub_errors.is_empty() {
+                                string_tags.push(sub_errors.sub_errors[0].category.clone());
+                            }
+                        }
+                    }
+
                     tags.push(ErrorTag::ActionCommandFailure)
                 }
             }

@@ -473,3 +473,24 @@ async def test_client_streaming_error(buck: Buck, tmp_path: Path) -> None:
         output=sanitize_stderr(res.stderr),
         rel_path="fixtures/test_client_streaming_error.golden.txt",
     )
+
+
+@buck_test()
+async def test_action_error_has_categorization(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
+    await expect_failure(
+        buck.build(
+            "//fail_action:error_handler_produced_error_categories",
+            "--unstable-write-invocation-record",
+            str(record_path),
+        ),
+        stderr_regex="Action sub-errors produced by error handlers",
+    )
+
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
+    assert len(errors) == 1
+    [error] = errors
+
+    assert "ACTION_COMMAND_FAILURE" in error["tags"]
+    assert error["category_key"] == "ACTION_COMMAND_FAILURE:FirstError"
