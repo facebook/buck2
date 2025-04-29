@@ -942,6 +942,7 @@ def _abbreviated_subdir(
     reloc_model = {
         RelocModel("static"): "S",
         RelocModel("pic"): "P",
+        RelocModel("pie"): "I",
         RelocModel("dynamic-no-pic"): "N",
         RelocModel("ropi"): "O",
         RelocModel("rwpi"): "W",

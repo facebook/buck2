@@ -47,6 +47,7 @@ RelocModel = enum(
     # Common
     "static",
     "pic",
+    "pie",
     # Various obscure types
     "dynamic-no-pic",
     "ropi",
@@ -305,11 +306,13 @@ _INPUTS = {
     for (rule_type, _, lib_output_style, linkage_lang), _ in _INPUTS.items()
 ]
 
-def _get_reloc_model(link_strategy: LinkStrategy, target_os_type: OsLookup) -> RelocModel:
+def _get_reloc_model(rule: RuleType, link_strategy: LinkStrategy, target_os_type: OsLookup) -> RelocModel:
     if target_os_type.os == Os("windows"):
         return RelocModel("pic")
     if link_strategy == LinkStrategy("static"):
         return RelocModel("static")
+    if rule == RuleType("binary"):
+        return RelocModel("pie")
     return RelocModel("pic")
 
 # Compute crate type, relocation model and name mapping given what rule we're building, whether its
@@ -375,7 +378,7 @@ def build_params(
     # too bad, but it would be nice to enforce that more strictly or not have
     # this at all.
     link_strategy = link_strategy or flags.link_strategy
-    reloc_model = _get_reloc_model(link_strategy, target_os_type)
+    reloc_model = _get_reloc_model(rule, link_strategy, target_os_type)
     prefix, suffix = flags.platform_to_affix(linker_type, target_os_type)
 
     return BuildParams(
