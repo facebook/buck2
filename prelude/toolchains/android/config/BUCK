@@ -10,7 +10,7 @@ source_listing()
 config_backed_java_toolchain(
     name = "java_bootstrap",
     is_bootstrap_toolchain = True,
-    java = "fbsource//third-party/toolchains/graalvm:java",
+    java = "fbsource//third-party/toolchains/jdk:java",
     # This causes us to always use the classic protocol instead of javacd as the bootstrap toolchain needs to build javacd itself.
     javac = "fbsource//third-party/toolchains/jdk:javac",
     visibility = [
