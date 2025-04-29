@@ -68,11 +68,13 @@ fn render_impl(x: StarModule) -> syn::Result<syn::ItemFn> {
             }
         },
     };
+    let turbo = input.sig.generics.split_for_impl().1;
+    let turbo = turbo.as_turbofish();
     input.block = syn::parse_quote! {
         {
             #inner_fn
             static RES: starlark::environment::#statics = starlark::environment::#statics::new();
-            RES.populate(build, globals_builder);
+            RES.populate(build #turbo, globals_builder);
         }
     };
     Ok(input)

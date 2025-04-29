@@ -15,14 +15,23 @@
  * limitations under the License.
  */
 
-mod basic;
-mod default_value;
-mod generic;
-mod kwargs;
-mod methods;
-mod named_positional;
-mod other_attributes;
-mod return_impl;
-mod special_params;
-mod type_annotation;
-mod unpack_value;
+use starlark_derive::starlark_module;
+
+use crate as starlark;
+use crate::assert::Assert;
+use crate::environment::GlobalsBuilder;
+
+#[starlark_module]
+fn generic_builder<T: Default, U>(globals: &mut GlobalsBuilder)
+where
+    U: std::fmt::Display + Default,
+{
+    const MY_STR: &str = &U::default().to_string();
+}
+
+#[test]
+fn test_generic_builder() {
+    let mut a = Assert::new();
+    a.globals_add(generic_builder::<u8, u8>);
+    a.eq("\"0\"", "MY_STR");
+}
