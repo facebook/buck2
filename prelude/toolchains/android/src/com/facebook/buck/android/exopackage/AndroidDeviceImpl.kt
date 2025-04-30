@@ -322,7 +322,16 @@ class AndroidDeviceImpl(val serial: String, val adbExecutable: String?) : Androi
   override fun getInstallerMethodName(): String = "adb_installer"
 
   override fun isEmulator(): Boolean {
-    return getProperty("ro.kernel.qemu").equals("1")
+    return isLocalTransport() || getProperty("ro.kernel.qemu") == "1"
+  }
+
+  /**
+   * To be consistent with adb, we treat all local transports (as opposed to USB transports) as
+   * emulators instead of devices.
+   */
+  private fun isLocalTransport(): Boolean {
+    /** Pattern that matches Genymotion serial numbers; ex. 127.0.0.1:15562 */
+    return Pattern.compile("\\d+\\.\\d+\\.\\d+\\.\\d+:\\d+").matcher(serialNumber).find()
   }
 
   @Throws(Exception::class)
