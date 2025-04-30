@@ -22,7 +22,7 @@ enum class SetDebugAppMode {
   SET
 }
 
-class AdbUtils(val adb: String) {
+class AdbUtils(val adb: String, val adbServerPort: Int) {
 
   fun executeAdbShellCommand(
       command: String,
@@ -54,7 +54,7 @@ class AdbUtils(val adb: String) {
   }
 
   private fun runAdbCommand(input: String): AdbCommandResult {
-    val command = "$adb $input"
+    val command = "$adb " + (if (adbServerPort != 0) "-P $adbServerPort " else "") + "$input"
     LOG.info("Running command: $command")
     val processBuilder = ProcessBuilder(*command.split(" ").toTypedArray())
     val process = processBuilder.start()

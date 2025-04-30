@@ -29,7 +29,8 @@ public class RealAndroidDeviceFactory implements AndroidDeviceFactory {
       boolean isZstdCompressionEnabled,
       int maxRetries,
       long retryDelayMs,
-      String adbExecutable) {
+      String adbExecutable,
+      int adbServerPort) {
     {
       LOG.info("Creating RealAndroidDevice for %s", device.getSerialNumber());
       return new RealAndroidDevice(

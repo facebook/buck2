@@ -25,10 +25,11 @@ class AndroidDeviceFactoryImpl : AndroidDeviceFactory {
       isZstdCompressionEnabled: Boolean,
       maxRetries: Int,
       retryDelayMs: Long,
-      adbExecutable: String?
+      adbExecutable: String?,
+      adbServerPort: Int
   ): AndroidDevice? {
     LOG.info("Creating AndroidDeviceImpl for %s", device.serialNumber)
-    return AndroidDeviceImpl(device.serialNumber, adbExecutable)
+    return AndroidDeviceImpl(device.serialNumber, adbExecutable, adbServerPort)
   }
 
   companion object {

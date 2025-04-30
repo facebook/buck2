@@ -703,7 +703,8 @@ public class AdbHelper implements AndroidDevicesHelper {
             isZstdCompressionEnabled,
             maxRetries,
             retryDelayMs,
-            adbExecutable.orElse(null));
+            adbExecutable.orElse(null),
+            options.getAdbServerPort());
   }
 
   @VisibleForTesting

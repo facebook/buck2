@@ -26,5 +26,6 @@ public interface AndroidDeviceFactory {
       boolean isZstdCompressionEnabled,
       int maxRetries,
       long retryDelayMs,
-      String adbExecutable);
+      String adbExecutable,
+      int adbServerPort);
 }
