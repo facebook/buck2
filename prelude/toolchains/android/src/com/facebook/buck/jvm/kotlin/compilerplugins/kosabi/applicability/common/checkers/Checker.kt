@@ -9,7 +9,7 @@
 
 package com.facebook.kotlin.compilerplugins.kosabi.applicability.common.checkers
 
-import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.CheckerFix
+import com.facebook.buck.jvm.kotlin.compilerplugins.kosabi.applicability.common.CheckerFix
 import org.jetbrains.kotlin.AbstractKtSourceElement
 import org.jetbrains.kotlin.com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.config.CompilerConfiguration

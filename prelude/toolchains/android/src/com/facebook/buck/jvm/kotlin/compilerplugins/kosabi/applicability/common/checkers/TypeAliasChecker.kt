@@ -9,8 +9,8 @@
 
 package com.facebook.kotlin.compilerplugins.kosabi.applicability.common.checkers
 
-import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.CheckerFix
-import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.CheckerFixType
+import com.facebook.buck.jvm.kotlin.compilerplugins.kosabi.applicability.common.CheckerFix
+import com.facebook.buck.jvm.kotlin.compilerplugins.kosabi.applicability.common.CheckerFixType
 import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.checkers.TypeChecker.Companion.pkg
 import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.checkers.errors.FirApplicabilityErrors.TYPE_ALIAS
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
@@ -23,7 +23,6 @@ import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.DeclarationCheckers
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirFileChecker
 import org.jetbrains.kotlin.fir.declarations.FirFile
-import org.jetbrains.kotlin.fir.declarations.utils.classId
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
 import org.jetbrains.kotlin.fir.types.AbbreviatedTypeAttribute
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType

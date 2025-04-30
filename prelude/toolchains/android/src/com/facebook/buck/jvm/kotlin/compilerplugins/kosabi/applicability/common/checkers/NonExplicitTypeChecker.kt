@@ -9,9 +9,9 @@
 
 package com.facebook.kotlin.compilerplugins.kosabi.applicability.common.checkers
 
+import com.facebook.buck.jvm.kotlin.compilerplugins.kosabi.applicability.common.CheckerFix
+import com.facebook.buck.jvm.kotlin.compilerplugins.kosabi.applicability.common.CheckerFixType
 import com.facebook.kotlin.compilercompat.getContainingClassCompat as getContainingClass
-import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.CheckerFix
-import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.CheckerFixType
 import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.checkers.errors.FirApplicabilityErrors.IMPLICIT_FUNCTION_RETURN_TYPE
 import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.checkers.errors.FirApplicabilityErrors.IMPLICIT_PROPERTY_TYPE
 import org.jetbrains.kotlin.KtFakeSourceElementKind

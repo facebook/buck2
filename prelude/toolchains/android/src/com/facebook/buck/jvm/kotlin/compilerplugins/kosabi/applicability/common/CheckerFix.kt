@@ -7,9 +7,7 @@
  * of this source tree.
  */
 
-package com.facebook.kotlin.compilerplugins.kosabi.applicability.common
-
-import com.facebook.kotlin.compilerplugins.dataclassgenerate.annotation.DataClassGenerate
+package com.facebook.buck.jvm.kotlin.compilerplugins.kosabi.applicability.common
 
 enum class CheckerFixType {
   /** Fixes with a manual workaround. */
@@ -22,4 +20,4 @@ enum class CheckerFixType {
   NOT_AVAILABLE
 }
 
-@DataClassGenerate data class CheckerFix(val type: CheckerFixType, val howToFix: String)
+data class CheckerFix(val type: CheckerFixType, val howToFix: String)

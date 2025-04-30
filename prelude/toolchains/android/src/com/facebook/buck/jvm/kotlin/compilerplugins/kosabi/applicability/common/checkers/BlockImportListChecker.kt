@@ -9,8 +9,8 @@
 
 package com.facebook.kotlin.compilerplugins.kosabi.applicability.common.checkers
 
-import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.CheckerFix
-import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.CheckerFixType
+import com.facebook.buck.jvm.kotlin.compilerplugins.kosabi.applicability.common.CheckerFix
+import com.facebook.buck.jvm.kotlin.compilerplugins.kosabi.applicability.common.CheckerFixType
 import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.checkers.errors.FirApplicabilityErrors
 import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.config.Config.blockImportList
 import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.config.Config.blockImportPrefixList

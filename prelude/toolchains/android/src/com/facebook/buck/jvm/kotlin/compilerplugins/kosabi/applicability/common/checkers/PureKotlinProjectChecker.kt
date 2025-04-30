@@ -9,8 +9,8 @@
 
 package com.facebook.kotlin.compilerplugins.kosabi.applicability.common.checkers
 
-import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.CheckerFix
-import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.CheckerFixType
+import com.facebook.buck.jvm.kotlin.compilerplugins.kosabi.applicability.common.CheckerFix
+import com.facebook.buck.jvm.kotlin.compilerplugins.kosabi.applicability.common.CheckerFixType
 import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.config.Config
 import org.jetbrains.kotlin.cli.common.config.kotlinSourceRoots
 import org.jetbrains.kotlin.cli.jvm.config.javaSourceRoots
