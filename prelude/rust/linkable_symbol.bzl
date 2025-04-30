@@ -87,6 +87,10 @@ def rust_linkable_symbol(
 
     rust_library_macro = rust_library_macro or prelude.rust_library
 
+    # Generate a globally unique symbol name that also works as a regular C style symbol
+    # to be compatible with all flavors of linkers.
+    linkable_symbol = "rust_linkable_symbol_{}__{}".format(package_name().replace("/", "_"), name)
+
     # Rustc shouldn't be the easiest way to accomplish this but here we are.
     #
     # Background reading:
@@ -99,7 +103,7 @@ def rust_linkable_symbol(
         crate = name,
         doctests = False,
         env = {
-            "LINKABLE_SYMBOL": "{}:{}".format(package_name(), name),
+            "LINKABLE_SYMBOL": linkable_symbol,
         },
         labels = [
             "generated",
@@ -133,7 +137,7 @@ def rust_linkable_symbol(
         ],
         doctests = False,
         env = {
-            "LINKABLE_SYMBOL": "{}:{}".format(package_name(), name),
+            "LINKABLE_SYMBOL": linkable_symbol,
         },
         labels = [
             "generated",
