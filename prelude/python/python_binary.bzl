@@ -32,6 +32,7 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//linking:strip.bzl", "strip_debug_with_gnu_debuglink")
+load("@prelude//python:compute_providers.bzl", "compute_binary_providers")
 load("@prelude//python/linking:native.bzl", "process_native_linking")
 load("@prelude//python/linking:native_python_util.bzl", "compute_link_strategy")
 load("@prelude//python/linking:omnibus.bzl", "process_omnibus_linking")
@@ -42,7 +43,7 @@ load(
     "EntryPoint",
     "EntryPointKind",
 )
-load(":make_py_package.bzl", "PexModules", "PexProviders", "make_default_info", "make_py_package", "make_run_info")
+load(":make_py_package.bzl", "PexModules", "PexProviders", "make_py_package")
 load(
     ":manifest.bzl",
     "ManifestInfo",  # @unused Used as a type
@@ -494,7 +495,4 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         compile = value_or(ctx.attrs.compile, False),
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
     )
-    return [
-        make_default_info(pex),
-        make_run_info(pex, ctx.attrs.run_with_inplace),
-    ]
+    return compute_binary_providers(ctx, pex)

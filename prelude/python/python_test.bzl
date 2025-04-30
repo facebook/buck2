@@ -6,14 +6,10 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
-load(
-    "@prelude//tests:re_utils.bzl",
-    "get_re_executors_from_props",
-)
+load("@prelude//python:compute_providers.bzl", "compute_test_providers")
 load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
 load(":interface.bzl", "EntryPointKind")
-load(":make_py_package.bzl", "PexProviders", "make_default_info")
+load(":make_py_package.bzl", "PexProviders")
 load(
     ":manifest.bzl",
     "get_srcs_from_manifest",
@@ -69,27 +65,4 @@ def python_test_executable(ctx: AnalysisContext) -> PexProviders:
 
 def python_test_impl(ctx: AnalysisContext) -> list[Provider]:
     pex = python_test_executable(ctx)
-    test_cmd = pex.run_cmd
-
-    # Setup RE executors based on the `remote_execution` param.
-    re_executor, executor_overrides = get_re_executors_from_props(ctx)
-    test_env = ctx.attrs.env
-    if pex.dbg_source_db:
-        test_env["PYTHON_SOURCE_MAP"] = pex.dbg_source_db
-
-    return inject_test_run_info(
-        ctx,
-        ExternalRunnerTestInfo(
-            type = "pyunit",
-            command = [test_cmd],
-            env = test_env,
-            labels = ctx.attrs.labels,
-            contacts = ctx.attrs.contacts,
-            default_executor = re_executor,
-            executor_overrides = executor_overrides,
-            # We implicitly make this test via the project root, instead of
-            # the cell root (e.g. fbcode root).
-            run_from_project_root = re_executor != None,
-            use_project_relative_paths = re_executor != None,
-        ),
-    ) + [make_default_info(pex)]
+    return compute_test_providers(ctx, pex)
