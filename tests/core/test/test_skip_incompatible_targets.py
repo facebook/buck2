@@ -40,6 +40,7 @@ async def test_test_skip_incompatible_targets(buck: Buck) -> None:
         "--skip-incompatible-targets",
         test_executor="",
     )
-    assert f"Skipping target incompatible node `{targetB}" in result.stderr
+    assert targetA in result.stderr
+    assert targetB not in result.stderr
 
     result.check_returncode()
