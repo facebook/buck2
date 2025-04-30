@@ -298,8 +298,8 @@ class AndroidDeviceImpl(val serial: String, val adbExecutable: String?, val adbS
       executeAdbShellCommand("pm uninstall ${if (keepData) "-k " else ""} $packageName")
       return true
     } catch (e: AdbCommandFailedException) {
-      throw AndroidInstallException.adbCommandFailedException(
-          "Failed to uninstall $packageName.", e.message)
+      LOG.warn("Failed to uninstall $packageName: ${e.message}")
+      return false
     }
   }
 
@@ -384,8 +384,8 @@ class AndroidDeviceImpl(val serial: String, val adbExecutable: String?, val adbS
   private fun executeAdbShellCommand(command: String, ignoreFailure: Boolean = false): String =
       adbUtils.executeAdbShellCommand(command, serialNumber, ignoreFailure)
 
-  private fun executeAdbCommand(command: String): String =
-      adbUtils.executeAdbCommand(command, serialNumber)
+  private fun executeAdbCommand(command: String, ignoreFailure: Boolean = false): String =
+      adbUtils.executeAdbCommand(command, serialNumber, ignoreFailure)
 
   companion object {
     private val LINE_ENDING: Pattern = Pattern.compile("\r?\n")

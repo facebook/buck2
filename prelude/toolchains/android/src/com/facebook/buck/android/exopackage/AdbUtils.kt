@@ -40,12 +40,13 @@ class AdbUtils(val adb: String, val adbServerPort: Int) {
           error("Failed to execute adb command 'adb $command' on device $deviceId.\n${e.message}")
         }
     return if (adbCommandResult.exitCode != 0) {
+      val error =
+          "Executing 'adb $command' on $deviceId failed with code ${adbCommandResult.exitCode}." +
+              (adbCommandResult.error?.let { "\nError: $it" } ?: "")
       if (!ignoreFailure) {
-        throw AdbCommandFailedException(
-            "Executing 'adb $command' on $deviceId failed with code ${adbCommandResult.exitCode}." +
-                if (!adbCommandResult.error.isNullOrEmpty()) "\nError:${adbCommandResult.error}"
-                else "")
+        throw AdbCommandFailedException(error)
       } else {
+        LOG.warn(error)
         adbCommandResult.output
       }
     } else {
