@@ -32,7 +32,7 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//linking:strip.bzl", "strip_debug_with_gnu_debuglink")
-load("@prelude//python:compute_providers.bzl", "compute_binary_providers")
+load("@prelude//python:compute_providers.bzl", "ExecutableType", "compute_providers")
 load("@prelude//python/linking:native.bzl", "process_native_linking")
 load("@prelude//python/linking:native_python_util.bzl", "compute_link_strategy")
 load("@prelude//python/linking:omnibus.bzl", "process_omnibus_linking")
@@ -495,4 +495,4 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         compile = value_or(ctx.attrs.compile, False),
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
     )
-    return compute_binary_providers(ctx, pex)
+    return compute_providers(ctx, pex, ExecutableType("binary"))

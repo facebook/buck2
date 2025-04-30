@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//python:compute_providers.bzl", "compute_test_providers")
+load("@prelude//python:compute_providers.bzl", "ExecutableType", "compute_providers")
 load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
 load(":interface.bzl", "EntryPointKind")
 load(":make_py_package.bzl", "PexProviders")
@@ -65,4 +65,4 @@ def python_test_executable(ctx: AnalysisContext) -> PexProviders:
 
 def python_test_impl(ctx: AnalysisContext) -> list[Provider]:
     pex = python_test_executable(ctx)
-    return compute_test_providers(ctx, pex)
+    return compute_providers(ctx, pex, ExecutableType("test"))

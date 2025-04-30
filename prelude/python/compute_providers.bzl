@@ -12,6 +12,19 @@ load(
 )
 load(":make_py_package.bzl", "PexProviders", "make_default_info", "make_run_info")
 
+ExecutableType = enum(
+    "binary",
+    "test",
+)
+
+def compute_providers(ctx: AnalysisContext, exe: PexProviders, executable_type: ExecutableType) -> list[Provider]:
+    if executable_type == ExecutableType("binary"):
+        return compute_binary_providers(ctx, exe)
+    elif executable_type == ExecutableType("test"):
+        return compute_test_providers(ctx, exe)
+    else:
+        fail("Unknown executable type: " + executable_type)
+
 def compute_binary_providers(ctx: AnalysisContext, exe: PexProviders) -> list[Provider]:
     return [
         make_default_info(exe),
