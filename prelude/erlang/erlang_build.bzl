@@ -157,6 +157,9 @@ def _prepare_build_environment(
 def _generate_input_mapping(build_environment: BuildEnvironment, input_artifacts: list[Artifact]) -> BuildEnvironment:
     # collect input artifacts for current targets
     # Note: this must be after the dependencies to overwrite private includes
+    if not input_artifacts:
+        return build_environment
+
     input_mapping = dict(build_environment.input_mapping)
 
     for input_artifact in input_artifacts:
