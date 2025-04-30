@@ -262,26 +262,25 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                     shared_libs.extend(node.shared_libs.libraries)
 
             # link the rule
-            if extension not in extensions:
-                link_result = cxx_link_shared_library(
-                    ctx = ctx,
-                    output = extension,
-                    opts = link_options(
-                        links = [
-                            LinkArgs(flags = python_toolchain.extension_linker_flags),
-                            LinkArgs(flags = python_toolchain.wheel_linker_flags),
-                            LinkArgs(flags = [
-                                "-Wl,-rpath,{}".format(_rpath(extension, rpath))
-                                for rpath in rpaths
-                            ]),
-                            LinkArgs(infos = inputs),
-                        ],
-                        category_suffix = "native_extension",
-                        identifier = extension,
-                        link_execution_preference = LinkExecutionPreference("any"),
-                    ),
-                )
-                extensions[extension] = link_result.linked_object
+            link_result = cxx_link_shared_library(
+                ctx = ctx,
+                output = extension,
+                opts = link_options(
+                    links = [
+                        LinkArgs(flags = python_toolchain.extension_linker_flags),
+                        LinkArgs(flags = python_toolchain.wheel_linker_flags),
+                        LinkArgs(flags = [
+                            "-Wl,-rpath,{}".format(_rpath(extension, rpath))
+                            for rpath in rpaths
+                        ]),
+                        LinkArgs(infos = inputs),
+                    ],
+                    category_suffix = "native_extension",
+                    identifier = extension,
+                    link_execution_preference = LinkExecutionPreference("any"),
+                ),
+            )
+            extensions[extension] = link_result.linked_object
 
     # Add sub-target for extensions.
     sub_targets["extensions"] = [
