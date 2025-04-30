@@ -24,6 +24,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     dex_files_info = android_binary_info.dex_files_info
     native_library_info = android_binary_info.native_library_info
     resources_info = android_binary_info.resources_info
+    validation_info = android_binary_info.validation_info
 
     keystore = ctx.attrs.keystore[KeystoreInfo]
     output_apk = build_apk(
@@ -102,7 +103,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             },
         ),
         class_to_srcs,
-    ]
+    ] + validation_info
 
 def build_apk(
         label: Label,
