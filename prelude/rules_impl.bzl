@@ -484,7 +484,7 @@ inlined_extra_attributes = {
     "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
 
     # Generic rule to build from a command
-    "genrule": genrule_attributes(),
+    "genrule": genrule_attributes() | constraint_overrides.attributes,
 
     # Go
     "go_binary": {
@@ -704,6 +704,7 @@ transitions = {
     "apple_test": apple_test_target_sdk_version_transition,
     "cxx_binary": constraint_overrides.transition,
     "cxx_test": constraint_overrides.transition,
+    "genrule": constraint_overrides.transition,
     "go_binary": go_binary_transition,
     "go_exported_library": go_exported_library_transition,
     "go_library": go_library_transition,
