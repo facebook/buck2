@@ -201,9 +201,6 @@ _GENRULE_LOCAL_LABELS = set([
     # points to something that does not exist).
     "dangling_output_symlink",
 
-    # Uses xcrun which is not in RE (e.g. compile metalshaders)
-    "uses_xcrun",
-
     # speech translation uses genrule to get models from manifold, high priority project
     "speech_translation_high_priority",
 
