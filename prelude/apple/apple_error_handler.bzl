@@ -9,6 +9,12 @@ load("@prelude//apple:apple_error_handler_types.bzl", "AppleErrorCategory")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_META_STDERR_ERROR_CATEGORIES")
 
 _APPLE_STDERR_ERROR_CATEGORIES = [
+
+    # STOP! @oss-disable
+    # If you work at Meta, you probably want to include things in APPLE_META_STDERR_ERROR_CATEGORIES   @oss-disable
+    # so you can include a link to an internal resource (wiki, task, etc)                              @oss-disable
+    # I would only add additional categories here if you think someone in open-source would benefit    @oss-disable
+
     #codesigning issues
     AppleErrorCategory(string_match = "codesignprovisioningerror", category = "apple_code_sign_error"),
     AppleErrorCategory(string_match = "codesignprovisioningerror", category = "code_sign_provisioning_error"),
