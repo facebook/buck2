@@ -77,6 +77,8 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
         codesense_cmd = cmd_args([
             list_tests_command[RunInfo],
             "list-tests",
+            "--buck-root",
+            "$(buck2 root)",
             ctx.attrs.srcs,
         ])
         ctx.attrs.env["TPX_LIST_TESTS_COMMAND"] = codesense_cmd
