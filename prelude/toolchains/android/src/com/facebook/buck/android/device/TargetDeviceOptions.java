@@ -41,4 +41,16 @@ public class TargetDeviceOptions {
   public Optional<String> getSerialNumber() {
     return serialNumber;
   }
+
+  @Override
+  public String toString() {
+    return "TargetDeviceOptions{"
+        + "useEmulatorsOnlyMode="
+        + useEmulatorsOnlyMode
+        + ", useRealDevicesOnlyMode="
+        + useRealDevicesOnlyMode
+        + ", serialNumber="
+        + serialNumber
+        + '}';
+  }
 }

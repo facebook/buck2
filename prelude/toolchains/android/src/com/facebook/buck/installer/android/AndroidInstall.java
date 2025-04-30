@@ -40,6 +40,8 @@ import java.util.logging.Logger; // NOPMD
 
 /** Installs an Android Apk */
 class AndroidInstall {
+  private static final Logger LOG = Logger.getLogger(AndroidInstall.class.getName());
+
   private final IsolatedApkInfo apkInfo;
   private final Optional<IsolatedExopackageInfo> exopackageInfo;
   private final AbsPath rootPath;
@@ -76,11 +78,14 @@ class AndroidInstall {
             cliOptions.adbTimeout,
             cliOptions.ignoreMissingDevices,
             apkOptions.apexMode);
+    LOG.info("adbOptions: " + adbOptions);
+
     TargetDeviceOptions targetDeviceOptions =
         new TargetDeviceOptions(
             cliOptions.useEmulatorsOnlyMode,
             cliOptions.useRealDevicesOnlyMode,
             Optional.ofNullable(cliOptions.serialNumber));
+    LOG.info("targetDeviceOptions: " + targetDeviceOptions);
 
     this.stderr = new ByteArrayOutputStream();
     Console console =

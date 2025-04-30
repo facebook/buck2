@@ -620,36 +620,50 @@ public class AdbHelper implements AndroidDevicesHelper {
     for (IDevice device : allDevices) {
       boolean passed = false;
       if (device.isOnline()) {
+        LOG.info("Found online device: %s", device.getSerialNumber());
         onlineDevices++;
 
         boolean serialMatches = true;
         // -s option or $ANDROID_SERIAL could contain
         // "tcp:" prefixed serial number for TCP connected device.
         // It is valid but the following logic needs to remove it.
-        if (deviceOptions.getSerialNumber().isPresent()) {
-          serialMatches =
-              device
+        if (deviceOptions.getSerialNumber().isPresent()
+            || getEnvironment().containsKey(SERIAL_NUMBER_ENV)) {
+          String expectedSerialNumber =
+              deviceOptions
                   .getSerialNumber()
-                  .equals(deviceOptions.getSerialNumber().get().replaceFirst("^tcp:", ""));
-        } else if (getEnvironment().containsKey(SERIAL_NUMBER_ENV)) {
-          serialMatches =
-              device
-                  .getSerialNumber()
-                  .equals(getEnvironment().get(SERIAL_NUMBER_ENV).replaceFirst("^tcp:", ""));
+                  .orElse(getEnvironment().get(SERIAL_NUMBER_ENV))
+                  .replaceFirst("^tcp:", "");
+          serialMatches = expectedSerialNumber.equals(device.getSerialNumber());
+          LOG.info(
+              "Device: %s %s expected serial#: %s",
+              device.getSerialNumber(),
+              serialMatches ? "matches" : "does not match",
+              expectedSerialNumber);
         }
 
         // Only devices of specific type are accepted:
         // either real devices only or emulators only.
         // All online devices match.
+        boolean isDeviceEmulator = createDevice(device).isEmulator();
         boolean deviceTypeMatches =
-            emulatorsOnly
-                .map(isEmulatorOnly -> (isEmulatorOnly == createDevice(device).isEmulator()))
-                .orElse(true);
+            emulatorsOnly.map(isEmulatorOnly -> (isEmulatorOnly == isDeviceEmulator)).orElse(true);
+        LOG.info(
+            "Device: %s %s expected device type. Actual: %s - expected: %s",
+            device.getSerialNumber(),
+            deviceTypeMatches ? "matches" : "does not match",
+            isDeviceEmulator ? "emulator" : "real",
+            emulatorsOnly.map(p -> p ? "emulator" : "real").orElse("any"));
         passed = serialMatches && deviceTypeMatches;
+      } else {
+        LOG.info("Found offline device: %s", device.getSerialNumber());
       }
 
       if (passed) {
+        LOG.info("Device: %s passed filter", device.getSerialNumber());
         devices.add(device);
+      } else {
+        LOG.info("Device: %s did not pass filter", device.getSerialNumber());
       }
     }
 

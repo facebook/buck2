@@ -65,4 +65,24 @@ public class AdbOptions {
   public boolean getIgnoreMissingDevice() {
     return ignoreMissingDevice;
   }
+
+  @Override
+  public String toString() {
+    return "AdbOptions{"
+        + "adbThreadCount="
+        + adbThreadCount
+        + ", adbServerPort="
+        + adbServerPort
+        + ", multiInstallMode="
+        + multiInstallMode
+        + ", stagedInstallMode="
+        + stagedInstallMode
+        + ", adbTimeout="
+        + adbTimeout
+        + ", ignoreMissingDevice="
+        + ignoreMissingDevice
+        + ", apexMode="
+        + apexMode
+        + '}';
+  }
 }
