@@ -75,7 +75,7 @@ TargetExtraInfo = record(
     args = field([list[ArgLike], None], default = None),
     # extra environment variables to pass to the debugger
     env = field(dict[str, str], default = {}),
-    source_map = field(list[list[str]], default = []),
+    source_map = field(list[list[str]] | None, default = None),
     python = field([PythonInfo, None], default = None),
     clr = field([ClrInfo, None], default = None),
     vscode = field([Custom, None], default = None),
