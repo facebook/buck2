@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -59,6 +60,7 @@ use remote_execution::RemoteExecutionMetadata;
 use remote_execution::RemoteFetchPolicy;
 use remote_execution::Stage;
 use remote_execution::TActionResult2;
+use remote_execution::TClientContextMetadata;
 use remote_execution::TCode;
 use remote_execution::TDependency;
 use remote_execution::TDigest;
@@ -95,6 +97,21 @@ use crate::re::stats::RemoteExecutionClientOpStats;
 use crate::re::stats::RemoteExecutionClientStats;
 use crate::re::uploader::UploadStats;
 use crate::re::uploader::Uploader;
+
+pub enum ActionCacheWriteType {
+    LocalCacheUpload,
+    PermissionCheck,
+    RemoteDepFile,
+}
+impl ActionCacheWriteType {
+    fn as_str(&self) -> &'static str {
+        match *self {
+            ActionCacheWriteType::LocalCacheUpload => "local_cache_upload",
+            ActionCacheWriteType::PermissionCheck => "permission_check",
+            ActionCacheWriteType::RemoteDepFile => "remote_dep_file",
+        }
+    }
+}
 
 pub enum CancellationReason {
     NotSpecified,
@@ -373,13 +390,14 @@ impl RemoteExecutionClient {
         result: TActionResult2,
         use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
+        write_type: ActionCacheWriteType,
     ) -> buck2_error::Result<WriteActionResultResponse> {
         self.data
             .write_action_results
             .op(self
                 .data
                 .client
-                .write_action_result(digest, result, use_case, platform))
+                .write_action_result(digest, result, use_case, platform, write_type))
             .await
     }
 
@@ -1495,7 +1513,10 @@ impl RemoteExecutionClientImpl {
         result: TActionResult2,
         use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
+        write_type: ActionCacheWriteType,
     ) -> buck2_error::Result<WriteActionResultResponse> {
+        let attributes =
+            BTreeMap::from([("write_type".to_owned(), write_type.as_str().to_owned())]);
         with_error_handler(
             "write_action_result",
             self.get_session_id(),
@@ -1504,6 +1525,10 @@ impl RemoteExecutionClientImpl {
                 .write_action_result(
                     RemoteExecutionMetadata {
                         platform: Some(re_platform(platform)),
+                        client_context: Some(TClientContextMetadata {
+                            attributes,
+                            ..Default::default()
+                        }),
                         ..use_case.metadata(None)
                     },
                     WriteActionResultRequest {

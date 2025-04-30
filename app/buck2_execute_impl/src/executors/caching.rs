@@ -32,6 +32,7 @@ use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
 use buck2_execute::execute::cache_uploader::UploadCache;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::re::client::ActionCacheWriteType;
 use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use derive_more::Display;
@@ -165,7 +166,12 @@ impl CacheUploader {
                     };
 
                     self.re_client
-                        .write_action_result(digest, result, &self.platform.to_re_platform())
+                        .write_action_result(
+                            digest,
+                            result,
+                            &self.platform.to_re_platform(),
+                            ActionCacheWriteType::LocalCacheUpload,
+                        )
                         .await?;
 
                     Ok(CacheUploadOutcome::Success(result_for_dep_file))
@@ -249,7 +255,12 @@ impl CacheUploader {
 
                     // upload ActionResult to ActionCache
                     self.re_client
-                        .write_action_result(digest, action_result, &self.platform.to_re_platform())
+                        .write_action_result(
+                            digest,
+                            action_result,
+                            &self.platform.to_re_platform(),
+                            ActionCacheWriteType::RemoteDepFile,
+                        )
                         .await?;
 
                     Ok(CacheUploadOutcome::Success(None))

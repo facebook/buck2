@@ -14,6 +14,7 @@ use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_error::BuckErrorContext;
+use buck2_execute::re::client::ActionCacheWriteType;
 use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use dashmap::DashMap;
@@ -65,6 +66,7 @@ impl ActionCacheUploadPermissionChecker {
                 action.action,
                 action_result.clone(),
                 &platform.to_re_platform(),
+                ActionCacheWriteType::PermissionCheck,
             )
             .await;
         match result {

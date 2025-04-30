@@ -52,6 +52,7 @@ use crate::execute::manager::CommandExecutionManager;
 use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
+use crate::re::client::ActionCacheWriteType;
 use crate::re::client::ExecuteResponseOrCancelled;
 use crate::re::client::RemoteExecutionClient;
 use crate::re::re_get_session_id::ReGetSessionId;
@@ -515,6 +516,7 @@ impl ManagedRemoteExecutionClient {
         digest: ActionDigest,
         result: TActionResult2,
         platform: &RE::Platform,
+        write_type: ActionCacheWriteType,
     ) -> buck2_error::Result<WriteActionResultResponse> {
         if buck2_env!(
             "BUCK2_TEST_SKIP_ACTION_CACHE_WRITE",
@@ -529,7 +531,7 @@ impl ManagedRemoteExecutionClient {
             self.lock()?
                 .get()
                 .await?
-                .write_action_result(digest, result, self.use_case, platform)
+                .write_action_result(digest, result, self.use_case, platform, write_type)
                 .await
         }
     }
