@@ -315,6 +315,7 @@ def get_undefined_symbols_args(
         ctx: AnalysisContext,
         name: str,
         symbol_files: list[Artifact],
+        undefined_flag: str = "-u",
         category: [str, None] = None,
         identifier: [str, None] = None,
         prefer_local: bool = False) -> cmd_args:
@@ -322,6 +323,7 @@ def get_undefined_symbols_args(
         ctx.actions,
         name,
         symbol_files,
+        undefined_flag,
         category,
         identifier,
         prefer_local,
@@ -332,6 +334,7 @@ def create_undefined_symbols_argsfile(
         actions: AnalysisActions,
         name: str,
         symbol_files: list[Artifact],
+        undefined_flag: str,
         category: [str, None] = None,
         identifier: [str, None] = None,
         prefer_local: bool = False) -> Artifact:
@@ -345,8 +348,8 @@ def create_undefined_symbols_argsfile(
         script = """\
 set -euo pipefail
 tr '\\n' '\\0' < "$1" > "$2.files0.txt"
-LC_ALL=C sort -S 10% -u -m --files0-from="$2.files0.txt" | sed "s/^/-u/" > "$2"
-""",
+LC_ALL=C sort -S 10% -u -m --files0-from="$2.files0.txt" | sed "s/^/{undef}/" > "$2"
+""".format(undef = undefined_flag),
         symbol_files = symbol_files,
         category = category,
         identifier = identifier,

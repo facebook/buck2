@@ -16,6 +16,7 @@ load(
     "CxxLinkResult",  # @unused Used as a type
     "cxx_link_shared_library",
 )
+load("@prelude//cxx:linker.bzl", "LINKERS")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_info.bzl",
@@ -441,6 +442,9 @@ def _create_omnibus(
         prefer_stripped_objects: bool = False,
         allow_cache_upload: bool = False,
         enable_distributed_thinlto = False) -> CxxLinkResult:
+    toolchain_info = get_cxx_toolchain_info(ctx)
+    linker_info = toolchain_info.linker_info
+
     inputs = []
 
     # Undefined symbols roots...
@@ -455,6 +459,7 @@ def _create_omnibus(
                 ctx = ctx,
                 name = "__undefined_symbols__.argsfile",
                 symbol_files = non_body_root_undefined_syms,
+                undefined_flag = LINKERS[linker_info.type].undefined_sym_flag,
                 category = "omnibus_undefined_symbols",
             ),
         ]))
@@ -494,8 +499,6 @@ def _create_omnibus(
                 expect(dep in spec.excluded)
                 deps[dep] = None
 
-    toolchain_info = get_cxx_toolchain_info(ctx)
-
     # Now add deps of omnibus to the link
     for label in _link_deps(spec.link_infos, deps.keys(), toolchain_info.pic_behavior):
         node = spec.link_infos[label]
@@ -509,8 +512,6 @@ def _create_omnibus(
             output_style,
             prefer_stripped = prefer_stripped_objects,
         ))
-
-    linker_info = toolchain_info.linker_info
 
     # Add global symbols version script.
     # FIXME(agallagher): Support global symbols for darwin.
