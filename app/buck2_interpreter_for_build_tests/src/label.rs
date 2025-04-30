@@ -70,7 +70,7 @@ fn labels_are_usable() -> buck2_error::Result<()> {
     expect_error(
         tester.run_starlark_test(invalid_fields),
         invalid_fields,
-        "Object of type `label` has no attribute `invalid_field`",
+        "Object of type `Label` has no attribute `invalid_field`",
     );
     Ok(())
 }

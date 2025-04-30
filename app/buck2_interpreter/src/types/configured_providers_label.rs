@@ -79,7 +79,7 @@ impl StarlarkConfiguredProvidersLabel {
     }
 }
 
-#[starlark_value(type = "label")]
+#[starlark_value(type = "Label")]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredProvidersLabel
 where
     Self: ProvidesStaticType<'v>,
