@@ -687,6 +687,7 @@ def create_omnibus_libraries(
         ctx: AnalysisContext,
         graph: OmnibusGraph,
         extra_ldflags: list[typing.Any] = [],
+        extra_root_ldflags: dict[Label, list[typing.Any]] = {},
         prefer_stripped_objects: bool = False,
         enable_distributed_thinlto = False) -> OmnibusSharedLibraries:
     spec = _build_omnibus_spec(ctx, graph)
@@ -709,7 +710,7 @@ def create_omnibus_libraries(
             link_deps,
             dummy_omnibus,
             pic_behavior,
-            extra_ldflags,
+            extra_ldflags + extra_root_ldflags.get(label, []),
             prefer_stripped_objects,
             allow_cache_upload = True,
         )

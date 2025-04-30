@@ -16,8 +16,14 @@ load(
     "@prelude//cxx:link_types.bzl",
     "link_options",
 )
+load(
+    "@prelude//cxx:omnibus.bzl",
+    "create_omnibus_libraries",
+    "get_omnibus_graph",
+    "get_roots",
+)
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
-load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "link_execution_preference_attr")
 load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",
@@ -31,6 +37,7 @@ load(
     "LinkableGraph",
     "LinkableNode",  # @unused Used as a type
     "LinkableRootInfo",
+    "create_linkable_graph",
     "get_deps_for_link",
     "get_linkable_graph_node_map_func",
     get_link_info_for_node = "get_link_info",
@@ -179,9 +186,50 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             expect(not manifests.default_resources[1])
             srcs.append(manifests.default_resources[0])
         if manifests.extensions != None:
-            items = manifests.extensions.items()
-            expect(len(items) == 1)
-            extension = items[0][0]
+            ((extension, _),) = manifests.extensions.items()
+            extensions[extension] = dep
+
+    # We support two modes of linking:
+    # - omnibus: All native deps of all extensions are linked into a shared DSO
+    # - static-everything: Each extension statically links all its deps (note
+    #       this can mean each extension gets its own copy of common deps).
+    if ctx.attrs.omnibus:
+        deps = extensions.values()
+        linkable_graph = create_linkable_graph(
+            ctx = ctx,
+            deps = deps,
+        )
+        omnibus_graph = get_omnibus_graph(
+            graph = linkable_graph,
+            roots = get_roots(deps),
+            excluded = {},
+        )
+
+        # Link omnibus libraries.
+        omnibus_libs = create_omnibus_libraries(
+            ctx,
+            omnibus_graph,
+            extra_ldflags = python_toolchain.wheel_linker_flags,
+            extra_root_ldflags = {
+                dep.label: (
+                    python_toolchain.extension_linker_flags +
+                    [
+                        "-Wl,-rpath,{}".format(_rpath(extension, rpath))
+                        for rpath in rpaths
+                    ]
+                )
+                for extension, dep in extensions.items()
+            },
+        )
+
+        # Extract re-linked extensions.
+        extensions = {
+            dest: omnibus_libs.roots[dep.label].shared_library
+            for dest, dep in extensions.items()
+        }
+        shared_libs = omnibus_libs.libraries
+    else:
+        for extension, dep in extensions.items():
             root = dep[LinkableRootInfo]
 
             # Add link inputs for the linkable root and any deps.
@@ -381,6 +429,7 @@ python_wheel = rule(
                 # @oss-disable[end= ]: "ovr_config//os:linux-x86_64": "linux_x86_64",
             }),
         ),
+        omnibus = attrs.bool(default = False),
         libraries = attrs.list(attrs.dep(providers = [PythonLibraryInfo]), default = []),
         scripts = attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
         libraries_query = attrs.option(attrs.query(), default = None),
@@ -390,6 +439,7 @@ python_wheel = rule(
         lib_dir = attrs.option(attrs.string(), default = None),
         support_future_python_versions = attrs.bool(default = False),
         labels = attrs.list(attrs.string(), default = []),
+        link_execution_preference = link_execution_preference_attr(),
         _wheel = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:wheel")),
         _patchelf = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:patchelf")),
         _create_link_tree = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:create_link_tree")),
