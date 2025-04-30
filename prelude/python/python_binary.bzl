@@ -112,7 +112,8 @@ def python_executable(
         default_resources: dict[str, ArtifactOutputs],
         standalone_resources: dict[str, ArtifactOutputs] | None,
         compile: bool,
-        allow_cache_upload: bool) -> PexProviders:
+        allow_cache_upload: bool,
+        executable_type: ExecutableType) -> list[Provider]:
     # Returns a three tuple: the Python binary, all its potential runtime files,
     # and a provider for its source DB.
 
@@ -196,6 +197,7 @@ def python_executable(
         src_manifest,
         python_deps,
         source_db_no_deps,
+        executable_type,
     )
 
 def _add_executable_subtargets(
@@ -259,7 +261,8 @@ def _compute_pex_providers(
         extensions: dict[str, (LinkedObject, Label)],
         link_args: list[LinkArgs],
         extra: dict[str, typing.Any],
-        extra_artifacts: dict[str, typing.Any]) -> PexProviders:
+        extra_artifacts: dict[str, typing.Any],
+        executable_type: ExecutableType) -> list[Provider]:
     dbg_source_db_output = ctx.actions.declare_output("dbg-db.json")
     dbg_source_db = create_dbg_source_db(ctx, dbg_source_db_output, src_manifest, python_deps)
 
@@ -380,7 +383,9 @@ def _compute_pex_providers(
 
     pex.sub_targets.update(extra)
 
-    return _add_executable_subtargets(ctx, pex, dbg_source_db, dbg_source_db_output, library, main, source_db_no_deps, src_manifest, python_deps)
+    updated_pex = _add_executable_subtargets(ctx, pex, dbg_source_db, dbg_source_db_output, library, main, source_db_no_deps, src_manifest, python_deps)
+
+    return compute_providers(ctx, updated_pex, executable_type)
 
 def _convert_python_library_to_executable(
         ctx: AnalysisContext,
@@ -391,7 +396,8 @@ def _convert_python_library_to_executable(
         allow_cache_upload: bool,
         src_manifest: ManifestInfo | None,
         python_deps: list[PythonLibraryInfo],
-        source_db_no_deps: DefaultInfo) -> PexProviders:
+        source_db_no_deps: DefaultInfo,
+        executable_type: ExecutableType) -> list[Provider]:
     extra = {}
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
@@ -443,6 +449,7 @@ def _convert_python_library_to_executable(
         link_args,
         extra,
         extra_artifacts,
+        executable_type,
     )
 
 def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -484,7 +491,7 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     standalone_resources = qualify_srcs(ctx.label, ctx.attrs.base_module, standalone_resources_map)
     default_resources = qualify_srcs(ctx.label, ctx.attrs.base_module, default_resources_map)
 
-    pex = python_executable(
+    return python_executable(
         ctx,
         main,
         srcs,
@@ -492,5 +499,5 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         standalone_resources,
         compile = value_or(ctx.attrs.compile, False),
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
+        executable_type = ExecutableType("binary"),
     )
-    return compute_providers(ctx, pex, ExecutableType("binary"))

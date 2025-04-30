@@ -6,10 +6,9 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//python:compute_providers.bzl", "ExecutableType", "compute_providers")
+load("@prelude//python:compute_providers.bzl", "ExecutableType")
 load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
 load(":interface.bzl", "EntryPointKind")
-load(":make_py_package.bzl", "PexProviders")
 load(
     ":manifest.bzl",
     "get_srcs_from_manifest",
@@ -35,7 +34,7 @@ def _write_test_modules_list(
     contents += "]\n"
     return name, ctx.actions.write(name, contents)
 
-def python_test_executable(ctx: AnalysisContext) -> PexProviders:
+def python_test_executable(ctx: AnalysisContext) -> list[Provider]:
     main_module = value_or(ctx.attrs.main_module, "__test_main__")
 
     srcs = qualify_srcs(ctx.label, ctx.attrs.base_module, from_named_set(ctx.attrs.srcs))
@@ -61,8 +60,8 @@ def python_test_executable(ctx: AnalysisContext) -> PexProviders:
         standalone_resources,
         compile = value_or(ctx.attrs.compile, False),
         allow_cache_upload = False,
+        executable_type = ExecutableType("test"),
     )
 
 def python_test_impl(ctx: AnalysisContext) -> list[Provider]:
-    pex = python_test_executable(ctx)
-    return compute_providers(ctx, pex, ExecutableType("test"))
+    return python_test_executable(ctx)
