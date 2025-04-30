@@ -11,4 +11,6 @@ AppleErrorCategories = record(
     string_match = str,
     # List of category tags to be applied in the event of this error.
     categories = list[str],
+    # Based on the error, you can inject something like a wiki link/etc.
+    message = field([str, None], default = None),
 )

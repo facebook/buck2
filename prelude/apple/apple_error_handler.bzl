@@ -50,16 +50,17 @@ _APPLE_STDERR_ERROR_CATEGORIES = [
     AppleErrorCategories(string_match = "unknown cell alias", categories = ["apple_unknown_cell_alias_failure"]),
 ]
 
-def _add_category_strings(lowercase_stderr: str, category_string_target: set[str], source: list[AppleErrorCategories]):
+def _add_category_strings(ctx: ActionErrorCtx, lowercase_stderr: str, errors: list[ActionSubError], source: list[AppleErrorCategories]):
     for error_category in source:
         if error_category.string_match in lowercase_stderr:
-            for category_string in error_category.categories:
-                category_string_target.add(category_string)
+            for category_string in sorted(error_category.categories):
+                errors.append(ctx.new_sub_error(category = category_string, message = error_category.message))
 
 def apple_build_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     lowercase_stderr = ctx.stderr.lower()
-    categories = set()
-    _add_category_strings(lowercase_stderr, categories, _APPLE_STDERR_ERROR_CATEGORIES)
-    # @oss-disable[end= ]: _add_category_strings(lowercase_stderr, categories, APPLE_META_STDERR_ERROR_CATEGORIES)
 
-    return [ctx.new_sub_error(category = category_string) for category_string in sorted(categories)]
+    errors = []
+    _add_category_strings(ctx, lowercase_stderr, errors, _APPLE_STDERR_ERROR_CATEGORIES)
+    # @oss-disable[end= ]: _add_category_strings(ctx, lowercase_stderr, errors, APPLE_META_STDERR_ERROR_CATEGORIES)
+
+    return errors
