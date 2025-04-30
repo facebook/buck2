@@ -181,7 +181,8 @@ class Args(NamedTuple):
     rustc_host_tuple: Optional[Path]
     manifest_dir: Path
     create_cwd: Path
-    outfile: IO[str]
+    rustc_flags_outfile: IO[str]
+    env_flags_outfile: IO[str]
 
 
 def arg_parse() -> Args:
@@ -191,7 +192,8 @@ def arg_parse() -> Args:
     parser.add_argument("--rustc-host-tuple", type=Path)
     parser.add_argument("--manifest-dir", type=Path, required=True)
     parser.add_argument("--create-cwd", type=Path, required=True)
-    parser.add_argument("--outfile", type=argparse.FileType("w"), required=True)
+    parser.add_argument("--rustc-flags-outfile", type=argparse.FileType("w"), required=True)
+    parser.add_argument("--env-flags-outfile", type=argparse.FileType("w"), required=True)
 
     return Args(**vars(parser.parse_args()))
 
@@ -227,14 +229,23 @@ def main() -> None:  # noqa: C901
     script_output = run_buildscript(args.buildscript, env=env, cwd=cwd)
 
     cargo_rustc_cfg_pattern = re.compile("^cargo:rustc-cfg=(.*)")
-    flags = ""
+    cargo_env_flag_pattern = re.compile("^cargo:rustc-env=(.+?)=(.*)")
+    rustc_flags = ""
+    env_flags = ""
     for line in script_output.split("\n"):
         cargo_rustc_cfg_match = cargo_rustc_cfg_pattern.match(line)
         if cargo_rustc_cfg_match:
-            flags += "--cfg={}\n".format(cargo_rustc_cfg_match.group(1))
+            rustc_flags += "--cfg={}\n".format(cargo_rustc_cfg_match.group(1))
         else:
-            print(line, end="\n")
-    args.outfile.write(flags)
+            cargo_env_flag_match = cargo_env_flag_pattern.match(line)
+            if cargo_env_flag_match:
+                key = cargo_env_flag_match.group(1)
+                val = cargo_env_flag_match.group(2)
+                env_flags += "--env={}={}\n".format(key, val)
+            else:
+                print(line, end="\n")
+    args.rustc_flags_outfile.write(rustc_flags)
+    args.env_flags_outfile.write(env_flags)
 
 
 if __name__ == "__main__":
