@@ -40,6 +40,8 @@ def _process_target_config(
         target: bxl.ConfiguredTargetNode,
         analysis: bxl.AnalysisResult,
         in_workspace: bool) -> TargetInfo:
+    target = target.unwrap_forward()
+
     providers = analysis.providers()
     ra_info = providers[RustAnalyzerInfo]
 
