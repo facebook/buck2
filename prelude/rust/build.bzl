@@ -1540,6 +1540,8 @@ def _rustc_invoke(
         compile_cmd.add(cmd_args("--env=", k, "=", v, delimiter = ""))
     for k, v in path_env.items():
         compile_cmd.add(cmd_args("--path-env=", k, "=", v, delimiter = ""))
+    for flag in ctx.attrs.env_flags:
+        compile_cmd.add(cmd_args(flag))
 
     build_status = None
     if infallible_diagnostics:

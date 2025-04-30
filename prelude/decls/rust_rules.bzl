@@ -121,6 +121,7 @@ rust_binary = prelude_rule(
         rust_common.crate(crate_type = attrs.option(attrs.string(), default = None)) |
         rust_common.crate_root() |
         rust_common.env_arg() |
+        rust_common.env_flags_arg() |
         _rust_binary_attrs_group(prefix = "") |
         _rust_common_attributes(is_binary = True) |
         _RUST_EXECUTABLE_ATTRIBUTES |
@@ -186,6 +187,7 @@ rust_library = prelude_rule(
         rust_common.linker_flags_arg() |
         rust_common.exported_linker_flags_arg() |
         rust_common.env_arg() |
+        rust_common.env_flags_arg() |
         rust_common.crate(crate_type = attrs.option(attrs.string(), default = None)) |
         rust_common.crate_root() |
         native_common.preferred_linkage(preferred_linkage_type = attrs.enum(Linkage.values(), default = "any")) |
