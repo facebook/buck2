@@ -183,7 +183,7 @@ def python_executable(
 
     source_db_no_deps = create_source_db_no_deps(ctx, srcs)
 
-    exe = _convert_python_library_to_executable(
+    return _convert_python_library_to_executable(
         ctx,
         _qualify_entry_point(
             main,
@@ -197,8 +197,6 @@ def python_executable(
         python_deps,
         source_db_no_deps,
     )
-
-    return exe
 
 def _add_executable_subtargets(
         ctx,
