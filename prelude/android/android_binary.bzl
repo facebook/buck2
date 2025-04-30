@@ -20,7 +20,7 @@ load(
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:configuration.bzl", "get_deps_by_platform")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
-load("@prelude//android:dex_rules.bzl", "get_multi_dex", "get_single_primary_dex", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
+load("@prelude//android:dex_rules.bzl", "get_multi_dex", "get_pre_dexed_libs_with_class_names_and_weight_estimates_files", "get_single_primary_dex", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
 load("@prelude//android:exopackage.bzl", "get_exopackage_flags")
 load("@prelude//android:preprocess_java_classes.bzl", "get_preprocessed_java_classes")
 load("@prelude//android:util.bzl", "create_enhancement_context")
@@ -123,11 +123,19 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     if should_pre_dex:
         pre_dexed_libs = [packaging_dep.dex for packaging_dep in dex_java_packaging_deps]
         if ctx.attrs.use_split_dex:
-            dex_files_info = merge_to_split_dex(
+            split_dex_merge_config = get_split_dex_merge_config(ctx, android_toolchain)
+            pre_dexed_libs_with_class_names_and_weight_estimates_files = get_pre_dexed_libs_with_class_names_and_weight_estimates_files(
                 ctx,
                 android_toolchain,
                 pre_dexed_libs,
-                get_split_dex_merge_config(ctx, android_toolchain),
+                split_dex_merge_config,
+            )
+
+            dex_files_info = merge_to_split_dex(
+                ctx,
+                android_toolchain,
+                pre_dexed_libs_with_class_names_and_weight_estimates_files,
+                split_dex_merge_config,
                 target_to_module_mapping_file,
                 enable_bootstrap_dexes = ctx.attrs.enable_bootstrap_dexes,
             )

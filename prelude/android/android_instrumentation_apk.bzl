@@ -11,7 +11,7 @@ load("@prelude//android:android_binary_resources_rules.bzl", "get_android_binary
 load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidInstrumentationApkInfo", "merge_android_packageable_info")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:configuration.bzl", "get_deps_by_platform")
-load("@prelude//android:dex_rules.bzl", "get_multi_dex", "get_single_primary_dex", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
+load("@prelude//android:dex_rules.bzl", "get_multi_dex", "get_pre_dexed_libs_with_class_names_and_weight_estimates_files", "get_single_primary_dex", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
 load("@prelude//android:preprocess_java_classes.bzl", "get_preprocessed_java_classes")
 load("@prelude//android:util.bzl", "create_enhancement_context")
 load("@prelude//java:class_to_srcs.bzl", "merge_class_to_source_map_from_jar")
@@ -30,8 +30,8 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
     expect(
         ctx.attrs.min_sdk_version == apk_under_test_info.min_sdk_version,
         """
-Android instrumentation APK must have the same min_sdk_version as the APK-under-test! 
-This is important because the min_sdk_version affects the configuration of all deps. 
+Android instrumentation APK must have the same min_sdk_version as the APK-under-test!
+This is important because the min_sdk_version affects the configuration of all deps.
 Instrumentation APK min_sdk_version: {}, APK-under-test min_sdk_version: {}""".format(
             ctx.attrs.min_sdk_version,
             apk_under_test_info.min_sdk_version,
@@ -51,7 +51,7 @@ Instrumentation APK min_sdk_version: {}, APK-under-test min_sdk_version: {}""".f
         expect(
             platform_configuration in test_apk_platform_configurations,
             """
-APK-under-test has deps that are configured in a different manner than the Android instrumentation APK! 
+APK-under-test has deps that are configured in a different manner than the Android instrumentation APK!
 This will lead to overbuilding and is not supported. Configuration {} not found in {}""".format(platform_configuration, test_apk_platform_configurations),
         )
     filtered_deps_by_platform = {platform: deps for platform, deps in unfiltered_deps_by_platform.items() if platform in apk_under_test_info.platforms}
@@ -97,10 +97,16 @@ This will lead to overbuilding and is not supported. Configuration {} not found 
         pre_dexed_libs = [java_packaging_dep.dex for java_packaging_dep in java_packaging_deps]
         if ctx.attrs.use_split_dex:
             dex_merge_config = get_split_dex_merge_config(ctx, android_toolchain)
-            dex_files_info = merge_to_split_dex(
+            pre_dexed_libs_with_class_names_and_weight_estimates_files = get_pre_dexed_libs_with_class_names_and_weight_estimates_files(
                 ctx,
                 android_toolchain,
                 pre_dexed_libs,
+                dex_merge_config,
+            )
+            dex_files_info = merge_to_split_dex(
+                ctx,
+                android_toolchain,
+                pre_dexed_libs_with_class_names_and_weight_estimates_files,
                 dex_merge_config,
                 enable_bootstrap_dexes = ctx.attrs.enable_bootstrap_dexes,
             )
