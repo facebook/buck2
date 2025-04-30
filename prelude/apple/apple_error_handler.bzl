@@ -14,19 +14,19 @@ _APPLE_STDERR_ERROR_CATEGORIES = [
     AppleErrorCategories(string_match = "the timestamp service is not available", categories = ["apple_code_sign_error"]),
 
     #compilation issues
-    AppleErrorCategories(string_match = "failed to emit precompiled module", categories = ["apple_compilation_failure", "apple_pcm_compilation_failure"]),
-    AppleErrorCategories(string_match = "please rebuild precompiled header", categories = ["apple_compilation_failure", "apple_pcm_compilation_failure"]),
+    AppleErrorCategories(string_match = "failed to emit precompiled module", categories = ["apple_pcm_compilation_failure"]),
+    AppleErrorCategories(string_match = "please rebuild precompiled header", categories = ["apple_pcm_compilation_failure"]),
     AppleErrorCategories(string_match = "llvm-lipo", categories = ["apple_lipo_failure"]),
-    AppleErrorCategories(string_match = ".swift:", categories = ["apple_compilation_failure", "apple_swift_compilation_failure"]),
-    AppleErrorCategories(string_match = ".cpp:", categories = ["apple_compilation_failure", "apple_cpp_compilation_failure"]),
-    AppleErrorCategories(string_match = ".cxx:", categories = ["apple_compilation_failure", "apple_cpp_compilation_failure"]),
-    AppleErrorCategories(string_match = ".m:", categories = ["apple_compilation_failure", "apple_objc_compilation_failure"]),
-    AppleErrorCategories(string_match = ".mm:", categories = ["apple_compilation_failure", "apple_objc_compilation_failure", "apple_cpp_compilation_failure", "apple_objcpp_compilation_failure"]),
-    AppleErrorCategories(string_match = ".c:", categories = ["apple_compilation_failure", "apple_c_compilation_failure"]),
-    AppleErrorCategories(string_match = ".modulemap:", categories = ["apple_compilation_failure", "apple_modulemap_compilation_failure"]),
-    AppleErrorCategories(string_match = "missing required modules", categories = ["apple_compilation_failure", "apple_missing_required_modules_error"]),
-    AppleErrorCategories(string_match = "has a minimum deployment target", categories = ["apple_compilation_failure", "apple_deployment_target_error"]),
-    AppleErrorCategories(string_match = "file not found", categories = ["apple_compilation_failure", "apple_file_not_found_error"]),
+    AppleErrorCategories(string_match = ".swift:", categories = ["apple_swift_compilation_failure"]),
+    AppleErrorCategories(string_match = ".cpp:", categories = ["apple_cpp_compilation_failure"]),
+    AppleErrorCategories(string_match = ".cxx:", categories = ["apple_cpp_compilation_failure"]),
+    AppleErrorCategories(string_match = ".m:", categories = ["apple_objc_compilation_failure"]),
+    AppleErrorCategories(string_match = ".mm:", categories = ["apple_objc_compilation_failure", "apple_cpp_compilation_failure", "apple_objcpp_compilation_failure"]),
+    AppleErrorCategories(string_match = ".c:", categories = ["apple_c_compilation_failure"]),
+    AppleErrorCategories(string_match = ".modulemap:", categories = ["apple_modulemap_compilation_failure"]),
+    AppleErrorCategories(string_match = "missing required modules", categories = ["apple_missing_required_modules_error"]),
+    AppleErrorCategories(string_match = "has a minimum deployment target", categories = ["apple_deployment_target_error"]),
+    AppleErrorCategories(string_match = "file not found", categories = ["apple_file_not_found_error"]),
 
     #toolchain / genrule issues
     AppleErrorCategories(string_match = "stack dump:", categories = ["apple_binary_execution_failure"]),
@@ -47,7 +47,7 @@ _APPLE_STDERR_ERROR_CATEGORIES = [
     AppleErrorCategories(string_match = "framework not found", categories = ["apple_framework_not_found_failure"]),
 
     #buck configuration issues
-    AppleErrorCategories(string_match = "unknown cell alias", categories = ["apple_buck_configuration_failure", "apple_unknown_cell_alias_failure"]),
+    AppleErrorCategories(string_match = "unknown cell alias", categories = ["apple_unknown_cell_alias_failure"]),
 ]
 
 def _add_category_strings(lowercase_stderr: str, category_string_target: set[str], source: list[AppleErrorCategories]):
