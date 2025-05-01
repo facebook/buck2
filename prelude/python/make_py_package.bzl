@@ -354,7 +354,7 @@ def _make_py_package_wrapper(
         pex_modules: PexModules,
         output_suffix: str,
         allow_cache_upload: bool) -> PexProviders:
-    if package_style == PackageStyle("inplace") and ctx.attrs.use_rust_make_par:
+    if package_style == PackageStyle("inplace") and ctx.attrs.use_rust_make_par and make_py_package_cmd != None:
         return _make_py_package_live(
             ctx,
             python_toolchain.make_py_package_live[RunInfo],
