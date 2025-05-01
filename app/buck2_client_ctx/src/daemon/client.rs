@@ -95,7 +95,7 @@ impl BuckdLifecycleLock {
                 "locking buckd lifecycle",
                 Duration::from_millis(5),
                 Duration::from_millis(100),
-                || async { Ok(fs4::FileExt::try_lock_exclusive(fileref)?) },
+                || async { Ok(fs4::fs_std::FileExt::try_lock_exclusive(fileref)?) },
             )
             .await?;
 
@@ -150,7 +150,7 @@ impl BuckdLifecycleLock {
 
 impl Drop for BuckdLifecycleLock {
     fn drop(&mut self) {
-        fs4::FileExt::unlock(&self.lock_file)
+        fs4::fs_std::FileExt::unlock(&self.lock_file)
             .expect("Unexpected failure to unlock buckd.lifecycle file.")
     }
 }

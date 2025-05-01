@@ -175,7 +175,7 @@ erased-serde = "0.3.20"
 faccess = "0.2.3"
 fancy-regex = "0.14.0"
 flate2 = "1.0.22"
-fs4 = { version = "0.6", features = ["sync"] }
+fs4 = { version = "0.9.1", features = ["sync"] }
 futures = { version = "0.3.28", features = ["async-await", "compat"] }
 futures-intrusive = "0.4"
 fxhash = "0.2.1"
