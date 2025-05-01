@@ -24,7 +24,8 @@ def _build_run_info(
         dep[ErlangAppInfo].app_folders[primary_toolchain_name]
         for dep in dependencies
         if ErlangAppInfo in dep and not dep[ErlangAppInfo].virtual
-    ] + additional_app_paths
+    ]
+    app_paths.extend(additional_app_paths)
 
     direct_shell_dependencies = check_dependencies(ctx.attrs.shell_libs, [ErlangAppInfo])
     all_shell_dependencies = flatten_dependencies(ctx, direct_shell_dependencies)
@@ -33,45 +34,37 @@ def _build_run_info(
             continue
         app_paths.append(dep[ErlangAppInfo].app_folders[primary_toolchain_name])
 
-    erl_args = cmd_args([])
-    for app_path in app_paths:
-        erl_args.add(cmd_args(app_path, format = "-pa \"${REPO_ROOT}\"/{}/ebin", delimiter = ""))
+    tools = get_primary_tools(ctx)
+    erl = cmd_args(cmd_args(tools.erl, delimiter = " "), format = "\"${REPO_ROOT}\"/{}")
+    erl_args = cmd_args(["exec", erl], delimiter = " \\\n")
 
-    for additional_path in additional_paths:
-        erl_args.add(cmd_args(additional_path, format = "-pa \"${REPO_ROOT}\"/{}", delimiter = ""))
+    # add paths
+    erl_args.add(cmd_args(app_paths, format = "-pa \"${REPO_ROOT}\"/{}/ebin"))
+    erl_args.add(cmd_args(additional_paths, format = "-pa \"${REPO_ROOT}\"/{}"))
 
     # add configs
     config_files = _shell_config_files(ctx)
-    for config_file in _shell_config_files(ctx):
-        erl_args.add(cmd_args(config_file, format = "-config \"${REPO_ROOT}\"/{}", delimiter = ""))
+    erl_args.add(cmd_args(config_files, format = "-config \"${REPO_ROOT}\"/{}"))
 
     # add extra args
-    for additional_args in additional_args:
-        erl_args.add(additional_args)
-
+    erl_args.add(additional_args)
     erl_args.add('"$@"')
 
-    tools = get_primary_tools(ctx)
-    erl_command = cmd_args([
-        "exec",
-        cmd_args(["\"${REPO_ROOT}\"/", cmd_args(tools.erl, delimiter = " ")], delimiter = ""),
-        erl_args,
-    ])
-
     start_shell_content = cmd_args([
+        "#!/usr/bin/env bash",
         "export REPO_ROOT=$(buck2 root --kind=project)",
-        cmd_args(erl_command, delimiter = " \\\n"),
+        erl_args,
         "",
     ])
 
-    shell_script = ctx.actions.write("start_shell.sh", start_shell_content, with_inputs = True)
-    shell_cmd = cmd_args(
-        ["/usr/bin/env", "bash", shell_script],
-        # depend on input paths
-        hidden = app_paths + additional_paths + config_files,
+    shell_script = ctx.actions.write(
+        "start_shell.sh",
+        start_shell_content,
+        is_executable = True,
+        with_inputs = True,
     )
 
-    return RunInfo(shell_cmd)
+    return RunInfo(shell_script)
 
 def _shell_config_files(ctx: AnalysisContext) -> list[Artifact]:
     config_files = []
