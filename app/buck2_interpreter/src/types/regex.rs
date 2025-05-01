@@ -79,8 +79,10 @@ impl Display for StarlarkBuckRegex {
 
 starlark_simple_value!(StarlarkBuckRegex);
 
+/// Type created by the [`regex`](../regex) function.
 #[starlark_module]
 fn regex_methods(builder: &mut MethodsBuilder) {
+    /// Determine if the regex matches any substring of the given string.
     fn r#match(
         this: &StarlarkBuckRegex,
         #[starlark(require = pos)] str: &str,
@@ -91,6 +93,21 @@ fn regex_methods(builder: &mut MethodsBuilder) {
 
 #[starlark_module]
 pub fn register_buck_regex(builder: &mut GlobalsBuilder) {
+    /// Compile a regular expression from a string.
+    ///
+    /// ## Fanciness
+    ///
+    /// Buck2 regexes support two backing implementations:
+    ///
+    /// - With `fancy = False` (the default), [the `regex`
+    ///   crate](https://docs.rs/regex/latest/regex/#syntax) is used. These regular expressions
+    ///   compile down to a DFA and match very quickly and efficiently (in linear time), but do not
+    ///   support look-around or backreferences.
+    ///
+    /// - With `fancy = True`, [the `fancy_regex`
+    ///   crate](https://docs.rs/fancy-regex/latest/fancy_regex/#syntax) is used, which does support
+    ///   look-around and backreferences, but is slower to match (exponential time in the worst
+    ///   case).
     #[starlark(as_type = StarlarkBuckRegex)]
     fn regex<'v>(
         #[starlark(require = pos)] regex: &str,
