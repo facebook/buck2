@@ -114,17 +114,6 @@ pub trait NativeMeth: Send + Sync + 'static {
     ) -> crate::Result<Value<'v>>;
 }
 
-/// A native function that can be evaluated.
-pub trait NativeAttr:
-    for<'v> Fn(Value<'v>, &'v Heap) -> crate::Result<Value<'v>> + Send + Sync + 'static
-{
-}
-
-impl<T> NativeAttr for T where
-    T: for<'v> Fn(Value<'v>, &'v Heap) -> crate::Result<Value<'v>> + Send + Sync + 'static
-{
-}
-
 /// Starlark representation of native (Rust) functions.
 ///
 /// Almost always created with [`#[starlark_module]`](macro@crate::starlark_module).
@@ -288,20 +277,23 @@ pub(crate) struct NativeAttribute {
     pub(crate) speculative_exec_safe: bool,
     pub(crate) docstring: Option<String>,
     pub(crate) typ: Ty,
+    /// Essentially a `&dyn Fn(Value, Heap) -> Result<Value>`, but expanded out by hand, and
+    /// with the `Self` hardcoded to always be `Option<FrozenValue>`
+    ///
+    /// We don't use a enum over whether the callable below requires a `data` argument as that
+    /// would introduce an additional branch when calling the attribute
+    pub(crate) data: Option<FrozenValue>,
+    #[allocative(skip)] // "Not general enough"
+    pub(crate) callable:
+        for<'v> fn(Option<FrozenValue>, Value<'v>, &'v Heap) -> crate::Result<Value<'v>>,
 }
 
 starlark_simple_value!(NativeAttribute);
 
 impl NativeAttribute {
     #[inline]
-    pub(crate) fn invoke_method_impl<'v>(
-        function: &dyn NativeAttr,
-        this: Value<'v>,
-        args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_, '_>,
-    ) -> crate::Result<Value<'v>> {
-        let method = function(this, eval.heap())?;
-        method.invoke(args, eval)
+    pub(crate) fn invoke<'v>(&self, this: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+        (self.callable)(self.data, this, heap)
     }
 }
 

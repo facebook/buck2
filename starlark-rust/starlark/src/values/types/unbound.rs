@@ -31,7 +31,6 @@ use crate::values::Heap;
 use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::function::BoundMethodGen;
-use crate::values::function::NativeAttr;
 use crate::values::function::NativeAttribute;
 use crate::values::function::NativeMeth;
 use crate::values::function::NativeMethod;
@@ -45,10 +44,7 @@ pub(crate) enum UnboundValue {
         FrozenRef<'static, dyn NativeMeth>,
     ),
     /// An attribute with `this` unbound.
-    Attr(
-        FrozenValueTyped<'static, NativeAttribute>,
-        FrozenRef<'static, dyn NativeAttr>,
-    ),
+    Attr(FrozenValueTyped<'static, NativeAttribute>),
 }
 
 impl Debug for UnboundValue {
@@ -62,7 +58,7 @@ impl UnboundValue {
     pub(crate) fn to_frozen_value(&self) -> FrozenValue {
         match self {
             UnboundValue::Method(m, _) => m.to_frozen_value(),
-            UnboundValue::Attr(a, _) => a.to_frozen_value(),
+            UnboundValue::Attr(a) => a.to_frozen_value(),
         }
     }
 
@@ -73,7 +69,7 @@ impl UnboundValue {
             UnboundValue::Method(m, _) => {
                 Ok(heap.alloc_complex(BoundMethodGen::new(this.to_value(), *m)))
             }
-            UnboundValue::Attr(_, a) => a(this, heap),
+            UnboundValue::Attr(a) => a.invoke(this, heap),
         }
     }
 
@@ -90,9 +86,7 @@ impl UnboundValue {
             Some(span),
             |eval| match self {
                 UnboundValue::Method(_, m) => m.invoke(eval, this, args),
-                UnboundValue::Attr(_, a) => {
-                    NativeAttribute::invoke_method_impl(&**a, this, args, eval)
-                }
+                UnboundValue::Attr(a) => a.invoke(this, eval.heap()),
             },
         )
     }

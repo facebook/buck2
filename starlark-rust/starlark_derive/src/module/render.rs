@@ -144,6 +144,7 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
     let outer: syn::ItemFn = syn::parse_quote! {
         #[allow(non_snake_case)]
         fn #name<'v>(
+            _ignored: std::option::Option<starlark::values::FrozenValue>,
             #this_value: starlark::values::Value<'v>,
             heap: &'v starlark::values::Heap,
         ) -> starlark::Result<starlark::values::Value<'v>> {
