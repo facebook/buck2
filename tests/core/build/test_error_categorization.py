@@ -427,7 +427,15 @@ async def test_daemon_startup_error(buck: Buck, tmp_path: Path) -> None:
     )
 
 
-@buck_test(setup_eden=True, skip_for_os=["windows"])
+@buck_test(
+    setup_eden=True,
+    extra_buck_config={
+        "buck2": {
+            "allow_eden_io": "false",
+        }
+    },
+    skip_for_os=["windows"],
+)
 async def test_eden_io_error_tagging(buck: Buck, tmp_path: Path) -> None:
     targets_file = buck.cwd / "TARGETS.fixture"
 

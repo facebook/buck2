@@ -161,6 +161,7 @@ impl_has_error_handling_strategy!(SetPathObjectIdError);
 impl_has_error_handling_strategy!(RemoveRecursivelyError);
 impl_has_error_handling_strategy!(EnsureMaterializedError);
 impl_has_error_handling_strategy!(ReaddirError);
+impl_has_error_handling_strategy!(GetFileContentError);
 impl_has_error_handling_strategy!(GetSHA1Error);
 impl_has_error_handling_strategy!(GetCurrentJournalPositionError);
 impl_has_error_handling_strategy!(ChangesSinceV2Error);
