@@ -873,7 +873,7 @@ impl ExprCompiled {
         let v = get_attr_hashed_raw(left.to_value(), attr, ctx.heap()).ok()?;
         match v {
             MemberOrValue::Member(m) => match m {
-                UnboundValue::Method(m, _) => Some(
+                UnboundValue::Method(m) => Some(
                     ctx.frozen_heap()
                         .alloc_simple(BoundMethodGen::new(left, *m)),
                 ),

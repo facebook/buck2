@@ -30,7 +30,6 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
 use crate::values::FrozenRef;
 use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::function::NativeAttribute;
@@ -75,7 +74,7 @@ impl Methods {
     pub(crate) fn get_ty(&self, name: &str) -> Option<Ty> {
         match self.members.get_str(name)? {
             UnboundValue::Attr(attr) => Some(attr.typ.dupe()),
-            UnboundValue::Method(method, _) => Some(method.ty.dupe()),
+            UnboundValue::Method(method) => Some(method.ty.dupe()),
         }
     }
 
@@ -220,17 +219,13 @@ impl MethodsBuilder {
         );
         self.members.insert(
             name,
-            UnboundValue::Method(
-                FrozenValueTyped::new(self.heap.alloc(NativeMethod {
-                    function,
-                    name: name.to_owned(),
-                    speculative_exec_safe: components.speculative_exec_safe,
-                    docs: components.into_docs(None),
-                    ty,
-                }))
-                .unwrap(),
+            UnboundValue::Method(self.heap.alloc_simple_typed(NativeMethod {
                 function,
-            ),
+                name: name.to_owned(),
+                speculative_exec_safe: components.speculative_exec_safe,
+                docs: components.into_docs(None),
+                ty,
+            })),
         );
     }
 
