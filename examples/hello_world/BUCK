@@ -20,3 +20,10 @@ java_library(
     source = "11",
     target = "11",
 )
+
+kotlin_library(
+    name = "kotlin_lib",
+    srcs = ["HelloWorld.kt"],
+    source = "8",
+    target = "8",
+)
