@@ -12,8 +12,8 @@ standard_java_test(
         "--add-opens=java.base/java.util=ALL-UNNAMED",
     ],
     deps = [
-        "fbsource//third-party/java/system-rules:system-rules",
         "prelude//toolchains/android/src/com/facebook/buck/testresultsoutput:testresultsoutput",
         "prelude//toolchains/android/third-party:junit",
+        "prelude//toolchains/android/third-party:system-rules",
     ],
 )

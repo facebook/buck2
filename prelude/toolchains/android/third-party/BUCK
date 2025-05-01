@@ -1281,6 +1281,18 @@ third_party_jar(
 )
 # ===   End: objenesis
 
+# === Begin: system-rules
+
+third_party_jar(
+    name = "system-rules",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/system-rules:system-rules",
+    sha1 = "cb9e42b003d0668f6445505c0f81dd9a244a05d5",
+    url = "mvn:com.github.stefanbirkner:system-rules:jar:1.16.1",
+    visibility = ["PUBLIC"],
+)
+
+# === End: system-rules
+
 # === Begin: third party libraries with internal patching
 third_party_jar(
     name = "d8",
