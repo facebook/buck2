@@ -20,5 +20,5 @@ Instructions:
    24: Const 10 ->&2
    48: CallFrozenNativePos noop &1..&3 instrs.star.bzl:2:12-22 ->&0
         # instrs.star.bzl:6:5-25
-  104: Return &0
-  112: End
+   96: Return &0
+  104: End

@@ -17,9 +17,7 @@
 
 use std::iter;
 
-use proc_macro2::Ident;
 use proc_macro2::TokenStream;
-use quote::format_ident;
 use quote::quote;
 use syn::Expr;
 use syn::ExprLit;
@@ -140,41 +138,16 @@ impl StarFun {
         Ok((binding_params, prepare, binding_args))
     }
 
-    fn trait_name(&self) -> syn::Path {
-        if self.is_method() {
-            syn::parse_quote! { starlark::values::function::NativeMeth }
-        } else {
-            syn::parse_quote! { starlark::values::function::NativeFunc }
-        }
-    }
-
     fn name_str(&self) -> String {
         ident_string(&self.name)
     }
 
-    pub(crate) fn struct_name(&self) -> Ident {
-        format_ident!("Impl_{}", self.name_str())
-    }
-
-    /// Fields and field initializers for the struct implementing the trait.
-    fn struct_fields(&self) -> syn::Result<(Vec<syn::Field>, Vec<syn::FieldValue>)> {
-        let signature = render_signature(self)?;
-        Ok((
-            vec![syn::parse_quote! {
-                signature: starlark::eval::ParametersSpec<starlark::values::FrozenValue>
-            }],
-            vec![syn::parse_quote! {
-                signature: #signature
-            }],
-        ))
-    }
-
     /// Globals builder call to register the function.
-    fn builder_set(&self, struct_fields_init: Vec<syn::FieldValue>) -> syn::Result<syn::Stmt> {
+    fn builder_set(&self) -> syn::Result<syn::Stmt> {
         let name_str = self.name_str();
         let components = render_native_callable_components(self)?;
+        let param_spec = render_signature(self)?;
 
-        let struct_name = self.struct_name();
         let special_builtin_function = self.special_builtin_function_expr();
 
         if self.is_method() {
@@ -195,9 +168,8 @@ impl StarFun {
                 globals_builder.set_method(
                     #name_str,
                     #components,
-                    #struct_name {
-                        #( #struct_fields_init, )*
-                    },
+                    #param_spec,
+                    __starlark_invoke_outer,
                 );
             })
         } else {
@@ -208,12 +180,11 @@ impl StarFun {
                 globals_builder.set_function(
                     #name_str,
                     #components,
+                    #param_spec,
                     #as_type,
                     #ty_custom,
                     #special_builtin_function,
-                    #struct_name {
-                        #( #struct_fields_init, )*
-                    },
+                    __starlark_invoke_outer,
                 );
             })
         }
@@ -226,12 +197,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
     let (heap_param, heap_arg) = x.heap_param_arg();
     let (binding_params, prepare, binding_args) = x.binding_params_arg()?;
 
-    let trait_name = x.trait_name();
-    let (struct_fields, struct_fields_init) = x.struct_fields()?;
-
-    let struct_name = x.struct_name();
-
-    let builder_set = x.builder_set(struct_fields_init)?;
+    let builder_set = x.builder_set()?;
 
     let StarFun {
         attrs,
@@ -256,13 +222,6 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
     let param_types: Vec<_> = invoke_params.iter().map(|p| &p.ty).collect();
 
     let this_outer_param = this_outer_param.into_iter();
-
-    let struct_def: syn::ItemStruct = syn::parse_quote! {
-        #[allow(non_camel_case_types)]
-        struct #struct_name {
-            #( #struct_fields, )*
-        }
-    };
 
     let item_invoke_impl: syn::ItemFn = syn::parse_quote! {
         // TODO(nga): copy lifetime parameter from declaration,
@@ -295,31 +254,28 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
         }
     };
 
-    let impl_trait: syn::ItemImpl = syn::parse_quote! {
-        impl #trait_name for #struct_name {
-            #[allow(non_snake_case)] // Starlark doesn't have this convention
-            fn invoke<'v>(
-                &self,
-                eval: &mut starlark::eval::Evaluator<'v, '_, '_>,
-                #(#this_outer_param,)*
-                parameters: &starlark::eval::Arguments<'v, '_>,
-            ) -> starlark::Result<starlark::values::Value<'v>> {
-                #this_prepare
-                #prepare
-                match __starlark_invoke_impl(#( #invoke_args, )*) {
-                    Ok(v) => Ok(eval.heap().alloc(v)),
-                    Err(e) => Err(starlark::__derive_refs::invoke_macro_error::InvokeMacroError::into_starlark_error(e)),
-                }
+    let impl_invoke_outer: syn::ItemFn = syn::parse_quote! {
+        #[allow(non_snake_case)] // Starlark doesn't have this convention
+        fn __starlark_invoke_outer<'v>(
+            eval: &mut starlark::eval::Evaluator<'v, '_, '_>,
+            #(#this_outer_param,)*
+            signature: &starlark::eval::ParametersSpec<starlark::values::FrozenValue>,
+            parameters: &starlark::eval::Arguments<'v, '_>,
+        ) -> starlark::Result<starlark::values::Value<'v>> {
+            #this_prepare
+            #prepare
+            match __starlark_invoke_impl(#( #invoke_args, )*) {
+                Ok(v) => Ok(eval.heap().alloc(v)),
+                Err(e) => Err(starlark::__derive_refs::invoke_macro_error::InvokeMacroError::into_starlark_error(e)),
             }
         }
     };
 
     Ok(syn::parse_quote! {
         {
-            #struct_def
             #item_invoke_impl
             #item_return_type_repr
-            #impl_trait
+            #impl_invoke_outer
             #builder_set
         }
     })
@@ -354,7 +310,7 @@ fn render_binding(x: &StarFun) -> syn::Result<Bindings> {
                 prepare: quote! {
                     let __args: [_; #count] =
                         starlark::__derive_refs::parse_args::parse_signature(
-                            &self.signature, parameters, eval.heap())?;
+                            signature, parameters, eval.heap())?;
                 },
                 bindings: bind_args,
             })

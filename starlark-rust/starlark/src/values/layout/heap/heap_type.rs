@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use std::any;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::cell::RefMut;
@@ -445,20 +444,6 @@ impl FrozenHeap {
     pub fn alloc_any<T: Debug + Send + Sync>(&self, value: T) -> FrozenRef<'static, T> {
         let value = self.alloc_simple_frozen_ref(StarlarkAny::new(value));
         value.map(|r| &r.0)
-    }
-
-    pub(crate) fn alloc_any_debug_type_name<T: Send + Sync>(
-        &self,
-        value: T,
-    ) -> FrozenRef<'static, T> {
-        struct DebugValue<T>(T);
-        impl<T> Debug for DebugValue<T> {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                f.debug_struct(any::type_name::<T>())
-                    .finish_non_exhaustive()
-            }
-        }
-        self.alloc_any(DebugValue(value)).map(|r| &r.0)
     }
 
     fn do_alloc_any_slice<T: Debug + Send + Sync + Clone>(

@@ -27,5 +27,5 @@ Instructions:
    96: Const 50 ->&7
   120: CallFrozenNative noop {&3..&8 2 p q r *&0 **&1} instrs.star.bzl:2:5-10:6 ->&2
         # instrs.star.bzl:2:5-10:6
-  208: ReturnConst None
-  224: End
+  200: ReturnConst None
+  216: End

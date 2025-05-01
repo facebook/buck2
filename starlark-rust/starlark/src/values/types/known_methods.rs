@@ -22,7 +22,6 @@ use once_cell::sync::Lazy;
 use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
-use crate::values::FrozenRef;
 use crate::values::FrozenValueTyped;
 use crate::values::Value;
 use crate::values::dict::value::dict_methods;
@@ -40,7 +39,7 @@ pub(crate) struct KnownMethod {
     /// The method.
     method: FrozenValueTyped<'static, NativeMethod>,
     /// Copied here from `method` to faster invocation (one fewer deref).
-    imp: FrozenRef<'static, dyn NativeMeth>,
+    imp: &'static NativeMeth,
 }
 
 impl KnownMethod {
@@ -82,7 +81,7 @@ impl KnownMethods {
                     methods.entry(name).or_insert(KnownMethod {
                         type_methods,
                         method,
-                        imp: method.as_frozen_ref().map(|m| &*m.function),
+                        imp: &method.as_ref().function,
                     });
                     has_at_least_one_method = true;
                 }
