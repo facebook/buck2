@@ -27,8 +27,10 @@ use tokio::sync::mpsc::error::TrySendError;
 use crate::subscribers::subscriber::EventSubscriber;
 
 const EVENT_CHANNEL_SIZE: usize = 100;
+const MAXIMUM_HEALTH_CHECK_EVENT_COUNT: u32 = 3600; // 1 hour of build events at expected rate of ~1/s.
 
 struct HealthCheckEventStats {
+    total_event_count: u32,
     excess_cache_miss_reported: bool,
 }
 
@@ -68,6 +70,7 @@ impl HealthCheckSubscriber {
             health_check_client,
             event_sender: Some(events_tx),
             event_stats: HealthCheckEventStats {
+                total_event_count: 0,
                 excess_cache_miss_reported: false,
             },
         })
@@ -160,6 +163,15 @@ impl HealthCheckSubscriber {
                         "Health check event receiver closed. Disabling health checks.",
                     );
                 }
+            }
+            self.event_stats.total_event_count += 1;
+
+            if self.event_stats.total_event_count > MAXIMUM_HEALTH_CHECK_EVENT_COUNT {
+                self.close_client_connection_with_error_report(&format!(
+                "Too many health check events sent. Disabling health checks. Events sent: {}. Maximum allowed: {}",
+                self.event_stats.total_event_count,
+                MAXIMUM_HEALTH_CHECK_EVENT_COUNT
+            ));
             }
         }
         Ok(())
@@ -332,5 +344,105 @@ mod tests {
         // Verify that only one HealthCheckContextEvent::HasExcessCacheMisses is sent
         let mut buffer: Vec<HealthCheckEvent> = Vec::with_capacity(2);
         assert_eq!(1, events_rx.recv_many(&mut buffer, 2).await);
+    }
+
+    #[tokio::test]
+    async fn test_event_limit_exceeded() -> buck2_error::Result<()> {
+        let (events_tx, mut events_rx) = mpsc::channel::<HealthCheckEvent>(EVENT_CHANNEL_SIZE);
+
+        let mut subscriber = HealthCheckSubscriber::new_with_client(
+            Some(Box::new(NoOpHealthCheckClient {})),
+            events_tx,
+        );
+
+        let event = test_event(buck2_data::buck_event::Data::Instant(
+            buck2_data::InstantEvent {
+                data: Some(Box::new(buck2_data::Snapshot::default()).into()),
+            },
+        ));
+
+        for _ in 0..MAXIMUM_HEALTH_CHECK_EVENT_COUNT {
+            subscriber.handle_event(&event).await?;
+            let _ignored = events_rx.recv().await; // Consume from channel.
+        }
+
+        // Verify that the client and channel are still active
+        assert!(subscriber.event_sender.is_some());
+        assert!(subscriber.health_check_client.is_some());
+
+        // Send the 3601st event
+        subscriber.handle_event(&event).await?;
+
+        // The event is sent on the channel and then the sender/client are dropped.
+        let _ignored = events_rx.recv().await;
+        assert!(subscriber.event_sender.is_none());
+        assert!(subscriber.health_check_client.is_none());
+
+        // Verify that no more events are sent
+        let mut buffer: Vec<HealthCheckEvent> = Vec::with_capacity(1);
+        assert_eq!(0, events_rx.recv_many(&mut buffer, 1).await);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_slow_client() -> buck2_error::Result<()> {
+        let (events_tx, events_rx_guard) = mpsc::channel::<HealthCheckEvent>(EVENT_CHANNEL_SIZE);
+
+        let mut subscriber = HealthCheckSubscriber::new_with_client(
+            Some(Box::new(NoOpHealthCheckClient {})),
+            events_tx,
+        );
+
+        let event = test_event(buck2_data::buck_event::Data::Instant(
+            buck2_data::InstantEvent {
+                data: Some(Box::new(buck2_data::Snapshot::default()).into()),
+            },
+        ));
+
+        for _ in 0..EVENT_CHANNEL_SIZE {
+            subscriber.handle_event(&event).await?;
+        }
+
+        // Verify that the client and channel are still active
+        assert!(subscriber.event_sender.is_some());
+        assert!(subscriber.health_check_client.is_some());
+
+        subscriber.handle_event(&event).await?;
+
+        // Verify that the client and channel sender are dropped since the buffer is full.
+        assert!(subscriber.event_sender.is_none());
+        assert!(subscriber.health_check_client.is_none());
+        drop(events_rx_guard);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_dropped_client() -> buck2_error::Result<()> {
+        let (events_tx, events_rx_guard) = mpsc::channel::<HealthCheckEvent>(EVENT_CHANNEL_SIZE);
+
+        let mut subscriber = HealthCheckSubscriber::new_with_client(
+            Some(Box::new(NoOpHealthCheckClient {})),
+            events_tx,
+        );
+
+        let event = test_event(buck2_data::buck_event::Data::Instant(
+            buck2_data::InstantEvent {
+                data: Some(Box::new(buck2_data::Snapshot::default()).into()),
+            },
+        ));
+
+        subscriber.handle_event(&event).await?;
+        // Verify that the client and channel are still active
+        assert!(subscriber.event_sender.is_some());
+        assert!(subscriber.health_check_client.is_some());
+
+        // Close channel receiver.
+        drop(events_rx_guard);
+
+        subscriber.handle_event(&event).await?;
+        // Verify that the client and channel sender are dropped since the receiver is closed.
+        assert!(subscriber.event_sender.is_none());
+        assert!(subscriber.health_check_client.is_none());
+        Ok(())
     }
 }
