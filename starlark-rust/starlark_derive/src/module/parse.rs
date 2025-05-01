@@ -36,6 +36,7 @@ use syn::spanned::Spanned;
 
 use crate::module::parse::fun::parse_fun;
 use crate::module::typ::StarConst;
+use crate::module::typ::StarGenerics;
 use crate::module::typ::StarModule;
 use crate::module::typ::StarStmt;
 use crate::module::util::is_type_name;
@@ -107,6 +108,7 @@ pub(crate) fn parse(mut input: ItemFn) -> syn::Result<StarModule> {
     .collect::<syn::Result<_>>()?;
 
     Ok(StarModule {
+        generics: StarGenerics::new(input.sig.generics.clone()),
         module_kind,
         input,
         docstring: module_docstring,

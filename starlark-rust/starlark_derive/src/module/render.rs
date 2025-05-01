@@ -30,6 +30,7 @@ use crate::module::typ::SpecialParam;
 use crate::module::typ::StarAttr;
 use crate::module::typ::StarConst;
 use crate::module::typ::StarFun;
+use crate::module::typ::StarGenerics;
 use crate::module::typ::StarModule;
 use crate::module::typ::StarStmt;
 use crate::module::util::ident_string;
@@ -44,11 +45,12 @@ fn render_impl(x: StarModule) -> syn::Result<syn::ItemFn> {
         docstring,
         stmts,
         module_kind,
+        generics,
     } = x;
     let statics = format_ident!("{}", module_kind.statics_type_name());
     let stmts: Vec<_> = stmts
         .into_iter()
-        .map(render_stmt)
+        .map(|s| render_stmt(s, &generics))
         .collect::<syn::Result<_>>()?;
     let set_docstring = docstring.map(|ds| quote!(globals_builder.set_docstring(#ds);));
 
@@ -68,22 +70,21 @@ fn render_impl(x: StarModule) -> syn::Result<syn::ItemFn> {
             }
         },
     };
-    let turbo = input.sig.generics.split_for_impl().1;
-    let turbo = turbo.as_turbofish();
+    let turbofish = generics.turbofish();
     input.block = syn::parse_quote! {
         {
             #inner_fn
             static RES: starlark::environment::#statics = starlark::environment::#statics::new();
-            RES.populate(build #turbo, globals_builder);
+            RES.populate(build #turbofish, globals_builder);
         }
     };
     Ok(input)
 }
 
-fn render_stmt(x: StarStmt) -> syn::Result<syn::Stmt> {
+fn render_stmt(x: StarStmt, generics: &StarGenerics) -> syn::Result<syn::Stmt> {
     match x {
         StarStmt::Const(x) => Ok(render_const(x)),
-        StarStmt::Attr(x) => Ok(render_attr(x)),
+        StarStmt::Attr(x) => Ok(render_attr(x, generics)),
         StarStmt::Fun(x) => render_fun(x),
     }
 }
@@ -96,7 +97,7 @@ fn render_const(x: StarConst) -> syn::Stmt {
     }
 }
 
-fn render_attr(x: StarAttr) -> syn::Stmt {
+fn render_attr(x: StarAttr, generics: &StarGenerics) -> syn::Stmt {
     let StarAttr {
         name,
         this,
@@ -113,6 +114,10 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
         Some(d) => render_some(syn::parse_quote! { #d.to_owned() }),
         None => render_none(),
     };
+
+    let generic_decls = generics.decls();
+    let where_clause = generics.where_clause();
+    let turbofish = generics.turbofish();
 
     let let_heap = if let Some(SpecialParam {
         param: SimpleParam { ident, ty, .. },
@@ -132,10 +137,12 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
         #( #attrs )*
         #[allow(non_snake_case)] // Starlark doesn't have this convention
         #[allow(unused_variables)]
-        fn #name_inner<'v>(
+        fn #name_inner #generic_decls(
             this: #this_return_type,
             __heap: &'v starlark::values::Heap,
-        ) -> #return_type {
+        ) -> #return_type
+        #where_clause
+        {
             #let_heap
             #body
         }
@@ -143,13 +150,15 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
 
     let outer: syn::ItemFn = syn::parse_quote! {
         #[allow(non_snake_case)]
-        fn #name<'v>(
+        fn #name #generic_decls(
             _ignored: std::option::Option<starlark::values::FrozenValue>,
             #this_value: starlark::values::Value<'v>,
             heap: &'v starlark::values::Heap,
-        ) -> starlark::Result<starlark::values::Value<'v>> {
+        ) -> starlark::Result<starlark::values::Value<'v>>
+        #where_clause
+        {
             #unpack
-            Ok(heap.alloc(#name_inner(this, heap)?))
+            Ok(heap.alloc(#name_inner #turbofish(this, heap)?))
         }
     };
 
@@ -162,8 +171,8 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
                 #name_str,
                 #speculative_exec_safe,
                 #docstring,
-                starlark::values::type_repr::type_repr_from_attr_impl(#name_inner),
-                #name
+                starlark::values::type_repr::type_repr_from_attr_impl(#name_inner #turbofish),
+                #name #turbofish
             );
         }
     }

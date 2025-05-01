@@ -37,6 +37,47 @@ pub(crate) struct StarModule {
     pub(crate) input: syn::ItemFn,
     pub(crate) docstring: Option<String>,
     pub(crate) stmts: Vec<StarStmt>,
+    pub(crate) generics: StarGenerics,
+}
+
+/// The generics the user provided on the starlark module
+#[derive(Debug)]
+pub(crate) struct StarGenerics {
+    /// The user provided generics
+    ///
+    /// This is what we use to instantiate functions we define with their generics, because the `'v`
+    /// lifetime is late bound and therefore never passed as an explicit type parameter
+    generics: syn::Generics,
+    /// The user provided generics with a `'v` param added in front.
+    ///
+    /// This is what we use to *declare* generics on functions that we define, because all of our
+    /// functions want a `'v` param
+    generics_with_v: syn::Generics,
+}
+
+impl StarGenerics {
+    pub(crate) fn new(g: syn::Generics) -> Self {
+        let mut with_v = g.clone();
+        with_v
+            .params
+            .insert(0, syn::GenericParam::Lifetime(syn::parse_quote! { 'v }));
+        Self {
+            generics: g,
+            generics_with_v: with_v,
+        }
+    }
+
+    pub(crate) fn decls(&self) -> syn::ImplGenerics<'_> {
+        self.generics_with_v.split_for_impl().0
+    }
+
+    pub(crate) fn turbofish(&self) -> syn::Turbofish<'_> {
+        self.generics.split_for_impl().1.as_turbofish()
+    }
+
+    pub(crate) fn where_clause(&self) -> Option<&syn::WhereClause> {
+        self.generics_with_v.split_for_impl().2
+    }
 }
 
 #[allow(clippy::large_enum_variant)]
