@@ -69,9 +69,24 @@ where
     }
 }
 
+#[starlark_module]
+fn global_builder_for_func<T: Default, U>(globals: &mut GlobalsBuilder)
+where
+    U: std::fmt::Display + Default,
+{
+    fn make_my_str() -> starlark::Result<String> {
+        let _t = T::default();
+        Ok(U::default().to_string())
+    }
+}
+
 #[test]
 fn test_generic_builder() {
     let mut a = Assert::new();
-    a.globals_add(global_builder::<u8, u8>);
+    a.globals_add(|g| {
+        global_builder::<u8, u8>(g);
+        global_builder_for_func::<u8, u8>(g);
+    });
     a.eq("\"0\"", "MY_STR");
+    a.eq("\"0\"", "make_my_str()");
 }

@@ -82,7 +82,7 @@ fn render_stmt(x: StarStmt, generics: &StarGenerics) -> syn::Result<syn::Stmt> {
     match x {
         StarStmt::Const(x) => Ok(render_const(x)),
         StarStmt::Attr(x) => Ok(render_attr(x, generics)),
-        StarStmt::Fun(x) => render_fun(x),
+        StarStmt::Fun(x) => render_fun(x, generics),
     }
 }
 
