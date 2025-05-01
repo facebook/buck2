@@ -267,16 +267,12 @@ def _generate_app_file(
             app_file_name,
         ),
     )
-    app_info_file = _app_info_content(ctx, toolchain, name, srcs, output)
-    app_build_cmd = cmd_args(
-        app_info_file,
-        hidden = [output.as_output(), srcs] + ([ctx.attrs.app_src] if ctx.attrs.app_src else []),
-    )
+    app_info_file = _app_info_content(ctx, toolchain, name, srcs, output.as_output())
     erlang_build.utils.run_escript(
         ctx,
         toolchain,
         toolchain.app_file_script,
-        app_build_cmd,
+        cmd_args(app_info_file),
         category = "app_resource",
         identifier = action_identifier(toolchain, name),
     )
@@ -305,7 +301,7 @@ def _app_info_content(
         toolchain: Toolchain,
         name: str,
         srcs: list[Artifact],
-        output: Artifact) -> Artifact:
+        output: OutputArtifact) -> WriteJsonCliArgs:
     """build an app_info.json file that contains the meta information for building the .app file"""
     if "otp_compatibility_polyfill_application" in ctx.attrs.labels:
         srcs = []
@@ -337,6 +333,7 @@ def _app_info_content(
     return ctx.actions.write_json(
         paths.join(erlang_build.utils.build_dir(toolchain), "app_info.json"),
         data,
+        with_inputs = True,
     )
 
 def link_output(

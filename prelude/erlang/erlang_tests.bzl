@@ -219,16 +219,8 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     cmd.add(test_info_file)
 
-    hidden_args = []
-
     default_info = _build_default_info(ctx, dependencies, output_dir)
-    for output_artifact in default_info.other_outputs:
-        hidden_args.append(output_artifact)
-    for config_file in config_files:
-        hidden_args.append(config_file)
-
-    hidden_args.append(output_dir)
-    cmd.add(cmd_args(hidden = hidden_args))
+    cmd.add(cmd_args(hidden = default_info.other_outputs))
 
     # prepare shell dependencies
     additional_shell_paths = [
@@ -303,7 +295,7 @@ def _write_test_info_file(
         test_dir: Artifact,
         config_files: list[Artifact],
         erl_cmd: [cmd_args, Artifact],
-        raw_target: str) -> Artifact:
+        raw_target: str) -> WriteJsonCliArgs:
     dependency_paths = _list_code_paths(ctx, dependencies)
     tests_info = {
         "artifact_annotation_mfa": ctx.attrs._artifact_annotation_mfa,
@@ -320,8 +312,7 @@ def _write_test_info_file(
         "test_suite": test_suite,
     }
     test_info_file = ctx.actions.declare_output("tests_info")
-    ctx.actions.write_json(test_info_file, tests_info)
-    return test_info_file
+    return ctx.actions.write_json(test_info_file, tests_info, with_inputs = True)
 
 def _list_code_paths(ctx: AnalysisContext, dependencies: ErlAppDependencies) -> list[[Artifact, cmd_args]]:
     """lists all ebin/ dirs from the test targets dependencies"""

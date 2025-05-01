@@ -299,7 +299,7 @@ def _generate_beam_artifacts(
         input_mapping = build_environment.input_mapping,
     )
 
-    dep_info_file = ctx.actions.write_json(_dep_info_name(toolchain), updated_build_environment.deps_files)
+    dep_info_file = ctx.actions.write_json(_dep_info_name(toolchain), updated_build_environment.deps_files, with_inputs = True)
 
     for erl in src_artifacts:
         _build_erl(ctx, toolchain, updated_build_environment, dep_info_file, erl, beam_mapping[module_name(erl)])
@@ -434,7 +434,7 @@ def _build_erl(
         ctx: AnalysisContext,
         toolchain: Toolchain,
         build_environment: BuildEnvironment,
-        dep_info_file: Artifact,
+        dep_info_file: WriteJsonCliArgs,
         src: Artifact,
         output: Artifact) -> None:
     """Compile erl files into beams."""
@@ -447,7 +447,6 @@ def _build_erl(
         src,
         dep_info_file,
         final_dep_file.as_output(),
-        hidden = build_environment.deps_files.values(),
     )
     _run_escript(
         ctx,
