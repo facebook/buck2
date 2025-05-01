@@ -529,6 +529,7 @@ fn provider_field_parse_type<'v>(
 #[starlark_module]
 pub fn register_provider(builder: &mut GlobalsBuilder) {
     /// Create a field definition object which can be passed to `provider` type constructor.
+    #[starlark(as_type = UserProviderField)]
     fn provider_field<'v>(
         #[starlark(require=pos)] ty: Value<'v>,
         #[starlark(require=named)] default: Option<Value<'v>>,
@@ -583,6 +584,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
     /// which returns either `None` or a value of type `GroovyLibraryInfo`.
     ///
     /// For providers that accumulate upwards a transitive set is often a good choice.
+    #[starlark(as_type = UserProviderCallable)]
     fn provider<'v>(
         #[starlark(require=named, default = "")] doc: &str,
         #[starlark(require=named)] fields: Either<
