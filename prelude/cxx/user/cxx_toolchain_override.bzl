@@ -163,7 +163,7 @@ def _cxx_toolchain_override(ctx):
         objdump = _pick_bin(ctx.attrs.objdump, base_binary_utilities_info.objdump),
         ranlib = _pick_bin(ctx.attrs.ranlib, base_binary_utilities_info.ranlib),
         strip = _pick_bin(ctx.attrs.strip, base_binary_utilities_info.strip),
-        dwp = base_binary_utilities_info.dwp,
+        dwp = _pick_bin(ctx.attrs.dwp, base_binary_utilities_info.dwp),
         bolt_msdk = base_binary_utilities_info.bolt_msdk,
     )
 
@@ -192,7 +192,7 @@ def _cxx_toolchain_override(ctx):
         cxx_compiler_info = cxx_info,
         objc_compiler_info = objc_info,
         objcxx_compiler_info = objcxx_info,
-        llvm_link = ctx.attrs.llvm_link if ctx.attrs.llvm_link != None else base_toolchain.llvm_link,
+        llvm_link = ctx.attrs.llvm_link[RunInfo] if ctx.attrs.llvm_link != None else base_toolchain.llvm_link,
         # the rest are used without overrides
         cuda_compiler_info = base_toolchain.cuda_compiler_info,
         hip_compiler_info = base_toolchain.hip_compiler_info,
@@ -237,6 +237,7 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
         "cxx_compiler": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "cxx_compiler_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "cxx_preprocessor_flags": attrs.option(attrs.list(attrs.arg()), default = None),
+        "dwp": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "force_full_hybrid_if_capable": attrs.option(attrs.bool(), default = None),
         "generate_linker_maps": attrs.option(attrs.bool(), default = None),
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
