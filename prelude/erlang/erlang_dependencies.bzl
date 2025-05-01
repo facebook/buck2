@@ -14,25 +14,16 @@ load(
 
 ErlAppDependencies = dict[str, Dependency]
 
-def check_dependencies(in_deps: list[Dependency], allowlist: list) -> list[Dependency]:
-    """ filter valid dependencies
-
-    check all dependencies for validity and collect only the relevant ones
-    fail if an unsupported target type is used as a dependency
-
-    include_only controls if the check is done against ErlangAppInfo or ErlangAppIncludeInfo
-    """
-    out_deps = []
+def check_dependencies(in_deps: list[Dependency], allowlist: list):
+    """enforce all dependencies implement one of the expected providers"""
     for dep in in_deps:
         passed = False
         for dep_type in allowlist:
             if dep_type in dep:
-                out_deps.append(dep)
                 passed = True
                 break
         if not passed:
             _bad_dependency_error(dep)
-    return out_deps
 
 def flatten_dependencies(_ctx: AnalysisContext, deps: list[Dependency]) -> ErlAppDependencies:
     """ collect transitive dependencies

@@ -14,7 +14,6 @@ load(
 load(
     ":erlang_dependencies.bzl",
     "ErlAppDependencies",
-    "check_dependencies",
     "flatten_dependencies",
 )
 load(
@@ -56,9 +55,7 @@ def erlang_application_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchains = select_toolchains(ctx)
 
     # collect all dependencies
-    all_direct_dependencies = (check_dependencies(ctx.attrs.applications, [ErlangAppInfo]) +
-                               check_dependencies(ctx.attrs.included_applications, [ErlangAppInfo]) +
-                               check_dependencies(ctx.attrs.extra_includes, [ErlangAppIncludeInfo]))
+    all_direct_dependencies = ctx.attrs.applications + ctx.attrs.included_applications + ctx.attrs.extra_includes
     dependencies = flatten_dependencies(ctx, all_direct_dependencies)
 
     name = app_name(ctx)

@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//erlang:erlang_application.bzl", "StartTypeValues")
+load("@prelude//erlang:erlang_info.bzl", "ErlangAppIncludeInfo", "ErlangAppInfo")
 load(":common.bzl", "prelude_rule")
 load(":re_test_common.bzl", "re_test_common")
 
@@ -30,7 +31,7 @@ common_shell_attributes = (
             here are `export_file` targets.
         """),
         "shell_libs": attrs.set(
-            attrs.dep(),
+            attrs.dep(providers = [ErlangAppInfo]),
             default = ["prelude//erlang/shell:buck2_shell_utils"],
             doc = """
             This attribute allows to define additional dependencies for the shell. By default this is
@@ -42,7 +43,7 @@ common_shell_attributes = (
 )
 
 common_application_attributes = {
-    "applications": attrs.list(attrs.dep(), default = [], doc = """
+    "applications": attrs.list(attrs.dep(providers = [ErlangAppInfo]), default = [], doc = """
         Equivalent to the corresponding `applications` and `included_applications`
         fields you will find in `*.app.src` or `*.app` files and specify the application dependencies. Contrary to the
         fields in the `*.app.src` or `*.app` files, **it is necessary to use target paths to the application** where a
@@ -55,7 +56,7 @@ common_application_attributes = {
         `applications` or `included_applications` buck2 checks that the target definitions and information in the template are
         equivalent to prevent these definitions from drifting apart during migration._
     """),
-    "included_applications": attrs.list(attrs.dep(), default = [], doc = """
+    "included_applications": attrs.list(attrs.dep(providers = [ErlangAppInfo]), default = [], doc = """
         Check the documentation for `applications`.
     """),
     "version": attrs.string(default = "1.0.0", doc = """
@@ -103,7 +104,7 @@ rules_attributes = {
                 without consultation. Please ask in the [WhatsApp Dev Infra Q&A](https://fb.workplace.com/groups/728545201114362)
                 workplace group for support.
             """),
-        "extra_includes": attrs.list(attrs.dep(), default = [], doc = """
+        "extra_includes": attrs.list(attrs.dep(providers = [ErlangAppIncludeInfo]), default = [], doc = """
                 In some cases we might have the situation, where an application `app_a` depends through the `applications` and
                 `included_applications` fields on application `app_b` and a source file in `app_b` includes a header file from `app_a`
                 (e.g. `-include_lib("app_a/include/header.hrl`). This technically creates circular dependency from `app_a` to `app_b`
@@ -162,7 +163,7 @@ rules_attributes = {
         "yrl_includefile": attrs.option(attrs.source(), default = None, doc = """
                 Customised prologue file to replace the default. See [`includefile` option](https://www.erlang.org/doc/apps/parsetools/yecc.html#file/2) for details.
         """),
-        "_includes_target": attrs.option(attrs.dep(), default = None, doc = """
+        "_includes_target": attrs.option(attrs.dep(providers = [ErlangAppIncludeInfo]), default = None, doc = """
                 Internal, used by the `erlang_application` macro to link the proper application target and include_only targets.
             """),
     } | common_application_attributes,
@@ -178,7 +179,7 @@ rules_attributes = {
         "configs": attrs.list(attrs.dep(), default = [], doc = """
             This attribute allows to set config files for the escript. The dependencies that are typically used
             here are `export_file` targets."""),
-        "deps": attrs.list(attrs.dep(), doc = """
+        "deps": attrs.list(attrs.dep(providers = [ErlangAppInfo]), doc = """
                 List of Erlang applications that are bundled in the escript. This includes all transitive dependencies as well.
             """),
         "emu_args": attrs.list(attrs.string(), default = [], doc = """
@@ -218,7 +219,7 @@ rules_attributes = {
             """),
     },
     "erlang_release": {
-        "applications": attrs.list(attrs.one_of(attrs.dep(), attrs.tuple(attrs.dep(), attrs.enum(StartTypeValues))), doc = """
+        "applications": attrs.list(attrs.one_of(attrs.dep(providers = [ErlangAppInfo]), attrs.tuple(attrs.dep(providers = [ErlangAppInfo]), attrs.enum(StartTypeValues))), doc = """
                 This field specifies the list of applications that the release should start in the given order, and optionally the start
                 type. Top-level applications without given start type are started with type
                 [`permanent`](https://www.erlang.org/doc/man/application.html#type-restart_type).
@@ -291,10 +292,10 @@ rules_attributes = {
                 implicit 'erlang_test' target suite_SUITE will be generated.
             """),
         "_artifact_annotation_mfa": attrs.string(default = "artifact_annotations:default_annotation/1"),
-        "_cli_lib": attrs.dep(default = "prelude//erlang/common_test/test_cli_lib:test_cli_lib"),
+        "_cli_lib": attrs.dep(providers = [ErlangAppInfo], default = "prelude//erlang/common_test/test_cli_lib:test_cli_lib"),
         "_ct_opts": attrs.string(default = read_root_config("erlang", "erlang_test_ct_opts", "")),
         "_providers": attrs.string(default = ""),
-        "_test_binary_lib": attrs.dep(default = "prelude//erlang/common_test/test_binary:test_binary"),
+        "_test_binary_lib": attrs.dep(providers = [ErlangAppInfo], default = "prelude//erlang/common_test/test_binary:test_binary"),
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
         "_trampoline": attrs.option(attrs.dep(), default = None, doc = "DEPRECATED. Use _trampolines instead."),
         "_trampolines": attrs.option(attrs.list(attrs.dep()), default = None),

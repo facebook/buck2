@@ -120,8 +120,8 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     deps = ctx.attrs.deps + [ctx.attrs._test_binary_lib]
 
     # collect all dependencies
-    all_direct_dependencies = check_dependencies(deps, [ErlangAppInfo, ErlangTestInfo])
-    dependencies = flatten_dependencies(ctx, all_direct_dependencies)
+    check_dependencies(deps, [ErlangAppInfo, ErlangTestInfo])
+    dependencies = flatten_dependencies(ctx, deps)
 
     # prepare build environment
     pre_build_environment = erlang_build.prepare_build_environment(ctx, primary_toolchain, dependencies)
@@ -167,7 +167,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     if trampolines:
         cmd.add(*[trampoline[RunInfo] for trampoline in trampolines])
 
-    binary_lib_deps = flatten_dependencies(ctx, check_dependencies([ctx.attrs._test_binary_lib], [ErlangAppInfo]))
+    binary_lib_deps = flatten_dependencies(ctx, [ctx.attrs._test_binary_lib])
     cmd.add([
         tools.erl,
         "-mode",
@@ -239,11 +239,9 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         "-noshell",
     ])
 
-    all_direct_shell_dependencies = check_dependencies([ctx.attrs._cli_lib], [ErlangAppInfo])
-    cli_lib_deps = flatten_dependencies(ctx, all_direct_shell_dependencies)
-
+    cli_lib_deps = flatten_dependencies(ctx, [ctx.attrs._cli_lib])
     shell_deps = dict(dependencies)
-    shell_deps.update(**{name: dep for (name, dep) in cli_lib_deps.items() if ErlangAppInfo in dep})
+    shell_deps.update(cli_lib_deps)
 
     run_info = erlang_shell.build_run_info(
         ctx,

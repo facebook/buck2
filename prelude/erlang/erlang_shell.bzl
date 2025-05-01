@@ -6,7 +6,7 @@
 # of this source tree.
 
 load(":erlang_build.bzl", "erlang_build")
-load(":erlang_dependencies.bzl", "check_dependencies", "flatten_dependencies")
+load(":erlang_dependencies.bzl", "flatten_dependencies")
 load(":erlang_info.bzl", "ErlangAppInfo")
 load(":erlang_toolchain.bzl", "get_primary", "get_primary_tools")
 
@@ -27,8 +27,7 @@ def _build_run_info(
     ]
     app_paths.extend(additional_app_paths)
 
-    direct_shell_dependencies = check_dependencies(ctx.attrs.shell_libs, [ErlangAppInfo])
-    all_shell_dependencies = flatten_dependencies(ctx, direct_shell_dependencies)
+    all_shell_dependencies = flatten_dependencies(ctx, ctx.attrs.shell_libs)
     for dep in all_shell_dependencies.values():
         if dep[ErlangAppInfo].virtual:
             continue

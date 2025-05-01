@@ -14,7 +14,7 @@ load(
     "build_apps_start_dependencies",
 )
 load(":erlang_build.bzl", "erlang_build")
-load(":erlang_dependencies.bzl", "ErlAppDependencies", "check_dependencies", "flatten_dependencies")
+load(":erlang_dependencies.bzl", "ErlAppDependencies", "flatten_dependencies")
 load(
     ":erlang_info.bzl",
     "ErlangAppInfo",
@@ -32,8 +32,7 @@ load(":erlang_utils.bzl", "action_identifier", "to_term_args")
 # Erlang Releases according to https://www.erlang.org/doc/design_principles/release_structure.html
 
 def erlang_release_impl(ctx: AnalysisContext) -> list[Provider]:
-    root_apps = check_dependencies(_dependencies(ctx), [ErlangAppInfo])
-    all_apps = flatten_dependencies(ctx, root_apps)
+    all_apps = flatten_dependencies(ctx, _dependencies(ctx))
 
     if ctx.attrs.multi_toolchain != None:
         return _build_multi_toolchain_releases(ctx, all_apps, ctx.attrs.multi_toolchain)
@@ -132,7 +131,7 @@ def _build_boot_script(
     build_dir = erlang_build.utils.build_dir(toolchain)
 
     start_type_mapping = _dependencies_with_start_types(ctx)
-    root_apps = check_dependencies(_dependencies(ctx), [ErlangAppInfo])
+    root_apps = _dependencies(ctx)
     root_apps_names = [app[ErlangAppInfo].name for app in root_apps]
 
     root_apps_with_start_type = [

@@ -7,7 +7,7 @@
 
 load("@prelude//:paths.bzl", "paths")
 load(":erlang_build.bzl", "erlang_build")
-load(":erlang_dependencies.bzl", "ErlAppDependencies", "check_dependencies", "flatten_dependencies")
+load(":erlang_dependencies.bzl", "ErlAppDependencies", "flatten_dependencies")
 load(":erlang_info.bzl", "ErlangAppInfo")
 load(":erlang_release.bzl", "build_lib_dir")
 load(
@@ -23,7 +23,7 @@ def erlang_escript_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchain = select_toolchains(ctx)[get_primary(ctx)]
 
     # collect all dependencies
-    dependencies = flatten_dependencies(ctx, check_dependencies(ctx.attrs.deps, [ErlangAppInfo]))
+    dependencies = flatten_dependencies(ctx, ctx.attrs.deps)
 
     if ctx.attrs.bundled:
         return _bundled_escript_impl(ctx, dependencies, toolchain)
