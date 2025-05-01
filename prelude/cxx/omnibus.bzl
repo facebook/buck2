@@ -321,6 +321,9 @@ def _create_root(
             ctx,
             cxx_toolchain = toolchain_info,
             output = shared_library.output,
+            # Don't extract weak-undefined symbols, as passing these back into
+            # the omnibus link via `-u` causes undefined sym link failures.
+            weak = False,
             category_prefix = "omnibus",
             # Same as above.
             prefer_local = True,

@@ -23,6 +23,8 @@ def _extract_symbol_names(
         identifier: [str, None] = None,
         defined_only: bool = False,
         undefined_only: bool = False,
+        # Do not include undefined-weak symbols.
+        undefined_weak: bool = True,
         dynamic: bool = False,
         prefer_local: bool = False,
         local_only: bool = False,
@@ -38,6 +40,9 @@ def _extract_symbol_names(
 
     if defined_only and undefined_only:
         fail("only one of defined_only and undefined_only should be True")
+
+    if not undefined_weak and not undefined_only:
+        fail("can only use undefined_weak with undefined_only")
 
     nm = cxx_toolchain.binary_utilities_info.nm
     output = ctx.actions.declare_output(paths.join("__symbols__", name))
@@ -87,6 +92,7 @@ def _extract_symbol_names(
         script = (
             "set -euo pipefail; " +
             '"$1" {} "${{@:2}}"'.format(nm_flags) +
+            (" | grep -v \"\\sw\\s*$\"" if undefined_only and not undefined_weak else "") +
             # Grab only the symbol name field.
             ' | cut -d" " -f2 ' +
             # Strip off ABI Version (@...) when using llvm-nm to keep compat with buck1
@@ -149,6 +155,7 @@ def _anon_extract_symbol_names_impl(ctx):
         objects = ctx.attrs.objects,
         prefer_local = ctx.attrs.prefer_local,
         undefined_only = ctx.attrs.undefined_only,
+        undefined_weak = ctx.attrs.undefined_weak,
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
     )
     return [DefaultInfo(), _SymbolsInfo(artifact = output)]
@@ -167,6 +174,7 @@ _anon_extract_symbol_names_impl_rule = anon_rule(
         "output": attrs.string(),
         "prefer_local": attrs.bool(default = False),
         "undefined_only": attrs.bool(default = False),
+        "undefined_weak": attrs.bool(default = True),
         "_cxx_toolchain": attrs.dep(providers = [CxxToolchainInfo]),
     },
     artifact_promise_mappings = {
@@ -235,6 +243,7 @@ def extract_undefined_syms(
         cxx_toolchain: CxxToolchainInfo,
         output: Artifact,
         category_prefix: str,
+        weak: bool = True,
         prefer_local: bool = False,
         anonymous: bool = False,
         allow_cache_upload: bool = False) -> Artifact:
@@ -247,6 +256,7 @@ def extract_undefined_syms(
         dynamic = True,
         global_only = True,
         undefined_only = True,
+        undefined_weak = weak,
         category = "{}_undefined_syms".format(category_prefix),
         identifier = output.short_path,
         prefer_local = prefer_local,
