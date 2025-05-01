@@ -23,13 +23,10 @@ use quote::format_ident;
 use quote::quote;
 
 use crate::module::render::fun::render_fun;
-use crate::module::render::fun::render_none;
-use crate::module::render::fun::render_some;
 use crate::module::simple_param::SimpleParam;
 use crate::module::typ::SpecialParam;
 use crate::module::typ::StarAttr;
 use crate::module::typ::StarConst;
-use crate::module::typ::StarFun;
 use crate::module::typ::StarGenerics;
 use crate::module::typ::StarModule;
 use crate::module::typ::StarStmt;
@@ -178,21 +175,10 @@ fn render_attr(x: StarAttr, generics: &StarGenerics) -> syn::Stmt {
     }
 }
 
-pub(crate) fn render_starlark_type(typ: &syn::Type) -> syn::Expr {
-    syn::parse_quote! {
-        {
-            #[allow(clippy::extra_unused_lifetimes)]
-            fn get_type_string<'v>() -> starlark::typing::Ty {
-                <#typ as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
-            }
-            get_type_string()
-        }
-    }
+pub(crate) fn render_none() -> syn::Expr {
+    syn::parse_quote! { std::option::Option::None }
 }
 
-pub(crate) fn render_starlark_return_type(fun: &StarFun) -> syn::Expr {
-    let struct_name = fun.struct_name();
-    syn::parse_quote! {
-        #struct_name::return_type_starlark_type_repr()
-    }
+pub(crate) fn render_some(expr: syn::Expr) -> syn::Expr {
+    syn::parse_quote! { std::option::Option::Some(#expr) }
 }

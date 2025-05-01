@@ -26,8 +26,8 @@ use syn::ExprLit;
 use syn::Lit;
 
 use crate::module::param_spec::ParamSpec;
-use crate::module::render::render_starlark_return_type;
-use crate::module::render::render_starlark_type;
+use crate::module::render::render_none;
+use crate::module::render::render_some;
 use crate::module::simple_param::SimpleParam;
 use crate::module::typ::RegularParams;
 use crate::module::typ::SpecialParam;
@@ -522,18 +522,29 @@ fn render_signature(x: &StarFun) -> syn::Result<syn::Expr> {
     }
 }
 
-pub(crate) fn render_none() -> syn::Expr {
-    syn::parse_quote! { std::option::Option::None }
-}
-
-pub(crate) fn render_some(expr: syn::Expr) -> syn::Expr {
-    syn::parse_quote! { std::option::Option::Some(#expr) }
-}
-
-pub(crate) fn render_option(expr: Option<syn::Expr>) -> syn::Expr {
+fn render_option(expr: Option<syn::Expr>) -> syn::Expr {
     match expr {
         Some(x) => render_some(x),
         None => render_none(),
+    }
+}
+
+fn render_starlark_type(typ: &syn::Type) -> syn::Expr {
+    syn::parse_quote! {
+        {
+            #[allow(clippy::extra_unused_lifetimes)]
+            fn get_type_string<'v>() -> starlark::typing::Ty {
+                <#typ as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+            }
+            get_type_string()
+        }
+    }
+}
+
+fn render_starlark_return_type(fun: &StarFun) -> syn::Expr {
+    let struct_name = fun.struct_name();
+    syn::parse_quote! {
+        #struct_name::return_type_starlark_type_repr()
     }
 }
 
