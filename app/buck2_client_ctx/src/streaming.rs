@@ -36,12 +36,14 @@ use crate::signal_handler::with_simple_sigint_handler;
 use crate::subscribers::build_graph_stats::BuildGraphStats;
 use crate::subscribers::build_id_writer::BuildIdWriter;
 use crate::subscribers::event_log::EventLog;
+use crate::subscribers::health_check_subscriber::HealthCheckSubscriber;
 use crate::subscribers::re_log::ReLog;
 use crate::subscribers::recorder::try_get_invocation_recorder;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscribers::EventSubscribers;
 
 const HEALTH_CHECK_CHANNEL_SIZE: usize = 100;
+
 fn default_subscribers<T: StreamingCommand>(
     cmd: &T,
     matches: BuckArgMatches<'_>,
@@ -55,10 +57,24 @@ fn default_subscribers<T: StreamingCommand>(
     // and log it in another (invocation_recorder)
     let log_size_counter_bytes = Some(Arc::new(AtomicU64::new(0)));
 
-    let (_health_check_tags_sender, health_check_tags_receiver) =
-        tokio::sync::mpsc::channel(HEALTH_CHECK_CHANNEL_SIZE);
-    let (_health_check_display_reports_sender, health_check_display_reports_receiver) =
-        tokio::sync::mpsc::channel(HEALTH_CHECK_CHANNEL_SIZE);
+    let enable_health_checks = ctx
+        .immediate_config
+        .daemon_startup_config()?
+        .health_check_config
+        .enable_health_checks;
+
+    let (
+        health_check_tags_receiver,
+        health_check_display_reports_receiver,
+        health_check_subscriber,
+    ) = if enable_health_checks {
+        let (tag_tx, tag_rx) = tokio::sync::mpsc::channel(HEALTH_CHECK_CHANNEL_SIZE);
+        let (report_tx, report_rx) = tokio::sync::mpsc::channel(HEALTH_CHECK_CHANNEL_SIZE);
+        let subscriber = HealthCheckSubscriber::new(tag_tx, report_tx);
+        (Some(tag_rx), Some(report_rx), Some(subscriber))
+    } else {
+        (None, None, None)
+    };
 
     subscribers.push(get_console_with_root(
         ctx.trace_id.dupe(),
@@ -68,7 +84,7 @@ fn default_subscribers<T: StreamingCommand>(
         None,
         T::COMMAND_NAME,
         console_opts.superconsole_config(),
-        Some(health_check_display_reports_receiver),
+        health_check_display_reports_receiver,
     )?);
 
     if let Some(event_log) = try_get_event_log_subscriber(cmd, ctx, log_size_counter_bytes.clone())?
@@ -96,16 +112,15 @@ fn default_subscribers<T: StreamingCommand>(
         cmd.sanitize_argv(ctx.argv.clone()).argv,
         representative_config_flags,
         log_size_counter_bytes,
-        Some(health_check_tags_receiver),
+        health_check_tags_receiver,
     )?;
     recorder.update_metadata_from_client_metadata(&ctx.client_metadata);
     subscribers.push(recorder);
 
-    // TODO(rajneeshl): Enable this after we have a cleaner kill switch for health checks.
-    // subscribers.push(HealthCheckSubscriber::new(
-    //     health_check_tags_sender,
-    //     health_check_display_reports_sender,
-    // ));
+    if let Some(subscriber) = health_check_subscriber {
+        subscribers.push(subscriber);
+    }
+
     subscribers.extend(cmd.extra_subscribers());
     Ok(EventSubscribers::new(subscribers))
 }
