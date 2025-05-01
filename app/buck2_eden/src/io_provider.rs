@@ -53,6 +53,7 @@ pub struct EdenIoProvider {
     manager: EdenConnectionManager,
     fs: FsIoProvider,
     digest: Digest,
+    use_eden_thrift_read: bool,
 }
 
 #[derive(Allocative, Copy, Clone, Dupe)]
@@ -71,6 +72,7 @@ impl EdenIoProvider {
         fb: FacebookInit,
         fs: &ProjectRoot,
         cas_digest_config: CasDigestConfig,
+        use_eden_thrift_read: bool,
     ) -> buck2_error::Result<Option<Self>> {
         let (digest, min_eden_version) = if cas_digest_config.source_files_config().allows_sha1() {
             (Digest::Sha1, "20220905-214046")
@@ -115,6 +117,7 @@ impl EdenIoProvider {
             manager,
             fs: FsIoProvider::new(fs.dupe(), cas_digest_config),
             digest,
+            use_eden_thrift_read,
         }))
     }
 
@@ -417,7 +420,9 @@ impl IoProvider for EdenIoProvider {
         &self,
         path: ProjectRelativePathBuf,
     ) -> buck2_error::Result<Option<String>> {
-        if buck2_env!("BUCK2_ENABLE_EDEN_THRIFT_READ", bool).unwrap_or(false) {
+        if buck2_env!("BUCK2_ENABLE_EDEN_THRIFT_READ", bool).unwrap_or(false)
+            || self.use_eden_thrift_read
+        {
             self.read_file_if_exists_impl(path)
                 .await
                 .tag(ErrorTag::IoEden)
