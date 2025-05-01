@@ -9,15 +9,49 @@
 
 #![allow(dead_code)] // TODO(rajneeshl): Remove this when the health checks are moved to the server.
 
+use buck2_core::soft_error;
+use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::error::TrySendError;
+use tokio::task::JoinHandle;
 
 use crate::interface::HealthCheckContextEvent;
+use crate::interface::HealthCheckEvent;
 use crate::interface::HealthCheckService;
 use crate::report::DisplayReport;
+use crate::report::Report;
 
-/// This client maintains the context and make requests to the health check server.
-pub struct HealthCheckClient {
+/// An abstraction of health check clients. This allows us to test other parts of the code in isolation.
+pub trait HealthCheckClient: Send + Sync {}
+
+/// This client spawns a background task to read from events channel and forward to health check service.
+pub struct StreamingHealthCheckClient {
+    inner: JoinHandle<()>,
+}
+
+impl StreamingHealthCheckClient {
+    pub fn new(
+        tags_sender: Option<Sender<Vec<String>>>,
+        display_reports_sender: Option<Sender<Vec<DisplayReport>>>,
+        event_receiver: Receiver<HealthCheckEvent>,
+    ) -> Self {
+        let inner = tokio::spawn(async move {
+            let mut client = HealthCheckClientInner::new(tags_sender, display_reports_sender);
+            client.run_event_loop(event_receiver).await;
+        });
+        Self { inner }
+    }
+}
+
+impl HealthCheckClient for StreamingHealthCheckClient {}
+
+impl Drop for StreamingHealthCheckClient {
+    fn drop(&mut self) {
+        self.inner.abort();
+    }
+}
+
+struct HealthCheckClientInner {
     health_check_service: Box<dyn HealthCheckService>,
     // Writer to send tags to be logged to scuba.
     tags_sender: Option<Sender<Vec<String>>>,
@@ -25,18 +59,26 @@ pub struct HealthCheckClient {
     display_reports_sender: Option<Sender<Vec<DisplayReport>>>,
 }
 
-impl HealthCheckClient {
-    pub fn new(
+impl HealthCheckClientInner {
+    fn new(
         tags_sender: Option<Sender<Vec<String>>>,
         display_reports_sender: Option<Sender<Vec<DisplayReport>>>,
+    ) -> Self {
+        let health_check_service = Self::create_service();
+        Self::new_with_service(tags_sender, display_reports_sender, health_check_service)
+    }
+
+    fn new_with_service(
+        tags_sender: Option<Sender<Vec<String>>>,
+        display_reports_sender: Option<Sender<Vec<DisplayReport>>>,
+        health_check_service: Box<dyn HealthCheckService>,
     ) -> Self {
         Self {
             tags_sender,
             display_reports_sender,
-            health_check_service: Self::create_service(),
+            health_check_service,
         }
     }
-
     fn create_service() -> Box<dyn HealthCheckService> {
         #[cfg(fbcode_build)]
         {
@@ -51,62 +93,41 @@ impl HealthCheckClient {
         }
     }
 
-    pub async fn update_command_data(
-        &mut self,
-        command_start: buck2_data::CommandStart,
-    ) -> buck2_error::Result<()> {
-        let event = HealthCheckContextEvent::CommandStart(command_start);
-        self.health_check_service.update_context(event).await
-    }
-
-    pub async fn update_parsed_target_patterns(
-        &mut self,
-        parsed_target_patterns: buck2_data::ParsedTargetPatterns,
-    ) -> buck2_error::Result<()> {
-        let event = HealthCheckContextEvent::ParsedTargetPatterns(parsed_target_patterns);
-        self.health_check_service.update_context(event).await
-    }
-
-    pub async fn update_branched_from_revision(
-        &mut self,
-        branched_from_revision: &str,
-    ) -> buck2_error::Result<()> {
-        let event =
-            HealthCheckContextEvent::BranchedFromRevision(branched_from_revision.to_owned());
-        self.health_check_service.update_context(event).await
-    }
-
-    pub async fn update_excess_cache_misses(
-        &mut self,
-        action_end: &buck2_data::ActionExecutionEnd,
-    ) -> buck2_error::Result<()> {
-        let has_excess_cache_miss = action_end
-            .invalidation_info
-            .as_ref()
-            .is_some_and(|v| v.changed_file.is_none());
-        if has_excess_cache_miss {
-            let event = HealthCheckContextEvent::HasExcessCacheMisses();
-            self.health_check_service.update_context(event).await?
+    async fn run_event_loop(&mut self, mut event_receiver: Receiver<HealthCheckEvent>) {
+        while let Some(event) = event_receiver.recv().await {
+            match event {
+                HealthCheckEvent::HealthCheckContextEvent(event) => {
+                    self.update_context(event).await;
+                }
+                HealthCheckEvent::Snapshot() => {
+                    self.run_checks().await;
+                }
+            }
         }
-        Ok(())
     }
 
-    pub async fn update_experiment_configurations(
-        &mut self,
-        experiment_configurations: buck2_data::SystemInfo,
-    ) -> buck2_error::Result<()> {
-        let event = HealthCheckContextEvent::ExperimentConfigurations(experiment_configurations);
-        self.health_check_service.update_context(event).await
+    async fn update_context(&mut self, event: HealthCheckContextEvent) {
+        if let Err(e) = self.health_check_service.update_context(event).await {
+            let _ignored = soft_error!("health_check_context_update_failed", e);
+        }
     }
 
-    pub async fn run_checks(
-        &mut self,
-        _snapshot: &buck2_data::Snapshot,
-    ) -> buck2_error::Result<()> {
+    async fn run_checks(&mut self) {
+        match self.health_check_service.run_checks().await {
+            Ok(reports) => {
+                if let Err(e) = self.send_reports(reports) {
+                    let _ignored = soft_error!("health_check_reports_error", e);
+                }
+            }
+            Err(e) => {
+                let _ignored = soft_error!("health_check_run_error", e);
+            }
+        }
+    }
+
+    fn send_reports(&mut self, reports: Vec<Report>) -> buck2_error::Result<()> {
         let mut tags: Vec<String> = Vec::new();
         let mut display_reports: Vec<DisplayReport> = Vec::new();
-
-        let reports = self.health_check_service.run_checks().await?;
 
         for report in reports {
             if let Some(tag) = report.tag {
@@ -175,5 +196,132 @@ impl HealthCheckClient {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::Mutex;
+
+    use async_trait::async_trait;
+    use tokio::sync::mpsc;
+
+    use super::*;
+    use crate::interface::HealthCheckType;
+    use crate::report::HealthIssue;
+    use crate::report::Severity;
+
+    struct TestHealthCheckService {
+        reports: Arc<Mutex<Vec<Report>>>,
+    }
+
+    #[async_trait]
+    impl HealthCheckService for TestHealthCheckService {
+        async fn update_context(
+            &mut self,
+            _event: HealthCheckContextEvent,
+        ) -> buck2_error::Result<()> {
+            Ok(())
+        }
+
+        async fn run_checks(&mut self) -> buck2_error::Result<Vec<Report>> {
+            let reports = self.reports.lock().unwrap().clone();
+            Ok(reports)
+        }
+    }
+
+    #[tokio::test]
+    async fn test_health_check_client() {
+        // Create test reports
+        let test_reports = vec![
+            Report {
+                tag: Some("test_tag_1".to_owned()),
+                display_report: Some(DisplayReport {
+                    health_check_type: HealthCheckType::StableRevision,
+                    health_issue: Some(HealthIssue {
+                        severity: Severity::Warning,
+                        message: "Test report 1".to_owned(),
+                        remediation: None,
+                    }),
+                }),
+            },
+            Report {
+                tag: Some("test_tag_2".to_owned()),
+                display_report: Some(DisplayReport {
+                    health_check_type: HealthCheckType::LowDiskSpace,
+                    health_issue: Some(HealthIssue {
+                        severity: Severity::Info,
+                        message: "Test report 2".to_owned(),
+                        remediation: None,
+                    }),
+                }),
+            },
+        ];
+
+        // Create channels
+        let (event_sender, event_receiver) = mpsc::channel(10);
+        let (display_reports_sender, mut display_reports_receiver) = mpsc::channel(10);
+        let (tags_sender, mut tags_receiver) = mpsc::channel(10);
+
+        // Create test service
+        let reports = Arc::new(Mutex::new(test_reports.clone()));
+        let test_service = Box::new(TestHealthCheckService {
+            reports: reports.clone(),
+        });
+
+        // Create client with test service
+        let mut client = HealthCheckClientInner::new_with_service(
+            Some(tags_sender),
+            Some(display_reports_sender),
+            test_service,
+        );
+
+        // Spawn client event loop
+        let client_handle = tokio::spawn(async move {
+            client.run_event_loop(event_receiver).await;
+        });
+
+        // Send snapshot event
+        event_sender
+            .send(HealthCheckEvent::Snapshot())
+            .await
+            .unwrap();
+
+        // Wait for reports to be processed
+        let received_tags =
+            tokio::time::timeout(std::time::Duration::from_millis(100), tags_receiver.recv())
+                .await
+                .expect("Timed out waiting for tags")
+                .expect("No tags received");
+
+        let received_reports = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            display_reports_receiver.recv(),
+        )
+        .await
+        .expect("Timed out waiting for display reports")
+        .expect("No display reports received");
+
+        // Verify received data
+        assert_eq!(received_tags.len(), 2);
+        assert!(received_tags.contains(&"test_tag_1".to_owned()));
+        assert!(received_tags.contains(&"test_tag_2".to_owned()));
+
+        assert_eq!(received_reports.len(), 2);
+        assert_eq!(
+            received_reports[0].health_check_type,
+            HealthCheckType::StableRevision
+        );
+        assert_eq!(
+            received_reports[1].health_check_type,
+            HealthCheckType::LowDiskSpace
+        );
+        assert!(received_reports[0].health_issue.is_some());
+        assert!(received_reports[1].health_issue.is_some());
+
+        // Clean up
+        drop(event_sender);
+        client_handle.await.unwrap();
     }
 }

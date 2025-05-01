@@ -9,7 +9,7 @@
 
 use crate::report::Report;
 
-#[derive(Eq, PartialEq, Hash)]
+#[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub enum HealthCheckType {
     MemoryPressure,
     LowDiskSpace,
@@ -66,6 +66,14 @@ pub(crate) struct HealthCheckContext {
 
     /// Configurations for health check experiments.
     pub experiment_configurations: Option<buck2_data::SystemInfo>,
+}
+
+/// An event from the daemon event subscriber to the health check client.
+pub enum HealthCheckEvent {
+    HealthCheckContextEvent(HealthCheckContextEvent),
+    // This snapshot can be used to pass a subset of the buck2_data::Snapshot data to health checks.
+    // Presently, unused since the existing health checks do not need this data.
+    Snapshot(),
 }
 
 /// An event to trigger update of context in the health check server.
