@@ -55,15 +55,8 @@ def erlang_application(
         for app in included_applications
     ]
 
-    return [
-        erlang_app_includes_rule(
-            name = _extra_include_name(name),
-            app_name = name if app_name == None else app_name,
-            includes = includes,
-            visibility = kwargs.get("visibility", None),
-            labels = ["generated", "app_includes"],
-        ),
-        erlang_app_rule(
+    if not includes:
+        return erlang_app_rule(
             name = name,
             app_name = app_name,
             applications = normalized_applications,
@@ -72,12 +65,33 @@ def erlang_application(
                 _extra_include_name(dep)
                 for dep in extra_includes
             ],
-            includes = includes,
-            _includes_target = ":" + _extra_include_name(name),
             labels = labels,
             **kwargs
-        ),
-    ]
+        )
+    else:
+        return [
+            erlang_app_includes_rule(
+                name = _extra_include_name(name),
+                app_name = name if app_name == None else app_name,
+                includes = includes,
+                visibility = kwargs.get("visibility", None),
+                labels = ["generated", "app_includes"],
+            ),
+            erlang_app_rule(
+                name = name,
+                app_name = app_name,
+                applications = normalized_applications,
+                included_applications = normalized_included_applications,
+                extra_includes = [
+                    _extra_include_name(dep)
+                    for dep in extra_includes
+                ],
+                includes = includes,
+                _includes_target = ":" + _extra_include_name(name),
+                labels = labels,
+                **kwargs
+            ),
+        ]
 
 # convenience macro to specify the includes-only target based on the base-application
 # target name
