@@ -323,6 +323,40 @@ pub enum LogDownloadMethod {
     None,
 }
 
+#[derive(
+    Allocative,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq
+)]
+pub struct HealthCheckConfig {
+    pub enable_health_checks: bool,
+    pub disabled_health_check_names: Option<String>,
+}
+
+impl HealthCheckConfig {
+    pub fn from_config(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
+        let enable_health_checks = config.parse(BuckconfigKeyRef {
+            section: "buck2_health_check",
+            property: "enable_health_checks",
+        })?;
+        let disabled_health_check_names = config.parse(BuckconfigKeyRef {
+            section: "buck2_health_check",
+            property: "disabled_health_check_names",
+        })?;
+
+        Ok(Self {
+            // TODO(rajneeshl): When the rollout is successful, change this to default to true.
+            enable_health_checks: enable_health_checks.unwrap_or(false),
+            disabled_health_check_names,
+        })
+    }
+}
+
 /// Configurations that are used at startup by the daemon. Those are actually read by the client,
 /// and passed on to the daemon.
 ///
@@ -343,6 +377,7 @@ pub struct DaemonStartupConfig {
     pub http: HttpConfig,
     pub resource_control: ResourceControlConfig,
     pub log_download_method: LogDownloadMethod,
+    pub health_check_config: HealthCheckConfig,
 }
 
 impl DaemonStartupConfig {
@@ -411,6 +446,7 @@ impl DaemonStartupConfig {
             http: HttpConfig::from_config(config)?,
             resource_control: ResourceControlConfig::from_config(config)?,
             log_download_method,
+            health_check_config: HealthCheckConfig::from_config(config)?,
         })
     }
 
@@ -436,6 +472,7 @@ impl DaemonStartupConfig {
             } else {
                 LogDownloadMethod::None
             },
+            health_check_config: HealthCheckConfig::default(),
         }
     }
 }
