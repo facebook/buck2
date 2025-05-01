@@ -62,5 +62,5 @@ fb_native.python_test(
     resources = [
         "prelude//toolchains/android/src/com/facebook/buck/testrunner:testrunner-bin-fixed",
     ],
-    deps = ["fbsource//third-party/pypi/setuptools:setuptools"],
+    # @oss-disable[end= ]: deps = ["fbsource//third-party/pypi/setuptools:setuptools"],
 )
