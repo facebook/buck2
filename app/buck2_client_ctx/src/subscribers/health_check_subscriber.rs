@@ -28,10 +28,15 @@ use crate::subscribers::subscriber::EventSubscriber;
 
 const EVENT_CHANNEL_SIZE: usize = 100;
 
+struct HealthCheckEventStats {
+    excess_cache_miss_reported: bool,
+}
+
 /// This subscriber is responsible for forwarding events to the health check client
 pub struct HealthCheckSubscriber {
     health_check_client: Option<Box<dyn HealthCheckClient>>,
     event_sender: Option<Sender<HealthCheckEvent>>,
+    event_stats: HealthCheckEventStats,
 }
 
 #[async_trait]
@@ -62,6 +67,9 @@ impl HealthCheckSubscriber {
         Box::new(Self {
             health_check_client,
             event_sender: Some(events_tx),
+            event_stats: HealthCheckEventStats {
+                excess_cache_miss_reported: false,
+            },
         })
     }
 
@@ -96,17 +104,20 @@ impl HealthCheckSubscriber {
                             )
                         }),
                     ActionExecution(action_execution_end) => {
-                        let has_excess_cache_miss = action_execution_end
-                            .invalidation_info
-                            .as_ref()
-                            .is_some_and(|v| v.changed_file.is_none());
-
-                        if has_excess_cache_miss {
-                            Some(HealthCheckEvent::HealthCheckContextEvent(
-                                HealthCheckContextEvent::HasExcessCacheMisses(),
-                            ))
-                        } else {
+                        if self.event_stats.excess_cache_miss_reported {
                             None
+                        } else {
+                            let has_excess_cache_miss = action_execution_end
+                                .invalidation_info
+                                .as_ref()
+                                .is_some_and(|v| v.changed_file.is_none());
+
+                            has_excess_cache_miss.then(|| {
+                                self.event_stats.excess_cache_miss_reported = true;
+                                HealthCheckEvent::HealthCheckContextEvent(
+                                    HealthCheckContextEvent::HasExcessCacheMisses(),
+                                )
+                            })
                         }
                     }
                     _ => None,
@@ -168,6 +179,8 @@ impl HealthCheckSubscriber {
 mod tests {
     use std::time::SystemTime;
 
+    use buck2_data::ActionExecutionEnd;
+    use buck2_data::ActionKind;
     use buck2_health_check::interface::HealthCheckType;
     use buck2_health_check::report::DisplayReport;
     use buck2_health_check::report::HealthIssue;
@@ -211,6 +224,8 @@ mod tests {
     }
 
     impl HealthCheckClient for TestHealthCheckClient {}
+    struct NoOpHealthCheckClient {}
+    impl HealthCheckClient for NoOpHealthCheckClient {}
 
     fn test_reports() -> Vec<DisplayReport> {
         vec![
@@ -241,6 +256,23 @@ mod tests {
             None,
             data,
         ))
+    }
+
+    fn event_for_excess_cache_miss() -> buck2_data::buck_event::Data {
+        let action_end = ActionExecutionEnd {
+            kind: ActionKind::Run as i32,
+            invalidation_info: Some(buck2_data::CommandInvalidationInfo {
+                changed_file: None,
+                changed_any: None,
+            }),
+            ..Default::default()
+        };
+        buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
+            data: Some(buck2_data::span_end_event::Data::ActionExecution(
+                Box::new(action_end).into(),
+            )),
+            ..buck2_data::SpanEndEvent::default()
+        })
     }
 
     #[tokio::test]
@@ -280,5 +312,25 @@ mod tests {
         assert!(reports[1].health_issue.is_some());
 
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_excess_cache_miss_reporting() {
+        let (events_tx, mut events_rx) = mpsc::channel::<HealthCheckEvent>(EVENT_CHANNEL_SIZE);
+
+        let mut subscriber = HealthCheckSubscriber::new_with_client(
+            Some(Box::new(NoOpHealthCheckClient {})),
+            events_tx,
+        );
+
+        let event1 = test_event(event_for_excess_cache_miss().into());
+        let event2 = test_event(event_for_excess_cache_miss().into());
+
+        subscriber.handle_event(&event1).await.unwrap();
+        subscriber.handle_event(&event2).await.unwrap();
+
+        // Verify that only one HealthCheckContextEvent::HasExcessCacheMisses is sent
+        let mut buffer: Vec<HealthCheckEvent> = Vec::with_capacity(2);
+        assert_eq!(1, events_rx.recv_many(&mut buffer, 2).await);
     }
 }
