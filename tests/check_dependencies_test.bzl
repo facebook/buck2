@@ -51,6 +51,7 @@ def check_dependencies_test(
         env = None,
         deps = None,
         extra_buck_args = [],
+        labels = [],
         **kwargs):
     """
     Creates a test target from a buck2 bxl script. BXL script must use "test" as entry
@@ -124,7 +125,7 @@ def check_dependencies_test(
             "TARGET": target,
             "VERIFICATION_MODE": mode,
         } | (env or {}),
-        labels = ["check_dependencies_test"],
+        labels = ["check_dependencies_test"] + labels,
         deps = deps,
         **kwargs
     )
