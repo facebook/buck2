@@ -5,17 +5,15 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-buildscript = []
+buildscript.run = false
 
 ## The various X86 platform fixups
 
-[platform_fixup.'cfg(target_arch = "x86_64")']
+['cfg(target_arch = "x86_64")']
 cfgs = ["blake3_sse2_ffi", "blake3_sse41_ffi", "blake3_avx2_ffi", "blake3_avx512_ffi"]
-buildscript = []
 
 # , any(target_env = "fbcode", target_env = "gnu")
-[[platform_fixup.'cfg(all(target_arch = "x86_64", any(target_os = "linux", target_os = "macos")))'.buildscript]]
-[platform_fixup.'cfg(all(target_arch = "x86_64", any(target_os = "linux", target_os = "macos")))'.buildscript.cxx_library]
+[['cfg(all(target_arch = "x86_64", any(target_os = "linux", target_os = "macos")))'.cxx_library]]
 name = "simd_x86_unix"
 srcs = [
     "c/blake3.c",
@@ -35,8 +33,7 @@ compatible_with = [
     "prelude//os/constraints:macos",
 ]
 
-[[platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "gnu"))'.buildscript]]
-[platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "gnu"))'.buildscript.cxx_library]
+[['cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "gnu"))'.cxx_library]]
 name = "simd_x86_windows_gnu"
 srcs = [
     "c/blake3.c",
@@ -53,8 +50,7 @@ compiler_flags = ["-mavx512f", "-mavx512vl"]
 headers = ["c/*.h"]
 compatible_with = ["prelude//os/constraints:windows"]
 
-[[platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"))'.buildscript]]
-[platform_fixup.'cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"))'.buildscript.cxx_library]
+[['cfg(all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"))'.cxx_library]]
 name = "simd_x86_windows_msvc"
 srcs = [
     "c/blake3.c",
@@ -70,18 +66,15 @@ compatible_with = ["prelude//os/constraints:windows"]
 
 ## ARM and AArch64 fixups
 
-[platform_fixup.'cfg(any(target_arch = "aarch64", target_arch = "arm"))']
+['cfg(any(target_arch = "aarch64", target_arch = "arm"))']
 cfgs = ["blake3_neon"]
-buildscript = []
 
-[[platform_fixup.'cfg(target_arch = "aarch64")'.buildscript]]
-[platform_fixup.'cfg(target_arch = "aarch64")'.buildscript.cxx_library]
+[['cfg(target_arch = "aarch64")'.cxx_library]]
 name = "simd_neon-aarch64"
 srcs = ["c/blake3_neon.c"]
 headers = ["c/*.h"]
 
-[[platform_fixup.'cfg(target_arch = "arm")'.buildscript]]
-[platform_fixup.'cfg(target_arch = "arm")'.buildscript.cxx_library]
+[['cfg(target_arch = "arm")'.cxx_library]]
 name = "simd_neon-armv7"
 srcs = ["c/blake3_neon.c"]
 compiler_flags = ["-mfpu=neon-vfpv4", "-mfloat-abi=hard"]

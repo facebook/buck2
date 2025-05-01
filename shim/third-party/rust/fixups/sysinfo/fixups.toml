@@ -5,14 +5,13 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+buildscript.run = false
 extra_srcs = ["README.md", "md_doc/**/*.md"]
-buildscript = []
 
-[platform_fixup.'cfg(target_os = "macos")']
-buildscript = []
+['cfg(target_os = "macos")']
 rustc_flags = [
-  "-lframework=IOKit",
-  "-lframework=Foundation",
-  "-lframework=CoreFoundation",
-  "-lframework=DiskArbitration",
+    "-lframework=IOKit",
+    "-lframework=Foundation",
+    "-lframework=CoreFoundation",
+    "-lframework=DiskArbitration",
 ]

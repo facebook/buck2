@@ -5,9 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-buildscript = []
+buildscript.run = false
 
-[platform_fixup.'cfg(target_os = "windows")']
+['cfg(target_os = "windows")']
+buildscript.run = true
 extra_deps = [
     "shim//third-party/toolchains/win:advapi32.lib",
     "shim//third-party/toolchains/win:avrt.lib",
@@ -84,6 +85,3 @@ extra_deps = [
     "shim//third-party/toolchains/win:wtsapi32.lib",
     "shim//third-party/toolchains/win:xinput.lib",
 ]
-
-[[platform_fixup.'cfg(target_os = "windows")'.buildscript]]
-[platform_fixup.'cfg(target_os = "windows")'.buildscript.rustc_flags]

@@ -5,10 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+buildscript.run = true
 cargo_env = [
     "CARGO_PKG_NAME", # Needed by _buck1_handle_manifest_dir
     "CARGO_MANIFEST_DIR",
 ]
-
-[[buildscript]]
-[buildscript.gen_srcs]

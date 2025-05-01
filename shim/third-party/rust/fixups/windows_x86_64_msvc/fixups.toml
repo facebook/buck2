@@ -5,11 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-buildscript = []
+buildscript.run = false
 
-[platform_fixup.'cfg(all(target_os = "windows", target_env = "msvc"))']
+['cfg(all(target_os = "windows", target_env = "msvc"))']
 version = "=0.48.0"
-[[platform_fixup.'cfg(all(target_os = "windows", target_env = "msvc"))'.buildscript]]
-[platform_fixup.'cfg(all(target_os = "windows", target_env = "msvc"))'.buildscript.prebuilt_cxx_library]
+[['cfg(all(target_os = "windows", target_env = "msvc"))'.prebuilt_cxx_library]]
 name = "windows"
 static_libs = ["lib/windows.0.48.0.lib"]

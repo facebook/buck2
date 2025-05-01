@@ -7,4 +7,4 @@
 
 # To set `CARGO_MANIFEST_DIR`
 cargo_env = true
-buildscript = []
+buildscript.run = false

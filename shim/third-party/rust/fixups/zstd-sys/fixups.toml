@@ -5,10 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-buildscript = []
+buildscript.run = false
 
-[[platform_fixup.'cfg(not(all(target_os = "windows", target_env = "msvc")))'.buildscript]]
-[platform_fixup.'cfg(not(all(target_os = "windows", target_env = "msvc")))'.buildscript.cxx_library]
+[['cfg(not(all(target_os = "windows", target_env = "msvc")))'.cxx_library]]
 name = "zstd"
 srcs = [
     "zstd/lib/common/debug.c",
@@ -66,8 +65,7 @@ compiler_flags = [
     "-DZSTD_LEGACY_SUPPORT=1"
 ]
 
-[[platform_fixup.'cfg(all(target_os = "windows", target_env = "msvc"))'.buildscript]]
-[platform_fixup.'cfg(all(target_os = "windows", target_env = "msvc"))'.buildscript.cxx_library]
+[['cfg(all(target_os = "windows", target_env = "msvc"))'.cxx_library]]
 name = "zstd-msvc"
 srcs = [
     "zstd/lib/common/debug.c",
