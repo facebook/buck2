@@ -5,62 +5,111 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup", "ScriptLanguage")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 
-def command_alias_impl(ctx):
-    target_is_windows = ctx.attrs._target_os_type[OsLookup].platform == "windows"
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+def command_alias_impl(ctx: AnalysisContext):
+    target_os = ctx.attrs._target_os_type[OsLookup]
 
-    if target_is_windows:
-        # If the target is Windows, create a batch file based command wrapper instead
-        return _command_alias_impl_target_windows(ctx, exec_is_windows)
+    if target_os.os == Os("fat_mac_linux") and len(ctx.attrs.platform_exe) > 0:
+        variants = {
+            "Darwin": _get_os_base(ctx, Os("macos")),
+            "Linux": _get_os_base(ctx, Os("linux")),
+        }
+        return _command_alias_impl_target_unix(ctx, variants)
+
+    base = _get_os_base(ctx, target_os.os)
+    if target_os.script == ScriptLanguage("sh"):
+        return _command_alias_impl_target_unix(ctx, base)
+    elif target_os.script == ScriptLanguage("bat"):
+        return _command_alias_impl_target_windows(ctx, base)
     else:
-        return _command_alias_impl_target_unix(ctx, exec_is_windows)
+        fail("Unsupported script language: {}".format(target_os.script))
 
-def _command_alias_impl_target_unix(ctx, exec_is_windows: bool):
-    if ctx.attrs.exe == None:
-        base = RunInfo()
-    else:
-        base = _get_run_info_from_exe(ctx.attrs.exe)
+def _get_os_base(ctx: AnalysisContext, os: Os) -> RunInfo:
+    exe = ctx.attrs.platform_exe.get(os.value)
+    if exe == None:
+        exe = ctx.attrs.exe
 
+    if exe == None:
+        return RunInfo()
+
+    if isinstance(exe, Artifact):
+        return RunInfo(args = cmd_args(exe))
+
+    run_info = exe.get(RunInfo)
+    if run_info == None:
+        run_info = RunInfo(
+            args = exe[DefaultInfo].default_outputs,
+        )
+
+    return run_info
+
+def _command_alias_impl_target_unix(
+        ctx: AnalysisContext,
+        # Either the `RunInfo` to use, or in the case of a fat platform, the choice of `RunInfo`
+        # depending on `uname`
+        base: RunInfo | dict[str, RunInfo]) -> list[Provider]:
     trampoline_args = cmd_args()
     trampoline_args.add("#!/usr/bin/env bash")
     trampoline_args.add("set -euo pipefail")
-    trampoline_args.add('BUCK_COMMAND_ALIAS_ABSOLUTE=$(cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P)')
 
-    for (k, v) in ctx.attrs.env.items():
-        # TODO(akozhevnikov): maybe check environment variable is not conflicting with pre-existing one
-        trampoline_args.add(cmd_args(["export ", k, "=", cmd_args(v, quote = "shell")], delimiter = ""))
-
-    if len(ctx.attrs.platform_exe.items()) > 0:
+    if isinstance(base, dict):
         trampoline_args.add('case "$(uname)" in')
-        for platform, exe in ctx.attrs.platform_exe.items():
-            # Only linux and macos are supported.
-            if platform == "linux":
-                _add_platform_case_to_trampoline_args(trampoline_args, "Linux", _get_run_info_from_exe(exe), ctx.attrs.args)
-            elif platform == "macos":
-                _add_platform_case_to_trampoline_args(trampoline_args, "Darwin", _get_run_info_from_exe(exe), ctx.attrs.args)
-
-        # Default case
-        _add_platform_case_to_trampoline_args(trampoline_args, "*", base, ctx.attrs.args)
+        for uname, run_info in base.items():
+            trampoline_args.add("    {})".format(uname))
+            _add_args_declaration_to_trampoline_args(trampoline_args, run_info, ctx.attrs.args)
+            trampoline_args.add("        ;;")
         trampoline_args.add("esac")
     else:
         _add_args_declaration_to_trampoline_args(trampoline_args, base, ctx.attrs.args)
 
-    trampoline_args.add('exec "${ARGS[@]}"')
+    # We can't use cwd relative paths (since we don't know the cwd when this script is run) and so
+    # we instead use paths relative to the script itself. However, we can't just naively stick a
+    # `$(...)` into `absolute_prefix`, since we must also shell quote paths, and that expression
+    # would be shell quoted.
+    #
+    # Instead, we use `BUCK_COMMAND_ALIAS_ABSOLUTE_PREFIX/`, verbatim, as an absolute prefix on the
+    # cmd_args, and then replace that with the actual path of the script at runtime
+    trampoline_args.add(
+        """
+BASE=$(cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P)
+R_ARGS=()
+for arg in "${ARGS[@]}"; do
+    R_ARGS+=("${arg//BUCK_COMMAND_ALIAS_ABSOLUTE_PREFIX/$BASE}")
+done
+""",
+    )
 
-    trampoline = _relativize_path(
-        ctx,
+    for (k, v) in ctx.attrs.env.items():
+        # TODO(akozhevnikov): maybe check environment variable is not conflicting with pre-existing one
+        trampoline_args.add(cmd_args("export ", k, "=", cmd_args(v, quote = "shell"), delimiter = ""))
+        trampoline_args.add(cmd_args("export ", k, '="${', k, '//BUCK_COMMAND_ALIAS_ABSOLUTE_PREFIX/$BASE}"', delimiter = ""))
+
+    trampoline_args.add('exec "${R_ARGS[@]}" "$@"')
+
+    trampoline = ctx.actions.declare_output("__command_alias_trampoline.sh")
+    trampoline_args = cmd_args(
         trampoline_args,
-        "sh",
-        "$BUCK_COMMAND_ALIAS_ABSOLUTE",
-        exec_is_windows,
+        relative_to = (trampoline, 1),
+        absolute_prefix = "BUCK_COMMAND_ALIAS_ABSOLUTE_PREFIX/",
+    )
+    ctx.actions.write(
+        trampoline.as_output(),
+        trampoline_args,
+        allow_args = True,
+        is_executable = True,
     )
 
     run_info_args_args = []
     run_info_args_hidden = []
-    if len(ctx.attrs.env) > 0 or len(ctx.attrs.platform_exe.items()) > 0:
+
+    # FIXME(JakobDegen): We should not accept `platform_exe` as meaning `run_using_single_arg`, but
+    # there are things that depend on that
+    if ctx.attrs.run_using_single_arg or \
+       len(ctx.attrs.env) > 0 or \
+       isinstance(base, dict) or \
+       len(ctx.attrs.platform_exe) > 0:
         run_info_args_args.append(trampoline)
         run_info_args_hidden.append(trampoline_args)
     else:
@@ -76,16 +125,7 @@ def _command_alias_impl_target_unix(ctx, exec_is_windows: bool):
         RunInfo(args = run_info_args),
     ]
 
-def _command_alias_impl_target_windows(ctx, exec_is_windows: bool):
-    # If a windows specific exe is specified, take that. Otherwise just use the default exe.
-    windows_exe = ctx.attrs.platform_exe.get("windows")
-    if windows_exe != None:
-        base = _get_run_info_from_exe(windows_exe)
-    elif ctx.attrs.exe != None:
-        base = _get_run_info_from_exe(ctx.attrs.exe)
-    else:
-        base = RunInfo()
-
+def _command_alias_impl_target_windows(ctx: AnalysisContext, base: RunInfo):
     trampoline_args = cmd_args()
     trampoline_args.add("@echo off")
 
@@ -104,28 +144,27 @@ def _command_alias_impl_target_windows(ctx, exec_is_windows: bool):
         # TODO(akozhevnikov): maybe check environment variable is not conflicting with pre-existing one
         trampoline_args.add(cmd_args(["set ", k, "=", v], delimiter = ""))
 
-    # Handle args
-    # We shell quote the args but not the base. This is due to the same limitation detailed below with T111687922
-    cmd = cmd_args([base.args], delimiter = " ")
-    for arg in ctx.attrs.args:
-        cmd.add(cmd_args(arg, quote = "shell"))
-
-    # Add on %* to handle any other args passed through the command
-    cmd.add("%*")
+    # FIXME(JakobDegen): This should be batch quoting, not shell quoting
+    cmd = cmd_args(cmd_args(base.args, ctx.attrs.args, quote = "shell"), "%*", delimiter = " ")
 
     trampoline_args.add(cmd)
 
-    trampoline = _relativize_path(
-        ctx,
+    trampoline = ctx.actions.declare_output("__command_alias_trampoline.bat")
+    trampoline_args = cmd_args(
         trampoline_args,
-        "bat",
-        "%BUCK_COMMAND_ALIAS_ABSOLUTE%",
-        exec_is_windows,
+        relative_to = (trampoline, 1),
+        absolute_prefix = "%BUCK_COMMAND_ALIAS_ABSOLUTE%/",
+    )
+    ctx.actions.write(
+        trampoline.as_output(),
+        trampoline_args,
+        allow_args = True,
+        is_executable = True,
     )
 
     run_info_args_args = []
     run_info_args_hidden = []
-    if len(ctx.attrs.env) > 0:
+    if ctx.attrs.run_using_single_arg or len(ctx.attrs.env) > 0:
         run_info_args_args.append(trampoline)
         run_info_args_hidden.append(trampoline_args)
     else:
@@ -141,103 +180,7 @@ def _command_alias_impl_target_windows(ctx, exec_is_windows: bool):
         RunInfo(args = run_info_args),
     ]
 
-def _relativize_path(
-        ctx,
-        trampoline_args: cmd_args,
-        extension: str,
-        var: str,
-        exec_is_windows: bool) -> Artifact:
-    # Depending on where this action is done, we need to either run sed or a custom Windows sed-equivalent script
-    # TODO(marwhal): Bias the exec platform to be the same as target platform to simplify the relativization logic
-    if exec_is_windows:
-        return _relativize_path_windows(ctx, extension, var, trampoline_args)
-    else:
-        return _relativize_path_unix(ctx, extension, var, trampoline_args)
-
-def _relativize_path_unix(
-        ctx,
-        extension: str,
-        var: str,
-        trampoline_args: cmd_args) -> Artifact:
-    # FIXME(ndmitchell): more straightforward relativization with better API
-    non_materialized_reference = ctx.actions.write("dummy", "")
-    trampoline_args = cmd_args(
-        trampoline_args,
-        relative_to = (non_materialized_reference, 1),
-        absolute_prefix = "__BUCK_COMMAND_ALIAS_ABSOLUTE__/",
-    )
-
-    trampoline_tmp, _ = ctx.actions.write("__command_alias_trampoline.{}.pre".format(extension), trampoline_args, allow_args = True)
-
-    # FIXME (T111687922): Avert your eyes... We want to add
-    # $BUCK_COMMAND_ALIAS_ABSOLUTE a prefix on all the args we include, but
-    # those args will be shell-quoted (so that they might include e.g.
-    # spaces). However, our shell-quoting will apply to the absolute_prefix
-    # as well, which will render it inoperable. To fix this, we emit
-    # __BUCK_COMMAND_ALIAS_ABSOLUTE__ instead, and then we use sed to work
-    # around our own quoting to produce the thing we want.
-    trampoline = ctx.actions.declare_output("__command_alias_trampoline.{}".format(extension))
-    ctx.actions.run([
-        "sh",
-        "-c",
-        "sed 's|__BUCK_COMMAND_ALIAS_ABSOLUTE__|{}|g' < \"$1\" > \"$2\" && chmod +x $2".format(var),
-        "--",
-        trampoline_tmp,
-        trampoline.as_output(),
-    ], category = "sed")
-
-    return trampoline
-
-def _relativize_path_windows(
-        ctx,
-        extension: str,
-        var: str,
-        trampoline_args: cmd_args) -> Artifact:
-    # FIXME(ndmitchell): more straightforward relativization with better API
-    non_materialized_reference = ctx.actions.write("dummy", "")
-    trampoline_args = cmd_args(
-        trampoline_args,
-        relative_to = (non_materialized_reference, 1),
-        absolute_prefix = var + "/",
-    )
-
-    trampoline, _ = ctx.actions.write("__command_alias_trampoline.{}".format(extension), trampoline_args, allow_args = True)
-
-    return trampoline
-
-def _add_platform_case_to_trampoline_args(trampoline_args: cmd_args, platform_name: str, base: RunInfo, args: list[ArgLike]):
-    trampoline_args.add("    {})".format(platform_name))
-    _add_args_declaration_to_trampoline_args(trampoline_args, base, args)
-    trampoline_args.add("        ;;")
-
 def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: RunInfo, args: list[ArgLike]):
     trampoline_args.add("ARGS=(")
-
-    # FIXME (T111687922): We cannot preserve BUCK_COMMAND_ALIAS_ABSOLUTE *and*
-    # quote here...  So we don't quote the exe's RunInfo (which usually has a
-    # path and hopefully no args that need quoting), but we quote the args
-    # themselves (which usually are literals that might need quoting and
-    # hopefully doesn't contain relative paths).
-    # FIXME (T111687922): Note that we have no shot at quoting base.args anyway
-    # at this time, since we need to quote the individual words, but using
-    # `quote = "shell"` would just quote the whole thing into one big word.
-    trampoline_args.add(base.args)
-    for arg in args:
-        trampoline_args.add(cmd_args(arg, quote = "shell"))
-
-    # Add the args passed to the command_alias itself.
-    trampoline_args.add('"$@"')
-
+    trampoline_args.add(cmd_args(base.args, args, quote = "shell"))
     trampoline_args.add(")")
-
-def _get_run_info_from_exe(exe: Dependency | Artifact) -> RunInfo:
-    if isinstance(exe, Artifact):
-        return RunInfo(args = cmd_args(exe))
-
-    run_info = exe.get(RunInfo)
-    if run_info == None:
-        run_info = RunInfo(
-            args = exe[DefaultInfo].default_outputs,
-        )
-
-    return run_info

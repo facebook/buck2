@@ -13,6 +13,7 @@ load(
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//linking:link_info.bzl",
+    "DepMetadata",
     "LinkStrategy",
     "LinkStyle",
     "LinkerFlags",
@@ -47,10 +48,13 @@ def cxx_attr_deps(ctx: AnalysisContext) -> list[Dependency]:
     )
 
 def cxx_attr_exported_deps(ctx: AnalysisContext) -> list[Dependency]:
-    return ctx.attrs.exported_deps + flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_deps))
+    return getattr(ctx.attrs, "exported_deps", []) + flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_deps))
 
 def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
-    flags = cxx_attr_linker_flags(ctx)
+    flags = (
+        cxx_attr_linker_flags(ctx) +
+        (ctx.attrs.local_linker_script_flags if hasattr(ctx.attrs, "local_linker_script_flags") else [])
+    )
     post_flags = (
         (ctx.attrs.post_linker_flags if hasattr(ctx.attrs, "post_linker_flags") else []) +
         (flatten(cxx_by_platform(ctx, ctx.attrs.post_platform_linker_flags)) if hasattr(ctx.attrs, "post_platform_linker_flags") else [])
@@ -180,3 +184,11 @@ def cxx_platform_supported(ctx: AnalysisContext) -> bool:
         ctx.attrs.supported_platforms_regex,
         get_cxx_platform_info(ctx).name,
     )
+
+def cxx_attr_dep_metadata(ctx: AnalysisContext) -> list[DepMetadata]:
+    """
+    Return a `DepMetadata` structure with a meaningful version identifier.
+    """
+    if not getattr(ctx.attrs, "version", None):
+        return []
+    return [DepMetadata(version = ctx.attrs.version)]

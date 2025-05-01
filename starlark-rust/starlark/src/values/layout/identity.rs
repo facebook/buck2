@@ -20,8 +20,8 @@ use std::marker::PhantomData;
 use allocative::Allocative;
 use dupe::Dupe;
 
-use crate::values::layout::pointer::RawPointer;
 use crate::values::Value;
+use crate::values::layout::pointer::RawPointer;
 
 /// An opaque value representing the identity of a given Value. Two values have the same identity
 /// if and only if [`Value::ptr_eq`] would return [`true`] on them.

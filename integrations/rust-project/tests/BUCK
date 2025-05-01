@@ -1,0 +1,13 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+buck2_e2e_test(
+    name = "test_rust_project",
+    srcs = [
+        "test_rust_project.py",
+    ],
+    test_with_compiled_buck2 = False,
+    test_with_deployed_buck2 = True,
+    deps = [
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
+    ],
+)

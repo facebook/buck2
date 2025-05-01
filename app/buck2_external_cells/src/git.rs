@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use std::collections::hash_map;
 use std::collections::HashMap;
+use std::collections::hash_map;
 use std::process::Command;
 use std::process::ExitStatus;
 use std::process::Stdio;
@@ -16,15 +16,14 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::OnceLock;
 
-use anyhow::Context;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::dice::file_ops::delegate::FileOpsDelegate;
 use buck2_common::file_ops::FileDigestConfig;
 use buck2_common::file_ops::RawDirEntry;
 use buck2_common::file_ops::RawPathMetadata;
-use buck2_common::io::fs::FsIoProvider;
 use buck2_common::io::IoProvider;
+use buck2_common::io::fs::FsIoProvider;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::external::GitCellSetup;
@@ -37,6 +36,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory::Directory;
+use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -56,6 +56,7 @@ use dupe::Dupe;
 use tokio::sync::Semaphore;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum GitError {
     #[error("Error fetching external cell with git, exit code: {exit_code:?}, stderr:\n{stderr}")]
     Unsuccessful {
@@ -75,14 +76,14 @@ impl IoRequest for GitFetchIoRequest {
     fn execute(
         self: Box<Self>,
         project_fs: &buck2_core::fs::project::ProjectRoot,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let path = project_fs.resolve(&self.path);
         fs_util::create_dir_all(path.clone())?;
 
         // FIXME(JakobDegen): Ideally we'd use libgit2 directly here instead of shelling out, but
         // unfortunately the third party situation for that library in fbsource isn't great, so
         // let's do this for now
-        fn run_git(cwd: &AbsNormPath, f: impl FnOnce(&mut Command)) -> anyhow::Result<()> {
+        fn run_git(cwd: &AbsNormPath, f: impl FnOnce(&mut Command)) -> buck2_error::Result<()> {
             let mut cmd = background_command("git");
             f(&mut cmd);
             let output = cmd
@@ -90,7 +91,7 @@ impl IoRequest for GitFetchIoRequest {
                 .stderr(Stdio::piped())
                 .stdout(Stdio::null())
                 .output()
-                .context("Could not run git to fetch external cell")?;
+                .buck_error_context("Could not run git to fetch external cell")?;
 
             if !output.status.success() {
                 return Err(GitError::Unsuccessful {
@@ -131,8 +132,8 @@ async fn download_impl(
     setup: &GitCellSetup,
     path: &ProjectRelativePath,
     materializer: &dyn Materializer,
-    cancellations: &CancellationContext<'_>,
-) -> anyhow::Result<()> {
+    cancellations: &CancellationContext,
+) -> buck2_error::Result<()> {
     let io = ctx.get_blocking_executor();
     io.execute_io(
         Box::new(CleanOutputPaths {
@@ -191,8 +192,8 @@ async fn download_and_materialize(
     ctx: &mut DiceComputations<'_>,
     path: &ProjectRelativePath,
     setup: &GitCellSetup,
-    cancellations: &CancellationContext<'_>,
-) -> anyhow::Result<()> {
+    cancellations: &CancellationContext,
+) -> buck2_error::Result<()> {
     let materializer = ctx.per_transaction_data().get_materializer();
 
     if materializer.has_artifact_at(path.to_owned()).await? {
@@ -284,7 +285,7 @@ impl FileOpsDelegate for GitFileOpsDelegate {
     async fn read_file_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> buck2_error::Result<Option<String>> {
         let project_path = self.resolve(path);
         (&self.io as &dyn IoProvider)
             .read_file_if_exists(project_path)
@@ -294,12 +295,12 @@ impl FileOpsDelegate for GitFileOpsDelegate {
     async fn read_dir(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<Vec<RawDirEntry>> {
         let project_path = self.resolve(path);
         let mut entries = (&self.io as &dyn IoProvider)
             .read_dir(project_path)
             .await
-            .with_context(|| format!("Error listing dir `{}`", path))?;
+            .with_buck_error_context(|| format!("Error listing dir `{}`", path))?;
 
         // Make sure entries are deterministic, since read_dir isn't.
         entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
@@ -310,18 +311,18 @@ impl FileOpsDelegate for GitFileOpsDelegate {
     async fn read_path_metadata_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Option<RawPathMetadata>> {
+    ) -> buck2_error::Result<Option<RawPathMetadata>> {
         let project_path = self.resolve(path);
 
         let Some(metadata) = (&self.io as &dyn IoProvider)
             .read_path_metadata_if_exists(project_path)
             .await
-            .with_context(|| format!("Error accessing metadata for path `{}`", path))?
+            .with_buck_error_context(|| format!("Error accessing metadata for path `{}`", path))?
         else {
             return Ok(None);
         };
         Ok(Some(metadata.try_map(
-            |path| match path.strip_prefix_opt(&self.get_base_path()) {
+            |path| match path.strip_prefix_opt(self.get_base_path()) {
                 Some(path) => Ok(Arc::new(CellPath::new(self.cell, path.to_owned().into()))),
                 None => Err(internal_error!(
                     "Non-cell internal symlink at `{}` in cell `{}`",
@@ -341,7 +342,7 @@ pub(crate) async fn get_file_ops_delegate(
     ctx: &mut DiceComputations<'_>,
     cell: CellName,
     setup: GitCellSetup,
-) -> anyhow::Result<Arc<GitFileOpsDelegate>> {
+) -> buck2_error::Result<Arc<GitFileOpsDelegate>> {
     #[derive(
         dupe::Dupe,
         Clone,
@@ -383,14 +384,14 @@ pub(crate) async fn get_file_ops_delegate(
         }
     }
 
-    Ok(ctx.compute(&GitFileOpsDelegateKey(cell, setup)).await??)
+    ctx.compute(&GitFileOpsDelegateKey(cell, setup)).await?
 }
 
 pub(crate) async fn materialize_all(
     ctx: &mut DiceComputations<'_>,
     cell: CellName,
     setup: GitCellSetup,
-) -> anyhow::Result<ProjectRelativePathBuf> {
+) -> buck2_error::Result<ProjectRelativePathBuf> {
     // Get the `GitFileOpsDelegate` instance to make sure all the data is materialized.
     let ops = get_file_ops_delegate(ctx, cell, setup.dupe()).await?;
     Ok(ops.get_base_path())

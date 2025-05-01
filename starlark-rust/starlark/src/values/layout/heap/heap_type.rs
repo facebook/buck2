@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use std::any;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::cell::RefMut;
@@ -42,15 +41,32 @@ use starlark_map::small_set::SmallSet;
 
 use crate::cast;
 use crate::cast::transmute;
-use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
-use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice_cloned;
 use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;
+use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
+use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice_cloned;
 use crate::eval::compiler::def::FrozenDef;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
+use crate::values::ComplexValue;
+use crate::values::FreezeResult;
+use crate::values::FrozenRef;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValueOfUnchecked;
+use crate::values::FrozenValueTyped;
+use crate::values::StarlarkValue;
+use crate::values::StringValue;
+use crate::values::Trace;
+use crate::values::UnpackValue;
+use crate::values::ValueOf;
+use crate::values::ValueOfUnchecked;
+use crate::values::ValueTyped;
 use crate::values::any::StarlarkAny;
 use crate::values::array::Array;
 use crate::values::array::VALUE_EMPTY_ARRAY;
+use crate::values::layout::avalue::AValue;
+use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::any_array_avalue;
 use crate::values::layout::avalue::array_avalue;
 use crate::values::layout::avalue::complex;
@@ -60,8 +76,6 @@ use crate::values::layout::avalue::frozen_tuple_avalue;
 use crate::values::layout::avalue::list_avalue;
 use crate::values::layout::avalue::simple;
 use crate::values::layout::avalue::tuple_avalue;
-use crate::values::layout::avalue::AValue;
-use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;
 use crate::values::layout::heap::arena::Arena;
 use crate::values::layout::heap::arena::ArenaVisitor;
@@ -83,20 +97,6 @@ use crate::values::list::value::VALUE_EMPTY_FROZEN_LIST;
 use crate::values::string::intern::interner::FrozenStringValueInterner;
 use crate::values::string::intern::interner::StringValueInterner;
 use crate::values::string::str_type::StarlarkStr;
-use crate::values::AllocFrozenValue;
-use crate::values::AllocValue;
-use crate::values::ComplexValue;
-use crate::values::FrozenRef;
-use crate::values::FrozenStringValue;
-use crate::values::FrozenValueOfUnchecked;
-use crate::values::FrozenValueTyped;
-use crate::values::StarlarkValue;
-use crate::values::StringValue;
-use crate::values::Trace;
-use crate::values::UnpackValue;
-use crate::values::ValueOf;
-use crate::values::ValueOfUnchecked;
-use crate::values::ValueTyped;
 
 #[derive(Copy, Clone, Dupe)]
 pub(crate) enum HeapKind {
@@ -310,10 +310,13 @@ impl FrozenHeap {
         }
     }
 
-    /// Allocate a string on this heap. Be careful about the warnings
-    /// around [`FrozenValue`].
+    /// Allocate a string on this heap. Be careful about the warnings around
+    /// [`FrozenValue`].
+    ///
+    /// Since the heap is frozen, we always prefer to intern the string in order
+    /// to deduplicate it and save some memory.
     pub fn alloc_str(&self, x: &str) -> FrozenStringValue {
-        self.alloc_str_impl(x, StarlarkStr::UNINIT_HASH)
+        self.alloc_str_intern(x)
     }
 
     /// Intern string.
@@ -443,20 +446,6 @@ impl FrozenHeap {
         value.map(|r| &r.0)
     }
 
-    pub(crate) fn alloc_any_debug_type_name<T: Send + Sync>(
-        &self,
-        value: T,
-    ) -> FrozenRef<'static, T> {
-        struct DebugValue<T>(T);
-        impl<T> Debug for DebugValue<T> {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                f.debug_struct(any::type_name::<T>())
-                    .finish_non_exhaustive()
-            }
-        }
-        self.alloc_any(DebugValue(value)).map(|r| &r.0)
-    }
-
     fn do_alloc_any_slice<T: Debug + Send + Sync + Clone>(
         &self,
         values: &[T],
@@ -562,7 +551,7 @@ impl Freezer {
     }
 
     /// Freeze a nested value while freezing yourself.
-    pub fn freeze(&self, value: Value) -> anyhow::Result<FrozenValue> {
+    pub fn freeze(&self, value: Value) -> FreezeResult<FrozenValue> {
         // Case 1: We have our value encoded in our pointer
         if let Some(x) = value.unpack_frozen() {
             return Ok(x);
@@ -786,12 +775,8 @@ impl Heap {
         &'v self,
         elems: impl IntoIterator<Item = Value<'v>>,
     ) -> Value<'v> {
-        match self.try_alloc_list_iter(elems.into_iter().map(Ok)) {
+        match self.try_alloc_list_iter(elems.into_iter().map(Ok::<_, Infallible>)) {
             Ok(value) => value,
-            Err(e) => {
-                let e: Infallible = e;
-                match e {}
-            }
         }
     }
 
@@ -887,7 +872,7 @@ impl Heap {
         forward_heap_kind: HeapKind,
         v: &mut impl ArenaVisitor<'v>,
     ) {
-        (*self.arena.get_mut()).visit_arena(HeapKind::Unfrozen, forward_heap_kind, v)
+        unsafe { (*self.arena.get_mut()).visit_arena(HeapKind::Unfrozen, forward_heap_kind, v) }
     }
 
     /// Garbage collect any values that are unused. This function is _unsafe_ in
@@ -895,23 +880,27 @@ impl Heap {
     /// invalid_. Furthermore, any references to values, e.g `&'v str` will
     /// also become invalid.
     pub(crate) unsafe fn garbage_collect<'v>(&'v self, f: impl FnOnce(&Tracer<'v>)) {
-        // Record the highest peak, so it never decreases
-        self.peak_allocated.set(self.peak_allocated_bytes());
-        self.garbage_collect_internal(f)
+        unsafe {
+            // Record the highest peak, so it never decreases
+            self.peak_allocated.set(self.peak_allocated_bytes());
+            self.garbage_collect_internal(f)
+        }
     }
 
     unsafe fn garbage_collect_internal<'v>(&'v self, f: impl FnOnce(&Tracer<'v>)) {
-        // Must rewrite all Value's so they point at the new heap.
-        // Take the arena out of the heap to make sure nobody allocates in it,
-        // but hold the reference until the GC is done.
-        let _arena = self.arena.take();
+        unsafe {
+            // Must rewrite all Value's so they point at the new heap.
+            // Take the arena out of the heap to make sure nobody allocates in it,
+            // but hold the reference until the GC is done.
+            let _arena = self.arena.take();
 
-        let tracer = Tracer::<'v> {
-            arena: Arena::default(),
-            phantom: PhantomData,
-        };
-        f(&tracer);
-        self.arena.set(tracer.arena);
+            let tracer = Tracer::<'v> {
+                arena: Arena::default(),
+                phantom: PhantomData,
+            };
+            f(&tracer);
+            self.arena.set(tracer.arena);
+        }
     }
 
     /// Obtain a summary of how much memory is currently allocated by this heap.

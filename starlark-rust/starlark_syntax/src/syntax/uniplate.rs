@@ -557,15 +557,12 @@ impl<P: AstPayload> ExprP<P> {
         &mut self,
         f: &mut impl FnMut(&mut AstTypeExprP<P>) -> Result<(), E>,
     ) -> Result<(), E> {
-        match self {
-            ExprP::Lambda(lambda) => {
-                for param in &mut lambda.params {
-                    if let (_, Some(ty), _) = param.split_mut() {
-                        f(ty)?;
-                    }
+        if let ExprP::Lambda(lambda) = self {
+            for param in &mut lambda.params {
+                if let (_, Some(ty), _) = param.split_mut() {
+                    f(ty)?;
                 }
             }
-            _ => {}
         }
         self.visit_expr_err_mut(|expr| expr.visit_type_expr_err_mut(f))
     }
@@ -615,7 +612,7 @@ impl<P: AstPayload> AssignTargetP<P> {
             f: &mut impl FnMut(&'a mut AstExprP<P>),
         ) {
             match x {
-                AssignTargetP::Tuple(ref mut xs) => xs.iter_mut().for_each(|x| recurse(&mut *x, f)),
+                AssignTargetP::Tuple(xs) => xs.iter_mut().for_each(|x| recurse(&mut *x, f)),
                 AssignTargetP::Dot(a, _) => f(a),
                 AssignTargetP::Index(a_b) => {
                     let (a, b) = &mut **a_b;

@@ -20,9 +20,6 @@
 use std::convert::Infallible;
 
 use crate::typing::Ty;
-use crate::values::alloc_value::AllocFrozenStringValue;
-use crate::values::alloc_value::AllocStringValue;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -32,6 +29,9 @@ use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::alloc_value::AllocFrozenStringValue;
+use crate::values::alloc_value::AllocStringValue;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 impl AllocFrozenValue for String {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {

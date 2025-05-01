@@ -23,6 +23,7 @@ use dupe::Dupe;
 use starlark_derive::Freeze;
 
 use crate as starlark;
+use crate::values::FreezeResult;
 
 /// Globally unique identifier for a type, like record type or enum type.
 #[derive(
@@ -32,7 +33,7 @@ pub struct TypeInstanceId(u64);
 
 impl TypeInstanceId {
     /// Generate a new unique identifier.
-    pub fn gen() -> TypeInstanceId {
+    pub fn r#gen() -> TypeInstanceId {
         static LAST_ID: AtomicU64 = AtomicU64::new(0);
         TypeInstanceId(LAST_ID.fetch_add(1, atomic::Ordering::SeqCst) + 1)
     }

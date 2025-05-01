@@ -17,8 +17,8 @@ use buck2_data::SpanEndEvent;
 use buck2_events::BuckEvent;
 use gazebo::variants::VariantName;
 
-use crate::unpack_event::unpack_event;
 use crate::unpack_event::UnpackedBuckEvent;
+use crate::unpack_event::unpack_event;
 
 static NUM_DELAYS_FOR_AVERAGE: usize = 10;
 
@@ -60,7 +60,11 @@ impl DebugEventsState {
         }
     }
 
-    pub fn handle_event(&mut self, start_time: Instant, event: &BuckEvent) -> anyhow::Result<()> {
+    pub fn handle_event(
+        &mut self,
+        start_time: Instant,
+        event: &BuckEvent,
+    ) -> buck2_error::Result<()> {
         let event_time: SystemTime = event.timestamp();
         let elapsed = start_time.elapsed();
         let events_start_time = match self.events_start_time {

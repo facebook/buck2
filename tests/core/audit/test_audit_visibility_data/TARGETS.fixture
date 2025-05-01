@@ -1,0 +1,49 @@
+foo_target(
+    name = "pass1",
+    actual = "//subdir:public",
+)
+
+foo_target(
+    name = "pass2",
+    actual = "//subdir:target",
+)
+
+foo_target(
+    name = "pass3",
+    actual = "//subdir:package",
+)
+
+foo_target(
+    name = "pass4",
+    actual = "//subdir:recursive",
+)
+
+foo_target(
+    name = "fail1",
+    actual = "//subdir:badtarget",
+)
+
+foo_target(
+    name = "fail2",
+    actual = "//subdir:badpackage",
+)
+
+foo_target(
+    name = "fail3",
+    actual = "//subdir:badrecursive",
+)
+
+foo_target(
+    name = "fail4",
+    actual = "//subdir:default",
+)
+
+foo_target(
+    name = "fail5",
+    actual = "//subdir:badvisibility",
+)
+
+foo_target(
+    name = "fail6",
+    actual = "//subdir:badtransitivevisibility",
+)

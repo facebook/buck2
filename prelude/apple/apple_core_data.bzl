@@ -7,6 +7,12 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load(
+    "@prelude//ide_integrations/xcode:data.bzl",
+    "XCODE_DATA_SUB_TARGET",
+    "XcodeDataInfoKeys",
+    "generate_xcode_data",
+)
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_bundle_resource_processing_options")
 load(":apple_core_data_types.bzl", "AppleCoreDataSpec")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
@@ -25,7 +31,14 @@ def apple_core_data_impl(ctx: AnalysisContext) -> list[Provider]:
         exported_deps = [],
         core_data_spec = spec,
     )
-    return [DefaultInfo(), graph]
+
+    xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "core_data_model", None, _xcode_populate_attributes)
+
+    return [DefaultInfo(
+        sub_targets = {
+            XCODE_DATA_SUB_TARGET: xcode_data_default_info,
+        },
+    ), graph, xcode_data_info]
 
 def compile_apple_core_data(ctx: AnalysisContext, specs: list[AppleCoreDataSpec], product_name: str) -> Artifact | None:
     if len(specs) == 0:
@@ -93,3 +106,7 @@ def _get_tool_command(ctx: AnalysisContext, core_data_spec: AppleCoreDataSpec, p
         cmd_args(core_data_spec.path, format = "./{}"),
         output,
     ], delimiter = " ", hidden = core_data_spec.path)
+
+def _xcode_populate_attributes(ctx) -> dict[str, typing.Any]:
+    data = {XcodeDataInfoKeys.EXTRA_XCODE_FILES: [ctx.attrs.path]}
+    return data

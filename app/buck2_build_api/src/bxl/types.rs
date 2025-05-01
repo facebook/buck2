@@ -10,15 +10,24 @@
 use std::hash::Hash;
 
 use allocative::Allocative;
+use buck2_core::bxl::BxlFilePath;
 use buck2_data::ToProtoMessage;
-use buck2_interpreter::paths::bxl::BxlFilePath;
 use derive_more::Display;
 use serde::Serialize;
 use serde::Serializer;
 
 /// The identifier used to find the implementation function for this bxl. Should point at the output of `bxl()`
 #[derive(
-    Debug, Clone, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
+    Debug,
+    Clone,
+    Display,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
 )]
 #[display("{}:{}", bxl_path, name)]
 pub struct BxlFunctionLabel {

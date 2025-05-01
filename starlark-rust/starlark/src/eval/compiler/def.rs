@@ -28,9 +28,9 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::VisitSpanMut;
+use starlark_derive::starlark_value;
 use starlark_map::StarlarkHasher;
 use starlark_syntax::eval_exception::EvalException;
 use starlark_syntax::slice_vec_ext::SliceExt;
@@ -52,25 +52,26 @@ use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::environment::FrozenModuleData;
 use crate::environment::Globals;
+use crate::eval::Arguments;
 use crate::eval::bc::bytecode::Bc;
 use crate::eval::bc::frame::alloca_frame;
-use crate::eval::compiler::def_inline::inline_def_body;
+use crate::eval::compiler::Compiler;
 use crate::eval::compiler::def_inline::InlineDefBody;
+use crate::eval::compiler::def_inline::inline_def_body;
 use crate::eval::compiler::error::CompilerInternalError;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;
+use crate::eval::compiler::scope::Captured;
+use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::scope::payload::CstAssignIdent;
 use crate::eval::compiler::scope::payload::CstParameter;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
-use crate::eval::compiler::scope::Captured;
-use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
 use crate::eval::compiler::stmt::StmtCompileContext;
 use crate::eval::compiler::stmt::StmtsCompiled;
-use crate::eval::compiler::Compiler;
 use crate::eval::runtime::arguments::ArgumentsImpl;
 use crate::eval::runtime::arguments::ResolvedArgName;
 use crate::eval::runtime::evaluator::Evaluator;
@@ -80,16 +81,13 @@ use crate::eval::runtime::params::spec::ParametersSpec;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
-use crate::eval::Arguments;
 use crate::starlark_complex_values;
-use crate::typing::callable_param::ParamIsRequired;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
-use crate::values::frozen_ref::AtomicFrozenRefOption;
-use crate::values::function::FUNCTION_TYPE;
-use crate::values::layout::heap::profile::arc_str::ArcStr;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
+use crate::typing::callable_param::ParamIsRequired;
+use crate::util::arc_str::ArcStr;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
@@ -101,6 +99,9 @@ use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::frozen_ref::AtomicFrozenRefOption;
+use crate::values::function::FUNCTION_TYPE;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 #[derive(thiserror::Error, Debug)]
 enum DefError {
@@ -132,8 +133,10 @@ impl StmtCompiledCell {
 
     /// This function is unsafe if other thread is executing the stmt.
     unsafe fn set(&self, value: Bc) {
-        ptr::drop_in_place(self.cell.get());
-        ptr::write(self.cell.get(), value);
+        unsafe {
+            ptr::drop_in_place(self.cell.get());
+            ptr::write(self.cell.get(), value);
+        }
     }
 
     fn get(&self) -> &Bc {
@@ -275,11 +278,11 @@ impl<T> ParametersCompiled<T> {
     pub(crate) fn to_ty_params(&self) -> ParamSpec {
         ParamSpec::new_parts(
             self.indices.pos_only().map(|i| {
-                let p = &self.params[i as usize].node;
+                let p = &self.params[i].node;
                 (p.required(), p.ty())
             }),
             self.indices.pos_or_named().map(|i| {
-                let p = &self.params[i as usize].node;
+                let p = &self.params[i].node;
                 (
                     ArcStr::from(p.name_ty().0.name.as_str()),
                     p.required(),
@@ -290,8 +293,8 @@ impl<T> ParametersCompiled<T> {
                 let p = &self.params[i as usize].node;
                 p.ty()
             }),
-            self.indices.named_only(self.params.len() as u32).map(|i| {
-                let p = &self.params[i as usize].node;
+            self.indices.named_only(self.params.len()).map(|i| {
+                let p = &self.params[i].node;
                 (
                     ArcStr::from(p.name_ty().0.name.as_str()),
                     p.required(),
@@ -600,7 +603,7 @@ impl<'v> Def<'v> {
 impl<'v> Freeze for Def<'v> {
     type Frozen = FrozenDef;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let parameters = self.parameters.freeze(freezer)?;
         let parameter_types = self.parameter_types.freeze(freezer)?;
         let return_type = self.return_type.freeze(freezer)?;
@@ -649,7 +652,7 @@ where
         self.invoke_impl(me, &args.0, eval)
     }
 
-    fn documentation(&self) -> Option<DocItem> {
+    fn documentation(&self) -> DocItem {
         let mut parameter_types = vec![Ty::any(); self.parameters.len()];
         for (idx, _, ty) in &self.parameter_types {
             // Local slot number for parameter is the same as parameter index.
@@ -664,10 +667,9 @@ where
                 .documentation(parameter_types, HashMap::new()),
             return_type,
             self.def_info.docstring.as_ref().map(String::as_ref),
-            None,
         );
 
-        Some(DocItem::Member(DocMember::Function(function_docs)))
+        DocItem::Member(DocMember::Function(function_docs))
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -751,7 +753,11 @@ where
             bc.max_stack_size,
             bc.max_loop_depth,
             |eval| {
-                let slots = eval.current_frame.locals();
+                // SAFETY: `slots` is unique: `alloca_frame` just allocated the frame,
+                //   so there are no references to the frame except `eval.current_frame`.
+                //   We use `slots` only in `collect_inline`,
+                //   which does not have access to `eval` thus cannot access the frame indirectly.
+                let slots = unsafe { eval.current_frame.locals_mut() };
                 self.parameters.collect_inline(args, slots, eval.heap())?;
                 self.invoke_raw(me, eval)
             },

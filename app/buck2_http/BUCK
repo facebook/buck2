@@ -56,6 +56,6 @@ rust_library(
         "//buck2/app/buck2_certs:buck2_certs",
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/gazebo/dupe:dupe",
-        # @oss-disable: "//common/rust/cpe:cpe", 
+        # @oss-disable[end= ]: "//common/rust/cpe:cpe",
     ],
 )

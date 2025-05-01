@@ -37,14 +37,6 @@ use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_server::ResponseError;
-use lsp_types::notification::DidChangeTextDocument;
-use lsp_types::notification::DidCloseTextDocument;
-use lsp_types::notification::DidOpenTextDocument;
-use lsp_types::notification::LogMessage;
-use lsp_types::notification::PublishDiagnostics;
-use lsp_types::request::Completion;
-use lsp_types::request::GotoDefinition;
-use lsp_types::request::HoverRequest;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
 use lsp_types::CompletionOptions;
@@ -81,18 +73,26 @@ use lsp_types::TextEdit;
 use lsp_types::Url;
 use lsp_types::WorkDoneProgressOptions;
 use lsp_types::WorkspaceFolder;
-use serde::de::DeserializeOwned;
+use lsp_types::notification::DidChangeTextDocument;
+use lsp_types::notification::DidCloseTextDocument;
+use lsp_types::notification::DidOpenTextDocument;
+use lsp_types::notification::LogMessage;
+use lsp_types::notification::PublishDiagnostics;
+use lsp_types::request::Completion;
+use lsp_types::request::GotoDefinition;
+use lsp_types::request::HoverRequest;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use serde::de::DeserializeOwned;
 use starlark::codemap::ResolvedSpan;
 use starlark::codemap::Span;
-use starlark::docs::markdown::render_doc_item;
-use starlark::docs::markdown::render_doc_param;
 use starlark::docs::DocItem;
 use starlark::docs::DocMember;
 use starlark::docs::DocModule;
+use starlark::docs::markdown::render_doc_item_no_link;
+use starlark::docs::markdown::render_doc_param;
 use starlark::syntax::AstModule;
 use starlark_syntax::codemap::ResolvedPos;
 use starlark_syntax::syntax::ast::AstPayload;
@@ -142,6 +142,8 @@ pub enum LspUrlError {
     /// For some reason the PathBuf/Url in the LspUrl could not be converted back to a URL.
     #[error("`{}` could not be converted back to a URL", .0)]
     Unparsable(LspUrl),
+    #[error("invalid URL for file:// schema (possibly not absolute?): `{}`", .0)]
+    InvalidFileUrl(Url),
 }
 
 /// A URL that represents the two types (plus an "Other") of URIs that are supported.
@@ -198,15 +200,19 @@ impl TryFrom<Url> for LspUrl {
     fn try_from(url: Url) -> Result<Self, Self::Error> {
         match url.scheme() {
             "file" => {
-                let path = PathBuf::from(url.path());
-                if path.to_string_lossy().starts_with('/') {
-                    Ok(Self::File(path))
+                let file_path = PathBuf::from(
+                    url.to_file_path()
+                        .map_err(|_| LspUrlError::InvalidFileUrl(url.clone()))?,
+                );
+                if file_path.is_absolute() {
+                    Ok(Self::File(file_path))
                 } else {
                     Err(LspUrlError::NotAbsolute(url))
                 }
             }
             "starlark" => {
-                let path = PathBuf::from(url.path());
+                // Need to perform the replace to standardize on / instead of \ on windows.
+                let path = PathBuf::from(url.path().replace('\\', "/"));
                 // Use "starts with a /" because, while leading slashes are accepted on
                 // windows, they do not report "true" from `is_absolute()`.
                 if path.to_string_lossy().starts_with('/') {
@@ -432,14 +438,14 @@ impl<T: LspContext> Backend<T> {
     }
 
     fn validate(&self, uri: Url, version: Option<i64>, text: String) -> anyhow::Result<()> {
-        let uri = uri.try_into()?;
-        let eval_result = self.context.parse_file_with_contents(&uri, text);
+        let lsp_url = uri.clone().try_into()?;
+        let eval_result = self.context.parse_file_with_contents(&lsp_url, text);
         if let Some(ast) = eval_result.ast {
             let module = Arc::new(LspModule::new(ast));
             let mut last_valid_parse = self.last_valid_parse.write().unwrap();
-            last_valid_parse.insert(uri.clone(), module);
+            last_valid_parse.insert(lsp_url, module);
         }
-        self.publish_diagnostics(uri.try_into()?, eval_result.diagnostics, version);
+        self.publish_diagnostics(uri, eval_result.diagnostics, version);
         Ok(())
     }
 
@@ -901,7 +907,7 @@ impl<T: LspContext> Backend<T> {
     pub(crate) fn get_global_symbol_completion_items(
         &self,
         current_document: &LspUrl,
-    ) -> impl Iterator<Item = CompletionItem> + '_ {
+    ) -> impl Iterator<Item = CompletionItem> + '_ + use<'_, T> {
         self.context
             .get_environment(current_document)
             .members
@@ -915,7 +921,7 @@ impl<T: LspContext> Backend<T> {
                 detail: documentation.get_doc_summary().map(|str| str.to_owned()),
                 documentation: Some(Documentation::MarkupContent(MarkupContent {
                     kind: MarkupKind::Markdown,
-                    value: render_doc_item(&symbol, &documentation),
+                    value: render_doc_item_no_link(&symbol, &documentation),
                 })),
                 ..Default::default()
             })
@@ -1081,7 +1087,7 @@ impl<T: LspContext> Backend<T> {
                         .doc
                         .map(|docs| Hover {
                             contents: HoverContents::Array(vec![MarkedString::String(
-                                render_doc_item(&symbol.name, &docs),
+                                render_doc_item_no_link(&symbol.name, &docs),
                             )]),
                             range: Some(source.into()),
                         })
@@ -1105,7 +1111,7 @@ impl<T: LspContext> Backend<T> {
                     ast.find_exported_symbol(&name).and_then(|symbol| {
                         symbol.docs.map(|docs| Hover {
                             contents: HoverContents::Array(vec![MarkedString::String(
-                                render_doc_item(&symbol.name, &docs),
+                                render_doc_item_no_link(&symbol.name, &docs),
                             )]),
                             range: Some(source.into()),
                         })
@@ -1128,10 +1134,11 @@ impl<T: LspContext> Backend<T> {
                     }) => {
                         // If there's an error loading the file to parse it, at least
                         // try to get to the file.
-                        let module = if let Ok(Some(ast)) = self.get_ast_or_load_from_disk(&url) {
-                            ast
-                        } else {
-                            return Ok(None);
+                        let module = match self.get_ast_or_load_from_disk(&url) {
+                            Ok(Some(ast)) => ast,
+                            _ => {
+                                return Ok(None);
+                            }
                         };
                         let result = location_finder(&module.ast)?;
 
@@ -1157,7 +1164,7 @@ impl<T: LspContext> Backend<T> {
                     .find(|symbol| symbol.0 == name)
                     .map(|symbol| Hover {
                         contents: HoverContents::Array(vec![MarkedString::String(
-                            render_doc_item(&symbol.0, &symbol.1),
+                            render_doc_item_no_link(&symbol.0, &symbol.1),
                         )]),
                         range: Some(source.into()),
                     })
@@ -1361,9 +1368,7 @@ where
     }
 }
 
-// TODO(nmj): Some of the windows tests get a bit flaky, especially around
-//            some paths. Revisit later.
-#[cfg(all(test, not(windows)))]
+#[cfg(test)]
 mod tests {
     use std::path::Path;
     use std::path::PathBuf;
@@ -1371,7 +1376,6 @@ mod tests {
     use anyhow::Context;
     use lsp_server::Request;
     use lsp_server::RequestId;
-    use lsp_types::request::GotoDefinition;
     use lsp_types::GotoDefinitionParams;
     use lsp_types::GotoDefinitionResponse;
     use lsp_types::LocationLink;
@@ -1380,6 +1384,7 @@ mod tests {
     use lsp_types::TextDocumentIdentifier;
     use lsp_types::TextDocumentPositionParams;
     use lsp_types::Url;
+    use lsp_types::request::GotoDefinition;
     use starlark::codemap::ResolvedSpan;
     use starlark::wasm::is_wasm;
     use textwrap::dedent;
@@ -1461,12 +1466,22 @@ mod tests {
 
     #[cfg(windows)]
     fn temp_file_uri(rel_path: &str) -> Url {
-        Url::from_file_path(&PathBuf::from("C:/tmp").join(rel_path)).unwrap()
+        Url::from_file_path(PathBuf::from("C:/tmp").join(rel_path)).unwrap()
     }
 
     #[cfg(not(windows))]
     fn temp_file_uri(rel_path: &str) -> Url {
         Url::from_file_path(PathBuf::from("/tmp").join(rel_path)).unwrap()
+    }
+
+    // Converts PathBuf to string that can be used in starlark load statements within "" quotes.
+    // Replaces \ with / (for Windows paths).
+    fn path_to_load_string(p: &Path) -> String {
+        p.to_str().unwrap().replace('\\', "/")
+    }
+
+    fn uri_to_load_string(uri: &Url) -> String {
+        path_to_load_string(&uri.to_file_path().unwrap())
     }
 
     #[test]
@@ -1574,7 +1589,7 @@ mod tests {
             <baz_click><baz>b</baz>az</baz_click>()
             "#,
         )
-        .replace("{load}", bar_uri.path())
+        .replace("{load}", &uri_to_load_string(&bar_uri))
         .trim()
         .to_owned();
         let bar_contents = "def <baz>baz</baz>():\n    pass";
@@ -1590,7 +1605,7 @@ mod tests {
         let mut server = TestServer::new()?;
         // Initialize with "junk" on disk so that we make sure we're using the contents from the
         // client (potentially indicating an unsaved, modified file)
-        server.set_file_contents(PathBuf::from(bar_uri.path()), "some_symbol = 1".to_owned())?;
+        server.set_file_contents(&bar_uri, "some_symbol = 1".to_owned())?;
         server.open_file(foo_uri.clone(), foo.program())?;
         server.open_file(bar_uri, bar.program())?;
 
@@ -1623,9 +1638,10 @@ mod tests {
             <baz_click><baz>b</baz>az</baz_click>()
             "#,
         )
-        .replace("{load}", bar_uri.path())
+        .replace("{load}", &uri_to_load_string(&bar_uri))
         .trim()
         .to_owned();
+        eprintln!("foo_contents: {}", foo_contents);
         let bar_contents = "def <baz>baz</baz>():\n    pass";
         let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
         let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
@@ -1638,7 +1654,7 @@ mod tests {
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
-        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+        server.set_file_contents(&bar_uri, bar.program())?;
 
         let goto_definition = goto_definition_request(
             &mut server,
@@ -1683,7 +1699,7 @@ mod tests {
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
-        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+        server.set_file_contents(&bar_uri, bar.program())?;
 
         let goto_definition = goto_definition_request(
             &mut server,
@@ -1769,7 +1785,7 @@ mod tests {
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
-        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+        server.set_file_contents(&bar_uri, bar.program())?;
 
         let goto_definition = goto_definition_request(
             &mut server,
@@ -1800,7 +1816,7 @@ mod tests {
             baz()
             "#,
         )
-        .replace("{load}", bar_uri.path())
+        .replace("{load}", &uri_to_load_string(&bar_uri))
         .trim()
         .to_owned();
         let bar_contents = "def <baz>baz</baz>():\n    pass";
@@ -1815,7 +1831,7 @@ mod tests {
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
-        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+        server.set_file_contents(&bar_uri, bar.program())?;
 
         let goto_definition = goto_definition_request(
             &mut server,
@@ -1860,7 +1876,7 @@ mod tests {
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
-        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+        server.set_file_contents(&bar_uri, bar.program())?;
 
         let goto_definition = goto_definition_request(
             &mut server,
@@ -1884,12 +1900,13 @@ mod tests {
 
         let foo_uri = temp_file_uri("foo.star");
         let bar_uri = temp_file_uri("bar.star");
-        let bar_load_string = Path::new(bar_uri.path())
+        let load_path = bar_uri
+            .to_file_path()
+            .unwrap()
             .parent()
             .unwrap()
-            .join("<bar>b</bar>ar<dot>.</dot>star")
-            .display()
-            .to_string();
+            .join("<bar>b</bar>ar<dot>.</dot>star");
+        let bar_load_string = path_to_load_string(&load_path);
 
         let foo_contents = dedent(
             r#"
@@ -2141,7 +2158,7 @@ mod tests {
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
-        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+        server.set_file_contents(&bar_uri, bar.program())?;
         server.mkdir(dir1_uri.clone());
         server.mkdir(dir2_uri.clone());
 
@@ -2425,7 +2442,7 @@ mod tests {
             loaded.<y><y_click>y</y_click></y>
             "#,
         )
-        .replace("{load}", bar_uri.path())
+        .replace("{load}", &uri_to_load_string(&bar_uri))
         .trim()
         .to_owned();
 

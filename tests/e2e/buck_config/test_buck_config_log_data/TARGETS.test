@@ -1,0 +1,2 @@
+_UNUSED = read_config("test", "read1")  # @unused  We just want to read a buckconfig
+_UNUSED = read_config("test", "read2")  # @unused  We just want to read a buckconfig

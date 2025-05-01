@@ -14,7 +14,7 @@ from typing import List
 
 
 def main(argv: List[str]) -> int:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument("--output", type=argparse.FileType("w"), default=sys.stdout)
     parser.add_argument("--extension", action="append", default=[])
     args = parser.parse_args(argv[1:])

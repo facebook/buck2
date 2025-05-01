@@ -18,11 +18,6 @@
 use std::any;
 
 use crate::typing::Ty;
-use crate::values::int::pointer_i32::PointerI32;
-use crate::values::layout::value::IntegerTooBigError;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::int::int_or_big::StarlarkInt;
-use crate::values::types::int::int_or_big::StarlarkIntRef;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -30,6 +25,11 @@ use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::int::pointer_i32::PointerI32;
+use crate::values::layout::value::IntegerTooBigError;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::int::int_or_big::StarlarkInt;
+use crate::values::types::int::int_or_big::StarlarkIntRef;
 
 impl<'v> AllocValue<'v> for i32 {
     #[inline]

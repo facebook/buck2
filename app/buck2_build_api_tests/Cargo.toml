@@ -46,4 +46,5 @@ buck2_http = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }
 buck2_node = { workspace = true }
+buck2_transition = { workspace = true }
 buck2_util = { workspace = true }

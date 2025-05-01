@@ -30,15 +30,16 @@ use crate::coerce::Coerce;
 use crate::coerce::CoerceKey;
 use crate::collections::Hashed;
 use crate::sealed::Sealed;
-use crate::values::layout::static_string::VALUE_EMPTY_STRING;
-use crate::values::string::str_type::StarlarkStr;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueTyped;
+use crate::values::layout::static_string::VALUE_EMPTY_STRING;
+use crate::values::string::str_type::StarlarkStr;
 
 /// Convenient type alias.
 ///
@@ -122,7 +123,7 @@ impl FrozenStringValue {
 
 impl<'v> StringValue<'v> {
     /// Convert a value to a [`FrozenStringValue`] using a supplied [`Freezer`].
-    pub fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenStringValue> {
+    pub fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenStringValue> {
         Ok(unsafe { FrozenStringValue::new_unchecked(freezer.freeze(self.to_value())?) })
     }
 
@@ -150,7 +151,7 @@ impl<'v> StringValue<'v> {
 
     #[inline]
     pub(crate) unsafe fn cast_lifetime<'w>(self) -> StringValue<'w> {
-        StringValue::new_unchecked(self.to_value().cast_lifetime())
+        unsafe { StringValue::new_unchecked(self.to_value().cast_lifetime()) }
     }
 }
 

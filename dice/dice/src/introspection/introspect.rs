@@ -11,12 +11,12 @@ use std::collections::hash_map::Entry;
 use std::io::Write;
 
 use anyhow::Context as _;
-use serde::ser::SerializeSeq;
 use serde::Serializer;
+use serde::ser::SerializeSeq;
 
-use crate::introspection::graph::GraphIntrospectable;
-use crate::introspection::AnyKey;
 use crate::HashMap;
+use crate::introspection::AnyKey;
+use crate::introspection::graph::GraphIntrospectable;
 
 pub fn serialize_graph(
     graph: &GraphIntrospectable,

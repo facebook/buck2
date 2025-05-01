@@ -16,8 +16,8 @@
  */
 
 use std::cell::RefCell;
-use std::collections::hash_map;
 use std::collections::HashMap;
+use std::collections::hash_map;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -27,17 +27,19 @@ use allocative::Allocative;
 use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
+use crate::eval::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
 use crate::eval::runtime::profile::flamegraph::FlameGraphNode;
 use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::small_duration::SmallDuration;
-use crate::eval::ProfileData;
+use crate::util::arc_str::ArcStr;
+use crate::values::Heap;
+use crate::values::Value;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
-use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::profile::string_index::StringId;
 use crate::values::layout::heap::profile::string_index::StringIndex;
@@ -45,8 +47,6 @@ use crate::values::layout::heap::profile::summary_by_function::HeapSummaryByFunc
 use crate::values::layout::heap::repr::AValueOrForward;
 use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::pointer::RawPointer;
-use crate::values::Heap;
-use crate::values::Value;
 
 /// A mapping from function Value to FunctionId, which must be continuous
 #[derive(Default)]
@@ -286,15 +286,15 @@ impl<'c> StackFrameWithContext<'c> {
         })
     }
 
-    /// Write this stack frame's data to a file in flamegraph.pl format.
-    fn write_flame_graph(&self, node: &mut FlameGraphNode) {
+    /// Accumulate this stack frame's data into the given FlameGraphNode
+    fn gen_flame_graph_data(&self, node: &mut FlameGraphNode) {
         for (k, v) in &self.frame.allocs.summary {
             node.child((*k).into()).add(v.bytes as u64);
         }
 
         for (id, frame) in self.callees() {
             let child_node = node.child(id.dupe());
-            frame.write_flame_graph(child_node);
+            frame.gen_flame_graph_data(child_node);
         }
     }
 }
@@ -359,14 +359,14 @@ impl AggregateHeapProfileInfo {
         AggregateHeapProfileInfo { strings, root }
     }
 
-    /// Write this out recursively to a file.
-    pub fn gen_flame_graph(&self) -> String {
+    /// Generate the flame graph data and return it as a string.
+    pub fn gen_flame_graph_data(&self) -> String {
         let mut data = FlameGraphData::default();
-        self.root().write_flame_graph(data.root());
+        self.root().gen_flame_graph_data(data.root());
         data.write()
     }
 
-    /// Write per-function summary in CSV format.
+    /// Generate per-function summary in CSV format.
     pub fn gen_summary_csv(&self) -> String {
         HeapSummaryByFunction::init(self).gen_csv()
     }
@@ -387,6 +387,9 @@ impl RetainedHeapProfile {
     pub(crate) fn to_profile(&self) -> ProfileData {
         ProfileData {
             profile: match self.mode {
+                RetainedHeapProfileMode::FlameAndSummary => {
+                    ProfileDataImpl::HeapRetained(Box::new(self.info.clone()))
+                }
                 RetainedHeapProfileMode::Flame => {
                     ProfileDataImpl::HeapFlameRetained(Box::new(self.info.clone()))
                 }
@@ -403,13 +406,13 @@ mod tests {
     use dupe::Dupe;
 
     use crate::const_frozen_string;
+    use crate::values::Freezer;
+    use crate::values::FrozenHeap;
+    use crate::values::Heap;
     use crate::values::layout::heap::heap_type::HeapKind;
     use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
     use crate::values::layout::heap::profile::aggregated::StackFrame;
     use crate::values::layout::heap::profile::summary_by_function::HeapSummaryByFunction;
-    use crate::values::Freezer;
-    use crate::values::FrozenHeap;
-    use crate::values::Heap;
 
     fn total_alloc_count(frame: &StackFrame) -> usize {
         frame.allocs.total().count

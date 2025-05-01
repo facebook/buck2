@@ -13,10 +13,15 @@ def test(x):
 
 Max stack size: 2
 Instructions:
-   0: Iter &x 0 ->&2 ->&i 144
-  >  24: IfNotBr &i 64
-     40: Continue &2 0 ->&i 24 144
-  >  64: CallFrozenNativePos noop &1..&2 instrs.star.bzl:4:5-12 ->&3
-     120: Continue &2 0 ->&i 24 144
-  >144: ReturnConst None
-   160: End
+        # instrs.star.bzl:2:3-4:12
+     0: Iter &x 0 ->&2 ->&i 136
+          # instrs.star.bzl:3:5-4:1
+  >   24: IfNotBr &i 64
+          # instrs.star.bzl:3:11-19
+      40: Continue &2 0 ->&i 24 136
+          # instrs.star.bzl:4:5-12
+  >   64: CallFrozenNativePos noop &1..&2 instrs.star.bzl:4:5-12 ->&3
+          # instrs.star.bzl:4:5-12
+     112: Continue &2 0 ->&i 24 136
+  >136: ReturnConst None
+   152: End

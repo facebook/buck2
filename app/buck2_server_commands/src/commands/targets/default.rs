@@ -13,18 +13,18 @@
 use std::io::Write;
 use std::path::Path;
 
+use buck2_cli_proto::TargetsResponse;
 use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::TargetHashFileMode;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
-use buck2_cli_proto::TargetsResponse;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
+use buck2_node::load_patterns::load_patterns;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::lookup::ConfiguredTargetNodeLookup;
 use buck2_node::nodes::lookup::TargetNodeLookup;
@@ -52,8 +52,8 @@ impl TargetHashOptions {
         request: &targets_request::Other,
         cell_resolver: &CellResolver,
         fs: &ProjectRoot,
-    ) -> anyhow::Result<Self> {
-        let file_mode = TargetHashFileMode::from_i32(request.target_hash_file_mode)
+    ) -> buck2_error::Result<Self> {
+        let file_mode = TargetHashFileMode::try_from(request.target_hash_file_mode)
             .expect("buck cli should send valid target hash file mode");
         let file_mode = match file_mode {
             TargetHashFileMode::PathsOnly => {
@@ -64,7 +64,7 @@ impl TargetHashOptions {
                         let path = AbsPath::new(Path::new(&path))?;
                         cell_resolver.get_cell_path_from_abs_path(path, fs)
                     })
-                    .collect::<anyhow::Result<_>>()?;
+                    .collect::<buck2_error::Result<_>>()?;
                 TargetHashesFileMode::PathsOnly(modified_paths)
             }
             TargetHashFileMode::PathsAndContents => TargetHashesFileMode::PathsAndContents,
@@ -74,7 +74,7 @@ impl TargetHashOptions {
         Ok(Self {
             file_mode,
             fast_hash: request.target_hash_use_fast_hash,
-            graph_type: TargetHashGraphType::from_i32(request.target_hash_graph_type)
+            graph_type: TargetHashGraphType::try_from(request.target_hash_graph_type)
                 .expect("buck cli should send valid target hash graph type"),
             recursive: request.target_hash_recursive,
         })
@@ -89,14 +89,14 @@ pub(crate) async fn targets_batch(
     global_cfg_options: &GlobalCfgOptions,
     hash_options: TargetHashOptions,
     keep_going: bool,
-) -> anyhow::Result<TargetsResponse> {
+) -> buck2_error::Result<TargetsResponse> {
     let results = &load_patterns(&mut dice, parsed_patterns, MissingTargetBehavior::Fail).await?;
 
     let target_hashes = dice
         .dupe()
         .with_linear_recompute(|linear_ctx| async move {
             match hash_options.graph_type {
-                TargetHashGraphType::Configured => anyhow::Ok(Some(
+                TargetHashGraphType::Configured => buck2_error::Ok(Some(
                     TargetHashes::compute::<ConfiguredTargetNode, _>(
                         dice.dupe(),
                         ConfiguredTargetNodeLookup(&linear_ctx),

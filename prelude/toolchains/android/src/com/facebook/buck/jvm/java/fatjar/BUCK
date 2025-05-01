@@ -1,0 +1,58 @@
+load(
+    "@prelude//toolchains/android/tools:build_rules.bzl",
+    "buck_java_binary",
+    "buck_java_library",
+)
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "fat_jar_utils",
+    srcs = [
+        "WindowsCreateProcessEscape.java",
+    ],
+    # Maximum compatibility
+    # @oss-disable[end= ]: source = "8",
+    # @oss-disable[end= ]: target = "8",
+    source = "17", # @oss-enable
+    target = "17", # @oss-enable
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/test/com/facebook/buck/util:util",
+    ],
+)
+
+buck_java_library(
+    name = "fat-jar-main",
+    srcs = [
+        "FatJarMain.java",
+    ],
+    # Maximum compatibility
+    # @oss-disable[end= ]: source = "8",
+    # @oss-disable[end= ]: target = "8",
+    source = "17", # @oss-enable
+    target = "17", # @oss-enable
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        # Don't add more dependencies! We package these sources and compile them into fat JARs,
+        # so it's important that they don't bring along any additional dependencies.
+        ":fat_jar_utils",
+    ],
+)
+
+# Binary used to collect all class files from dependencies, used for creating
+# fatjars with buck2.
+buck_java_binary(
+    name = "fat-jar-main-binary",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":fat-jar-main",
+    ],
+)

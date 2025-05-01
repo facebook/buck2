@@ -21,7 +21,10 @@ use derive_more::Display;
 use dupe::Dupe;
 use fxhash::FxHasher;
 
+use crate::Demand;
 use crate::api::computations::DiceComputations;
+use crate::api::demand::DemandRef;
+use crate::api::demand::DemandValue;
 use crate::api::key::Key;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::projection::ProjectionKey;
@@ -89,6 +92,26 @@ impl DiceKeyErased {
             DiceKeyErased::Key(k) => k.as_any(),
             DiceKeyErased::Projection(proj) => proj.proj().as_any(),
         }
+    }
+
+    pub(crate) fn request_value<T: 'static>(&self) -> Option<T> {
+        let mut demand_impl = DemandValue { value: None };
+        let mut demand = Demand::new(&mut demand_impl);
+        match self {
+            DiceKeyErased::Key(k) => k.provide(&mut demand),
+            DiceKeyErased::Projection(..) => {}
+        }
+        demand_impl.value
+    }
+
+    pub(crate) fn request_ref<T: ?Sized + 'static>(&self) -> Option<&T> {
+        let mut demand_impl = DemandRef { value: None };
+        let mut demand = Demand::new(&mut demand_impl);
+        match self {
+            DiceKeyErased::Key(k) => k.provide(&mut demand),
+            DiceKeyErased::Projection(..) => {}
+        }
+        demand_impl.value
     }
 
     pub(crate) fn downcast<K: 'static>(self) -> Option<Arc<K>> {
@@ -219,7 +242,7 @@ impl<'a> CowDiceKeyHashed<'a> {
         }
     }
 
-    pub(crate) fn proj_ref<K: ProjectionKey>(base: DiceKey, k: &'a K) -> CowDiceKeyHashed {
+    pub(crate) fn proj_ref<K: ProjectionKey>(base: DiceKey, k: &'a K) -> CowDiceKeyHashed<'a> {
         let key = DiceKeyErasedRef::proj(base, k);
         let hash = key.hash();
         CowDiceKeyHashed {
@@ -270,6 +293,8 @@ pub(crate) trait DiceKeyDyn: Allocative + Display + Send + Sync + 'static {
     fn key_type_name(&self) -> &'static str;
 
     fn storage_type(&self) -> StorageType;
+
+    fn provide<'a>(&'a self, demand: &mut Demand<'a>);
 }
 
 #[async_trait]
@@ -308,6 +333,10 @@ where
 
     fn storage_type(&self) -> StorageType {
         K::storage_type()
+    }
+
+    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+        K::provide(self, demand)
     }
 }
 

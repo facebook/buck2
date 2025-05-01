@@ -1,0 +1,41 @@
+# @no-autodeps
+
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("windows_devx")
+
+source_listing()
+
+filegroup(
+    name = "vsgo_bxl",
+    srcs = glob(["**/*.bxl"]),
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "absolutize_path_exe",
+    src = "msvs/absolutize_path.exe",
+    mode = "reference",
+    visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "vs_buck_build_props",
+    src = "msvs/vs_buck_build.props",
+    mode = "reference",
+    visibility = ["PUBLIC"],
+)
+
+python_library(
+    name = "vsgo_lib",
+    srcs = ["vsgo.py"],
+    visibility = ["PUBLIC"],
+)
+
+python_binary(
+    name = "vsgo",
+    main_module = ".vsgo",
+    deps = [
+        ":vsgo_lib",
+    ],
+)

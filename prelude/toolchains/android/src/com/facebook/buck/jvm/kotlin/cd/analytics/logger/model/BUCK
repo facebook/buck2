@@ -1,0 +1,20 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_kotlin_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_kotlin_library(
+    name = "model",
+    srcs = glob([
+        "**/*.kt",
+        "**/*.java",
+    ]),
+    labels = ["codegen_rule"],  # see: https://fburl.com/workplace/fhud6fe6
+    visibility = [
+        "fbsource//xplat/toolchains/android/sdk/src/com/facebook/buck/jvm/kotlin/cd/logger/...",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics/...",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/kotlin/cd/analytics/...",
+    ],
+)

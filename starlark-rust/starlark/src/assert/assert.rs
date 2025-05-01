@@ -40,14 +40,14 @@ use crate::eval::ReturnFileLoader;
 use crate::stdlib::PrintHandler;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
-use crate::values::none::NoneType;
-use crate::values::structs::AllocStruct;
-use crate::values::tuple::UnpackTuple;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::OwnedFrozenValue;
 use crate::values::Value;
+use crate::values::none::NoneType;
+use crate::values::structs::AllocStruct;
+use crate::values::tuple::UnpackTuple;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 fn mk_environment() -> GlobalsBuilder {
     GlobalsBuilder::extended().with(test_functions)
@@ -57,7 +57,7 @@ static GLOBALS: Lazy<Globals> = Lazy::new(|| mk_environment().build());
 
 static ASSERTS_STAR: Lazy<FrozenModule> = Lazy::new(|| {
     let g = GlobalsBuilder::new()
-        .with_struct("asserts", asserts_star)
+        .with_namespace("asserts", asserts_star)
         .build();
     let m = Module::new();
     m.frozen_heap().add_reference(g.heap());
@@ -157,11 +157,6 @@ pub(crate) fn test_functions(builder: &mut GlobalsBuilder) {
     // Approximate version of a method used by the Go test suite
     fn hasfields<'v>() -> anyhow::Result<impl AllocValue<'v>> {
         Ok(AllocStruct::EMPTY)
-    }
-
-    // Approximate version of a method used by the Go test suite
-    fn set<'v>(xs: Value<'v>) -> anyhow::Result<Value<'v>> {
-        Ok(xs)
     }
 
     fn assert_eq<'v>(a: Value<'v>, b: Value<'v>) -> starlark::Result<NoneType> {
@@ -294,8 +289,10 @@ impl<'a> Assert<'a> {
         }
         let loader = ReturnFileLoader { modules: &modules };
         let ast = AstModule::parse(path, program.to_owned(), &self.dialect)?;
-        let gc_always = |_span: FileSpanRef, eval: &mut Evaluator| {
-            eval.trigger_gc();
+        let gc_always = |_span: FileSpanRef, continued: bool, eval: &mut Evaluator| {
+            if !continued {
+                eval.trigger_gc();
+            }
         };
         let mut eval = Evaluator::new(module);
         eval.enable_static_typechecking(self.static_typechecking);
@@ -596,6 +593,15 @@ pub fn eq(lhs: &str, rhs: &str) {
 /// See [`Assert::fail`].
 pub fn fail(program: &str, msg: &str) -> crate::Error {
     Assert::new().fail(program, msg)
+}
+
+#[cfg(test)]
+pub(crate) fn fail_golden(path: &str, program: &str) -> crate::Error {
+    let program = program.trim();
+    let e = fails(program, &[]);
+    let output = format!("Program:\n\n{program}\n\nError:\n\n{e:?}\n");
+    starlark_syntax::golden_test_template::golden_test_template(path, &output);
+    e
 }
 
 #[cfg(test)]

@@ -25,13 +25,13 @@ use starlark_map::Hashed;
 use starlark_map::StarlarkHasherBuilder;
 
 use crate::collections::SmallMap;
+use crate::eval::ProfileMode;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileData;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::profiler_type::ProfilerType;
 use crate::eval::runtime::small_duration::SmallDuration;
-use crate::eval::ProfileMode;
-use crate::values::layout::heap::profile::arc_str::ArcStr;
+use crate::util::arc_str::ArcStr;
 use crate::values::FrozenStringValue;
 
 pub(crate) struct TypecheckProfilerType;
@@ -107,7 +107,7 @@ impl TypecheckProfile {
         *self.by_function.entry(function.get_hashed()).or_default() += time;
     }
 
-    pub(crate) fn gen(&self) -> crate::Result<ProfileData> {
+    pub(crate) fn r#gen(&self) -> crate::Result<ProfileData> {
         if !self.enabled {
             return Err(crate::Error::new_other(TypecheckProfileError::NotEnabled));
         }
@@ -129,15 +129,15 @@ mod tests {
 
     use crate::environment::Globals;
     use crate::environment::Module;
+    use crate::eval::Evaluator;
     use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::eval::runtime::profile::profiler_type::ProfilerType;
     use crate::eval::runtime::profile::typecheck::TypecheckProfileData;
     use crate::eval::runtime::profile::typecheck::TypecheckProfilerType;
     use crate::eval::runtime::small_duration::SmallDuration;
-    use crate::eval::Evaluator;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
-    use crate::values::layout::heap::profile::arc_str::ArcStr;
+    use crate::util::arc_str::ArcStr;
 
     #[test]
     fn test_typecheck_profile() -> crate::Result<()> {
@@ -161,7 +161,7 @@ g()
         eval.enable_profile(&ProfileMode::Typecheck)?;
         eval.eval_module(program, &Globals::extended_internal())?;
 
-        let csv = eval.typecheck_profile.gen()?.gen()?;
+        let csv = eval.typecheck_profile.r#gen()?.gen_csv()?;
         let lines: Vec<&str> = csv.lines().collect();
         assert_eq!("Function,Time (s)", lines[0]);
         assert!(lines[1].starts_with("\"TOTAL\","), "{:?}", lines[1]);

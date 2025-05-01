@@ -20,13 +20,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
-use starlark::starlark_simple_value;
 use starlark::typing::Ty;
-use starlark::values::list::UnpackList;
-use starlark::values::list_or_tuple::UnpackListOrTuple;
-use starlark::values::none::NoneOr;
-use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -35,40 +29,44 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueError;
-use starlark::StarlarkDocs;
+use starlark::values::ValueOfUnchecked;
+use starlark::values::dict::DictType;
+use starlark::values::list::UnpackList;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
+use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
+use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use crate::starlark::values::ValueLike;
 
 pub(crate) type ActionSubErrorResult<'a> = UnpackList<&'a StarlarkActionSubError<'a>>;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 pub(crate) enum ActionErrorHandlerError {
     #[error("Error handler failed. Expected return type `{0}`, got value with type `{1}`")]
     TypeError(Ty, String),
 }
 
-#[derive(
-    ProvidesStaticType,
-    Trace,
-    Allocative,
-    StarlarkDocs,
-    Debug,
-    Display,
-    NoSerialize,
-    Clone
-)]
+#[derive(ProvidesStaticType, Trace, Allocative, Debug, Display, NoSerialize)]
 #[display(
-    "ActionErrorCtx(stderr: {}, stdout: {})",
-    self.stderr,
-    self.stdout
-)]
-pub struct StarlarkActionErrorContext {
+     "ActionErrorCtx(stderr: {}, stdout: {})",
+     self.stderr,
+     self.stdout
+ )]
+pub struct StarlarkActionErrorContext<'v> {
     stderr: String,
     stdout: String,
+    output_artifacts: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
 }
 
-impl StarlarkActionErrorContext {
-    pub(crate) fn new_from_command_execution(command: Option<&CommandExecution>) -> Self {
+impl<'v> StarlarkActionErrorContext<'v> {
+    pub(crate) fn new_from_command_execution(
+        command: Option<&CommandExecution>,
+        output_artifacts: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
+    ) -> Self {
         let stderr = command.map_or(String::default(), |c| {
             c.details
                 .as_ref()
@@ -80,14 +78,22 @@ impl StarlarkActionErrorContext {
                 .map_or(String::default(), |c| c.stdout.clone())
         });
 
-        StarlarkActionErrorContext { stderr, stdout }
+        StarlarkActionErrorContext {
+            stderr,
+            stdout,
+            output_artifacts,
+        }
     }
 }
 
-starlark_simple_value!(StarlarkActionErrorContext);
+impl<'v> AllocValue<'v> for StarlarkActionErrorContext<'v> {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_complex_no_freeze(self)
+    }
+}
 
-#[starlark_value(type = "ActionErrorCtx")]
-impl<'v> StarlarkValue<'v> for StarlarkActionErrorContext {
+#[starlark_value(type = "ActionErrorCtx", StarlarkTypeRepr, UnpackValue)]
+impl<'v> StarlarkValue<'v> for StarlarkActionErrorContext<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(action_error_context_methods)
@@ -98,16 +104,31 @@ impl<'v> StarlarkValue<'v> for StarlarkActionErrorContext {
 /// categorizations should be finer grain, and most likely language specific.
 #[starlark_module]
 fn action_error_context_methods(builder: &mut MethodsBuilder) {
-    /// The stderr of the failed action.
+    /// Retrieve the stderr of the failed action.
+    /// Can use string/regex matching to identify the error in order to categorize it.
     #[starlark(attribute)]
-    fn stderr<'v>(this: &'v StarlarkActionErrorContext) -> anyhow::Result<&'v str> {
+    fn stderr<'v>(this: &'v StarlarkActionErrorContext) -> starlark::Result<&'v str> {
         Ok(&this.stderr)
     }
 
-    /// The stdout of the failed action.
+    /// Retrieve the stdout of the failed action.
+    /// Can use string/regex matching to identify the patterns in order to categorize it.
     #[starlark(attribute)]
-    fn stdout<'v>(this: &'v StarlarkActionErrorContext) -> anyhow::Result<&'v str> {
+    fn stdout<'v>(this: &'v StarlarkActionErrorContext) -> starlark::Result<&'v str> {
         Ok(&this.stdout)
+    }
+
+    /// Allows the output artifacts to be retrieve if 'outputs_for_error_handler' is set and the output artifact exists.
+    /// This is useful for languages with structured error output, making the error retrieval process simpler.
+    ///
+    /// This is also the recommended way to retrieve file path and line number, as reliably extracting that information
+    /// from stdout/stderr can be challenging
+    #[starlark(attribute)]
+    fn output_artifacts<'v>(
+        this: &'v StarlarkActionErrorContext<'v>,
+    ) -> starlark::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>>
+    {
+        Ok(this.output_artifacts)
     }
 
     /// Create a new error location, specifying a file path and an optional line number.
@@ -117,7 +138,7 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(this)] _this: &'v StarlarkActionErrorContext,
         #[starlark(require = named)] file: String,
         #[starlark(require = named, default = NoneOr::None)] line: NoneOr<u64>,
-    ) -> anyhow::Result<StarlarkActionErrorLocation> {
+    ) -> starlark::Result<StarlarkActionErrorLocation> {
         // @TODO(wendyy) - actually enforce/validate the path types.
         Ok(StarlarkActionErrorLocation {
             file,
@@ -134,6 +155,10 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
     /// should not go here - buck2 tries to categorize these types of errors automatically.
     /// An example of a finer grain error category may be the error code for rustc outputs.
     ///
+    /// 'category': Required, useful for providing a more granular error category for action errors.
+    /// 'message': Optional, provide users with additional context about the error to help with debugging/understandability/resolution, etc.
+    /// 'locations': Optional, file path and line number of the error location, useful for external integration to highlight where the error is.
+    ///
     /// The message will be emitted to the build report, and to the stderr in the error diagnostics
     /// section.
     fn new_sub_error<'v>(
@@ -143,7 +168,7 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] locations: NoneOr<
             UnpackListOrTuple<&'v StarlarkActionErrorLocation>,
         >,
-    ) -> anyhow::Result<StarlarkActionSubError<'v>> {
+    ) -> starlark::Result<StarlarkActionSubError<'v>> {
         Ok(StarlarkActionSubError {
             category,
             message: message.into_option(),
@@ -156,7 +181,6 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
     ProvidesStaticType,
     Trace,
     Allocative,
-    StarlarkDocs,
     Debug,
     Display,
     NoSerialize,
@@ -168,10 +192,10 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
     PartialEq
 )]
 #[display(
-    "ActionErrorLocation(file={}, line={})",
-    self.file,
-    self.line.map_or("None".to_owned(), |l| l.to_string())
-)]
+     "ActionErrorLocation(file={}, line={})",
+     self.file,
+     self.line.map_or("None".to_owned(), |l| l.to_string())
+ )]
 pub struct StarlarkActionErrorLocation {
     file: String,
     line: Option<u64>,
@@ -211,18 +235,18 @@ impl<'v> AllocValue<'v> for StarlarkActionErrorLocation {
 /// handler implementation
 #[starlark_module]
 fn action_error_location_methods(builder: &mut MethodsBuilder) {
-    /// The file of the error location. This is only needed for action error handler
-    /// unit testing.
+    /// Useful for external integration to highlight which file the error resides in.
+    /// Currently only used for action error handler unit testing.
     #[starlark(attribute)]
-    fn file<'v>(this: &'v StarlarkActionErrorLocation) -> anyhow::Result<&'v str> {
+    fn file<'v>(this: &'v StarlarkActionErrorLocation) -> starlark::Result<&'v str> {
         Ok(&this.file)
     }
 
-    /// The line of the error location. This is only needed for action error handler
-    /// unit testing.
+    /// Useful for external integration to highlight which line the error resides in.
+    /// Currently only used for action error handler unit testing.
     #[starlark(attribute)]
-    fn line<'v>(this: &'v StarlarkActionErrorLocation) -> anyhow::Result<Option<u64>> {
-        Ok(this.line)
+    fn line<'v>(this: &'v StarlarkActionErrorLocation) -> starlark::Result<NoneOr<u64>> {
+        Ok(NoneOr::from_option(this.line))
     }
 }
 
@@ -230,7 +254,6 @@ fn action_error_location_methods(builder: &mut MethodsBuilder) {
     ProvidesStaticType,
     Trace,
     Allocative,
-    StarlarkDocs,
     Debug,
     NoSerialize,
     Clone,
@@ -299,30 +322,33 @@ impl<'v> StarlarkValue<'v> for StarlarkActionSubError<'v> {
 /// handler implementation
 #[starlark_module]
 fn action_sub_error_methods(builder: &mut MethodsBuilder) {
-    /// The category name of this sub error. This function is only needed for action
-    /// error handler unit testing.
+    /// A more granular category for the action error.
+    /// Currently only used for action error handler unit testing.
     #[starlark(attribute)]
-    fn category<'v>(this: &'v StarlarkActionSubError) -> anyhow::Result<&'v str> {
+    fn category<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<&'v str> {
         Ok(&this.category)
     }
 
-    /// The optional message associated with this sub error.  This function is only
-    /// needed for action error handler unit testing.
+    /// An optional message to be displayed with the error, used to provide additoinal context
+    /// Currently only used for action error handler unit testing.
     #[starlark(attribute)]
-    fn message<'v>(this: &'v StarlarkActionSubError) -> anyhow::Result<Option<&'v str>> {
-        Ok(this.message.as_deref())
+    fn message<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<NoneOr<&'v str>> {
+        Ok(match &this.message {
+            Some(message) => NoneOr::Other(message.as_str()),
+            None => NoneOr::None,
+        })
     }
 
-    /// Any locations associated with this sub error.  This function is only needed
-    /// for action error handler unit testing.
+    /// File/line information for the error, useful for external integration to highlight where the error resides
+    /// Currently only used for action error handler unit testing.
     #[starlark(attribute)]
     fn locations<'v>(
         this: &'v StarlarkActionSubError,
-    ) -> anyhow::Result<Option<Vec<StarlarkActionErrorLocation>>> {
-        Ok(this
-            .locations
-            .as_ref()
-            .map(|locations| locations.items.cloned()))
+    ) -> starlark::Result<NoneOr<Vec<StarlarkActionErrorLocation>>> {
+        match &this.locations {
+            None => Ok(NoneOr::None),
+            Some(locations) => Ok(NoneOr::Other(locations.items.cloned())),
+        }
     }
 }
 
@@ -362,13 +388,14 @@ pub(crate) fn register_action_error_types(globals: &mut GlobalsBuilder) {
 pub(crate) fn register_action_error_handler_for_testing(builder: &mut GlobalsBuilder) {
     /// Global function to create a new `ActionErrorContext` for testing a starlark action error
     /// handler via `bxl_test`.
-    fn new_test_action_error_ctx(
+    fn new_test_action_error_ctx<'v>(
         #[starlark(require=named, default = "")] stderr: &str,
         #[starlark(require=named, default = "")] stdout: &str,
-    ) -> anyhow::Result<StarlarkActionErrorContext> {
+    ) -> starlark::Result<StarlarkActionErrorContext<'v>> {
         Ok(StarlarkActionErrorContext {
             stderr: stderr.to_owned(),
             stdout: stdout.to_owned(),
+            output_artifacts: ValueOfUnchecked::new(starlark::values::Value::new_none()),
         })
     }
 }

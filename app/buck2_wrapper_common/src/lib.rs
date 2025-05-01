@@ -38,6 +38,9 @@ pub mod win;
 
 pub const BUCK2_WRAPPER_ENV_VAR: &str = "BUCK2_WRAPPER";
 pub const BUCK_WRAPPER_UUID_ENV_VAR: &str = "BUCK_WRAPPER_UUID";
+pub const BUCK_WRAPPER_START_TIME_ENV_VAR: &str = "BUCK_WRAPPER_START_TIME";
+pub const EXPERIMENTS_FILENAME: &str = "experiments_from_buck_start";
+pub const DOT_BUCKCONFIG_D: &str = ".buckconfig.d";
 
 /// Because `sysinfo::Process` is not `Clone`.
 struct ProcessInfo {
@@ -149,7 +152,7 @@ pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
             format!("{} {} ({}). {}", status, process.name, process.pid, cmd,)
         }
 
-        fn failed_to_kill(&mut self, process: &ProcessInfo, error: anyhow::Error) {
+        fn failed_to_kill(&mut self, process: &ProcessInfo, error: buck2_error::Error) {
             let mut message = self.fmt_status(process, "Failed to kill");
             for line in format!("{:?}", error).lines() {
                 message.push_str("\n  ");
@@ -201,7 +204,10 @@ pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
             for process in processes_still_alive {
                 printer.failed_to_kill(
                     &process.0,
-                    anyhow::anyhow!("Process still alive after {timeout_secs}s after kill sent"),
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::DaemonWontDieFromKill,
+                        "Process still alive after {timeout_secs}s after kill sent"
+                    ),
                 );
             }
             break;

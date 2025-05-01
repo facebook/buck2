@@ -10,9 +10,8 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
-use buck2_util::network_speed_average::NetworkSpeedAverage;
 use buck2_wrapper_common::invocation_id::TraceId;
 
 use crate::action_stats::ActionStats;
@@ -35,7 +34,7 @@ pub struct EventObserver<E> {
     session_info: SessionInfo,
     test_state: TestState,
     starlark_debugger_state: StarlarkDebuggerState,
-    re_avg_download_speed: NetworkSpeedAverage,
+    dice_state: DiceState,
     /// When running without the Superconsole, we skip some state that we don't need. This might be
     /// premature optimization.
     extra: E,
@@ -53,18 +52,22 @@ where
             two_snapshots: TwoSnapshots::default(),
             system_info: buck2_data::SystemInfo::default(),
             session_info: SessionInfo {
-                trace_id,
+                trace_id: trace_id.clone(),
                 test_session: None,
                 legacy_dice: false,
             },
             test_state: TestState::default(),
             starlark_debugger_state: StarlarkDebuggerState::new(),
-            re_avg_download_speed: NetworkSpeedAverage::default(),
+            dice_state: DiceState::new(),
             extra: E::new(),
         }
     }
 
-    pub fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    pub async fn observe(
+        &mut self,
+        receive_time: Instant,
+        event: &Arc<BuckEvent>,
+    ) -> buck2_error::Result<()> {
         self.span_tracker.handle_event(receive_time, event)?;
 
         {
@@ -74,10 +77,15 @@ where
                 SpanEnd(end) => {
                     use buck2_data::span_end_event::Data::*;
 
-                    match end.data.as_ref().context("Missing `data` in SpanEnd")? {
+                    match end
+                        .data
+                        .as_ref()
+                        .buck_error_context("Missing `data` in SpanEnd")?
+                    {
                         ActionExecution(action_execution_end) => {
                             self.action_stats.update(action_execution_end);
                         }
+
                         _ => {}
                     }
                 }
@@ -87,7 +95,7 @@ where
                     match instant
                         .data
                         .as_ref()
-                        .context("Missing `data` in `Instant`")?
+                        .buck_error_context("Missing `data` in `Instant`")?
                     {
                         ReSession(re_session) => {
                             self.re_state.add_re_session(re_session);
@@ -95,8 +103,6 @@ where
                         Snapshot(snapshot) => {
                             self.re_state.update(snapshot);
                             self.two_snapshots.update(event.timestamp(), snapshot);
-                            self.re_avg_download_speed
-                                .update(event.timestamp(), snapshot.re_download_bytes);
                         }
                         TestDiscovery(discovery) => {
                             use buck2_data::test_discovery::Data::*;
@@ -104,7 +110,7 @@ where
                             match discovery
                                 .data
                                 .as_ref()
-                                .context("Missing `data` in `TestDiscovery`")?
+                                .buck_error_context("Missing `data` in `TestDiscovery`")?
                             {
                                 Session(session) => {
                                     self.session_info.test_session = Some(session.clone());
@@ -126,8 +132,8 @@ where
                                 self.session_info.legacy_dice = true;
                             }
                         }
-                        SystemInfo(system_info) => {
-                            self.system_info = system_info.clone();
+                        DiceStateSnapshot(dice) => {
+                            self.dice_state.update(dice);
                         }
                         _ => {}
                     }
@@ -173,24 +179,24 @@ where
         &self.test_state
     }
 
-    pub fn re_avg_download_speed(&self) -> &NetworkSpeedAverage {
-        &self.re_avg_download_speed
-    }
-
     pub fn extra(&self) -> &E {
         &self.extra
+    }
+
+    pub fn dice_state(&self) -> &DiceState {
+        &self.dice_state
     }
 }
 
 pub trait EventObserverExtra: Send {
     fn new() -> Self;
 
-    fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>) -> anyhow::Result<()>;
+    fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>)
+    -> buck2_error::Result<()>;
 }
 
 /// This has more fields for debug info. We don't always capture those.
 pub struct DebugEventObserverExtra {
-    dice_state: DiceState,
     debug_events: DebugEventsState,
     progress_state: BuildProgressStateTracker,
 }
@@ -198,47 +204,24 @@ pub struct DebugEventObserverExtra {
 impl EventObserverExtra for DebugEventObserverExtra {
     fn new() -> Self {
         Self {
-            dice_state: DiceState::new(),
             debug_events: DebugEventsState::new(),
             progress_state: BuildProgressStateTracker::new(),
         }
     }
 
-    fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    fn observe(
+        &mut self,
+        receive_time: Instant,
+        event: &Arc<BuckEvent>,
+    ) -> buck2_error::Result<()> {
         self.debug_events.handle_event(receive_time, event)?;
         self.progress_state.handle_event(receive_time, event)?;
-
-        {
-            use buck2_data::buck_event::Data::*;
-
-            match event.data() {
-                Instant(instant) => {
-                    use buck2_data::instant_event::Data::*;
-
-                    match instant
-                        .data
-                        .as_ref()
-                        .context("Missing `data` in `Instant`")?
-                    {
-                        DiceStateSnapshot(dice) => {
-                            self.dice_state.update(dice);
-                        }
-                        _ => {}
-                    }
-                }
-                _ => {}
-            }
-        }
 
         Ok(())
     }
 }
 
 impl DebugEventObserverExtra {
-    pub fn dice_state(&self) -> &DiceState {
-        &self.dice_state
-    }
-
     pub fn debug_events(&self) -> &DebugEventsState {
         &self.debug_events
     }
@@ -255,7 +238,11 @@ impl EventObserverExtra for NoopEventObserverExtra {
         Self
     }
 
-    fn observe(&mut self, _receive_time: Instant, _event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    fn observe(
+        &mut self,
+        _receive_time: Instant,
+        _event: &Arc<BuckEvent>,
+    ) -> buck2_error::Result<()> {
         // Noop
         Ok(())
     }

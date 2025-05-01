@@ -23,9 +23,9 @@ mod with_or_without_rustyline {
     use std::env;
     use std::io;
 
+    use rustyline::Editor;
     use rustyline::error::ReadlineError;
     use rustyline::history::DefaultHistory;
-    use rustyline::Editor;
 
     /// Wrapper for the readline library, whichever we are using at the moment.
     pub struct ReadLine {

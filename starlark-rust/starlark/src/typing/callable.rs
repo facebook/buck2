@@ -22,11 +22,12 @@ use allocative::Allocative;
 use dupe::Dupe;
 use starlark_syntax::codemap::Span;
 
-use crate::typing::call_args::TyCallArgs;
-use crate::typing::error::TypingOrInternalError;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
+use crate::typing::call_args::TyCallArgs;
+use crate::typing::error::TypingOrInternalError;
+use crate::typing::ty::TypeRenderConfig;
 use crate::util::arc_or_static::ArcOrStatic;
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Allocative)]
@@ -75,28 +76,38 @@ impl TyCallable {
             })),
         }
     }
-}
 
-impl Display for TyCallable {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    pub(crate) fn fmt_with_config(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        config: &TypeRenderConfig,
+    ) -> std::fmt::Result {
         if self.params() == &ParamSpec::any() && self.result() == &Ty::any() {
             write!(f, "typing.Callable")?;
         } else {
             write!(f, "typing.Callable[")?;
-            if let Some(pos) = self.params().all_required_pos_only() {
+            if self.params().is_any() {
+                write!(f, "...")?;
+            } else if let Some(pos) = self.params().all_required_pos_only() {
                 write!(f, "[")?;
                 for (i, p) in pos.iter().enumerate() {
                     if i != 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", p)?;
+                    p.fmt_with_config(f, config)?;
                 }
                 write!(f, "]")?;
             } else {
-                write!(f, "\"{}\"", self.params())?;
+                write!(f, "\"{}\"", self.params().display_with(config))?;
             }
-            write!(f, ", {}]", self.result())?;
+            write!(f, ", {}]", self.result().display_with(config))?;
         }
         Ok(())
+    }
+}
+
+impl Display for TyCallable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.fmt_with_config(f, &TypeRenderConfig::Default)
     }
 }

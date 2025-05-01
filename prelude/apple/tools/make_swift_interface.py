@@ -263,19 +263,26 @@ def main() -> None:
 
     parsed = parse_swiftc_args(args.arguments)
     with open_or_stdout(args.out) as out:
-        proc.run(
-            [
-                args.swift_ide_test_tool,
-                "--source-filename=x",
-                "--print-module",
-                "--module-to-print",
-                args.module,
-                "--module-print-submodules",
-            ]
-            + parsed.to_args(),
-            stdout=out,
-            check=True,
-        )
+        try:
+            proc.run(
+                [
+                    args.swift_ide_test_tool,
+                    "--source-filename=x",
+                    "--print-module",
+                    "--module-to-print",
+                    args.module,
+                    "--module-print-submodules",
+                ]
+                + parsed.to_args(),
+                stdout=out,
+                stderr=proc.PIPE,
+                check=True,
+                text=True,
+            )
+        except proc.CalledProcessError as exc:
+            print("swift-ide-test error:", file=sys.stderr)
+            sys.stderr.write(exc.stderr)
+            sys.exit(exc.returncode)
 
 
 if __name__ == "__main__":

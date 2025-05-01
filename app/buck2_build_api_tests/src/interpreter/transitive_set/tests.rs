@@ -11,8 +11,8 @@ use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_build_api::interpreter::rule_defs::transitive_set::globals::register_transitive_set_types;
 use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
 use buck2_core::bzl::ImportPath;
-use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
+use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use indoc::indoc;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
@@ -552,7 +552,7 @@ fn test_definition_type() -> anyhow::Result<()> {
             QuxSet = transitive_set();
             assert_eq("FooSet", FooSet.type)
             assert_eq("BarSet", BarSet.type)
-            assert_eq("transitive_set_definition", QuxSet.type)
+            assert_eq("TransitiveSetDefinition", QuxSet.type)
         "#
     ))?;
 

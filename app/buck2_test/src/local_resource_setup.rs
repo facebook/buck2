@@ -19,16 +19,29 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_i
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_test_api::data::RequiredLocalResources;
-use dice::DiceTransaction;
+use buck2_test_api::data::TestStage;
+use dice::DiceComputations;
 use dupe::Dupe;
+use futures::FutureExt;
 use indexmap::IndexMap;
 use itertools::Itertools;
+use starlark::values::OwnedFrozenValueTyped;
 
 pub(crate) enum TestStageSimple {
     Listing,
     Testing,
+}
+
+impl From<&TestStage> for TestStageSimple {
+    fn from(value: &TestStage) -> Self {
+        match value {
+            TestStage::Listing { .. } => TestStageSimple::Listing,
+            TestStage::Testing { .. } => TestStageSimple::Testing,
+        }
+    }
 }
 
 /// Container for everything needed to set up a local resource.
@@ -48,7 +61,7 @@ pub(crate) struct LocalResourceSetupContext {
 }
 
 pub(crate) async fn required_local_resources_setup_contexts(
-    dice: &DiceTransaction,
+    dice: &mut DiceComputations<'_>,
     executor_fs: &ExecutorFs<'_>,
     test_info: &FrozenExternalRunnerTestInfo,
     required_local_resources: &RequiredLocalResources,
@@ -77,11 +90,16 @@ pub(crate) async fn required_local_resources_setup_contexts(
 }
 
 async fn required_providers<'v>(
-    dice: &DiceTransaction,
+    dice: &mut DiceComputations<'_>,
     test_info: &'v FrozenExternalRunnerTestInfo,
     required_local_resources: &'v RequiredLocalResources,
     stage: &TestStageSimple,
-) -> anyhow::Result<Vec<(&'v ConfiguredTargetLabel, &'v FrozenLocalResourceInfo)>> {
+) -> anyhow::Result<
+    Vec<(
+        &'v ConfiguredTargetLabel,
+        OwnedFrozenValueTyped<FrozenLocalResourceInfo>,
+    )>,
+> {
     let available_resources = test_info.local_resources();
 
     let targets = required_local_resources
@@ -110,38 +128,40 @@ async fn required_providers<'v>(
             Ok(Some(x)) => Some(Ok(x)),
             Ok(None) => None,
             Err(e) => {
-                let _ignore = soft_error!("missing_required_local_resource", e.into(), quiet: true);
+                let _ignore =
+                    soft_error!("missing_required_local_resource", from_any_with_tag(e, buck2_error::ErrorTag::Tier0), quiet: true);
                 None
             }
         })
         .collect::<Result<Vec<_>, anyhow::Error>>()?;
 
-    let futs = targets.iter().map(|t| get_local_resource_info(dice, t));
-
-    futures::future::join_all(futs)
-        .await
-        .into_iter()
-        .collect::<Result<Vec<_>, _>>()
+    dice.compute_join(targets, |dice, target| {
+        async move { get_local_resource_info(dice, target).await }.boxed()
+    })
+    .await
+    .into_iter()
+    .collect::<Result<Vec<_>, _>>()
 }
 
 async fn get_local_resource_info<'v>(
-    dice: &DiceTransaction,
+    dice: &mut DiceComputations<'_>,
     target: &'v ConfiguredProvidersLabel,
-) -> anyhow::Result<(&'v ConfiguredTargetLabel, &'v FrozenLocalResourceInfo)> {
-    let providers = dice
-        .clone()
+) -> anyhow::Result<(
+    &'v ConfiguredTargetLabel,
+    OwnedFrozenValueTyped<FrozenLocalResourceInfo>,
+)> {
+    let local_resource_info = dice
         .get_providers(target)
         .await?
-        .require_compatible()?;
-    let providers = providers.provider_collection();
-    Ok((
-        target.target(),
-        providers
-            .builtin_provider::<FrozenLocalResourceInfo>()
-            .context(format!(
-                "Target `{}` expected to contain `LocalResourceInfo` provider",
-                target
-            ))?
-            .as_ref(),
-    ))
+        .require_compatible()?
+        .value
+        .maybe_map(|c| {
+            c.as_ref()
+                .builtin_provider_value::<FrozenLocalResourceInfo>()
+        })
+        .context(format!(
+            "Target `{}` expected to contain `LocalResourceInfo` provider",
+            target
+        ))?;
+    Ok((target.target(), local_resource_info))
 }

@@ -6,7 +6,6 @@ rust_unittest(
     name = "buck2_action_impl_tests",
     srcs = glob(["src/**/*.rs"]),
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:ctor",
         "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:maplit",
@@ -14,6 +13,7 @@ rust_unittest(
         "//buck2/app/buck2_anon_target:buck2_anon_target",
         "//buck2/app/buck2_build_api:buck2_build_api",
         "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_execute:buck2_execute",
         "//buck2/app/buck2_interpreter:buck2_interpreter",
         "//buck2/app/buck2_interpreter_for_build:buck2_interpreter_for_build",

@@ -91,7 +91,7 @@ impl StarlarkDebuggerHandle for BuckStarlarkDebuggerHandle {
     async fn start_eval(
         &self,
         description: &str,
-    ) -> anyhow::Result<Box<dyn StarlarkDebugController>> {
+    ) -> buck2_error::Result<Box<dyn StarlarkDebugController>> {
         self.0.server.start_eval(self, description).await
     }
 }
@@ -123,7 +123,7 @@ impl ServerConnection {
     fn new(
         to_client_send: mpsc::UnboundedSender<ToClientMessage>,
         project_root: ProjectRoot,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let mut locked = CURRENT_DEBUGGER.lock().unwrap();
         if locked.is_some() {
             return Err(StarlarkDebuggerError::DebuggerAlreadyAttached.into());

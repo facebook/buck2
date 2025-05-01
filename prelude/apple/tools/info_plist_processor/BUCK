@@ -1,0 +1,40 @@
+load("@prelude//apple/tools:defs.bzl", "meta_python_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
+
+python_library(
+    name = "preprocess",
+    srcs = ["preprocess.py"],
+)
+
+meta_python_test(
+    name = "preprocess_test",
+    srcs = ["preprocess_test.py"],
+    deps = [":preprocess"],
+)
+
+python_library(
+    name = "process",
+    srcs = ["process.py"],
+    visibility = ["PUBLIC"],
+    deps = ["prelude//apple/tools:plistlib_utils"],
+)
+
+meta_python_test(
+    name = "process_test",
+    srcs = ["process_test.py"],
+    deps = [":process"],
+)
+
+python_binary(
+    name = "tool",
+    main = "main.py",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":preprocess",
+        ":process",
+    ],
+)

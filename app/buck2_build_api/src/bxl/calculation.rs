@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_core::base_deferred_key::BaseDeferredKeyBxl;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -27,7 +27,7 @@ pub trait BxlCalculationDyn: Debug + Send + Sync + 'static {
         &self,
         ctx: &mut DiceComputations<'_>,
         bxl: BaseDeferredKeyBxl,
-    ) -> anyhow::Result<BxlComputeResult>;
+    ) -> buck2_error::Result<BxlComputeResult>;
 }
 
 #[derive(Allocative, Clone, Dupe)]

@@ -16,32 +16,32 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::query::bxl::BxlAqueryFunctions;
 use buck2_build_api::query::bxl::NEW_BXL_AQUERY_FUNCTIONS;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryValue;
-use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
+use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 use itertools::Either;
 
 use crate::aquery::environment::AqueryDelegate;
 use crate::aquery::environment::AqueryEnvironment;
 use crate::aquery::functions::AqueryFunctions;
-use crate::dice::aquery::DiceAqueryDelegate;
 use crate::dice::DiceQueryData;
 use crate::dice::DiceQueryDelegate;
+use crate::dice::aquery::DiceAqueryDelegate;
 
 fn aquery_functions<'v>() -> DefaultQueryFunctions<AqueryEnvironment<'v>> {
     DefaultQueryFunctions::new()
@@ -61,7 +61,7 @@ impl BxlAqueryFunctionsImpl {
     async fn aquery_delegate<'c, 'd>(
         &self,
         dice: &'c LinearRecomputeDiceComputations<'d>,
-    ) -> anyhow::Result<Arc<DiceAqueryDelegate<'c, 'd>>> {
+    ) -> buck2_error::Result<Arc<DiceAqueryDelegate<'c, 'd>>> {
         let cell_resolver = dice.get().get_cell_resolver().await?;
         let cell_alias_resolver = dice
             .get()
@@ -86,7 +86,7 @@ impl BxlAqueryFunctionsImpl {
     async fn aquery_env<'c, 'd>(
         &self,
         delegate: &Arc<DiceAqueryDelegate<'c, 'd>>,
-    ) -> anyhow::Result<AqueryEnvironment<'c>> {
+    ) -> buck2_error::Result<AqueryEnvironment<'c>> {
         let literals = delegate.query_data().dupe();
         Ok(AqueryEnvironment::new(delegate.dupe(), literals))
     }
@@ -99,13 +99,16 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<ActionQueryNode>,
         to: &TargetSet<ActionQueryNode>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+        captured_expr: Option<&CapturedExpr>,
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         dice.with_linear_recompute(|dice| async move {
             Ok(aquery_functions()
                 .allpaths(
                     &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
+                    &DefaultQueryFunctionsModule::new(),
                     from,
                     to,
+                    captured_expr,
                 )
                 .await?)
         })
@@ -116,13 +119,16 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<ActionQueryNode>,
         to: &TargetSet<ActionQueryNode>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+        captured_expr: Option<&CapturedExpr>,
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         dice.with_linear_recompute(|dice| async move {
             Ok(aquery_functions()
                 .somepath(
                     &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
+                    &DefaultQueryFunctionsModule::new(),
                     from,
                     to,
+                    captured_expr,
                 )
                 .await?)
         })
@@ -134,19 +140,20 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         targets: &TargetSet<ActionQueryNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
-        dice.with_linear_recompute(|dice| async move {
-            aquery_functions()
-                .deps(
-                    &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
-                    &DefaultQueryFunctionsModule::new(),
-                    targets,
-                    deps,
-                    captured_expr,
-                )
-                .await
-        })
-        .await
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
+        Ok(dice
+            .with_linear_recompute(|dice| async move {
+                aquery_functions()
+                    .deps(
+                        &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
+                        &DefaultQueryFunctionsModule::new(),
+                        targets,
+                        deps,
+                        captured_expr,
+                    )
+                    .await
+            })
+            .await?)
     }
     async fn rdeps(
         &self,
@@ -154,62 +161,68 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         universe: &TargetSet<ActionQueryNode>,
         targets: &TargetSet<ActionQueryNode>,
         depth: Option<i32>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
-        dice.with_linear_recompute(|dice| async move {
-            aquery_functions()
-                .rdeps(
-                    &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
-                    universe,
-                    targets,
-                    depth,
-                )
-                .await
-        })
-        .await
+        captured_expr: Option<&CapturedExpr>,
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
+        Ok(dice
+            .with_linear_recompute(|dice| async move {
+                aquery_functions()
+                    .rdeps(
+                        &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
+                        &DefaultQueryFunctionsModule::new(),
+                        universe,
+                        targets,
+                        depth,
+                        captured_expr,
+                    )
+                    .await
+            })
+            .await?)
     }
     async fn testsof(
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
-        dice.with_linear_recompute(|dice| async move {
-            aquery_functions()
-                .testsof(
-                    &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
-                    targets,
-                )
-                .await
-        })
-        .await
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
+        Ok(dice
+            .with_linear_recompute(|dice| async move {
+                aquery_functions()
+                    .testsof(
+                        &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
+                        targets,
+                    )
+                    .await
+            })
+            .await?)
     }
     async fn owner(
         &self,
         dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
-        dice.with_linear_recompute(|dice| async move {
-            aquery_functions()
-                .owner(
-                    &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
-                    file_set,
-                )
-                .await
-        })
-        .await
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
+        Ok(dice
+            .with_linear_recompute(|dice| async move {
+                aquery_functions()
+                    .owner(
+                        &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
+                        file_set,
+                    )
+                    .await
+            })
+            .await?)
     }
 
     async fn get_target_set(
         &self,
         dice: &mut DiceComputations<'_>,
         configured_labels: Vec<ConfiguredProvidersLabel>,
-    ) -> anyhow::Result<(Vec<ConfiguredTargetLabel>, TargetSet<ActionQueryNode>)> {
+    ) -> buck2_error::Result<(Vec<ConfiguredTargetLabel>, TargetSet<ActionQueryNode>)> {
         let target_sets = dice
             .try_compute_join(
                 configured_labels,
                 |ctx: &mut DiceComputations,
                  label: ConfiguredProvidersLabel|
                  -> BoxFuture<
-                    anyhow::Result<Either<ConfiguredTargetLabel, TargetSet<ActionQueryNode>>>,
+                    buck2_error::Result<Either<ConfiguredTargetLabel, TargetSet<ActionQueryNode>>>,
                 > {
                     async move {
                         let maybe_result = ctx.get_analysis_result(label.target()).await?;
@@ -251,7 +264,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         dice.with_linear_recompute(|dice| async move {
             let query_val = special_aquery_functions()
                 .all_outputs(
@@ -272,7 +285,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         dice.with_linear_recompute(|dice| async move {
             let query_val = special_aquery_functions()
                 .all_actions(

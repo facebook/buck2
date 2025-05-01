@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-pub mod bxl;
 pub mod module;
 pub mod package;
 pub mod path;

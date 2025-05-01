@@ -13,22 +13,26 @@ use async_trait::async_trait;
 use buck2_cli_proto::BxlRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
-use buck2_client_ctx::common::build::CommonBuildOptions;
-use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::build::CommonBuildOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 
-use crate::commands::build::print_build_result;
 use crate::commands::build::FinalArtifactMaterializations;
+use crate::commands::build::FinalArtifactUploads;
 use crate::commands::build::MaterializationsToProto;
+use crate::commands::build::UploadsToProto;
+use crate::commands::build::print_build_result;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "bxl", about = "Run BXL scripts")]
@@ -55,6 +59,14 @@ pub struct BxlCommandOptions {
     materializations: Option<FinalArtifactMaterializations>,
 
     #[clap(
+        long = "upload-final-artifacts",
+        help = "Upload (or skip) the final artifacts.",
+        ignore_case = true,
+        value_enum
+    )]
+    upload_final_artifacts: Option<FinalArtifactUploads>,
+
+    #[clap(
         name = "BXL label",
         help = "The bxl function to execute as defined by the label of form `<cell>//path/file.bxl:<function>`"
     )]
@@ -79,15 +91,16 @@ pub struct BxlCommandOptions {
     build_opts: CommonBuildOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for BxlCommand {
     const COMMAND_NAME: &'static str = "bxl";
 
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
         let result = buckd
@@ -101,10 +114,11 @@ impl StreamingCommand for BxlCommand {
                     target_cfg: Some(self.target_cfg.target_cfg()),
                     final_artifact_materializations: self.bxl_opts.materializations.to_proto()
                         as i32,
+                    final_artifact_uploads: self.bxl_opts.upload_final_artifacts.to_proto() as i32,
                     print_stacktrace: ctx.verbosity.print_success_stderr(),
                 },
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_ops.console_opts),
+                events_ctx,
+                ctx.console_interaction_stream(&self.common_ops.console_opts),
                 &mut StdoutPartialResultHandler,
             )
             .await;
@@ -133,7 +147,7 @@ impl StreamingCommand for BxlCommand {
         }
 
         if !success {
-            return ExitResult::from_errors(&response.errors);
+            return ExitResult::from_command_result_errors(response.errors);
         }
 
         ExitResult::success().with_stdout(stdout)

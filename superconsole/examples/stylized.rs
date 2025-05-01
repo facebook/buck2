@@ -12,17 +12,17 @@
 use std::time::Duration;
 
 use derive_more::Display;
-use superconsole::components::Blank;
-use superconsole::components::Component;
-use superconsole::components::DrawMode;
-use superconsole::style::style;
-use superconsole::style::Color;
-use superconsole::style::Stylize;
 use superconsole::Dimensions;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
 use superconsole::SuperConsole;
+use superconsole::components::Blank;
+use superconsole::components::Component;
+use superconsole::components::DrawMode;
+use superconsole::style::Color;
+use superconsole::style::Stylize;
+use superconsole::style::style;
 use tokio::time;
 
 /// A component representing a store greeter.

@@ -24,11 +24,11 @@ use buck2_util::hash::BuckHasherBuilder;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
-use futures::future::BoxFuture;
-use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
+use futures::future::BoxFuture;
+use futures::stream::FuturesUnordered;
 use itertools::Itertools;
 
 use crate::nodes::eval_result::EvaluationResult;
@@ -38,6 +38,7 @@ use crate::nodes::unconfigured::TargetNodeRef;
 use crate::super_package::SuperPackage;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum BuildErrors {
     #[error("Did not find package with name `{0}`.")]
     MissingPackage(PackageLabel),
@@ -46,9 +47,9 @@ enum BuildErrors {
 async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     ctx: &'c LinearRecomputeDiceComputations<'_>,
     parsed_patterns: Vec<ParsedPattern<T>>,
-) -> anyhow::Result<(
+) -> buck2_error::Result<(
     ResolvedPattern<T>,
-    impl Stream<Item = (PackageLabel, anyhow::Result<Arc<EvaluationResult>>)> + 'c,
+    impl Stream<Item = (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)> + 'c,
 )> {
     let mut spec = ResolvedPattern::<T>::new();
     let mut recursive_packages = Vec::new();
@@ -56,8 +57,9 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     struct Builder<'c, 'd> {
         ctx: &'c LinearRecomputeDiceComputations<'d>,
         already_loading: HashSet<PackageLabel, BuckHasherBuilder>,
-        load_package_futs:
-            FuturesUnordered<BoxFuture<'c, (PackageLabel, anyhow::Result<Arc<EvaluationResult>>)>>,
+        load_package_futs: FuturesUnordered<
+            BoxFuture<'c, (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)>,
+        >,
     }
 
     let mut builder = Builder {
@@ -105,7 +107,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
         let package = package?;
         spec.add_package(package.dupe());
         builder.load_package(package);
-        anyhow::Ok(())
+        buck2_error::Ok(())
     })
     .await?;
 
@@ -181,7 +183,7 @@ impl<T: PatternType> LoadedPatterns<T> {
 
     pub fn iter_loaded_targets_by_package(
         &self,
-    ) -> impl Iterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)> + '_ {
+    ) -> impl Iterator<Item = (PackageLabel, buck2_error::Result<Vec<TargetNode>>)> + '_ {
         self.results.iter().map(|(package, result)| {
             let targets = result
                 .as_ref()
@@ -217,13 +219,13 @@ fn apply_spec<T: PatternType>(
     spec: ResolvedPattern<T>,
     load_results: BTreeMap<PackageLabel, buck2_error::Result<Arc<EvaluationResult>>>,
     skip_missing_targets: MissingTargetBehavior,
-) -> anyhow::Result<LoadedPatterns<T>> {
+) -> buck2_error::Result<LoadedPatterns<T>> {
     let mut all_targets: BTreeMap<_, buck2_error::Result<PackageLoadedPatterns<T>>> =
         BTreeMap::new();
     for (pkg, pkg_spec) in spec.specs.into_iter() {
         let result = match load_results.get(&pkg) {
             Some(r) => r,
-            None => return Err(anyhow::anyhow!(BuildErrors::MissingPackage(pkg))),
+            None => return Err(BuildErrors::MissingPackage(pkg).into()),
         };
         match result {
             Ok(res) => {
@@ -231,7 +233,7 @@ fn apply_spec<T: PatternType>(
                 if let Some(missing) = missing {
                     match skip_missing_targets {
                         MissingTargetBehavior::Fail => {
-                            return Err(missing.into_errors().0.into());
+                            return Err(missing.into_first_error().into());
                         }
                         MissingTargetBehavior::Warn => {
                             console_message(missing.missing_targets_warning())
@@ -262,7 +264,7 @@ pub async fn load_patterns<T: PatternType>(
     ctx: &mut DiceComputations<'_>,
     parsed_patterns: Vec<ParsedPattern<T>>,
     skip_missing_targets: MissingTargetBehavior,
-) -> anyhow::Result<LoadedPatterns<T>> {
+) -> buck2_error::Result<LoadedPatterns<T>> {
     ctx.with_linear_recompute(|ctx| async move {
         let (spec, mut load_package_futs) =
             resolve_patterns_and_load_buildfiles(&ctx, parsed_patterns).await?;

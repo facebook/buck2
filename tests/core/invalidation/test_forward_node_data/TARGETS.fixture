@@ -1,0 +1,25 @@
+load(":defs.bzl", "alias", "self_transitioned_build")
+
+self_transitioned_build(
+    name = "target",
+)
+
+alias(
+    name = "main",
+    actual = ":target",
+    default_target_platform = ":default",
+)
+
+constraint_setting(
+    name = "for_transition",
+)
+
+constraint_value(
+    name = "value",
+    constraint_setting = ":for_transition",
+)
+
+platform(
+    name = "default",
+    constraint_values = [],
+)

@@ -28,27 +28,47 @@ use crate::assert::Assert;
 use crate::environment::FrozenModule;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Module;
-use crate::eval::runtime::file_loader::ReturnOwnedFileLoader;
 use crate::eval::Evaluator;
+use crate::eval::runtime::file_loader::ReturnOwnedFileLoader;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::tests::util::trim_rust_backtrace;
-use crate::typing::interface::Interface;
 use crate::typing::AstModuleTypecheck;
-use crate::values::none::NoneType;
-use crate::values::typing::StarlarkIter;
+use crate::typing::ParamSpec;
+use crate::typing::Ty;
+use crate::typing::callable_param::ParamIsRequired;
+use crate::typing::interface::Interface;
+use crate::util::ArcStr;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
+use crate::values::none::NoneType;
+use crate::values::typing::StarlarkCallable;
+use crate::values::typing::StarlarkCallableParamSpec;
+use crate::values::typing::StarlarkIter;
 
 mod call;
+mod callable;
 mod list;
 mod special_function;
 mod tuple;
+mod types;
 
 #[derive(Default)]
 struct TypeCheck {
     expect_types: Vec<String>,
     loads: HashMap<String, (Interface, FrozenModule)>,
+}
+
+struct NamedXy;
+
+impl StarlarkCallableParamSpec for NamedXy {
+    fn params() -> ParamSpec {
+        ParamSpec::new_named_only([
+            (ArcStr::new_static("x"), ParamIsRequired::Yes, Ty::string()),
+            (ArcStr::new_static("y"), ParamIsRequired::Yes, Ty::int()),
+        ])
+        .unwrap()
+    }
 }
 
 #[starlark_module]
@@ -64,6 +84,13 @@ fn register_typecheck_globals(globals: &mut GlobalsBuilder) {
         #[starlark(kwargs)] x: SmallMap<String, u32>,
     ) -> anyhow::Result<NoneType> {
         let _ignore = x;
+        Ok(NoneType)
+    }
+
+    fn accepts_callable_named_xy<'v>(
+        #[starlark(require = pos)] f: StarlarkCallable<'v, NamedXy, NoneType>,
+    ) -> anyhow::Result<NoneType> {
+        let _ignore = f;
         Ok(NoneType)
     }
 }
@@ -266,17 +293,6 @@ def bar():
 }
 
 #[test]
-fn test_special_function_zip() {
-    TypeCheck::new().ty("x").check(
-        "zip",
-        r#"
-def test():
-    x = zip([1,2], [True, False], ["a", "b"])
-"#,
-    );
-}
-
-#[test]
 fn test_accepts_iterable() {
     TypeCheck::new().check(
         "accepts_iterable",
@@ -398,30 +414,6 @@ def func_which_returns_union(p) -> str | int:
         return 1
     else:
         return []
-"#,
-    );
-}
-
-#[test]
-fn test_type_alias() {
-    TypeCheck::new().ty("x").check(
-        "type_alias",
-        r#"
-MyList = list[int]
-
-def f(x: MyList):
-    pass
-"#,
-    );
-}
-
-#[test]
-fn test_incorrect_type_dot() {
-    TypeCheck::new().check(
-        "incorrect_type_dot",
-        r#"
-def foo(x: list.foo.bar):
-    pass
 "#,
     );
 }

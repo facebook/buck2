@@ -86,7 +86,7 @@ fn path<'a>(s: &'a str) -> &'a ForwardRelativePath {
 }
 
 #[test]
-fn test_insert() -> anyhow::Result<()> {
+fn test_insert() -> buck2_error::Result<()> {
     let mut b = NoHasherDirectoryBuilder::empty();
 
     assert_matches!(
@@ -110,7 +110,7 @@ fn test_insert() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_walk() -> anyhow::Result<()> {
+fn test_walk() -> buck2_error::Result<()> {
     let mut b = TestDirectoryBuilder::empty();
     b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
     b.insert(
@@ -167,7 +167,7 @@ fn test_walk() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_merge() -> anyhow::Result<()> {
+fn test_merge() -> buck2_error::Result<()> {
     let mut a = TestDirectoryBuilder::empty();
     a.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
 
@@ -199,7 +199,7 @@ fn test_merge() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_merge_overwrite() -> anyhow::Result<()> {
+fn test_merge_overwrite() -> buck2_error::Result<()> {
     let mut a = TestDirectoryBuilder::empty();
     a.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
 
@@ -212,7 +212,7 @@ fn test_merge_overwrite() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_merge_conflict() -> anyhow::Result<()> {
+fn test_merge_conflict() -> buck2_error::Result<()> {
     let mut a = TestDirectoryBuilder::empty();
     a.insert(path("a"), DirectoryEntry::Leaf(NopEntry))?;
 
@@ -230,7 +230,7 @@ fn test_merge_conflict() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_copy_on_write() -> anyhow::Result<()> {
+fn test_copy_on_write() -> buck2_error::Result<()> {
     let empty = TestDirectoryBuilder::empty().fingerprint(&TestHasher);
 
     let mut a = TestDirectoryBuilder::empty();
@@ -254,7 +254,7 @@ fn test_copy_on_write() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_find() -> anyhow::Result<()> {
+fn test_find() -> buck2_error::Result<()> {
     let mut a = TestDirectoryBuilder::empty();
     a.insert(path("a/b/c"), DirectoryEntry::Leaf(NopEntry))?;
 
@@ -277,7 +277,7 @@ fn test_find() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_find_prefix() -> anyhow::Result<()> {
+fn test_find_prefix() -> buck2_error::Result<()> {
     let mut a = TestDirectoryBuilder::empty();
     a.insert(path("a/b/c"), DirectoryEntry::Leaf(NopEntry))?;
 
@@ -313,7 +313,7 @@ fn test_find_prefix() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_search() -> anyhow::Result<()> {
+fn test_search() -> buck2_error::Result<()> {
     let mut b = TestDirectoryBuilder::empty();
     b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
     b.insert(path("b/c"), DirectoryEntry::Leaf(NopEntry))?;
@@ -365,7 +365,7 @@ fn test_search() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_filter() -> anyhow::Result<()> {
+fn test_filter() -> buck2_error::Result<()> {
     let mut b = TestDirectoryBuilder::empty();
     b.insert(path("a/aa"), DirectoryEntry::Leaf(NopEntry))?;
     b.insert(path("a/a"), DirectoryEntry::Leaf(NopEntry))?;
@@ -444,7 +444,7 @@ fn test_bounds() {
 }
 
 #[test]
-fn test_mkdir() -> anyhow::Result<()> {
+fn test_mkdir() -> buck2_error::Result<()> {
     let mut b = TestDirectoryBuilder::empty();
     b.mkdir(path("foo/bar"))?;
     b.mkdir(path("foo"))?;
@@ -467,7 +467,7 @@ fn test_mkdir() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_mkdir_overwrite() -> anyhow::Result<()> {
+fn test_mkdir_overwrite() -> buck2_error::Result<()> {
     let mut b = TestDirectoryBuilder::empty();
     b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
 
@@ -482,7 +482,7 @@ fn test_mkdir_overwrite() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_directory_interner() -> anyhow::Result<()> {
+fn test_directory_interner() -> buck2_error::Result<()> {
     let interner = DashMapDirectoryInterner::new();
 
     let d1 = {
@@ -511,7 +511,7 @@ fn test_directory_interner() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_directory_interner_deep() -> anyhow::Result<()> {
+fn test_directory_interner_deep() -> buck2_error::Result<()> {
     let interner = DashMapDirectoryInterner::new();
 
     let d1 = {
@@ -537,7 +537,7 @@ fn test_directory_interner_deep() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_filter_continues_on_error() -> anyhow::Result<()> {
+fn test_filter_continues_on_error() -> buck2_error::Result<()> {
     let mut b = TestDirectoryBuilder::empty();
     b.insert(path("a/aa/aaa"), DirectoryEntry::Leaf(NopEntry))?;
     b.insert(path("a/aa/bbb"), DirectoryEntry::Leaf(NopEntry))?;

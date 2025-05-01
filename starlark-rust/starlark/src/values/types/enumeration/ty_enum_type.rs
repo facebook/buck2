@@ -25,8 +25,6 @@ use crate::values::types::type_instance_id::TypeInstanceId;
 pub struct TyEnumData {
     /// Name of the enum type.
     pub(crate) name: String,
-    /// Types of variants.
-    pub(crate) variants: Vec<Ty>,
     /// Globally unique id of the enum type.
     // Id must be last so `Ord` is deterministic.
     pub(crate) id: TypeInstanceId,
@@ -48,6 +46,5 @@ impl std::hash::Hash for TyEnumData {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         // Do not hash `id` because hashing should be deterministic.
         self.name.hash(state);
-        self.variants.hash(state);
     }
 }

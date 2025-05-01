@@ -10,14 +10,14 @@
 use std::future::Future;
 
 use allocative::Allocative;
+use dice_error::DiceResult;
 use futures::FutureExt;
 
-use crate::api::error::DiceResult;
+use crate::DiceTransaction;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::impls::transaction::TransactionUpdater;
 use crate::transaction::DiceTransactionImpl;
-use crate::DiceTransaction;
 
 /// The struct for which we build transactions. This is where changes are recorded, and committed
 /// to DICE, which returns the Transaction where we spawn computations.

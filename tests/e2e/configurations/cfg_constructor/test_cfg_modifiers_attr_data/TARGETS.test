@@ -1,0 +1,37 @@
+load(":rules.bzl", "test_rule")
+
+constraint_setting(
+    name = "constraint_A",
+)
+
+constraint_value(
+    name = "A_1",
+    constraint_setting = ":constraint_A",
+)
+
+platform(name = "my_platform")
+
+test_rule(
+    name = "test",
+    modifiers = [
+        "root//:A_1"
+    ],
+)
+
+test_rule(
+    name = "test2",
+    modifiers = [
+        "root//:A_1"
+    ],
+    default_target_platform = ":my_platform",
+)
+
+test_rule(
+    name = "test3",
+    modifiers = [
+        "root//:A_1"
+    ],
+    metadata = {
+        "buck.cfg_modifiers": ["root//:A_1"]
+    },
+)

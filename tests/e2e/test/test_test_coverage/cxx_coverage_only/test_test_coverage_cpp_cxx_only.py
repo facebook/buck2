@@ -475,6 +475,9 @@ async def test_cpp_test_coverage_xplat_filter_by_file_path(
         filter=[file_to_collect_coverage],
     )
 
-    assert set(paths) == {
-        file_to_collect_coverage,
-    }, f"Should collect coverage only for {file_to_collect_coverage} but got coverage for {paths}"
+    assert (
+        set(paths)
+        == {
+            file_to_collect_coverage,
+        }
+    ), f"Should collect coverage only for {file_to_collect_coverage} but got coverage for {paths}"

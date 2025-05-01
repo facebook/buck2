@@ -10,13 +10,14 @@
 use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_build_api::actions::impls::json::visit_json_artifacts;
 use buck2_build_api::actions::impls::json::JsonUnpack;
 use buck2_build_api::actions::impls::json::SerializeValue;
+use buck2_build_api::actions::impls::json::visit_json_artifacts;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use dupe::Dupe;
 use indoc::indoc;
@@ -56,25 +57,30 @@ fn test_tagging() -> anyhow::Result<()> {
             let artifact = artifact
                 .0
                 .get_bound_artifact()
-                .context("Not a bound artifact")?
+                .buck_error_context("Not a bound artifact")?
                 .dupe();
 
             visit_json_artifacts(tagged, &mut AssertVisitor { tag, artifact })?;
             Ok(Value::new_none())
         }
 
-        fn check_passthrough<'v>(tagged: Value<'v>, value: Value<'v>) -> anyhow::Result<Value<'v>> {
+        fn check_passthrough<'v>(
+            tagged: Value<'v>,
+            value: Value<'v>,
+        ) -> starlark::Result<Value<'v>> {
             let json1 = serde_json::to_string(&SerializeValue {
                 value: JsonUnpack::unpack_value_err(tagged)?,
                 fs: None,
                 absolute: false,
-            })?;
+            })
+            .map_err(buck2_error::Error::from)?;
 
             let json2 = serde_json::to_string(&SerializeValue {
                 value: JsonUnpack::unpack_value_err(value)?,
                 fs: None,
                 absolute: false,
-            })?;
+            })
+            .map_err(buck2_error::Error::from)?;
 
             assert_eq!(json1, json2);
 

@@ -12,7 +12,6 @@ use std::iter;
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
-use syn::spanned::Spanned;
 use syn::Data;
 use syn::DataEnum;
 use syn::DataStruct;
@@ -24,6 +23,7 @@ use syn::Index;
 use syn::Type;
 use syn::TypeParamBound;
 use syn::Variant;
+use syn::spanned::Spanned;
 
 // Add a bound to every type parameter.
 pub(crate) fn add_trait_bounds(mut generics: Generics, bound: &TypeParamBound) -> Generics {

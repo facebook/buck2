@@ -1,0 +1,9 @@
+load(":defs.bzl", "fail_build")
+
+trivial_build(
+    name = "pass",
+)
+
+fail_build(
+    name = "fail",
+)

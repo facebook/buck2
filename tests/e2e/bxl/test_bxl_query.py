@@ -135,7 +135,7 @@ async def test_cquery_deps(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False, data_dir="bxl/simple", allow_soft_errors=True)
 async def test_cquery_buildfile(buck: Buck) -> None:
     await buck.bxl("//bxl/cquery.bxl:buildfile_test")
 
@@ -213,12 +213,34 @@ async def test_uquery_allpaths(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")
+async def test_uquery_allpaths_filtered(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl:uquery.bxl:allpaths_filtered_test",
+    )
+
+    assert "[root//graph:one, root//graph:two, root//graph:three]\n" == result.stdout
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_uquery_somepath(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:uquery.bxl:somepath_test",
     )
 
-    assert "[root//graph:three, root//graph:two, root//graph:one]\n" == result.stdout
+    assert "[root//graph:one, root//graph:two, root//graph:three]\n" == result.stdout
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
+async def test_uquery_somepath_filtered(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl:uquery.bxl:somepath_filtered_test",
+    )
+
+    assert (
+        "[root//graph:one, root//graph:ten, root//graph:twenty]\n"
+        + "[root//graph:one, root//graph:five, root//graph:six, root//graph:twenty]\n"
+        == result.stdout
+    )
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")
@@ -306,7 +328,7 @@ async def test_uquery_targets_in_buildfile(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False, data_dir="bxl/simple", allow_soft_errors=True)
 async def test_uquery_buildfile(buck: Buck) -> None:
     await buck.bxl("//bxl/uquery.bxl:buildfile_test")
 
@@ -390,7 +412,20 @@ async def test_cquery_somepath(buck: Buck) -> None:
     )
 
     assert (
-        "[root//graph:three (<unspecified>), root//graph:two (<unspecified>), root//graph:one (<unspecified>)]\n"
+        "[root//graph:one (<unspecified>), root//graph:two (<unspecified>), root//graph:three (<unspecified>)]\n"
+        == result.stdout
+    )
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
+async def test_cquery_somepath_filtered(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl:cquery.bxl:somepath_filtered_test",
+    )
+
+    assert (
+        "[root//graph:one (<unspecified>), root//graph:ten (<unspecified>), root//graph:twenty (<unspecified>)]\n"
+        + "[root//graph:one (<unspecified>), root//graph:five (<unspecified>), root//graph:six (<unspecified>), root//graph:twenty (<unspecified>)]\n"
         == result.stdout
     )
 

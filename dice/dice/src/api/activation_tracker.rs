@@ -9,6 +9,8 @@
 
 use std::any::Any;
 
+use crate::DynKey;
+
 /// An ActivationTracker can be used to identify which keys were either reused or computed during a
 /// transaction.
 pub trait ActivationTracker: Send + Sync + 'static {
@@ -17,8 +19,8 @@ pub trait ActivationTracker: Send + Sync + 'static {
     /// to `store_evaluation_data` (if any).
     fn key_activated(
         &self,
-        key: &dyn Any,
-        deps: &mut dyn Iterator<Item = &dyn Any>,
+        key: &DynKey,
+        deps: &mut dyn Iterator<Item = &DynKey>,
         activation_data: ActivationData,
     );
 }

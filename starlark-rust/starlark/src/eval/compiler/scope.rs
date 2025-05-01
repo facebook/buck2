@@ -49,9 +49,9 @@ use starlark_syntax::syntax::uniplate::VisitMut;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
+use crate::environment::Module;
 use crate::environment::names::MutableNames;
 use crate::environment::slots::ModuleSlotId;
-use crate::environment::Module;
 use crate::errors::did_you_mean::did_you_mean;
 use crate::eval::compiler::def::CopySlotFromParent;
 use crate::eval::compiler::scope::payload::CstAssignIdent;
@@ -66,8 +66,8 @@ use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::syntax::Dialect;
-use crate::typing::error::InternalError;
 use crate::typing::Interface;
+use crate::typing::error::InternalError;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
@@ -85,7 +85,7 @@ enum ScopeError {
 
 impl From<ScopeError> for crate::Error {
     fn from(e: ScopeError) -> Self {
-        crate::Error::new(crate::ErrorKind::Scope(anyhow::Error::new(e)))
+        crate::Error::new_kind(crate::ErrorKind::Scope(anyhow::Error::new(e)))
     }
 }
 
@@ -218,7 +218,7 @@ impl<'f> ScopeNames<'f> {
         for (name, UnscopeBinding { undo }) in unscope.0 {
             match undo {
                 None => {
-                    self.mp.remove(&name);
+                    self.mp.shift_remove(&name);
                 }
                 Some(v) => *self.mp.get_mut(&name).unwrap() = v,
             }

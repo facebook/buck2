@@ -6,12 +6,13 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
 load(":apple_bundle_types.bzl", "AppleBundleManifest", "AppleBundleManifestInfo", "AppleBundleManifestLogFiles")
 load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
-load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType")
+load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType", "get_code_signing_configuration_attr_value")
 load(":apple_entitlements.bzl", "get_entitlements_codesign_args", "should_include_entitlements")
 load(":apple_error_handler.bzl", "apple_build_error_handler")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
@@ -37,6 +38,8 @@ AppleBundlePart = record(
     codesign_entitlements = field(Artifact | None, None),
     # If present, override the codesign flags with these flags, when this part is code signed separately.
     codesign_flags_override = field([list[str], None], None),
+    # If present, additional paths to be codesigned when copying.
+    extra_codesign_paths = field([list[str], None], None),
 )
 
 SwiftStdlibArguments = record(
@@ -75,7 +78,7 @@ def assemble_bundle(
     codesign_args = []
 
     codesign_tool = ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign
-    code_signing_configuration = CodeSignConfiguration(ctx.attrs._code_signing_configuration)
+    code_signing_configuration = get_code_signing_configuration_attr_value(ctx)
     if code_signing_configuration == CodeSignConfiguration("dry-run"):
         codesign_configuration_args = ["--codesign-configuration", "dry-run"]
         codesign_tool = tools.dry_codesign_tool
@@ -111,9 +114,9 @@ def assemble_bundle(
             "--appclips-destination",
             bundle_relative_path_for_destination(AppleBundleDestination("appclips"), sdk_name, ctx.attrs.extension, ctx.attrs.versioned_macos_bundle),
             "--swift-stdlib-command",
-            cmd_args(ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.swift_stdlib_tool, delimiter = " ", quote = "shell"),
+            cmd_args(ctx.attrs._apple_toolchain[SwiftToolchainInfo].swift_stdlib_tool, delimiter = " ", quote = "shell"),
             "--sdk-root",
-            ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.sdk_path,
+            ctx.attrs._apple_toolchain[SwiftToolchainInfo].sdk_path,
         ]
     else:
         swift_args = []
@@ -299,6 +302,8 @@ def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart], codesi
                 part_spec["codesign_entitlements"] = part.codesign_entitlements
             if part.codesign_flags_override:
                 part_spec["codesign_flags_override"] = part.codesign_flags_override
+            if part.extra_codesign_paths:
+                part_spec["extra_codesign_paths"] = part.extra_codesign_paths
         specs.append(part_spec)
 
     return ctx.actions.write_json("bundle_spec.json", specs, pretty = True)

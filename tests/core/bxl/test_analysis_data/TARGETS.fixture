@@ -1,0 +1,25 @@
+load(":defs.bzl", "provides_foo")
+
+stub(name = "stub")
+
+provides_foo(name = "provides_foo")
+
+constraint_setting(
+    name = "os",
+)
+
+constraint_value(
+    name = "linux",
+    constraint_setting = ":os",
+)
+
+platform(
+    name = "p_windows",
+    constraint_values = [],
+)
+
+stub(
+    name = "incompatible_target",
+    target_compatible_with = [":linux"],
+    default_target_platform = ":p_windows",
+)

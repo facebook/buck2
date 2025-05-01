@@ -68,8 +68,8 @@ async def expect_exec_count(buck: Buck, n: int) -> None:
     assert len(out) == n, "unexpected actions: %s" % (out,)
 
 
-async def filter_events(buck: Buck, *args):
-    log = (await buck.log("show")).stdout.strip().splitlines()
+async def filter_events(buck: Buck, *args, rel_cwd: typing.Optional[Path] = None):
+    log = (await buck.log("show", rel_cwd=rel_cwd)).stdout.strip().splitlines()
     found = []
     for line in log:
         e = json_get(line, *args)
@@ -95,11 +95,15 @@ def random_string():
 
 
 def replace_hashes(strings: typing.List[str]) -> typing.List[str]:
-    return [_replace_hash(s) for s in strings]
+    return [replace_hash(s) for s in strings]
 
 
-def _replace_hash(s: str) -> str:
+def replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
+
+
+def replace_digest(s: str) -> str:
+    return re.sub(r"\b[0-9a-f]{40}:[0-9]{1,3}\b", "<DIGEST>", s)
 
 
 def read_invocation_record(record: Path) -> typing.Dict[str, typing.Any]:

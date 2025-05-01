@@ -10,51 +10,55 @@
 use buck2_cli_proto::new_generic::ExplainRequest;
 use buck2_cli_proto::new_generic::NewGenericRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_event_log::file_names::get_local_logs;
-use clap::ArgMatches;
 use clap::Parser as _;
 use tonic::async_trait;
 
 use crate::commands::build::BuildCommand;
 
-/// Buck2 Explain
-///
-/// This command is to allow users to dive in and understand
-/// builds, without requiring a solid grasp of Buck2 concepts
+/// Generates web browser view that shows actions that ran in the last build
+/// mapped to the target graph
 #[derive(Debug, clap::Parser)]
-#[clap(name = "explain", group = clap::ArgGroup::new("out").multiple(true).required(true))]
+#[clap(name = "explain")]
 pub struct ExplainCommand {
     /// Output file path for profile data.
     ///
     /// File will be created if it does not exist, and overwritten if it does.
-    #[clap(long, short = 'o', group = "out")]
+    #[clap(long, short = 'o')]
     output: Option<PathArg>,
     /// Whether to upload the output to Manifold
-    #[clap(long, group = "out")]
+    /// Deprecated: now we always upload to Manifold, this flag is a no-op
+    #[clap(long)]
     upload: bool,
+    /// Add target code pointer. This invalidates cache, slowing things down
+    #[clap(long)]
+    stack: bool,
     /// Dev only: dump the flatbuffer info to file path
     #[clap(long, hide = true)]
     fbs_dump: Option<PathArg>,
 }
 
 // TODO: not sure I need StreamingCommand
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for ExplainCommand {
     const COMMAND_NAME: &'static str = "explain";
 
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &ArgMatches,
+        _matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         if cfg!(windows) {
             return ExitResult::bail("Not implemented for windows");
@@ -68,7 +72,8 @@ impl StreamingCommand for ExplainCommand {
         let mut logs = logs
             .into_iter()
             .filter(|l| match l.command_from_filename().ok() {
-                Some(c) => c == "build" || c == "test" || c == "run" || c == "install",
+                // Support only build commands for now
+                Some(c) => c == "build",
                 None => false,
             });
 
@@ -118,13 +123,13 @@ impl StreamingCommand for ExplainCommand {
         let target_universe = build_args.target_universe().clone();
         let target_cfg = build_args.target_cfg();
 
-        let manifold_path = if self.upload {
-            Some(format!("flat/{}-explain.html", uuid))
-        } else {
-            None
-        };
+        // TODO iguridi: add option to turn manifold upload off for OSS
+        let manifold_path = Some(format!("flat/{}-explain.html", uuid));
 
-        let context = ctx.client_context(matches, &self)?;
+        let mut context = ctx.empty_client_context("explain")?;
+        context.target_call_stacks = self.stack;
+        context.reuse_current_config = true;
+
         buckd
             .with_flushing()
             .new_generic(
@@ -136,19 +141,25 @@ impl StreamingCommand for ExplainCommand {
                     manifold_path: manifold_path.clone(),
                     target_universe,
                     target_cfg,
+                    log_path: build_log.path().to_owned(),
                 }),
+                events_ctx,
                 None,
             )
             .await??;
 
         if let Some(p) = manifold_path {
             buck2_client_ctx::eprintln!(
-                "\nView html in your browser: https://interncache-all.fbcdn.net/manifold/buck2_logs/{}\n",
+                "\nView html in your browser: https://interncache-all.fbcdn.net/manifold/buck2_logs/{} (requires VPN/lighthouse)\n",
                 p
             )?;
         }
 
         ExitResult::success()
+    }
+
+    fn existing_only() -> bool {
+        true
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {

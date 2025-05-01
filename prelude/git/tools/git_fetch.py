@@ -8,11 +8,15 @@
 import argparse
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import List, NamedTuple
 
 
-def run(cmd: List[str], check: bool) -> str:
+MAX_RETRIES = 5
+
+
+def run(cmd: List[str], check: bool, retries: int = MAX_RETRIES) -> str:
     print(f"Running {cmd}", file=sys.stderr)
     try:
         proc = subprocess.run(
@@ -27,6 +31,9 @@ def run(cmd: List[str], check: bool) -> str:
         sys.exit(1)
     except subprocess.CalledProcessError as ex:
         print(ex.stderr, file=sys.stderr)
+        if "The requested URL returned error: 429" in ex.stderr and retries > 0:
+            time.sleep(2 ** (MAX_RETRIES - retries))
+            return run(cmd, check, retries - 1)
         sys.exit(ex.returncode)
     return proc.stdout
 

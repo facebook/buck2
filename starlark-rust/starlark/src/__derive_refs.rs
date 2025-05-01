@@ -17,17 +17,18 @@
 
 #![doc(hidden)]
 
-/// __derive_refs allows us to reference other crates in starlark_derive without users needing to be
-///  aware of those dependencies. We make them public here and then can reference them like
-///  `starlark::__derive_refs::foo`.
+//! __derive_refs allows us to reference other crates in starlark_derive without users needing to be
+//!  aware of those dependencies. We make them public here and then can reference them like
+//!  `starlark::__derive_refs::foo`.
 
 pub mod serde {
-    pub use serde::ser::Error;
     pub use serde::Serialize;
     pub use serde::Serializer;
+    pub use serde::ser::Error;
 }
 pub use inventory;
 pub mod components;
+pub mod invoke_macro_error;
 pub mod param_spec;
 pub mod parse_args;
 pub mod sig;

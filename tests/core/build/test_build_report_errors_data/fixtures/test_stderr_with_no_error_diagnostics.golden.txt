@@ -1,0 +1,31 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+[<TIMESTAMP>] Starting new buck2 daemon...
+[<TIMESTAMP>] Connected to new buck2 daemon.
+[<TIMESTAMP>] Buck UI: https://www.internalfb.com/buck2/<UUID>
+[<TIMESTAMP>] RE Session: reSessionID-<UUID>
+[<TIMESTAMP>] Action failed: root//fail_action:fail_script (<unspecified>) (fail_script)
+[<TIMESTAMP>] Remote command returned non-zero exit code 1
+[<TIMESTAMP>] Remote action, reproduce with: `frecli cas download-action <DIGEST>`
+[<TIMESTAMP>] Stdout:
+Some random stdout
+[<TIMESTAMP>] Stderr:
+Some random stderr
+
+[<TIMESTAMP>] Cache hits: <CACHE_STATS>
+[<TIMESTAMP>] Commands: <COMMAND_STATS>
+[<TIMESTAMP>] Network: <NETWORK_STATS>
+[<TIMESTAMP>]
+[<TIMESTAMP>] BUILD ERRORS (1)
+[<TIMESTAMP>] The following actions failed during the execution of this command:
+[<TIMESTAMP>] Action failed: root//fail_action:fail_script (<unspecified>) (fail_script)
+[<TIMESTAMP>] Remote command returned non-zero exit code 1
+[<TIMESTAMP>] Remote action, reproduce with: `frecli cas download-action <DIGEST>`
+[<TIMESTAMP>] Stdout:
+Some random stdout
+[<TIMESTAMP>] Stderr:
+Some random stderr
+
+[<TIMESTAMP>]
+BUILD FAILED
+Failed to build 'root//fail_action:fail_script (<unspecified>)'

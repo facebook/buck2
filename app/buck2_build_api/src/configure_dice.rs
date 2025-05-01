@@ -22,6 +22,8 @@ use dice::DetectCycles;
 use dice::Dice;
 use dice::WhichDice;
 
+use crate::actions::execute::dice_data::SetInvalidationTrackingConfig;
+
 /// This is just a simple version number to allow us to more easily rollout modern dice.
 const CURRENT_MODERN_DICE_VERSION: u32 = 3;
 
@@ -33,7 +35,7 @@ pub async fn configure_dice_for_buck(
     root_config: Option<&LegacyBuckConfig>,
     detect_cycles: Option<DetectCycles>,
     which_dice: Option<WhichDice>,
-) -> anyhow::Result<Arc<Dice>> {
+) -> buck2_error::Result<Arc<Dice>> {
     let detect_cycles = detect_cycles.map_or_else(
         || {
             root_config
@@ -55,6 +57,16 @@ pub async fn configure_dice_for_buck(
     };
     dice.set_io_provider(io);
     dice.set_digest_config(digest_config);
+    let invalidation_tracking_enabled = match root_config {
+        Some(c) => c
+            .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "invalidation_tracking_enabled",
+            })?
+            .is_some_and(|v| v.roll()),
+        None => false,
+    };
+    dice.set_invalidation_tracking_config(invalidation_tracking_enabled);
 
     let dice = dice.build(detect_cycles);
     let mut dice_ctx = dice.updater();
@@ -68,7 +80,7 @@ pub async fn configure_dice_for_buck(
 fn determine_which_dice(
     root_config: Option<&LegacyBuckConfig>,
     which_dice: Option<WhichDice>,
-) -> anyhow::Result<WhichDice> {
+) -> buck2_error::Result<WhichDice> {
     if let Some(v) = which_dice {
         return Ok(v);
     }
@@ -136,7 +148,7 @@ mod tests {
     }
 
     #[test]
-    fn test_determine_which_dice() -> anyhow::Result<()> {
+    fn test_determine_which_dice() -> buck2_error::Result<()> {
         assert_eq!(
             WhichDice::Modern,
             determine_which_dice(

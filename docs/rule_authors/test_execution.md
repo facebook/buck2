@@ -3,6 +3,9 @@ id: test_execution
 title: Test Execution
 ---
 
+import { FbInternalOnly, OssOnly } from
+'docusaurus-plugin-internaldocs-fb/internal';
+
 Test execution in Buck2 is a collaboration with a separate test runner process.
 
 <OssOnly>
@@ -57,11 +60,11 @@ When a user runs `buck2 test $targets`:
   events that the end-user will see (such as test results), upload logs
   externally, request further executions, and so on.
 
-<!-- prettier-ignore -->
 :::note
-If more than one target is being built, test building and execution will proceed concurrently.
 
-<!-- prettier-ignore -->
+If more than one target is being built, test building and execution will proceed
+concurrently.
+
 :::
 
 ## Information available on `ExternalRunnerTestInfo`
@@ -171,9 +174,9 @@ That said, it's easy to see where this breaks down.
 
 For example:
 
-- For iOS tests, the execution platform for builds needs to be XCode (local or
+- For iOS tests, the execution platform for builds needs to be Xcode (local or
   RE Mac).
-- For test listing, XCode is not needed (it's preferable to do it on RE Linux
+- For test listing, Xcode is not needed (it's preferable to do it on RE Linux
   where capacity is cheaper).
 - To run the tests, a simulator is required.
 

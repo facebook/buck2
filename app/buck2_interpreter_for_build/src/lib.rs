@@ -9,6 +9,8 @@
 
 #![feature(error_generic_member_access)]
 #![feature(try_blocks)]
+#![feature(iterator_try_collect)]
+#![feature(substr_range)]
 
 use std::sync::Once;
 

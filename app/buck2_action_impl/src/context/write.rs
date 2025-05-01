@@ -14,31 +14,31 @@ use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArt
 use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
-use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_execute::execute::request::OutputType;
 use dupe::Dupe;
 use either::Either;
-use indexmap::indexset;
 use indexmap::IndexSet;
+use indexmap::indexset;
 use relative_path::RelativePathBuf;
 use sha1::Digest;
 use sha1::Sha1;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::UnpackValue;
 use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark_map::small_set::SmallSet;
 
 use crate::actions::impls::write::UnregisteredWriteAction;
@@ -46,6 +46,7 @@ use crate::actions::impls::write_json::UnregisteredWriteJsonAction;
 use crate::actions::impls::write_macros::UnregisteredWriteMacrosToFileAction;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum WriteActionError {
     #[error(
         "Argument type attributes detected in a content to be written into a file, but support for arguments was not turned on. Use `allow_args` parameter to turn on the support for arguments."
@@ -85,8 +86,8 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] pretty: bool,
         #[starlark(require = named, default = false)] absolute: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<impl AllocValue<'v>> {
-        let mut this = this.state();
+    ) -> starlark::Result<impl AllocValue<'v>> {
+        let mut this = this.state()?;
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, OutputType::File)?;
 
@@ -122,6 +123,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
     ///     * If it is true, the result will be a pair of the `artifact` containing content and a
     ///       list of artifact values that were written by macros, which should be used in hidden
     ///       fields or similar
+    /// * `with_inputs` (optional): if set, add artifacts in `content` as associated artifacts of the return `artifact`.
     /// * `absolute` (optional): if set, this action will produce absolute paths in its output when
     ///   rendering artifact paths. You generally shouldn't use this if you plan to use this action
     ///   as the input for anything else, as this would effectively result in losing all shared
@@ -140,7 +142,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] with_inputs: bool,
         #[starlark(require = named, default = false)] absolute: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<
+    ) -> starlark::Result<
         Either<
             ValueTyped<'v, StarlarkDeclaredArtifact>,
             (
@@ -152,11 +154,9 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         fn count_write_to_file_macros(
             args_allowed: bool,
             cli: &dyn CommandLineArgLike,
-        ) -> anyhow::Result<u32> {
+        ) -> buck2_error::Result<u32> {
             if !args_allowed && cli.contains_arg_attr() {
-                return Err(anyhow::anyhow!(
-                    WriteActionError::ArgAttrsDetectedButNotAllowed
-                ));
+                return Err(WriteActionError::ArgAttrsDetectedButNotAllowed.into());
             }
 
             struct WriteToFileMacrosCounter {
@@ -164,7 +164,10 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             }
 
             impl WriteToFileMacroVisitor for WriteToFileMacrosCounter {
-                fn visit_write_to_file_macro(&mut self, _m: &ResolvedMacro) -> anyhow::Result<()> {
+                fn visit_write_to_file_macro(
+                    &mut self,
+                    _m: &ResolvedMacro,
+                ) -> buck2_error::Result<()> {
                     self.count += 1;
                     Ok(())
                 }
@@ -173,8 +176,9 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                     &mut self,
                     _gen: &dyn Fn(
                         &dyn CommandLineContext,
-                    ) -> anyhow::Result<Option<RelativePathBuf>>,
-                ) -> anyhow::Result<()> {
+                    )
+                        -> buck2_error::Result<Option<RelativePathBuf>>,
+                ) -> buck2_error::Result<()> {
                     Ok(())
                 }
             }
@@ -187,7 +191,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         fn get_cli_inputs(
             with_inputs: bool,
             cli: &dyn CommandLineArgLike,
-        ) -> anyhow::Result<SmallSet<ArtifactGroup>> {
+        ) -> buck2_error::Result<SmallSet<ArtifactGroup>> {
             if !with_inputs {
                 return Ok(Default::default());
             }
@@ -209,7 +213,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             Ok(visitor.inputs)
         }
 
-        let mut this = this.state();
+        let mut this = this.state()?;
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, OutputType::File)?;
 

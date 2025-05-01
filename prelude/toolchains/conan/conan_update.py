@@ -35,9 +35,7 @@ load(
     "conan_dep",
     "conan_package",
 )
-""".format(
-        at="@", update_label=update_label
-    )
+""".format(at="@", update_label=update_label)
     os.makedirs(os.path.dirname(targets_out), exist_ok=True)
     with open(targets_out, "w") as outf:
         outf.write(header)

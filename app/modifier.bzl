@@ -53,7 +53,7 @@ def buck2_modifiers():
             "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
                 "DEFAULT": None,
                 "ovr_config//os:linux": modifiers.conditional({
-                    "DEFAULT": "ovr_config//build_mode/constraints:split-dwarf",
+                    "DEFAULT": "ovr_config//build_mode/constraints:split-dwarf-single",
                     "ovr_config//build_mode:dev": None,
                 }),
             }),
@@ -63,13 +63,7 @@ def buck2_modifiers():
             "ovr_config//build_mode/default_opt_cxx:enabled": (
                 "ovr_config//build_mode:no-san"
             ),
-            # Unfortunately, setting `ovr_config//build_mode:no-san` like this is a bit problematic when using sanitizer
-            # modefiles because the no-san value here would override the sanitizer constraint set by those modefiles
-            # in the target platform, meaning we would always get sanitizer disabled no matter what sanitizer modefile
-            # is used. To work around this, explicitly check that we are not using any sanitizer modefile by checking
-            # that the `fbcode.sanitizer` buckconfig is set to the default value "address-undefined-dev". We can undo this
-            # change in the future when our CI is updated to use sanitizer modifiers instead of sanitizer modefiles.
-        }) if read_config("fbcode", "sanitizer") == "address-undefined-dev" else None,
+        }),
         modifiers.conditional({
             "DEFAULT": None,
             "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
@@ -102,21 +96,6 @@ def buck2_modifiers():
             "DEFAULT": None,
             "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
                 "DEFAULT": None,
-                "ovr_config//os:macos": "ovr_config//toolchain/fb/constraints:macos-minimal",
-            }),
-        }),
-        # TODO(scottcao): This modifier can be deleted if D61497000 lands successfully
-        modifiers.conditional({
-            "DEFAULT": None,
-            "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
-                "DEFAULT": None,
-                "ovr_config//os:macos": "ovr_config//toolchain/xcode/force_minimal_xcode:yes",
-            }),
-        }),
-        modifiers.conditional({
-            "DEFAULT": None,
-            "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
-                "DEFAULT": None,
                 "ovr_config//runtime:fbcode": modifiers.conditional({
                     "ovr_config//cpu:arm64": "ovr_config//runtime/constraints:platform010-aarch64",
                     "ovr_config//cpu:x86_64": "ovr_config//runtime/constraints:platform010",
@@ -130,6 +109,16 @@ def buck2_modifiers():
                 "ovr_config//runtime:fbcode": modifiers.conditional({
                     "ovr_config//cpu:arm64": "ovr_config//cpu/constraints:nosve2",
                     "ovr_config//cpu:x86_64": "ovr_config//cpu/constraints:sve2",
+                }),
+            }),
+        }),
+        modifiers.conditional({
+            "DEFAULT": None,
+            "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
+                "DEFAULT": None,
+                "ovr_config//os:linux": modifiers.conditional({
+                    "DEFAULT": None,
+                    "ovr_config//cpu:arm64": "ovr_config//cpu/constraints:armv8.4a",
                 }),
             }),
         }),

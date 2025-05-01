@@ -16,16 +16,15 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use blake3::Hash;
 use buck2_common::dice::file_ops::FileChangeTracker;
 use buck2_common::file_ops::FileType;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::CellResolver;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -33,6 +32,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_data::FileWatcherEventType;
 use buck2_data::FileWatcherKind;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
 use compact_str::CompactString;
 use dice::DiceTransactionUpdater;
@@ -58,7 +58,7 @@ impl FsHashCrawler {
         root: &ProjectRoot,
         cells: CellResolver,
         ignore_specs: HashMap<CellName, IgnoreSet>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let snapshot = Arc::new(Mutex::new(FsSnapshot::build(root, &cells)?));
         Ok(Self {
             root: root.dupe(),
@@ -71,7 +71,7 @@ impl FsHashCrawler {
     async fn update(
         &self,
         mut dice: DiceTransactionUpdater,
-    ) -> anyhow::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
+    ) -> buck2_error::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
         let root = self.root.dupe();
         let cells = self.cells.dupe();
         let new_snapshot =
@@ -89,7 +89,7 @@ impl FileWatcher for FsHashCrawler {
     async fn sync(
         &self,
         dice: DiceTransactionUpdater,
-    ) -> anyhow::Result<(DiceTransactionUpdater, Mergebase)> {
+    ) -> buck2_error::Result<(DiceTransactionUpdater, Mergebase)> {
         span_async(
             buck2_data::FileWatcherStart {
                 provider: buck2_data::FileWatcherProvider::FsHashCrawler as i32,
@@ -138,7 +138,7 @@ impl EntryInfo {
 struct FsSnapshot(HashMap<CellPath, EntryInfo>);
 
 impl FsSnapshot {
-    fn build(root: &ProjectRoot, cells: &CellResolver) -> anyhow::Result<Self> {
+    fn build(root: &ProjectRoot, cells: &CellResolver) -> buck2_error::Result<Self> {
         let mut snapshot = FsSnapshot(HashMap::new());
         snapshot.build_fs_snapshot(root, cells, root.root())?;
         Ok(snapshot)
@@ -148,7 +148,7 @@ impl FsSnapshot {
         self.0.insert(cell, info);
     }
 
-    fn get_updates(&self, new_snapshot: &FsSnapshot) -> anyhow::Result<Vec<FsEvent>> {
+    fn get_updates(&self, new_snapshot: &FsSnapshot) -> buck2_error::Result<Vec<FsEvent>> {
         let mut events = Vec::new();
         for (cell_path, prev_info) in self.0.iter() {
             if let Some(current_info) = new_snapshot.0.get(cell_path) {
@@ -188,15 +188,15 @@ impl FsSnapshot {
         &self,
         new_snapshot: &FsSnapshot,
         ignore_specs: &HashMap<CellName, IgnoreSet>,
-    ) -> anyhow::Result<(buck2_data::FileWatcherStats, FileChangeTracker)> {
+    ) -> buck2_error::Result<(buck2_data::FileWatcherStats, FileChangeTracker)> {
         let events = self.get_updates(new_snapshot)?;
         let mut changed = FileChangeTracker::new();
-        let mut stats = FileWatcherStats::new(events.len(), None, None, None);
+        let mut stats = FileWatcherStats::new(Default::default(), events.len());
         let mut ignored = 0;
         for event in events.into_iter() {
             let ignore = ignore_specs
                 .get(&event.cell_path.cell())
-                .map_or(false, |i| i.is_match(event.cell_path.path()));
+                .is_some_and(|i| i.is_match(event.cell_path.path()));
 
             if ignore {
                 ignored += 1;
@@ -243,16 +243,18 @@ impl FsSnapshot {
         root: &ProjectRoot,
         cells: &CellResolver,
         disk_path: &AbsNormPath,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         for file in fs_util::read_dir(disk_path)? {
             let file = file?;
             let filetype = file.file_type()?;
             let filename = file.file_name();
 
             let filename = FileNameBuf::try_from(CompactString::new(
-                filename.to_str().context("Filename is not UTF-8")?,
+                filename
+                    .to_str()
+                    .buck_error_context("Filename is not UTF-8")?,
             ))
-            .with_context(|| format!("Invalid filename: {}", disk_path.display()))?;
+            .with_buck_error_context(|| format!("Invalid filename: {}", disk_path.display()))?;
 
             let disk_path = disk_path.join(filename);
             let rel_path = root.relativize(&disk_path)?;
@@ -285,7 +287,7 @@ impl FsSnapshot {
     }
 }
 
-fn file_hash(path: &Path) -> anyhow::Result<Hash> {
+fn file_hash(path: &Path) -> buck2_error::Result<Hash> {
     let mut reader = File::open(path)?;
     let mut hasher = blake3::Hasher::new();
 
@@ -305,14 +307,15 @@ fn file_hash(path: &Path) -> anyhow::Result<Hash> {
 mod tests {
     use std::collections::BTreeSet;
 
+    use buck2_core::cells::CellResolver;
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
-    use buck2_core::cells::CellResolver;
     use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::abs_path::AbsPathBuf;
     use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_data::FileWatcherEventType;
     use buck2_data::FileWatcherKind;
 
@@ -320,7 +323,7 @@ mod tests {
     use crate::fs_hash_crawler::FsSnapshot;
 
     #[tokio::test]
-    async fn test_fs_snapshot() -> anyhow::Result<()> {
+    async fn test_fs_snapshot() -> buck2_error::Result<()> {
         let cell_resolver = CellResolver::testing_with_name_and_path(
             CellName::testing_new("root"),
             CellRootPathBuf::testing_new(""),
@@ -329,17 +332,16 @@ mod tests {
         let root_path = fs_util::canonicalize(AbsNormPathBuf::new(tempdir.path().to_owned())?)?;
         let proj_root = ProjectRoot::new(root_path)?;
 
-        let get_path = |root: &AbsPathBuf, path| -> anyhow::Result<(AbsPathBuf, CellPath)> {
-            let path = root.join(path);
-            let cell_path = cell_resolver.get_cell_path_from_abs_path(&path, &proj_root)?;
-            Ok((path, cell_path))
+        let get_path = |path| -> buck2_error::Result<(AbsPathBuf, CellPath)> {
+            let path = ProjectRelativePath::new(path).unwrap();
+            let cell_path = cell_resolver.get_cell_path(path)?;
+            Ok((proj_root.resolve(path).into_abs_path_buf(), cell_path))
         };
-        let root = proj_root.root().to_owned().into_abs_path_buf();
-        let dir1 = root.join("dir1");
-        let (file1, file1_cell) = get_path(&dir1, "file1")?;
-        let (dir2, dir2_cell) = get_path(&root, "dir2")?;
-        let (file2, file2_cell) = get_path(&dir2, "file2")?;
-        let (file3, file3_cell) = get_path(&dir1, "file3")?;
+        let dir1 = proj_root.resolve(ProjectRelativePath::new("dir1")?);
+        let (file1, file1_cell) = get_path("dir1/file1")?;
+        let (dir2, dir2_cell) = get_path("dir2")?;
+        let (file2, file2_cell) = get_path("dir2/file2")?;
+        let (file3, file3_cell) = get_path("dir1/file3")?;
         fs_util::create_dir_all(dir1)?;
         fs_util::write(&file1, "old content")?;
         fs_util::create_dir_all(&dir2)?;

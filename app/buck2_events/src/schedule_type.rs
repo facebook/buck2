@@ -17,7 +17,7 @@ impl ScheduleType {
     const SCHEDULE_TYPE_CONTINUOUS: &'static str = "continuous";
     const SCHEDULE_TYPE_DIFF: &'static str = "diff";
 
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new() -> buck2_error::Result<Self> {
         // Same as RE does https://fburl.com/code/sj13r130
         let schedule_type =
             if let Some(env) = buck2_env!("SCHEDULE_TYPE", applicability = internal)? {

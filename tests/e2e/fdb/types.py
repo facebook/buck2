@@ -22,7 +22,7 @@ T = TypeVar("T")
 def _inner_dataclass_from_dict(
     klass: Type[T], dikt: Dict[str, Any]
 ) -> Union[T, Dict[str, Any]]:
-    if hasattr(klass, "__annotations__"):
+    if hasattr(klass, "__annotations__") and klass.__annotations__:
         return _dataclass_from_dict(klass, dikt)
     else:
         return dikt
@@ -42,7 +42,7 @@ def _dataclass_from_dict(klass: Type[T], dikt: Dict[str, Any]) -> T:
                 ]
             elif ftype.__origin__ is dict:
                 # Handle dict type
-                key_type, value_type = ftype.__args__
+                _, value_type = ftype.__args__
                 result[f] = {
                     key: _inner_dataclass_from_dict(value_type, value)
                     for key, value in dikt.get(f, {}).items()

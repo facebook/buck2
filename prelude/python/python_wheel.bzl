@@ -16,9 +16,17 @@ load(
     "@prelude//cxx:link_types.bzl",
     "link_options",
 )
-load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
+load(
+    "@prelude//cxx:omnibus.bzl",
+    "create_omnibus_libraries",
+    "get_omnibus_graph",
+    "get_roots",
+)
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "link_execution_preference_attr")
 load(
     "@prelude//linking:link_info.bzl",
+    "LibOutputStyle",
     "LinkArgs",
     "LinkStrategy",
     "get_lib_output_style",
@@ -29,20 +37,26 @@ load(
     "LinkableGraph",
     "LinkableNode",  # @unused Used as a type
     "LinkableRootInfo",
+    "create_linkable_graph",
     "get_deps_for_link",
     "get_linkable_graph_node_map_func",
     get_link_info_for_node = "get_link_info",
 )
-load("@prelude//python:manifest.bzl", "create_manifest_for_entries")
+load(
+    "@prelude//python:manifest.bzl",
+    "ManifestInfo",
+    "create_manifest_for_entries",
+    "create_manifest_for_shared_libs",
+)
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//python:toolchain.bzl", "PythonToolchainInfo")
+load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
     "depth_first_traversal_by",
 )
-load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
-load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides_transition")
+load("@prelude//utils:utils.bzl", "value_or")
 
 def _link_deps(
         link_infos: dict[Label, LinkableNode],
@@ -60,24 +74,17 @@ def _link_deps(
 
     return depth_first_traversal_by(link_infos, deps, find_deps)
 
-def _impl(ctx: AnalysisContext) -> list[Provider]:
-    providers = []
-
+def _whl_cmd(
+        ctx: AnalysisContext,
+        output: Artifact,
+        manifests: list[ManifestInfo] = [],
+        srcs: dict[str, Artifact] = {}) -> cmd_args:
     cmd = []
-    hidden = []
 
     cmd.append(ctx.attrs._wheel[RunInfo])
 
-    name_parts = [
-        ctx.attrs.dist or ctx.attrs.name,
-        ctx.attrs.version,
-        ctx.attrs.python,
-        ctx.attrs.abi,
-        ctx.attrs.platform,
-    ]
-    wheel = ctx.actions.declare_output("{}.whl".format("-".join(name_parts)))
-    cmd.append(cmd_args(wheel.as_output(), format = "--output={}"))
-
+    cmd.append("--output")
+    cmd.append(output.as_output())
     cmd.append("--name={}".format(ctx.attrs.dist or ctx.attrs.name))
     cmd.append("--version={}".format(ctx.attrs.version))
 
@@ -87,13 +94,46 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     for key, val in ctx.attrs.extra_metadata.items():
         cmd.extend(["--metadata", key, val])
 
-    cmd.extend(["--metadata", "Requires-Python", "=={}.*".format(ctx.attrs.python[2:])])
+    version_matcher = ">=" if ctx.attrs.support_future_python_versions else "=="
+    cmd.extend(["--metadata", "Requires-Python", "{}{}.*".format(version_matcher, ctx.attrs.python[2:])])
 
     for requires in ctx.attrs.requires:
         cmd.extend(["--metadata", "Requires-Dist", requires])
 
     for name, script in ctx.attrs.scripts.items():
         cmd.extend(["--data", paths.join("scripts", name), script])
+
+    for dst, src in srcs.items():
+        cmd.extend(["--src-path", dst, src])
+
+    hidden = []
+    for manifest in manifests:
+        cmd.append("--manifest")
+        cmd.append(manifest.manifest)
+        for a, _ in manifest.artifacts:
+            hidden.append(a)
+
+    return cmd_args(cmd, hidden = hidden)
+
+def _rpath(dst, rpath):
+    """
+    Relative the given `rpath` to `dst`, via `$ORIGIN`.
+    If `rpath` is absolute, return it as-is.
+    """
+    if paths.is_absolute(rpath):
+        return rpath
+
+    expect(not paths.is_absolute(dst))
+
+    base = "$ORIGIN"
+    dirpath = paths.dirname(dst)
+    if dirpath:
+        base = paths.join(base, *[".." for _ in dirpath.split("/")])
+    return paths.join(base, rpath)
+
+def _impl(ctx: AnalysisContext) -> list[Provider]:
+    providers = []
+    sub_targets = {}
 
     libraries = {}
     for lib in ctx.attrs.libraries:
@@ -103,21 +143,93 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             if PythonLibraryInfo in lib:
                 libraries[lib.label] = lib
 
+    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
+    toolchain_info = get_cxx_toolchain_info(ctx)
+    dist = ctx.attrs.dist or ctx.attrs.name
+    lib_dir = value_or(ctx.attrs.lib_dir, paths.join(dist, "lib"))
+
+    # RPATHs to embed in the binary.
+    rpaths = [lib_dir] + ctx.attrs.rpaths + python_toolchain.wheel_rpaths
+
+    def maybe_patchelf(dst, src):
+        # If there's no rpaths, there's nothing to patch.
+        if not rpaths:
+            return src
+
+        # Heuristic: if we see an extension, assume it's not an ELF file (this might miss
+        # DSOs embedded as resources).
+        _, ext = paths.split_extension(dst)
+        if ext:
+            return src
+
+        # Run the patchelf -- this will just copy if it turns out the given
+        # path isn't and ELF file.
+        out = ctx.actions.declare_output(paths.join("__patched__", dst))
+        cmd = cmd_args(
+            ctx.attrs._patchelf[RunInfo],
+            "--output",
+            out.as_output(),
+            cmd_args([_rpath(dst, p) for p in rpaths], format = "--rpath={}"),
+            src,
+        )
+        ctx.actions.run(cmd, category = "patchelf", identifier = dst)
+        return out
+
     srcs = []
     extensions = {}
+    shared_libs = []
     for dep in libraries.values():
         manifests = dep[PythonLibraryInfo].manifests.value
         if manifests.srcs != None:
             srcs.append(manifests.srcs)
-        if manifests.resources != None:
-            expect(not manifests.resources[1])
-            srcs.append(manifests.resources[0])
+        if manifests.default_resources != None:
+            expect(not manifests.default_resources[1])
+            srcs.append(manifests.default_resources[0])
         if manifests.extensions != None:
-            python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
-            toolchain_info = get_cxx_toolchain_info(ctx)
-            items = manifests.extensions.items()
-            expect(len(items) == 1)
-            extension = items[0][0]
+            ((extension, _),) = manifests.extensions.items()
+            extensions[extension] = dep
+
+    # We support two modes of linking:
+    # - omnibus: All native deps of all extensions are linked into a shared DSO
+    # - static-everything: Each extension statically links all its deps (note
+    #       this can mean each extension gets its own copy of common deps).
+    if ctx.attrs.omnibus:
+        deps = extensions.values()
+        linkable_graph = create_linkable_graph(
+            ctx = ctx,
+            deps = deps,
+        )
+        omnibus_graph = get_omnibus_graph(
+            graph = linkable_graph,
+            roots = get_roots(deps),
+            excluded = {},
+        )
+
+        # Link omnibus libraries.
+        omnibus_libs = create_omnibus_libraries(
+            ctx,
+            omnibus_graph,
+            extra_ldflags = python_toolchain.wheel_linker_flags,
+            extra_root_ldflags = {
+                dep.label: (
+                    python_toolchain.extension_linker_flags +
+                    [
+                        "-Wl,-rpath,{}".format(_rpath(extension, rpath))
+                        for rpath in rpaths
+                    ]
+                )
+                for extension, dep in extensions.items()
+            },
+        )
+
+        # Extract re-linked extensions.
+        extensions = {
+            dest: omnibus_libs.roots[dep.label].shared_library
+            for dest, dep in extensions.items()
+        }
+        shared_libs = omnibus_libs.libraries
+    else:
+        for extension, dep in extensions.items():
             root = dep[LinkableRootInfo]
 
             # Add link inputs for the linkable root and any deps.
@@ -145,6 +257,10 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                     prefer_stripped = ctx.attrs.prefer_stripped_objects,
                 ))
 
+                # Record shared libs we need to package.
+                if output_style == LibOutputStyle("shared_lib"):
+                    shared_libs.extend(node.shared_libs.libraries)
+
             # link the rule
             link_result = cxx_link_shared_library(
                 ctx = ctx,
@@ -152,6 +268,11 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                 opts = link_options(
                     links = [
                         LinkArgs(flags = python_toolchain.extension_linker_flags),
+                        LinkArgs(flags = python_toolchain.wheel_linker_flags),
+                        LinkArgs(flags = [
+                            "-Wl,-rpath,{}".format(_rpath(extension, rpath))
+                            for rpath in rpaths
+                        ]),
                         LinkArgs(infos = inputs),
                     ],
                     category_suffix = "native_extension",
@@ -160,6 +281,27 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                 ),
             )
             extensions[extension] = link_result.linked_object
+
+    # Add sub-target for extensions.
+    sub_targets["extensions"] = [
+        DefaultInfo(
+            sub_targets = {
+                name: [DefaultInfo(default_output = ext.output)]
+                for name, ext in extensions.items()
+            },
+        ),
+    ]
+
+    # Add shlibs manifest.
+    if shared_libs:
+        srcs.append(
+            create_manifest_for_shared_libs(
+                actions = ctx.actions,
+                name = "shared_libs.txt",
+                shared_libs = shared_libs,
+                lib_dir = lib_dir,
+            ),
+        )
 
     if extensions:
         srcs.append(
@@ -173,30 +315,97 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             ),
         )
 
-    for manifest in srcs:
-        cmd.append(cmd_args(manifest.manifest, format = "--srcs={}"))
-        for a, _ in manifest.artifacts:
-            hidden.append(a)
+    # Add in resources for the current rule.
+    if ctx.attrs.resources:
+        srcs.append(
+            create_manifest_for_entries(
+                ctx,
+                name = "resources.txt",
+                entries = [
+                    (dest, maybe_patchelf(dest, resource), str(ctx.label.raw_target()))
+                    for dest, resource in ctx.attrs.resources.items()
+                ],
+            ),
+        )
 
-    ctx.actions.run(cmd_args(cmd, hidden = hidden), category = "wheel")
-    providers.append(DefaultInfo(default_output = wheel))
+    name_parts = [
+        dist,
+        ctx.attrs.version,
+        ctx.attrs.python,
+        ctx.attrs.abi,
+        ctx.attrs.platform,
+    ]
+
+    # Action to create wheel.
+    wheel = ctx.actions.declare_output("{}.whl".format("-".join(name_parts)))
+    whl_cmd = _whl_cmd(ctx = ctx, output = wheel, manifests = srcs)
+    ctx.actions.run(whl_cmd, category = "wheel")
+
+    # Create symlink tree for inplace module layout.
+    manifest_args = []
+    manifest_srcs = []
+    for manifest in srcs:
+        manifest_args.append(cmd_args(manifest.manifest, format = "--manifest={}"))
+        for a, _ in manifest.artifacts:
+            manifest_srcs.append(a)
+    link_tree = ctx.actions.declare_output("__editable__/tree.d", dir = True)
+    link_tree_cmd = cmd_args(
+        ctx.attrs._create_link_tree[RunInfo],
+        cmd_args(link_tree.as_output(), format = "--output={}"),
+        manifest_args,
+    )
+    ctx.actions.run(link_tree_cmd, category = "link_tree")
+
+    # Create <dist>.pth to put in the wheel and points to the symlink tree.
+    pth = ctx.actions.declare_output("__editable__/{}.pth".format(dist))
+    pth_cmd = cmd_args(
+        "sh",
+        "-c",
+        # We need to embed an absolute paths to the link-tree into the `.pth` file.
+        # so we'll also make sure this rule is local-only.
+        'echo "$PWD/$2" > $1',
+        "",
+        pth.as_output(),
+        # We don't care about the link tree contents, so prevent it from affecting
+        # the cache key.
+        cmd_args(link_tree, ignore_artifacts = True),
+    )
+    ctx.actions.run(pth_cmd, category = "pth", local_only = True)
+
+    # Action to create editable wheel.
+    ewheel = ctx.actions.declare_output("__editable__/{}.whl".format("-".join(name_parts)))
+    ewhl_cmd = _whl_cmd(ctx = ctx, output = ewheel, srcs = {"{}.pth".format(dist): pth})
+    ctx.actions.run(ewhl_cmd, category = "editable_wheel")
+    sub_targets["editable"] = [
+        DefaultInfo(
+            default_output = ewheel,
+            other_outputs = (
+                manifest_srcs +
+                [link_tree]
+            ),
+        ),
+    ]
+
+    providers.append(DefaultInfo(default_output = wheel, sub_targets = sub_targets))
 
     return providers
 
+_default_python = select({
+    "ovr_config//third-party/python/constraints:3.10": "py3.10",
+    "ovr_config//third-party/python/constraints:3.11": "py3.11",
+    "ovr_config//third-party/python/constraints:3.12": "py3.12",
+    "ovr_config//third-party/python/constraints:3.8": "py3.8",
+    "ovr_config//third-party/python/constraints:3.9": "py3.9",
+})
+
 python_wheel = rule(
     impl = _impl,
-    cfg = constraint_overrides_transition,
+    cfg = constraint_overrides.transition,
     attrs = dict(
         dist = attrs.option(attrs.string(), default = None),
         version = attrs.string(default = "1.0.0"),
         python = attrs.string(
-            default = select({
-                "ovr_config//third-party/python/constraints:3.10": "py3.10",
-                "ovr_config//third-party/python/constraints:3.11": "py3.11",
-                "ovr_config//third-party/python/constraints:3.12": "py3.12",
-                "ovr_config//third-party/python/constraints:3.8": "py3.8",
-                "ovr_config//third-party/python/constraints:3.9": "py3.9",
-            }),
+            # @oss-disable[end= ]: default = _default_python,
         ),
         entry_points = attrs.dict(
             key = attrs.string(),
@@ -216,17 +425,25 @@ python_wheel = rule(
         platform = attrs.string(
             default = select({
                 "DEFAULT": "any",
-                "ovr_config//os:linux-arm64": "linux_aarch64",
-                "ovr_config//os:linux-x86_64": "linux_x86_64",
+                # @oss-disable[end= ]: "ovr_config//os:linux-arm64": "linux_aarch64",
+                # @oss-disable[end= ]: "ovr_config//os:linux-x86_64": "linux_x86_64",
             }),
         ),
-        constraint_overrides = attrs.list(attrs.string(), default = []),
+        omnibus = attrs.bool(default = False),
         libraries = attrs.list(attrs.dep(providers = [PythonLibraryInfo]), default = []),
         scripts = attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
         libraries_query = attrs.option(attrs.query(), default = None),
         prefer_stripped_objects = attrs.default_only(attrs.bool(default = False)),
+        resources = attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
+        rpaths = attrs.list(attrs.string(), default = []),
+        lib_dir = attrs.option(attrs.string(), default = None),
+        support_future_python_versions = attrs.bool(default = False),
+        labels = attrs.list(attrs.string(), default = []),
+        link_execution_preference = link_execution_preference_attr(),
         _wheel = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:wheel")),
+        _patchelf = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:patchelf")),
+        _create_link_tree = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:create_link_tree")),
         _cxx_toolchain = toolchains_common.cxx(),
         _python_toolchain = toolchains_common.python(),
-    ),
+    ) | constraint_overrides.attributes,
 )

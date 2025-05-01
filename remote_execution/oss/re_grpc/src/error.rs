@@ -18,6 +18,7 @@ use thiserror::Error;
 pub struct REClientError {
     pub message: String,
     pub code: TCode,
+    pub group: TCodeReasonGroup,
 }
 
 #[derive(Debug, Clone, Dupe, Default)]
@@ -61,5 +62,18 @@ impl Display for TCode {
         } else {
             write!(f, "UNKNOWN")
         }
+    }
+}
+
+#[derive(Copy, Debug, PartialEq, Eq, Clone, Dupe, Default)]
+pub struct TCodeReasonGroup(pub i32);
+
+impl TCodeReasonGroup {
+    pub const UNKNOWN: Self = TCodeReasonGroup(0i32);
+}
+
+impl Display for TCodeReasonGroup {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "UNKNOWN")
     }
 }

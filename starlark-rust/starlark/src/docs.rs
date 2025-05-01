@@ -22,25 +22,25 @@
 
 pub mod code;
 pub mod markdown;
+pub mod multipage;
 mod parse;
+#[cfg(test)]
+mod tests;
 
-use std::collections::HashMap;
 use std::iter;
 
 use allocative::Allocative;
-pub use code::render_docs_as_code;
 pub use parse::DocStringKind;
-pub use starlark_derive::StarlarkDocs;
 use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
-use crate::eval::runtime::params::display::iter_fmt_param_spec;
 pub use crate::eval::runtime::params::display::FmtParam;
+use crate::eval::runtime::params::display::iter_fmt_param_spec;
 use crate::typing::Ty;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// The documentation provided by a user for a specific module, object, function, etc.
 #[derive(Debug, Clone, PartialEq, Trace, Default, Allocative)]
@@ -52,22 +52,6 @@ pub struct DocString {
     pub details: Option<String>,
 }
 
-/// The file a symbol resides in, and if available its location within that file.
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct Location {
-    /// `path` is a string that can be passed into `load()` statements.
-    pub path: String,
-}
-
-/// The main identifier for a symbol.
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct Identifier {
-    /// The name of the symbol (e.g. the function name, a name or path for a module, etc).
-    pub name: String,
-    /// Where the symbol is located, or absent if it is a built-in symbol.
-    pub location: Option<Location>,
-}
-
 /// The documentation for a module/namespace.
 ///
 /// See the docs on [`DocType`] for the distinction between that type and this one.
@@ -75,6 +59,24 @@ pub struct Identifier {
 pub struct DocModule {
     pub docs: Option<DocString>,
     pub members: SmallMap<String, DocItem>,
+}
+
+impl DocModule {
+    pub fn filter<P>(self, mut predicate: P) -> Self
+    where
+        P: FnMut(&(String, DocItem)) -> bool,
+    {
+        let members = self
+            .members
+            .into_iter()
+            .filter(|member| predicate(member))
+            .collect();
+
+        Self {
+            docs: self.docs,
+            members,
+        }
+    }
 }
 
 /// Documents a single function.
@@ -90,8 +92,6 @@ pub struct DocFunction {
     pub params: DocParams,
     /// Details about what this function returns.
     pub ret: DocReturn,
-    /// Does this function act as type?
-    pub as_type: Option<Ty>,
 }
 
 impl DocFunction {
@@ -211,7 +211,7 @@ impl DocMember {
         // If we have a value which is a complex type, the right type to put in the docs is not the type
         // it represents, but it's just a property we should point at
         match value.documentation() {
-            Some(DocItem::Member(x)) => x,
+            DocItem::Member(x) => x,
             _ => DocMember::Property(DocProperty {
                 docs: None,
                 typ: value.get_type_starlark_repr(),
@@ -234,6 +234,7 @@ pub struct DocType {
     /// Name and details of each attr/function that can be accessed on this type.
     pub members: SmallMap<String, DocMember>,
     pub ty: Ty,
+    pub constructor: Option<DocFunction>,
 }
 
 impl DocType {
@@ -245,6 +246,7 @@ impl DocType {
                 docs: None,
                 members: SmallMap::new(),
                 ty,
+                constructor: None,
             },
         }
     }
@@ -287,6 +289,13 @@ impl DocItem {
             })),
         }
     }
+
+    pub fn try_as_member(&self) -> Option<DocMember> {
+        match self {
+            DocItem::Member(m) => Some(m.clone()),
+            _ => None,
+        }
+    }
 }
 
 impl DocMember {
@@ -313,71 +322,5 @@ impl DocParam {
     /// Get the summary of the underlying [`DocString`] for this item, if it exists.
     pub fn get_doc_summary(&self) -> Option<&str> {
         self.get_doc_string().map(|ds| ds.summary.as_str())
-    }
-}
-
-/// The main structure that represents the documentation for a given symbol / module.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Doc {
-    pub id: Identifier,
-    pub item: DocItem,
-    /// Custom key-value pairs that are not interpreted directly by starlark, and can be
-    /// used as arbitrary data for documentation tooling.
-    pub custom_attrs: HashMap<String, String>,
-}
-
-impl Doc {
-    pub fn named_item(name: String, item: DocItem) -> Self {
-        Doc {
-            id: Identifier {
-                name,
-                location: None,
-            },
-            item,
-            custom_attrs: HashMap::new(),
-        }
-    }
-}
-
-/// Get documentation for all items registered with `#[derive(StarlarkDocs)]`
-///
-/// Note: Because `StarlarkDocs` uses the inventory crate under the hood, in statically linked
-/// binaries, documentation from all compiled crates in the binary will be included.
-///
-/// For dynamically linked binaries, documentation will only be able to retrieved after the crate's
-/// library is `dlopen()`ed.
-pub fn get_registered_starlark_docs() -> Vec<Doc> {
-    inventory::iter::<RegisteredDoc>
-        .into_iter()
-        .filter_map(|d| (d.getter)())
-        .collect()
-}
-
-#[doc(hidden)]
-pub struct RegisteredDoc {
-    pub getter: fn() -> Option<Doc>,
-}
-
-inventory::collect!(RegisteredDoc);
-
-impl RegisteredDoc {
-    /// This function is called from generated code.
-    pub fn for_type<'v, T: StarlarkValue<'v>>(custom_attrs: &[(&str, &str)]) -> Option<Doc> {
-        let name = T::TYPE.to_owned();
-        let id = Identifier {
-            name,
-            location: None,
-        };
-        let ty = T::get_type_starlark_repr();
-        let item = DocItem::Type(T::get_methods()?.documentation(ty));
-        let custom_attrs = custom_attrs
-            .iter()
-            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
-            .collect();
-        Some(Doc {
-            id,
-            item,
-            custom_attrs,
-        })
     }
 }

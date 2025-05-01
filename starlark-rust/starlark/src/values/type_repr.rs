@@ -18,16 +18,17 @@
 //! Trait and default implementations of a trait that will show starlark type annotations for a
 //! given type.
 
+use std::marker::PhantomData;
+
 use either::Either;
 pub use starlark_derive::StarlarkTypeRepr;
 
 use crate::typing::Ty;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
 use crate::values::list::ListType;
 use crate::values::none::NoneType;
 use crate::values::string::str_type::StarlarkStr;
-use crate::values::Heap;
-use crate::values::StarlarkValue;
-use crate::values::Value;
 
 /// Provides a starlark type representation, even if StarlarkValue is not implemented.
 ///
@@ -64,7 +65,23 @@ pub trait StarlarkTypeRepr {
     fn starlark_type_repr() -> Ty;
 }
 
-impl<'v, T: StarlarkValue<'v> + ?Sized> StarlarkTypeRepr for T {
+/// A set used just for display purposes.
+///
+/// `SetOf` requires `Unpack` to be implemented, and `Set` does not take type parameters so
+/// we need something for documentation generation.
+pub struct SetType<T: StarlarkTypeRepr> {
+    t: PhantomData<T>,
+}
+
+impl<T: StarlarkTypeRepr> StarlarkTypeRepr for SetType<T> {
+    type Canonical = SetType<T::Canonical>;
+
+    fn starlark_type_repr() -> Ty {
+        Ty::set(T::starlark_type_repr())
+    }
+}
+
+impl<'v, T: StarlarkValue<'v>> StarlarkTypeRepr for T {
     type Canonical = Self;
 
     fn starlark_type_repr() -> Ty {
@@ -115,8 +132,8 @@ impl<TLeft: StarlarkTypeRepr, TRight: StarlarkTypeRepr> StarlarkTypeRepr for Eit
 /// Derive macros generate a reference to this method to be able to get the `type_repr` of types
 /// they can't name
 #[doc(hidden)]
-pub fn type_repr_from_attr_impl<'v, T: StarlarkTypeRepr>(
-    _f: fn(Value<'v>, &'v Heap) -> anyhow::Result<T>,
+pub fn type_repr_from_attr_impl<'v, T: StarlarkTypeRepr, V, E>(
+    _f: fn(V, &'v Heap) -> Result<T, E>,
 ) -> Ty {
     T::starlark_type_repr()
 }
@@ -125,9 +142,9 @@ pub fn type_repr_from_attr_impl<'v, T: StarlarkTypeRepr>(
 mod tests {
     use crate::tests::util::TestComplexValue;
     use crate::util::non_static_type_id::non_static_type_id;
-    use crate::values::type_repr::StarlarkTypeRepr;
     use crate::values::FrozenValue;
     use crate::values::Value;
+    use crate::values::type_repr::StarlarkTypeRepr;
 
     #[test]
     fn test_canonical_for_complex_value() {

@@ -171,9 +171,9 @@ mod tests {
     use starlark_syntax::codemap::ResolvedPos;
     use starlark_syntax::syntax::module::AstModuleFields;
 
-    use super::find_symbols_at_location;
     use super::Symbol;
     use super::SymbolKind;
+    use super::find_symbols_at_location;
 
     #[test]
     fn global_symbols() {

@@ -39,6 +39,14 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::private::Private;
 use crate::typing::Ty;
+use crate::values::FreezeResult;
+use crate::values::Freezer;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::Tracer;
+use crate::values::Value;
 use crate::values::demand::Demand;
 use crate::values::int::pointer_i32::PointerI32;
 use crate::values::layout::avalue::AValue;
@@ -50,13 +58,6 @@ use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::traits::StarlarkValueVTable;
 use crate::values::traits::StarlarkValueVTableGet;
-use crate::values::Freezer;
-use crate::values::FrozenStringValue;
-use crate::values::FrozenValue;
-use crate::values::Heap;
-use crate::values::StarlarkValue;
-use crate::values::Tracer;
-use crate::values::Value;
 
 /// Untyped raw pointer to `StarlarkValue` without vtable.
 ///
@@ -103,7 +104,7 @@ impl StarlarkValueRawPtr {
 
     #[inline]
     pub(crate) unsafe fn value_ref<'v, T: StarlarkValue<'v>>(self) -> &'v T {
-        &*self.value_ptr()
+        unsafe { &*self.value_ptr() }
     }
 }
 
@@ -124,7 +125,7 @@ pub(crate) struct AValueVTable {
     // `AValue`
     pub(crate) is_str: bool,
     memory_size: fn(StarlarkValueRawPtr) -> ValueAllocSize,
-    heap_freeze: fn(StarlarkValueRawPtr, &Freezer) -> anyhow::Result<FrozenValue>,
+    heap_freeze: fn(StarlarkValueRawPtr, &Freezer) -> FreezeResult<FrozenValue>,
     heap_copy: for<'v> fn(StarlarkValueRawPtr, &Tracer<'v>) -> Value<'v>,
 
     // `StarlarkValue` supertraits.
@@ -134,9 +135,9 @@ pub(crate) struct AValueVTable {
     allocative: unsafe fn(StarlarkValueRawPtr) -> *const dyn Allocative,
 }
 
-struct GetTypeId<'v, T: StarlarkValue<'v> + ?Sized>(PhantomData<&'v T>);
+struct GetTypeId<'v, T: StarlarkValue<'v>>(PhantomData<&'v T>);
 
-impl<'v, T: StarlarkValue<'v> + ?Sized> GetTypeId<'v, T> {
+impl<'v, T: StarlarkValue<'v>> GetTypeId<'v, T> {
     const TYPE_ID: ConstTypeId = ConstTypeId::of::<<T as ProvidesStaticType>::StaticType>();
     const STARLARK_TYPE_ID: StarlarkTypeId = StarlarkTypeId::of::<T>();
 }
@@ -300,7 +301,7 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) unsafe fn heap_freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenValue> {
+    pub(crate) unsafe fn heap_freeze(self, freezer: &Freezer) -> FreezeResult<FrozenValue> {
         (self.vtable.heap_freeze)(self.value, freezer)
     }
 
@@ -310,7 +311,7 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) fn documentation(self) -> Option<DocItem> {
+    pub(crate) fn documentation(self) -> DocItem {
         (self.vtable.starlark_value.documentation)(self.value)
     }
 

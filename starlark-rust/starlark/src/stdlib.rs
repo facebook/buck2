@@ -21,6 +21,7 @@
 use dupe::Dupe;
 
 use crate::environment::GlobalsBuilder;
+use crate::values::namespace::globals::register_namespace;
 
 pub(crate) mod breakpoint;
 pub(crate) mod call_stack;
@@ -37,6 +38,7 @@ use crate::stdlib::internal::register_internal;
 use crate::values::enumeration::globals::register_enum;
 use crate::values::record::globals::register_record;
 use crate::values::structs::structs::register_struct;
+use crate::values::types::set::set::register_set;
 use crate::values::typing;
 
 /// Return the default global environment, it is not yet frozen so that a caller
@@ -57,6 +59,9 @@ pub enum LibraryExtension {
     RecordType,
     /// Definitions to support the `enum` type, the `enum()` constructor.
     EnumType,
+    /// Add a function `namespace()` which acts much like `struct()` but is clear about it's
+    /// intended use and stricter
+    NamespaceType,
     /// A function `map(f, xs)` which applies `f` to each element of `xs` and returns the result.
     // TODO(nga): add set: https://www.internalfb.com/tasks/?t=184017710
     Map,
@@ -91,6 +96,8 @@ pub enum LibraryExtension {
     /// Add a function `call_stack()` which returns a string representation of
     /// the current call stack.
     CallStack,
+    /// Definitions to support the `set` type, the `set()` constructor.
+    SetType,
     // Make sure if you add anything new, you add it to `all` below.
 }
 
@@ -99,8 +106,24 @@ impl LibraryExtension {
     pub(crate) fn all() -> &'static [Self] {
         use LibraryExtension::*;
         &[
-            StructType, RecordType, EnumType, Map, Filter, Partial, Debug, Print, Pprint, Pstr,
-            Prepr, Breakpoint, Json, Typing, Internal, CallStack,
+            StructType,
+            RecordType,
+            EnumType,
+            NamespaceType,
+            Map,
+            Filter,
+            Partial,
+            Debug,
+            Print,
+            Pprint,
+            Pstr,
+            Prepr,
+            Breakpoint,
+            Json,
+            Typing,
+            Internal,
+            CallStack,
+            SetType,
         ]
     }
 
@@ -109,8 +132,10 @@ impl LibraryExtension {
         use LibraryExtension::*;
         match self {
             StructType => register_struct(builder),
+            NamespaceType => register_namespace(builder),
             RecordType => register_record(builder),
             EnumType => register_enum(builder),
+            SetType => register_set(builder),
             Map => extra::map(builder),
             Filter => extra::filter(builder),
             Partial => partial::partial(builder),
@@ -135,9 +160,9 @@ mod tests {
     use allocative::Allocative;
     use derive_more::Display;
     use dupe::Dupe;
+    use starlark_derive::NoSerialize;
     use starlark_derive::starlark_module;
     use starlark_derive::starlark_value;
-    use starlark_derive::NoSerialize;
 
     use crate as starlark;
     use crate::any::ProvidesStaticType;
@@ -147,11 +172,11 @@ mod tests {
     use crate::environment::MethodsBuilder;
     use crate::environment::MethodsStatic;
     use crate::starlark_simple_value;
-    use crate::values::none::NoneType;
     use crate::values::StarlarkValue;
     use crate::values::UnpackValue;
     use crate::values::Value;
     use crate::values::ValueLike;
+    use crate::values::none::NoneType;
 
     #[test]
     fn test_no_arg() {
@@ -214,7 +239,7 @@ mod tests {
         #[starlark_module]
         fn methods(builder: &mut MethodsBuilder) {
             #[starlark(attribute)]
-            fn invert1(this: Bool2) -> anyhow::Result<Bool2> {
+            fn invert1(this: Bool2) -> starlark::Result<Bool2> {
                 Ok(Bool2(!this.0))
             }
 

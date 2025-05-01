@@ -12,11 +12,6 @@ pub mod calculation;
 pub mod deferred;
 pub mod promise;
 
-use crate::actions::calculation::BuildKey;
-use crate::deferred::calculation::GET_PROMISED_ARTIFACT;
-
-pub mod registry;
-
 use std::hash::Hash;
 use std::sync::Arc;
 
@@ -30,8 +25,10 @@ use gazebo::variants::UnpackVariants;
 use static_assertions::assert_eq_size;
 
 use self::calculation::EnsureTransitiveSetProjectionKey;
+use crate::actions::calculation::BuildKey;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::promise::PromiseArtifact;
+use crate::deferred::calculation::GET_PROMISED_ARTIFACT;
 
 /// An [ArtifactGroup] can expand to one or more [Artifact]. Those Artifacts will be made available
 /// to Actions when they execute.
@@ -64,7 +61,7 @@ impl ArtifactGroup {
     pub async fn resolved_artifact(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<ResolvedArtifactGroup> {
+    ) -> buck2_error::Result<ResolvedArtifactGroup> {
         Ok(match self {
             ArtifactGroup::Artifact(a) => ResolvedArtifactGroup::Artifact(a.clone()),
             ArtifactGroup::TransitiveSetProjection(a) => {

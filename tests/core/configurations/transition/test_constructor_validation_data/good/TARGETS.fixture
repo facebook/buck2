@@ -1,0 +1,5 @@
+# @nolint
+
+load(":good.bzl", "good")
+
+_keep_the_import = good

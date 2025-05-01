@@ -1,0 +1,29 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+DEBUG_CMD = "BuckDebuggerCommand"
+DEBUG_ARGS = "BuckDebuggerCommandArguments"
+DEBUG_PWD = "BuckDebuggerCommandWorkingDirectory"
+DEBUG_ENV = "BuckDebuggerEnvironment"
+
+ADDITIONAL_TARGETS = "AdditionalTargets"
+EXTRA_BUCK_OPTIONS = "ExtraBuckOptions"
+IMMEDIATE_BUCK_OPTIONS = "ImmediateBuckOptions"
+
+BY_MODES = "ByModes"
+
+CXXFLAGS = "cxxflags"
+CXXPPFLAGS = "cxxppflags"
+FLAGS_LOCATION = "flags_location"
+LDFLAGS = "ldflags"
+TOOLSET = "toolset"
+LANGUAGE_STANDARD = "language_standard"
+
+ANDROID = "android"
+CLANG = "clang"
+VS2019 = "vs2019"
+VS2022 = "vs2022"

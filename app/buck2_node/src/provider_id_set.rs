@@ -14,7 +14,16 @@ use allocative::Allocative;
 use buck2_core::provider::id::ProviderId;
 use dupe::Dupe;
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
+#[derive(
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    Clone,
+    Dupe,
+    Allocative,
+    strong_hash::StrongHash
+)]
 pub struct ProviderIdSet(Option<Arc<Vec<Arc<ProviderId>>>>);
 
 impl ProviderIdSet {

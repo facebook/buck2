@@ -17,7 +17,7 @@ load(
     "CxxSrcWithFlags",  # @unused Used as a type
 )
 load("@prelude//cxx:xcode.bzl", "cxx_populate_xcode_attributes")
-load("@prelude//ide_integrations:xcode.bzl", "XcodeDataInfoKeys")
+load("@prelude//ide_integrations/xcode:data.bzl", "XcodeDataInfoKeys")
 load("@prelude//utils:expect.bzl", "expect")
 
 def apple_populate_xcode_attributes(

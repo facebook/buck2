@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
-use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use starlark::values::Value;
 
 use crate::attrs::resolve::ctx::AttrResolutionContext;
@@ -16,8 +16,8 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 pub(crate) trait ConfigurationDepAttrTypeExt {
     fn resolve_single<'v>(
         ctx: &dyn AttrResolutionContext<'v>,
-        label: &ConfigurationSettingKey,
-    ) -> anyhow::Result<Value<'v>> {
+        label: &ProvidersLabel,
+    ) -> buck2_error::Result<Value<'v>> {
         Ok(ctx.heap().alloc(label.to_string()))
     }
 }

@@ -5,14 +5,16 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_disable_pch_validation_flags")
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_clang_deps_tset")
 load(
     ":swift_debug_info_utils.bzl",
     "extract_and_merge_clang_debug_infos",
 )
-load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
+load(":swift_sdk_flags.bzl", "get_sdk_flags")
+load(":swift_toolchain.bzl", "get_swift_toolchain_info_dep")
+load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "SwiftToolchainInfo", "WrappedSdkCompiledModuleInfo")
 
 def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
     cmd = cmd_args()
@@ -48,6 +50,11 @@ def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
         # the SDK module. I don't think this is actually avoidable or removable until the next xcode major version
         "-Xcc",
         "-Wno-error=#warnings",
+        # When compiling PCMs with the new Swift driver, we need to manually set -file-compilation-dir.
+        # If not defined, the driver will append this path automatically,
+        # resulting in the emission of absolute paths in the PCMs.
+        "-file-compilation-dir",
+        ".",
     ])
 
     cmd.add(get_disable_pch_validation_flags())
@@ -59,7 +66,7 @@ def _remove_path_components_from_right(path: str, count: int):
     removed_path = "/".join(path_components[0:-count])
     return removed_path
 
-def _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, apple_toolchain):
+def _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, swift_toolchain_info):
     modulemap_path = uncompiled_sdk_module_info.input_relative_path
 
     # If this input is a framework we need to search above the
@@ -67,20 +74,10 @@ def _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, apple_toolchain
     # modulemap root.
     if uncompiled_sdk_module_info.is_framework:
         frameworks_dir_path = _remove_path_components_from_right(modulemap_path, 3)
-        expanded_path = expand_relative_prefixed_sdk_path(
-            cmd_args(apple_toolchain.swift_toolchain_info.sdk_path),
-            cmd_args(apple_toolchain.swift_toolchain_info.resource_dir),
-            cmd_args(apple_toolchain.platform_path),
-            frameworks_dir_path,
-        )
+        expanded_path = expand_relative_prefixed_sdk_path(swift_toolchain_info, frameworks_dir_path)
     else:
         module_root_path = _remove_path_components_from_right(modulemap_path, 1)
-        expanded_path = expand_relative_prefixed_sdk_path(
-            cmd_args(apple_toolchain.swift_toolchain_info.sdk_path),
-            cmd_args(apple_toolchain.swift_toolchain_info.resource_dir),
-            cmd_args(apple_toolchain.platform_path),
-            module_root_path,
-        )
+        expanded_path = expand_relative_prefixed_sdk_path(swift_toolchain_info, module_root_path)
     cmd.add([
         "-Xcc",
         ("-F" if uncompiled_sdk_module_info.is_framework else "-I"),
@@ -101,7 +98,7 @@ def get_swift_sdk_pcm_anon_targets(
             "enable_cxx_interop": enable_cxx_interop,
             "name": module_dep.label,
             "swift_cxx_args": swift_cxx_args,
-            "_apple_toolchain": ctx.attrs._apple_toolchain,
+            "_swift_toolchain": get_swift_toolchain_info_dep(ctx),
         })
         for module_dep in uncompiled_sdk_deps
     ]
@@ -124,15 +121,14 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             ]
 
         module_name = uncompiled_sdk_module_info.module_name
-        apple_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
-        swift_toolchain = apple_toolchain.swift_toolchain_info
+        swift_toolchain = ctx.attrs._swift_toolchain[SwiftToolchainInfo]
         cmd = cmd_args(swift_toolchain.compiler)
-        cmd.add(uncompiled_sdk_module_info.partial_cmd)
-        cmd.add(["-sdk", swift_toolchain.sdk_path])
-        cmd.add(swift_toolchain.compiler_flags)
+        argsfile_cmd = cmd_args(uncompiled_sdk_module_info.partial_cmd)
+        argsfile_cmd.add(get_sdk_flags(ctx))
+        argsfile_cmd.add(swift_toolchain.compiler_flags)
 
         if swift_toolchain.resource_dir:
-            cmd.add([
+            argsfile_cmd.add([
                 "-resource-dir",
                 swift_toolchain.resource_dir,
             ])
@@ -140,28 +136,15 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
         if not swift_toolchain.supports_relative_resource_dir:
             # When the compiler does not correctly serialize builtin header paths
             # we need to specify the CWD as a search path to find the headers.
-            cmd.add([
+            argsfile_cmd.add([
                 "-Xcc",
                 "-I.",
             ])
 
-        cmd.add(sdk_deps_tset.project_as_args("clang_module_file_flags"))
-
-        expanded_modulemap_path_cmd = expand_relative_prefixed_sdk_path(
-            cmd_args(swift_toolchain.sdk_path),
-            cmd_args(swift_toolchain.resource_dir),
-            cmd_args(apple_toolchain.platform_path),
-            uncompiled_sdk_module_info.input_relative_path,
-        )
-        pcm_output = ctx.actions.declare_output(module_name + ".pcm")
-        cmd.add([
-            "-o",
-            pcm_output.as_output(),
-            expanded_modulemap_path_cmd,
-        ])
+        argsfile_cmd.add(sdk_deps_tset.project_as_args("clang_module_file_flags"))
 
         # For SDK modules we need to set a few more args
-        cmd.add([
+        argsfile_cmd.add([
             "-Xcc",
             "-Xclang",
             "-Xcc",
@@ -172,14 +155,14 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             "-fsystem-module",
         ])
 
-        cmd.add(ctx.attrs.swift_cxx_args)
+        argsfile_cmd.add(ctx.attrs.swift_cxx_args)
 
         if ctx.attrs.enable_cxx_interop:
             # The stdlib headers have deprecation warnings set when targeting
             # more recent versions. These warnings get serialized in the
             # modules and make it impossible to import the std module, so
             # suppress them during compilation instead.
-            cmd.add([
+            argsfile_cmd.add([
                 "-Xcc",
                 "-D_LIBCPP_DISABLE_DEPRECATION_WARNINGS",
             ])
@@ -192,12 +175,28 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
                 # cxx modules are visible we need to pass the module map path
                 # without the corresponding module file, which we cannot build
                 # until the Darwin module is available.
-                cmd.add([
+                argsfile_cmd.add([
                     "-Xcc",
                     cmd_args(swift_toolchain.sdk_path, format = "-fmodule-map-file={}/usr/include/c++/v1/module.modulemap"),
                 ])
 
-        _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, apple_toolchain)
+        _add_sdk_module_search_path(argsfile_cmd, uncompiled_sdk_module_info, swift_toolchain)
+
+        shell_quoted_args = cmd_args(argsfile_cmd, quote = "shell")
+        argsfile, _ = ctx.actions.write("sdk_pcm_compile_argsfile", shell_quoted_args, allow_args = True)
+        cmd.add(cmd_args(argsfile, format = "@{}", delimiter = ""))
+        cmd.add(cmd_args(hidden = [argsfile_cmd]))
+
+        expanded_modulemap_path_cmd = expand_relative_prefixed_sdk_path(
+            swift_toolchain,
+            uncompiled_sdk_module_info.input_relative_path,
+        )
+        pcm_output = ctx.actions.declare_output(module_name + ".pcm")
+        cmd.add([
+            "-o",
+            pcm_output.as_output(),
+            expanded_modulemap_path_cmd,
+        ])
 
         ctx.actions.run(
             cmd,
@@ -205,6 +204,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             identifier = module_name,
             # Swift compiler requires unique inodes for all input files.
             unique_input_inodes = True,
+            error_handler = apple_build_error_handler,
         )
 
         # Construct the args needed to be passed to the clang importer
@@ -267,6 +267,6 @@ _swift_sdk_pcm_compilation = rule(
         "dep": attrs.dep(),
         "enable_cxx_interop": attrs.bool(),
         "swift_cxx_args": attrs.list(attrs.string(), default = []),
-        "_apple_toolchain": attrs.dep(),
+        "_swift_toolchain": attrs.dep(),
     },
 )

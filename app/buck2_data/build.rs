@@ -124,6 +124,7 @@ fn main() -> io::Result<()> {
         .type_attribute("buck.data.CommandExecutionStats", "#[derive(Copy, dupe::Dupe)]")
         .type_attribute(".", "#[derive(::serde::Serialize, ::serde::Deserialize)]")
         .type_attribute(".", "#[derive(::allocative::Allocative)]")
+        .type_attribute("buck.data.SoftError", "#[derive(Eq, Hash)]")
         .field_attribute(
             "timestamp",
             "#[serde(with = \"crate::serialize_timestamp\")]",

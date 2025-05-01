@@ -6,18 +6,20 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-anyhow = { workspace = true }
 async-trait = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
+itertools = { workspace = true }
 
 allocative = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
+ref-cast = { workspace = true }
 starlark_map = { workspace = true }
 
 buck2_build_api = { workspace = true }
+buck2_build_signals = { workspace = true }
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
 buck2_error = { workspace = true }

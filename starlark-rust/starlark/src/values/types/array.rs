@@ -35,15 +35,15 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::cast::transmute;
 use crate::private::Private;
-use crate::values::layout::avalue::alloc_static;
-use crate::values::layout::avalue::AValue;
-use crate::values::layout::avalue::AValueArray;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::types::list::value::display_list;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
+use crate::values::layout::avalue::AValue;
+use crate::values::layout::avalue::AValueArray;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::types::list::value::display_list;
 
 /// Fixed-capacity list.
 ///
@@ -168,8 +168,10 @@ impl<'v> Array<'v> {
     }
 
     unsafe fn get_unchecked(&self, index: usize) -> Value<'v> {
-        debug_assert!(index < self.len());
-        *self.ptr_at(index)
+        unsafe {
+            debug_assert!(index < self.len());
+            *self.ptr_at(index)
+        }
     }
 
     pub(crate) fn set_at(&self, index: usize, value: Value<'v>) {

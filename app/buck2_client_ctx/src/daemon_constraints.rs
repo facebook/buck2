@@ -29,7 +29,7 @@ pub fn get_possibly_nested_invocation_daemon_uuid() -> Option<String> {
 /// the constraints that the client would like the daemon to have are generated separately.
 pub fn gen_daemon_constraints(
     daemon_startup_config: &DaemonStartupConfig,
-) -> anyhow::Result<buck2_cli_proto::DaemonConstraints> {
+) -> buck2_error::Result<buck2_cli_proto::DaemonConstraints> {
     Ok(buck2_cli_proto::DaemonConstraints {
         version: version(),
         user_version: user_version()?,
@@ -45,7 +45,7 @@ pub fn version() -> String {
 
 /// Used to make sure that daemons are restarted between CI jobs if they don't properly clean up
 /// after themselves.
-pub fn user_version() -> anyhow::Result<Option<String>> {
+pub fn user_version() -> buck2_error::Result<Option<String>> {
     // This shouldn't really be necessary, but we used to check it so we'll keep it for now.
     if let Some(id) = buck2_env!("SANDCASTLE_ID", applicability = internal)? {
         return Ok(Some(id.to_owned()));

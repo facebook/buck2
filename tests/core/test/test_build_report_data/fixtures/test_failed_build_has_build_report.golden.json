@@ -1,0 +1,40 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "failures": {
+    "root//:fail_build1": "Error running analysis for <IRRELEVANT>"
+  },
+  "results": {
+    "root//:fail_build1": {
+      "configured": {
+        "<unspecified>": {
+          "configured_graph_size": null,
+          "errors": [
+            {
+              "action_error": null,
+              "cause_index": 0,
+              "error_tags": [
+                "ANALYSIS",
+                "INPUT"
+              ],
+              "message_content": "5564745075654374890"
+            }
+          ],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "FAIL"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "FAIL"
+    }
+  },
+  "strings": {
+    "5564745075654374890": "Error running analysis for <IRRELEVANT>"
+  },
+  "success": false,
+  "truncated": false
+}

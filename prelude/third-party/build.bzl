@@ -1,6 +1,6 @@
 load("@prelude//:artifacts.bzl", "ArtifactExt", "artifact_ext")
 load("@prelude//:paths.bzl", path_utils = "paths")
-load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_context.bzl", "get_opt_cxx_toolchain_info")
 load("@prelude//cxx:preprocessor.bzl", "CPreprocessorInfo")
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -24,6 +24,12 @@ def prefix_from_label(label: Label, prefix: str = "/usr/local") -> str:
     Generate a unique third-party prefix for the given label.
     """
     return path_utils.join(prefix, "{}-{}".format(label.name, sha256(str(label.raw_target()))[:7]))
+
+def _get_sh_ext(ctx: AnalysisContext) -> str | None:
+    toolchain_info = get_opt_cxx_toolchain_info(ctx)
+    if toolchain_info:
+        return toolchain_info.linker_info.shared_library_name_format.format("")
+    return None
 
 def create_third_party_build_root(
         ctx: AnalysisContext,
@@ -55,10 +61,11 @@ def create_third_party_build_root(
     for dst, path in paths:
         cmd.add("--path", dst, path)
 
+    sh_ext = _get_sh_ext(ctx)
+
     def gen(actions, output, shared_libs):
         lines = []
         if shared_libs:
-            sh_ext = get_cxx_toolchain_info(ctx).linker_info.shared_library_name_format.format("")
             for soname, shared_lib in shared_libs.items():
                 lines.append(cmd_args("--path", path_utils.join("lib", soname), shared_lib.lib.output))
 
@@ -112,6 +119,8 @@ def create_third_party_build_info(
         paths = paths,
     )
 
+    sh_ext = _get_sh_ext(ctx)
+
     # Build manifest.
     def gen_manifest(actions, output, shared_libs):
         manifest = {}
@@ -123,7 +132,6 @@ def create_third_party_build_info(
         if shared_libs:
             manifest["runtime_lib_paths"] = ["lib"]
             libs = []
-            sh_ext = get_cxx_toolchain_info(ctx).linker_info.shared_library_name_format.format("")
             for soname in shared_libs:
                 if sh_ext in soname:
                     lib = soname.split(sh_ext)[0].removeprefix("lib")

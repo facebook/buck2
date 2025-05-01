@@ -26,7 +26,7 @@ target graph.
 - testinfra wants to use `PACKAGE` values to mark a set of folders to a logical
   larger project
 - it is likely that per-target `metadata` attribute should be used in
-  [configuration factory function](cfg-modifiers/api.md).
+  configuration factory function.
 - TD wants to declare CI trigger jobs per-target or per-package, and this logic
   is to be specified in `BUCK` or `PACKAGE` files — as metadata
 

@@ -6,6 +6,10 @@ oncall("build_infra")
 rust_binary(
     name = "completion_verify",
     srcs = glob(["src/**/*.rs"]),
+    compatible_with = [
+        "ovr_config//os:linux",
+        "ovr_config//os:macos",
+    ],
     resources = select({
         "DEFAULT": {},
         "ovr_config//os:linux": {

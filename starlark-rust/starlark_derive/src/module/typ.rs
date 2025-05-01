@@ -18,28 +18,66 @@
 use dupe::Dupe;
 use proc_macro2::Ident;
 use proc_macro2::Span;
-use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::Block;
 use syn::Expr;
 use syn::Type;
-use syn::Visibility;
+use syn::spanned::Spanned;
 
 use crate::module::parse::ModuleKind;
+use crate::module::simple_param::SimpleParam;
 use crate::module::util::is_type_name;
 use crate::module::util::unpack_option;
 
 #[derive(Debug)]
 pub(crate) struct StarModule {
-    pub module_kind: ModuleKind,
-    pub visibility: Visibility,
-    // We reuse the users globals_builder to make sure `use` statements etc
-    // make sense
-    pub globals_builder: Type,
-    pub name: Ident,
-    pub attrs: Vec<Attribute>,
-    pub docstring: Option<String>,
-    pub stmts: Vec<StarStmt>,
+    pub(crate) module_kind: ModuleKind,
+    /// The input `ItemFn`, with the body replaced by an empty block, and the one parameter having
+    /// been renamed to `globals_builder`
+    pub(crate) input: syn::ItemFn,
+    pub(crate) docstring: Option<String>,
+    pub(crate) stmts: Vec<StarStmt>,
+    pub(crate) generics: StarGenerics,
+}
+
+/// The generics the user provided on the starlark module
+#[derive(Debug)]
+pub(crate) struct StarGenerics {
+    /// The user provided generics
+    ///
+    /// This is what we use to instantiate functions we define with their generics, because the `'v`
+    /// lifetime is late bound and therefore never passed as an explicit type parameter
+    generics: syn::Generics,
+    /// The user provided generics with a `'v` param added in front.
+    ///
+    /// This is what we use to *declare* generics on functions that we define, because all of our
+    /// functions want a `'v` param
+    generics_with_v: syn::Generics,
+}
+
+impl StarGenerics {
+    pub(crate) fn new(g: syn::Generics) -> Self {
+        let mut with_v = g.clone();
+        with_v
+            .params
+            .insert(0, syn::GenericParam::Lifetime(syn::parse_quote! { 'v }));
+        Self {
+            generics: g,
+            generics_with_v: with_v,
+        }
+    }
+
+    pub(crate) fn decls(&self) -> syn::ImplGenerics<'_> {
+        self.generics_with_v.split_for_impl().0
+    }
+
+    pub(crate) fn turbofish(&self) -> syn::Turbofish<'_> {
+        self.generics.split_for_impl().1.as_turbofish()
+    }
+
+    pub(crate) fn where_clause(&self) -> Option<&syn::WhereClause> {
+        self.generics_with_v.split_for_impl().2
+    }
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -59,8 +97,7 @@ pub(crate) struct StarConst {
 
 #[derive(Debug)]
 pub(crate) struct SpecialParam {
-    pub(crate) ident: Ident,
-    pub(crate) ty: Type,
+    pub(crate) param: SimpleParam,
 }
 
 #[derive(Debug)]
@@ -68,7 +105,8 @@ pub(crate) struct StarFun {
     pub name: Ident,
     pub as_type: Option<syn::Path>,
     pub attrs: Vec<Attribute>,
-    pub args: Vec<StarArg>,
+    pub this: Option<ThisParam>,
+    pub args: RegularParams,
     /// Has `&Heap` parameter.
     pub heap: Option<SpecialParam>,
     /// Has `&mut Evaluator` parameter.
@@ -86,19 +124,7 @@ pub(crate) struct StarFun {
 impl StarFun {
     /// Is this function a method? (I. e. has `this` as first parameter).
     pub(crate) fn is_method(&self) -> bool {
-        match self.args.first() {
-            Some(first) => {
-                assert!(first.source != StarArgSource::Unknown, "not yet resolved");
-                first.source == StarArgSource::This
-            }
-            None => false,
-        }
-    }
-
-    pub(crate) fn is_arguments(&self) -> bool {
-        self.args
-            .iter()
-            .any(|arg| matches!(arg.pass_style, StarArgPassStyle::Arguments))
+        self.this.is_some()
     }
 
     pub(crate) fn span(&self) -> Span {
@@ -112,7 +138,7 @@ impl StarFun {
 #[derive(Debug)]
 pub(crate) struct StarAttr {
     pub name: Ident,
-    pub arg: Type,
+    pub this: ThisParam,
     /// Has `&Heap` parameter.
     pub heap: Option<SpecialParam>,
     pub attrs: Vec<Attribute>,
@@ -125,79 +151,106 @@ pub(crate) struct StarAttr {
 
 #[derive(Debug, PartialEq, Copy, Clone, Dupe)]
 pub(crate) enum StarArgPassStyle {
-    /// Receiver.
-    This,
     /// Parameter can be filled only positionally.
     PosOnly,
-    /// Parameter can filled both positionally and by name by default,
-    /// or named only if followed by `*args` or named only.
-    Default,
+    /// Parameter can be filled positionally or by name.
+    PosOrNamed,
     /// Parameter can be filled by name.
     NamedOnly,
     /// `*args`.
     Args,
     /// `**kwargs`.
     Kwargs,
-    /// `&Arguments`.
-    Arguments,
 }
 
-#[derive(Debug)]
+/// Method `this` parameter, always first.
+#[derive(Debug, Clone)]
+pub(crate) struct ThisParam {
+    pub(crate) param: SimpleParam,
+}
+
+impl ThisParam {
+    pub(crate) fn render_prepare(&self, target: &syn::Ident, value: &syn::Ident) -> syn::Stmt {
+        let ty = &self.param.ty;
+        syn::parse_quote! {
+            let #target: #ty = starlark::__derive_refs::parse_args::check_this(#value)?;
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct StarArg {
     pub span: Span,
-    pub attrs: Vec<Attribute>,
-    pub mutable: Option<syn::Token![mut]>,
+    pub(crate) param: SimpleParam,
     pub pass_style: StarArgPassStyle,
-    pub name: Ident,
-    pub ty: Type,
     pub default: Option<Expr>,
     pub source: StarArgSource,
 }
 
-#[derive(Debug, PartialEq)]
+/// `&Arguments` parameter.
+#[derive(Debug)]
+pub(crate) struct StarArguments {
+    pub(crate) param: SimpleParam,
+}
+
+/// How we handle `&Arguments`.
+#[derive(Debug)]
+pub(crate) enum RegularParams {
+    /// Pass `&Arguments` as is.
+    Arguments(StarArguments),
+    /// Unpack the `&Arguments` into a multiple typed parameters.
+    Unpack(Vec<StarArg>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) enum StarArgSource {
     Unknown,
-    This,
-    Parameters,
     Argument(usize),
     Required(usize),
     Optional(usize),
+    Kwargs,
 }
 
 #[derive(Debug)]
 pub(crate) enum StarFunSource {
     /// Function signature is single `Arguments` parameter.
     Arguments,
-    /// Function signature is `this` parameter followed by `Arguments` parameter.
-    ThisArguments,
     /// Normal function which uses a signature and parameters parser.
     Signature { count: usize },
     /// Fast-path function of some required parameters, followed by some optional parameters.
-    /// No named parameters or `*args`/`**kwargs`.
-    Positional { required: usize, optional: usize },
+    /// No named parameters or `*args`, but may have `**kwargs`.
+    Positional {
+        required: usize,
+        optional: usize,
+        kwargs: bool,
+    },
 }
 
 impl StarArg {
     pub fn is_option(&self) -> bool {
-        is_type_name(&self.ty, "Option")
+        is_type_name(&self.param.ty, "Option")
     }
 
     /// Remove the `Option` if it exists, otherwise return the real type.
     pub fn without_option(&self) -> &Type {
-        unpack_option(&self.ty).unwrap_or(&self.ty)
+        unpack_option(&self.param.ty).unwrap_or(&self.param.ty)
     }
 
     pub fn is_value(&self) -> bool {
-        is_type_name(&self.ty, "Value")
+        is_type_name(&self.param.ty, "Value")
+    }
+
+    /// Parameter type is `Option<Value>`.
+    pub(crate) fn is_option_value(&self) -> bool {
+        self.is_option() && is_type_name(self.without_option(), "Value")
     }
 
     pub fn requires_signature(&self) -> bool {
         // We need to use a signature if something has a name
-        // There are *args or **kwargs
+        // There are *args
         // There is a default that needs promoting to a Value (since the signature stores that value)
-        self.pass_style != StarArgPassStyle::PosOnly
-            || self.pass_style == StarArgPassStyle::Args
-            || self.pass_style == StarArgPassStyle::Kwargs
+        (self.pass_style != StarArgPassStyle::PosOnly
+            && self.pass_style != StarArgPassStyle::Kwargs)
             || (self.is_value() && self.default.is_some())
     }
 }

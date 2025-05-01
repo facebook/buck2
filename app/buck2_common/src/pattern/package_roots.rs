@@ -12,14 +12,14 @@ use std::collections::HashSet;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
 use buck2_futures::drop::DropTogether;
-use buck2_futures::spawn::spawn_cancellable;
+use buck2_futures::spawn::spawn_dropcancel;
 use dice::DiceTransaction;
 use dupe::Dupe;
+use futures::Stream;
+use futures::StreamExt;
 use futures::channel::mpsc;
 use futures::future::FutureExt;
 use futures::stream::FuturesUnordered;
-use futures::Stream;
-use futures::StreamExt;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 use tokio::sync::Semaphore;
@@ -35,7 +35,7 @@ use crate::find_buildfile::find_buildfile;
 pub fn find_package_roots_stream<'a>(
     ctx: &'a DiceTransaction,
     paths: Vec<CellPath>,
-) -> impl Stream<Item = anyhow::Result<PackageLabel>> + 'a {
+) -> impl Stream<Item = buck2_error::Result<PackageLabel>> + 'a {
     // Ideally we wouldn't take a Transaction here, but if we pull things like the package_listing_resolver
     // out of the ctx, that resolver would have a lifetime bound to the ctx and then we couldn't
     // do a tokio::spawn. So, we need to only pull those things out within the spawned task.
@@ -47,7 +47,7 @@ pub fn find_package_roots_stream<'a>(
     // We don't wait on the task finishing. The packages_rx we return will naturally end when the tx side is dropped.
     let ctx_data = ctx.per_transaction_data();
     let mut ctx = ctx.dupe();
-    let spawned = spawn_cancellable(
+    let spawned = spawn_dropcancel(
         |_cancellations| {
             async move {
                 // ignore because the errors will be sent back via the stream
@@ -60,7 +60,7 @@ pub fn find_package_roots_stream<'a>(
                     })
                     .await;
 
-                anyhow::Ok(())
+                buck2_error::Ok(())
             }
             .boxed()
         },
@@ -74,7 +74,7 @@ pub fn find_package_roots_stream<'a>(
 pub async fn collect_package_roots<E>(
     file_ops: &dyn FileOps,
     paths: Vec<CellPath>,
-    mut collector: impl FnMut(anyhow::Result<PackageLabel>) -> Result<(), E>,
+    mut collector: impl FnMut(buck2_error::Result<PackageLabel>) -> Result<(), E>,
 ) -> Result<(), E> {
     // While we are discovering packages we may also be trying to load them. Both of these can
     // require reading dirs so we want to leave some capacity to serve the package loading.
@@ -117,7 +117,7 @@ pub async fn collect_package_roots<E>(
         let (buildfile_candidates, listing) = {
             let r = async {
                 let buildfiles = file_ops.buildfiles(path.cell()).await?;
-                anyhow::Ok((buildfiles, listing?.included))
+                buck2_error::Ok((buildfiles, listing?.included))
             }
             .await;
 
@@ -159,11 +159,11 @@ pub async fn collect_package_roots<E>(
 pub(crate) async fn find_package_roots(
     cell_path: CellPath,
     fs: &dyn FileOps,
-) -> anyhow::Result<Vec<PackageLabel>> {
+) -> buck2_error::Result<Vec<PackageLabel>> {
     let mut results = Vec::new();
     collect_package_roots(fs, vec![cell_path], |res| {
         results.push(res);
-        Result::<_, !>::Ok(())
+        buck2_error::Ok(())
     })
     .await?;
     let mut results: Vec<_> = results.into_try_map(|v| v)?;

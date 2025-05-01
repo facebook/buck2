@@ -13,6 +13,7 @@
 %%% % @format
 
 -module(ct_daemon_node).
+-eqwalizer(ignore).
 
 -compile(warn_missing_spec_all).
 

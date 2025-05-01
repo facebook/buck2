@@ -108,7 +108,8 @@ impl<L, H> Directory<L, H> for ExclusiveDirectory<L, H>
 where
     H: DirectoryDigest,
 {
-    type DirectoryRef<'a> = ImmutableOrExclusiveDirectoryRef<'a, L, H>
+    type DirectoryRef<'a>
+        = ImmutableOrExclusiveDirectoryRef<'a, L, H>
     where
         Self: Sized + 'a,
         L: 'a;

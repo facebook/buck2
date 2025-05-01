@@ -16,9 +16,9 @@
  */
 
 use allocative::Allocative;
-use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
+use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::typing::Ty;
@@ -26,6 +26,7 @@ use crate::typing::TyBasic;
 use crate::values::StarlarkValue;
 
 /// Type of type.
+#[doc(hidden)]
 #[derive(
     Debug,
     derive_more::Display,
@@ -43,10 +44,9 @@ impl<'v> StarlarkValue<'v> for AbstractType {
     }
 
     fn eval_type(&self) -> Option<Ty> {
-        unreachable!(
-            "This is unreachable, but this function is needed \
-            so `TyStarlarkValue` could think this is a type"
-        )
+        // This is unreachable, but this function is needed
+        // so `TyStarlarkValue` could think this is a type".
+        match *self {}
     }
 }
 

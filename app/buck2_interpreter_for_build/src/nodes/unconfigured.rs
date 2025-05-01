@@ -18,6 +18,7 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::package::Package;
 use buck2_node::rule::Rule;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use starlark::eval::CallStack;
 use starlark::eval::ParametersParser;
 use starlark::values::Value;
@@ -32,7 +33,7 @@ pub trait TargetNodeExt: Sized {
         package: Arc<Package>,
         internals: &ModuleInternals,
         param_parser: &mut ParametersParser<'v, '_>,
-    ) -> anyhow::Result<Self>;
+    ) -> buck2_error::Result<Self>;
 
     fn from_params<'v>(
         rule: Arc<Rule>,
@@ -42,7 +43,7 @@ pub trait TargetNodeExt: Sized {
         arg_count: usize,
         ignore_attrs_for_profiling: bool,
         call_stack: Option<CallStack>,
-    ) -> anyhow::Result<Self>;
+    ) -> buck2_error::Result<Self>;
 }
 
 impl TargetNodeExt for TargetNode {
@@ -52,15 +53,16 @@ impl TargetNodeExt for TargetNode {
         package: Arc<Package>,
         internals: &ModuleInternals,
         param_parser: &mut ParametersParser<'v, '_>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let (name, indices, attr_values) = rule.attributes.start_parse(param_parser, 1)?;
 
-        for (attr_name, _, _) in indices {
+        for (_, _, _) in indices {
             // Consume all the arguments.
             // We call `next_opt` even for non-optional parameters. starlark-rust doesn't check.
-            param_parser.next_opt::<Value>(attr_name)?;
+            param_parser.next_opt::<Value>()?;
         }
 
+        let package_cfg_modifiers = internals.super_package.cfg_modifiers().duped();
         let label = TargetLabel::new(internals.buildfile_path().package().dupe(), name);
         Ok(TargetNode::new(
             rule.dupe(),
@@ -69,6 +71,7 @@ impl TargetNodeExt for TargetNode {
             attr_values,
             CoercedDeps::default(),
             None,
+            package_cfg_modifiers,
         ))
     }
 
@@ -82,7 +85,7 @@ impl TargetNodeExt for TargetNode {
         arg_count: usize,
         ignore_attrs_for_profiling: bool,
         call_stack: Option<CallStack>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         if ignore_attrs_for_profiling {
             return Self::from_params_ignore_attrs_for_profiling(
                 rule,
@@ -104,6 +107,8 @@ impl TargetNodeExt for TargetNode {
             a.traverse(label.pkg(), &mut deps_cache)?;
         }
 
+        let package_cfg_modifiers = internals.super_package.cfg_modifiers().duped();
+
         Ok(TargetNode::new(
             rule,
             package,
@@ -113,6 +118,7 @@ impl TargetNodeExt for TargetNode {
             call_stack
                 .map(StarlarkCallStackWrapper)
                 .map(StarlarkCallStack::new),
+            package_cfg_modifiers,
         ))
     }
 }

@@ -14,6 +14,7 @@ use crate::directory::entry::DirectoryEntry;
 use crate::directory::path_accumulator::PathAccumulator;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 pub enum DirectoryFindError {
     #[error("Find would traverse a leaf at path: `{}`", .path)]
     CannotTraverseLeaf { path: PathAccumulator },

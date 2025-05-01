@@ -7,28 +7,51 @@
  * of this source tree.
  */
 
-use std::mem;
-use std::process::Output;
-use std::process::Stdio;
-
-use anyhow::Context;
-use buck2_error::internal_error;
-use buck2_error::BuckErrorContext;
+use buck2_core::fs::async_fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::soft_error;
+use buck2_data::VersionControlRevision;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_util::process::async_background_command;
-use tokio::io::AsyncReadExt;
-use tokio::process::Child;
+use buck2_util::properly_reaped_child::reap_on_drop_command;
+use futures::future::BoxFuture;
+use futures::stream::FuturesUnordered;
 use tokio::sync::OnceCell;
+use tokio_stream::StreamExt;
 
 /// Spawn tasks to collect version control information
 /// and return a droppable handle that will cancel them on drop.
-pub(crate) fn spawn_version_control_collector(dispatch: EventDispatcher) -> AbortOnDropHandle {
-    AbortOnDropHandle {
-        handle: tokio::spawn(async move {
-            let event = create_revision_data().await;
+pub(crate) fn spawn_version_control_collector(
+    dispatch: EventDispatcher,
+    repo_root: AbsNormPathBuf,
+) -> AbortOnDropHandle {
+    let handle = tokio::spawn(async move {
+        let mut tasks = FuturesUnordered::<BoxFuture<VersionControlRevision>>::new();
+
+        tasks.push(Box::pin(create_revision_data(
+            &repo_root,
+            RevisionDataType::CurrentRevision,
+        )));
+        tasks.push(Box::pin(create_revision_data(
+            &repo_root,
+            RevisionDataType::Status,
+        )));
+
+        while let Some(event) = tasks.next().await {
+            if let Some(error) = &event.command_error {
+                soft_error!(
+                    "spawn_version_control_collector_failed",
+                    buck2_error::buck2_error!(buck2_error::ErrorTag::Input, "{}", error),
+                    quiet: true
+                )
+                .ok();
+            }
+
             dispatch.instant_event(event);
-        }),
-    }
+        }
+    });
+
+    AbortOnDropHandle { handle }
 }
 
 /// Abort the underlying task on drop.
@@ -49,82 +72,25 @@ enum RepoVcs {
     Unknown,
 }
 
-/// A wrapper over a child process that will reap the child process on drop.
-/// On Unix platforms, a child process becomes a zombie until it is reaped by its parent.
-struct ProperlyReapedChild {
-    child: Option<Child>,
+#[derive(Clone, Copy, Debug)]
+enum RevisionDataType {
+    CurrentRevision,
+    Status,
 }
 
-impl ProperlyReapedChild {
-    async fn output(mut self) -> anyhow::Result<Output> {
-        let mut stdout = Vec::new();
-        let mut stderr = Vec::new();
-        let mut child = mem::take(&mut self.child).internal_error("child field must be set")?;
-        let mut stdout_pipe = child.stdout.take().context("stdout is not piped")?;
-        let mut stderr_pipe = child.stderr.take().context("stderr is not piped")?;
-        let (stdout_error, stderr_error, status) = tokio::join!(
-            stdout_pipe.read_to_end(&mut stdout),
-            stderr_pipe.read_to_end(&mut stderr),
-            child.wait(),
-        );
-
-        let result = match stdout_error.is_ok() || stderr_error.is_ok() {
-            true => Ok(Output {
-                status: status?,
-                stdout,
-                stderr,
-            }),
-            false => Err(internal_error!("Failed to read stdout and stderr")),
-        };
-        reap_child(child);
-        result
-    }
-}
-
-impl Drop for ProperlyReapedChild {
-    fn drop(&mut self) {
-        if let Some(child) = mem::take(&mut self.child) {
-            reap_child(child);
-        }
-    }
-}
-
-fn reap_on_drop_command(command: &str, args: &[&str]) -> anyhow::Result<ProperlyReapedChild> {
-    async_background_command(command)
-        .args(args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()
-        .map(|child| ProperlyReapedChild { child: Some(child) })
-        .map_err(|e| e.into())
-}
-
-fn reap_child(mut child: Child) {
-    tokio::spawn(async move {
-        if let Some(child_id) = child.id() {
-            // If a child process has already exited, the child.id() is None.
-            tracing::warn!("Killed child process: {:?}", child_id);
-        }
-        drop(child.kill().await);
-    });
-}
-
-async fn create_revision_data() -> buck2_data::VersionControlRevision {
+async fn create_revision_data(
+    repo_root: &AbsNormPathBuf,
+    revision_type: RevisionDataType,
+) -> buck2_data::VersionControlRevision {
     let mut revision = buck2_data::VersionControlRevision::default();
-    match repo_type().await {
+    match repo_type(repo_root).await {
         Ok(repo_vcs) => {
             match repo_vcs {
-                RepoVcs::Hg => {
-                    match add_hg_data(&mut revision).await {
-                        Err(e) => {
-                            revision.command_error = Some(e.to_string());
-                        }
-                        Ok(_) => {}
-                    };
-                }
+                RepoVcs::Hg => create_hg_data(&mut revision, revision_type, repo_root).await,
                 RepoVcs::Git => {
                     // TODO(rajneeshl): Implement the git data
+                    // Add a message for now so we can actually tell if revision is null due to git
+                    revision.command_error = Some("Git revision data not implemented".to_owned());
                 }
                 RepoVcs::Unknown => {
                     revision.command_error = Some("Unknown repository type".to_owned());
@@ -132,81 +98,104 @@ async fn create_revision_data() -> buck2_data::VersionControlRevision {
             }
         }
         Err(e) => {
-            revision.command_error = Some(e.to_string());
+            revision.command_error = Some(format!("Failed to get repository type: {:#}", e));
         }
     }
     revision
 }
 
-async fn add_hg_data(revision: &mut buck2_data::VersionControlRevision) -> anyhow::Result<()> {
-    // We fire 2 hg command in parallel:
-    //  The `hg whereami` returns the full hash of the revision
-    //  The `hg status` returns if there are any local changes
-    let whereami_command = reap_on_drop_command("hg", &["whereami"])?;
-    let status_command = reap_on_drop_command("hg", &["status"])?;
-
-    let (whereami_output, status_output) =
-        tokio::join!(whereami_command.output(), status_command.output());
-
-    match whereami_output {
-        Ok(result) => {
-            if !result.status.success() {
-                revision.command_error = Some(format!(
-                    "Command `hg whereami` failed with error code {}; stderr:\n{}",
-                    result.status,
-                    std::str::from_utf8(&result.stderr)?
-                ));
-                return Ok(());
-            }
-            let stdout = std::str::from_utf8(&result.stdout)?.trim();
-            if stdout.len() == 40 {
-                revision.hg_revision = Some(stdout.to_owned());
-            } else {
-                revision.command_error = Some(format!("Unexpected revision : {}", stdout));
-            }
-        }
-        Err(e) => {
-            revision.command_error =
-                Some(format!("Command `hg whereami` failed with error: {:?}", e));
-        }
+async fn create_hg_data(
+    revision: &mut buck2_data::VersionControlRevision,
+    revision_type: RevisionDataType,
+    repo_root: &AbsNormPathBuf,
+) {
+    match revision_type {
+        RevisionDataType::CurrentRevision => get_hg_revision(revision, repo_root).await,
+        RevisionDataType::Status => get_hg_status(revision).await,
     }
+}
+
+async fn get_hg_revision(
+    revision: &mut buck2_data::VersionControlRevision,
+    repo_root: &AbsNormPathBuf,
+) {
+    // The contents of dirstate may be arbitrarily large, but the id is always
+    // in the first 20 bytes, so we only need to read the first 20 bytes
+    let mut buffer = [0; 20];
+    let dirstate = repo_root
+        .join(ForwardRelativePath::new(".hg").unwrap())
+        .join(ForwardRelativePath::new("dirstate").unwrap());
+
+    if let Err(e) = async_fs_util::read(&dirstate, &mut buffer).await {
+        revision.command_error = Some(format!(
+            "Failed to read the first 20 bytes of {}: {:#}",
+            dirstate.display(),
+            e
+        ));
+        return;
+    }
+
+    let curr_revision = buffer.iter().map(|b| format!("{:02x}", b)).collect();
+    revision.hg_revision = Some(curr_revision);
+}
+
+async fn get_hg_status(revision: &mut buck2_data::VersionControlRevision) {
+    // `hg status` returns if there are any local changes
+    let status_output = match reap_on_drop_command("hg", &["status"], Some(&[("HGPLAIN", "1")])) {
+        Ok(command) => command.output().await,
+        Err(e) => {
+            revision.command_error = Some(format!(
+                "reap_on_drop_command for `hg status` failed: {}",
+                e
+            ));
+            return;
+        }
+    };
 
     match status_output {
         Ok(result) => {
             if !result.status.success() {
+                let stderr = match std::str::from_utf8(&result.stderr) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        revision.command_error =
+                            Some(format!("hg status stderr is not utf8: {}", e));
+                        return;
+                    }
+                };
                 revision.command_error = Some(format!(
-                    "Command `hg status` failed with error code {}; stderr:\n{}",
-                    result.status,
-                    std::str::from_utf8(&result.stderr)?
+                    "Command `hg status` failed with error code {}; stderr: {}",
+                    result.status, stderr
                 ));
-                return Ok(());
+                return;
             }
-            revision.has_local_changes =
-                Some(!std::str::from_utf8(&result.stdout)?.trim().is_empty());
-            return Ok(());
+
+            let stdout = match std::str::from_utf8(&result.stdout) {
+                Ok(s) => s.trim(),
+                Err(e) => {
+                    revision.command_error = Some(format!("hg status stdout is not utf8: {}", e));
+                    return;
+                }
+            };
+            revision.has_local_changes = Some(!stdout.is_empty());
         }
         Err(e) => {
             revision.command_error =
                 Some(format!("Command `hg status` failed with error: {:?}", e));
         }
     };
-    Ok(())
 }
 
-async fn repo_type() -> anyhow::Result<&'static RepoVcs> {
-    static REPO_TYPE: OnceCell<anyhow::Result<RepoVcs>> = OnceCell::const_new();
-    async fn repo_type_impl() -> anyhow::Result<RepoVcs> {
-        let (hg_output, git_output) = tokio::join!(
-            reap_on_drop_command("hg", &["root"])?.output(),
-            reap_on_drop_command("git", &["rev-parse", "--is-inside-work-tree"])?.output()
+async fn repo_type(repo_root: &AbsNormPathBuf) -> buck2_error::Result<&'static RepoVcs> {
+    static REPO_TYPE: OnceCell<buck2_error::Result<RepoVcs>> = OnceCell::const_new();
+    async fn repo_type_impl(repo_root: &AbsNormPathBuf) -> buck2_error::Result<RepoVcs> {
+        let (hg_metadata, git_metadata) = tokio::join!(
+            async_fs_util::metadata(repo_root.join(ForwardRelativePath::new(".hg").unwrap())),
+            async_fs_util::metadata(repo_root.join(ForwardRelativePath::new(".git").unwrap()))
         );
 
-        let is_hg = hg_output.map_or(false, |output| {
-            std::str::from_utf8(&output.stdout).map_or(false, |s| !s.trim().is_empty())
-        });
-        let is_git = git_output.map_or(false, |output| {
-            std::str::from_utf8(&output.stdout).map_or(false, |s| s.trim() == "true")
-        });
+        let is_hg = hg_metadata.is_ok_and(|output| output.is_dir());
+        let is_git = git_metadata.is_ok_and(|output| output.is_dir());
 
         if is_hg {
             Ok(RepoVcs::Hg)
@@ -216,9 +205,10 @@ async fn repo_type() -> anyhow::Result<&'static RepoVcs> {
             Ok(RepoVcs::Unknown)
         }
     }
+
     REPO_TYPE
-        .get_or_init(repo_type_impl)
+        .get_or_init(|| repo_type_impl(repo_root))
         .await
         .as_ref()
-        .map_err(anyhow::Error::msg)
+        .map_err(|e| e.clone())
 }

@@ -16,6 +16,7 @@ use crate::interpreter::module_internals::ModuleInternals;
 
 #[derive(buck2_error::Error, Debug)]
 #[error("Fail: {0}")]
+#[buck2(tag = Tier0)]
 struct BuckFail(String);
 
 /// Registers functions that are only available in the `__internal__` global and not meant to be
@@ -24,12 +25,12 @@ struct BuckFail(String);
 pub(crate) fn register_internals(builder: &mut GlobalsBuilder) {
     /// `fail()` but implemented using a buck2 error type instead of starlark's, for testing
     /// purposes.
-    fn buck2_fail<'v>(msg: &str, _eval: &mut Evaluator<'v, '_, '_>) -> anyhow::Result<NoneType> {
-        Err(BuckFail(msg.to_owned()).into())
+    fn buck2_fail<'v>(msg: &str, _eval: &mut Evaluator<'v, '_, '_>) -> starlark::Result<NoneType> {
+        Err(buck2_error::Error::from(BuckFail(msg.to_owned())).into())
     }
 
     /// Returns a list of direct subpackage relative paths of current package.
-    fn sub_packages<'v>(eval: &mut Evaluator<'v, '_, '_>) -> anyhow::Result<Vec<String>> {
+    fn sub_packages<'v>(eval: &mut Evaluator<'v, '_, '_>) -> starlark::Result<Vec<String>> {
         let extra = ModuleInternals::from_context(eval, "sub_packages")?;
         Ok(extra
             .sub_packages()

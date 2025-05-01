@@ -18,8 +18,11 @@ load("@prelude//android:r_dot_java.bzl", "get_dummy_r_dot_java")
 load("@prelude//java:java_library.bzl", "build_java_library")
 load(
     "@prelude//java:java_providers.bzl",
+    "JavaClasspathEntry",  # @unused Used as type
+    "JavaCompilingDepsTSet",
     "JavaProviders",  # @unused Used as type
     "create_native_providers",
+    "single_library_compiling_deps",
     "to_list",
 )
 load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
@@ -61,21 +64,26 @@ def optional_jars(ctx: AnalysisContext) -> list[Artifact]:
 
 def build_android_library(
         ctx: AnalysisContext,
-        r_dot_java: Artifact | None = None,
+        r_dot_java: JavaClasspathEntry | None = None,
         extra_sub_targets = {},
         validation_deps_outputs: [list[Artifact], None] = None,
-        classpath_entries: [list[Artifact], None] = None) -> (JavaProviders, [AndroidLibraryIntellijInfo, None]):
+        classpath_entries: JavaCompilingDepsTSet | None = None) -> (JavaProviders, [AndroidLibraryIntellijInfo, None]):
     bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath + optional_jars(ctx)
-    additional_classpath_entries = list(classpath_entries) if classpath_entries != None else []
+    additional_classpath_entries_children = [classpath_entries] if classpath_entries else []
 
     dummy_r_dot_java, android_library_intellij_info = _get_dummy_r_dot_java(ctx)
     extra_sub_targets = dict(extra_sub_targets)
 
     if r_dot_java:
-        additional_classpath_entries.append(r_dot_java)
+        additional_classpath_entries_children.append(single_library_compiling_deps(ctx.actions, r_dot_java))
     elif dummy_r_dot_java:
-        additional_classpath_entries.append(dummy_r_dot_java)
-        extra_sub_targets["dummy_r_dot_java"] = [DefaultInfo(default_output = dummy_r_dot_java)]
+        additional_classpath_entries_children.append(single_library_compiling_deps(ctx.actions, dummy_r_dot_java))
+        extra_sub_targets["dummy_r_dot_java"] = [DefaultInfo(default_output = dummy_r_dot_java.full_library)]
+
+    additional_classpath_entries = ctx.actions.tset(
+        JavaCompilingDepsTSet,
+        children = additional_classpath_entries_children,
+    ) if additional_classpath_entries_children else None
 
     if ctx.attrs.language != None and ctx.attrs.language.lower() == "kotlin":
         return build_kotlin_library(
@@ -96,7 +104,7 @@ def build_android_library(
         ), android_library_intellij_info
 
 def _get_dummy_r_dot_java(
-        ctx: AnalysisContext) -> (Artifact | None, [AndroidLibraryIntellijInfo, None]):
+        ctx: AnalysisContext) -> (JavaClasspathEntry | None, [AndroidLibraryIntellijInfo, None]):
     android_resources = dedupe([resource for resource in filter(None, [
         x.get(AndroidResourceInfo)
         for x in ctx.attrs.deps + ctx.attrs.provided_deps + (getattr(ctx.attrs, "provided_deps_query", []) or [])
@@ -111,8 +119,8 @@ def _get_dummy_r_dot_java(
         ctx.attrs.resource_union_package,
     )
 
-    dummy_r_dot_java = dummy_r_dot_java_info.library_output.abi
+    dummy_r_dot_java = dummy_r_dot_java_info.library_output
     return (dummy_r_dot_java, AndroidLibraryIntellijInfo(
-        dummy_r_dot_java = dummy_r_dot_java,
+        dummy_r_dot_java = dummy_r_dot_java.abi,
         android_resource_deps = android_resources,
     ))

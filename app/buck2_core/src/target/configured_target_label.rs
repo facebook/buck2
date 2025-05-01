@@ -18,6 +18,7 @@ use buck2_data::ToProtoMessage;
 use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
+use strong_hash::StrongHash;
 
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
@@ -28,7 +29,9 @@ use crate::target::name::TargetNameRef;
 /// 'ConfiguredTargetLabel' are 'TargetLabel's with an 'Configuration' attached.
 /// These uniquely map to nodes of the build graph with 'Configuration's
 /// applied.
-#[derive(Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(
+    Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash
+)]
 pub struct ConfiguredTargetLabel {
     pub(crate) target: TargetLabel,
     pub(crate) cfg_pair: Configuration,

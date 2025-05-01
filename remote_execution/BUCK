@@ -2,7 +2,7 @@ load("@fbcode_macros//build_defs:native_rules.bzl", "alias")
 
 oncall("build_infra")
 
-# @oss-disable: actual = "//buck2/remote_execution/internal:remote_execution" 
+# @oss-disable[end= ]: actual = "//buck2/remote_execution/internal:remote_execution"
 actual = "//buck2/remote_execution/oss/re_grpc:remote_execution" # @oss-enable
 
 alias(

@@ -43,9 +43,9 @@ mod tests {
     use derive_more::AsRef;
 
     use super::*;
-    use crate::components::echo::Echo;
     use crate::Line;
     use crate::Span;
+    use crate::components::echo::Echo;
 
     #[derive(AsRef, Debug)]
     #[allow(dead_code)]

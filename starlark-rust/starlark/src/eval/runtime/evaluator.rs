@@ -18,7 +18,6 @@
 use std::collections::HashSet;
 use std::mem;
 use std::mem::MaybeUninit;
-use std::path::Path;
 
 use dupe::Dupe;
 use starlark_syntax::eval_exception::EvalException;
@@ -34,9 +33,12 @@ use crate::codemap::ResolvedFileSpan;
 use crate::collections::alloca::Alloca;
 use crate::collections::string_pool::StringPool;
 use crate::const_frozen_string;
-use crate::environment::slots::ModuleSlotId;
 use crate::environment::FrozenModuleData;
 use crate::environment::Module;
+use crate::environment::slots::ModuleSlotId;
+use crate::eval::CallStack;
+use crate::eval::FileLoader;
+use crate::eval::SoftErrorHandler;
 use crate::eval::bc::addr::BcPtrAddr;
 use crate::eval::bc::bytecode::Bc;
 use crate::eval::bc::frame::BcFramePtr;
@@ -53,6 +55,7 @@ use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrames;
 use crate::eval::runtime::profile::bc::BcProfile;
 use crate::eval::runtime::profile::data::ProfileData;
+use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::heap::HeapProfile;
 use crate::eval::runtime::profile::heap::HeapProfileFormat;
 use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
@@ -65,17 +68,10 @@ use crate::eval::runtime::rust_loc::rust_loc;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::soft_error::HardErrorSoftErrorHandler;
-use crate::eval::CallStack;
-use crate::eval::FileLoader;
-use crate::eval::SoftErrorHandler;
 use crate::stdlib::breakpoint::BreakpointConsole;
 use crate::stdlib::breakpoint::RealBreakpointConsole;
 use crate::stdlib::extra::PrintHandler;
 use crate::stdlib::extra::StderrPrintHandler;
-use crate::values::function::NativeFunction;
-use crate::values::layout::value_captured::value_captured_get;
-use crate::values::layout::value_captured::FrozenValueCaptured;
-use crate::values::layout::value_captured::ValueCaptured;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::Heap;
@@ -83,6 +79,10 @@ use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::function::NativeFunction;
+use crate::values::layout::value_captured::FrozenValueCaptured;
+use crate::values::layout::value_captured::ValueCaptured;
+use crate::values::layout::value_captured::value_captured_get;
 
 #[derive(Error, Debug)]
 enum EvaluatorError {
@@ -267,7 +267,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         self.loader = Some(loader);
     }
 
-    /// Enable profiling, allowing [`Evaluator::write_profile`] to be used.
+    /// Enable profiling, allowing [`Evaluator::gen_profile`] to be used.
     /// Profilers add overhead, and while some profilers can be used together,
     /// it's better to run at most one profiler at a time.
     pub fn enable_profile(&mut self, mode: &ProfileMode) -> anyhow::Result<()> {
@@ -278,7 +278,9 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         self.profile_or_instrumentation_mode = ProfileOrInstrumentationMode::Profile(mode.dupe());
 
         match mode {
-            ProfileMode::HeapSummaryAllocated
+            ProfileMode::HeapAllocated
+            | ProfileMode::HeapRetained
+            | ProfileMode::HeapSummaryAllocated
             | ProfileMode::HeapFlameAllocated
             | ProfileMode::HeapSummaryRetained
             | ProfileMode::HeapFlameRetained => {
@@ -291,6 +293,10 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
                     ProfileMode::HeapSummaryRetained => self
                         .module_env
                         .enable_retained_heap_profile(RetainedHeapProfileMode::Summary),
+                    ProfileMode::HeapRetained => {
+                        self.module_env
+                            .enable_retained_heap_profile(RetainedHeapProfileMode::FlameAndSummary);
+                    }
                     _ => {}
                 }
 
@@ -303,7 +309,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             }
             ProfileMode::Statement | ProfileMode::Coverage => {
                 self.stmt_profile.enable();
-                self.before_stmt_fn(&|span, eval| eval.stmt_profile.before_stmt(span));
+                self.before_stmt_fn(&|span, _continued, eval| eval.stmt_profile.before_stmt(span));
             }
             ProfileMode::TimeFlame => {
                 self.time_flame_profile.enable();
@@ -321,14 +327,9 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             ProfileMode::Typecheck => {
                 self.typecheck_profile.enabled = true;
             }
+            ProfileMode::None => {}
         }
         Ok(())
-    }
-
-    /// Write a profile to a file.
-    /// Only valid if corresponding profiler was enabled.
-    pub fn write_profile<P: AsRef<Path>>(&mut self, filename: P) -> crate::Result<()> {
-        self.gen_profile()?.write(filename.as_ref())
     }
 
     /// Generate profile for a given mode.
@@ -347,23 +348,29 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         };
         self.profile_or_instrumentation_mode = ProfileOrInstrumentationMode::Collected;
         match mode {
+            ProfileMode::HeapAllocated => self
+                .heap_profile
+                .r#gen(self.heap(), HeapProfileFormat::FlameGraphAndSummary),
             ProfileMode::HeapSummaryAllocated => self
                 .heap_profile
-                .gen(self.heap(), HeapProfileFormat::Summary),
+                .r#gen(self.heap(), HeapProfileFormat::Summary),
             ProfileMode::HeapFlameAllocated => self
                 .heap_profile
-                .gen(self.heap(), HeapProfileFormat::FlameGraph),
-            ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained => {
-                Err(crate::Error::new_other(
-                    EvaluatorError::RetainedMemoryProfilingCannotBeObtainedFromEvaluator,
-                ))
-            }
-            ProfileMode::Statement => self.stmt_profile.gen(),
+                .r#gen(self.heap(), HeapProfileFormat::FlameGraph),
+            ProfileMode::HeapSummaryRetained
+            | ProfileMode::HeapFlameRetained
+            | ProfileMode::HeapRetained => Err(crate::Error::new_other(
+                EvaluatorError::RetainedMemoryProfilingCannotBeObtainedFromEvaluator,
+            )),
+            ProfileMode::Statement => self.stmt_profile.r#gen(),
             ProfileMode::Coverage => self.stmt_profile.gen_coverage(),
             ProfileMode::Bytecode => self.gen_bc_profile(),
             ProfileMode::BytecodePairs => self.gen_bc_pairs_profile(),
-            ProfileMode::TimeFlame => self.time_flame_profile.gen(),
-            ProfileMode::Typecheck => self.typecheck_profile.gen(),
+            ProfileMode::TimeFlame => self.time_flame_profile.r#gen(),
+            ProfileMode::Typecheck => self.typecheck_profile.r#gen(),
+            ProfileMode::None => Ok(ProfileData {
+                profile: ProfileDataImpl::None,
+            }),
         }
     }
 
@@ -415,7 +422,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
 
     pub(crate) fn before_stmt_fn(
         &mut self,
-        f: &'a dyn for<'v1> Fn(FileSpanRef, &mut Evaluator<'v1, 'a, 'e>),
+        f: &'a dyn for<'v1> Fn(FileSpanRef, bool, &mut Evaluator<'v1, 'a, 'e>),
     ) {
         self.before_stmt(f.into())
     }
@@ -715,28 +722,30 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     /// and using them will lead to a segfault.
     /// Do not call during Starlark evaluation.
     pub unsafe fn garbage_collect(&mut self) {
-        if self.verbose_gc {
-            eprintln!(
-                "Starlark: allocated bytes: {}, starting GC...",
-                self.heap().allocated_bytes()
-            );
-        }
+        unsafe {
+            if self.verbose_gc {
+                eprintln!(
+                    "Starlark: allocated bytes: {}, starting GC...",
+                    self.heap().allocated_bytes()
+                );
+            }
 
-        self.stmt_profile
-            .before_stmt(rust_loc!().span.file_span_ref());
+            self.stmt_profile
+                .before_stmt(rust_loc!().span.file_span_ref());
 
-        self.time_flame_profile
-            .record_call_enter(const_frozen_string!("GC").to_value());
+            self.time_flame_profile
+                .record_call_enter(const_frozen_string!("GC").to_value());
 
-        self.heap().garbage_collect(|tracer| self.trace(tracer));
+            self.heap().garbage_collect(|tracer| self.trace(tracer));
 
-        self.time_flame_profile.record_call_exit();
+            self.time_flame_profile.record_call_exit();
 
-        if self.verbose_gc {
-            eprintln!(
-                "Starlark: GC complete. Allocated bytes: {}.",
-                self.heap().allocated_bytes()
-            );
+            if self.verbose_gc {
+                eprintln!(
+                    "Starlark: GC complete. Allocated bytes: {}.",
+                    self.heap().allocated_bytes()
+                );
+            }
         }
     }
 
@@ -884,8 +893,8 @@ pub(crate) struct EvalCallbacksEnabled<'a> {
 impl<'a> EvalCallbacksEnabled<'a> {
     fn before_stmt(&mut self, eval: &mut Evaluator, ip: BcPtrAddr) -> crate::Result<()> {
         let offset = ip.offset_from(self.bc_start_ptr);
-        if let Some(loc) = self.stmt_locs.stmt_at(offset) {
-            before_stmt(loc.span, eval)?;
+        if let Some((loc, continued)) = self.stmt_locs.stmt_at(offset) {
+            before_stmt(loc.span, continued, eval)?;
         }
         Ok(())
     }
@@ -909,11 +918,15 @@ impl<'a> EvaluationCallbacks for EvalCallbacksEnabled<'a> {
     }
 }
 
-// This function should be called before every meaningful statement.
+// This function should be called before every meaningful statement (continued==false), and after a call that returns into a previously entered statement (continued==true).
 // The purposes are GC, profiling and debugging.
 //
 // This function is called only if `before_stmt` is set before compilation start.
-pub(crate) fn before_stmt(span: FrameSpan, eval: &mut Evaluator) -> crate::Result<()> {
+pub(crate) fn before_stmt(
+    span: FrameSpan,
+    continued: bool,
+    eval: &mut Evaluator,
+) -> crate::Result<()> {
     assert!(
         eval.eval_instrumentation.before_stmt.enabled(),
         "this code should only be called if `before_stmt` is set"
@@ -924,7 +937,7 @@ pub(crate) fn before_stmt(span: FrameSpan, eval: &mut Evaluator) -> crate::Resul
     let mut result = Ok(());
     for f in &mut fs {
         if result.is_ok() {
-            result = f.call(span.span.file_span_ref(), eval);
+            result = f.call(span.span.file_span_ref(), continued, eval);
         }
     }
     let added = eval.eval_instrumentation.change(|eval_instrumentation| {

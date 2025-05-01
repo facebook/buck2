@@ -43,6 +43,9 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::environment::slots::ModuleSlotId;
 use crate::eval::compiler::constants::Constants;
+use crate::eval::compiler::scope::ModuleScopeData;
+use crate::eval::compiler::scope::ResolvedIdent;
+use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::scope::payload::CstAssignIdent;
 use crate::eval::compiler::scope::payload::CstAssignIdentExt;
 use crate::eval::compiler::scope::payload::CstExpr;
@@ -50,21 +53,19 @@ use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
-use crate::eval::compiler::scope::ModuleScopeData;
-use crate::eval::compiler::scope::ResolvedIdent;
-use crate::eval::compiler::scope::Slot;
-use crate::typing::error::InternalError;
-use crate::typing::error::TypingError;
 use crate::typing::Approximation;
-use crate::typing::Param;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
+use crate::typing::callable_param::ParamIsRequired;
+use crate::typing::error::InternalError;
+use crate::typing::error::TypingError;
+use crate::util::arc_str::ArcStr;
+use crate::values::Heap;
+use crate::values::Value;
 use crate::values::tuple::AllocTuple;
 use crate::values::types::ellipsis::Ellipsis;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::Heap;
-use crate::values::Value;
 
 /// Value computed during partial evaluation of globals.
 #[derive(Clone)]
@@ -446,32 +447,39 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         } = DefParams::unpack(&def.params, self.ctx.codemap)
             .map_err(InternalError::from_eval_exception)?;
 
-        let mut params = Vec::with_capacity(def_params.len());
+        let mut pos_only = Vec::new();
+        let mut pos_or_name = Vec::new();
+        let mut args = None;
+        let mut name_only = Vec::new();
+        let mut kwargs = None;
+
         for param in def_params {
             let ty = self.get_ty_expr_opt(param.ty)?;
             match param.kind {
                 DefParamKind::Regular(mode, default_value) => {
                     let name = param.ident.ident.as_str();
-                    let param = match mode {
-                        DefRegularParamMode::PosOnly => Param::pos_only(ty),
-                        DefRegularParamMode::PosOrName => Param::pos_or_name(name, ty),
-                        DefRegularParamMode::NameOnly => Param::name_only(name, ty),
+                    let required = match default_value.is_some() {
+                        true => ParamIsRequired::No,
+                        false => ParamIsRequired::Yes,
                     };
-                    let param = if default_value.is_some() {
-                        param.optional()
-                    } else {
-                        param
+                    match mode {
+                        DefRegularParamMode::PosOnly => pos_only.push((required, ty)),
+                        DefRegularParamMode::PosOrName => {
+                            pos_or_name.push((ArcStr::from(name), required, ty))
+                        }
+                        DefRegularParamMode::NameOnly => {
+                            name_only.push((ArcStr::from(name), required, ty))
+                        }
                     };
-                    params.push(param);
                 }
-                DefParamKind::Args => params.push(Param::args(ty)),
-                DefParamKind::Kwargs => params.push(Param::kwargs(ty)),
+                DefParamKind::Args => args = Some(ty),
+                DefParamKind::Kwargs => kwargs = Some(ty),
             }
         }
 
         let result = self.get_ty_expr_opt(def.return_type.as_deref())?;
 
-        let params = ParamSpec::new(params)
+        let params = ParamSpec::new_parts(pos_only, pos_or_name, args, name_only, kwargs)
             .map_err(|e| InternalError::from_error(e, def.signature_span(), self.ctx.codemap))?;
 
         self.assign_ident_value(&def.name, GlobalValue::ty(Ty::function(params, result)))
@@ -581,42 +589,38 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
             TypeExprUnpackP::Union(xs) => {
                 Ok(Ty::unions(xs.try_map(|x| self.from_type_expr_impl(x))?))
             }
-            TypeExprUnpackP::Literal(x) => {
-                if x.is_empty() || x.starts_with('_') {
-                    Ok(Ty::any())
-                } else {
-                    Ok(Ty::name(x))
-                }
-            }
             TypeExprUnpackP::Path(path) => self.path_ty(path),
             TypeExprUnpackP::Index(a, i) => {
-                if let Some(a) = self.expr_ident(a)?.value {
-                    if !a.ptr_eq(Constants::get().fn_list.0.to_value()) {
-                        self.approximations.push(Approximation::new("Not list", x));
-                        return Ok(Ty::any());
-                    }
-                    let i = self.from_type_expr_impl(i)?;
-                    let i = TypeCompiled::from_ty(&i, self.heap);
-                    match a.get_ref().at(i.to_inner(), self.heap) {
-                        Ok(t) => match TypeCompiled::new(t, self.heap) {
-                            Ok(ty) => Ok(ty.as_ty().clone()),
-                            Err(_) => {
-                                // TODO(nga): proper error, not approximation.
+                match self.expr_ident(a)?.value {
+                    Some(a) => {
+                        if !a.ptr_eq(Constants::get().fn_list.0.to_value()) {
+                            self.approximations.push(Approximation::new("Not list", x));
+                            return Ok(Ty::any());
+                        }
+                        let i = self.from_type_expr_impl(i)?;
+                        let i = TypeCompiled::from_ty(&i, self.heap);
+                        match a.get_ref().at(i.to_inner(), self.heap) {
+                            Ok(t) => match TypeCompiled::new(t, self.heap) {
+                                Ok(ty) => Ok(ty.as_ty().clone()),
+                                Err(_) => {
+                                    // TODO(nga): proper error, not approximation.
+                                    self.approximations
+                                        .push(Approximation::new("TypeCompiled::new failed", x));
+                                    Ok(Ty::any())
+                                }
+                            },
+                            Err(e) => {
                                 self.approximations
-                                    .push(Approximation::new("TypeCompiled::new failed", x));
+                                    .push(Approximation::new("Getitem failed", e));
                                 Ok(Ty::any())
                             }
-                        },
-                        Err(e) => {
-                            self.approximations
-                                .push(Approximation::new("Getitem failed", e));
-                            Ok(Ty::any())
                         }
                     }
-                } else {
-                    self.approximations
-                        .push(Approximation::new("Not global", x));
-                    Ok(Ty::any())
+                    _ => {
+                        self.approximations
+                            .push(Approximation::new("Not global", x));
+                        Ok(Ty::any())
+                    }
                 }
             }
             TypeExprUnpackP::Index2(a, i0, i1) => {

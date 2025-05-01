@@ -9,10 +9,8 @@
 
 use proc_macro2::Ident;
 use proc_macro2::Span;
-use quote::quote_spanned;
 use quote::ToTokens;
-use syn::parse::ParseStream;
-use syn::spanned::Spanned;
+use quote::quote_spanned;
 use syn::Attribute;
 use syn::Data;
 use syn::DataEnum;
@@ -28,11 +26,13 @@ use syn::LitStr;
 use syn::Path;
 use syn::Token;
 use syn::Variant;
+use syn::parse::ParseStream;
+use syn::spanned::Spanned;
 
 const fn hash(s: &str) -> u64 {
     let mut hash = 0xcbf29ce484222325;
     let mut i = 0;
-    while i < s.as_bytes().len() {
+    while i < s.len() {
         let b = s.as_bytes()[i];
         hash ^= b as u64;
         hash = hash.wrapping_mul(0x100000001b3);

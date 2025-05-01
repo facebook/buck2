@@ -1,0 +1,274 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("gen_filters.bxl", "gen_filters")
+load("gen_sln.bxl", "gen_sln")
+load("gen_vcxproj.bxl", "gen_vcxproj")
+load("get_attrs.bxl", "get_attrs")
+load("get_deps.bxl", "get_deps")
+load("get_vs_settings.bxl", "get_basic_vs_settings", "get_vs_settings")
+load("utils.bxl", "basename", "get_project_file_path", "log_debug")
+
+def _match_recursive_target_types(target: bxl.ConfiguredTargetNode, recursive_target_types: list[str], bxl_ctx) -> bool:
+    for type_regex in recursive_target_types:
+        if regex_match(type_regex, target.rule_type):
+            return True
+    log_debug("Target filtered out for not matching recursive_target_types: target={}, type={}", target.label.raw_target(), target.rule_type, bxl_ctx = bxl_ctx)
+    return False
+
+def _normalize_include_exclude_pattern(pattern):
+    if pattern.startswith("//"):
+        pattern = "fbsource" + pattern
+    elif "//" not in pattern:
+        pattern = "fbsource//" + pattern
+    return pattern.removesuffix("...")
+
+def _match_include_exclude_patterns(target: bxl.ConfiguredTargetNode, exclude_patterns, include_patterns, bxl_ctx):
+    raw_target_str = str(target.label.raw_target())
+    for pattern in exclude_patterns:
+        if raw_target_str.startswith(pattern):
+            log_debug("Target filtered out for matching target_exclude_pattern: target={}, pattern={}", target.label.raw_target(), pattern, bxl_ctx = bxl_ctx)
+            return False
+    if include_patterns:
+        for pattern in include_patterns:
+            if raw_target_str.startswith(pattern):
+                return True
+        log_debug("Target filtered out for not matching target_include_pattern: target={}", target.label.raw_target(), bxl_ctx = bxl_ctx)
+        return False
+    return True
+
+def _main(bxl_ctx):
+    """
+    Q: Why are we using dynamic output and making it more complicated?
+    A:
+    There is this function bxl.ConfiguredTargetNode.resolved_attrs_lazy that will
+    return the attributes of a target node nice and clean with all the macros resolved,
+    which is exactly what we need fo VSGO.
+    However, the macros only get resolved at *write* time, which means that we can not
+    convert the attrs to string and parse them in the middle of the bxl process.
+
+    One example blocker we're seeing is that for a compiler flag like `-I$(location <target>)`
+    we want to add the resolved `$(location <target>)` to additional include directories but we
+    can't isolate the macro part from `-I`
+
+    The recommended workaround is to use dynamic output to *write* all the attributes
+    to a intermediate json file first to get all the macros resolve.
+    Then we can use a dynamic function to continue the generation progress.
+
+    References:
+    https://buck2.build/docs/api/bxl/bxl.ConfiguredTargetNode/#bxlconfiguredtargetnoderesolved_attrs_eager
+    https://fb.workplace.com/groups/buck2dev/permalink/3745100652444646/
+    https://buck2.build/docs/developers/dynamic_output/#dynamic-output
+    """
+    actions = bxl_ctx.bxl_actions().actions
+    targets = []  # list[TargetLabel]. Target list from command line after target pattern expansion.
+    explicit_targets = {}  # dict[TargetLabel, True]. Explicit target list from command line, i.e., not from target pattern expansion.
+    for ulabel in bxl_ctx.cli_args.target:
+        # Add explicit cell name when it's omitted as otherwise BXL will use cell name of BXL script, i.e., prelude.
+        if bxl_ctx.cli_args.fbsource and (":" in ulabel or "..." in ulabel):
+            if "//" not in ulabel:
+                ulabel = "fbsource//" + ulabel
+            elif ulabel.startswith("//"):
+                ulabel = "fbsource" + ulabel
+
+        # Pass along modifiers as required by API to get same configuration as buck2 build.
+        # bxl_ctx.modifiers includes modifiers from both command line and mode file.
+        ctargets = bxl_ctx.configured_targets(ulabel, modifiers = bxl_ctx.modifiers)
+        if ctargets == None:
+            pass
+        elif isinstance(ctargets, bxl.ConfiguredTargetSet):
+            targets += [node.label.raw_target() for node in ctargets]
+        else:
+            targets.append(ctargets.label.raw_target())
+            if ":" in ulabel:
+                explicit_targets[ctargets.label.raw_target()] = True
+
+    missing_mode_hashes = [m for m in bxl_ctx.cli_args.mode_files if m not in (bxl_ctx.cli_args.mode_hashes or {})]
+    if len(bxl_ctx.cli_args.mode_files) > 1 and missing_mode_hashes:
+        warning("Missing mode hashes for following mode files: " + str(missing_mode_hashes))
+
+    deps = get_deps(bxl_ctx, targets)  # list[bxl.ConfiguredTargetNode]
+    # print(deps)
+
+    target_exclude_patterns = [_normalize_include_exclude_pattern(p) for p in bxl_ctx.cli_args.target_exclude_pattern]
+    target_include_patterns = [_normalize_include_exclude_pattern(p) for p in bxl_ctx.cli_args.target_include_pattern]
+
+    # Generate vcxproj only for matched targets based on rule_type/target_type, target_include_pattern, target_exclude_pattern etc
+    # to reduce number of projects in final solution and thus speedup solution loading.
+    deps_with_vcxproj = {}  # list[TargetLabel]. Targets (including dependencies) that will have vcxproj generated and show up in final solution.
+    for dep in deps:
+        if dep.label.raw_target() not in explicit_targets:
+            if not _match_recursive_target_types(dep, bxl_ctx.cli_args.recursive_target_types, bxl_ctx):
+                continue
+            if not _match_include_exclude_patterns(dep, target_exclude_patterns, target_include_patterns, bxl_ctx):
+                continue
+        deps_with_vcxproj[dep.label.raw_target()] = True
+    log_debug("Number of targets to generate vcxproj for: {}", len(deps_with_vcxproj), bxl_ctx = bxl_ctx)
+    if not deps_with_vcxproj:
+        fail("No targets selected for generation. Please check provided targets list and/or --recursive_target_types, --target_include_pattern, --target_exclude_pattern.")
+
+    basic_vs_settings_list = []
+    attrs_artifact_dict = {}  # target label => attrs artifact
+    vcxproj_artifact_dict = {}  # target label => vcxproj artifact
+    filters_artifact_dict = {}  # target label => filters artifact
+    for dep in deps:
+        # Write the attrs to a json file so that all macros get resolved
+        attrs = get_attrs(dep, bxl_ctx)
+
+        attrs_outfile = actions.write_json(get_project_file_path(dep.label, ".attrs.json"), attrs, pretty = True)
+        attrs_artifact_dict[dep.label] = attrs_outfile
+
+        # Create the output artifacts. Contents will be written into these in the lambda function
+        if dep.label.raw_target() in deps_with_vcxproj:
+            vcxproj_artifact = actions.declare_output(get_project_file_path(dep.label, ".vcxproj"))
+            vcxproj_artifact_dict[dep.label] = vcxproj_artifact
+            filters_artifact = actions.declare_output(get_project_file_path(dep.label, ".vcxproj.filters"))
+            filters_artifact_dict[dep.label] = filters_artifact
+
+        # This vs_settings is generated OUTSIDE of dynamic output and has unresolved macros
+        # This is just for generating sln file since vs_settings_list is not available inside the lambda function
+        # Sln file doesn't need any attr that involves macro so we're good here
+        basic_vs_settings_list.append(get_basic_vs_settings(dep, bxl_ctx.cli_args))
+
+    # This lambda function gets executed after attrs are written into the json files and then loads them back to get resolved macro values.
+    # Params:
+    # ctx, artifacts, outputs: required params by a dynamic output lambda function(see https://buck2.build/docs/rule_authors/dynamic_dependencies/)
+    # cli_args: bxl_ctx.cli_args, this is not available inside the lambda function so we have to pass them in as param
+    # buck_root: bxl_ctx.buck_root(), same as above
+    def gen_vcxproj_files(
+            ctx,
+            artifacts,
+            outputs,
+            # additional arguments that needs binding.
+            cli_args = bxl_ctx.cli_args,
+            buck_root = bxl_ctx.root()):
+        # Read in the attrs json file contents. target label => attrs.
+        attrs_content_dict = {
+            dep.label: artifacts[attrs_artifact_dict[dep.label]].read_json()
+            for dep in deps
+        }
+
+        vs_settings_dict = {}  # target label => vs_settings.
+        for dep in deps:
+            attrs = attrs_content_dict[dep.label]
+            vs_settings = get_vs_settings(dep, attrs, vs_settings_dict, cli_args, buck_root, ctx)
+            vs_settings_dict[dep.label] = vs_settings
+
+            if dep.label.raw_target() in deps_with_vcxproj:
+                vcxproj_content = gen_vcxproj(dep, vs_settings, cli_args, buck_root)
+                ctx.bxl_actions().actions.write(outputs[vcxproj_artifact_dict[dep.label]].as_output(), vcxproj_content, allow_args = True)
+                filters_content = gen_filters(vs_settings)
+                ctx.bxl_actions().actions.write(outputs[filters_artifact_dict[dep.label]].as_output(), filters_content, allow_args = True)
+
+    actions.dynamic_output(
+        dynamic = attrs_artifact_dict.values(),
+        inputs = [],
+        outputs = [artifact.as_output() for artifact in (vcxproj_artifact_dict.values() + filters_artifact_dict.values())],
+        f = gen_vcxproj_files,
+    )
+
+    if bxl_ctx.cli_args.solution_name or len(targets) > 1:
+        sln_path = (bxl_ctx.cli_args.solution_name or basename(bxl_ctx.root(), separator = "\\")) + ".sln"
+    else:
+        main_target_node = bxl_ctx.configured_targets(targets[0], modifiers = bxl_ctx.modifiers)
+        sln_path = get_project_file_path(main_target_node.label, ".sln")
+
+    # Find out indices of final targets and vs_settings pair to pass on to generate sln file.
+    deps_with_vcxproj_indices = {}
+    for (idx, dep) in enumerate(deps):
+        if dep.label.raw_target() in deps_with_vcxproj:
+            deps_with_vcxproj_indices[idx] = True
+    sln_content = gen_sln(
+        [dep for (idx, dep) in enumerate(deps) if idx in deps_with_vcxproj_indices],
+        [s for (idx, s) in enumerate(basic_vs_settings_list) if idx in deps_with_vcxproj_indices],
+        targets,
+        bxl_ctx.cli_args.startup_target or targets[0],
+        bxl_ctx,
+    )
+    sln_artifact = actions.declare_output(sln_path)
+    actions.write(sln_artifact, sln_content)
+
+    ensured_outputs = bxl_ctx.output.ensure_multiple(vcxproj_artifact_dict.values() + filters_artifact_dict.values() + [sln_artifact])
+    if bxl_ctx.cli_args.output == "json":
+        bxl_ctx.output.print_json({
+            "projects_count": len(ensured_outputs) - 1,
+            "sln_path": ensured_outputs[-1].abs_path(),
+        })
+    else:
+        for output in ensured_outputs:
+            bxl_ctx.output.print(output)
+
+main = bxl_main(
+    impl = _main,
+    cli_args = {
+        "debug_settings": cli_args.option(
+            cli_args.json(),
+            doc = "Override target debug settings. Takes in JSON string of shape target_label => debug_settings.",
+        ),
+        "extra_buck_options": cli_args.list(
+            cli_args.string(),
+            default = [],
+            doc = "Extra options passed to buck build command of generated project(s) build settings. Escape `-` with `\\-`.",
+        ),
+        "fbsource": cli_args.bool(
+            default = False,
+            doc = "Whether to turn on fbsource specific behaviors.",
+        ),
+        "immediate_buck_options": cli_args.list(
+            cli_args.string(),
+            default = [],
+            doc = "Immediate options passed to buck build command of generated project(s) build settings. Escape `-` with `\\-`.",
+        ),
+        "log_level": cli_args.int(
+            default = 30,
+            doc = "Log level in output.",
+        ),
+        "mode_files": cli_args.list(
+            cli_args.string(),
+            default = ["fbsource//arvr/mode/win/dev"],
+            doc = "List of mode files to generate projects for.",
+        ),
+        "mode_hashes": cli_args.option(
+            cli_args.json(),
+            doc = "Hash values of mode file configurations. Takes in JSON string of shape mode_file => configuration_hash.",
+        ),
+        "output": cli_args.option(
+            cli_args.enum(["text", "json"], "text"),
+            doc = "Final result output format.",
+        ),
+        "recursive_target_types": cli_args.list(
+            cli_args.string(),
+            default = ["cxx_binary", "cxx_library", "cxx_test", "alias", "command_alias"],
+            doc = "The types of targets that will be recovered when buck expands target pattern (`...`) and transitive dependencies.",
+        ),
+        "solution_name": cli_args.option(
+            cli_args.string(),
+            doc = "Name of generated solution. Default to target name.",
+        ),
+        "startup_target": cli_args.option(
+            cli_args.target_label(),
+            doc = "Default startup target/project. Takes in buck target label. Default to first target.",
+        ),
+        # Not using target_expr() here as we need to differentiate between explicit target and target pattern.
+        "target": cli_args.list(
+            cli_args.string(),
+            doc = "Buck target(s) to generate project files for. Takes in buck target label and/or pattern.",
+        ),
+        # Not using target_expr() here as it can get extremely slow when expanding massive pattern like xplat/...
+        "target_exclude_pattern": cli_args.list(
+            cli_args.string(),
+            default = [],
+            doc = "Buck target label, pattern or path to exclude in generation.",
+        ),
+        # Not using target_expr() here as it can get extremely slow when expanding massive pattern like xplat/...
+        "target_include_pattern": cli_args.list(
+            cli_args.string(),
+            default = [],
+            doc = "Buck target label, pattern or path to include in generation only.",
+        ),
+    },
+)

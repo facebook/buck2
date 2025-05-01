@@ -2,7 +2,7 @@ load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 
 oncall("build_infra")
 
-# @oss-disable: _is_oss = False 
+# @oss-disable[end= ]: _is_oss = False
 _is_oss = True # @oss-enable
 
 # buildifier: disable=no-effect

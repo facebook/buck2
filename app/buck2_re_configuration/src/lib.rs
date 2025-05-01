@@ -21,8 +21,67 @@ static BUCK2_RE_CLIENT_CFG_SECTION: &str = "buck2_re_client";
 /// We put functions here that both things need to implement for code that isn't gated behind a
 /// fbcode_build or not(fbcode_build)
 pub trait RemoteExecutionStaticMetadataImpl: Sized {
-    fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> anyhow::Result<Self>;
+    fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self>;
     fn cas_semaphore_size(&self) -> usize;
+}
+
+#[derive(Clone, Debug, Allocative)]
+pub enum CASdAddress {
+    Tcp(u16),
+    Uds(String),
+}
+
+impl FromStr for CASdAddress {
+    type Err = buck2_error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(path) = s.strip_prefix("unix://") {
+            Ok(CASdAddress::Uds(path.to_owned()))
+        } else {
+            Ok(CASdAddress::Tcp(s.parse()?))
+        }
+    }
+}
+
+#[derive(Clone, Debug, Allocative)]
+pub enum CASdMode {
+    LocalWithSync,
+    LocalWithoutSync,
+    Remote,
+}
+
+impl FromStr for CASdMode {
+    type Err = buck2_error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "local_with_sync" => Ok(CASdMode::LocalWithSync),
+            "local_without_sync" => Ok(CASdMode::LocalWithoutSync),
+            "remote" => Ok(CASdMode::Remote),
+            _ => Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Invalid CASd mode: {}",
+                s
+            )),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Allocative)]
+pub enum CopyPolicy {
+    Copy,
+    Reflink,
+}
+
+impl FromStr for CopyPolicy {
+    type Err = buck2_error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "reflink" => Ok(CopyPolicy::Reflink),
+            _ => Ok(CopyPolicy::Copy),
+        }
+    }
 }
 
 #[allow(unused)]
@@ -34,17 +93,25 @@ mod fbcode {
     /// Metadata that doesn't change between executions
     #[derive(Clone, Debug, Default, Allocative)]
     pub struct RemoteExecutionStaticMetadata {
+        // gRPC settings
         pub cas_address: Option<String>,
         pub cas_connection_count: i32,
-        pub cas_shared_cache: Option<String>,
-        pub cas_shared_cache_mode: Option<String>,
-        pub cas_shared_cache_port: Option<i32>,
-        pub cas_shared_cache_tls: Option<bool>,
+        pub shared_casd_cache_path: Option<String>,
+        pub legacy_shared_casd_mode: Option<String>,
+        pub shared_casd_mode_small_files: Option<CASdMode>,
+        pub shared_casd_mode_large_files: Option<CASdMode>,
+        pub shared_casd_cache_sync_wal_files_count: Option<u8>,
+        pub shared_casd_cache_sync_wal_file_max_size: Option<u64>,
+        pub shared_casd_cache_sync_max_batch_size: Option<u32>,
+        pub shared_casd_cache_sync_max_delay_ms: Option<u32>,
+        pub shared_casd_copy_policy: Option<CopyPolicy>,
+        pub shared_casd_address: Option<CASdAddress>,
+        pub shared_casd_use_tls: Option<bool>,
         pub action_cache_address: Option<String>,
         pub action_cache_connection_count: i32,
         pub engine_address: Option<String>,
         pub engine_connection_count: i32,
-
+        // End gRPC settings
         pub verbose_logging: bool,
 
         pub use_manifold_rich_client: bool,
@@ -74,10 +141,18 @@ mod fbcode {
         pub remaining_ttl_random_extra_threshold: Option<f32>,
 
         pub disable_fallocate: bool,
+        pub respect_file_symlinks: bool,
+
+        // Thrift settings
+        pub execution_concurrency_limit: i32,
+        pub engine_tier: Option<String>,
+        pub engine_host: Option<String>,
+        pub engine_port: Option<i32>,
+        // End Thrift settings
     }
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
-        fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+        fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
             Ok(Self {
                 cas_address: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
@@ -89,19 +164,58 @@ mod fbcode {
                         property: "cas_connection_count",
                     })?
                     .unwrap_or(16),
-                cas_shared_cache: legacy_config.parse(BuckconfigKeyRef {
+                shared_casd_cache_path: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
                     property: "cas_shared_cache",
                 })?,
-                cas_shared_cache_mode: legacy_config.parse(BuckconfigKeyRef {
+                legacy_shared_casd_mode: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
                     property: "cas_shared_cache_mode",
                 })?,
-                cas_shared_cache_port: legacy_config.parse(BuckconfigKeyRef {
+                shared_casd_mode_small_files: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
-                    property: "cas_shared_cache_port",
+                    property: "cas_shared_cache_mode_small_files",
                 })?,
-                cas_shared_cache_tls: legacy_config.parse(BuckconfigKeyRef {
+                shared_casd_mode_large_files: legacy_config.parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "cas_shared_cache_mode_large_files",
+                })?,
+                shared_casd_cache_sync_wal_files_count: legacy_config.parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "cas_shared_cache_sync_wal_files_count",
+                })?,
+                shared_casd_cache_sync_wal_file_max_size: legacy_config.parse(
+                    BuckconfigKeyRef {
+                        section: BUCK2_RE_CLIENT_CFG_SECTION,
+                        property: "cas_shared_cache_sync_wal_file_max_size",
+                    },
+                )?,
+                shared_casd_cache_sync_max_batch_size: legacy_config.parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "cas_shared_cache_sync_max_batch_size",
+                })?,
+                shared_casd_cache_sync_max_delay_ms: legacy_config.parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "cas_shared_cache_sync_max_delay_ms",
+                })?,
+                shared_casd_copy_policy: legacy_config.parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "cas_shared_cache_copy_policy",
+                })?,
+                shared_casd_address: {
+                    let port_result = legacy_config.parse(BuckconfigKeyRef {
+                        section: BUCK2_RE_CLIENT_CFG_SECTION,
+                        property: "cas_shared_cache_port",
+                    });
+                    match port_result {
+                        Ok(Some(port)) => Some(port),
+                        _ => legacy_config.parse(BuckconfigKeyRef {
+                            section: BUCK2_RE_CLIENT_CFG_SECTION,
+                            property: "cas_shared_cache_address",
+                        })?,
+                    }
+                },
+                shared_casd_use_tls: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
                     property: "cas_shared_cache_tls",
                 })?,
@@ -214,6 +328,31 @@ mod fbcode {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
                     property: "remaining_ttl_random_extra_threshold",
                 })?,
+                respect_file_symlinks: legacy_config
+                    .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                        section: BUCK2_RE_CLIENT_CFG_SECTION,
+                        property: "respect_file_symlinks",
+                    })?
+                    .unwrap_or(RolloutPercentage::never())
+                    .roll(),
+                execution_concurrency_limit: legacy_config
+                    .parse(BuckconfigKeyRef {
+                        section: BUCK2_RE_CLIENT_CFG_SECTION,
+                        property: "execution_concurrency_limit",
+                    })?
+                    .unwrap_or(4000),
+                engine_tier: legacy_config.parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "engine_tier",
+                })?,
+                engine_host: legacy_config.parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "engine_host",
+                })?,
+                engine_port: legacy_config.parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "engine_port",
+                })?,
             })
         }
 
@@ -232,7 +371,7 @@ mod not_fbcode {
     pub struct RemoteExecutionStaticMetadata(pub Buck2OssReConfiguration);
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
-        fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+        fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
             Ok(Self(Buck2OssReConfiguration::from_legacy_config(
                 legacy_config,
             )?))
@@ -296,17 +435,18 @@ pub struct HttpHeader {
 }
 
 impl FromStr for HttpHeader {
-    type Err = anyhow::Error;
+    type Err = buck2_error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut iter = s.split(':');
-        match (iter.next(), iter.next(), iter.next()) {
-            (Some(key), Some(value), None) => Ok(Self {
+        let mut iter = s.splitn(2, ':');
+        match (iter.next(), iter.next()) {
+            (Some(key), Some(value)) => Ok(Self {
                 key: key.trim().to_owned(),
                 value: value.trim().to_owned(),
             }),
-            _ => Err(anyhow::anyhow!(
-                "Invalid header (expect exactly one `:`): `{}`",
+            _ => Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Invalid header (expect name and value separated by `:`): `{}`",
                 s
             )),
         }
@@ -314,7 +454,7 @@ impl FromStr for HttpHeader {
 }
 
 impl Buck2OssReConfiguration {
-    pub fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+    pub fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
         // this is used for all three services by default, if given; if one of
         // them has an explicit address given as well though, use that instead
         let default_address: Option<String> = legacy_config.parse(BuckconfigKeyRef {

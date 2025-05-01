@@ -15,13 +15,12 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark::StarlarkDocs;
+use starlark::values::starlark_value;
 
 /// Starlark object for Instant.
 #[derive(
@@ -30,10 +29,8 @@ use starlark::StarlarkDocs;
     derive_more::Display,
     ProvidesStaticType,
     NoSerialize,
-    StarlarkDocs,
     Allocative
 )]
-#[starlark_docs(directory = "bxl")]
 #[display("{:?}", _0)]
 pub(crate) struct StarlarkInstant(pub(crate) Instant);
 
@@ -43,7 +40,7 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
     /// Elapsed time in secs as a float
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_elapsed_secs(ctx):
     ///     now = now()
     ///     time_a = now.elapsed_secs()
@@ -53,7 +50,7 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(time_a)
     ///     ctx.output.print(time_b)
     /// ```
-    fn elapsed_secs<'v>(this: Value<'v>) -> anyhow::Result<f64> {
+    fn elapsed_secs<'v>(this: Value<'v>) -> starlark::Result<f64> {
         let secs = this
             .downcast_ref::<StarlarkInstant>()
             .unwrap()
@@ -67,7 +64,7 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
     /// Elapsed time in millis as a float
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_elapsed_millis(ctx):
     ///     now = now()
     ///     time_a = now.elapsed_millis()
@@ -77,7 +74,7 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(time_a)
     ///     ctx.output.print(time_b)
     /// ```
-    fn elapsed_millis<'v>(this: Value<'v>) -> anyhow::Result<f64> {
+    fn elapsed_millis<'v>(this: Value<'v>) -> starlark::Result<f64> {
         let millis = this
             .downcast_ref::<StarlarkInstant>()
             .unwrap()
@@ -91,7 +88,7 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
 
 starlark_simple_value!(StarlarkInstant);
 
-#[starlark_value(type = "instant")]
+#[starlark_value(type = "bxl.Instant")]
 impl<'v> StarlarkValue<'v> for StarlarkInstant {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

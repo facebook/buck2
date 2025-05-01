@@ -12,8 +12,6 @@ load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 BitcodeBundle = record(
     artifact = field(Artifact),
-    # For a thin archive, this contains all the referenced .o files
-    external_objects = field(list[Artifact]),
 )
 
 BitcodeTSet = transitive_set()
@@ -82,7 +80,7 @@ def make_bitcode_bundle(
 
     bundle = _bundle(ctx, name, args, _bundle_locally(ctx, linker_info))
 
-    return BitcodeBundle(artifact = bundle, external_objects = objects)
+    return BitcodeBundle(artifact = bundle)
 
 def llvm_link_bitcode_impl(ctx: AnalysisContext) -> list[Provider]:
     llvm_link = get_cxx_toolchain_info(ctx).llvm_link

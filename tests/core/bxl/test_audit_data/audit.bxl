@@ -1,0 +1,42 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _audit_output_action_exists_impl(ctx):
+    label = "root//:with_output"
+    target = ctx.configured_targets(label)
+    build_result = ctx.build(target)
+    artifact = build_result.values()[0].artifacts()[0]
+    buck_out = get_path_without_materialization(artifact, ctx)
+    action = ctx.audit().output(buck_out)
+
+    asserts.equals(action.owner(), target.label)
+
+audit_output_action_exists = bxl_main(
+    impl = _audit_output_action_exists_impl,
+    cli_args = {
+    },
+)
+
+def _audit_output_config_not_match_impl(ctx):
+    buck_out = "buck-out/v2/gen/root/some_hash/__with_output__/foo.txt"
+    output = ctx.audit().output(buck_out, "root//:someplat")
+    asserts.equals(str(output), "root//:with_output")
+
+audit_output_config_not_match = bxl_main(
+    impl = _audit_output_config_not_match_impl,
+    cli_args = {
+    },
+)
+
+def _audit_output_invalid_path_impl(ctx):
+    ctx.audit().output("buck-out/blah/blah")
+
+audit_output_invalid_path = bxl_main(
+    impl = _audit_output_invalid_path_impl,
+    cli_args = {
+    },
+)

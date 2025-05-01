@@ -1,0 +1,18 @@
+load(":defs.bzl", "simple", "universe")
+
+# Write the configuration label to the default output.
+simple(
+    name = "simple",
+    default_target_platform = ":default_plat",
+)
+
+# Build nothing, but depend on two `:simple` targets in different configurations.
+universe(
+    name = "universe",
+    split_dep = ":simple",
+    default_target_platform = ":default_plat",
+)
+
+platform(
+    name = "default_plat",
+)

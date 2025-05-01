@@ -1,0 +1,11 @@
+[package]
+description = "Tests for strong_hash crate"
+edition = "2021"
+license = { workspace = true }
+name = "strong_hash_tests"
+repository = { workspace = true }
+version = "0.1.0"
+
+[dev-dependencies]
+blake3 = { workspace = true }
+strong_hash = { workspace = true }

@@ -1,0 +1,31 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+"""
+Utils functions for working with `ctx.output.ensure/ensure_multiple` in bxl.
+"""
+
+def ensure_default_info(ctx: bxl.Context, default_info: DefaultInfo, with_other_outputs: bool = False) -> None:
+    """
+    Ensures all outputs of the given DefaultInfo.
+
+    Parameters:
+    - `ctx`: The bxl context.
+    - `default_info`: The `DefaultInfo` to ensure.
+    - `with_other_outputs`: Whether to also ensure the `other_outputs` of the `DefaultInfo`.
+
+    Example:
+    ```python
+    load("@prelude//bxl:ensure.bxl", "ensure_default_info")
+    def _impl(ctx):
+        target = ctx.cli_args.target
+        default_info = ctx.analysis(target).providers([DefaultInfo].sub_targets["dwp"][DefaultInfo]
+        ensure_default_info(ctx, default_info)
+    ```
+    """
+    other_outputs = default_info.other_outputs or [] if with_other_outputs else []
+    ctx.output.ensure_multiple(cmd_args(default_info.default_outputs, hidden = other_outputs))

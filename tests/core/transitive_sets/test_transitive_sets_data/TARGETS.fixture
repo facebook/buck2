@@ -1,0 +1,25 @@
+load(":defs.bzl", "test", "test_duplication")
+
+test(name = "foo1")
+
+test(name = "foo2")
+
+test(
+    name = "foo",
+    deps = [
+        ":foo1",
+        ":foo2",
+    ],
+)
+
+test(
+    name = "bar",
+    deps = [
+        ":foo",
+        ":foo1",
+    ],
+)
+
+test_duplication(
+    name = "test_duplication",
+)

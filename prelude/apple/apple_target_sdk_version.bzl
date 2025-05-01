@@ -5,13 +5,16 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple:versions.bzl", "TARGET_SDK_VERSIONS")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version")
 
+# Taken from SDKSettings.json[VersionMap][iOSMac_macOS]
 _MACCATALYST_IOS_TO_MACOS_VERSION_MAP = {
     "13.0": "10.15",  # Catalina
     "13.1": "10.15",
     "13.2": "10.15.1",
     "13.3": "10.15.2",
+    "13.3.1": "10.15.3",
     "13.4": "10.15.4",
     "13.5": "10.15.5",
     "13.6": "10.15.5",  # Xcode reported 10.15
@@ -24,7 +27,7 @@ _MACCATALYST_IOS_TO_MACOS_VERSION_MAP = {
     "14.6": "11.4",
     "14.7": "11.5",
     "15.0": "12.0",  # Monterey
-    "15.1": "12.0",  # Xcode reported 10.15
+    "15.1": "12.1",  # Xcode reported 10.15
     "15.2": "12.1",
     "15.3": "12.2",
     "15.4": "12.3",
@@ -43,13 +46,23 @@ _MACCATALYST_IOS_TO_MACOS_VERSION_MAP = {
     "17.3": "14.3",
     "17.4": "14.4",
     "17.5": "14.5",
-    "18.0": "15.0",
+    "18.0": "15.0",  # Sequoia
     "18.1": "15.1",
+    "18.2": "15.2",
+    "18.3": "15.3",
+    "18.4": "15.4",
 }
 
 _SDK_NAME_TO_PLATFORM_NAME_OVERRIDE_MAP = {
     "maccatalyst": "macosx",
 }
+
+def get_target_sdk_version_map() -> dict[str, str]:
+    return {
+        maccatalyst_version: "config//version:constraint-value-target-sdk-version-{}".format(macos_version)
+        for maccatalyst_version, macos_version in _MACCATALYST_IOS_TO_MACOS_VERSION_MAP.items()
+        if macos_version in TARGET_SDK_VERSIONS
+    }
 
 def get_platform_version_for_sdk_version(sdk_name: str, sdk_version: str) -> str:
     if sdk_name == "maccatalyst":

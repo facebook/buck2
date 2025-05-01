@@ -10,7 +10,9 @@ def test(x): x.append(1)
 
 Max stack size: 2
 Instructions:
-  0: Const 1 ->&2
-  24: CallMaybeKnownMethodPos &x append <m> &2..&3 instrs.star.bzl:1:14-25 ->&1
-  120: ReturnConst None
-  136: End
+        # instrs.star.bzl:1:14-25
+    0: Const 1 ->&2
+   24: CallMaybeKnownMethodPos &x append <m> &2..&3 instrs.star.bzl:1:14-25 ->&1
+        # instrs.star.bzl:1:14-25
+  112: ReturnConst None
+  128: End

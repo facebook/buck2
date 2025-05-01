@@ -10,8 +10,8 @@ load(
     "@prelude//platforms/apple:build_mode.bzl",
     "APPLE_BUILD_MODES",
     "CONSTRAINT_PACKAGE",
+    "REMAPPED_BUILD_MODES",
     "get_build_mode",
-    "get_build_mode_debug",
 )
 load(
     "@prelude//platforms/apple:constants.bzl",
@@ -20,20 +20,13 @@ load(
     "mac_platforms",
     "watch_platforms",
 )
-
-# Debug constraints to add for build modes used by other rule platforms (ex: rust).
-_DEBUG_CONSTRAINTS = [
-    # @oss-disable: "ovr_config//build_mode/constraints:debug", 
-]
-
-# Release constraints to add for build modes used by other rule platforms (ex: rust).
-_RELEASE_CONSTRAINTS = [
-    # @oss-disable: "ovr_config//build_mode/constraints:release", 
-]
+# @oss-disable[end= ]: load("@prelude//platforms/apple/meta_only:build_mode.bzl", "BUILD_MODE_CONSTRAINTS")
 
 BUILD_MODE_TO_CONSTRAINTS_MAP = {
-    build_mode: ["{}:{}".format(CONSTRAINT_PACKAGE, build_mode)] + (_DEBUG_CONSTRAINTS if build_mode == get_build_mode_debug() else _RELEASE_CONSTRAINTS)
-    for build_mode in APPLE_BUILD_MODES
+    build_mode: ["{}:{}".format(CONSTRAINT_PACKAGE, build_mode)] +
+                # @oss-disable[end= ]: BUILD_MODE_CONSTRAINTS[build_mode]
+    [] # @oss-enable
+    for build_mode in APPLE_BUILD_MODES + REMAPPED_BUILD_MODES.keys()
 }
 
 _MOBILE_PLATFORMS = [
@@ -55,12 +48,12 @@ _MAC_PLATFORMS = [
 ]
 
 # TODO: Drop the platform_rule when we're not longer attempting to support buck1.
-def apple_generated_platforms(name, constraint_values, deps, platform_rule, platform = None):
+def apple_generated_platforms(name, constraint_values, deps, platform_rule, platform = None, supported_build_modes = APPLE_BUILD_MODES):
     # By convention, the cxx.default_platform is typically the same as the platform being defined.
     # This is not the case for all watch platforms, so provide an override.
     platform = platform if platform else name
     if is_mobile_platform(platform) or is_buck2_mac_platform(platform):
-        for build_mode in APPLE_BUILD_MODES:
+        for build_mode in supported_build_modes:
             platform_rule(
                 name = _get_generated_name(name, platform, build_mode),
                 constraint_values = constraint_values + BUILD_MODE_TO_CONSTRAINTS_MAP.get(build_mode),

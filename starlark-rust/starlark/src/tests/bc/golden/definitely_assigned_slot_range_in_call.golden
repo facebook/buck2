@@ -10,6 +10,8 @@ def test(x, y): noop(x, y)
 
 Max stack size: 1
 Instructions:
-  0: CallFrozenNativePos noop &0..&2 instrs.star.bzl:1:17-27 ->&2
-  56: ReturnConst None
-  72: End
+       # instrs.star.bzl:1:17-27
+   0: CallFrozenNativePos noop &0..&2 instrs.star.bzl:1:17-27 ->&2
+       # instrs.star.bzl:1:17-27
+  48: ReturnConst None
+  64: End

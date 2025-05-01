@@ -3,6 +3,9 @@ id: buck_hanging
 title: Why is Buck2 hanging?
 ---
 
+import { FbInternalOnly, OssOnly } from
+'docusaurus-plugin-internaldocs-fb/internal';
+
 Let's look at how to troubleshoot when buck2 hangs, i.e. it just sits there
 saying "Jobs: In progress: 0, ..." but it’s not finishing...
 

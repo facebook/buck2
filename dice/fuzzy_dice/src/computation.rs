@@ -21,9 +21,9 @@ use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
 use dupe::Dupe;
+use futures::FutureExt;
 use futures::future;
 use futures::future::BoxFuture;
-use futures::FutureExt;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -248,7 +248,7 @@ impl Key for EvalVar {
     }
 
     fn validity(x: &Self::Value) -> bool {
-        x.as_ref().map_or(false, |x| !x.is_transient())
+        x.as_ref().is_ok_and(|x| !x.is_transient())
     }
 }
 

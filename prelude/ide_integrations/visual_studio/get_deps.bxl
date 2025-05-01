@@ -1,0 +1,40 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("utils.bxl", "flatten_lists", "log_debug")
+
+def get_deps(bxl_ctx, targets: list[TargetLabel]) -> typing.Iterable:
+    log_debug("# Getting dependencies for {}", targets, bxl_ctx = bxl_ctx)
+
+    # Pass along modifiers as required by API to get same configuration as buck2 build.
+    # bxl_ctx.modifiers includes modifiers from both command line and mode file.
+    configured_targets = bxl_ctx.configured_targets(targets, modifiers = bxl_ctx.modifiers)
+
+    # -1 or large value for unbounded traversal https://fburl.com/code/7vtwh6bu
+    # Return dependencies in DFS post-order.
+    deps = bxl_ctx.cquery().deps(configured_targets, -1, "target_deps()")
+
+    # Skip special targets that are going to cause trouble in generation and not useful in final solution.
+    block_list = {
+        "toolchains//:android-hack": True,
+    }
+
+    return [dep for dep in deps if dep.label.raw_target() not in block_list]
+
+def _main(bxl_ctx):
+    targets = flatten_lists(bxl_ctx.cli_args.target)
+    deps = get_deps(bxl_ctx, targets)
+    for t in deps:
+        bxl_ctx.output.print(t.label)
+
+main = bxl_main(
+    impl = _main,
+    cli_args = {
+        "log_level": cli_args.int(default = 30),
+        "target": cli_args.list(cli_args.target_expr()),
+    },
+)

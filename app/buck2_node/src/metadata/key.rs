@@ -17,6 +17,7 @@ use ref_cast::RefCast;
 use serde::Serialize;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub enum MetadataKeyError {
     #[error("key must contain exactly one dot: `{0}`")]
     KeyMustContainExactlyOneDot(String),

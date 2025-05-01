@@ -8,7 +8,7 @@
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
-def _impl(ctx: AnalysisContext) -> list[Provider]:
+def _apple_tools_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(),
         AppleToolsInfo(
@@ -23,6 +23,8 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             selective_debugging_scrubber = ctx.attrs.selective_debugging_scrubber[RunInfo],
             xcframework_maker = ctx.attrs.xcframework_maker[RunInfo],
             framework_sanitizer = ctx.attrs.framework_sanitizer[RunInfo],
+            static_archive_linker = ctx.attrs.static_archive_linker[RunInfo],
+            spm_packager = ctx.attrs.spm_packager[RunInfo],
         ),
     ]
 
@@ -31,18 +33,20 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 # toolchain/SDK specific, they're just internal helper tools.
 registration_spec = RuleRegistrationSpec(
     name = "apple_tools",
-    impl = _impl,
+    impl = _apple_tools_impl,
     attrs = {
-        "adhoc_codesign_tool": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
-        "assemble_bundle": attrs.dep(providers = [RunInfo]),
-        "dry_codesign_tool": attrs.dep(providers = [RunInfo]),
-        "framework_sanitizer": attrs.dep(providers = [RunInfo]),
-        "info_plist_processor": attrs.dep(providers = [RunInfo]),
-        "ipa_package_maker": attrs.dep(providers = [RunInfo]),
-        "make_modulemap": attrs.dep(providers = [RunInfo]),
-        "make_vfsoverlay": attrs.dep(providers = [RunInfo]),
-        "selective_debugging_scrubber": attrs.dep(providers = [RunInfo]),
-        "split_arch_combine_dsym_bundles_tool": attrs.dep(providers = [RunInfo]),
-        "xcframework_maker": attrs.dep(providers = [RunInfo]),
+        "adhoc_codesign_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "assemble_bundle": attrs.exec_dep(providers = [RunInfo]),
+        "dry_codesign_tool": attrs.exec_dep(providers = [RunInfo]),
+        "framework_sanitizer": attrs.exec_dep(providers = [RunInfo]),
+        "info_plist_processor": attrs.exec_dep(providers = [RunInfo]),
+        "ipa_package_maker": attrs.exec_dep(providers = [RunInfo]),
+        "make_modulemap": attrs.exec_dep(providers = [RunInfo]),
+        "make_vfsoverlay": attrs.exec_dep(providers = [RunInfo]),
+        "selective_debugging_scrubber": attrs.exec_dep(providers = [RunInfo]),
+        "split_arch_combine_dsym_bundles_tool": attrs.exec_dep(providers = [RunInfo]),
+        "spm_packager": attrs.exec_dep(providers = [RunInfo]),
+        "static_archive_linker": attrs.exec_dep(providers = [RunInfo]),
+        "xcframework_maker": attrs.exec_dep(providers = [RunInfo]),
     },
 )

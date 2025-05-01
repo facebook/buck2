@@ -77,8 +77,8 @@ impl StateProcessor {
                 storage,
                 value,
                 deps,
+                invalidation_paths,
                 resp,
-                ..
             } => {
                 // ignore error if the requester dropped it.
                 drop(resp.send(self.state.update_computed(
@@ -88,6 +88,7 @@ impl StateProcessor {
                     value,
                     ValueReusable::EqualityBased,
                     deps,
+                    invalidation_paths,
                 )));
             }
             StateRequest::UpdateMismatchAsUnchanged {
@@ -95,8 +96,8 @@ impl StateProcessor {
                 epoch,
                 storage,
                 previous,
+                invalidation_paths,
                 resp,
-                ..
             } => {
                 // ignore error if the requester dropped it.
                 drop(resp.send(self.state.update_computed(
@@ -106,6 +107,7 @@ impl StateProcessor {
                     previous.entry,
                     ValueReusable::VersionBased(previous.prev_verified_version),
                     previous.deps_to_validate,
+                    invalidation_paths,
                 )));
             }
             StateRequest::GetTasksPendingCancellation { resp } => {

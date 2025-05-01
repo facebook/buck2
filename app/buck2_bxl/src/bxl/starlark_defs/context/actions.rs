@@ -15,20 +15,22 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
-use buck2_configured::configuration::calculation::ConfigurationCalculation;
-use buck2_configured::nodes::calculation::ExecutionPlatformConstraints;
-use buck2_configured::target::TargetConfiguredTargetLabel;
-use buck2_core::cells::name::CellName;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::configuration::pair::ConfigurationNoExec;
+use buck2_core::configuration::pair::Configuration;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
+use buck2_error::buck2_error;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
-use buck2_node::attrs::configuration_context::AttrConfigurationContext;
-use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
+use buck2_node::configuration::calculation::CONFIGURATION_CALCULATION;
+use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
+use buck2_node::execution::GET_EXECUTION_PLATFORMS;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -41,9 +43,6 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::dict::AllocDict;
-use starlark::values::dict::DictType;
-use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -52,12 +51,15 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
-use starlark::StarlarkDocs;
-use starlark_map::ordered_map::OrderedMap;
+use starlark::values::dict::AllocDict;
+use starlark::values::dict::DictType;
+use starlark::values::starlark_value;
+use strong_hash::StrongHash;
 
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum BxlActionsError {
     #[error(
         "An action registry was already requested via `ctx.bxl_actions().actions`. Only one action registry is allowed"
@@ -67,64 +69,53 @@ enum BxlActionsError {
 
 pub(crate) async fn resolve_bxl_execution_platform(
     ctx: &mut DiceComputations<'_>,
-    cell: CellName,
+    cell: CellNameForConfigurationResolution,
     exec_deps: Vec<ProvidersLabel>,
     toolchain_deps: Vec<ProvidersLabel>,
     target_platform: Option<TargetLabel>,
     exec_compatible_with: Arc<[ConfigurationSettingKey]>,
-) -> anyhow::Result<BxlExecutionResolution> {
-    // bxl has on transitions
-    let resolved_transitions = OrderedMap::new();
-
-    let platform_configuration = match target_platform.as_ref() {
+) -> buck2_error::Result<BxlExecutionResolution> {
+    let target_cfg = match target_platform.as_ref() {
         Some(global_target_platform) => {
-            ctx.get_platform_configuration(global_target_platform)
+            CONFIGURATION_CALCULATION
+                .get()?
+                .get_platform_configuration(ctx, global_target_platform)
                 .await?
         }
         None => ConfigurationData::unspecified(),
     };
-    let resolved_configuration = {
-        ctx.get_resolved_configuration(&platform_configuration, cell, &*exec_compatible_with)
-            .await?
-    };
 
-    // there is not explicit configured deps, so platforms is empty
-    let platform_cfgs = OrderedMap::new();
+    let resolved_execution = GET_EXECUTION_PLATFORMS
+        .get()?
+        .execution_platform_resolution_one_for_cell(
+            ctx,
+            exec_deps
+                .iter()
+                .map(|label| label.target().dupe())
+                .collect(),
+            toolchain_deps
+                .iter()
+                .map(|dep| {
+                    TargetConfiguredTargetLabel::new_configure(dep.target(), target_cfg.dupe())
+                })
+                .collect(),
+            exec_compatible_with,
+            cell,
+        )
+        .await?;
 
-    let configuration_ctx = AttrConfigurationContextImpl::new(
-        &resolved_configuration,
-        ConfigurationNoExec::unbound_exec(),
-        // We don't really need `resolved_transitions` here:
-        // `Traversal` declared above ignores transitioned dependencies.
-        // But we pass `resolved_transitions` here to prevent breakages in the future
-        // if something here changes.
-        &resolved_transitions,
-        &platform_cfgs,
-    );
+    let exec_cfg = resolved_execution.platform()?.cfg_pair_no_exec().dupe();
+    let toolchain_cfg = Configuration::new(target_cfg.dupe(), Some(exec_cfg.cfg().dupe()));
 
     let toolchain_deps_configured: Vec<_> = toolchain_deps
         .iter()
-        .map(|t| configuration_ctx.configure_toolchain_target(t))
+        .map(|t| t.configure_pair(toolchain_cfg.dupe()))
         .collect();
-
-    let execution_constraints = ExecutionPlatformConstraints::new_constraints(
-        exec_deps
-            .iter()
-            .map(|label| label.target().dupe())
-            .collect(),
-        toolchain_deps_configured
-            .iter()
-            .map(|dep| TargetConfiguredTargetLabel::new_without_exec_cfg(dep.target().dupe()))
-            .collect(),
-        exec_compatible_with,
-    );
-
-    let resolved_execution = execution_constraints.one_for_cell(ctx, cell).await?;
 
     let exec_deps_configured = exec_deps.try_map(|e| {
         let label =
             e.configure_pair_no_exec(resolved_execution.platform()?.cfg_pair_no_exec().dupe());
-        anyhow::Ok(label)
+        buck2_error::Ok(label)
     })?;
 
     Ok(BxlExecutionResolution {
@@ -141,6 +132,17 @@ pub(crate) struct BxlExecutionResolution {
     pub(crate) toolchain_deps_configured: Vec<ConfiguredProvidersLabel>,
 }
 
+impl StrongHash for BxlExecutionResolution {
+    fn strong_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        use std::hash::Hash;
+
+        // FIXME(JakobDegen): It seems wrong that we're structurally hashing this entire value
+        self.resolved_execution.hash(state);
+        self.exec_deps_configured.strong_hash(state);
+        self.toolchain_deps_configured.strong_hash(state);
+    }
+}
+
 impl BxlExecutionResolution {
     pub(crate) fn unspecified() -> BxlExecutionResolution {
         BxlExecutionResolution {
@@ -154,11 +156,11 @@ impl BxlExecutionResolution {
 pub(crate) fn validate_action_instantiation(
     this: &BxlContextNoDice<'_>,
     bxl_execution_resolution: &BxlExecutionResolution,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut registry = this.state.state.borrow_mut();
 
     if (*registry).is_some() {
-        return Err(anyhow::anyhow!(BxlActionsError::RegistryAlreadyCreated));
+        return Err(BxlActionsError::RegistryAlreadyCreated.into());
     } else {
         let execution_platform = bxl_execution_resolution.resolved_execution.clone();
         let analysis_registry = AnalysisRegistry::new_from_owner(
@@ -180,10 +182,8 @@ pub(crate) fn validate_action_instantiation(
     Display,
     Trace,
     NoSerialize,
-    StarlarkDocs,
     Allocative
 )]
-#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display("{:?}", self)]
 pub(crate) struct BxlActions<'v> {
@@ -199,7 +199,7 @@ impl<'v> BxlActions<'v> {
         toolchains: Vec<ConfiguredProvidersLabel>,
         eval: &mut Evaluator<'v, '_, '_>,
         ctx: &'c mut DiceComputations<'_>,
-    ) -> anyhow::Result<BxlActions<'v>> {
+    ) -> buck2_error::Result<BxlActions<'v>> {
         let exec_deps = alloc_deps(exec_deps, eval, ctx).await?;
         let toolchains = alloc_deps(toolchains, eval, ctx).await?;
         Ok(Self {
@@ -208,13 +208,25 @@ impl<'v> BxlActions<'v> {
             toolchains,
         })
     }
+
+    fn is_anon_target_or_dyn_action(&self) -> buck2_error::Result<bool> {
+        let key = &self.actions.state()?.analysis_value_storage.self_key;
+        Ok(match key {
+            DeferredHolderKey::Base(base_deferred_key) => match base_deferred_key {
+                BaseDeferredKey::AnonTarget(_) => true,
+                BaseDeferredKey::TargetLabel(_) => false,
+                BaseDeferredKey::BxlLabel(_) => false,
+            },
+            DeferredHolderKey::DynamicLambda(_) => true,
+        })
+    }
 }
 
 async fn alloc_deps<'v, 'c>(
     deps: Vec<ConfiguredProvidersLabel>,
     eval: &mut Evaluator<'v, '_, '_>,
     ctx: &'c mut DiceComputations<'_>,
-) -> anyhow::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>> {
+) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>> {
     let analysis_results: Vec<_> = ctx
         .try_compute_join(deps, |ctx, target| {
             async move {
@@ -222,7 +234,7 @@ async fn alloc_deps<'v, 'c>(
                     .get_analysis_result(target.target())
                     .await?
                     .require_compatible()?;
-                anyhow::Ok((target, res))
+                buck2_error::Ok((target, res))
             }
             .boxed()
         })
@@ -241,7 +253,7 @@ async fn alloc_deps<'v, 'c>(
                 None,
             );
 
-            anyhow::Ok((starlark_label, dependency))
+            buck2_error::Ok((starlark_label, dependency))
         })
         .collect::<Result<_, _>>()?;
 
@@ -272,25 +284,40 @@ fn bxl_actions_methods(builder: &mut MethodsBuilder) {
     /// Gets the analysis action context to create and register actions on the execution platform
     /// corresponding to this bxl action's execution platform resolution.
     #[starlark(attribute)]
-    fn actions<'v>(this: &'v BxlActions) -> anyhow::Result<ValueTyped<'v, AnalysisActions<'v>>> {
+    fn actions<'v>(this: &BxlActions<'v>) -> starlark::Result<ValueTyped<'v, AnalysisActions<'v>>> {
         Ok(this.actions)
     }
 
     /// Gets the execution deps requested correctly configured for the current execution platform
     #[starlark(attribute)]
     fn exec_deps<'v>(
-        this: &'v BxlActions,
-    ) -> anyhow::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>>
+        this: &BxlActions<'v>,
+    ) -> starlark::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>>
     {
+        if this.is_anon_target_or_dyn_action()? {
+            soft_error!(
+                "bxl_acessing_exec_platform",
+                buck2_error!(buck2_error::ErrorTag::Input, "Anon target or dynamic action accesses bxl.Actions.exec_deps."),
+                quiet: true
+            )?;
+        }
+
         Ok(this.exec_deps)
     }
 
     /// Gets the toolchains requested configured for the current execution platform
     #[starlark(attribute)]
     fn toolchains<'v>(
-        this: &'v BxlActions,
-    ) -> anyhow::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>>
+        this: &BxlActions<'v>,
+    ) -> starlark::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>>
     {
+        if this.is_anon_target_or_dyn_action()? {
+            soft_error!(
+                "bxl_acessing_exec_platform",
+                buck2_error!(buck2_error::ErrorTag::Input, "Anon target or dynamic action accesses bxl.Actions.toolchains."),
+                quiet: true
+            )?;
+        }
         Ok(this.toolchains)
     }
 }

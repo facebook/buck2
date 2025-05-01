@@ -33,7 +33,7 @@ fn _test_return_impl_alloc_value(globals: &mut GlobalsBuilder) {
 #[starlark_module]
 fn _test_return_impl_alloc_value_for_attr(methods: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    fn attr<'v>(this: Value<'v>) -> anyhow::Result<impl AllocValue<'v>> {
+    fn attr<'v>(this: Value<'v>) -> starlark::Result<impl AllocValue<'v>> {
         Ok(this)
     }
 }

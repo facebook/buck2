@@ -28,5 +28,5 @@ pub(crate) mod repr;
 pub(crate) mod simd;
 pub(crate) mod str_type;
 
-pub use crate::values::types::string::str_type::StarlarkStr;
 pub use crate::values::types::string::str_type::STRING_TYPE;
+pub use crate::values::types::string::str_type::StarlarkStr;

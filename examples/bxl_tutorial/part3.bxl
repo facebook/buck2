@@ -1,0 +1,30 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _main(ctx: bxl.Context):
+    universe = ctx.target_universe(ctx.cli_args.target)
+    all_targets = universe.universe_target_set()
+    nodes = ctx.cquery().kind("^(binary|library)$", all_targets)
+    analysis_res_dict = ctx.analysis(nodes)
+    index_outputs = []
+    for _, analysis_res in analysis_res_dict.items():
+        default_info = analysis_res.as_dependency()[DefaultInfo]
+        index_sub_target_provider = default_info.sub_targets["index"]
+        index_outputs.extend(index_sub_target_provider[DefaultInfo].default_outputs)
+    actions = ctx.bxl_actions().actions
+    index_db = actions.write("index.txt", index_outputs)
+    ensured_index_db = ctx.output.ensure(index_db)
+    ctx.output.print(ensured_index_db)
+
+    ctx.output.ensure_multiple(index_outputs)
+
+main = bxl_main(
+    impl = _main,
+    cli_args = {
+        "target": cli_args.target_label(),
+    },
+)

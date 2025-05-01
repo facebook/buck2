@@ -23,6 +23,7 @@ use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::dice::HasLegacyConfigs;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum AliasResolutionError {
     #[error("No [alias] section in buckconfig")]
     MissingAliasSection,
@@ -55,7 +56,7 @@ impl PartialEq for BuckConfigTargetAliasResolver {
 }
 
 impl TargetAliasResolver for BuckConfigTargetAliasResolver {
-    fn get<'a>(&'a self, name: &str) -> anyhow::Result<Option<&'a str>> {
+    fn get<'a>(&'a self, name: &str) -> buck2_error::Result<Option<&'a str>> {
         match self.resolve_alias(name) {
             Ok(a) => Ok(Some(a)),
             Err(AliasResolutionError::MissingAliasSection | AliasResolutionError::NotAnAlias) => {
@@ -64,7 +65,10 @@ impl TargetAliasResolver for BuckConfigTargetAliasResolver {
             Err(
                 e @ AliasResolutionError::AliasChainBroken(..)
                 | e @ AliasResolutionError::AliasCycle(..),
-            ) => Err(anyhow::Error::from(e).context(format!("Error resolving alias `{}`", name))),
+            ) => {
+                Err(buck2_error::Error::from(e)
+                    .context(format!("Error resolving alias `{}`", name)))
+            }
         }
     }
 }
@@ -125,7 +129,8 @@ impl BuckConfigTargetAliasResolver {
 
 #[async_trait]
 pub trait HasTargetAliasResolver {
-    async fn target_alias_resolver(&mut self) -> anyhow::Result<BuckConfigTargetAliasResolver>;
+    async fn target_alias_resolver(&mut self)
+    -> buck2_error::Result<BuckConfigTargetAliasResolver>;
 }
 
 #[derive(Debug, Display, Hash, PartialEq, Eq, Clone, Allocative)]
@@ -155,7 +160,9 @@ impl Key for TargetAliasResolverKey {
 
 #[async_trait]
 impl HasTargetAliasResolver for DiceComputations<'_> {
-    async fn target_alias_resolver(&mut self) -> anyhow::Result<BuckConfigTargetAliasResolver> {
+    async fn target_alias_resolver(
+        &mut self,
+    ) -> buck2_error::Result<BuckConfigTargetAliasResolver> {
         Ok(self.compute(&TargetAliasResolverKey()).await??)
     }
 }
@@ -170,7 +177,7 @@ mod tests {
     use crate::target_aliases::BuckConfigTargetAliasResolver;
 
     #[test]
-    fn test_aliases() -> anyhow::Result<()> {
+    fn test_aliases() -> buck2_error::Result<()> {
         let config = legacy_configs::configs::testing::parse(
             &[(
                 "config",

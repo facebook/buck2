@@ -1,0 +1,18 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+
+oncall("build_infra")
+
+rust_library(
+    name = "strong_hash",
+    srcs = glob(["src/**/*.rs"]),
+    features = [
+        "num-bigint",
+        "triomphe",
+    ],
+    deps = [
+        "fbsource//third-party/rust:num-bigint",
+        "fbsource//third-party/rust:ref-cast",
+        "fbsource//third-party/rust:triomphe",
+        "//buck2/gazebo/strong_hash_derive:strong_hash_derive",
+    ],
+)

@@ -5,10 +5,13 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# split dwarf targets have ["dwp"] subtargets. this function ensures that the dwp file is materialized
+def _ensure_default_info(ctx: bxl.Context, default_info: DefaultInfo) -> None:
+    ctx.output.ensure_multiple(cmd_args(default_info.default_outputs, hidden = default_info.other_outputs))
+
+# split dwarf targets have ["dwp"] subtargets. this function ensures that all dwp files are materialized
 def ensure_dwp(ctx: bxl.Context, target: bxl.ConfiguredTargetNode):
     providers = ctx.analysis(target).providers()
     subtargets = providers[DefaultInfo].sub_targets
 
     if "dwp" in subtargets:
-        ctx.output.ensure(subtargets["dwp"][DefaultInfo].default_outputs[0])
+        _ensure_default_info(ctx, subtargets["dwp"][DefaultInfo])

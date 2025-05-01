@@ -10,6 +10,7 @@ def test(): return [1] + [2]
 
 Max stack size: 1
 Instructions:
-  0: ListOfConsts [1, 2] ->&0
+       # instrs.star.bzl:1:13-29
+   0: ListOfConsts [1, 2] ->&0
   32: Return &0
   40: End

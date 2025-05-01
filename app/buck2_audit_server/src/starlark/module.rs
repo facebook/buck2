@@ -13,10 +13,11 @@ use buck2_audit::starlark::module::StarlarkModuleCommand;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_interpreter::load_module::InterpreterCalculation;
-use buck2_interpreter::parse_import::parse_bzl_path_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
+use buck2_interpreter::parse_import::parse_bzl_path_with_config;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
@@ -27,7 +28,7 @@ pub(crate) async fn server_execute(
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     _client_ctx: ClientContext,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     server_ctx
         .with_dice_ctx(|server_ctx, mut dice_ctx| async move {
             let cell_resolver = dice_ctx.get_cell_resolver().await?;
@@ -43,7 +44,10 @@ pub(crate) async fn server_execute(
                 &command.import_path,
                 &ParseImportOptions {
                     relative_import_option: RelativeImports::Allow {
-                        current_dir: &current_cell_path,
+                        current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
+                            current_cell_path,
+                            None,
+                        ),
                     },
                     // Otherwise `@arg` is expanded as mode file.
                     allow_missing_at_symbol: true,

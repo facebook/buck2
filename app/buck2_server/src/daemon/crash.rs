@@ -7,12 +7,14 @@
  * of this source tree.
  */
 
-use buck2_cli_proto::unstable_crash_request::CrashType;
 use buck2_cli_proto::GenericResponse;
 use buck2_cli_proto::UnstableCrashRequest;
+use buck2_cli_proto::unstable_crash_request::CrashType;
 
-pub(crate) fn crash(req: UnstableCrashRequest) -> anyhow::Result<GenericResponse> {
-    let crash_type = CrashType::from_i32(req.crash_type).ok_or(anyhow::anyhow!("bad request"))?;
+pub(crate) fn crash(req: UnstableCrashRequest) -> buck2_error::Result<GenericResponse> {
+    let crash_type = CrashType::try_from(req.crash_type).map_err(|_| {
+        buck2_error::buck2_error!(buck2_error::ErrorTag::CrashRequested, "{}", "bad request")
+    })?;
     match crash_type {
         CrashType::Panic => {
             panic!("explicitly requested panic (via unstable_crash)");

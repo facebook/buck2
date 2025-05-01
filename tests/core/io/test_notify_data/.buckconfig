@@ -1,0 +1,12 @@
+[cells]
+  root = .
+
+[buildfile]
+  name = TARGETS.fixture
+
+[buck2]
+  file_watcher = notify
+
+[project]
+  watchman_merge_base = main
+  ignore = .hg

@@ -37,6 +37,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStrategy",
+    "process_link_strategy_for_pic_behavior",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -45,12 +46,12 @@ load(
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust/rust-analyzer:provider.bzl", "rust_analyzer_provider")
+load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
 )
 load("@prelude//utils:utils.bzl", "flatten_dict")
-load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(
     ":build.bzl",
     "compile_context",
@@ -62,6 +63,7 @@ load(
     "BuildParams",  # @unused Used as a type
     "Emit",
     "LinkageLang",
+    "ProfileMode",  # @unused Used as a type
     "RuleType",
     "build_params",
     "output_filename",
@@ -71,13 +73,13 @@ load(
     ":link_info.bzl",
     "DEFAULT_STATIC_LINK_STRATEGY",
     "attr_simple_crate_for_filenames",
-    "enable_link_groups",
     "inherited_external_debug_info",
     "inherited_rust_cxx_link_group_info",
     "inherited_shared_libs",
 )
 load(":named_deps.bzl", "write_named_deps_names")
 load(":outputs.bzl", "RustcExtraOutputsInfo", "output_as_diag_subtargets")
+load(":profile.bzl", "make_profile_providers")
 load(":resources.bzl", "rust_attr_resources")
 
 def _strategy_params(
@@ -110,6 +112,7 @@ def _rust_binary_common(
     simple_crate = attr_simple_crate_for_filenames(ctx)
 
     link_strategy = LinkStrategy(ctx.attrs.link_style) if ctx.attrs.link_style else DEFAULT_STATIC_LINK_STRATEGY
+    link_strategy = process_link_strategy_for_pic_behavior(link_strategy, compile_ctx.cxx_toolchain_info.pic_behavior)
 
     resources = flatten_dict(gather_resources(
         label = ctx.label,
@@ -125,26 +128,25 @@ def _rust_binary_common(
     name = output_filename(simple_crate, Emit("link"), params)
     output = ctx.actions.declare_output(name)
 
-    rust_cxx_link_group_info = None
-    link_group_mappings = {}
-    link_group_libs = {}
-    link_group_preferred_linkage = {}
-    labels_to_links_map = {}
-    targets_consumed_by_link_groups = {}
-    filtered_targets = []
-
-    if enable_link_groups(ctx):
-        rust_cxx_link_group_info = inherited_rust_cxx_link_group_info(
-            ctx,
-            compile_ctx.dep_ctx,
-            link_strategy = link_strategy,
-        )
+    rust_cxx_link_group_info = inherited_rust_cxx_link_group_info(
+        ctx,
+        compile_ctx.dep_ctx,
+        link_strategy = link_strategy,
+    )
+    if rust_cxx_link_group_info != None:
         link_group_mappings = rust_cxx_link_group_info.link_group_info.mappings
         link_group_libs = rust_cxx_link_group_info.link_group_libs
         link_group_preferred_linkage = rust_cxx_link_group_info.link_group_preferred_linkage
         labels_to_links_map = rust_cxx_link_group_info.labels_to_links_map
         targets_consumed_by_link_groups = rust_cxx_link_group_info.targets_consumed_by_link_groups
         filtered_targets = rust_cxx_link_group_info.filtered_targets
+    else:
+        link_group_mappings = {}
+        link_group_libs = {}
+        link_group_preferred_linkage = {}
+        labels_to_links_map = {}
+        targets_consumed_by_link_groups = {}
+        filtered_targets = []
 
     shlib_deps = []
     if link_strategy == LinkStrategy("shared") or rust_cxx_link_group_info != None:
@@ -334,6 +336,48 @@ def _rust_binary_common(
         incremental_enabled = ctx.attrs.incremental_enabled,
     ).output
 
+    llvm_ir_noopt = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("llvm-ir-noopt"),
+        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+        default_roots = default_roots,
+        extra_flags = extra_flags,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+    ).output
+    llvm_time_trace = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("link"),
+        params = params,
+        default_roots = default_roots,
+        extra_link_args = executable_args.extra_link_args,
+        extra_flags = extra_flags,
+        rust_cxx_link_group_info = rust_cxx_link_group_info,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+        profile_mode = ProfileMode("llvm-time-trace"),
+    )
+    self_profile = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("link"),
+        params = params,
+        default_roots = default_roots,
+        extra_link_args = executable_args.extra_link_args,
+        extra_flags = extra_flags,
+        rust_cxx_link_group_info = rust_cxx_link_group_info,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+        profile_mode = ProfileMode("self-profile"),
+    )
+    profiles = make_profile_providers(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        llvm_ir_noopt = llvm_ir_noopt,
+        llvm_time_trace = llvm_time_trace,
+        self_profile = self_profile,
+    )
+    sub_targets["profile"] = profiles
+
     extra_compiled_targets["llvm_ir"] = rust_compile(
         ctx = ctx,
         compile_ctx = compile_ctx,
@@ -365,7 +409,7 @@ def _rust_binary_common(
                     shlib.lib.dwp
                     for shlib in shared_libs
                     if shlib.lib.dwp
-                ],
+                ] + ([executable_args.dwp_symlink_tree] if executable_args.dwp_symlink_tree else []),
             ),
         ]
 
@@ -394,13 +438,13 @@ def _rust_binary_common(
     ]
     providers.append(rust_analyzer_provider(
         ctx = ctx,
-        dep_ctx = compile_ctx.dep_ctx,
+        compile_ctx = compile_ctx,
         default_roots = default_roots,
     ))
     return (providers, args)
 
 def rust_binary_impl(ctx: AnalysisContext) -> list[Provider]:
-    compile_ctx = compile_context(ctx)
+    compile_ctx = compile_context(ctx, binary = True)
 
     providers, args = _rust_binary_common(
         ctx = ctx,
@@ -413,7 +457,7 @@ def rust_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     return providers + [RunInfo(args = args)]
 
 def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
-    compile_ctx = compile_context(ctx)
+    compile_ctx = compile_context(ctx, binary = True)
     toolchain_info = compile_ctx.toolchain_info
 
     extra_flags = toolchain_info.rustc_test_flags or []

@@ -8,15 +8,15 @@
  */
 
 use std::pin::Pin;
+use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use bytes::Bytes;
 use dupe::Dupe;
-use futures::task::Poll;
 use futures::Stream;
+use futures::task::Poll;
 use pin_project::pin_project;
 
 #[derive(Allocative, Clone, Dupe)]

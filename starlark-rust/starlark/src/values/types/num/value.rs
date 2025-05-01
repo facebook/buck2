@@ -24,13 +24,13 @@ use dupe::Dupe;
 
 use crate as starlark;
 use crate::collections::StarlarkHashValue;
+use crate::values::AllocFrozenValue;
+use crate::values::AllocValue;
+use crate::values::UnpackValue;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::float::StarlarkFloat;
 use crate::values::types::int::int_or_big::StarlarkInt;
 use crate::values::types::int::int_or_big::StarlarkIntRef;
-use crate::values::AllocFrozenValue;
-use crate::values::AllocValue;
-use crate::values::UnpackValue;
 
 #[derive(Debug, thiserror::Error)]
 enum NumError {
@@ -230,8 +230,8 @@ mod tests {
     use num_bigint::BigInt;
 
     use super::*;
-    use crate::values::types::int::inline_int::InlineInt;
     use crate::values::Value;
+    use crate::values::types::int::inline_int::InlineInt;
 
     #[test]
     fn test_from_value() {

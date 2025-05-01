@@ -37,4 +37,8 @@ impl DaemonDir {
     pub fn buckd_pid(&self) -> AbsNormPathBuf {
         self.path.join(FileName::new("buckd.pid").unwrap())
     }
+
+    pub fn buckd_error_log(&self) -> AbsNormPathBuf {
+        self.path.join(FileName::new("buckd.error.log").unwrap())
+    }
 }

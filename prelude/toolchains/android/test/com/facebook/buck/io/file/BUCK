@@ -1,0 +1,24 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "standard_java_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+standard_java_test(
+    name = "file",
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem:filesystem",
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
+        "prelude//toolchains/android/test/com/facebook/buck/core/filesystems:testutil",
+        "prelude//toolchains/android/test/com/facebook/buck/testutil:testutil",
+        "prelude//toolchains/android/test/com/facebook/buck/testutil/integration:util",
+        "prelude//toolchains/android/test/com/facebook/buck/util:testutil",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jimfs",
+        "prelude//toolchains/android/third-party:junit",
+    ],
+)

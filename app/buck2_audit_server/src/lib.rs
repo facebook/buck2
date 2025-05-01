@@ -31,6 +31,7 @@ mod execution_platform_resolution;
 mod includes;
 pub mod output;
 mod package_values;
+mod perf;
 mod prelude;
 mod providers;
 mod server;
@@ -53,7 +54,7 @@ pub trait ServerAuditSubcommand: Send + Sync + 'static {
         server_ctx: &dyn ServerCommandContextTrait,
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_server_ctx: ClientContext,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
 }
 
 #[async_trait]
@@ -63,7 +64,7 @@ pub trait AuditCommandExt {
         server_ctx: &dyn ServerCommandContextTrait,
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_server_ctx: ClientContext,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
     fn as_subcommand(&self) -> &dyn ServerAuditSubcommand;
 }
 
@@ -74,7 +75,7 @@ impl AuditCommandExt for AuditCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_server_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.as_subcommand()
             .server_execute(server_ctx, stdout, client_server_ctx)
             .await
@@ -98,6 +99,7 @@ impl AuditCommandExt for AuditCommand {
             AuditCommand::Output(cmd) => cmd,
             AuditCommand::Parse(cmd) => cmd,
             AuditCommand::PackageValues(cmd) => cmd,
+            AuditCommand::Perf(cmd) => cmd,
         }
     }
 }

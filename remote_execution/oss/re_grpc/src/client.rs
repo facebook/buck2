@@ -20,23 +20,16 @@ use anyhow::Context;
 use buck2_re_configuration::Buck2OssReConfiguration;
 use buck2_re_configuration::HttpHeader;
 use dupe::Dupe;
+use futures::Stream;
 use futures::future::BoxFuture;
 use futures::future::Future;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
-use futures::Stream;
 use gazebo::prelude::*;
 use lru::LruCache;
 use once_cell::sync::Lazy;
 use prost::Message;
-use re_grpc_proto::build::bazel::remote::execution::v2::action_cache_client::ActionCacheClient;
-use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_request::Request;
-use re_grpc_proto::build::bazel::remote::execution::v2::capabilities_client::CapabilitiesClient;
-use re_grpc_proto::build::bazel::remote::execution::v2::compressor;
-use re_grpc_proto::build::bazel::remote::execution::v2::content_addressable_storage_client::ContentAddressableStorageClient;
-use re_grpc_proto::build::bazel::remote::execution::v2::execution_client::ExecutionClient;
-use re_grpc_proto::build::bazel::remote::execution::v2::execution_stage;
 use re_grpc_proto::build::bazel::remote::execution::v2::ActionResult;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsResponse;
@@ -46,18 +39,30 @@ use re_grpc_proto::build::bazel::remote::execution::v2::Digest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteOperationMetadata;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteRequest as GExecuteRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteResponse as GExecuteResponse;
+use re_grpc_proto::build::bazel::remote::execution::v2::ExecutedActionMetadata;
 use re_grpc_proto::build::bazel::remote::execution::v2::FindMissingBlobsRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::FindMissingBlobsResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::GetActionResultRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::GetCapabilitiesRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::OutputDirectory;
+use re_grpc_proto::build::bazel::remote::execution::v2::OutputFile;
+use re_grpc_proto::build::bazel::remote::execution::v2::OutputSymlink;
 use re_grpc_proto::build::bazel::remote::execution::v2::RequestMetadata;
 use re_grpc_proto::build::bazel::remote::execution::v2::ResultsCachePolicy;
 use re_grpc_proto::build::bazel::remote::execution::v2::ToolDetails;
-use re_grpc_proto::google::bytestream::byte_stream_client::ByteStreamClient;
+use re_grpc_proto::build::bazel::remote::execution::v2::UpdateActionResultRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::action_cache_client::ActionCacheClient;
+use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_request::Request;
+use re_grpc_proto::build::bazel::remote::execution::v2::capabilities_client::CapabilitiesClient;
+use re_grpc_proto::build::bazel::remote::execution::v2::compressor;
+use re_grpc_proto::build::bazel::remote::execution::v2::content_addressable_storage_client::ContentAddressableStorageClient;
+use re_grpc_proto::build::bazel::remote::execution::v2::execution_client::ExecutionClient;
+use re_grpc_proto::build::bazel::remote::execution::v2::execution_stage;
 use re_grpc_proto::google::bytestream::ReadRequest;
 use re_grpc_proto::google::bytestream::ReadResponse;
 use re_grpc_proto::google::bytestream::WriteRequest;
 use re_grpc_proto::google::bytestream::WriteResponse;
+use re_grpc_proto::google::bytestream::byte_stream_client::ByteStreamClient;
 use re_grpc_proto::google::longrunning::operation::Result as OpResult;
 use re_grpc_proto::google::rpc::Code;
 use re_grpc_proto::google::rpc::Status;
@@ -70,11 +75,11 @@ use tonic::metadata;
 use tonic::metadata::MetadataKey;
 use tonic::metadata::MetadataValue;
 use tonic::service::Interceptor;
-use tonic::transport::channel::ClientTlsConfig;
 use tonic::transport::Certificate;
 use tonic::transport::Channel;
 use tonic::transport::Identity;
 use tonic::transport::Uri;
+use tonic::transport::channel::ClientTlsConfig;
 
 use crate::error::*;
 use crate::metadata::*;
@@ -114,7 +119,15 @@ fn check_status(status: Status) -> Result<(), REClientError> {
     Err(REClientError {
         code: TCode(status.code),
         message: status.message,
+        group: TCodeReasonGroup::UNKNOWN,
     })
+}
+
+fn ttimestamp_to(ts: TTimestamp) -> ::prost_types::Timestamp {
+    ::prost_types::Timestamp {
+        seconds: ts.seconds,
+        nanos: ts.nanos,
+    }
 }
 
 fn ttimestamp_from(ts: Option<::prost_types::Timestamp>) -> TTimestamp {
@@ -589,10 +602,28 @@ impl REClient {
 
     pub async fn write_action_result(
         &self,
-        _metadata: RemoteExecutionMetadata,
-        _request: WriteActionResultRequest,
+        metadata: RemoteExecutionMetadata,
+        request: WriteActionResultRequest,
     ) -> anyhow::Result<WriteActionResultResponse> {
-        Err(anyhow::anyhow!("Not supported"))
+        let mut client = self.grpc_clients.action_cache_client.clone();
+
+        let res = client
+            .update_action_result(with_re_metadata(
+                UpdateActionResultRequest {
+                    instance_name: self.instance_name.as_str().to_owned(),
+                    action_digest: Some(tdigest_to(request.action_digest)),
+                    action_result: Some(convert_t_action_result2(request.action_result)?),
+                    results_cache_policy: None,
+                },
+                metadata,
+                self.runtime_opts.use_fbcode_metadata,
+            ))
+            .await?;
+
+        Ok(WriteActionResultResponse {
+            actual_action_result: convert_action_result(res.into_inner())?,
+            ttl_seconds: 0,
+        })
     }
 
     pub async fn execute_with_progress(
@@ -639,6 +670,7 @@ impl REClient {
                         return Err(REClientError {
                             code: TCode(rpc_status.code),
                             message: rpc_status.message,
+                            group: TCodeReasonGroup::UNKNOWN,
                         }
                         .into());
                     }
@@ -660,6 +692,7 @@ impl REClient {
                             action_result_ttl: 0,
                             status: TStatus {
                                 code: TCode::OK,
+                                message: execute_response_grpc.message,
                                 ..Default::default()
                             },
                             cached_result: execute_response_grpc.cached_result,
@@ -677,12 +710,12 @@ impl REClient {
                 let meta =
                     ExecuteOperationMetadata::decode(&msg.metadata.unwrap_or_default().value[..])?;
 
-                let stage = match execution_stage::Value::from_i32(meta.stage) {
-                    Some(execution_stage::Value::Unknown) => Stage::UNKNOWN,
-                    Some(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
-                    Some(execution_stage::Value::Queued) => Stage::QUEUED,
-                    Some(execution_stage::Value::Executing) => Stage::EXECUTING,
-                    Some(execution_stage::Value::Completed) => Stage::COMPLETED,
+                let stage = match execution_stage::Value::try_from(meta.stage) {
+                    Ok(execution_stage::Value::Unknown) => Stage::UNKNOWN,
+                    Ok(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
+                    Ok(execution_stage::Value::Queued) => Stage::QUEUED,
+                    Ok(execution_stage::Value::Executing) => Stage::EXECUTING,
+                    Ok(execution_stage::Value::Completed) => Stage::COMPLETED,
                     _ => Stage::UNKNOWN,
                 };
 
@@ -756,13 +789,29 @@ impl REClient {
         .await
     }
 
-    pub async fn upload_blob(
+    pub async fn upload_blob_with_digest(
         &self,
-        _blob: Vec<u8>,
-        _metadata: RemoteExecutionMetadata,
+        blob: Vec<u8>,
+        digest: TDigest,
+        metadata: RemoteExecutionMetadata,
     ) -> anyhow::Result<TDigest> {
-        // TODO(aloiscochard)
-        Err(anyhow::anyhow!("Not implemented (RE upload_blob)"))
+        let blob = InlinedBlobWithDigest {
+            digest: digest.clone(),
+            blob,
+            ..Default::default()
+        };
+        self.upload(
+            metadata,
+            UploadRequest {
+                inlined_blobs_with_digest: Some(vec![blob]),
+                files_with_digest: None,
+                directories: None,
+                upload_only_missing: false,
+                ..Default::default()
+            },
+        )
+        .await?;
+        Ok(digest)
     }
 
     pub async fn download(
@@ -1008,6 +1057,89 @@ fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionR
     Ok(action_result)
 }
 
+fn convert_t_action_result2(t_action_result: TActionResult2) -> anyhow::Result<ActionResult> {
+    let t_execution_metadata = t_action_result.execution_metadata;
+    let virtual_execution_duration = prost_types::Duration::try_from(
+        t_execution_metadata
+            .execution_completed_timestamp
+            .saturating_duration_since(&t_execution_metadata.execution_start_timestamp),
+    )?;
+    let execution_metadata = Some(ExecutedActionMetadata {
+        worker: t_execution_metadata.worker,
+        queued_timestamp: Some(ttimestamp_to(t_execution_metadata.queued_timestamp)),
+        worker_start_timestamp: Some(ttimestamp_to(t_execution_metadata.worker_start_timestamp)),
+        worker_completed_timestamp: Some(ttimestamp_to(
+            t_execution_metadata.worker_completed_timestamp,
+        )),
+        input_fetch_start_timestamp: Some(ttimestamp_to(
+            t_execution_metadata.input_fetch_start_timestamp,
+        )),
+        input_fetch_completed_timestamp: Some(ttimestamp_to(
+            t_execution_metadata.input_fetch_completed_timestamp,
+        )),
+        execution_start_timestamp: Some(ttimestamp_to(
+            t_execution_metadata.execution_start_timestamp,
+        )),
+        execution_completed_timestamp: Some(ttimestamp_to(
+            t_execution_metadata.execution_completed_timestamp,
+        )),
+        virtual_execution_duration: Some(virtual_execution_duration),
+        output_upload_start_timestamp: Some(ttimestamp_to(
+            t_execution_metadata.output_upload_start_timestamp,
+        )),
+        output_upload_completed_timestamp: Some(ttimestamp_to(
+            t_execution_metadata.output_upload_completed_timestamp,
+        )),
+        auxiliary_metadata: Vec::new(),
+    });
+
+    let output_files = t_action_result
+        .output_files
+        .into_map(|output_file| OutputFile {
+            path: output_file.name,
+            digest: Some(tdigest_to(output_file.digest.digest)),
+            is_executable: output_file.executable,
+            contents: Vec::new(),
+            node_properties: None,
+        });
+
+    let output_symlinks =
+        t_action_result
+            .output_symlinks
+            .into_map(|output_symlink| OutputSymlink {
+                path: output_symlink.name,
+                target: output_symlink.target,
+                node_properties: None,
+            });
+
+    let output_directories = t_action_result
+        .output_directories
+        .into_map(|output_directory| {
+            let digest = tdigest_to(output_directory.tree_digest);
+            OutputDirectory {
+                path: output_directory.path,
+                tree_digest: Some(digest.clone()),
+                is_topologically_sorted: false,
+            }
+        });
+
+    let action_result = ActionResult {
+        output_files,
+        output_file_symlinks: Vec::new(),
+        output_symlinks,
+        output_directories,
+        output_directory_symlinks: Vec::new(),
+        exit_code: t_action_result.exit_code,
+        stdout_raw: Vec::new(),
+        stdout_digest: t_action_result.stdout_digest.map(tdigest_to),
+        stderr_raw: Vec::new(),
+        stderr_digest: t_action_result.stderr_digest.map(tdigest_to),
+        execution_metadata,
+    };
+
+    Ok(action_result)
+}
+
 async fn download_impl<Byt, BytRet, Cas>(
     instance_name: &InstanceName,
     request: DownloadRequest,
@@ -1178,6 +1310,7 @@ where
     Ok(DownloadResponse {
         inlined_blobs: Some(inlined_blobs),
         directories: None,
+        local_cache_stats: Default::default(),
     })
 }
 

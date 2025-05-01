@@ -7,41 +7,35 @@
  * of this source tree.
  */
 
-use std::io::BufWriter;
-use std::io::Write;
 use std::sync::Arc;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_artifact::artifact::artifact_dump::ArtifactInfo;
-use buck2_artifact::artifact::artifact_dump::ArtifactMetadataJson;
-use buck2_artifact::artifact::artifact_dump::DirectoryInfo;
-use buck2_artifact::artifact::artifact_dump::ExternalSymlinkInfo;
-use buck2_artifact::artifact::artifact_dump::FileInfo;
-use buck2_artifact::artifact::artifact_dump::SymlinkInfo;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::build;
+use buck2_build_api::build::AsyncBuildTargetResultBuilder;
+use buck2_build_api::build::BuildEvent;
+use buck2_build_api::build::BuildEventConsumer;
+use buck2_build_api::build::BuildTargetResult;
+use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
+use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::build::build_report::build_report_opts;
 use buck2_build_api::build::build_report::generate_build_report;
-use buck2_build_api::build::BuildEvent;
-use buck2_build_api::build::BuildTargetResult;
-use buck2_build_api::build::ConfiguredBuildEvent;
-use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
-use buck2_build_api::build::ProviderArtifacts;
-use buck2_build_api::build::ProvidersToBuild;
-use buck2_build_api::materialize::MaterializationContext;
-use buck2_cli_proto::build_request::build_providers::Action as BuildProviderAction;
+use buck2_build_api::build::graph_properties::GraphPropertiesOptions;
+use buck2_build_api::materialize::MaterializationAndUploadContext;
+use buck2_cli_proto::CommonBuildOptions;
 use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::Materializations;
-use buck2_cli_proto::CommonBuildOptions;
+use buck2_cli_proto::build_request::Uploads;
+use buck2_cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_common::liveliness_observer::LivelinessObserver;
+use buck2_common::liveliness_observer::TimeoutLivelinessObserver;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
-use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -50,39 +44,28 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_directory::directory::directory::Directory;
-use buck2_directory::directory::directory_iterator::DirectoryIterator;
-use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::span_async;
-use buck2_events::dispatch::span_async_simple;
-use buck2_events::errors::create_error_report;
-use buck2_execute::directory::ActionDirectoryBuilder;
-use buck2_execute::directory::ActionDirectoryMember;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
-use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::commands::send_target_cfg_event;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
-use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use buck2_server_ctx::template::run_server_command;
 use dice::DiceTransaction;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 use futures::future::FutureExt;
-use futures::stream::futures_unordered::FuturesUnordered;
-use futures::stream::Stream;
 use futures::stream::StreamExt;
+use futures::stream::futures_unordered::FuturesUnordered;
 use itertools::Either;
 use itertools::Itertools;
-use serde::ser::SerializeSeq;
-use serde::ser::Serializer;
 
 use crate::commands::build::result_report::ResultReporter;
 use crate::commands::build::result_report::ResultReporterOptions;
@@ -96,7 +79,7 @@ pub(crate) async fn build_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::BuildRequest,
-) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
+) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
     run_server_command(BuildServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
@@ -127,19 +110,12 @@ impl ServerCommandTemplate for BuildServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         build(server_ctx, ctx, &self.req).await
     }
 
     fn is_success(&self, response: &Self::Response) -> bool {
         response.errors.is_empty()
-    }
-
-    fn additional_telemetry_errors(
-        &self,
-        response: &Self::Response,
-    ) -> Vec<buck2_data::ErrorReport> {
-        response.errors.clone()
     }
 }
 
@@ -147,74 +123,25 @@ fn expect_build_opts(req: &buck2_cli_proto::BuildRequest) -> &CommonBuildOptions
     req.build_opts.as_ref().expect("should have build options")
 }
 
-async fn dump_artifacts_to_file(
-    path: &str,
-    provider_artifacts: &[ProviderArtifacts],
-    artifact_fs: &ArtifactFs,
-) -> anyhow::Result<()> {
-    let file = std::fs::File::create(path).context("Failed to create output hash file")?;
-    let writer = BufWriter::new(file);
-    let mut ser = serde_json::Serializer::new(writer);
-    let mut seq = ser
-        .serialize_seq(None)
-        .context("Failed to write vec to output hash file")?;
-
-    let mut dir = ActionDirectoryBuilder::empty();
-    for artifact in provider_artifacts {
-        artifact.values.add_to_directory(&mut dir, artifact_fs)?;
-    }
-    for (entry_path, entry) in dir.unordered_walk().with_paths() {
-        let info = match entry {
-            DirectoryEntry::Dir(_) => ArtifactInfo::Directory(DirectoryInfo {}),
-            DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)) => {
-                let cas_digest = metadata.digest.data();
-                ArtifactInfo::File(FileInfo {
-                    digest: cas_digest,
-                    digest_kind: cas_digest.raw_digest().algorithm(),
-                    is_exec: metadata.is_executable,
-                })
-            }
-            DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink_target)) => {
-                ArtifactInfo::Symlink(SymlinkInfo {
-                    symlink_rel_path: symlink_target.target(),
-                })
-            }
-            DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => {
-                ArtifactInfo::ExternalSymlink(ExternalSymlinkInfo {
-                    target: external_symlink.target(),
-                    remaining_path: if external_symlink.remaining_path().is_empty() {
-                        None
-                    } else {
-                        Some(external_symlink.remaining_path())
-                    },
-                })
-            }
-        };
-
-        let artifact_meta_json = ArtifactMetadataJson {
-            path: &entry_path,
-            info,
-        };
-        seq.serialize_element(&artifact_meta_json)
-            .context("Failed to write data to output hash file")?;
-    }
-
-    seq.end()
-        .context("Failed to write vec end to output hash file")?;
-    ser.into_inner()
-        .flush()
-        .context("Failed to flush output hash file")?;
-    Ok(())
-}
-
 async fn build(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
-) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
+) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
     let cwd = server_ctx.working_dir();
 
     let build_opts = expect_build_opts(request);
+
+    let timeout = request
+        .timeout
+        .as_ref()
+        .map(|t| t.clone().try_into())
+        .transpose()
+        .with_buck_error_context(|| "Invalid `duration`")?;
+
+    let timeout_observer = timeout.map(|timeout| {
+        Arc::new(TimeoutLivelinessObserver::new(timeout)) as Arc<dyn LivelinessObserver>
+    });
 
     let cell_resolver = ctx.get_cell_resolver().await?;
 
@@ -239,9 +166,12 @@ async fn build(
     let build_providers = Arc::new(request.build_providers.clone().unwrap());
 
     let final_artifact_materializations =
-        Materializations::from_i32(request.final_artifact_materializations)
-            .with_context(|| "Invalid final_artifact_materializations")
+        Materializations::try_from(request.final_artifact_materializations)
+            .with_buck_error_context(|| "Invalid final_artifact_materializations")
             .unwrap();
+    let final_artifact_uploads = Uploads::try_from(request.final_artifact_uploads)
+        .with_buck_error_context(|| "Invalid final_artifact_uploads")
+        .unwrap();
 
     let want_configured_graph_size = ctx
         .parse_legacy_config_property(
@@ -254,6 +184,17 @@ async fn build(
         .await?
         .unwrap_or_default();
 
+    let want_configured_graph_sketch = ctx
+        .parse_legacy_config_property(
+            cell_resolver.root_cell(),
+            BuckconfigKeyRef {
+                section: "buck2",
+                property: "log_configured_graph_sketch",
+            },
+        )
+        .await?
+        .unwrap_or_default();
+
     let build_result = ctx
         .with_linear_recompute(|ctx| async move {
             build_targets(
@@ -261,11 +202,15 @@ async fn build(
                 resolved_pattern,
                 target_resolution_config,
                 build_providers,
-                &final_artifact_materializations.into(),
+                &(final_artifact_materializations, final_artifact_uploads).into(),
                 build_opts.fail_fast,
                 MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
                 build_opts.skip_incompatible_targets,
-                want_configured_graph_size,
+                GraphPropertiesOptions {
+                    configured_graph_size: want_configured_graph_size,
+                    configured_graph_sketch: want_configured_graph_sketch,
+                },
+                timeout_observer.as_ref(),
             )
             .await
         })
@@ -285,7 +230,7 @@ async fn process_build_result(
     mut ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
     build_result: BuildTargetResult,
-) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
+) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
     let fs = server_ctx.project_root();
     let cwd = server_ctx.working_dir();
 
@@ -327,26 +272,8 @@ async fn process_build_result(
     for v in build_result.configured.into_values() {
         // We omit skipped targets here.
         let Some(v) = v else { continue };
-        let mut outputs = v.outputs.into_iter().filter_map(|output| match output {
-            Ok(output) => Some(output),
-            _ => None,
-        });
+        let mut outputs = v.outputs.into_iter().filter_map(Result::ok);
         provider_artifacts.extend(&mut outputs);
-    }
-
-    if let Some(output_hashes_file) = &request.output_hashes_file {
-        span_async_simple(
-            buck2_data::CreateOutputHashesFileStart {},
-            async {
-                dump_artifacts_to_file(output_hashes_file, &provider_artifacts, &artifact_fs)
-                    .await
-                    .with_context(|| {
-                        format!("Failed to write output hashes file to {output_hashes_file}",)
-                    })
-            },
-            buck2_data::CreateOutputHashesFileEnd {},
-        )
-        .await?;
     }
 
     let should_create_unhashed_links = ctx
@@ -381,7 +308,7 @@ async fn process_build_result(
         .build_errors
         .errors
         .iter()
-        .map(create_error_report)
+        .map(buck2_data::ErrorReport::from)
         .unique_by(|e| e.message.clone())
         .collect();
 
@@ -400,113 +327,137 @@ async fn build_targets(
     spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     target_resolution_config: TargetResolutionConfig,
     build_providers: Arc<BuildProviders>,
-    materialization: &MaterializationContext,
+    materialization_and_upload: &MaterializationAndUploadContext,
     fail_fast: bool,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
-    want_configured_graph_size: bool,
-) -> anyhow::Result<BuildTargetResult> {
-    let stream = match target_resolution_config {
+    graph_properties: GraphPropertiesOptions,
+    timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
+) -> buck2_error::Result<BuildTargetResult> {
+    let (builder, consumer) = AsyncBuildTargetResultBuilder::new();
+    let fut = match target_resolution_config {
         TargetResolutionConfig::Default(global_cfg_options) => {
-            let spec = spec.convert_pattern().context(
+            let spec = spec.convert_pattern().buck_error_context(
                 "Targets with explicit configuration can only be built when the `--target-universe=` flag is provided",
             )?;
             build_targets_with_global_target_platform(
+                &consumer,
                 ctx,
                 spec,
                 global_cfg_options,
                 build_providers,
-                materialization,
+                materialization_and_upload,
                 missing_target_behavior,
                 skip_incompatible_targets,
-                want_configured_graph_size,
+                graph_properties,
+                timeout_observer,
             )
-            .left_stream()
+            .left_future()
         }
         TargetResolutionConfig::Universe(universe) => build_targets_in_universe(
+            &consumer,
             ctx,
             spec,
             universe,
             build_providers,
-            materialization,
-            want_configured_graph_size,
+            materialization_and_upload,
+            graph_properties,
+            timeout_observer,
         )
-        .map(BuildEvent::Configured)
-        .right_stream(),
+        .right_future(),
     };
 
-    BuildTargetResult::collect_stream(stream, fail_fast).await
+    builder.wait_for(fail_fast, fut).await
 }
 
-fn build_targets_in_universe<'a>(
-    ctx: &'a LinearRecomputeDiceComputations,
+async fn build_targets_in_universe(
+    event_consumer: &dyn BuildEventConsumer,
+    ctx: &LinearRecomputeDiceComputations<'_>,
     spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     universe: CqueryUniverse,
     build_providers: Arc<BuildProviders>,
-    materialization: &'a MaterializationContext,
-    want_configured_graph_size: bool,
-) -> impl Stream<Item = ConfiguredBuildEvent> + Unpin + 'a {
+    materialization_and_upload: &MaterializationAndUploadContext,
+    graph_properties: GraphPropertiesOptions,
+    timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
+) {
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
     let provider_labels = universe.get_provider_labels(&spec);
+    if provider_labels.is_empty() {
+        console_message(
+            "\nNo targets found inside the specified universe, nothing will be built\n\n"
+                .to_owned(),
+        );
+    }
     provider_labels
         .into_iter()
         .map(|p| {
             let providers_to_build = providers_to_build.clone();
             async move {
                 build::build_configured_label(
+                    event_consumer,
                     ctx,
-                    materialization,
+                    materialization_and_upload,
                     p,
                     &providers_to_build,
                     build::BuildConfiguredLabelOptions {
                         skippable: false,
-                        want_configured_graph_size,
+                        graph_properties,
                     },
+                    timeout_observer,
                 )
                 .await
             }
         })
         .collect::<FuturesUnordered<_>>()
-        .flatten_unordered(None)
+        .collect()
+        .await
 }
 
-fn build_targets_with_global_target_platform<'a>(
+async fn build_targets_with_global_target_platform<'a>(
+    event_consumer: &'a dyn BuildEventConsumer,
     ctx: &'a LinearRecomputeDiceComputations<'_>,
     spec: ResolvedPattern<ProvidersPatternExtra>,
     global_cfg_options: GlobalCfgOptions,
     build_providers: Arc<BuildProviders>,
-    materialization: &'a MaterializationContext,
+    materialization_and_upload: &'a MaterializationAndUploadContext,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
-    want_configured_graph_size: bool,
-) -> impl Stream<Item = BuildEvent> + Unpin + 'a {
-    futures::stream::iter(spec.specs.into_iter().map(move |(package, spec)| {
-        build_targets_for_spec(
-            ctx,
-            spec,
-            package,
-            global_cfg_options.dupe(),
-            build_providers.dupe(),
-            materialization,
-            missing_target_behavior,
-            skip_incompatible_targets,
-            want_configured_graph_size,
-        )
-        .boxed()
-        .flatten_stream()
-    }))
-    .flatten_unordered(None)
+    graph_properties: GraphPropertiesOptions,
+    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
+) {
+    let global_cfg_options = &global_cfg_options;
+    let build_providers = &build_providers;
+    spec.specs
+        .into_iter()
+        .map(move |(package, spec)| async move {
+            build_targets_for_spec(
+                event_consumer,
+                ctx,
+                spec,
+                package,
+                global_cfg_options.dupe(),
+                build_providers.dupe(),
+                materialization_and_upload,
+                missing_target_behavior,
+                skip_incompatible_targets,
+                graph_properties,
+                timeout_observer,
+            )
+            .await
+        })
+        .collect::<FuturesUnordered<_>>()
+        .collect()
+        .await
 }
 
 struct TargetBuildSpec {
-    target: TargetNode,
-    providers: ProvidersName,
+    target: ProvidersLabel,
     global_cfg_options: GlobalCfgOptions,
     // Indicates whether this target was explicitly requested or not. If it's the result
     // of something like `//foo/...` we can skip it (for example if it's incompatible with
     // the target platform).
     skippable: bool,
-    want_configured_graph_size: bool,
+    graph_properties: GraphPropertiesOptions,
 }
 
 fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> ProvidersToBuild {
@@ -528,17 +479,19 @@ fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> Pr
     providers_to_build
 }
 
-async fn build_targets_for_spec<'a>(
-    ctx: &'a LinearRecomputeDiceComputations<'_>,
+async fn build_targets_for_spec(
+    event_consumer: &dyn BuildEventConsumer,
+    ctx: &LinearRecomputeDiceComputations<'_>,
     spec: PackageSpec<ProvidersPatternExtra>,
     package: PackageLabel,
     global_cfg_options: GlobalCfgOptions,
     build_providers: Arc<BuildProviders>,
-    materialization: &'a MaterializationContext,
+    materialization_and_upload: &MaterializationAndUploadContext,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
-    want_configured_graph_size: bool,
-) -> impl Stream<Item = BuildEvent> + 'a {
+    graph_properties: GraphPropertiesOptions,
+    timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
+) {
     let skippable = match spec {
         PackageSpec::Targets(..) => skip_incompatible_targets,
         PackageSpec::All => true,
@@ -563,46 +516,42 @@ async fn build_targets_for_spec<'a>(
                 ),
                 PackageSpec::All => Either::Right(std::iter::once(None)),
             };
-            return futures::stream::iter(targets.into_iter().map(move |t| {
-                BuildEvent::OtherError {
+            for t in targets {
+                event_consumer.consume(BuildEvent::OtherError {
                     label: t,
                     err: e.dupe(),
-                }
-            }))
-            .left_stream();
+                });
+            }
+            return;
         }
     };
     let (targets, missing) = res.apply_spec(spec);
-    let missing_target_stream = match (missing, missing_target_behavior) {
-        (Some(missing), MissingTargetBehavior::Fail) => {
-            let (first, rest) = missing.into_errors();
-            futures::stream::iter(std::iter::once(first).chain(rest).map(|err| {
-                BuildEvent::OtherError {
-                    label: Some(ProvidersLabel::new(
-                        TargetLabel::new(err.package.dupe(), err.target.as_ref()),
-                        ProvidersName::Default,
-                    )),
-                    err: err.into(),
+    if let Some(missing) = missing {
+        match missing_target_behavior {
+            MissingTargetBehavior::Fail => {
+                for err in missing.into_all_errors() {
+                    event_consumer.consume(BuildEvent::OtherError {
+                        label: Some(ProvidersLabel::new(
+                            TargetLabel::new(err.package.dupe(), err.target.as_ref()),
+                            ProvidersName::Default,
+                        )),
+                        err: err.into(),
+                    });
                 }
-            }))
-            .left_stream()
+            }
+            MissingTargetBehavior::Warn => {
+                // TODO: This should be reported in the build report eventually.
+                console_message(missing.missing_targets_warning());
+            }
         }
-        (Some(missing), MissingTargetBehavior::Warn) => {
-            // TODO: This should be reported in the build report eventually.
-            console_message(missing.missing_targets_warning());
-            futures::stream::empty().right_stream()
-        }
-        (None, _) => futures::stream::empty().right_stream(),
-    };
-
+    }
     let todo_targets: Vec<TargetBuildSpec> = targets
         .into_iter()
         .map(|((_target_name, extra), target)| TargetBuildSpec {
-            target,
-            providers: extra.providers,
+            target: ProvidersLabel::new(target.label().dupe(), extra.providers),
             global_cfg_options: global_cfg_options.dupe(),
             skippable,
-            want_configured_graph_size,
+            graph_properties,
         })
         .collect();
 
@@ -612,47 +561,57 @@ async fn build_targets_for_spec<'a>(
         .into_iter()
         .map(|build_spec| {
             let providers_to_build = providers_to_build.clone();
-            async move { build_target(ctx, build_spec, &providers_to_build, materialization).await }
+            async move {
+                build_target(
+                    event_consumer,
+                    ctx,
+                    build_spec,
+                    &providers_to_build,
+                    materialization_and_upload,
+                    timeout_observer,
+                )
+                .await
+            }
         })
         .collect::<FuturesUnordered<_>>()
-        .flatten_unordered(None)
-        .chain(missing_target_stream)
-        .right_stream()
+        .collect()
+        .await
 }
 
-async fn build_target<'a>(
-    ctx: &'a LinearRecomputeDiceComputations<'_>,
+async fn build_target(
+    event_consumer: &dyn BuildEventConsumer,
+    ctx: &LinearRecomputeDiceComputations<'_>,
     spec: TargetBuildSpec,
     providers_to_build: &ProvidersToBuild,
-    materialization: &'a MaterializationContext,
-) -> impl Stream<Item = BuildEvent> + 'a {
-    let providers_label = ProvidersLabel::new(spec.target.label().dupe(), spec.providers);
+    materialization_and_upload: &MaterializationAndUploadContext,
+    timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
+) {
     let providers_label = match ctx
         .get()
-        .get_configured_provider_label(&providers_label, &spec.global_cfg_options)
+        .get_configured_provider_label(&spec.target, &spec.global_cfg_options)
         .await
     {
         Ok(l) => l,
         Err(e) => {
-            return futures::stream::once(futures::future::ready(BuildEvent::OtherError {
-                label: Some(providers_label),
+            event_consumer.consume(BuildEvent::OtherError {
+                label: Some(spec.target.dupe()),
                 err: e.into(),
-            }))
-            .left_stream();
+            });
+            return;
         }
     };
 
     build::build_configured_label(
+        event_consumer,
         ctx,
-        materialization,
+        materialization_and_upload,
         providers_label,
         providers_to_build,
         build::BuildConfiguredLabelOptions {
             skippable: spec.skippable,
-            want_configured_graph_size: spec.want_configured_graph_size,
+            graph_properties: spec.graph_properties,
         },
+        timeout_observer,
     )
-    .await
-    .map(BuildEvent::Configured)
-    .right_stream()
+    .await;
 }

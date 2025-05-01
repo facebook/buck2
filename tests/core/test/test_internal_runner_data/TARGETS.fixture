@@ -1,0 +1,16 @@
+load(":python_test.bzl", "python_test")
+
+python_test(
+    name = "trivial_pass",
+    script = "import sys; sys.exit(0)",
+)
+
+python_test(
+    name = "check_env",
+    script = "import os; assert os.environ['TEST_VAR'] == 'TEST_VALUE'",
+)
+
+python_test(
+    name = "timeout",
+    script = "import time; time.sleep(60)",
+)

@@ -23,8 +23,8 @@
 //! of a `Pos` or `Span`, as well as provide source code snippets for error reporting.
 use std::cmp;
 use std::cmp::Ordering;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;

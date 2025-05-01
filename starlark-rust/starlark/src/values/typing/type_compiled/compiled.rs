@@ -29,7 +29,6 @@ use starlark_derive::starlark_value;
 use starlark_map::StarlarkHasher;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::slice_vec_ext::VecExt;
-use starlark_syntax::StarlarkResultExt;
 use thiserror::Error;
 
 use crate as starlark;
@@ -38,24 +37,12 @@ use crate::coerce::Coerce;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
-use crate::eval::Evaluator;
 use crate::private::Private;
 use crate::typing::Ty;
-use crate::values::dict::DictRef;
-use crate::values::layout::avalue::alloc_static;
-use crate::values::layout::avalue::AValueBasic;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::list::ListRef;
-use crate::values::none::NoneType;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::tuple::value::Tuple;
-use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
-use crate::values::typing::type_compiled::matcher::TypeMatcher;
-use crate::values::typing::type_compiled::matchers::IsAny;
 use crate::values::AllocValue;
 use crate::values::Demand;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -66,6 +53,18 @@ use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
+use crate::values::dict::DictRef;
+use crate::values::layout::avalue::AValueBasic;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::list::ListRef;
+use crate::values::none::NoneType;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::tuple::value::Tuple;
+use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
+use crate::values::typing::type_compiled::matcher::TypeMatcher;
+use crate::values::typing::type_compiled::matchers::IsAny;
 
 #[derive(Debug, Error)]
 enum TypingError {
@@ -87,8 +86,6 @@ enum TypingError {
     ValueDoesNotMatchType(String, &'static str, String),
     #[error("String literals are not allowed in type expressions: `{0}`")]
     StringLiteralNotAllowed(String),
-    #[error("String literals are not allowed in type expressions: `{0}` (at {1})")]
-    StringLiteralNotAllowedWithLoc(String, String),
 }
 
 pub(crate) trait TypeCompiledDyn: Debug + Allocative + Send + Sync + 'static {
@@ -354,13 +351,10 @@ impl<'v, V: ValueLike<'v>> Hash for TypeCompiled<V> {
 impl<'v, V: ValueLike<'v>> PartialEq for TypeCompiled<V> {
     #[allow(clippy::manual_unwrap_or)]
     fn eq(&self, other: &Self) -> bool {
-        match self.0.to_value().equals(other.0.to_value()) {
-            Ok(b) => b,
-            Err(_) => {
-                // Unreachable, but we should not panic in `PartialEq`.
-                false
-            }
-        }
+        self.0
+            .to_value()
+            .equals(other.0.to_value())
+            .unwrap_or_default()
     }
 }
 
@@ -398,6 +392,13 @@ impl<'v> TypeCompiled<Value<'v>> {
         TypeCompiledFactory::alloc_ty(&Ty::list(t.as_ty().clone()), heap)
     }
 
+    pub(crate) fn type_set_of(
+        t: TypeCompiled<Value<'v>>,
+        heap: &'v Heap,
+    ) -> TypeCompiled<Value<'v>> {
+        TypeCompiledFactory::alloc_ty(&Ty::set(t.as_ty().clone()), heap)
+    }
+
     pub(crate) fn type_any_of_two(
         t0: TypeCompiled<Value<'v>>,
         t1: TypeCompiled<Value<'v>>,
@@ -424,22 +425,13 @@ impl<'v> TypeCompiled<Value<'v>> {
         TypeCompiledFactory::alloc_ty(&ty, heap)
     }
 
-    /// For `p: "xxx"`, parse that `"xxx"` as type.
-    pub(crate) fn from_str(t: &str, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
-        TypeCompiledFactory::alloc_ty(&Ty::name(t), heap)
-    }
-
     /// Parse `[t1, t2, ...]` as type.
-    fn from_list(
-        t: &ListRef<'v>,
-        heap: &'v Heap,
-        allow_str: bool,
-    ) -> anyhow::Result<TypeCompiled<Value<'v>>> {
+    fn from_list(t: &ListRef<'v>, heap: &'v Heap) -> anyhow::Result<TypeCompiled<Value<'v>>> {
         match t.content() {
             [] | [_] => Err(TypingError::List.into()),
             ts @ [_, _, ..] => {
                 // A union type, can match any
-                let ts = ts.try_map(|t| TypeCompiled::new_impl(*t, heap, allow_str))?;
+                let ts = ts.try_map(|t| TypeCompiled::new(*t, heap))?;
                 Ok(TypeCompiled::type_any_of(ts, heap))
             }
         }
@@ -450,73 +442,27 @@ impl<'v> TypeCompiled<Value<'v>> {
     }
 
     /// Evaluate type annotation at runtime.
-    ///
-    /// This function accepts string literals in type expressions. It is deprecated.
-    pub(crate) fn new_with_string(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
-        TypeCompiled::new_impl(ty, heap, true)
-    }
-
-    pub(crate) fn new_with_deprecation(
-        ty: Value<'v>,
-        eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Self> {
-        // Try shiny new types.
-        match Self::new(ty, eval.heap()) {
-            Ok(ty) => Ok(ty),
-            Err(e) => {
-                // If shiny new types do not work, try deprecated types.
-                match Self::new_with_string(ty, eval.heap()) {
-                    Ok(ty) => {
-                        eval.soft_error_handler
-                            .soft_error(
-                                "string_in_type",
-                                crate::Error::new_other(
-                                    TypingError::StringLiteralNotAllowedWithLoc(
-                                        ty.to_string(),
-                                        eval.call_stack_top_location()
-                                            .map(|s| s.to_string())
-                                            .unwrap_or_else(|| "<unknown>".to_owned()),
-                                    ),
-                                ),
-                            )
-                            .into_anyhow_result()?;
-                        Ok(ty)
-                    }
-                    Err(_) => Err(e),
-                }
-            }
-        }
-    }
-
-    /// Evaluate type annotation at runtime.
     pub fn new(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
-        TypeCompiled::new_impl(ty, heap, false)
-    }
-
-    /// Evaluate type annotation at runtime.
-    pub fn new_impl(ty: Value<'v>, heap: &'v Heap, allow_str: bool) -> anyhow::Result<Self> {
         if let Some(s) = StringValue::new(ty) {
-            if !allow_str {
-                return Err(TypingError::StringLiteralNotAllowed(s.to_string()).into());
-            }
-            Ok(TypeCompiled::from_str(s.as_str(), heap))
+            return Err(TypingError::StringLiteralNotAllowed(s.to_string()).into());
         } else if ty.is_none() {
             Ok(TypeCompiledFactory::alloc_ty(&Ty::none(), heap))
         } else if let Some(t) = Tuple::from_value(ty) {
-            let elems = t.content().try_map(|t| {
-                anyhow::Ok(TypeCompiled::new_impl(*t, heap, allow_str)?.as_ty().clone())
-            })?;
+            let elems = t
+                .content()
+                .try_map(|t| anyhow::Ok(TypeCompiled::new(*t, heap)?.as_ty().clone()))?;
             Ok(TypeCompiled::from_ty(&Ty::tuple(elems), heap))
         } else if let Some(t) = ListRef::from_value(ty) {
-            TypeCompiled::from_list(t, heap, allow_str)
+            TypeCompiled::from_list(t, heap)
         } else if ty.request_value::<&dyn TypeCompiledDyn>().is_some() {
             // This branch is optimization: `TypeCompiledAsStarlarkValue` implements `eval_type`,
             // but this branch avoids copying the type.
             Ok(TypeCompiled(ty))
-        } else if let Some(ty) = ty.get_ref().eval_type() {
-            Ok(TypeCompiled::from_ty(&ty, heap))
         } else {
-            Err(invalid_type_annotation(ty, heap).into())
+            match ty.get_ref().eval_type() {
+                Some(ty) => Ok(TypeCompiled::from_ty(&ty, heap)),
+                _ => Err(invalid_type_annotation(ty, heap).into()),
+            }
         }
     }
 }
@@ -554,20 +500,5 @@ fn invalid_type_annotation<'v>(ty: Value<'v>, heap: &'v Heap) -> TypingError {
         TypingError::PerhapsYouMeant(ty.to_str(), name.into())
     } else {
         TypingError::InvalidTypeAnnotation(ty.to_str())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::assert;
-
-    #[test]
-    fn test_new_with_deprecation() {
-        assert::fail(
-            r#"
-isinstance(1, "int")
-"#,
-            "String literals are not allowed in type expressions: `int` (at assert.bzl:2:1-21)",
-        );
     }
 }

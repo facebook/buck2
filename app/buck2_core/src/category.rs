@@ -27,7 +27,7 @@ pub struct Category(String);
 pub struct CategoryRef<'a>(&'a str);
 
 impl Category {
-    pub fn new(s: String) -> anyhow::Result<Self> {
+    pub fn new(s: String) -> buck2_error::Result<Self> {
         CategoryRef::new(&s)?;
         Ok(Category(s))
     }
@@ -51,7 +51,7 @@ impl<'a> CategoryRef<'a> {
         self.0
     }
 
-    pub fn new(s: &'a str) -> anyhow::Result<Self> {
+    pub fn new(s: &'a str) -> buck2_error::Result<Self> {
         static CATEGORY_REGEX: Lazy<Regex> =
             Lazy::new(|| Regex::new("^[a-z][a-z0-9]*(_[a-z][a-z0-9]*)*$").unwrap());
 
@@ -68,6 +68,7 @@ impl<'a> CategoryRef<'a> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum CategoryParseError {
     #[error(
         "Invalid category `{0}`. Must be a snake_cased identifier consisting of lowercase alphanumeric characters, e.g. `cxx_compile`. Each section of the snake_cased identifier must begin with a lowercase letter (not a number)."

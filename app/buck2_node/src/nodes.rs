@@ -57,4 +57,7 @@ pub mod attributes {
     /// The plugin lists on the node. This includes all plugins, regardless of whether they're
     /// propagated or actually used.
     pub const PLUGINS: &str = "buck.plugins";
+
+    /// The package values for the package this target belongs to.
+    pub const PACKAGE_CFG_MODIFIERS: &str = "buck.tree_modifiers";
 }

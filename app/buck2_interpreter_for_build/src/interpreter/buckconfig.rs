@@ -15,8 +15,9 @@ use std::sync::Arc;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::OpaqueLegacyBuckConfigOnDice;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_core::soft_error;
 use dice::DiceComputations;
-use hashbrown::raw::RawTable;
+use hashbrown::HashTable;
 use starlark::collections::Hashed;
 use starlark::environment::Module;
 use starlark::values::FrozenStringValue;
@@ -32,9 +33,12 @@ pub trait BuckConfigsViewForStarlark {
     fn read_current_cell_config(
         &mut self,
         key: BuckconfigKeyRef,
-    ) -> anyhow::Result<Option<Arc<str>>>;
+    ) -> buck2_error::Result<Option<Arc<str>>>;
 
-    fn read_root_cell_config(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>>;
+    fn read_root_cell_config(
+        &mut self,
+        key: BuckconfigKeyRef,
+    ) -> buck2_error::Result<Option<Arc<str>>>;
 }
 
 struct BuckConfigsInner<'a> {
@@ -42,8 +46,8 @@ struct BuckConfigsInner<'a> {
     /// Hash map by `(section, key)` pair, so we do one table lookup per request.
     /// So we hash the `key` even if the section does not exist,
     /// but this is practically not an issue, because keys usually come with cached hash.
-    current_cell_cache: RawTable<BuckConfigEntry>,
-    root_cell_cache: RawTable<BuckConfigEntry>,
+    current_cell_cache: HashTable<BuckConfigEntry>,
+    root_cell_cache: HashTable<BuckConfigEntry>,
 }
 
 /// Version of cell buckconfig optimized for fast query from `read_config` Starlark function.
@@ -85,8 +89,8 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
             module,
             inner: RefCell::new(BuckConfigsInner {
                 configs_view,
-                current_cell_cache: RawTable::new(),
-                root_cell_cache: RawTable::new(),
+                current_cell_cache: HashTable::new(),
+                root_cell_cache: HashTable::new(),
             }),
         }
     }
@@ -96,7 +100,7 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
         section: Hashed<&str>,
         key: Hashed<&str>,
         from_root_cell: bool,
-    ) -> anyhow::Result<Option<FrozenStringValue>> {
+    ) -> buck2_error::Result<Option<FrozenStringValue>> {
         let hash = Self::mix_hashes(section.hash().get(), key.hash().get());
 
         let mut inner = self.inner.borrow_mut();
@@ -111,7 +115,7 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
         } else {
             current_cell_cache
         };
-        if let Some(e) = cache.get(hash, |e| {
+        if let Some(e) = cache.find(hash, |e| {
             e.section.key() == section.key() && e.key.as_str() == *key.key()
         }) {
             return Ok(e.value);
@@ -130,7 +134,7 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
         }
         .map(|v| self.module.frozen_heap().alloc_str(&v));
 
-        cache.insert(
+        cache.insert_unique(
             hash,
             BuckConfigEntry {
                 section: Hashed::new_unchecked(section.hash(), (*section.key()).to_owned()),
@@ -148,7 +152,7 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
         &self,
         section: StringValue,
         key: StringValue,
-    ) -> anyhow::Result<Option<FrozenStringValue>> {
+    ) -> buck2_error::Result<Option<FrozenStringValue>> {
         // Note here we reuse the hashes of `section` and `key`,
         // if `read_config` is called repeatedly with the same constant arguments:
         // `StringValue` caches the hashes.
@@ -159,7 +163,7 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
         &self,
         section: StringValue,
         key: StringValue,
-    ) -> anyhow::Result<Option<FrozenStringValue>> {
+    ) -> buck2_error::Result<Option<FrozenStringValue>> {
         // Note here we reuse the hashes of `section` and `key`,
         // if `read_config` is called repeatedly with the same constant arguments:
         // `StringValue` caches the hashes.
@@ -191,13 +195,54 @@ impl BuckConfigsViewForStarlark for ConfigsOnDiceViewForStarlark<'_, '_> {
     fn read_current_cell_config(
         &mut self,
         key: BuckconfigKeyRef,
-    ) -> anyhow::Result<Option<Arc<str>>> {
-        self.buckconfig.lookup(self.ctx, key)
+    ) -> buck2_error::Result<Option<Arc<str>>> {
+        read_config_and_report_deprecated(self.ctx, &self.buckconfig, key)
     }
 
-    fn read_root_cell_config(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>> {
-        self.root_buckconfig.lookup(self.ctx, key)
+    fn read_root_cell_config(
+        &mut self,
+        key: BuckconfigKeyRef,
+    ) -> buck2_error::Result<Option<Arc<str>>> {
+        read_config_and_report_deprecated(self.ctx, &self.root_buckconfig, key)
     }
+}
+
+#[derive(Debug, buck2_error::Error)]
+#[error("{} is no longer used. {}", .0, .1)]
+#[buck2(tag = Input)]
+struct DeprecatedConfigError(String, Arc<str>);
+
+fn read_config_and_report_deprecated(
+    ctx: &mut DiceComputations,
+    config: &OpaqueLegacyBuckConfigOnDice,
+    key: BuckconfigKeyRef,
+) -> buck2_error::Result<Option<Arc<str>>> {
+    let result = config.lookup(ctx, key)?;
+    let property = format!("{}.{}", key.section, key.property);
+
+    let key = BuckconfigKeyRef {
+        section: "deprecated_config",
+        property: &property,
+    };
+    let msg = config.lookup(ctx, key)?;
+    if let Some(msg) = msg {
+        // soft error category can only contain ascii lowercese characters
+        let section = transform_logview_category(key.section);
+        let prop = transform_logview_category(key.property);
+
+        soft_error!(
+            format!("deprecated_config_{}_{}", section, prop).as_str(),
+            DeprecatedConfigError(property, msg).into(),
+            quiet: true
+        )?;
+    }
+    Ok(result)
+}
+
+fn transform_logview_category(s: &str) -> String {
+    s.chars()
+        .filter(|c| c.is_ascii_lowercase() || *c == '_')
+        .collect::<String>()
 }
 
 pub struct LegacyConfigsViewForStarlark {
@@ -218,14 +263,17 @@ impl BuckConfigsViewForStarlark for LegacyConfigsViewForStarlark {
     fn read_current_cell_config(
         &mut self,
         key: BuckconfigKeyRef,
-    ) -> anyhow::Result<Option<Arc<str>>> {
+    ) -> buck2_error::Result<Option<Arc<str>>> {
         Ok(self
             .current_cell_config
             .get(key)
             .map(|v| v.to_owned().into()))
     }
 
-    fn read_root_cell_config(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>> {
+    fn read_root_cell_config(
+        &mut self,
+        key: BuckconfigKeyRef,
+    ) -> buck2_error::Result<Option<Arc<str>>> {
         Ok(self.root_cell_config.get(key).map(|v| v.to_owned().into()))
     }
 }

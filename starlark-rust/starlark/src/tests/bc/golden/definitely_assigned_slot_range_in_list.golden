@@ -10,6 +10,7 @@ def test(x, y): return [x, y]
 
 Max stack size: 1
 Instructions:
-  0: ListNPop [&x, &y] ->&2
+       # instrs.star.bzl:1:17-30
+   0: ListNPop [&x, &y] ->&2
   16: Return &2
   24: End

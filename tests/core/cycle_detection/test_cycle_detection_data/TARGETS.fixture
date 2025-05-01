@@ -1,0 +1,50 @@
+load("//defs.bzl", "execution_platforms", "suite", "toolchain")
+
+suite(
+    name = "top",
+    deps = [] + (
+        ["//load_cycle:target"] if read_config("cycles", "load") == "yes" else []
+    ) + (
+        ["//:cycle_top"] if read_config("cycles", "cfg_graph") == "yes" else []
+    ) + (
+        ["//:toolchain_cycle_top"] if read_config("cycles", "cfg_toolchain") == "yes" else []
+    ),
+)
+
+suite(
+    name = "cycle_top",
+    deps = [
+        ":cycle_mid",
+    ],
+)
+
+suite(
+    name = "cycle_mid",
+    deps = [
+        ":cycle_bot",
+    ],
+)
+
+suite(
+    name = "cycle_bot",
+    deps = [
+        ":cycle_top",
+    ],
+)
+
+suite(
+    name = "toolchain_cycle_top",
+    toolchain = ":toolchain_cycle_mid",
+)
+
+toolchain(
+    name = "toolchain_cycle_mid",
+    exec_deps = [":toolchain_cycle_bot"],
+)
+
+suite(
+    name = "toolchain_cycle_bot",
+    deps = [":toolchain_cycle_top"],
+)
+
+execution_platforms(name = "execution_platforms")

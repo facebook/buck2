@@ -31,7 +31,7 @@ impl InternalError {
     #[cold]
     pub(crate) fn msg(message: impl Display, span: Span, codemap: &CodeMap) -> InternalError {
         InternalError(EvalException::new(
-            crate::Error::new(crate::ErrorKind::Internal(anyhow::Error::msg(
+            crate::Error::new_kind(crate::ErrorKind::Internal(anyhow::Error::msg(
                 message.to_string(),
             ))),
             span,
@@ -42,7 +42,7 @@ impl InternalError {
     #[cold]
     pub(crate) fn from_diagnostic(d: WithDiagnostic<impl Display>) -> InternalError {
         let internal = d.map(|m| {
-            crate::Error::new(crate::ErrorKind::Internal(anyhow::Error::msg(
+            crate::Error::new_kind(crate::ErrorKind::Internal(anyhow::Error::msg(
                 m.to_string(),
             )))
         });
@@ -113,6 +113,9 @@ impl TypingError {
     }
 }
 
+/// Like [`TypingError`], but without a message or span.
+pub struct TypingNoContextError;
+
 /// Either a typing error or an internal error.
 /// * Typing error means, types are not compatible.
 /// * Internal error means, bug in the typechecker.
@@ -130,5 +133,22 @@ impl From<TypingError> for TypingOrInternalError {
 impl From<InternalError> for TypingOrInternalError {
     fn from(e: InternalError) -> Self {
         TypingOrInternalError::Internal(e)
+    }
+}
+
+pub enum TypingNoContextOrInternalError {
+    Typing,
+    Internal(InternalError),
+}
+
+impl From<TypingNoContextError> for TypingNoContextOrInternalError {
+    fn from(_: TypingNoContextError) -> Self {
+        TypingNoContextOrInternalError::Typing
+    }
+}
+
+impl From<InternalError> for TypingNoContextOrInternalError {
+    fn from(e: InternalError) -> Self {
+        TypingNoContextOrInternalError::Internal(e)
     }
 }

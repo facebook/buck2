@@ -19,14 +19,14 @@ use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
-use crate::values::function::SpecialBuiltinFunction;
-use crate::values::tuple::value::FrozenTuple;
-use crate::values::tuple::AllocTuple;
-use crate::values::tuple::TupleRef;
-use crate::values::typing::StarlarkIter;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
+use crate::values::function::SpecialBuiltinFunction;
+use crate::values::tuple::AllocTuple;
+use crate::values::tuple::TupleRef;
+use crate::values::tuple::value::FrozenTuple;
+use crate::values::typing::StarlarkIter;
 
 #[starlark_module]
 pub(crate) fn register_tuple(globals: &mut GlobalsBuilder) {

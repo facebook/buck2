@@ -25,18 +25,18 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
-use crate::values::list::AllocList;
-use crate::values::tuple::UnpackTuple;
-use crate::values::typing::never::StarlarkNever;
-use crate::values::typing::ty::AbstractType;
-use crate::values::typing::StarlarkIter;
-use crate::values::value_of_unchecked::ValueOfUnchecked;
 use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
+use crate::values::list::AllocList;
+use crate::values::tuple::UnpackTuple;
+use crate::values::typing::StarlarkIter;
+use crate::values::typing::never::StarlarkNever;
+use crate::values::typing::ty::AbstractType;
+use crate::values::value_of_unchecked::ValueOfUnchecked;
 
 #[starlark_module]
 pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
@@ -59,7 +59,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
                 None => x.collect_repr(&mut s),
             }
         }
-        Err(starlark::Error::new(starlark::ErrorKind::Fail(
+        Err(starlark::Error::new_kind(starlark::ErrorKind::Fail(
             anyhow::Error::msg(s),
         )))
     }
@@ -341,7 +341,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] key: Option<Value<'v>>,
         #[starlark(require = named, default = false)] reverse: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> starlark::Result<AllocList<impl IntoIterator<Item = Value<'v>>>> {
+    ) -> starlark::Result<AllocList<impl IntoIterator<Item = Value<'v>> + use<'v>>> {
         let it = x.get().iterate(eval.heap())?;
         let mut it = match key {
             None => it.map(|x| (x, x)).collect(),

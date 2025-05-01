@@ -1,0 +1,1 @@
+print("Files: " + str(glob(["files/**/*"])))  # buildifier: disable=print

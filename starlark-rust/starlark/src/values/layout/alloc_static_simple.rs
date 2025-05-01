@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
+use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
+use crate::values::StarlarkValue;
 use crate::values::layout::avalue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::AValueSimple;
 use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
-use crate::values::StarlarkValue;
 
 /// Allocate simple value statically.
 pub struct AllocStaticSimple<T: StarlarkValue<'static>>(
@@ -48,9 +48,9 @@ impl<T: StarlarkValue<'static>> AllocStaticSimple<T> {
 #[cfg(test)]
 mod tests {
     use allocative::Allocative;
-    use starlark_derive::starlark_value;
     use starlark_derive::NoSerialize;
     use starlark_derive::ProvidesStaticType;
+    use starlark_derive::starlark_value;
 
     use crate as starlark;
     use crate::values::AllocStaticSimple;

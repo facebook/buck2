@@ -1,3 +1,7 @@
+%% #!/usr/bin/env escript
+%% -*- erlang -*-
+%%! +S 1:1 +sbtu +A1 +MMscs 8 +MMsco false
+
 %%% % @format
 %%% Copyright (c) Meta Platforms, Inc. and affiliates.
 %%%
@@ -29,10 +33,10 @@ do(Source, InFile, OutSpec) ->
     case read_file(InFile) of
         {ok, DepFiles} ->
             Dependencies = build_dep_info(Source, DepFiles),
-            OutData = unicode:characters_to_binary(json:encode(Dependencies)),
+            OutData = json:encode(Dependencies),
             case OutSpec of
                 {file, File} ->
-                    ok = file:write_file(File, OutData);
+                    ok = write_file(File, OutData);
                 stdout ->
                     io:format("~s~n", [OutData])
             end;
@@ -43,14 +47,14 @@ do(Source, InFile, OutSpec) ->
 
 -spec read_file(file:filename()) -> {ok, dep_files_data()} | {error, term()}.
 read_file(File) ->
-    case file:read_file(File) of
+    case file:read_file(File, [raw]) of
         {ok, Data} ->
             {ok, json:decode(Data)};
         Err ->
             Err
     end.
 
--spec build_dep_info(file:filename(), dep_files_data()) -> ok.
+-spec build_dep_info(file:filename(), dep_files_data()) -> list(map()).
 build_dep_info(Source, DepFiles) ->
     Key = list_to_binary(filename:basename(Source, ".erl") ++ ".beam"),
     collect_dependencies([Key], DepFiles, sets:new([{version, 2}]), []).
@@ -59,19 +63,10 @@ collect_dependencies([], _, _, Acc) ->
     Acc;
 collect_dependencies([Key | Rest], DepFiles, Visited, Acc) ->
     case DepFiles of
-        #{Key := #{<<"dep_file">> := DepFile}} ->
+        #{Key := DepFile} ->
             {ok, Dependencies} = read_file(DepFile),
-            {NextKeys, NextVisited, NextAcc} = lists:foldl(
-                fun(#{<<"file">> := File} = Dep, {KeysAcc, VisitedAcc, DepAcc}) ->
-                    NextKey = key(File),
-                    case sets:is_element(NextKey, VisitedAcc) of
-                        true -> {KeysAcc, VisitedAcc, DepAcc};
-                        false -> {[NextKey | KeysAcc], sets:add_element(Key, VisitedAcc), [Dep | DepAcc]}
-                    end
-                end,
-                {Rest, Visited, Acc},
-                Dependencies
-            ),
+            {NextKeys, NextVisited, NextAcc} =
+                collect_dependencies_for_key(Dependencies, Key, Rest, Visited, Acc),
             collect_dependencies(
                 NextKeys,
                 DepFiles,
@@ -84,9 +79,42 @@ collect_dependencies([Key | Rest], DepFiles, Visited, Acc) ->
             collect_dependencies(Rest, DepFiles, Visited, Acc)
     end.
 
+collect_dependencies_for_key([], _CurrentKey, KeysAcc, VisitedAcc, DepAcc) ->
+    {KeysAcc, VisitedAcc, DepAcc};
+collect_dependencies_for_key([#{<<"file">> := File} = Dep | Deps], CurrentKey, KeysAcc, VisitedAcc, DepAcc) ->
+    NextKey = key(File),
+    case sets:is_element(NextKey, VisitedAcc) of
+        true ->
+            collect_dependencies_for_key(Deps, CurrentKey, KeysAcc, VisitedAcc, DepAcc);
+        false ->
+            collect_dependencies_for_key(Deps, CurrentKey, [NextKey | KeysAcc], sets:add_element(CurrentKey, VisitedAcc), [Dep | DepAcc])
+    end.
+
 -spec key(string()) -> string().
 key(FileName) ->
     case filename:extension(FileName) of
         ".erl" -> filename:basename(FileName, ".erl") ++ ".beam";
         _ -> FileName
+    end.
+
+-spec write_file(file:filename(), iolist()) -> string().
+write_file(File, Data) ->
+    case
+        % We write in raw mode because this is a standalone escript, so we don't
+        % need advanced file server features, and we gain performance by avoiding
+        % calling through the file server
+        file:open(File, [write, binary, raw])
+    of
+        {ok, Handle} ->
+            try
+                % We use file:pwrite instead of file:write_file to work around
+                % the latter needlessly flattening iolists (as returned by
+                % json:encode/1, etc.) to a binary
+                file:pwrite(Handle, 0, Data)
+            after
+                file:close(Handle)
+            end,
+            ok;
+        {error, _} = Error ->
+            Error
     end.

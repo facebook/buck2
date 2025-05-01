@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load(":apple_bundle_utility.bzl", "get_apple_versioned_macos_bundle_value_primitive")
 
 # Abstraction of a place in a resulting bundle where file or directory will be copied. Actual value
 # of path relative to bundle root depends on a platform. This class is an implementation detail and
@@ -81,6 +82,7 @@ _MacOSBundleDestinationPaths = AppleBundleDestinationPaths(
 _MacOSFrameworkBundleDestinationPaths = AppleBundleDestinationPaths(
     resources = "Resources",
     frameworks = "Frameworks",
+    plugins = "PlugIns",
     xpcservices = "XPCServices",
     metadata = "Resources",
     headers = "Headers",
@@ -91,6 +93,7 @@ macOS_versioned_path = "Versions/A"
 _MacOSVersionedFrameworkBundleDestinationPaths = AppleBundleDestinationPaths(
     resources = paths.join(macOS_versioned_path, "Resources"),
     frameworks = paths.join(macOS_versioned_path, "Frameworks"),
+    plugins = paths.join(macOS_versioned_path, "PlugIns"),
     xpcservices = paths.join(macOS_versioned_path, "XPCServices"),
     metadata = paths.join(macOS_versioned_path, "Resources"),
     headers = paths.join(macOS_versioned_path, "Headers"),
@@ -105,8 +108,8 @@ def _get_apple_bundle_destinations_for_sdk_name(name: str) -> AppleBundleDestina
         return _IOSBundleDestinationPaths
 
 def _get_apple_framework_bundle_destinations_for_sdk_name(name: str, versioned_macos_bundle: bool) -> AppleBundleDestinationPaths:
-    if name == "macosx" or name == "maccatalyst":
-        if versioned_macos_bundle:
+    if name.startswith("mac"):
+        if get_apple_versioned_macos_bundle_value_primitive(name, versioned_macos_bundle):
             return _MacOSVersionedFrameworkBundleDestinationPaths
         else:
             return _MacOSFrameworkBundleDestinationPaths

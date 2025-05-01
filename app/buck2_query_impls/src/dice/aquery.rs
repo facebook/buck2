@@ -15,13 +15,13 @@ use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::actions::calculation::ActionCalculation;
-use buck2_build_api::actions::query::iter_action_inputs;
 use buck2_build_api::actions::query::ActionInput;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::actions::query::ActionQueryNodeRef;
 use buck2_build_api::actions::query::SetProjectionInputs;
-use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::actions::query::iter_action_inputs;
 use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
 use buck2_build_api::artifact_groups::TransitiveSetProjectionKey;
@@ -32,8 +32,8 @@ use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
-use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
+use dashmap::mapref::entry::Entry;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::future::BoxFuture;
@@ -51,6 +51,7 @@ use crate::dice::DiceQueryDelegate;
 use crate::uquery::environment::QueryLiterals;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ActionQueryError {
     #[error(
         "`aquery` currently only supports literal target patterns, not package or recursive (got `{0}`)"
@@ -157,7 +158,7 @@ async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
     ctx: &'c mut DiceComputations<'_>,
     node_cache: DiceAqueryNodesCache,
     inputs: Iter,
-) -> anyhow::Result<Vec<ActionInput>> {
+) -> buck2_error::Result<Vec<ActionInput>> {
     let resolved_artifacts: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
         ctx,
         inputs,
@@ -218,14 +219,14 @@ async fn get_tset_node<'c>(
     node_cache: DiceAqueryNodesCache,
     ctx: &'c mut DiceComputations<'_>,
     key: TransitiveSetProjectionKey,
-) -> anyhow::Result<SetProjectionInputs> {
+) -> buck2_error::Result<SetProjectionInputs> {
     let copied_node_cache = node_cache.dupe();
-    Ok(node_cache
+    node_cache
         .tset_nodes
         .get_or_compute(key, move |key| {
             compute_tset_node(copied_node_cache, ctx, key)
         })
-        .await?)
+        .await
 }
 
 fn compute_action_node<'c>(
@@ -247,20 +248,20 @@ async fn get_action_node<'c>(
     ctx: &'c mut DiceComputations<'_>,
     key: ActionKey,
     fs: Arc<ArtifactFs>,
-) -> anyhow::Result<ActionQueryNode> {
+) -> buck2_error::Result<ActionQueryNode> {
     let copied_node_cache = node_cache.dupe();
-    Ok(node_cache
+    node_cache
         .action_nodes
         .get_or_compute(key, move |key| {
             compute_action_node(copied_node_cache, ctx, key, fs)
         })
-        .await?)
+        .await
 }
 
 impl<'c, 'd> DiceAqueryDelegate<'c, 'd> {
     pub(crate) async fn new(
         base_delegate: DiceQueryDelegate<'c, 'd>,
-    ) -> anyhow::Result<DiceAqueryDelegate<'c, 'd>> {
+    ) -> buck2_error::Result<DiceAqueryDelegate<'c, 'd>> {
         let artifact_fs = Arc::new(base_delegate.ctx().get_artifact_fs().await?);
         let query_data = Arc::new(AqueryData {
             artifact_fs,
@@ -277,7 +278,10 @@ impl<'c, 'd> DiceAqueryDelegate<'c, 'd> {
         &self.query_data
     }
 
-    pub(crate) async fn get_action_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode> {
+    pub(crate) async fn get_action_node(
+        &self,
+        key: &ActionKey,
+    ) -> buck2_error::Result<ActionQueryNode> {
         get_action_node(
             self.query_data.nodes_cache.dupe(),
             &mut self.base_delegate.ctx(),
@@ -298,14 +302,14 @@ impl<'c, 'd> AqueryDelegate for DiceAqueryDelegate<'c, 'd> {
         self.base_delegate.ctx()
     }
 
-    async fn get_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode> {
+    async fn get_node(&self, key: &ActionKey) -> buck2_error::Result<ActionQueryNode> {
         self.get_action_node(key).await
     }
 
     async fn expand_artifacts(
         &self,
         artifacts: &[ArtifactGroup],
-    ) -> anyhow::Result<Vec<ActionQueryNode>> {
+    ) -> buck2_error::Result<Vec<ActionQueryNode>> {
         let inputs = convert_inputs(
             &mut self.base_delegate.ctx(),
             self.query_data.nodes_cache.dupe(),
@@ -324,7 +328,7 @@ impl<'c, 'd> AqueryDelegate for DiceAqueryDelegate<'c, 'd> {
         &self,
         configured_label: &ConfiguredProvidersLabel,
         analysis: AnalysisResult,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         get_target_set_from_analysis_inner(
             self.query_data().as_ref(),
             configured_label,
@@ -340,7 +344,7 @@ async fn get_target_set_from_analysis_inner(
     configured_label: &ConfiguredProvidersLabel,
     analysis: AnalysisResult,
     dice: &mut DiceComputations<'_>,
-) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
     let mut result = TargetSet::new();
 
     let providers = analysis.lookup_inner(configured_label)?;
@@ -377,7 +381,7 @@ impl QueryLiterals<ActionQueryNode> for AqueryData {
         &self,
         literals: &[&str],
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         // For literal evaluation, we resolve the providers pattern to the analysis result, pull out
         // the default outputs and look up the corresponding actions.
         // TODO(cjhopman): This is a common pattern and we should probably pull it out to a common

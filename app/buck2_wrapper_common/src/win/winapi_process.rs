@@ -12,7 +12,7 @@
 use std::io;
 use std::time::Duration;
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use winapi::shared::minwindef::FILETIME;
 use winapi::um::minwinbase::STILL_ACTIVE;
 use winapi::um::processthreadsapi::GetExitCodeProcess;
@@ -53,7 +53,7 @@ impl WinapiProcessHandle {
     }
 
     /// Terminate the process. Do not fail if process is already dead.
-    pub(crate) fn terminate(&self) -> anyhow::Result<()> {
+    pub(crate) fn terminate(&self) -> buck2_error::Result<()> {
         unsafe {
             if TerminateProcess(self.handle.handle(), 1) == 0 {
                 // Stash the error before calling `exit_code` to avoid overwriting it.
@@ -66,14 +66,14 @@ impl WinapiProcessHandle {
                     return Ok(());
                 }
 
-                Err(os_error).with_context(|| format!("Failed to kill pid {}", self.pid))
+                Err(os_error).with_buck_error_context(|| format!("Failed to kill pid {}", self.pid))
             } else {
                 Ok(())
             }
         }
     }
 
-    pub(crate) fn process_creation_time(&self) -> anyhow::Result<Duration> {
+    pub(crate) fn process_creation_time(&self) -> buck2_error::Result<Duration> {
         let mut creation_time: FILETIME = unsafe { std::mem::zeroed() };
         let mut exit_time: FILETIME = unsafe { std::mem::zeroed() };
         let mut kernel_time: FILETIME = unsafe { std::mem::zeroed() };
@@ -90,8 +90,9 @@ impl WinapiProcessHandle {
         };
 
         if result == 0 {
-            return Err(io::Error::last_os_error())
-                .with_context(|| format!("Failed to call GetProcessTimes for pid {}", self.pid));
+            return Err(io::Error::last_os_error()).with_buck_error_context(|| {
+                format!("Failed to call GetProcessTimes for pid {}", self.pid)
+            });
         }
 
         // `creation_time` stores intervals of 100 ns, so multiply by 100 to obtain
@@ -102,7 +103,7 @@ impl WinapiProcessHandle {
     }
 
     /// Exit code, or `None` if process is still running.
-    fn exit_code(&self) -> anyhow::Result<Option<u32>> {
+    fn exit_code(&self) -> buck2_error::Result<Option<u32>> {
         let mut exit_code = 0;
 
         if unsafe { GetExitCodeProcess(self.handle.handle(), &mut exit_code) } != 0 {
@@ -113,11 +114,12 @@ impl WinapiProcessHandle {
             }
         }
 
-        Err(io::Error::last_os_error())
-            .with_context(|| format!("Failed to call GetExitCodeProcess for pid {}", self.pid))
+        Err(io::Error::last_os_error()).with_buck_error_context(|| {
+            format!("Failed to call GetExitCodeProcess for pid {}", self.pid)
+        })
     }
 
-    pub(crate) fn has_exited(&self) -> anyhow::Result<bool> {
+    pub(crate) fn has_exited(&self) -> buck2_error::Result<bool> {
         Ok(self.exit_code()?.is_some())
     }
 }

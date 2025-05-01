@@ -11,6 +11,6 @@ use buck2_util::late_binding::LateBinding;
 
 pub static CLIENT_ONLY_VAL: LateBinding<bool> = LateBinding::new("client_only_val");
 
-pub fn is_client_only() -> anyhow::Result<bool> {
+pub fn is_client_only() -> buck2_error::Result<bool> {
     CLIENT_ONLY_VAL.get().copied()
 }

@@ -9,4 +9,5 @@
 
 pub(crate) mod calculation_apply_transition;
 pub(crate) mod calculation_fetch_transition;
+pub(crate) mod provider;
 pub(crate) mod starlark;

@@ -9,9 +9,9 @@
 
 use buck2_cli_proto::TargetCfg;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::pattern::pattern::ParsedPattern;
 use dice::DiceComputations;
 
@@ -22,7 +22,7 @@ pub async fn global_cfg_options_from_client_context(
     target_cfg: &TargetCfg,
     server_ctx: &dyn ServerCommandContextTrait,
     dice_ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<GlobalCfgOptions> {
+) -> buck2_error::Result<GlobalCfgOptions> {
     let cell_resolver: &CellResolver = &dice_ctx.get_cell_resolver().await?;
     let working_dir: &ProjectRelativePath = server_ctx.working_dir();
     let cwd = cell_resolver.get_cell_path(working_dir)?;

@@ -1,0 +1,197 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+//----------------------------------------------
+//  Generate command
+//----------------------------------------------
+//
+// When modifying this file, please run the following generate command,
+// and include generated code in your commit
+//
+// fbcode/buck2/prelude/toolchains/android/tools/protobuf/gen.py
+//
+//-----------------------
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.facebook.buck.cd.model.java";
+option java_outer_classname = "JavaCDProto";
+
+// best practices to include version number in package
+package javacd.api.v1;
+
+import "common.proto";
+
+// Represents a single rule command either library or abi jar
+message BuildJavaCommand {
+  BuildCommand buildCommand = 1;
+  PostBuildParams postBuildParams = 3;
+}
+
+message BuildCommand {
+  BuildMode buildMode = 1;
+  BaseJarCommand baseJarCommand = 2;
+}
+
+enum BuildMode {
+  BUILD_MODE_UNSPECIFIED = 0;
+  // Represents a build command that generates full library
+  LIBRARY = 1;
+  // Represents a build command that generates abi
+  ABI = 2;
+}
+
+// Common parameters for build jar commands (abi and library jar ones)
+message BaseJarCommand {
+  AbiGenerationMode abiCompatibilityMode = 1;
+  AbiGenerationMode abiGenerationMode = 2;
+  bool isRequiredForSourceOnlyAbi = 3;
+  bool trackClassUsage = 4;
+  string configuredBuckOut = 6;
+  BuildTargetValue buildTargetValue = 7;
+  OutputPathsValue outputPathsValue = 8;
+  repeated string compileTimeClasspathPaths = 9;
+  repeated string javaSrcs = 10;
+  repeated RelPathMapEntry resourcesMap = 13;
+  JarParameters jarParameters = 15;
+  string buildCellRootPath = 16;
+  ResolvedJavac resolvedJavac = 17;
+  ResolvedJavacOptions resolvedJavacOptions = 18;
+  map<string, string> compileTimeClasspathSnapshotPaths = 19;
+  string pathToClasses = 20;
+  string annotationsPath = 23;
+}
+
+enum AbiGenerationMode {
+  UNKNOWN = 0;
+  /** Generate ABIs by stripping .class files */
+  CLASS = 1;
+  /** Generate ABIs by parsing .java files with dependency ABIs available */
+  SOURCE = 2;
+  /**
+   * Output warnings for things that aren't legal when generating ABIs from
+   * source without dependency ABIs
+   */
+  MIGRATING_TO_SOURCE_ONLY = 3;
+  /**
+   * Generate ABIs by parsing .java files without dependency ABIs available (has
+   * some limitations)
+   */
+  SOURCE_ONLY = 4;
+}
+
+message BuildTargetValue {
+  string fullyQualifiedName = 1;
+  Type type = 2;
+  // reserved = 3;
+  enum Type {
+    UNKNOWN = 0;
+    LIBRARY = 1;
+    SOURCE_ABI = 2;
+    SOURCE_ONLY_ABI = 3;
+  }
+}
+
+message OutputPathsValue {
+  OutputPaths libraryPaths = 1;
+  OutputPaths sourceAbiPaths = 2;
+  OutputPaths sourceOnlyAbiPaths = 3;
+  string libraryTargetFullyQualifiedName = 4;
+
+  message OutputPaths {
+    string classesDir = 1;
+    string outputJarDirPath = 2;
+    string abiJarPath = 3;
+    string annotationPath = 4;
+    string pathToSourcesList = 5;
+    string workingDirectory = 6;
+    string outputJarPath = 7;
+  }
+}
+
+message ResolvedJavacOptions {
+  string bootclasspath = 1;
+  repeated string bootclasspathList = 2;
+  JavacLanguageLevelOptions languageLevelOptions = 3;
+  bool debug = 4;
+  bool verbose = 5;
+  JavacPluginParams javaAnnotationProcessorParams = 6;
+  JavacPluginParams standardJavacPluginParams = 7;
+  repeated string extraArguments = 8;
+
+  // reserved = 9;
+  // reserved = 10;
+  // reserved = 11;
+
+  message JavacLanguageLevelOptions {
+    string sourceLevel = 1;
+    string targetLevel = 2;
+  }
+
+  message JavacPluginParams {
+    repeated string parameters = 1;
+    repeated ResolvedJavacPluginProperties pluginProperties = 2;
+  }
+
+  message ResolvedJavacPluginProperties {
+    bool canReuseClassLoader = 1;
+    bool doesNotAffectAbi = 2;
+    bool supportsAbiGenerationFromSource = 3;
+    bool runsOnJavaOnly = 4;
+    repeated string processorNames = 5;
+    repeated string classpath = 6;
+    // Appears to only be used for the internal NullSafe.
+    map<string, string> pathParams = 7;
+    repeated string arguments = 8;
+  }
+}
+
+message JarParameters {
+  bool hashEntries = 1;
+  bool mergeManifests = 2;
+  string jarPath = 3;
+  RemoveClassesPatternsMatcher removeEntryPredicate = 4;
+  repeated string entriesToJar = 5;
+  repeated string overrideEntriesToJar = 6;
+  string mainClass = 7;
+  string manifestFile = 8;
+  LogLevel duplicatesLogLevel = 9;
+
+  enum LogLevel {
+    UNKNOWN = 0;
+    OFF = 1;
+    SEVERE = 2;
+    WARNING = 3;
+    INFO = 4;
+    CONFIG = 5;
+    FINE = 6;
+    FINER = 7;
+    FINEST = 8;
+    ALL = 9;
+  }
+
+  message RemoveClassesPatternsMatcher {
+    repeated string patterns = 1;
+  }
+}
+
+message ResolvedJavac {
+  oneof javac {
+    ExternalJavac externalJavac = 1;
+    JSR199Javac jsr199Javac = 2;
+  }
+
+  message ExternalJavac {
+    string shortName = 1;
+    repeated string commandPrefix = 2;
+  }
+
+  message JSR199Javac {}
+}

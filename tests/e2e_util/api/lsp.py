@@ -114,7 +114,6 @@ class LspClient(contextlib.AbstractAsyncContextManager):
     async def goto_definition(
         self, relative_path: Path, line: int, col: int
     ) -> Optional[Any]:
-
         absolute_path = self.cwd / relative_path
         payload = {
             "textDocument": {

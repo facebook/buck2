@@ -12,14 +12,13 @@
 
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
-load("@prelude//linking:link_info.bzl", "LinkStyle")
+load("@prelude//decls:test_common.bzl", "test_common")
+load("@prelude//linking:link_info.bzl", "ArchiveContentsType", "LinkStyle")
 load("@prelude//linking:types.bzl", "Linkage")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":genrule_common.bzl", "genrule_common")
 load(":native_common.bzl", "native_common")
-
-ArchiveContents = ["normal", "thin"]
 
 ArchiverProviderType = ["bsd", "gnu", "llvm", "windows", "windows_clang"]
 
@@ -98,6 +97,8 @@ cxx_binary = prelude_rule(
         buck.deps_query_arg() |
         cxx_common.raw_headers_arg() |
         cxx_common.include_directories_arg() |
+        cxx_common.raw_headers_as_headers_mode_arg() |
+        cxx_common.runtime_dependency_handling_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
@@ -525,6 +526,7 @@ cxx_library = prelude_rule(
         native_common.link_whole(link_whole_type = attrs.option(attrs.bool(), default = None)) |
         native_common.soname() |
         cxx_common.raw_headers_arg() |
+        cxx_common.raw_headers_as_headers_mode_arg() |
         cxx_common.include_directories_arg() |
         cxx_common.public_include_directories_arg() |
         cxx_common.public_system_include_directories_arg() |
@@ -554,7 +556,10 @@ cxx_library = prelude_rule(
         apple_common.extra_xcode_sources() |
         apple_common.extra_xcode_files() |
         apple_common.uses_explicit_modules_arg() |
+        apple_common.meta_apple_library_validation_enabled_arg() |
+        cxx_common.version_arg() |
         {
+            "archive_allow_cache_upload": attrs.bool(default = False),
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
             "contacts": attrs.list(attrs.string(), default = []),
@@ -590,9 +595,37 @@ cxx_library = prelude_rule(
             "uses_cxx_explicit_modules": attrs.bool(default = False),
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
-            "use_header_units": attrs.bool(default = False),
-            "export_header_unit": attrs.option(attrs.enum(["include", "preload"]), default = None),
-            "export_header_unit_filter": attrs.option(attrs.string(), default = None),
+            "use_header_units": attrs.bool(default = False, doc = """
+                If True, makes any header unit exported by a dependency (including
+                recursively) through export_header_unit available to the compiler. If
+                false, the compilation ignores header units, regardless of what is
+                exported by dependencies.
+            """),
+            "export_header_unit": attrs.option(attrs.enum(["include", "preload"]), default = None, doc = """
+                If not None, export a C++20 header unit visible to dependants (including
+                recursively) with use_header_units set to True.
+
+                "include": replace includes of each file in exported_headers or
+                    raw_headers with an import of the precompiled header unit; files
+                    that do not include any of those headers do not load the header
+                    unit.
+
+                "preload": automatically load the precompiled header unit in any
+                    dependant that uses header units.
+            """),
+            "export_header_unit_filter": attrs.list(attrs.string(), default = [], doc = """
+                A list of regexes. Each regex should match a set of headers in
+                exported_headers or raw_headers to be precompiled together into one
+                C++20 header unit.
+
+                When used with export_header_unit="include", this allows different
+                subsets of headers to be loaded only by files that use them. Each group
+                should only depend on headers in previous groups.
+
+                If a header is not matched by any group, it is not precompiled and will
+                be included textually. If no filter is specified, the rule excludes
+                inline headers based on a name heuristics (e.g. "-inl.h").
+            """),
         } |
         buck.allow_cache_upload_arg()
     ),
@@ -807,6 +840,7 @@ cxx_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        buck.inject_test_env_arg() |
         cxx_common.srcs_arg() |
         cxx_common.headers_arg() |
         cxx_common.preprocessor_flags_arg() |
@@ -826,7 +860,9 @@ cxx_test = prelude_rule(
             """),
         } |
         cxx_common.raw_headers_arg() |
+        cxx_common.raw_headers_as_headers_mode_arg() |
         cxx_common.include_directories_arg() |
+        cxx_common.runtime_dependency_handling_arg() |
         {
             "framework": attrs.option(attrs.enum(CxxTestType), default = None, doc = """
                 Unused.
@@ -905,8 +941,15 @@ cxx_test = prelude_rule(
             "use_default_test_main": attrs.option(attrs.bool(), default = None),
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
+            "use_header_units": attrs.bool(default = False, doc = """
+                If True, makes any header unit exported by a dependency (including
+                recursively) through export_header_unit available to the compiler. If
+                false, the compilation ignores header units, regardless of what is
+                exported by dependencies.
+            """),
         } |
-        buck.allow_cache_upload_arg()
+        buck.allow_cache_upload_arg() |
+        test_common.attributes()
     ),
 )
 
@@ -916,8 +959,9 @@ cxx_toolchain = prelude_rule(
     examples = None,
     further = None,
     attrs = (
+        cxx_common.raw_headers_as_headers_mode_arg() |
         {
-            "archive_contents": attrs.enum(ArchiveContents, default = "normal"),
+            "archive_contents": attrs.enum(ArchiveContentsType.values(), default = "normal"),
             "archiver": attrs.source(),
             "archiver_flags": attrs.list(attrs.arg(), default = []),
             "archiver_type": attrs.enum(ArchiverProviderType),
@@ -934,6 +978,18 @@ cxx_toolchain = prelude_rule(
             "assembler_preprocessor_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
             "assembler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
             "binary_extension": attrs.option(attrs.string(), default = None),
+            "binary_linker_flags": attrs.list(
+                attrs.arg(anon_target_compatible = True),
+                default = [],
+                doc = """
+                Linker flags that apply to all links coordinated by a binary
+                rule.  One key distinction between these and `executable_linker_flags`
+                is that these will also apply to library links coordinated by
+                binary rules (e.g. linking roots/deps when using native python or
+                omnibus link strategies).
+                """,
+            ),
+            "bolt": attrs.source(),
             "c_compiler": attrs.source(),
             "c_compiler_flags": attrs.list(attrs.arg(), default = []),
             "c_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
@@ -946,6 +1002,7 @@ cxx_toolchain = prelude_rule(
             "cuda_compiler_flags": attrs.list(attrs.arg(), default = []),
             "cuda_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
             "cuda_preprocessor_flags": attrs.list(attrs.arg(), default = []),
+            "custom_tools": attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
             "cvtres_compiler": attrs.option(attrs.source(), default = None),
             "cvtres_compiler_flags": attrs.list(attrs.arg(), default = []),
             "cvtres_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
@@ -956,18 +1013,22 @@ cxx_toolchain = prelude_rule(
             "cxx_preprocessor_flags": attrs.list(attrs.arg(), default = []),
             "debug_path_prefix_map_sanitizer_format": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "detailed_untracked_header_messages": attrs.bool(default = False),
             "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
-            "filepath_length_limited": attrs.bool(default = False),
+            "executable_linker_flags": attrs.list(
+                attrs.arg(anon_target_compatible = True),
+                default = [],
+                doc = """
+                Linker flags that only apply when linking an executable.
+                """,
+            ),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
-            "headers_whitelist": attrs.list(attrs.string(), default = []),
             "hip_compiler": attrs.option(attrs.source(), default = None),
             "hip_compiler_flags": attrs.list(attrs.arg(), default = []),
             "hip_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
             "hip_preprocessor_flags": attrs.list(attrs.arg(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "link_path_normalization_args_enabled": attrs.bool(default = False),
+            "link_metadata_flag": attrs.option(attrs.string(), default = None),
             "link_style": attrs.enum(
                 LinkStyle.values(),
                 default = "static",
@@ -979,11 +1040,11 @@ cxx_toolchain = prelude_rule(
             "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "linker_type": attrs.enum(LinkerProviderType),
             "nm": attrs.source(),
+            "objc_compiler_flags": attrs.list(attrs.arg(), default = []),
             "objcopy_for_shared_library_interface": attrs.source(),
-            "objcopy_recalculates_layout": attrs.bool(default = False),
+            "objcxx_compiler_flags": attrs.list(attrs.arg(), default = []),
             "objdump": attrs.option(attrs.source(), default = None),
             "object_file_extension": attrs.string(default = ""),
-            "pic_type_for_shared_linking": attrs.enum(PicType, default = "pic"),
             "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "private_headers_symlinks_enabled": attrs.bool(default = False),
             "public_headers_symlinks_enabled": attrs.bool(default = False),
@@ -1006,7 +1067,6 @@ cxx_toolchain = prelude_rule(
             "strip_all_flags": attrs.option(attrs.list(attrs.arg()), default = None),
             "strip_debug_flags": attrs.option(attrs.list(attrs.arg()), default = None),
             "strip_non_global_flags": attrs.option(attrs.list(attrs.arg()), default = None),
-            "use_arg_file": attrs.bool(default = False),
             "use_header_map": attrs.bool(default = False),
         }
     ),
@@ -1135,6 +1195,8 @@ prebuilt_cxx_library = prelude_rule(
         cxx_common.exported_platform_deps_arg() |
         cxx_common.supports_merged_linking() |
         cxx_common.local_linker_flags_arg() |
+        cxx_common.local_linker_script_flags_arg() |
+        cxx_common.version_arg() |
         {
             "can_be_asset": attrs.bool(default = False),
             "contacts": attrs.list(attrs.string(), default = []),
@@ -1271,6 +1333,7 @@ prebuilt_cxx_library_group = prelude_rule(
         } |
         cxx_common.exported_deps_arg() |
         cxx_common.exported_platform_deps_arg() |
+        cxx_common.version_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),

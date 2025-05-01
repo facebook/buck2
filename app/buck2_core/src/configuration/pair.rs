@@ -13,16 +13,18 @@ use dupe::Dupe;
 use once_cell::sync::Lazy;
 use static_interner::Intern;
 use static_interner::Interner;
+use strong_hash::StrongHash;
 
 use crate::configuration::data::ConfigurationData;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum ConfigurationError {
     #[error("`ConfigurationPair` has unexpected `exec_cfg`")]
     HasExecCfg,
 }
 
-#[derive(Debug, Allocative, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Allocative, Hash, Eq, PartialEq, Ord, PartialOrd, StrongHash)]
 struct ConfigurationPairData {
     cfg: ConfigurationData,
     /// Usually this is None, but for toolchain deps where the exec_cfg isn't picked it is set
@@ -31,7 +33,9 @@ struct ConfigurationPairData {
 
 /// Pair of `cfg` and `exec_cfg`.
 /// These two are added to `TargetLabel` to make `ConfiguredTargetLabel`.
-#[derive(Debug, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(
+    Debug, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash
+)]
 pub struct Configuration(Intern<ConfigurationPairData>);
 
 static INTERNER: Interner<ConfigurationPairData, BuckHasher> = Interner::new();
@@ -53,7 +57,7 @@ impl Configuration {
     }
 
     #[inline]
-    pub fn check_no_exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec> {
+    pub fn check_no_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
         if self.exec_cfg().is_some() {
             return Err(ConfigurationError::HasExecCfg.into());
         }
@@ -72,7 +76,8 @@ impl Configuration {
     Ord,
     PartialOrd,
     Allocative,
-    derive_more::Display
+    derive_more::Display,
+    strong_hash::StrongHash
 )]
 #[display("{}", self.cfg())]
 pub struct ConfigurationNoExec(Configuration);

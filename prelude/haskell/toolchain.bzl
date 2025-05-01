@@ -20,6 +20,7 @@ HaskellToolchainInfo = provider(
         "compiler_major_version": provider_field(typing.Any, default = None),
         "package_name_prefix": provider_field(typing.Any, default = None),
         "packager": provider_field(typing.Any, default = None),
+        "support_always_use_cache": provider_field(bool, default = False),
         "use_argsfile": provider_field(typing.Any, default = None),
         "support_expose_package": provider_field(bool, default = False),
         "archive_contents": provider_field(typing.Any, default = None),

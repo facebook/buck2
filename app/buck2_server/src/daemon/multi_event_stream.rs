@@ -103,8 +103,8 @@ where
 mod tests {
     use assert_matches::assert_matches;
     use buck2_data::BuckEvent;
-    use futures::stream::poll_fn;
     use futures::stream::StreamExt;
+    use futures::stream::poll_fn;
 
     use super::*;
 

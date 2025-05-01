@@ -19,6 +19,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 use serde::Serialize;
 use static_assertions::assert_eq_size;
+use strong_hash::StrongHash;
 
 use crate::arc_str::base::ArcStrBase;
 use crate::arc_str::base::ArcStrBaseInner;
@@ -49,7 +50,9 @@ unsafe impl ArcStrLenStrategy for ArcStrProperties {
 }
 
 /// Wrapper for `Arc<str>`.
-#[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Allocative, Clone, Dupe, Default)]
+#[derive(
+    PartialEq, Eq, Hash, PartialOrd, Ord, Allocative, Clone, Dupe, Default, StrongHash
+)]
 pub struct ArcStr {
     base: ArcStrBase<ArcStrProperties>,
 }

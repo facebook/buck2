@@ -57,8 +57,8 @@ mod size_of;
 mod test_derive;
 mod visitor;
 
-pub use allocative_derive::root;
 pub use allocative_derive::Allocative;
+pub use allocative_derive::root;
 
 pub use crate::allocative_trait::Allocative;
 pub use crate::flamegraph::FlameGraph;
@@ -82,9 +82,9 @@ pub mod __macro_refs {
 /// The main use case is manual implementations of [`Allocative`], like so:
 ///
 /// ```
-/// use allocative::ident_key;
 /// use allocative::Allocative;
 /// use allocative::Visitor;
+/// use allocative::ident_key;
 ///
 /// struct MyStruct {
 ///     foo: usize,
@@ -103,7 +103,12 @@ pub mod __macro_refs {
 #[macro_export]
 macro_rules! ident_key {
     ($name:ident) => {{
-        const KEY: $crate::Key = $crate::Key::new(stringify!(name));
+        const KEY: $crate::Key = $crate::Key::new(stringify!($name));
         KEY
     }};
+}
+
+#[test]
+fn ident_key() {
+    assert_eq!(ident_key!(foo), Key::new("foo"));
 }

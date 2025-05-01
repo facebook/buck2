@@ -3,6 +3,8 @@ id: daemon
 title: Daemon (buckd)
 ---
 
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 The first time that a Buck2 command is run, Buck2 starts a daemon process for
 the current project. For subsequent commands, Buck2 checks for the running
 daemon process and, if found, uses the daemon to execute the command. Using the
@@ -17,6 +19,9 @@ While it runs, the Buck daemon process monitors the project's file system for
 changes. The Buck daemon excludes from monitoring any subtrees of the project
 file system that are specified in the `[project].ignore` setting of
 `.buckconfig`.
+
+You can see detailed information about the status of the daemon by running
+`buck2 status`.
 
 ## Killing or disabling the Buck daemon
 

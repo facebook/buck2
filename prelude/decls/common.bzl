@@ -20,7 +20,8 @@ prelude_rule = record(
     further = field([str, None], None),
     attrs = field(dict[str, Attr]),
     impl = field([typing.Callable, None], None),
-    uses_plugins = field([list["PluginKind"], None], None),
+    uses_plugins = field([list[plugins.PluginKind], None], None),
+    supports_incoming_transition = field([bool, None], None),
 )
 
 AbiGenerationMode = ["unknown", "class", "source", "migrating_to_source_only", "source_only", "unrecognized"]
@@ -43,11 +44,15 @@ LogLevel = ["off", "severe", "warning", "info", "config", "fine", "finer", "fine
 
 OnDuplicateEntry = ["fail", "overwrite", "append"]
 
+RawHeadersAsHeadersMode = ["enabled", "disabled"]
+
 SourceAbiVerificationMode = ["off", "log", "fail"]
 
 TestType = ["junit", "junit5", "testng"]
 
 UnusedDependenciesAction = ["unknown", "fail", "warn", "ignore", "unrecognized"]
+
+RuntimeDependencyHandling = ["none", "symlink_single_level_only", "symlink"]
 
 def _name_arg(name_type):
     return {
@@ -58,10 +63,10 @@ def _deps_query_arg():
     return {
         "deps_query": attrs.option(attrs.query(), default = None, doc = """
     Status: **experimental/unstable**.
-     The deps query takes a query string that accepts the following query functions, and appends the
-     output of the query to the declared deps:
+     The deps query takes a query string that accepts the following query 
+     functions, and appends the output of the query to the declared deps:
 
-     * `attrfilter`
+    * `attrfilter`
     * `deps`
     * `except`
     * `intersect`
@@ -70,32 +75,13 @@ def _deps_query_arg():
     * `set`
     * `union`
 
-
-     The macro `$declared_deps` may be used anywhere a target literal pattern is expected
-     in order to refer to the explicit deps of this rule as they appear in the rule's definition.
-     For example, if your build rule declares
+    Some example queries:
 
     ```
-
-      android_library(
-        name = 'lib',
-        deps = ['//foo:foo'],
-        deps_query = '$declared_deps',
-      )
-    ```
-
-     then the macro `$declared_deps` would be expanded to a
-     literal `set(//foo:foo)`.
-     Some example queries:
-
-    ```
-
-      "filter({name_regex}, $declared_deps)".format(name_regex='//.*')
-      "attrfilter(annotation_processors, com.foo.Processor, $declared_deps)"
+      "filter({name_regex}, deps('//foo:foo'))".format(name_regex='//.*')
+      "attrfilter(annotation_processors, com.foo.Processor, deps('//foo:foo'))"
       "deps('//foo:foo', 1)"
     ```
-
-     Note: any targets included in this query must also be present in `deps`.
 """),
     }
 
@@ -103,9 +89,8 @@ def _provided_deps_query_arg():
     return {
         "provided_deps_query": attrs.option(attrs.query(), default = None, doc = """
     Status: **experimental/unstable**.
-     The provided deps query functions in the same way as the deps query, but the referenced deps
-     using `$declared` are the provided deps of the target, and the results of the query
-     are appended to the declared provided deps.
+     The provided deps query functions in the same way as the deps query, but the 
+     results of the query are appended to the declared provided deps.
 """),
     }
 
@@ -213,6 +198,15 @@ def _allow_cache_upload_arg():
         ),
     }
 
+def _inject_test_env_arg():
+    return {
+        # NOTE: We make this a `dep` not an `exec_dep` even though we'll execute
+        # it, because it needs to execute in the same platform as the test itself
+        # (we run tests in the target platform not the exec platform, since the
+        # goal is to test the code that is being built!).
+        "_inject_test_env": attrs.default_only(attrs.dep(default = "prelude//test/tools:inject_test_env")),
+    }
+
 buck = struct(
     name_arg = _name_arg,
     deps_query_arg = _deps_query_arg,
@@ -229,4 +223,5 @@ buck = struct(
     test_rule_timeout_ms = _test_rule_timeout_ms,
     target_os_type_arg = _target_os_type_arg,
     allow_cache_upload_arg = _allow_cache_upload_arg,
+    inject_test_env_arg = _inject_test_env_arg,
 )

@@ -12,6 +12,7 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
+use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_error::BuckErrorContext;
 use buck2_query::query::environment::AttrFmtOptions;
@@ -19,8 +20,8 @@ use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use buck2_server_ctx::template::run_server_command;
 use dice::DiceTransaction;
 
 use crate::commands::query::printer::QueryResultPrinter;
@@ -58,7 +59,7 @@ pub(crate) async fn aquery_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::AqueryRequest,
-) -> anyhow::Result<buck2_cli_proto::AqueryResponse> {
+) -> buck2_error::Result<buck2_cli_proto::AqueryResponse> {
     run_server_command(AqueryServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
@@ -78,7 +79,7 @@ impl ServerCommandTemplate for AqueryServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         aquery(
             server_ctx,
             partial_result_dispatcher.as_writer(),
@@ -98,13 +99,14 @@ async fn aquery(
     mut stdout: impl Write,
     mut ctx: DiceTransaction,
     request: &buck2_cli_proto::AqueryRequest,
-) -> anyhow::Result<buck2_cli_proto::AqueryResponse> {
+) -> buck2_error::Result<buck2_cli_proto::AqueryResponse> {
     let cell_resolver = ctx.get_cell_resolver().await?;
 
     let output_configuration = QueryResultPrinter::from_request_options(
         &cell_resolver,
         &request.output_attributes,
         request.unstable_output_format,
+        request.client_context()?.trace_id.clone(),
     )?;
 
     let buck2_cli_proto::AqueryRequest {

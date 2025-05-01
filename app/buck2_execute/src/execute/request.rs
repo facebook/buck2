@@ -7,23 +7,25 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use allocative::Allocative;
-use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::local_resource_state::LocalResourceState;
+use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
+use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::buck_out_path::BuckOutScratchPath;
 use buck2_core::fs::buck_out_path::BuckOutTestPath;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
-use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_error::buck2_error;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
@@ -38,7 +40,6 @@ use starlark_map::sorted_set::SortedSet;
 use super::dep_file_digest::DepFileDigest;
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use crate::digest_config::DigestConfig;
-use crate::directory::insert_entry;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionImmutableDirectory;
 use crate::execute::environment_inheritance::EnvironmentInheritance;
@@ -72,7 +73,7 @@ impl ActionMetadataBlobData {
 pub struct ActionMetadataBlob {
     pub data: PathsWithDigestBlobData,
     pub digest: TrackedFileDigest,
-    pub path: BuckOutPath,
+    pub path: BuildArtifactPath,
 }
 
 pub enum CommandExecutionInput {
@@ -112,7 +113,7 @@ pub enum ExecutorPreference {
 }
 
 impl ExecutorPreference {
-    pub fn and(self, other: Self) -> anyhow::Result<Self> {
+    pub fn and(self, other: Self) -> buck2_error::Result<Self> {
         let requires_remote = self.requires_remote() || other.requires_remote();
         let requires_local = self.requires_local() || other.requires_local();
 
@@ -214,28 +215,34 @@ impl CommandExecutionPaths {
         outputs: IndexSet<CommandExecutionOutput>,
         fs: &ArtifactFs,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let mut builder = inputs_directory(&inputs, fs)?;
+
+        // RE spec requires outputs to be sorted:
+        // https://github.com/bazelbuild/remote-apis/blob/1f36c310b28d762b258ea577ed08e8203274efae/build/bazel/remote/execution/v2/remote_execution.proto#L667-L669
+        // We sort early here and not when we create RE action in order for local and remote actions to be in-sync.
+        let outputs: IndexSet<_> = outputs
+            .into_iter()
+            .sorted_by_key(|e| {
+                let resolved = e
+                    .as_ref()
+                    .resolve(fs)
+                    .expect("Failed to resolve output path");
+                resolved.into_path()
+            })
+            .collect();
 
         let output_paths = outputs
             .iter()
             .map(|o| {
-                let resolved = o.as_ref().resolve(fs);
+                let resolved = o.as_ref().resolve(fs)?;
                 if let Some(dir) = resolved.path_to_create() {
                     builder.mkdir(dir)?;
                 }
                 let output_type = resolved.output_type;
                 Ok((resolved.into_path(), output_type))
             })
-            .collect::<anyhow::Result<Vec<_>>>()?;
-
-        insert_entry(
-            &mut builder,
-            ProjectRelativePath::unchecked_new(".buckconfig"),
-            DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty(
-                digest_config.cas_digest_config(),
-            ))),
-        )?;
+            .collect::<buck2_error::Result<Vec<_>>>()?;
 
         let input_directory = builder.fingerprint(digest_config.as_directory_serializer());
 
@@ -275,11 +282,13 @@ impl CommandExecutionPaths {
 #[derive(Copy, Clone, Dupe, Debug, Display, Allocative, Hash, PartialEq, Eq)]
 pub struct WorkerId(pub u64);
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WorkerSpec {
     pub id: WorkerId,
     pub exe: Vec<String>,
     pub concurrency: Option<usize>,
+    pub streaming: bool,
+    pub remote_key: Option<TrackedFileDigest>,
 }
 
 /// The data contains the information about the command to be executed.
@@ -292,7 +301,7 @@ pub struct CommandExecutionRequest {
     env: SortedVectorMap<String, String>,
     timeout: Option<Duration>,
     pub executor_preference: ExecutorPreference,
-    host_sharing_requirements: HostSharingRequirements,
+    host_sharing_requirements: Arc<HostSharingRequirements>,
     // Used to disable the low pass filter for concurrent local actions. Enabled by default
     low_pass_filter: bool,
     /// Working directory, relative to the project root.
@@ -321,6 +330,12 @@ pub struct CommandExecutionRequest {
     pub remote_dep_file_key: Option<DepFileDigest>,
     /// RE dependencies to pass in action metadata.
     remote_execution_dependencies: Vec<RemoteExecutorDependency>,
+    /// RE custom tupperware image.
+    remote_execution_custom_image: Option<RemoteExecutorCustomImage>,
+    /// RE execution policy.
+    meta_internal_extra_params: MetaInternalExtraParams,
+    // Failed action outputs to materialize
+    outputs_for_error_handler: Vec<ProjectRelativePathBuf>,
 }
 
 impl CommandExecutionRequest {
@@ -337,7 +352,7 @@ impl CommandExecutionRequest {
             env,
             timeout: None,
             executor_preference: ExecutorPreference::Default,
-            host_sharing_requirements: HostSharingRequirements::default(),
+            host_sharing_requirements: Arc::new(HostSharingRequirements::default()),
             low_pass_filter: true,
             working_directory: ProjectRelativePathBuf::default(),
             prefetch_lossy_stderr: false,
@@ -350,6 +365,9 @@ impl CommandExecutionRequest {
             unique_input_inodes: false,
             remote_dep_file_key: None,
             remote_execution_dependencies: Vec::new(),
+            remote_execution_custom_image: None,
+            meta_internal_extra_params: MetaInternalExtraParams::default(),
+            outputs_for_error_handler: Vec::new(),
         }
     }
 
@@ -369,7 +387,7 @@ impl CommandExecutionRequest {
 
     pub fn with_host_sharing_requirements(
         mut self,
-        host_sharing_requirements: HostSharingRequirements,
+        host_sharing_requirements: Arc<HostSharingRequirements>,
     ) -> Self {
         self.host_sharing_requirements = host_sharing_requirements;
         self
@@ -506,11 +524,12 @@ impl CommandExecutionRequest {
     pub fn with_required_local_resources(
         mut self,
         required_local_resources: Vec<LocalResourceState>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let original_len = required_local_resources.len();
         self.required_local_resources = required_local_resources.into_iter().collect();
         if self.required_local_resources.len() != original_len {
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Tier0,
                 "Each provided local resource state is supposed to come from a different target."
             ));
         }
@@ -541,11 +560,57 @@ impl CommandExecutionRequest {
     pub fn remote_execution_dependencies(&self) -> &Vec<RemoteExecutorDependency> {
         &self.remote_execution_dependencies
     }
+
+    pub fn with_outputs_for_error_handler(
+        mut self,
+        outputs_for_error_handler: Vec<ProjectRelativePathBuf>,
+    ) -> Self {
+        self.outputs_for_error_handler = outputs_for_error_handler;
+        self
+    }
+
+    pub fn outputs_for_error_handler(&self) -> &Vec<ProjectRelativePathBuf> {
+        &self.outputs_for_error_handler
+    }
+
+    pub fn with_remote_execution_custom_image(
+        mut self,
+        remote_execution_custom_image: Option<RemoteExecutorCustomImage>,
+    ) -> Self {
+        self.remote_execution_custom_image = remote_execution_custom_image;
+        self
+    }
+
+    pub fn remote_execution_custom_image(&self) -> &Option<RemoteExecutorCustomImage> {
+        &self.remote_execution_custom_image
+    }
+
+    pub fn with_meta_internal_extra_params(
+        mut self,
+        meta_internal_extra_params: MetaInternalExtraParams,
+    ) -> Self {
+        self.meta_internal_extra_params = meta_internal_extra_params;
+        self
+    }
+
+    pub fn meta_internal_extra_params(&self) -> &MetaInternalExtraParams {
+        &self.meta_internal_extra_params
+    }
 }
 
 /// Is an output a file or a directory
 #[derive(
-    PartialEq, Eq, Hash, Debug, Copy, Clone, Dupe, Allocative, Ord, PartialOrd
+    PartialEq,
+    Eq,
+    Hash,
+    Debug,
+    Copy,
+    Clone,
+    Dupe,
+    Allocative,
+    Ord,
+    PartialOrd,
+    strong_hash::StrongHash
 )]
 pub enum OutputType {
     /// We don't know - used to represent legacy code that doesn't yet declare the output type properly.
@@ -556,6 +621,7 @@ pub enum OutputType {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum OutputTypeError {
     #[error("Expected {1:?}, but `{0}` is already declared as {2:?}")]
     CheckPath(String, OutputType, OutputType),
@@ -568,7 +634,7 @@ impl OutputType {
         self,
         path_for_error_message: impl Display,
         output_type: OutputType,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if self == OutputType::Directory && output_type == OutputType::FileOrDirectory {
             // If we treat paths whose declared type is FileOrDirectory like files, then that's incompatible with directory
             soft_error!(
@@ -600,7 +666,7 @@ impl OutputType {
 #[derive(UnpackVariants, PartialEq, Eq, Hash, Debug)]
 pub enum CommandExecutionOutputRef<'a> {
     BuildArtifact {
-        path: &'a BuckOutPath,
+        path: &'a BuildArtifactPath,
         output_type: OutputType,
     },
     TestPath {
@@ -612,18 +678,18 @@ pub enum CommandExecutionOutputRef<'a> {
 impl<'a> CommandExecutionOutputRef<'a> {
     /// Resolve this output to a ResolvedCommandExecutionOutput that allows access to the output
     /// path as well as any dirs to create.
-    pub fn resolve(&self, fs: &ArtifactFs) -> ResolvedCommandExecutionOutput {
+    pub fn resolve(&self, fs: &ArtifactFs) -> buck2_error::Result<ResolvedCommandExecutionOutput> {
         match self {
-            Self::BuildArtifact { path, output_type } => ResolvedCommandExecutionOutput {
-                path: fs.resolve_build(path),
+            Self::BuildArtifact { path, output_type } => Ok(ResolvedCommandExecutionOutput {
+                path: fs.resolve_build(path)?,
                 create: OutputCreationBehavior::Parent,
                 output_type: *output_type,
-            },
-            Self::TestPath { path, create } => ResolvedCommandExecutionOutput {
+            }),
+            Self::TestPath { path, create } => Ok(ResolvedCommandExecutionOutput {
                 path: fs.buck_out_path_resolver().resolve_test(path),
                 create: *create,
                 output_type: OutputType::FileOrDirectory,
-            },
+            }),
         }
     }
 
@@ -644,7 +710,7 @@ impl<'a> CommandExecutionOutputRef<'a> {
 #[derive(UnpackVariants, PartialEq, Eq, Hash, Debug)]
 pub enum CommandExecutionOutput {
     BuildArtifact {
-        path: BuckOutPath,
+        path: BuildArtifactPath,
         output_type: OutputType,
     },
     TestPath {

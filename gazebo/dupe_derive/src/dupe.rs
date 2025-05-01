@@ -9,12 +9,12 @@
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::parse_macro_input;
-use syn::parse_quote;
 use syn::DeriveInput;
 use syn::Ident;
 use syn::Type;
 use syn::TypeParamBound;
+use syn::parse_macro_input;
+use syn::parse_quote;
 
 use crate::util::add_trait_bounds;
 use crate::util::extract_all_field_tys;
@@ -57,7 +57,7 @@ fn derive_dupe_explicit(
         name.span(),
     );
 
-    let gen = quote! {
+    let r#gen = quote! {
         impl #impl_generics dupe::Dupe for #name #ty_generics #where_clause {
         }
 
@@ -68,7 +68,7 @@ fn derive_dupe_explicit(
         }
     };
 
-    gen.into()
+    r#gen.into()
 }
 
 fn check_each_field_dupe<'a>(tys: impl IntoIterator<Item = &'a Type>) -> TokenStream {

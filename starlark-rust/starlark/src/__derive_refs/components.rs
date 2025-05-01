@@ -21,6 +21,8 @@ use crate::__derive_refs::param_spec::NativeCallableParam;
 use crate::__derive_refs::param_spec::NativeCallableParamDefaultValue;
 use crate::__derive_refs::param_spec::NativeCallableParamSpec;
 use crate::docs::DocFunction;
+use crate::docs::DocItem;
+use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::docs::DocParams;
 use crate::docs::DocStringKind;
@@ -63,15 +65,19 @@ impl NativeCallableComponents {
         }
     }
 
-    pub(crate) fn into_docs(self, as_type: Option<(Ty, DocType)>) -> DocFunction {
-        // TODO(JakobDegen): Use the docs
-        let as_type = as_type.map(|x| x.0);
-        DocFunction::from_docstring(
+    pub(crate) fn into_docs(self, as_type: Option<(Ty, DocType)>) -> DocItem {
+        let func_docs = DocFunction::from_docstring(
             DocStringKind::Rust,
             self.doc_params(),
             self.return_type.clone(),
             self.rust_docstring,
-            as_type,
-        )
+        );
+        match as_type {
+            Some((_, ty_docs)) => DocItem::Type(DocType {
+                constructor: Some(func_docs),
+                ..ty_docs
+            }),
+            None => DocItem::Member(DocMember::Function(func_docs)),
+        }
     }
 }

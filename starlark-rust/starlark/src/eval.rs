@@ -20,6 +20,7 @@
 
 pub(crate) mod bc;
 pub(crate) mod compiler;
+mod params;
 pub(crate) mod runtime;
 pub(crate) mod soft_error;
 
@@ -36,7 +37,6 @@ pub use runtime::file_loader::FileLoader;
 pub use runtime::file_loader::ReturnFileLoader;
 pub use runtime::params::parser::ParametersParser;
 pub use runtime::params::spec::ParametersSpec;
-pub use runtime::params::spec::ParametersSpecBuilder;
 pub use runtime::params::spec::ParametersSpecParam;
 pub use runtime::profile::data::ProfileData;
 pub use runtime::profile::mode::ProfileMode;
@@ -49,11 +49,12 @@ use starlark_syntax::syntax::module::AstModuleFields;
 use crate::collections::symbol::symbol::Symbol;
 use crate::docs::DocString;
 use crate::environment::Globals;
+use crate::eval::compiler::Compiler;
 use crate::eval::compiler::def::DefInfo;
-use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::scope::ScopeId;
-use crate::eval::compiler::Compiler;
+use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
+pub use crate::eval::params::param_specs;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::eval::runtime::evaluator;
@@ -157,7 +158,7 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
         let params = Arguments(ArgumentsFull {
             pos: positional,
             named: &named,
-            names: ArgNames::new(&names),
+            names: ArgNames::new_check_unique(&names)?,
             args: None,
             kwargs: None,
         });

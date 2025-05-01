@@ -12,16 +12,22 @@ BUCK_PYTHON_RULE_KINDS = [
 ]
 BUCK_PYTHON_RULE_KIND_QUERY = "|".join(BUCK_PYTHON_RULE_KINDS)
 
-def filter_root_targets(
+def get_unfiltered_root_targets(
         query: bxl.UqueryContext,
         target_patterns: typing.Any) -> bxl.UnconfiguredTargetSet:
-    # Find all Pure-Python targets
     candidate_targets = utarget_set()
     for pattern in target_patterns:
         candidate_targets += query.kind(
             BUCK_PYTHON_RULE_KIND_QUERY,
             pattern,
         )
+    return candidate_targets
+
+def filter_root_targets(
+        query: bxl.UqueryContext,
+        target_patterns: typing.Any) -> bxl.UnconfiguredTargetSet:
+    # Find all Pure-Python targets
+    candidate_targets = get_unfiltered_root_targets(query, target_patterns)
 
     # Don't check generated rules
     filtered_targets = candidate_targets - query.attrfilter(

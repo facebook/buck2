@@ -1,0 +1,49 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "failures": {
+    "root//fail_load:first": "Error evaluating build file: `root//fail_load:TARGETS.fixture`\n\nCaused by:\n    Traceback (most recent call last):\n      * fail_load/TARGETS.fixture:1, in <module>\n          fail(\"Non-specific load failure\")\n    error: fail: Non-specific load failure\n     --> fail_load/TARGETS.fixture:1:1\n      |\n    1 | fail(\"Non-specific load failure\")\n      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      |\n    ",
+    "root//fail_load:second": "Error evaluating build file: `root//fail_load:TARGETS.fixture`\n\nCaused by:\n    Traceback (most recent call last):\n      * fail_load/TARGETS.fixture:1, in <module>\n          fail(\"Non-specific load failure\")\n    error: fail: Non-specific load failure\n     --> fail_load/TARGETS.fixture:1:1\n      |\n    1 | fail(\"Non-specific load failure\")\n      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      |\n    "
+  },
+  "results": {
+    "root//fail_load:first": {
+      "configured": {},
+      "configured_graph_size": null,
+      "errors": [
+        {
+          "action_error": null,
+          "cause_index": 0,
+          "error_tags": [
+            "STARLARK_FAIL"
+          ],
+          "message_content": "<STRING_HASH>"
+        }
+      ],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "FAIL"
+    },
+    "root//fail_load:second": {
+      "configured": {},
+      "configured_graph_size": null,
+      "errors": [
+        {
+          "action_error": null,
+          "cause_index": 0,
+          "error_tags": [
+            "STARLARK_FAIL"
+          ],
+          "message_content": "<STRING_HASH>"
+        }
+      ],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "FAIL"
+    }
+  },
+  "strings": {
+    "<STRING_HASH>": "Error evaluating build file: `root//fail_load:TARGETS.fixture`\n\nCaused by:\n    Traceback (most recent call last):\n      * fail_load/TARGETS.fixture:1, in <module>\n          fail(\"Non-specific load failure\")\n    error: fail: Non-specific load failure\n     --> fail_load/TARGETS.fixture:1:1\n      |\n    1 | fail(\"Non-specific load failure\")\n      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      |\n    "
+  },
+  "success": false,
+  "truncated": false
+}

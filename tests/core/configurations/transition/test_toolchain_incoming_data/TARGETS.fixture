@@ -1,0 +1,21 @@
+load(":defs.bzl", "nop_transition", "toolchain_with_incoming_transition")
+
+platform(
+    name = "empty_platform",
+    constraint_values = [],
+)
+
+nop_transition(
+    name = "nop_transition",
+)
+
+toolchain_with_incoming_transition(
+    name = "toolchain",
+    incoming_transition = ":nop_transition",
+)
+
+stub(
+    name = "stub",
+    toolchain_deps = [":toolchain"],
+    default_target_platform = ":empty_platform",
+)

@@ -18,6 +18,8 @@ load(
     "CxxToolchainInfo",
     "LinkerInfo",
     "LinkerType",
+    "ObjcCompilerInfo",
+    "ObjcxxCompilerInfo",
     "PicBehavior",
     "ShlibInterfacesMode",
     "StripFlagsInfo",
@@ -70,11 +72,31 @@ def _cxx_toolchain_override(ctx):
         preprocessor_flags = _pick(ctx.attrs.c_preprocessor_flags, base_c_info.preprocessor_flags),
         allow_cache_upload = _pick_raw(ctx.attrs.c_compiler_allow_cache_upload, base_c_info.allow_cache_upload),
     )
+    base_objc_info = base_toolchain.objc_compiler_info
+    objc_info = ObjcCompilerInfo(
+        compiler = _pick_bin(ctx.attrs.c_compiler, base_c_info.compiler),
+        compiler_type = base_c_info.compiler_type,
+        compiler_flags = _pick_and_add(ctx.attrs.c_compiler_flags, ctx.attrs.additional_c_compiler_flags, base_objc_info.compiler_flags),
+        preprocessor = _pick_bin(ctx.attrs.c_compiler, base_c_info.preprocessor),
+        preprocessor_type = base_c_info.preprocessor_type,
+        preprocessor_flags = _pick(ctx.attrs.c_preprocessor_flags, base_c_info.preprocessor_flags),
+        allow_cache_upload = _pick_raw(ctx.attrs.c_compiler_allow_cache_upload, base_c_info.allow_cache_upload),
+    )
     base_cxx_info = base_toolchain.cxx_compiler_info
     cxx_info = CxxCompilerInfo(
         compiler = _pick_bin(ctx.attrs.cxx_compiler, base_cxx_info.compiler),
         compiler_type = base_cxx_info.compiler_type,
         compiler_flags = _pick_and_add(ctx.attrs.cxx_compiler_flags, ctx.attrs.additional_cxx_compiler_flags, base_cxx_info.compiler_flags),
+        preprocessor = _pick_bin(ctx.attrs.cxx_compiler, base_cxx_info.preprocessor),
+        preprocessor_type = base_cxx_info.preprocessor_type,
+        preprocessor_flags = _pick(ctx.attrs.cxx_preprocessor_flags, base_cxx_info.preprocessor_flags),
+        allow_cache_upload = _pick_raw(ctx.attrs.cxx_compiler_allow_cache_upload, base_cxx_info.allow_cache_upload),
+    )
+    base_objcxx_info = base_toolchain.objcxx_compiler_info
+    objcxx_info = ObjcxxCompilerInfo(
+        compiler = _pick_bin(ctx.attrs.cxx_compiler, base_cxx_info.compiler),
+        compiler_type = base_cxx_info.compiler_type,
+        compiler_flags = _pick_and_add(ctx.attrs.cxx_compiler_flags, ctx.attrs.additional_cxx_compiler_flags, base_objcxx_info.compiler_flags),
         preprocessor = _pick_bin(ctx.attrs.cxx_compiler, base_cxx_info.preprocessor),
         preprocessor_type = base_cxx_info.preprocessor_type,
         preprocessor_flags = _pick(ctx.attrs.cxx_preprocessor_flags, base_cxx_info.preprocessor_flags),
@@ -95,9 +117,10 @@ def _cxx_toolchain_override(ctx):
     sanitizer_runtime_files = flatten([runtime_file[DefaultInfo].default_outputs for runtime_file in ctx.attrs.sanitizer_runtime_files]) if ctx.attrs.sanitizer_runtime_files != None else None
     linker_info = LinkerInfo(
         archiver = _pick_bin(ctx.attrs.archiver, base_linker_info.archiver),
-        archiver_type = base_linker_info.archiver_type,
+        archiver_flags = value_or(ctx.attrs.archiver_flags, base_linker_info.archiver_flags),
+        archiver_type = value_or(ctx.attrs.archiver_type, base_linker_info.archiver_type),
         archiver_supports_argfiles = value_or(ctx.attrs.archiver_supports_argfiles, base_linker_info.archiver_supports_argfiles),
-        archive_contents = base_linker_info.archive_contents,
+        archive_contents = value_or(ctx.attrs.archive_contents, base_linker_info.archive_contents),
         archive_objects_locally = value_or(ctx.attrs.archive_objects_locally, base_linker_info.archive_objects_locally),
         binary_extension = base_linker_info.binary_extension,
         generate_linker_maps = value_or(ctx.attrs.generate_linker_maps, base_linker_info.generate_linker_maps),
@@ -109,6 +132,7 @@ def _cxx_toolchain_override(ctx):
         linker = _pick_bin(ctx.attrs.linker, base_linker_info.linker),
         linker_flags = _pick(ctx.attrs.linker_flags, base_linker_info.linker_flags),
         post_linker_flags = _pick(ctx.attrs.post_linker_flags, base_linker_info.post_linker_flags),
+        link_metadata_flag = _pick(ctx.attrs.link_metadata_flag, base_linker_info.link_metadata_flag),
         lto_mode = value_or(map_val(LtoMode, ctx.attrs.lto_mode), base_linker_info.lto_mode),
         object_file_extension = base_linker_info.object_file_extension,
         shlib_interfaces = value_or(shlib_interfaces, base_linker_info.shlib_interfaces),
@@ -139,7 +163,7 @@ def _cxx_toolchain_override(ctx):
         objdump = _pick_bin(ctx.attrs.objdump, base_binary_utilities_info.objdump),
         ranlib = _pick_bin(ctx.attrs.ranlib, base_binary_utilities_info.ranlib),
         strip = _pick_bin(ctx.attrs.strip, base_binary_utilities_info.strip),
-        dwp = base_binary_utilities_info.dwp,
+        dwp = _pick_bin(ctx.attrs.dwp, base_binary_utilities_info.dwp),
         bolt_msdk = base_binary_utilities_info.bolt_msdk,
     )
 
@@ -166,7 +190,9 @@ def _cxx_toolchain_override(ctx):
         bolt_enabled = value_or(ctx.attrs.bolt_enabled, base_toolchain.bolt_enabled),
         c_compiler_info = c_info,
         cxx_compiler_info = cxx_info,
-        llvm_link = ctx.attrs.llvm_link if ctx.attrs.llvm_link != None else base_toolchain.llvm_link,
+        objc_compiler_info = objc_info,
+        objcxx_compiler_info = objcxx_info,
+        llvm_link = ctx.attrs.llvm_link[RunInfo] if ctx.attrs.llvm_link != None else base_toolchain.llvm_link,
         # the rest are used without overrides
         cuda_compiler_info = base_toolchain.cuda_compiler_info,
         hip_compiler_info = base_toolchain.hip_compiler_info,
@@ -190,9 +216,12 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
     attrs = {
         "additional_c_compiler_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "additional_cxx_compiler_flags": attrs.option(attrs.list(attrs.arg()), default = None),
+        "archive_contents": attrs.option(attrs.string(), default = None),
         "archive_objects_locally": attrs.option(attrs.bool(), default = None),
         "archiver": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "archiver_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "archiver_supports_argfiles": attrs.option(attrs.bool(), default = None),
+        "archiver_type": attrs.option(attrs.string(), default = None),
         "as_compiler": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "as_compiler_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "as_preprocessor_flags": attrs.option(attrs.list(attrs.arg()), default = None),
@@ -208,11 +237,13 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
         "cxx_compiler": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "cxx_compiler_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "cxx_preprocessor_flags": attrs.option(attrs.list(attrs.arg()), default = None),
+        "dwp": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "force_full_hybrid_if_capable": attrs.option(attrs.bool(), default = None),
         "generate_linker_maps": attrs.option(attrs.bool(), default = None),
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
         "link_binaries_locally": attrs.option(attrs.bool(), default = None),
         "link_libraries_locally": attrs.option(attrs.bool(), default = None),
+        "link_metadata_flag": attrs.option(attrs.string(), default = None),
         "link_style": attrs.option(attrs.enum(LinkStyle.values()), default = None),
         "link_weight": attrs.option(attrs.int(), default = None),
         "linker": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),

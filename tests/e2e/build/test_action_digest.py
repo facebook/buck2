@@ -40,6 +40,7 @@ async def test_action_digest(buck: Buck) -> None:
     ]
     compiled_digests.sort()
 
+    # TODO(nga): this should also test reverted buck2.
     buck.path_to_executable = Path("buck2")
     await buck.build(
         get_mode_from_platform(),

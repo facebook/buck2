@@ -1,0 +1,18 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _build_impl(ctx):
+    for value in ctx.build("//:run_remote", materializations = ctx.cli_args.materializations).values():
+        for artifact in value.artifacts():
+            ctx.output.print(get_path_without_materialization(artifact, ctx))
+
+build = bxl_main(
+    impl = _build_impl,
+    cli_args = {
+        "materializations": cli_args.string(),
+    },
+)

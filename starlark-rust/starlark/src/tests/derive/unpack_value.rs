@@ -19,10 +19,10 @@ use either::Either;
 
 use crate as starlark;
 use crate::const_frozen_string;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::typing::StarlarkNever;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::typing::StarlarkNever;
 
 #[derive(StarlarkTypeRepr, UnpackValue, Eq, PartialEq, Debug)]
 enum EmptyEnum {}

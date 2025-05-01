@@ -15,9 +15,9 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_query_derive::query_module;
-use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::BinaryOp;
 use buck2_query_parser::Expr;
+use buck2_query_parser::spanned::Spanned;
 use gazebo::variants::VariantName;
 
 use crate::query::environment::QueryEnvironment;
@@ -40,8 +40,8 @@ pub mod description;
 pub mod docs;
 pub mod helpers;
 
-pub trait QueryLiteralVisitor {
-    fn target_pattern(&mut self, pattern: &str) -> anyhow::Result<()>;
+pub trait QueryLiteralVisitor<'a> {
+    fn target_pattern(&mut self, pattern: &'a str) -> buck2_error::Result<()>;
 }
 
 pub trait HasModuleDescription {
@@ -58,23 +58,23 @@ pub trait QueryFunctions: Debug + Send + Sync {
 }
 
 pub trait QueryFunctionsVisitLiterals: Debug + Send + Sync {
-    fn visit_literals(
+    fn visit_literals<'q>(
         &self,
-        visitor: &mut dyn QueryLiteralVisitor,
-        expr: &Spanned<Expr>,
+        visitor: &mut dyn QueryLiteralVisitor<'q>,
+        expr: &Spanned<Expr<'q>>,
     ) -> QueryResult<()>;
 }
 
 impl<F: QueryFunctions> QueryFunctionsVisitLiterals for F {
-    fn visit_literals(
+    fn visit_literals<'q>(
         &self,
-        visitor: &mut dyn QueryLiteralVisitor,
-        expr: &Spanned<Expr>,
+        visitor: &mut dyn QueryLiteralVisitor<'q>,
+        expr: &Spanned<Expr<'q>>,
     ) -> QueryResult<()> {
-        fn visit_literals_recurse<F: QueryFunctions>(
+        fn visit_literals_recurse<'q, F: QueryFunctions>(
             this: &F,
-            visitor: &mut dyn QueryLiteralVisitor,
-            expr: &Expr,
+            visitor: &mut dyn QueryLiteralVisitor<'q>,
+            expr: &Expr<'q>,
         ) -> Result<(), QueryError> {
             match expr {
                 Expr::Function {
@@ -111,7 +111,7 @@ impl<F: QueryFunctions> QueryFunctionsVisitLiterals for F {
                 }
                 Expr::Set(args) => {
                     for arg in args {
-                        visitor.target_pattern(arg)?;
+                        visitor.target_pattern(arg.fragment())?;
                     }
                     Ok(())
                 }
@@ -124,10 +124,10 @@ impl<F: QueryFunctions> QueryFunctionsVisitLiterals for F {
             }
         }
 
-        fn visit_literals_item<F: QueryFunctions>(
+        fn visit_literals_item<'q, F: QueryFunctions>(
             this: &F,
-            visitor: &mut dyn QueryLiteralVisitor,
-            expr: &Spanned<Expr>,
+            visitor: &mut dyn QueryLiteralVisitor<'q>,
+            expr: &Spanned<Expr<'q>>,
             is_target_expr: bool,
         ) -> QueryResult<()> {
             expr.map_res(|value| -> Result<(), QueryError> {
@@ -191,43 +191,92 @@ async fn accept_target_set<Env: QueryEnvironment>(
 /// Common query functions
 #[query_module(Env)]
 impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
-    /// Computes all dependency paths.
+    /// All dependency paths.
     ///
-    /// The `allpaths(from, to)` function evaluates to the graph formed by paths between the target expressions from and to, following the dependencies between nodes. For example, the value of
-    /// `buck query "allpaths('//foo:bar', '//foo/bar/lib:baz')"`
-    /// is the dependency graph rooted at the single target node `//foo:bar`, that includes all target nodes that depend (transitively) on `//foo/bar/lib:baz`.
+    /// Generates a graph of paths between the [*target expressions*](#target-expression) *from* and *to*, based on the dependencies between nodes.
     ///
-    /// The two arguments to `allpaths()` can themselves be expressions. For example, the command:
-    /// `buck query "allpaths(kind(java_library, '//...'), '//foo:bar')"`
-    /// shows all the paths between any java_library in the repository and the target `//foo:bar`.
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "allpaths('//foo:bar', '//foo/bar/lib:baz')"
+    /// ```
+    /// returns the dependency graph rooted at the target node `//foo:bar`, including all target nodes that transitively depend on `//foo/bar/lib:baz`.
     ///
-    /// We recommend using `allpaths()` with the `--output-format=dot` parameter to generate a graphviz file that can then be rendered as an image. For example:
+    /// Arguments *from* and *to* can themselves be expressions, for example:
+    /// ```text
+    /// $ buck2 uquery "allpaths(kind(java_library, '//...'), '//foo:bar')"
+    /// ```
+    /// shows all the paths between any target with rule type `java_library` in the repository and the target `//foo:bar`.
     ///
-    /// ```ignore
-    /// $ buck query "allpaths('//foo:bar', '//foo/bar/lib:baz')" --output-format=dot --output-file=result.dot
+    /// We recommend using it with the `--output-format=dot` parameter to generate a [Graphviz](https://graphviz.org/) [DOT](https://graphviz.org/doc/info/lang.html) file that can then be rendered as an image.
+    ///
+    /// ```text
+    /// $ buck2 uquery "allpaths(//buck2:buck2, //buck2/app/buck2_validation:buck2_validation)" --output-format=dot > result.dot
     /// $ dot -Tpng result.dot -o image.png
     /// ```
-    ///
-    /// Graphviz is an open-source graph-visualization software tool. Graphviz uses the dot language to describe graphs.
+    /// produces the following image:
+    /// <img src={useBaseUrl('/img/allpaths_example.png')} class='query-example-image'/>
     async fn allpaths(
         &self,
-        env: &Env,
+        evaluator: &QueryEvaluator<'_, Env>,
         from: TargetSet<Env::Target>,
         to: TargetSet<Env::Target>,
+        captured_expr: Option<CapturedExpr<'_>>,
     ) -> QueryFuncResult<Env> {
-        Ok(self.implementation.allpaths(env, &from, &to).await?.into())
+        Ok(self
+            .implementation
+            .allpaths(
+                evaluator.env(),
+                evaluator.functions(),
+                &from,
+                &to,
+                captured_expr.as_ref(),
+            )
+            .await?
+            .into())
     }
 
+    /// Shortest dependency path between two sets of targets.
+    ///
+    /// * The first parameter `from` represents the upstream targets (e.g., final binary).
+    /// * The second parameter `to` represents the downstream targets (e.g., a library).
+    ///
+    /// Results are returned in order from top to bottom (upstream to downstream).
+    ///
+    /// If multiple paths exist, the returned path is unspecified. If no path exists, an empty set is returned.
+    ///
+    /// For example:
+    ///
+    /// ```text
+    /// $ buck2 uquery 'somepath(//buck2:buck2, //buck2/app/buck2_node:buck2_node)'
+    ///
+    /// //buck2:buck2
+    /// //buck2/app/buck2:buck2-bin
+    /// //buck2/app/buck2_analysis:buck2_analysis
+    /// //buck2/app/buck2_node:buck2_node
+    /// ```
     async fn somepath(
         &self,
-        env: &Env,
+        evaluator: &QueryEvaluator<'_, Env>,
         from: TargetSet<Env::Target>,
         to: TargetSet<Env::Target>,
+        captured_expr: Option<CapturedExpr<'_>>,
     ) -> QueryFuncResult<Env> {
-        Ok(self.implementation.somepath(env, &from, &to).await?.into())
+        Ok(self
+            .implementation
+            .somepath(
+                evaluator.env(),
+                evaluator.functions(),
+                &from,
+                &to,
+                captured_expr.as_ref(),
+            )
+            .await?
+            .into())
     }
 
-    /// The `attrfilter(attribute, value, targets)` operator evaluates the given target expression and filters the resulting build targets to those where the specified attribute contains the specified value.
+    /// Rule attribute filtering.
+    ///
+    /// Evaluates the given [*target expression*](#target-expression) and filters the resulting build targets to those where the specified attribute contains the specified value.
     /// In this context, the term attribute refers to an argument in a build rule, such as name, headers, srcs, or deps.
     ///
     /// - If the attribute is a single value, say `name`, it is compared to the specified value, and the target is returned if they match.
@@ -235,7 +284,14 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// - If the attribute is a dictionary, the target is returned if the value exists in either the keys or the values of the dictionary.
     ///
     /// For example:
-    /// `buck2 query "attrfilter(deps, '//foo:bar', '//...')"` returns the build targets in the repository that depend on `//foo:bar`, or more precisely: those build targets that include `//foo:bar` in their deps argument list.
+    /// ```text
+    /// $ buck2 uquery "attrfilter(deps, '//buck2/app/buck2_validation:buck2_validation', '//...')"
+    ///
+    /// //buck2/app/buck2:buck2-bin
+    /// //buck2/app/buck2_server:buck2_server
+    /// //buck2/app/buck2_server:buck2_server-unittest
+    /// ```
+    /// returns targets that contain `//buck2/app/buck2_validation:buck2_validation` target in their `deps` attribute.
     async fn attrfilter(
         &self,
         attr: String,
@@ -248,6 +304,20 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
+    /// Negative rule attribute filtering, opposite of [`attrfilter`](#attrfilter).
+    ///
+    /// Evaluates the given [*target expression*](#target-expression) and filters the resulting build targets to those where the specified attribute doesn't contain the specified value.
+    /// In this context, the term attribute refers to an argument in a build rule, such as name, headers, srcs, or deps.
+    ///
+    /// - If the attribute is a single value, say `name`, it is compared to the specified value, and the target is returned if they don't match.
+    /// - If the attribute is a list, the target is returned if that list doesn't contain the specified value.
+    /// - If the attribute is a dictionary, the target is returned if the value doesn't exist in both the keys and the values of the dictionary.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "nattrfilter(deps, '//foo:bar', '//...')"
+    /// ```
+    /// returns targets that don't contain `//foo:bar` target in their `deps` attribute.
     async fn nattrfilter(
         &self,
         attr: String,
@@ -260,6 +330,19 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
+    /// Rule attribute filtering with regex.
+    ///
+    /// Similar to the [`attrfilter`](#attrfilter) function except that it takes a regular expression as the second argument.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "attrregexfilter(deps, '.+validation$', '//...')"
+    ///
+    /// //buck2/app/buck2:buck2-bin
+    /// //buck2/app/buck2_server:buck2_server
+    /// //buck2/app/buck2_server:buck2_server-unittest
+    /// ```
+    /// returns targets whose `deps` attribute contains at least one target suffixed with 'validation'.
     async fn attrregexfilter(
         &self,
         attr: String,
@@ -272,10 +355,42 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
+    /// Target build file.
+    ///
+    /// For each target in the provided [*target expression*](#target-expression), returns the build file where the target is defined.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery 'buildfile(//buck2:buck2)'
+    ///
+    /// buck2/BUCK
+    /// ```
+    ///
+    /// In order to find the build file associated with a source file, combine the owner operator with buildfile.
+    /// Examples:
+    /// ```text
+    /// $ buck2 uquery "buildfile(//buck2/app/buck2_action_impl_tests:buck2_action_impl_tests)"
+    /// ```
+    /// and
+    /// ```text
+    /// $ buck2 uquery "buildfile(owner(app/buck2_action_impl_tests/src/context.rs))"
+    /// ```
+    /// both return `buck2/app/buck2_action_impl_tests/TARGETS`.
     async fn buildfile(&self, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
         Ok(self.implementation.buildfile(&targets).into())
     }
 
+    /// Build file reverse dependencies.
+    ///
+    /// Returns all build files in the provided `universe` that have a transitive dependency on any of the specified build files.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "rbuildfiles(//buck2/BUCK, //buck2/defs.bzl)"
+    ///
+    /// buck2/defs.bzl
+    /// buck2/BUCK
+    /// ```
     async fn rbuildfiles(
         &self,
         env: &Env,
@@ -289,6 +404,20 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
+    /// Target build file with transitive imports.
+    ///
+    /// For each target in the provided [*target expression*](#target-expression),
+    /// returns the build file where the target is defined,
+    /// along with all transitive imports of that file.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery 'allbuildfiles(//foo:bar)'
+    ///
+    /// foo/BUCK
+    /// foo/defs_dependent_on_utils.bzl
+    /// baz/utils.bzl
+    /// ```
     async fn allbuildfiles(
         &self,
         env: &Env,
@@ -321,9 +450,19 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
-    /// Filter using regex partial match.
-    /// Target are matched against their fully qualified name.
-    /// Files are matched against their repo path like `repo//foo/bar/baz.py`.
+    /// Filter targets or files by regex.
+    ///
+    /// Use regex partial match to filter either a [*target expression*](#target-expression) or [*file expression*](#file-expression).
+    /// * Targets are matched against their fully-qualified name, such as `cell//foo/bar:baz`.
+    /// * Files are matched against a repo path, such as `cell//foo/bar/baz.py`.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "filter(validation$, //buck2/app/...)"
+    ///
+    /// //buck2/app/buck2_validation:buck2_validation
+    /// ```
+    /// returns all targets within `//buck2/app` that have a label with a `validation` suffix.
     async fn filter(&self, regex: String, set: QueryValueSet<Env::Target>) -> QueryFuncResult<Env> {
         match set {
             QueryValueSet::TargetSet(targets) => Ok(self
@@ -336,40 +475,81 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         }
     }
 
+    /// Non-transitive inputs.
+    ///
+    /// For each target in the provided [*target expression*](#target-expression),
+    /// returns the files which are an immediate input to the rule function and thus are needed to go through analysis phase (i.e. produce providers).
+    ///
+    /// You could consider the `inputs()` and `owner()` functions to be inverses of each other.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "inputs(//buck2/dice/...)"
+    /// ```
+    /// returns the direct inputs for the `//buck2/dice/...` targets.
     async fn inputs(&self, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
         Ok(self.implementation.inputs(&targets)?.into())
     }
 
-    /// The `kind(regex, targets)` operator evaluates the specified target expression, `targets`, and returns the targets where the rule type matches the specified `regex`.
-    /// The specified pattern can be a regular expression. For example,
-    /// `buck2 query "kind('java.*', deps('//foo:bar'))"` returns the targets that match the rule type `java.*` (`java_library`, `java_binary`, etc.) in the transitive dependencies of `//foo:bar`.
+    /// Filter targets by rule type.
+    ///
+    /// Returns a subset of `targets` where the rule type matches the specified `regex`. The specified pattern can be a regular expression.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 query "kind('java.*', deps('//foo:bar'))"
+    /// ```
+    /// This command returns targets matching rule type `java.*` (e.g., `java_library`, `java_binary`) in the transitive dependencies of `//foo:bar`.
     async fn kind(&self, regex: String, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
         Ok(targets.kind(&regex)?.into())
     }
 
-    /// This function is not implemented, and won't be, because buck2 query core does not support
-    /// returning both files and targets from a single function.
+    /// Not implemented.
     ///
-    /// In buck1 it returns targets and files referenced by the given attribute
-    /// in the given targets.
+    /// This function won't be implemented in the future, because buck2 query core does not support returning both files and targets from a single function.
     ///
-    /// Some discussion in T126638795.
+    /// In buck1 it returns targets and files referenced by the given attribute in the given targets.
+    ///
+    /// <FbInternalOnly>
+    /// For more context see discussion in T126638795.
+    /// </FbInternalOnly>
     async fn labels(&self, attr: String, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
         self.implementation.labels(&attr, &targets)
     }
 
-    /// The `owner(inputfile)` operator returns the targets that own the specified inputfile.
-    /// In this context, own means that the target has the specified file as an input. You could consider the `owner()` and `inputs()` operators to be inverses of each other.
+    /// Targets owning the given file.
     ///
-    /// Example: `buck2 query "owner('examples/1.txt')"` returns the targets that owns the file `examples/1.txt`, which could be a value such as `//examples:one`.
+    /// Returns all targets that have a specified file as an input.
     ///
-    /// It is possible for the specified file to have multiple owners, in which case, owner() returns a set of targets.
+    /// `owner()` and `inputs()` functions are inverses of each other.
     ///
-    /// If no owner for the file is found, owner() outputs the message: `No owner was found for <file>`
+    /// If the specified file has multiple owning targets, a set of targets is returned. If no owner exists, an empty set is returned.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "owner('app/buck2/src/lib.rs')"
+    ///
+    /// //buck2/app/buck2:buck2-unittest
+    /// //buck2/app/buck2:buck2
+    /// ```
     async fn owner(&self, env: &Env, files: FileSet) -> QueryFuncResult<Env> {
         Ok(self.implementation.owner(env, &files).await?.into())
     }
 
+    /// Targets in build file.
+    ///
+    /// For each file in the provided [*file expression*](#file-expression), returns a list of all targets defined there.
+    ///
+    /// `targets_in_buildfile()` and `buildfile()` functions are inverses of each other.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery 'targets_in_buildfile(buildfile(//buck2:buck2))'
+    ///
+    /// //buck2:buck2
+    /// //buck2:buck2_bundle
+    /// //buck2:symlinked_buck2_and_tpx
+    /// ```
     async fn targets_in_buildfile(&self, env: &Env, files: FileSet) -> QueryFuncResult<Env> {
         Ok(self
             .implementation
@@ -377,21 +557,65 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .await?
             .into())
     }
-
+    /// Find the reverse dependencies of the targets in the given target universe.
+    ///
+    /// The first parameter `universe` defines where to look for reverse dependencies.
+    /// The second parameter `targets` is a specific target or target pattern. It specifies the targets to find reverse dependencies for.
+    /// The third argument `depth` is an optional integer literal specifying an upper bound on the depth of the search. A value of one (1) specifies that buck query should return only direct dependencies. If the depth parameter is omitted, the search is unbounded.
+    /// The fourth argument `captured_expr` is an optional expression that can be used to filter the results.
+    ///
+    /// The returned values include the nodes from the `targets` argument itself.
+    ///
+    /// For example following uquery:
+    ///
+    /// ```text
+    /// $ buck2 uquery "rdeps(//buck2/..., //buck2/dice/dice:dice, 1)"
+    /// ```
+    /// returns all targets under `//buck2/...` that depend on `//buck2/dice/dice:dice`.
     async fn rdeps(
         &self,
-        env: &Env,
+        evaluator: &QueryEvaluator<'_, Env>,
         universe: TargetSet<Env::Target>,
         targets: TargetSet<Env::Target>,
         depth: Option<u64>,
+        captured_expr: Option<CapturedExpr<'_>>,
     ) -> QueryFuncResult<Env> {
         Ok(self
             .implementation
-            .rdeps(env, &universe, &targets, depth.map(|v| v as i32))
+            .rdeps(
+                evaluator.env(),
+                evaluator.functions(),
+                &universe,
+                &targets,
+                depth.map(|v| v as i32),
+                captured_expr.as_ref(),
+            )
             .await?
             .into())
     }
 
+    /// Tests of specified targets.
+    ///
+    /// Returns the test targets associated with the targets from the given [*target expressions*](#target-expression).
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "testsof(set(//buck2/dice/dice:dice //buck2/app/buck2:buck2))"
+    ///
+    /// //buck2/dice/dice:dice-unittest
+    /// //buck2/app/buck2:buck2-unittest
+    /// ```
+    /// returns the tests associated with both `//buck2/dice/dice:dice` and `//buck2/app/buck2:buck2`.
+    ///
+    /// To obtain all the tests associated with the target and its dependencies,
+    /// you can combine the `testsof()` function with the [`deps()`](#deps) function.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "testsof(deps(//buck2/app/buck2:buck2))"
+    /// ```
+    /// first finds the transitive closure of `//buck2/app/buck2:buck2`,
+    /// and then lists all the tests associated with the targets in this transitive closure.
     async fn testsof(&self, env: &Env, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
         Ok(self.implementation.testsof(env, &targets).await?.into())
     }
@@ -404,7 +628,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// Returns the output of deps function for the immediate dependencies of the given targets. Output is equivalent to `deps(<targets>, 1)`.
     ///
     /// Example:
-    /// `buck2 cquery "deps('//foo:bar', 1, first_order_deps())"`` is equivalent to `buck2 cquery "deps('//foo:bar', 1)"`
+    /// `buck2 cquery "deps('//foo:bar', 1, first_order_deps())"` is equivalent to `buck2 cquery "deps('//foo:bar', 1)"`
     async fn first_order_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("first_order_deps"))
     }
@@ -414,7 +638,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// like compiler used as a part of the build.
     ///
     /// Example:
-    /// `buck2 cquery "deps('//foo:bar', 1, target_deps())"``
+    /// `buck2 cquery "deps('//foo:bar', 1, target_deps())"`
     async fn target_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("target_deps"))
     }
@@ -423,7 +647,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// Returns the output of deps function for execution dependencies (build time dependencies), ex. compiler used as a part of the build.
     ///
     /// Example:
-    /// `buck2 cquery "deps('//foo:bar', 1, exec_deps())"``
+    /// `buck2 cquery "deps('//foo:bar', 1, exec_deps())"`
     async fn exec_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("exec_deps"))
     }
@@ -432,7 +656,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// Returns the output of deps function for configuration dependencies (that appear as conditions in selects).
     ///
     /// Example:
-    /// `buck2 cquery "deps('//foo:bar', 1, configuration_deps())"``
+    /// `buck2 cquery "deps('//foo:bar', 1, configuration_deps())"`
     async fn configuration_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("configuration_deps"))
     }
@@ -441,7 +665,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// Returns the output of deps function for toolchain dependencies.
     ///
     /// Example:
-    /// `buck2 cquery "deps('//foo:bar', 1, toolchain_deps())"``
+    /// `buck2 cquery "deps('//foo:bar', 1, toolchain_deps())"`
     async fn toolchain_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("configuration_deps"))
     }
@@ -527,39 +751,31 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
     pub async fn allpaths(
         &self,
         env: &Env,
+        functions: &dyn QueryFunctions<Env = Env>,
         from: &TargetSet<Env::Target>,
         to: &TargetSet<Env::Target>,
+        captured_expr: Option<&CapturedExpr<'_>>,
     ) -> Result<TargetSet<Env::Target>, QueryError> {
-        Ok(env.allpaths(from, to).await?)
+        Ok(DepsFunction::<Env> {
+            _marker: PhantomData,
+        }
+        .invoke_allpaths(env, functions, from, to, captured_expr)
+        .await?)
     }
 
-    /// Find the shortest path from one target set to another.
-    ///
-    /// First parameter is downstream (for example, final binary), second is upstream (for example, a library).
-    ///
-    /// If there are multiple paths, which one is returned is unspecified.
-    ///
-    /// Results are returned in order from up to down.
-    ///
-    /// If there's no path, return an empty set.
-    ///
-    /// # Example
-    ///
-    /// ```text
-    /// $ buck2 uquery 'somepath(fbcode//buck2:buck2, fbcode//buck2/app/buck2_node:buck2_node)'
-    ///
-    /// fbcode//buck2/app/buck2_node:buck2_node
-    /// fbcode//buck2/app/buck2_analysis:buck2_analysis
-    /// fbcode//buck2/app/buck2:buck2-bin
-    /// fbcode//buck2:buck2
-    /// ```
     pub async fn somepath(
         &self,
         env: &Env,
+        functions: &dyn QueryFunctions<Env = Env>,
         from: &TargetSet<Env::Target>,
         to: &TargetSet<Env::Target>,
+        captured_expr: Option<&CapturedExpr<'_>>,
     ) -> Result<TargetSet<Env::Target>, QueryError> {
-        Ok(env.somepath(from, to).await?)
+        Ok(DepsFunction::<Env> {
+            _marker: PhantomData,
+        }
+        .invoke_somepath(env, functions, from, to, captured_expr)
+        .await?)
     }
 
     pub fn attrfilter(
@@ -567,7 +783,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         attr: &str,
         value: &str,
         targets: &TargetSet<Env::Target>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         targets.attrfilter(attr, &|v| Ok(v == value))
     }
 
@@ -576,7 +792,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         attr: &str,
         value: &str,
         targets: &TargetSet<Env::Target>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         targets.nattrfilter(attr, &|v| Ok(v == value))
     }
 
@@ -585,7 +801,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         attr: &str,
         value: &str,
         targets: &TargetSet<Env::Target>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         targets.attrregexfilter(attr, value)
     }
 
@@ -597,7 +813,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         &self,
         env: &Env,
         universe: &TargetSet<Env::Target>,
-    ) -> anyhow::Result<FileSet> {
+    ) -> buck2_error::Result<FileSet> {
         env.allbuildfiles(universe).await
     }
 
@@ -606,7 +822,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         env: &Env,
         universe: &FileSet,
         argset: &FileSet,
-    ) -> anyhow::Result<FileSet> {
+    ) -> buck2_error::Result<FileSet> {
         env.rbuildfiles(universe, argset).await
     }
 
@@ -617,7 +833,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         targets: &TargetSet<Env::Target>,
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr<'_>>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         DepsFunction::<Env> {
             _marker: PhantomData,
         }
@@ -630,15 +846,15 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         &self,
         regex: &str,
         targets: &TargetSet<Env::Target>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         targets.filter_name(regex)
     }
 
-    pub fn filter_file_set(&self, regex: &str, files: &FileSet) -> anyhow::Result<FileSet> {
+    pub fn filter_file_set(&self, regex: &str, files: &FileSet) -> buck2_error::Result<FileSet> {
         files.filter_name(regex)
     }
 
-    pub fn inputs(&self, targets: &TargetSet<Env::Target>) -> anyhow::Result<FileSet> {
+    pub fn inputs(&self, targets: &TargetSet<Env::Target>) -> buck2_error::Result<FileSet> {
         targets.inputs()
     }
 
@@ -654,7 +870,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         &self,
         env: &Env,
         files: &FileSet,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         env.owner(files).await
     }
 
@@ -662,25 +878,31 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         &self,
         env: &Env,
         paths: &FileSet,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         env.targets_in_buildfile(paths).await
     }
 
     pub async fn rdeps(
         &self,
         env: &Env,
+        functions: &dyn QueryFunctions<Env = Env>,
         universe: &TargetSet<Env::Target>,
         targets: &TargetSet<Env::Target>,
         depth: Option<i32>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
-        env.rdeps(universe, targets, depth).await
+        captured_expr: Option<&CapturedExpr<'_>>,
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
+        DepsFunction::<Env> {
+            _marker: PhantomData,
+        }
+        .invoke_rdeps(env, functions, universe, targets, depth, captured_expr)
+        .await
     }
 
     pub async fn testsof(
         &self,
         env: &Env,
         targets: &TargetSet<Env::Target>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         env.testsof(targets).await
     }
 
@@ -688,7 +910,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         &self,
         env: &Env,
         targets: &TargetSet<Env::Target>,
-    ) -> anyhow::Result<Vec<MaybeCompatible<Env::Target>>> {
+    ) -> buck2_error::Result<Vec<MaybeCompatible<Env::Target>>> {
         env.testsof_with_default_target_platform(targets).await
     }
 

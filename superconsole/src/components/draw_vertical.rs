@@ -54,12 +54,12 @@ impl DrawVertical {
 
 #[cfg(test)]
 mod tests {
-    use crate::components::DrawVertical;
     use crate::Component;
     use crate::Dimensions;
     use crate::DrawMode;
     use crate::Line;
     use crate::Lines;
+    use crate::components::DrawVertical;
 
     #[test]
     fn test_draw_vertical() {

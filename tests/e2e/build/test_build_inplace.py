@@ -24,7 +24,7 @@ from buck2.tests.e2e_util.api.buck_result import BuckException, BuildResult
 from buck2.tests.e2e_util.api.process import Process
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env, get_mode_from_platform
-from buck2.tests.e2e_util.helper.utils import json_get, read_what_ran
+from buck2.tests.e2e_util.helper.utils import json_get, random_string, read_what_ran
 
 
 # rust rule implementations hardcode invocation of `/bin/jq` which is not available on Mac RE workers (or mac laptops)
@@ -51,7 +51,7 @@ async def test_build_output(buck: Buck) -> None:
         "targets",
         "interpreter",
         "buildfiles",
-        "TARGETS.v2",
+        "TARGETS",
     )
 
     result = await buck.build_without_report(
@@ -439,15 +439,13 @@ async def test_build_test_dependencies(buck: Buck) -> None:
     target = "fbcode//buck2/tests/targets/rules/sh_test:test_with_env"
     build = await buck.build(
         target,
-        "-c",
-        "build_report.unstable_include_other_outputs=true",
         "--build-test-info",
         "--build-report",
         "-",
     )
     report = build.get_build_report().build_report
 
-    path = ["results", target, "other_outputs", "DEFAULT"]
+    path = ["results", target, "other_outputs"]
     for p in path:
         report = report[p]
 
@@ -456,7 +454,7 @@ async def test_build_test_dependencies(buck: Buck) -> None:
         if "__file__" in artifact:
             has_file = True
 
-    assert has_file
+    assert not has_file
 
 
 # TODO(marwhal): Fix and enable on Windows
@@ -521,6 +519,8 @@ if fbcode_linux_only():  # noqa: C901
     async def test_instruction_count_disabled(buck: Buck) -> None:
         package = "fbcode//buck2/tests/targets/rules/instruction_counts"
         name = "three_billion_instructions"
+        # disable resource control as it uses miniperf to read cgroup's memory peak
+        env = {"BUCK2_TEST_RESOURCE_CONTROL_CONFIG": '{"status":"Off"}'}
 
         await buck.build(
             f"{package}:{name}",
@@ -528,6 +528,9 @@ if fbcode_linux_only():  # noqa: C901
             "buck2.miniperf2=false",
             "--no-remote-cache",
             "--local-only",
+            "-c",
+            f"test.cache_buster={random_string()}",
+            env=env,
         )
 
         log = (await buck.log("show")).stdout.strip().splitlines()
@@ -581,6 +584,8 @@ if fbcode_linux_only():  # noqa: C901
             "buck2.miniperf2=true",
             "--no-remote-cache",
             "--local-only",
+            "-c",
+            f"test.cache_buster={random_string()}",
         )
 
         details = await get_matching_details(buck, package, name)
@@ -645,9 +650,9 @@ async def test_asic_platforms(buck: Buck) -> None:
     output = result.get_target_to_build_output()[target]
     with open(output) as output:
         s = output.read()
-        assert (
-            "thefacebook.com" in s
-        ), "expected 'thefacebook.com' in output: `{}`".format(output)
+        assert "facebook.com" in s, "expected 'facebook.com' in output: `{}`".format(
+            output
+        )
 
 
 @buck_test(inplace=True)
@@ -670,13 +675,13 @@ async def test_exit_when_different_state(buck: Buck) -> None:
 
     # create a coroutine that can return a result
     async def process(
-        p: Process[BuildResult, BuckException]
+        p: Process[BuildResult, BuckException],
     ) -> Tuple[Optional[int], str]:
         result = await expect_failure(p)
         return (result.process.returncode, result.stderr)
 
     done, pending = await asyncio.wait(
-        [process(a), process(b)],
+        [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
         timeout=10,
         return_when=asyncio.FIRST_COMPLETED,
     )
@@ -713,13 +718,13 @@ async def test_exit_when_preemptible_always(buck: Buck, same_state: bool) -> Non
 
     # create a coroutine that can return a result
     async def process(
-        p: Process[BuildResult, BuckException]
+        p: Process[BuildResult, BuckException],
     ) -> Tuple[Optional[int], str]:
         result = await expect_failure(p)
         return (result.process.returncode, result.stderr)
 
     done, pending = await asyncio.wait(
-        [process(a), process(b)],
+        [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
         timeout=10,
         return_when=asyncio.FIRST_COMPLETED,
     )
@@ -758,13 +763,13 @@ async def test_exit_when_preemptible_on_different_state(
 
     # create a coroutine that can return a result
     async def process(
-        p: Process[BuildResult, BuckException]
+        p: Process[BuildResult, BuckException],
     ) -> Tuple[Optional[int], str]:
         result = await expect_failure(p)
         return (result.process.returncode, result.stderr)
 
     done, pending = await asyncio.wait(
-        [process(a), process(b)],
+        [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
         timeout=10,
         return_when=asyncio.FIRST_COMPLETED,
     )
@@ -802,7 +807,8 @@ async def test_genrule_with_remote_execution_dependencies(buck: Buck) -> None:
         assert len(deps) == 1
         assert deps[0]["smc_tier"] == "noop"
         assert deps[0]["id"] == "foo"
-        assert deps[0]["reservation_id"] == "noop"
+        # reservation_id is a random string which is 20 characters long
+        assert len(deps[0]["reservation_id"]) == 20
 
 
 async def read_io_provider_for_last_build(buck: Buck) -> None:

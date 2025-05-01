@@ -9,11 +9,11 @@
 
 import React, {ReactNode, useContext, useEffect, useState} from 'react'
 
-export const ROOT_VIEW = ''
-
 export enum QueryKey {
+  RootView = '',
   SearchView = 'search',
   GraphView = 'graph',
+  GraphView2 = 'graph2',
   TargetView = 'target',
   TargetTab = 'target_tab',
 }
@@ -56,7 +56,7 @@ export function Router(props: {children: ReactNode}) {
       if (urlParams.has(child.props.view)) {
         return child
       }
-      if (child.props.view === ROOT_VIEW && all.length === 0) {
+      if (child.props.view === QueryKey.RootView && all.length === 0) {
         return child
       }
     }

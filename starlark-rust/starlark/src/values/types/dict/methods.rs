@@ -19,20 +19,21 @@
 
 use std::mem;
 
+use either::Either;
 use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::environment::MethodsBuilder;
-use crate::hint::unlikely;
+use crate::values::Heap;
+use crate::values::Value;
+use crate::values::ValueOfUnchecked;
 use crate::values::dict::DictMut;
 use crate::values::dict::DictRef;
 use crate::values::list::AllocList;
 use crate::values::list::ListRef;
 use crate::values::list::UnpackList;
 use crate::values::none::NoneType;
-use crate::values::Heap;
-use crate::values::Value;
-use crate::values::ValueOfUnchecked;
+use crate::values::typing::StarlarkIter;
 
 #[starlark_module]
 pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
@@ -52,7 +53,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// ```
     fn clear(this: Value) -> anyhow::Result<NoneType> {
         let mut this = DictMut::from_value(this)?;
-        this.clear();
+        this.aref.clear();
         Ok(NoneType)
     }
 
@@ -171,7 +172,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         #[starlark(require = pos)] default: Option<Value<'v>>,
     ) -> starlark::Result<Value<'v>> {
         let mut me = DictMut::from_value(this)?;
-        match me.remove_hashed(key.get_hashed()?) {
+        match me.aref.remove_hashed(key.get_hashed()?) {
             Some(x) => Ok(x),
             None => match default {
                 Some(v) => Ok(v),
@@ -220,9 +221,11 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     fn popitem<'v>(this: Value<'v>) -> anyhow::Result<(Value<'v>, Value<'v>)> {
         let mut this = DictMut::from_value(this)?;
 
-        let key = this.iter_hashed().next().map(|(k, _)| k);
-        match key {
-            Some(k) => Ok((*k.key(), this.remove_hashed(k).unwrap())),
+        // TODO(nga): this implementation is O(N).
+        //   https://github.com/bazelbuild/starlark/issues/286
+
+        match this.aref.content.shift_remove_index(0) {
+            Some((k, v)) => Ok((k, v)),
             None => Err(anyhow::anyhow!("Cannot .popitem() on an empty dictionary")),
         }
     }
@@ -263,12 +266,14 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     ) -> starlark::Result<Value<'v>> {
         let mut this = DictMut::from_value(this)?;
         let key = key.get_hashed()?;
-        if let Some(r) = this.get_hashed(key) {
-            return Ok(r);
+        match this.aref.content.entry_hashed(key) {
+            starlark_map::small_map::Entry::Occupied(e) => Ok(*e.get()),
+            starlark_map::small_map::Entry::Vacant(e) => {
+                let default = default.unwrap_or_else(Value::new_none);
+                e.insert(default);
+                Ok(default)
+            }
         }
-        let def = default.unwrap_or_else(Value::new_none);
-        this.insert_hashed(key, def);
-        Ok(def)
     }
 
     /// [dict.update](
@@ -302,42 +307,46 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// ```
     fn update<'v>(
         this: Value<'v>,
-        #[starlark(require = pos)] pairs: Option<Value<'v>>,
+        #[starlark(require = pos)] pairs: Option<
+            ValueOfUnchecked<'v, Either<DictRef<'v>, StarlarkIter<(Value<'v>, Value<'v>)>>>,
+        >,
         #[starlark(kwargs)] kwargs: DictRef<'v>,
         heap: &'v Heap,
     ) -> starlark::Result<NoneType> {
-        let pairs = if pairs.map(|x| x.ptr_eq(this)) == Some(true) {
+        let pairs = if pairs.map(|x| x.get().ptr_eq(this)) == Some(true) {
             // someone has done `x.update(x)` - that isn't illegal, but we will have issues
             // with trying to iterate over x while holding x for mutation, and it doesn't do
             // anything useful, so just change pairs back to None
             None
         } else {
-            pairs
+            pairs.map(|x| x.get())
         };
 
         let mut this = DictMut::from_value(this)?;
         if let Some(pairs) = pairs {
-            if let Some(dict) = DictRef::from_value(pairs) {
-                for (k, v) in dict.iter_hashed() {
-                    this.insert_hashed(k, v);
+            match DictRef::from_value(pairs) {
+                Some(dict) => {
+                    for (k, v) in dict.iter_hashed() {
+                        this.aref.insert_hashed(k, v);
+                    }
                 }
-            } else {
-                for v in pairs.iterate(heap)? {
-                    let mut it = v.iterate(heap)?;
-                    let k = it.next();
-                    let v = if k.is_some() { it.next() } else { None };
-                    if unlikely(v.is_none() || it.next().is_some()) {
-                        return Err(anyhow::anyhow!(
+                _ => {
+                    for v in pairs.iterate(heap)? {
+                        let mut it = v.iterate(heap)?;
+                        // `StarlarkIterator` is fused.
+                        let (Some(k), Some(v), None) = (it.next(), it.next(), it.next()) else {
+                            return Err(anyhow::anyhow!(
                             "dict.update expect a list of pairs or a dictionary as first argument, got a list of non-pairs.",
                         ).into());
-                    };
-                    this.insert_hashed(k.unwrap().get_hashed()?, v.unwrap());
+                        };
+                        this.aref.insert_hashed(k.get_hashed()?, v);
+                    }
                 }
             }
         }
 
         for (k, v) in kwargs.iter_hashed() {
-            this.insert_hashed(k, v);
+            this.aref.insert_hashed(k, v);
         }
         Ok(NoneType)
     }
@@ -368,6 +377,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
 #[cfg(test)]
 mod tests {
     use crate::assert;
+    use crate::assert::Assert;
 
     #[test]
     fn test_error_codes() {
@@ -387,5 +397,42 @@ mod tests {
         assert::fails("{40+2: 2, 6*7: 3}", &["key repeated", "42"]);
         // Also check we fail if the entire dictionary is static (a different code path).
         assert::fails("{42: 2, 42: 3}", &["key repeated", "42"]);
+    }
+
+    #[test]
+    fn test_dict_update_with_self_pos() {
+        assert::eq("{3: 4, 1: 2}", "d = {3: 4, 1: 2}; d.update(d); d");
+    }
+
+    #[test]
+    fn test_dict_update_with_self_as_kwargs() {
+        assert::eq("{'a': 1, 'b': 2}", "d = {'a': 1, 'b': 2}; d.update(**d); d");
+    }
+
+    #[test]
+    fn test_frozen_dict_cannot_be_updated_with_self_pos() {
+        let mut a = Assert::new();
+        a.module("d.star", "D = {7: 8, 9: 0}");
+        a.fail(
+            r#"
+load('d.star', 'D')
+
+D.update(D)
+"#,
+            "Immutable",
+        );
+    }
+
+    #[test]
+    fn test_frozen_dict_cannot_be_updated_with_self_as_kwargs() {
+        let mut a = Assert::new();
+        a.module("d.star", "D = {'x': 17, 'y': 19}");
+        a.fail(
+            r#"
+load('d.star', 'D')
+D.update(**D)
+"#,
+            "Immutable",
+        );
     }
 }

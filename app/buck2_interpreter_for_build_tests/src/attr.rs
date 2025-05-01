@@ -9,18 +9,18 @@
 
 use std::sync::Arc;
 
-use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
+use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
-use buck2_interpreter_for_build::interpreter::testing::cells;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
+use buck2_interpreter_for_build::interpreter::testing::cells;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -105,7 +105,7 @@ fn enum_works() -> buck2_error::Result<()> {
 }
 
 #[test]
-fn attr_coercer_coerces() -> anyhow::Result<()> {
+fn attr_coercer_coerces() -> buck2_error::Result<()> {
     let heap = Heap::new();
     let some_cells = cells(None)?;
     let cell_resolver = some_cells.1;
@@ -234,7 +234,7 @@ fn dep_works() -> buck2_error::Result<()> {
             attrs.dep(default="notatarget")
         "#
         ),
-        "Invalid absolute target",
+        "Invalid target pattern",
     );
 
     // Relative targets are disallowed; there is no build file for them to be relative to
@@ -246,7 +246,7 @@ fn dep_works() -> buck2_error::Result<()> {
             attrs.dep(default=":reltarget")
         "#
         ),
-        "Use a fully qualified",
+        "Must be absolute",
     );
     Ok(())
 }
@@ -274,13 +274,13 @@ fn source_works() -> buck2_error::Result<()> {
             attrs.source(default=":reltarget")
         "#
         ),
-        "Use a fully qualified",
+        "Must be absolute",
     );
     Ok(())
 }
 
 #[test]
-fn coercing_src_to_path_works() -> anyhow::Result<()> {
+fn coercing_src_to_path_works() -> buck2_error::Result<()> {
     let cell_resolver = cells(None).unwrap().1;
     let cell_alias_resolver = cells(None).unwrap().0;
     let package = PackageLabel::new(

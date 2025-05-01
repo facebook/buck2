@@ -14,7 +14,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::values::ValueLike;
 
 pub trait ProviderCallableLike {
-    fn id(&self) -> anyhow::Result<&Arc<ProviderId>>;
+    fn id(&self) -> buck2_error::Result<&Arc<ProviderId>>;
 }
 
 unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn ProviderCallableLike {

@@ -13,8 +13,8 @@
 #[allow(unused_extern_crates)] // proc_macro is very special
 extern crate proc_macro;
 
-use syn::parse_macro_input;
 use syn::DeriveInput;
+use syn::parse_macro_input;
 
 mod default;
 mod variant;

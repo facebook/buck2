@@ -1,5 +1,5 @@
 load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
-# @oss-disable: load(":visibility.fb.bzl", "visibility") 
+# @oss-disable[end= ]: load(":visibility.fb.bzl", "visibility")
 
 oncall("build_infra")
 

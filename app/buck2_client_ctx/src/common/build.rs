@@ -11,8 +11,8 @@ use std::str::FromStr;
 
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_core::buck2_env_name;
-use clap::builder::FalseyValueParser;
 use clap::ArgGroup;
+use clap::builder::FalseyValueParser;
 use tracing::warn;
 
 use crate::common::PrintOutputsFormat;
@@ -24,6 +24,9 @@ pub struct BuildReportOption {
 
     /// Include package relative paths in the output.
     include_package_project_relative_paths: bool,
+
+    /// Include artifact hash information in the output.
+    include_artifact_hash_information: bool,
 }
 
 impl FromStr for BuildReportOption {
@@ -31,11 +34,14 @@ impl FromStr for BuildReportOption {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut fill_out_failures = false;
         let mut include_package_project_relative_paths = false;
+        let mut include_artifact_hash_information = false;
 
         if s.to_lowercase() == "fill-out-failures" {
             fill_out_failures = true;
         } else if s.to_lowercase() == "package-project-relative-paths" {
             include_package_project_relative_paths = true;
+        } else if s.to_lowercase() == "include-artifact-hash-information" {
+            include_artifact_hash_information = true;
         } else {
             warn!(
                 "Incorrect syntax for build report option. Got: `{}` but expected one of `fill-out-failures, package-project-relative-paths`",
@@ -45,6 +51,7 @@ impl FromStr for BuildReportOption {
         Ok(BuildReportOption {
             fill_out_failures,
             include_package_project_relative_paths,
+            include_artifact_hash_information,
         })
     }
 }
@@ -170,6 +177,10 @@ pub struct CommonBuildOptions {
     /// Materializes inputs for failed actions which ran on RE
     #[clap(long)]
     materialize_failed_inputs: bool,
+
+    /// Materializes outputs (if present) for failed actions which ran on RE
+    #[clap(long)]
+    materialize_failed_outputs: bool,
 }
 
 impl CommonBuildOptions {
@@ -191,6 +202,10 @@ impl CommonBuildOptions {
             .build_report_options
             .iter()
             .any(|option| option.include_package_project_relative_paths);
+        let unstable_include_artifact_hash_information = self
+            .build_report_options
+            .iter()
+            .any(|option| option.include_artifact_hash_information);
         let concurrency = self
             .num_threads
             .map(|num| buck2_cli_proto::Concurrency { concurrency: num });
@@ -227,8 +242,10 @@ impl CommonBuildOptions {
             skip_incompatible_targets: self.skip_incompatible_targets,
             materialize_failed_inputs: self.materialize_failed_inputs,
             enable_optional_validations,
+            materialize_failed_outputs: self.materialize_failed_outputs,
             unstable_include_failures_build_report,
             unstable_include_package_project_relative_paths,
+            unstable_include_artifact_hash_information,
         }
     }
 }

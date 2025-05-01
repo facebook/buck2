@@ -5,20 +5,38 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//decls/core_rules.bzl", "Platform", "TargetCpuType")
+load("@prelude//decls:core_rules.bzl", "PlatformExePlatform", "TargetCpuType")
 
-OsLookup = provider(fields = {"cpu": provider_field(typing.Any, default = None), "platform": provider_field(typing.Any, default = None)})
+Os = enum(
+    "fat_mac_linux",
+    "freebsd",
+    "unknown",
+    *PlatformExePlatform
+)
+
+ScriptLanguage = enum(
+    "sh",  # Unix shell script
+    "bat",  # Windows batch file
+)
+
+OsLookup = provider(fields = {
+    "cpu": str | None,
+    "os": Os,
+    "script": ScriptLanguage,
+})
 
 def _os_lookup_impl(ctx: AnalysisContext):
     return [
         DefaultInfo(),
         OsLookup(
             cpu = ctx.attrs.cpu,
-            platform = ctx.attrs.platform,
+            os = Os(ctx.attrs.os),
+            script = ScriptLanguage(ctx.attrs.script),
         ),
     ]
 
 os_lookup = rule(impl = _os_lookup_impl, attrs = {
     "cpu": attrs.option(attrs.enum(TargetCpuType), default = None),
-    "platform": attrs.enum(Platform),
+    "os": attrs.enum(Os.values()),
+    "script": attrs.enum(ScriptLanguage.values()),
 })

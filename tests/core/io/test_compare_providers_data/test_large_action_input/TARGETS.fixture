@@ -1,0 +1,5 @@
+load(":defs.bzl", "dep", "large_action_input")
+
+dep(name = "dep", script = "write_large_file.py")
+
+large_action_input(name = "large_action_input", dep = ":dep")

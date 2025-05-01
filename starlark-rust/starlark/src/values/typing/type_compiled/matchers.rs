@@ -22,17 +22,21 @@ use starlark_derive::Trace;
 
 use crate as starlark;
 use crate::typing::starlark_value::TyStarlarkValue;
-use crate::values::dict::value::FrozenDict;
+use crate::values::FreezeResult;
+use crate::values::UnpackValue;
+use crate::values::Value;
 use crate::values::dict::DictRef;
-use crate::values::list::value::FrozenList;
+use crate::values::dict::value::FrozenDict;
 use crate::values::list::ListRef;
+use crate::values::list::value::FrozenList;
+use crate::values::set::refs::SetRef;
+use crate::values::set::value::FrozenSet;
 use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::starlark_type_id::StarlarkTypeIdAligned;
 use crate::values::tuple::value::Tuple;
 use crate::values::types::int::int_or_big::StarlarkIntRef;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
 use crate::values::typing::type_compiled::matcher::TypeMatcherBox;
-use crate::values::Value;
 
 #[derive(Clone, Copy, Dupe, Allocative, Debug)]
 pub(crate) struct IsAny;
@@ -167,6 +171,27 @@ impl<K: TypeMatcher, V: TypeMatcher> TypeMatcher for IsDictOf<K, V> {
             Some(dict) => dict
                 .iter()
                 .all(|(k, v)| self.0.matches(k) && self.1.matches(v)),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Dupe, Allocative, Debug)]
+pub(crate) struct IsSet;
+
+impl TypeMatcher for IsSet {
+    fn matches(&self, value: Value) -> bool {
+        value.starlark_type_id() == StarlarkTypeId::of::<FrozenSet>()
+    }
+}
+
+#[derive(Clone, Allocative, Debug)]
+pub(crate) struct IsSetOf<I: TypeMatcher>(pub(crate) I);
+
+impl<I: TypeMatcher> TypeMatcher for IsSetOf<I> {
+    fn matches(&self, value: Value) -> bool {
+        match SetRef::unpack_value_opt(value) {
+            Some(set) => set.aref.iter().all(|v| self.0.matches(v)),
+            _ => false,
         }
     }
 }

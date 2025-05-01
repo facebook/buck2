@@ -35,6 +35,10 @@ load(
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 load(
+    "@prelude//python/linking:native_python_util.bzl",
+    "merge_cxx_extension_info",
+)
+load(
     "@prelude//third-party:build.bzl",
     "create_third_party_build_root",
     "prefix_from_label",
@@ -49,18 +53,14 @@ load(":compile.bzl", "PycInvalidationMode", "compile_manifests")
 load(
     ":manifest.bzl",
     "ManifestInfo",  # @unused Used as a type
-    "create_dep_manifest_for_source_map",
     "create_manifest_for_source_map",
-)
-load(
-    ":native_python_util.bzl",
-    "merge_cxx_extension_info",
 )
 load(":needed_coverage.bzl", "PythonNeededCoverageInfo")
 load(":python.bzl", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibraryManifestsTSet")
-load(":source_db.bzl", "create_python_source_db_info", "create_source_db", "create_source_db_no_deps")
+load(":source_db.bzl", "create_python_source_db_info", "create_source_db_no_deps")
 load(":toolchain.bzl", "PythonToolchainInfo")
 load(":typing.bzl", "create_per_target_type_check")
+load(":versions.bzl", "VersionedDependenciesInfo", "gather_versioned_dependencies", "resolve_versions")
 
 def dest_prefix(label: Label, base_module: [None, str]) -> str:
     """
@@ -118,11 +118,12 @@ def create_python_library_info(
         srcs: [ManifestInfo, None] = None,
         src_types: [ManifestInfo, None] = None,
         bytecode: [dict[PycInvalidationMode, ManifestInfo], None] = None,
-        dep_manifest: [ManifestInfo, None] = None,
-        resources: [(ManifestInfo, list[ArgLike]), None] = None,
+        default_resources: [(ManifestInfo, list[ArgLike]), None] = None,
+        standalone_resources: [(ManifestInfo, list[ArgLike]), None] = None,
         extensions: [dict[str, LinkedObject], None] = None,
         deps: list[PythonLibraryInfo] = [],
-        shared_libraries: list[SharedLibraryInfo] = []):
+        shared_libraries: list[SharedLibraryInfo] = [],
+        extension_shared_libraries: list[SharedLibraryInfo] = []):
     """
     Create a `PythonLibraryInfo` for a set of sources and deps
 
@@ -144,8 +145,8 @@ def create_python_library_info(
         label = label,
         srcs = srcs,
         src_types = src_types,
-        resources = resources,
-        dep_manifest = dep_manifest,
+        default_resources = default_resources,
+        standalone_resources = standalone_resources,
         bytecode = bytecode,
         extensions = extensions,
     )
@@ -155,19 +156,32 @@ def create_python_library_info(
         deps = shared_libraries + [dep.shared_libraries for dep in deps],
     )
 
+    new_extension_shared_libraries = merge_shared_libraries(
+        actions,
+        deps = extension_shared_libraries + [dep.extension_shared_libraries for dep in deps],
+    )
+
     return PythonLibraryInfo(
         manifests = actions.tset(PythonLibraryManifestsTSet, value = manifests, children = [dep.manifests for dep in deps]),
         shared_libraries = new_shared_libraries,
+        extension_shared_libraries = new_extension_shared_libraries,
     )
 
-def gather_dep_libraries(raw_deps: list[Dependency]) -> (list[PythonLibraryInfo], list[SharedLibraryInfo]):
+def gather_dep_libraries(
+        raw_deps: list[Dependency],
+        resolve_versioned_deps: bool = True) -> (list[PythonLibraryInfo], list[SharedLibraryInfo]):
     """
     Takes a list of raw dependencies, and partitions them into python_library / shared library providers.
-    Fails if a dependency is not one of these.
+    If resolve_versions is True, it also collects versioned_library dependencies and uses their default version. Otherwise these are skipped, and should be handled elsewhere.
     """
     deps = []
     shared_libraries = []
     for dep in raw_deps:
+        if resolve_versioned_deps and VersionedDependenciesInfo in dep:
+            vdeps, vshlibs = gather_dep_libraries(resolve_versions(dep[VersionedDependenciesInfo], {}))
+            deps.extend(vdeps)
+            shared_libraries.extend(vshlibs)
+
         if PythonLibraryInfo in dep:
             deps.append(dep[PythonLibraryInfo])
         elif SharedLibraryInfo in dep:
@@ -221,17 +235,28 @@ def _attr_resources(ctx: AnalysisContext) -> dict[str, Artifact | Dependency]:
         all_resources.update(from_named_set(resources))
     return all_resources
 
-def py_attr_resources(ctx: AnalysisContext) -> dict[str, ArtifactOutputs]:
+def py_attr_resources(ctx: AnalysisContext) -> (dict[str, ArtifactOutputs], dict[str, ArtifactOutputs]):
     """
     Return the resources provided by this rule, as a map of resource name to
     a tuple of the resource artifact and any "other" outputs exposed by it.
     """
+    resources = _attr_resources(ctx)
+    standalone_artifacts = {}
+    for key, value in resources.items():
+        resource = value
+        if type(value) != "artifact" and DefaultInfo in value:
+            if "standalone" in value[DefaultInfo].sub_targets:
+                resource = value[DefaultInfo].sub_targets["standalone"][DefaultInfo].default_outputs[0]
+        standalone_artifacts[key] = resource
+    standalone_resources = unpack_artifact_map(standalone_artifacts)
+    default_resources = unpack_artifact_map(resources)
 
-    return unpack_artifact_map(_attr_resources(ctx))
+    return default_resources, standalone_resources
 
 def py_resources(
         ctx: AnalysisContext,
-        resources: dict[str, ArtifactOutputs]) -> (ManifestInfo, list[ArgLike]):
+        resources: dict[str, ArtifactOutputs],
+        suffix: str = "") -> (ManifestInfo, list[ArgLike]):
     """
     Generate a manifest to wrap this rules resources.
     """
@@ -245,7 +270,7 @@ def py_resources(
                 d[paths.join(paths.dirname(name), o.basename)] = o
             else:
                 hidden.append(o)
-    manifest = create_manifest_for_source_map(ctx, "resources", d)
+    manifest = create_manifest_for_source_map(ctx, "resources{}".format(suffix), d)
     return manifest, dedupe(hidden)
 
 def _src_types(srcs: dict[str, Artifact], type_stubs: dict[str, Artifact]) -> dict[str, Artifact]:
@@ -279,39 +304,40 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     srcs = _attr_srcs(ctx)
     qualified_srcs = qualify_srcs(ctx.label, ctx.attrs.base_module, srcs)
-    resources = qualify_srcs(ctx.label, ctx.attrs.base_module, py_attr_resources(ctx))
+    default_resources_map, standalone_resources_map = py_attr_resources(ctx)
+    standalone_resources = qualify_srcs(ctx.label, ctx.attrs.base_module, standalone_resources_map)
+    default_resources = qualify_srcs(ctx.label, ctx.attrs.base_module, default_resources_map)
     type_stubs = qualify_srcs(ctx.label, ctx.attrs.base_module, from_named_set(ctx.attrs.type_stubs))
     src_types = _src_types(qualified_srcs, type_stubs)
 
     src_manifest = create_manifest_for_source_map(ctx, "srcs", qualified_srcs) if qualified_srcs else None
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
-    dep_manifest = None
     src_type_manifest = create_manifest_for_source_map(ctx, "type_stubs", src_types) if src_types else None
 
     # Compile bytecode.
     bytecode = None
     if src_manifest != None:
         bytecode = compile_manifests(ctx, [src_manifest])
-        sub_targets["compile"] = [DefaultInfo(default_output = bytecode[PycInvalidationMode("UNCHECKED_HASH")].artifacts[0][0])]
+        sub_targets["compile"] = [DefaultInfo(default_output = bytecode[PycInvalidationMode("unchecked_hash")].artifacts[0][0])]
         sub_targets["src-manifest"] = [DefaultInfo(default_output = src_manifest.manifest, other_outputs = [a for a, _ in src_manifest.artifacts])]
-        if python_toolchain.emit_dependency_metadata:
-            dep_manifest = create_dep_manifest_for_source_map(ctx, python_toolchain, qualified_srcs)
-            sub_targets["dep-manifest"] = [DefaultInfo(default_output = dep_manifest.manifest, other_outputs = dep_manifest.artifacts)]
 
     raw_deps = ctx.attrs.deps
     raw_deps.extend(flatten(
         get_platform_attr(python_platform, cxx_toolchain, ctx.attrs.platform_deps),
     ))
-    resource_manifest = py_resources(ctx, resources) if resources else None
-    deps, shared_libraries = gather_dep_libraries(raw_deps)
+    default_resource_manifest = py_resources(ctx, default_resources) if default_resources else None
+    standalone_resource_manifest = py_resources(ctx, standalone_resources, "_standalone") if standalone_resources else None
+    deps, shared_libraries = gather_dep_libraries(raw_deps, resolve_versioned_deps = False)
+    providers.append(gather_versioned_dependencies(raw_deps))
+
     library_info = create_python_library_info(
         ctx.actions,
         ctx.label,
         srcs = src_manifest,
         src_types = src_type_manifest,
-        resources = resource_manifest,
+        default_resources = default_resource_manifest,
+        standalone_resources = standalone_resource_manifest,
         bytecode = bytecode,
-        dep_manifest = dep_manifest,
         deps = deps,
         shared_libraries = shared_libraries,
     )
@@ -344,7 +370,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     manifests = (
                         [("lib/python", src_manifest)] if src_manifest != None else []
                     ) + (
-                        [("lib/python", resource_manifest[0])] if resource_manifest != None else []
+                        [("lib/python", default_resource_manifest[0])] if default_resource_manifest != None else []
                     ),
                 ),
                 manifest = ctx.actions.write_json(
@@ -363,7 +389,6 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(create_python_needed_coverage_info(ctx.label, ctx.attrs.base_module, srcs.keys()))
 
     # Source DBs.
-    sub_targets["source-db"] = [create_source_db(ctx, src_type_manifest, deps)]
     sub_targets["source-db-no-deps"] = [create_source_db_no_deps(ctx, src_types), create_python_source_db_info(library_info.manifests)]
 
     # Type check
@@ -378,31 +403,31 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 typeshed = python_toolchain.typeshed_stubs,
                 py_version = ctx.attrs.py_version_for_type_checking,
                 typing_enabled = ctx.attrs.typing,
+                sharding_enabled = ctx.attrs.shard_typing,
             ),
         ]
 
     providers.append(DefaultInfo(sub_targets = sub_targets))
 
     # Create, augment and provide the linkable graph.
-    deps = raw_deps
     linkable_graph = create_linkable_graph(
         ctx,
         node = create_linkable_graph_node(
             ctx,
             # Add in any potential native root targets from our first-order deps.
-            roots = get_roots(deps),
+            roots = get_roots(raw_deps),
             # Exclude preloaded deps from omnibus linking, to prevent preloading
             # the monolithic omnibus library.
             excluded = get_excluded(
                 deps = (
-                    (deps if _exclude_deps_from_omnibus(ctx, qualified_srcs) else []) +
+                    (raw_deps if _exclude_deps_from_omnibus(ctx, qualified_srcs) else []) +
                     # We also need to exclude deps that can't be re-linked, via
                     # the `LinkableRootInfo` provider (i.e. `prebuilt_cxx_library_group`).
-                    [d for d in deps if LinkableRootInfo not in d]
+                    [d for d in raw_deps if LinkableRootInfo not in d]
                 ),
             ),
         ),
-        deps = deps,
+        deps = raw_deps,
     )
     providers.append(linkable_graph)
 
@@ -410,8 +435,8 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(
         merge_cxx_extension_info(
             ctx.actions,
-            deps,
-            shared_deps = deps,
+            raw_deps,
+            shared_deps = raw_deps,
         ),
     )
 

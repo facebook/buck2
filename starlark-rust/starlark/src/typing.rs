@@ -53,7 +53,7 @@ mod tests;
 
 pub use basic::TyBasic;
 pub use callable::TyCallable;
-pub use callable_param::Param;
+pub use callable_param::ParamIsRequired;
 pub use callable_param::ParamSpec;
 pub use function::TyFunction;
 pub use interface::Interface;
@@ -64,7 +64,7 @@ pub use starlark_value::TyStarlarkValue;
 pub use structs::TyStruct;
 pub use ty::Approximation;
 pub use ty::Ty;
-pub use ty::TyName;
+pub use ty::TypeRenderConfig;
 pub use typecheck::AstModuleTypecheck;
 pub use typecheck::TypeMap;
 pub use user::TyUser;

@@ -13,6 +13,7 @@ def test(x):
 
 Max stack size: 1
 Instructions:
-  0: EqPtr &x Color("RED") ->&1
+       # instrs.star.bzl:4:5-29
+   0: EqPtr &x Color("RED") ->&1
   24: Return &1
   32: End

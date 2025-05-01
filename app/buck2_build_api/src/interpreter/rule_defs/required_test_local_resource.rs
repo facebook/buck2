@@ -14,9 +14,9 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::starlark_value;
 
 /// Object describing which local resources are needed for a given test rule.
 #[derive(Debug, Display, NoSerialize, ProvidesStaticType, Allocative)]
@@ -52,11 +52,12 @@ pub fn register_required_test_local_resource(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] name: String,
         #[starlark(require = named, default = true)] listing: bool,
         #[starlark(require = named, default = true)] execution: bool,
-    ) -> anyhow::Result<StarlarkRequiredTestLocalResource> {
+    ) -> starlark::Result<StarlarkRequiredTestLocalResource> {
         if !(listing || execution) {
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::StarlarkError,
                 "`RequiredTestLocalResource` should not be disabled for both listing and execution stages",
-            ));
+            ).into());
         }
         Ok(StarlarkRequiredTestLocalResource {
             name,
@@ -70,19 +71,19 @@ pub fn register_required_test_local_resource(builder: &mut GlobalsBuilder) {
 fn required_test_local_resource_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     /// Local resource type
-    fn name<'v>(this: &'v StarlarkRequiredTestLocalResource) -> anyhow::Result<&'v str> {
+    fn name<'v>(this: &'v StarlarkRequiredTestLocalResource) -> starlark::Result<&'v str> {
         Ok(&this.name)
     }
 
     #[starlark(attribute)]
     /// Is this resource type needed for test listing?
-    fn listing<'v>(this: &'v StarlarkRequiredTestLocalResource) -> anyhow::Result<bool> {
+    fn listing<'v>(this: &'v StarlarkRequiredTestLocalResource) -> starlark::Result<bool> {
         Ok(this.listing)
     }
 
     #[starlark(attribute)]
     /// Is this resource type needed for test execution?
-    fn execution<'v>(this: &'v StarlarkRequiredTestLocalResource) -> anyhow::Result<bool> {
+    fn execution<'v>(this: &'v StarlarkRequiredTestLocalResource) -> starlark::Result<bool> {
         Ok(this.execution)
     }
 }

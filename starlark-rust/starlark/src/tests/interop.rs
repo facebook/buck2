@@ -22,9 +22,9 @@ use std::sync::Mutex;
 
 use allocative::Allocative;
 use derive_more::Display;
+use starlark_derive::Trace;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
-use starlark_derive::Trace;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -36,16 +36,17 @@ use crate::environment::Module;
 use crate::eval::Evaluator;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
+use crate::values::Freeze;
+use crate::values::FreezeResult;
+use crate::values::NoSerialize;
+use crate::values::StarlarkValue;
+use crate::values::Value;
+use crate::values::ValueLike;
 use crate::values::any::StarlarkAny;
 use crate::values::exported_name::FrozenExportedName;
 use crate::values::none::NoneType;
 use crate::values::types::exported_name::ExportedName;
 use crate::values::types::exported_name::MutableExportedName;
-use crate::values::Freeze;
-use crate::values::NoSerialize;
-use crate::values::StarlarkValue;
-use crate::values::Value;
-use crate::values::ValueLike;
 
 #[test]
 fn test_export_as() {
@@ -149,7 +150,7 @@ fn test_load_symbols() {
 }
 
 #[test]
-fn test_load_public_symbols_does_not_reexport() -> anyhow::Result<()> {
+fn test_load_public_symbols_does_not_reexport() -> starlark::Result<()> {
     let mut a = Assert::new();
 
     let module_b = a.module("b", "x = 5");

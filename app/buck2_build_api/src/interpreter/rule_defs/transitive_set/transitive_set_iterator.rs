@@ -7,20 +7,20 @@
  * of this source tree.
  */
 
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::collections::hash_map::Entry;
 
-use anyhow::Context as _;
+use buck2_error::BuckErrorContext;
 use buck2_util::hash::BuckHasherBuilder;
 use starlark::values::Value;
 use starlark::values::ValueIdentity;
 use starlark::values::ValueLike;
 
-use crate::interpreter::rule_defs::transitive_set::transitive_set::NodeGen;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetGen;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetLike;
+use crate::interpreter::rule_defs::transitive_set::transitive_set::NodeGen;
 
 pub trait TransitiveSetIteratorLike<'a, 'v, V>: Iterator<Item = &'a TransitiveSetGen<V>>
 where
@@ -37,7 +37,7 @@ where
     TransitiveSetGen<V>: TransitiveSetLike<'v>,
 {
     TransitiveSetLike::from_value(child)
-        .with_context(|| {
+        .with_buck_error_context(|| {
             format!(
                 "Invalid set: expected {:?}, got: {:?}",
                 std::any::type_name::<V>(),

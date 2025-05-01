@@ -142,8 +142,8 @@ impl QueryTarget for ConfiguredGraphNodeRef {
     }
     fn attr_any_matches(
         attr: &Self::Attr<'_>,
-        filter: &dyn Fn(&str) -> anyhow::Result<bool>,
-    ) -> anyhow::Result<bool> {
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         attr.any_matches(filter)
     }
 
@@ -194,5 +194,17 @@ impl QueryTarget for ConfiguredGraphNodeRef {
             func(input)?;
         }
         Ok(())
+    }
+
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, mut func: F) -> R {
+        match self
+            .0
+            .get(key, AttrInspectOptions::All)
+            .as_ref()
+            .map(|a| &a.value)
+        {
+            Some(attr) => func(Some(attr)),
+            None => func(self.special_attr_or_none(key).as_ref()),
+        }
     }
 }

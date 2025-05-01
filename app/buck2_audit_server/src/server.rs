@@ -10,8 +10,8 @@
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::late_bindings::AuditServerCommand;
 use buck2_server_ctx::late_bindings::AUDIT_SERVER_COMMAND;
+use buck2_server_ctx::late_bindings::AuditServerCommand;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::AuditCommand;
@@ -30,7 +30,7 @@ impl AuditServerCommand for AuditServerCommandImpl {
         ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::GenericRequest,
-    ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
+    ) -> buck2_error::Result<buck2_cli_proto::GenericResponse> {
         let start_event = buck2_data::CommandStart {
             metadata: ctx.request_metadata().await?,
             data: Some(buck2_data::AuditCommandStart {}.into()),
@@ -49,7 +49,7 @@ async fn server_audit_command_inner(
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
 ) -> (
-    anyhow::Result<buck2_cli_proto::GenericResponse>,
+    buck2_error::Result<buck2_cli_proto::GenericResponse>,
     buck2_data::CommandEnd,
 ) {
     let result = parse_command_and_execute(context, partial_result_dispatcher, req)
@@ -68,7 +68,7 @@ async fn parse_command_and_execute(
     context: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let command: AuditCommand = serde_json::from_str(&req.serialized_opts)?;
     command
         .server_execute(

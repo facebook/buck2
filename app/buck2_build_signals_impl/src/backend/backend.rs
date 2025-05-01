@@ -8,8 +8,9 @@
  */
 
 use buck2_build_api::actions::calculation::ActionWithExtraData;
-use buck2_build_signals::CriticalPathBackendName;
-use buck2_build_signals::NodeDuration;
+use buck2_build_signals::env::CriticalPathBackendName;
+use buck2_build_signals::env::NodeDuration;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_events::span::SpanId;
 use smallvec::SmallVec;
 
@@ -28,11 +29,11 @@ pub(crate) trait BuildListenerBackend {
 
     fn process_top_level_target(
         &mut self,
-        analysis: NodeKey,
+        analysis: ConfiguredTargetLabel,
         artifacts: impl IntoIterator<Item = NodeKey>,
     );
 
-    fn finish(self) -> anyhow::Result<BuildInfo>;
+    fn finish(self) -> buck2_error::Result<BuildInfo>;
 
     fn name() -> CriticalPathBackendName;
 }

@@ -13,7 +13,7 @@
 
 use std::env::temp_dir;
 use std::panic;
-use std::panic::PanicInfo;
+use std::panic::PanicHookInfo;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -27,15 +27,15 @@ use buck2_wrapper_common::invocation_id::TraceId;
 
 use crate::daemon::dice_dump::tar_dice_dump;
 
-pub trait DaemonStatePanicDiceDump: Send + Sync + 'static {
-    fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()>;
+pub(crate) trait DaemonStatePanicDiceDump: Send + Sync + 'static {
+    fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> buck2_error::Result<()>;
 }
 
 fn get_panic_dump_dir() -> PathBuf {
     temp_dir().join("buck2-dumps")
 }
 
-async fn remove_old_panic_dumps() -> anyhow::Result<()> {
+async fn remove_old_panic_dumps() -> buck2_error::Result<()> {
     const MAX_PANIC_AGE: Duration = Duration::from_secs(60 * 60 * 24); // 1 day
     let dump_dir = get_panic_dump_dir();
     let now = SystemTime::now();
@@ -58,7 +58,7 @@ async fn remove_old_panic_dumps() -> anyhow::Result<()> {
 }
 
 /// Initializes the panic hook.
-pub fn initialize(daemon_state: Arc<dyn DaemonStatePanicDiceDump>) {
+pub(crate) fn initialize(daemon_state: Arc<dyn DaemonStatePanicDiceDump>) {
     let hook = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
         daemon_panic_hook(&daemon_state, info);
@@ -72,7 +72,7 @@ pub fn initialize(daemon_state: Arc<dyn DaemonStatePanicDiceDump>) {
 /// This cell prevents a circular set of panics if this happens.
 static ALREADY_DUMPED_DICE: OnceLock<()> = OnceLock::new();
 
-fn daemon_panic_hook(daemon_state: &Arc<dyn DaemonStatePanicDiceDump>, info: &PanicInfo) {
+fn daemon_panic_hook(daemon_state: &Arc<dyn DaemonStatePanicDiceDump>, info: &PanicHookInfo) {
     if !buck2_core::is_open_source()
         && buck2_env!("BUCK2_DICE_DUMP_ON_PANIC", bool).unwrap_or_default()
         && ALREADY_DUMPED_DICE.set(()).is_ok()
@@ -84,12 +84,12 @@ fn daemon_panic_hook(daemon_state: &Arc<dyn DaemonStatePanicDiceDump>, info: &Pa
 
 fn maybe_dice_dump(
     daemon_state: &Arc<dyn DaemonStatePanicDiceDump>,
-    info: &PanicInfo,
+    info: &PanicHookInfo,
     panic_id: &TraceId,
 ) {
-    let is_dice_panic = info.location().map_or(false, |loc| {
-        loc.file().split(&['/', '\\']).any(|x| x == "dice")
-    });
+    let is_dice_panic = info
+        .location()
+        .is_some_and(|loc| loc.file().split(&['/', '\\']).any(|x| x == "dice"));
     if is_dice_panic {
         let dice_dump_folder = get_panic_dump_dir().join(format!("dice-dump-{}", panic_id));
         eprintln!(

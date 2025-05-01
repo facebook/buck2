@@ -1,0 +1,69 @@
+load("@prelude//apple/tools:defs.bzl", "meta_python_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
+
+configured_alias(
+    name = "dummy_binary_for_signing_configured",
+    actual = ":dummy_binary_for_signing",
+    platform = "config//platform/macos:base",
+)
+
+platform(
+    name = "dummy_binary_for_signing_platform",
+    constraint_values = [
+        "config//cpu/constraints:arm64",
+    ],
+    deps = [
+        "config//platform/macos:base",
+    ],
+)
+
+cxx_binary(
+    name = "dummy_binary_for_signing",
+    srcs = ["dummy_binary_for_signing.c"],
+    default_target_platform = ":dummy_binary_for_signing_platform",
+)
+
+python_library(
+    name = "lib",
+    srcs = glob(
+        [
+            "*.py",
+        ],
+        exclude = [
+            "*_test.py",
+            "main.py",
+        ],
+    ),
+    resources = [":dummy_binary_for_signing_configured"],
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//apple/tools:plistlib_utils",
+        "prelude//apple/tools/info_plist_processor:process",
+    ],
+)
+
+meta_python_test(
+    name = "tests",
+    srcs = glob(["*_test.py"]),
+    resources = glob([
+        "test_resources/*",
+    ]),
+    deps = [
+        "fbsource//third-party/pypi/setuptools:setuptools",
+        ":lib",
+    ],
+)
+
+python_binary(
+    name = "codesign_bundle",
+    main = "main.py",
+    visibility = ["PUBLIC"],
+    deps = [
+        "fbsource//third-party/pypi/typed-argument-parser:typed-argument-parser",
+        ":lib",
+    ],
+)

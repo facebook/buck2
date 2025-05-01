@@ -76,6 +76,7 @@ load(
     "Emit",
     "LinkageLang",
     "MetadataKind",
+    "ProfileMode",  # @unused Used as a type
     "RuleType",
     "build_params",
 )
@@ -111,6 +112,7 @@ load(
     "output_as_diag_subtargets",
 )
 load(":proc_macro_alias.bzl", "rust_proc_macro_alias")
+load(":profile.bzl", "make_profile_providers")
 load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "RustToolchainInfo")
 load(":targets.bzl", "targets")
@@ -260,11 +262,56 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
+    llvm_ir_noopt = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("llvm-ir-noopt"),
+        params = static_library_params,
+        default_roots = _DEFAULT_ROOTS,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+    ).output
+    llvm_time_trace = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("link"),
+        params = static_library_params,
+        default_roots = _DEFAULT_ROOTS,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+        profile_mode = ProfileMode("llvm-time-trace"),
+    )
+    self_profile = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("link"),
+        params = static_library_params,
+        default_roots = _DEFAULT_ROOTS,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+        profile_mode = ProfileMode("self-profile"),
+    )
+    profiles = make_profile_providers(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        llvm_ir_noopt = llvm_ir_noopt,
+        llvm_time_trace = llvm_time_trace,
+        self_profile = self_profile,
+    )
+
     # If doctests=True or False is set on the individual target, respect that.
     # Otherwise look at the global setting on the toolchain.
-    doctests_enabled = \
-        (ctx.attrs.doctests if ctx.attrs.doctests != None else toolchain_info.doctests) and \
-        toolchain_info.rustc_target_triple == targets.exec_triple(ctx)
+    if ctx.attrs.doctests != None:
+        doctests_enabled = ctx.attrs.doctests
+    else:
+        doctests_enabled = toolchain_info.doctests
+
+    # No doctests if cross-compiling.
+    #
+    # I tried `cargo test --doc --target aarch64-unknown-linux-gnu` and Cargo
+    # silently did not run doc tests. We could probably make this work, but it
+    # seems low value, and Cargo not running them tells me we'd be very likely
+    # to hit issues with this not being supported well in rustdoc.
+    if toolchain_info.rustc_target_triple != None and \
+       toolchain_info.rustc_target_triple != targets.exec_triple(ctx):
+        doctests_enabled = False
 
     rustdoc_test_params = build_params(
         rule = RuleType("binary"),
@@ -325,6 +372,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         sources = compile_ctx.symlinked_srcs,
         rustdoc_coverage = rustdoc_coverage,
         named_deps_names = write_named_deps_names(ctx, compile_ctx),
+        profiles = profiles,
     )
     providers += _rust_metadata_providers(
         diag_artifacts = diag_artifacts,
@@ -366,7 +414,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     providers.append(rust_analyzer_provider(
         ctx = ctx,
-        dep_ctx = compile_ctx.dep_ctx,
+        compile_ctx = compile_ctx,
         default_roots = _DEFAULT_ROOTS,
     ))
 
@@ -542,7 +590,8 @@ def _default_providers(
         expand: Artifact,
         sources: Artifact,
         rustdoc_coverage: Artifact,
-        named_deps_names: Artifact | None) -> list[Provider]:
+        named_deps_names: Artifact | None,
+        profiles: list[Provider]) -> list[Provider]:
     targets = {}
     targets.update(check_artifacts)
     targets["sources"] = sources
@@ -555,6 +604,7 @@ def _default_providers(
         k: [DefaultInfo(default_output = v)]
         for (k, v) in targets.items()
     }
+    sub_targets["profile"] = profiles
 
     # Add provider for default output, and for each lib output style...
     # FIXME(JakobDegen): C++ rules only provide some of the output styles,
@@ -596,6 +646,7 @@ def _default_providers(
         type = "rustdoc",
         command = [rustdoc_test],
         run_from_project_root = True,
+        use_project_relative_paths = True,
     )
 
     # Always let the user run doctests via `buck2 test :crate[doc]`
@@ -673,7 +724,8 @@ def _advanced_unstable_link_providers(
     shlib_name = attr_soname(ctx)
 
     shared_lib_params = lang_style_param[(LinkageLang("native-unbundled"), LibOutputStyle("shared_lib"))]
-    shared_lib_output = native_param_artifact[shared_lib_params].output
+    build_params = native_param_artifact[shared_lib_params]
+    shared_lib_output = build_params.output
 
     # Only add a shared library if we generated one.
     # TODO(cjhopman): This is strange. Normally (like in c++) the link_infos passed to create_merged_link_info above would only have
@@ -684,6 +736,7 @@ def _advanced_unstable_link_providers(
             output = shared_lib_output,
             unstripped_output = shared_lib_output,
             external_debug_info = link_infos[LibOutputStyle("shared_lib")].default.external_debug_info,
+            dwp = build_params.dwp_output,
         )
 
     # Native shared library provider.
@@ -947,7 +1000,7 @@ def _compute_transitive_deps(
 
 def rust_library_macro_wrapper(rust_library: typing.Callable) -> typing.Callable:
     def wrapper(**kwargs):
-        if not kwargs.pop("_use_legacy_proc_macros", False) and kwargs.get("proc_macro") == True:
+        if kwargs.get("proc_macro") == True:
             name = kwargs["name"]
             if kwargs.get("crate", None) == None and kwargs.get("crate_dynamic", None) == None:
                 kwargs["crate"] = name.replace("-", "_")
@@ -956,6 +1009,7 @@ def rust_library_macro_wrapper(rust_library: typing.Callable) -> typing.Callable
                 name = name,
                 actual_exec = ":_" + name,
                 actual_plugin = ":_" + name,
+                default_target_platform = kwargs.get("default_target_platform", None),
                 visibility = kwargs.pop("visibility", []),
             )
             kwargs["name"] = "_" + name

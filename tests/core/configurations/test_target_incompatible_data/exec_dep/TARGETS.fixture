@@ -1,0 +1,63 @@
+load("@//:defs.bzl", "transitioned_stub")
+
+constraint_setting(name = "exec_setting")
+
+constraint_value(
+    name = "A",
+    constraint_setting = ":exec_setting",
+)
+
+constraint_value(
+    name = "B",
+    constraint_setting = ":exec_setting",
+)
+
+platform(
+    name = "platformA",
+    constraint_values = [":A"],
+)
+
+platform(
+    name = "platformB",
+    constraint_values = [":B"],
+)
+
+execution_platform(
+    name = "execA",
+    platform = ":platformA",
+)
+
+execution_platform(
+    name = "execB",
+    platform = ":platformB",
+)
+
+execution_platforms(
+    name = "execution_platforms",
+    platforms = [
+        ":execA",
+        ":execB",
+    ],
+)
+
+stub(
+    name = "exec_compatible_B",
+    target_compatible_with = [":B"],
+)
+
+stub(
+    name = "one_exec_platform_transitive_incompatible",
+    default_target_platform = "//:platform",
+    exec_deps = [":exec_compatible_B"],
+)
+
+transitioned_stub(
+    name = "exec_compatible_B_transitioned",
+    stub = ":exec_compatible_B",
+)
+
+stub(
+    name = "one_exec_platform_transitive_incompatible_post_transition",
+    default_target_platform = "//:platform",
+    exec_deps = [":exec_compatible_B_transitioned"],
+)

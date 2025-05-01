@@ -5,10 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
 )
+load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
@@ -18,20 +20,19 @@ load(
     "map_val",
     "value_or",
 )
-load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(":compile.bzl", "GoTestInfo", "get_inherited_compile_pkgs")
 load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "link")
 load(":package_builder.bzl", "build_package")
 load(":packages.bzl", "go_attr_pkg_name")
-load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
+load(":toolchain.bzl", "evaluate_cgo_enabled")
 
 def _gen_test_main(
         ctx: AnalysisContext,
         pkg_name: str,
         coverage_mode: [GoCoverageMode, None],
         coverage_vars: dict[str, cmd_args],
-        srcs: cmd_args) -> Artifact:
+        test_go_files: cmd_args) -> Artifact:
     """
     Generate a `main.go` which calls tests from the given sources.
     """
@@ -47,7 +48,7 @@ def _gen_test_main(
         cmd.extend(["--cover-mode", coverage_mode.value])
     for _, vars in coverage_vars.items():
         cmd.append(vars)
-    cmd.append(srcs)
+    cmd.append(test_go_files)
     ctx.actions.run(cmd_args(cmd), category = "go_test_main_gen")
     return output
 
@@ -55,11 +56,11 @@ def is_subpackage_of(other_pkg_name: str, pkg_name: str) -> bool:
     return pkg_name == other_pkg_name or other_pkg_name.startswith(pkg_name + "/")
 
 def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
-    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+    cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
+    pkg_name = go_attr_pkg_name(ctx)
 
     deps = ctx.attrs.deps
     srcs = ctx.attrs.srcs
-    pkg_name = go_attr_pkg_name(ctx)
 
     # Copy the srcs, deps and pkg_name from the target library when set. The
     # library code gets compiled together with the tests.
@@ -79,20 +80,21 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Compile all tests into a package.
     tests, tests_pkg_info = build_package(
-        ctx,
-        pkg_name,
+        ctx = ctx,
+        pkg_name = pkg_name,
+        main = False,
         srcs = srcs,
         package_root = ctx.attrs.package_root,
         deps = deps,
         pkgs = pkgs,
         compiler_flags = ctx.attrs.compiler_flags,
-        tags = ctx.attrs._tags,
+        build_tags = ctx.attrs._build_tags,
         coverage_mode = coverage_mode,
         race = ctx.attrs._race,
         asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,
-        tests = True,
-        cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs.cgo_enabled),
+        with_tests = True,
+        cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled),
     )
 
     if coverage_mode != None:
@@ -106,10 +108,21 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     pkgs[pkg_name] = tests
 
-    # Generate a main function which runs the tests and build that into another
-    # package.
-    gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, coverage_vars, tests.srcs_list)
-    main, _ = build_package(ctx, "main", [gen_main], package_root = "", pkgs = pkgs, coverage_mode = coverage_mode, race = ctx.attrs._race, asan = ctx.attrs._asan, cgo_gen_dir_name = "cgo_gen_test_main")
+    # Generate a 'main.go' file (test runner) which runs the actual tests from the package above.
+    # Build the it as a separate package (<foo>.test) - which imports and invokes the test package.
+    gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, coverage_vars, tests.test_go_files)
+    main, _ = build_package(
+        ctx = ctx,
+        pkg_name = pkg_name + ".test",
+        main = True,
+        srcs = [gen_main],
+        package_root = "",
+        pkgs = pkgs,
+        coverage_mode = None,
+        race = ctx.attrs._race,
+        asan = ctx.attrs._asan,
+        cgo_gen_dir_name = "cgo_gen_test_main",
+    )
 
     # Link the above into a Go binary.
     (bin, runtime_files, external_debug_info) = link(

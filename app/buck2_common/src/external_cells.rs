@@ -25,9 +25,9 @@ pub trait ExternalCellsImpl: Send + Sync + 'static {
         ctx: &mut DiceComputations<'_>,
         cell_name: CellName,
         origin: ExternalCellOrigin,
-    ) -> anyhow::Result<Arc<dyn FileOpsDelegate>>;
+    ) -> buck2_error::Result<Arc<dyn FileOpsDelegate>>;
 
-    fn check_bundled_cell_exists(&self, cell_name: CellName) -> anyhow::Result<()>;
+    fn check_bundled_cell_exists(&self, cell_name: CellName) -> buck2_error::Result<()>;
 
     async fn expand(
         &self,
@@ -35,7 +35,7 @@ pub trait ExternalCellsImpl: Send + Sync + 'static {
         cell_name: CellName,
         origin: ExternalCellOrigin,
         path: &CellRootPath,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
 }
 
 pub static EXTERNAL_CELLS_IMPL: LateBinding<&'static dyn ExternalCellsImpl> =

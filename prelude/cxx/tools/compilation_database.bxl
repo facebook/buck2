@@ -1,0 +1,51 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("@prelude//cxx:comp_db.bzl", "CxxCompilationDbInfo")
+load("@prelude//cxx:compile_types.bzl", "CxxSrcCompileCommand")
+load("@prelude//utils:utils.bzl", "flatten")
+
+def _make_entry(ctx: bxl.Context, compile_command: CxxSrcCompileCommand) -> dict:
+    args = compile_command.cxx_compile_cmd.base_compile_cmd.copy()
+
+    # This prevents clangd from jumping into `buck-out` when using Go To
+    # Definition, which significantly improves user experience.
+    args.add(["-I", "."])
+    args.add(compile_command.cxx_compile_cmd.argsfile.cmd_form)
+    args.add(compile_command.args)
+    ctx.output.ensure_multiple(args)
+
+    return {
+        "arguments": args,
+        "directory": ctx.fs.abs_path_unsafe(ctx.root()),
+        "file": compile_command.src,
+    }
+
+def _impl(ctx: bxl.Context):
+    actions = ctx.bxl_actions().actions
+    targets = flatten(ctx.cli_args.targets)
+
+    db = []
+    for _name, target in ctx.analysis(ctx.configured_targets(targets)).items():
+        comp_db_info = target.providers().get(CxxCompilationDbInfo)
+        if comp_db_info:
+            db += [_make_entry(ctx, cc) for cc in comp_db_info.info.values()]
+
+    db_file = actions.declare_output("compile_commands.json")
+    actions.write_json(db_file.as_output(), db, with_inputs = True, pretty = True)
+    ctx.output.print(ctx.output.ensure(db_file))
+
+generate = bxl_main(
+    doc = "Generate a compilation database for a set of targets and print its path to stdout",
+    impl = _impl,
+    cli_args = {
+        "targets": cli_args.list(
+            cli_args.target_expr(),
+            doc = "Targets to generate the database for",
+        ),
+    },
+)

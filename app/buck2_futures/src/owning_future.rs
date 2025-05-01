@@ -17,9 +17,9 @@ use std::future::Future;
 use std::marker::PhantomPinned;
 use std::mem;
 use std::pin::Pin;
-use std::task::ready;
 use std::task::Context;
 use std::task::Poll;
+use std::task::ready;
 
 use futures::future::BoxFuture;
 use pin_project::pin_project;
@@ -129,8 +129,8 @@ impl<T, D> Future for OwningFuture<T, D> {
 
 #[cfg(test)]
 mod tests {
-    use futures::future::BoxFuture;
     use futures::FutureExt;
+    use futures::future::BoxFuture;
 
     use crate::owning_future::OwningFuture;
 

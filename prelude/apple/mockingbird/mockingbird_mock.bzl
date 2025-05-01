@@ -5,10 +5,14 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load(":mockingbird_types.bzl", "MockingbirdLibraryInfo", "MockingbirdLibraryRecord", "MockingbirdSourcesInfo")
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
+    if not MockingbirdLibraryInfo in ctx.attrs.module:
+        fail("This module does not contain any swift files. Mockingbird only creates generated mock files for swift code.")
+
     mockingbird_info = ctx.attrs.module[MockingbirdLibraryInfo]
 
     dep_names = [dep[MockingbirdLibraryInfo].name for dep in ctx.attrs.deps]
@@ -41,8 +45,6 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         json_project_description_output,
         "--output",
         mockingbird_source.as_output(),
-        "--header",
-        "// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.",
         "--support",
         ctx.attrs._mockingbird_support[DefaultInfo].default_outputs,
         "--verbose",
@@ -81,6 +83,7 @@ def _attrs():
         "srcs": attrs.set(attrs.source(), sorted = True, default = []),
         "_mockingbird_bin": attrs.exec_dep(providers = [RunInfo], default = "fbsource//fbobjc/VendorLib/Mockingbird:mockingbird-binary"),
         "_mockingbird_support": attrs.dep(providers = [DefaultInfo], default = "fbsource//fbobjc/VendorLib/Mockingbird:MockingbirdSupport"),
+        APPLE_PLATFORMS_KEY: attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
     }
     return attribs
 

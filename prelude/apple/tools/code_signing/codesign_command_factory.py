@@ -20,6 +20,7 @@ class ICodesignCommandFactory(metaclass=ABCMeta):
         identity_fingerprint: str,
         entitlements: Optional[Path],
         codesign_args: List[str],
+        extra_file_paths: Optional[List[Path]],
     ) -> List[Union[str, Path]]:
         raise NotImplementedError
 
@@ -37,7 +38,12 @@ class DefaultCodesignCommandFactory(ICodesignCommandFactory):
         identity_fingerprint: str,
         entitlements: Optional[Path],
         codesign_args: List[str],
+        extra_file_paths: Optional[List[Path]],
     ) -> List[Union[str, Path]]:
+        if extra_file_paths:
+            raise RuntimeError(
+                f"Extra codesign paths unsupported for non-dry signing (path: `{path}`, extra paths: `{extra_file_paths}`)"
+            )
         entitlements_args = ["--entitlements", entitlements] if entitlements else []
         return (
             [self.codesign_tool]
@@ -51,14 +57,9 @@ class DefaultCodesignCommandFactory(ICodesignCommandFactory):
 
 class DryRunCodesignCommandFactory(ICodesignCommandFactory):
     codesign_tool: Path
-    codesign_on_copy_file_paths: Optional[List[Path]]
 
     def __init__(self, codesign_tool: Path) -> None:
         self.codesign_tool = codesign_tool
-        self.codesign_on_copy_file_paths = None
-
-    def set_codesign_on_copy_file_paths(self, file_paths: List[Path]) -> None:
-        self.codesign_on_copy_file_paths = file_paths
 
     def codesign_command(
         self,
@@ -66,12 +67,12 @@ class DryRunCodesignCommandFactory(ICodesignCommandFactory):
         identity_fingerprint: str,
         entitlements: Optional[Path],
         codesign_args: List[str],
+        extra_file_paths: Optional[List[Path]],
     ) -> List[Union[str, Path]]:
         args = [path, "--identity", identity_fingerprint]
         if entitlements:
             args += ["--entitlements", entitlements] if entitlements else []
-        codesign_on_copy_file_paths = self.codesign_on_copy_file_paths
-        if codesign_on_copy_file_paths:
+        if extra_file_paths:
             args += ["--extra-paths-to-sign"]
-            args += codesign_on_copy_file_paths
+            args += extra_file_paths
         return [self.codesign_tool] + args

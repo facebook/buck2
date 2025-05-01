@@ -21,11 +21,11 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 
-use crate::unordered_map;
-use crate::unordered_map::UnorderedMap;
 use crate::Equivalent;
 use crate::Hashed;
 use crate::StarlarkHashValue;
+use crate::unordered_map;
+use crate::unordered_map::UnorderedMap;
 
 /// `HashSet` that does not expose insertion order.
 #[derive(Clone, Allocative, Debug)]

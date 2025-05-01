@@ -23,22 +23,23 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
+use buck2_core::event::EventDispatch;
+use buck2_data::SpanEndEvent;
+use buck2_data::SpanStartEvent;
 use buck2_data::buck_event;
 use buck2_data::span_end_event;
 use buck2_data::span_start_event;
-use buck2_data::SpanEndEvent;
-use buck2_data::SpanStartEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use futures::Future;
 use pin_project::pin_project;
 use smallvec::SmallVec;
 
-use crate::sink::null::NullEventSink;
-use crate::span::SpanId;
 use crate::BuckEvent;
 use crate::Event;
 use crate::EventSink;
+use crate::sink::null::NullEventSink;
+use crate::span::SpanId;
 
 /// A type-erased and dupe-able container for EventSinks, containing some additional metadata useful for all events
 /// emitted through the dispatcher.
@@ -161,6 +162,14 @@ impl EventDispatcher {
     /// Returns the traceid for this event dispatcher.
     pub fn trace_id(&self) -> &TraceId {
         &self.trace_id
+    }
+}
+
+pub struct EventDispatcherLateBinding;
+
+impl EventDispatch for EventDispatcherLateBinding {
+    fn emit_instant_event_for_data(&self, data: buck2_data::instant_event::Data) {
+        get_dispatcher().instant_event(data);
     }
 }
 
@@ -382,10 +391,7 @@ where
 /// tied to a specific command (e.g. materializer command loop), an ambient dispatcher may not be
 /// available.
 pub fn get_dispatcher_opt() -> Option<EventDispatcher> {
-    match EVENTS.try_with(|dispatcher| dispatcher.dupe()) {
-        Ok(dispatcher) => Some(dispatcher),
-        Err(..) => None,
-    }
+    EVENTS.try_with(|dispatcher| dispatcher.dupe()).ok()
 }
 
 pub fn get_dispatcher() -> EventDispatcher {
@@ -398,7 +404,7 @@ pub fn get_dispatcher() -> EventDispatcher {
                 panic!("dispatcher is not set")
             } else {
                 // TODO: This is firing millions of times, needs to fix this up before it's made a soft error.
-                // let _ignored = soft_error!(anyhow::anyhow!("Task local event dispatcher not set."));
+                // let _ignored = soft_error!(buck2_error::buck2_error!([], "Task local event dispatcher not set."));
                 EventDispatcher::null()
             }
         }
@@ -418,6 +424,17 @@ where
     F: FnOnce() -> (R, End),
 {
     get_dispatcher().span(start, func)
+}
+
+/// Simpler version of `span` where the end event
+/// can be constructed without requiring the result of the function.
+pub fn span_simple<Start, End, F, R>(start: Start, func: F, end: End) -> R
+where
+    Start: Into<span_start_event::Data>,
+    End: Into<span_end_event::Data>,
+    F: FnOnce() -> R,
+{
+    span(start, || (func(), end))
 }
 
 /// Emits an InstantEvent annotated with the current trace ID
@@ -611,7 +628,6 @@ mod tests {
         let end = CommandEnd {
             data: Default::default(),
             is_success: true,
-            errors: vec![],
         };
 
         (start, end)

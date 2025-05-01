@@ -11,22 +11,21 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::buck2_env;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::external::GitCellSetup;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::CellAliasResolver;
-use buck2_core::cells::CellResolver;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_error::BuckErrorContext;
 use dice::DiceComputations;
 use dupe::Dupe;
 
@@ -35,36 +34,153 @@ use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::legacy_configs::aggregator::CellsAggregator;
-use crate::legacy_configs::args::resolve_config_args;
 use crate::legacy_configs::args::ResolvedLegacyConfigArg;
+use crate::legacy_configs::args::resolve_config_args;
+use crate::legacy_configs::args::to_proto_config_args;
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::dice::HasInjectedLegacyConfigs;
-use crate::legacy_configs::file_ops::push_all_files_from_a_directory;
 use crate::legacy_configs::file_ops::ConfigDirEntry;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::file_ops::ConfigPath;
 use crate::legacy_configs::file_ops::DefaultConfigParserFileOps;
 use crate::legacy_configs::file_ops::DiceConfigFileOps;
+use crate::legacy_configs::file_ops::push_all_files_from_a_directory;
+use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::parser::LegacyConfigParser;
-use crate::legacy_configs::path::ExternalConfigSource;
-use crate::legacy_configs::path::ProjectConfigSource;
 use crate::legacy_configs::path::DEFAULT_EXTERNAL_CONFIG_SOURCES;
 use crate::legacy_configs::path::DEFAULT_PROJECT_CONFIG_SOURCES;
+use crate::legacy_configs::path::DOT_BUCKCONFIG_LOCAL;
+use crate::legacy_configs::path::ExternalConfigSource;
+use crate::legacy_configs::path::ProjectConfigSource;
 
 /// Buckconfigs can partially be loaded from within dice. However, some parts of what makes up the
 /// buckconfig comes from outside the buildgraph, and this type represents those parts.
 #[derive(PartialEq, Eq, Allocative)]
 pub struct ExternalBuckconfigData {
-    parse_state: LegacyConfigParser,
+    // The result of parsing the buckconfigs coming from either global (e.g. /etc/buckconfig.d) or
+    // user (e.g. ~/.buckconfig.d or $home_dir/.buckconfig.local) files/dirs outside of the repo
+    // The order matters here and reflects the same order these are processed in buck, see
+    // https://fburl.com/code/8ue78p1j
+    external_path_configs: Vec<ExternalPathBuckconfigData>,
+    // The result of parsing the buckconfigs coming from command line args (e.g. --config or --config-file)
     args: Vec<ResolvedLegacyConfigArg>,
+}
+
+#[derive(PartialEq, Eq, Allocative, Clone)]
+pub struct ExternalPathBuckconfigData {
+    pub(crate) parse_state: LegacyConfigParser,
+    pub(crate) origin_path: ConfigPath,
 }
 
 impl ExternalBuckconfigData {
     pub fn testing_default() -> Self {
         Self {
-            parse_state: LegacyConfigParser::new(),
+            external_path_configs: Vec::new(),
             args: Vec::new(),
         }
+    }
+
+    pub fn filter_values<F>(&self, filter: F) -> Self
+    where
+        F: Fn(&BuckconfigKeyRef) -> bool,
+    {
+        Self {
+            external_path_configs: self
+                .external_path_configs
+                .clone()
+                .into_iter()
+                .map(|o| {
+                    let mut parse_state = o.parse_state.clone();
+                    parse_state.filter_values(&filter);
+                    ExternalPathBuckconfigData {
+                        parse_state,
+                        origin_path: o.origin_path.clone(),
+                    }
+                })
+                .collect(),
+            args: self
+                .args
+                .iter()
+                .filter(|arg| match arg {
+                    ResolvedLegacyConfigArg::Flag(flag) => {
+                        flag.cell.is_some()
+                            || filter(&BuckconfigKeyRef {
+                                section: &flag.section,
+                                property: &flag.key,
+                            })
+                    }
+                    _ => true,
+                })
+                .cloned()
+                .collect(),
+        }
+    }
+
+    async fn get_local_config_components(
+        project_root: &ProjectRoot,
+    ) -> Vec<buck2_data::BuckconfigComponent> {
+        use buck2_data::buckconfig_component::Data::GlobalExternalConfigFile;
+        let file_ops = &mut DefaultConfigParserFileOps {
+            project_fs: project_root.dupe(),
+        };
+        let mut local_config_components = Vec::new();
+        if let Ok(legacy_cells) =
+            BuckConfigBasedCells::parse_with_config_args(&project_root, &[]).await
+        {
+            let path = ForwardRelativePath::new(DOT_BUCKCONFIG_LOCAL).expect(
+                "Internal error: .buckconfig.local should always be a valid forward relative path",
+            );
+            for (_cell, cell_instance) in legacy_cells.cell_resolver.cells() {
+                let relative_path = cell_instance.path().as_project_relative_path().join(path);
+                let origin_path = relative_path.to_string();
+                let local_config = ConfigPath::Project(relative_path);
+
+                let mut parser = LegacyConfigParser::new();
+                if parser
+                    .parse_file(&local_config, None, true, file_ops)
+                    .await
+                    .is_ok()
+                {
+                    let values = parser.to_proto_external_config_values(false);
+                    if values.is_empty() {
+                        // Don't create an empty component for cells with non-existing .buckconfig.local
+                        continue;
+                    }
+                    local_config_components.push(buck2_data::BuckconfigComponent {
+                        data: Some(GlobalExternalConfigFile(buck2_data::GlobalExternalConfig {
+                            values,
+                            origin_path,
+                        })),
+                    });
+                }
+            }
+        }
+        local_config_components
+    }
+
+    pub async fn get_buckconfig_components(
+        &self,
+        project_root: &ProjectRoot,
+    ) -> Vec<buck2_data::BuckconfigComponent> {
+        use buck2_data::buckconfig_component::Data::GlobalExternalConfigFile;
+        let mut res: Vec<buck2_data::BuckconfigComponent> = self
+            .external_path_configs
+            .clone()
+            .into_iter()
+            .map(|o| {
+                let external_file = buck2_data::GlobalExternalConfig {
+                    values: o.parse_state.to_proto_external_config_values(false),
+                    origin_path: o.origin_path.to_string(),
+                };
+                buck2_data::BuckconfigComponent {
+                    data: Some(GlobalExternalConfigFile(external_file)),
+                }
+            })
+            .collect();
+
+        res.extend(Self::get_local_config_components(project_root).await);
+        res.extend(to_proto_config_args(&self.args));
+        res
     }
 }
 
@@ -95,7 +211,7 @@ impl BuckConfigBasedCells {
         &self,
         project_fs: &ProjectRoot,
         cwd: &ProjectRelativePath,
-    ) -> anyhow::Result<CellAliasResolver> {
+    ) -> buck2_error::Result<CellAliasResolver> {
         self.get_cell_alias_resolver_for_cwd_fast_with_file_ops(
             &mut DefaultConfigParserFileOps {
                 project_fs: project_fs.dupe(),
@@ -109,7 +225,7 @@ impl BuckConfigBasedCells {
         &self,
         file_ops: &mut dyn ConfigParserFileOps,
         cwd: &ProjectRelativePath,
-    ) -> anyhow::Result<CellAliasResolver> {
+    ) -> buck2_error::Result<CellAliasResolver> {
         let cell_name = self.cell_resolver.find(cwd)?;
         let cell_path = self.cell_resolver.get(cell_name)?.path();
 
@@ -117,7 +233,7 @@ impl BuckConfigBasedCells {
 
         let config_paths = get_project_buckconfig_paths(cell_path, file_ops).await?;
         let config = LegacyBuckConfig::finish_parse(
-            self.external_data.parse_state.clone(),
+            self.external_data.external_path_configs.clone(),
             &config_paths,
             cell_path,
             file_ops,
@@ -136,61 +252,44 @@ impl BuckConfigBasedCells {
     pub async fn parse_with_config_args(
         project_fs: &ProjectRoot,
         config_args: &[buck2_cli_proto::ConfigOverride],
-        cwd: &ProjectRelativePath,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         Self::parse_with_file_ops_and_options(
-            project_fs,
             &mut DefaultConfigParserFileOps {
                 project_fs: project_fs.dupe(),
             },
             config_args,
-            cwd,
             false, /* follow includes */
         )
         .await
     }
 
     pub async fn testing_parse_with_file_ops(
-        project_fs: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[buck2_cli_proto::ConfigOverride],
-        cwd: &ProjectRelativePath,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         Self::parse_with_file_ops_and_options(
-            project_fs,
             file_ops,
             config_args,
-            cwd,
             true, /* follow includes */
         )
         .await
     }
 
     async fn parse_with_file_ops_and_options(
-        project_root: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[buck2_cli_proto::ConfigOverride],
-        cwd: &ProjectRelativePath,
         follow_includes: bool,
-    ) -> anyhow::Result<Self> {
-        Self::parse_with_file_ops_and_options_inner(
-            project_root,
-            file_ops,
-            config_args,
-            cwd,
-            follow_includes,
-        )
-        .await
-        .with_context(|| format!("Parsing cells with project root `{project_root}`, cwd `{cwd}`",))
+    ) -> buck2_error::Result<Self> {
+        Self::parse_with_file_ops_and_options_inner(file_ops, config_args, follow_includes)
+            .await
+            .buck_error_context("Parsing cells")
     }
 
     async fn parse_with_file_ops_and_options_inner(
-        project_fs: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[buck2_cli_proto::ConfigOverride],
-        cwd: &ProjectRelativePath,
         follow_includes: bool,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         // Tracing file ops to record config file accesses on command invocation.
         struct TracingFileOps<'a> {
             inner: &'a mut dyn ConfigParserFileOps,
@@ -202,9 +301,7 @@ impl BuckConfigBasedCells {
             async fn read_file_lines_if_exists(
                 &mut self,
                 path: &ConfigPath,
-            ) -> anyhow::Result<
-                Option<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>,
-            > {
+            ) -> buck2_error::Result<Option<Vec<String>>> {
                 let res = self.inner.read_file_lines_if_exists(path).await?;
 
                 if res.is_some() {
@@ -214,7 +311,10 @@ impl BuckConfigBasedCells {
                 Ok(res)
             }
 
-            async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+            async fn read_dir(
+                &mut self,
+                path: &ConfigPath,
+            ) -> buck2_error::Result<Vec<ConfigDirEntry>> {
                 self.inner.read_dir(path).await
             }
         }
@@ -225,8 +325,7 @@ impl BuckConfigBasedCells {
         };
 
         // NOTE: This will _not_ perform IO unless it needs to.
-        let processed_config_args =
-            resolve_config_args(&config_args, project_fs, cwd, &mut file_ops).await?;
+        let processed_config_args = resolve_config_args(&config_args, &mut file_ops).await?;
 
         let external_paths = get_external_buckconfig_paths(&mut file_ops).await?;
         let started_parse = LegacyBuckConfig::start_parse_for_external_files(
@@ -264,7 +363,7 @@ impl BuckConfigBasedCells {
                 let alias_path = CellRootPathBuf::new(
                     root_path.as_project_relative_path()
                         .join_normalized(RelativePath::new(alias_path.as_str()))
-                        .with_context(|| {
+                        .with_buck_error_context(|| {
                             format!(
                                 "expected alias path to be a relative path, but found `{}` for `{}`",
                                 alias_path.as_str(),
@@ -283,6 +382,10 @@ impl BuckConfigBasedCells {
 
         if let Some(external_cells) = root_config.get_section("external_cells") {
             for (alias, origin) in external_cells.iter() {
+                if origin.as_str() == "disabled" {
+                    // Ignore this entry, treat it as a normal cell
+                    continue;
+                }
                 let alias = NonEmptyCellAlias::new(alias.to_owned())?;
                 let name = aggregator.resolve_root_alias(alias)?;
                 let origin = Self::parse_external_cell_origin(name, origin.as_str(), &root_config)?;
@@ -306,7 +409,7 @@ impl BuckConfigBasedCells {
             root_config,
             config_paths: file_ops.trace,
             external_data: Arc::new(ExternalBuckconfigData {
-                parse_state: started_parse,
+                external_path_configs: started_parse,
                 args: processed_config_args,
             }),
         })
@@ -314,7 +417,7 @@ impl BuckConfigBasedCells {
 
     pub(crate) fn get_cell_aliases_from_config(
         config: &LegacyBuckConfig,
-    ) -> anyhow::Result<impl Iterator<Item = (NonEmptyCellAlias, NonEmptyCellAlias)>> {
+    ) -> buck2_error::Result<impl Iterator<Item = (NonEmptyCellAlias, NonEmptyCellAlias)>> {
         let mut aliases = Vec::new();
         if let Some(section) = config
             .get_section("cell_aliases")
@@ -332,7 +435,7 @@ impl BuckConfigBasedCells {
     pub(crate) async fn parse_single_cell_with_dice(
         ctx: &mut DiceComputations<'_>,
         cell_path: &CellRootPath,
-    ) -> anyhow::Result<LegacyBuckConfig> {
+    ) -> buck2_error::Result<LegacyBuckConfig> {
         let resolver = ctx.get_cell_resolver().await?;
         let io_provider = ctx.global_data().get_io_provider();
         let project_fs = io_provider.project_root();
@@ -347,7 +450,7 @@ impl BuckConfigBasedCells {
         &self,
         cell: CellName,
         project_fs: &ProjectRoot,
-    ) -> anyhow::Result<LegacyBuckConfig> {
+    ) -> buck2_error::Result<LegacyBuckConfig> {
         self.parse_single_cell_with_file_ops(
             cell,
             &mut DefaultConfigParserFileOps {
@@ -361,7 +464,7 @@ impl BuckConfigBasedCells {
         &self,
         cell: CellName,
         file_ops: &mut dyn ConfigParserFileOps,
-    ) -> anyhow::Result<LegacyBuckConfig> {
+    ) -> buck2_error::Result<LegacyBuckConfig> {
         Self::parse_single_cell_with_file_ops_inner(
             &self.external_data,
             file_ops,
@@ -374,10 +477,10 @@ impl BuckConfigBasedCells {
         external_data: &ExternalBuckconfigData,
         file_ops: &mut dyn ConfigParserFileOps,
         cell_path: &CellRootPath,
-    ) -> anyhow::Result<LegacyBuckConfig> {
+    ) -> buck2_error::Result<LegacyBuckConfig> {
         let config_paths = get_project_buckconfig_paths(cell_path, file_ops).await?;
         LegacyBuckConfig::finish_parse(
-            external_data.parse_state.clone(),
+            external_data.external_path_configs.clone(),
             &config_paths,
             cell_path,
             file_ops,
@@ -391,8 +494,9 @@ impl BuckConfigBasedCells {
         cell: CellName,
         value: &str,
         config: &LegacyBuckConfig,
-    ) -> anyhow::Result<ExternalCellOrigin> {
+    ) -> buck2_error::Result<ExternalCellOrigin> {
         #[derive(buck2_error::Error, Debug)]
+        #[buck2(tag = Input)]
         enum ExternalCellOriginParseError {
             #[error("Unknown external cell origin `{0}`")]
             Unknown(String),
@@ -431,7 +535,7 @@ impl BuckConfigBasedCells {
 
 async fn get_external_buckconfig_paths(
     file_ops: &mut dyn ConfigParserFileOps,
-) -> anyhow::Result<Vec<ConfigPath>> {
+) -> buck2_error::Result<Vec<ConfigPath>> {
     let skip_default_external_config = buck2_env!(
         "BUCK2_TEST_SKIP_DEFAULT_EXTERNAL_CONFIG",
         bool,
@@ -495,7 +599,7 @@ async fn get_external_buckconfig_paths(
 async fn get_project_buckconfig_paths(
     path: &CellRootPath,
     file_ops: &mut dyn ConfigParserFileOps,
-) -> anyhow::Result<Vec<ConfigPath>> {
+) -> buck2_error::Result<Vec<ConfigPath>> {
     let mut buckconfig_paths: Vec<ConfigPath> = Vec::new();
 
     for buckconfig in DEFAULT_PROJECT_CONFIG_SOURCES {
@@ -523,14 +627,6 @@ async fn get_project_buckconfig_paths(
     Ok(buckconfig_paths)
 }
 
-pub(crate) fn create_project_filesystem() -> ProjectRoot {
-    #[cfg(not(windows))]
-    let root_path = "/".to_owned();
-    #[cfg(windows)]
-    let root_path = "C:/".to_owned();
-    ProjectRoot::new_unchecked(AbsNormPathBuf::try_from(root_path).unwrap())
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -541,21 +637,19 @@ mod tests {
     use buck2_core::cells::external::ExternalCellOrigin;
     use buck2_core::cells::external::GitCellSetup;
     use buck2_core::cells::name::CellName;
-    use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use dice::DiceComputations;
     use indoc::indoc;
 
     use crate::dice::file_ops::delegate::FileOpsDelegate;
-    use crate::external_cells::ExternalCellsImpl;
     use crate::external_cells::EXTERNAL_CELLS_IMPL;
-    use crate::legacy_configs::cells::create_project_filesystem;
+    use crate::external_cells::ExternalCellsImpl;
     use crate::legacy_configs::cells::BuckConfigBasedCells;
     use crate::legacy_configs::configs::testing::TestConfigParserFileOps;
     use crate::legacy_configs::configs::tests::assert_config_value;
     use crate::legacy_configs::key::BuckconfigKeyRef;
 
     #[tokio::test]
-    async fn test_cells() -> anyhow::Result<()> {
+    async fn test_cells() -> buck2_error::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 ".buckconfig",
@@ -591,14 +685,7 @@ mod tests {
             ),
         ])?;
 
-        let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?;
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await?;
 
         let resolver = &cells.cell_resolver;
 
@@ -631,7 +718,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_multi_cell_with_config_file() -> anyhow::Result<()> {
+    async fn test_multi_cell_with_config_file() -> buck2_error::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 ".buckconfig",
@@ -681,15 +768,12 @@ mod tests {
             ),
         ])?;
 
-        let project_fs = create_project_filesystem();
         let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
             &mut file_ops,
             &[ConfigOverride::file(
                 "cli-conf",
                 Some(CellRootPathBuf::testing_new("other")),
             )],
-            ProjectRelativePath::empty(),
         )
         .await?;
 
@@ -729,7 +813,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_multi_cell_no_repositories_in_non_root_cell() -> anyhow::Result<()> {
+    async fn test_multi_cell_no_repositories_in_non_root_cell() -> buck2_error::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 ".buckconfig",
@@ -752,14 +836,7 @@ mod tests {
             ),
         ])?;
 
-        let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?;
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await?;
 
         let other_config = cells
             .parse_single_cell_with_file_ops(CellName::testing_new("other"), &mut file_ops)
@@ -777,7 +854,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_multi_cell_with_cell_relative() -> anyhow::Result<()> {
+    async fn test_multi_cell_with_cell_relative() -> buck2_error::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 ".buckconfig",
@@ -821,15 +898,12 @@ mod tests {
             ),
         ])?;
 
-        let project_fs = create_project_filesystem();
         let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
             &mut file_ops,
             &[
                 ConfigOverride::file("app-conf", Some(CellRootPathBuf::testing_new("other"))),
                 ConfigOverride::file("global-conf", Some(CellRootPathBuf::testing_new(""))),
             ],
-            ProjectRelativePath::empty(),
         )
         .await?;
 
@@ -856,7 +930,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_local_config_file_overwrite_config_file() -> anyhow::Result<()> {
+    async fn test_local_config_file_overwrite_config_file() -> buck2_error::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 ".buckconfig",
@@ -884,14 +958,7 @@ mod tests {
             ),
         ])?;
 
-        let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?;
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await?;
 
         let config = cells
             .parse_single_cell_with_file_ops(CellName::testing_new("root"), &mut file_ops)
@@ -909,7 +976,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_multi_cell_local_config_file_overwrite_config_file() -> anyhow::Result<()> {
+    async fn test_multi_cell_local_config_file_overwrite_config_file() -> buck2_error::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 ".buckconfig",
@@ -963,14 +1030,7 @@ mod tests {
             ),
         ])?;
 
-        let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?;
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await?;
 
         let root_config = cells
             .parse_single_cell_with_file_ops(CellName::testing_new("root"), &mut file_ops)
@@ -1001,7 +1061,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_config_arg_with_no_buckconfig() -> anyhow::Result<()> {
+    async fn test_config_arg_with_no_buckconfig() -> buck2_error::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[(
             ".buckconfig",
             indoc!(
@@ -1012,13 +1072,10 @@ mod tests {
                     "#
             ),
         )])?;
-        let project_fs = create_project_filesystem();
 
         let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
             &mut file_ops,
             &[ConfigOverride::flag_no_cell("some_section.key=value1")],
-            ProjectRelativePath::empty(),
         )
         .await?;
         let config = cells
@@ -1031,7 +1088,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cell_config_section_name() -> anyhow::Result<()> {
+    async fn test_cell_config_section_name() -> buck2_error::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[(
             ".buckconfig",
             indoc!(
@@ -1045,15 +1102,9 @@ mod tests {
             ),
         )])?;
 
-        let project_fs = create_project_filesystem();
-        let resolver = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?
-        .cell_resolver;
+        let resolver = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[])
+            .await?
+            .cell_resolver;
 
         assert_eq!(
             "other",
@@ -1076,16 +1127,20 @@ mod tests {
                 _ctx: &mut DiceComputations<'_>,
                 _cell_name: CellName,
                 _origin: ExternalCellOrigin,
-            ) -> anyhow::Result<Arc<dyn FileOpsDelegate>> {
+            ) -> buck2_error::Result<Arc<dyn FileOpsDelegate>> {
                 // Not used in these tests
                 unreachable!()
             }
 
-            fn check_bundled_cell_exists(&self, cell_name: CellName) -> anyhow::Result<()> {
+            fn check_bundled_cell_exists(&self, cell_name: CellName) -> buck2_error::Result<()> {
                 if cell_name.as_str() == "test_bundled_cell" {
                     Ok(())
                 } else {
-                    Err(anyhow::anyhow!("No bundled cell with name `{}`", cell_name))
+                    Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "No bundled cell with name `{}`",
+                        cell_name
+                    ))
                 }
             }
 
@@ -1095,7 +1150,7 @@ mod tests {
                 _cell_name: CellName,
                 _origin: ExternalCellOrigin,
                 _path: &CellRootPath,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 // Not used in these tests
                 unreachable!()
             }
@@ -1110,7 +1165,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_external_cell_configs() -> anyhow::Result<()> {
+    async fn test_external_cell_configs() -> buck2_error::Result<()> {
         initialize_external_cells_impl();
 
         let mut file_ops = TestConfigParserFileOps::new(&[(
@@ -1129,15 +1184,9 @@ mod tests {
             ),
         )])?;
 
-        let project_fs = create_project_filesystem();
-        let resolver = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?
-        .cell_resolver;
+        let resolver = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[])
+            .await?
+            .cell_resolver;
 
         let other1 = resolver
             .root_cell_cell_alias_resolver()
@@ -1168,7 +1217,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_nested_external_cell_configs() -> anyhow::Result<()> {
+    async fn test_nested_external_cell_configs() -> buck2_error::Result<()> {
         initialize_external_cells_impl();
 
         let mut file_ops = TestConfigParserFileOps::new(&[(
@@ -1185,22 +1234,16 @@ mod tests {
             ),
         )])?;
 
-        let project_fs = create_project_filesystem();
-        BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await
-        .err()
-        .unwrap();
+        BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[])
+            .await
+            .err()
+            .unwrap();
 
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_missing_bundled_cell() -> anyhow::Result<()> {
+    async fn test_missing_bundled_cell() -> buck2_error::Result<()> {
         initialize_external_cells_impl();
 
         let mut file_ops = TestConfigParserFileOps::new(&[(
@@ -1217,16 +1260,10 @@ mod tests {
             ),
         )])?;
 
-        let project_fs = create_project_filesystem();
-        let e = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await
-        .err()
-        .unwrap();
+        let e = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[])
+            .await
+            .err()
+            .unwrap();
 
         let e = format!("{:?}", e);
         assert!(e.contains("No bundled cell"), "error: {}", e);
@@ -1235,7 +1272,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_git_external_cell() -> anyhow::Result<()> {
+    async fn test_git_external_cell() -> buck2_error::Result<()> {
         initialize_external_cells_impl();
 
         let mut file_ops = TestConfigParserFileOps::new(&[(
@@ -1254,15 +1291,9 @@ mod tests {
             ),
         )])?;
 
-        let project_fs = create_project_filesystem();
-        let resolver = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?
-        .cell_resolver;
+        let resolver = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[])
+            .await?
+            .cell_resolver;
 
         let instance = resolver.get(CellName::testing_new("libfoo")).unwrap();
 
@@ -1278,7 +1309,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_git_external_cell_invalid_sha1() -> anyhow::Result<()> {
+    async fn test_git_external_cell_invalid_sha1() -> buck2_error::Result<()> {
         initialize_external_cells_impl();
 
         let mut file_ops = TestConfigParserFileOps::new(&[(
@@ -1297,16 +1328,10 @@ mod tests {
             ),
         )])?;
 
-        let project_fs = create_project_filesystem();
-        let e = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await
-        .err()
-        .unwrap();
+        let e = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[])
+            .await
+            .err()
+            .unwrap();
 
         let e = format!("{:?}", e);
         assert!(e.contains("not a valid SHA1 digest"), "error: {}", e);

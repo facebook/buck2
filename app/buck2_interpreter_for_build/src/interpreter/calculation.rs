@@ -11,46 +11,45 @@
 
 use std::sync::Arc;
 use std::time::Duration;
-use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::span::SpanId;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::ModuleDeps;
-use buck2_interpreter::load_module::InterpreterCalculationImpl;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
+use buck2_interpreter::load_module::InterpreterCalculationImpl;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::paths::package::PackageFilePath;
+use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::prelude_path::PreludePath;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_node::nodes::eval_result::EvaluationResult;
+use buck2_node::nodes::frontend::TARGET_GRAPH_CALCULATION_IMPL;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculationImpl;
-use buck2_node::nodes::frontend::TARGET_GRAPH_CALCULATION_IMPL;
-use buck2_node::package_values_calculation::PackageValuesCalculation;
 use buck2_node::package_values_calculation::PACKAGE_VALUES_CALCULATION;
+use buck2_node::package_values_calculation::PackageValuesCalculation;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 use smallvec::SmallVec;
 use starlark::environment::Globals;
 use starlark_map::small_map::SmallMap;
 
-use crate::interpreter::dice_calculation_delegate::testing::EvalImportKey;
 use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
+use crate::interpreter::dice_calculation_delegate::testing::EvalImportKey;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::package_file_calculation::EvalPackageFile;
 
@@ -72,13 +71,11 @@ impl Key for InterpreterResultsKey {
         ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> Self::Value {
-        let now = Instant::now();
-
-        let (result, spans) =
+        let ((duration, result), spans) =
             async_record_root_spans(ctx.get_interpreter_results_uncached(self.0.dupe())).await;
 
-        ctx.store_evaluation_data(IntepreterResultsKeyActivationData {
-            duration: now.elapsed(),
+        ctx.store_evaluation_data(InterpreterResultsKeyActivationData {
+            duration,
             result: result.dupe(),
             spans,
         })?;
@@ -102,23 +99,25 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         &self,
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
-    ) -> buck2_error::Result<Arc<EvaluationResult>> {
-        let mut interpreter = ctx
-            .get_interpreter_calculator(
-                package.cell_name(),
-                BuildFileCell::new(package.cell_name()),
-            )
-            .await?;
-        interpreter.eval_build_file(package.dupe()).await
+    ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>) {
+        match ctx
+            .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
+                PackageFilePath::package_file_for_dir(package.as_cell_path()),
+            ))
+            .await
+        {
+            Ok(mut interpreter) => interpreter.eval_build_file(package.dupe()).await,
+            Err(e) => (Duration::ZERO, Err(e.into())),
+        }
     }
 
     fn get_interpreter_results<'a>(
         &self,
         ctx: &'a mut DiceComputations,
         package: PackageLabel,
-    ) -> BoxFuture<'a, anyhow::Result<Arc<EvaluationResult>>> {
+    ) -> BoxFuture<'a, buck2_error::Result<Arc<EvaluationResult>>> {
         ctx.compute(&InterpreterResultsKey(package.dupe()))
-            .map(|v| v?.map_err(anyhow::Error::from))
+            .map(|v| v?.map_err(buck2_error::Error::from))
             .boxed()
     }
 }
@@ -143,7 +142,7 @@ impl Key for EvalImportKey {
         // We cannot just use the inner default delegate's eval_import
         // because that wouldn't delegate back to us for inner eval_import calls.
         Ok(ctx
-            .get_interpreter_calculator(starlark_path.cell(), starlark_path.build_file_cell())
+            .get_interpreter_calculator(OwnedStarlarkPath::new(starlark_path.starlark_path()))
             .await?
             .eval_module_uncached(starlark_path)
             .await?)
@@ -167,18 +166,16 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
         &self,
         ctx: &mut DiceComputations<'_>,
         starlark_path: StarlarkModulePath<'_>,
-    ) -> anyhow::Result<LoadedModule> {
+    ) -> buck2_error::Result<LoadedModule> {
         ctx.compute(&EvalImportKey(OwnedStarlarkModulePath::new(starlark_path)))
             .await?
-            .map_err(anyhow::Error::from)
     }
 
     async fn get_module_deps(
         &self,
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
-        build_file_cell: BuildFileCell,
-    ) -> anyhow::Result<ModuleDeps> {
+    ) -> buck2_error::Result<ModuleDeps> {
         let build_file_name = DicePackageListingResolver(ctx)
             .resolve_package_listing(package.dupe())
             .await?
@@ -186,7 +183,9 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .to_owned();
 
         let mut calc = ctx
-            .get_interpreter_calculator(package.cell_name(), build_file_cell)
+            .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
+                PackageFilePath::package_file_for_dir(package.as_cell_path()),
+            ))
             .await?;
 
         let (_module, module_deps) = calc
@@ -203,13 +202,14 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
         &self,
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
-    ) -> anyhow::Result<Option<(PackageFilePath, Vec<ImportPath>)>> {
+    ) -> buck2_error::Result<Option<(PackageFilePath, Vec<ImportPath>)>> {
         // These aren't cached on the DICE graph, since in normal evaluation there aren't that many, and we can cache at a higher level.
         // Therefore we re-parse the file, if it exists.
         // Fortunately, there are only a small number (currently a few hundred)
-        let cell_name = package.as_cell_path().cell();
         let mut interpreter = ctx
-            .get_interpreter_calculator(cell_name, BuildFileCell::new(cell_name))
+            .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
+                PackageFilePath::package_file_for_dir(package.as_cell_path()),
+            ))
             .await?;
         let x = interpreter.prepare_package_file_eval(package).await?;
         let Some((package_file_path, _module, deps)) = x else {
@@ -221,14 +221,14 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
         )))
     }
 
-    async fn global_env(&self, ctx: &mut DiceComputations<'_>) -> anyhow::Result<Globals> {
+    async fn global_env(&self, ctx: &mut DiceComputations<'_>) -> buck2_error::Result<Globals> {
         Ok(ctx.get_global_interpreter_state().await?.globals().dupe())
     }
 
     async fn prelude_import(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<Option<PreludePath>> {
+    ) -> buck2_error::Result<Option<PreludePath>> {
         Ok(ctx
             .get_global_interpreter_state()
             .await?
@@ -244,7 +244,7 @@ impl PackageValuesCalculation for PackageValuesCalculationInstance {
         &self,
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
-    ) -> anyhow::Result<SmallMap<MetadataKey, serde_json::Value>> {
+    ) -> buck2_error::Result<SmallMap<MetadataKey, serde_json::Value>> {
         ctx.eval_package_file(package)
             .await?
             .package_values()
@@ -252,7 +252,8 @@ impl PackageValuesCalculation for PackageValuesCalculationInstance {
     }
 }
 
-pub struct IntepreterResultsKeyActivationData {
+pub struct InterpreterResultsKeyActivationData {
+    /// Duration of just the starlark evaluation of the build file.
     pub duration: Duration,
     pub result: buck2_error::Result<Arc<EvaluationResult>>,
     pub spans: SmallVec<[SpanId; 1]>,

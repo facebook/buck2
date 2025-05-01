@@ -9,8 +9,8 @@
 
 use anyhow::Context;
 use buck2_grpc::DuplexChannel;
-use buck2_test_api::grpc::spawn_executor_server;
 use buck2_test_api::grpc::TestOrchestratorClient;
+use buck2_test_api::grpc::spawn_executor_server;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 

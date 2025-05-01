@@ -11,16 +11,17 @@ use async_trait::async_trait;
 use buck2_cli_proto::new_generic::DebugEvalRequest;
 use buck2_cli_proto::new_generic::NewGenericRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
-use clap::ArgMatches;
 use gazebo::prelude::SliceExt;
 
 /// Evaluate `bzl` or `bxl` file.
@@ -36,15 +37,16 @@ pub struct EvalCommand {
     common_opts: CommonCommandOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for EvalCommand {
     const COMMAND_NAME: &'static str = "eval";
 
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         if self.paths.is_empty() {
             let console = self.common_opts.console_opts.final_console();
@@ -59,11 +61,11 @@ impl StreamingCommand for EvalCommand {
                 context,
                 NewGenericRequest::DebugEval(DebugEvalRequest {
                     paths: self.paths.try_map(|p| {
-                        anyhow::Ok(p.resolve(&ctx.working_dir).to_str()?.to_owned())
+                        buck2_error::Ok(p.resolve(&ctx.working_dir).to_str()?.to_owned())
                     })?,
                 }),
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                events_ctx,
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
             )
             .await??;
 

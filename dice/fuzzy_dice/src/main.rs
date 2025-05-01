@@ -22,9 +22,9 @@ use quickcheck::QuickCheck;
 use quickcheck::TestResult;
 use quickcheck::Testable;
 use thiserror::Error;
+use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt;
 use tracing_subscriber::prelude::*;
-use tracing_subscriber::EnvFilter;
 
 mod computation;
 mod execution;

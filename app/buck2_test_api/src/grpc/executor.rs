@@ -8,16 +8,16 @@
  */
 
 use anyhow::Context as _;
+use buck2_grpc::ServerHandle;
 use buck2_grpc::make_channel;
 use buck2_grpc::spawn_oneshot;
 use buck2_grpc::to_tonic;
-use buck2_grpc::ServerHandle;
-use buck2_test_proto::test_executor_client;
-use buck2_test_proto::test_executor_server;
 use buck2_test_proto::Empty;
 use buck2_test_proto::ExternalRunnerSpecRequest;
 use buck2_test_proto::UnstableHeapDumpRequest;
 use buck2_test_proto::UnstableHeapDumpResponse;
+use buck2_test_proto::test_executor_client;
+use buck2_test_proto::test_executor_server;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tonic::transport::Channel;

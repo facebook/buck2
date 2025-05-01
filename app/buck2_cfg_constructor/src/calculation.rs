@@ -10,12 +10,13 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::package::PackageLabel;
+use buck2_core::target::label::label::TargetLabel;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter_for_build::interpreter::package_file_calculation::EvalPackageFile;
 use buck2_node::cfg_constructor::CfgConstructorCalculationImpl;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
@@ -30,11 +31,20 @@ use dice::Key;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+enum CalculationCfgConstructorError {
+    #[error(
+        "Usage of both `modifiers` attribute and modifiers in metadata is not allowed for target `{0}`"
+    )]
+    TargetModifiersAttrAndMetadataNotAllowed(TargetLabel),
+}
+
 pub struct CfgConstructorCalculationInstance;
 
 async fn get_cfg_constructor_uncached(
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>> {
+) -> buck2_error::Result<Option<Arc<dyn CfgConstructorImpl>>> {
     let root_cell = ctx.get_cell_resolver().await?.root_cell();
     let package_label = PackageLabel::new(root_cell, CellRelativePath::empty());
     // This returns empty super package if `PACKAGE` file does not exist.
@@ -44,7 +54,7 @@ async fn get_cfg_constructor_uncached(
 
 async fn get_cfg_constructor(
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>> {
+) -> buck2_error::Result<Option<Arc<dyn CfgConstructorImpl>>> {
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     struct GetCfgConstructorKey;
 
@@ -69,7 +79,7 @@ async fn get_cfg_constructor(
 
     ctx.compute(&GetCfgConstructorKey)
         .await?
-        .map_err(anyhow::Error::from)
+        .map_err(buck2_error::Error::from)
 }
 
 #[async_trait]
@@ -82,7 +92,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         cfg: ConfigurationData,
         cli_modifiers: &Arc<Vec<String>>,
         rule_type: &RuleType,
-    ) -> anyhow::Result<ConfigurationData> {
+    ) -> buck2_error::Result<ConfigurationData> {
         #[derive(Clone, Display, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
         #[display("CfgConstructorInvocationKey")]
         struct CfgConstructorInvocationKey {
@@ -102,9 +112,9 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                 ctx: &mut DiceComputations,
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
-                let cfg_constructor = get_cfg_constructor(ctx)
-                    .await?
-                    .context("Internal error: Global cfg constructor instance should exist")?;
+                let cfg_constructor = get_cfg_constructor(ctx).await?.buck_error_context(
+                    "Internal error: Global cfg constructor instance should exist",
+                )?;
                 cfg_constructor
                     .eval(
                         ctx,
@@ -133,10 +143,26 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         };
         let modifier_key = cfg_constructor.key();
         let package_cfg_modifiers = super_package
-            .package_values()
-            .get_package_value_json(modifier_key)?
+            .cfg_modifiers()
+            .map(|m| m.to_value())
             .map(MetadataValue::new);
-        let target_cfg_modifiers = target.metadata()?.and_then(|m| m.get(modifier_key)).duped();
+
+        let metadata_modifiers = target.metadata()?.and_then(|m| m.get(modifier_key));
+        let target_modifiers = target.target_modifiers()?;
+        let target_cfg_modifiers = match (metadata_modifiers, target_modifiers) {
+            (None, Some(t)) if !t.is_empty() => Some(MetadataValue(t.as_json())),
+            (Some(_), Some(t)) if !t.is_empty() => {
+                return Err(
+                    CalculationCfgConstructorError::TargetModifiersAttrAndMetadataNotAllowed(
+                        target.label().dupe(),
+                    )
+                    .into(),
+                );
+            }
+            (Some(m), _) => Some(m.dupe()),
+            _ => None,
+        };
+
         // If there are no PACKAGE/target/cli modifiers, return the original configuration without computing DICE call
         // TODO(scottcao): This is just for rollout purpose. Remove once modifier is rolled out
         if package_cfg_modifiers.is_none()

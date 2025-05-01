@@ -22,6 +22,7 @@ use starlark::environment::Globals;
 
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::context::HasInterpreterContext;
+use crate::interpreter::globals::base_globals;
 
 /// Information shared across interpreters. Contains no cell-specific
 /// information.
@@ -49,8 +50,14 @@ impl GlobalInterpreterState {
         interpreter_configuror: Arc<BuildInterpreterConfiguror>,
         disable_starlark_types: bool,
         unstable_typecheck: bool,
-    ) -> anyhow::Result<Self> {
-        let global_env = interpreter_configuror.globals();
+    ) -> buck2_error::Result<Self> {
+        let global_env = base_globals()
+            .with(|g| {
+                if let Some(additional_globals) = interpreter_configuror.additional_globals() {
+                    (additional_globals.0)(g);
+                }
+            })
+            .build();
 
         Ok(Self {
             cell_resolver,
@@ -72,15 +79,16 @@ impl GlobalInterpreterState {
 
 #[async_trait]
 pub trait HasGlobalInterpreterState {
-    async fn get_global_interpreter_state(&mut self)
-    -> anyhow::Result<Arc<GlobalInterpreterState>>;
+    async fn get_global_interpreter_state(
+        &mut self,
+    ) -> buck2_error::Result<Arc<GlobalInterpreterState>>;
 }
 
 #[async_trait]
 impl HasGlobalInterpreterState for DiceComputations<'_> {
     async fn get_global_interpreter_state(
         &mut self,
-    ) -> anyhow::Result<Arc<GlobalInterpreterState>> {
+    ) -> buck2_error::Result<Arc<GlobalInterpreterState>> {
         #[derive(Clone, Dupe, Allocative)]
         struct GisValue(Arc<GlobalInterpreterState>);
 

@@ -9,6 +9,7 @@
 
 use std::net::SocketAddr;
 
+use anyhow::Context;
 use buck2_grpc::DuplexChannel;
 use clap::Parser;
 use tokio::net::TcpStream;
@@ -39,19 +40,19 @@ impl Buck2TestRunnerTcp {
         let orchestrator_addr: SocketAddr = self
             .orchestrator_addr
             .parse()
-            .expect("Invalid orchestrator address");
+            .context("Invalid orchestrator address")?;
         let executor_addr: SocketAddr = self
             .executor_addr
             .parse()
-            .expect("Invalid executor address");
+            .context("Invalid executor address")?;
 
         let orchestrator_io = TcpStream::connect(&orchestrator_addr)
             .await
-            .expect("Failed to create orchestrator_io");
+            .context("Failed to create orchestrator_io")?;
 
         let executor_io = TcpStream::connect(&executor_addr)
             .await
-            .expect("Failed to create executor_io");
+            .context("Failed to create executor_io")?;
 
         let executor_io = {
             let (read, write) = tokio::io::split(executor_io);

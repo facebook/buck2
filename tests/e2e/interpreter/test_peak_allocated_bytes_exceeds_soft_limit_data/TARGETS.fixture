@@ -1,4 +1,0 @@
-eee(name = "EEE")
-set_starlark_peak_allocated_byte_limit(10 * 1 << 20)
-thousand_list = [1 for i in range(1 << 10)]
-million_list = thousand_list * (1 << 10)

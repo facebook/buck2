@@ -11,30 +11,30 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use anyhow::Context;
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::target_cfg::TargetCfgUnusedOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonCommandOptions;
-use buck2_client_ctx::daemon::client::kill::kill_command_impl;
+use buck2_client_ctx::common::CommonEventLogOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgUnusedOptions;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
+use buck2_client_ctx::daemon::client::kill::kill_command_impl;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
-use buck2_client_ctx::streaming::BuckSubcommand;
-use buck2_common::argv::Argv;
-use buck2_common::argv::SanitizedArgv;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
-use crate::commands::clean_stale::parse_clean_stale_args;
 use crate::commands::clean_stale::CleanStaleCommand;
+use crate::commands::clean_stale::parse_clean_stale_args;
 
 /// Delete generated files and caches.
 ///
@@ -77,7 +77,7 @@ the specified duration, without killing the daemon",
 }
 
 impl CleanCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         if let Some(keep_since_arg) = parse_clean_stale_args(self.stale, self.keep_since_time)? {
             let cmd = CleanStaleCommand {
                 common_opts: self.common_opts,
@@ -85,39 +85,59 @@ impl CleanCommand {
                 dry_run: self.dry_run,
                 tracked_only: self.tracked_only,
             };
-            return cmd.exec(matches, ctx);
+            ctx.exec(cmd, matches)
+        } else {
+            ctx.exec(
+                InnerCleanCommand {
+                    dry_run: self.dry_run,
+                    common_opts: self.common_opts,
+                },
+                matches,
+            )
+        }
+    }
+}
+
+struct InnerCleanCommand {
+    dry_run: bool,
+    common_opts: CommonCommandOptions,
+}
+
+impl BuckSubcommand for InnerCleanCommand {
+    const COMMAND_NAME: &'static str = "clean";
+
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut buck2_client_ctx::events_ctx::EventsCtx,
+    ) -> ExitResult {
+        let buck_out_dir = ctx.paths()?.buck_out_path();
+        let daemon_dir = ctx.paths()?.daemon_dir()?;
+        let console = &self.common_opts.console_opts.final_console();
+
+        if self.dry_run {
+            return clean(buck_out_dir, daemon_dir, console, None).await.into();
         }
 
-        ctx.instant_command(
-            "clean",
-            &self.common_opts.event_log_opts,
-            |ctx| async move {
-                let buck_out_dir = ctx.paths()?.buck_out_path();
-                let daemon_dir = ctx.paths()?.daemon_dir()?;
-                let console = &self.common_opts.console_opts.final_console();
-
-                if self.dry_run {
-                    return clean(buck_out_dir, daemon_dir, console, None).await;
-                }
-
-                // Kill the daemon and make sure a new daemon does not spin up while we're performing clean up operations
-                // This will ensure we have exclusive access to the directories in question
-                let lifecycle_lock = BuckdLifecycleLock::lock_with_timeout(
-                    daemon_dir.clone(),
-                    StartupDeadline::duration_from_now(Duration::from_secs(10))?,
-                )
-                .await
-                .with_context(|| "Error locking buckd lifecycle.lock")?;
-
-                kill_command_impl(&lifecycle_lock, "`buck2 clean` was invoked").await?;
-
-                clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
-            },
+        // Kill the daemon and make sure a new daemon does not spin up while we're performing clean up operations
+        // This will ensure we have exclusive access to the directories in question
+        let lifecycle_lock = BuckdLifecycleLock::lock_with_timeout(
+            daemon_dir.clone(),
+            StartupDeadline::duration_from_now(Duration::from_secs(10))?,
         )
+        .await
+        .with_buck_error_context(|| "Error locking buckd lifecycle.lock")?;
+
+        kill_command_impl(&lifecycle_lock, "`buck2 clean` was invoked").await?;
+
+        clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock))
+            .await
+            .into()
     }
 
-    pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
-        argv.no_need_to_sanitize()
+    fn event_log_opts(&self) -> &CommonEventLogOptions {
+        &self.common_opts.event_log_opts
     }
 }
 
@@ -127,7 +147,7 @@ async fn clean(
     console: &FinalConsole,
     // None means "dry run".
     lifecycle_lock: Option<&BuckdLifecycleLock>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut paths_to_clean = Vec::new();
     if buck_out_dir.exists() {
         paths_to_clean =
@@ -135,14 +155,14 @@ async fn clean(
         if lifecycle_lock.is_some() {
             tokio::task::spawn_blocking(move || clean_buck_out_with_retry(&buck_out_dir))
                 .await?
-                .context("Failed to spawn clean")?;
+                .buck_error_context("Failed to spawn clean")?;
         }
     }
 
     if daemon_dir.path.exists() {
         paths_to_clean.push(daemon_dir.to_string());
         if let Some(lifecycle_lock) = lifecycle_lock {
-            lifecycle_lock.clean_daemon_dir()?;
+            lifecycle_lock.clean_daemon_dir(false)?;
         }
     }
 
@@ -152,7 +172,9 @@ async fn clean(
     Ok(())
 }
 
-fn collect_paths_to_clean(buck_out_path: &AbsNormPathBuf) -> anyhow::Result<Vec<AbsNormPathBuf>> {
+fn collect_paths_to_clean(
+    buck_out_path: &AbsNormPathBuf,
+) -> buck2_error::Result<Vec<AbsNormPathBuf>> {
     let mut paths_to_clean = vec![];
     let dir = fs_util::read_dir(buck_out_path)?;
     for entry in dir {
@@ -168,7 +190,7 @@ fn collect_paths_to_clean(buck_out_path: &AbsNormPathBuf) -> anyhow::Result<Vec<
 /// the daemon can fail with this error: `The process cannot access the
 /// file because it is being used by another process.`. To get around this,
 /// add a single retry.
-fn clean_buck_out_with_retry(path: &AbsNormPathBuf) -> anyhow::Result<()> {
+fn clean_buck_out_with_retry(path: &AbsNormPathBuf) -> buck2_error::Result<()> {
     let mut result = clean_buck_out(path);
     match result {
         Ok(_) => {
@@ -185,7 +207,7 @@ fn clean_buck_out_with_retry(path: &AbsNormPathBuf) -> anyhow::Result<()> {
     result
 }
 
-fn clean_buck_out(path: &AbsNormPathBuf) -> anyhow::Result<()> {
+fn clean_buck_out(path: &AbsNormPathBuf) -> buck2_error::Result<()> {
     let walk = WalkDir::new(path);
     let thread_pool = ThreadPool::new(num_cpus::get());
     let error = Arc::new(Mutex::new(None));
@@ -219,7 +241,7 @@ fn clean_buck_out(path: &AbsNormPathBuf) -> anyhow::Result<()> {
 
     thread_pool.join();
     if let Some(e) = error.lock().unwrap().take() {
-        return Err(e);
+        return Err(e.into());
     }
 
     // first entry is buck-out root dir and we don't want to remove it

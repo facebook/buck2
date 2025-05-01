@@ -14,10 +14,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_certs::validate::validate_certs;
+use buck2_common::manifold::Bucket;
+use buck2_common::manifold::ManifoldClient;
+use buck2_common::manifold::Ttl;
 use buck2_core::buck2_env;
+use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
+use buck2_error::internal_error;
 use dupe::Dupe;
 use futures::future::Future;
 use serde::Deserialize;
@@ -26,21 +31,43 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 use watchman_client::prelude::*;
 
+fn watchman_error_tag(e: &watchman_client::Error) -> ErrorTag {
+    match e {
+        watchman_client::Error::ConnectionError { .. } => ErrorTag::WatchmanConnectionError,
+        watchman_client::Error::ConnectionLost(_) => ErrorTag::WatchmanConnectionLost,
+        watchman_client::Error::ConnectionDiscovery { .. } => ErrorTag::WatchmanConnectionDiscovery,
+        watchman_client::Error::WatchmanServerError { message, .. } => {
+            if message.contains("RootNotConnectedError") {
+                ErrorTag::WatchmanRootNotConnectedError
+            } else if message
+                .contains("cannot compute status while a checkout is currently in progress")
+            {
+                ErrorTag::WatchmanCheckoutInProgress
+            } else {
+                ErrorTag::WatchmanServerError
+            }
+        }
+        watchman_client::Error::WatchmanResponseError { .. } => ErrorTag::WatchmanResponseError,
+        watchman_client::Error::MissingField { .. } => ErrorTag::WatchmanMissingField,
+        watchman_client::Error::Deserialize { .. } => ErrorTag::WatchmanDeserialize,
+        watchman_client::Error::Serialize { .. } => ErrorTag::WatchmanSerialize,
+        watchman_client::Error::Connect { .. } => ErrorTag::WatchmanConnect,
+    }
+}
+
 #[derive(Debug, buck2_error::Error)]
 enum WatchmanClientError {
     #[buck2(input)]
     #[error("Configured timeout is zero")]
     ZeroTimeout,
-    #[buck2(typ = Watchman)]
     #[buck2(tag = WatchmanTimeout)]
     #[error(
         "Watchman request timed out after {0}s; try restarting watchman, probably via `watchman shutdown-server`"
     )]
     Timeout(u64),
-    #[buck2(typ = Watchman)]
-    #[buck2(tag = WatchmanRequestError)]
+    #[buck2(tag = watchman_error_tag(&inner))]
     #[error(transparent)]
-    RequestFailed(watchman_client::Error),
+    RequestFailed { inner: watchman_client::Error },
 }
 
 // We use the "new" field. This is marked as deprecated, but buck1 uses it and
@@ -146,7 +173,7 @@ impl Debug for WatchmanClient {
 
 async fn with_timeout<R>(
     fut: impl Future<Output = Result<R, watchman_client::Error>> + Send,
-) -> anyhow::Result<R> {
+) -> buck2_error::Result<R> {
     let timeout = buck2_env!("BUCK2_WATCHMAN_TIMEOUT", type=u64, default=57)?;
     if timeout == 0 {
         return Err(WatchmanClientError::ZeroTimeout.into());
@@ -154,31 +181,105 @@ async fn with_timeout<R>(
     match tokio::time::timeout(Duration::from_secs(timeout), fut).await {
         Ok(Ok(res)) => Ok(res),
         Ok(Err(e)) => {
-            validate_certs().await.context("Watchman Request Failed")?;
-            Err(WatchmanClientError::RequestFailed(e).into())
+            validate_certs()
+                .await
+                .buck_error_context("Watchman Request Failed")?;
+
+            let request_err: buck2_error::Error =
+                WatchmanClientError::RequestFailed { inner: e }.into();
+
+            if request_err.has_tag(buck2_error::ErrorTag::WatchmanServerError) {
+                Err(
+                    request_err.context(get_watchman_eden_error_logs().await.unwrap_or(
+                        "Attempted to retrieve Watchman and Eden rage logs but failed".to_owned(),
+                    )),
+                )
+            } else {
+                Err(request_err)
+            }
         }
         Err(_) => {
-            validate_certs().await.context("Watchman Timed Out")?;
+            validate_certs()
+                .await
+                .buck_error_context("Watchman Timed Out")?;
             Err(WatchmanClientError::Timeout(timeout).into())
         }
     }
 }
 
+async fn write_to_manifold(buf: &[u8], name: &str) -> Option<String> {
+    let manifold = ManifoldClient::new().await.ok()?;
+
+    let filename = format!("flat/{}_{}_logs", uuid::Uuid::new_v4(), name);
+    let ttl = Ttl::from_days(14); // 14 days should be plenty of time to take action
+
+    let bucket = Bucket::RAGE_DUMPS;
+    let mut cursor = &mut std::io::Cursor::new(buf);
+
+    manifold
+        .read_and_upload(bucket, &filename, ttl, &mut cursor)
+        .await
+        .ok()?;
+
+    let url = format!(
+        "https://interncache-all.fbcdn.net/manifold/{}/{}",
+        bucket.name, filename
+    );
+
+    Some(url)
+}
+
+async fn cmd_logs_to_manifold(cmd: &str, args: Vec<&str>) -> Option<String> {
+    let async_cmd = buck2_util::process::async_background_command(cmd)
+        .args(args)
+        .output()
+        .await;
+
+    if let Ok(result) = async_cmd {
+        if result.status.success() {
+            return write_to_manifold(&result.stdout, cmd).await;
+        }
+    }
+
+    None
+}
+
+// Best effort to get watchman and eden rage logs to help with debugging.
+async fn get_watchman_eden_error_logs() -> Option<String> {
+    let watchman_cmd = cmd_logs_to_manifold("watchmanctl", vec!["rage"]);
+    let eden_cmd = cmd_logs_to_manifold("eden", vec!["debug", "log", "--full", "--stdout"]);
+
+    let (watchman_cmd, eden_cmd) = tokio::join!(watchman_cmd, eden_cmd);
+
+    match (watchman_cmd, eden_cmd) {
+        (Some(watchman_cmd), Some(eden_cmd)) => Some(format!(
+            "Watchman and Eden rage logs:\n{}\n{}",
+            watchman_cmd, eden_cmd
+        )),
+        (Some(watchman_cmd), None) => Some(format!("Watchman rage logs:\n{}", watchman_cmd)),
+        (None, Some(eden_cmd)) => Some(format!("Eden rage logs:\n{}", eden_cmd)),
+        (None, None) => None,
+    }
+}
+
 impl WatchmanClient {
-    async fn connect(connector: &Connector, path: CanonicalPath) -> anyhow::Result<WatchmanClient> {
+    async fn connect(
+        connector: &Connector,
+        path: CanonicalPath,
+    ) -> buck2_error::Result<WatchmanClient> {
         let client = with_timeout(connector.connect())
             .await
-            .context("Connecting to watchman")?;
+            .buck_error_context("Connecting to watchman")?;
         let root = with_timeout(client.resolve_root(path))
             .await
-            .context("Resolving watchman root")?;
+            .buck_error_context("Resolving watchman root")?;
         Ok(Self(Arc::new((client, root))))
     }
 
     async fn query<F: serde::de::DeserializeOwned + std::fmt::Debug + Clone + QueryFieldList>(
         &self,
         query: QueryRequestCommon,
-    ) -> anyhow::Result<QueryResult<F>> {
+    ) -> buck2_error::Result<QueryResult<F>> {
         let fut = self.client().query(self.root(), query);
 
         with_timeout(fut).await
@@ -205,20 +306,21 @@ pub(crate) trait SyncableQueryProcessor: Send + Sync {
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
         watchman_version: Option<String>,
-    ) -> anyhow::Result<(Self::Output, Self::Payload)>;
+    ) -> buck2_error::Result<(Self::Output, Self::Payload)>;
 
     /// Indicates that all derived data should be invalidated. This could happen, for example, if the watchman server restarts.
     async fn on_fresh_instance(
         &mut self,
         dice: Self::Payload,
+        events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
         watchman_version: Option<String>,
-    ) -> anyhow::Result<(Self::Output, Self::Payload)>;
+    ) -> buck2_error::Result<(Self::Output, Self::Payload)>;
 }
 
 /// commands to be sent to the SyncableQueryHandler.
 enum SyncableQueryCommand<T, P> {
-    Sync(P, oneshot::Sender<anyhow::Result<(T, P)>>),
+    Sync(P, oneshot::Sender<buck2_error::Result<(T, P)>>),
 }
 
 /// A SyncableQuery is similar to a subscription. When created, it accepts a query expression
@@ -237,6 +339,7 @@ pub struct SyncableQuery<T, P> {
 
 enum WatchmanSyncResult {
     FreshInstance {
+        events: Vec<WatchmanEvent>,
         merge_base: Option<String>,
         clock: ClockSpec,
         watchman_version: Option<String>,
@@ -302,10 +405,13 @@ where
         &mut self,
         payload: P,
         client: &mut Option<WatchmanClient>,
-    ) -> anyhow::Result<(T, P)> {
+    ) -> buck2_error::Result<(T, P)> {
         let sync_res = match self.sync_query(client).await {
             Ok(res) => Ok(res),
-            Err(e) => self.reconnect_and_sync_query(client).await.context(e),
+            Err(e) => self
+                .reconnect_and_sync_query(client)
+                .await
+                .buck_error_context(e.to_string()),
         }?;
 
         let (res, new_mergebase, clock) = match sync_res {
@@ -328,7 +434,7 @@ where
                 } else {
                     (
                         self.processor
-                            .on_fresh_instance(payload, &merge_base, watchman_version)
+                            .on_fresh_instance(payload, events, &merge_base, watchman_version)
                             .await?,
                         merge_base,
                         clock,
@@ -336,12 +442,13 @@ where
                 }
             }
             WatchmanSyncResult::FreshInstance {
+                events,
                 merge_base,
                 clock,
                 watchman_version,
             } => (
                 self.processor
-                    .on_fresh_instance(payload, &merge_base, watchman_version)
+                    .on_fresh_instance(payload, events, &merge_base, watchman_version)
                     .await?,
                 merge_base,
                 clock,
@@ -354,13 +461,13 @@ where
         Ok(res)
     }
 
-    async fn reconnect(&mut self, client: &mut Option<WatchmanClient>) -> anyhow::Result<()> {
+    async fn reconnect(&mut self, client: &mut Option<WatchmanClient>) -> buck2_error::Result<()> {
         self.last_clock = Default::default();
         self.last_mergebase = None;
         *client = Some(
             WatchmanClient::connect(&self.connector, self.path.clone())
                 .await
-                .context("Error reconnecting to Watchman")?,
+                .buck_error_context("Error reconnecting to Watchman")?,
         );
         Ok(())
     }
@@ -368,7 +475,7 @@ where
     async fn reconnect_and_sync_query(
         &mut self,
         client: &mut Option<WatchmanClient>,
-    ) -> anyhow::Result<WatchmanSyncResult> {
+    ) -> buck2_error::Result<WatchmanSyncResult> {
         self.reconnect(client).await?;
 
         let out = self.sync_query(client).await?;
@@ -379,22 +486,50 @@ where
     async fn sync_query(
         &mut self,
         client: &mut Option<WatchmanClient>,
-    ) -> anyhow::Result<WatchmanSyncResult> {
-        let client = client.as_mut().context("No Watchman connection")?;
+    ) -> buck2_error::Result<WatchmanSyncResult> {
+        let client = client
+            .as_mut()
+            .buck_error_context("No Watchman connection")?;
 
-        let mut query = self.query.clone();
-        query.since = if let Some(mergebase_with) = self.mergebase_with.as_ref() {
-            Some(Clock::ScmAware(FatClockData {
-                clock: self.last_clock.clone(),
-                scm: Some(ScmAwareClockData {
-                    mergebase: self.last_mergebase.clone(),
-                    mergebase_with: Some(mergebase_with.clone()),
-                    saved_state: None,
-                }),
-            }))
-        } else {
-            Some(Clock::Spec(self.last_clock.clone()))
+        let make_query = |last_clock, last_mergebase| {
+            let mut query = self.query.clone();
+            query.since = if let Some(mergebase_with) = self.mergebase_with.as_ref() {
+                Some(Clock::ScmAware(FatClockData {
+                    clock: last_clock,
+                    scm: Some(ScmAwareClockData {
+                        mergebase: last_mergebase,
+                        mergebase_with: Some(mergebase_with.clone()),
+                        saved_state: None,
+                    }),
+                }))
+            } else {
+                Some(Clock::Spec(last_clock))
+            };
+            query
         };
+
+        let mut query = make_query(self.last_clock.clone(), self.last_mergebase.clone());
+
+        // watchman currently has a performance problem when using scm-aware queries and empty_on_fresh_instance=false
+        // in that scenario, you would expect that when the merge base changes the performance with and without a since clock
+        // would have the same performance as both simply need to return the new mergebase and the changes since the mergebase,
+        // but actually watchman is extremely slow when including the previous clock.
+        //
+        // To work around that, in our queries we pass empty_on_fresh_instance=true and then on a fresh instance send a new
+        // query with empty_on_fresh_instance=false and no previous clock.
+
+        let needs_watchman_perf_workaround =
+            self.last_mergebase.is_some() && !query.empty_on_fresh_instance;
+
+        if needs_watchman_perf_workaround {
+            query.empty_on_fresh_instance = true;
+        }
+
+        let mut query_result = client.query::<BuckQueryResult>(query).await?;
+        if needs_watchman_perf_workaround && query_result.is_fresh_instance {
+            let query = make_query(ClockSpec::default(), None);
+            query_result = client.query::<BuckQueryResult>(query).await?;
+        }
 
         let QueryResult {
             version,
@@ -407,24 +542,31 @@ where
             // state_metadata,
             // saved_state_info,
             ..
-        } = client.query::<BuckQueryResult>(query).await?;
+        } = query_result;
 
         // While we use scm-based queries, the processor api doesn't really support them yet so we just treat it as a fresh instance.
         let (new_mergebase, clock) = unpack_clock(clock);
 
+        let events = match files {
+            None if is_fresh_instance => vec![],
+            None => {
+                return Err(internal_error!(
+                    "unexpected missing files in watchman query"
+                ));
+            }
+            Some(v) => v.into_iter().filter_map(|f| f.into_event()).collect(),
+        };
+
         Ok(if is_fresh_instance {
             WatchmanSyncResult::FreshInstance {
+                events,
                 merge_base: new_mergebase,
                 clock,
                 watchman_version: Some(version),
             }
         } else {
             WatchmanSyncResult::Events {
-                events: files
-                    .ok_or_else(|| anyhow::anyhow!(""))?
-                    .into_iter()
-                    .filter_map(|f| f.into_event())
-                    .collect(),
+                events,
                 merge_base: new_mergebase,
                 clock,
                 watchman_version: Some(version),
@@ -461,19 +603,23 @@ where
     pub(crate) fn sync(
         &self,
         dice: P,
-    ) -> impl Future<Output = anyhow::Result<(T, P)>> + Send + 'static {
+    ) -> impl Future<Output = buck2_error::Result<(T, P)>> + Send + 'static {
         let (sync_done_tx, sync_done_rx) = tokio::sync::oneshot::channel();
         let tx_res = self
             .control_tx
             .send(SyncableQueryCommand::Sync(dice, sync_done_tx));
 
         async move {
-            tx_res.ok().context("SyncableQueryHandler has exited")?;
+            tx_res
+                .ok()
+                .buck_error_context("SyncableQueryHandler has exited")?;
 
             let out = sync_done_rx
                 .await
-                .context("SyncableQueryHandler did not return a response for sync request")?
-                .context("SyncableQueryHandler returned an error")?;
+                .buck_error_context(
+                    "SyncableQueryHandler did not return a response for sync request",
+                )?
+                .buck_error_context("SyncableQueryHandler returned an error")?;
 
             Ok(out)
         }
@@ -485,15 +631,16 @@ where
         expr: Expr,
         processor: Box<dyn SyncableQueryProcessor<Output = T, Payload = P>>,
         mergebase_with: Option<String>,
-    ) -> anyhow::Result<SyncableQuery<T, P>> {
+        empty_on_fresh_instance: bool,
+    ) -> buck2_error::Result<SyncableQuery<T, P>> {
         let path = path.as_ref();
         let path = CanonicalPath::canonicalize(path)
-            .with_context(|| format!("Error canonicalizing: `{}`", path.display()))?;
+            .with_buck_error_context(|| format!("Error canonicalizing: `{}`", path.display()))?;
 
         let query = QueryRequestCommon {
             expression: Some(expr),
             fields: vec!["name"],
-            empty_on_fresh_instance: true,
+            empty_on_fresh_instance,
             relative_root: None,
             case_sensitive: true,
             dedup_results: false,

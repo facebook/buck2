@@ -9,16 +9,17 @@
 
 //! Contains the internal support within the attribute framework for `select()`.
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::coerced_attr::CoercedConcat;
 use buck2_node::attrs::coerced_attr::CoercedSelector;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
-use starlark::values::dict::DictRef;
 use starlark::values::Value;
+use starlark::values::dict::DictRef;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::interpreter::selector::StarlarkSelector;
@@ -44,7 +45,7 @@ pub trait CoercedAttrExr: Sized {
         ctx: &dyn AttrCoercionContext,
         value: Value,
         default_attr: Option<&Self>,
-    ) -> anyhow::Result<Self>;
+    ) -> buck2_error::Result<Self>;
 }
 
 impl CoercedAttrExr for CoercedAttr {
@@ -54,7 +55,7 @@ impl CoercedAttrExr for CoercedAttr {
         ctx: &dyn AttrCoercionContext,
         value: Value,
         default_attr: Option<&Self>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         // A Selector in starlark is currently implemented as simply a Value (holding a
         // dict if valid).
         //
@@ -72,20 +73,20 @@ impl CoercedAttrExr for CoercedAttr {
             }
 
             match *selector {
-                StarlarkSelectorGen::Inner(v) => {
-                    if let Some(dict) = DictRef::from_value(v) {
+                StarlarkSelectorGen::Primary(v) => {
+                    if let Some(dict) = DictRef::from_value(v.get()) {
                         let has_default = dict.get_str("DEFAULT").is_some();
                         let mut entries =
                             Vec::with_capacity(dict.len().saturating_sub(has_default as usize));
 
                         let mut default = None;
                         for (k, v) in dict.iter() {
-                            let k = k.unpack_str().ok_or_else(|| {
-                                anyhow::anyhow!(SelectError::KeyNotString(k.to_repr()))
-                            })?;
+                            let k = k
+                                .unpack_str()
+                                .ok_or_else(|| SelectError::KeyNotString(k.to_repr()))?;
                             let v = match default_attr {
                                 Some(default_attr) if v.is_none() => default_attr.clone(),
-                                _ => CoercedAttr::coerce(attr, configurable, ctx, v, None)?,
+                                _ => CoercedAttr::coerce(attr, configurable, ctx, v, default_attr)?,
                             };
                             if k == "DEFAULT" {
                                 if default.is_some() {
@@ -95,8 +96,8 @@ impl CoercedAttrExr for CoercedAttr {
                                 }
                                 default = Some(v);
                             } else {
-                                let target = ctx.coerce_target_label(k)?;
-                                entries.push((ConfigurationSettingKey(target), v));
+                                let label = ctx.coerce_providers_label(k)?;
+                                entries.push((ConfigurationSettingKey(label), v));
                             }
                         }
 
@@ -107,35 +108,36 @@ impl CoercedAttrExr for CoercedAttr {
                             default,
                         )?)))
                     } else {
-                        Err(anyhow::anyhow!(SelectError::ValueNotDict(v.to_repr())))
+                        Err(SelectError::ValueNotDict(v.get().to_repr()).into())
                     }
                 }
-                StarlarkSelectorGen::Added(l, r) => {
+                StarlarkSelectorGen::Sum(l, r) => {
                     if !attr.supports_concat() {
-                        return Err(anyhow::anyhow!(SelectError::ConcatNotSupported(
+                        return Err(SelectError::ConcatNotSupported(
                             attr.to_string(),
-                            format!("{} + {}", l, r)
-                        )));
+                            format!("{} + {}", l, r),
+                        )
+                        .into());
                     }
                     let l = CoercedAttr::coerce(attr, configurable, ctx, l, None)?;
                     let mut l = match l {
-                        CoercedAttr::Concat(l) => l.into_vec(),
+                        CoercedAttr::Concat(l) => l.0.into_vec(),
                         l => vec![l],
                     };
                     let r = CoercedAttr::coerce(attr, configurable, ctx, r, None)?;
                     let r = match r {
-                        CoercedAttr::Concat(r) => r.into_vec(),
+                        CoercedAttr::Concat(r) => r.0.into_vec(),
                         r => vec![r],
                     };
 
                     l.extend(r);
-                    Ok(CoercedAttr::Concat(l.into_boxed_slice()))
+                    Ok(CoercedAttr::Concat(CoercedConcat(l.into_boxed_slice())))
                 }
             }
         } else {
             Ok(attr
                 .coerce_item(configurable, ctx, value)
-                .with_context(|| format!("Error coercing {}", value))?)
+                .with_buck_error_context(|| format!("Error coercing {}", value))?)
         }
     }
 }

@@ -30,9 +30,8 @@ use std::sync::atomic;
 
 use allocative::Allocative;
 use serde::Serialize;
-use starlark_derive::starlark_value;
 use starlark_derive::ProvidesStaticType;
-use starlark_derive::StarlarkDocs;
+use starlark_derive::starlark_value;
 use starlark_map::Hashed;
 use starlark_map::StarlarkHashValue;
 use starlark_map::StarlarkHasher;
@@ -46,15 +45,15 @@ use crate::environment::Methods;
 use crate::environment::MethodsStatic;
 use crate::private::Private;
 use crate::typing::Ty;
-use crate::values::index::apply_slice;
-use crate::values::none::NoneOr;
-use crate::values::string::interpolation;
-use crate::values::string::repr::string_repr;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
+use crate::values::index::apply_slice;
+use crate::values::none::NoneOr;
+use crate::values::string::interpolation;
+use crate::values::string::repr::string_repr;
 
 /// The result of calling `type()` on strings.
 pub const STRING_TYPE: &str = "string";
@@ -74,8 +73,7 @@ pub(crate) struct StarlarkStrN<const N: usize> {
 
 /// A pointer to this type represents a Starlark string.
 /// Use of this type is discouraged and not considered stable.
-#[derive(ProvidesStaticType, StarlarkDocs, Allocative)]
-#[starlark_docs(builtin = "standard")]
+#[derive(ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct StarlarkStr {
     str: StarlarkStrN<0>,
@@ -123,7 +121,7 @@ impl StarlarkStr {
     #[doc(hidden)]
     #[inline]
     pub const fn payload_len_for_len(len: usize) -> usize {
-        (len + mem::size_of::<usize>() - 1) / mem::size_of::<usize>()
+        len.div_ceil(mem::size_of::<usize>())
     }
 
     /// Unsafe because if you do `unpack` on this it will blow up
@@ -376,9 +374,9 @@ impl Serialize for StarlarkStr {
 #[cfg(test)]
 mod tests {
     use crate::assert;
-    use crate::values::index::apply_slice;
     use crate::values::Heap;
     use crate::values::Value;
+    use crate::values::index::apply_slice;
 
     #[test]
     fn test_string_corruption() {

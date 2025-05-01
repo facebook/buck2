@@ -29,13 +29,10 @@ Fields:
 
 Example JSON output of `setup` command:
 
-```
+```json
 {
   "pid": 42,
-  "resources": [
-    {"socket_address": "foo:1"},
-    {"socket_address": "bar:2"}
-  ]
+  "resources": [{"socket_address": "foo:1"}, {"socket_address": "bar:2"}]
 }
 ```
 
@@ -86,7 +83,7 @@ performed when SIGTERM is sent to each process holding a pool of resources.
 
 Define a target which has `LocalResourceInfo` provider:
 
-```
+```python
 simulator(
   name = "my_resource",
   broker = ":broker",
@@ -97,7 +94,7 @@ where `broker` points to a runnable handling actual simulators.
 
 Implementation of `simulator` rule would be:
 
-```
+```python
 def _impl(ctx: AnalysisContext) -> ["provider"]:
   return [
     DefaultInfo(),
@@ -110,13 +107,10 @@ def _impl(ctx: AnalysisContext) -> ["provider"]:
 
 Running a `:broker` via `setup` command produces the following JSON:
 
-```
+```json
 {
   "pid": 42,
-  "resources": [
-    {"socket_address": "foo:1"},
-    {"socket_address": "bar:2"}
-  ]
+  "resources": [{"socket_address": "foo:1"}, {"socket_address": "bar:2"}]
 }
 ```
 
@@ -133,7 +127,7 @@ Let's assume a test runner requires a resource of type "ios_simulator" for every
 
 Pass `:my_resource` target as a dependency into `apple_test` rule:
 
-```
+```python
 apple_test = rule(
     impl = apple_test_impl,
     attrs = {
@@ -147,7 +141,7 @@ apple_test = rule(
 Actually map "ios_simulator" resource type to `:broker` target containing
 `LocalResourceInfo` provider:
 
-```
+```python
 def apple_test_impl(ctx: AnalysisContext) -> ["provider"]:
     ...
     return [

@@ -1,0 +1,183 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("constants.bxl", "BY_MODES")
+load("gen_user_macros.bxl", "gen_user_macros")
+load("get_attrs.bxl", "get_attrs")
+load("get_compiler_settings.bxl", "gen_compiler_settings")
+load("get_linker_settings.bxl", "gen_linker_settings")
+load("get_vs_settings.bxl", "get_vs_settings")
+load("utils.bxl", "get_mode_config_path", "get_project_file_path", "get_root_path_relative_to", "get_vs_configuration", "h", "log_debug")
+
+def _gen_project_configurations(project_configurations):
+    return h("ItemGroup", [
+        h(
+            "ProjectConfiguration",
+            [
+                h("Configuration", config["Configuration"], indent_level = 3),
+                h("Platform", config["Platform"], indent_level = 3),
+            ],
+            {
+                "Include": config["Configuration"] + "|" + config["Platform"],
+            },
+            indent_level = 2,
+        )
+        for config in project_configurations
+    ], {
+        "Label": "ProjectConfigurations",
+    }, indent_level = 1)
+
+def _gen_configuration_type(project_configurations):
+    return h(
+        "PropertyGroup",
+        [
+            h("ConfigurationType", project_configurations[0]["ConfigurationType"], indent_level = 2),
+        ],
+        indent_level = 1,
+    )
+
+def _gen_headers(headers):
+    return h("ItemGroup", [
+        h("ClInclude", None, {
+            "Include": cmd_args("$(RepoRoot)\\", header, delimiter = ""),
+        }, indent_level = 2)
+        for header in headers
+    ], indent_level = 1)
+
+def _gen_sources(sources):
+    source_entries = [
+        h("ClCompile", [h("BuckObjSubTarget", object, indent_level = 3)], {
+            "Include": cmd_args("$(RepoRoot)\\", source, delimiter = ""),
+        }, indent_level = 2)
+        for source, object in sources.items()
+    ]
+    return h("ItemGroup", source_entries, indent_level = 1)
+
+def _gen_import_mode_configs(vs_settings: dict, target):
+    imports = []
+    for (mode_file, _) in vs_settings[BY_MODES].items():
+        import_config = '        <Import Condition="\'$(Configuration)\'==\'{}\'" Project="{}mode_configs\\{}" />\n'.format(
+            get_vs_configuration(mode_file),
+            get_root_path_relative_to(target.label),
+            get_mode_config_path(mode_file),
+        )
+        imports.append(import_config)
+    return h("ImportGroup", imports, {
+        "Label": "PropertySheets",
+    }, indent_level = 1)
+
+def gen_vcxproj(target: bxl.ConfiguredTargetNode, vs_settings: dict, cli_args, buck_root):
+    log_debug("# Generating vcxproj for {}", target.label.raw_target(), log_level = cli_args.log_level)
+
+    project_configurations = _gen_project_configurations(vs_settings["ProjectConfigurations"])
+    configuration_type = _gen_configuration_type(vs_settings["ProjectConfigurations"])
+    user_macros = gen_user_macros(target, vs_settings, cli_args, buck_root)
+    headers = _gen_headers(vs_settings["Headers"])
+    sources = _gen_sources(vs_settings["Sources"])
+    compiler_settings = gen_compiler_settings(vs_settings["CompilerSettings"])
+    linker_settings = gen_linker_settings(vs_settings["LinkerSettings"])
+    import_mode_configs = _gen_import_mode_configs(vs_settings, target)
+
+    # Why are we using cmd_args instead of strings? Because bxl resolved_attrs does not support string manipulation (as of July 2024)
+    # See https://fb.workplace.com/groups/buck2users/permalink/3703593843230303/ for more context
+    vcxproj_content = cmd_args(
+        """<?xml version="1.0" encoding="utf-8"?>""",
+        """<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">""",
+        project_configurations,
+        "",
+        h(
+            "PropertyGroup",
+            [
+                h(key, value, indent_level = 2)
+                for (key, value) in vs_settings["Globals"].items()
+            ],
+            {
+                "Label": "Globals",
+            },
+            indent_level = 1,
+        ),
+        "",
+        configuration_type,
+        "",
+        """    <ImportGroup Label="ExtensionSettings" />""",
+        "",
+        user_macros,
+        "",
+        import_mode_configs,  # mode configs must be imported early but after user_macros so that it can be overwrite
+        "",
+        """    <ItemDefinitionGroup>""",
+        compiler_settings,
+        linker_settings,
+        """    </ItemDefinitionGroup>""",
+        "",
+        headers,
+        "",
+        sources,
+        "",
+        h(
+            "Target",
+            [
+                h(
+                    "Exec",
+                    None,
+                    {
+                        "Command": "$(vs_buck_build_command)[objects][%(ClCompile.BuckObjSubTarget)] $(ExtraBuckOptions)",
+                        "WorkingDirectory": "$(RepoRoot)",
+                    },
+                    indent_level = 2,
+                ),
+            ],
+            {
+                "Condition": "\'@(ClCompile)\' != \'\'",
+                "DependsOnTargets": "SelectClCompile",
+                "Name": "ClCompile",
+            },
+            indent_level = 1,
+        ),
+        """
+    <ImportGroup Label="ExtensionTargets" />
+</Project>""",
+        delimiter = "\n",
+    )
+    return vcxproj_content
+
+def _main(bxl_ctx):
+    target_label = bxl_ctx.cli_args.target
+    target_node = bxl_ctx.configured_targets(target_label)
+    actions = bxl_ctx.bxl_actions().actions
+    attrs = get_attrs(target_node, bxl_ctx)
+    attrs_outfile = actions.write_json(get_project_file_path(target_node.label, ".json"), attrs)
+    vcxproj_artifact = actions.declare_output(get_project_file_path(target_node.label, ".vcxproj"))
+
+    def f(ctx, artifacts, outputs, attrs_outfile = attrs_outfile, vcxproj_artifact = vcxproj_artifact, target = target_node, cli_args = bxl_ctx.cli_args, buck_root = bxl_ctx.root()):
+        attrs_input = artifacts[attrs_outfile].read_json()
+        vs_settings = get_vs_settings(target, attrs_input, {}, cli_args, buck_root, ctx)
+        vcxproj_content = gen_vcxproj(target, vs_settings, cli_args, buck_root)
+        ctx.bxl_actions().actions.write(outputs[vcxproj_artifact].as_output(), vcxproj_content, allow_args = True)
+
+    actions.dynamic_output(
+        dynamic = [attrs_outfile],
+        inputs = [],
+        outputs = [
+            vcxproj_artifact.as_output(),
+        ],
+        f = f,
+    )
+    bxl_ctx.output.print(bxl_ctx.output.ensure(vcxproj_artifact))
+
+main = bxl_main(
+    impl = _main,
+    cli_args = {
+        "debug_settings": cli_args.option(cli_args.json()),  # target label => debug_settings.
+        "extra_buck_options": cli_args.list(cli_args.string(), default = []),
+        "immediate_buck_options": cli_args.list(cli_args.string(), default = []),
+        "log_level": cli_args.int(default = 30),
+        "mode_files": cli_args.list(cli_args.string(), default = ["fbsource//arvr/mode/win/dev"]),
+        "mode_hashes": cli_args.option(cli_args.json()),  # mode => configuration hash.
+        "target": cli_args.target_label(),
+    },
+)

@@ -18,6 +18,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::ValueLifetimeless;
@@ -27,6 +28,7 @@ use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
 
+use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::ConstraintSettingInfo;
 use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::FrozenConstraintSettingInfo;
 
@@ -68,7 +70,7 @@ fn constraint_value_info_creator(globals: &mut GlobalsBuilder) {
     fn ConstraintValueInfo<'v>(
         #[starlark(require = named)] setting: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
         #[starlark(require = named)] label: ValueOf<'v, &'v StarlarkTargetLabel>,
-    ) -> anyhow::Result<ConstraintValueInfo<'v>> {
+    ) -> starlark::Result<ConstraintValueInfo<'v>> {
         Ok(ConstraintValueInfo {
             setting: ValueOfUnchecked::new(setting.value),
             label: label.as_unchecked().cast(),

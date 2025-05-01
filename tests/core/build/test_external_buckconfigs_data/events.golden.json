@@ -1,0 +1,26 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+[
+  {
+    "key": "file_watcher",
+    "origin": "tmp-path/extra.bcfg",
+    "section": "buck2",
+    "value": "fs_hash_crawler"
+  },
+  {
+    "origin": "config-file",
+    "path": "my_mode.bcfg"
+  },
+  {
+    "key": "my_key",
+    "origin": "cli",
+    "section": "my_section",
+    "value": "my_value"
+  },
+  {
+    "key": "my_key",
+    "origin": "cli",
+    "section": "my_section",
+    "value": "my_new_value"
+  }
+]

@@ -3,6 +3,8 @@ id: index
 title: Introduction
 ---
 
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 Welcome to Buck2, a large scale, fast, reliable, and extensible build tool
 developed and used by Meta. Buck2 supports a variety of languages on many
 platforms.
@@ -51,8 +53,8 @@ your team.
 
 - [Writing Rules](rule_authors/writing_rules.md) - how to write rules to support
   new languages.
-- [Build APIs](api/build/globals) - documentation for the APIs available when
-  writing rules.
+- [Build APIs](api/build) - documentation for the APIs available when writing
+  rules.
 - [Starlark Types](https://github.com/facebook/starlark-rust/blob/main/docs/types.md) -
   rules are written in Starlark (which is approximately Python), but our version
   adds types.
@@ -66,8 +68,8 @@ your team.
 
 ### For people integrating with Buck2
 
-- [Extending Buck via BXL](developers/bxl.md) - powerful Starlark scripts for
-  introspection of Buck2's graphs.
+- [Extending Buck via BXL](./bxl) - powerful Starlark scripts for introspection
+  of Buck2's graphs.
 - [Buck2 change detector](https://github.com/facebookincubator/buck2-change-detector) -
   tools for building a CI that only builds/tests what has changed in diff/PR.
 - [Buck2 GitHub actions installer](https://github.com/dtolnay/install-buck2) -

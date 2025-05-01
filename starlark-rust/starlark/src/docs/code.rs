@@ -19,7 +19,6 @@ use std::fmt::Display;
 
 use itertools::Itertools;
 
-use crate::docs::Doc;
 use crate::docs::DocFunction;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
@@ -30,9 +29,10 @@ use crate::docs::DocProperty;
 use crate::docs::DocReturn;
 use crate::docs::DocString;
 use crate::docs::DocType;
-use crate::eval::runtime::params::display::fmt_param_spec_maybe_multiline;
 use crate::eval::runtime::params::display::ParamFmt;
+use crate::eval::runtime::params::display::fmt_param_spec_maybe_multiline;
 use crate::typing::Ty;
+use crate::typing::ty::TypeRenderConfig;
 
 /// There have been bugs around line endings in the textwrap crate. Just join
 /// into a single string, and trim the line endings.
@@ -125,10 +125,14 @@ impl DocFunction {
     }
 
     pub fn render_as_code(&self, name: &str) -> String {
-        let params_one_line = self.params.render_code(None);
+        let params_one_line = self.params.render_code(None, &TypeRenderConfig::Default);
 
         let params = if params_one_line.len() > 60 {
-            format!("(\n{})", self.params.render_code(Some("    ")))
+            format!(
+                "(\n{})",
+                self.params
+                    .render_code(Some("    "), &TypeRenderConfig::Default),
+            )
         } else {
             format!("({})", params_one_line)
         };
@@ -157,14 +161,21 @@ impl DocParam {
         Some(indented)
     }
 
-    fn fmt_param(&self) -> ParamFmt<'_, impl Display + '_, impl Display + '_> {
+    fn fmt_param<'a>(
+        &'a self,
+        render_config: &'a TypeRenderConfig,
+    ) -> ParamFmt<'a, impl Display + 'a, impl Display + 'a> {
         let DocParam {
             name,
             docs: _,
             typ,
             default_value,
         } = self;
-        let ty = if typ.is_any() { None } else { Some(typ) };
+        let ty = if typ.is_any() {
+            None
+        } else {
+            Some(typ.display_with(render_config))
+        };
         ParamFmt {
             name,
             ty,
@@ -175,16 +186,20 @@ impl DocParam {
 
 impl DocParams {
     /// Render multiline if `indent` is `Some`.
-    pub(crate) fn render_code(&self, indent: Option<&str>) -> String {
+    pub(crate) fn render_code(
+        &self,
+        indent: Option<&str>,
+        render_config: &TypeRenderConfig,
+    ) -> String {
         let mut s = String::new();
         fmt_param_spec_maybe_multiline(
             &mut s,
             indent,
-            self.pos_only.iter().map(DocParam::fmt_param),
-            self.pos_or_named.iter().map(DocParam::fmt_param),
-            self.args.as_ref().map(DocParam::fmt_param),
-            self.named_only.iter().map(DocParam::fmt_param),
-            self.kwargs.as_ref().map(DocParam::fmt_param),
+            self.pos_only.iter().map(|p| p.fmt_param(render_config)),
+            self.pos_or_named.iter().map(|p| p.fmt_param(render_config)),
+            self.args.as_ref().map(|p| p.fmt_param(render_config)),
+            self.named_only.iter().map(|p| p.fmt_param(render_config)),
+            self.kwargs.as_ref().map(|p| p.fmt_param(render_config)),
         )
         .unwrap();
         s
@@ -261,35 +276,13 @@ impl DocType {
     }
 }
 
-impl Doc {
-    /// Render a starlark code representation of this documentation object.
-    ///
-    /// Function bodies for these consist of a single "pass" statement, and objects
-    /// are represented as structs.
-    pub fn render_as_code(&self) -> String {
-        match &self.item {
+impl DocItem {
+    pub fn render_as_code(&self, name: &str) -> String {
+        match self {
             DocItem::Module(m) => m.render_as_code(),
-            DocItem::Type(o) => o.render_as_code(&self.id.name),
-            DocItem::Member(DocMember::Function(f)) => f.render_as_code(&self.id.name),
-            DocItem::Member(DocMember::Property(p)) => p.render_as_code(&self.id.name),
+            DocItem::Type(o) => o.render_as_code(&name),
+            DocItem::Member(DocMember::Function(f)) => f.render_as_code(&name),
+            DocItem::Member(DocMember::Property(p)) => p.render_as_code(&name),
         }
     }
-}
-
-/// Render a series of [`Doc`] objects into a "starlark" file.
-///
-/// Function bodies for these consist of a single "pass" statement, and objects
-/// are represented as structs.
-///
-/// The returned array may not be in the same order as the originally provided docs.
-/// They are in the order that they should appear in the rendered starlark file.
-pub fn render_docs_as_code(docs: &[Doc]) -> String {
-    let (modules, non_modules): (Vec<_>, Vec<_>) = docs
-        .iter()
-        .partition(|d| matches!(d.item, DocItem::Module(_)));
-    modules
-        .into_iter()
-        .chain(non_modules)
-        .map(|d| d.render_as_code())
-        .join("\n\n")
 }

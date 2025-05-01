@@ -157,6 +157,10 @@ where
         self.0.len()
     }
 
+    pub fn get(&self, index: AbstractVertexId<Kind>) -> Option<&T> {
+        self.0.get(index.0 as usize)
+    }
+
     pub fn into_inner(self) -> Vec<T> {
         self.0
     }

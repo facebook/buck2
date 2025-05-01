@@ -22,7 +22,10 @@ use dupe::Dupe;
 pub(crate) struct EnabledOptionalValidationsKey;
 
 pub trait SetEnabledOptionalValidations {
-    fn set_enabled_optional_validations(&mut self, validations: Vec<String>) -> anyhow::Result<()>;
+    fn set_enabled_optional_validations(
+        &mut self,
+        validations: Vec<String>,
+    ) -> buck2_error::Result<()>;
 }
 
 impl InjectedKey for EnabledOptionalValidationsKey {
@@ -34,7 +37,10 @@ impl InjectedKey for EnabledOptionalValidationsKey {
 }
 
 impl SetEnabledOptionalValidations for DiceTransactionUpdater {
-    fn set_enabled_optional_validations(&mut self, validations: Vec<String>) -> anyhow::Result<()> {
+    fn set_enabled_optional_validations(
+        &mut self,
+        validations: Vec<String>,
+    ) -> buck2_error::Result<()> {
         Ok(self.changed_to(vec![(
             EnabledOptionalValidationsKey,
             Arc::new(BTreeSet::from_iter(validations)),

@@ -20,38 +20,46 @@
 mod imp {
     use std::env;
 
+    use buck2_error::conversion::from_any_with_tag;
+
     /// Output the current state of the heap to the filename specified.
     /// Intended to be used for debugging purposes.
     /// Requires MALLOC_CONF=prof:true to be set in environment variables
     /// when run, though must be built without MALLOC_CONF=prof:true.
-    pub fn write_heap_to_file(filename: &str) -> anyhow::Result<()> {
+    pub fn write_heap_to_file(filename: &str) -> buck2_error::Result<()> {
         if !memory::is_using_jemalloc() {
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
                 "not using jemalloc; are you building with @//mode/dev or @//mode/dbgo?"
             ));
         }
 
-        let prof_enabled: bool = memory::mallctl_read("opt.prof")?;
+        let prof_enabled: bool = memory::mallctl_read("opt.prof")
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Mallctl))?;
         if !prof_enabled {
             if env::var_os("MALLOC_CONF").is_some() {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Input,
                     "the environment variable MALLOC_CONF is set, but profiling is not enabled. MALLOC_CONF must contain prof:true to enable the profiler"
                 ));
             }
 
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
                 "profiling is not enabled for this process; you must set the environment variable MALLOC_CONF to contain at least prof:true in order to profile"
             ));
         }
 
         eprintln!("dumping heap to: {:?}", filename);
-        memory::mallctl_write("prof.dump", filename)?;
+        memory::mallctl_write("prof.dump", filename)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Mallctl))?;
         Ok(())
     }
 
     /// Dump allocator stats from JEMalloc. Intended for debug purposes
-    pub fn allocator_stats(options: &str) -> anyhow::Result<String> {
+    pub fn allocator_stats(options: &str) -> buck2_error::Result<String> {
         allocator_stats::malloc_stats(options)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::MallocStats))
     }
 
     /// Enables background threads for jemalloc. See [here](http://jemalloc.net/jemalloc.3.html#background_thread) for
@@ -59,9 +67,10 @@ mod imp {
     /// doing it synchronously.
     ///
     /// This function has no effect if not using jemalloc.
-    pub fn enable_background_threads() -> anyhow::Result<()> {
+    pub fn enable_background_threads() -> buck2_error::Result<()> {
         if memory::is_using_jemalloc() {
-            memory::mallctl_write("background_thread", true)?;
+            memory::mallctl_write("background_thread", true)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Mallctl))?;
         }
         Ok(())
     }
@@ -73,22 +82,23 @@ mod imp {
 
 #[cfg(not(fbcode_build))]
 mod imp {
-
-    pub fn write_heap_to_file(_filename: &str) -> anyhow::Result<()> {
+    pub fn write_heap_to_file(_filename: &str) -> buck2_error::Result<()> {
         // TODO(swgillespie) the `jemalloc_ctl` crate is probably capable of doing this
         // and we already link against it
-        Err(anyhow::anyhow!(
+        Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Unimplemented,
             "not implemented: heap dump for Cargo builds"
         ))
     }
 
-    pub fn allocator_stats(_: &str) -> anyhow::Result<String> {
-        Err(anyhow::anyhow!(
+    pub fn allocator_stats(_: &str) -> buck2_error::Result<String> {
+        Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Unimplemented,
             "not implemented: allocator stats  for Cargo builds"
         ))
     }
 
-    pub fn enable_background_threads() -> anyhow::Result<()> {
+    pub fn enable_background_threads() -> buck2_error::Result<()> {
         Ok(())
     }
 

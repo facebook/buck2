@@ -11,17 +11,24 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::name::CellName;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::is_open_source;
+#[cfg(fbcode_build)]
+use buck2_core::soft_error;
+use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use dice::DiceTransactionUpdater;
 
+#[cfg(fbcode_build)]
+use crate::edenfs::interface::EdenFsFileWatcher;
+#[cfg(fbcode_build)]
+use crate::edenfs::interface::EdenFsWatcherError;
 use crate::fs_hash_crawler::FsHashCrawler;
 use crate::mergebase::Mergebase;
 use crate::notify::NotifyFileWatcher;
@@ -32,23 +39,27 @@ pub trait FileWatcher: Allocative + Send + Sync + 'static {
     async fn sync(
         &self,
         dice: DiceTransactionUpdater,
-    ) -> anyhow::Result<(DiceTransactionUpdater, Mergebase)>;
+    ) -> buck2_error::Result<(DiceTransactionUpdater, Mergebase)>;
 }
 
 impl dyn FileWatcher {
     /// Create a new FileWatcher. Note that this is not async, since it's called during daemon
     /// startup and shouldn't be doing any work that could warrant suspending.
     pub fn new(
+        fb: fbinit::FacebookInit,
         project_root: &ProjectRoot,
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
         ignore_specs: HashMap<CellName, IgnoreSet>,
-    ) -> anyhow::Result<Arc<dyn FileWatcher>> {
+    ) -> buck2_error::Result<Arc<dyn FileWatcher>> {
         let default = if is_open_source() {
             "notify"
         } else {
+            // TODO: On EdenFS mount use "edenfs", on non-EdenFS use "watchman"
             "watchman"
         };
+
+        let _allow_unused = fb;
 
         match root_config
             .get(BuckconfigKeyRef {
@@ -59,17 +70,51 @@ impl dyn FileWatcher {
         {
             "watchman" => Ok(Arc::new(
                 WatchmanFileWatcher::new(project_root.root(), root_config, cells, ignore_specs)
-                    .context("Creating watchman file watcher")?,
+                    .buck_error_context("Creating watchman file watcher")?,
             )),
             "notify" => Ok(Arc::new(
                 NotifyFileWatcher::new(project_root, cells, ignore_specs)
-                    .context("Creating notify file watcher")?,
+                    .buck_error_context("Creating notify file watcher")?,
             )),
             "fs_hash_crawler" => Ok(Arc::new(
                 FsHashCrawler::new(project_root, cells, ignore_specs)
-                    .context("Creating fs_crawler file watcher")?,
+                    .buck_error_context("Creating fs_crawler file watcher")?,
             )),
-            other => Err(anyhow::anyhow!("Invalid buck2.file_watcher: {}", other)),
+            #[cfg(fbcode_build)]
+            "edenfs" => {
+                match EdenFsFileWatcher::new(
+                    fb,
+                    project_root,
+                    root_config,
+                    cells.clone(),
+                    ignore_specs.clone(),
+                ) {
+                    Ok(edenfs) => Ok(Arc::new(edenfs)),
+                    Err(EdenFsWatcherError::NoEden) => {
+                        soft_error!(
+                            "edenfs_watcher_creation_failure",
+                            EdenFsWatcherError::NoEden.into()
+                        )?;
+                        // fallback to watchman if failed to create edenfs watcher
+                        Ok(Arc::new(
+                            WatchmanFileWatcher::new(
+                                project_root.root(),
+                                root_config,
+                                cells,
+                                ignore_specs,
+                            )
+                            .buck_error_context("Creating watchman file watcher")?,
+                        ))
+                    }
+                    Err(e) => Err(e.into()),
+                }
+            }
+
+            other => Err(buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Invalid buck2.file_watcher: {}",
+                other
+            )),
         }
     }
 }

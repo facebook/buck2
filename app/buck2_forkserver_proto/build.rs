@@ -31,6 +31,10 @@ fn main() -> io::Result<()> {
             "buck.forkserver.EnvDirective.data",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName, ::gazebo::variants::UnpackVariants)]",
         )
+        .type_attribute(
+            "buck.forkserver.RequestEvent.data",
+            "#[allow(clippy::large_enum_variant)]",
+        )
         .extern_path(".buck.data", "::buck2_data")
         .compile(proto_files, &[".", &data_include])
 }

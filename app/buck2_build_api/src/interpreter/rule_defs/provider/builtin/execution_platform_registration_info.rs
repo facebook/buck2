@@ -15,10 +15,8 @@ use buck2_core::execution_types::execution_platforms::ExecutionPlatformFallback;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::list::ListRef;
-use starlark::values::list::ListType;
-use starlark::values::none::NoneOr;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
 use starlark::values::Trace;
@@ -28,11 +26,16 @@ use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTypedComplex;
+use starlark::values::list::ListRef;
+use starlark::values::list::ListType;
+use starlark::values::none::NoneOr;
 
+use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::ExecutionPlatformInfo;
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::FrozenExecutionPlatformInfo;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ExecutionPlatformRegistrationTypeError {
     #[error("expected a list of ExecutionPlatformInfo, got `{0}` (type `{1}`)")]
     ExpectedListOfPlatforms(String, String),
@@ -59,7 +62,7 @@ impl FrozenExecutionPlatformRegistrationInfo {
     // TODO(cjhopman): If we impl this on the non-frozen one, we can check validity when constructed rather than only when used.
     pub fn platforms(
         &self,
-    ) -> anyhow::Result<Vec<FrozenRef<'static, FrozenExecutionPlatformInfo>>> {
+    ) -> buck2_error::Result<Vec<FrozenRef<'static, FrozenExecutionPlatformInfo>>> {
         ListRef::from_frozen_value(self.platforms.get())
             .ok_or_else(|| {
                 ExecutionPlatformRegistrationTypeError::ExpectedListOfPlatforms(
@@ -73,16 +76,17 @@ impl FrozenExecutionPlatformRegistrationInfo {
                     .expect("should be frozen")
                     .downcast_frozen_ref::<FrozenExecutionPlatformInfo>()
                     .ok_or_else(|| {
-                        anyhow::anyhow!(ExecutionPlatformRegistrationTypeError::NotAPlatform(
+                        ExecutionPlatformRegistrationTypeError::NotAPlatform(
                             v.to_repr(),
                             v.get_type().to_owned(),
-                        ))
+                        )
+                        .into()
                     })
             })
-            .collect::<anyhow::Result<_>>()
+            .collect::<buck2_error::Result<_>>()
     }
 
-    pub fn fallback(&self) -> anyhow::Result<ExecutionPlatformFallback> {
+    pub fn fallback(&self) -> buck2_error::Result<ExecutionPlatformFallback> {
         if self.fallback.get().is_none() {
             return Ok(ExecutionPlatformFallback::UseUnspecifiedExec);
         }
@@ -96,12 +100,11 @@ impl FrozenExecutionPlatformRegistrationInfo {
         match fallback.unpack_str() {
             Some("error") => Ok(ExecutionPlatformFallback::Error),
             Some("use_unspecified") => Ok(ExecutionPlatformFallback::UseUnspecifiedExec),
-            _ => Err(anyhow::anyhow!(
-                ExecutionPlatformRegistrationTypeError::InvalidFallback(
-                    fallback.to_repr(),
-                    fallback.get_type().to_owned(),
-                )
-            )),
+            _ => Err(ExecutionPlatformRegistrationTypeError::InvalidFallback(
+                fallback.to_repr(),
+                fallback.get_type().to_owned(),
+            )
+            .into()),
         }
     }
 }
@@ -114,7 +117,7 @@ fn info_creator(globals: &mut GlobalsBuilder) {
             ListType<ValueTypedComplex<'v, ExecutionPlatformInfo<'v>>>,
         >,
         #[starlark(require = named, default = NoneOr::None)] fallback: NoneOr<Value<'v>>,
-    ) -> anyhow::Result<ExecutionPlatformRegistrationInfo<'v>> {
+    ) -> starlark::Result<ExecutionPlatformRegistrationInfo<'v>> {
         Ok(ExecutionPlatformRegistrationInfo {
             platforms: ValueOfUnchecked::new(platforms.value),
             fallback: ValueOfUnchecked::new(match fallback {

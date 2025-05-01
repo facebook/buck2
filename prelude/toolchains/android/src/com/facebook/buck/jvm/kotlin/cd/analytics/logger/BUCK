@@ -1,0 +1,24 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_kotlin_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_kotlin_library(
+    name = "logger",
+    srcs = glob(["**/*.kt"]),
+    extra_kotlinc_arguments = ["-Xopt-in=kotlin.ExperimentalStdlibApi"],
+    labels = ["codegen_rule"],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/command/kotlin:language-version",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics:analytics",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics/logger/model:model",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/kotlinc/incremental:incremental",
+        "prelude//toolchains/android/src/com/facebook/buck/step/isolatedsteps:isolatedsteps",
+    ],
+)

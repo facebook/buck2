@@ -22,10 +22,6 @@ use either::Either;
 
 use crate::collections::SmallMap;
 use crate::typing::Ty;
-use crate::values::dict::AllocDict;
-use crate::values::dict::DictRef;
-use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::dict::dict_type::DictType;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -33,6 +29,10 @@ use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::dict::AllocDict;
+use crate::values::dict::DictRef;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::dict::dict_type::DictType;
 
 // SmallMap
 

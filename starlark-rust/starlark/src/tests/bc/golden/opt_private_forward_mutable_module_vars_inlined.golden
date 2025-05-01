@@ -14,5 +14,6 @@ _private_forward_mutable = {1: 2}
 
 Max stack size: 0
 Instructions:
-  0: ReturnConst {1: 2}
+       # instrs.star.bzl:3:5-36
+   0: ReturnConst {1: 2}
   16: End

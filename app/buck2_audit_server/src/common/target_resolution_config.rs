@@ -16,7 +16,7 @@ pub(crate) async fn audit_command_target_resolution_config(
     ctx: &mut DiceComputations<'_>,
     target_cfg: &TargetCfgWithUniverseOptions,
     server_ctx: &dyn ServerCommandContextTrait,
-) -> anyhow::Result<TargetResolutionConfig> {
+) -> buck2_error::Result<TargetResolutionConfig> {
     TargetResolutionConfig::from_args(
         ctx,
         &target_cfg.target_cfg.target_cfg(),

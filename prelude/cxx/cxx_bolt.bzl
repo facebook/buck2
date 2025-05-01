@@ -15,13 +15,19 @@ load(
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
+CxxBoltOutput = record(
+    output = field(Artifact),
+    dwo_output = field(Artifact | None),
+)
+
 def cxx_use_bolt(ctx: AnalysisContext) -> bool:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     return cxx_toolchain_info.bolt_enabled and ctx.attrs.bolt_profile != None
 
-def bolt(ctx: AnalysisContext, prebolt_output: Artifact, external_debug_info: ArtifactTSet, identifier: [str, None]) -> Artifact:
+def bolt(ctx: AnalysisContext, prebolt_output: Artifact, external_debug_info: ArtifactTSet, identifier: [str, None], generate_dwp: bool) -> CxxBoltOutput:
     output_name = prebolt_output.short_path.removesuffix("-wrapper")
     postbolt_output = ctx.actions.declare_output(output_name)
+    dwo_output = None
     bolt_msdk = get_cxx_toolchain_info(ctx).binary_utilities_info.bolt_msdk
 
     if not bolt_msdk or not cxx_use_bolt(ctx):
@@ -40,6 +46,17 @@ def bolt(ctx: AnalysisContext, prebolt_output: Artifact, external_debug_info: Ar
         ctx.attrs.bolt_flags,
         hidden = materialized_external_debug_info,
     )
+
+    if generate_dwp:
+        dwo_output = ctx.actions.declare_output(output_name + ".dwo.d", dir = True)
+        args.add(cmd_args(dwo_output.as_output(), format = "--dwarf-output-path={}"))
+        args = cmd_args(
+            "/bin/sh",
+            "-c",
+            cmd_args(dwo_output.as_output(), format = 'mkdir -p {}; "$@"'),
+            '""',
+            args,
+        )
 
     ctx.actions.run(
         args,
@@ -64,7 +81,10 @@ def bolt(ctx: AnalysisContext, prebolt_output: Artifact, external_debug_info: Ar
             ]),
             category = "bolt_strip_stapsdt",
             identifier = identifier,
+            # This can execute in RE, but is cheaper to do locally especially for large binaries that
+            # are already locally materialized
+            prefer_local = True,
         )
         output = stripped_postbolt_output
 
-    return output
+    return CxxBoltOutput(output = output, dwo_output = dwo_output)

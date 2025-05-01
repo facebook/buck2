@@ -10,6 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//decls:test_common.bzl", "test_common")
 load(":common.bzl", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":go_common.bzl", "go_common")
@@ -63,6 +64,7 @@ go_binary = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        go_common.package_name_arg() |
         go_common.srcs_arg() |
         go_common.deps_arg() |
         go_common.link_style_arg() |
@@ -76,7 +78,7 @@ go_binary = prelude_rule(
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
         go_common.asan_arg() |
-        go_common.tags_arg() |
+        go_common.build_tags_arg() |
         cxx_common.headers_arg() |
         cxx_common.header_namespace_arg() |
         go_common.cxx_preprocessor_flags_arg() |
@@ -145,6 +147,7 @@ go_exported_library = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        go_common.package_name_arg() |
         go_common.srcs_arg() |
         go_common.deps_arg() |
         {
@@ -171,7 +174,7 @@ go_exported_library = prelude_rule(
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
         go_common.asan_arg() |
-        go_common.tags_arg() |
+        go_common.build_tags_arg() |
         go_common.generate_exported_header() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
@@ -233,7 +236,6 @@ go_library = prelude_rule(
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "exported_deps": attrs.list(attrs.dep(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
         }
@@ -304,6 +306,7 @@ go_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        buck.inject_test_env_arg() |
         go_common.srcs_arg() |
         {
             "library": attrs.option(attrs.dep(), default = None, doc = """
@@ -334,7 +337,7 @@ go_test = prelude_rule(
         go_common.cgo_enabled_arg() |
         go_common.race_arg() |
         go_common.asan_arg() |
-        go_common.tags_arg() |
+        go_common.build_tags_arg() |
         cxx_common.headers_arg() |
         cxx_common.header_namespace_arg() |
         go_common.cxx_preprocessor_flags_arg() |
@@ -362,14 +365,18 @@ go_test = prelude_rule(
             "runner": attrs.option(attrs.dep(), default = None),
             "specs": attrs.option(attrs.arg(json = True), default = None),
         } |
-        re_test_common.test_args()
+        re_test_common.test_args() |
+        test_common.attributes()
     ),
 )
 go_bootstrap_binary = prelude_rule(
     name = "go_bootstrap_binary",
     attrs = (
         go_common.srcs_arg() |
-        {"entrypoints": attrs.list(attrs.string(), default = [], doc = """Package name or file names""")}
+        {
+            "build_args": attrs.list(attrs.string(), default = [], doc = """Package name, file names and build flags"""),
+            "workdir": attrs.string(default = "", doc = """Change to subdir before running the command"""),
+        }
     ),
 )
 

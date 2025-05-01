@@ -11,8 +11,8 @@ use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::none::NoneType;
 use starlark::values::Value;
+use starlark::values::none::NoneType;
 
 #[starlark_module]
 pub(crate) fn register_load_symbols(builder: &mut GlobalsBuilder) {

@@ -30,8 +30,8 @@ use dupe::OptionDupedExt;
 use futures::FutureExt;
 use indexmap::IndexMap;
 
-use crate::analysis::environment::get_from_template_placeholder_info;
 use crate::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate;
+use crate::analysis::environment::get_from_template_placeholder_info;
 
 pub(crate) struct AnalysisDiceQueryDelegate<'c, 'd> {
     pub(crate) ctx: &'c LinearRecomputeDiceComputations<'d>,
@@ -50,18 +50,18 @@ pub(crate) struct AnalysisConfiguredGraphQueryDelegate<'a, 'd> {
 
 #[async_trait]
 impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDelegate<'_, '_> {
-    fn eval_literal(&self, literal: &str) -> anyhow::Result<ConfiguredTargetNode> {
+    fn eval_literal(&self, literal: &str) -> buck2_error::Result<ConfiguredTargetNode> {
         self.resolved_literals
             .get(literal)
             .duped()
-            .ok_or_else(|| anyhow::anyhow!(""))
+            .ok_or_else(|| buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, ""))
     }
 
     async fn get_targets_from_template_placeholder_info(
         &self,
         template_name: &'static str,
         targets: TargetSet<ConfiguredGraphNodeRef>,
-    ) -> anyhow::Result<TargetSet<ConfiguredGraphNodeRef>> {
+    ) -> buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>> {
         #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
         #[display("template_placeholder_info_query({})", template_name)]
         struct TemplatePlaceholderInfoQueryKey {
@@ -155,7 +155,7 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
 fn find_target_nodes(
     targets: TargetSet<ConfiguredGraphNodeRef>,
     label_to_artifact: IndexMap<ConfiguredTargetLabel, Artifact>,
-) -> anyhow::Result<TargetSet<ConfiguredGraphNodeRef>> {
+) -> buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>> {
     let mut queue: VecDeque<_> = targets.iter().duped().collect();
     let mut seen = targets;
     let mut result = TargetSet::new();

@@ -1,0 +1,32 @@
+load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+fb_native.genrule(
+    name = "manifest",
+    srcs = [
+        "AndroidManifest-template.xml",
+    ],
+    out = "AndroidManifest.xml",
+    bash = "VERSION=`sed -ne '/AGENT_VERSION_CODE/s/[^0-9]//gp' < " +
+           "$(location prelude//toolchains/android/src/com/facebook/buck/android/agent/util:util_src)` && " +
+           "sed s/{version}/$VERSION/g < $SRCDIR/AndroidManifest-template.xml > $OUT",
+)
+
+fb_native.android_binary(
+    name = "agent",
+    keystore = ":debug_keystore",
+    manifest = ":manifest",
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/android/agent:agent",
+    ],
+)
+
+fb_native.keystore(
+    name = "debug_keystore",
+    properties = "debug.keystore.properties",
+    store = "debug.keystore",
+)

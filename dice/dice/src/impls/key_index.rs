@@ -16,11 +16,11 @@ use lock_free_vec::LockFreeVec;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 
+use crate::Key;
 use crate::impls::key::CowDiceKeyHashed;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::DiceKeyErasedRef;
-use crate::Key;
 
 const KEY_BY_INDEX_BUCKETS: usize =
     lock_free_vec::buckets_for_max_capacity(DiceKeyIndex::MAX_INDEX_IN_SHARD as usize + 1);
@@ -42,7 +42,7 @@ impl Shard {
             .lookup(hash, |k| {
                 self.key_by_index
                     .get(k.get() as usize - 1)
-                    .unwrap()
+                    .expect("no key in index indicates a bug in the underlying data structures")
                     .as_ref()
                     == key
             })
@@ -160,11 +160,11 @@ impl DiceKeyIndex {
 }
 
 mod introspect {
+    use crate::HashMap;
     use crate::impls::key::DiceKey;
     use crate::impls::key_index::DiceKeyIndex;
     use crate::impls::key_index::DiceKeyUnpacked;
     use crate::introspection::graph::AnyKey;
-    use crate::HashMap;
 
     impl DiceKeyIndex {
         pub(crate) fn introspect(&self) -> HashMap<DiceKey, AnyKey> {

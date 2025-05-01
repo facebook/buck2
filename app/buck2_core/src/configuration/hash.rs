@@ -10,6 +10,7 @@
 use allocative::Allocative;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum ConfigurationHashError {
     #[error("Configuration hash must be 16 hex digits, got: `{0}`")]
     Invalid(String),
@@ -37,7 +38,7 @@ impl ConfigurationHash {
         ConfigurationHash(format!("{:0>16x}", value))
     }
 
-    pub(crate) fn from_str(value: &str) -> anyhow::Result<ConfigurationHash> {
+    pub(crate) fn from_str(value: &str) -> buck2_error::Result<ConfigurationHash> {
         if value.len() != 16 {
             return Err(ConfigurationHashError::Invalid(value.to_owned()).into());
         }

@@ -15,25 +15,38 @@ use std::sync::Arc;
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
+use itertools::Itertools;
 
-use crate::base_deferred_key::BaseDeferredKey;
 use crate::category::CategoryRef;
 use crate::cells::external::ExternalCellOrigin;
 use crate::cells::paths::CellRelativePath;
+use crate::deferred::base_deferred_key::BaseDeferredKey;
+use crate::deferred::key::DeferredHolderKey;
+use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
+use crate::provider::label::ConfiguredProvidersLabel;
+use crate::provider::label::NonDefaultProvidersName;
+use crate::provider::label::ProvidersName;
 
-#[derive(Clone, Debug, Display, Allocative, Hash, Eq, PartialEq)]
+#[derive(
+    Clone,
+    Debug,
+    Display,
+    Allocative,
+    Hash,
+    Eq,
+    PartialEq,
+    strong_hash::StrongHash
+)]
 #[display("({})/{}", owner, path.as_str())]
-struct BuckOutPathData {
+struct BuildArtifactPathData {
     /// The owner responsible for creating this path.
-    owner: BaseDeferredKey,
-    /// The unique identifier for this action (only set for outputs inside dynamic actions)
-    action_key: Option<Arc<str>>,
+    owner: DeferredHolderKey,
     /// The path relative to that target.
-    path: ForwardRelativePathBuf,
+    path: Box<ForwardRelativePath>,
 }
 
 /// Represents a resolvable path corresponding to outputs of rules that are part
@@ -43,43 +56,44 @@ struct BuckOutPathData {
 /// This structure contains a target label for generating the base of the path (base
 /// path), and a `ForwardRelativePath` that represents the specific output
 /// location relative to the 'base path'.
-///
-/// For `Eq`/`Hash` we want the equality to be based on the path on disk,
-/// regardless of how the path looks to the user. Therefore we ignore the `hidden` field.
-#[derive(Clone, Dupe, Debug, Display, Hash, PartialEq, Eq, Allocative)]
-pub struct BuckOutPath(Arc<BuckOutPathData>);
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Display,
+    Hash,
+    PartialEq,
+    Eq,
+    Allocative,
+    strong_hash::StrongHash
+)]
+pub struct BuildArtifactPath(Arc<BuildArtifactPathData>);
 
-impl BuckOutPath {
+impl BuildArtifactPath {
     pub fn new(owner: BaseDeferredKey, path: ForwardRelativePathBuf) -> Self {
-        Self::with_action_key(owner, path, None)
+        Self::with_dynamic_actions_action_key(DeferredHolderKey::Base(owner), path)
     }
 
-    pub fn with_action_key(
-        owner: BaseDeferredKey,
+    pub fn with_dynamic_actions_action_key(
+        owner: DeferredHolderKey,
         path: ForwardRelativePathBuf,
-        action_key: Option<Arc<str>>,
     ) -> Self {
-        BuckOutPath(Arc::new(BuckOutPathData {
+        BuildArtifactPath(Arc::new(BuildArtifactPathData {
             owner,
-            action_key,
-            path,
+            path: path.into_box(),
         }))
     }
 
-    pub fn owner(&self) -> &BaseDeferredKey {
+    pub fn owner(&self) -> &DeferredHolderKey {
         &self.0.owner
     }
 
-    pub fn action_key(&self) -> Option<&str> {
-        self.0.action_key.as_deref()
+    pub fn dynamic_actions_action_key(&self) -> Option<DynamicActionsActionKey> {
+        self.0.owner.action_key()
     }
 
     pub fn path(&self) -> &ForwardRelativePath {
         &self.0.path
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.path.as_str().len()
     }
 }
 
@@ -91,7 +105,7 @@ pub struct BuckOutScratchPath {
     /// The path relative to that target.
     path: ForwardRelativePathBuf,
     /// The unique identifier for this action
-    action_key: String,
+    action_key: ForwardRelativePathBuf,
 }
 
 impl BuckOutScratchPath {
@@ -101,8 +115,8 @@ impl BuckOutScratchPath {
         owner: BaseDeferredKey,
         category: CategoryRef,
         identifier: Option<&str>,
-        action_key: String,
-    ) -> anyhow::Result<Self> {
+        action_key: ForwardRelativePathBuf,
+    ) -> buck2_error::Result<Self> {
         const MAKE_SENSIBLE_PREFIX: &str = "_buck_";
         // Windows has MAX_PATH limit (260 chars).
         const LENGTH_THRESHOLD: usize = 50;
@@ -141,7 +155,7 @@ impl BuckOutScratchPath {
                     // FIXME: Should this be a crypto hasher?
                     let mut hasher = DefaultHasher::new();
                     v.hash(&mut hasher);
-                    let output_hash = format!("{}{:x}", MAKE_SENSIBLE_PREFIX, hasher.finish());
+                    let output_hash = format!("{}{:016x}", MAKE_SENSIBLE_PREFIX, hasher.finish());
                     path.join_normalized(ForwardRelativePath::new(&output_hash)?)?
                 }
             }
@@ -156,7 +170,7 @@ impl BuckOutScratchPath {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Allocative)]
 pub struct BuckOutTestPath {
     /// A base path. This is primarily useful when e.g. set of tests should all be in the same
     /// path.
@@ -177,37 +191,49 @@ impl BuckOutTestPath {
 }
 
 #[derive(Clone, Allocative)]
-pub struct BuckOutPathResolver(ProjectRelativePathBuf);
+pub struct BuckOutPathResolver {
+    buck_out_v2: ProjectRelativePathBuf,
+}
 
 impl BuckOutPathResolver {
     /// creates a 'BuckOutPathResolver' that will resolve outputs to the provided buck-out root.
     /// If not set, buck_out defaults to "buck-out/v2"
-    pub fn new(buck_out: ProjectRelativePathBuf) -> Self {
-        BuckOutPathResolver(buck_out)
+    pub fn new(buck_out_v2: ProjectRelativePathBuf) -> Self {
+        BuckOutPathResolver { buck_out_v2 }
     }
 
     /// Returns the buck-out root.
     pub fn root(&self) -> &ProjectRelativePath {
-        &self.0
+        &self.buck_out_v2
     }
 
     /// Resolves a 'BuckOutPath' into a 'ProjectRelativePath' based on the base
     /// directory, target and cell.
-    pub fn resolve_gen(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {
+    pub fn resolve_gen(
+        &self,
+        path: &BuildArtifactPath,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("gen"),
-            path.owner(),
-            path.action_key(),
+            path.owner().owner(),
+            path.dynamic_actions_action_key()
+                .as_ref()
+                .map(|x| x.as_str()),
             path.path(),
             false,
         )
     }
 
-    pub fn resolve_offline_cache(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {
+    pub fn resolve_offline_cache(
+        &self,
+        path: &BuildArtifactPath,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("offline-cache"),
-            path.owner(),
-            path.action_key(),
+            path.owner().owner(),
+            path.dynamic_actions_action_key()
+                .as_ref()
+                .map(|x| x.as_str()),
             path.path(),
             false,
         )
@@ -219,7 +245,7 @@ impl BuckOutPathResolver {
         origin: ExternalCellOrigin,
     ) -> ProjectRelativePathBuf {
         ProjectRelativePathBuf::from(ForwardRelativePathBuf::concat([
-            self.0.as_forward_relative_path(),
+            self.buck_out_v2.as_forward_relative_path(),
             ForwardRelativePath::new("external_cells").unwrap(),
             match origin {
                 ExternalCellOrigin::Bundled(_) => ForwardRelativePath::new("bundled").unwrap(),
@@ -237,11 +263,14 @@ impl BuckOutPathResolver {
         ]))
     }
 
-    pub fn resolve_scratch(&self, path: &BuckOutScratchPath) -> ProjectRelativePathBuf {
+    pub fn resolve_scratch(
+        &self,
+        path: &BuckOutScratchPath,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("tmp"),
             &path.owner,
-            Some(&path.action_key),
+            Some(&path.action_key.as_str()),
             &path.path,
             // Fully hash scratch path as it can be very long and cause path too long issue on Windows.
             true,
@@ -251,11 +280,38 @@ impl BuckOutPathResolver {
     /// Resolve a test path
     pub fn resolve_test(&self, path: &BuckOutTestPath) -> ProjectRelativePathBuf {
         ProjectRelativePathBuf::from(ForwardRelativePathBuf::concat([
-            self.0.as_forward_relative_path(),
+            self.buck_out_v2.as_forward_relative_path(),
             ForwardRelativePath::new("test").unwrap(),
             &path.base,
             &path.path,
         ]))
+    }
+
+    /// Resolve a test path for test discovery
+    pub fn resolve_test_discovery(
+        &self,
+        label: &ConfiguredProvidersLabel,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
+        let path = match label.name() {
+            ProvidersName::Default => "default".into(),
+            ProvidersName::NonDefault(nd) => match nd.as_ref() {
+                NonDefaultProvidersName::Named(names) => names
+                    .iter()
+                    // Replacing / with + to avoid the path clash for ["foo/bar"] and ["foo", "bar"]
+                    .map(|name| name.as_str().replace("/", "+"))
+                    .join("/")
+                    .into(),
+                NonDefaultProvidersName::UnrecognizedFlavor(s) => s.dupe(),
+            },
+        };
+        let path = ForwardRelativePath::unchecked_new(&path);
+        self.prefixed_path_for_owner(
+            ForwardRelativePath::unchecked_new("test_discovery"),
+            &BaseDeferredKey::TargetLabel(label.target().dupe()),
+            None,
+            &path,
+            true,
+        )
     }
 
     fn prefixed_path_for_owner(
@@ -265,19 +321,19 @@ impl BuckOutPathResolver {
         action_key: Option<&str>,
         path: &ForwardRelativePath,
         fully_hash_path: bool,
-    ) -> ProjectRelativePathBuf {
-        owner.make_hashed_path(&self.0, prefix, action_key, path, fully_hash_path)
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
+        owner.make_hashed_path(&self.buck_out_v2, prefix, action_key, path, fully_hash_path)
     }
 
     /// This function returns the exact location of the symlink of a given target.
     /// Note that it (deliberately) ignores the configuration and takes no action_key information.
     /// A `None` implies there is no unhashed location.
-    pub fn unhashed_gen(&self, path: &BuckOutPath) -> Option<ProjectRelativePathBuf> {
+    pub fn unhashed_gen(&self, path: &BuildArtifactPath) -> Option<ProjectRelativePathBuf> {
         Some(ProjectRelativePathBuf::from(
             ForwardRelativePathBuf::concat([
-                self.0.as_ref(),
+                self.buck_out_v2.as_ref(),
                 ForwardRelativePath::unchecked_new("gen"),
-                &path.0.owner.make_unhashed_path()?,
+                &path.0.owner.owner().make_unhashed_path()?,
                 path.path(),
             ]),
         ))
@@ -293,28 +349,34 @@ mod tests {
     use dupe::Dupe;
     use regex::Regex;
 
-    use crate::base_deferred_key::BaseDeferredKey;
     use crate::category::CategoryRef;
+    use crate::cells::CellResolver;
     use crate::cells::cell_root_path::CellRootPathBuf;
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePath;
-    use crate::cells::CellResolver;
     use crate::configuration::data::ConfigurationData;
+    use crate::deferred::base_deferred_key::BaseDeferredKey;
+    use crate::deferred::dynamic::DynamicLambdaIndex;
+    use crate::deferred::dynamic::DynamicLambdaResultsKey;
+    use crate::deferred::key::DeferredHolderKey;
     use crate::fs::artifact_path_resolver::ArtifactFs;
-    use crate::fs::buck_out_path::BuckOutPath;
     use crate::fs::buck_out_path::BuckOutPathResolver;
     use crate::fs::buck_out_path::BuckOutScratchPath;
+    use crate::fs::buck_out_path::BuildArtifactPath;
     use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
     use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use crate::fs::project::ProjectRoot;
     use crate::fs::project_rel_path::ProjectRelativePathBuf;
-    use crate::package::source_path::SourcePath;
     use crate::package::PackageLabel;
+    use crate::package::source_path::SourcePath;
+    use crate::provider::label::ConfiguredProvidersLabel;
+    use crate::provider::label::ProviderName;
+    use crate::provider::label::ProvidersName;
     use crate::target::label::label::TargetLabel;
     use crate::target::name::TargetNameRef;
 
     #[test]
-    fn buck_path_resolves() -> anyhow::Result<()> {
+    fn buck_path_resolves() -> buck2_error::Result<()> {
         let cell_resolver = CellResolver::testing_with_name_and_path(
             CellName::testing_new("foo"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar-cell".into())),
@@ -357,7 +419,7 @@ mod tests {
     }
 
     #[test]
-    fn buck_output_path_resolves() -> anyhow::Result<()> {
+    fn buck_output_path_resolves() -> buck2_error::Result<()> {
         let path_resolver = BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
             "base/buck-out/v2".into(),
         ));
@@ -370,13 +432,14 @@ mod tests {
         let cfg_target = target.configure(ConfigurationData::testing_new());
         let owner = BaseDeferredKey::TargetLabel(cfg_target);
 
-        let resolved_gen_path = path_resolver.resolve_gen(&BuckOutPath::new(
+        let resolved_gen_path = path_resolver.resolve_gen(&BuildArtifactPath::new(
             owner.dupe(),
             ForwardRelativePathBuf::unchecked_new("faz.file".into()),
-        ));
+        ))?;
 
-        let expected_gen_path =
-            Regex::new("base/buck-out/v2/gen/foo/[0-9a-z]+/baz-package/__target-name__/faz.file")?;
+        let expected_gen_path = Regex::new(
+            "base/buck-out/v2/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/faz.file",
+        )?;
         assert!(
             expected_gen_path.is_match(resolved_gen_path.as_str()),
             "{}.is_match({})",
@@ -389,13 +452,13 @@ mod tests {
                 owner,
                 CategoryRef::new("category").unwrap(),
                 Some(&String::from("blah.file")),
-                "1_2".to_owned(),
+                ForwardRelativePathBuf::new("1_2".to_owned()).unwrap(),
             )
             .unwrap(),
-        );
+        )?;
 
         let expected_scratch_path =
-            Regex::new("base/buck-out/v2/tmp/foo/[0-9a-z]+/category/blah.file")?;
+            Regex::new("base/buck-out/v2/tmp/foo/[0-9a-f]{16}/category/blah.file")?;
         assert!(
             expected_scratch_path.is_match(resolved_scratch_path.as_str()),
             "{}.is_match({})",
@@ -406,7 +469,7 @@ mod tests {
     }
 
     #[test]
-    fn buck_target_output_path_resolves() -> anyhow::Result<()> {
+    fn buck_target_output_path_resolves() -> buck2_error::Result<()> {
         let path_resolver =
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck-out".into()));
 
@@ -418,13 +481,13 @@ mod tests {
         let cfg_target = target.configure(ConfigurationData::testing_new());
         let owner = BaseDeferredKey::TargetLabel(cfg_target);
 
-        let resolved_gen_path = path_resolver.resolve_gen(&BuckOutPath::new(
+        let resolved_gen_path = path_resolver.resolve_gen(&BuildArtifactPath::new(
             owner.dupe(),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
-        ));
+        ))?;
 
         let expected_gen_path: Regex =
-            Regex::new("buck-out/gen/foo/[0-9a-z]+/baz-package/__target-name__/quux")?;
+            Regex::new("buck-out/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/quux")?;
         assert!(
             expected_gen_path.is_match(resolved_gen_path.as_str()),
             "{}.is_match({})",
@@ -432,15 +495,17 @@ mod tests {
             resolved_gen_path
         );
 
-        let path = BuckOutPath::with_action_key(
-            owner.dupe(),
+        let path = BuildArtifactPath::with_dynamic_actions_action_key(
+            DeferredHolderKey::DynamicLambda(Arc::new(DynamicLambdaResultsKey::new(
+                DeferredHolderKey::Base(owner.dupe()),
+                DynamicLambdaIndex::new(17),
+            ))),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
-            Some(Arc::from("xxx")),
         );
-        let resolved_gen_path = path_resolver.resolve_gen(&path);
+        let resolved_gen_path = path_resolver.resolve_gen(&path)?;
 
         let expected_gen_path = Regex::new(
-            "buck-out/gen/foo/[0-9a-z]+/baz-package/__target-name__/__action__xxx__/quux",
+            "buck-out/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/__action___17__/quux",
         )?;
         assert!(
             expected_gen_path.is_match(resolved_gen_path.as_str()),
@@ -456,13 +521,16 @@ mod tests {
                 Some(&String::from(
                     "xxx_some_crazy_long_file_name_that_causes_it_to_be_hashed_xxx.txt",
                 )),
-                "xxx_some_long_action_key_but_it_doesnt_matter_xxx".to_owned(),
+                ForwardRelativePathBuf::new(
+                    "xxx_some_long_action_key_but_it_doesnt_matter_xxx".to_owned(),
+                )
+                .unwrap(),
             )
             .unwrap(),
-        );
+        )?;
 
         let expected_scratch_path =
-            Regex::new("buck-out/tmp/foo/[0-9a-z]+/category/_buck_[0-9a-z]+")?;
+            Regex::new("buck-out/tmp/foo/[0-9a-f]{16}/category/_buck_[0-9a-f]{16}")?;
         assert!(
             expected_scratch_path.is_match(resolved_scratch_path.as_str()),
             "{}.is_match({})",
@@ -488,7 +556,7 @@ mod tests {
             BaseDeferredKey::TargetLabel(cfg_target.dupe()),
             category,
             None,
-            "1_2".to_owned(),
+            ForwardRelativePathBuf::new("1_2".to_owned()).unwrap(),
         )
         .unwrap();
 
@@ -497,7 +565,7 @@ mod tests {
                 BaseDeferredKey::TargetLabel(cfg_target.dupe()),
                 category,
                 Some(s),
-                "3_4".to_owned(),
+                ForwardRelativePathBuf::new("3_4".to_owned()).unwrap(),
             )
             .unwrap()
             .path
@@ -540,10 +608,11 @@ mod tests {
                         BaseDeferredKey::TargetLabel(cfg_target.dupe()),
                         CategoryRef::new("category").unwrap(),
                         Some(id),
-                        s.to_owned(),
+                        ForwardRelativePathBuf::new(s.to_owned()).unwrap(),
                     )
                     .unwrap(),
                 )
+                .unwrap()
                 .as_str()
                 .to_owned()
         };
@@ -563,5 +632,24 @@ mod tests {
         // Different action_key, different identifier are not equal
         assert_ne!(mk("diff_key1", "diff_id1"), mk("diff_key2", "diff_id2"));
         assert_ne!(mk("diff_key1", "_buck_1"), mk("diff_key2", "_buck_2"));
+    }
+
+    #[test]
+    fn test_resolve_test_discovery() -> buck2_error::Result<()> {
+        let path_resolver =
+            BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck-out".into()));
+
+        let pkg = PackageLabel::new(
+            CellName::testing_new("foo"),
+            CellRelativePath::unchecked_new("baz-package"),
+        );
+        let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
+        let cfg_target = target.configure(ConfigurationData::testing_new());
+        let providers = ProvidersName::Default.push(ProviderName::new_unchecked("bar/baz".into()));
+        let providers_label = ConfiguredProvidersLabel::new(cfg_target, providers);
+        let result = path_resolver.resolve_test_discovery(&providers_label)?;
+        let expected_result = Regex::new("buck-out/test_discovery/foo/[0-9a-f]{16}/bar\\+baz")?;
+        assert!(expected_result.is_match(result.as_str()));
+        Ok(())
     }
 }

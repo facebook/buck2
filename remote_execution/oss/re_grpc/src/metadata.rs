@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::collections::BTreeMap;
+
 pub type TPlatform = crate::grpc::Platform;
 pub type TProperty = crate::grpc::Property;
 
@@ -18,16 +20,15 @@ pub struct ActionHistoryInfo {
 }
 
 #[derive(Clone, Default)]
-pub struct HostResourceRequirements {
-    pub affinity_keys: Vec<String>,
-    pub input_files_bytes: i64,
+pub struct BuckInfo {
+    pub build_id: String,
+    pub version: String,
     pub _dot_dot: (),
 }
 
 #[derive(Clone, Default)]
-pub struct BuckInfo {
-    pub build_id: String,
-    pub version: String,
+pub struct TClientContextMetadata {
+    pub attributes: BTreeMap<String, String>,
     pub _dot_dot: (),
 }
 
@@ -38,5 +39,7 @@ pub struct RemoteExecutionMetadata {
     pub platform: Option<TPlatform>,
     pub use_case_id: String,
     pub do_not_cache: bool,
+    pub respect_file_symlinks: Option<bool>,
+    pub client_context: Option<TClientContextMetadata>,
     pub _dot_dot: (),
 }

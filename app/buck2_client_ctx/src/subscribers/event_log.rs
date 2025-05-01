@@ -7,42 +7,37 @@
  * of this source tree.
  */
 
-use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 
 use async_trait::async_trait;
 use buck2_common::argv::SanitizedArgv;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_event_log::write::WriteEventLog;
 use buck2_events::BuckEvent;
-use buck2_util::cleanup_ctx::AsyncCleanupContext;
-use futures::FutureExt;
 
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
 
 /// This EventLog lets us to events emitted by Buck and log them to a file. The events are
 /// serialized as JSON and logged one per line.
-pub(crate) struct EventLog<'a> {
-    async_cleanup_context: Option<AsyncCleanupContext<'a>>,
+pub(crate) struct EventLog {
     writer: WriteEventLog,
 }
 
-impl<'a> EventLog<'a> {
+impl EventLog {
     pub(crate) fn new(
         logdir: AbsNormPathBuf,
-        working_dir: WorkingDir,
+        working_dir: AbsWorkingDir,
         extra_path: Option<AbsPathBuf>,
         extra_user_event_log_path: Option<AbsPathBuf>,
         sanitized_argv: SanitizedArgv,
-        async_cleanup_context: AsyncCleanupContext<'a>,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
-    ) -> anyhow::Result<EventLog> {
+    ) -> buck2_error::Result<EventLog> {
         Ok(Self {
-            async_cleanup_context: Some(async_cleanup_context),
             writer: WriteEventLog::new(
                 logdir,
                 working_dir,
@@ -57,12 +52,16 @@ impl<'a> EventLog<'a> {
 }
 
 #[async_trait]
-impl<'a> EventSubscriber for EventLog<'a> {
-    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
-        self.writer.write_events(events).await
+impl EventSubscriber for EventLog {
+    fn name(&self) -> &'static str {
+        "event log"
     }
 
-    async fn handle_tailer_stderr(&mut self, _stderr: &str) -> anyhow::Result<()> {
+    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> buck2_error::Result<()> {
+        Ok(self.writer.write_events(events).await?)
+    }
+
+    async fn handle_tailer_stderr(&mut self, _stderr: &str) -> buck2_error::Result<()> {
         // TODO(nga): currently we mostly ignore buckd stderr.
         //   It is very important to investigate crashes of buckd.
         //
@@ -79,30 +78,23 @@ impl<'a> EventSubscriber for EventLog<'a> {
     async fn handle_command_result(
         &mut self,
         result: &buck2_cli_proto::CommandResult,
-    ) -> anyhow::Result<()> {
-        self.writer.write_result(result).await
+    ) -> buck2_error::Result<()> {
+        Ok(self.writer.write_result(result).await?)
     }
 
     /// Flush all log files during on tick to avoid buffering data in memory which we might lose if
     /// we hit an error.
-    async fn tick(&mut self, _tick: &Tick) -> anyhow::Result<()> {
-        self.writer.flush_files().await
+    async fn tick(&mut self, _tick: &Tick) -> buck2_error::Result<()> {
+        Ok(self.writer.flush_files().await?)
     }
 
-    async fn exit(&mut self) -> anyhow::Result<()> {
+    async fn exit(&mut self) -> buck2_error::Result<()> {
         self.writer.exit().await;
         Ok(())
     }
-}
 
-impl<'a> Drop for EventLog<'a> {
-    fn drop(&mut self) {
-        let exit = self.writer.exit();
-        match self.async_cleanup_context.as_ref() {
-            Some(async_cleanup_context) => {
-                async_cleanup_context.register("event log upload", exit.boxed());
-            }
-            None => (),
-        }
+    async fn finalize(&mut self) -> buck2_error::Result<()> {
+        self.writer.exit().await;
+        Ok(())
     }
 }

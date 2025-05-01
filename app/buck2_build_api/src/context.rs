@@ -23,11 +23,14 @@ use dupe::Dupe;
 
 #[async_trait]
 pub trait HasBuildContextData {
-    async fn get_buck_out_path(&mut self) -> anyhow::Result<BuckOutPathResolver>;
+    async fn get_buck_out_path(&mut self) -> buck2_error::Result<BuckOutPathResolver>;
 }
 
 pub trait SetBuildContextData {
-    fn set_buck_out_path(&mut self, path: Option<ProjectRelativePathBuf>) -> anyhow::Result<()>;
+    fn set_buck_out_path(
+        &mut self,
+        path: Option<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<()>;
 }
 
 #[derive(PartialEq, Eq, Allocative)]
@@ -49,14 +52,17 @@ impl InjectedKey for BuildDataKey {
 
 #[async_trait]
 impl HasBuildContextData for DiceComputations<'_> {
-    async fn get_buck_out_path(&mut self) -> anyhow::Result<BuckOutPathResolver> {
+    async fn get_buck_out_path(&mut self) -> buck2_error::Result<BuckOutPathResolver> {
         let data = self.compute(&BuildDataKey).await?;
         Ok(BuckOutPathResolver::new(data.buck_out_path.to_buf()))
     }
 }
 
 impl SetBuildContextData for DiceTransactionUpdater {
-    fn set_buck_out_path(&mut self, path: Option<ProjectRelativePathBuf>) -> anyhow::Result<()> {
+    fn set_buck_out_path(
+        &mut self,
+        path: Option<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<()> {
         Ok(self.changed_to(vec![(
             BuildDataKey,
             Arc::new(BuildData {

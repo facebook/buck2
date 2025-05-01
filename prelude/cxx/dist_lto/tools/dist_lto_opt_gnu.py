@@ -206,6 +206,14 @@ def main(argv: List[str]) -> int:
     parser.add_argument("--index", help="The thinlto index file.")
     parser.add_argument("--split-dwarf", required=False, help="Split dwarf option.")
     parser.add_argument(
+        "--create-external-debug-info",
+        required=False,
+        help="""
+        Creates empty external debug info file if one was not produced by clang. Needed because buck2 always require output artifacts to exist if declared, but clang do not produce empty files. 
+        This filename should match what clang would otherwise implicitly produce. That is usually <input_base_name.dwo>: https://fburl.com/code/l98cksg9
+        """,
+    )
+    parser.add_argument(
         "--args", help="The argsfile containing unfiltered and unprocessed flags."
     )
     parser.add_argument("--debug", action="store_true", help="Dump clang -cc1 flags.")
@@ -252,6 +260,16 @@ def main(argv: List[str]) -> int:
     if os.stat(args.out).st_size == 0:
         print("error: opt produced empty file")
         return EXIT_FAILURE
+
+    if args.create_external_debug_info:
+        # Creates empty external debug info file if one was not produced by clang. Needed because buck2
+        # always require output artifacts to exist if declared, but clang do not produce empty files.
+        try:
+            with open(args.create_external_debug_info, "x") as _:
+                pass
+        except FileExistsError:
+            pass
+
     return EXIT_SUCCESS
 
 

@@ -14,11 +14,14 @@ use std::fmt;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
+use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_util::late_binding::LateBinding;
 use derive_more::Display;
@@ -30,10 +33,6 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::typing::Ty;
-use starlark::values::starlark_value;
-use starlark::values::starlark_value_as_type::StarlarkValueAsType;
-use starlark::values::structs::StructRef;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -45,6 +44,11 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
+use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
+use starlark::values::structs::StructRef;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::analysis::registry::AnalysisRegistry;
 use crate::deferred::calculation::GET_PROMISED_ARTIFACT;
@@ -53,15 +57,7 @@ use crate::interpreter::rule_defs::plugins::AnalysisPlugins;
 /// Functions to allow users to interact with the Actions registry.
 ///
 /// Accessed via `ctx.actions.<function>`
-#[derive(
-    ProvidesStaticType,
-    Debug,
-    Display,
-    Trace,
-    NoSerialize,
-    Allocative,
-    StarlarkDocs
-)]
+#[derive(ProvidesStaticType, Debug, Display, Trace, NoSerialize, Allocative)]
 #[display("<ctx.actions>")]
 pub struct AnalysisActions<'v> {
     /// Use a RefCell/Option so when we are done with it, without obtaining exclusive access,
@@ -75,26 +71,29 @@ pub struct AnalysisActions<'v> {
 }
 
 impl<'v> AnalysisActions<'v> {
-    pub fn state(&self) -> RefMut<AnalysisRegistry<'v>> {
-        RefMut::map(self.state.borrow_mut(), |x| {
-            x.as_mut().expect("state to be present during execution")
-        })
+    pub fn state(&self) -> buck2_error::Result<RefMut<AnalysisRegistry<'v>>> {
+        let state = self
+            .state
+            .try_borrow_mut()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+            .internal_error("AnalysisActions.state is already borrowed")?;
+        RefMut::filter_map(state, |x| x.as_mut())
+            .ok()
+            .internal_error("state to be present during execution")
     }
 
     pub async fn run_promises(
         &self,
         dice: &mut DiceComputations<'_>,
         eval: &mut Evaluator<'v, '_, '_>,
-        description: String,
-    ) -> anyhow::Result<()> {
+        eval_kind: &StarlarkEvalKind,
+    ) -> buck2_error::Result<()> {
         // We need to loop here because running the promises evaluates promise.map, which might produce more promises.
         // We keep going until there are no promises left.
         loop {
-            let promises = self.state().take_promises();
+            let promises = self.state()?.take_promises();
             if let Some(promises) = promises {
-                promises
-                    .run_promises(dice, eval, description.clone())
-                    .await?;
+                promises.run_promises(dice, eval, eval_kind).await?;
             } else {
                 break;
             }
@@ -109,9 +108,9 @@ impl<'v> AnalysisActions<'v> {
     pub async fn assert_short_paths_and_resolve(
         &self,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let (short_path_assertions, consumer_analysis_artifacts) = {
-            let state = self.state();
+            let state = self.state()?;
             (
                 state.short_path_assertions.clone(),
                 state.consumer_analysis_artifacts(),
@@ -127,7 +126,7 @@ impl<'v> AnalysisActions<'v> {
     }
 }
 
-#[starlark_value(type = "actions", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "AnalysisActions", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for AnalysisActions<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -166,14 +165,7 @@ impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
     }
 }
 
-#[derive(
-    ProvidesStaticType,
-    Debug,
-    Trace,
-    NoSerialize,
-    Allocative,
-    StarlarkDocs
-)]
+#[derive(ProvidesStaticType, Debug, Trace, NoSerialize, Allocative)]
 pub struct AnalysisContext<'v> {
     attrs: Option<ValueOfUnchecked<'v, StructRef<'static>>>,
     pub actions: ValueTyped<'v, AnalysisActions<'v>>,
@@ -236,8 +228,8 @@ impl<'v> AnalysisContext<'v> {
         heap.alloc_typed(analysis_context)
     }
 
-    pub fn assert_no_promises(&self) -> anyhow::Result<()> {
-        self.actions.state().assert_no_promises()
+    pub fn assert_no_promises(&self) -> buck2_error::Result<()> {
+        self.actions.state()?.assert_no_promises()
     }
 
     /// Must take an `AnalysisContext` which has never had `take_state` called on it before.
@@ -250,7 +242,7 @@ impl<'v> AnalysisContext<'v> {
     }
 }
 
-#[starlark_value(type = "context")]
+#[starlark_value(type = "AnalysisContext")]
 impl<'v> StarlarkValue<'v> for AnalysisContext<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -300,19 +292,20 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     /// a `struct` containing a field `foo` of type string.
     #[starlark(attribute)]
     fn attrs<'v>(
-        this: RefAnalysisContext,
-    ) -> anyhow::Result<ValueOfUnchecked<'v, StructRef<'static>>> {
-        this.0
+        this: RefAnalysisContext<'v>,
+    ) -> starlark::Result<ValueOfUnchecked<'v, StructRef<'static>>> {
+        Ok(this
+            .0
             .attrs
-            .context("`attrs` is not available for `dynamic_output` or BXL")
+            .buck_error_context("`attrs` is not available for `dynamic_output` or BXL")?)
     }
 
     /// Returns an `actions` value containing functions to define actual actions that are run.
     /// See the `actions` type for the operations that are available.
     #[starlark(attribute)]
     fn actions<'v>(
-        this: RefAnalysisContext,
-    ) -> anyhow::Result<ValueTyped<'v, AnalysisActions<'v>>> {
+        this: RefAnalysisContext<'v>,
+    ) -> starlark::Result<ValueTyped<'v, AnalysisActions<'v>>> {
         Ok(this.0.actions)
     }
 
@@ -320,9 +313,9 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     /// `dynamic_output` in Bxl.
     #[starlark(attribute)]
     fn label<'v>(
-        this: RefAnalysisContext,
-    ) -> anyhow::Result<Option<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>> {
-        Ok(this.0.label)
+        this: RefAnalysisContext<'v>,
+    ) -> starlark::Result<NoneOr<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>> {
+        Ok(NoneOr::from_option(this.0.label))
     }
 
     /// An opaque value that can be indexed with a plugin kind to get a list of the available plugin
@@ -330,11 +323,12 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     /// declaration.
     #[starlark(attribute)]
     fn plugins<'v>(
-        this: RefAnalysisContext,
-    ) -> anyhow::Result<ValueTypedComplex<'v, AnalysisPlugins<'v>>> {
-        this.0
+        this: RefAnalysisContext<'v>,
+    ) -> starlark::Result<ValueTypedComplex<'v, AnalysisPlugins<'v>>> {
+        Ok(this
+            .0
             .plugins
-            .context("`plugins` is not available for `dynamic_output` or BXL")
+            .buck_error_context("`plugins` is not available for `dynamic_output` or BXL")?)
     }
 }
 
@@ -348,3 +342,7 @@ pub static ANALYSIS_ACTIONS_METHODS_ACTIONS: LateBinding<fn(&mut MethodsBuilder)
     LateBinding::new("ANALYSIS_ACTIONS_METHODS_ACTIONS");
 pub static ANALYSIS_ACTIONS_METHODS_ANON_TARGET: LateBinding<fn(&mut MethodsBuilder)> =
     LateBinding::new("ANALYSIS_ACTIONS_METHODS_ANON_TARGET");
+
+pub(crate) fn init_analysis_context_ty() {
+    AnalysisContextReprLate::init(AnalysisContext::starlark_type_repr());
+}

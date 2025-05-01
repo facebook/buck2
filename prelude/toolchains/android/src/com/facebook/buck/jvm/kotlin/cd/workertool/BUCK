@@ -1,0 +1,92 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library")
+load("@prelude//toolchains/android/tools/build_rules:oss_utils.bzl", "is_oss_build")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "command_lib",
+    srcs = [
+        "KotlinCDCommand.java",
+    ],
+    runtime_deps = (
+        ["prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics/logger/noop:noop"] if is_oss_build() else ["fbsource//xplat/toolchains/android/sdk/src/com/facebook/buck/jvm/kotlin/cd/logger/scribe:scribe"]
+    ),
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:kotlincd-model",
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd:cd",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/command/kotlin:command",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/serialization/kotlin:kotlin",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java:support",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi:abi",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin:steps",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics:analytics",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics/logger:logger",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/workertool/postexecutors:postexecutors",
+        "prelude//toolchains/android/src/com/facebook/buck/util/build:build",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:jsr305",
+        "prelude//toolchains/android/third-party:protobuf-util",
+    ],
+)
+
+buck_java_library(
+    name = "main_lib",
+    srcs = [
+        "KotlinCDMain.java",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd:cd",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        ":command_lib",
+    ],
+)
+
+buck_java_library(
+    name = "grpc_worker_tool_lib",
+    srcs = ["KotlinCDGrpcWorkerToolMain.java"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd:cd",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/workertool:workertool",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/workertool/grpc:workertool_grpc",
+        "prelude//toolchains/android/src/com/facebook/buck/workertool/resources/proto:worker-model",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        ":command_lib",
+    ],
+)
+
+buck_java_binary(
+    name = "kotlincd_tool-main",
+    main_class = "com.facebook.buck.jvm.kotlin.cd.workertool.KotlinCDMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":main_lib",
+    ],
+)
+
+buck_java_binary(
+    name = "kotlincd_tool",
+    main_class = "com.facebook.buck.jvm.kotlin.cd.workertool.KotlinCDGrpcWorkerToolMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":grpc_worker_tool_lib",
+        ":main_lib",
+    ],
+)

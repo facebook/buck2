@@ -20,11 +20,11 @@ use crate::invocation_roots::home_buck_dir;
 /// `~/.buck/tmp` after old files removed.
 ///
 /// We use this directory when we need tmp dir with short file names (to connect to unix socket).
-pub fn home_buck_tmp_dir() -> anyhow::Result<&'static AbsNormPath> {
-    fn remove_old_files(tmp_dir: &AbsNormPath) -> anyhow::Result<()> {
+pub fn home_buck_tmp_dir() -> buck2_error::Result<&'static AbsNormPath> {
+    fn remove_old_files(tmp_dir: &AbsNormPath) -> buck2_error::Result<()> {
         let mut now = None;
 
-        for entry in fs_util::read_dir(&tmp_dir)? {
+        for entry in fs_util::read_dir(tmp_dir)? {
             let entry = entry?;
             let timestamp = match entry.metadata().and_then(|m| m.modified()) {
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -37,14 +37,14 @@ pub fn home_buck_tmp_dir() -> anyhow::Result<&'static AbsNormPath> {
 
             let now = *now.get_or_insert_with(SystemTime::now);
             if now.duration_since(timestamp).unwrap_or_default().as_secs() > 3 * 86400 {
-                fs_util::remove_all(&entry.path())?;
+                fs_util::remove_all(entry.path())?;
             }
         }
 
         Ok(())
     }
 
-    fn find_dir() -> anyhow::Result<AbsNormPathBuf> {
+    fn find_dir() -> buck2_error::Result<AbsNormPathBuf> {
         let home_buck_dir = home_buck_dir()?;
         let tmp_dir = home_buck_dir.join(FileName::new("tmp")?);
         fs_util::create_dir_all(&tmp_dir)?;

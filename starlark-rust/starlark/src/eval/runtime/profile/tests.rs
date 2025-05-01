@@ -24,10 +24,10 @@ use starlark_syntax::syntax::Dialect;
 use crate::assert::test_functions;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Module;
-use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::Evaluator;
 use crate::eval::ProfileData;
 use crate::eval::ProfileMode;
+use crate::eval::runtime::profile::data::ProfileDataImpl;
 
 fn test_profile_golden_for_mode(mode: ProfileMode) {
     let module = Module::new();
@@ -74,7 +74,9 @@ R = test()
         _ => eval.gen_profile().unwrap(),
     };
 
-    if let ProfileDataImpl::HeapFlameRetained(profile)
+    if let ProfileDataImpl::HeapRetained(profile)
+    | ProfileDataImpl::HeapAllocated(profile)
+    | ProfileDataImpl::HeapFlameRetained(profile)
     | ProfileDataImpl::HeapFlameAllocated(profile)
     | ProfileDataImpl::HeapSummaryRetained(profile)
     | ProfileDataImpl::HeapSummaryAllocated(profile) = &mut profile_data.profile
@@ -82,16 +84,49 @@ R = test()
         profile.normalize_for_golden_tests();
     }
 
-    golden_test_template(
-        &format!(
-            "src/eval/runtime/profile/golden/{}.golden",
-            mode.name().replace('-', "_")
-        ),
-        &profile_data.gen().unwrap(),
-    );
+    match mode {
+        ProfileMode::HeapRetained
+        | ProfileMode::HeapFlameRetained
+        | ProfileMode::HeapAllocated
+        | ProfileMode::HeapFlameAllocated
+        | ProfileMode::TimeFlame => {
+            golden_test_template(
+                &format!(
+                    "src/eval/runtime/profile/golden/{}.flame.golden",
+                    mode.name().replace('-', "_")
+                ),
+                &profile_data.gen_flame_data().unwrap(),
+            );
+        }
+        _ => {}
+    }
 
+    match mode {
+        ProfileMode::HeapFlameRetained
+        | ProfileMode::HeapFlameAllocated
+        | ProfileMode::TimeFlame => {}
+        _ => {
+            golden_test_template(
+                &format!(
+                    "src/eval/runtime/profile/golden/{}.csv.golden",
+                    mode.name().replace('-', "_")
+                ),
+                &profile_data.gen_csv().unwrap(),
+            );
+        }
+    }
     // Smoke test for profile merging.
     ProfileData::merge([&profile_data, &profile_data]).unwrap();
+}
+
+#[test]
+fn test_profile_golden_heap_allocated() {
+    test_profile_golden_for_mode(ProfileMode::HeapAllocated);
+}
+
+#[test]
+fn test_profile_golden_heap_retained() {
+    test_profile_golden_for_mode(ProfileMode::HeapAllocated);
 }
 
 #[test]

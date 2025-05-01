@@ -25,20 +25,16 @@ use std::fmt::Display;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use clap::builder::StringValueParser;
-use clap::builder::TypedValueParser;
 use clap::Parser;
 use clap::ValueEnum;
+use clap::builder::StringValueParser;
+use clap::builder::TypedValueParser;
 use dupe::Dupe;
 use eval::Context;
 use itertools::Either;
-use itertools::Itertools;
 use starlark::analysis::LintMessage;
-use starlark::docs::get_registered_starlark_docs;
-use starlark::docs::markdown::render_doc_item;
-use starlark::docs::render_docs_as_code;
-use starlark::docs::Doc;
 use starlark::docs::DocItem;
+use starlark::docs::markdown::render_doc_item_no_link;
 use starlark::environment::Globals;
 use starlark::errors::EvalMessage;
 use starlark::errors::EvalSeverity;
@@ -175,7 +171,7 @@ enum ArgsDialect {
 
 // Treat directories as things to recursively walk for .<extension> files,
 // and everything else as normal files.
-fn expand_dirs(extension: &str, xs: Vec<PathBuf>) -> impl Iterator<Item = PathBuf> {
+fn expand_dirs(extension: &str, xs: Vec<PathBuf>) -> impl Iterator<Item = PathBuf> + use<> {
     let extension = Arc::new(extension.to_owned());
     xs.into_iter().flat_map(move |x| {
         // Have to keep cloning extension so we keep ownership
@@ -332,27 +328,20 @@ fn main() -> anyhow::Result<()> {
             ctx.mode = ContextMode::Check;
             starlark_lsp::server::stdio_server(ctx)?;
         } else if let Some(docs) = args.docs {
-            let mut builtin = get_registered_starlark_docs();
-            builtin.push(Doc::named_item(
-                "globals".to_owned(),
-                DocItem::Module(Globals::extended_internal().documentation()),
-            ));
+            let global_module = DocItem::Module(Globals::extended_internal().documentation());
 
             match docs {
                 ArgsDoc::Markdown | ArgsDoc::Lsp => {
                     println!(
                         "{}",
-                        builtin
-                            .iter()
-                            .map(|x| if docs == ArgsDoc::Markdown {
-                                render_doc_item(&x.id.name, &x.item)
-                            } else {
-                                String::new()
-                            })
-                            .join("\n\n")
+                        if docs == ArgsDoc::Markdown {
+                            render_doc_item_no_link("globals", &global_module)
+                        } else {
+                            String::new()
+                        }
                     )
                 }
-                ArgsDoc::Code => println!("{}", render_docs_as_code(&builtin)),
+                ArgsDoc::Code => println!("{}", global_module.render_as_code("globals")),
             };
         } else if is_interactive {
             interactive(&ctx)?;

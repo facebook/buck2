@@ -1,3 +1,5 @@
+oncall("build_infra")
+
 cxx_binary(
     name = "main",
     srcs = ["main.cpp"],
@@ -10,4 +12,18 @@ cxx_library(
     srcs = ["library.cpp"],
     exported_headers = glob(["**/*.hpp"]),
     visibility = ["PUBLIC"],
+)
+
+java_library(
+    name = "java_lib",
+    srcs = ["HelloWorld.java"],
+    source = "11",
+    target = "11",
+)
+
+kotlin_library(
+    name = "kotlin_lib",
+    srcs = ["HelloWorld.kt"],
+    source = "8",
+    target = "8",
 )

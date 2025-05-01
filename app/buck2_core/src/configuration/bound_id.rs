@@ -7,12 +7,13 @@
  * of this source tree.
  */
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 
 use crate::configuration::bound_label::BoundConfigurationLabel;
 use crate::configuration::hash::ConfigurationHash;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum BoundConfigurationIdError {
     #[error("Bound configuration id must contain a hash, got: `{0}`")]
     MissingHash(String),
@@ -28,14 +29,14 @@ pub struct BoundConfigurationId {
 }
 
 impl BoundConfigurationId {
-    pub fn parse(id: &str) -> anyhow::Result<BoundConfigurationId> {
+    pub fn parse(id: &str) -> buck2_error::Result<BoundConfigurationId> {
         let (label, hash) = id
             .split_once('#')
-            .with_context(|| BoundConfigurationIdError::MissingHash(id.to_owned()))?;
+            .with_buck_error_context(|| BoundConfigurationIdError::MissingHash(id.to_owned()))?;
         let label = BoundConfigurationLabel::new(label.to_owned())
-            .with_context(|| BoundConfigurationIdError::Error(id.to_owned()))?;
+            .with_buck_error_context(|| BoundConfigurationIdError::Error(id.to_owned()))?;
         let hash = ConfigurationHash::from_str(hash)
-            .with_context(|| BoundConfigurationIdError::Error(id.to_owned()))?;
+            .with_buck_error_context(|| BoundConfigurationIdError::Error(id.to_owned()))?;
         Ok(BoundConfigurationId { label, hash })
     }
 }

@@ -1,0 +1,56 @@
+load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
+
+oncall("build_infra")
+
+prelude = native
+
+# Test to verify that we construct the command correctly when it has multiple args.
+prelude.export_file(
+    name = "print_two_args.sh",
+    src = "print_two_args.sh",
+)
+
+prelude.export_file(
+    name = "print_two_args.bat",
+    src = "print_two_args.bat",
+)
+
+prelude.command_alias(
+    name = "multiple_args",
+    args = [
+        "some_arg",
+        "some_other_arg",
+    ],
+    exe = select({
+        "DEFAULT": ":print_two_args.sh",
+        "ovr_config//os:windows": ":print_two_args.bat",
+    }),
+)
+
+py_assertion(
+    name = "check_multiple_args",
+    script = """
+import subprocess
+import sys
+args = sys.argv[1].split(" ")
+assert (
+    subprocess.check_output(args).decode().strip()
+    == "some_arg some_other_arg"
+)
+""",
+    script_args = ["$(exe_target :multiple_args)"],
+)
+
+py_assertion(
+    name = "check_platform_multiple_args_via_default_info",
+    script = """
+import subprocess
+import sys
+args = sys.argv[1].split(" ")
+assert (
+    subprocess.check_output(args).decode().strip()
+    == "some_arg some_other_arg"
+)
+""",
+    script_args = ["$(location :multiple_args)"],
+)

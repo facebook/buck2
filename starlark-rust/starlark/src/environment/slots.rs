@@ -22,6 +22,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
 use crate::values::Value;
@@ -86,7 +87,7 @@ impl<'v> MutableSlots<'v> {
             .collect()
     }
 
-    pub(crate) fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenSlots> {
+    pub(crate) fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenSlots> {
         let slots = self.0.into_inner().freeze(freezer)?;
         Ok(FrozenSlots(slots))
     }

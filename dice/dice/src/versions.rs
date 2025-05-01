@@ -47,6 +47,10 @@ impl VersionNumber {
     pub(crate) fn dec(&mut self) {
         self.0 = self.0.checked_sub(1).expect("shouldn't underflow");
     }
+
+    pub fn value(&self) -> usize {
+        self.0
+    }
 }
 
 impl Sub for VersionNumber {
@@ -118,7 +122,7 @@ impl VersionRange {
             begin: VersionNumber,
             end: Option<VersionNumber>,
         ) -> bool {
-            v >= begin && end.map_or(true, |end| v < end)
+            v >= begin && end.is_none_or(|end| v < end)
         }
 
         if contains_end_exclusive(self.begin, other.begin, other.end)
@@ -181,7 +185,7 @@ impl VersionRange {
             begin: VersionNumber,
             end: Option<VersionNumber>,
         ) -> bool {
-            v >= begin && end.map_or(true, |end| v <= end)
+            v >= begin && end.is_none_or(|end| v <= end)
         }
 
         if is_between_end_inclusive(self.begin, other.begin, other.end)
@@ -269,6 +273,7 @@ impl VersionRanges {
         self.0.last().copied()
     }
 
+    /// Find the largest version which is at most `v`
     pub(crate) fn find_value_upper_bound(&self, v: VersionNumber) -> Option<VersionNumber> {
         // we generally expect queries at later versions so just look through the list from the
         // end. potentially this should be changed if that expectation is no longer true.

@@ -17,7 +17,9 @@
 
 use allocative::Allocative;
 
+use crate::eval::ParametersSpec;
 use crate::typing::Ty;
+use crate::values::FrozenValue;
 use crate::values::types::type_instance_id::TypeInstanceId;
 
 #[derive(Allocative, Debug)]
@@ -31,6 +33,9 @@ pub struct TyRecordData {
     pub(crate) ty_record: Ty,
     /// Type of record type.
     pub(crate) ty_record_type: Ty,
+    /// Creating these on every invoke is pretty expensive (profiling shows)
+    /// so compute them in advance and cache.
+    pub(crate) parameter_spec: ParametersSpec<FrozenValue>,
 }
 
 #[cfg(test)]
@@ -52,7 +57,8 @@ foo(MyRec(x = 1))
 
     #[test]
     fn test_fail_compile_time() {
-        assert::fail(
+        assert::fail_golden(
+            "src/values/types/record/ty_record_type/fail_compile_time.golden",
             r#"
 MyRec = record(x = int)
 WrongRec = record(x = int)
@@ -62,22 +68,21 @@ def foo(x: MyRec): pass
 def bar():
     foo(WrongRec(x = 1))
         "#,
-            r#"Expected type `MyRec` but got `WrongRec`"#,
         );
     }
 
     #[test]
     fn test_fail_runtime_time() {
-        assert::fail_skip_typecheck(
+        assert::fail_golden(
+            "src/values/types/record/ty_record_type/fail_runtime_time.golden",
             r#"
 MyRec = record(x = int)
 WrongRec = record(x = int)
 
 def foo(x: MyRec): pass
 
-foo(WrongRec(x = 1))
+noop(foo)(WrongRec(x = 1))
         "#,
-            r#"Value `record[WrongRec](x=1)` of type `record` does not match the type annotation `MyRec`"#,
         );
     }
 
@@ -111,21 +116,21 @@ assert_eq(f(MyRec(x = 1, y = 2)), 3)
 
     #[test]
     fn test_typecheck_field_fail() {
-        assert::fail(
+        assert::fail_golden(
+            "src/values/types/record/ty_record_type/typecheck_field_fail.golden",
             r#"
 MyRec = record(x = int, y = int)
 
 def f(rec: MyRec) -> int:
     return rec.z
 "#,
-            r#"The attribute `z` is not available on the type `MyRec`"#,
         );
     }
 
     #[test]
     fn test_typecheck_record_type_call() {
-        // TODO(nga): this should fail.
-        assert::pass(
+        assert::fail_golden(
+            "src/values/types/record/ty_record_type/typecheck_record_type_call.golden",
             r#"
 MyRec = record(x = int)
 

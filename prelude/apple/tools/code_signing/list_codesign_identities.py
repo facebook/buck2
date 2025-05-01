@@ -22,6 +22,10 @@ class IListCodesignIdentities(metaclass=ABCMeta):
     def list_codesign_identities(self) -> List[CodeSigningIdentity]:
         raise NotImplementedError
 
+    @abstractmethod
+    def raw_command(self) -> str:
+        raise NotImplementedError
+
 
 class ListCodesignIdentities(IListCodesignIdentities):
     _default_command = ["security", "find-identity", "-v", "-p", "codesigning"]
@@ -39,6 +43,9 @@ class ListCodesignIdentities(IListCodesignIdentities):
 
     def list_codesign_identities(self) -> List[CodeSigningIdentity]:
         return _list_identities(self.command)
+
+    def raw_command(self) -> str:
+        return " ".join(self.command)
 
 
 def _list_identities(
@@ -73,3 +80,6 @@ class AdHocListCodesignIdentities(IListCodesignIdentities):
                 f"No identity found with subject common name `{self.subject_common_name}`"
             )
         return [identity]
+
+    def raw_command(self) -> str:
+        return self.original.raw_command()

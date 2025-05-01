@@ -23,8 +23,8 @@ use ref_cast::RefCast;
 
 use crate::directory::ActionDirectoryBuilder;
 use crate::directory::ActionSharedDirectory;
-use crate::directory::ReDirectorySerializer;
 use crate::directory::INTERNER;
+use crate::directory::ReDirectorySerializer;
 
 /// This configuration describes how to interpret digests received from a RE backend.
 #[derive(Copy, Clone, Dupe, Debug, Allocative, Hash, Eq, PartialEq)]

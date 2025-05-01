@@ -9,7 +9,6 @@
 
 use buck2_core::is_open_source;
 use buck2_event_observer::humanized::HumanizedBytes;
-use buck2_event_observer::humanized::HumanizedBytesPerSecond;
 
 use crate::subscribers::recorder::process_memory;
 
@@ -27,8 +26,6 @@ pub(crate) struct LowDiskSpace {
 
 pub const SYSTEM_MEMORY_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_mem_remediation";
 pub const DISK_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_disk_remediation";
-
-pub const DOWNLOAD_SPEED_LOW_LINK: &str = "https://fburl.com/buck2_slow_download";
 
 pub(crate) fn system_memory_exceeded_msg(memory_pressure: &MemoryPressureHigh) -> String {
     format!(
@@ -56,28 +53,10 @@ pub(crate) fn low_disk_space_msg(low_disk_space: &LowDiskSpace) -> String {
     )
 }
 
-pub(crate) fn slow_download_speed_msg(avg_re_download_speed: Option<u64>) -> String {
-    let avg_speed = if let Some(avg_re_download_speed) = avg_re_download_speed {
-        format!(": {}", HumanizedBytesPerSecond::new(avg_re_download_speed))
-    } else {
-        String::new()
-    };
-    let msg = format!(
-        "Slow download speed is detected{}. This may significantly impact build speed.",
-        avg_speed
-    );
-    if !is_open_source() {
-        format!("{msg} See {DOWNLOAD_SPEED_LOW_LINK} for more details.")
-    } else {
-        msg
-    }
-}
-
 pub(crate) fn check_memory_pressure(
-    last_snapshot: Option<&buck2_data::Snapshot>,
+    process_memory: u64,
     system_info: &buck2_data::SystemInfo,
 ) -> Option<MemoryPressureHigh> {
-    let process_memory = process_memory(last_snapshot?)?;
     let system_total_memory = system_info.system_total_memory_bytes?;
     let memory_pressure_threshold_percent = system_info.memory_pressure_threshold_percent?;
     // TODO (ezgi): one-shot commands don't record this. Prevent panick (division-by-zero) until it is fixed.
@@ -94,11 +73,18 @@ pub(crate) fn check_memory_pressure(
     }
 }
 
-pub(crate) fn check_remaining_disk_space(
+pub(crate) fn check_memory_pressure_snapshot(
     last_snapshot: Option<&buck2_data::Snapshot>,
     system_info: &buck2_data::SystemInfo,
+) -> Option<MemoryPressureHigh> {
+    let process_memory = process_memory(last_snapshot?)?;
+    check_memory_pressure(process_memory, system_info)
+}
+
+pub(crate) fn check_remaining_disk_space(
+    used_disk_space: u64,
+    system_info: &buck2_data::SystemInfo,
 ) -> Option<LowDiskSpace> {
-    let used_disk_space = last_snapshot?.used_disk_space_bytes?;
     let total_disk_space = system_info.total_disk_space_bytes?;
     let remaining_disk_space_threshold =
         system_info.remaining_disk_space_threshold_gb? * BYTES_PER_GIGABYTE;
@@ -113,6 +99,14 @@ pub(crate) fn check_remaining_disk_space(
     }
 }
 
+pub(crate) fn check_remaining_disk_space_snapshot(
+    last_snapshot: Option<&buck2_data::Snapshot>,
+    system_info: &buck2_data::SystemInfo,
+) -> Option<LowDiskSpace> {
+    let used_disk_space = last_snapshot?.used_disk_space_bytes?;
+    check_remaining_disk_space(used_disk_space, system_info)
+}
+
 // This check uses average RE download speed calculated as a number of bytes downloaded divided on time between two snapshots.
 // This speed calculation is not precisely correct as we don't know how much time we've been downloading between two snapshots.
 // TODO(yurysamkevich): compute average download speed in RE/HTTP client
@@ -121,7 +115,14 @@ pub(crate) fn check_download_speed(
     last_snapshot: Option<&buck2_data::Snapshot>,
     system_info: &buck2_data::SystemInfo,
     avg_re_download_speed: Option<u64>,
+    concurrent_commands: bool,
 ) -> bool {
+    // RE download/upload stats is collected per daemon.
+    // If there are concurrent commands we get stats for both.
+    // It's incorrect to display the warning in this case.
+    if concurrent_commands {
+        return false;
+    }
     inner_check_download_speed(
         first_snapshot,
         last_snapshot,

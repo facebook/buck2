@@ -1,0 +1,177 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("ppflags.bxl", "COMPILER_FLAGS_MAP", "COMPILER_IGNORE_OPTIONS", "LANGUAGE_STANDARD_MAP", "LINKER_FLAGS_MAP")
+load("utils.bxl", "dedupe_by_value")
+
+def flatten_flag_lists(flag_lists):
+    # Flags are in form of list of list like [["/WX"],["/W4"],["/w15038"]] in attrs and list of strings in mode config
+    flatten_list = []
+    for flag in flag_lists:
+        if isinstance(flag, list):
+            flatten_list.extend(flag)
+        elif isinstance(flag, str):
+            flatten_list.append(flag)
+    return flatten_list
+
+def unquote_flag(flag):
+    if flag.startswith('"') and flag.endswith('"'):
+        return flag[1:-1]
+    elif flag.startswith('\\"') and flag.endswith('\\"'):
+        return flag[2:-2]
+    return flag
+
+def parse_include_dirs_from_flags(flags):
+    include_dirs = []
+    filtered_flags = []
+    skip_next = False
+    for i in range(len(flags)):
+        if skip_next:
+            skip_next = False
+            continue
+        include_path = None
+        flag = unquote_flag(flags[i])
+        if flag in ["/I", "-I", "/isystem", "-isystem"]:
+            include_path = unquote_flag(flags[i + 1])
+            skip_next = True
+        elif flag.startswith("/I") or flag.startswith("-I"):
+            include_path = flag[2:]
+        elif flag.startswith("/isystem") or flag.startswith("-isystem"):
+            include_path = flag[len("-isystem"):]
+
+        if include_path:
+            include_dirs.append("$(RepoRoot)\\" + include_path)
+        else:
+            filtered_flags.append(flag)
+
+    return include_dirs, filtered_flags
+
+def parse_defines_from_flags(flags):
+    defines = []
+    undefines = []
+    filtered_flags = []
+    skip_next = False
+    for i in range(len(flags)):
+        if skip_next:
+            skip_next = False
+            continue
+        define = None
+        undefine = None
+        flag = unquote_flag(flags[i])
+        if flag == "/D" or flag == "-D":
+            define = unquote_flag(flags[i + 1])
+            skip_next = True
+        elif flag.startswith("/D") or flag.startswith("-D"):
+            define = flag[2:]
+            splits = define.split("=")
+            if len(splits) == 2:
+                define = splits[0] + "=" + unquote_flag(splits[1])
+        elif flag == "/U" or flag == "-U":
+            undefine = unquote_flag(flags[i + 1])
+            skip_next = True
+        elif flag.startswith("/U") or flag.startswith("-U"):
+            undefine = flag[2:]
+            splits = undefine.split("=")
+            if len(splits) == 2:
+                undefine = splits[0] + "=" + unquote_flag(splits[1])
+
+        if define:
+            defines.append(define)
+        elif undefine:
+            undefines.append(undefine)
+        else:
+            filtered_flags.append(flag)
+
+    return dedupe_by_value(defines), dedupe_by_value(undefines), filtered_flags
+
+def get_linker_settings_from_flags(flags, buck_root):
+    linker_settings = {}
+
+    additional_library_directories = []
+    additional_dependencies = []
+    additional_options = []
+    no_default_libs = []
+
+    for flag in flags:
+        original_flag = flag
+
+        # Unify leading character to "/" for easier matching
+        if flag.startswith("-"):
+            flag = "/" + flag[1:]
+
+        if not flag.startswith("/"):
+            additional_dependencies.append(flag)
+        elif flag.startswith("/LIBPATH:"):
+            additional_library_directories.append(flag[len("/LIBPATH:"):])
+        elif flag.startswith("/NODEFAULTLIB:"):
+            no_default_libs.append(flag[len("/NODEFAULTLIB:"):])
+        elif flag in LINKER_FLAGS_MAP:
+            linker_settings.update(LINKER_FLAGS_MAP[flag])
+        elif flag.startswith("/TLBID:"):
+            linker_settings["TypeLibraryResourceID"] = flag[len("/TLBID:"):]
+        elif flag.startswith("/PDBALTPATH"):
+            pass
+        elif flag.startswith("/PDBSOURCEPATH"):
+            # Overwrite the /PDBSOURCEPATH to the buck root instead of using the default
+            additional_options.append("/PDBSOURCEPATH:" + buck_root)
+        elif flag.startswith("/INCLUDE:"):
+            if "ForceSymbolReferences" not in linker_settings:
+                linker_settings["ForceSymbolReferences"] = []
+            linker_settings["ForceSymbolReferences"].append(
+                flag[len("/INCLUDE:"):],
+            )
+        else:
+            additional_options.append(original_flag)
+
+    linker_settings["AdditionalLibraryDirectories"] = dedupe_by_value(
+        additional_library_directories,
+    )
+    linker_settings["AdditionalDependencies"] = dedupe_by_value(additional_dependencies)
+    linker_settings["AdditionalOptions"] = dedupe_by_value(additional_options)
+    linker_settings["IgnoreDefaultLibraryNames"] = dedupe_by_value(no_default_libs)
+
+    return linker_settings
+
+def get_compiler_settings_from_flags(flags):
+    compiler_settings = {}
+    disable_specific_warnings = []
+    forced_include_files = []
+    additional_options = []
+
+    include_directories, flags = parse_include_dirs_from_flags(flags)
+    defines, undefines, flags = parse_defines_from_flags(flags)
+
+    for flag in flags:
+        original_flag = flag
+
+        # Unify leading character to "/" for easier matching
+        if flag.startswith("-"):
+            flag = "/" + flag[1:]
+
+        if flag in COMPILER_FLAGS_MAP:
+            compiler_settings.update(COMPILER_FLAGS_MAP[flag])
+        elif flag in LANGUAGE_STANDARD_MAP:
+            compiler_settings["LanguageStandard"] = LANGUAGE_STANDARD_MAP[flag]
+        elif flag in COMPILER_IGNORE_OPTIONS:
+            pass
+        elif flag.startswith("/FI"):
+            forced_include_files.append(flag[3:])
+        elif flag.startswith("/wd"):
+            disable_specific_warnings.append(flag[3:])
+        elif flag.startswith("/W"):
+            pass  # Incompatible gcc style warnings
+        else:
+            additional_options.append(original_flag)
+
+    compiler_settings["AdditionalIncludeDirectories"] = include_directories
+    compiler_settings["AdditionalOptions"] = additional_options
+    compiler_settings["PreprocessorDefinitions"] = defines
+    compiler_settings["UndefinePreprocessorDefinitions"] = undefines
+    compiler_settings["DisableSpecificWarnings"] = disable_specific_warnings
+    compiler_settings["ForcedIncludeFiles"] = forced_include_files
+
+    return compiler_settings

@@ -22,7 +22,7 @@ pub struct TargetNodeLookup<'c, 'd>(pub &'c LinearRecomputeDiceComputations<'d>)
 
 #[async_trait]
 impl AsyncNodeLookup<TargetNode> for TargetNodeLookup<'_, '_> {
-    async fn get(&self, label: &TargetLabel) -> anyhow::Result<TargetNode> {
+    async fn get(&self, label: &TargetLabel) -> buck2_error::Result<TargetNode> {
         Ok(self.0.get().get_target_node(label).await?)
     }
 }
@@ -31,11 +31,15 @@ pub struct ConfiguredTargetNodeLookup<'c, 'd>(pub &'c LinearRecomputeDiceComputa
 
 #[async_trait]
 impl AsyncNodeLookup<ConfiguredTargetNode> for ConfiguredTargetNodeLookup<'_, '_> {
-    async fn get(&self, label: &ConfiguredTargetLabel) -> anyhow::Result<ConfiguredTargetNode> {
-        self.0
+    async fn get(
+        &self,
+        label: &ConfiguredTargetLabel,
+    ) -> buck2_error::Result<ConfiguredTargetNode> {
+        Ok(self
+            .0
             .get()
             .get_configured_target_node(label)
             .await?
-            .require_compatible()
+            .require_compatible()?)
     }
 }

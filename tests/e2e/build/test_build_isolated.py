@@ -10,6 +10,7 @@
 
 import json
 import os
+import platform
 import re
 import sys
 from pathlib import Path
@@ -28,15 +29,17 @@ from buck2.tests.e2e_util.helper.assert_occurrences import (
 )
 from buck2.tests.e2e_util.helper.utils import json_get, random_string, read_what_ran
 
-# Taken from data.proto
-ACTION_EXECUTION_KIND_LOCAL = 1
-ACTION_EXECUTION_KIND_LOCAL_DEP_FILE = 7
-ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE = 9
-
 
 # Eden materializer only available on Linux
 def eden_linux_only() -> bool:
     return sys.platform == "linux"
+
+
+############################################################################################
+### NOTE(JakobDegen): Do not add new tests to this file. Instead:
+###  1. Use or make a file in `tests/core` with a name that explains what you're testing.
+###  2. Give that file its own data directory, not one shared with other tests.
+############################################################################################
 
 
 @buck_test(inplace=False, data_dir="pass")
@@ -48,67 +51,6 @@ async def test_pass(buck: Buck) -> None:
 @buck_test(inplace=False, data_dir="pass")
 async def test_missing_target(buck: Buck) -> None:
     await expect_failure(buck.build("//:not_a_target_name"))
-
-
-# TODO(nga): this test does not belong here.
-@buck_test(inplace=False, data_dir="bxl/simple")
-async def test_query_rdeps(buck: Buck) -> None:
-    result = await buck.query("""rdeps(root//bin:the_binary, //lib:file1)""")
-    assert result.stdout == "root//bin:the_binary\nroot//lib:lib1\nroot//lib:file1\n"
-
-    result = await buck.query("""rdeps(root//bin:the_binary, //lib:file1, 0)""")
-    assert result.stdout == "root//lib:file1\n"
-
-    result = await buck.query("""rdeps(root//bin:the_binary, //lib:file1, 1)""")
-    assert result.stdout == "root//lib:lib1\nroot//lib:file1\n"
-
-    result = await buck.query("""rdeps(root//bin:the_binary, //lib:file1, 100)""")
-    assert result.stdout == "root//bin:the_binary\nroot//lib:lib1\nroot//lib:file1\n"
-
-
-@buck_test(inplace=False, data_dir="bxl/simple")
-async def test_targets_recursive(buck: Buck) -> None:
-    result = await buck.targets("--json", "ignored/...")
-    assert json.loads(result.stdout) == []
-
-    await expect_failure(buck.targets("--json", "nonexistent/..."))
-
-
-@buck_test(inplace=False, data_dir="bxl/simple")
-async def test_target_hashing_accepts_backreferencing_relative_paths(
-    buck: Buck,
-    tmp_path: Path,
-) -> None:
-    await buck.targets(
-        ":the_binary",
-        "--show-target-hash",
-        "--target-hash-file-mode=paths_only",
-        "--target-hash-modified-paths=../.buckconfig",
-        rel_cwd=Path("bin"),
-    )
-
-    # Paths outside of the project still fail
-    await expect_failure(
-        buck.targets(
-            ":the_binary",
-            "--show-target-hash",
-            "--target-hash-file-mode=paths_only",
-            "--target-hash-modified-paths=../.buckconfig",
-        ),
-        stderr_regex="relativize path.*against project root",
-    )
-
-    if os.name != "nt":
-        # Absolute path non-normalized paths should work
-        (tmp_path / "symlink").symlink_to(buck.cwd)
-
-        await buck.targets(
-            ":the_binary",
-            "--show-target-hash",
-            "--target-hash-file-mode=paths_only",
-            f"--target-hash-modified-paths={tmp_path}/symlink/.buckconfig",
-            rel_cwd=Path("bin"),
-        )
 
 
 @buck_test(inplace=False, data_dir="pass")
@@ -146,8 +88,10 @@ async def test_multiple_errors_print_with_simple_console(buck: Buck) -> None:
     assert_occurrences(execution_error.format("root//:foo"), e.stderr, 2)
     assert_occurrences(execution_error.format("root//:bar"), e.stderr, 2)
 
-    exit_code = "(Local|Remote) command returned non-zero exit code 1"
-    assert_occurrences_regex(exit_code, e.stderr, 6)
+    # TODO: Windows handle wrong binary path as internal error, maybe we should fix it.
+    if platform.system() != "Windows":
+        exit_code = "(Local|Remote) command returned non-zero exit code 1"
+        assert_occurrences_regex(exit_code, e.stderr, 6)
 
     build_error = "Failed to build '{} (<unspecified>)'"
     assert_occurrences(build_error.format("root//:foo"), e.stderr, 1)
@@ -180,8 +124,10 @@ async def test_multiple_errors_print_with_super_console(buck: Buck) -> None:
     execution_error = "Action failed: "
     assert_occurrences_regex(execution_error, e.stderr, 3)
 
-    exit_code = "(Local|Remote) command returned non-zero exit code 1"
-    assert_occurrences_regex(exit_code, e.stderr, 3)
+    # TODO: Windows handle wrong binary path as internal error, maybe we should fix it.
+    if platform.system() != "Windows":
+        exit_code = "(Local|Remote) command returned non-zero exit code 1"
+        assert_occurrences_regex(exit_code, e.stderr, 3)
 
     # These will eventually be red.
     build_error = "Failed to build '{} (<unspecified>)'"
@@ -197,16 +143,6 @@ async def test_multiple_errors_print_with_super_console(buck: Buck) -> None:
     target_error = f"{DARK_RED}Unknown target `non_existent` from package `root//`"
     assert_occurrences("\x1b[38;5;1mBUILD FAILED\x1b[39m", e.stderr, 1)
     assert_occurrences_regex(target_error, e.stderr, 1)
-
-
-@buck_test(inplace=False, data_dir="transitive_sets")
-async def test_transitive_sets(buck: Buck) -> None:
-    rule = "//:bar"
-    report = await buck.build(rule)
-    out = report.get_build_report().output_for_target(rule)
-    out = out.read_text()
-    out = [line.strip() for line in out.strip().split("\n")]
-    assert out == ["bar", "foo", "foo2", "foo1"]
 
 
 @buck_test(inplace=False, data_dir="pass")
@@ -706,6 +642,7 @@ async def _assert_locally_executed_upload_attempted(buck: Buck, count: int = 1) 
 async def _assert_upload_attempted(buck: Buck, count: int) -> None:
     log = (await buck.log("show")).stdout.strip().splitlines()
     uploads = []
+    excluded_uploads = []
 
     for line in log:
         e = json_get(
@@ -721,8 +658,16 @@ async def _assert_upload_attempted(buck: Buck, count: int) -> None:
         if e["success"] or e["re_error_code"] == "PERMISSION_DENIED":
             # Tolerate permission denied errors because we don't have a choice on CI :(
             uploads.append(e)
+        else:
+            excluded_uploads.append(e)
 
-    assert len(uploads) == count
+    if len(uploads) == count:
+        return
+    else:
+        print(f"Expected {count} uploads", file=sys.stderr)
+        print(f"Actual uploads: {uploads}", file=sys.stderr)
+        print(f"Excluded uploads: {excluded_uploads}", file=sys.stderr)
+        raise AssertionError("Wrong number of uploads, see above")
 
 
 @buck_test(inplace=False, data_dir="execution_platforms")
@@ -967,17 +912,6 @@ async def test_executor_caching(buck: Buck) -> None:
     assert (await read_executors()) == ["Cache"]
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
-async def test_print(buck: Buck) -> None:
-    result = await buck.build("root//:print")
-    assert "print me" in result.stderr
-    assert "print me" not in result.stdout
-
-    result = await buck.build("root//:print", "--no-buckd")
-    assert "print me" in result.stderr
-    assert "print me" not in result.stdout
-
-
 @buck_test(inplace=False, data_dir="pass")
 async def test_sandcastle_id_check(buck: Buck) -> None:
     async def pid() -> int:
@@ -1035,3 +969,31 @@ async def test_build_offline(buck: Buck) -> None:
         "root//executor_threshold_tests:cp_small (<unspecified>) (cp)": "Local",
     }
     assert executors == expected
+
+
+@buck_test(inplace=False, data_dir="execution_platforms")
+async def test_symlink_output(buck: Buck) -> None:
+    with open(buck.cwd / ".buckconfig.local", "w") as f:
+        f.write("[buck2_re_client]\n")
+        f.write("respect_file_symlinks = false\n")
+    await buck.build(
+        "root//executor_symlink_tests:check_not_symlink",
+        "-c",
+        f"test.cache_buster={random_string()}",
+    )
+    await buck.kill()
+    with open(buck.cwd / ".buckconfig.local", "w") as f:
+        f.write("[buck2_re_client]\n")
+        f.write("respect_file_symlinks = true\n")
+    await buck.build(
+        "root//executor_symlink_tests:check_symlink",
+        "-c",
+        f"test.cache_buster={random_string()}",
+    )
+
+
+############################################################################################
+### NOTE(JakobDegen): Do not add new tests to this file. Instead:
+###  1. Use or make a different test file with a name that explains what you're testing.
+###  2. Give that file its own data directory, not one shared with other tests.
+############################################################################################

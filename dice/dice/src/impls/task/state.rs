@@ -59,7 +59,6 @@ impl AtomicDiceTaskState {
                     let unpacked = DiceTaskState::from_u8_state(old);
                     if unpacked == DiceTaskState::Sync {
                         std::hint::spin_loop();
-                        continue;
                     } else if unpacked == DiceTaskState::Ready
                         || unpacked == DiceTaskState::Terminated
                     {

@@ -14,7 +14,9 @@ load(
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
-# @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs") 
+load("@prelude//apple:apple_xctest_frameworks_utility.bzl", "get_xctest_frameworks_bundle_parts")
+load("@prelude//apple:debug.bzl", "AppleSelectiveDebuggableMetadata")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs")
 load("@prelude//apple/user:apple_selected_debug_path_file.bzl", "SELECTED_DEBUG_PATH_FILE_NAME")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
 load("@prelude//apple/validation:debug_artifacts.bzl", "get_debug_artifacts_validators")
@@ -24,7 +26,7 @@ load(
     "create_index_store_subtargets_and_provider",
 )
 load(
-    "@prelude//ide_integrations:xcode.bzl",
+    "@prelude//ide_integrations/xcode:data.bzl",
     "XCODE_DATA_SUB_TARGET",
     "XcodeDataInfoKeys",
     "generate_xcode_data",
@@ -42,10 +44,6 @@ load(
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:lazy.bzl", "lazy")
-load(
-    "@prelude//utils:set.bzl",
-    "set",
-)
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
@@ -65,8 +63,8 @@ load(
     "AppleBundleTypeDefault",
 )
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_default_binary_dep", "get_flattened_binary_deps", "get_product_name")
-load(":apple_code_signing_types.bzl", "CodeSignConfiguration")
-load(":apple_dsym.bzl", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info_json")
+load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "get_code_signing_configuration_attr_value")
+load(":apple_dsym.bzl", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "EXTENDED_DSYM_INFO_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info_json")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(
     ":apple_sdk_metadata.bzl",
@@ -108,8 +106,15 @@ AppleBundlePartListOutput = record(
     info_plist_part = field(AppleBundlePart),
 )
 
+_AppleBundleBinaryParts = record(
+    all_parts = field(list[AppleBundlePart]),
+    primary_part = field(AppleBundlePart),
+    sub_targets = field(dict[str, list[DefaultInfo]]),
+)
+
 def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput:
-    if len(get_flattened_binary_deps(ctx.attrs.binary)) > 1:
+    binary_deps = get_flattened_binary_deps(ctx.attrs.binary)
+    if len(binary_deps) > 1:
         if ctx.attrs.selective_debugging != None:
             fail("Selective debugging is not supported for universal binaries.")
         return create_universal_binary(
@@ -120,7 +125,7 @@ def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput:
             split_arch_dsym = ctx.attrs.split_arch_dsym,
         )
     else:
-        binary_dep = get_default_binary_dep(ctx.attrs.binary)
+        binary_dep = binary_deps[0]
         if len(binary_dep[DefaultInfo].default_outputs) != 1:
             fail("Expected single output artifact. Make sure the implementation of rule from `binary` attribute is correct.")
 
@@ -129,9 +134,9 @@ def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput:
 def _get_bundle_dsym_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_bundle_dir_name(ctx), ".dSYM")
 
-def _scrub_binary(ctx, binary: Artifact, binary_execution_preference_info: None | LinkExecutionPreferenceInfo, focused_targets_labels: list[Label] = []) -> Artifact:
+def _scrub_binary(ctx, binary: Artifact, binary_execution_preference_info: None | LinkExecutionPreferenceInfo, focused_targets_labels: list[Label] = [], identifier: None | str = None) -> Artifact:
     # If fast adhoc code signing is enabled, we need to resign the binary as it won't be signed later.
-    code_signing_configuration = CodeSignConfiguration(ctx.attrs._code_signing_configuration)
+    code_signing_configuration = get_code_signing_configuration_attr_value(ctx)
     if code_signing_configuration == CodeSignConfiguration("fast-adhoc"):
         apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
         adhoc_codesign_tool = apple_tools.adhoc_codesign_tool
@@ -140,15 +145,19 @@ def _scrub_binary(ctx, binary: Artifact, binary_execution_preference_info: None 
 
     selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
     preference = binary_execution_preference_info.preference if binary_execution_preference_info else LinkExecutionPreference("any")
-    return selective_debugging_info.scrub_binary(ctx, binary, preference, adhoc_codesign_tool, focused_targets_labels)
+    return selective_debugging_info.scrub_binary(ctx, binary, preference, adhoc_codesign_tool, focused_targets_labels, identifier = identifier)
 
 def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
     binary = binary_dep[DefaultInfo].default_outputs[0]
+    unstripped_binary = binary_dep.get(UnstrippedLinkOutputInfo).artifact if binary_dep.get(UnstrippedLinkOutputInfo) != None else None
     debuggable_info = binary_dep.get(AppleDebuggableInfo)
     if ctx.attrs.selective_debugging == None:
-        return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
+        return AppleBundleBinaryOutput(binary = binary, unstripped_binary = unstripped_binary, debuggable_info = debuggable_info)
 
     if debuggable_info:
+        if debuggable_info.selective_metadata:
+            fail("Binary cannot contain selective metadata, as it only gets scrubbed when embedded in a bundle")
+
         # If we have debuggable info for this binary, create the scrubed dsym for the binary and filter debug info.
         debug_info_tset = debuggable_info.debug_info_tset
 
@@ -156,22 +165,36 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
         # portions of the debug info that are not transitive in relation to the focused targets.
         all_debug_info = debug_info_tset._tset.traverse(ordering = "topological")
         selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
-        filtered_debug_info = selective_debugging_info.filter(all_debug_info)
+        filtered_debug_info = selective_debugging_info.filter(ctx, all_debug_info)
 
         filtered_external_debug_info = make_artifact_tset(
             actions = ctx.actions,
             label = ctx.label,
-            artifacts = flatten(filtered_debug_info.map.values()),
+            infos = filtered_debug_info.infos,
         )
 
         binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo), filtered_debug_info.swift_modules_labels)
         dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, debug_info_tset)
 
-        debuggable_info = AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = filtered_external_debug_info, filtered_map = filtered_debug_info.map)
-        return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
+        filtered_map = {}
+        for selected_target_info in filtered_debug_info.selected_target_infos:
+            filtered_map.setdefault(selected_target_info.label, []).extend(selected_target_info.artifacts)
+
+        debuggable_info = AppleDebuggableInfo(
+            dsyms = [dsym_artifact],
+            debug_info_tset = filtered_external_debug_info,
+            filtered_map = filtered_map,
+            selective_metadata = [
+                AppleSelectiveDebuggableMetadata(
+                    dsym = dsym_artifact,
+                    metadata = filtered_debug_info.metadata,
+                ),
+            ],
+        )
+        return AppleBundleBinaryOutput(binary = binary, unstripped_binary = unstripped_binary, debuggable_info = debuggable_info)
     else:
         binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo))
-        return AppleBundleBinaryOutput(binary = binary)
+        return AppleBundleBinaryOutput(binary = binary, unstripped_binary = unstripped_binary)
 
 def _get_scrubbed_binary_dsym(ctx, binary: Artifact, debug_info_tset: ArtifactTSet) -> Artifact:
     debug_info = project_artifacts(
@@ -186,7 +209,7 @@ def _get_scrubbed_binary_dsym(ctx, binary: Artifact, debug_info_tset: ArtifactTS
     )
     return dsym_artifact
 
-def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, aggregated_debug_info: AggregatedAppleDebugInfo) -> (list[AppleBundlePart], AppleBundlePart):
+def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, aggregated_debug_info: AggregatedAppleDebugInfo) -> _AppleBundleBinaryParts:
     """Returns a tuple of all binary bundle parts and the primary bundle binary."""
     result = []
 
@@ -197,19 +220,22 @@ def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBin
     if selected_debug_target_part:
         result.append(selected_debug_target_part)
 
-    return result, primary_binary_part
+    sub_targets = {
+        "selected-debug-paths": [DefaultInfo(default_output = selected_debug_target_part.source if selected_debug_target_part else None)],
+    }
 
-def _get_dsym_input_binary_arg(ctx: AnalysisContext, primary_binary_path_arg: cmd_args) -> cmd_args:
-    binary_dep = get_default_binary_dep(ctx.attrs.binary)
-    default_binary = binary_dep[DefaultInfo].default_outputs[0]
+    return _AppleBundleBinaryParts(
+        all_parts = result,
+        primary_part = primary_binary_part,
+        sub_targets = sub_targets,
+    )
 
-    unstripped_binary = binary_dep.get(UnstrippedLinkOutputInfo).artifact if binary_dep.get(UnstrippedLinkOutputInfo) != None else None
-
-    # We've already scrubbed the default binary, we only want to scrub the unstripped one if it's different than the
-    # default.
-    if unstripped_binary != None and default_binary != unstripped_binary:
+def _get_dsym_input_binary_arg(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, primary_binary_path_arg: cmd_args) -> cmd_args:
+    # We've already scrubbed the default binary, we only want to scrub the unstripped one if present.
+    unstripped_binary = binary_output.unstripped_binary
+    if unstripped_binary:
         if ctx.attrs.selective_debugging != None:
-            unstripped_binary = _scrub_binary(ctx, unstripped_binary, binary_dep.get(LinkExecutionPreferenceInfo))
+            unstripped_binary = _scrub_binary(ctx, unstripped_binary, get_default_binary_dep(ctx.attrs.binary).get(LinkExecutionPreferenceInfo), identifier = "unstripped")
         renamed_unstripped_binary = ctx.actions.copy_file(get_product_name(ctx), unstripped_binary)
         return cmd_args(renamed_unstripped_binary)
     else:
@@ -218,6 +244,12 @@ def _get_dsym_input_binary_arg(ctx: AnalysisContext, primary_binary_path_arg: cm
 def _apple_bundle_run_validity_checks(ctx: AnalysisContext):
     if ctx.attrs.extension == None:
         fail("`extension` attribute is required")
+
+def _get_deps_selective_metadata(deps_debuggable_infos: list[AppleDebuggableInfo]) -> list[AppleSelectiveDebuggableMetadata]:
+    all_metadatas = []
+    for debuggable_info in deps_debuggable_infos:
+        all_metadatas.extend(debuggable_info.selective_metadata)
+    return all_metadatas
 
 def _get_deps_debuggable_infos(ctx: AnalysisContext) -> list[AppleDebuggableInfo]:
     binary_labels = filter(None, [getattr(binary_dep, "label", None) for binary_dep in get_flattened_binary_deps(ctx.attrs.binary)])
@@ -254,7 +286,7 @@ def _get_all_agg_debug_info(ctx: AnalysisContext, binary_output: AppleBundleBina
 
 def _maybe_scrub_selected_debug_paths_file(ctx: AnalysisContext, package_names: list[str]) -> Artifact:
     if not ctx.attrs.selective_debugging:
-        return ctx.actions.write(SELECTED_DEBUG_PATH_FILE_NAME, sorted(set(package_names).list()))
+        return ctx.actions.write(SELECTED_DEBUG_PATH_FILE_NAME, sorted(set(package_names)))
 
     selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
     return selective_debugging_info.scrub_selected_debug_paths_file(ctx, package_names, SELECTED_DEBUG_PATH_FILE_NAME)
@@ -278,8 +310,21 @@ def get_apple_bundle_part_list(ctx: AnalysisContext, params: AppleBundlePartList
     if resource_part_list == None:
         resource_part_list = get_apple_bundle_resource_part_list(ctx)
 
+    xctest_frameworks_parts = []
+    if getattr(ctx.attrs, "embed_xctest_frameworks", False):
+        if getattr(ctx.attrs, "extension", "") == "app":
+            # XCTest frameworks should only be enabled for the top-level app,
+            # not for any other bundles in the dep graph
+            xctest_frameworks_parts = get_xctest_frameworks_bundle_parts(
+                ctx,
+                # It's not possible to pass information down the graph whether
+                # the `apple_test()` rdep needs Swift support, so just assume
+                # it does, in the future, Obj-C only test targets would be rare.
+                swift_support_needed = True,
+            )
+
     return AppleBundlePartListOutput(
-        parts = resource_part_list.resource_parts + params.binaries,
+        parts = resource_part_list.resource_parts + params.binaries + xctest_frameworks_parts,
         info_plist_part = resource_part_list.info_plist_part,
     )
 
@@ -297,19 +342,19 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     deps_debuggable_infos = _get_deps_debuggable_infos(ctx)
     aggregated_debug_info = _get_all_agg_debug_info(ctx, binary_outputs, deps_debuggable_infos)
 
-    all_binary_parts, primary_binary_part = _get_binary_bundle_parts(ctx, binary_outputs, aggregated_debug_info)
-    apple_bundle_part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = all_binary_parts))
+    binary_parts = _get_binary_bundle_parts(ctx, binary_outputs, aggregated_debug_info)
+    apple_bundle_part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = binary_parts.all_parts))
 
     bundle = bundle_output(ctx)
 
-    primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, primary_binary_part)
+    primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, binary_parts.primary_part)
 
     validation_deps_outputs = get_validation_deps_outputs(ctx)
 
-    should_enable_incremental_bundling = True
+    incremental_bundling_override = None
     sdk_name = get_apple_sdk_name(ctx)
     if sdk_name == MacOSXSdkMetadata.name or sdk_name == MacOSXCatalystSdkMetadata.name:
-        should_enable_incremental_bundling = False
+        incremental_bundling_override = False
 
     bundle_result = assemble_bundle(
         ctx,
@@ -318,10 +363,11 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         apple_bundle_part_list_output.info_plist_part,
         SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path),
         validation_deps_outputs,
-        incremental_bundling_override = should_enable_incremental_bundling,
+        incremental_bundling_override = incremental_bundling_override,
     )
     sub_targets = bundle_result.sub_targets
     sub_targets.update(aggregated_debug_info.sub_targets)
+    sub_targets.update(binary_parts.sub_targets)
 
     primary_binary_path = cmd_args([bundle, primary_binary_rel_path], delimiter = "/")
     primary_binary_path_arg = cmd_args(primary_binary_path, hidden = bundle)
@@ -333,7 +379,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets["linker.command"] = [DefaultInfo(default_outputs = filter(None, [link_cmd_debug_file]))]
 
     # dsyms
-    dsym_input_binary_arg = _get_dsym_input_binary_arg(ctx, primary_binary_path_arg)
+    dsym_input_binary_arg = _get_dsym_input_binary_arg(ctx, binary_outputs, primary_binary_path_arg)
     binary_dsym_artifacts = _get_bundle_binary_dsym_artifacts(ctx, binary_outputs, dsym_input_binary_arg)
     dep_dsym_artifacts = flatten([info.dsyms for info in deps_debuggable_infos])
 
@@ -341,10 +387,30 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     if dsym_artifacts:
         sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = dsym_artifacts)]
 
-    dsym_info_json = get_apple_dsym_info_json(binary_dsym_artifacts, dep_dsym_artifacts)
-    dsym_info = ctx.actions.write_json("dsym-info.json", dsym_info_json, pretty = True)
+    dsym_json_info = get_apple_dsym_info_json(binary_dsym_artifacts, dep_dsym_artifacts)
+    dsym_info = ctx.actions.write_json("dsym-info.json", dsym_json_info.json_object, pretty = True)
     sub_targets[DSYM_INFO_SUBTARGET] = [
-        DefaultInfo(default_output = dsym_info, other_outputs = dsym_artifacts),
+        DefaultInfo(default_output = dsym_info, other_outputs = dsym_json_info.outputs),
+    ]
+
+    deps_selective_metadata = _get_deps_selective_metadata(deps_debuggable_infos)
+    binary_selective_metadata = []
+    if binary_outputs.debuggable_info and binary_outputs.debuggable_info.selective_metadata:
+        if len(binary_outputs.debuggable_info.selective_metadata) > 1:
+            fail("Binary cannot have multiple selective metadata")
+
+        # `AppleSelectiveDebuggableMetadata` for the binary is computed here because
+        # the dSYMs for the bundle get regenerated (via call to `_get_bundle_binary_dsym_artifacts()`).
+        # To ensure we have the correct dSYM path, metadata needs to be created here, as otherwise
+        # the map will contain the value of the dSYM for the standalone binary, not for the binary
+        # as part of the bundle.
+        binary_selective_metadata = [AppleSelectiveDebuggableMetadata(dsym = binary_dsym, metadata = binary_outputs.debuggable_info.selective_metadata[0].metadata) for binary_dsym in binary_dsym_artifacts]
+    all_selective_metadata = binary_selective_metadata + deps_selective_metadata
+
+    extended_dsym_json_info = get_apple_dsym_info_json(binary_dsym_artifacts, dep_dsym_artifacts, all_selective_metadata)
+    extended_dsym_info = ctx.actions.write_json("extended-dsym-info.json", extended_dsym_json_info.json_object, pretty = True)
+    sub_targets[EXTENDED_DSYM_INFO_SUBTARGET] = [
+        DefaultInfo(default_output = extended_dsym_info, other_outputs = extended_dsym_json_info.outputs),
     ]
 
     sub_targets[_PLIST] = [DefaultInfo(default_output = apple_bundle_part_list_output.info_plist_part.source)]
@@ -360,8 +426,8 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Collect extra bundle outputs
     extra_output_provider = _extra_output_provider(ctx)
-    # @oss-disable: extra_output_subtargets = subtargets_for_apple_bundle_extra_outputs(ctx, extra_output_provider) 
-    # @oss-disable: sub_targets.update(extra_output_subtargets) 
+    # @oss-disable[end= ]: extra_output_subtargets = subtargets_for_apple_bundle_extra_outputs(ctx, extra_output_provider)
+    # @oss-disable[end= ]: sub_targets.update(extra_output_subtargets)
 
     # index store
     index_store_subtargets, index_store_info = _index_store_data(ctx)
@@ -369,13 +435,13 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
 
     bundle_and_dsym_info_json = {
         "bundle": bundle,
-        "dsym": dsym_info_json,
+        "dsym": dsym_json_info.json_object,
     }
     bundle_and_dsym_info = ctx.actions.write_json("bundle-and-dsym-info.json", bundle_and_dsym_info_json)
     sub_targets["bundle-and-dsym-info"] = [
         DefaultInfo(
             default_output = bundle_and_dsym_info,
-            other_outputs = [bundle] + dsym_artifacts,
+            other_outputs = [bundle] + dsym_json_info.outputs,
         ),
     ]
 
@@ -398,6 +464,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
             dsyms = dsym_artifacts,
             debug_info_tset = aggregated_debug_info.debug_info.debug_info_tset,
             filtered_map = aggregated_debug_info.debug_info.filtered_map,
+            selective_metadata = all_selective_metadata,
         ),
         InstallInfo(
             installer = ctx.attrs._apple_toolchain[AppleToolchainInfo].installer,
@@ -416,12 +483,14 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def _xcode_populate_attributes(ctx, processed_info_plist: Artifact, info_plist_relative_path: str) -> dict[str, typing.Any]:
     data = {
+        XcodeDataInfoKeys.BUNDLE_TYPE: _infer_apple_bundle_type(ctx),
         XcodeDataInfoKeys.DEPLOYMENT_VERSION: get_bundle_min_target_version(ctx, get_default_binary_dep(ctx.attrs.binary)),
         XcodeDataInfoKeys.INFO_PLIST: ctx.attrs.info_plist,
         XcodeDataInfoKeys.PROCESSED_INFO_PLIST: processed_info_plist,
         XcodeDataInfoKeys.INFO_PLIST_RELATIVE_PATH: info_plist_relative_path,
         XcodeDataInfoKeys.PRODUCT_NAME: get_product_name(ctx),
         XcodeDataInfoKeys.SDK: get_apple_sdk_name(ctx),
+        XcodeDataInfoKeys.APP_EXTENSION_DEPENDENCIES: _app_extension_deps(ctx),
     }
 
     apple_xcode_data_add_xctoolchain(ctx, data)
@@ -484,7 +553,7 @@ def _link_command_debug_data(ctx: AnalysisContext) -> (Artifact, LinkCommandDebu
 
 def _index_store_data(ctx: AnalysisContext) -> (dict[str, list[Provider]], IndexStoreInfo):
     deps_with_binary = ctx.attrs.deps + get_flattened_binary_deps(ctx.attrs.binary)
-    index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, [], deps_with_binary)
+    index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, [], [], deps_with_binary)
     return index_store_subtargets, index_store_info
 
 def _extra_output_provider(ctx: AnalysisContext) -> AppleBundleExtraOutputsInfo:
@@ -505,6 +574,14 @@ def _extra_output_provider(ctx: AnalysisContext) -> AppleBundleExtraOutputsInfo:
             extra_outputs.extend(dep[AppleBundleExtraOutputsInfo].extra_outputs)
 
     return AppleBundleExtraOutputsInfo(extra_outputs = extra_outputs)
+
+def _app_extension_deps(ctx: AnalysisContext) -> list[str]:
+    app_extension_deps = []
+    for dep in ctx.attrs.deps:
+        apple_bundle_info = dep.get(AppleBundleInfo)
+        if apple_bundle_info and paths.split_extension(apple_bundle_info.bundle.short_path)[1] == ".appex":
+            app_extension_deps.append(str(dep.label.raw_target()))
+    return app_extension_deps
 
 def generate_install_data(
         ctx: AnalysisContext,

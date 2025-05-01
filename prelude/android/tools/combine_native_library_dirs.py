@@ -33,6 +33,12 @@ def main() -> None:
         type=Path,
         required=False,
     )
+    parser.add_argument(
+        "--pick-first",
+        type=str,
+        nargs="+",
+        help="Library names to pick the first if duplicated",
+    )
     args = parser.parse_args()
 
     metadata_lines = []
@@ -43,13 +49,21 @@ def main() -> None:
         for lib in all_libs:
             relative_path = lib.relative_to(library_dir)
             output_path = args.output_dir / relative_path
-            assert (
-                not output_path.exists()
-            ), "Duplicate library name: {}! Source1: {}, source2: {}".format(
-                output_path.name,
-                os.path.realpath(output_path),
-                lib,
-            )
+
+            if output_path.exists():
+                if (
+                    args.pick_first
+                    and os.path.basename(relative_path) in args.pick_first
+                ):
+                    continue
+                else:
+                    raise AssertionError(
+                        "Duplicate library name: {}! Source1: {}, source2: {}".format(
+                            output_path.name,
+                            os.path.realpath(output_path),
+                            lib,
+                        )
+                    )
 
             output_path.parent.mkdir(exist_ok=True, parents=True)
             relative_path_to_lib = os.path.relpath(

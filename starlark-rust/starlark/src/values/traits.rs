@@ -43,6 +43,8 @@ use crate::any::ProvidesStaticType;
 use crate::collections::Hashed;
 use crate::collections::StarlarkHasher;
 use crate::docs::DocItem;
+use crate::docs::DocMember;
+use crate::docs::DocProperty;
 use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
@@ -50,9 +52,6 @@ use crate::private::Private;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
-use crate::values::demand::Demand;
-use crate::values::error::ControlError;
-use crate::values::function::FUNCTION_TYPE;
 use crate::values::Freeze;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
@@ -60,6 +59,9 @@ use crate::values::Heap;
 use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueError;
+use crate::values::demand::Demand;
+use crate::values::error::ControlError;
+use crate::values::function::FUNCTION_TYPE;
 
 /// A trait for values which are more complex - because they are either mutable
 /// (e.g. using [`RefCell`](std::cell::RefCell)), or contain references to other values.
@@ -83,6 +85,7 @@ use crate::values::ValueError;
 /// use starlark::values::Coerce;
 /// use starlark::values::ComplexValue;
 /// use starlark::values::Freeze;
+/// use starlark::values::FreezeResult;
 /// use starlark::values::Freezer;
 /// use starlark::values::FrozenValue;
 /// use starlark::values::NoSerialize;
@@ -118,7 +121,7 @@ use crate::values::ValueError;
 ///
 /// impl<'v> Freeze for One<'v> {
 ///     type Frozen = FrozenOne;
-///     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+///     fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
 ///         Ok(OneGen(self.0.freeze(freezer)?))
 ///     }
 /// }
@@ -126,7 +129,6 @@ use crate::values::ValueError;
 ///
 /// The [`starlark_complex_value!`](crate::starlark_complex_value!) requires that
 /// the type have an instance for `Coerce`, then the macro defines two type aliases.
-///
 /// ```
 /// # use crate::starlark::values::*;
 /// # #[derive(Debug, Trace)]
@@ -143,7 +145,6 @@ use crate::values::ValueError;
 /// [`AllocFrozenValue`](crate::values::AllocFrozenValue) for the frozen one, and
 /// [`UnpackValue`](crate::values::UnpackValue) for the non-frozen one.
 /// It also defines the methods:
-///
 /// ```
 /// # use crate::starlark::values::*;
 /// # use std::cell::RefMut;
@@ -308,15 +309,22 @@ pub trait StarlarkValue<'v>:
         None
     }
 
-    /// Return structured documentation for self, if available.
-    fn documentation(&self) -> Option<DocItem>
+    /// Return the documentation for this value.
+    ///
+    /// This should be the doc-item that is expected to be generated when this value appears as a
+    /// global in a module. In other words, for normal types this should generally return a
+    /// `DocMember::Property`. In that case there is no need to override this method.
+    fn documentation(&self) -> DocItem
     where
         Self: Sized,
     {
         let ty = self
             .typechecker_ty()
             .unwrap_or_else(|| Self::get_type_starlark_repr());
-        Self::get_methods().map(|methods| DocItem::Type(methods.documentation(ty)))
+        DocItem::Member(DocMember::Property(DocProperty {
+            docs: None,
+            typ: ty,
+        }))
     }
 
     /// Type of this instance for typechecker.

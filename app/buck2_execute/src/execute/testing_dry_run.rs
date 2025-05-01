@@ -84,11 +84,11 @@ impl PreparedCommandExecutor for DryRunExecutor {
         match request
             .outputs()
             .map(|x| {
-                let path = x.resolve(&self.fs).into_path();
+                let path = x.resolve(&self.fs)?.into_path();
                 self.fs.fs().write_file(&path, "", false)?;
                 Ok((x.cloned(), ArtifactValue::file(digest_config.empty_file())))
             })
-            .collect::<anyhow::Result<_>>()
+            .collect::<buck2_error::Result<_>>()
         {
             Ok(outputs) => manager.success(
                 exec_kind,
@@ -103,6 +103,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
                 Default::default(),
                 Some(1),
                 CommandExecutionMetadata::default(),
+                None,
             ),
         }
     }

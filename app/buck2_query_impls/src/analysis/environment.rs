@@ -14,7 +14,6 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
@@ -22,10 +21,10 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
-use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_build_api::query::analysis::CLASSPATH_FOR_TARGETS;
@@ -33,27 +32,28 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_error::BuckErrorContext;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNode;
 use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNodeDeps;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_node::query::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
-use buck2_query::query::environment::deps;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::environment::TraversalFilter;
+use buck2_query::query::environment::deps;
 use buck2_query::query::graph::dfs::dfs_postorder;
 use buck2_query::query::graph::successors::AsyncChildVisitor;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryValue;
-use buck2_query::query::syntax::simple::functions::helpers::QueryBinaryOp;
-use buck2_query::query::syntax::simple::functions::helpers::QueryFunction;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query::query::syntax::simple::functions::QueryFunctions;
+use buck2_query::query::syntax::simple::functions::helpers::QueryBinaryOp;
+use buck2_query::query::syntax::simple::functions::helpers::QueryFunction;
+use buck2_query::query::traversal::NodeLookupId;
 use buck2_query::query::traversal::async_depth_limited_traversal;
 use buck2_query::query::traversal::async_fast_depth_first_postorder_traversal;
-use buck2_query::query::traversal::NodeLookupId;
 use buck2_query::query_module;
 use buck2_query_parser::BinaryOp;
 use dice::DiceComputations;
@@ -64,6 +64,7 @@ use indexmap::IndexMap;
 use starlark::values::UnpackValue;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum AnalysisQueryError {
     #[error("file literals aren't supported in query attributes (got `{0}`)")]
     FileLiteralsNotAllowed(String),
@@ -75,13 +76,13 @@ enum AnalysisQueryError {
 
 #[async_trait]
 pub(crate) trait ConfiguredGraphQueryEnvironmentDelegate: Send + Sync {
-    fn eval_literal(&self, literal: &str) -> anyhow::Result<ConfiguredTargetNode>;
+    fn eval_literal(&self, literal: &str) -> buck2_error::Result<ConfiguredTargetNode>;
 
     async fn get_targets_from_template_placeholder_info(
         &self,
         template_name: &'static str,
         targets: TargetSet<ConfiguredGraphNodeRef>,
-    ) -> anyhow::Result<TargetSet<ConfiguredGraphNodeRef>>;
+    ) -> buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>>;
 }
 
 pub(crate) struct ConfiguredGraphQueryEnvironment<'a> {
@@ -172,7 +173,7 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
         &self,
         template_name: &'static str,
         targets: TargetSet<ConfiguredGraphNodeRef>,
-    ) -> anyhow::Result<TargetSet<ConfiguredGraphNodeRef>> {
+    ) -> buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>> {
         self.delegate
             .get_targets_from_template_placeholder_info(template_name, targets)
             .await
@@ -187,21 +188,27 @@ pub(crate) fn init_query_functions() {
 impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
     type Target = ConfiguredGraphNodeRef;
 
-    async fn get_node(&self, node_ref: &ConfiguredGraphNodeRef) -> anyhow::Result<Self::Target> {
+    async fn get_node(
+        &self,
+        node_ref: &ConfiguredGraphNodeRef,
+    ) -> buck2_error::Result<Self::Target> {
         Ok(node_ref.dupe())
     }
 
     async fn get_node_for_default_configured_target(
         &self,
         _node_ref: &ConfiguredGraphNodeRef,
-    ) -> anyhow::Result<MaybeCompatible<Self::Target>> {
+    ) -> buck2_error::Result<MaybeCompatible<Self::Target>> {
         Err(QueryError::FunctionUnimplemented(
             "get_node_for_default_configured_target() only for CqueryEnvironment",
         )
         .into())
     }
 
-    async fn eval_literals(&self, literal: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {
+    async fn eval_literals(
+        &self,
+        literal: &[&str],
+    ) -> buck2_error::Result<TargetSet<Self::Target>> {
         let mut result = TargetSet::new();
         for lit in literal {
             result.insert(ConfiguredGraphNodeRef::new(
@@ -211,7 +218,7 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
         Ok(result)
     }
 
-    async fn eval_file_literal(&self, literal: &str) -> anyhow::Result<FileSet> {
+    async fn eval_file_literal(&self, literal: &str) -> buck2_error::Result<FileSet> {
         Err(AnalysisQueryError::FileLiteralsNotAllowed(literal.to_owned()).into())
     }
 
@@ -219,8 +226,8 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
         &self,
         root: &TargetSet<Self::Target>,
         delegate: impl AsyncChildVisitor<Self::Target>,
-        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
-    ) -> anyhow::Result<()> {
+        visit: impl FnMut(Self::Target) -> buck2_error::Result<()> + Send,
+    ) -> buck2_error::Result<()> {
         async_fast_depth_first_postorder_traversal(
             &NodeLookupId,
             root.iter().duped(),
@@ -234,20 +241,20 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
         &self,
         root: &TargetSet<Self::Target>,
         delegate: impl AsyncChildVisitor<Self::Target>,
-        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
+        visit: impl FnMut(Self::Target) -> buck2_error::Result<()> + Send,
         depth: u32,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         async_depth_limited_traversal(&NodeLookupId, root.iter(), delegate, visit, depth).await
     }
 
-    async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
+    async fn owner(&self, _paths: &FileSet) -> buck2_error::Result<TargetSet<Self::Target>> {
         Err(QueryError::FunctionUnimplemented("owner").into())
     }
 
     async fn targets_in_buildfile(
         &self,
         _paths: &FileSet,
-    ) -> anyhow::Result<TargetSet<Self::Target>> {
+    ) -> buck2_error::Result<TargetSet<Self::Target>> {
         Err(QueryError::FunctionUnimplemented("targets_in_buildfile").into())
     }
 
@@ -256,7 +263,7 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
         targets: &TargetSet<Self::Target>,
         depth: Option<i32>,
         filter: Option<&dyn TraversalFilter<Self::Target>>,
-    ) -> anyhow::Result<TargetSet<Self::Target>> {
+    ) -> buck2_error::Result<TargetSet<Self::Target>> {
         if depth.is_none() && filter.is_none() {
             // TODO(nga): fast lookup with depth too.
             let mut deps: TargetSet<Self::Target> = TargetSet::new();
@@ -279,7 +286,7 @@ async fn get_template_info_provider_artifacts(
     ctx: &mut DiceComputations<'_>,
     configured_label: &ConfiguredTargetLabel,
     template_name: &str,
-) -> anyhow::Result<Vec<ArtifactGroup>> {
+) -> buck2_error::Result<Vec<ArtifactGroup>> {
     let providers_label =
         ConfiguredProvidersLabel::new(configured_label.dupe(), ProvidersName::Default);
 
@@ -331,7 +338,7 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
     ctx: &'x mut DiceComputations<'_>,
     template_name: &'static str,
     targets: impl IntoIterator<Item = ConfiguredTargetLabel>,
-) -> anyhow::Result<IndexMap<ConfiguredTargetLabel, Artifact>> {
+) -> buck2_error::Result<IndexMap<ConfiguredTargetLabel, Artifact>> {
     let mut label_to_artifact: IndexMap<ConfiguredTargetLabel, Artifact> = IndexMap::new();
 
     // Traversing tsets adds complexity here. Ideally, we could just do a normal traversal of these starlark values
@@ -356,7 +363,7 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
             async move {
                 let artifacts =
                     get_template_info_provider_artifacts(ctx, &target, template_name).await?;
-                anyhow::Ok(
+                buck2_error::Ok(
                     artifacts
                         .into_iter()
                         .map(move |artifact| (target.dupe(), artifact)),
@@ -377,7 +384,7 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
         let handle_artifact =
             |label_to_artifact: &mut IndexMap<ConfiguredTargetLabel, Artifact>,
              artifact: &Artifact|
-             -> anyhow::Result<()> {
+             -> buck2_error::Result<()> {
                 if let Some(owner) = artifact.owner() {
                     let target_label = owner.unpack_target_label().ok_or_else(|| {
                         AnalysisQueryError::NonTargetBoundArtifact(
@@ -409,8 +416,8 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
                     let mut queue = VecDeque::new();
                     queue.push_back(tset_value.to_value());
                     while let Some(v) = queue.pop_front() {
-                        let as_tset =
-                            TransitiveSet::from_value(v).context("invalid tset structure")?;
+                        let as_tset = TransitiveSet::from_value(v)
+                            .buck_error_context("invalid tset structure")?;
 
                         // Visit the projection value itself. As this is an opaque cmdargs-like thing, it may contain more top-level tset node
                         // references that need to be pushed into the outer queue.
@@ -443,8 +450,8 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
 
                         // Enqueue any children we haven't yet seen (and mark them seen).
                         for child in as_tset.children.iter() {
-                            let child_as_tset =
-                                TransitiveSet::from_value(*child).context("Invalid deferred")?;
+                            let child_as_tset = TransitiveSet::from_value(*child)
+                                .buck_error_context("Invalid deferred")?;
                             let projection_key =
                                 child_as_tset.get_projection_key(tset_key.projection);
                             if seen.insert(projection_key) {

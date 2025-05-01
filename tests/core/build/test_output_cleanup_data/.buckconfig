@@ -1,0 +1,8 @@
+[cells]
+  root = .
+
+[buildfile]
+  name=TARGETS.fixture
+
+[project]
+  ignore=ignored

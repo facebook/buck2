@@ -9,17 +9,19 @@
 
 use std::sync::Arc;
 
-use buck2_common::legacy_configs::configs::testing::parse_with_config_args;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
-use buck2_common::package_listing::listing::testing::PackageListingExt;
+use buck2_common::legacy_configs::configs::testing::parse_with_config_args;
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::cells::cell_root_path::CellRootPathBuf;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::build_file_cell::BuildFileCell;
+use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
+use buck2_core::cells::cell_root_path::CellRootPathBuf;
+use buck2_core::cells::name::CellName;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
@@ -44,8 +46,8 @@ use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::configuror::AdditionalGlobalsFn;
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::global_interpreter_state::GlobalInterpreterState;
-use crate::interpreter::interpreter_for_cell::InterpreterForCell;
-use crate::interpreter::interpreter_for_cell::ParseData;
+use crate::interpreter::interpreter_for_dir::InterpreterForDir;
+use crate::interpreter::interpreter_for_dir::ParseData;
 use crate::super_package::package_value::SuperPackageValuesImpl;
 
 /// Simple container that allows us to instrument things like imports
@@ -57,22 +59,28 @@ pub struct Tester {
     loaded_modules: LoadedModules,
     additional_globals: Vec<AdditionalGlobalsFn>,
     prelude_path: Option<PreludePath>,
+    current_dir_with_allowed_relative_dirs: Arc<CellPathWithAllowedRelativeDir>,
 }
 
 /// Helpers required to help drive the interpreter
-pub type CellsData = (CellAliasResolver, CellResolver, LegacyBuckConfig);
+pub type CellsData = (
+    CellAliasResolver,
+    CellResolver,
+    LegacyBuckConfig,
+    CellPathWithAllowedRelativeDir,
+);
 
 /// The same as `run_starlark_test`, but just make sure the parse succeeds;
 /// ignore the targets
-pub fn run_simple_starlark_test(content: &str) -> anyhow::Result<()> {
+pub fn run_simple_starlark_test(content: &str) -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     match tester.run_starlark_test(content) {
         Ok(_) => Ok(()),
-        Err(e) => Err(anyhow::Error::from(e)),
+        Err(e) => Err(buck2_error::Error::from(e)),
     }
 }
 
-pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
+pub fn cells(extra_root_config: Option<&str>) -> buck2_error::Result<CellsData> {
     let resolver = CellResolver::testing_with_name_and_path(
         CellName::testing_new("root"),
         CellRootPathBuf::new(ProjectRelativePath::empty().to_owned()),
@@ -106,6 +114,7 @@ pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
         resolver.root_cell_cell_alias_resolver().dupe(),
         resolver,
         config,
+        CellPathWithAllowedRelativeDir::new(CellPath::testing_new("root//some/package"), None), // current_dir_with_allowed_relative_dirs
     ))
 }
 
@@ -132,12 +141,17 @@ pub fn expect_error<T>(result: buck2_error::Result<T>, content: &str, expected: 
 }
 
 impl Tester {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new() -> buck2_error::Result<Self> {
         Self::with_cells(cells(None)?)
     }
 
-    pub fn with_cells(cells_data: CellsData) -> anyhow::Result<Self> {
-        let (cell_alias_resolver, cell_resolver, root_config) = cells_data;
+    pub fn with_cells(cells_data: CellsData) -> buck2_error::Result<Self> {
+        let (
+            cell_alias_resolver,
+            cell_resolver,
+            root_config,
+            current_dir_with_allowed_relative_dirs,
+        ) = cells_data;
         Ok(Self {
             cell_alias_resolver,
             cell_resolver,
@@ -145,6 +159,7 @@ impl Tester {
             loaded_modules: LoadedModules::default(),
             additional_globals: Vec::new(),
             prelude_path: None,
+            current_dir_with_allowed_relative_dirs: current_dir_with_allowed_relative_dirs.into(),
         })
     }
 
@@ -160,7 +175,7 @@ impl Tester {
         self.prelude_path = Some(PreludePath::testing_new(prelude_import));
     }
 
-    fn interpreter(&self) -> anyhow::Result<Arc<InterpreterForCell>> {
+    fn interpreter(&self) -> buck2_error::Result<Arc<InterpreterForDir>> {
         let build_file_cell = BuildFileCell::new(self.cell_alias_resolver.resolve_self());
         let import_paths = ImplicitImportPaths::parse(
             &self.root_config,
@@ -173,7 +188,7 @@ impl Tester {
             self.cell_resolver.dupe(),
             self.cell_alias_resolver.dupe(),
         )?;
-        Ok(Arc::new(InterpreterForCell::new(
+        Ok(Arc::new(InterpreterForDir::new(
             cell_info,
             Arc::new(GlobalInterpreterState::new(
                 self.cell_resolver.dupe(),
@@ -195,6 +210,7 @@ impl Tester {
                 true,
             )?),
             Arc::new(import_paths),
+            self.current_dir_with_allowed_relative_dirs.dupe(),
         )?))
     }
 
@@ -208,7 +224,11 @@ impl Tester {
 
     /// Evaluate an import, and add it to the existing loaded_modules() map to be
     /// used with `eval_build_file`
-    pub fn add_import(&mut self, path: &ImportPath, content: &str) -> anyhow::Result<LoadedModule> {
+    pub fn add_import(
+        &mut self,
+        path: &ImportPath,
+        content: &str,
+    ) -> buck2_error::Result<LoadedModule> {
         let loaded = self.eval_import(path, content, self.loaded_modules.clone())?;
         self.loaded_modules
             .map
@@ -224,7 +244,7 @@ impl Tester {
         path: &ImportPath,
         content: &str,
         loaded_modules: LoadedModules,
-    ) -> anyhow::Result<LoadedModule> {
+    ) -> buck2_error::Result<LoadedModule> {
         let interpreter = self.interpreter()?;
         let ParseData(ast, _) =
             interpreter.parse(StarlarkPath::LoadFile(path), content.to_owned())??;
@@ -253,7 +273,7 @@ impl Tester {
         path: &BuildFilePath,
         content: &str,
         package_listing: PackageListing,
-    ) -> anyhow::Result<EvaluationResult> {
+    ) -> buck2_error::Result<EvaluationResult> {
         self.eval_build_file_with_loaded_modules(
             path,
             content,
@@ -270,7 +290,7 @@ impl Tester {
         content: &str,
         loaded_modules: LoadedModules,
         package_listing: PackageListing,
-    ) -> anyhow::Result<EvaluationResult> {
+    ) -> buck2_error::Result<EvaluationResult> {
         let interpreter = self.interpreter()?;
         let ParseData(ast, _) =
             interpreter.parse(StarlarkPath::BuildFile(path), content.to_owned())??;
@@ -281,7 +301,7 @@ impl Tester {
             path,
             &mut buckconfigs,
             package_listing,
-            SuperPackage::empty::<SuperPackageValuesImpl>(),
+            SuperPackage::empty::<SuperPackageValuesImpl>()?,
             false,
             ast,
             loaded_modules,

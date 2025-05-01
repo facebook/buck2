@@ -20,24 +20,25 @@ use dupe::Dupe;
 
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
-use crate::values::function::NativeFunc;
-use crate::values::function::NativeFunction;
-use crate::values::FrozenRef;
 use crate::values::FrozenValueTyped;
 use crate::values::Value;
+use crate::values::function::NativeFunc;
+use crate::values::function::NativeFunction;
 
 /// Pointer to a native function optimized for bytecode execution.
 #[derive(Copy, Clone, Dupe, Allocative)]
 pub(crate) struct BcNativeFunction {
     fun: FrozenValueTyped<'static, NativeFunction>,
     /// Copy function here from `fun` to avoid extra dereference when calling.
-    imp: FrozenRef<'static, dyn NativeFunc>,
+    imp: &'static NativeFunc,
 }
 
 impl BcNativeFunction {
     pub(crate) fn new(fun: FrozenValueTyped<'static, NativeFunction>) -> BcNativeFunction {
-        let imp = fun.as_frozen_ref().map(|f| &*f.function);
-        BcNativeFunction { fun, imp }
+        BcNativeFunction {
+            fun,
+            imp: &fun.as_ref().function,
+        }
     }
 
     #[inline]

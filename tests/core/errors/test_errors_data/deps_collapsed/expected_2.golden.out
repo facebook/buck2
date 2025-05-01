@@ -1,0 +1,16 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+Command failed: 
+Error in configured node dependency, dependency chain follows (-> indicates depends on, ^ indicates same configuration as previous):
+       root//deps_collapsed:top (root//deps_collapsed:target#00000000)
+    -> root//deps_collapsed:mid1 (^)
+    -> root//deps_collapsed:mid2 (^)
+    -> root//deps_collapsed:mid3 (^)
+    -> root//deps_collapsed:toolchain1 (^)
+    -> root//deps_collapsed:toolchain2 (^)
+
+
+Caused by:
+    0: configuring attr `exec_deps`
+    1: None of 0 conditions matched configuration `root//deps_collapsed:target#eba6dbc14e82192b` and no default was set:
+       

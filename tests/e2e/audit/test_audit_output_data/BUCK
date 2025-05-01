@@ -1,9 +1,0 @@
-load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
-
-oncall("build_infra")
-
-buck_genrule(
-    name = "dummy",
-    out = "dummy.txt",
-    cmd = "echo dummy > $OUT",
-)

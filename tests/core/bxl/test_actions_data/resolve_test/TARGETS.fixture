@@ -1,0 +1,8 @@
+load(":defs.bzl", "foo_buildable")
+
+foo_buildable(
+    name = "buildable",
+    content = "FOO",
+    out = "out.txt",
+    srcs = ["foo.txt"],
+)

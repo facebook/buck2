@@ -17,7 +17,7 @@
 
 //! Generic interner for starlark strings.
 
-use hashbrown::raw::RawTable;
+use hashbrown::HashTable;
 
 use crate as starlark;
 use crate::collections::Hashed;
@@ -28,7 +28,7 @@ use crate::values::Trace;
 /// `[FrozenStringValue]` interner.
 #[derive(Default)]
 pub(crate) struct FrozenStringValueInterner {
-    map: RawTable<FrozenStringValue>,
+    map: HashTable<FrozenStringValue>,
 }
 
 impl FrozenStringValueInterner {
@@ -39,14 +39,15 @@ impl FrozenStringValueInterner {
     ) -> FrozenStringValue {
         match self
             .map
-            .get(s.hash().promote(), |x| s == x.get_hashed_str())
+            .find(s.hash().promote(), |x| s == x.get_hashed_str())
         {
             Some(frozen_string) => *frozen_string,
             None => {
                 let frozen_string = alloc();
-                self.map.insert(s.hash().promote(), frozen_string, |x| {
-                    x.get_hash().promote()
-                });
+                self.map
+                    .insert_unique(s.hash().promote(), frozen_string, |x| {
+                        x.get_hash().promote()
+                    });
                 frozen_string
             }
         }
@@ -55,7 +56,7 @@ impl FrozenStringValueInterner {
 
 #[derive(Default, Trace)]
 pub(crate) struct StringValueInterner<'v> {
-    map: RawTable<StringValue<'v>>,
+    map: HashTable<StringValue<'v>>,
 }
 
 impl<'v> StringValueInterner<'v> {
@@ -66,13 +67,13 @@ impl<'v> StringValueInterner<'v> {
     ) -> StringValue<'v> {
         match self
             .map
-            .get(s.hash().promote(), |x| s == x.get_hashed_str())
+            .find(s.hash().promote(), |x| s == x.get_hashed_str())
         {
             Some(string_value) => *string_value,
             None => {
                 let string_value = alloc();
                 self.map
-                    .insert(s.hash().promote(), string_value, |x| x.get_hash().promote());
+                    .insert_unique(s.hash().promote(), string_value, |x| x.get_hash().promote());
                 string_value
             }
         }
@@ -82,10 +83,10 @@ impl<'v> StringValueInterner<'v> {
 #[cfg(test)]
 mod tests {
     use crate::collections::Hashed;
-    use crate::values::string::intern::interner::FrozenStringValueInterner;
-    use crate::values::string::intern::interner::StringValueInterner;
     use crate::values::FrozenHeap;
     use crate::values::Heap;
+    use crate::values::string::intern::interner::FrozenStringValueInterner;
+    use crate::values::string::intern::interner::StringValueInterner;
 
     #[test]
     fn test_intern() {

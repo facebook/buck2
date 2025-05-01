@@ -20,10 +20,9 @@ load(
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:configuration.bzl", "get_deps_by_platform")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
-load("@prelude//android:dex_rules.bzl", "get_multi_dex", "get_single_primary_dex", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
+load("@prelude//android:dex_rules.bzl", "check_for_duplicate_classes", "get_multi_dex", "get_pre_dexed_libs_with_class_names_and_weight_estimates_files", "get_single_primary_dex", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
 load("@prelude//android:exopackage.bzl", "get_exopackage_flags")
 load("@prelude//android:preprocess_java_classes.bzl", "get_preprocessed_java_classes")
-load("@prelude//android:proguard.bzl", "get_proguard_output")
 load("@prelude//android:util.bzl", "create_enhancement_context")
 load("@prelude//android:voltron.bzl", "get_target_to_module_mapping")
 load(
@@ -34,6 +33,7 @@ load(
     "get_all_java_packaging_deps",
     "get_all_java_packaging_deps_from_packaging_infos",
 )
+load("@prelude//java:proguard.bzl", "get_proguard_output")
 load("@prelude//utils:expect.bzl", "expect")
 
 AndroidBinaryInfo = record(
@@ -45,13 +45,12 @@ AndroidBinaryInfo = record(
     native_library_info = AndroidBinaryNativeLibsInfo,
     resources_info = AndroidBinaryResourcesInfo,
     materialized_artifacts = list[Artifact],
+    validation_info = list[ValidationInfo],
 )
 
 def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBinaryInfo:
     sub_targets = {}
     materialized_artifacts = []
-
-    _verify_params(ctx)
 
     deps_by_platform = get_deps_by_platform(ctx)
     primary_platform = CPU_FILTER_FOR_PRIMARY_PLATFORM if CPU_FILTER_FOR_PRIMARY_PLATFORM in deps_by_platform else CPU_FILTER_FOR_DEFAULT_PLATFORM
@@ -78,8 +77,8 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     native_library_info = get_android_binary_native_library_info(enhancement_ctx, android_packageable_info, deps_by_platform, apk_module_graph_file = target_to_module_mapping_file)
     java_packaging_deps.extend([create_java_packaging_dep(
         ctx,
-        lib.library_output.full_library,
-    ) for lib in native_library_info.generated_java_code])
+        library_output,
+    ) for library_output in native_library_info.generated_java_code])
 
     referenced_resources_lists = [java_packaging_dep.dex.referenced_resources for java_packaging_dep in java_packaging_deps if java_packaging_dep.dex] if ctx.attrs.trim_resource_ids and should_pre_dex else []
     resources_info = get_android_binary_resources_info(
@@ -119,17 +118,33 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
                 default_output = r_dot_java_info.source_zipped,
             ),
         ]
-
+    validation_info = []
     dex_java_packaging_deps = [packaging_dep for packaging_dep in java_packaging_deps if packaging_dep.dex and packaging_dep.dex.dex.owner.raw_target() not in no_dx_target_labels]
     if should_pre_dex:
         pre_dexed_libs = [packaging_dep.dex for packaging_dep in dex_java_packaging_deps]
         if ctx.attrs.use_split_dex:
-            dex_files_info = merge_to_split_dex(
+            split_dex_merge_config = get_split_dex_merge_config(ctx, android_toolchain)
+            pre_dexed_libs_with_class_names_and_weight_estimates_files = get_pre_dexed_libs_with_class_names_and_weight_estimates_files(
                 ctx,
                 android_toolchain,
                 pre_dexed_libs,
-                get_split_dex_merge_config(ctx, android_toolchain),
+                split_dex_merge_config,
+            )
+            if ctx.attrs._android_toolchain[AndroidToolchainInfo].duplicate_class_checker:
+                validation_info.append(
+                    check_for_duplicate_classes(
+                        ctx,
+                        {str(lib.class_names.owner.raw_target()): lib.class_names if lib.dex else None for lib in pre_dexed_libs},
+                    ),
+                )
+
+            dex_files_info = merge_to_split_dex(
+                ctx,
+                android_toolchain,
+                pre_dexed_libs_with_class_names_and_weight_estimates_files,
+                split_dex_merge_config,
                 target_to_module_mapping_file,
+                enable_bootstrap_dexes = ctx.attrs.enable_bootstrap_dexes,
             )
         else:
             dex_files_info = merge_to_single_dex(ctx, android_toolchain, pre_dexed_libs)
@@ -140,12 +155,19 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
             if materialized_artifacts_dir:
                 materialized_artifacts.append(materialized_artifacts_dir)
         if has_proguard_config:
+            additional_proguard_configs = [resources_info.proguard_config_file] if not ctx.attrs.ignore_aapt_proguard_config and resources_info.proguard_config_file else []
+            additional_jars = android_toolchain.android_bootclasspath + android_toolchain.android_optional_jars + [no_dx[DefaultInfo].default_outputs[0] for no_dx in ctx.attrs.no_dx if len(no_dx[DefaultInfo].default_outputs) == 1]
             proguard_output = get_proguard_output(
                 ctx,
                 jars_to_owners,
                 java_packaging_deps,
-                resources_info.proguard_config_file,
-                [no_dx[DefaultInfo].default_outputs[0] for no_dx in ctx.attrs.no_dx if len(no_dx[DefaultInfo].default_outputs) == 1],
+                additional_proguard_configs,
+                additional_jars,
+                ctx.attrs.android_sdk_proguard_config,
+                android_toolchain.proguard_config,
+                android_toolchain.optimized_proguard_config,
+                android_toolchain.proguard_jar,
+                ctx.attrs.skip_proguard,
             )
             materialized_artifacts.extend(proguard_output.proguard_artifacts)
             jars_to_owners = proguard_output.jars_to_owners
@@ -166,18 +188,19 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         if ctx.attrs.use_split_dex:
             dex_files_info = get_multi_dex(
                 ctx,
-                ctx.attrs._android_toolchain[AndroidToolchainInfo],
+                android_toolchain,
                 jars_to_owners,
                 ctx.attrs.primary_dex_patterns,
                 proguard_output.proguard_configuration_output_file if proguard_output else None,
                 proguard_output.proguard_mapping_output_file if proguard_output else None,
                 is_optimized = has_proguard_config,
                 apk_module_graph_file = target_to_module_mapping_file,
+                enable_bootstrap_dexes = ctx.attrs.enable_bootstrap_dexes,
             )
         else:
             dex_files_info = get_single_primary_dex(
                 ctx,
-                ctx.attrs._android_toolchain[AndroidToolchainInfo],
+                android_toolchain,
                 jars_to_owners.keys(),
                 is_optimized = has_proguard_config,
             )
@@ -201,6 +224,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         native_library_info = native_library_info,
         resources_info = resources_info,
         materialized_artifacts = materialized_artifacts,
+        validation_info = validation_info,
     )
 
 def get_build_config_java_libraries(
@@ -245,7 +269,3 @@ def get_build_config_java_libraries(
         )[1])
 
     return java_libraries
-
-def _verify_params(ctx: AnalysisContext):
-    expect(ctx.attrs.aapt_mode == "aapt2", "aapt1 is deprecated!")
-    expect(ctx.attrs.dex_tool == "d8", "dx is deprecated!")

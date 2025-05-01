@@ -57,6 +57,8 @@ AppleBundleInfo = provider(
         # By default, non-framework, non-appex binaries copy Swift libraries into the final
         # binary. This is the opt-out for that.
         "skip_copying_swift_stdlib": provider_field([bool, None]),
+        # List of extra paths (relative to bundle root) to be codesigned.
+        "extra_codesign_paths": provider_field([list[str], None], default = None),
     },
 )
 
@@ -87,6 +89,9 @@ AppleBundleExtraOutputsInfo = provider(fields = {
 
 AppleBundleBinaryOutput = record(
     binary = field(Artifact),
+    # If `unstripped_binary` is `None`, then `binary` is unstripped.
+    # Otherwise, `unstripped_binary` is distinct from `binary` and is unstripped.
+    unstripped_binary = field([Artifact, None]),
     debuggable_info = field([AppleDebuggableInfo, None], None),
 )
 

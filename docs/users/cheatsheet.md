@@ -32,8 +32,8 @@ them.
 
 Specify a _build target pattern_ that represents the targets in the package.
 
-```
-buck2 cquery //path/to/dir/...
+```sh
+buck2 cquery path/to/dir/...
 ```
 
 The `buck2 cquery` command can accept a
@@ -47,8 +47,8 @@ Use the `buck2 cquery set()` operator. The following command line returns the
 target `main` in the build file in the root of the Buck2 project and all the
 targets from the build file in the `myclass` subdirectory of the root.
 
-```
-buck2 cquery "set( '//:main' '//myclass:' )"
+```sh
+buck2 cquery "set( ':main' 'myclass:' )"
 ```
 
 ### How do I get the attribute names and values for the targets returned by a query?
@@ -57,8 +57,8 @@ Add the `--output-attribute <ATTRIBUTE>` or `--output-all-attributes` option to
 the command line, followed by regular expressions that represent the attributes
 of interest.
 
-```
-buck2 cquery "deps(//foo:bar)" --output-attribute 'name' 'exported_headers'
+```sh
+buck2 cquery "deps(foo:bar)" --output-attribute 'name' 'exported_headers'
 ```
 
 The `--output-attribute` option enables you to specify which attributes Buck2
@@ -69,8 +69,14 @@ expressions. For example, `'.*'` matches all attributes. See the
 [`buck2 cquery` docs](../query/cquery) for more details. The output for the
 example query above might look something like the following.
 
-```
-{"//foo/bar/lib:lib" : {"exported_headers" : [ "App/util.h" ],"name" : "lib"},"//foo/bar:app" : {"exported_headers" : [ "App/lib.h" ],"name" : "app"}}
+```json
+{
+  "root_cell//foo/bar/lib:lib": {
+    "exported_headers": ["App/util.h"],
+    "name": "lib"
+  },
+  "root_cell//foo/bar:app": {"exported_headers": ["App/lib.h"], "name": "app"}
+}
 ```
 
 ### How do I perform a query** \***inside**\* **of a rule?
@@ -78,24 +84,24 @@ example query above might look something like the following.
 Buck2 supports certain string parameter macros to be used when defining a
 target. You can use the query macros as such:
 
-```
-$(query_targets "queryfunction(//:foo)")
-$(query_outputs "queryfunction(//:foo)")
-$(query_targets_and_outputs [SEPARATOR] "queryfunction(//:foo)")
+```sh
+$(query_targets "queryfunction(:foo)")
+$(query_outputs "queryfunction(:foo)")
+$(query_targets_and_outputs [SEPARATOR] "queryfunction(:foo)")
 ```
 
-Note, however, that the query macros are supported only for
-[`genrule`](../../prelude/globals/#genrule) and
+Note, however, that the query macros are supported only for rule attributes of
+type `attrs.arg`, such as [`genrule`](../../prelude/globals/#genrule) and
 [`apk_genrule`](../../prelude/globals/#apk_genrule).
 
 ### How do I find the dependencies for a target?
 
 Use the `deps()` operator.
 
-```
-buck2 cquery "deps('//foo:bar')"
-buck2 cquery "deps('//foo:bar', 1, first_order_deps())"
-buck2 cquery "deps(set('//foo:bar' '//foo:lib' '//foo/baz:util'))"
+```sh
+buck2 cquery "deps('foo:bar')"
+buck2 cquery "deps('foo:bar', 1, first_order_deps())"
+buck2 cquery "deps(set('foo:bar' 'foo:lib' 'foo/baz:util'))"
 ```
 
 The `deps` operator finds the dependencies of the specified targets. The first
@@ -110,10 +116,10 @@ for a target, that is, the targets that** \***depend on**\* **a specified
 target? Use the `buck2 cquery rdeps()` (reverse dependencies) operator. The
 following example, returns the targets in the
 [transitive closure](https://en.wikipedia.org/wiki/Transitive_closure) of
-`//foo:bar` that depend directly on `//example:baz`.
+`foo:bar` that depend directly on `example:baz`.
 
-```
-buck2 cquery "rdeps('//foo:bar', '//example:baz', 1)"
+```sh
+buck2 cquery "rdeps('foo:bar', 'example:baz', 1)"
 ```
 
 ### How do I find the buildfile that contains the target that owns a source file?
@@ -121,9 +127,19 @@ buck2 cquery "rdeps('//foo:bar', '//example:baz', 1)"
 In order to find the build file associated with a source file, combine the
 `owner` operator with `buildfile`. For example,
 
-```
-buck2 cquery "buildfile(owner('foo/bar/main.cpp'))"
+```sh
+buck2 uquery "buildfile(owner('foo/bar/main.cpp'))"
 ```
 
-first finds the targets that _own_ `foo/bar/main.cpp` and then returns the build
-files, such as `foo/bar/BUCK`, that define those targets.
+or alternatively
+
+```
+buck2 cquery "buildfile(owner('foo/bar/main.cpp'))" --target-universe 'foo:baz'
+```
+
+These two commands first find the targets that _own_ `foo/bar/main.cpp` and then
+return the build files, such as `foo/bar/BUCK`, that define those targets.
+
+`cquery` requires a `--target-universe` to be passed when the query has no
+target literals. See more in
+[target universe glossary entry](../concepts/glossary.md#target-universe)

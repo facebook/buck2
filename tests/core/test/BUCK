@@ -1,0 +1,9 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
+
+oncall("build_infra")
+
+buck2_core_tests(
+    extra_attrs = {
+        "use_compiled_buck2_client_and_tpx": True,
+    },
+)

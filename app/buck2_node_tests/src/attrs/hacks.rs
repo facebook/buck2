@@ -20,7 +20,7 @@ use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
 #[test]
-fn stringifies_correctly() -> anyhow::Result<()> {
+fn stringifies_correctly() -> buck2_error::Result<()> {
     let coerced = CoercedAttr::String(StringLiteral(ArcStr::from("Hello, world!")));
 
     let package = PackageLabel::new(

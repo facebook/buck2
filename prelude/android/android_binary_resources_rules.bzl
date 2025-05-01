@@ -13,14 +13,13 @@ load("@prelude//android:android_resource.bzl", "aapt2_compile")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:r_dot_java.bzl", "generate_r_dot_javas")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "get_apk_module_graph_info", "is_root_module")
+load("@prelude//decls:android_rules.bzl", "RType")
 load(
     "@prelude//java:java_providers.bzl",
     "JavaPackagingDep",  # @unused Used as type
 )
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "flatten")
-load("@prelude//decls/android_rules.bzl", "RType")
 
 _FilteredResourcesOutput = record(
     resource_infos = list[AndroidResourceInfo],
@@ -39,8 +38,8 @@ def get_android_binary_resources_info(
         referenced_resources_lists: list[Artifact],
         apk_module_graph_file: Artifact | None = None,
         manifest_entries: dict = {},
-        resource_infos_to_exclude: [set_type, None] = None,
-        r_dot_java_packages_to_exclude: [list[str], None] = [],
+        resource_infos_to_exclude: set[TargetLabel] = set(),
+        r_dot_java_packages_to_exclude: set[str] = set(),
         generate_strings_and_ids_separately: [bool, None] = True,
         aapt2_preferred_density: [str, None] = None) -> AndroidBinaryResourcesInfo:
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
@@ -49,7 +48,7 @@ def get_android_binary_resources_info(
     unfiltered_resource_infos = reversed([
         resource_info
         for resource_info in list(android_packageable_info.resource_infos.traverse(ordering = "topological") if android_packageable_info.resource_infos else [])
-        if not (resource_infos_to_exclude and resource_infos_to_exclude.contains(resource_info.raw_target))
+        if resource_info.raw_target not in resource_infos_to_exclude
     ])
     filtered_resources_output = _maybe_filter_resources(
         ctx,
@@ -437,13 +436,9 @@ def get_manifest(
         android_packageable_info: AndroidPackageableInfo,
         manifest_entries: dict,
         should_replace_application_id_placeholders: bool) -> Artifact:
-    robolectric_manifest = getattr(ctx.attrs, "robolectric_manifest", None)
-    if robolectric_manifest:
-        return robolectric_manifest
-
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     if ctx.attrs.manifest:
-        expect(ctx.attrs.manifest_skeleton == None, "Only one of manifest and manifest_skeleton should be declared")
+        expect(getattr(ctx.attrs, "manifest_skeleton", None) == None, "Only one of manifest and manifest_skeleton should be declared")
         if isinstance(ctx.attrs.manifest, Dependency):
             android_manifest = ctx.attrs.manifest[DefaultInfo].default_outputs[0]
         else:
@@ -465,7 +460,7 @@ def get_manifest(
         )
 
     if android_toolchain.set_application_id_to_specified_package and should_replace_application_id_placeholders:
-        android_manifest_with_replaced_application_id = ctx.actions.declare_output("android_manifest_with_replaced_application_id/AndroidManifest.xml")
+        android_manifest_with_replaced_application_id = ctx.actions.declare_output("replaced/AndroidManifest.xml")
         replace_application_id_placeholders_cmd = cmd_args([
             ctx.attrs._android_toolchain[AndroidToolchainInfo].replace_application_id_placeholders[RunInfo],
             "--manifest",

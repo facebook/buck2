@@ -22,6 +22,7 @@ use crate::execute::claim::ClaimManager;
 use crate::execute::kind::CommandExecutionKind;
 use crate::execute::output::CommandStdStreams;
 use crate::execute::request::CommandExecutionOutput;
+use crate::execute::result::CommandCancellationReason;
 use crate::execute::result::CommandExecutionErrorType;
 use crate::execute::result::CommandExecutionMetadata;
 use crate::execute::result::CommandExecutionReport;
@@ -37,6 +38,7 @@ trait CommandExecutionManagerLike: Sized {
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
+        additional_message: Option<String>,
     ) -> CommandExecutionResult;
 
     fn execution_kind(&self) -> Option<CommandExecutionKind>;
@@ -94,13 +96,14 @@ impl CommandExecutionManager {
         self.inner.claim_manager.on_result_delayed();
     }
 
-    pub fn cancel(self) -> CommandExecutionResult {
+    pub fn cancel(self, reason: Option<CommandCancellationReason>) -> CommandExecutionResult {
         self.result(
-            CommandExecutionStatus::Cancelled,
+            CommandExecutionStatus::Cancelled { reason },
             IndexMap::new(),
             Default::default(),
             None,
             CommandExecutionMetadata::default(),
+            None,
         )
     }
 
@@ -126,6 +129,7 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
+        additional_message: Option<String>,
     ) -> CommandExecutionResult {
         CommandExecutionResult {
             outputs,
@@ -135,6 +139,7 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
                 timing,
                 std_streams,
                 exit_code,
+                additional_message,
             },
             rejected_execution: None,
             did_cache_upload: false,
@@ -179,16 +184,18 @@ impl CommandExecutionManagerWithClaim {
             std_streams,
             Some(0),
             timing,
+            None,
         )
     }
 
     pub fn cancel_claim(self) -> CommandExecutionResult {
         self.result(
-            CommandExecutionStatus::Cancelled,
+            CommandExecutionStatus::Cancelled { reason: None },
             IndexMap::new(),
             Default::default(),
             None,
             CommandExecutionMetadata::default(),
+            None,
         )
     }
 
@@ -206,6 +213,7 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
+        additional_message: Option<String>,
     ) -> CommandExecutionResult {
         CommandExecutionResult {
             outputs,
@@ -215,6 +223,7 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
                 timing,
                 std_streams,
                 exit_code,
+                additional_message,
             },
             rejected_execution: None,
             did_cache_upload: false,
@@ -239,6 +248,14 @@ pub trait CommandExecutionManagerExt: Sized {
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
+        additional_message: Option<String>,
+    ) -> CommandExecutionResult;
+
+    fn worker_failure(
+        self,
+        execution_kind: CommandExecutionKind,
+        stderr: String,
+        timing: CommandExecutionMetadata,
     ) -> CommandExecutionResult;
 
     fn timeout(
@@ -247,6 +264,7 @@ pub trait CommandExecutionManagerExt: Sized {
         duration: Duration,
         std_streams: CommandStdStreams,
         timing: CommandExecutionMetadata,
+        additional_message: Option<String>,
     ) -> CommandExecutionResult;
 
     fn error(
@@ -276,6 +294,7 @@ where
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
+        additional_message: Option<String>,
     ) -> CommandExecutionResult {
         self.result(
             CommandExecutionStatus::Failure { execution_kind },
@@ -283,6 +302,26 @@ where
             std_streams,
             exit_code,
             timing,
+            additional_message,
+        )
+    }
+
+    fn worker_failure(
+        self,
+        execution_kind: CommandExecutionKind,
+        stderr: String,
+        timing: CommandExecutionMetadata,
+    ) -> CommandExecutionResult {
+        self.result(
+            CommandExecutionStatus::WorkerFailure { execution_kind },
+            Default::default(),
+            CommandStdStreams::Local {
+                stdout: Default::default(),
+                stderr: stderr.into_bytes(),
+            },
+            None,
+            timing,
+            None,
         )
     }
 
@@ -292,6 +331,7 @@ where
         duration: Duration,
         std_streams: CommandStdStreams,
         timing: CommandExecutionMetadata,
+        additional_message: Option<String>,
     ) -> CommandExecutionResult {
         self.result(
             CommandExecutionStatus::TimedOut {
@@ -302,6 +342,7 @@ where
             std_streams,
             None,
             timing,
+            additional_message,
         )
     }
 
@@ -323,6 +364,7 @@ where
             Default::default(),
             None,
             CommandExecutionMetadata::default(),
+            None,
         )
     }
 }

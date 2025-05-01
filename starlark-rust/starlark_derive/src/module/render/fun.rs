@@ -15,24 +15,25 @@
  * limitations under the License.
  */
 
-use proc_macro2::Ident;
+use std::iter;
+
 use proc_macro2::TokenStream;
-use quote::format_ident;
 use quote::quote;
-use syn::Attribute;
 use syn::Expr;
 use syn::ExprLit;
 use syn::Lit;
 
 use crate::module::param_spec::ParamSpec;
-use crate::module::render::render_starlark_return_type;
-use crate::module::render::render_starlark_type;
+use crate::module::render::render_none;
+use crate::module::render::render_some;
+use crate::module::simple_param::SimpleParam;
+use crate::module::typ::RegularParams;
 use crate::module::typ::SpecialParam;
 use crate::module::typ::StarArg;
-use crate::module::typ::StarArgPassStyle;
 use crate::module::typ::StarArgSource;
 use crate::module::typ::StarFun;
 use crate::module::typ::StarFunSource;
+use crate::module::typ::StarGenerics;
 use crate::module::util::ident_string;
 
 impl StarFun {
@@ -77,52 +78,30 @@ impl StarFun {
     }
 
     /// Evaluator function parameter and call argument.
-    fn eval_param_arg(
-        &self,
-    ) -> (
-        Option<TokenStream>,
-        Option<TokenStream>,
-        Option<TokenStream>,
-    ) {
-        if let Some(SpecialParam { ident, ty }) = &self.eval {
+    fn eval_param_arg(&self) -> (Option<SimpleParam>, Option<syn::Expr>) {
+        if let Some(SpecialParam { param }) = &self.eval {
             (
-                Some(quote! {
-                    #ident: #ty,
-                }),
-                Some(quote! {
-                    #ty,
-                }),
-                Some(quote! {
-                    eval,
+                Some(param.clone()),
+                Some(syn::parse_quote! {
+                    eval
                 }),
             )
         } else {
-            (None, None, None)
+            (None, None)
         }
     }
 
     /// Heap function parameter and call argument.
-    fn heap_param_arg(
-        &self,
-    ) -> (
-        Option<TokenStream>,
-        Option<TokenStream>,
-        Option<TokenStream>,
-    ) {
-        if let Some(SpecialParam { ident, ty }) = &self.heap {
+    fn heap_param_arg(&self) -> (Option<SimpleParam>, Option<syn::Expr>) {
+        if let Some(SpecialParam { param }) = &self.heap {
             (
-                Some(quote! {
-                    #ident: #ty,
-                }),
-                Some(quote! {
-                    #ty,
-                }),
-                Some(quote! {
-                    eval.heap(),
+                Some(param.clone()),
+                Some(syn::parse_quote! {
+                    eval.heap()
                 }),
             )
         } else {
-            (None, None, None)
+            (None, None)
         }
     }
 
@@ -130,73 +109,48 @@ impl StarFun {
     fn this_param_arg(
         &self,
     ) -> (
-        Option<TokenStream>,
-        Option<TokenStream>,
-        Option<TokenStream>,
+        // Outer function parameter.
+        Option<syn::FnArg>,
+        // Inner function parameter.
+        Option<SimpleParam>,
+        Option<syn::Stmt>,
+        Option<syn::Expr>,
     ) {
-        if self.is_method() {
-            (
-                Some(quote! { __this: starlark::values::Value<'v>, }),
-                Some(quote! { starlark::values::Value<'v>, }),
-                Some(quote! { __this, }),
-            )
-        } else {
-            (None, None, None)
+        match &self.this {
+            Some(this) => {
+                let outer_param_name: syn::Ident = syn::parse_quote! { s_this_value };
+                let local_var: syn::Ident = syn::parse_quote! { s_this_typed };
+                (
+                    Some(syn::parse_quote! { #outer_param_name: starlark::values::Value<'v> }),
+                    Some(this.param.clone()),
+                    Some(this.render_prepare(&local_var, &outer_param_name)),
+                    Some(syn::parse_quote! { #local_var }),
+                )
+            }
+            None => (None, None, None, None),
         }
     }
 
     /// Non-special params.
-    fn binding_params_arg(&self) -> (Vec<syn::FnArg>, Vec<syn::Type>, TokenStream, Vec<syn::Expr>) {
-        let Bindings { prepare, bindings } = render_binding(self);
-        let binding_params: Vec<_> = bindings.iter().map(|b| b.render_param()).collect();
-        let binding_param_types: Vec<_> = bindings.iter().map(|b| b.render_param_type()).collect();
+    fn binding_params_arg(&self) -> syn::Result<(Vec<SimpleParam>, TokenStream, Vec<syn::Expr>)> {
+        let Bindings { prepare, bindings } = render_binding(self)?;
+        let binding_params: Vec<_> = bindings.iter().map(|b| b.param.clone()).collect();
         let binding_args: Vec<_> = bindings.iter().map(|b| b.render_arg()).collect();
-        (binding_params, binding_param_types, prepare, binding_args)
-    }
-
-    fn trait_name(&self) -> syn::Path {
-        if self.is_method() {
-            syn::parse_quote! { starlark::values::function::NativeMeth }
-        } else {
-            syn::parse_quote! { starlark::values::function::NativeFunc }
-        }
+        Ok((binding_params, prepare, binding_args))
     }
 
     fn name_str(&self) -> String {
         ident_string(&self.name)
     }
 
-    pub(crate) fn struct_name(&self) -> Ident {
-        format_ident!("Impl_{}", self.name_str())
-    }
-
-    /// Fields and field initializers for the struct implementing the trait.
-    fn struct_fields(&self) -> syn::Result<(TokenStream, TokenStream)> {
-        let signature = if let StarFunSource::Signature { .. } = self.source {
-            Some(render_signature(self)?)
-        } else {
-            None
-        };
-        if let Some(signature) = signature {
-            Ok((
-                quote! {
-                    signature: starlark::eval::ParametersSpec<starlark::values::FrozenValue>,
-                },
-                quote! {
-                    signature: #signature,
-                },
-            ))
-        } else {
-            Ok((TokenStream::new(), TokenStream::new()))
-        }
-    }
-
     /// Globals builder call to register the function.
-    fn builder_set(&self, struct_fields_init: TokenStream) -> syn::Result<syn::Stmt> {
+    fn builder_set(&self, generics: &StarGenerics) -> syn::Result<syn::Stmt> {
         let name_str = self.name_str();
-        let components = render_native_callable_components(self)?;
+        let components = render_native_callable_components(self, generics)?;
+        let param_spec = render_signature(self)?;
 
-        let struct_name = self.struct_name();
+        let turbofish = generics.turbofish();
+
         let special_builtin_function = self.special_builtin_function_expr();
 
         if self.is_method() {
@@ -217,9 +171,8 @@ impl StarFun {
                 globals_builder.set_method(
                     #name_str,
                     #components,
-                    #struct_name {
-                        #struct_fields_init
-                    },
+                    #param_spec,
+                    __starlark_invoke_outer #turbofish,
                 );
             })
         } else {
@@ -230,30 +183,28 @@ impl StarFun {
                 globals_builder.set_function(
                     #name_str,
                     #components,
+                    #param_spec,
                     #as_type,
                     #ty_custom,
                     #special_builtin_function,
-                    #struct_name {
-                        #struct_fields_init
-                    },
+                    __starlark_invoke_outer #turbofish,
                 );
             })
         }
     }
 }
 
-pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
-    let (this_param, this_param_type, this_arg) = x.this_param_arg();
-    let (eval_param, eval_param_type, eval_arg) = x.eval_param_arg();
-    let (heap_param, heap_param_type, heap_arg) = x.heap_param_arg();
-    let (binding_params, binding_param_types, prepare, binding_args) = x.binding_params_arg();
+pub(crate) fn render_fun(x: StarFun, generics: &StarGenerics) -> syn::Result<syn::Stmt> {
+    let generic_decls = generics.decls();
+    let where_clause = generics.where_clause();
+    let turbofish = generics.turbofish();
 
-    let trait_name = x.trait_name();
-    let (struct_fields, struct_fields_init) = x.struct_fields()?;
+    let (this_outer_param, this_inner_param, this_prepare, this_arg) = x.this_param_arg();
+    let (eval_param, eval_arg) = x.eval_param_arg();
+    let (heap_param, heap_arg) = x.heap_param_arg();
+    let (binding_params, prepare, binding_args) = x.binding_params_arg()?;
 
-    let struct_name = x.struct_name();
-
-    let builder_set = x.builder_set(struct_fields_init)?;
+    let builder_set = x.builder_set(generics)?;
 
     let StarFun {
         attrs,
@@ -262,65 +213,76 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
         ..
     } = x;
 
+    let invoke_params: Vec<SimpleParam> = iter::empty()
+        .chain(this_inner_param)
+        .chain(binding_params)
+        .chain(eval_param)
+        .chain(heap_param)
+        .collect();
+
+    let invoke_args = iter::empty()
+        .chain(this_arg)
+        .chain(binding_args)
+        .chain(eval_arg)
+        .chain(heap_arg);
+
+    let param_types: Vec<_> = invoke_params.iter().map(|p| &p.ty).collect();
+
+    let this_outer_param = this_outer_param.into_iter();
+
+    let item_invoke_impl: syn::ItemFn = syn::parse_quote! {
+        // TODO(nga): copy lifetime parameter from declaration,
+        //   so the warning would be precise.
+        #[allow(clippy::extra_unused_lifetimes)]
+        #( #attrs )*
+        fn __starlark_invoke_impl #generic_decls(
+            #( #invoke_params, )*
+        ) -> #return_type #where_clause {
+            #body
+        }
+    };
+
+    let item_return_type_repr: syn::ItemFn = syn::parse_quote! {
+        // When function signature declares return type as `anyhow::Result<impl AllocValue>`,
+        // we cannot call `T::starlark_type_repr` to render documentation, because there's no T.
+        // Future Rust will provide syntax `type ReturnType = impl AllocValue`:
+        // https://github.com/rust-lang/rfcs/pull/2515
+        // Until then we use this hack as a workaround.
+        #[allow(dead_code)] // Function is not used when return type is specified explicitly.
+        fn __starlark_return_type_starlark_type_repr #generic_decls () -> starlark::typing::Ty #where_clause {
+            fn get_impl<'v, T: starlark::values::AllocValue<'v>, E>(
+                _f: fn(
+                    #( #param_types, )*
+                ) -> std::result::Result<T, E>,
+            ) -> starlark::typing::Ty {
+                <T as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+            }
+            get_impl(__starlark_invoke_impl #turbofish)
+        }
+    };
+
+    let impl_invoke_outer: syn::ItemFn = syn::parse_quote! {
+        #[allow(non_snake_case)] // Starlark doesn't have this convention
+        fn __starlark_invoke_outer #generic_decls (
+            eval: &mut starlark::eval::Evaluator<'v, '_, '_>,
+            #(#this_outer_param,)*
+            signature: &starlark::eval::ParametersSpec<starlark::values::FrozenValue>,
+            parameters: &starlark::eval::Arguments<'v, '_>,
+        ) -> starlark::Result<starlark::values::Value<'v>> #where_clause {
+            #this_prepare
+            #prepare
+            match __starlark_invoke_impl #turbofish (#( #invoke_args, )*) {
+                Ok(v) => Ok(eval.heap().alloc(v)),
+                Err(e) => Err(starlark::__derive_refs::invoke_macro_error::InvokeMacroError::into_starlark_error(e)),
+            }
+        }
+    };
+
     Ok(syn::parse_quote! {
         {
-            struct #struct_name {
-                #struct_fields
-            }
-
-            impl #struct_name {
-                // TODO(nga): copy lifetime parameter from declaration,
-                //   so the warning would be precise.
-                #[allow(clippy::extra_unused_lifetimes)]
-                #( #attrs )*
-                fn invoke_impl<'v>(
-                    #this_param
-                    #( #binding_params, )*
-                    #eval_param
-                    #heap_param
-                ) -> #return_type {
-                    #body
-                }
-
-                // When function signature declares return type as `anyhow::Result<impl AllocValue>`,
-                // we cannot call `T::starlark_type_repr` to render documentation, because there's no T.
-                // Future Rust will provide syntax `type ReturnType = impl AllocValue`:
-                // https://github.com/rust-lang/rfcs/pull/2515
-                // Until then we use this hack as a workaround.
-                #[allow(dead_code)] // Function is not used when return type is specified explicitly.
-                fn return_type_starlark_type_repr() -> starlark::typing::Ty {
-                    fn get_impl<'v, T: starlark::values::AllocValue<'v>, E>(
-                        _f: fn(
-                            #this_param_type
-                            #( #binding_param_types, )*
-                            #eval_param_type
-                            #heap_param_type
-                        ) -> std::result::Result<T, E>,
-                    ) -> starlark::typing::Ty {
-                        <T as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
-                    }
-                    get_impl(Self::invoke_impl)
-                }
-            }
-
-            impl #trait_name for #struct_name {
-                #[allow(non_snake_case)] // Starlark doesn't have this convention
-                fn invoke<'v>(
-                    &self,
-                    eval: &mut starlark::eval::Evaluator<'v, '_, '_>,
-                    #this_param
-                    parameters: &starlark::eval::Arguments<'v, '_>,
-                ) -> starlark::Result<starlark::values::Value<'v>> {
-                    #prepare
-                    match Self::invoke_impl(#this_arg #( #binding_args, )* #eval_arg #heap_arg) {
-                        Ok(v) => Ok(eval.heap().alloc(v)),
-                        // The `.into()` is an `anyhow -> anyhow` conversion if the return type is `anyhow`
-                        #[allow(clippy::useless_conversion)]
-                        Err(e) => Err(e.into()),
-                    }
-                }
-            }
-
+            #item_invoke_impl
+            #item_return_type_repr
+            #impl_invoke_outer
             #builder_set
         }
     })
@@ -333,206 +295,195 @@ struct Bindings {
 
 // Given __args and __signature (if render_signature was Some)
 // create bindings for all the arguments
-fn render_binding(x: &StarFun) -> Bindings {
-    match x.source {
-        StarFunSource::Arguments => {
-            let StarArg {
-                attrs, name, ty, ..
-            } = &x.args[0];
-            Bindings {
-                prepare: TokenStream::new(),
-                bindings: vec![BindingArg {
-                    name: name.to_owned(),
-                    ty: ty.to_owned(),
-                    attrs: attrs.clone(),
-                    mutability: None,
-                    expr: syn::parse_quote! { parameters },
-                }],
-            }
-        }
-        StarFunSource::ThisArguments => {
-            let StarArg {
-                attrs, name, ty, ..
-            } = &x.args[1];
-            let this = render_binding_arg(&x.args[0]);
-            Bindings {
-                prepare: TokenStream::new(),
-                bindings: vec![
-                    this,
-                    BindingArg {
-                        name: name.to_owned(),
-                        ty: ty.to_owned(),
-                        attrs: attrs.clone(),
-                        mutability: None,
-                        expr: syn::parse_quote! { parameters },
-                    },
-                ],
-            }
-        }
-        StarFunSource::Signature { count } => {
-            let bind_args: Vec<BindingArg> = x.args.iter().map(render_binding_arg).collect();
-            Bindings {
+fn render_binding(x: &StarFun) -> syn::Result<Bindings> {
+    match (&x.args, &x.source) {
+        (RegularParams::Arguments(arguments), StarFunSource::Arguments) => Ok(Bindings {
+            prepare: TokenStream::new(),
+            bindings: vec![BindingArg {
+                param: arguments.param.clone(),
+                expr: syn::parse_quote! { parameters },
+            }],
+        }),
+        (RegularParams::Arguments(_), _) | (_, StarFunSource::Arguments) => Err(syn::Error::new(
+            x.span(),
+            "Inconsistent params/source (internal error)",
+        )),
+        (RegularParams::Unpack(args), StarFunSource::Signature { count }) => {
+            let bind_args: Vec<BindingArg> = args
+                .iter()
+                .map(render_binding_arg)
+                .collect::<syn::Result<_>>()?;
+            Ok(Bindings {
                 prepare: quote! {
                     let __args: [_; #count] =
                         starlark::__derive_refs::parse_args::parse_signature(
-                            &self.signature, parameters, eval.heap())?;
+                            signature, parameters, eval.heap())?;
                 },
                 bindings: bind_args,
-            }
+            })
         }
-        StarFunSource::Positional { required, optional } => {
-            let bind_args = x.args.iter().map(render_binding_arg).collect();
-            if optional == 0 {
-                Bindings {
-                    prepare: quote! {
-                        let __required: [_; #required] =
-                            starlark::__derive_refs::parse_args::parse_positional_required(
-                                &parameters, eval.heap())?;
-                    },
-                    bindings: bind_args,
-                }
-            } else {
-                Bindings {
-                    prepare: quote! {
-                        let (__required, __optional): ([_; #required], [_; #optional]) =
-                            starlark::__derive_refs::parse_args::parse_positional(
-                                &parameters, eval.heap())?;
-                    },
-                    bindings: bind_args,
-                }
-            }
+        (
+            RegularParams::Unpack(args),
+            StarFunSource::Positional {
+                required,
+                optional,
+                kwargs: false,
+            },
+        ) => {
+            let bind_args = args
+                .iter()
+                .map(render_binding_arg)
+                .collect::<syn::Result<_>>()?;
+            Ok(Bindings {
+                prepare: quote! {
+                    let (__required, __optional): ([_; #required], [_; #optional]) =
+                        starlark::__derive_refs::parse_args::parse_positional(
+                            &parameters, eval.heap())?;
+                },
+                bindings: bind_args,
+            })
+        }
+        (
+            RegularParams::Unpack(args),
+            StarFunSource::Positional {
+                required,
+                optional,
+                kwargs: true,
+            },
+        ) => {
+            let bind_args = args
+                .iter()
+                .map(render_binding_arg)
+                .collect::<syn::Result<_>>()?;
+            Ok(Bindings {
+                prepare: quote! {
+                    let (__required, __optional, s_kwargs_value): ([_; #required], [_; #optional], _) =
+                        starlark::__derive_refs::parse_args::parse_positional_kwargs_alloc(
+                            &parameters, eval.heap())?;
+                },
+                bindings: bind_args,
+            })
         }
     }
 }
 
 struct BindingArg {
     expr: syn::Expr,
-
-    attrs: Vec<Attribute>,
-    mutability: Option<syn::Token![mut]>,
-    name: Ident,
-    ty: syn::Type,
+    param: SimpleParam,
 }
 
 impl BindingArg {
-    fn render_param_type(&self) -> syn::Type {
-        let BindingArg { ty, .. } = self;
-        ty.clone()
-    }
-
-    fn render_param(&self) -> syn::FnArg {
-        let mutability = &self.mutability;
-        let name = &self.name;
-        let ty = self.render_param_type();
-        let attrs = &self.attrs;
-        syn::parse_quote! {
-            #( #attrs )*
-            #mutability #name: #ty
-        }
-    }
-
     fn render_arg(&self) -> syn::Expr {
         self.expr.clone()
     }
 }
 
-// Create a binding for an argument given. If it requires an index, take from the index
-fn render_binding_arg(arg: &StarArg) -> BindingArg {
-    let name = &arg.name;
-    let name_str = ident_string(name);
-
-    let source = match arg.source {
-        StarArgSource::This => quote! { __this },
-        StarArgSource::Argument(i) => quote! { __args[#i].get() },
-        StarArgSource::Required(i) => quote! {  Some(__required[#i])},
-        StarArgSource::Optional(i) => quote! { __optional[#i] },
-        ref s => unreachable!("unknown source: {:?}", s),
-    };
-
-    let next: syn::Expr = if arg.pass_style == StarArgPassStyle::This {
-        syn::parse_quote! { starlark::__derive_refs::parse_args::check_this(#source)? }
+/// Convert an expression of type `Value` to an expression of type of parameter.
+fn render_unpack_value(value: syn::Expr, arg: &StarArg) -> syn::Expr {
+    if arg.is_value() {
+        // If we already have a `Value`, no need to unpack it.
+        value
     } else {
-        match (arg.is_option(), arg.is_value(), &arg.default) {
-            (true, _, None) => {
-                syn::parse_quote! { starlark::__derive_refs::parse_args::check_optional(#name_str, #source)? }
-            }
-            (true, _, Some(_)) => {
-                panic!("Can't have Option argument with a default, for `{name_str}`")
-            }
-            (false, false, Some(default)) => {
-                syn::parse_quote! {
-                    {
-                        // Combo
-                        #[allow(clippy::manual_unwrap_or)]
-                        #[allow(clippy::unnecessary_lazy_evaluations)]
-                        #[allow(clippy::redundant_closure)]
-                        starlark::__derive_refs::parse_args::check_optional(#name_str, #source)?.unwrap_or_else(|| #default)
-                    }
-                }
-            }
-            (false, false, None) => {
-                syn::parse_quote! {
-                    starlark::__derive_refs::parse_args::check_required(#name_str, #source)?
-                }
-            }
-            (false, true, _) => {
-                // Even if `default` is `Some`, we call `check_required`,
-                // because default value is allocated in `ParameterSpec` when `is_value` is true.
-                syn::parse_quote! {
-                    starlark::__derive_refs::parse_args::check_required(#name_str, #source)?
-                }
-            }
+        let name_str = ident_string(&arg.param.ident);
+        syn::parse_quote! {
+            starlark::__derive_refs::parse_args::check_unpack(#name_str, #value)?
+        }
+    }
+}
+
+/// Convert an expression of type `Option<Value>` to an expression of type of parameter.
+fn render_unpack_option_value(option_value: syn::Expr, arg: &StarArg) -> syn::Expr {
+    let name_str = ident_string(&arg.param.ident);
+    if arg.is_option_value() {
+        // If we already have a `Option<Value>`, no need to unpack it.
+        option_value
+    } else if arg.is_option() {
+        syn::parse_quote! {
+            starlark::__derive_refs::parse_args::check_optional(#name_str, #option_value)?
+        }
+    } else if arg.is_value() {
+        // We call `check_required` even if `default` is set because for `Value`,
+        // default is pulled into `ParametersSpec`.
+        syn::parse_quote! {
+            starlark::__derive_refs::parse_args::check_required(#name_str, #option_value)?
+        }
+    } else if let Some(default) = &arg.default {
+        syn::parse_quote! {
+            starlark::__derive_refs::parse_args::check_defaulted(#name_str, #option_value, || #default)?
+        }
+    } else {
+        syn::parse_quote! {
+            starlark::__derive_refs::parse_args::check_required(#name_str, #option_value)?
+        }
+    }
+}
+
+// Create a binding for an argument given. If it requires an index, take from the index
+fn render_binding_arg(arg: &StarArg) -> syn::Result<BindingArg> {
+    let next: syn::Expr = match &arg.source {
+        StarArgSource::Argument(i) => {
+            render_unpack_option_value(syn::parse_quote! { __args[#i] }, arg)
+        }
+        StarArgSource::Optional(i) => {
+            render_unpack_option_value(syn::parse_quote! { __optional[#i] }, arg)
+        }
+        StarArgSource::Required(i) => {
+            render_unpack_value(syn::parse_quote! { __required[#i] }, arg)
+        }
+        StarArgSource::Kwargs => render_unpack_value(syn::parse_quote! { s_kwargs_value }, arg),
+        s => {
+            return Err(syn::Error::new(
+                arg.span,
+                format!("Unexpected source {:?} (internal error)", s),
+            ));
         }
     };
 
-    BindingArg {
+    Ok(BindingArg {
         expr: next,
-        attrs: arg.attrs.clone(),
-        mutability: arg.mutable,
-        name: arg.name.to_owned(),
-        ty: arg.ty.clone(),
-    }
+        param: arg.param.clone(),
+    })
 }
 
 // Given the arguments, create a variable `signature` with a `ParametersSpec` object.
 // Or return None if you don't need a signature
-fn render_signature(x: &StarFun) -> syn::Result<TokenStream> {
+fn render_signature(x: &StarFun) -> syn::Result<syn::Expr> {
     let name_str = ident_string(&x.name);
-    let ParametersSpecArgs {
-        pos_only,
-        pos_or_named,
-        args,
-        named_only,
-        kwargs,
-    } = parameter_spec_args(&x.args)?;
 
-    let pos_only: Vec<syn::Expr> = pos_only.iter().map(SignatureRegularArg::render).collect();
-    let pos_or_named: Vec<syn::Expr> = pos_or_named
-        .iter()
-        .map(SignatureRegularArg::render)
-        .collect();
-    let named_only: Vec<syn::Expr> = named_only.iter().map(SignatureRegularArg::render).collect();
+    match &x.args {
+        RegularParams::Arguments(_) => Ok(syn::parse_quote! {
+            starlark::__derive_refs::sig::parameter_spec_for_arguments(#name_str)
+        }),
+        RegularParams::Unpack(args) => {
+            let ParametersSpecArgs {
+                pos_only,
+                pos_or_named,
+                args,
+                named_only,
+                kwargs,
+            } = parameter_spec_args(args)?;
 
-    Ok(quote! {
-        {
-            starlark::__derive_refs::sig::parameter_spec(
-                #name_str,
-                &[#(#pos_only),*],
-                &[#(#pos_or_named),*],
-                #args,
-                &[#(#named_only),*],
-                #kwargs,
-            )
+            let pos_only: Vec<syn::Expr> =
+                pos_only.iter().map(SignatureRegularArg::render).collect();
+            let pos_or_named: Vec<syn::Expr> = pos_or_named
+                .iter()
+                .map(SignatureRegularArg::render)
+                .collect();
+            let named_only: Vec<syn::Expr> =
+                named_only.iter().map(SignatureRegularArg::render).collect();
+
+            Ok(syn::parse_quote! {
+                starlark::__derive_refs::sig::parameter_spec(
+                    #name_str,
+                    &[#(#pos_only),*],
+                    &[#(#pos_or_named),*],
+                    #args,
+                    &[#(#named_only),*],
+                    #kwargs,
+                )
+            })
         }
-    })
-}
-
-fn render_none() -> syn::Expr {
-    syn::parse_quote! { std::option::Option::None }
-}
-
-fn render_some(expr: syn::Expr) -> syn::Expr {
-    syn::parse_quote! { std::option::Option::Some(#expr) }
+    }
 }
 
 fn render_option(expr: Option<syn::Expr>) -> syn::Expr {
@@ -542,9 +493,27 @@ fn render_option(expr: Option<syn::Expr>) -> syn::Expr {
     }
 }
 
-fn render_regular_native_callable_param(arg: &StarArg) -> syn::Result<syn::Expr> {
-    let ty = render_starlark_type(arg.without_option());
-    let name_str = ident_string(&arg.name);
+fn render_starlark_type(typ: &syn::Type, generics: &StarGenerics) -> syn::Expr {
+    let decls = generics.decls();
+    let turbofish = generics.turbofish();
+    let where_clause = generics.where_clause();
+    syn::parse_quote! {
+        {
+            #[allow(clippy::extra_unused_lifetimes)]
+            fn get_type_string #decls () -> starlark::typing::Ty #where_clause {
+                <#typ as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+            }
+            get_type_string #turbofish ()
+        }
+    }
+}
+
+fn render_regular_native_callable_param(
+    arg: &StarArg,
+    generics: &StarGenerics,
+) -> syn::Result<syn::Expr> {
+    let ty = render_starlark_type(arg.without_option(), generics);
+    let name_str = ident_string(&arg.param.ident);
     let required: syn::Expr = match (&arg.default, arg.is_option()) {
         (Some(_), true) => {
             return Err(syn::Error::new(
@@ -585,87 +554,76 @@ fn render_regular_native_callable_param(arg: &StarArg) -> syn::Result<syn::Expr>
     })
 }
 
-fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
+fn render_native_callable_components(
+    x: &StarFun,
+    generics: &StarGenerics,
+) -> syn::Result<TokenStream> {
     let docs = match x.docstring.as_ref() {
         Some(d) => quote!(Some(#d)),
         None => quote!(None),
     };
 
-    let param_spec: syn::Expr = if x.is_arguments() {
-        let args: syn::Expr = syn::parse_quote! {
-            starlark::__derive_refs::param_spec::NativeCallableParam::args(
-                "args",
-                starlark::typing::Ty::any()
-            )
-        };
-        let kwargs: syn::Expr = syn::parse_quote! {
-            starlark::__derive_refs::param_spec::NativeCallableParam::kwargs(
-                "kwargs",
-                starlark::typing::Ty::any()
-            )
-        };
-        syn::parse_quote! {
-            starlark::__derive_refs::param_spec::NativeCallableParamSpec {
-                pos_only: vec![],
-                pos_or_named: vec![],
-                args: std::option::Option::Some(#args),
-                named_only: vec![],
-                kwargs: std::option::Option::Some(#kwargs),
+    let param_spec: syn::Expr = match &x.args {
+        RegularParams::Arguments(_) => {
+            syn::parse_quote! {
+                starlark::__derive_refs::param_spec::NativeCallableParamSpec::for_arguments()
             }
         }
-    } else {
-        let ParamSpec {
-            pos_only,
-            pos_or_named,
-            args,
-            named_only,
-            kwargs,
-        } = ParamSpec::split(&x.args)?;
+        RegularParams::Unpack(args) => {
+            let ParamSpec {
+                pos_only,
+                pos_or_named,
+                args,
+                named_only,
+                kwargs,
+            } = ParamSpec::split(args)?;
 
-        let pos_only: Vec<syn::Expr> = pos_only
-            .iter()
-            .copied()
-            .map(render_regular_native_callable_param)
-            .collect::<syn::Result<Vec<_>>>()?;
-        let pos_or_named: Vec<syn::Expr> = pos_or_named
-            .iter()
-            .copied()
-            .map(render_regular_native_callable_param)
-            .collect::<syn::Result<Vec<_>>>()?;
-        let args: Option<syn::Expr> = args.map(|arg| {
-            let name_str = ident_string(&arg.name);
-            let ty = render_starlark_type(&arg.ty);
-            syn::parse_quote! {
-                starlark::__derive_refs::param_spec::NativeCallableParam::args(#name_str, #ty)
-            }
-        });
-        let named_only: Vec<syn::Expr> = named_only
-            .iter()
-            .copied()
-            .map(render_regular_native_callable_param)
-            .collect::<syn::Result<Vec<_>>>()?;
-        let kwargs: Option<syn::Expr> = kwargs.map(|arg| {
-            let name_str = ident_string(&arg.name);
-            let ty = render_starlark_type(&arg.ty);
-            syn::parse_quote! {
-                starlark::__derive_refs::param_spec::NativeCallableParam::kwargs(#name_str, #ty)
-            }
-        });
+            let pos_only: Vec<syn::Expr> = pos_only
+                .iter()
+                .copied()
+                .map(|a| render_regular_native_callable_param(a, generics))
+                .collect::<syn::Result<Vec<_>>>()?;
+            let pos_or_named: Vec<syn::Expr> = pos_or_named
+                .iter()
+                .copied()
+                .map(|a| render_regular_native_callable_param(a, generics))
+                .collect::<syn::Result<Vec<_>>>()?;
+            let args: Option<syn::Expr> = args.map(|arg| {
+                let name_str = ident_string(&arg.param.ident);
+                let ty = render_starlark_type(&arg.param.ty, generics);
+                syn::parse_quote! {
+                    starlark::__derive_refs::param_spec::NativeCallableParam::args(#name_str, #ty)
+                }
+            });
+            let named_only: Vec<syn::Expr> = named_only
+                .iter()
+                .copied()
+                .map(|a| render_regular_native_callable_param(a, generics))
+                .collect::<syn::Result<Vec<_>>>()?;
+            let kwargs: Option<syn::Expr> = kwargs.map(|arg| {
+                let name_str = ident_string(&arg.param.ident);
+                let ty = render_starlark_type(&arg.param.ty, generics);
+                syn::parse_quote! {
+                    starlark::__derive_refs::param_spec::NativeCallableParam::kwargs(#name_str, #ty)
+                }
+            });
 
-        let args = render_option(args);
-        let kwargs = render_option(kwargs);
-        syn::parse_quote! {
-            starlark::__derive_refs::param_spec::NativeCallableParamSpec {
-                pos_only: vec![#(#pos_only),*],
-                pos_or_named: vec![#(#pos_or_named),*],
-                args: #args,
-                named_only: vec![#(#named_only),*],
-                kwargs: #kwargs,
+            let args = render_option(args);
+            let kwargs = render_option(kwargs);
+            syn::parse_quote! {
+                starlark::__derive_refs::param_spec::NativeCallableParamSpec {
+                    pos_only: vec![#(#pos_only),*],
+                    pos_or_named: vec![#(#pos_or_named),*],
+                    args: #args,
+                    named_only: vec![#(#named_only),*],
+                    kwargs: #kwargs,
+                }
             }
         }
     };
 
-    let return_type_str = render_starlark_return_type(x);
+    let turbofish = generics.turbofish();
+
     let speculative_exec_safe = x.speculative_exec_safe;
     Ok(quote!(
         {
@@ -674,7 +632,7 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
                 speculative_exec_safe: #speculative_exec_safe,
                 rust_docstring: #docs,
                 param_spec,
-                return_type: #return_type_str,
+                return_type: __starlark_return_type_starlark_type_repr #turbofish(),
             }
         }
     ))
@@ -716,7 +674,7 @@ struct SignatureRegularArg {
 impl SignatureRegularArg {
     fn from_star_arg(arg: &StarArg) -> SignatureRegularArg {
         SignatureRegularArg {
-            name: ident_string(&arg.name),
+            name: ident_string(&arg.param.ident),
             mode: SignatureRegularArgMode::from_star_arg(arg),
         }
     }

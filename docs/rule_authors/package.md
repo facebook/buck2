@@ -30,7 +30,7 @@ regardless of whether they are loaded from `PACKAGE` or `BUCK` file.
 
 ### `PACKAGE` APIs
 
-#### [`write_package_value`](../../api/build/globals/#write_package_value)
+#### [`write_package_value`](../../api/build#write_package_value)
 
 ```python
 def write_package_value(
@@ -64,7 +64,7 @@ file evaluation may track which `PACKAGE`-local values were accessed and only
 invalidate `BUCK` files which were potentially affected (similarly to how we do
 it with buckconfigs).
 
-#### [`read_parent_package_value`](../../api/build/globals/#read_parent_package_value)
+#### [`read_parent_package_value`](../../api/build#read_parent_package_value)
 
 ```python
 def read_parent_package_value(
@@ -81,7 +81,7 @@ This function returns the `PACKAGE` value defined in a parent `PACKAGE` file, or
 This function is available in `PACKAGE` files, but attempt to call this function
 in context of `bzl` file evaluation results in an error.
 
-#### [`package`](../../api/build/globals/#package)
+#### [`package`](../../api/build#package)
 
 ```python
 def package(
@@ -104,13 +104,13 @@ deps, and not transitive deps.
 If `inherit` is `True`, then the `visibility` and `within_view` will be
 inherited from the nearest parent `PACKAGE`.
 
-#### [`read_config`](../../api/build/globals/#read_config)
+#### [`read_config`](../../api/build#read_config)
 
 `PACKAGE` files are able to call `read_config` to read buckconfigs.
 
 ### `BUCK`-specific API
 
-#### [`read_package_value`](../../api/build/globals/#read_package_value)
+#### [`read_package_value`](../../api/build#read_package_value)
 
 ```python
 def read_package_value(

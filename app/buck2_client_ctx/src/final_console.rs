@@ -27,7 +27,13 @@ impl FinalConsole {
         Self { is_tty: false }
     }
 
-    fn stderr_colored(&self, message: &str, color: Color) -> anyhow::Result<()> {
+    fn stderr_colored_ln(&self, message: &str, color: Color) -> buck2_error::Result<()> {
+        self.stderr_colored(message, color)?;
+        crate::eprintln!()?;
+        Ok(())
+    }
+
+    fn stderr_colored(&self, message: &str, color: Color) -> buck2_error::Result<()> {
         if self.is_tty {
             let sc = StyledContent::new(
                 ContentStyle {
@@ -38,30 +44,35 @@ impl FinalConsole {
                 },
                 message,
             );
-            crate::eprintln!("{}", sc)?;
+            crate::eprint!("{}", sc)?;
         } else {
-            crate::eprintln!("{}", message)?;
+            crate::eprint!("{}", message)?;
         }
         Ok(())
     }
 
     /// Print the given message to stderr, in red if possible
-    pub fn print_error(&self, message: &str) -> anyhow::Result<()> {
-        self.stderr_colored(message, Color::DarkRed)
+    pub fn print_error(&self, message: &str) -> buck2_error::Result<()> {
+        self.stderr_colored_ln(message, Color::DarkRed)
     }
 
     /// Print the given message to stderr, in yellow if possible
-    pub fn print_warning(&self, message: &str) -> anyhow::Result<()> {
-        self.stderr_colored(message, Color::Yellow)
+    pub fn print_warning(&self, message: &str) -> buck2_error::Result<()> {
+        self.stderr_colored_ln(message, Color::Yellow)
     }
 
     /// Print the given message to stderr, in green if possible
-    pub fn print_success(&self, message: &str) -> anyhow::Result<()> {
+    pub fn print_success(&self, message: &str) -> buck2_error::Result<()> {
+        self.stderr_colored_ln(message, Color::Green)
+    }
+
+    /// Print the given message to stderr, in green if possible
+    pub fn print_success_no_newline(&self, message: &str) -> buck2_error::Result<()> {
         self.stderr_colored(message, Color::Green)
     }
 
     /// Print a string directly to stderr with no extra formatting
-    pub fn print_stderr(&self, message: &str) -> anyhow::Result<()> {
+    pub fn print_stderr(&self, message: &str) -> buck2_error::Result<()> {
         crate::eprintln!("{}", message)
     }
 }

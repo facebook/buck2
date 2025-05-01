@@ -15,5 +15,6 @@
  * limitations under the License.
  */
 
+mod bounds;
 mod enums;
 mod statics;

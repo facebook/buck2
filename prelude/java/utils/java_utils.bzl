@@ -157,3 +157,17 @@ def get_classpath_subtarget(actions: AnalysisActions, packaging_info: JavaPackag
     proj = packaging_info.packaging_deps.project_as_args("full_jar_args")
     output = actions.write("classpath", proj)
     return {"classpath": [DefaultInfo(output, other_outputs = [proj])]}
+
+def build_bootclasspath(bootclasspath_entries: list[Artifact], source_level: int, java_toolchain: JavaToolchainInfo) -> list[Artifact]:
+    bootclasspath_list = []
+
+    if source_level in [7, 8]:
+        # bootclasspath_7 is deprecated.
+        if bootclasspath_entries:
+            bootclasspath_list = bootclasspath_entries
+        elif source_level == 8:
+            if read_config("build", "is_oss", "false") == "true":
+                return bootclasspath_list
+            expect(java_toolchain.bootclasspath_8, "Must specify bootclasspath for source level 8")
+            bootclasspath_list = java_toolchain.bootclasspath_8
+    return bootclasspath_list

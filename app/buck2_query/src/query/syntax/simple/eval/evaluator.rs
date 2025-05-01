@@ -9,9 +9,9 @@
 
 //! Implementation of the cli and query_* attr query language.
 
+use buck2_query_parser::Expr;
 use buck2_query_parser::parse_expr;
 use buck2_query_parser::spanned::Spanned;
-use buck2_query_parser::Expr;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
@@ -44,7 +44,7 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
         self.functions
     }
 
-    async fn resolve_literal(&self, literal: &str) -> anyhow::Result<TargetSet<Env::Target>> {
+    async fn resolve_literal(&self, literal: &str) -> buck2_error::Result<TargetSet<Env::Target>> {
         self.env.eval_literals(&[literal]).await
     }
 
@@ -117,10 +117,10 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
         async move { expr.span(self.eval_internal(&expr.value).await) }.boxed()
     }
 
-    pub async fn eval_query<'a>(
+    pub async fn eval_query(
         &self,
         query: &str,
-    ) -> anyhow::Result<QueryEvaluationValue<Env::Target>> {
+    ) -> buck2_error::Result<QueryEvaluationValue<Env::Target>> {
         let parsed_query = parse_expr(query)?;
         match self.eval_parsed_query(&parsed_query).await {
             Ok(v) => Ok(v.value),

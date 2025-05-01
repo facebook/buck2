@@ -14,7 +14,7 @@ Only sanity check for source configuration is done.
 load("@prelude//transitions:utils.bzl", "filtered_platform_constraints", "get_constraint_value")
 load("@prelude//utils:expect.bzl", "expect")
 
-def _impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
+def _watch_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
     # This functions operates in the following way:
     #  - Start with all the constraints from the platform and filter out the constraints for OS and SDK.
     #  - If the old OS constraint was iOS or watchOS, set the new constraint to be always watchOS.
@@ -59,7 +59,7 @@ def _impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
         configuration = new_cfg,
     )
 
-watch_transition = transition(impl = _impl, refs = {
+watch_transition = transition(impl = _watch_transition_impl, refs = {
     "ios": "config//os/constraints:iphoneos",
     "ios_device_sdk": "config//os/sdk/apple/constraints:iphoneos",
     "ios_simulator_sdk": "config//os/sdk/apple/constraints:iphonesimulator",

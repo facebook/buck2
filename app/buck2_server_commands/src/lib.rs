@@ -14,10 +14,13 @@
 #![feature(box_patterns)]
 #![feature(let_chains)]
 #![feature(try_blocks)]
+#![feature(used_with_arg)]
 
 pub mod commands;
 pub mod dot;
+pub mod html;
 pub(crate) mod json;
+pub(crate) mod query_output_format;
 pub mod target_hash;
 
 pub fn init_late_bindings() {

@@ -1,0 +1,8 @@
+[cells]
+  root = .
+
+[buildfile]
+  name=TARGETS.fixture
+
+[buck2]
+  materializations = deferred

@@ -8,28 +8,30 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 
-INDEX_STORE_SUBTARGET = "index-store"
-FULL_INDEX_STORE_SUBTARGET = "full-index-store"
-
-# Magic number here. There is a trade off here:
-# more buckets more materializion time but less time to wait from RE to merge bucket
-# less buckets less materializion time but more time to wait from RE to merge bucket
-_BUCK_COUNT = 20
-
 def _index_store_args(artifact: Artifact) -> Artifact:
     return artifact
 
+# A transitive set (tset) where we don't need to format the items to use them
+# as CLI arguments.
+#
+# https://www.internalfb.com/intern/staticdocs/buck2/docs/rule_authors/transitive_sets/#projections-using-transitive-sets-in-command-lines
 IndexStoreTSet = transitive_set(
     args_projections = {
         "args": _index_store_args,
     },
 )
 
+# A struct representing information about the index store.
+#
+# https://www.internalfb.com/intern/staticdocs/buck2/docs/rule_authors/writing_rules/#providers
 IndexStoreInfo = provider(
     fields = {
         # The name of the target.
         "name": provider_field(str),
-        # A tset with this target's index store and all of its dependency's index stores in the children.
+        # All the swift index stores as a tset.
+        "swift_tset": provider_field(IndexStoreTSet),
+        # A tset (transitive set) with this target's index store and the index store
+        # of all the dependencies as children.
         "tset": provider_field(IndexStoreTSet),
     },
 )
@@ -40,100 +42,91 @@ def _get_merge_index_store_tool(ctx: AnalysisContext) -> RunInfo | None:
         return None
     return apple_toolchain[AppleToolchainInfo].merge_index_store
 
-def _merge_index_store(ctx: AnalysisContext, index_stores: list[Artifact] | TransitiveSet, merge_output_dir_name: str | None = None) -> Artifact | None:
+def merge_index_store(actions: AnalysisActions, merge_index_store_tool: RunInfo, index_stores: list[Artifact] | TransitiveSet, merge_output_dir_name: str) -> Artifact:
     if isinstance(index_stores, list):
-        if len(index_stores) == 0:
-            return None
-
         if len(index_stores) == 1:
             return index_stores[0]
 
-    merge_index_store_tool = _get_merge_index_store_tool(ctx)
-    if merge_index_store_tool == None:
-        return None
-    if merge_output_dir_name == None:
-        merge_output_dir_name = paths.join("__indexstore__", ctx.attrs.name, "index_store")
-    merged_index_store = ctx.actions.declare_output(merge_output_dir_name)
+    merged_index_store = actions.declare_output(merge_output_dir_name)
+
     cmd = cmd_args([merge_index_store_tool])
     cmd.add(["--dest", merged_index_store.as_output()])
-    cmd.add(["--sources"])
+
+    txt_args = cmd_args()
     if isinstance(index_stores, list):
-        cmd.add(index_stores)
+        txt_args.add(index_stores)
     else:
-        cmd.add(index_stores.project_as_args("args"))
+        txt_args.add(index_stores.project_as_args("args"))
 
-    # use prefer_remote = True here, it would have two following advantages
-    # 1. Each bucket will perform a merge on RE,  which will fully utilize the high-speed network for materalizaion
-    # and utalize the resource to mergre parallel.
-    # 2. After merging for each bucket, the index store will be smaller, which makes it less to materialize locally
-    # and speeds up the local merge, thus accelerating the overall process.
-    ctx.actions.run(cmd, category = "merge_index_store", identifier = merge_output_dir_name, allow_cache_upload = True, prefer_remote = True)
+    argsfile_path = merge_output_dir_name + ".files.txt"
+    argsfile = actions.write(argsfile_path, txt_args)
+    argsfile = cmd_args(argsfile, format = "@{}", hidden = txt_args)
+
+    cmd.add(["--sources"])
+    cmd.add(argsfile)
+
+    # Merge all the individual index store directories into a single
+    # directory containing all the unit and record files.
+    #
+    # We use `prefer_remote` to maximize the work done on RE, because
+    # we assume that RE hosts have the fastest network connections,
+    # especially if the buck command is running on a local
+    # laptop. There can also be some duplication between index stores,
+    # so we expect the final output to be smaller and less to
+    # download.
+    #
+    # We use `allow_cache_upload` because the output should be
+    # deterministic, so we can reuse results from previous runs.
+    actions.run(cmd, category = "merge_index_store", identifier = merge_output_dir_name, allow_cache_upload = True, prefer_remote = True)
     return merged_index_store
-
-def _hash_bucket_index_stores(index_stores: list[Artifact]):
-    buckets_to_artifacts = {}
-    for index_store in index_stores:
-        hash_value = hash(index_store.short_path)
-        bucket = hash_value % _BUCK_COUNT
-        if bucket not in buckets_to_artifacts:
-            buckets_to_artifacts[bucket] = []
-        buckets_to_artifacts[bucket].append(index_store)
-    return buckets_to_artifacts
-
-def _merge_all_index_store(ctx: AnalysisContext, index_stores: TransitiveSet) -> Artifact | None:
-    index_store_output_path = read_config("apple", "index_store_output", None)
-    if index_store_output_path:
-        index_stores = list(index_stores.traverse())
-        merge_index_store_tool = _get_merge_index_store_tool(ctx)
-        if merge_index_store_tool == None:
-            return None
-        outputs = []
-
-        buckets_to_artifacts = _hash_bucket_index_stores(index_stores)
-
-        for bucket in buckets_to_artifacts:
-            index_stores = buckets_to_artifacts[bucket]
-            merged_bucket_index_store = _merge_index_store(ctx, index_stores, merge_output_dir_name = "merge_bucket/{}/index_store".format(bucket))
-
-            name = "loal_merge/{}/index_store".format(bucket)
-            local_merged_index_store = ctx.actions.declare_output(name, dir = False)  # this is a dummy output, it will be empty. It is used to make buck2 to run the actions
-            cmd = cmd_args([merge_index_store_tool, "--dest", index_store_output_path, "--sources", merged_bucket_index_store])
-            cmd.add(["--dummy-output", local_merged_index_store.as_output()])
-
-            # each index_store will run local action to merge to the same local index store,
-            # in this cases , each index store will not wait for all index stores to be materalized
-            ctx.actions.run(cmd, category = "index_store_local_merge", identifier = name, local_only = True)
-            outputs.append(local_merged_index_store)
-
-        final_output = ctx.actions.declare_output("dummy_final_local_merge", dir = False)  # this is a dummy output, it will be empty. It is used to make buck2 to run the actions
-
-        # Pass `outputs` to hidden to make the `final_output` depends on the `outputs``.
-        cmd = cmd_args(["touch", final_output.as_output()], hidden = outputs)
-
-        ctx.actions.run(cmd, category = "index_store_local_merge", identifier = "final_local_merge (dummy)", local_only = True)
-        return final_output
-    else:
-        return _merge_index_store(ctx, index_stores, paths.join("__indexstore__", ctx.attrs.name, "full_index_stores"))
 
 def _gather_deps_index_store_tsets(deps: list[Dependency]) -> list[IndexStoreTSet]:
     deps_indexstore_infos = filter(None, [dep.get(IndexStoreInfo) for dep in deps])
     return [info.tset for info in deps_indexstore_infos]
 
-def create_index_store_subtargets_and_provider(ctx: AnalysisContext, current_target_index_stores: list[Artifact], deps: list[Dependency]) -> (dict[str, list[Provider]], IndexStoreInfo):
-    # Create a subtarget for the current target's index store
-    sub_targets = {}
-    merged_index_store = _merge_index_store(ctx, current_target_index_stores)
-    sub_targets[INDEX_STORE_SUBTARGET] = [DefaultInfo(default_output = merged_index_store)]
+def _gather_deps_swift_index_store_tsets(deps: list[Dependency]) -> list[IndexStoreTSet]:
+    deps_indexstore_infos = filter(None, [dep.get(IndexStoreInfo) for dep in deps])
+    return [info.swift_tset for info in deps_indexstore_infos]
 
-    # Crate a subtarget for the merged  all deps' and itself's index store
-    deps_indexstore_tsets = _gather_deps_index_store_tsets(deps)
-    if merged_index_store:
-        index_store_tset = ctx.actions.tset(IndexStoreTSet, value = merged_index_store, children = deps_indexstore_tsets)
+def create_index_store_subtargets_and_provider(ctx: AnalysisContext, current_target_index_stores: list[Artifact], swift_index_stores: list[Artifact], deps: list[Dependency]) -> (dict[str, list[Provider]], IndexStoreInfo):
+    merge_index_store_tool = _get_merge_index_store_tool(ctx)
+
+    if merge_index_store_tool:
+        # To create the index store for this target, we merge all the individual file target stores.
+        target_index_store = merge_index_store(ctx.actions, merge_index_store_tool, current_target_index_stores, paths.join("__indexstore__", ctx.attrs.name, "index_store"))
+
+        # To create the full index store, we need to merge the index store for this target with the
+        # index store from all our transitive dependencies.
+        index_store_tset = ctx.actions.tset(IndexStoreTSet, value = target_index_store, children = _gather_deps_index_store_tsets(deps))
+        full_index_store = merge_index_store(ctx.actions, merge_index_store_tool, index_store_tset, paths.join("__indexstore__", ctx.attrs.name, "full_index_stores"))
+
+        # The index store for all the Swift files in this target.
+        target_swift_index_store = merge_index_store(ctx.actions, merge_index_store_tool, swift_index_stores, paths.join("__swiftindexstore__", ctx.attrs.name, "swift_index_stores"))
+
+        # The full Swift index index store is created by merging the Swift index store for this target,
+        # plus the Swift index store from all our transitive dependencies.
+        swift_index_store_tset = ctx.actions.tset(IndexStoreTSet, value = target_swift_index_store, children = _gather_deps_swift_index_store_tsets(deps))
+        full_swift_index_store = merge_index_store(ctx.actions, merge_index_store_tool, swift_index_store_tset, paths.join("__swiftfullindexstore__", ctx.attrs.name, "full_index_stores"))
+
+        sub_targets = {
+            # Create a subtarget foo//bar:baz[full-index-store] that builds and merges
+            # the index stores from foo//bar:baz plus all its transitive dependencies.
+            "full-index-store": [DefaultInfo(default_output = full_index_store)],
+            # Merged index store for all files compiled by swiftc.
+            "full-swift-index-store": [DefaultInfo(default_output = full_swift_index_store)],
+            # Create a subtarget foo//bar:baz[index-store] that builds the
+            # index store for foo//bar:baz.
+            "index-store": [DefaultInfo(default_output = target_index_store)],
+        }
+
+        index_store_info = IndexStoreInfo(name = ctx.attrs.name, tset = index_store_tset, swift_tset = swift_index_store_tset)
     else:
-        index_store_tset = ctx.actions.tset(IndexStoreTSet, children = deps_indexstore_tsets)
-    index_store_info = IndexStoreInfo(name = ctx.attrs.name, tset = index_store_tset)
+        sub_targets = {
+            "full-index-store": [DefaultInfo(default_output = None)],
+            "full-swift-index-store": [DefaultInfo(default_output = None)],
+            "index-store": [DefaultInfo(default_output = None)],
+        }
 
-    output = _merge_all_index_store(ctx, index_store_tset)
-    sub_targets[FULL_INDEX_STORE_SUBTARGET] = [DefaultInfo(default_output = output)]
+        index_store_info = IndexStoreInfo(name = ctx.attrs.name, tset = ctx.actions.tset(IndexStoreTSet), swift_tset = ctx.actions.tset(IndexStoreTSet))
 
     return (sub_targets, index_store_info)

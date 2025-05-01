@@ -12,12 +12,12 @@
 use std::time::Duration;
 use std::time::Instant;
 
-use superconsole::components::Component;
-use superconsole::components::DrawMode;
 use superconsole::Dimensions;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::SuperConsole;
+use superconsole::components::Component;
+use superconsole::components::DrawMode;
 use tokio::select;
 use tokio::time;
 

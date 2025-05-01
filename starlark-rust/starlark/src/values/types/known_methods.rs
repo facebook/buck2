@@ -22,14 +22,14 @@ use once_cell::sync::Lazy;
 use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::values::FrozenValueTyped;
+use crate::values::Value;
 use crate::values::dict::value::dict_methods;
 use crate::values::function::NativeMeth;
 use crate::values::function::NativeMethod;
 use crate::values::list::value::list_methods;
+use crate::values::set::value::set_methods;
 use crate::values::string::str_type::str_methods;
-use crate::values::FrozenRef;
-use crate::values::FrozenValueTyped;
-use crate::values::Value;
 
 /// Method and a `Methods` container which declares it.
 #[derive(Clone, Copy, Dupe)]
@@ -39,7 +39,7 @@ pub(crate) struct KnownMethod {
     /// The method.
     method: FrozenValueTyped<'static, NativeMethod>,
     /// Copied here from `method` to faster invocation (one fewer deref).
-    imp: FrozenRef<'static, dyn NativeMeth>,
+    imp: &'static NativeMeth,
 }
 
 impl KnownMethod {
@@ -81,7 +81,7 @@ impl KnownMethods {
                     methods.entry(name).or_insert(KnownMethod {
                         type_methods,
                         method,
-                        imp: method.as_frozen_ref().map(|m| &*m.function),
+                        imp: &method.as_ref().function,
                     });
                     has_at_least_one_method = true;
                 }
@@ -93,6 +93,7 @@ impl KnownMethods {
         // We don't need to add all the methods, only the most common ones. This is fine.
         add_methods(&mut methods, list_methods());
         add_methods(&mut methods, dict_methods());
+        add_methods(&mut methods, set_methods());
         add_methods(&mut methods, str_methods());
 
         KnownMethods { methods }

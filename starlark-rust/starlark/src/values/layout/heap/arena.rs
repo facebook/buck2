@@ -40,11 +40,13 @@ use starlark_map::small_map::SmallMap;
 
 use crate::collections::StarlarkHashValue;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
+use crate::values::Value;
+use crate::values::ValueLike;
 use crate::values::layout::aligned_size::AlignedSize;
-use crate::values::layout::avalue::starlark_str;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::BlackHole;
+use crate::values::layout::avalue::starlark_str;
 use crate::values::layout::heap::allocator::api::ArenaAllocator;
 use crate::values::layout::heap::allocator::api::ChunkAllocationDirection;
 use crate::values::layout::heap::call_enter_exit::CallEnter;
@@ -61,8 +63,6 @@ use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::string::str_type::StarlarkStr;
-use crate::values::Value;
-use crate::values::ValueLike;
 
 /// Min size of allocated object including header.
 /// Should be able to fit `BlackHole` or forward.
@@ -152,17 +152,19 @@ impl<'v, T: AValue<'v>> ArenaUninit<'v, T> {
         self,
         extra_len: usize,
     ) -> (Reservation<'v, T>, *mut [MaybeUninit<T::ExtraElem>]) {
-        let p = self.repr as *mut AValueRepr<BlackHole>;
-        p.write(AValueRepr {
-            header: AValueHeader(AValueVTable::new_black_hole()),
-            payload: BlackHole(T::alloc_size_for_extra_len(extra_len)),
-        });
-        (
-            Reservation {
-                pointer: p as *mut _,
-            },
-            self.extra,
-        )
+        unsafe {
+            let p = self.repr as *mut AValueRepr<BlackHole>;
+            p.write(AValueRepr {
+                header: AValueHeader(AValueVTable::new_black_hole()),
+                payload: BlackHole(T::alloc_size_for_extra_len(extra_len)),
+            });
+            (
+                Reservation {
+                    pointer: p as *mut _,
+                },
+                self.extra,
+            )
+        }
     }
 
     pub(crate) fn debug_assert_extra_is_empty(&self) {
@@ -366,50 +368,53 @@ impl<A: ArenaAllocator> Arena<A> {
         forward_heap_kind: HeapKind,
         visitor: &mut impl ArenaVisitor<'v>,
     ) {
-        fn fix_function<'v>(function: Value<'v>, forward_heap_kind: HeapKind) -> Value<'v> {
-            if let Some(function) = function.unpack_frozen() {
-                return function.to_value();
-            }
-
-            unsafe {
-                match function
-                    .0
-                    .unpack_ptr()
-                    .expect("int cannot be stored in heap")
-                    .unpack_forward()
-                {
-                    None => function,
-                    Some(forward) => forward.forward_ptr().unpack_value(forward_heap_kind),
+        unsafe {
+            fn fix_function<'v>(function: Value<'v>, forward_heap_kind: HeapKind) -> Value<'v> {
+                if let Some(function) = function.unpack_frozen() {
+                    return function.to_value();
                 }
-            }
-        }
 
-        self.for_each_ordered(|x| match x {
-            ArenaVisitEvent::EnterBump => visitor.enter_bump(),
-            ArenaVisitEvent::Value(x) => match x.unpack() {
-                AValueOrForwardUnpack::Header(header) => {
-                    let value = header.unpack_value(heap_kind);
-                    if let Some(call_enter) = value.downcast_ref::<CallEnter<NeedsDrop>>() {
-                        visitor.call_enter(
-                            fix_function(call_enter.function, forward_heap_kind),
-                            call_enter.time,
-                        );
-                    } else if let Some(call_enter) = value.downcast_ref::<CallEnter<NoDrop>>() {
-                        visitor.call_enter(
-                            fix_function(call_enter.function, forward_heap_kind),
-                            call_enter.time,
-                        );
-                    } else if let Some(call_exit) = value.downcast_ref::<CallExit<NeedsDrop>>() {
-                        visitor.call_exit(call_exit.time);
-                    } else if let Some(call_exit) = value.downcast_ref::<CallExit<NoDrop>>() {
-                        visitor.call_exit(call_exit.time);
-                    } else {
-                        visitor.regular_value(x);
+                unsafe {
+                    match function
+                        .0
+                        .unpack_ptr()
+                        .expect("int cannot be stored in heap")
+                        .unpack_forward()
+                    {
+                        None => function,
+                        Some(forward) => forward.forward_ptr().unpack_value(forward_heap_kind),
                     }
                 }
-                AValueOrForwardUnpack::Forward(_forward) => visitor.regular_value(x),
-            },
-        });
+            }
+
+            self.for_each_ordered(|x| match x {
+                ArenaVisitEvent::EnterBump => visitor.enter_bump(),
+                ArenaVisitEvent::Value(x) => match x.unpack() {
+                    AValueOrForwardUnpack::Header(header) => {
+                        let value = header.unpack_value(heap_kind);
+                        if let Some(call_enter) = value.downcast_ref::<CallEnter<NeedsDrop>>() {
+                            visitor.call_enter(
+                                fix_function(call_enter.function, forward_heap_kind),
+                                call_enter.time,
+                            );
+                        } else if let Some(call_enter) = value.downcast_ref::<CallEnter<NoDrop>>() {
+                            visitor.call_enter(
+                                fix_function(call_enter.function, forward_heap_kind),
+                                call_enter.time,
+                            );
+                        } else if let Some(call_exit) = value.downcast_ref::<CallExit<NeedsDrop>>()
+                        {
+                            visitor.call_exit(call_exit.time);
+                        } else if let Some(call_exit) = value.downcast_ref::<CallExit<NoDrop>>() {
+                            visitor.call_exit(call_exit.time);
+                        } else {
+                            visitor.regular_value(x);
+                        }
+                    }
+                    AValueOrForwardUnpack::Forward(_forward) => visitor.regular_value(x),
+                },
+            });
+        }
     }
 
     // Iterate over the values in the drop bump in any order
@@ -536,7 +541,7 @@ mod tests {
         s
     }
 
-    fn mk_str(x: &str) -> AValueImpl<'static, impl AValue<'static, ExtraElem = ()>> {
+    fn mk_str(x: &str) -> AValueImpl<'static, impl AValue<'static, ExtraElem = ()> + use<>> {
         simple(StarlarkAny::new(x.to_owned()))
     }
 

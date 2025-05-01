@@ -9,6 +9,7 @@
 
 use async_compression::tokio::bufread::ZstdEncoder;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
@@ -25,7 +26,7 @@ pub struct UploadReLogsCommand {
 }
 
 impl UploadReLogsCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         buck2_core::facebook_only();
 
         // TODO: This should receive the path from the caller.
@@ -51,7 +52,7 @@ pub(crate) async fn upload_re_logs(
     re_logs_dir: &AbsNormPath,
     session_id: &str,
     bucket_path: &str,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let logs_path = re_logs_dir
         .join(ForwardRelativePath::new(session_id)?)
         .join(ForwardRelativePath::new("REClientFolly.log")?);

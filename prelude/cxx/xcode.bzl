@@ -13,7 +13,7 @@ load(
     "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load("@prelude//ide_integrations:xcode.bzl", "XcodeDataInfoKeys")
+load("@prelude//ide_integrations/xcode:data.bzl", "XcodeDataInfoKeys")
 
 def cxx_populate_xcode_attributes(
         ctx,

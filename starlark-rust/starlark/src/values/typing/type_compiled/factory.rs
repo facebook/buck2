@@ -15,8 +15,11 @@
  * limitations under the License.
  */
 
-use crate::typing::custom::TyCustom;
 use crate::typing::Ty;
+use crate::typing::custom::TyCustom;
+use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::Value;
 use crate::values::layout::avalue::AValueBasic;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::repr::AValueRepr;
@@ -30,9 +33,6 @@ use crate::values::typing::type_compiled::matchers::IsInt;
 use crate::values::typing::type_compiled::matchers::IsNone;
 use crate::values::typing::type_compiled::matchers::IsStr;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
-use crate::values::FrozenValue;
-use crate::values::Heap;
-use crate::values::Value;
 
 /// Allocate a `Ty` with a `TypeMatcher` in starlark heap as `TypeCompiled`.
 pub struct TypeCompiledFactory<'a, 'v> {

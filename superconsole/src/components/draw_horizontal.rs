@@ -60,12 +60,12 @@ impl DrawHorizontal {
 #[cfg(test)]
 mod tests {
 
-    use crate::components::draw_horizontal::DrawHorizontal;
     use crate::Component;
     use crate::Dimensions;
     use crate::DrawMode;
     use crate::Line;
     use crate::Lines;
+    use crate::components::draw_horizontal::DrawHorizontal;
 
     #[test]
     fn test_draw_horizontal() {

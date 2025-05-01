@@ -174,16 +174,18 @@ impl ArenaAllocator for ChunkAllocator {
     type ChunkRevIterator<'a> = ChunkRevIterator<'a>;
 
     unsafe fn iter_allocated_chunks_rev(&self) -> ChunkRevIterator<'_> {
-        let begin = (*self.chain.get()).begin();
-        ChunkRevIterator {
-            current: slice::from_raw_parts(
-                begin.cast().as_ptr(),
-                AlignedSize::ptr_diff(begin, self.current_ptr.get()).bytes() as usize,
-            ),
-            chain: (*self.chain.get())
-                .prev()
-                .map(|next| next.iter())
-                .unwrap_or_default(),
+        unsafe {
+            let begin = (*self.chain.get()).begin();
+            ChunkRevIterator {
+                current: slice::from_raw_parts(
+                    begin.cast().as_ptr(),
+                    AlignedSize::ptr_diff(begin, self.current_ptr.get()).bytes() as usize,
+                ),
+                chain: (*self.chain.get())
+                    .prev()
+                    .map(|next| next.iter())
+                    .unwrap_or_default(),
+            }
         }
     }
 
@@ -199,9 +201,9 @@ impl ArenaAllocator for ChunkAllocator {
 
 #[cfg(test)]
 mod tests {
-    use rand::rngs::SmallRng;
     use rand::Rng;
     use rand::SeedableRng;
+    use rand::rngs::SmallRng;
 
     use crate::values::layout::aligned_size::AlignedSize;
     use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;

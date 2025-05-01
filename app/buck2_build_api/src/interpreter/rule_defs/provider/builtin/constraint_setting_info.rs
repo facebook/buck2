@@ -22,12 +22,15 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Trace;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
+
+use crate as buck2_build_api;
 
 /// Provider that signals that a target can be used as a constraint key. This is the only provider
 /// returned by a `constraint_setting()` target.
@@ -57,7 +60,7 @@ fn constraint_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenConstraintSettingInfo)]
     fn ConstraintSettingInfo<'v>(
         #[starlark(require = named)] label: ValueOf<'v, &'v StarlarkTargetLabel>,
-    ) -> anyhow::Result<ConstraintSettingInfo<'v>> {
+    ) -> starlark::Result<ConstraintSettingInfo<'v>> {
         Ok(ConstraintSettingInfo {
             label: label.as_unchecked().cast(),
         })

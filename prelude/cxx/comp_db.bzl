@@ -9,7 +9,7 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load(
-    ":compile.bzl",
+    ":compile_types.bzl",
     "CxxSrcCompileCommand",  # @unused Used as a type
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")

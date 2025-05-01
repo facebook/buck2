@@ -24,12 +24,12 @@ use std::ops::AddAssign;
 
 use dupe::Dupe;
 
+use crate::eval::ProfileData;
+use crate::eval::ProfileMode;
 use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::runtime::profile::csv::CsvWriter;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::profiler_type::ProfilerType;
-use crate::eval::ProfileData;
-use crate::eval::ProfileMode;
 
 pub(crate) struct BcProfilerType;
 pub(crate) struct BcPairsProfilerType;
@@ -310,11 +310,11 @@ impl BcProfile {
 mod tests {
     use crate::environment::Globals;
     use crate::environment::Module;
+    use crate::eval::Evaluator;
     use crate::eval::bc::opcode::BcOpcode;
     use crate::eval::runtime::profile::bc::BcPairsProfileData;
     use crate::eval::runtime::profile::bc::BcProfileData;
     use crate::eval::runtime::profile::mode::ProfileMode;
-    use crate::eval::Evaluator;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
 
@@ -329,7 +329,7 @@ mod tests {
             &globals,
         )
         .unwrap();
-        let csv = eval.gen_bc_profile().unwrap().gen().unwrap();
+        let csv = eval.gen_bc_profile().unwrap().gen_csv().unwrap();
         assert!(
             csv.contains(&format!("\n\"{:?}\",1,", BcOpcode::CallFrozenNativePos)),
             "{:?}",
@@ -348,7 +348,7 @@ mod tests {
             &globals,
         )
         .unwrap();
-        let csv = eval.gen_bc_pairs_profile().unwrap().gen().unwrap();
+        let csv = eval.gen_bc_pairs_profile().unwrap().gen_csv().unwrap();
         assert!(
             csv.contains(&format!(
                 "\n\"{:?}\",\"{:?}\",1",

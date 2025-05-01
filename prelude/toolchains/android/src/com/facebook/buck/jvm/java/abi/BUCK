@@ -1,0 +1,92 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library", "buck_prebuilt_artifact", "buck_prebuilt_jar")
+load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "abi",
+    srcs = glob(
+        ["*.java"],
+        exclude = [
+            "ApiStubber.java",
+        ],
+    ),
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/abi:abi",
+    ],
+    versioned_java_srcs = True,
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java:steps",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java:support",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:command_lib",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/workertool:command_lib",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/workertool/postexecutors:postexecutors",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/abi/...",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/kotlin/cd/workertool/postexecutors:postexecutors",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
+        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem/impl:utils",
+        "prelude//toolchains/android/src/com/facebook/buck/io/pathformat:pathformat",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/kotlin:kotlin",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/source/api:api",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/lang/extra:extra",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/lang/model:model",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/plugin/api:api",
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/src/com/facebook/buck/util/function:function",
+        "prelude//toolchains/android/third-party:asm",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:infer-annotations",
+        "prelude//toolchains/android/third-party:jsr305",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip",
+    ],
+)
+
+fb_native.alias(
+    name = "api-stubber",
+    actual = ":api-stubber_prebuilt",
+    visibility = ["PUBLIC"],
+)
+
+buck_java_binary(
+    name = "api-stubber-main",
+    main_class = "com.facebook.buck.jvm.java.abi.ApiStubber",
+    deps = [
+        ":lib-api-stubber",
+    ],
+)
+
+# This is a prebuilt jar so that it can be part of the buck2 bootstrap toolchain.
+buck_prebuilt_jar(
+    name = "api-stubber_prebuilt",
+    _dex_toolchain = "toolchains//:empty_dex",
+    binary_jar = ":api-stubber-main_jar.jar",
+    is_executable = True,
+    should_generate_snapshot = False,
+    visibility = ["PUBLIC"],
+)
+
+# To rebuild the jar and upload it to CAS, do:
+# buck build prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi:api-stubber-main --show-simple-output | xargs frecli --use-case android_build_infra_tools cas upload-blob
+buck_prebuilt_artifact(
+    name = "api-stubber-main_jar.jar",
+    # @oss-disable[end= ]: cas_digest = "f617dd1cac3cfbbafc0843f0ca40e413584a691eac3ea319578b896dd90f6d4f:28974683",
+    oss_sha1 = "59b1fcca9ec544a86df64fb544fce3bfcee7eaa8",
+    oss_url = "https://github.com/facebook/buck2/releases/download/androidToolchain%2F2025-04-03/api-stubber-main_jar.jar",
+)
+
+buck_java_library(
+    name = "lib-api-stubber",
+    srcs = ["ApiStubber.java"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        ":abi",
+    ],
+)

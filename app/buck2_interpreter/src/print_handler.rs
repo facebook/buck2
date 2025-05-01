@@ -14,7 +14,7 @@ use starlark::PrintHandler;
 pub struct EventDispatcherPrintHandler(pub EventDispatcher);
 
 impl PrintHandler for EventDispatcherPrintHandler {
-    fn println(&self, text: &str) -> anyhow::Result<()> {
+    fn println(&self, text: &str) -> starlark::Result<()> {
         self.0.console_message(text.to_owned());
         Ok(())
     }

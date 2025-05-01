@@ -1,0 +1,5 @@
+load(":long_action.bzl", "long_action")
+
+long_action(
+    name = "long_build",
+)

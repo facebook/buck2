@@ -1,0 +1,60 @@
+load("@prelude//toolchains/android/tools:protobuf.bzl", "protobuf_src_gen")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+filegroup(
+    name = "jvm_cd_proto",
+    srcs = glob(["*.proto"]),
+)
+
+protobuf_src_gen(
+    name = "cd-model",
+    srcs = [
+        "common.proto",
+    ],
+    deps = [
+        "prelude//toolchains/android/third-party:jakarta.annotation-api",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/third-party:protobuf",
+    ],
+)
+
+protobuf_src_gen(
+    name = "javacd-model",
+    srcs = [
+        "common.proto",
+        "javacd.proto",
+    ],
+    proto_path = [
+        "$(location :cd-model)",
+    ],
+    deps = [
+        "prelude//toolchains/android/third-party:jakarta.annotation-api",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/third-party:protobuf",
+    ],
+)
+
+protobuf_src_gen(
+    name = "kotlincd-model",
+    srcs = [
+        "common.proto",
+        "kotlincd.proto",
+    ],
+    proto_path = [
+        "$(location :jvm_cd_proto)",
+        "$(location :cd-model)",
+    ],
+    deps = [
+        "prelude//toolchains/android/third-party:jakarta.annotation-api",
+        ":javacd-model",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/third-party:protobuf",
+    ],
+)

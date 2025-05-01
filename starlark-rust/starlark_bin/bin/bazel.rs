@@ -38,12 +38,9 @@ use std::process::Command;
 use either::Either;
 use lsp_types::CompletionItemKind;
 use lsp_types::Url;
-use starlark::analysis::find_call_name::AstModuleFindCallName;
+use starlark::StarlarkResultExt;
 use starlark::analysis::AstModuleLint;
-use starlark::docs::get_registered_starlark_docs;
-use starlark::docs::render_docs_as_code;
-use starlark::docs::Doc;
-use starlark::docs::DocItem;
+use starlark::analysis::find_call_name::AstModuleFindCallName;
 use starlark::docs::DocModule;
 use starlark::environment::FrozenModule;
 use starlark::environment::Globals;
@@ -52,7 +49,6 @@ use starlark::errors::EvalMessage;
 use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
-use starlark::StarlarkResultExt;
 use starlark_lsp::completion::StringCompletionResult;
 use starlark_lsp::completion::StringCompletionType;
 use starlark_lsp::error::eval_message_to_lsp_diagnostic;
@@ -198,7 +194,7 @@ impl BazelContext {
                     let module = AstModule::parse_file(x, &dialect).into_anyhow_result()?;
                     eval.eval_module(module, &globals).into_anyhow_result()?;
                 }
-                env.freeze()
+                Ok(env.freeze()?)
             })
             .collect::<anyhow::Result<_>>()?;
 
@@ -207,17 +203,14 @@ impl BazelContext {
         } else {
             None
         };
-        let mut builtins: HashMap<LspUrl, Vec<Doc>> = HashMap::new();
+        let mut builtin_docs: HashMap<LspUrl, String> = HashMap::new();
         let mut builtin_symbols: HashMap<String, LspUrl> = HashMap::new();
-        for doc in get_registered_starlark_docs() {
-            let uri = Self::url_for_doc(&doc);
-            builtin_symbols.insert(doc.id.name.clone(), uri.clone());
-            builtins.entry(uri).or_default().push(doc);
+        for (name, item) in globals.documentation().members {
+            let uri = Url::parse(&format!("starlark:{name}.bzl"))?;
+            let uri = LspUrl::try_from(uri)?;
+            builtin_docs.insert(uri.clone(), item.render_as_code(&name));
+            builtin_symbols.insert(name, uri);
         }
-        let builtin_docs = builtins
-            .into_iter()
-            .map(|(u, ds)| (u, render_docs_as_code(&ds)))
-            .collect();
 
         let mut raw_command = Command::new("bazel");
         let mut command = raw_command.arg("info");
@@ -266,10 +259,10 @@ impl BazelContext {
     }
 
     // Convert an anyhow over iterator of EvalMessage, into an iterator of EvalMessage
-    fn err(
+    fn err<T: Iterator<Item = EvalMessage>>(
         file: &str,
-        result: starlark::Result<EvalResult<impl Iterator<Item = EvalMessage>>>,
-    ) -> EvalResult<impl Iterator<Item = EvalMessage>> {
+        result: starlark::Result<EvalResult<T>>,
+    ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<T>> {
         match result {
             Err(e) => EvalResult {
                 messages: Either::Left(iter::once(EvalMessage::from_error(Path::new(file), &e))),
@@ -282,17 +275,6 @@ impl BazelContext {
         }
     }
 
-    fn url_for_doc(doc: &Doc) -> LspUrl {
-        let url = match &doc.item {
-            DocItem::Module(_) => Url::parse("starlark:/native/builtins.bzl").unwrap(),
-            DocItem::Type(_) => {
-                Url::parse(&format!("starlark:/native/builtins/{}.bzl", doc.id.name)).unwrap()
-            }
-            DocItem::Member(_) => Url::parse("starlark:/native/builtins.bzl").unwrap(),
-        };
-        LspUrl::try_from(url).unwrap()
-    }
-
     fn new_module(prelude: &[FrozenModule]) -> Module {
         let module = Module::new();
         for p in prelude {
@@ -301,7 +283,11 @@ impl BazelContext {
         module
     }
 
-    fn go(&self, file: &str, ast: AstModule) -> EvalResult<impl Iterator<Item = EvalMessage>> {
+    fn go(
+        &self,
+        file: &str,
+        ast: AstModule,
+    ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<>> {
         let mut warnings = Either::Left(iter::empty());
         let mut errors = Either::Left(iter::empty());
         let final_ast = match self.mode {
@@ -320,7 +306,11 @@ impl BazelContext {
         }
     }
 
-    fn run(&self, file: &str, ast: AstModule) -> EvalResult<impl Iterator<Item = EvalMessage>> {
+    fn run(
+        &self,
+        file: &str,
+        ast: AstModule,
+    ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<>> {
         let new_module;
         let module = match self.module.as_ref() {
             Some(module) => module,
@@ -347,7 +337,7 @@ impl BazelContext {
         )
     }
 
-    fn check(&self, module: &AstModule) -> impl Iterator<Item = EvalMessage> {
+    fn check(&self, module: &AstModule) -> impl Iterator<Item = EvalMessage> + use<> {
         let globals = if self.prelude.is_empty() {
             None
         } else {
@@ -374,7 +364,7 @@ impl BazelContext {
         &self,
         filename: &str,
         content: String,
-    ) -> EvalResult<impl Iterator<Item = EvalMessage>> {
+    ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<>> {
         Self::err(
             filename,
             AstModule::parse(filename, content, &self.dialect)
@@ -570,7 +560,6 @@ impl BazelContext {
                             }));
                         }
                     }
-                    continue;
                 } else if options.files != FilesystemFileCompletionOptions::None {
                     // Check if it's in the list of allowed extensions. If we have a list, and it
                     // doesn't contain the extension, or the file has no extension, skip this file.

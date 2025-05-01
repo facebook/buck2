@@ -11,18 +11,18 @@ use std::cell::RefCell;
 
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
-use hashbrown::raw::RawTable;
+use hashbrown::HashTable;
 
 use crate::attrs::coerce::str_hash::str_hash;
 
 pub(crate) struct ArcStrInterner {
-    cache: RefCell<RawTable<(u64, ArcStr)>>,
+    cache: RefCell<HashTable<(u64, ArcStr)>>,
 }
 
 impl ArcStrInterner {
     pub(crate) fn new() -> ArcStrInterner {
         ArcStrInterner {
-            cache: RefCell::new(RawTable::new()),
+            cache: RefCell::new(HashTable::new()),
         }
     }
 
@@ -34,12 +34,12 @@ impl ArcStrInterner {
         let hash = str_hash(s);
         let mut cache = self.cache.borrow_mut();
 
-        if let Some((_h, v)) = cache.get(hash, |(_h, v)| s == v.as_str()) {
+        if let Some((_h, v)) = cache.find(hash, |(_h, v)| s == v.as_str()) {
             return v.dupe();
         }
 
         let value = ArcStr::from(s);
-        cache.insert(hash, (hash, value.dupe()), |(h, _v)| *h);
+        cache.insert_unique(hash, (hash, value.dupe()), |(h, _v)| *h);
         value
     }
 }

@@ -11,15 +11,17 @@ use async_trait::async_trait;
 use buck2_cli_proto::InstallRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
-use buck2_client_ctx::common::build::CommonBuildOptions;
-use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::build::CommonBuildOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
@@ -36,7 +38,7 @@ pub struct InstallCommand {
     #[clap(flatten)]
     android_install_opts: AndroidInstallOptions,
 
-    #[clap(name = "TARGET", help = "Target to build and install")]
+    #[clap(name = "TARGET", help = "Target to build and install", value_hint = clap::ValueHint::Other)]
     patterns: Vec<String>,
 
     #[clap(
@@ -132,14 +134,15 @@ struct AndroidInstallOptions {
     keep: bool,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for InstallCommand {
     const COMMAND_NAME: &'static str = "install";
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
 
@@ -189,8 +192,8 @@ impl StreamingCommand for InstallCommand {
                     installer_run_args: extra_run_args,
                     installer_debug: self.installer_debug,
                 },
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                events_ctx,
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
             .await?;

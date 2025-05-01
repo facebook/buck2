@@ -126,6 +126,7 @@ def expect_struct(name: str, val: struct):
 
 # You'll likely want to import this struct for convenience, instead of each method separately
 expects = struct(
+    expect = expect,
     type = expect_type,
     string = expect_string,
     string_starts_with = expect_string_starts_with,

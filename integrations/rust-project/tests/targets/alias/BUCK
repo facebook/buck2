@@ -1,0 +1,13 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "alias")
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+
+rust_library(
+    name = "l",
+    srcs = ["lib.rs"],
+    unittests = False,
+)
+
+alias(
+    name = "l_alias",
+    actual = ":l",
+)

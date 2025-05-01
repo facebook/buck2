@@ -8,9 +8,9 @@
  */
 
 use buck2_cli_proto::TargetCfg;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::configuration::bound_id::BoundConfigurationId;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::pattern::pattern::TargetLabelWithExtra;
 use buck2_core::pattern::pattern_type::ConfigurationPredicate;
 use buck2_core::pattern::pattern_type::ConfiguredTargetPatternExtra;
@@ -28,6 +28,7 @@ use crate::ctx::ServerCommandContextTrait;
 use crate::global_cfg_options::global_cfg_options_from_client_context;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum PatternNotSupportedError {
     #[error("Builtin configurations are not supported: `{0}`")]
     BuiltinConfigurationsNotSupported(String),
@@ -50,7 +51,7 @@ impl TargetResolutionConfig {
         target_cfg: &TargetCfg,
         server_ctx: &dyn ServerCommandContextTrait,
         target_universe: &[String],
-    ) -> anyhow::Result<TargetResolutionConfig> {
+    ) -> buck2_error::Result<TargetResolutionConfig> {
         let global_cfg_options =
             global_cfg_options_from_client_context(target_cfg, server_ctx, ctx).await?;
         if target_universe.is_empty() {
@@ -72,7 +73,7 @@ impl TargetResolutionConfig {
         &self,
         ctx: &mut DiceComputations<'_>,
         label: &TargetLabel,
-    ) -> anyhow::Result<Vec<ConfiguredTargetLabel>> {
+    ) -> buck2_error::Result<Vec<ConfiguredTargetLabel>> {
         match self {
             TargetResolutionConfig::Default(global_cfg_options) => Ok(vec![
                 ctx.get_configured_target(label, global_cfg_options).await?,
@@ -89,7 +90,7 @@ impl TargetResolutionConfig {
         &self,
         ctx: &mut DiceComputations<'_>,
         label: &ProvidersLabel,
-    ) -> anyhow::Result<Vec<ConfiguredProvidersLabel>> {
+    ) -> buck2_error::Result<Vec<ConfiguredProvidersLabel>> {
         Ok(self
             .get_configured_target(ctx, label.target())
             .await?
@@ -102,7 +103,7 @@ impl TargetResolutionConfig {
         &self,
         ctx: &mut DiceComputations<'_>,
         label: &TargetLabelWithExtra<ConfiguredTargetPatternExtra>,
-    ) -> anyhow::Result<Vec<ConfiguredTargetLabel>> {
+    ) -> buck2_error::Result<Vec<ConfiguredTargetLabel>> {
         let TargetLabelWithExtra {
             target_label,
             extra,

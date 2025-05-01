@@ -102,6 +102,7 @@ load(
     "CxxCompilerInfo",
     "CxxInternalTools",
     "LinkerInfo",
+    "LinkerType",
     "ShlibInterfacesMode",
     "StripFlagsInfo",
     "cxx_toolchain_infos",
@@ -119,8 +120,11 @@ load(
     "LinkStyle",
 )
 load(
+    "@prelude//os_lookup:defs.bzl",
+    "ScriptLanguage",
+)
+load(
     "@prelude//utils:cmd_script.bzl",
-    "ScriptOs",
     "cmd_script",
 )
 load(
@@ -304,17 +308,17 @@ def download_zig_distribution(
         os = os,
     )
 
-def _get_linker_type(os: str) -> str:
+def _get_linker_type(os: str) -> LinkerType:
     if os == "linux":
-        return "gnu"
+        return LinkerType("gnu")
     elif os == "macos" or os == "freebsd":
         # TODO[AH] return "darwin".
         #   The cc rules emit linker flags on MacOS that are not supported by Zig's linker.
         #   Declaring the linker as GNU style is not entirely correct, however it works better than
         #   declaring Darwin style at this point. See https://github.com/facebook/buck2/issues/470
-        return "gnu"
+        return LinkerType("gnu")
     elif os == "windows":
-        return "windows"
+        return LinkerType("windows")
     else:
         fail("Cannot determine linker type: Unknown OS '{}'".format(os))
 
@@ -326,25 +330,25 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx = ctx,
         name = "zig_cc",
         cmd = cmd_args(zig, "cc"),
-        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
     )
     zig_cxx = cmd_script(
         ctx = ctx,
         name = "zig_cxx",
         cmd = cmd_args(zig, "c++"),
-        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
     )
     zig_ar = cmd_script(
         ctx = ctx,
         name = "zig_ar",
         cmd = cmd_args(zig, "ar"),
-        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
     )
     zig_ranlib = cmd_script(
         ctx = ctx,
         name = "zig_ranlib",
         cmd = cmd_args(zig, "ranlib"),
-        os = ScriptOs("windows" if dist.os == "windows" else "unix"),
+        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
     )
     return [ctx.attrs.distribution[DefaultInfo]] + cxx_toolchain_infos(
         internal_tools = ctx.attrs._cxx_internal_tools[CxxInternalTools],

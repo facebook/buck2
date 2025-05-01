@@ -25,6 +25,7 @@ from buck2.tests.e2e_util.buck_workspace import (
     get_mode_from_platform,
     is_deployed_buck2,
 )
+from buck2.tests.e2e_util.helper.utils import read_invocation_record
 
 MAC_AND_WINDOWS = ["darwin", "windows"]
 
@@ -107,7 +108,6 @@ async def test_cpp_test(buck: Buck) -> None:
 
 @buck_test(inplace=True, skip_for_os=["darwin"])
 async def test_cpp_test_fdb_message(buck: Buck) -> None:
-
     await expect_failure(
         buck.test(
             "fbcode//buck2/tests/targets/rules/cxx:cpp_test_fail",
@@ -136,28 +136,21 @@ async def test_python_test(buck: Buck) -> None:
 
 @buck_test(inplace=True, skip_for_os=MAC_AND_WINDOWS)
 async def test_python_test_with_remote_execution(buck: Buck) -> None:
-    for new_interface in ("true", "false"):
-        await buck.test(
-            "-c",
-            f"fbcode.use_new_testpilot_interface={new_interface}",
-            "fbcode//buck2/tests/targets/rules/python/test:test_remote_execution",
-        )
-        await expect_failure(
-            buck.test(
-                "-c",
-                f"fbcode.use_new_testpilot_interface={new_interface}",
-                "fbcode//buck2/tests/targets/rules/python/test:test_remote_execution_fail",
-            ),
-            stderr_regex=r"1 TESTS FAILED\n(\s)+✗ buck2\/tests\/targets\/rules\/python\/test:test_remote_execution_fail - test",
-        )
-        await expect_failure(
-            buck.test(
-                "-c",
-                f"fbcode.use_new_testpilot_interface={new_interface}",
-                "fbcode//buck2/tests/targets/rules/python/test:test_remote_execution_fatal",
-            ),
-            stderr_regex=r"1 TESTS FATALS\n(\s)+⚠ buck2\/tests\/targets\/rules\/python\/test:test_remote_execution_fatal - test",
-        )
+    await buck.test(
+        "fbcode//buck2/tests/targets/rules/python/test:test_remote_execution",
+    )
+    await expect_failure(
+        buck.test(
+            "fbcode//buck2/tests/targets/rules/python/test:test_remote_execution_fail",
+        ),
+        stderr_regex=r"1 TESTS FAILED\n(\s)+✗ buck2\/tests\/targets\/rules\/python\/test:test_remote_execution_fail - test",
+    )
+    await expect_failure(
+        buck.test(
+            "fbcode//buck2/tests/targets/rules/python/test:test_remote_execution_fatal",
+        ),
+        stderr_regex=r"1 TESTS FATALS\n(\s)+⚠ buck2\/tests\/targets\/rules\/python\/test:test_remote_execution_fatal - test",
+    )
 
 
 @buck_test(inplace=True, skip_for_os=MAC_AND_WINDOWS)
@@ -216,26 +209,6 @@ async def test_python_import_error_with_static_listing_builtin_runner(
     output = await expect_failure(
         buck.test(
             "fbcode//buck2/tests/targets/rules/python/broken:broken_with_static_listing_builtin_runner",
-            get_mode_from_platform(),
-        ),
-    )
-
-    assert re.search("2 TESTS FATALS", output.stderr, re.DOTALL)
-    assert re.search(
-        r"test_\d \(buck2.tests.targets.rules.python.broken.broken_import.TestCase\)",
-        output.stderr,
-        re.DOTALL,
-    )
-    assert not re.search("unittest.loader._FailedTest", output.stderr, re.DOTALL)
-
-
-@buck_test(inplace=True, skip_for_os=["windows"])
-async def test_python_import_error_with_static_listing_legacy_provider(
-    buck: Buck,
-) -> None:
-    output = await expect_failure(
-        buck.test(
-            "fbcode//buck2/tests/targets/rules/python/broken:broken_with_static_listing_legacy_adapter",
             get_mode_from_platform(),
         ),
     )
@@ -414,8 +387,8 @@ async def test_stress_runs(buck: Buck) -> None:
 if not is_deployed_buck2():
 
     @buck_test(inplace=False, data_dir="testsof")
+    @env("BUCK_LOG", "buck2_test::command=debug")
     async def test_target_compatibility(buck: Buck) -> None:
-        # This excludes some tests
         out = await buck.test(
             "//...",
             "--target-platforms",
@@ -817,3 +790,28 @@ async def test_test_worker(buck: Buck) -> None:
     await buck.test(
         *worker_args, "fbcode//buck2/tests/targets/rules/worker_grpc:worker_test"
     )
+
+
+@buck_test(inplace=True)
+@env("TEST_MAKE_IT_FAIL", "1")
+async def test_failed_tests_has_error_category(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
+    await expect_failure(
+        buck.test(
+            "fbcode//buck2/tests/targets/rules/python/test:test",
+            get_mode_from_platform(),
+            "--unstable-write-invocation-record",
+            str(record_path),
+            "--",
+            "--env",
+            "TEST_MAKE_IT_FAIL=1",
+        ),
+        stderr_regex="1 TESTS FAILED",
+    )
+
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
+
+    assert len(errors) == 1
+    assert errors[0]["category"] == "USER"
+    assert "TestExecutor" in errors[0]["category_key"]

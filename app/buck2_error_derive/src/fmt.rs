@@ -15,15 +15,15 @@ use std::collections::HashMap as Map;
 use proc_macro2::TokenTree;
 use quote::format_ident;
 use quote::quote_spanned;
-use syn::ext::IdentExt;
-use syn::parse::ParseStream;
-use syn::parse::Parser;
 use syn::Ident;
 use syn::Index;
 use syn::LitStr;
 use syn::Member;
 use syn::Result;
 use syn::Token;
+use syn::ext::IdentExt;
+use syn::parse::ParseStream;
+use syn::parse::Parser;
 
 use crate::ast::Field;
 use crate::attr::Display;

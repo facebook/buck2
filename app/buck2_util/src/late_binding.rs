@@ -9,7 +9,7 @@
 
 use std::sync::OnceLock;
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 
 /// Value (typically a function pointer or a trait pointer) that is initialized at program start.
 ///
@@ -110,9 +110,9 @@ impl<T> LateBinding<T> {
     }
 
     #[inline]
-    pub fn get(&self) -> anyhow::Result<&T> {
+    pub fn get(&self) -> buck2_error::Result<&T> {
         self.symbol
             .get()
-            .with_context(|| format!("{} not set (internal error)", self.name))
+            .with_internal_error(|| format!("{} not set", self.name))
     }
 }

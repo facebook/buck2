@@ -12,9 +12,11 @@
 %% If one of them stops it entails termination of the whole tree.
 -module(test_exec_sup).
 
+-compile([warn_missing_spec_all]).
+
 -behavior(supervisor).
 
--export([init/1, start_link/1, start_ct_runner/2]).
+-export([init/1, start_link/1]).
 
 -include_lib("common/include/buck_ct_records.hrl").
 
@@ -22,42 +24,32 @@
 start_link(#test_env{} = TestEnv) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, [TestEnv]).
 
+-spec init(Args :: term()) ->
+    {ok, {SupFlags :: supervisor:sup_flags(), [ChildSpec :: supervisor:child_spec()]}} | ignore.
 init([#test_env{} = TestEnv]) ->
     {ok,
         {
             #{
                 % strategy doesn't matter as
                 % none of the children are to be restarted
-                strategy => one_for_one,
+                strategy => one_for_all,
                 intensity => 0,
-                period => 1,
-                % If any child terminates, the sup should terminate.
-                auto_shutdown => any_significant
+                period => 1
             },
             [
                 #{
                     id => epmd_manager,
                     start => {epmd_manager, start_link, [TestEnv]},
                     restart => temporary,
-                    significant => true,
                     shutdown => 1000,
-                    worker => worker
+                    type => worker
+                },
+                #{
+                    id => ct_runner,
+                    start => {ct_runner, start_link, [TestEnv]},
+                    restart => temporary,
+                    shutdown => 1000,
+                    type => worker
                 }
             ]
         }}.
-
-%% @doc Starts the ct_runner as a child of this supervisor.
--spec start_ct_runner(#test_env{}, integer()) -> {ok, pid()} | {error, term()}.
-start_ct_runner(#test_env{} = TestEnv, PortEpmd) ->
-    % super_method:super_fun(),
-    supervisor:start_child(
-        ?MODULE,
-        #{
-            id => ct_runner,
-            start => {ct_runner, start_link, [TestEnv, PortEpmd]},
-            restart => temporary,
-            significant => true,
-            shutdown => 1000,
-            worker => worker
-        }
-    ).

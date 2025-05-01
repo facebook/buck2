@@ -26,14 +26,13 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
-use buck2_interpreter::error::BuckStarlarkError;
-use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
-use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
+use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_node::metadata::key::MetadataKeyRef;
 use buck2_node::metadata::value::MetadataValue;
@@ -46,14 +45,16 @@ use futures::FutureExt;
 use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
+use starlark::values::none::NoneOr;
 
 use crate::registration::init_registration;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum CfgConstructorError {
     #[error(
         "Parameter `refs` to post-constraint analysis function must only contain configuration rules. {0} is not a configuration rule."
@@ -82,12 +83,12 @@ async fn eval_pre_constraint_analysis<'v>(
     extra_data: Option<&'v OwnedFrozenValue>,
     module: &'v Module,
     print: &'v EventDispatcherPrintHandler,
-) -> anyhow::Result<(Vec<String>, Value<'v>, Evaluator<'v, 'v, 'v>)> {
+) -> buck2_error::Result<(Vec<String>, Value<'v>, Evaluator<'v, 'v, 'v>)> {
     with_starlark_eval_provider(
         ctx,
         // TODO: pass proper profiler (T163570348)
         &mut StarlarkProfilerOpt::disabled(),
-        "pre constraint-analysis invocation".to_owned(),
+        &StarlarkEvalKind::Unknown("pre constraint-analysis invocation".into()),
         |provider, _| {
             let (mut eval, _) = provider.make(module)?;
             eval.set_print_handler(print);
@@ -100,10 +101,14 @@ async fn eval_pre_constraint_analysis<'v>(
                 Value::new_none()
             };
 
-            let package_cfg_modifiers = eval
-                .heap()
-                .alloc(package_cfg_modifiers.map(|m| m.as_json()));
-            let target_cfg_modifiers = eval.heap().alloc(target_cfg_modifiers.map(|m| m.as_json()));
+            let package_cfg_modifiers = eval.heap().alloc(match package_cfg_modifiers {
+                Some(v) => NoneOr::Other(v.as_json()),
+                None => NoneOr::None,
+            });
+            let target_cfg_modifiers = eval.heap().alloc(match target_cfg_modifiers {
+                Some(v) => NoneOr::Other(v.as_json()),
+                None => NoneOr::None,
+            });
             let cli_modifiers = eval.heap().alloc(cli_modifiers);
             let rule_name = eval.heap().alloc(rule_type.name());
             let aliases = match aliases {
@@ -127,14 +132,12 @@ async fn eval_pre_constraint_analysis<'v>(
             ];
 
             // Type check + unpack
-            let (refs, params) = <(UnpackListOrTuple<String>, Value)>::unpack_value_err(
-                eval.eval_function(
+            let (refs, params) =
+                <(UnpackListOrTuple<String>, Value)>::unpack_value_err(eval.eval_function(
                     cfg_constructor_pre_constraint_analysis,
                     &[],
                     &pre_constraint_analysis_args,
-                )
-                .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::InputError))?,
-            )?;
+                )?)?;
 
             // `params` Value lives on eval.heap() so we need to move eval out of the closure to keep it alive
             Ok((refs.items, params, eval))
@@ -146,7 +149,7 @@ async fn eval_pre_constraint_analysis<'v>(
 async fn analyze_constraints(
     ctx: &mut DiceComputations<'_>,
     refs: Vec<String>,
-) -> anyhow::Result<SmallMap<String, FrozenProviderCollectionValue>> {
+) -> buck2_error::Result<SmallMap<String, FrozenProviderCollectionValue>> {
     let cell_resolver = &ctx.get_cell_resolver().await?;
     let cell_alias_resolver = &ctx
         .get_cell_alias_resolver(cell_resolver.root_cell())
@@ -169,7 +172,7 @@ async fn analyze_constraints(
                         ctx.get_configuration_analysis_result(&label).await?,
                     ))
                 } else {
-                    Err::<_, anyhow::Error>(
+                    Err::<_, buck2_error::Error>(
                         CfgConstructorError::PostConstraintAnalysisRefsMustBeConfigurationRules(
                             label_str,
                         )
@@ -189,13 +192,13 @@ async fn eval_post_constraint_analysis<'v>(
     params: Value<'v>,
     mut eval: Evaluator<'v, '_, '_>,
     refs_providers_map: SmallMap<String, FrozenProviderCollectionValue>,
-) -> anyhow::Result<ConfigurationData> {
+) -> buck2_error::Result<ConfigurationData> {
     with_starlark_eval_provider(
         ctx,
         // TODO: pass proper profiler (T163570348)
         &mut StarlarkProfilerOpt::disabled(),
-        "post constraint-analysis invocation for cfg".to_owned(),
-        |_, _| -> anyhow::Result<ConfigurationData> {
+        &StarlarkEvalKind::Unknown("post constraint-analysis invocation for cfg".into()),
+        |_, _| -> buck2_error::Result<ConfigurationData> {
             let post_constraint_analysis_args = vec![
                 (
                     "refs",
@@ -211,13 +214,11 @@ async fn eval_post_constraint_analysis<'v>(
                 ("params", params),
             ];
 
-            let post_constraint_analysis_result = eval
-                .eval_function(
-                    cfg_constructor_post_constraint_analysis,
-                    &[],
-                    &post_constraint_analysis_args,
-                )
-                .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::InputError))?;
+            let post_constraint_analysis_result = eval.eval_function(
+                cfg_constructor_post_constraint_analysis,
+                &[],
+                &post_constraint_analysis_args,
+            )?;
 
             // Type check + unpack
             <&PlatformInfo>::unpack_value_err(post_constraint_analysis_result)?.to_configuration()
@@ -234,7 +235,7 @@ async fn eval_underlying(
     target_cfg_modifiers: Option<&MetadataValue>,
     cli_modifiers: &[String],
     rule_type: &RuleType,
-) -> anyhow::Result<ConfigurationData> {
+) -> buck2_error::Result<ConfigurationData> {
     let module = Module::new();
     let print = EventDispatcherPrintHandler(get_dispatcher());
 
@@ -282,7 +283,7 @@ impl CfgConstructorImpl for CfgConstructor {
         target_cfg_modifiers: Option<&'a MetadataValue>,
         cli_modifiers: &'a [String],
         rule_type: &'a RuleType,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<ConfigurationData>> + Send + 'a>> {
+    ) -> Pin<Box<dyn Future<Output = buck2_error::Result<ConfigurationData>> + Send + 'a>> {
         // Get around issue of Evaluator not being send by wrapping future in UnsafeSendFuture
         let fut = async move {
             eval_underlying(

@@ -1,0 +1,285 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+# hyperscript inspired helper function to simplify creation of XML.
+# https://github.com/hyperhype/hyperscript
+def h(tag, children, attrs = {}, indent_level = 0) -> cmd_args:
+    indent = "    " * indent_level
+    if attrs:
+        attrs_list = [
+            cmd_args(
+                key,
+                "=\"",
+                value,
+                "\"",
+                delimiter = "",
+            )
+            for key, value in attrs.items()
+        ]
+        attrs = cmd_args("", attrs_list, delimiter = " ")
+    else:
+        attrs = ""
+
+    if isinstance(children, list):
+        if len(children) == 0:
+            children = "\n"
+        else:
+            children = cmd_args(
+                "\n",
+                cmd_args(
+                    children,
+                    delimiter = "\n",
+                ),
+                "\n",
+                delimiter = "",
+            )
+        return cmd_args(
+            indent,
+            cmd_args(
+                "<",
+                tag,
+                attrs,
+                ">",
+            ),
+            children,
+            indent,
+            cmd_args(
+                "</",
+                tag,
+                ">",
+            ),
+            delimiter = "",
+        )
+    elif children == None:
+        return cmd_args(
+            indent,
+            cmd_args(
+                "<",
+                tag,
+                attrs,
+                "/>",
+            ),
+            delimiter = "",
+        )
+    else:
+        return cmd_args(
+            indent,
+            cmd_args(
+                "<",
+                tag,
+                attrs,
+                ">",
+            ),
+            children,
+            cmd_args(
+                "</",
+                tag,
+                ">",
+            ),
+            delimiter = "",
+        )
+
+# Pseudo GUID generator purely based on target label.
+# i.e., the same target label will generate the same GUID.
+def gen_guid(input):
+    sha = sha256(input).upper()
+    guid = "{{{}-{}-{}-{}-{}}}".format(sha[:8], sha[8:12], sha[12:16], sha[16:20], sha[20:32])
+    return guid
+
+def is_header(path):
+    exts = [".h", ".hpp"]
+    for e in exts:
+        if path.endswith(e):
+            return True
+    return False
+
+def partition(predicate, iterable):
+    trues = []
+    falses = []
+    for i in iterable:
+        if predicate(i):
+            trues.append(i)
+        else:
+            falses.append(i)
+    return falses, trues
+
+def get_vs_configuration(mode_file):
+    return mode_file.split("/")[-1].capitalize()
+
+def basename(path, separator = "/"):
+    chunks = path.rsplit(separator, 1)
+    return chunks[1] if len(chunks) > 1 else chunks[0]
+
+def dirname(path, separator = "/"):
+    return path.rsplit(separator, 1)[0]
+
+def normcase(path):
+    return path.replace("/", "\\")
+
+def normcase_backwards(path):
+    return path.replace("\\", "/")
+
+def normpath(path):
+    chunks = normcase(path).split("\\")
+    result = []
+    for chunk in chunks:
+        if not chunk:
+            pass
+        elif chunk == ".":
+            pass
+        elif chunk == "..":
+            result.pop()
+        else:
+            result.append(chunk)
+    return "\\".join(result)
+
+def suffix(path):
+    chunks = path.rsplit(".", 1)
+    return chunks[1] if len(chunks) > 1 else ""
+
+def get_project_file_path(target_label, extension):
+    path = target_label.cell + "/"
+    if target_label.package:
+        path = path + target_label.package + "/"
+
+    # The same target may exists under two configuration
+    config_hash = str(target_label.config()).split("#")
+    if len(config_hash) == 2:
+        config_hash = config_hash[1]
+    else:
+        # config can be unbound (https://buck2.build/docs/rule_authors/configurations/#configurationinfo-platform-analysis-and-more)
+        config_hash = "unbound_config"
+    return config_hash + "/" + path + sanitize(target_label.name) + extension
+
+def get_mode_config_path(mode_name):
+    if mode_name.startswith("//"):
+        mode_name = mode_name[2:]
+    elif mode_name.startswith("fbsource//"):
+        mode_name = mode_name[len("fbsource//"):]
+    return mode_name.replace("/", "_") + ".props"
+
+def get_root_path_relative_to(target_label):
+    # Workaround: "".split("/") returns [""], which is not expected.
+    if not target_label.package:
+        return "../../"
+
+    # + 1 for the hash layer of directory and + 1 more for cell
+    return "../" * (len(target_label.package.split("/")) + 2)
+
+def get_output_path(target_node: bxl.ConfiguredTargetNode, bxl_ctx) -> str:
+    providers = bxl_ctx.analysis(target_node).providers()
+    default_outputs = providers[DefaultInfo].default_outputs
+    if not default_outputs:
+        return ""
+
+    return get_path_without_materialization(default_outputs[0], bxl_ctx, abs = True)
+
+def infer_settings_by_modes(settings, mode_files, mode_hashes) -> dict[str, typing.Any]:
+    mode_hashes = mode_hashes or {}
+    default_mode_file = mode_files[0]
+    default_mode_hash = mode_hashes.get(default_mode_file)
+    settings_json = json.encode(settings)
+
+    settings_by_modes = {default_mode_file: settings}
+    for mode_file in mode_files[1:]:
+        mode_hash = mode_hashes.get(mode_file)
+
+        # We're ignoring the suggestion that don't rely on buck-out implementation detail here,
+        # as we have no way to get the buck-out under a different mode than current one using to run the BXL script.
+        settings_by_modes[mode_file] = json.decode(settings_json.replace(default_mode_hash, mode_hash))
+    return settings_by_modes
+
+def get_argsfiles_output_path(target_node: bxl.ConfiguredTargetNode, bxl_ctx):
+    providers = bxl_ctx.analysis(target_node).providers()
+    argsfiles_subtarget = providers[DefaultInfo].sub_targets.get("argsfiles", None)
+    if not argsfiles_subtarget:
+        return None
+    default_outputs = argsfiles_subtarget[DefaultInfo].default_outputs
+    if default_outputs:
+        return get_path_without_materialization(default_outputs[0], bxl_ctx)
+    else:
+        return None
+
+def dedupe_by_value(list):
+    # Not convert list to dict and take out keys as we want to preserve orders in list, but also deterministic.
+    uniques = []
+    map = {}
+    for item in list:
+        if item not in map:
+            uniques.append(item)
+            map[item] = True
+    return uniques
+
+def sanitize(input):
+    return input.replace("/", "_").replace("-", "_").replace(".", "_")
+
+# https://en.wikipedia.org/wiki/XML#Escaping
+# TODO: apply escape in more places.
+def escape_xml(input):
+    return (
+        input
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("'", "&apos;")
+            .replace('"', "&quot;")
+    )
+
+def flatten_lists(list_list):
+    final_list = []
+    for item in list_list:
+        if isinstance(item, list):
+            final_list += flatten_lists(item)
+        else:
+            final_list.append(item)
+    return final_list
+
+# Recursively merge list or dict.
+# - scalar value such as strings/numbers will be replaced.
+# - lists will be concatenated and deduped.
+# - dicts will be recursively merged.
+def merge(input1, input2):
+    if input1 == None:
+        return input2
+
+    if isinstance(input1, str) and isinstance(input2, str):
+        return input2
+
+    if isinstance(input1, list):
+        return {item: True for item in input1 + input2}.keys()
+
+    result = {}
+    for (key, value) in input1.items() + input2.items():
+        result[key] = merge(result.get(key), value)
+    return result
+
+def _log(level, msg, *args, **kwargs):
+    # There are cases when bxl_ctx or cli_args is not available such as dynamic output lambda.
+    if "log_level" in kwargs:
+        log_level = kwargs["log_level"]
+    elif "bxl_ctx" in kwargs:
+        log_level = kwargs["bxl_ctx"].cli_args.log_level
+    else:
+        log_level = 30
+
+    if level >= log_level:
+        print(msg.format(*args, **kwargs))  # buildifier: disable=print
+
+def log_debug(msg, *args, **kwargs):
+    _log(10, msg, *args, **kwargs)
+
+def log_info(msg, *args, **kwargs):
+    _log(20, msg, *args, **kwargs)
+
+def log_warn(msg, *args, **kwargs):
+    _log(30, msg, *args, **kwargs)
+
+def log_error(msg, *args, **kwargs):
+    _log(40, msg, *args, **kwargs)
+
+def log_critical(msg, *args, **kwargs):
+    _log(50, msg, *args, **kwargs)

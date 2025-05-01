@@ -22,10 +22,10 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::assert::Assert;
 use crate::environment::GlobalsBuilder;
-use crate::values::dict::UnpackDictEntries;
-use crate::values::list::UnpackList;
 use crate::values::Value;
 use crate::values::ValueOf;
+use crate::values::dict::UnpackDictEntries;
+use crate::values::list::UnpackList;
 
 // TODO(nmj): Figure out default values here. ValueOf<i32> = 5 should work.
 #[starlark_module]

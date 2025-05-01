@@ -9,12 +9,12 @@
 
 //! Schema for the structured action error within the build report.
 
-use buck2_data::command_execution_kind::Command;
 use buck2_data::ActionError;
 use buck2_data::CommandExecutionDetails;
+use buck2_data::command_execution_kind::Command;
+use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::display::display_action_owner;
 use buck2_event_observer::display::get_action_error_reason;
-use buck2_event_observer::display::TargetDisplayOptions;
 use serde::Serialize;
 
 use crate::build::build_report::BuildReportCollector;

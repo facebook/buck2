@@ -16,16 +16,18 @@
 #![feature(never_type)]
 #![feature(box_patterns)]
 
+pub mod allow_relative_paths;
 pub mod build_context;
 pub mod coerce;
 pub mod dice;
 pub mod downstream_crate_starlark_defs;
-pub mod error;
 pub mod extra;
 pub mod factory;
 pub mod file_loader;
 pub mod file_type;
+pub mod from_freeze;
 pub mod import_paths;
+pub mod late_binding_ty;
 pub mod load_module;
 pub mod package_imports;
 pub mod parse_import;

@@ -10,14 +10,13 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load("@prelude//http_archive/exec_deps.bzl", "HttpArchiveExecDeps")
 load(":common.bzl", "OnDuplicateEntry", "buck", "prelude_rule", "validate_uri")
 load(":genrule_common.bzl", "genrule_common")
 load(":remote_common.bzl", "remote_common")
 
 ExportFileDescriptionMode = ["reference", "copy"]
 
-Platform = ["linux", "macos", "windows", "freebsd", "unknown"]
+PlatformExePlatform = ["linux", "macos", "windows"]
 
 RemoteFileType = ["data", "executable", "exploded_zip"]
 
@@ -31,7 +30,7 @@ alias = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "actual": attrs.dep(pulls_and_pushes_plugins = plugins.All),
+            "actual": attrs.option(attrs.dep(pulls_and_pushes_plugins = plugins.All)),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
@@ -165,7 +164,7 @@ command_alias = prelude_rule(
                  an executable, such as an `sh_binary()`,
                  or an executable source file.
             """),
-            "platform_exe": attrs.dict(key = attrs.enum(Platform), value = attrs.dep(), sorted = False, default = {}, doc = """
+            "platform_exe": attrs.dict(key = attrs.enum(PlatformExePlatform), value = attrs.dep(), sorted = False, default = {}, doc = """
                 A mapping from platforms to `build target`.
                  enables you to override `exe` per host platform.
 
@@ -204,6 +203,10 @@ command_alias = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "resources": attrs.list(attrs.source(), default = []),
+            "run_using_single_arg": attrs.bool(default = False, doc = """
+                Ensure that the command alias can be run as a single argument (instead of
+                $(exe) or RunInfo potentially expanding to multiple arguments).
+            """),
             "_exec_os_type": buck.exec_os_type_arg(),
             "_target_os_type": buck.target_os_type_arg(),
         }
@@ -471,6 +474,9 @@ filegroup = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
+            "out": attrs.option(attrs.string(), default = None, doc = """
+                The name of the output directory. Defaults to the rule's name.
+            """),
         }
     ),
 )
@@ -660,6 +666,10 @@ genrule = prelude_rule(
                 ```
                 is not.
             """),
+            "executable_outs": attrs.option(attrs.set(attrs.string(), sorted = False), default = None, doc = """
+                Only valid if the `outs` arg is present. Dictates which of those named outputs are marked as
+                executable.
+            """),
         } |
         genrule_common.env_arg() |
         genrule_common.environment_expansion_separator() |
@@ -735,58 +745,14 @@ http_archive = prelude_rule(
         # @unsorted-dict-items
         remote_common.urls_arg() |
         remote_common.sha256_arg() |
+        remote_common.unarchive_args() |
         {
-            "out": attrs.option(attrs.string(), default = None, doc = """
-                An optional name to call the directory that the downloaded artifact is
-                 extracted into. Buck will generate a default name if one is not
-                 provided that uses the `name` of the rule.
-            """),
-            "strip_prefix": attrs.option(attrs.string(), default = None, doc = """
-                If set, files under this path will be extracted to the root of the output
-                 directory. Siblings or cousins to this prefix will not be extracted at all.
-
-
-                 For example, if a tarball has the layout:
-                 * foo/bar/bar-0.1.2/data.dat
-                * foo/baz/baz-0.2.3
-                * foo\\_prime/bar-0.1.2
-
-                 Only `data.dat` will be extracted, and it will be extracted into the output
-                 directory specified in `out`.
-            """),
-            "excludes": attrs.list(attrs.regex(), default = [], doc = """
-                An optional list of regex patterns. All file paths in the extracted archive which match
-                 any of the given patterns will be omitted.
-            """),
-            "type": attrs.option(attrs.string(), default = None, doc = """
-                Normally, archive type is determined by the file's extension. If `type` is set,
-                 then autodetection is overridden, and the specified type is used instead.
-
-
-
-                 Supported values are: `zip`, `tar`, `tar.gz`,
-                 `tar.bz2`, `tar.xz`, and `tar.zst`.
-            """),
-            "sub_targets": attrs.list(attrs.string(), default = [], doc = """
-                A list of filepaths within the archive to be made accessible as sub-targets.
-                For example if we have an http_archive with `name = "archive"` and
-                `sub_targets = ["src/lib.rs"]`, then other targets would be able to refer
-                to that file as `":archive[src/lib.rs]"`.
-            """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "sha1": attrs.option(attrs.string(), default = None),
-            "exec_deps": attrs.exec_dep(providers = [HttpArchiveExecDeps], default = "prelude//http_archive/tools:exec_deps", doc = """
-                When using http_archive as an anon target, the rule invoking the
-                anon target needs to mirror this attribute into its own
-                attributes, and forward the provider into the anon target
-                invocation.
-
-                When using http_archive normally not as an anon target, the
-                default value is always fine.
-            """),
+            "size_bytes": attrs.option(attrs.int(), default = None),
         }
     ),
 )
@@ -885,6 +851,7 @@ http_file = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "sha1": attrs.option(attrs.string(), default = None),
+            "size_bytes": attrs.option(attrs.int(), default = None),
         }
     ),
 )
@@ -1125,7 +1092,9 @@ expected to be a toolchain_rule as well.
     """,
     examples = None,
     further = None,
-    attrs = {"actual": attrs.toolchain_dep(doc = "The actual toolchain that is being aliased. This should be a toolchain rule.")},
+    attrs = {
+        "actual": attrs.option(attrs.toolchain_dep(doc = "The actual toolchain that is being aliased. This should be a toolchain rule.")),
+    },
 )
 
 versioned_alias = prelude_rule(
@@ -1480,6 +1449,10 @@ zip_file = prelude_rule(
                 List of regex expressions that describe entries that should not be included in the output zip file.
 
                  The regexes must be defined using `java.util.regex.Pattern` syntax.
+            """),
+            "hardcode_permissions_for_deterministic_output": attrs.option(attrs.bool(), default = None, doc = """
+                If set to true, Buck hardcodes the permissions in order to ensures that all files have the same
+                permissions regardless of the platform on which the zip was generated.
             """),
             "on_duplicate_entry": attrs.enum(OnDuplicateEntry, default = "overwrite", doc = """
                 Action performed when Buck detects that zip\\_file input contains multiple entries with the same

@@ -29,10 +29,10 @@ use dupe::Dupe_;
 
 use crate::coerce::Coerce;
 use crate::typing::Ty;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
@@ -43,6 +43,7 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// Store value annotated with type, but do not check the type.
 #[derive(Clone_, Copy_, Dupe_, Allocative)]
@@ -88,7 +89,7 @@ impl<V: ValueLifetimeless, T: StarlarkTypeRepr> ValueOfUncheckedGeneric<V, T> {
         V: ValueLike<'v>,
         T: UnpackValue<'v>,
     {
-        Ok(T::unpack_value_err(self.get().to_value())?)
+        T::unpack_value_err(self.get().to_value())
     }
 }
 
@@ -141,7 +142,7 @@ where
 impl<V: ValueLifetimeless + Freeze, T: StarlarkTypeRepr> Freeze for ValueOfUncheckedGeneric<V, T> {
     type Frozen = ValueOfUncheckedGeneric<FrozenValue, T>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let frozen = self.0.freeze(freezer)?;
         Ok(ValueOfUncheckedGeneric::new(frozen))
     }
@@ -162,7 +163,7 @@ pub type FrozenValueOfUnchecked<'f, T> = ValueOfUncheckedGeneric<FrozenValue, T>
 impl<'v, T: StarlarkTypeRepr> ValueOfUnchecked<'v, T> {
     /// Construct after checking the type.
     #[inline]
-    pub fn new_checked(value: Value<'v>) -> anyhow::Result<Self>
+    pub fn new_checked(value: Value<'v>) -> crate::Result<Self>
     where
         T: UnpackValue<'v>,
     {
@@ -194,9 +195,9 @@ mod tests {
 
     use crate::const_frozen_string;
     use crate::typing::Ty;
-    use crate::values::type_repr::StarlarkTypeRepr;
     use crate::values::FrozenValueOfUnchecked;
     use crate::values::ValueOfUnchecked;
+    use crate::values::type_repr::StarlarkTypeRepr;
 
     #[test]
     fn test_cast_example() {

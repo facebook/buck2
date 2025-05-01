@@ -6,22 +6,23 @@
 # of this source tree.
 
 load("@fbcode//buck2/app:modifier.bzl", "buck2_modifiers")
-load("@fbcode//target_determinator/macros:ci.bzl", "ci")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
+load("@fbcode_macros//build_defs:python.bzl", "python")
 load("@fbcode_macros//build_defs:python_pytest.bzl", "python_pytest")
+load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
+load("@fbsource//tools/target_determinator/macros:ci_hint.bzl", "ci_hint")
 
 def buck_e2e_test(
         name,
-        executable_type,
         executable,
         use_buck_api = True,
         contacts = None,
         base_module = None,
         data = None,
         data_dir = None,
-        srcs = (),
-        tags = (),
-        deps = (),
+        srcs = None,
+        labels = None,
+        deps = None,
         env = None,
         resources = None,
         skip_for_os = (),
@@ -29,26 +30,26 @@ def buck_e2e_test(
         pytest_marks = None,
         pytest_expr = None,
         pytest_confcutdir = None,
-        serialize_test_cases = True,
+        serialize_test_cases = None,
         require_nano_prelude = None,
-        cfg_modifiers = ()):
+        cfg_modifiers = None,
+        ci_srcs = [],
+        ci_deps = [],
+        compatible_with = None):
     """
     Custom macro for buck2/buckaemon end-to-end tests using pytest.
     """
+    srcs = srcs or []
+    labels = labels or []
+    deps = deps or []
+    cfg_modifiers = cfg_modifiers or []
+
     for s in skip_for_os:
         if s not in ["darwin", "windows"]:
             fail("Skipped os must be one of darwin or windows, not {}".format(s))
-    tags = list(tags) + [
-        # Running multiple bucks are expensive. This limits tpx to parallelism of 4.
-        "heavyweight",
-    ]
-    if serialize_test_cases:
-        # This lets us pass stress runs by making all test cases inside of a test file serial
-        # Test cases in different files can still run in parallel.
-        tags.append("serialize_test_cases")
+    labels = list(labels)
     env = env or {}
     env["RUST_BACKTRACE"] = "1"
-    env["TEST_EXECUTABLE_TYPE"] = executable_type
     env["TEST_EXECUTABLE"] = executable
 
     # Having it enabled has significant negative impact on Starlark evaluation performance.
@@ -60,6 +61,32 @@ def buck_e2e_test(
     # --no-header disables headers printed after "test session starts" on output
     # --no-summary disables pytest summary printed after each test run on output
     env["PYTEST_ADDOPTS"] = "-vv --tb=native --no-header --no-summary"
+
+    # For autodeps
+    read_package_value = getattr(native, "read_package_value", None)
+    e2e_flavor = read_package_value and read_package_value("buck2_e2e_test.flavor")
+    if e2e_flavor == "isolated":
+        env["BUCK2_E2E_TEST_FLAVOR"] = "isolated"
+        serialize_test_cases = serialize_test_cases or False
+    else:
+        env["BUCK2_E2E_TEST_FLAVOR"] = "any"
+        serialize_test_cases = serialize_test_cases if serialize_test_cases != None else True
+    heavyweight_label = "heavyweight8_experimental"
+    heavyweight_threads = "8"
+
+    # Running multiple bucks are expensive. This label specifies that each test gets 4 or 8 CPU slots
+    # when TPX schedules them. See different possible values for heavyweight label here:
+    # https://www.internalfb.com/wiki/TAE/tpx/Tpx_user_guide/#tests-that-oom-or-time-o.
+    labels.append(heavyweight_label)
+
+    # Use little threads. We don't do much work in tests but we do run lots of Bucks.
+    env["BUCK2_RUNTIME_THREADS"] = heavyweight_threads
+    env["BUCK2_MAX_BLOCKING_THREADS"] = heavyweight_threads
+
+    if serialize_test_cases:
+        # This lets us pass stress runs by making all test cases inside of a test file serial
+        # Test cases in different files can still run in parallel.
+        labels.append("serialize_test_cases")
 
     if data and data_dir:
         fail("`data` and `data_dir` cannot be used together")
@@ -84,14 +111,11 @@ def buck_e2e_test(
     if require_nano_prelude:
         env["NANO_PRELUDE"] = "$(location fbcode//buck2/tests/e2e_util/nano_prelude:nano_prelude)"
 
-    if type(deps) == "tuple":
-        deps = list(deps)
-
-    deps = [
+    deps += [
         "fbsource//third-party/pypi/pytest:pytest",
         "fbsource//third-party/pypi/pytest-asyncio:pytest-asyncio",
         "fbcode//buck2/tests/e2e_util:utilities",
-    ] + deps
+    ]
     if use_buck_api:
         deps.append("fbcode//buck2/tests/e2e_util/api:api")
     resources = resources or {}
@@ -101,7 +125,6 @@ def buck_e2e_test(
     if not "conftest.py" in resources.values():
         resources["fbcode//buck2/tests/e2e_util:conftest.py"] = "conftest.py"
 
-    labels = []
     if "darwin" in skip_for_os:
         labels += ci.remove_labels(ci.mac(ci.aarch64(ci.opt())))
     if "windows" in skip_for_os:
@@ -114,7 +137,7 @@ def buck_e2e_test(
         name = name,
         base_module = base_module,
         srcs = srcs,
-        tags = tags,
+        labels = labels,
         deps = deps,
         env = env,
         emails = contacts,
@@ -125,9 +148,39 @@ def buck_e2e_test(
         pytest_marks = pytest_marks,
         pytest_expr = pytest_expr,
         pytest_confcutdir = pytest_confcutdir,
-        labels = labels,
         metadata = metadata,
+        compatible_with = compatible_with,
     )
+
+    if e2e_flavor == "buck2_non_isolated":
+        # These are buck2's own non-isolated e2e tests. Add a ci hint indicating
+        # that they depend on many of the macros in the repo. Intentionally
+        # don't do this for other users of `buck2_e2e_test` in the repo
+        BUCK2_E2E_TEST_CI_SRCS = [
+            "fbandroid/buck2/**",
+            "fbcode/buck2/cfg/**",
+            "fbcode/buck2/prelude/**",
+            "fbcode/buck2/platform/**",
+            "fbcode/buck2/toolchains/**",
+            "fbcode/buck2/tests/targets/**",
+            "fbobjc/buck2/**",
+            "xplat/buck2/**",
+            "xplat/toolchains/**",
+            "fbcode/hermetic_infra/fdb/**",
+            "tools/build_defs/**",
+            "arvr/tools/build_defs/config/**",
+            ".buckconfig",
+            "tools/buckconfigs/**",
+        ]
+        ci_srcs = ci_srcs + BUCK2_E2E_TEST_CI_SRCS
+    if ci_srcs or ci_deps:
+        ci_hint(
+            ci_srcs = ci_srcs,
+            ci_deps = ci_deps,
+            reason = "Non isolated buck2 e2e tests depend heavily on macros",
+            target = name,
+            compatible_with = compatible_with,
+        )
 
 def buck2_e2e_test(
         name,
@@ -144,14 +197,17 @@ def buck2_e2e_test(
         data = None,
         data_dir = None,
         srcs = (),
-        tags = (),
+        labels = (),
         resources = None,
         pytest_config = None,
         pytest_marks = None,
         pytest_expr = None,
         pytest_confcutdir = None,
-        serialize_test_cases = True,
-        require_nano_prelude = None):
+        serialize_test_cases = None,
+        require_nano_prelude = None,
+        ci_srcs = [],
+        ci_deps = [],
+        compatible_with = None):
     """
     Custom macro for buck2 end-to-end tests using pytest. All tests are run against buck2 compiled in-repo (compiled buck2).
 
@@ -174,9 +230,13 @@ def buck2_e2e_test(
     """
     kwargs = {
         "base_module": base_module,
+        "ci_deps": ci_deps,
+        "ci_srcs": ci_srcs,
+        "compatible_with": compatible_with,
         "contacts": contacts,
         "data": data,
         "data_dir": data_dir,
+        "labels": labels,
         "pytest_confcutdir": pytest_confcutdir,
         "pytest_config": pytest_config,
         "pytest_expr": pytest_expr,
@@ -185,7 +245,6 @@ def buck2_e2e_test(
         "resources": resources,
         "serialize_test_cases": serialize_test_cases,
         "srcs": srcs,
-        "tags": tags,
         "use_buck_api": use_buck_api,
     }
 
@@ -218,7 +277,6 @@ def buck2_e2e_test(
             name = name + ("_with_compiled_buck2" if test_with_deployed_buck2 else ""),
             env = compiled_env,
             executable = exe,
-            executable_type = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
             cfg_modifiers = buck2_modifiers() + [
@@ -237,9 +295,9 @@ def buck2_e2e_test(
             name = name,
             env = deployed_env,
             executable = "buck2",
-            executable_type = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
+            cfg_modifiers = python.get_opt_setup_modifiers(),
             **kwargs
         )
 
@@ -250,8 +308,71 @@ def buck2_e2e_test(
             name = name + "_with_reverted_buck2",
             env = previous_env,
             executable = "buck2",
-            executable_type = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
+            cfg_modifiers = python.get_opt_setup_modifiers(),
             **kwargs
         )
+
+def buck2_core_tests(
+        extra_attrs = {},
+        target_extra_attrs = {}):
+    """
+    A little wrapper that generates `buck2_e2e_test`s for core tests.
+
+    extra_attrs:
+        Extra attributes that are applied to all generated targets.
+    target_extra_attrs:
+        A map of target name to extra attrs to apply to that target.
+    """
+
+    # @lint-ignore BUCKRESTRICTEDSYNTAX
+    items = set([i.split("/")[0] for i in glob(["**/*", "**/.*"])])
+    items = list(items)
+
+    generated_targets = []
+
+    for item in items:
+        if item in ["TARGETS", "TARGETS.v2", "BUCK", "BUCK.v2"]:
+            continue
+        if item.startswith("test_") and item.endswith("_data"):
+            # Just make sure the associated test exists
+            if item[:-5] + ".py" not in items:
+                fail("Test data directory {} exists but has no matching test!".format(item))
+            continue
+        if item.startswith("test_") and item.endswith(".py"):
+            target = item[:-3]
+            generated_targets.append(target)
+
+            attrs = dict(extra_attrs)
+            attrs.update(target_extra_attrs.get(target) or {})
+
+            data_dir = target + "_data"
+            if data_dir not in items:
+                data_dir = None
+            if "data_dir" in attrs:
+                fail("May not set data dir in `extra_attrs`")
+            attrs["data_dir"] = data_dir
+
+            if "srcs" not in attrs:
+                # Allowing people to override `srcs` seems fine
+                attrs["srcs"] = [item]
+
+            IMPLICIT_DEPS = [
+                "//buck2/tests/e2e_util:utils",
+                "//buck2/tests/e2e_util:golden",
+            ]
+            attrs["deps"] = list(attrs.get("deps") or [])
+            attrs["deps"].extend(IMPLICIT_DEPS)
+
+            buck2_e2e_test(
+                name = target,
+                **attrs
+            )
+            continue
+        fail("Expected all directory entries to look like `test_*_data` or `test_*.py`, not {}".format(item))
+
+    # Check that all target attrs actually correspond to a target
+    for t in target_extra_attrs.keys():
+        if t not in generated_targets:
+            fail("No such target {}".format(t))

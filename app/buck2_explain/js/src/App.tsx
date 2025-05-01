@@ -15,23 +15,39 @@ import {createRoot} from 'react-dom/client'
 
 import {ByteBuffer} from 'flatbuffers'
 import {Build, ConfiguredTargetNode} from './fbs/explain'
-import {QueryKey, ROOT_VIEW, Router} from './Router'
-import {RootView} from './RootView'
+import {QueryKey, Router} from './Router'
 import {TargetView} from './TargetView'
 import {SearchView} from './SearchView'
-import {GraphView} from './graph/GraphView'
-import {Header} from './Header'
+import {GraphView2} from './graph2/GraphView2'
+import {Navbar} from './Navbar'
+import {formatTargetLabel} from './formatTargetLabel'
 
 const INITIAL_STATE = {
   build: null,
   rootTarget: null,
-  allTargets: {},
+  graph: new Map<number, Node>(),
+  allTargets: new Map<string, number>(),
+}
+
+export interface Node {
+  value: number
+  deps: number[]
+  rdeps: number[]
 }
 
 type STATE_TYPE = {
   build: Build | null
   rootTarget: ConfiguredTargetNode | null
-  allTargets: {[key: string]: number}
+  graph: Map<number, Node>
+  allTargets: Map<string, number>
+}
+
+function defaultNode(): Node {
+  return {
+    value: 0,
+    deps: [],
+    rdeps: [],
+  }
 }
 
 export const DataContext = React.createContext<STATE_TYPE>(INITIAL_STATE)
@@ -66,38 +82,89 @@ function App() {
       // TODO iguridi: just show 1 target for now
       const rootTarget = build.targets(0)
 
-      const allTargets: {[key: string]: number} = {}
+      const allTargets: Map<string, number> = new Map()
       for (let i = 0; i < build.targetsLength(); i++) {
-        let target = build.targets(i)
-        let label = target?.configuredTargetLabel()
-        if (label == null) {
-          continue
-        }
-        allTargets[label] = i
+        let target = build.targets(i)!
+        // Unique identifier for target
+        let label = formatTargetLabel(target.label()!)
+        allTargets.set(label, i)
       }
 
+      // Build better data structure
+      let graph = new Map<number, Node>()
+
+      // Create nodes
+      for (let i = 0; i < build.targetsLength(); i++) {
+        if (graph.get(i) == null) {
+          graph.set(i, {
+            ...defaultNode(),
+            value: i,
+          })
+        }
+      }
+
+      // Record deps and rdeps
+      for (const [k, node] of graph) {
+        const target = build.targets(k)!
+
+        for (let i = 0; i < target.depsLength(); i++) {
+          const d = allTargets.get(formatTargetLabel(target.deps(i)!))!
+
+          // Deps
+          node.deps.push(d)
+
+          // Rdeps
+          if (d === k) {
+            throw Error('Found dependency on self')
+          }
+          graph.get(d)!.rdeps.push(k)
+        }
+      }
+
+      // TODO iguridi: filter this out in rust side of things
+      // Only show nodes that rdeps of node with file changes or actions
+      const containsActionOrChangedFile: Set<number> = new Set()
+      for (let i = 0; i < build.targetsLength(); i++) {
+        const target = build.targets(i)!
+        if (target.changedFilesLength() > 0 || target.actionsLength() > 0) {
+          containsActionOrChangedFile.add(i)
+        }
+      }
+
+      let visited = new Set()
+      let weWantThis = new Set()
+      let stack = [...containsActionOrChangedFile]
+      while (stack.length > 0) {
+        const k = stack.shift()!
+        visited.add(k)
+        weWantThis.add(k)
+        const node = graph.get(k)!
+        for (const r of node.rdeps) {
+          if (!visited.has(r)) {
+            stack.push(r)
+          }
+        }
+      }
+      const filteredNodes: Map<number, Node> = new Map(
+        graph.entries().filter(([k, _node]) => weWantThis.has(k)),
+      )
+
       // This should run just once total
-      setData({build, allTargets, rootTarget})
+      setData({build, allTargets, rootTarget, graph: filteredNodes})
     }
     fetchData()
   }, [])
 
-  const rootTarget = data.rootTarget
-
-  if (rootTarget == null) return <p>Loading...</p>
-  else {
-    return (
-      <DataContext.Provider value={data}>
-        <Router>
-          <Header />
-          <RootView view={ROOT_VIEW} />
-          <TargetView view={QueryKey.TargetView} />
-          <SearchView view={QueryKey.SearchView} />
-          <GraphView view={QueryKey.GraphView} />
-        </Router>
-      </DataContext.Provider>
-    )
-  }
+  return (
+    <DataContext.Provider value={data}>
+      <Router>
+        <Navbar />
+        <TargetView view={QueryKey.TargetView} />
+        <SearchView view={QueryKey.SearchView} />
+        <GraphView2 view={QueryKey.RootView} />
+      </Router>
+    </DataContext.Provider>
+  )
 }
 
 const container = document.getElementById('root') as HTMLElement

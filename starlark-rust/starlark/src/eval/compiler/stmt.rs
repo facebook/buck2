@@ -37,8 +37,9 @@ use thiserror::Error;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::environment::slots::ModuleSlotId;
 use crate::environment::FrozenModuleData;
+use crate::environment::slots::ModuleSlotId;
+use crate::eval::compiler::Compiler;
 use crate::eval::compiler::error::CompilerInternalError;
 use crate::eval::compiler::expr::Builtin1;
 use crate::eval::compiler::expr::ExprCompiled;
@@ -46,30 +47,29 @@ use crate::eval::compiler::expr::ExprLogicalBinOp;
 use crate::eval::compiler::expr_bool::ExprCompiledBool;
 use crate::eval::compiler::known::list_to_tuple;
 use crate::eval::compiler::opt_ctx::OptCtx;
+use crate::eval::compiler::scope::Captured;
+use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::scope::payload::CstAssignTarget;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstStmt;
-use crate::eval::compiler::scope::Captured;
-use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::small_vec_1::SmallVec1;
 use crate::eval::compiler::span::IrSpanned;
-use crate::eval::compiler::Compiler;
 use crate::eval::runtime::evaluator::Evaluator;
 use crate::eval::runtime::evaluator::GC_THRESHOLD;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
-use crate::values::dict::Dict;
-use crate::values::dict::DictMut;
-use crate::values::dict::DictRef;
-use crate::values::types::list::value::ListData;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::ValueError;
+use crate::values::dict::Dict;
+use crate::values::dict::DictMut;
+use crate::values::dict::DictRef;
+use crate::values::types::list::value::ListData;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 #[derive(Clone, Debug)]
 pub(crate) enum AssignModifyLhs {
@@ -585,7 +585,7 @@ pub(crate) fn bit_or_assign<'v>(
                 Ok,
             )?;
             for (k, v) in rhs.iter_hashed() {
-                dict.insert_hashed(k, v);
+                dict.aref.insert_hashed(k, v);
             }
         }
         Ok(lhs)
@@ -619,17 +619,18 @@ pub(crate) fn add_assign<'v>(
     let lhs_ty = lhs_aref.vtable().static_type_of_value.get();
 
     if ListData::is_list_type(lhs_ty) {
-        if let Some(v) = rhs.get_ref().radd(lhs, heap) {
-            v
-        } else {
-            let list = ListData::from_value_mut(lhs)?;
-            if lhs.ptr_eq(rhs) {
-                list.double(heap);
-            } else {
-                // TODO: if RHS is list, consider calling `List::extend_from_slice`.
-                list.extend(rhs.iterate(heap)?, heap);
+        match rhs.get_ref().radd(lhs, heap) {
+            Some(v) => v,
+            _ => {
+                let list = ListData::from_value_mut(lhs)?;
+                if lhs.ptr_eq(rhs) {
+                    list.double(heap);
+                } else {
+                    // TODO: if RHS is list, consider calling `List::extend_from_slice`.
+                    list.extend(rhs.iterate(heap)?, heap);
+                }
+                Ok(lhs)
             }
-            Ok(lhs)
         }
     } else {
         lhs.add(rhs, heap)

@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_common::init::ResourceControlConfig;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -28,7 +29,7 @@ pub(crate) struct ForkserverCommand {
     fd: RawFd,
 
     #[clap(long)]
-    state_dir: AbsNormPathBuf,
+    state_dir: String,
 
     #[clap(long, value_parser = ResourceControlConfig::deserialize)]
     resource_control: ResourceControlConfig,
@@ -37,13 +38,12 @@ pub(crate) struct ForkserverCommand {
 impl ForkserverCommand {
     pub(crate) fn exec(
         self,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         _ctx: ClientCommandContext<'_>,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
     ) -> anyhow::Result<()> {
-        fs_util::create_dir_all(&self.state_dir)?;
-
-        let _todo_resource_control = self.resource_control;
+        let state_dir = AbsNormPathBuf::from(self.state_dir)?;
+        fs_util::create_dir_all(&state_dir).map_err(buck2_error::Error::from)?;
 
         #[cfg(unix)]
         {
@@ -55,11 +55,12 @@ impl ForkserverCommand {
                 .enable_all()
                 .build()?;
 
-            rt.block_on(buck2_forkserver::unix::run_forkserver(
+            Ok(rt.block_on(buck2_forkserver::unix::run_forkserver(
                 self.fd,
                 log_reload_handle,
-                self.state_dir,
-            ))
+                state_dir,
+                self.resource_control,
+            ))?)
         }
 
         #[cfg(not(unix))]

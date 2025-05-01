@@ -20,6 +20,8 @@ async def test_apple_coverage(buck: Buck) -> None:
     with tempfile.NamedTemporaryFile("w") as covfile:
         await buck.test(
             "-c",
+            "xplat.available_platforms=APPLE,CXX",
+            "-c",
             "code_coverage.enable=all",
             "fbsource//fbobjc/Samples/TestInfra/TpxUnitTests:TpxUnitTests",
             "--",
@@ -40,7 +42,14 @@ async def test_apple_coverage_xplat(buck: Buck) -> None:
     with tempfile.NamedTemporaryFile("w") as covfile:
         await buck.test(
             "-c",
+            "xplat.available_platforms=APPLE,CXX",
+            "-c",
             "code_coverage.enable=all",
+            # By default, xplat targets currently use xbat to compile to apple.
+            # With xbat, however, we'll get divergence between the LLVM tooling
+            # during pika upgrades, as pika will be newer than what's provided
+            # by xbat.
+            "@fbsource//fbobjc/mode/buck2/toolchains/pika-fat",
             "fbsource//xplat/testinfra/playground/cpp:example_testApple",
             "--",
             "--collect-coverage",

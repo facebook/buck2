@@ -20,18 +20,18 @@ use std::iter;
 use starlark_map::small_map::SmallMap;
 
 use crate::typing::Ty;
-use crate::values::alloc_value::AllocFrozenStringValue;
-use crate::values::alloc_value::AllocStringValue;
-use crate::values::structs::value::FrozenStruct;
-use crate::values::structs::value::Struct;
-use crate::values::structs::StructRef;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
+use crate::values::alloc_value::AllocFrozenStringValue;
+use crate::values::alloc_value::AllocStringValue;
+use crate::values::structs::StructRef;
+use crate::values::structs::value::FrozenStruct;
+use crate::values::structs::value::Struct;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// Utility to allocate a struct on a heap.
 ///

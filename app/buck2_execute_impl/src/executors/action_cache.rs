@@ -11,9 +11,8 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_action_metadata_proto::REMOTE_DEP_FILE_KEY;
-use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_execute::execute::action_digest::ActionDigest;
@@ -36,15 +35,14 @@ use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use prost::Message;
 
-use crate::re::download::download_action_results;
 use crate::re::download::DownloadResult;
+use crate::re::download::download_action_results;
 use crate::re::paranoid_download::ParanoidDownloader;
 
 pub struct ActionCacheChecker {
     pub artifact_fs: ArtifactFs,
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
-    pub re_use_case: RemoteExecutorUseCase,
     pub re_action_key: Option<String>,
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
@@ -72,13 +70,12 @@ async fn query_action_cache_and_download_result(
     artifact_fs: &ArtifactFs,
     materializer: &Arc<dyn Materializer>,
     re_client: &ManagedRemoteExecutionClient,
-    re_use_case: RemoteExecutorUseCase,
     re_action_key: &Option<String>,
     paranoid: &Option<ParanoidDownloader>,
     action_digest: &ActionDigest,
     command: &PreparedCommand<'_, '_>,
     manager: CommandExecutionManager,
-    cancellations: &CancellationContext<'_>,
+    cancellations: &CancellationContext,
     upload_all_actions: bool,
     log_action_keys: bool,
     details: RemoteCommandExecutionDetails,
@@ -97,7 +94,7 @@ async fn query_action_cache_and_download_result(
             action_digest: digest.to_string(),
             cache_type: cache_type.to_proto().into(),
         },
-        re_client.action_cache(digest.dupe(), re_use_case),
+        re_client.action_cache(digest.dupe()),
     )
     .await;
 
@@ -110,7 +107,6 @@ async fn query_action_cache_and_download_result(
                 action_blobs,
                 ProjectRelativePath::empty(),
                 request.paths().input_directory(),
-                re_use_case,
                 identity,
                 digest_config,
             )
@@ -168,7 +164,6 @@ async fn query_action_cache_and_download_result(
         request,
         materializer.as_ref(),
         re_client,
-        re_use_case,
         digest_config,
         manager,
         &identity,
@@ -191,6 +186,8 @@ async fn query_action_cache_and_download_result(
         action_exit_code,
         artifact_fs,
         false,
+        false,
+        None,
     )
     .await;
 
@@ -225,13 +222,13 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
         cancellations: &CancellationContext,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         let action_digest = &command.prepared_action.action_and_blobs.action;
-        let details = RemoteCommandExecutionDetails {
-            action_digest: action_digest.dupe(),
-            session_id: self.re_client.get_session_id().await.ok(),
-            use_case: self.re_use_case,
-            platform: command.prepared_action.platform.clone(),
-            remote_dep_file_key: *command.request.remote_dep_file_key(),
-        };
+        let details = RemoteCommandExecutionDetails::new(
+            action_digest.dupe(),
+            *command.request.remote_dep_file_key(),
+            self.re_client.get_session_id().await.ok(),
+            self.re_client.use_case,
+            &command.prepared_action.platform,
+        );
         let cache_type = CacheType::ActionCache;
         let manager = manager.with_execution_kind(command_execution_kind_for_cache_type(
             &cache_type,
@@ -242,7 +239,6 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             &self.artifact_fs,
             &self.materializer,
             &self.re_client,
-            self.re_use_case,
             &self.re_action_key,
             &self.paranoid,
             action_digest,
@@ -271,7 +267,6 @@ pub struct RemoteDepFileCacheChecker {
     pub artifact_fs: ArtifactFs,
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
-    pub re_use_case: RemoteExecutorUseCase,
     pub re_action_key: Option<String>,
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
@@ -296,13 +291,13 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
 
         let cache_type = CacheType::RemoteDepFileCache(remote_dep_file_key);
         let action_digest = remote_dep_file_key.dupe().coerce::<ActionDigestKind>();
-        let details = RemoteCommandExecutionDetails {
-            action_digest: action_digest.dupe(),
-            session_id: self.re_client.get_session_id().await.ok(),
-            use_case: self.re_use_case,
-            platform: command.prepared_action.platform.clone(),
-            remote_dep_file_key: Some(remote_dep_file_key.dupe()),
-        };
+        let details = RemoteCommandExecutionDetails::new(
+            action_digest.dupe(),
+            Some(remote_dep_file_key.dupe()),
+            self.re_client.get_session_id().await.ok(),
+            self.re_client.use_case,
+            &command.prepared_action.platform,
+        );
         let manager = manager.with_execution_kind(command_execution_kind_for_cache_type(
             &cache_type,
             details.clone(),
@@ -313,7 +308,6 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
             &self.artifact_fs,
             &self.materializer,
             &self.re_client,
-            self.re_use_case,
             &self.re_action_key,
             &self.paranoid,
             &action_digest,

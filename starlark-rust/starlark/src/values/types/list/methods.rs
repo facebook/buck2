@@ -23,15 +23,15 @@ use starlark_syntax::convert_indices::convert_indices;
 
 use crate as starlark;
 use crate::environment::MethodsBuilder;
+use crate::values::Heap;
+use crate::values::Value;
+use crate::values::ValueError;
+use crate::values::ValueOfUnchecked;
 use crate::values::list::ListRef;
 use crate::values::none::NoneOr;
 use crate::values::none::NoneType;
 use crate::values::types::list::value::ListData;
 use crate::values::typing::StarlarkIter;
-use crate::values::Heap;
-use crate::values::Value;
-use crate::values::ValueError;
-use crate::values::ValueOfUnchecked;
 
 #[starlark_module]
 pub(crate) fn list_methods(builder: &mut MethodsBuilder) {

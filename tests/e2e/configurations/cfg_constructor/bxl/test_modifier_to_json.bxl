@@ -5,10 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@fbcode//buck2/cfg/experimental:modifiers.bzl", "modifiers")
 load("@prelude//:asserts.bzl", "asserts")
 load("@prelude//cfg/modifier:common.bzl", "json_to_tagged_modifiers", "tagged_modifiers_to_json")
 load("@prelude//cfg/modifier:types.bzl", "ModifierPackageLocation", "ModifierTargetLocation", "TaggedModifiers")
-load("@fbcode//buck2/cfg/experimental/modifiers.bzl", "modifiers")
 
 def _impl(_ctx: bxl.Context):
     for location in (

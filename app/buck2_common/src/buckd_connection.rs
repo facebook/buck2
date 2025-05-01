@@ -11,12 +11,12 @@ use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
 
-use anyhow::Context;
-use gazebo::prelude::StrExt;
+use buck2_error::BuckErrorContext;
 
 pub const BUCK_AUTH_TOKEN_HEADER: &str = "x-buck-auth-token";
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum ConnectionTypeError {
     #[error("Failed to parse correct endpoint information {0}")]
     ParseError(String),
@@ -40,16 +40,18 @@ impl Display for ConnectionType {
 }
 
 impl ConnectionType {
-    pub fn parse(endpoint: &str) -> anyhow::Result<ConnectionType> {
-        let (protocol, endpoint) = endpoint.split1(":");
+    pub fn parse(endpoint: &str) -> buck2_error::Result<ConnectionType> {
+        let (protocol, endpoint) = endpoint.split_once(":").with_buck_error_context(|| {
+            format!("endpoint `{endpoint}` is not in the format `protocol:endpoint`")
+        })?;
         match protocol {
             "uds" => Ok(ConnectionType::Uds {
                 unix_socket: Path::new(endpoint).to_path_buf(),
             }),
             "tcp" => Ok(ConnectionType::Tcp {
-                port: endpoint
-                    .parse()
-                    .with_context(|| format!("port number is incorrect in `{}`", endpoint))?,
+                port: endpoint.parse().with_buck_error_context(|| {
+                    format!("port number is incorrect in `{}`", endpoint)
+                })?,
             }),
             _ => Err(ConnectionTypeError::ParseError(endpoint.to_owned()).into()),
         }

@@ -23,12 +23,13 @@ class SimState(str, Enum):
 @dataclass_json
 @dataclass
 class IdbTarget:
-    name: str
-    os_version: str
-    udid: str
-    state: SimState
-    host: str = ""
-    port: int = 0
+    name: str = ""
+    os_version: str = ""
+    udid: str = ""
+    state: SimState = SimState.shutdown
+
+    def is_valid(self):
+        return self.os_version != "" and self.udid != ""
 
 
 @dataclass
@@ -37,7 +38,14 @@ class SimulatorInfo:
     device_set_path: str
 
 
-def managed_simulators_from_stdout(stdout: Optional[str]) -> List[IdbTarget]:
+def managed_simulator_from_stdout(stdout: Optional[str]) -> IdbTarget:
+    if not stdout:
+        return None
+    # pyre-ignore[16]: `from_dict` is dynamically provided by `dataclass_json`
+    return IdbTarget.from_dict(json.loads(stdout))
+
+
+def managed_simulators_list_from_stdout(stdout: Optional[str]) -> List[IdbTarget]:
     if not stdout:
         return []
     targets = map(
@@ -45,4 +53,4 @@ def managed_simulators_from_stdout(stdout: Optional[str]) -> List[IdbTarget]:
         IdbTarget.from_dict,
         json.loads(stdout),
     )
-    return list(targets)
+    return list(filter(lambda target: target.is_valid(), targets))

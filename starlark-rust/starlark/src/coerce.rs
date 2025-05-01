@@ -27,6 +27,7 @@ use std::ptr;
 
 pub use starlark_derive::Coerce;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 
 /// A marker trait such that the existence of `From: Coerce<To>` implies
 /// that `From` can be treat as `To` without any data manipulation.
@@ -108,6 +109,8 @@ where
     FromV: Coerce<ToV>,
 {
 }
+
+unsafe impl<From, To> Coerce<SmallSet<To>> for SmallSet<From> where From: Coerce<To> {}
 
 /// Safely convert between types which have a `Coerce` relationship.
 /// Often the second type argument will need to be given explicitly,

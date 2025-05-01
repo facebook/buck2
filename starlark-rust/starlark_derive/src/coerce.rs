@@ -21,9 +21,6 @@ use proc_macro2::Span;
 use proc_macro2::TokenTree;
 use quote::format_ident;
 use quote::quote;
-use syn::parse::ParseStream;
-use syn::parse_macro_input;
-use syn::token;
 use syn::Data;
 use syn::DeriveInput;
 use syn::Expr;
@@ -35,6 +32,9 @@ use syn::PathArguments;
 use syn::ReturnType;
 use syn::Token;
 use syn::Type;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::token;
 
 // This macro does two related derivations depending on whether there are any generic parameters.
 //

@@ -21,6 +21,7 @@ def _opts_for_tests_arg() -> Attr:
     #     "remote_cache_enabled": bool | None
     #     "dependencies": list<Dict<str, str>> | []
     #     "resource_units": int | None
+    #     "remote_execution_dynamic_image": dict<str, str | list<str>> | None
     # }
     return attrs.dict(
         key = attrs.string(),
@@ -28,7 +29,10 @@ def _opts_for_tests_arg() -> Attr:
             attrs.one_of(
                 attrs.dict(
                     key = attrs.string(),
-                    value = attrs.string(),
+                    value = attrs.one_of(
+                        attrs.string(),
+                        attrs.list(attrs.string()),
+                    ),
                     sorted = False,
                 ),
                 attrs.string(),
@@ -45,6 +49,9 @@ def _opts_for_tests_arg() -> Attr:
 def _action_key_provider_arg() -> Attr:
     if is_full_meta_repo():
         default_build_mode = read_root_config("fb", "remote_execution_test_build_mode", "fbcode//buck2/platform/build_mode:build_mode")
+    else:
+        default_build_mode = read_root_config("re", "remote_execution_test_build_mode")
+    if default_build_mode != None:
         return attrs.dep(providers = [BuildModeInfo], default = default_build_mode)
     else:
         return attrs.option(attrs.dep(providers = [BuildModeInfo]), default = None)

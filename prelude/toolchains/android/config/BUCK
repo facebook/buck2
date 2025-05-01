@@ -1,0 +1,39 @@
+# @oss-disable[end= ]: load("@fbcode//buck2/platform:java_toolchains.bzl", "config_backed_java_toolchain")
+# @oss-disable[end= ]: load("@fbcode//buck2/platform:kotlin_toolchains.bzl", "config_backed_kotlin_toolchain")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+load("@prelude//toolchains/android/config:oss_toolchains.bzl", "config_backed_java_toolchain", "config_backed_kotlin_toolchain") # @oss-enable
+
+oncall("android_devxx")
+
+source_listing()
+
+config_backed_java_toolchain(
+    name = "java_bootstrap",
+    is_bootstrap_toolchain = True,
+    java = "fbsource//third-party/toolchains/jdk:java",
+    # This causes us to always use the classic protocol instead of javacd as the bootstrap toolchain needs to build javacd itself.
+    javac = "fbsource//third-party/toolchains/jdk:javac",
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+config_backed_java_toolchain(
+    name = "java_graalvm_bootstrap",
+    is_bootstrap_toolchain = True,
+    # This causes us to always use the classic protocol instead of javacd as the bootstrap toolchain needs to build javacd itself.
+    java = "fbsource//third-party/toolchains/graalvm:java",
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+config_backed_kotlin_toolchain(
+    name = "kotlin_bootstrap",
+    is_bootstrap_toolchain = True,
+    # This causes us to always use the classic protocol instead of kotlincd as the bootstrap toolchain needs to build kotlincd itself.
+    kotlinc = "prelude//toolchains/android/third-party:kotlin-compiler-binary",
+    visibility = [
+        "PUBLIC",
+    ],
+)

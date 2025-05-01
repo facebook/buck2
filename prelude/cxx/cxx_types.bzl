@@ -11,6 +11,10 @@ load(
     "LinkGroupInfo",  # @unused Used as a type
 )
 load(
+    "@prelude//cxx:runtime_dependency_handling.bzl",
+    "RuntimeDependencyHandling",  # @unused Used as a type
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "SwiftmoduleLinkable",
@@ -50,6 +54,13 @@ load(
     "cxx_populate_xcode_attributes",
 )
 
+CxxLibraryInfo = provider(
+    fields = dict(
+        target = provider_field(Label),
+        labels = provider_field(list[str]),
+    ),
+)
+
 # Parameters to control which sub targets to define when processing Cxx rules.
 # By default, generates all subtargets.
 CxxRuleSubTargetParams = record(
@@ -73,6 +84,7 @@ CxxRuleProviderParams = record(
     default = field(bool, True),
     java_packaging_info = field(bool, True),
     android_packageable_info = field(bool, True),
+    java_global_code_info = field(bool, True),
     linkable_graph = field(bool, True),
     link_style_outputs = field(bool, True),
     merged_native_link_info = field(bool, True),
@@ -111,15 +123,20 @@ CxxRuleAdditionalParams = record(
 # different and need to be specified. The following record holds the data which
 # is needed to specialize user-facing rule from generic implementation.
 CxxRuleConstructorParams = record(
+    #Required
+
+    # Name of the top level rule utilizing the cxx rule.
+    rule_type = str,
+    # Header layout to use importing headers.
+    headers_layout = CxxHeadersLayout,
+
+    #Optional
+
     # Whether to build an empty shared library. This is utilized for rust_python_extensions
     # so that they can link against the rust shared object.
     build_empty_so = field(bool, False),
-    # Name of the top level rule utilizing the cxx rule.
-    rule_type = str,
     # If the rule is a test.
     is_test = field(bool, False),
-    # Header layout to use importing headers.
-    headers_layout = CxxHeadersLayout,
     # Additional information used to preprocess every unit of translation in the rule.
     extra_preprocessors = field(list[CPreprocessor], []),
     extra_preprocessors_info = field(list[CPreprocessorInfo], []),
@@ -194,8 +211,13 @@ CxxRuleConstructorParams = record(
     # Whether link groups liking should make `preferred_linkage = "static"` libs
     # "follow" their dependents across link group boundaries.
     link_groups_force_static_follows_dependents = field(bool, True),
-    # The intended return type is: (list[ArgLike], dict[str, list[DefaultInfo]]).
-    extra_linker_outputs_factory = field(typing.Callable, lambda _context: ([], {})),
+    # A factory function to produce extra artifacts and output providers for a rule
+    # with signature: f(ctx) -> ExtraLinkerOutputs
+    extra_linker_outputs_factory = field(typing.Callable | None, None),
+    # A factory function to produce linker flags for the extra linker outputs
+    # returned from the extra_linker_outputs_factory. It should have the signature
+    # f(ctx, dict[str, Artifact]) -> list[ArgLike]
+    extra_linker_outputs_flags_factory = field(typing.Callable | None, None),
     # Whether to allow cache uploads for locally-linked executables.
     exe_allow_cache_upload = field(bool, False),
     # Extra shared library interfaces to propagate, eg from mixed Swift libraries.
@@ -222,6 +244,10 @@ CxxRuleConstructorParams = record(
     use_header_units = field(bool, False),
     # Whether to export a header unit to all dependents.
     export_header_unit = field([str, None], None),
-    # Filter what headers to include in the header unit.
-    export_header_unit_filter = field([str, None], None),
+    # Filter what headers to include in header units.
+    export_header_unit_filter = field(list[str], []),
+    # Additional behavior for how to handle runtime dependencies
+    runtime_dependency_handling = field([RuntimeDependencyHandling, None], None),
+    # Should this library only be used for build time linkage
+    stub = field(bool, False),
 )

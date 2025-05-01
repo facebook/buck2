@@ -23,6 +23,7 @@ use crate::file_ops::RawPathMetadata;
 use crate::ignores::file_ignores::FileIgnoreReason;
 
 #[derive(Debug, Allocative, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub enum ReadDirError {
     #[error("Directory `{0}` does not exist")]
     DirectoryDoesNotExist(CellPath),
@@ -31,18 +32,12 @@ pub enum ReadDirError {
     #[error("Path `{0}` is `{1}`, not a directory")]
     NotADirectory(CellPath, String),
     #[error(transparent)]
-    Anyhow(anyhow::Error),
-}
-
-impl From<anyhow::Error> for ReadDirError {
-    fn from(value: anyhow::Error) -> Self {
-        Self::Anyhow(value)
-    }
+    Error(buck2_error::Error),
 }
 
 impl From<buck2_error::Error> for ReadDirError {
     fn from(value: buck2_error::Error) -> Self {
-        Self::Anyhow(value.into())
+        Self::Error(value)
     }
 }
 
@@ -51,24 +46,26 @@ pub trait IoProvider: Allocative + Send + Sync {
     async fn read_file_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<String>>;
+    ) -> buck2_error::Result<Option<String>>;
 
-    async fn read_dir_impl(&self, path: ProjectRelativePathBuf)
-    -> anyhow::Result<Vec<RawDirEntry>>;
+    async fn read_dir_impl(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> buck2_error::Result<Vec<RawDirEntry>>;
 
     async fn read_path_metadata_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>>;
+    ) -> buck2_error::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>>;
 
     /// Request that this I/O provider be up to date with whatever I/O operations the user might
     /// have done until this point.
-    async fn settle(&self) -> anyhow::Result<()>;
+    async fn settle(&self) -> buck2_error::Result<()>;
 
     fn name(&self) -> &'static str;
 
     /// Returns the Eden version of the underlying system of the IoProvider, if available.
-    async fn eden_version(&self) -> anyhow::Result<Option<String>>;
+    async fn eden_version(&self) -> buck2_error::Result<Option<String>>;
 
     fn project_root(&self) -> &ProjectRoot;
 
@@ -79,20 +76,23 @@ impl<'a> dyn IoProvider + 'a {
     pub async fn read_file_if_exists(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> buck2_error::Result<Option<String>> {
         self.read_file_if_exists_impl(path)
             .await
             .tag(ErrorTag::IoSource)
     }
 
-    pub async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {
+    pub async fn read_dir(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> buck2_error::Result<Vec<RawDirEntry>> {
         self.read_dir_impl(path).await.tag(ErrorTag::IoSource)
     }
 
     pub async fn read_path_metadata_if_exists(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
+    ) -> buck2_error::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
         self.read_path_metadata_if_exists_impl(path)
             .await
             .tag(ErrorTag::IoSource)

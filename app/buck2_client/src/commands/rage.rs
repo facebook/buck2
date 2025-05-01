@@ -22,8 +22,8 @@ use std::process::Stdio;
 use std::time::Duration;
 use std::time::SystemTime;
 
-use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stdin::Stdin;
@@ -33,20 +33,22 @@ use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_data::instant_event::Data;
 use buck2_data::InstantEvent;
 use buck2_data::RageResult;
+use buck2_data::instant_event::Data;
+use buck2_error::BuckErrorContext;
 use buck2_event_log::file_names::do_find_log_by_trace_id;
 use buck2_event_log::file_names::get_local_logs;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::read::EventLogSummary;
-use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
-use buck2_events::sink::remote::RemoteEventSink;
 use buck2_events::BuckEvent;
+use buck2_events::sink::remote::RemoteEventSink;
+use buck2_events::sink::remote::ScribeConfig;
+use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_util::process::async_background_command;
 use buck2_wrapper_common::invocation_id::TraceId;
-use chrono::offset::Local;
 use chrono::DateTime;
+use chrono::offset::Local;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::future::FutureExt;
@@ -62,6 +64,7 @@ use tokio::io::BufReader;
 use crate::commands::debug::upload_re_logs;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum RageError {
     #[error("Failed to get a valid user selection")]
     InvalidSelectionError,
@@ -105,7 +108,7 @@ pub struct RageCommand {
 }
 
 impl RageCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         buck2_core::facebook_only();
 
         ctx.with_runtime(|ctx| async move {
@@ -114,7 +117,7 @@ impl RageCommand {
         })
     }
 
-    async fn exec_impl(self, mut ctx: ClientCommandContext<'_>) -> anyhow::Result<()> {
+    async fn exec_impl(self, mut ctx: ClientCommandContext<'_>) -> buck2_error::Result<()> {
         let paths = ctx.paths()?;
         let daemon_dir = paths.daemon_dir()?;
         let stderr_path = daemon_dir.buckd_stderr();
@@ -283,23 +286,30 @@ impl RageCommand {
         event_log_dump: RageSection<String>,
         build_info: RageSection<build_info::BuildInfo>,
         re_logs: RageSection<String>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
+        let dice_dump = dice_dump.output();
+        let materializer_state = materializer_state.output();
+        let materializer_fsck = materializer_fsck.output();
+        let thread_dump = thread_dump.output();
+        let daemon_stderr_dump = daemon_stderr_dump.output();
+        let hg_snapshot_id = hg_snapshot_id.output();
+        let event_log_dump = event_log_dump.output();
+        let re_logs = re_logs.output();
+        let invocation_id2 = invocation_id
+            .clone()
+            .map(|inv| inv.to_string())
+            .unwrap_or_default();
+
         let mut string_data: std::collections::HashMap<String, _> = [
-            ("dice_dump", dice_dump.output()),
-            ("materializer_state", materializer_state.output()),
-            ("materializer_fsck", materializer_fsck.output()),
-            ("thread_dump", thread_dump.output()),
-            ("daemon_stderr_dump", daemon_stderr_dump.output()),
-            ("hg_snapshot_id", hg_snapshot_id.output()),
-            (
-                "invocation_id",
-                invocation_id
-                    .clone()
-                    .map(|inv| inv.to_string())
-                    .unwrap_or_default(),
-            ),
-            ("event_log_dump", event_log_dump.output()),
-            ("re_logs", re_logs.output()),
+            ("dice_dump", dice_dump.clone()),
+            ("materializer_state", materializer_state.clone()),
+            ("materializer_fsck", materializer_fsck.clone()),
+            ("thread_dump", thread_dump.clone()),
+            ("daemon_stderr_dump", daemon_stderr_dump.clone()),
+            ("hg_snapshot_id", hg_snapshot_id.clone()),
+            ("invocation_id", invocation_id2.clone()),
+            ("event_log_dump", event_log_dump.clone()),
+            ("re_logs", re_logs.clone()),
         ]
         .iter()
         .map(|(k, v)| (k.to_string(), v.clone()))
@@ -312,12 +322,12 @@ impl RageCommand {
         let os = system_info.get_field(|o| Some(o.os.to_owned()));
         let os_version = system_info.get_field(|o| o.os_version.to_owned());
 
-        insert_if_some(&mut string_data, "command", command);
-        insert_if_some(&mut string_data, "buck2_revision", buck2_revision);
-        insert_if_some(&mut string_data, "username", username);
-        insert_if_some(&mut string_data, "hostname", hostname);
-        insert_if_some(&mut string_data, "os", os);
-        insert_if_some(&mut string_data, "os_version", os_version);
+        insert_if_some(&mut string_data, "command", command.clone());
+        insert_if_some(&mut string_data, "buck2_revision", buck2_revision.clone());
+        insert_if_some(&mut string_data, "username", username.clone());
+        insert_if_some(&mut string_data, "hostname", hostname.clone());
+        insert_if_some(&mut string_data, "os", os.clone());
+        insert_if_some(&mut string_data, "os_version", os_version.clone());
 
         let mut int_data = HashMap::new();
         let daemon_uptime_s = build_info.get_field(|o| o.daemon_uptime_s);
@@ -337,10 +347,27 @@ impl RageCommand {
                 sink.as_ref(),
                 &invocation_id,
                 RageResult {
+                    // TODO iguridi: remove string_data and int_data
                     string_data,
                     int_data,
                     timestamp,
+                    daemon_uptime_s: daemon_uptime_s.map(|s| s as i64),
                     command_duration,
+                    dice_dump,
+                    materializer_state,
+                    materializer_fsck,
+                    thread_dump,
+                    daemon_stderr_dump,
+                    hg_snapshot_id,
+                    invocation_id: invocation_id2,
+                    event_log_dump,
+                    re_logs,
+                    command,
+                    buck2_revision,
+                    username,
+                    hostname,
+                    os,
+                    os_version,
                 },
             )
             .await?;
@@ -352,9 +379,9 @@ impl RageCommand {
         &'a self,
         title: &'a str,
         command: impl FnOnce() -> Fut,
-    ) -> LocalBoxFuture<RageSection<T>>
+    ) -> LocalBoxFuture<'a, RageSection<T>>
     where
-        Fut: Future<Output = anyhow::Result<T>> + 'a,
+        Fut: Future<Output = buck2_error::Result<T>> + 'a,
         T: std::fmt::Display + 'a,
     {
         let timeout = Duration::from_secs(self.timeout);
@@ -365,9 +392,9 @@ impl RageCommand {
         &'a self,
         title: &'a str,
         command: Option<impl FnOnce() -> Fut>,
-    ) -> LocalBoxFuture<RageSection<T>>
+    ) -> LocalBoxFuture<'a, RageSection<T>>
     where
-        Fut: Future<Output = anyhow::Result<T>> + 'a,
+        Fut: Future<Output = buck2_error::Result<T>> + 'a,
         T: std::fmt::Display + 'a,
     {
         let timeout = Duration::from_secs(self.timeout);
@@ -411,7 +438,7 @@ where
         command: impl FnOnce() -> Fut,
     ) -> LocalBoxFuture<'a, Self>
     where
-        Fut: Future<Output = anyhow::Result<T>> + 'a,
+        Fut: Future<Output = buck2_error::Result<T>> + 'a,
     {
         let fut = command();
         let title = title.to_owned();
@@ -434,7 +461,7 @@ where
         command: Option<impl FnOnce() -> Fut>,
     ) -> LocalBoxFuture<'a, Self>
     where
-        Fut: Future<Output = anyhow::Result<T>> + 'a,
+        Fut: Future<Output = buck2_error::Result<T>> + 'a,
     {
         if let Some(command) = command {
             Self::get(title, timeout, command)
@@ -449,8 +476,8 @@ where
         match &self.status {
             CommandStatus::Success { output } => output.to_string(),
             CommandStatus::Failure { error } => error.to_owned(),
-            CommandStatus::Timeout {} => "Timeout".to_owned(),
-            CommandStatus::Skipped {} => "Skipped".to_owned(),
+            CommandStatus::Timeout => "Timeout".to_owned(),
+            CommandStatus::Skipped => "Skipped".to_owned(),
         }
     }
 
@@ -494,7 +521,7 @@ async fn upload_daemon_stderr(
     path: AbsNormPathBuf,
     manifold: &ManifoldClient,
     manifold_id: &str,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     file_to_manifold(manifold, &path, format!("flat/{}.stderr", manifold_id)).await
 }
 
@@ -502,7 +529,7 @@ async fn upload_event_logs(
     path: &EventLogPathBuf,
     manifold: &ManifoldClient,
     manifold_id: &str,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     let filename = format!("flat/{}-event_log{}", manifold_id, path.extension());
     file_to_manifold(manifold, path.path(), filename).await
 }
@@ -511,7 +538,7 @@ async fn upload_re_logs_impl(
     manifold: &ManifoldClient,
     re_logs_dir: &AbsNormPath,
     re_session_id: String,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     let bucket = Bucket::RAGE_DUMPS;
     let filename = format!("flat/{}-re_logs.zst", &re_session_id);
     upload_re_logs::upload_re_logs(manifold, bucket, re_logs_dir, &re_session_id, &filename)
@@ -524,7 +551,7 @@ async fn dispatch_result_event(
     sink: Option<&RemoteEventSink>,
     rage_id: &TraceId,
     result: RageResult,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let data = Some(Data::RageResult(result));
     dispatch_event_to_scribe(sink, rage_id, InstantEvent { data }).await?;
     Ok(())
@@ -534,16 +561,17 @@ async fn dispatch_event_to_scribe(
     sink: Option<&RemoteEventSink>,
     trace_id: &TraceId,
     event: InstantEvent,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     if let Some(sink) = sink {
-        sink.send_now(BuckEvent::new(
-            SystemTime::now(),
-            trace_id.to_owned(),
-            None,
-            None,
-            event.into(),
-        ))
-        .await;
+        let _res = sink
+            .send_now(BuckEvent::new(
+                SystemTime::now(),
+                trace_id.to_owned(),
+                None,
+                None,
+                event.into(),
+            ))
+            .await;
     } else {
         tracing::warn!(
             "Couldn't send rage results to scribe, rage ID `{}`",
@@ -554,23 +582,17 @@ async fn dispatch_event_to_scribe(
 }
 
 #[allow(unused_variables)] // Conditional compilation
-fn create_scribe_sink(ctx: &ClientCommandContext) -> anyhow::Result<Option<RemoteEventSink>> {
+fn create_scribe_sink(ctx: &ClientCommandContext) -> buck2_error::Result<Option<RemoteEventSink>> {
     // TODO(swgiillespie) scribe_logging is likely the right feature for this, but we should be able to inject a sink
     // without using configurations at the call site
-    new_remote_event_sink_if_enabled(
-        ctx.fbinit(),
-        /* buffer size */ 100,
-        /* retry_backoff */ Duration::from_millis(500),
-        /* retry_attempts */ 5,
-        /* message_batch_size */ None,
-    )
+    new_remote_event_sink_if_enabled(ctx.fbinit(), ScribeConfig::default())
 }
 
 async fn maybe_select_invocation(
     stdin: &mut Stdin,
     logdir: &AbsNormPathBuf,
     command: &RageCommand,
-) -> anyhow::Result<Option<EventLogPathBuf>> {
+) -> buck2_error::Result<Option<EventLogPathBuf>> {
     if command.no_invocation {
         return Ok(None);
     };
@@ -598,7 +620,7 @@ async fn log_index(
     stdin: &mut Stdin,
     logs: &[EventLogPathBuf],
     invocation_offset: Option<usize>,
-) -> Result<usize, anyhow::Error> {
+) -> Result<usize, buck2_error::Error> {
     let index = match invocation_offset {
         Some(i) => i,
         None => {
@@ -612,7 +634,7 @@ async fn log_index(
 async fn user_prompt_select_log<'a>(
     stdin: impl AsyncBufRead + Unpin,
     logs: &'a [EventLogPathBuf],
-) -> anyhow::Result<usize> {
+) -> buck2_error::Result<usize> {
     buck2_client_ctx::eprintln!("Which buck invocation would you like to report?\n")?;
     let logs_summary = futures::future::join_all(
         logs.iter()
@@ -637,7 +659,7 @@ async fn get_user_selection<P>(
     mut stdin: impl AsyncBufRead + Unpin,
     prompt: &str,
     predicate: P,
-) -> anyhow::Result<usize>
+) -> buck2_error::Result<usize>
 where
     P: Fn(usize) -> bool,
 {
@@ -652,26 +674,29 @@ where
     }
 }
 
-fn print_log_summary(index: usize, log_summary: &Option<EventLogSummary>) -> anyhow::Result<()> {
+fn print_log_summary(
+    index: usize,
+    log_summary: &Option<EventLogSummary>,
+) -> buck2_error::Result<()> {
     if let Some(log_summary) = log_summary {
         let cmd = build_info::format_cmd(&log_summary.invocation);
 
         let timestamp: DateTime<Local> = log_summary.timestamp.into();
-        buck2_client_ctx::eprintln!(
+        Ok(buck2_client_ctx::eprintln!(
             "{:<7} {}    {}",
             format!("[{}].", index),
             timestamp.format("%c %Z"),
             cmd
-        )
+        )?)
     } else {
-        buck2_client_ctx::eprintln!(
+        Ok(buck2_client_ctx::eprintln!(
             "{:<7} <<Unable to display information>>",
             format!("[{}].", index),
-        )
+        )?)
     }
 }
 
-async fn output_rage(no_paste: bool, output: &str) -> anyhow::Result<()> {
+async fn output_rage(no_paste: bool, output: &str) -> buck2_error::Result<()> {
     if no_paste {
         buck2_client_ctx::println!("{}", output)?;
     } else {
@@ -693,7 +718,7 @@ async fn output_rage(no_paste: bool, output: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn generate_paste(title: &str, content: &str) -> anyhow::Result<String> {
+async fn generate_paste(title: &str, content: &str) -> buck2_error::Result<String> {
     let mut pastry = async_background_command("pastry")
         .args(["--title", title])
         .stdin(Stdio::piped())
@@ -701,21 +726,21 @@ async fn generate_paste(title: &str, content: &str) -> anyhow::Result<String> {
         .stderr(Stdio::piped())
         .kill_on_drop(true)
         .spawn()
-        .context(RageError::PastrySpawnError)?;
+        .buck_error_context(RageError::PastrySpawnError)?;
     let mut stdin = pastry.stdin.take().expect("Stdin should open");
 
     let writer = async move {
         stdin
             .write_all(content.as_bytes())
             .await
-            .context(RageError::PastryWriteError)
+            .buck_error_context(RageError::PastryWriteError)
     };
 
     let reader = async move {
         let output = tokio::time::timeout(Duration::from_secs(10), pastry.wait_with_output())
             .await
-            .context(RageError::PastryTimeout)?
-            .context(RageError::PastryOutputError)?;
+            .buck_error_context(RageError::PastryTimeout)?
+            .buck_error_context(RageError::PastryOutputError)?;
         if !output.status.success() {
             let error = String::from_utf8_lossy(&output.stderr).to_string();
             let code = output
@@ -724,7 +749,8 @@ async fn generate_paste(title: &str, content: &str) -> anyhow::Result<String> {
                 .ok_or_else(|| RageError::PastryCommandError(1, error.clone()))?;
             return Err(RageError::PastryCommandError(code, error).into());
         }
-        let output = String::from_utf8(output.stdout).context(RageError::PastryOutputError)?;
+        let output =
+            String::from_utf8(output.stdout).buck_error_context(RageError::PastryOutputError)?;
         Ok(output)
     };
 
@@ -733,7 +759,9 @@ async fn generate_paste(title: &str, content: &str) -> anyhow::Result<String> {
     Ok(paste)
 }
 
-async fn get_trace_id(invocation: &Option<EventLogPathBuf>) -> anyhow::Result<Option<TraceId>> {
+async fn get_trace_id(
+    invocation: &Option<EventLogPathBuf>,
+) -> buck2_error::Result<Option<TraceId>> {
     let invocation_id = match invocation {
         None => None,
         Some(invocation) => Some(invocation.uuid_from_filename()?),

@@ -1,5 +1,5 @@
-load("@fbcode//target_determinator/macros:ci.bzl", "ci")
 load("@fbcode_macros//build_defs:native_rules.bzl", "alias")
+load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 load(":defs.bzl", "buck2_bundle")
 
 oncall("build_infra")
@@ -14,6 +14,7 @@ buck2_bundle(
     name = "buck2_bundle",
     buck2 = "//buck2:buck2",
     buck2_client = "//buck2/app/buck2:buck2_client-bin",
+    buck2_health_check = "//buck2/buck2_health_check_cli:buck2_health_check_cli",
     tpx = "//buck2/buck2_tpx_cli:buck2_tpx_cli",
     visibility = ["PUBLIC"],
 )

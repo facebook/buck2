@@ -5,7 +5,7 @@ load(
     "conan_update",
     "lock_generate",
 )
-load("//test_utils.bzl", "assert_output")
+load("//:test_utils.bzl", "assert_output")
 
 conan_lock(
     name = "lock",

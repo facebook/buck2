@@ -47,7 +47,7 @@ mod tests {
     use crate::fs::project_rel_path::ProjectRelativePath;
 
     #[test]
-    fn wrapped_paths_work_in_maps() -> anyhow::Result<()> {
+    fn wrapped_paths_work_in_maps() -> buck2_error::Result<()> {
         let mut map = HashMap::new();
 
         let p1 = ForwardRelativePath::new("foo")?;
@@ -61,7 +61,7 @@ mod tests {
     }
 
     #[test]
-    fn path_buf_is_clonable() -> anyhow::Result<()> {
+    fn path_buf_is_clonable() -> buck2_error::Result<()> {
         let buf = ForwardRelativePathBuf::unchecked_new("foo".into());
         let buf_ref = &buf;
 
@@ -72,7 +72,7 @@ mod tests {
     }
 
     #[test]
-    fn relative_path_display_is_readable() -> anyhow::Result<()> {
+    fn relative_path_display_is_readable() -> buck2_error::Result<()> {
         let buf = ForwardRelativePathBuf::unchecked_new("foo/bar".into());
         assert_eq!("foo/bar", format!("{}", buf));
         assert_eq!("ForwardRelativePathBuf(\"foo/bar\")", format!("{:?}", buf));
@@ -85,7 +85,7 @@ mod tests {
 
     #[cfg(not(windows))]
     #[test]
-    fn absolute_path_display_is_readable() -> anyhow::Result<()> {
+    fn absolute_path_display_is_readable() -> buck2_error::Result<()> {
         let buf = AbsNormPathBuf::from("/foo/bar".into())?;
         assert_eq!("/foo/bar", format!("{}", buf));
         assert_eq!("AbsNormPathBuf(\"/foo/bar\")", format!("{:?}", buf));
@@ -98,7 +98,7 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
-    fn absolute_path_display_is_readable() -> anyhow::Result<()> {
+    fn absolute_path_display_is_readable() -> buck2_error::Result<()> {
         let buf = AbsNormPathBuf::from("C:/foo/bar".into())?;
         assert_eq!("C:/foo/bar", format!("{}", buf));
         assert_eq!("AbsNormPathBuf(\"C:/foo/bar\")", format!("{:?}", buf));

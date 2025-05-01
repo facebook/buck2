@@ -19,6 +19,18 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from .test_test_coverage_utils import collect_coverage_for
 
 
+async def query_target_srcs(buck: Buck, target: str) -> List[str]:
+    query_result = await buck.uquery(
+        target,
+        "--output-attribute",
+        "srcs",
+    )
+    return [
+        p.replace("fbcode//", "fbcode/")
+        for p in json.loads(query_result.stdout)[target]["srcs"]
+    ]
+
+
 @buck_test(inplace=True)
 async def test_rust_test_coverage(buck: Buck, tmp_path: Path) -> None:
     coverage_file = tmp_path / "coverage.txt"
@@ -54,7 +66,49 @@ async def test_rust_test_coverage_filtering_by_path_of_target(
 
 
 @buck_test(inplace=True)
-async def test_rust_test_coverage_of_rust_library_filtering_by_path_outside_of_target(
+async def test_rust_test_coverage_filtering_by_path_of_files(
+    buck: Buck,
+    tmp_path: Path,
+) -> None:
+    target = "fbcode//buck2/tests/targets/rules/rust:tests_pass"
+    file_path = "fbcode/buck2/tests/targets/rules/rust/tests_pass.rs"
+    paths = await collect_coverage_for(
+        buck,
+        tmp_path,
+        target,
+        folder_filter=[],
+        file_filter=[file_path],
+    )
+
+    target_srcs = await query_target_srcs(buck, target)
+
+    # rust can only do coverage at crate granularity,
+    # so we expect coverage for all the files in the target
+    assert paths == target_srcs, str(target_srcs)
+
+
+@buck_test(inplace=True)
+async def test_rust_test_coverage_of_rust_library_filtering_by_file_path_outside_of_target(
+    buck: Buck,
+    tmp_path: Path,
+) -> None:
+    file_path = "fbcode/testing_frameworks/code_coverage/adder.rs"
+    lib_target = "fbcode//testing_frameworks/code_coverage:adder"
+
+    paths = await collect_coverage_for(
+        buck,
+        tmp_path,
+        "buck2/tests/targets/rules/rust/coverage/test_with_rust_library_outside_targets_path:test",
+        folder_filter=[],
+        file_filter=[file_path],
+    )
+
+    target_srcs = await query_target_srcs(buck, lib_target)
+    assert paths == target_srcs, str(target_srcs)
+
+
+@buck_test(inplace=True)
+async def test_rust_test_coverage_of_rust_library_filtering_by_folder_path_outside_of_target(
     buck: Buck,
     tmp_path: Path,
 ) -> None:

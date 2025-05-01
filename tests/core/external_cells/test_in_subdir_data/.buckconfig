@@ -1,0 +1,10 @@
+[cells]
+  root = .
+  prelude = prelude
+  test_bundled_cell = somedir/test_bundled_cell
+
+[external_cells]
+  test_bundled_cell = bundled
+
+[buildfile]
+  name = TARGETS.fixture

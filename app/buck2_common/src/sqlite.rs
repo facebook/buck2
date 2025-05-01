@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use itertools::Itertools;
 use parking_lot::Mutex;
 use rusqlite::Connection;
@@ -29,7 +29,7 @@ impl KeyValueSqliteTable {
         }
     }
 
-    pub fn create_table(&self) -> anyhow::Result<()> {
+    pub fn create_table(&self) -> buck2_error::Result<()> {
         let sql = format!(
             "CREATE TABLE {} (
                 key     TEXT PRIMARY KEY NOT NULL,
@@ -41,11 +41,11 @@ impl KeyValueSqliteTable {
         self.connection
             .lock()
             .execute(&sql, [])
-            .with_context(|| format!("creating sqlite table {}", self.table_name))?;
+            .with_buck_error_context(|| format!("creating sqlite table {}", self.table_name))?;
         Ok(())
     }
 
-    pub fn insert_all(&self, map: HashMap<String, String>) -> anyhow::Result<()> {
+    pub fn insert_all(&self, map: HashMap<String, String>) -> buck2_error::Result<()> {
         let sql = format!(
             "INSERT OR REPLACE INTO {} (key, value) VALUES {}",
             self.table_name,
@@ -61,11 +61,13 @@ impl KeyValueSqliteTable {
                 &sql,
                 rusqlite::params_from_iter(map.into_iter().flat_map(<[_; 2]>::from)),
             )
-            .with_context(|| format!("inserting into sqlite table {}", self.table_name))?;
+            .with_buck_error_context(|| {
+                format!("inserting into sqlite table {}", self.table_name)
+            })?;
         Ok(())
     }
 
-    pub fn read_all(&self) -> anyhow::Result<HashMap<String, String>> {
+    pub fn read_all(&self) -> buck2_error::Result<HashMap<String, String>> {
         let sql = format!("SELECT key, value FROM {}", self.table_name);
         tracing::trace!(sql = %sql, "read all from table");
         let connection = self.connection.lock();
@@ -73,11 +75,11 @@ impl KeyValueSqliteTable {
         let map = stmt
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
             .collect::<Result<HashMap<String, String>, _>>()
-            .with_context(|| format!("reading from sqlite table {}", self.table_name))?;
+            .with_buck_error_context(|| format!("reading from sqlite table {}", self.table_name))?;
         Ok(map)
     }
 
-    pub fn get(&self, key: &str) -> anyhow::Result<Option<String>> {
+    pub fn get(&self, key: &str) -> buck2_error::Result<Option<String>> {
         let sql = format!("SELECT value FROM {} WHERE key = ?", self.table_name);
         tracing::trace!(sql = %sql, key = %key, "read from table");
         let connection = self.connection.lock();
@@ -86,7 +88,9 @@ impl KeyValueSqliteTable {
             .query_map([key], |row| row.get(0))?
             .next()
             .transpose()
-            .with_context(|| format!("reading `{}` from sqlite table {}", key, self.table_name))?;
+            .with_buck_error_context(|| {
+                format!("reading `{}` from sqlite table {}", key, self.table_name)
+            })?;
         Ok(row)
     }
 }

@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:test_common.bzl", "test_common")
 load(":julia_binary.bzl", "julia_binary_impl")
 load(":julia_library.bzl", "julia_jll_library_impl", "julia_library_impl")
 load(":julia_test.bzl", "julia_test_impl")
@@ -48,5 +50,5 @@ extra_attributes = {
         "srcs": attrs.list(attrs.source(), default = []),
         "_julia_toolchain": julia_toolchain(),
         # TODO: coverage
-    },
+    } | buck.inject_test_env_arg() | test_common.attributes(),
 }

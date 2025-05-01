@@ -26,10 +26,10 @@ use clap::ArgAction;
 use clap::Parser;
 use clap::Subcommand;
 use serde::Deserialize;
-use tracing_subscriber::filter::LevelFilter;
-use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::Layer;
+use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::layer::SubscriberExt;
 
 use crate::cli::ProjectKind;
 use crate::json_project::Crate;
@@ -100,10 +100,6 @@ enum Command {
         #[clap(long)]
         check_cycles: bool,
 
-        /// Use paths relative to the project root in `rust-project.json`.
-        #[clap(long, hide = true)]
-        relative_paths: bool,
-
         /// The name of the client invoking rust-project, such as 'vscode'.
         #[clap(long)]
         client: Option<String>,
@@ -111,6 +107,10 @@ enum Command {
         /// Optional argument specifying build mode.
         #[clap(short = 'm', long)]
         mode: Option<String>,
+
+        /// Include a `build` section for every crate, including dependencies. Otherwise, `build` is only included for crates in the workspace.
+        #[clap(long)]
+        include_all_buildfiles: bool,
     },
     /// `DevelopJson` is a more limited, stripped down [`Command::Develop`].
     ///
@@ -199,7 +199,12 @@ impl FromStr for JsonArguments {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_json::from_str(s).map_err(|e| anyhow::anyhow!("Error parsing my struct: {}", e))
+        serde_json::from_str(s).map_err(|_| {
+            anyhow::anyhow!(
+                "Expected a JSON object with a key of `path`, `buildfile`, or `label`. Got: {}",
+                s
+            )
+        })
     }
 }
 
@@ -236,9 +241,10 @@ fn main() -> Result<(), anyhow::Error> {
             tracing::subscriber::set_global_default(subscriber)?;
 
             let (develop, input, out) = cli::Develop::from_command(c);
-            match develop.run(input, out) {
+            match develop.run(input.clone(), out) {
                 Ok(_) => Ok(()),
                 Err(e) => {
+                    crate::scuba::log_develop_error(&e, input, false);
                     tracing::error!(
                         error = <anyhow::Error as AsRef<
                             dyn std::error::Error + Send + Sync + 'static,
@@ -256,9 +262,10 @@ fn main() -> Result<(), anyhow::Error> {
             tracing::subscriber::set_global_default(subscriber)?;
 
             let (develop, input, out) = cli::Develop::from_command(c);
-            match develop.run(input, out) {
+            match develop.run(input.clone(), out) {
                 Ok(_) => Ok(()),
                 Err(e) => {
+                    crate::scuba::log_develop_error(&e, input, true);
                     tracing::error!(
                         error = <anyhow::Error as AsRef<
                             dyn std::error::Error + Send + Sync + 'static,
@@ -285,7 +292,9 @@ fn main() -> Result<(), anyhow::Error> {
             let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
             tracing::subscriber::set_global_default(subscriber)?;
 
-            cli::Check::new(mode, use_clippy, saved_file).run()
+            cli::Check::new(mode, use_clippy, saved_file.clone())
+                .run()
+                .inspect_err(|e| crate::scuba::log_check_error(&e, &saved_file, use_clippy))
         }
     }
 }

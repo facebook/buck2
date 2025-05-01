@@ -77,16 +77,19 @@ pub struct DefParamIndices {
 }
 
 impl DefParamIndices {
-    pub fn pos_only(&self) -> Range<u32> {
-        0..self.num_positional_only
+    pub fn pos_only(&self) -> Range<usize> {
+        0..self.num_positional_only as usize
     }
 
-    pub fn pos_or_named(&self) -> Range<u32> {
-        self.num_positional_only..self.num_positional
+    pub fn pos_or_named(&self) -> Range<usize> {
+        self.num_positional_only as usize..self.num_positional as usize
     }
 
-    pub fn named_only(&self, param_count: u32) -> Range<u32> {
-        self.args.map(|a| a + 1).unwrap_or(self.num_positional)..self.kwargs.unwrap_or(param_count)
+    pub fn named_only(&self, param_count: usize) -> Range<usize> {
+        self.args
+            .map(|a| a as usize + 1)
+            .unwrap_or(self.num_positional as usize)
+            ..self.kwargs.unwrap_or(param_count as u32) as usize
     }
 }
 

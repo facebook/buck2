@@ -11,6 +11,9 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 
+use super::attr_type::target_modifiers::TargetModifiersAttrType;
+use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::arg::ArgAttrType;
 use crate::attrs::attr_type::arg::StringWithMacros;
 use crate::attrs::attr_type::bool::BoolAttrType;
@@ -37,22 +40,23 @@ use crate::attrs::attr_type::source::SourceAttrType;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use crate::attrs::attr_type::string::StringAttrType;
 use crate::attrs::attr_type::string::StringLiteral;
+use crate::attrs::attr_type::transition_dep::CoercedTransitionDep;
+use crate::attrs::attr_type::transition_dep::TransitionDepAttrType;
 use crate::attrs::attr_type::tuple::TupleAttrType;
 use crate::attrs::attr_type::tuple::TupleLiteral;
 use crate::attrs::attr_type::visibility::VisibilityAttrType;
 use crate::attrs::attr_type::within_view::WithinViewAttrType;
-use crate::attrs::attr_type::AttrType;
-use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr::CoercedSelector;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::display::AttrDisplayWithContextExt;
-use crate::configuration::resolved::ConfigurationSettingKey;
+use crate::attrs::values::TargetModifiersValue;
 use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum CoercedAttrWithTypeError {
     #[error(
         "attr and type mismatch: {}, {}; ({:?}) (internal error)",
@@ -94,8 +98,9 @@ pub enum CoercedAttrWithType<'a, 't> {
         &'t ExplicitConfiguredDepAttrType,
     ),
     SplitTransitionDep(&'a ProvidersLabel, &'t SplitTransitionDepAttrType),
+    TransitionDep(&'a CoercedTransitionDep, &'t TransitionDepAttrType),
     ConfiguredDep(&'a DepAttr<ConfiguredProvidersLabel>),
-    ConfigurationDep(&'a ConfigurationSettingKey, ConfigurationDepAttrType),
+    ConfigurationDep(&'a ProvidersLabel, ConfigurationDepAttrType),
     PluginDep(&'a TargetLabel, &'t PluginDepAttrType),
     Dep(&'a ProvidersLabel, &'t DepAttrType),
     SourceLabel(&'a ProvidersLabel, SourceAttrType),
@@ -104,6 +109,7 @@ pub enum CoercedAttrWithType<'a, 't> {
     Query(&'a QueryAttr<ProvidersLabel>, &'t QueryAttrType),
     SourceFile(&'a CoercedPath, SourceAttrType),
     Metadata(&'a MetadataMap, MetadataAttrType),
+    TargetModifiers(&'a TargetModifiersValue, TargetModifiersAttrType),
 }
 
 impl<'a, 't> CoercedAttrWithType<'a, 't> {
@@ -111,10 +117,10 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
     pub fn pack(
         attr: &'a CoercedAttr,
         ty: &'t AttrType,
-    ) -> anyhow::Result<CoercedAttrWithType<'a, 't>> {
+    ) -> buck2_error::Result<CoercedAttrWithType<'a, 't>> {
         match (attr, &ty.0.inner) {
             (CoercedAttr::Selector(s), _) => Ok(CoercedAttrWithType::Selector(s, ty)),
-            (CoercedAttr::Concat(c), _) => Ok(CoercedAttrWithType::Concat(c, ty)),
+            (CoercedAttr::Concat(c), _) => Ok(CoercedAttrWithType::Concat(&c.0, ty)),
 
             (CoercedAttr::None, _) => Ok(CoercedAttrWithType::None),
             (attr, AttrTypeInner::Option(t)) => Ok(CoercedAttrWithType::Some(attr, t)),
@@ -146,10 +152,15 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             (CoercedAttr::ExplicitConfiguredDep(d), AttrTypeInner::ConfiguredDep(t)) => {
                 Ok(CoercedAttrWithType::ExplicitConfiguredDep(d, t))
             }
+            (CoercedAttr::TransitionDep(d), AttrTypeInner::TransitionDep(t)) => {
+                Ok(CoercedAttrWithType::TransitionDep(d, t))
+            }
             (CoercedAttr::SplitTransitionDep(d), AttrTypeInner::SplitTransitionDep(t)) => {
                 Ok(CoercedAttrWithType::SplitTransitionDep(d, t))
             }
-            (CoercedAttr::ConfiguredDep(d), _) => Ok(CoercedAttrWithType::ConfiguredDep(d)),
+            (CoercedAttr::ConfiguredDepForForwardNode(d), _) => {
+                Ok(CoercedAttrWithType::ConfiguredDep(d))
+            }
             (CoercedAttr::ConfigurationDep(d), AttrTypeInner::ConfigurationDep(t)) => {
                 Ok(CoercedAttrWithType::ConfigurationDep(d, *t))
             }
@@ -173,6 +184,9 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             (CoercedAttr::Metadata(p), AttrTypeInner::Metadata(t)) => {
                 Ok(CoercedAttrWithType::Metadata(p, *t))
             }
+            (CoercedAttr::TargetModifiers(p), AttrTypeInner::TargetModifiers(t)) => {
+                Ok(CoercedAttrWithType::TargetModifiers(p, *t))
+            }
 
             // Explicitly list the remaining pattern to make sure nothing is forgotten.
             (CoercedAttr::Bool(_), _)
@@ -187,6 +201,7 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             | (CoercedAttr::WithinView(_), _)
             | (CoercedAttr::ExplicitConfiguredDep(_), _)
             | (CoercedAttr::SplitTransitionDep(_), _)
+            | (CoercedAttr::TransitionDep(_), _)
             | (CoercedAttr::ConfigurationDep(_), _)
             | (CoercedAttr::PluginDep(_), _)
             | (CoercedAttr::Dep(_), _)
@@ -195,14 +210,15 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             | (CoercedAttr::Arg(_), _)
             | (CoercedAttr::Query(_), _)
             | (CoercedAttr::SourceFile(_), _)
-            | (CoercedAttr::Metadata(_), _) => {
+            | (CoercedAttr::Metadata(_), _)
+            | (CoercedAttr::TargetModifiers(_), _) => {
                 Err(CoercedAttrWithTypeError::Mismatch(attr.clone(), ty.clone()).into())
             }
         }
     }
 
     #[inline]
-    fn pack_any(attr: &'a CoercedAttr) -> anyhow::Result<CoercedAttrWithType<'a, 't>> {
+    fn pack_any(attr: &'a CoercedAttr) -> buck2_error::Result<CoercedAttrWithType<'a, 't>> {
         match attr {
             CoercedAttr::Selector(_) | CoercedAttr::Concat(_) => {
                 Err(CoercedAttrWithTypeError::Select.into())
@@ -218,8 +234,9 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             | CoercedAttr::Visibility(_)
             | CoercedAttr::WithinView(_)
             | CoercedAttr::ExplicitConfiguredDep(_)
+            | CoercedAttr::TransitionDep(_)
             | CoercedAttr::SplitTransitionDep(_)
-            | CoercedAttr::ConfiguredDep(_)
+            | CoercedAttr::ConfiguredDepForForwardNode(_)
             | CoercedAttr::ConfigurationDep(_)
             | CoercedAttr::PluginDep(_)
             | CoercedAttr::Dep(_)
@@ -229,7 +246,8 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             | CoercedAttr::Query(_)
             | CoercedAttr::EnumVariant(_)
             | CoercedAttr::SourceFile(_)
-            | CoercedAttr::Metadata(_) => Err(CoercedAttrWithTypeError::Any.into()),
+            | CoercedAttr::Metadata(_)
+            | CoercedAttr::TargetModifiers(_) => Err(CoercedAttrWithTypeError::Any.into()),
         }
     }
 }

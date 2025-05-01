@@ -1,7 +1,13 @@
-buildscript = []
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
 
-[[platform_fixup.'cfg(not(all(target_os = "windows", target_env = "msvc")))'.buildscript]]
-[platform_fixup.'cfg(not(all(target_os = "windows", target_env = "msvc")))'.buildscript.cxx_library]
+buildscript.run = false
+
+[['cfg(not(all(target_os = "windows", target_env = "msvc")))'.cxx_library]]
 name = "zstd"
 srcs = [
     "zstd/lib/common/debug.c",
@@ -59,8 +65,7 @@ compiler_flags = [
     "-DZSTD_LEGACY_SUPPORT=1"
 ]
 
-[[platform_fixup.'cfg(all(target_os = "windows", target_env = "msvc"))'.buildscript]]
-[platform_fixup.'cfg(all(target_os = "windows", target_env = "msvc"))'.buildscript.cxx_library]
+[['cfg(all(target_os = "windows", target_env = "msvc"))'.cxx_library]]
 name = "zstd-msvc"
 srcs = [
     "zstd/lib/common/debug.c",

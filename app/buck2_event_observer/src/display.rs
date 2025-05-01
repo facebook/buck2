@@ -14,27 +14,29 @@ use std::fmt::Write;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
-use buck2_data::action_key;
-use buck2_data::span_start_event::Data;
 use buck2_data::ActionKey;
 use buck2_data::ActionName;
 use buck2_data::AnonTarget;
 use buck2_data::BxlFunctionKey;
 use buck2_data::BxlFunctionLabel;
 use buck2_data::ConfiguredTargetLabel;
+use buck2_data::FileWatcherKind;
 use buck2_data::TargetLabel;
+use buck2_data::action_key;
+use buck2_data::span_start_event::Data;
+use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_events::BuckEvent;
 use buck2_test_api::data::TestStatus;
 use buck2_util::commas::commas;
 use buck2_util::truncate::truncate;
 use dupe::Dupe;
 use starlark_map::ordered_set::OrderedSet;
-use superconsole::style::Stylize;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
+use superconsole::style::Stylize;
 use termwiz::escape::Action;
 use termwiz::escape::ControlCode;
 
@@ -75,7 +77,7 @@ impl TargetDisplayOptions {
 pub fn display_configured_target_label(
     ctl: &ConfiguredTargetLabel,
     opts: TargetDisplayOptions,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     if let ConfiguredTargetLabel {
         label: Some(TargetLabel { package, name }),
         configuration: Some(configuration),
@@ -96,7 +98,7 @@ pub fn display_configured_target_label(
 fn display_configured_target_label_opt(
     ctl: Option<&ConfiguredTargetLabel>,
     opts: TargetDisplayOptions,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     Ok(match ctl {
         Some(ctl) => display_configured_target_label(ctl, opts)?,
         None => {
@@ -106,7 +108,7 @@ fn display_configured_target_label_opt(
     })
 }
 
-pub fn display_anon_target(ctl: &AnonTarget) -> anyhow::Result<String> {
+pub fn display_anon_target(ctl: &AnonTarget) -> buck2_error::Result<String> {
     if let AnonTarget {
         name: Some(TargetLabel { package, name }),
         // We currently never display execution configurations, only normal configurations
@@ -123,14 +125,18 @@ pub fn display_anon_target(ctl: &AnonTarget) -> anyhow::Result<String> {
 pub fn display_analysis_target(
     target: &buck2_data::analysis_start::Target,
     opts: TargetDisplayOptions,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     use buck2_data::analysis_start::Target;
     match target {
         Target::StandardTarget(ctl) => display_configured_target_label(ctl, opts),
         Target::AnonTarget(anon) => display_anon_target(anon),
         Target::DynamicLambda(dynamic) => {
             use buck2_data::dynamic_lambda_owner::Owner;
-            match dynamic.owner.as_ref().context("Missing `owner`")? {
+            match dynamic
+                .owner
+                .as_ref()
+                .buck_error_context("Missing `owner`")?
+            {
                 Owner::TargetLabel(target_label) => {
                     display_configured_target_label(target_label, opts)
                 }
@@ -141,7 +147,7 @@ pub fn display_analysis_target(
     }
 }
 
-pub fn display_bxl_key(ctl: &BxlFunctionKey) -> anyhow::Result<String> {
+pub fn display_bxl_key(ctl: &BxlFunctionKey) -> buck2_error::Result<String> {
     if let BxlFunctionKey {
         label: Some(BxlFunctionLabel { bxl_path, name }),
     } = ctl
@@ -155,7 +161,7 @@ pub fn display_bxl_key(ctl: &BxlFunctionKey) -> anyhow::Result<String> {
 pub fn display_action_owner(
     owner: &action_key::Owner,
     opts: TargetDisplayOptions,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     match owner {
         action_key::Owner::TargetLabel(target_label)
         | action_key::Owner::TestTargetLabel(target_label)
@@ -170,7 +176,7 @@ pub fn display_action_owner(
 pub fn display_action_key(
     action_key: &ActionKey,
     opts: TargetDisplayOptions,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     if let ActionKey {
         owner: Some(owner), ..
     } = action_key
@@ -181,7 +187,7 @@ pub fn display_action_key(
     }
 }
 
-fn display_action_name_opt(name: Option<&ActionName>) -> String {
+pub fn display_action_name_opt(name: Option<&ActionName>) -> String {
     match name {
         Some(name) if name.identifier.is_empty() => name.category.clone(),
         Some(name) => format!("{} {}", name.category, name.identifier),
@@ -193,7 +199,7 @@ pub fn display_action_identity(
     action_key: Option<&ActionKey>,
     name: Option<&ActionName>,
     opts: TargetDisplayOptions,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     let key_string = match action_key {
         Some(key) => display_action_key(key, opts),
         None => Err(ParseEventError::MissingActionKey.into()),
@@ -211,14 +217,14 @@ pub fn display_action_identity(
 }
 
 /// Formats event payloads for display.
-pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::Result<String> {
-    let res: anyhow::Result<_> = try {
+pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_error::Result<String> {
+    let res: buck2_error::Result<_> = try {
         let data = match event.data() {
             buck2_data::buck_event::Data::SpanStart(ref start) => start.data.as_ref().unwrap(),
-            _ => Err(anyhow::Error::from(ParseEventError::UnexpectedEvent))?,
+            _ => Err(buck2_error::Error::from(ParseEventError::UnexpectedEvent))?,
         };
 
-        let res: anyhow::Result<_> = match data {
+        let res: buck2_error::Result<_> = match data {
             Data::ActionExecution(action) => match &action.key {
                 Some(key) => {
                     let string = display_action_key(key, opts)?;
@@ -257,7 +263,10 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
                 None => Err(ParseEventError::MissingConfiguredTargetLabel.into()),
             },
             Data::AnalysisStage(info) => {
-                let stage = info.stage.as_ref().context("analysis stage is missing")?;
+                let stage = info
+                    .stage
+                    .as_ref()
+                    .buck_error_context("analysis stage is missing")?;
                 let stage = display_analysis_stage(stage);
                 Ok(stage.into())
             }
@@ -271,8 +280,12 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
             Data::LoadPackage(load) => Ok(format!("{} -- loading package file tree", load.path)),
             Data::Load(load) => Ok(format!("{} -- evaluating build file", load.module_id)),
             Data::ExecutorStage(info) => {
-                let stage = info.stage.as_ref().context("executor stage is missing")?;
-                let stage = display_executor_stage(stage).context("unknown executor stage")?;
+                let stage = info
+                    .stage
+                    .as_ref()
+                    .buck_error_context("executor stage is missing")?;
+                let stage =
+                    display_executor_stage(stage).buck_error_context("unknown executor stage")?;
                 Ok(stage.into())
             }
             Data::TestDiscovery(discovery) => Ok(format!(
@@ -337,14 +350,18 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
             }
             Data::DeferredPreparationStage(prep) => {
                 use buck2_data::deferred_preparation_stage_start::Stage;
-                match prep.stage.as_ref().context("Missing `stage`")? {
+                match prep.stage.as_ref().buck_error_context("Missing `stage`")? {
                     Stage::MaterializedArtifacts(_) => Ok("local_materialize_inputs".to_owned()),
                 }
             }
             Data::DynamicLambda(lambda) => {
                 use buck2_data::dynamic_lambda_start::Owner;
 
-                let label = match lambda.owner.as_ref().context("Missing `owner`")? {
+                let label = match lambda
+                    .owner
+                    .as_ref()
+                    .buck_error_context("Missing `owner`")?
+                {
                     Owner::TargetLabel(target_label) => {
                         display_configured_target_label(target_label, opts)
                     }
@@ -365,7 +382,6 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
             Data::LocalResources(..) => Ok("Local resources setup".to_owned()),
             Data::ReleaseLocalResources(..) => Ok("Releasing local resources".to_owned()),
-            Data::CreateOutputHashesFile(..) => Ok("Creating output hashes file".to_owned()),
             Data::BxlEnsureArtifacts(..) => Err(ParseEventError::UnexpectedEvent.into()),
             Data::ActionErrorHandlerExecution(..) => {
                 Ok("Running error handler on action failure".to_owned())
@@ -377,15 +393,16 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
         res?
     };
 
-    res.with_context(|| InvalidBuckEvent(Arc::new(event.clone())))
+    res.with_buck_error_context(|| InvalidBuckEvent(Arc::new(event.clone())).to_string())
 }
 
 fn display_file_watcher(provider: i32) -> &'static str {
-    match buck2_data::FileWatcherProvider::from_i32(provider) {
-        Some(buck2_data::FileWatcherProvider::Watchman) => "Watchman",
-        Some(buck2_data::FileWatcherProvider::RustNotify) => "notify",
-        Some(buck2_data::FileWatcherProvider::FsHashCrawler) => "fs_hash_crawler",
-        None => "unknown mechanism",
+    match buck2_data::FileWatcherProvider::try_from(provider) {
+        Ok(buck2_data::FileWatcherProvider::Watchman) => "Watchman",
+        Ok(buck2_data::FileWatcherProvider::RustNotify) => "notify",
+        Ok(buck2_data::FileWatcherProvider::FsHashCrawler) => "fs_hash_crawler",
+        Ok(buck2_data::FileWatcherProvider::EdenFs) => "EdenFS",
+        Err(_) => "unknown mechanism",
     }
 }
 
@@ -413,16 +430,20 @@ pub fn display_file_watcher_end(file_watcher_end: &buck2_data::FileWatcherEnd) -
 
         let mut to_print = OrderedSet::new();
         for x in &stats.events {
-            to_print.insert(&x.path);
+            to_print.insert((&x.path, x.kind()));
         }
-        for path in to_print.iter().take(MAX_PRINT_MESSAGES) {
-            res.push(format!("File changed: {}", path));
+        for (path, kind) in to_print.iter().take(MAX_PRINT_MESSAGES) {
+            let kind = match kind {
+                FileWatcherKind::Directory => "Directory",
+                FileWatcherKind::File | FileWatcherKind::Symlink => "File",
+            };
+            res.push(format!("{} changed: {}", kind, path));
         }
         let unprinted_paths =
             // those we have the names of but didn't print
             to_print.len().saturating_sub(MAX_PRINT_MESSAGES) +
-            // plus those we didn't get the names for
-            (stats.events_processed as usize).saturating_sub(stats.events.len());
+                // plus those we didn't get the names for
+                (stats.events_processed as usize).saturating_sub(stats.events.len());
         if unprinted_paths > 0 {
             res.push(format!("{} additional file change events", unprinted_paths));
         }
@@ -463,7 +484,7 @@ pub fn display_executor_stage(
     let label = match stage {
         Stage::Prepare(..) => "prepare",
         Stage::CacheQuery(cache_query) => {
-            match buck2_data::CacheType::from_i32(cache_query.cache_type).unwrap() {
+            match buck2_data::CacheType::try_from(cache_query.cache_type).unwrap() {
                 buck2_data::CacheType::ActionCache => "re_action_cache",
                 buck2_data::CacheType::RemoteDepFileCache => "re_dep_file_cache",
             }
@@ -476,10 +497,16 @@ pub fn display_executor_stage(
                 Stage::Execute(..) => "re_execute",
                 Stage::Download(..) => "re_download",
                 Stage::Queue(..) => "re_queued",
+                Stage::QueueOverQuota(..) => "re_queued(over_quota)",
+                Stage::QueueAcquiringDependencies(..) => "re_queued(waiting_on_deps)",
+                Stage::QueueNoWorkerAvailable(..) => "re_queued(no_workers)",
+                Stage::QueueCancelled(..) => "re_cancelled",
                 Stage::WorkerDownload(..) => "re_worker_download",
                 Stage::WorkerUpload(..) => "re_worker_upload",
                 Stage::Unknown(..) => "re_unknown",
                 Stage::MaterializeFailedInputs(..) => "re_materialize_failed_inputs",
+                Stage::BeforeActionExecution(_) => "initialize_re_worker",
+                Stage::AfterActionExecution(_) => "release_re_worker",
             }
         }
         Stage::Local(local) => {
@@ -503,6 +530,7 @@ pub fn display_executor_stage(
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum ParseEventError {
     #[error("Missing configured target label")]
     MissingConfiguredTargetLabel,
@@ -528,9 +556,12 @@ enum ParseEventError {
 
 #[derive(buck2_error::Error, Debug)]
 #[error("Invalid buck event: `{0:?}`")]
+#[buck2(tag = Tier0)]
 pub struct InvalidBuckEvent(pub Arc<BuckEvent>);
 
-pub fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow::Result<Option<Lines>> {
+pub fn format_test_result(
+    test_result: &buck2_data::TestResult,
+) -> buck2_error::Result<Option<Lines>> {
     let buck2_data::TestResult {
         name,
         status,
@@ -538,7 +569,8 @@ pub fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow::Resul
         details,
         ..
     } = test_result;
-    let status = TestStatus::try_from(*status)?;
+    let status = TestStatus::try_from(*status)
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::TestStatusInvalid))?;
 
     // Pass results normally have no details, unless the --print-passing-details is set.
     // Do not display anything for passing tests unless details are present to avoid
@@ -560,6 +592,7 @@ pub fn format_test_result(test_result: &buck2_data::TestResult) -> anyhow::Resul
         TestStatus::LISTING_FAILED => Span::new_styled("⚠ Listing failed".to_owned().red()),
     }?;
     let mut base = Line::from_iter([prefix, Span::new_unstyled(format!(": {}", name,))?]);
+
     if let Some(duration) = duration {
         if let Ok(duration) = Duration::try_from(duration.clone()) {
             base.push(Span::new_unstyled(format!(
@@ -652,7 +685,9 @@ impl<'a> ActionErrorDisplay<'a> {
                     );
                 }
                 Some(Command::RemoteCommand(remote_command)) => {
-                    if !buck2_core::is_open_source() {
+                    if buck2_core::is_open_source() {
+                        append!("Remote action digest: '{}'", remote_command.action_digest);
+                    } else {
                         append!(
                             "Remote action{}, reproduce with: `frecli cas download-action {}`",
                             if remote_command.cache_hit {
@@ -683,12 +718,18 @@ impl<'a> ActionErrorDisplay<'a> {
         append_stream("Stdout", &command_failed.stdout);
         append_stream("Stderr", &command_failed.stderr);
 
+        if let Some(additional_info) = &command_failed.additional_message {
+            if !additional_info.is_empty() {
+                append_stream("Info", additional_info);
+            }
+        }
+
         if let Some(error_diagnostics) = self.error_diagnostics {
             match error_diagnostics.data.as_ref().unwrap() {
                 buck2_data::action_error_diagnostics::Data::SubErrors(sub_errors) => {
                     let sub_errors = &sub_errors.sub_errors;
-                    let mut all_sub_errors = String::new();
                     if !sub_errors.is_empty() {
+                        let mut all_sub_errors = String::new();
                         for sub_error in sub_errors {
                             let mut sub_error_line = String::new();
 
@@ -700,11 +741,11 @@ impl<'a> ActionErrorDisplay<'a> {
                             // TODO(@wendyy) - handle locations later
                             writeln!(all_sub_errors, "- {}", sub_error_line).unwrap();
                         }
+                        append_stream(
+                            "\nAction sub-errors produced by error handlers",
+                            &all_sub_errors,
+                        );
                     }
-                    append_stream(
-                        "\nAction sub-errors produced by error handlers",
-                        &all_sub_errors,
-                    );
                 }
                 buck2_data::action_error_diagnostics::Data::HandlerInvocationError(error) => {
                     append_stream("\nCould not produce error diagnostics", error);
@@ -715,14 +756,16 @@ impl<'a> ActionErrorDisplay<'a> {
     }
 }
 
-pub fn get_action_error_reason<'a>(error: &'a buck2_data::ActionError) -> anyhow::Result<String> {
+pub fn get_action_error_reason<'a>(
+    error: &'a buck2_data::ActionError,
+) -> buck2_error::Result<String> {
     use buck2_data::action_error::Error;
 
     Ok(
         match error
             .error
             .as_ref()
-            .context("Internal error: Missing error in action error")?
+            .buck_error_context("Internal error: Missing error in action error")?
         {
             Error::MissingOutputs(missing_outputs) => {
                 format!("Required outputs are missing: {}", missing_outputs.message)
@@ -741,7 +784,7 @@ pub fn get_action_error_reason<'a>(error: &'a buck2_data::ActionError) -> anyhow
 pub fn display_action_error<'a>(
     error: &'a buck2_data::ActionError,
     opts: TargetDisplayOptions,
-) -> anyhow::Result<ActionErrorDisplay<'a>> {
+) -> buck2_error::Result<ActionErrorDisplay<'a>> {
     let command = error.last_command.as_ref().and_then(|c| c.details.as_ref());
 
     let reason = get_action_error_reason(error)?;
@@ -756,23 +799,24 @@ pub fn display_action_error<'a>(
 
 fn failure_reason_for_command_execution(
     command_execution: &buck2_data::CommandExecution,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     use buck2_data::command_execution::Cancelled;
     use buck2_data::command_execution::Error;
     use buck2_data::command_execution::Failure;
     use buck2_data::command_execution::Status;
     use buck2_data::command_execution::Success;
     use buck2_data::command_execution::Timeout;
+    use buck2_data::command_execution::WorkerFailure;
 
     let command = command_execution
         .details
         .as_ref()
-        .context("CommandExecution did not include a `command`")?;
+        .buck_error_context("CommandExecution did not include a `command`")?;
 
     let status = command_execution
         .status
         .as_ref()
-        .context("CommandExecution did not include a `status`")?;
+        .buck_error_context("CommandExecution did not include a `status`")?;
 
     let locality = if let Some(command_kind) = command.command_kind.as_ref() {
         use buck2_data::command_execution_kind::Command;
@@ -789,7 +833,7 @@ fn failure_reason_for_command_execution(
 
     Ok(match status {
         Status::Success(Success {}) => "Unexpected command status".to_owned(),
-        Status::Failure(Failure {}) => {
+        Status::Failure(Failure {}) | Status::WorkerFailure(WorkerFailure {}) => {
             struct OptionalExitCode {
                 code: Option<i32>,
             }
@@ -797,7 +841,14 @@ fn failure_reason_for_command_execution(
             impl fmt::Display for OptionalExitCode {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                     match self.code {
-                        Some(code) => write!(f, "{}", code),
+                        Some(code) => {
+                            if (i16::MIN as i32) < code && code < (i16::MAX as i32) {
+                                write!(f, "{}", code)
+                            } else {
+                                let code = code as u32;
+                                write!(f, "{} ({:#X})", code, code)
+                            }
+                        }
                         None => write!(f, "<no exit code>"),
                     }
                 }
@@ -814,9 +865,9 @@ fn failure_reason_for_command_execution(
         Status::Timeout(Timeout { duration }) => {
             let duration = duration
                 .as_ref()
-                .context("Timeout did not include a `duration`")?
+                .buck_error_context("Timeout did not include a `duration`")?
                 .try_into_duration()
-                .context("Timeout `duration` was invalid")?;
+                .buck_error_context("Timeout `duration` was invalid")?;
 
             format!("Command timed out after {:.3}s", duration.as_secs_f64(),)
         }
@@ -830,7 +881,7 @@ fn failure_reason_for_command_execution(
 pub fn success_stderr<'a>(
     action: &'a buck2_data::ActionExecutionEnd,
     verbosity: Verbosity,
-) -> anyhow::Result<Option<&'a str>> {
+) -> buck2_error::Result<Option<&'a str>> {
     if !(verbosity.print_success_stderr() || action.always_print_stderr) {
         return Ok(None);
     }
@@ -840,7 +891,7 @@ pub fn success_stderr<'a>(
             &command
                 .details
                 .as_ref()
-                .context("CommandExecution did not include a `command`")?
+                .buck_error_context("CommandExecution did not include a `command`")?
                 .stderr
         }
         None => return Ok(None),

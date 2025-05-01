@@ -300,10 +300,7 @@ def _create_root(
             links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],
             category_suffix = "omnibus_root",
             identifier = root.name or output,
-            # We prefer local execution because there are lot of cxx_link_omnibus_root
-            # running simultaneously, so while their overall load is reasonable,
-            # their peak execution load is very high.
-            link_execution_preference = LinkExecutionPreference("local"),
+            link_execution_preference = LinkExecutionPreference("any"),
             allow_cache_upload = allow_cache_upload,
         ),
     )
@@ -324,6 +321,9 @@ def _create_root(
             ctx,
             cxx_toolchain = toolchain_info,
             output = shared_library.output,
+            # Don't extract weak-undefined symbols, as passing these back into
+            # the omnibus link via `-u` causes undefined sym link failures.
+            weak = False,
             category_prefix = "omnibus",
             # Same as above.
             prefer_local = True,
@@ -442,7 +442,8 @@ def _create_omnibus(
         pic_behavior: PicBehavior,
         extra_ldflags: list[typing.Any] = [],
         prefer_stripped_objects: bool = False,
-        allow_cache_upload: bool = False) -> CxxLinkResult:
+        allow_cache_upload: bool = False,
+        enable_distributed_thinlto = False) -> CxxLinkResult:
     inputs = []
 
     # Undefined symbols roots...
@@ -455,8 +456,7 @@ def _create_omnibus(
         inputs.append(LinkInfo(pre_flags = [
             get_undefined_symbols_args(
                 ctx = ctx,
-                cxx_toolchain = get_cxx_toolchain_info(ctx),
-                name = "__undefined_symbols__.linker_script",
+                name = "__undefined_symbols__.argsfile",
                 symbol_files = non_body_root_undefined_syms,
                 category = "omnibus_undefined_symbols",
             ),
@@ -558,7 +558,7 @@ def _create_omnibus(
             # just use it for omnibus.
             link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, [], False, toolchain_info),
             link_weight = linker_info.link_weight,
-            enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
+            enable_distributed_thinlto = enable_distributed_thinlto,
             identifier = soname,
             allow_cache_upload = allow_cache_upload,
         ),
@@ -690,7 +690,9 @@ def create_omnibus_libraries(
         ctx: AnalysisContext,
         graph: OmnibusGraph,
         extra_ldflags: list[typing.Any] = [],
-        prefer_stripped_objects: bool = False) -> OmnibusSharedLibraries:
+        extra_root_ldflags: dict[Label, list[typing.Any]] = {},
+        prefer_stripped_objects: bool = False,
+        enable_distributed_thinlto = False) -> OmnibusSharedLibraries:
     spec = _build_omnibus_spec(ctx, graph)
     pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
 
@@ -711,7 +713,7 @@ def create_omnibus_libraries(
             link_deps,
             dummy_omnibus,
             pic_behavior,
-            extra_ldflags,
+            extra_ldflags + extra_root_ldflags.get(label, []),
             prefer_stripped_objects,
             allow_cache_upload = True,
         )
@@ -735,6 +737,7 @@ def create_omnibus_libraries(
             pic_behavior,
             extra_ldflags,
             prefer_stripped_objects,
+            enable_distributed_thinlto = enable_distributed_thinlto,
             allow_cache_upload = True,
         )
         libraries.append(

@@ -37,11 +37,11 @@ use starlark_syntax::eval_exception::EvalException;
 
 use crate::codemap::CodeMap;
 use crate::environment::Globals;
+use crate::eval::Evaluator;
 use crate::eval::compiler::scope::ModuleScopeData;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::scope::ScopeNames;
 use crate::eval::runtime::frame_span::FrameSpan;
-use crate::eval::Evaluator;
 use crate::values::FrozenRef;
 
 #[cold]
@@ -59,7 +59,7 @@ pub(crate) fn add_span_to_expr_error(
 /// Convert syntax error to spanned evaluation exception
 #[inline(always)]
 pub(crate) fn expr_throw<'v, T>(
-    r: anyhow::Result<T>,
+    r: crate::Result<T>,
     span: FrameSpan,
     eval: &Evaluator<'v, '_, '_>,
 ) -> Result<T, EvalException> {

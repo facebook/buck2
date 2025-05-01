@@ -20,6 +20,7 @@ pub struct EnumAttrType {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum EnumAttrError {
     #[error("enum.attr() variant names must all be lowercase, got `{0}`")]
     NotLowercase(String),
@@ -28,7 +29,7 @@ enum EnumAttrError {
 }
 
 impl EnumAttrType {
-    pub fn new(variants: Vec<String>) -> anyhow::Result<Self> {
+    pub fn new(variants: Vec<String>) -> buck2_error::Result<Self> {
         let mut result = OrderedSet::with_capacity(variants.len());
         for x in variants {
             if x != x.to_lowercase() {

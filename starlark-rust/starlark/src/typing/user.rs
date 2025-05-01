@@ -24,14 +24,16 @@ use dupe::Dupe;
 use starlark_map::sorted_map::SortedMap;
 use starlark_syntax::codemap::Span;
 
-use crate::typing::call_args::TyCallArgs;
-use crate::typing::callable::TyCallable;
-use crate::typing::custom::TyCustomImpl;
-use crate::typing::error::TypingOrInternalError;
-use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingOracleCtx;
+use crate::typing::call_args::TyCallArgs;
+use crate::typing::callable::TyCallable;
+use crate::typing::custom::TyCustomImpl;
+use crate::typing::error::TypingNoContextError;
+use crate::typing::error::TypingNoContextOrInternalError;
+use crate::typing::error::TypingOrInternalError;
+use crate::typing::starlark_value::TyStarlarkValue;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
@@ -140,7 +142,7 @@ impl TyUser {
         base: TyStarlarkValue,
         id: TypeInstanceId,
         params: TyUserParams,
-    ) -> anyhow::Result<TyUser> {
+    ) -> crate::Result<TyUser> {
         let TyUserParams {
             supertypes,
             matcher,
@@ -151,13 +153,19 @@ impl TyUser {
             _non_exhaustive: (),
         } = params;
         if callable.is_some() && !base.is_callable() {
-            return Err(TyUserError::CallableNotCallable(name).into());
+            return Err(crate::Error::new_native(TyUserError::CallableNotCallable(
+                name,
+            )));
         }
         if index.is_some() && !base.is_indexable() {
-            return Err(TyUserError::IndexableNotIndexable(name).into());
+            return Err(crate::Error::new_native(
+                TyUserError::IndexableNotIndexable(name),
+            ));
         }
         if iter_item.is_some() && base.iter_item().is_err() {
-            return Err(TyUserError::IterableNotIterable(name).into());
+            return Err(crate::Error::new_native(TyUserError::IterableNotIterable(
+                name,
+            )));
         }
         Ok(TyUser {
             name,
@@ -205,35 +213,38 @@ impl TyCustomImpl for TyUser {
         Some(&self.name)
     }
 
-    fn attribute(&self, attr: &str) -> Result<Ty, ()> {
-        if let Ok(ty) = self.base.attr_from_methods(attr) {
-            Ok(ty)
-        } else {
-            match self.fields.known.get(attr) {
+    fn attribute(&self, attr: &str) -> Result<Ty, TypingNoContextError> {
+        match self.base.attr_from_methods(attr) {
+            Ok(ty) => Ok(ty),
+            _ => match self.fields.known.get(attr) {
                 Some(ty) => Ok(ty.dupe()),
                 None => {
                     if self.fields.unknown {
                         Ok(Ty::any())
                     } else {
-                        Err(())
+                        Err(TypingNoContextError)
                     }
                 }
-            }
+            },
         }
     }
 
-    fn index(&self, item: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()> {
+    fn index(
+        &self,
+        item: &TyBasic,
+        ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         if let Some(index) = &self.index {
-            if !ctx.intersects(&Ty::basic(item.dupe()), &index.index) {
-                return Err(());
+            if !ctx.intersects(&Ty::basic(item.dupe()), &index.index)? {
+                return Err(TypingNoContextOrInternalError::Typing);
             }
             Ok(index.result.dupe())
         } else {
-            self.base.index(item)
+            Ok(self.base.index(item)?)
         }
     }
 
-    fn iter_item(&self) -> Result<Ty, ()> {
+    fn iter_item(&self) -> Result<Ty, TypingNoContextError> {
         if let Some(iter_item) = &self.iter_item {
             Ok(iter_item.dupe())
         } else {
@@ -287,28 +298,28 @@ impl TyCustomImpl for TyUser {
 mod tests {
     use allocative::Allocative;
     use dupe::Dupe;
-    use starlark_derive::starlark_module;
-    use starlark_derive::starlark_value;
     use starlark_derive::NoSerialize;
     use starlark_derive::ProvidesStaticType;
+    use starlark_derive::starlark_module;
+    use starlark_derive::starlark_value;
 
     use crate as starlark;
     use crate::assert::Assert;
     use crate::environment::GlobalsBuilder;
     use crate::eval::Arguments;
     use crate::eval::Evaluator;
-    use crate::typing::callable::TyCallable;
-    use crate::typing::user::TyUserParams;
     use crate::typing::ParamSpec;
     use crate::typing::Ty;
     use crate::typing::TyStarlarkValue;
     use crate::typing::TyUser;
-    use crate::values::starlark_value_as_type::StarlarkValueAsType;
-    use crate::values::typing::TypeInstanceId;
+    use crate::typing::callable::TyCallable;
+    use crate::typing::user::TyUserParams;
     use crate::values::AllocValue;
     use crate::values::Heap;
     use crate::values::StarlarkValue;
     use crate::values::Value;
+    use crate::values::starlark_value_as_type::StarlarkValueAsType;
+    use crate::values::typing::TypeInstanceId;
 
     #[derive(
         Debug,
@@ -397,11 +408,11 @@ mod tests {
 
     #[starlark_module]
     fn globals(globals: &mut GlobalsBuilder) {
-        fn fruit(name: String) -> anyhow::Result<FruitCallable> {
+        fn fruit(name: String) -> starlark::Result<FruitCallable> {
             let ty_fruit = Ty::custom(TyUser::new(
                 name.clone(),
                 TyStarlarkValue::new::<Fruit>(),
-                TypeInstanceId::gen(),
+                TypeInstanceId::r#gen(),
                 TyUserParams {
                     supertypes: AbstractPlant::get_type_starlark_repr()
                         .iter_union()
@@ -412,7 +423,7 @@ mod tests {
             let ty_fruit_callable = Ty::custom(TyUser::new(
                 format!("fruit[{}]", name),
                 TyStarlarkValue::new::<FruitCallable>(),
-                TypeInstanceId::gen(),
+                TypeInstanceId::r#gen(),
                 TyUserParams {
                     callable: Some(TyCallable::new(ParamSpec::empty(), ty_fruit.clone())),
 

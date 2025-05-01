@@ -38,9 +38,8 @@ use crate::starlark_simple_value;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::tests::util::trim_rust_backtrace;
-use crate::values::list_or_tuple::UnpackListOrTuple;
-use crate::values::none::NoneType;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Heap;
 use crate::values::NoSerialize;
@@ -48,6 +47,8 @@ use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::list_or_tuple::UnpackListOrTuple;
+use crate::values::none::NoneType;
 
 #[test]
 fn alias_test() {
@@ -171,7 +172,7 @@ def loop():
         if len(xs) == 3:
             xs.append(4)
 loop()"#,
-        "mutate an iterable",
+        "mutates an iterable",
     );
 }
 
@@ -271,7 +272,7 @@ def foo():
         break
 foo()
 "#,
-        "mutate an iterable",
+        "mutates an iterable",
     );
     assert::fail(
         r#"
@@ -736,13 +737,13 @@ fn test_label_assign() {
 
     impl<'v> Freeze for Wrapper<'v> {
         type Frozen = FrozenWrapper;
-        fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
             Ok(FrozenWrapper)
         }
     }
 
     #[starlark_module]
-    fn module<'v>(builder: &mut GlobalsBuilder) {
+    fn module(builder: &mut GlobalsBuilder) {
         fn wrapper<'v>(heap: &'v Heap) -> anyhow::Result<Value<'v>> {
             Ok(heap.alloc_complex(Wrapper(RefCell::new(SmallMap::new()))))
         }
@@ -956,7 +957,7 @@ fn test_fuzzer_59102() {
     let res: Result<AstModule, crate::Error> =
         AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard);
     // The panic actually only happens when we format the result
-    format!("{:?}", res);
+    let _unused = format!("{:?}", res);
 }
 
 #[test]
@@ -966,7 +967,7 @@ fn test_fuzzer_59371() {
     let res: Result<AstModule, crate::Error> =
         AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard);
     // The panic actually only happens when we format the result
-    format!("{:?}", res);
+    let _unused = format!("{:?}", res);
 }
 
 #[test]

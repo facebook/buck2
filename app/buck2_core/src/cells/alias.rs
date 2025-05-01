@@ -12,6 +12,7 @@ use std::borrow::Borrow;
 use allocative::Allocative;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum CellAliasError {
     #[error("Empty alias where non-empty is required")]
     EmptyAlias,
@@ -67,7 +68,7 @@ impl Borrow<str> for CellAlias {
 pub struct NonEmptyCellAlias(String);
 
 impl NonEmptyCellAlias {
-    pub fn new(alias: String) -> anyhow::Result<NonEmptyCellAlias> {
+    pub fn new(alias: String) -> buck2_error::Result<NonEmptyCellAlias> {
         if alias.is_empty() {
             Err(CellAliasError::EmptyAlias.into())
         } else {

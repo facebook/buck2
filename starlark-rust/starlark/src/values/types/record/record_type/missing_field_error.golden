@@ -1,0 +1,23 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib
+# ```
+
+Program:
+
+RecFail = record(a = field(int), b = field(int))
+
+_x = RecFail(a = 1)
+
+Error:
+
+Traceback (most recent call last):
+  * assert.bzl:3, in <module>
+      _x = RecFail(a = 1)
+error: Missing named-only parameter `b` for call to `RecFail`
+ --> assert.bzl:3:6
+  |
+3 | _x = RecFail(a = 1)
+  |      ^^^^^^^^^^^^^^
+  |

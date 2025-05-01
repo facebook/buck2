@@ -13,21 +13,24 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
 use buck2::exec;
 use buck2::panic;
 use buck2::process_context::ProcessContext;
-use buck2_build_info::Buck2BuildInfo;
 use buck2_build_info::BUCK2_BUILD_INFO;
+use buck2_build_info::Buck2BuildInfo;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::restarter::Restarter;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::stdio;
 use buck2_core::buck2_env;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
+use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_core::logging::init_tracing_for_writer;
 use buck2_core::logging::log_file::TracingLogFile;
-use buck2_core::logging::LogConfigurationReloadHandle;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 
@@ -112,9 +115,10 @@ fn main() -> ! {
         buck2_query_impls::init_late_bindings();
         buck2_interpreter_for_build::init_late_bindings();
         buck2_server_commands::init_late_bindings();
-        buck2_starlark_server::init_late_bindings();
+        buck2_cmd_starlark_server::init_late_bindings();
         buck2_test::init_late_bindings();
         buck2_validation::init_late_bindings();
+        buck2_events::init_late_bindings();
     }
     BUCK2_BUILD_INFO.init(Buck2BuildInfo {
         revision: std::option_env!("BUCK2_SET_EXPLICIT_VERSION"),
@@ -123,18 +127,21 @@ fn main() -> ! {
     });
 
     fn main_with_result() -> ExitResult {
-        panic::initialize()?;
+        let start_time = get_unix_timestamp_millis();
+
+        panic::initialize().map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         check_cargo();
 
         let force_want_restart = buck2_env!("FORCE_WANT_RESTART", bool)?;
 
-        let log_reload_handle = init_logging()?;
+        let log_reload_handle =
+            init_logging().map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         // Log the start timestamp
         tracing::debug!("Client initialized logging");
 
         let args = std::env::args().collect::<Vec<String>>();
-        let cwd = WorkingDir::current_dir()?;
+        let cwd = AbsWorkingDir::current_dir()?;
         let mut stdin = Stdin::new()?;
         let mut restarter = Restarter::new();
 
@@ -144,6 +151,7 @@ fn main() -> ! {
             log_reload_handle: &log_reload_handle,
             stdin: &mut stdin,
             working_dir: &cwd,
+            start_time,
             args: &args,
             restarter: &mut restarter,
             trace_id: first_trace_id.dupe(),
@@ -151,6 +159,8 @@ fn main() -> ! {
         });
 
         let restart = |res| {
+            let restart_start_time = get_unix_timestamp_millis();
+
             if !force_want_restart && !restarter.should_restart() {
                 tracing::debug!("No restart was requested");
                 return res;
@@ -169,6 +179,7 @@ fn main() -> ! {
             exec(ProcessContext {
                 log_reload_handle: &log_reload_handle,
                 stdin: &mut stdin,
+                start_time: restart_start_time,
                 working_dir: &cwd,
                 args: &args,
                 restarter: &mut restarter,
@@ -182,6 +193,15 @@ fn main() -> ! {
         } else {
             res.or_else(restart)
         }
+    }
+
+    pub fn get_unix_timestamp_millis() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()
+            .try_into()
+            .unwrap()
     }
 
     main_with_result().report()

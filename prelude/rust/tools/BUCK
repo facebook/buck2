@@ -1,0 +1,110 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+load(":attrs.bzl", "rust_internal_tools_toolchain")
+load(
+    ":tool_rules.bzl",
+    "get_rustc_cfg",
+    "get_rustc_host_tuple",
+    "linkable_symbol_supports_no_std",
+)
+
+oncall("build_infra")
+
+source_listing()
+
+prelude = native
+
+get_rustc_cfg(
+    name = "rustc_cfg",
+    visibility = ["PUBLIC"],
+)
+
+get_rustc_host_tuple(
+    name = "rustc_host_tuple",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "deferred_link_action",
+    main = "deferred_link_action.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "extract_link_action",
+    main = "extract_link_action.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "rustc_action",
+    main = "rustc_action.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "rustdoc_test_with_resources",
+    main = "rustdoc_test_with_resources.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "failure_filter_action",
+    main = "failure_filter_action.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "transitive_dependency_symlinks",
+    main = "transitive_dependency_symlinks.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "buildscript_run",
+    main = "buildscript_run.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "rustdoc_coverage",
+    main = "rustdoc_coverage.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "redirect_stdout",
+    main = "redirect_stdout.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "symlink_only_dir_entry",
+    main = "symlink_only_dir_entry.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "cd_run",
+    main = "cd_run.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.export_file(
+    name = "linkable_symbol.rs",
+    visibility = ["PUBLIC"],
+)
+
+linkable_symbol_supports_no_std(
+    name = "linkable_symbol_supports_no_std",
+    visibility = ["PUBLIC"],
+)
+
+rust_internal_tools_toolchain(
+    name = "internal_tools_toolchain",
+    visibility = ["PUBLIC"],
+)
+
+prelude.export_file(
+    name = "attrs.bzl",
+    visibility = ["PUBLIC"],
+)

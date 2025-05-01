@@ -1,0 +1,30 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+Match: entry kind at file_metadata: Directory
+Match: directory contents at file_metadata: file, nested, symlinks
+Match: entry kind at file_metadata/file: File
+Match: file metadata at file_metadata/file: File(digest=f69ccfdc3d8ec821134049bf9a569861876422615905fd0cb846e497c50bddf5:10, is_executable=false)
+Match: entry kind at file_metadata/nested: Directory
+Match: directory contents at file_metadata/nested: empty, file
+Match: entry kind at file_metadata/nested/empty: File
+Match: file metadata at file_metadata/nested/empty: File(digest=72bca042841f347a7b5671af8902e4615550c66bcc670223d86611102d0a0168:0, is_executable=false)
+Match: entry kind at file_metadata/nested/file: File
+Match: file metadata at file_metadata/nested/file: File(digest=e2086e0a751b10df5222435cc0e0a2c64d24e59dbd78d0ba0d2edd95799dae04:5, is_executable=false)
+Match: entry kind at file_metadata/symlinks: Directory
+Match: directory contents at file_metadata/symlinks: external, internal
+Match: entry kind at file_metadata/symlinks/external: Symlink
+Match: symlink component location at file_metadata/symlinks/external: file_metadata/symlinks/external
+Match: symlink destination kind at file_metadata/symlinks/external: External
+Match: external symlink destination at file_metadata/symlinks/external: /absolute
+Match: entry kind at file_metadata/symlinks/internal: Symlink
+Match: symlink component location at file_metadata/symlinks/internal: file_metadata/symlinks/internal
+Match: symlink destination kind at file_metadata/symlinks/internal: Relative
+Match: relative symlink destination at file_metadata/symlinks/internal: file_metadata/file
+Match: entry kind at file_metadata/symlinks/internal/traverse: Symlink
+Match: symlink component location at file_metadata/symlinks/internal/traverse: file_metadata/symlinks/internal
+Match: symlink destination kind at file_metadata/symlinks/internal/traverse: Relative
+Match: relative symlink destination at file_metadata/symlinks/internal/traverse: file_metadata/file/traverse
+Match: entry kind at file_metadata/symlinks/external/traverse: Symlink
+Match: symlink component location at file_metadata/symlinks/external/traverse: file_metadata/symlinks/external
+Match: symlink destination kind at file_metadata/symlinks/external/traverse: External
+Match: external symlink destination at file_metadata/symlinks/external/traverse: /absolute/traverse

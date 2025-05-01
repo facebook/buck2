@@ -13,13 +13,13 @@ use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
-use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_test_api::data::RemoteStorageConfig;
 use dupe::Dupe;
 use remote_execution::TDigest;
 
 pub async fn apply_config(
-    client: ManagedRemoteExecutionClient,
+    client: UnconfiguredRemoteExecutionClient,
     artifact: &ArtifactValue,
     config: &RemoteStorageConfig,
 ) -> anyhow::Result<()> {
@@ -30,9 +30,10 @@ pub async fn apply_config(
             // the TTL of symlinks. Additionally, it is rare for test outputs to include symlinks, but if they do,
             // we are materializing them on disk.
             let digests = collect_digests(artifact.entry());
-            client
-                .extend_digest_ttl(digests, ttl_config.ttl, ttl_config.use_case.dupe())
-                .await
+            Ok(client
+                .with_use_case(ttl_config.use_case.dupe())
+                .extend_digest_ttl(digests, ttl_config.ttl)
+                .await?)
         }
         _ => Ok(()),
     }
@@ -61,9 +62,9 @@ mod tests {
     use buck2_common::file_ops::TrackedFileDigest;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_execute::digest_config::DigestConfig;
+    use buck2_execute::directory::ActionDirectoryBuilder;
     use buck2_execute::directory::extract_artifact_value;
     use buck2_execute::directory::insert_file;
-    use buck2_execute::directory::ActionDirectoryBuilder;
 
     use super::*;
 

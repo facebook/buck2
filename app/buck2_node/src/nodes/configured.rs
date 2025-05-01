@@ -37,16 +37,16 @@ use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use either::Either;
 use once_cell::sync::Lazy;
-use starlark_map::ordered_map::OrderedMap;
 use starlark_map::Hashed;
+use starlark_map::ordered_map::OrderedMap;
 
 use crate::attrs::attr::Attribute;
+use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dep::DepAttrTransition;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 use crate::attrs::attr_type::string::StringLiteral;
-use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::configuration_context::AttrConfigurationContextImpl;
@@ -54,12 +54,13 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_attr_full::ConfiguredAttrFull;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::inspect_options::AttrInspectOptions;
-use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
+use crate::attrs::spec::internal::TESTS_ATTRIBUTE;
+use crate::bzl_or_bxl_path::BzlOrBxlPath;
 use crate::call_stack::StarlarkCallStack;
 use crate::call_stack::StarlarkTargetCallStackRoot;
 use crate::configuration::resolved::ConfigurationSettingKey;
-use crate::configuration::resolved::ResolvedConfiguration;
-use crate::configuration::resolved::ResolvedConfigurationSettings;
+use crate::configuration::resolved::MatchedConfigurationSettingKeys;
+use crate::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
 use crate::nodes::attributes::DEPS;
 use crate::nodes::attributes::EXECUTION_PLATFORM;
 use crate::nodes::attributes::ONCALL;
@@ -118,6 +119,13 @@ impl TargetNodeOrForward {
         }
     }
 
+    fn underlying_rule_type(&self) -> &RuleType {
+        match self {
+            TargetNodeOrForward::TargetNode(target_node) => target_node.rule_type(),
+            TargetNodeOrForward::Forward(_, node) => node.underlying_rule_type(),
+        }
+    }
+
     fn rule_kind(&self) -> RuleKind {
         match self {
             TargetNodeOrForward::TargetNode(x) => x.rule_kind(),
@@ -132,7 +140,7 @@ impl TargetNodeOrForward {
         }
     }
 
-    fn is_visible_to(&self, target: &TargetLabel) -> anyhow::Result<bool> {
+    fn is_visible_to(&self, target: &TargetLabel) -> buck2_error::Result<bool> {
         match self {
             TargetNodeOrForward::TargetNode(node) => node.is_visible_to(target),
             TargetNodeOrForward::Forward(_, forward) => forward.is_visible_to(target),
@@ -176,7 +184,7 @@ impl TargetNodeOrForward {
 struct ConfiguredTargetNodeData {
     label: Hashed<ConfiguredTargetLabel>,
     target_node: TargetNodeOrForward,
-    resolved_configuration: ResolvedConfiguration,
+    resolved_configuration: MatchedConfigurationSettingKeysWithCfg,
     resolved_transition_configurations: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
     execution_platform_resolution: ExecutionPlatformResolution,
     // all_deps includes regular deps and transitioned deps,
@@ -204,28 +212,21 @@ impl ConfiguredTargetNode {
         rule_type: &str,
         execution_platform_resolution: ExecutionPlatformResolution,
         attrs: Vec<(&str, Attribute, CoercedAttr)>,
-        internal_attrs: Vec<(&str, Attribute, CoercedAttr)>,
         call_stack: Option<StarlarkCallStack>,
     ) -> Self {
         use crate::nodes::unconfigured::testing::TargetNodeExt;
 
         let rule_type = RuleType::Starlark(Arc::new(StarlarkRuleType {
-            import_path: ImportPath::testing_new("cell//pkg:rules.bzl"),
+            path: BzlOrBxlPath::Bzl(ImportPath::testing_new("cell//pkg:rules.bzl")),
             name: rule_type.to_owned(),
         }));
 
         Self::new(
             name.dupe(),
-            TargetNode::testing_new(
-                name.unconfigured().dupe(),
-                rule_type,
-                attrs,
-                internal_attrs,
-                call_stack,
-            ),
-            ResolvedConfiguration::new(
+            TargetNode::testing_new(name.unconfigured().dupe(), rule_type, attrs, call_stack),
+            MatchedConfigurationSettingKeysWithCfg::new(
                 ConfigurationNoExec::new(name.cfg().dupe()),
-                ResolvedConfigurationSettings::empty(),
+                MatchedConfigurationSettingKeys::empty(),
             ),
             OrderedMap::new(),
             execution_platform_resolution,
@@ -239,7 +240,7 @@ impl ConfiguredTargetNode {
     pub fn new(
         name: ConfiguredTargetLabel,
         target_node: TargetNode,
-        resolved_configuration: ResolvedConfiguration,
+        resolved_configuration: MatchedConfigurationSettingKeysWithCfg,
         resolved_tr_configurations: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
         execution_platform_resolution: ExecutionPlatformResolution,
         deps: Vec<ConfiguredTargetNode>,
@@ -265,7 +266,7 @@ impl ConfiguredTargetNode {
         name: ConfiguredTargetLabel,
         // The transitioned target node.
         transitioned_node: ConfiguredTargetNode,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         assert_eq!(
             name.unconfigured(),
             transitioned_node.label().unconfigured(),
@@ -287,7 +288,7 @@ impl ConfiguredTargetNode {
             ConfiguredTargetNodeData {
                 label: Hashed::new(name.dupe()),
                 target_node: TargetNodeOrForward::Forward(
-                    CoercedAttr::ConfiguredDep(Box::new(DepAttr {
+                    CoercedAttr::ConfiguredDepForForwardNode(Box::new(DepAttr {
                         attr_type: DepAttrType::new(
                             ProviderIdSet::EMPTY,
                             DepAttrTransition::Identity(PluginKindSet::EMPTY),
@@ -297,9 +298,9 @@ impl ConfiguredTargetNode {
                     transitioned_node.dupe(),
                 ),
                 // We have no attributes with selects, so resolved configurations is empty.
-                resolved_configuration: ResolvedConfiguration::new(
+                resolved_configuration: MatchedConfigurationSettingKeysWithCfg::new(
                     name.cfg_pair().check_no_exec_cfg()?,
-                    ResolvedConfigurationSettings::empty(),
+                    MatchedConfigurationSettingKeys::empty(),
                 ),
                 // We have no attributes to transition, so empty map is fine.
                 resolved_transition_configurations: OrderedMap::new(),
@@ -323,21 +324,26 @@ impl ConfiguredTargetNode {
 
     pub fn attr_as_target_compatible_with(
         attr: ConfiguredAttr,
-    ) -> impl Iterator<Item = anyhow::Result<ConfigurationSettingKey>> {
+    ) -> impl Iterator<Item = buck2_error::Result<ConfigurationSettingKey>> {
         let list = match attr.try_into_list() {
             Ok(list) => list,
             Err(e) => return Either::Left(iter::once(Err(e))),
         };
-        Either::Right(list.into_iter().map(|val| val.try_into_configuration_dep()))
+        Either::Right(list.into_iter().map(|val| {
+            val.try_into_configuration_dep()
+                .map(ConfigurationSettingKey)
+        }))
     }
 
     pub fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution {
         &self.0.execution_platform_resolution
     }
 
-    /// Returns all deps for this node that we know about after processing the build file
-    /// (it may be missing things like toolchain deps or other things that are determined
-    /// later in the build process).
+    /// Returns all deps for this node:
+    /// - target ("normal") deps
+    /// - execution deps
+    /// - toolchain deps
+    /// - configuration deps
     // TODO(cjhopman): Should this include configuration deps? Should it include the configuration deps that were inspected resolving selects?
     pub fn deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
         self.0.all_deps.all_deps.iter()
@@ -394,19 +400,19 @@ impl ConfiguredTargetNode {
         }
 
         impl ConfiguredAttrTraversal for TestCollector {
-            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
                 // ignored.
                 Ok(())
             }
 
-            fn label(&mut self, label: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            fn label(&mut self, label: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
                 self.labels.push(label.dupe());
                 Ok(())
             }
         }
 
         let mut traversal = TestCollector::default();
-        if let Some(tests) = self.get(TESTS_ATTRIBUTE_FIELD, AttrInspectOptions::All) {
+        if let Some(tests) = self.get(TESTS_ATTRIBUTE.name, AttrInspectOptions::All) {
             tests.traverse(self.label().pkg(), &mut traversal).unwrap();
         }
         traversal.labels.into_iter()
@@ -432,6 +438,10 @@ impl ConfiguredTargetNode {
         self.0.target_node.rule_type()
     }
 
+    pub fn underlying_rule_type(&self) -> &RuleType {
+        self.0.target_node.underlying_rule_type()
+    }
+
     pub fn rule_kind(&self) -> RuleKind {
         self.0.target_node.rule_kind()
     }
@@ -440,8 +450,13 @@ impl ConfiguredTargetNode {
         self.0.target_node.buildfile_path()
     }
 
-    pub fn is_visible_to(&self, target: &TargetLabel) -> anyhow::Result<bool> {
+    pub fn is_visible_to(&self, target: &TargetLabel) -> buck2_error::Result<bool> {
         self.0.target_node.is_visible_to(target)
+    }
+
+    #[inline]
+    pub fn special_attr_or_none(&self, key: &str) -> Option<ConfiguredAttr> {
+        self.as_ref().special_attr_or_none(key)
     }
 
     #[inline]
@@ -519,7 +534,7 @@ impl ConfiguredTargetNode {
     }
 
     #[inline]
-    pub fn execution_platform(&self) -> anyhow::Result<&ExecutionPlatform> {
+    pub fn execution_platform(&self) -> buck2_error::Result<&ExecutionPlatform> {
         self.as_ref().execution_platform_resolution().platform()
     }
 
@@ -665,47 +680,60 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
         self.0.get().target_node.oncall()
     }
 
+    pub fn special_attr_or_none(&self, key: &str) -> Option<ConfiguredAttr> {
+        match key {
+            TYPE => Some(ConfiguredAttr::String(StringLiteral(
+                self.rule_type().name().into(),
+            ))),
+            DEPS => Some(ConfiguredAttr::List(
+                self.deps()
+                    .map(|t| {
+                        ConfiguredAttr::Label(ConfiguredProvidersLabel::new(
+                            t.label().dupe(),
+                            ProvidersName::Default,
+                        ))
+                    })
+                    .collect(),
+            )),
+            PACKAGE => Some(ConfiguredAttr::String(StringLiteral(ArcStr::from(
+                self.buildfile_path().to_string(),
+            )))),
+            ONCALL => Some(match self.oncall() {
+                None => ConfiguredAttr::None,
+                Some(x) => ConfiguredAttr::String(StringLiteral(ArcStr::from(x))),
+            }),
+            TARGET_CONFIGURATION => Some(ConfiguredAttr::String(StringLiteral(ArcStr::from(
+                self.0.label.cfg().to_string(),
+            )))),
+            EXECUTION_PLATFORM => Some(ConfiguredAttr::String(StringLiteral(
+                self.0
+                    .execution_platform_resolution
+                    .platform()
+                    .map_or_else(|_| ArcStr::from("<NONE>"), |v| ArcStr::from(v.id())),
+            ))),
+            PLUGINS => Some(self.plugins_as_attr()),
+            _ => None,
+        }
+    }
+
     pub fn special_attrs(self) -> impl Iterator<Item = (&'a str, ConfiguredAttr)> {
-        let typ_attr = ConfiguredAttr::String(StringLiteral(self.rule_type().name().into()));
-        let deps_attr = ConfiguredAttr::List(
-            self.deps()
-                .map(|t| {
-                    ConfiguredAttr::Label(ConfiguredProvidersLabel::new(
-                        t.label().dupe(),
-                        ProvidersName::Default,
-                    ))
-                })
-                .collect(),
-        );
-        let package_attr = ConfiguredAttr::String(StringLiteral(ArcStr::from(
-            self.buildfile_path().to_string(),
-        )));
-        vec![
-            (TYPE, typ_attr),
-            (DEPS, deps_attr),
-            (PACKAGE, package_attr),
-            (
-                ONCALL,
-                match self.oncall() {
-                    None => ConfiguredAttr::None,
-                    Some(x) => ConfiguredAttr::String(StringLiteral(ArcStr::from(x))),
-                },
-            ),
-            (
-                TARGET_CONFIGURATION,
-                ConfiguredAttr::String(StringLiteral(ArcStr::from(self.0.label.cfg().to_string()))),
-            ),
-            (
-                EXECUTION_PLATFORM,
-                ConfiguredAttr::String(StringLiteral(
-                    self.0
-                        .execution_platform_resolution
-                        .platform()
-                        .map_or_else(|_| ArcStr::from("<NONE>"), |v| ArcStr::from(v.id())),
-                )),
-            ),
-            (PLUGINS, self.plugins_as_attr()),
+        [
+            TYPE,
+            DEPS,
+            PACKAGE,
+            ONCALL,
+            TARGET_CONFIGURATION,
+            EXECUTION_PLATFORM,
+            PLUGINS,
         ]
+        .into_iter()
+        .map(move |key| {
+            (
+                key,
+                // use unwrap here, if fail here it means we iter over a key not in the match list from `special_attr_or_none`
+                self.special_attr_or_none(key).unwrap(),
+            )
+        })
         .into_iter()
     }
 
@@ -731,11 +759,11 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
             inputs: Vec<CellPath>,
         }
         impl ConfiguredAttrTraversal for InputsCollector {
-            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn input(&mut self, path: SourcePathRef) -> anyhow::Result<()> {
+            fn input(&mut self, path: SourcePathRef) -> buck2_error::Result<()> {
                 self.inputs.push(path.to_cell_path());
                 Ok(())
             }
@@ -759,7 +787,7 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
             queries: Vec::new(),
         };
         impl ConfiguredAttrTraversal for Traversal {
-            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
                 // ignored.
                 Ok(())
             }
@@ -768,7 +796,7 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
                 &mut self,
                 query: &str,
                 resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 self.queries
                     .push((query.to_owned(), resolved_literals.clone()));
                 Ok(())

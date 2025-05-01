@@ -18,12 +18,12 @@
 #     buildscript_genrule = "buildscript_run"
 #
 
-load("@prelude//:prelude.bzl", "native")
 load("@prelude//decls:common.bzl", "buck")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//rust:targets.bzl", "targets")
-load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
+load("@prelude//utils:cmd_script.bzl", "cmd_script")
 load(":build.bzl", "dependency_args")
 load(":build_params.bzl", "MetadataKind")
 load(":context.bzl", "DepCollectionContext")
@@ -63,33 +63,21 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
             is_rustdoc_test = False,
         )
 
-        null_path = "nul" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "/dev/null"
+        null_path = "nul" if ctx.attrs._exec_os_type[OsLookup].os == Os("windows") else "/dev/null"
         dep_args = cmd_args("--sysroot=" + null_path, dep_args, relative_to = cwd)
         dep_file, _ = ctx.actions.write("rustc_dep_file", dep_args, allow_args = True)
         sysroot_args = cmd_args("@", dep_file, delimiter = "", hidden = dep_args)
     else:
         sysroot_args = cmd_args()
 
-    if ctx.attrs._exec_os_type[OsLookup].platform == "windows":
-        shim, _ = ctx.actions.write(
-            "__rustc_shim.bat",
-            [
-                "@echo off",
-                cmd_args(toolchain_info.compiler, sysroot_args, "%*", delimiter = " ", relative_to = cwd),
-            ],
-            allow_args = True,
-        )
-    else:
-        shim, _ = ctx.actions.write(
-            "__rustc_shim.sh",
-            [
-                "#!/usr/bin/env bash",
-                cmd_args(toolchain_info.compiler, sysroot_args, "\"$@\"\n", delimiter = " ", relative_to = cwd),
-            ],
-            is_executable = True,
-            allow_args = True,
-        )
-    return cmd_args(shim, relative_to = cwd, hidden = [toolchain_info.compiler, sysroot_args])
+    shim = cmd_script(
+        ctx = ctx,
+        name = "__rustc_shim",
+        cmd = cmd_args(toolchain_info.compiler, sysroot_args, relative_to = cwd),
+        language = ctx.attrs._exec_os_type[OsLookup].script,
+    )
+
+    return cmd_args(shim, relative_to = cwd)
 
 def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
@@ -98,14 +86,19 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     out_dir = ctx.actions.declare_output("OUT_DIR", dir = True)
     rustc_flags = ctx.actions.declare_output("rustc_flags")
 
-    cmd = cmd_args(
+    if ctx.attrs.manifest_dir != None:
+        manifest_dir = ctx.attrs.manifest_dir[DefaultInfo].default_outputs[0]
+    else:
+        manifest_dir = ctx.actions.symlinked_dir("manifest_dir", ctx.attrs.filegroup_for_manifest_dir)
+
+    cmd = [
         ctx.attrs.runner[RunInfo],
         cmd_args("--buildscript=", ctx.attrs.buildscript[RunInfo], delimiter = ""),
         cmd_args("--rustc-cfg=", ctx.attrs.rustc_cfg[DefaultInfo].default_outputs[0], delimiter = ""),
-        cmd_args("--manifest-dir=", ctx.attrs.manifest_dir[DefaultInfo].default_outputs[0], delimiter = ""),
+        cmd_args("--manifest-dir=", manifest_dir, delimiter = ""),
         cmd_args("--create-cwd=", cwd.as_output(), delimiter = ""),
         cmd_args("--outfile=", rustc_flags.as_output(), delimiter = ""),
-    )
+    ]
 
     # See https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts
 
@@ -117,7 +110,11 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     env["RUSTC"] = _make_rustc_shim(ctx, cwd)
     env["RUSTC_LINKER"] = "/bin/false"
     env["RUST_BACKTRACE"] = "1"
-    env["TARGET"] = toolchain_info.rustc_target_triple
+
+    if toolchain_info.rustc_target_triple:
+        env["TARGET"] = toolchain_info.rustc_target_triple
+    else:
+        cmd.append(cmd_args("--rustc-host-tuple=", ctx.attrs.rustc_host_tuple[DefaultInfo].default_outputs[0], delimiter = ""))
 
     # \037 == \x1f == the magic delimiter specified in the environment variable
     # reference above.
@@ -156,12 +153,14 @@ _cargo_buildscript_rule = rule(
         "buildscript": attrs.exec_dep(providers = [RunInfo]),
         "env": attrs.dict(key = attrs.string(), value = attrs.arg()),
         "features": attrs.list(attrs.string()),
-        "manifest_dir": attrs.dep(),
+        "filegroup_for_manifest_dir": attrs.option(attrs.dict(key = attrs.string(), value = attrs.source()), default = None),
+        "manifest_dir": attrs.option(attrs.dep(), default = None),
         "package_name": attrs.string(),
         "runner": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//rust/tools:buildscript_run")),
         # *IMPORTANT* rustc_cfg must be a `dep` and not an `exec_dep` because
         # we want the `rustc --cfg` for the target platform, not the exec platform.
         "rustc_cfg": attrs.dep(default = "prelude//rust/tools:rustc_cfg"),
+        "rustc_host_tuple": attrs.dep(default = "prelude//rust/tools:rustc_host_tuple"),
         "version": attrs.string(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_rust_toolchain": toolchains_common.rust(),
@@ -177,25 +176,25 @@ def buildscript_run(
         version,
         features = [],
         env = {},
+        # path to crate's directory in source tree, e.g. "vendor/serde-1.0.100"
+        local_manifest_dir = None,
+        # target or subtarget containing crate, e.g. ":serde.git[serde]"
+        manifest_dir = None,
         **kwargs):
-    filegroup_name = "{}-{}.crate".format(package_name, version)
-    if not rule_exists(filegroup_name):
-        # In reindeer's `vendor = false` mode, this target will already exist;
-        # it is the `http_archive` containing the crate's sources. When
-        # vendoring, we need to make a filegroup referring to the vendored
-        # sources.
-        prefix = "vendor/{}-{}".format(package_name, version)
-        prefix_with_trailing_slash = "{}/".format(prefix)
+    if manifest_dir == None and local_manifest_dir == None:
+        existing_filegroup_name = "{}-{}.crate".format(package_name, version)
+        if rule_exists(existing_filegroup_name):
+            manifest_dir = ":{}".format(existing_filegroup_name)
+        else:
+            local_manifest_dir = "vendor/{}-{}".format(package_name, version)
 
-        native.filegroup(
-            name = filegroup_name,
-            srcs = {
-                path.removeprefix(prefix_with_trailing_slash): path
-                for path in glob(["{}/**".format(prefix)])
-            },
-            copy = False,
-            visibility = [],
-        )
+    filegroup_for_manifest_dir = None
+    if local_manifest_dir != None:
+        prefix_with_trailing_slash = "{}/".format(local_manifest_dir)
+        filegroup_for_manifest_dir = {
+            path.removeprefix(prefix_with_trailing_slash): path
+            for path in glob(["{}/**".format(local_manifest_dir)])
+        }
 
     _cargo_buildscript_rule(
         name = name,
@@ -204,6 +203,7 @@ def buildscript_run(
         version = version,
         features = features,
         env = env,
-        manifest_dir = ":{}-{}.crate".format(package_name, version),
+        filegroup_for_manifest_dir = filegroup_for_manifest_dir,
+        manifest_dir = manifest_dir,
         **kwargs
     )

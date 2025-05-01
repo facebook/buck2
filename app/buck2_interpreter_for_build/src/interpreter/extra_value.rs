@@ -14,12 +14,13 @@ use buck2_error::BuckErrorContext;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
-use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Trace;
 use starlark::values::ValueLike;
+use starlark::values::any_complex::StarlarkAnyComplex;
 
 use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
 use crate::interpreter::package_file_extra::PackageFileExtra;
@@ -39,7 +40,7 @@ pub(crate) struct FrozenInterpreterExtraValue {
 impl<'v> Freeze for InterpreterExtraValue<'v> {
     type Frozen = FrozenInterpreterExtraValue;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         Ok(FrozenInterpreterExtraValue {
             package_extra: self
                 .package_extra
@@ -51,7 +52,7 @@ impl<'v> Freeze for InterpreterExtraValue<'v> {
 }
 
 impl<'v> InterpreterExtraValue<'v> {
-    pub(crate) fn get(module: &'v Module) -> anyhow::Result<&'v InterpreterExtraValue<'v>> {
+    pub(crate) fn get(module: &'v Module) -> buck2_error::Result<&'v InterpreterExtraValue<'v>> {
         Ok(&module
             .extra_value()
             .internal_error("Extra value is missing")?
@@ -64,7 +65,7 @@ impl<'v> InterpreterExtraValue<'v> {
 impl FrozenInterpreterExtraValue {
     pub(crate) fn get(
         module: &FrozenModule,
-    ) -> anyhow::Result<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenInterpreterExtraValue>>>
+    ) -> buck2_error::Result<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenInterpreterExtraValue>>>
     {
         module
             .owned_extra_value()

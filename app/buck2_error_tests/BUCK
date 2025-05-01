@@ -1,0 +1,29 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
+load("@fbcode_macros//build_defs:rust_unittest.bzl", "rust_unittest")
+
+oncall("build_infra")
+
+buck_filegroup(
+    name = "tests",
+    srcs = glob([
+        "src/**/*.golden",
+        "src/**",
+    ]),
+)
+
+rust_unittest(
+    name = "buck2_error_tests",
+    srcs = glob(["src/**/*.rs"]),
+    env = {
+        # Some of our tests include testcase files relative to CARGO_MANIFEST_DIR.
+        # This is a hack that allows both `cargo test` and `buck test` to work.
+        "CARGO_MANIFEST_DIR": "$(location :tests)",
+    },
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:thiserror",
+        "//buck2/app/buck2_error:buck2_error",
+        "//buck2/app/buck2_util:buck2_util",
+        "//buck2/starlark-rust/starlark:starlark",
+    ],
+)

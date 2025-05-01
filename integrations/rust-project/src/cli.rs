@@ -22,6 +22,7 @@ use std::path::PathBuf;
 
 pub(crate) use check::Check;
 pub(crate) use develop::Develop;
+pub(crate) use develop::develop_with_sysroot;
 pub(crate) use new::New;
 pub(crate) use new::ProjectKind;
 

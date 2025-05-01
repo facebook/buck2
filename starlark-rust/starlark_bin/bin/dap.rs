@@ -26,18 +26,18 @@ use dupe::Dupe;
 pub(crate) use library::*;
 use serde_json::Map;
 use serde_json::Value;
-use starlark::debug::dap_capabilities;
-use starlark::debug::prepare_dap_adapter;
-use starlark::debug::resolve_breakpoints;
+use starlark::StarlarkResultExt;
 use starlark::debug::DapAdapter;
 use starlark::debug::DapAdapterClient;
 use starlark::debug::DapAdapterEvalHook;
+use starlark::debug::dap_capabilities;
+use starlark::debug::prepare_dap_adapter;
+use starlark::debug::resolve_breakpoints;
 use starlark::environment::Globals;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
-use starlark::StarlarkResultExt;
 
 mod library;
 

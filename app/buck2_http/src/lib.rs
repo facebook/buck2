@@ -19,9 +19,9 @@ pub mod retries;
 mod stats;
 mod x2p;
 
-pub use client::to_bytes;
 pub use client::HttpClient;
 pub use client::HttpClientBuilder;
+pub use client::to_bytes;
 
 fn http_error_label(status: StatusCode) -> &'static str {
     if status.is_server_error() {
@@ -33,13 +33,13 @@ fn http_error_label(status: StatusCode) -> &'static str {
     }
 }
 
-fn tag_from_status(status: StatusCode) -> Option<buck2_error::ErrorTag> {
+fn tag_from_status(status: StatusCode) -> buck2_error::ErrorTag {
     if status.is_server_error() {
-        Some(buck2_error::ErrorTag::HttpServer)
-    } else if status == StatusCode::FORBIDDEN || status == StatusCode::NOT_FOUND {
-        Some(buck2_error::ErrorTag::HttpClient)
+        buck2_error::ErrorTag::HttpServer
+    } else if status.is_client_error() {
+        buck2_error::ErrorTag::HttpClient
     } else {
-        None
+        buck2_error::ErrorTag::Http
     }
 }
 
@@ -52,6 +52,12 @@ pub enum HttpError {
         #[source]
         source: http::uri::InvalidUri,
     },
+    #[error("HTTP URI Error: URI parts {uri} is malformed: {source:?}")]
+    InvalidUriParts {
+        uri: String,
+        #[source]
+        source: http::uri::InvalidUriParts,
+    },
     #[error("HTTP: Error building request")]
     BuildRequest(#[source] http::Error),
     #[error("HTTP: Error sending request to {uri}")]
@@ -62,7 +68,7 @@ pub enum HttpError {
         source: hyper::Error,
     },
     #[error("HTTP {} Error ({status}) when querying URI: {uri}. Response text: {text}", http_error_label(*.status))]
-    #[buck2(tag = tag_from_status(*status))]
+    #[buck2(tag = tag_from_status(status))]
     Status {
         status: StatusCode,
         uri: String,
@@ -71,7 +77,7 @@ pub enum HttpError {
     #[error("HTTP Error: Exceeded max redirects ({max_redirects}) while fetching URI: {uri}. ")]
     TooManyRedirects { uri: String, max_redirects: usize },
     #[error("HTTP: Error mutating request")]
-    MutateRequest(#[source] anyhow::Error),
+    MutateRequest(#[source] buck2_error::Error),
     #[error("HTTP: Timed out while making request to URI: {uri} after {duration} seconds.")]
     #[buck2(tier0)]
     Timeout { uri: String, duration: u64 },
@@ -89,8 +95,8 @@ impl From<http::Error> for HttpError {
     }
 }
 
-impl From<anyhow::Error> for HttpError {
-    fn from(err: anyhow::Error) -> Self {
+impl From<buck2_error::Error> for HttpError {
+    fn from(err: buck2_error::Error) -> Self {
         Self::MutateRequest(err)
     }
 }

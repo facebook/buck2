@@ -21,7 +21,6 @@ use starlark_syntax::syntax::ast::Argument;
 use starlark_syntax::syntax::ast::AstExpr;
 use starlark_syntax::syntax::ast::AstLiteral;
 use starlark_syntax::syntax::ast::Expr;
-use starlark_syntax::syntax::module::AstModuleFields;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
@@ -52,7 +51,7 @@ impl AstModuleFindCallName for AstModule {
                     node: Expr::Call(identifier, arguments),
                     ..
                 } => {
-                    if let Expr::Identifier(_) = &identifier.node {
+                    if matches!(&identifier.node, Expr::Identifier(_) | Expr::Dot(_, _)) {
                         let found =
                             arguments
                                 .args
@@ -101,6 +100,8 @@ foo(name = "foo_name")
 bar("bar_name")
 baz(name = "baz_name")
 
+utils.foo(name = "dot_name")
+
 def x(name = "foo_name"):
     pass
 "#;
@@ -122,6 +123,15 @@ def x(name = "foo_name"):
                 .map(|span| module.codemap().resolve_span(span))
         );
         assert_eq!(None, module.find_function_call_with_name("bar_name"));
+        assert_eq!(
+            Some(ResolvedSpan {
+                begin: ResolvedPos { line: 5, column: 0 },
+                end: ResolvedPos { line: 5, column: 9 }
+            }),
+            module
+                .find_function_call_with_name("dot_name")
+                .map(|span| module.codemap().resolve_span(span))
+        );
         Ok(())
     }
 }

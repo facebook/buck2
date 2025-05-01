@@ -37,6 +37,9 @@ use crate::codemap::Spanned;
 use crate::collections::symbol::symbol::Symbol;
 use crate::environment::slots::ModuleSlotId;
 use crate::errors::did_you_mean::did_you_mean;
+use crate::eval::Arguments;
+use crate::eval::Evaluator;
+use crate::eval::compiler::Compiler;
 use crate::eval::compiler::args::ArgsCompiledValue;
 use crate::eval::compiler::call::CallCompiled;
 use crate::eval::compiler::compr::ComprCompiled;
@@ -47,20 +50,27 @@ use crate::eval::compiler::error::CompilerInternalError;
 use crate::eval::compiler::expr_bool::ExprCompiledBool;
 use crate::eval::compiler::known::list_to_tuple;
 use crate::eval::compiler::opt_ctx::OptCtx;
-use crate::eval::compiler::scope::payload::CstExpr;
-use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::AssignCount;
 use crate::eval::compiler::scope::Captured;
 use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
+use crate::eval::compiler::scope::payload::CstExpr;
+use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::span::IrSpanned;
-use crate::eval::compiler::Compiler;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
-use crate::eval::Arguments;
-use crate::eval::Evaluator;
+use crate::values::FrozenHeap;
+use crate::values::FrozenRef;
+use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::Value;
+use crate::values::ValueError;
+use crate::values::ValueLike;
 use crate::values::bool::StarlarkBool;
 use crate::values::function::BoundMethodGen;
 use crate::values::function::FrozenBoundMethod;
@@ -78,16 +88,6 @@ use crate::values::types::string::dot_format::format_one;
 use crate::values::types::string::interpolation::percent_s_one;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::types::unbound::UnboundValue;
-use crate::values::FrozenHeap;
-use crate::values::FrozenRef;
-use crate::values::FrozenStringValue;
-use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
-use crate::values::Heap;
-use crate::values::StarlarkValue;
-use crate::values::Value;
-use crate::values::ValueError;
-use crate::values::ValueLike;
 
 /// `bool` operation.
 #[derive(Copy, Clone, Dupe, Eq, PartialEq, Debug)]
@@ -363,9 +363,7 @@ impl ExprCompiled {
             ExprCompiled::List(xs) => xs.is_empty(),
             ExprCompiled::Tuple(xs) => xs.is_empty(),
             ExprCompiled::Dict(xs) => xs.is_empty(),
-            ExprCompiled::Value(v) if v.is_builtin() => {
-                v.to_value().length().map_or(false, |l| l == 0)
-            }
+            ExprCompiled::Value(v) if v.is_builtin() => v.to_value().length().is_ok_and(|l| l == 0),
             _ => false,
         }
     }
@@ -558,7 +556,7 @@ impl IrSpanned<ExprCompiled> {
                 ExprCompiled::index2(a, i0, i1)
             }
             d @ ExprCompiled::Def(..) => (*d).clone(),
-            ExprCompiled::Call(ref call) => call.optimize(ctx),
+            ExprCompiled::Call(call) => call.optimize(ctx),
         };
         IrSpanned { node: expr, span }
     }
@@ -875,7 +873,7 @@ impl ExprCompiled {
         let v = get_attr_hashed_raw(left.to_value(), attr, ctx.heap()).ok()?;
         match v {
             MemberOrValue::Member(m) => match m {
-                UnboundValue::Method(m, _) => Some(
+                UnboundValue::Method(m) => Some(
                     ctx.frozen_heap()
                         .alloc_simple(BoundMethodGen::new(left, *m)),
                 ),

@@ -27,8 +27,8 @@ use allocative::Allocative;
 use num_bigint::BigInt;
 use serde::Serialize;
 use serde::Serializer;
-use starlark_derive::starlark_value;
 use starlark_derive::ProvidesStaticType;
+use starlark_derive::starlark_value;
 use starlark_map::StarlarkHashValue;
 use starlark_map::StarlarkHasher;
 
@@ -39,6 +39,10 @@ use crate::private::Private;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
+use crate::values::Value;
+use crate::values::ValueError;
 use crate::values::layout::avalue::AValueBasic;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::vtable::AValueDyn;
@@ -48,13 +52,9 @@ use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::int::inline_int::InlineInt;
 use crate::values::types::int::int_or_big::StarlarkInt;
 use crate::values::types::int::int_or_big::StarlarkIntRef;
-use crate::values::types::num::typecheck::typecheck_num_bin_op;
 use crate::values::types::num::typecheck::NumTy;
+use crate::values::types::num::typecheck::typecheck_num_bin_op;
 use crate::values::types::num::value::NumRef;
-use crate::values::Heap;
-use crate::values::StarlarkValue;
-use crate::values::Value;
-use crate::values::ValueError;
 
 /// The result of calling `type()` on integers.
 pub const INT_TYPE: &str = "int";
@@ -91,11 +91,13 @@ impl PointerI32 {
     pub(crate) unsafe fn from_raw_pointer_unchecked(
         raw_pointer: RawPointer,
     ) -> &'static PointerI32 {
-        debug_assert!(raw_pointer.is_int());
-        // UB if the pointer isn't aligned, or it is zero.
-        // Alignment is 1, so that's not an issue.
-        // And the pointer is not zero because it has `TAG_INT` bit set.
-        cast::usize_to_ptr(raw_pointer.ptr_value())
+        unsafe {
+            debug_assert!(raw_pointer.is_int());
+            // UB if the pointer isn't aligned, or it is zero.
+            // Alignment is 1, so that's not an issue.
+            // And the pointer is not zero because it has `TAG_INT` bit set.
+            cast::usize_to_ptr(raw_pointer.ptr_value())
+        }
     }
 
     #[inline]

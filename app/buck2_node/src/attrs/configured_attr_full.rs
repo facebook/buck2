@@ -7,14 +7,15 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use buck2_core::package::PackageLabel;
+use buck2_error::BuckErrorContext;
 
 use crate::attrs::attr::Attribute;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 
 /// Full configured attribute: name, type, value.
+#[derive(Debug)]
 pub struct ConfiguredAttrFull<'a> {
     pub name: &'a str,
     pub attr: &'a Attribute,
@@ -26,9 +27,9 @@ impl<'a> ConfiguredAttrFull<'a> {
         &'v self,
         pkg: PackageLabel,
         traversal: &mut dyn ConfiguredAttrTraversal,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.value
             .traverse(pkg, traversal)
-            .with_context(|| format!("traversing attribute `{}`", self.name))
+            .with_buck_error_context(|| format!("traversing attribute `{}`", self.name))
     }
 }

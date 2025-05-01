@@ -23,7 +23,7 @@ pub(crate) trait HasCellFileIgnores {
     async fn new_cell_ignores(
         &mut self,
         cell_name: CellName,
-    ) -> anyhow::Result<Arc<CellFileIgnores>>;
+    ) -> buck2_error::Result<Arc<CellFileIgnores>>;
 }
 
 #[async_trait]
@@ -31,7 +31,7 @@ impl HasCellFileIgnores for DiceComputations<'_> {
     async fn new_cell_ignores(
         &mut self,
         cell_name: CellName,
-    ) -> anyhow::Result<Arc<CellFileIgnores>> {
+    ) -> buck2_error::Result<Arc<CellFileIgnores>> {
         let cells = self.get_cell_resolver().await?;
         let instance = cells.get(cell_name)?;
         let config = self.get_legacy_config_on_dice(cell_name).await?;

@@ -61,9 +61,9 @@ mod tests {
     use std::sync::Arc;
 
     use dupe::Dupe;
+    use futures::StreamExt;
     use futures::future;
     use futures::stream::FuturesOrdered;
-    use futures::StreamExt;
 
     use crate::drop::DropTogether;
 

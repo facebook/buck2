@@ -11,6 +11,7 @@
 import contextlib
 import hashlib
 import json
+
 import os
 import platform
 import shutil
@@ -31,11 +32,9 @@ from typing import (
 )
 
 import __manifest__
-
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.executable import WindowsCmdOption
-from buck2.tests.e2e_util.api.executable_type import ExecutableType
 from decorator import decorator
 
 BuckTestMarker = namedtuple(
@@ -58,39 +57,44 @@ async def buck_fixture(  # noqa C901 : "too complex"
     """Returns a Buck for testing"""
 
     is_windows = platform.system() == "Windows"
-    test_executable_type = ExecutableType(os.environ["TEST_EXECUTABLE_TYPE"])
     test_executable = os.environ["TEST_EXECUTABLE"]
 
     env: Dict[str, str] = {**os.environ}
-    if test_executable_type != ExecutableType.buck1:
-        # This is necessary for static linking on Linux.
-        if platform.system() != "Windows":
-            env["BUCKD_STARTUP_TIMEOUT"] = "120"
+    # This is necessary for static linking on Linux.
+    if platform.system() != "Windows":
+        env["BUCKD_STARTUP_TIMEOUT"] = "120"
+        env["BUCKD_STARTUP_INIT_TIMEOUT"] = "120"
 
-        # allow_soft_errors will override any existing environment variable behavior
-        if marker.allow_soft_errors or marker.inplace:
-            env["BUCK2_HARD_ERROR"] = "false"
+    # allow_soft_errors will override any existing environment variable behavior
+    if marker.allow_soft_errors or marker.inplace:
+        env["BUCK2_HARD_ERROR"] = "false"
 
-        # Use a very small stdin buffer to catch any scenarios in which we
-        # don't properly handle partial input.
-        env["BUCK2_TEST_STDIN_BUFFER_SIZE"] = "8"
-        # Explicitly disable log uploading, we don't care about stats for tests.
-        env["BUCK2_TEST_DISABLE_LOG_UPLOAD"] = "true"
-        # But still block on it, because the upload process also writes
-        # locally, and we want that to be synchronous instead of backgrounded.
-        env["BUCK2_TEST_BLOCK_ON_UPLOAD"] = "true"
-        # Require the events dispatcher to be set for e2e tests.
-        env["ENFORCE_DISPATCHER_SET"] = "true"
-        # Auto-destroy after a while. This should be longer than the test timeout.
-        env["BUCK2_TERMINATE_AFTER"] = "650"
-        # Timeout Watchman requests because we often see it hang and crash.
-        env["BUCK2_WATCHMAN_TIMEOUT"] = "30"
-        # Use little threads. We don't do much work in tests but we do run lots of Bucks.
-        env["BUCK2_RUNTIME_THREADS"] = "2"
+    # Use a very small stdin buffer to catch any scenarios in which we
+    # don't properly handle partial input.
+    env["BUCK2_TEST_STDIN_BUFFER_SIZE"] = "8"
+    # Explicitly disable log uploading, we don't care about stats for tests.
+    env["BUCK2_TEST_DISABLE_LOG_UPLOAD"] = "true"
+    # But still block on it, because the upload process also writes
+    # locally, and we want that to be synchronous instead of backgrounded.
+    env["BUCK2_TEST_BLOCK_ON_UPLOAD"] = "true"
+    # Require the events dispatcher to be set for e2e tests.
+    env["ENFORCE_DISPATCHER_SET"] = "true"
+    # Auto-destroy after a while. This should be longer than the test timeout.
+    env["BUCK2_TERMINATE_AFTER"] = "650"
+    # Timeout Watchman requests because we often see it hang and crash.
+    env["BUCK2_WATCHMAN_TIMEOUT"] = "30"
+    env["BUCK2_RUNTIME_THREADS"] = "8"
+    # Avoid noise in stderr.
+    env["BUCK2_IGNORE_VERSION_EXTRACTION_FAILURE"] = "true"
 
-        # Windows uses blocking threads for subprocess I/O so we can't do this there.
-        if not is_windows:
-            env["BUCK2_MAX_BLOCKING_THREADS"] = "2"
+    assert (
+        "BUCK2_RUNTIME_THREADS" in env
+    ), "BUCK2_RUNTIME_THREADS should be set by the test macros"
+    assert (
+        "BUCK2_MAX_BLOCKING_THREADS" in env
+    ), "BUCK2_MAX_BLOCKING_THREADS should be set by the test macros"
+    # Windows uses blocking threads for subprocess I/O so we can't do this there.
+    del env["BUCK2_MAX_BLOCKING_THREADS"]
 
     # Filter out some environment variables that may interfere with the
     # running of tests. Notably, since this framework is used to write
@@ -101,7 +105,7 @@ async def buck_fixture(  # noqa C901 : "too complex"
         env.pop(var, None)
 
     common_dir = await _get_common_dir()
-    temp_dir = Path(tempfile.mkdtemp(dir=common_dir))
+    base_dir = Path(tempfile.mkdtemp(dir=common_dir))
 
     isolation_prefix = None
     keep_temp = os.environ.get("BUCK_E2E_KEEP_TEMP") == "1"
@@ -117,12 +121,10 @@ async def buck_fixture(  # noqa C901 : "too complex"
     # Create a temporary file to store all lines of extra buck config values.
     extra_config_lines = []
 
-    # Temp dirs needed for EdenFS, will only be created if necessary
-    eden_dir = temp_dir / "eden"
-    etc_eden_dir = temp_dir / "etc_eden"
-    home_dir = temp_dir / "home"
-    backing_dir = temp_dir / "backing_dir"
-    repo_dir = temp_dir / "repo"
+    project_dir = base_dir / "project"
+
+    # Temp dir needed for EdenFS, will only be created if necessary
+    eden_dir = base_dir / "eden"
 
     try:
         if marker.setup_eden:
@@ -132,10 +134,7 @@ async def buck_fixture(  # noqa C901 : "too complex"
 
             _setup_eden(
                 eden_dir,
-                etc_eden_dir,
-                home_dir,
-                backing_dir,
-                repo_dir,
+                project_dir,
                 env,
                 is_windows,
             )
@@ -159,15 +158,18 @@ async def buck_fixture(  # noqa C901 : "too complex"
             # on a host without this, so just make it the default.
             if sys.platform == "linux":
                 extra_config_lines.append("[host_features]\ngvfs = true\n")
+            # NOTE: This buckconfig is depended on by our CI validation for
+            # CLI modifiers in tools/build_defs/buck2/cfg/validation.bzl. If
+            # the name of this buckconfig ever changes, please update the validation
+            # as well.
             extra_config_lines.append("[buildfile]\nextra_for_test = TARGETS.test\n")
 
         else:
-            _setup_not_inplace(backing_dir)
             if marker.data_dir is not None:
                 src = Path(os.environ["TEST_REPO_DATA"], marker.data_dir)
-                _copytree(src, backing_dir)
-                _setup_ovr_config(backing_dir)
-                with open(Path(backing_dir, ".watchmanconfig"), "w") as f:
+                _copytree(src, project_dir)
+                _maybe_setup_prelude_and_ovr_config(project_dir)
+                with open(Path(project_dir, ".watchmanconfig"), "w") as f:
                     # Use the FS Events watcher, which is more reliable than the default.
                     json.dump(
                         {
@@ -178,25 +180,29 @@ async def buck_fixture(  # noqa C901 : "too complex"
                         f,
                     )
 
-            # Our mac tests keep failing due to watchman errors, do disable watchman on macs here
-            if sys.platform == "darwin":
+            # `edenfs` watcher requires eden to be setup which is too slow to enable on all tests
+            # use edenfs watcher whenever possible in test, otherwise use `fs_hash_crawler`
+            # FYI: if you remove this, make sure to remove it from external_buckconfig tests too
+            if marker.setup_eden:
+                extra_config_lines.append("[buck2]\nfile_watcher = edenfs\n")
+                extra_config_lines.append("[buck2]\nallow_eden_io = true\n")
+            else:
                 extra_config_lines.append("[buck2]\nfile_watcher = fs_hash_crawler\n")
 
-            buck_cwd = backing_dir
+            buck_cwd = project_dir
 
         for section, config in marker.extra_buck_config.items():
             extra_config_lines.append(f"[{section}]\n")
             for key, value in config.items():
                 extra_config_lines.append(f"{key} = {value}\n")
 
-        extra_config = os.path.join(temp_dir, "extra.bcfg")
+        extra_config = os.path.join(base_dir, "extra.bcfg")
         with open(extra_config, "w") as f:
             for line in extra_config_lines:
                 f.write(line)
         env["BUCK2_TEST_EXTRA_EXTERNAL_CONFIG"] = extra_config
 
         buck = Buck(
-            test_executable_type,
             Path(test_executable),
             cwd=buck_cwd,
             encoding="utf-8",
@@ -215,11 +221,11 @@ async def buck_fixture(  # noqa C901 : "too complex"
                 await buck.clean()
     finally:
         if keep_temp:
-            print(f"Not deleting temporary directory at {temp_dir}", file=sys.stderr)
+            print(f"Not deleting temporary directory at {base_dir}", file=sys.stderr)
         else:
             if marker.setup_eden:
-                _cleanup_eden(eden_dir, repo_dir, env)
-            shutil.rmtree(temp_dir, ignore_errors=True)
+                _cleanup_eden(eden_dir, project_dir, env)
+            shutil.rmtree(base_dir, ignore_errors=True)
 
 
 @pytest.fixture(scope="function")
@@ -265,34 +271,40 @@ def nobuckd(fn: Callable) -> Callable:
     return decorator(wrapped, fn)
 
 
+def _eden_base_cmd(eden_dir: Path) -> List[str]:
+    config_dir = eden_dir / "config"
+    etc_dir = eden_dir / "etc"
+    home_dir = eden_dir / "home"
+
+    config_dir.mkdir(exist_ok=True)
+    etc_dir.mkdir(exist_ok=True)
+    home_dir.mkdir(exist_ok=True)
+
+    return [
+        "eden",
+        "--config-dir",
+        str(config_dir),
+        "--home-dir",
+        str(home_dir),
+        "--etc-eden-dir",
+        str(etc_dir),
+    ]
+
+
 # Adapted from Eden integration test, didn't use their code because Eden uses the compiled binary in their buck-out
 # which we don't have, extracting that part out would be more work than what was done below.
 # https://www.internalfb.com/code/fbsource/[45334ead4a72]/fbcode/eden/integration/lib/testcase.py?lines=123
 def _setup_eden(
     eden_dir: Path,
-    etc_eden_dir: Path,
-    home_dir: Path,
-    backing_dir: Path,
-    repo_dir: Path,
+    project_dir: Path,
     env: Dict[str, str],
     is_windows: bool,
 ):
-    # Eden setup is best effort, it won't fail the tests if the setup fails
     eden_dir.mkdir(exist_ok=True)
-    etc_eden_dir.mkdir(exist_ok=True)
-    home_dir.mkdir(exist_ok=True)
-    backing_dir.mkdir(exist_ok=True)
-
     # Start up an EdenFS Client and point it to the temp dirs
-    subprocess.run(
-        [
-            "eden",
-            "--etc-eden-dir",
-            str(etc_eden_dir),
-            "--config-dir",
-            str(eden_dir),
-            "--home-dir",
-            str(home_dir),
+    subprocess.check_call(
+        _eden_base_cmd(eden_dir)
+        + [
             "start",
         ],
         stdout=sys.stdout,
@@ -300,22 +312,37 @@ def _setup_eden(
         env=env,
     )
 
+    temp_repo = eden_dir / "temp_repo"
     # Initialize a hg repo, so Eden can mount it
-    subprocess.run(
-        ["hg", "init", str(backing_dir)],
+    subprocess.check_call(
+        ["hg", "init", str(temp_repo)],
         stdout=sys.stdout,
         stderr=sys.stderr,
         env=env,
     )
 
+    # Use .eden-redirections to force redirection to be setup at mount time
+    # The number of concurrent APFS volumes we can create on macOS
+    # is limited. Furthermore, cleaning up disk image redirections is non-trivial.
+    # Let's use symlink redirections to avoid these issues.
+    redirection_type = "symlink" if sys.platform == "darwin" else "bind"
+    with open(temp_repo / ".eden-redirections", "w") as f:
+        f.write(f'[redirections]\n"buck-out" = "{redirection_type}"\n')
+
+    subprocess.check_call(
+        ["hg", "commit", "--addremove", "-m", "init"],
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        env=env,
+        cwd=temp_repo,
+    )
+
     # Mount the hg repo we created
-    cmd = [
-        "eden",
-        "--config-dir",
-        str(eden_dir),
+    project_dir.mkdir(exist_ok=True)
+    cmd = _eden_base_cmd(eden_dir) + [
         "clone",
-        backing_dir,
-        repo_dir,
+        temp_repo,
+        project_dir,
         "--allow-empty-repo",
         "--case-insensitive",
     ]
@@ -323,7 +350,7 @@ def _setup_eden(
     if is_windows:
         cmd.append("--enable-windows-symlinks")
 
-    subprocess.run(
+    subprocess.check_call(
         cmd,
         stdout=sys.stdout,
         stderr=sys.stderr,
@@ -333,17 +360,15 @@ def _setup_eden(
 
 def _cleanup_eden(
     eden_dir: Path,
-    repo_dir: Path,
+    project_dir: Path,
     env: Dict[str, str],
 ):
     # Remove the Eden mount created for the test
     subprocess.run(
-        [
-            "eden",
-            "--config-dir",
-            str(eden_dir),
+        _eden_base_cmd(eden_dir)
+        + [
             "remove",
-            str(repo_dir),
+            str(project_dir),
             "-y",
         ],
         stdout=sys.stdout,
@@ -352,10 +377,8 @@ def _cleanup_eden(
     )
 
     subprocess.run(
-        [
-            "eden",
-            "--config-dir",
-            str(eden_dir),
+        _eden_base_cmd(eden_dir)
+        + [
             "shutdown",
         ],
         stdout=sys.stdout,
@@ -383,15 +406,21 @@ def _copytree(
             shutil.copy2(s, d)
 
 
-def _setup_not_inplace(path: Path) -> None:
+def _maybe_setup_prelude_and_ovr_config(path: Path) -> None:
+    if "PRELUDE" in os.environ or "OVR_CONFIG" in os.environ:
+        if os.environ.get("BUCK2_E2E_TEST_FLAVOR") == "isolated":
+            raise Exception(
+                "Don't set `PRELUDE` or `OVR_CONFIG` in `tests/core` - these tests are always isolated"
+            )
+
     if "PRELUDE" in os.environ:
-        _copytree(
-            Path(os.environ["PRELUDE"]),
-            Path(path, "prelude"),
-        )
+        prelude = Path(path, "prelude")
+        if not prelude.exists():
+            _copytree(
+                Path(os.environ["PRELUDE"]),
+                Path(path, "prelude"),
+            )
 
-
-def _setup_ovr_config(path: Path) -> None:
     # TODO: The toolchain platform definitions we hard-code in the prelude are
     # in the ovr_config cell, so copy them in for now.  Longer-term, D31566140
     # has a discusion on bettter approaches.
@@ -431,7 +460,7 @@ SKIPPABLE_PLATFORMS = ["darwin", "linux", "windows"]
 
 
 def buck_test(
-    inplace: bool,
+    inplace: bool | None = None,
     data_dir: Optional[str] = "",
     # Accepted values are specified in SKIPPABLE_PLATFORMS
     skip_for_os: List[str] = [],  # noqa: B006 value is read-only
@@ -471,6 +500,17 @@ def buck_test(
 
     if inplace and data_dir == "":
         data_dir = None
+
+    if os.environ.get("BUCK2_E2E_TEST_FLAVOR") == "isolated":
+        if inplace is not None:
+            raise Exception(
+                "Don't set `inplace` in `tests/core` - these tests are always isolated"
+            )
+
+        inplace = False
+    else:
+        if inplace is None:
+            raise Exception("`inplace` must be set for `buck_test()`")
 
     # Set up arguments to use for the buck fixture.
 

@@ -10,5 +10,6 @@ def test() -> typing.Any: return 1
 
 Max stack size: 0
 Instructions:
-  0: ReturnConst 1
+       # instrs.star.bzl:1:27-35
+   0: ReturnConst 1
   16: End

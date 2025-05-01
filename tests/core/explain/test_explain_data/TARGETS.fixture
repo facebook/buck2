@@ -1,0 +1,3 @@
+trivial_build(name = "simple")
+
+trivial_build(name = read_config("test", "config", "bar"))

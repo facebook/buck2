@@ -1,0 +1,6 @@
+load("@prelude//:alias.bzl", "alias")
+
+alias(
+    name = "stub",
+    actual = "test_bundled_cell//dir:test",
+)

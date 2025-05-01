@@ -13,11 +13,11 @@ use starlark::eval::Evaluator;
 use crate::paths::path::StarlarkPath;
 
 pub static STARLARK_PATH_FROM_BUILD_CONTEXT: LateBinding<
-    for<'a> fn(&Evaluator<'_, 'a, '_>) -> anyhow::Result<StarlarkPath<'a>>,
+    for<'a> fn(&Evaluator<'_, 'a, '_>) -> buck2_error::Result<StarlarkPath<'a>>,
 > = LateBinding::new("STARLARK_PATH_FROM_BUILD_CONTEXT");
 
 pub fn starlark_path_from_build_context<'a>(
     eval: &Evaluator<'_, 'a, '_>,
-) -> anyhow::Result<StarlarkPath<'a>> {
+) -> buck2_error::Result<StarlarkPath<'a>> {
     (STARLARK_PATH_FROM_BUILD_CONTEXT.get()?)(eval)
 }

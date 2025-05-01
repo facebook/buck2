@@ -1,0 +1,26 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_library(
+    name = "runner",
+    srcs = glob(["*.java"]),
+    # We need to support a java_for_tests that points at Java 8 for now.
+    # @oss-disable[end= ]: source = "8",
+    # @oss-disable[end= ]: target = "8",
+    source = "17", # @oss-enable
+    target = "17", # @oss-enable
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java:steps",
+        "prelude//toolchains/android/src/com/facebook/buck/testrunner:junit",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java:java",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/runner:runner",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/version/utils:utils",
+        # DO NOT add any deps here.
+    ],
+)

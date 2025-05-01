@@ -22,10 +22,10 @@ load(
 )
 load("@prelude//cxx:headers.bzl", "HeaderMode")
 load("@prelude//cxx:linker.bzl", "is_pdb_generated")
+load("@prelude//decls:common.bzl", "buck")
 load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:lto.bzl", "LtoMode")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
-load("@prelude//decls/common.bzl", "buck")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 
 CxxToolsInfo = provider(
     fields = {
@@ -52,7 +52,7 @@ def _legacy_equivalent_cxx_tools_info_windows(ctx: AnalysisContext, default_tool
         asm_compiler_type = default_toolchain.asm_compiler_type,
         rc_compiler = default_toolchain.rc_compiler if ctx.attrs.rc_compiler == None or ctx.attrs.rc_compiler == "rc.exe" else ctx.attrs.rc_compiler,
         cvtres_compiler = default_toolchain.cvtres_compiler if ctx.attrs.cvtres_compiler == None or ctx.attrs.cvtres_compiler == "cvtres.exe" else ctx.attrs.cvtres_compiler,
-        archiver = default_toolchain.archiver,
+        archiver = default_toolchain.archiver if ctx.attrs.archiver == None else ctx.attrs.archiver,
         archiver_type = default_toolchain.archiver_type,
         linker = default_toolchain.linker if ctx.attrs.linker == None or ctx.attrs.linker == "link.exe" else ctx.attrs.linker,
         linker_type = default_toolchain.linker_type,
@@ -67,7 +67,7 @@ def _legacy_equivalent_cxx_tools_info_non_windows(ctx: AnalysisContext, default_
         asm_compiler_type = default_toolchain.asm_compiler_type if ctx.attrs.compiler_type == None else ctx.attrs.compiler_type,
         rc_compiler = default_toolchain.rc_compiler if ctx.attrs.rc_compiler == None else ctx.attrs.rc_compiler,
         cvtres_compiler = default_toolchain.cvtres_compiler if ctx.attrs.cvtres_compiler == None else ctx.attrs.cvtres_compiler,
-        archiver = default_toolchain.archiver,
+        archiver = default_toolchain.archiver if ctx.attrs.archiver == None else ctx.attrs.archiver,
         archiver_type = default_toolchain.archiver_type,
         linker = default_toolchain.linker if ctx.attrs.linker == None else ctx.attrs.linker,
         linker_type = default_toolchain.linker_type,
@@ -78,7 +78,7 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     A very simple toolchain that is hardcoded to the current environment.
     """
 
-    os = ctx.attrs._target_os_type[OsLookup].platform
+    os = ctx.attrs._target_os_type[OsLookup].os.value
     arch_name = ctx.attrs._target_os_type[OsLookup].cpu
     cxx_tools_info = ctx.attrs._cxx_tools_info[CxxToolsInfo]
     cxx_tools_info = _legacy_equivalent_cxx_tools_info_windows(ctx, cxx_tools_info) if os == "windows" else _legacy_equivalent_cxx_tools_info_non_windows(ctx, cxx_tools_info)
@@ -91,11 +91,11 @@ def _cxx_tools_info_toolchain_impl(ctx: AnalysisContext):
     return _cxx_toolchain_from_cxx_tools_info(ctx, ctx.attrs.cxx_tools_info[CxxToolsInfo])
 
 def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: CxxToolsInfo, target_name = "x86_64"):
-    os = ctx.attrs._target_os_type[OsLookup].platform
-    archiver_supports_argfiles = os != "macos"
-    additional_linker_flags = ["-fuse-ld=lld"] if os == "linux" and cxx_tools_info.linker != "g++" and cxx_tools_info.cxx_compiler != "g++" else []
+    os = ctx.attrs._target_os_type[OsLookup].os
+    archiver_supports_argfiles = os != Os("macos")
+    additional_linker_flags = ["-fuse-ld=lld"] if os == Os("linux") and cxx_tools_info.linker != "g++" and cxx_tools_info.cxx_compiler != "g++" else []
 
-    if os == "windows":
+    if os == Os("windows"):
         linker_type = LinkerType("windows")
         binary_extension = "exe"
         object_file_extension = "obj"
@@ -112,7 +112,7 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
         shared_library_name_format = "{}.so"
         shared_library_versioned_name_format = "{}.so.{}"
 
-        if os == "macos":
+        if os == Os("macos"):
             linker_type = LinkerType("darwin")
             pic_behavior = PicBehavior("always_enabled")
         else:
@@ -123,6 +123,10 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
         llvm_link = RunInfo(args = ["llvm-link"])
     else:
         llvm_link = None
+
+    supports_two_phase_compilation = False
+    if hasattr(ctx.attrs, "supports_two_phase_compilation"):
+        supports_two_phase_compilation = ctx.attrs.supports_two_phase_compilation
 
     return [
         DefaultInfo(),
@@ -174,6 +178,7 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.cxx_flags,
                 compiler_type = cxx_tools_info.compiler_type,
+                supports_two_phase_compilation = supports_two_phase_compilation,
             ),
             c_compiler_info = CCompilerInfo(
                 compiler = _run_info(cxx_tools_info.compiler),
@@ -215,21 +220,22 @@ def _run_info(args):
 system_cxx_toolchain = rule(
     impl = _system_cxx_toolchain_impl,
     attrs = {
-        "c_flags": attrs.list(attrs.string(), default = []),
+        "archiver": attrs.option(attrs.string(), default = None),
+        "c_flags": attrs.list(attrs.arg(), default = []),
         "compiler": attrs.option(attrs.string(), default = None),
         "compiler_type": attrs.option(attrs.string(), default = None),  # one of CxxToolProviderType
         "cpp_dep_tracking_mode": attrs.string(default = "makefile"),
         "cvtres_compiler": attrs.option(attrs.string(), default = None),
-        "cvtres_flags": attrs.list(attrs.string(), default = []),
+        "cvtres_flags": attrs.list(attrs.arg(), default = []),
         "cxx_compiler": attrs.option(attrs.string(), default = None),
-        "cxx_flags": attrs.list(attrs.string(), default = []),
-        "link_flags": attrs.list(attrs.string(), default = []),
+        "cxx_flags": attrs.list(attrs.arg(), default = []),
+        "link_flags": attrs.list(attrs.arg(), default = []),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_style": attrs.string(default = "shared"),
         "linker": attrs.option(attrs.string(), default = None),
-        "post_link_flags": attrs.list(attrs.string(), default = []),
+        "post_link_flags": attrs.list(attrs.arg(), default = []),
         "rc_compiler": attrs.option(attrs.string(), default = None),
-        "rc_flags": attrs.list(attrs.string(), default = []),
+        "rc_flags": attrs.list(attrs.arg(), default = []),
         "_cxx_tools_info": attrs.exec_dep(providers = [CxxToolsInfo], default = "prelude//toolchains/msvc:msvc_tools" if host_info().os.is_windows else "prelude//toolchains/cxx/clang:path_clang_tools"),
         "_internal_tools": attrs.default_only(attrs.exec_dep(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools")),
         "_target_os_type": buck.target_os_type_arg(),
@@ -240,15 +246,15 @@ system_cxx_toolchain = rule(
 cxx_tools_info_toolchain = rule(
     impl = _cxx_tools_info_toolchain_impl,
     attrs = {
-        "c_flags": attrs.list(attrs.string(), default = []),
+        "c_flags": attrs.list(attrs.arg(), default = []),
         "cpp_dep_tracking_mode": attrs.string(default = "makefile"),
-        "cvtres_flags": attrs.list(attrs.string(), default = []),
-        "cxx_flags": attrs.list(attrs.string(), default = []),
+        "cvtres_flags": attrs.list(attrs.arg(), default = []),
+        "cxx_flags": attrs.list(attrs.arg(), default = []),
         "cxx_tools_info": attrs.exec_dep(providers = [CxxToolsInfo], default = select({
             "DEFAULT": "prelude//toolchains/cxx/clang:path_clang_tools",
             "config//os:windows": "prelude//toolchains/msvc:msvc_tools",
         })),
-        "link_flags": attrs.list(attrs.string(), default = []),
+        "link_flags": attrs.list(attrs.arg(), default = []),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_style": attrs.enum(
             LinkStyle.values(),
@@ -257,8 +263,8 @@ cxx_tools_info_toolchain = rule(
             The default value of the `link_style` attribute for rules that use this toolchain.
             """,
         ),
-        "post_link_flags": attrs.list(attrs.string(), default = []),
-        "rc_flags": attrs.list(attrs.string(), default = []),
+        "post_link_flags": attrs.list(attrs.arg(), default = []),
+        "rc_flags": attrs.list(attrs.arg(), default = []),
         "_internal_tools": attrs.default_only(attrs.exec_dep(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools")),
         "_target_os_type": buck.target_os_type_arg(),
     },

@@ -6,52 +6,26 @@
 # of this source tree.
 
 load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbsource//tools/build_defs/windows:powershell.bzl", "powershell_cmd_exe")
 
 # This is meant to be Open-source friendly. In our e2e tests, we invoke a variant from
 # tools/build_defs/check_dependencies_test.bzl that passes additional arguments for meta specific allowlist.
 
-def check_dependencies_test(
+def _check_dependencies_test(
         name,
         target,
         contacts,
-        allowlist_patterns = None,
-        blocklist_patterns = None,
-        expect_failure_msg = None,
-        env = None,
-        deps = None,
+        env,
+        labels: list[str],
+        deps,
         **kwargs):
-    """
-    Creates a test target from a buck2 bxl script. BXL script must use "test" as entry
-    point.
-
-    Parameters:
-        name: Name of the test target.
-        contacts: List of oncalls for the test.
-        target: The target to check dependencies for
-        allowlist_patterns: a regex of patterns that should be allowed in transitive deps of the target
-        blocklist_patterns: a regex of patterns that should be blocked in transitive deps of the target
-        expect_failure_msg: the test is expected to fail with this message regex
-        env: additional environment variables to pass to the checking script
-    """
-    bxl_main = "fbcode//buck2/tests/check_dependencies_test.bxl:test"
-    allowlist_patterns = ",".join(allowlist_patterns) if allowlist_patterns else ""
-    blocklist_patterns = ",".join(blocklist_patterns) if blocklist_patterns else ""
-    if not (expect_failure_msg == None or len(expect_failure_msg) > 0):
-        fail("Expected failure message can only be None or non-empty string")
-
     buck2_e2e_test(
         contacts = contacts,
         name = name,
         srcs = {"fbcode//buck2/tests/e2e_util:test_bxl_check_dependencies_template.py": "test_bxl_check_dependencies_template.py"},
-        env = {
-            "ALLOWLIST": allowlist_patterns,
-            "BLOCKLIST": blocklist_patterns,
-            "BXL_MAIN": bxl_main,
-            "EXPECT_FAILURE_MSG": expect_failure_msg or "",
-            "TARGET": target,
-        } | (env or {}),
-        # fbcode_macros uses tags instead of labels
-        tags = ["check_dependencies_test"],
+        env = env,
+        labels = labels,
         test_with_compiled_buck2 = False,
         test_with_deployed_buck2 = True,
         use_buck_api = False,
@@ -63,6 +37,96 @@ def check_dependencies_test(
             "DEFAULT": [],
             "ovr_config//:none": [target],
         }),
+        **kwargs
+    )
+
+def check_dependencies_test(
+        name,
+        target,
+        contacts,
+        mode,
+        allowlist_patterns = None,
+        blocklist_patterns = None,
+        expect_failure_msg = None,
+        env = None,
+        deps = None,
+        extra_buck_args = [],
+        labels = [],
+        **kwargs):
+    """
+    Creates a test target from a buck2 bxl script. BXL script must use "test" as entry
+    point.
+
+
+    There are two modes: "allowlist" mode, "blocklist" mode
+
+    "allowlist" mode:
+
+        Only deps matching patterns in "allowlist_patterns' will pass the check.
+        If at least one target in a transitive closure of all dependencies doesn't
+        match anything in "allowlist_patterns" the test will fail.
+
+        In this mode "blocklist_patterns" is used to allow for additional restriction
+        to be applied. If a specific target from transitive closure of all dependencies
+        matches at least one pattern from "blocklist_patterns", the test will fail
+        regardless if that target matches anything in "allowlist_patterns".
+
+        In other words, for test to pass each target must match at least one
+        pattern from "allowlist_patterns", and must not match anything from the
+        "blocklist_patterns".
+
+
+    "blocklist" mode"
+
+        If at least one target from a transitive closure of dependnecies matches
+        at least one pattern from "blocklist_patterns" the test will fail.
+
+
+        In this mode "allowlist_patterns" modifies how "blocklist_patterns" are
+        applied. Specifically if a specific target matches "allowlist_patterns"
+        then it will always pass, and will not be checked against "blocklist_patterns".
+
+        The use case is to allow blocking more generic location (for example,
+        blocklist; //testing/.*), while still allowing specific exceptions
+        (for example, allowlist: //testing/jest/.*).
+    """
+
+    bxl_main = "fbcode//buck2/tests/check_dependencies_test.bxl:test"
+    allowlist_patterns = ",".join(allowlist_patterns) if allowlist_patterns else ""
+    blocklist_patterns = ",".join(blocklist_patterns) if blocklist_patterns else ""
+    if not (expect_failure_msg == None or len(expect_failure_msg) > 0):
+        fail("Expected failure message can only be None or non-empty string")
+
+    if mode not in ("allowlist", "blocklist"):
+        fail("mode must be one of: allowlist, blocklist")
+
+    extra_buck_args_target = "%s_extra_buck_args" % (name)
+    buck_args_str = " ".join(extra_buck_args)
+    buck_genrule(
+        name = extra_buck_args_target,
+        out = "extra_buck_args",
+        bash = "echo %s > $OUT" % (buck_args_str),
+        cmd_exe = powershell_cmd_exe([
+            "Set-Content $OUT '%s'" % (buck_args_str),
+        ]),
+    )
+
+    _check_dependencies_test(
+        contacts = contacts,
+        name = name,
+        target = target,
+        env = {
+            "ALLOWLIST": allowlist_patterns,
+            "BLOCKLIST": blocklist_patterns,
+            "BXL_MAIN": bxl_main,
+            "EXPECT_FAILURE_MSG": expect_failure_msg or "",
+            "EXTRA_BUCK_ARGS_FILE": "@$(location :%s)" % (extra_buck_args_target),
+            "FLAVOR": "check_dependencies_test",
+            "TARGET": target,
+            "VERIFICATION_MODE": mode,
+        } | (env or {}),
+        labels = ["check_dependencies_test"] + labels,
+        deps = deps,
         **kwargs
     )
 
@@ -83,29 +147,19 @@ def assert_dependencies_test(
         target: The target to check dependencies for
         expected_deps: list of expected deps
     """
-    buck2_e2e_test(
+    _check_dependencies_test(
         name = name,
+        target = target,
         contacts = contacts,
-        srcs = {"fbcode//buck2/tests/e2e_util:test_bxl_assert_dependencies_template.py": "test_bxl_assert_dependencies_template.py"},
         env = {
             "BXL_MAIN": "fbcode//buck2/tests/assert_dependencies_test.bxl:test",
             "DEPS": ",".join(expected_deps),
             "EXPECT_FAILURE_MSG": expect_failure_msg or "",
+            "FLAVOR": "assert_dependencies_test",
             "TARGET": target,
         },
-        # fbcode_macros uses tags instead of labels
-        tags = ["assert_dependencies_test"],
-        test_with_compiled_buck2 = False,
-        test_with_deployed_buck2 = True,
-        use_buck_api = False,
-        # In order for target determinator to trigger this test when the `target` specified has changed, we need to introduce a dep on `target`.
-        # However, we cannot introduce a configured dep, because the `target` may not be compatible with platform of dependencies test.
-        # This adds a dep on `target` in a select arm that is never satisfied. This will work for TD because TD only looks at deps on unconfigured
-        # target graph.
-        deps = (deps or []) + select({
-            "DEFAULT": [],
-            "ovr_config//:none": [target],
-        }),
+        labels = ["assert_dependencies_test"],
+        deps = deps,
         **kwargs
     )
 
@@ -130,29 +184,19 @@ def audit_dependents_test(
         allowlist_patter: a regex of patterns that should be allowed for direct dependents of target
         expect_failure_msg: the test is expected to fail with this message regex
     """
-    buck2_e2e_test(
+    _check_dependencies_test(
         name = name,
+        target = target,
         contacts = contacts,
-        srcs = {"fbcode//buck2/tests/e2e_util:test_bxl_audit_dependents_template.py": "test_bxl_audit_dependents_template.py"},
         env = {
             "ALLOWLIST": ",".join(allowlist_patterns) if allowlist_patterns else "",
             "BXL_MAIN": "fbcode//buck2/tests/audit_dependents_test.bxl:test",
             "EXPECT_FAILURE_MSG": expect_failure_msg or "",
+            "FLAVOR": "audit_dependents_test",
             "SOURCE_TARGET": source_target,
             "TARGET": target,
         },
-        # fbcode_macros uses tags instead of labels
-        tags = ["audit_dependents_test"],
-        test_with_compiled_buck2 = False,
-        test_with_deployed_buck2 = True,
-        use_buck_api = False,
-        # In order for target determinator to trigger this test when the `target` specified has changed, we need to introduce a dep on `target`.
-        # However, we cannot introduce a configured dep, because the `target` may not be compatible with platform of dependencies test.
-        # This adds a dep on `target` in a select arm that is never satisfied. This will work for TD because TD only looks at deps on unconfigured
-        # target graph.
-        deps = (deps or []) + select({
-            "DEFAULT": [],
-            "ovr_config//:none": [target],
-        }),
+        labels = ["audit_dependents_test"],
+        deps = deps,
         **kwargs
     )

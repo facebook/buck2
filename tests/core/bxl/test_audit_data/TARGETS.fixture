@@ -1,0 +1,7 @@
+trivial_build(
+    name = "with_output",
+)
+
+platform(
+    name = "someplat",
+)

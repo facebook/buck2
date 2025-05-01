@@ -13,7 +13,8 @@ load("@prelude//:genrule_prefer_local_labels.bzl", "genrule_labels_prefer_local"
 load("@prelude//:genrule_toolchain.bzl", "GenruleToolchainInfo")
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
-load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
+load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 
 GENRULE_OUT_DIR = "out"
@@ -21,7 +22,7 @@ GENRULE_OUT_DIR = "out"
 # Currently, some rules require running from the project root, so provide an
 # opt-in list for those here.  Longer-term, these should be ported to actual
 # rule implementations in v2, rather then using `genrule`s.
-_BUILD_ROOT_LABELS = {label: True for label in [
+_BUILD_ROOT_LABELS = set([
     # The buck2 test suite
     "buck2_test_build_root",
     "antlir_macros",
@@ -43,7 +44,7 @@ _BUILD_ROOT_LABELS = {label: True for label in [
     "flowtype_ota_safety_target",  # produces JSON containing file paths that are project-relative
     "ctrlr_setting_paths",
     "llvm_buck_genrule",
-]}
+])
 
 # In Buck1 the SRCS environment variable is only set if the substring SRCS is on the command line.
 # That's a horrible heuristic, and doesn't account for users accessing $SRCS from a shell script.
@@ -145,13 +146,16 @@ def process_genrule(
     # NOTE: Eventually we shouldn't require local_only here, since we should be
     # fine with caching local fallbacks if necessary (or maybe that should be
     # disallowed as a matter of policy), but for now let's be safe.
-    cacheable = value_or(ctx.attrs.cacheable, True) and local_only
+    cacheable = value_or(ctx.attrs.cacheable, True) and (local_only or prefer_local)
+
+    executable_outs = getattr(ctx.attrs, "executable_outs", None)
 
     # TODO(cjhopman): verify output paths are ".", "./", or forward-relative.
     if out_attr != None:
         out_artifact = _declare_output(ctx, out_attr)
         named_outputs = {}
         default_outputs = [out_artifact]
+        expect(executable_outs == None, "`executable_outs` should not be set when `out` is set")
     elif outs_attr != None:
         out_artifact = ctx.actions.declare_output(GENRULE_OUT_DIR, dir = True)
 
@@ -159,6 +163,11 @@ def process_genrule(
             name: [_project_output(out_artifact, path) for path in outputs]
             for (name, outputs) in outs_attr.items()
         }
+
+        outs_names = outs_attr.keys()
+        if executable_outs != None:
+            for executable_out in executable_outs:
+                expect(executable_out in outs_names, "Value in `executable_outs` {} is not in `outs`".format(executable_out))
 
         default_outputs = [
             _project_output(out_artifact, path)
@@ -171,7 +180,7 @@ def process_genrule(
         fail("One of `out` or `outs` should be set. Got `%s`" % repr(ctx.attrs))
 
     # Some custom rules use `process_genrule` but doesn't set this attribute.
-    is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].platform == "windows"
+    is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
     if is_windows:
         path_sep = "\\"
         cmd = ctx.attrs.cmd_exe if ctx.attrs.cmd_exe != None else ctx.attrs.cmd
@@ -223,9 +232,8 @@ def process_genrule(
     for symlink in symlinks:
         srcs.add(cmd_args(srcs_artifact, format = path_sep.join([".", "{}", symlink.replace("/", path_sep)])))
     env_vars = {
-        "ASAN_OPTIONS": cmd_args("detect_leaks=0,detect_odr_violation=0"),
-        "GEN_DIR": cmd_args("GEN_DIR_DEPRECATED"),  # ctx.relpath(ctx.output_root_dir(), srcs_path)
-        "OUT": cmd_args(out_artifact.as_output()),
+        "GEN_DIR": "GEN_DIR_DEPRECATED",
+        "OUT": out_artifact.as_output(),
         "SRCDIR": cmd_args(srcs_artifact, format = path_sep.join([".", "{}"])),
         "SRCS": srcs,
     } | {k: cmd_args(v) for k, v in getattr(ctx.attrs, "env", {}).items()}
@@ -236,17 +244,17 @@ def process_genrule(
     # again (thus making the label useless). So, when a local-only label is
     # set, we make the action *different*.
     if local_only:
-        env_vars["__BUCK2_LOCAL_ONLY_CACHE_BUSTER"] = cmd_args("")
+        env_vars["__BUCK2_LOCAL_ONLY_CACHE_BUSTER"] = ""
 
     # see comment above
     if prefer_local:
-        env_vars["__BUCK2_PREFER_LOCAL_CACHE_BUSTER"] = cmd_args("")
+        env_vars["__BUCK2_PREFER_LOCAL_CACHE_BUSTER"] = ""
 
     # For now, when uploads are enabled, be safe and avoid sharing cache hits.
     cache_bust = _get_cache_mode(ctx).cache_bust_genrules
 
     if cacheable and cache_bust:
-        env_vars["__BUCK2_ALLOW_CACHE_UPLOADS_CACHE_BUSTER"] = cmd_args("")
+        env_vars["__BUCK2_ALLOW_CACHE_UPLOADS_CACHE_BUSTER"] = ""
 
     if _requires_no_srcs_environment(ctx):
         env_vars.pop("SRCS")
@@ -330,6 +338,7 @@ def process_genrule(
 
     if is_windows:
         # Should be in the beginning.
+        # Odd, why is this a single string. How does it not end up getting quoted and being weird?
         script = [cmd_args("@echo off")] + script
 
     sh_script, _ = ctx.actions.write(
@@ -370,7 +379,13 @@ def process_genrule(
         **metadata_args
     )
 
-    sub_targets = {k: [DefaultInfo(default_outputs = v)] for (k, v) in named_outputs.items()}
+    sub_targets = {}
+    for (k, v) in named_outputs.items():
+        sub_target_providers = [DefaultInfo(default_outputs = v)]
+        if executable_outs != None and k in executable_outs:
+            sub_target_providers.append(RunInfo(args = cmd_args(v)))
+        sub_targets[k] = sub_target_providers
+
     providers = [DefaultInfo(
         default_outputs = default_outputs,
         sub_targets = sub_targets,

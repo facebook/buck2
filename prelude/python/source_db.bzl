@@ -22,43 +22,11 @@ PythonSourceDBInfo = provider(fields = {
 def create_python_source_db_info(manifests: [PythonLibraryManifestsTSet, None]) -> PythonSourceDBInfo:
     return PythonSourceDBInfo(manifests = manifests)
 
-def create_source_db(
-        ctx: AnalysisContext,
-        srcs: [ManifestInfo, None],
-        python_deps: list[PythonLibraryInfo]) -> DefaultInfo:
-    output = ctx.actions.declare_output("db.json")
-    artifacts = []
-
-    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
-    cmd = cmd_args(python_toolchain.make_source_db)
-    cmd.add(cmd_args(output.as_output(), format = "--output={}"))
-
-    # Pass manifests for rule's sources.
-    if srcs != None:
-        cmd.add(cmd_args(srcs.manifest, format = "--sources={}"))
-        artifacts.extend([a for a, _ in srcs.artifacts])
-
-    # Pass manifests for transitive deps.
-    dep_manifests = ctx.actions.tset(PythonLibraryManifestsTSet, children = [d.manifests for d in python_deps])
-
-    dependencies = cmd_args(dep_manifests.project_as_args("source_type_manifests"), format = "--dependency={}")
-    cmd.add(at_argfile(
-        actions = ctx.actions,
-        name = "source_db_dependencies",
-        args = dependencies,
-    ))
-
-    artifacts.append(dep_manifests.project_as_args("source_type_artifacts"))
-
-    ctx.actions.run(cmd, category = "py_source_db")
-
-    return DefaultInfo(default_output = output, other_outputs = artifacts)
-
 def create_dbg_source_db(
         ctx: AnalysisContext,
+        output: Artifact,
         srcs: [ManifestInfo, None],
         python_deps: list[PythonLibraryInfo]) -> DefaultInfo:
-    output = ctx.actions.declare_output("dbg-db.json")
     artifacts = []
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
@@ -81,7 +49,7 @@ def create_dbg_source_db(
     ))
 
     artifacts.append(dep_manifests.project_as_args("source_artifacts"))
-    ctx.actions.run(cmd, category = "py_dbg_source_db")
+    ctx.actions.run(cmd, category = "py_dbg_source_db", error_handler = python_toolchain.python_error_handler)
 
     return DefaultInfo(default_output = output, other_outputs = artifacts)
 

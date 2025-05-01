@@ -22,8 +22,9 @@ use buck2_test_api::data::TestStage;
 use buck2_test_api::data::TestStatus;
 use buck2_test_api::grpc::TestOrchestratorClient;
 use clap::Parser;
-use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
+use futures::TryStreamExt;
+use futures::channel::mpsc::UnboundedReceiver;
 use host_sharing::HostSharingRequirements;
 use parking_lot::Mutex;
 
@@ -79,11 +80,11 @@ impl Buck2TestRunner {
                 let execution_response = self
                     .execute_test_from_spec(spec)
                     .await
-                    .expect("Test execution request failed");
+                    .context("Test execution request failed")?;
 
                 let execution_result = match execution_response {
                     ExecuteResponse::Result(r) => r,
-                    ExecuteResponse::Cancelled => return TestStatus::OMITTED,
+                    ExecuteResponse::Cancelled(_) => return Ok(TestStatus::OMITTED),
                 };
 
                 let test_result = get_test_result(name, target_handle, execution_result);
@@ -91,27 +92,27 @@ impl Buck2TestRunner {
 
                 self.report_test_result(test_result)
                     .await
-                    .expect("Test result reporting failed");
+                    .context("Test result reporting failed")?;
 
-                test_status
+                Ok(test_status)
             })
             // Use an arbitrarily large buffer -- execution throttling will be handled by the Buck2
             // executor, so no need to hold back on requests here.
             .buffer_unordered(10000)
             // If any individual test failed, consider the entire run to have failed.
-            .fold(
+            .try_fold(
                 RunVerdict::Pass,
                 |mut run_verdict, test_status| async move {
                     if test_status != TestStatus::PASS {
                         run_verdict = RunVerdict::Fail;
                     }
-                    run_verdict
+                    anyhow::Ok(run_verdict)
                 },
             )
             .await;
 
         self.orchestrator_client
-            .end_of_test_results(run_verdict.exit_code())
+            .end_of_test_results(run_verdict?.exit_code())
             .await
     }
 
@@ -122,6 +123,7 @@ impl Buck2TestRunner {
         let stage = TestStage::Testing {
             suite: spec.target.target,
             testcases: Vec::new(),
+            variant: None,
         };
 
         let config_args = self.config.test_arg.iter().map(|arg| ArgValue {
@@ -217,6 +219,7 @@ fn get_test_result(
             "---- STDOUT ----\n{:?}\n---- STDERR ----\n{:?}\n",
             execution_result.stdout, execution_result.stderr
         ),
+        max_memory_used_bytes: None,
     }
 }
 

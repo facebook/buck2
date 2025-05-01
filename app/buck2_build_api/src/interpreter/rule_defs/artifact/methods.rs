@@ -9,17 +9,19 @@
 
 use std::convert::Infallible;
 
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::environment::MethodsBuilder;
 use starlark::typing::Ty;
-use starlark::values::list::UnpackList;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueOf;
+use starlark::values::list::UnpackList;
+use starlark::values::none::NoneOr;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
@@ -74,8 +76,8 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     fn basename<'v>(
         this: &'v dyn StarlarkArtifactLike,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
-        this.basename(heap)
+    ) -> starlark::Result<StringValue<'v>> {
+        Ok(this.basename(heap)?)
     }
 
     /// The file extension of this artifact. e.g. for an artifact at foo/bar.sh,
@@ -84,14 +86,14 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     fn extension<'v>(
         this: &'v dyn StarlarkArtifactLike,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
-        this.extension(heap)
+    ) -> starlark::Result<StringValue<'v>> {
+        Ok(this.extension(heap)?)
     }
 
     /// Whether the artifact represents a source file
     #[starlark(attribute)]
-    fn is_source<'v>(this: &'v dyn StarlarkArtifactLike) -> anyhow::Result<bool> {
-        this.is_source()
+    fn is_source<'v>(this: &'v dyn StarlarkArtifactLike) -> starlark::Result<bool> {
+        Ok(this.is_source()?)
     }
 
     /// The `Label` of the rule that originally created this artifact. May also be None in
@@ -100,8 +102,8 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn owner<'v>(
         this: &'v dyn StarlarkArtifactLike,
-    ) -> anyhow::Result<Option<StarlarkConfiguredProvidersLabel>> {
-        this.owner()
+    ) -> starlark::Result<NoneOr<StarlarkConfiguredProvidersLabel>> {
+        Ok(NoneOr::from_option(this.owner()?))
     }
 
     /// The interesting part of the path, relative to somewhere in the output directory.
@@ -110,16 +112,16 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     fn short_path<'v>(
         this: &'v dyn StarlarkArtifactLike,
         heap: &Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
-        this.short_path(heap)
+    ) -> starlark::Result<StringValue<'v>> {
+        Ok(this.short_path(heap)?)
     }
 
     /// Returns a `StarlarkOutputArtifact` instance, or fails if the artifact is
     /// either an `Artifact`, or is a bound `Artifact` (You cannot bind twice)
     fn as_output<'v>(
         this: ValueOf<'v, &'v dyn StarlarkArtifactLike>,
-    ) -> anyhow::Result<StarlarkOutputArtifact<'v>> {
-        this.typed.as_output(this.value)
+    ) -> starlark::Result<StarlarkOutputArtifact<'v>> {
+        Ok(this.typed.as_output(this.value)?)
     }
 
     /// Create an artifact that lives at path relative from this artifact.
@@ -132,16 +134,17 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
         this: &'v dyn StarlarkArtifactLike,
         #[starlark(require = pos)] path: &str,
         #[starlark(require = named, default = false)] hide_prefix: bool,
-    ) -> anyhow::Result<EitherStarlarkArtifact> {
-        this.project(path, hide_prefix)
+    ) -> starlark::Result<EitherStarlarkArtifact> {
+        let path = ForwardRelativePath::new(path)?;
+        Ok(this.project(path, hide_prefix)?)
     }
 
     /// Returns a `StarlarkArtifact` instance which is identical to the original artifact, except
     /// with no associated artifacts
     fn without_associated_artifacts<'v>(
         this: &'v dyn StarlarkArtifactLike,
-    ) -> anyhow::Result<EitherStarlarkArtifact> {
-        this.without_associated_artifacts()
+    ) -> starlark::Result<EitherStarlarkArtifact> {
+        Ok(this.without_associated_artifacts()?)
     }
 
     /// Returns a `StarlarkArtifact` instance which is identical to the original artifact, but with
@@ -149,7 +152,7 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     fn with_associated_artifacts<'v>(
         this: &'v dyn StarlarkArtifactLike,
         artifacts: UnpackList<ValueAsArtifactLike<'v>>,
-    ) -> anyhow::Result<EitherStarlarkArtifact> {
-        this.with_associated_artifacts(artifacts)
+    ) -> starlark::Result<EitherStarlarkArtifact> {
+        Ok(this.with_associated_artifacts(artifacts)?)
     }
 }

@@ -78,7 +78,8 @@ impl<L, H> Directory<L, H> for ImmutableDirectory<L, H>
 where
     H: DirectoryDigest,
 {
-    type DirectoryRef<'a> = ImmutableOrExclusiveDirectoryRef<'a, L, H>
+    type DirectoryRef<'a>
+        = ImmutableOrExclusiveDirectoryRef<'a, L, H>
     where
         Self: Sized + 'a,
         L: 'a;
@@ -102,7 +103,8 @@ impl<L, H> FingerprintedDirectory<L, H> for ImmutableDirectory<L, H>
 where
     H: DirectoryDigest,
 {
-    type FingerprintedDirectoryRef<'a> = ImmutableOrExclusiveDirectoryRef<'a, L, H>
+    type FingerprintedDirectoryRef<'a>
+        = ImmutableOrExclusiveDirectoryRef<'a, L, H>
     where
         Self: Sized + 'a,
         L: 'a;

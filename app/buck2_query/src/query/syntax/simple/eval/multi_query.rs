@@ -25,7 +25,7 @@ pub struct MultiQueryResult<T: QueryTarget>(
 );
 
 impl<T: QueryTarget> MultiQueryResult<T> {
-    pub fn merged(self) -> anyhow::Result<QueryEvaluationValue<T>> {
+    pub fn merged(self) -> buck2_error::Result<QueryEvaluationValue<T>> {
         let mut iter = self.0.into_iter();
         let (first_literal, mut results) = match iter.next() {
             Some((literal, value)) => (literal, value?),

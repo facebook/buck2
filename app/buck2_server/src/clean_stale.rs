@@ -7,13 +7,13 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use async_trait::async_trait;
+use buck2_error::BuckErrorContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use buck2_server_ctx::template::run_server_command;
 use chrono::TimeZone;
 use chrono::Utc;
 use dice::DiceTransaction;
@@ -24,7 +24,7 @@ pub(crate) async fn clean_stale_command(
     ctx: &ServerCommandContext<'_>,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::CleanStaleRequest,
-) -> anyhow::Result<buck2_cli_proto::CleanStaleResponse> {
+) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse> {
     run_server_command(
         CleanStaleServerCommand { req },
         ctx,
@@ -49,7 +49,7 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         _ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         server_ctx
             .cancellation_context()
             .critical_section(|| async move {
@@ -57,17 +57,17 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
 
                 let extension = deferred_materializer
                     .as_deferred_materializer_extension()
-                    .context("Deferred materializer is not in use")?;
+                    .buck_error_context("Deferred materializer is not in use")?;
 
                 let keep_since_time = Utc
                     .timestamp_opt(self.req.keep_since_time, 0)
                     .single()
-                    .context("Invalid timestamp")?;
+                    .buck_error_context("Invalid timestamp")?;
 
                 extension
                     .clean_stale_artifacts(keep_since_time, self.req.dry_run, self.req.tracked_only)
                     .await
-                    .context("Failed to clean stale artifacts.")
+                    .buck_error_context("Failed to clean stale artifacts.")
             })
             .await
     }

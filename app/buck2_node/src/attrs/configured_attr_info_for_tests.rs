@@ -26,12 +26,12 @@ impl ConfiguredAttrInfoForTests {
 }
 
 impl ConfiguredAttrTraversal for ConfiguredAttrInfoForTests {
-    fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+    fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
         self.deps.insert(dep.clone());
         Ok(())
     }
 
-    fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+    fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
         self.execution_deps.insert(dep.clone());
         Ok(())
     }

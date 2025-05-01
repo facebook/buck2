@@ -9,7 +9,6 @@
 
 #![feature(error_generic_member_access)]
 #![feature(decl_macro)]
-#![feature(fs_try_exists)]
 #![feature(never_type)]
 #![feature(pattern)]
 #![feature(box_patterns)]
@@ -25,18 +24,21 @@ pub mod error;
 
 mod ascii_char_set;
 pub mod async_once_cell;
-pub mod base_deferred_key;
 pub mod build_file_path;
+pub mod bxl;
 pub mod bzl;
 pub mod category;
 pub mod cells;
 pub mod ci;
 pub mod client_only;
 pub mod configuration;
+pub mod deferred;
 pub mod directory_digest;
 pub mod env;
+pub mod event;
 pub mod execution_types;
 pub mod fs;
+pub mod global_cfg_options;
 pub mod io_counters;
 pub mod logging;
 pub mod package;

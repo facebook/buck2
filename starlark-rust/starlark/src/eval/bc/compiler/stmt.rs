@@ -33,11 +33,11 @@ use crate::eval::compiler::stmt::StmtCompileContext;
 use crate::eval::compiler::stmt::StmtCompiled;
 use crate::eval::compiler::stmt::StmtsCompiled;
 use crate::eval::runtime::frame_span::FrameSpan;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 pub(crate) fn write_for(
     over: &IrSpanned<ExprCompiled>,

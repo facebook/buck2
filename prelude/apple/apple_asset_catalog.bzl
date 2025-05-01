@@ -6,6 +6,12 @@
 # of this source tree.
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load(
+    "@prelude//ide_integrations/xcode:data.bzl",
+    "XCODE_DATA_SUB_TARGET",
+    "XcodeDataInfoKeys",
+    "generate_xcode_data",
+)
 load("@prelude//utils:utils.bzl", "flatten")
 load(":apple_asset_catalog_compilation_options.bzl", "AppleAssetCatalogsCompilationOptions", "get_apple_asset_catalogs_compilation_options")  # @unused Used as a type
 load(":apple_asset_catalog_types.bzl", "AppleAssetCatalogResult", "AppleAssetCatalogSpec", "StringWithSourceTarget")
@@ -27,7 +33,14 @@ def apple_asset_catalog_impl(ctx: AnalysisContext) -> list[Provider]:
         exported_deps = [],
         asset_catalog_spec = spec,
     )
-    return [DefaultInfo(default_output = None), graph]
+
+    xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "apple_asset_catalog", None, _xcode_populate_attributes)
+
+    return [DefaultInfo(
+        sub_targets = {
+            XCODE_DATA_SUB_TARGET: xcode_data_default_info,
+        },
+    ), graph, xcode_data_info]
 
 def compile_apple_asset_catalog(ctx: AnalysisContext, specs: list[AppleAssetCatalogSpec]) -> [AppleAssetCatalogResult, None]:
     single_spec = _merge_asset_catalog_specs(ctx, specs)
@@ -119,3 +132,7 @@ def _get_actool_command(ctx: AnalysisContext, info: AppleAssetCatalogSpec, catal
     )
     command = cmd_args(["/bin/sh", wrapper_script], hidden = [actool_command, catalog_output])
     return command
+
+def _xcode_populate_attributes(ctx) -> dict[str, typing.Any]:
+    data = {XcodeDataInfoKeys.EXTRA_XCODE_FILES: ctx.attrs.dirs}
+    return data

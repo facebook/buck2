@@ -9,6 +9,7 @@
 
 -module(list_test).
 -compile(warn_missing_spec).
+-eqwalizer(ignore).
 
 -include_lib("common/include/tpx_records.hrl").
 
@@ -65,9 +66,25 @@
 -spec list_tests(suite(), [module()]) -> #test_spec_test_case{}.
 list_tests(Suite, Hooks) ->
     TestNames = list_test_spec(Suite, Hooks),
+    throw_if_duplicate(TestNames),
     listing_interfacer:test_case_constructor(Suite, TestNames).
 
 %% -------------- Internal functions ----------------
+%%
+%%
+-spec throw_if_duplicate(list(binary())) -> ok.
+throw_if_duplicate(TestNames) ->
+    throw_if_duplicate(sets:new([{version, 2}]), TestNames).
+
+-spec throw_if_duplicate(sets:set(binary()), list(binary())) -> ok.
+throw_if_duplicate(#{}, []) -> ok;
+throw_if_duplicate(TestNameSet, [TestName | Tail]) ->
+    case sets:is_element(TestName, TestNameSet) of
+        true ->
+            throw({found_duplicate_test, TestName});
+        false ->
+            throw_if_duplicate(sets:add_element(TestName, TestNameSet), Tail)
+    end.
 
 %% @doc Test that all the tests in the list are exported.
 -spec test_exported_test(suite(), test_name()) -> error | ok.
@@ -242,6 +259,7 @@ get_contacts(Suite) ->
         _:_:_ -> [?FALLBACK_ONCALL]
     end.
 
+-spec extract_attribute(atom(), erl_syntax:forms()) -> [binary()].
 extract_attribute(_, []) ->
     [];
 extract_attribute(Attribute, [?MATCH_STRING(Data) | Forms]) ->

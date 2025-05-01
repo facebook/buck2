@@ -1,0 +1,156 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+Prints out a target's classpaths if it has one.
+    This command is deprecated and currently available for compatibility with buck1.
+    We will replace this command with something that can audit the entire `TemplatePlaceholderInfo`
+    in the future.
+
+Usage: buck2 audit classpath [OPTIONS] [TARGET_PATTERNS]...
+
+Arguments:
+  [TARGET_PATTERNS]...
+          Target patterns to audit
+
+Options:
+      --json
+          Output in JSON format
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Target Configuration Options:
+      --target-platforms <PLATFORM>
+          Configuration target (one) to use to configure targets
+
+  -m, --modifier <VALUE>
+          A configuration modifier to configure all targets on the command line. This may be a
+          constraint value target.
+
+Buckconfig Options:
+  -c, --config <SECTION.OPTION=VALUE>
+          List of config options
+
+      --config-file <PATH>
+          List of config file paths
+
+      --fake-host <HOST>
+          [possible values: default, linux, macos, windows]
+
+      --fake-arch <ARCH>
+          [possible values: default, aarch64, x8664]
+
+      --fake-xcode-version <VERSION-BUILD>
+          Value must be formatted as: version-build (e.g., 14.3.0-14C18 or 14.1-14B47b)
+
+      --reuse-current-config
+          Re-uses any `--config` values (inline or via modefiles) if there's a previous command,
+          otherwise the flag is ignored.
+
+          If there is a previous command and `--reuse-current-config` is set, then the old config is
+          used, ignoring any overrides.
+
+          If there is no previous command but the flag was set, then the flag is ignored, the
+          command behaves as if the flag was not set at all.
+
+      --exit-when-different-state
+          Used for exiting a concurrent command when a different state is detected
+
+      --preemptible <PREEMPTIBLE>
+          Used to configure when this command could be preempted by another command for the same
+          isolation dir.
+
+          Normally, when you run two commands - from different terminals, say - buck2 will attempt
+          to run them in parallel. However, if the two commands are based on different state, that
+          is they either have different configs or different filesystem states, buck2 cannot run
+          them in parallel. The default behavior in this case is to block the second command until
+          the first completes.
+
+          Possible values:
+          - never:            (default) When another command starts that cannot run in parallel with
+            this one, block that command
+          - always:           When another command starts, interrupt this command, *even if they
+            could run in parallel*. There is no good reason to use this other than that it provides
+            slightly nicer superconsole output
+          - ondifferentstate: When another command starts that cannot run in parallel with this one,
+            interrupt this command
+
+Starlark Options:
+      --disable-starlark-types
+          Disable runtime type checking in Starlark interpreter.
+
+          This option is not stable, and can be used only locally to diagnose evaluation performance
+          problems.
+
+      --stack
+          Record or show target call stacks.
+
+          Starlark call stacks will be included in duplicate targets error.
+
+          If a command outputs targets (like `targets` command), starlark call stacks will be
+          printed after the targets.
+
+Console Options:
+      --console <super|simple|...>
+          Which console to use for this command
+
+          [env: BUCK_CONSOLE=]
+          [default: auto]
+          [possible values: auto, none, simple, simplenotty, simpletty, super]
+
+      --ui <UI>...
+          Configure additional superconsole ui components.
+
+          Accepts a comma-separated list of superconsole components to add. Possible values are:
+
+          dice - shows information about evaluated dice nodes debugevents - shows information about
+          the flow of events from buckd
+
+          These components can be turned on/off interactively. Press 'h' for help when superconsole
+          is active.
+
+          Possible values:
+          - dice
+          - debugevents
+          - io:          I/O panel
+          - re:          RE panel
+
+      --no-interactive-console
+          Disable console interactions
+
+          [env: BUCK_NO_INTERACTIVE_CONSOLE=]
+
+Event Log Options:
+      --event-log <PATH>
+          Write events to this log file
+
+      --write-build-id <PATH>
+          Write command invocation id into this file
+
+      --unstable-write-invocation-record <PATH>
+          Write the invocation record (as JSON) to this path. No guarantees whatsoever are made
+          regarding the stability of the format
+
+      --command-report-path <PATH>
+          Write the command report to this path. A command report is always written to
+          `buck-out/v2/<uuid>/command_report` even without this flag
+
+Universal Options:
+  -v, --verbose <VERBOSITY>
+          How verbose buck should be while logging.
+
+          Values: 0 = Quiet, errors only; 1 = Show status. Default; 2 = more info about errors; 3 =
+          more info about everything; 4 = more info about everything + stderr;
+
+          It can be combined with specific log items (stderr, full_failed_command, commands,
+          actions, status, stats, success) to fine-tune the verbosity of the log. Example usage
+          "-v=1,stderr"
+
+          [default: 1]
+
+      --oncall <ONCALL>
+          The oncall executing this command
+
+      --client-metadata <CLIENT_METADATA>
+          Metadata key-value pairs to inject into Buck2's logging. Client metadata must be of the
+          form `key=value`, where `key` is a snake_case identifier, and will be sent to backend
+          datasets

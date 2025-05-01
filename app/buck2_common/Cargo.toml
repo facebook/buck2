@@ -19,6 +19,7 @@ derive_more = { workspace = true }
 digest = { workspace = true }
 dirs = { workspace = true }
 fbinit = { workspace = true }
+fs4 = { workspace = true }
 futures = { workspace = true }
 globset = { workspace = true }
 hex = { workspace = true }
@@ -58,6 +59,7 @@ buck2_events = { workspace = true }
 buck2_futures = { workspace = true }
 buck2_http = { workspace = true }
 buck2_util = { workspace = true }
+buck2_wrapper_common = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true }
@@ -67,7 +69,6 @@ xattr = { workspace = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 indoc = { workspace = true }
-maplit = { workspace = true }
 tempfile = { workspace = true }
 test-case = { workspace = true }
 

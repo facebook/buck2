@@ -75,7 +75,7 @@ TargetExtraInfo = record(
     args = field([list[ArgLike], None], default = None),
     # extra environment variables to pass to the debugger
     env = field(dict[str, str], default = {}),
-    source_map = field(list[list[str]], default = []),
+    source_map = field(list[list[str]] | None, default = None),
     python = field([PythonInfo, None], default = None),
     clr = field([ClrInfo, None], default = None),
     vscode = field([Custom, None], default = None),
@@ -83,9 +83,15 @@ TargetExtraInfo = record(
     java = field([JavaInfo, None], default = None),
 )
 
+UserMessage = record(
+    title = field(str),
+    body = field(str),
+)
+
 # Full BXL response data structure understood by debugging tool
 ExecInfo = record(
     target_name = field(str),
     target_info = field(TargetInfo),
     data = field([TargetExtraInfo, None], default = None),
+    messages = field(list[UserMessage], default = []),
 )

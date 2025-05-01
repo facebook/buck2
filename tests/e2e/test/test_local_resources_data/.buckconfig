@@ -1,8 +1,0 @@
-[buildfile]
-name=TARGETS.fixture
-
-[repositories]
-root = .
-
-[buck2]
-file_watcher = fs_hash_crawler

@@ -15,6 +15,7 @@ use buck2_core::configuration::constraints::ConstraintValue;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::coerced_attr::CoercedConcat;
 use buck2_node::attrs::coerced_attr::CoercedSelector;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
@@ -178,12 +179,12 @@ fn test_select_refines_bug() {
 fn test_to_json_concat() {
     assert_eq!(
         r#"{"__type":"concat","items":["a","b","c","d"]}"#,
-        CoercedAttr::Concat(Box::new([
+        CoercedAttr::Concat(CoercedConcat(Box::new([
             CoercedAttr::String(StringLiteral(ArcStr::from("a"))),
             CoercedAttr::String(StringLiteral(ArcStr::from("b"))),
             CoercedAttr::String(StringLiteral(ArcStr::from("c"))),
             CoercedAttr::String(StringLiteral(ArcStr::from("d"))),
-        ]))
+        ])))
         .to_json(&AttrFmtContext::NO_CONTEXT)
         .unwrap()
         .to_string()

@@ -10,6 +10,8 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//:attrs_validators.bzl", "validation_common")
+load("@prelude//decls:test_common.bzl", "test_common")
 load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "LogLevel", "SourceAbiVerificationMode", "TestType", "UnusedDependenciesAction", "buck", "prelude_rule")
 load(":jvm_common.bzl", "jvm_common")
 load(":re_test_common.bzl", "re_test_common")
@@ -90,66 +92,7 @@ kotlin_library = prelude_rule(
                 Rules (usually other `kotlin_library` rules) that are used to
                  generate the classpath required to compile this `kotlin_library`.
             """),
-            "kotlin_compiler_plugins": attrs.dict(key = attrs.source(), value = attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), sorted = False, default = {}, doc = """
-                Use this to specify [Kotlin compiler plugins](https://kotlinlang.org/docs/reference/compiler-plugins.html) to use when compiling this library.
-                 This takes a map, with each entry specify one plugin. Entry's key is plugin source path,
-                 and value is a map of plugin option key value pair. Unlike `extra_kotlinc_arguments`,
-                 these can be *source paths*, not just strings.
-
-                 A special option value is
-                 `__codegen_dir__`, in which case Buck will provide a default codegen folder's path as
-                 option value instead.
-                 E.g.
-
-                ```
-
-                kotlin_compiler_plugins = {
-                    "somePluginSourcePath": {
-                        "plugin:somePluginId:somePluginOptionKey": "somePluginOptionValue",
-                        "plugin:somePluginId:someDirectoryRelatedOptionKey": "__codegen_dir__",
-                    },
-                },
-
-                ```
-                Each plugin source path will be prefixed with `-Xplugin=` and passed as extra
-                 arguments to the compiler. Plugin options will be appended after its plugin with `-P`.
-
-                 A specific example is, if you want to use [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization)
-                 with `kotlin_library()`, you need to specify `kotlinx-serialization-compiler-plugin.jar` under `kotlin_compiler_plugins` and `kotlinx-serialization-runtime.jar` (which you may have to fetch from Maven) in your `deps`:
-
-                ```
-
-                kotlin_library(
-                    name = "example",
-                    srcs = glob(["*.kt"]),
-                    deps = [
-                        ":kotlinx-serialization-runtime",
-                    ],
-                    kotlin_compiler_plugins = {
-                        # Likely copied from your $KOTLIN_HOME directory.
-                        "kotlinx-serialization-compiler-plugin.jar": {},
-                    },
-                )
-
-                prebuilt_jar(
-                    name = "kotlinx-serialization-runtime",
-                    binary_jar = ":kotlinx-serialization-runtime-0.10.0",
-                )
-
-                # Note you probably want to set
-                # maven_repo=http://jcenter.bintray.com/ in your .buckconfig until
-                # https://github.com/Kotlin/kotlinx.serialization/issues/64
-                # is closed.
-                remote_file(
-                    name = "kotlinx-serialization-runtime-0.10.0",
-                    out = "kotlinx-serialization-runtime-0.10.0.jar",
-                    url = "mvn:org.jetbrains.kotlinx:kotlinx-serialization-runtime:jar:0.10.0",
-                    sha1 = "23d777a5282c1957c7ce35946374fff0adab114c"
-                )
-
-                ```
-            """),
-            "extra_kotlinc_arguments": attrs.list(attrs.string(), default = [], doc = """
+            "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
                 List of additional arguments to pass into the Kotlin compiler.
             """),
             "friend_paths": attrs.list(attrs.dep(), default = [], doc = """
@@ -169,7 +112,11 @@ kotlin_library = prelude_rule(
         jvm_common.provided_deps() |
         jvm_common.exported_provided_deps() |
         jvm_common.k2() |
+        jvm_common.kotlin_compiler_plugins() |
         jvm_common.incremental() |
+        jvm_common.plugins() |
+        jvm_common.javac() |
+        jvm_common.enable_used_classes() |
         buck.labels_arg() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -180,14 +127,12 @@ kotlin_library = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
-            "javac": attrs.option(attrs.source(), default = None),
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
             "licenses": attrs.list(attrs.source(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
             "on_unused_dependencies": attrs.option(attrs.enum(UnusedDependenciesAction), default = None),
-            "plugins": attrs.list(attrs.dep(), default = []),
             "proguard_config": attrs.option(attrs.source(), default = None),
             "required_for_source_only_abi": attrs.bool(default = False),
             "runtime_deps": attrs.list(attrs.dep(), default = []),
@@ -196,8 +141,7 @@ kotlin_library = prelude_rule(
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "target": attrs.option(attrs.string(), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
-            "_wip_java_plugin_arguments": attrs.dict(attrs.label(), attrs.list(attrs.string()), default = {}),
-        }
+        } | jvm_common.plugins() | validation_common.attrs_validators_arg()
     ),
 )
 
@@ -211,6 +155,7 @@ kotlin_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        buck.inject_test_env_arg() |
         {
             "srcs": attrs.list(attrs.source(), default = [], doc = """
                 Like ``kotlin_library()``,
@@ -259,8 +204,11 @@ kotlin_test = prelude_rule(
             """),
         } |
         jvm_common.k2() |
+        jvm_common.kotlin_compiler_plugins() |
         jvm_common.incremental() |
         jvm_common.test_env() |
+        jvm_common.javac() |
+        jvm_common.enable_used_classes() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
@@ -268,19 +216,20 @@ kotlin_test = prelude_rule(
             "annotation_processor_params": attrs.list(attrs.string(), default = []),
             "annotation_processors": attrs.list(attrs.string(), default = []),
             "contacts": attrs.list(attrs.string(), default = []),
-            "cxx_library_whitelist": attrs.list(attrs.dep(), default = []),
+            "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
+                List of cxx_library targets to build, if use_cxx_libraries is true.
+                This can be useful if some dependencies are Android-only and won't build for the test host platform.
+            """),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps_query": attrs.option(attrs.query(), default = None),
             "exported_deps": attrs.list(attrs.dep(), default = []),
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
             "extra_arguments": attrs.list(attrs.string(), default = []),
-            "extra_kotlinc_arguments": attrs.list(attrs.string(), default = []),
+            "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "friend_paths": attrs.list(attrs.dep(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
             "java": attrs.option(attrs.dep(), default = None),
-            "javac": attrs.option(attrs.source(), default = None),
-            "kotlin_compiler_plugins": attrs.dict(key = attrs.source(), value = attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), sorted = False, default = {}),
             "licenses": attrs.list(attrs.source(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
@@ -302,8 +251,8 @@ kotlin_test = prelude_rule(
             "use_cxx_libraries": attrs.option(attrs.bool(), default = None),
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
-            "_wip_java_plugin_arguments": attrs.dict(attrs.label(), attrs.list(attrs.string()), default = {}),
-        }
+        } |
+        test_common.attributes()
     ),
 )
 

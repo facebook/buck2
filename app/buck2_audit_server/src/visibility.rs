@@ -12,8 +12,8 @@ use buck2_audit::visibility::AuditVisibilityCommand;
 use buck2_cli_proto::ClientContext;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
+use buck2_node::load_patterns::load_patterns;
 use buck2_node::nodes::lookup::TargetNodeLookup;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::visibility::VisibilityError;
@@ -29,6 +29,7 @@ use dupe::Dupe;
 use crate::ServerAuditSubcommand;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum VisibilityCommandError {
     #[error(
         "Internal Error: The dependency `{0}` of the target `{1}` was not found during the traversal."
@@ -39,7 +40,7 @@ enum VisibilityCommandError {
 async fn verify_visibility(
     mut ctx: DiceTransaction,
     targets: TargetSet<TargetNode>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut new_targets: TargetSet<TargetNode> = TargetSet::new();
 
     let visit = |target| {
@@ -74,7 +75,7 @@ async fn verify_visibility(
                     }
                 }
                 None => {
-                    return Err(anyhow::Error::from(
+                    return Err(buck2_error::Error::from(
                         VisibilityCommandError::DepNodeNotFound(
                             dep.to_string(),
                             target.label().name().to_string(),
@@ -90,7 +91,11 @@ async fn verify_visibility(
     }
 
     if !visibility_errors.is_empty() {
-        return Err(anyhow::anyhow!("{}", 1));
+        return Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "{}",
+            1
+        ));
     }
 
     buck2_client_ctx::eprintln!("audit visibility succeeded")?;
@@ -104,8 +109,8 @@ impl ServerAuditSubcommand for AuditVisibilityCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         _stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
                     &mut ctx,
@@ -126,6 +131,6 @@ impl ServerAuditSubcommand for AuditVisibilityCommand {
                 verify_visibility(ctx, nodes).await?;
                 Ok(())
             })
-            .await
+            .await?)
     }
 }

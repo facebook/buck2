@@ -8,19 +8,19 @@
  */
 
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::cells::CellAliasResolver;
-use buck2_core::cells::CellResolver;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
+use starlark::values::UnpackValue;
 use starlark::values::none::NoneType;
 use starlark::values::type_repr::StarlarkTypeRepr;
-use starlark::values::UnpackValue;
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
 pub(crate) enum ValueAsStarlarkTargetLabel<'v> {
@@ -39,7 +39,7 @@ impl<'v> ValueAsStarlarkTargetLabel<'v> {
         cell_alias_resolver: &CellAliasResolver,
         cell_name: CellName,
         default_target_platform: &Option<TargetLabel>,
-    ) -> anyhow::Result<Option<TargetLabel>> {
+    ) -> buck2_error::Result<Option<TargetLabel>> {
         match self {
             ValueAsStarlarkTargetLabel::None(_) => Ok(default_target_platform.clone()),
             ValueAsStarlarkTargetLabel::Str(s) => {

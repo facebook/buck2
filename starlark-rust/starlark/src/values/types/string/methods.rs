@@ -21,13 +21,18 @@ use std::cmp;
 
 use starlark_derive::starlark_module;
 use starlark_syntax::fast_string;
-use starlark_syntax::fast_string::convert_str_indices;
 use starlark_syntax::fast_string::StrIndices;
+use starlark_syntax::fast_string::convert_str_indices;
 
 use crate as starlark;
 use crate::environment::MethodsBuilder;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::values::Heap;
+use crate::values::StringValue;
+use crate::values::UnpackValue;
+use crate::values::Value;
+use crate::values::ValueOfUnchecked;
 use crate::values::list::AllocList;
 use crate::values::list::UnpackList;
 use crate::values::none::NoneOr;
@@ -37,11 +42,6 @@ use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::string::iter::iterate_chars;
 use crate::values::types::string::iter::iterate_codepoints;
 use crate::values::typing::iter::StarlarkIter;
-use crate::values::Heap;
-use crate::values::StringValue;
-use crate::values::UnpackValue;
-use crate::values::Value;
-use crate::values::ValueOfUnchecked;
 
 // This does not exists in rust, split would cut the string incorrectly and
 // split_whitespace cannot take a n parameter.
@@ -627,7 +627,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> starlark::Result<ValueOfUnchecked<'v, String>> {
         #[inline(always)]
-        fn as_str<'v>(x: Value<'v>) -> anyhow::Result<StringValue<'v>> {
+        fn as_str<'v>(x: Value<'v>) -> crate::Result<StringValue<'v>> {
             StringValue::unpack_named_param(x, "to_join")
         }
 
@@ -1093,7 +1093,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         let mut s = this;
         let mut lines: Vec<StringValue> = Vec::new();
         loop {
-            if let Some(x) = s.find(|x| x == '\n' || x == '\r') {
+            if let Some(x) = s.find(['\n', '\r']) {
                 let y = x;
                 let x = match s.get(y..y + 2) {
                     Some("\r\n") => y + 2,

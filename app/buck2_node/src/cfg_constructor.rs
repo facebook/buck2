@@ -36,7 +36,7 @@ pub trait CfgConstructorImpl: Send + Sync + Debug + Allocative {
         target_cfg_modifiers: Option<&'a MetadataValue>,
         cli_modifiers: &'a [String],
         rule_type: &'a RuleType,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<ConfigurationData>> + Send + 'a>>;
+    ) -> Pin<Box<dyn Future<Output = buck2_error::Result<ConfigurationData>> + Send + 'a>>;
 
     /// Returns the metadata key used to encode modifiers in PACKAGE values and metadata attribute
     fn key<'a>(&'a self) -> &'a MetadataKeyRef;
@@ -58,5 +58,5 @@ pub trait CfgConstructorCalculationImpl: Send + Sync + 'static {
         cfg: ConfigurationData,
         cli_modifiers: &Arc<Vec<String>>,
         rule_name: &RuleType,
-    ) -> anyhow::Result<ConfigurationData>;
+    ) -> buck2_error::Result<ConfigurationData>;
 }

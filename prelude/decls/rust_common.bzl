@@ -155,6 +155,9 @@ def _named_deps_arg(is_binary: bool):
 
 def _rust_toolchain_arg():
     return {
+        "_rust_internal_tools_toolchain": attrs.default_only(
+            attrs.toolchain_dep(default = "prelude//rust/tools:internal_tools_toolchain"),
+        ),
         "_rust_toolchain": toolchains_common.rust(),
     }
 

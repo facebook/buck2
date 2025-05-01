@@ -1,0 +1,215 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+"""
+Utils functions for working with bxl.Lazy objects.
+"""
+
+def catch_resolve_lazy_dict(bxl_ctx: bxl.Context, lazy_dict: dict[typing.Any, bxl.Lazy]) -> dict[typing.Any, bxl.Result]:
+    """
+    Resolves a dictionary of bxl.Lazy operations in parallel while capturing errors.
+
+     Parameters:
+    - `bxl_ctx`: BXL context
+    - `lazy_dict`: Dictionary to resolve, where values must be `bxl.Lazy` instances
+
+    Returns:
+    A new dictionary preserving original keys, with values as `bxl.Result` objects.
+
+    Example:
+    ```python
+    def _impl(ctx):
+        lazy_dict = {
+            "app": ctx.lazy.configured_targets("cell//:app"),
+            "lib": ctx.lazy.configured_targets("cell//:lib")
+        }
+
+        # Batch resolve and process
+        results = catch_resolve_lazy_dict(ctx, lazy_dict)
+        for name, res in results.items():
+            if res.is_ok():
+                ctx.output.print(f"{name}: {res.unwrap()}")
+            else:
+                ctx.output.print(f"{name} failed: {res.unwrap_err()}")
+    ```
+    """
+    keys = lazy_dict.keys()
+    lazies = [lazy.catch() for lazy in lazy_dict.values()]
+    values = bxl_ctx.lazy.join_all(lazies).resolve()
+    return dict(zip(keys, values))
+
+def batch_apply_lazy(
+        bxl_ctx: bxl.Context,
+        lazy_func: typing.Callable[[typing.Any], bxl.Lazy],
+        args: list[typing.Any]) -> list[typing.Any]:
+    """
+    Applies a lazy function to a list of arguments, resolves them in parallel, and returns raw results.
+    It will cause bxl fail immediately if any operation fails (no error catching).
+
+    Parameters:
+    - `bxl_ctx` (`bxl.Context`): The BXL context object.
+    - `lazy_func` (`typing.Callable[[Any], bxl.Lazy]`): A function that takes a single argument and returns a `bxl.Lazy`
+      (e.g., `ctx.lazy.analysis`, `ctx.lazy.configured_target_node`, or any other functon/lambda you defined).
+    - `args` (`list[typing.Any]`): List of arguments to apply to `lazy_func`.
+
+    Returns:
+    - A list of resolved values. If any operation fails, the bxl script will fail.
+
+    Example:
+    ```python
+    def _impl(ctx):
+        targets = [
+            "cell//:valid_target1",
+            "cell//:valid_target2"
+        ]
+
+        # Resolve to all configured target nodes without error catching
+        nodes = batch_apply_lazy(ctx, ctx.lazy.configured_target_node, targets)
+        ctx.output.print(f"All configured target nodes: {nodes}")
+    ```
+    """
+    lazies = [lazy_func(arg) for arg in args]
+    return bxl_ctx.lazy.join_all(lazies).resolve()
+
+def batch_apply_lazy_catch_each(
+        bxl_ctx: bxl.Context,
+        lazy_func: typing.Callable[[typing.Any], bxl.Lazy],
+        args: list[typing.Any]) -> list[bxl.Result]:
+    """
+    Applies a lazy function to a list of arguments, resolves them in parallel, and returns individual `Result`
+    objects for each operation. Errors are isolated per item.
+
+    Parameters:
+    - `bxl_ctx` (`bxl.Context`): The BXL context object.
+    - `lazy_func` (`typing.Callable[[typing.Any], bxl.Lazy]`): A function that returns a `bxl.Lazy`
+      (e.g., `ctx.lazy.analysis`, `ctx.lazy.configured_target_node`, or any other functon/lambda you defined)..
+    - `args` (`list[typing.Any]`): List of arguments to apply to `lazy_func`.
+
+    Returns:
+    - `list[bxl.Result]`: A list of `Result` objects in the same order as `args`. Each `Result` can be
+      `Ok(value)` or `Err(error)`.
+
+    Example:
+    ```python
+    def _impl(ctx):
+        targets = [
+            "cell//:valid_target1",
+            "cell//:valid_target2"
+            "cell//:invalid_target1",
+        ]
+
+        # Resolve analyses with per-item error handling
+        results = batch_apply_lazy_catch_each(ctx, ctx.lazy.configured_target_node, targets)
+
+        for target, res in zip(targets, results):
+            if res.is_ok():
+                node = res.unwrap()
+                ctx.output.print(f"Get configured target node for {target} SUCCESS: {node}")
+            else:
+                error = res.unwrap_err()
+                ctx.output.print(f"Get configured target node for {target} FAILED: {error}")
+    ```
+    """
+    lazies = [lazy_func(arg).catch() for arg in args]  # Catch per item
+    return bxl_ctx.lazy.join_all(lazies).resolve()
+
+def batch_apply_lazy_catch_all(
+        bxl_ctx: bxl.Context,
+        lazy_func: typing.Callable[[typing.Any], bxl.Lazy],
+        args: list[typing.Any]) -> bxl.Result:
+    """
+    Applies a lazy function to a list of arguments, joins them into a single batch operation, and resolves
+    with a global error catch. Returns either all successes or the first error encountered.
+
+    Parameters:
+    - `bxl_ctx` (`bxl.Context`): The BXL context object.
+    - `lazy_func` (`typing.Callable[[typing.Any], bxl.Lazy]`): A function that returns a `bxl.Lazy`
+      (e.g., `ctx.lazy.analysis`, `ctx.lazy.configured_target_node`, or any other functon/lambda you defined)..
+    - `args` (`list[typing.Any]`): List of arguments to apply to `lazy_func`.
+
+    Returns:
+    - `bxl.Result`:
+      - `Ok(list)`: If all operations succeed, returns the list of resolved values.
+      - `Err(error)`: If any operation fails, returns the first error encountered.
+
+    Example:
+    ```python
+    def _impl(ctx):
+        targets = [
+            "cell//:valid_target1",
+            "cell//:valid_target2"
+            "cell//:invalid_target1",
+        ]
+
+        # Resolve as a single batch with global error handling
+        batch_result = batch_apply_lazy_catch_all(ctx, ctx.lazy.configured_target_node, targets)
+
+        if batch_result.is_ok():
+            res = batch_result.unwrap()
+            ctx.output.print(f"All succeeded: {len(res)}")
+        else:
+            error = batch_result.unwrap_err()
+            ctx.output.print(f"Batch failed: {error}")
+    ```
+    """
+    lazies = [lazy_func(arg) for arg in args]
+    joined = bxl_ctx.lazy.join_all(lazies)
+    return joined.catch().resolve()  # Catch at batch level
+
+def partition_results(results: list[bxl.Result]) -> (list[typing.Any], list[bxl.Error]):
+    """
+    Splits Results into successful values and errors.
+
+    Parameters:
+    - `results`: List of `bxl.Result` objects
+
+    Returns:
+    A tuple of two lists: `(successes, errors)`
+
+    Example:
+    ```python
+    successes, errors = partition_results(results)
+    ctx.output.print(f"Successes: {len(successes)}, Errors: {len(errors)}")
+    ```
+    """
+    oks, errs = [], []
+    for res in results:
+        if res.is_ok():
+            oks.append(res.unwrap())
+        else:
+            errs.append(res.unwrap_err())
+    return oks, errs
+
+def partition_results_dict(
+        results_dict: dict[typing.Any, bxl.Result]) -> (dict[typing.Any, typing.Any], dict[typing.Any, bxl.Error]):
+    """
+    Splits a dictionary of `bxl.Result` into two dictionaries:
+    - Successful key-value pairs (unwrapped values)
+    - Errored key-value pairs (error objects)
+
+    Parameters:
+    - `results_dict`: Dictionary with values of type `bxl.Result`
+
+    Returns:
+    Tuple of `(success_dict, error_dict)` where:
+    - `success_dict`: Original keys mapped to unwrapped `Ok` values
+    - `error_dict`: Original keys mapped to `bxl.Error` objects
+
+    Example:
+    ```python
+    results = {"app": res1, "lib": res2, "test": res3}
+    successes, errors = split_results_dict_by_status(results)
+    ```
+    """
+    success_dict = {}
+    error_dict = {}
+    for key, res in results_dict.items():
+        if res.is_ok():
+            success_dict[key] = res.unwrap()
+        else:
+            error_dict[key] = res.unwrap_err()
+    return success_dict, error_dict

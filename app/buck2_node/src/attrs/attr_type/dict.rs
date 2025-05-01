@@ -12,12 +12,13 @@ use std::fmt::Formatter;
 use std::ops::Deref;
 
 use allocative::Allocative;
+use buck2_error::buck2_error;
 use buck2_util::arc_str::ArcSlice;
 use display_container::fmt_keyed_container;
 use serde_json::Value;
 
-use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
@@ -47,7 +48,16 @@ impl DictAttrType {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative, Default)]
+#[derive(
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Hash,
+    Allocative,
+    Default,
+    strong_hash::StrongHash
+)]
 pub struct DictLiteral<C: Eq>(pub ArcSlice<(C, C)>);
 
 impl<C: Eq> Deref for DictLiteral<C> {
@@ -79,7 +89,10 @@ impl<C: Eq> FromIterator<(C, C)> for DictLiteral<C> {
 }
 
 impl<C: Eq + AnyMatches> AnyMatches for DictLiteral<C> {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         for (k, v) in self.0.iter() {
             if k.any_matches(filter)? || v.any_matches(filter)? {
                 return Ok(true);
@@ -90,12 +103,22 @@ impl<C: Eq + AnyMatches> AnyMatches for DictLiteral<C> {
 }
 
 impl<C: Eq + ToJsonWithContext> ToJsonWithContext for DictLiteral<C> {
-    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<Value> {
+    fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<Value> {
         let mut res: serde_json::Map<String, serde_json::Value> =
             serde_json::Map::with_capacity(self.len());
         for (k, v) in self.iter() {
             res.insert(
-                k.to_json(ctx)?.as_str().unwrap().to_owned(),
+                k.to_json(ctx)?
+                    .as_str()
+                    .ok_or_else(|| {
+                        // FIXME(JakobDegen): This can't actually error, we need to ban it or
+                        // serialize it somehow
+                        buck2_error!(
+                            buck2_error::ErrorTag::Input,
+                            "Cannot serialize dict attr with non-string key type"
+                        )
+                    })?
+                    .to_owned(),
                 v.to_json(ctx)?,
             );
         }

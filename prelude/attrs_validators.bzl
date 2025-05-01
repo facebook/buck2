@@ -5,44 +5,53 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+_ATTRS_VALIDATORS_NAME = "attrs_validators"
+
 AttrsValidatorsInfo = provider(
     fields = {
         "func": typing.Callable[[AnalysisActions, Label, struct], dict[str, Artifact]],
     },
 )
 
-ATTRS_VALIDATORS_NAME = "attrs_validators"
-ATTRS_VALIDATORS_TYPE = attrs.option(attrs.list(attrs.dep(providers = [AttrsValidatorsInfo])), default = None)
-
-def get_attrs_validators_outputs(ctx: AnalysisContext) -> (list[Provider], dict[str, list[Provider]]):
-    validators = getattr(ctx.attrs, ATTRS_VALIDATORS_NAME, [])
+def get_attrs_validation_specs(ctx: AnalysisContext) -> list[ValidationSpec]:
+    validators = getattr(ctx.attrs, _ATTRS_VALIDATORS_NAME, [])
     if not validators:
-        return ([], {})
+        return []
 
     specs = []
-    sub_targets = {}
     for validator in validators:
         for name, output in validator[AttrsValidatorsInfo].func(ctx.actions, ctx.label, ctx.attrs).items():
             specs.append(ValidationSpec(name = name, validation_result = output))
 
-            if name in sub_targets:
-                fail("Collison: two attrs_validators with the same name '{}': {} and {}".format(
-                    name,
-                    output,
-                    sub_targets[name],
-                ))
+    return specs
 
-            sub_targets[name] = [DefaultInfo(output)]
+def _attrs_validators_arg():
+    return {
+        _ATTRS_VALIDATORS_NAME: attrs.option(
+            attrs.list(attrs.dep(providers = [AttrsValidatorsInfo])),
+            default = None,
+        ),
+    }
 
-    return (
-        [ValidationInfo(validations = specs)] if specs else [],
-        {
-            "attrs-validators": [
-                DefaultInfo(
-                    # It'll be expensive to put all the artifacts in here, just skip it.
-                    default_outputs = None,
-                    sub_targets = sub_targets,
-                ),
-            ],
-        } if sub_targets else {},
-    )
+def _validation_specs_arg():
+    return {
+        "validation_specs": attrs.dict(
+            attrs.string(),
+            attrs.source(doc = """
+                An artifact pointing to a JSON file that will be used in ValidationSpec.
+                {
+                  "version": 1,
+                  "data": {
+                    "message": "What goes in stderr",
+                    "status": "success" | "failure",
+                  }
+                } 
+            """),
+            default = {},
+        ),
+    }
+
+validation_common = struct(
+    attrs_validators_arg = _attrs_validators_arg,
+    validation_specs_arg = _validation_specs_arg,
+)

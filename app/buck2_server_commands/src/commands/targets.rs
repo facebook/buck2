@@ -15,29 +15,28 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_cli_proto::TargetsRequest;
+use buck2_cli_proto::TargetsResponse;
 use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::Compression;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
-use buck2_cli_proto::TargetsRequest;
-use buck2_cli_proto::TargetsResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use buck2_server_ctx::template::run_server_command;
 use dice::DiceTransaction;
 use flate2::write::GzEncoder;
 use zstd::stream::write as zstd;
 
-use crate::commands::targets::default::targets_batch;
 use crate::commands::targets::default::TargetHashOptions;
+use crate::commands::targets::default::targets_batch;
 use crate::commands::targets::fmt::create_formatter;
 use crate::commands::targets::resolve_alias::targets_resolve_aliases;
 use crate::commands::targets::streaming::targets_streaming;
@@ -49,7 +48,7 @@ enum OutputType {
 }
 
 trait Compressor: Write + Send {
-    fn finish(self: Box<Self>) -> anyhow::Result<()>;
+    fn finish(self: Box<Self>) -> buck2_error::Result<()>;
 }
 
 struct UncompressedCompressor<T>(T);
@@ -69,20 +68,20 @@ impl<T: Write> Write for UncompressedCompressor<T> {
 }
 
 impl<T: Write + Send> Compressor for UncompressedCompressor<T> {
-    fn finish(self: Box<Self>) -> anyhow::Result<()> {
+    fn finish(self: Box<Self>) -> buck2_error::Result<()> {
         Ok(())
     }
 }
 
 impl<T: Write + Send> Compressor for GzEncoder<T> {
-    fn finish(self: Box<Self>) -> anyhow::Result<()> {
+    fn finish(self: Box<Self>) -> buck2_error::Result<()> {
         (*self).finish()?;
         Ok(())
     }
 }
 
 impl<T: Write + Send> Compressor for zstd::Encoder<'_, T> {
-    fn finish(self: Box<Self>) -> anyhow::Result<()> {
+    fn finish(self: Box<Self>) -> buck2_error::Result<()> {
         (*self).finish()?;
         Ok(())
     }
@@ -91,24 +90,23 @@ impl<T: Write + Send> Compressor for zstd::Encoder<'_, T> {
 fn outputter<'a, W: Write + Send + 'a>(
     request: &TargetsRequest,
     stdout: W,
-) -> anyhow::Result<(OutputType, Box<dyn Compressor + 'a>)> {
+) -> buck2_error::Result<(OutputType, Box<dyn Compressor + 'a>)> {
     let (output_type, output): (_, Box<dyn Compressor>) = match &request.output {
         None => (OutputType::Stdout, Box::new(UncompressedCompressor(stdout))),
         Some(file) => {
-            let file =
-                BufWriter::new(File::create(file).with_context(|| {
-                    format!("Failed to open file `{file}` for `targets` output ")
-                })?);
+            let file = BufWriter::new(File::create(file).with_buck_error_context(|| {
+                format!("Failed to open file `{file}` for `targets` output ")
+            })?);
             (OutputType::File, Box::new(UncompressedCompressor(file)))
         }
     };
 
-    let compression = Compression::from_i32(request.compression)
+    let compression = Compression::try_from(request.compression)
         .internal_error("buck cli should send valid compression type")?;
     let output = match compression {
         Compression::Uncompressed => output,
         Compression::Gzip => Box::new(GzEncoder::new(output, Default::default())),
-        Compression::Zstd => Box::new(zstd::Encoder::new(output, 0)?),
+        Compression::Zstd => Box::new(zstd::Encoder::new(output, 9)?),
     };
     Ok((output_type, output))
 }
@@ -117,7 +115,7 @@ pub(crate) async fn targets_command(
     server_ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: TargetsRequest,
-) -> anyhow::Result<TargetsResponse> {
+) -> buck2_error::Result<TargetsResponse> {
     run_server_command(
         TargetsServerCommand { req },
         server_ctx,
@@ -142,7 +140,7 @@ impl ServerCommandTemplate for TargetsServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         dice: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         targets(
             server_ctx,
             &mut partial_result_dispatcher.as_writer(),
@@ -174,7 +172,7 @@ async fn targets(
     stdout: &mut (impl Write + Send),
     dice: DiceTransaction,
     request: &TargetsRequest,
-) -> anyhow::Result<TargetsResponse> {
+) -> buck2_error::Result<TargetsResponse> {
     let (output_type, mut output) = outputter(request, stdout)?;
     let mut res = targets_with_output(server_ctx, dice, request, &mut output).await;
     match &mut res {
@@ -197,7 +195,7 @@ async fn targets_with_output(
     mut dice: DiceTransaction,
     request: &TargetsRequest,
     output: &mut (impl Write + Send),
-) -> anyhow::Result<TargetsResponse> {
+) -> buck2_error::Result<TargetsResponse> {
     let cwd = server_ctx.working_dir();
     let cell_resolver = dice.get_cell_resolver().await?;
     let parsed_target_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
@@ -214,7 +212,7 @@ async fn targets_with_output(
         Some(targets_request::Targets::Other(other)) => {
             if other.streaming {
                 let formatter = create_formatter(request, other)?;
-                let hashing = match TargetHashGraphType::from_i32(other.target_hash_graph_type)
+                let hashing = match TargetHashGraphType::try_from(other.target_hash_graph_type)
                     .expect("buck cli should send valid target hash graph type")
                 {
                     TargetHashGraphType::None => None,
@@ -233,9 +231,9 @@ async fn targets_with_output(
                     hashing,
                     request.concurrency.as_ref().map(|x| x.concurrency as usize),
                 )
-                .await;
+                .await?;
                 Ok(TargetsResponse {
-                    error_count: res?.errors,
+                    error_count: res.errors,
                     serialized_targets_output: String::new(),
                 })
             } else {

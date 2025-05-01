@@ -24,7 +24,6 @@ derive_more = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
 linked-hash-map = { workspace = true }
-prost-types = { workspace = true }
 regex = { workspace = true }
 shlex = { workspace = true }
 superconsole = { version = "0.2.0", path = "../../superconsole" }

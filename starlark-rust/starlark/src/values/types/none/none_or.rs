@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
+use allocative::Allocative;
 use dupe::Dupe;
 use either::Either;
 
 use crate::typing::Ty;
-use crate::values::none::NoneType;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -28,11 +27,13 @@ use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::none::NoneType;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// Equivalent of a Rust [`Option`], where `None`
 /// is encoded as [`NoneType`](crate::values::none::NoneType).
 /// Useful for its [`UnpackValue`] instance.
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe, Allocative)]
 pub enum NoneOr<T> {
     /// Starlark `None`.
     None,
@@ -47,6 +48,15 @@ impl<T> NoneOr<T> {
         match self {
             Self::None => None,
             Self::Other(x) => Some(x),
+        }
+    }
+
+    /// Convert a Rust [`Option`] to a [`NoneOr`].
+    #[inline]
+    pub fn from_option(option: Option<T>) -> Self {
+        match option {
+            None => NoneOr::None,
+            Some(x) => NoneOr::Other(x),
         }
     }
 

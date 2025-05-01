@@ -1,0 +1,5 @@
+# @nolint
+
+load(":bad_return_type.bzl", "bad_return_type")
+
+_keep_the_import = bad_return_type

@@ -60,7 +60,10 @@ pub trait DirectoryIterator: Sized {
             T: DirectoryIterator,
             F: FnMut(T::Item) -> Option<B>,
         {
-            type PathStack<'a> = T::PathStack<'a> where Self: 'a;
+            type PathStack<'a>
+                = T::PathStack<'a>
+            where
+                Self: 'a;
             type Item = B;
 
             fn next<'b>(&'b mut self) -> Option<(T::PathStack<'b>, B)> {

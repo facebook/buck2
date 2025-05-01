@@ -1,11 +1,17 @@
-extra_srcs = ["README.md", "md_doc/**/*.md"]
-buildscript = []
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
 
-[platform_fixup.'cfg(target_os = "macos")']
-buildscript = []
+buildscript.run = false
+extra_srcs = ["README.md", "md_doc/**/*.md"]
+
+['cfg(target_os = "macos")']
 rustc_flags = [
-  "-lframework=IOKit",
-  "-lframework=Foundation",
-  "-lframework=CoreFoundation",
-  "-lframework=DiskArbitration",
+    "-lframework=IOKit",
+    "-lframework=Foundation",
+    "-lframework=CoreFoundation",
+    "-lframework=DiskArbitration",
 ]

@@ -1,0 +1,5 @@
+china(
+    name = "plate",
+    slow = "slow.py",
+    fast = "fast.py",
+)

@@ -5,10 +5,14 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//tests:test_toolchain.bzl", "noop_test_toolchain")
 load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
+load("@prelude//toolchains:dex.bzl", "system_noop_dex_toolchain")
 load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
 load("@prelude//toolchains:go.bzl", "system_go_bootstrap_toolchain", "system_go_toolchain")
 load("@prelude//toolchains:haskell.bzl", "system_haskell_toolchain")
+load("@prelude//toolchains:java.bzl", "system_java_bootstrap_toolchain", "system_java_tool", "system_prebuilt_jar_bootstrap_toolchain")
+load("@prelude//toolchains:kotlin.bzl", "system_kotlin_bootstrap_toolchain")
 load("@prelude//toolchains:ocaml.bzl", "system_ocaml_toolchain")
 load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain", "system_python_toolchain")
 load("@prelude//toolchains:remote_test_execution.bzl", "remote_test_execution_toolchain")
@@ -21,6 +25,17 @@ def system_demo_toolchains():
     """
     system_cxx_toolchain(
         name = "cxx",
+        visibility = ["PUBLIC"],
+    )
+
+    # TODO(ianc) Make this toolchain actually do something
+    system_noop_dex_toolchain(
+        name = "dex",
+        visibility = ["PUBLIC"],
+    )
+
+    system_noop_dex_toolchain(
+        name = "empty_dex",
         visibility = ["PUBLIC"],
     )
 
@@ -44,8 +59,54 @@ def system_demo_toolchains():
         visibility = ["PUBLIC"],
     )
 
+    # TODO(ianc) Make this not a bootstrap toolchain
+    system_java_bootstrap_toolchain(
+        name = "java",
+        java = ":java_tool",
+        visibility = ["PUBLIC"],
+    )
+
+    system_java_bootstrap_toolchain(
+        name = "java_bootstrap",
+        java = ":java_tool",
+        visibility = ["PUBLIC"],
+    )
+
+    system_java_tool(
+        name = "java_tool",
+        tool_name = "java",
+        visibility = ["PUBLIC"],
+    )
+
+    # TODO(ianc) Make this not a bootstrap toolchain
+    system_kotlin_bootstrap_toolchain(
+        name = "kotlin",
+        visibility = ["PUBLIC"],
+    )
+
+    system_kotlin_bootstrap_toolchain(
+        name = "kotlin_bootstrap",
+        visibility = ["PUBLIC"],
+    )
+
     system_ocaml_toolchain(
         name = "ocaml",
+        visibility = ["PUBLIC"],
+    )
+
+    # TODO(ianc) Make this not a bootstrap toolchain
+    system_prebuilt_jar_bootstrap_toolchain(
+        name = "prebuilt_jar",
+        visibility = ["PUBLIC"],
+    )
+
+    system_prebuilt_jar_bootstrap_toolchain(
+        name = "prebuilt_jar_bootstrap",
+        visibility = ["PUBLIC"],
+    )
+
+    system_prebuilt_jar_bootstrap_toolchain(
+        name = "prebuilt_jar_bootstrap_no_snapshot",
         visibility = ["PUBLIC"],
     )
 
@@ -67,5 +128,10 @@ def system_demo_toolchains():
 
     remote_test_execution_toolchain(
         name = "remote_test_execution",
+        visibility = ["PUBLIC"],
+    )
+
+    noop_test_toolchain(
+        name = "test",
         visibility = ["PUBLIC"],
     )

@@ -10,21 +10,21 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::profile_analysis;
+use buck2_cli_proto::TargetCfg;
 use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_cli_proto::target_profile::Action;
-use buck2_cli_proto::TargetCfg;
 use buck2_common::pattern::parse_from_cli::parse_and_resolve_patterns_from_cli_args;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
-use buck2_futures::spawn::spawn_cancellable;
+use buck2_error::internal_error;
+use buck2_futures::spawn::spawn_dropcancel;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
@@ -37,8 +37,8 @@ use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::pattern_parse_and_resolve::parse_and_resolve_patterns_to_targets_from_cli_args;
 use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
-use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use buck2_server_ctx::template::run_server_command;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::future::FutureExt;
@@ -49,7 +49,7 @@ async fn generate_profile_analysis(
     target_patterns: &[String],
     target_resolution_config: TargetResolutionConfig,
     profile_mode: &StarlarkProfilerConfiguration,
-) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
+) -> buck2_error::Result<Arc<StarlarkProfileDataAndStats>> {
     let targets = parse_and_resolve_patterns_to_targets_from_cli_args::<
         ConfiguredProvidersPatternExtra,
     >(&mut ctx, target_patterns, server_ctx.working_dir())
@@ -74,7 +74,7 @@ async fn generate_profile_analysis(
         StarlarkProfilerConfiguration::ProfileAnalysis(..) => {
             profile_analysis(&mut ctx, &configured_targets)
                 .await
-                .context("Recursive profile analysis failed")
+                .buck_error_context("Recursive profile analysis failed")
                 .map(Arc::new)
         }
         _ => Err(internal_error!("Incorrect profile mode")),
@@ -84,9 +84,12 @@ async fn generate_profile_analysis(
 async fn generate_profile_loading(
     ctx: &DiceTransaction,
     package: PackageLabel,
-) -> anyhow::Result<StarlarkProfileDataAndStats> {
+) -> buck2_error::Result<StarlarkProfileDataAndStats> {
     // Self-check.
-    let profile_mode = ctx.clone().get_profile_mode_for_loading(package).await?;
+    let profile_mode = ctx
+        .clone()
+        .get_starlark_profiler_mode(&StarlarkEvalKind::LoadBuildFile(package.dupe()))
+        .await?;
     match profile_mode {
         StarlarkProfileMode::None => {
             return Err(internal_error!("profile mode must be set in DICE"));
@@ -107,7 +110,7 @@ pub async fn profile_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::ProfileRequest,
-) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
+) -> buck2_error::Result<buck2_cli_proto::ProfileResponse> {
     run_server_command(ProfileServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
@@ -127,7 +130,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         let output = AbsPath::new(Path::new(&self.req.destination_path))?;
 
         let profile_mode =
@@ -140,8 +143,8 @@ impl ServerCommandTemplate for ProfileServerCommand {
             .expect("Target profile not populated")
         {
             ProfileOpts::TargetProfile(opts) => {
-                let action = buck2_cli_proto::target_profile::Action::from_i32(opts.action)
-                    .context("Invalid action")?;
+                let action = buck2_cli_proto::target_profile::Action::try_from(opts.action)
+                    .buck_error_context("Invalid action")?;
 
                 let profile_data = generate_profile(
                     server_ctx,
@@ -156,10 +159,16 @@ impl ServerCommandTemplate for ProfileServerCommand {
                 )
                 .await?;
 
-                get_profile_response(profile_data, output)
+                Ok(get_profile_response(
+                    profile_data,
+                    &opts.target_patterns,
+                    output,
+                )?)
             }
             _ => {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "{}",
                     "Expected target profile opts, not BXL profile opts"
                 ));
             }
@@ -180,7 +189,7 @@ async fn generate_profile(
     target_universe: &[String],
     action: Action,
     profile_mode: &StarlarkProfilerConfiguration,
-) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
+) -> buck2_error::Result<Arc<StarlarkProfileDataAndStats>> {
     let target_resolution_config =
         TargetResolutionConfig::from_args(&mut ctx, target_cfg, server_ctx, target_universe)
             .await?;
@@ -210,19 +219,18 @@ async fn generate_profile(
             let profiles = buck2_util::future::try_join_all(resolved.specs.into_iter().map(
                 |(package, _spec)| {
                     let ctx = ctx.dupe();
-                    spawn_cancellable(
+                    spawn_dropcancel(
                         move |_cancel| {
                             async move { generate_profile_loading(&ctx, package).await }.boxed()
                         },
                         &*ctx_data.spawner,
                         ctx_data,
                     )
-                    .into_drop_cancel()
                 },
             ))
             .await?;
 
-            StarlarkProfileDataAndStats::merge(profiles.iter()).map(Arc::new)
+            Ok(StarlarkProfileDataAndStats::merge(profiles.iter()).map(Arc::new)?)
         }
     }
 }

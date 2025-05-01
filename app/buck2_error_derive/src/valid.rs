@@ -33,7 +33,7 @@ impl Input<'_> {
 
 impl Struct<'_> {
     fn validate(&self) -> Result<()> {
-        check_non_field_attrs(&self.attrs, None)?;
+        check_non_field_attrs(&self.attrs)?;
         if let Some(transparent) = self.attrs.transparent {
             if self.fields.len() != 1 {
                 return Err(Error::new_spanned(
@@ -48,6 +48,13 @@ impl Struct<'_> {
                 ));
             }
         }
+        if self.attrs.tags.is_empty() && self.attrs.tags_expr.is_none() {
+            return Err(Error::new(
+                self.ident.span(),
+                "missing #[buck2(tag = ...)] attribute. All 'buck2_error' must have a tag (Common choices are 'Input', 'Tier0', and 'Environment').
+                Full list: https://www.internalfb.com/code/fbsource/[4e97d95ed7f3145bf6828827e779eecaeb0c5712]/fbcode/buck2/app/buck2_data/error.proto?lines=42",
+            ));
+        }
         check_field_attrs(&self.fields)?;
         for field in &self.fields {
             field.validate()?;
@@ -58,15 +65,25 @@ impl Struct<'_> {
 
 impl Enum<'_> {
     fn validate(&self) -> Result<()> {
-        check_non_field_attrs(&self.attrs, None)?;
+        check_non_field_attrs(&self.attrs)?;
         let has_display = self.has_display();
         for variant in &self.variants {
-            variant.validate(&self.attrs)?;
+            variant.validate()?;
             if has_display && variant.attrs.display.is_none() && variant.attrs.transparent.is_none()
             {
                 return Err(Error::new_spanned(
                     variant.original,
                     "missing #[error(\"...\")] display attribute",
+                ));
+            }
+            if self.attrs.tags.is_empty()
+                && variant.attrs.tags.is_empty()
+                && self.attrs.tags_expr.is_none()
+            {
+                return Err(Error::new_spanned(
+                    variant.original,
+                    "missing #[buck2(tag = ...)] attribute. All 'buck2_error' must have a tag (Default choices are 'Input', 'Tier0', and 'Environment').
+                    Full list: https://www.internalfb.com/code/fbsource/[4e97d95ed7f3145bf6828827e779eecaeb0c5712]/fbcode/buck2/app/buck2_data/error.proto?lines=42",
                 ));
             }
         }
@@ -75,8 +92,8 @@ impl Enum<'_> {
 }
 
 impl Variant<'_> {
-    fn validate(&self, parent_attrs: &Attrs) -> Result<()> {
-        check_non_field_attrs(&self.attrs, Some(parent_attrs))?;
+    fn validate(&self) -> Result<()> {
+        check_non_field_attrs(&self.attrs)?;
         if self.attrs.transparent.is_some() {
             if self.fields.len() != 1 {
                 return Err(Error::new_spanned(
@@ -113,7 +130,7 @@ impl Field<'_> {
 
 /// If we're checking the attrs on an enum variant, `parsed_earlier` are the attrs on the enum
 /// itself.
-fn check_non_field_attrs(attrs: &Attrs, parsed_earlier: Option<&Attrs>) -> Result<()> {
+fn check_non_field_attrs(attrs: &Attrs) -> Result<()> {
     if let Some(source) = &attrs.source {
         return Err(Error::new_spanned(
             source,
@@ -126,18 +143,6 @@ fn check_non_field_attrs(attrs: &Attrs, parsed_earlier: Option<&Attrs>) -> Resul
                 display.original,
                 "cannot have both #[error(transparent)] and a display attribute",
             ));
-        }
-    }
-    if let Some(parsed_earlier) = parsed_earlier {
-        if let Some(category) = &attrs.category
-            && parsed_earlier.category.is_some()
-        {
-            return Err(Error::new(category.span(), "already specified on enum"));
-        }
-        if let Some(typ) = &attrs.typ
-            && parsed_earlier.typ.is_some()
-        {
-            return Err(Error::new(typ.span(), "already specified on enum"));
         }
     }
     Ok(())
@@ -158,16 +163,7 @@ fn check_field_attrs(fields: &[Field]) -> Result<()> {
                 "#[error(transparent)] needs to go outside the enum or struct, not on an individual field",
             ));
         }
-        let style = if let Some(style) = &field.attrs.category {
-            Some(style)
-        } else if let Some(style) = &field.attrs.typ {
-            Some(style)
-        } else if let Some(style) = field.attrs.tags.first() {
-            Some(style)
-        } else {
-            None
-        };
-        if let Some(style) = style {
+        if let Some(style) = field.attrs.tags.first() {
             return Err(Error::new(
                 style.span(),
                 "not expected here; the #[buck2(...)] attribute belongs on top of a struct or an enum variant",
@@ -206,7 +202,7 @@ fn contains_non_static_lifetime(ty: &Type) -> bool {
         Type::Reference(ty) => ty
             .lifetime
             .as_ref()
-            .map_or(false, |lifetime| lifetime.ident != "static"),
+            .is_some_and(|lifetime| lifetime.ident != "static"),
         _ => false, // maybe implement later if there are common other cases
     }
 }

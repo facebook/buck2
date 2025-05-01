@@ -5,10 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@fbcode//buck2/cfg/experimental:modifiers.bzl", "modifiers")
 load("@prelude//:asserts.bzl", "asserts")
 load("@prelude//cfg/modifier:common.bzl", "resolve_modifier")
-load("@prelude//cfg/modifier:types.bzl", "ModifierTargetLocation", "ModifiersMatchInfo")
+load("@prelude//cfg/modifier:types.bzl", "ModifiersMatchInfo")
 load(":util.bxl", "TestRefs", "get_test_refs")
 
 # These tests run `cfg_constructor_pre_constraint_analysis` and `cfg_constructor_post_constraint_analysis` with test arguments
@@ -28,21 +27,21 @@ def test_resolve_constraint_value_modifier(
 
 def test_resolve_modifiers_match_with_constraint_value_keys(
         test_refs: TestRefs):
-    modifier = modifiers.match({
-        "ovr_config//os/constraints:linux": modifiers.match({
+    modifier = {
+        "ovr_config//os/constraints:linux": {
             "DEFAULT": "ovr_config//build_mode/constraints:no-san",
             "ovr_config//cpu/constraints:x86_64": "ovr_config//build_mode/constraints:asan",
-        }),
-        "ovr_config//os/constraints:windows": modifiers.match({
+        },
+        "ovr_config//os/constraints:windows": {
             # These are fairly contrived match since it only contains DEFAULT
-            "DEFAULT": modifiers.match({
-                "DEFAULT": modifiers.match({
+            "DEFAULT": {
+                "DEFAULT": {
                     "ovr_config//cpu/constraints:x86_64": "ovr_config//build_mode/constraints:tsan",
-                }),
-            }),
-        }),
-    })
-    modifier_info = test_refs.get_modifier_info(modifier, ModifierTargetLocation())
+                },
+            },
+        },
+    }
+    modifier_info = test_refs.get_modifier_info(modifier)
     linux_x86_64 = test_refs.make_cfg(["ovr_config//os/constraints:linux", "ovr_config//cpu/constraints:x86_64"])
     linux_arm64 = test_refs.make_cfg(["ovr_config//os/constraints:linux", "ovr_config//cpu/constraints:arm64"])
     macos_x86_64 = test_refs.make_cfg(["ovr_config//os/constraints:macos", "ovr_config//cpu/constraints:x86_64"])
@@ -82,26 +81,26 @@ def test_resolve_modifiers_match_with_config_setting_keys(
 def test_modifiers_match_resolve_first_matching_key(
         test_refs: TestRefs):
     cfg = test_refs.make_cfg(["ovr_config//os/constraints:linux", "ovr_config//cpu/constraints:x86_64"])
-    linux_x86_64_match = test_refs.get_modifier_info(modifiers.match({
+    linux_x86_64_match = test_refs.get_modifier_info({
         "ovr_config//cpu/constraints:x86_64": "ovr_config//build_mode/constraints:tsan",
         "ovr_config//os/constraints:linux": "ovr_config//build_mode/constraints:asan",
-    }), ModifierTargetLocation())
+    })
 
     # buildifier: disable=unsorted-dict-items
-    x86_64_linux_match = test_refs.get_modifier_info(modifiers.match({
+    x86_64_linux_match = test_refs.get_modifier_info({
         "ovr_config//os/constraints:linux": "ovr_config//build_mode/constraints:asan",
         "ovr_config//cpu/constraints:x86_64": "ovr_config//build_mode/constraints:tsan",
-    }), ModifierTargetLocation())
+    })
     asan_constraint = test_refs.get("ovr_config//build_mode/constraints:asan")[ConstraintValueInfo]
     tsan_constraint = test_refs.get("ovr_config//build_mode/constraints:tsan")[ConstraintValueInfo]
     asserts.equals(tsan_constraint, resolve_modifier(cfg, linux_x86_64_match))
     asserts.equals(asan_constraint, resolve_modifier(cfg, x86_64_linux_match))
 
 def test_modifiers_match_with_none(test_refs: TestRefs):
-    match = test_refs.get_modifier_info(modifiers.match({
+    match = test_refs.get_modifier_info({
         "DEFAULT": "ovr_config//build_mode/constraints:tsan",
         "ovr_config//os/constraints:linux": None,
-    }), ModifierTargetLocation())
+    })
     cfg = test_refs.make_cfg(["ovr_config//os/constraints:linux"])
     asserts.equals(None, resolve_modifier(cfg, match))
     cfg = test_refs.make_cfg(["ovr_config//os/constraints:windows"])

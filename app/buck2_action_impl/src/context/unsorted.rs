@@ -18,11 +18,11 @@ use buck2_execute::execute::request::OutputType;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::typing::StarlarkIter;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
+use starlark::values::typing::StarlarkIter;
 
 #[starlark_module]
 pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
@@ -51,7 +51,7 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] filename: Option<&str>,
         #[starlark(require = named, default = false)] dir: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkDeclaredArtifact> {
+    ) -> starlark::Result<StarlarkDeclaredArtifact> {
         // We take either one or two positional arguments, namely (filename) or (prefix, filename).
         // The prefix argument is optional, but first, so we pretend the filename is optional
         // and fix them up here.
@@ -65,7 +65,7 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
         } else {
             OutputType::FileOrDirectory
         };
-        let artifact = this.state().declare_output(
+        let artifact = this.state()?.declare_output(
             prefix,
             filename,
             output_type,
@@ -83,16 +83,18 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
     fn tset<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
-        value: Option<Value<'v>>,
-        children: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
+        #[starlark(require = named)] value: Option<Value<'v>>,
+        #[starlark(require = named)] children: Option<
+            ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
+        >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
-        let mut this = this.state();
+        let mut this = this.state()?;
         this.create_transitive_set(definition, value, children.map(|v| v.get()), eval)
     }
 
     /// Allocate a new input tag. Used with the `dep_files` argument to `run`.
-    fn artifact_tag<'v>(this: &AnalysisActions<'v>) -> anyhow::Result<ArtifactTag> {
+    fn artifact_tag<'v>(this: &AnalysisActions<'v>) -> starlark::Result<ArtifactTag> {
         let _ = this;
         Ok(ArtifactTag::new())
     }
@@ -100,7 +102,7 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
     /// Obtain this daemon's digest configuration. This allows rules to discover what digests the
     /// daemon may be able to e.g. defer download because they conform to its RE backend's expected
     /// digest format.
-    fn digest_config<'v>(this: &AnalysisActions<'v>) -> anyhow::Result<StarlarkDigestConfig> {
+    fn digest_config<'v>(this: &AnalysisActions<'v>) -> starlark::Result<StarlarkDigestConfig> {
         Ok(StarlarkDigestConfig {
             digest_config: this.digest_config,
         })

@@ -20,6 +20,7 @@ use std::fmt;
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
 
+use buck2_error::conversion::from_any_with_tag;
 use dupe::Dupe;
 
 #[derive(Debug)]
@@ -54,8 +55,8 @@ impl From<File> for Stdio {
 /// process.
 #[derive(Debug)]
 enum Outcome {
-    Parent(anyhow::Result<()>),
-    Child(anyhow::Result<()>),
+    Parent(buck2_error::Result<()>),
+    Child(buck2_error::Result<()>),
 }
 
 /// Daemonization options.
@@ -118,7 +119,7 @@ impl Daemonize {
     }
     /// Start daemonization process, terminate parent after first fork, returns privileged action
     /// result to the child.
-    pub(crate) fn start(self) -> anyhow::Result<()> {
+    pub(crate) fn start(self) -> buck2_error::Result<()> {
         match self.execute() {
             Outcome::Parent(Ok(_)) => unsafe { libc::_exit(0) },
             Outcome::Parent(Err(err)) => Err(err),
@@ -141,7 +142,7 @@ impl Daemonize {
         }
     }
 
-    fn execute_child(self) -> anyhow::Result<()> {
+    fn execute_child(self) -> buck2_error::Result<()> {
         unsafe {
             set_sid()?;
 
@@ -159,12 +160,12 @@ impl Daemonize {
     }
 }
 
-unsafe fn perform_fork() -> anyhow::Result<Option<libc::pid_t>> {
+unsafe fn perform_fork() -> buck2_error::Result<Option<libc::pid_t>> {
     let pid = check_err(libc::fork(), ErrorKind::Fork)?;
     if pid == 0 { Ok(None) } else { Ok(Some(pid)) }
 }
 
-unsafe fn set_sid() -> anyhow::Result<()> {
+unsafe fn set_sid() -> buck2_error::Result<()> {
     check_err(libc::setsid(), ErrorKind::DetachSession)?;
     Ok(())
 }
@@ -173,7 +174,7 @@ unsafe fn redirect_standard_streams(
     stdin: Stdio,
     stdout: Stdio,
     stderr: Stdio,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let devnull_fd = check_err(
         libc::open(b"/dev/null\0" as *const [u8; 10] as _, libc::O_RDWR),
         ErrorKind::OpenDevnull,
@@ -200,6 +201,7 @@ type Errno = libc::c_int;
 
 /// This error type for `Daemonize` `start` method.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Dupe)]
+#[allow(dead_code)]
 struct Error {
     kind: ErrorKind,
 }
@@ -296,9 +298,9 @@ impl Num for isize {
     }
 }
 
-fn check_err<N: Num, F: FnOnce(Errno) -> ErrorKind>(ret: N, f: F) -> anyhow::Result<N> {
+fn check_err<N: Num, F: FnOnce(Errno) -> ErrorKind>(ret: N, f: F) -> buck2_error::Result<N> {
     if ret.is_err() {
-        Err(f(errno()).into())
+        Err(from_any_with_tag(f(errno()), buck2_error::ErrorTag::Tier0))
     } else {
         Ok(ret)
     }

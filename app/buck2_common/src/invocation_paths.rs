@@ -13,7 +13,6 @@
 use std::borrow::Cow;
 
 use allocative::Allocative;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -54,7 +53,7 @@ pub struct InvocationPaths {
 }
 
 impl InvocationPaths {
-    pub fn daemon_dir(&self) -> anyhow::Result<DaemonDir> {
+    pub fn daemon_dir(&self) -> buck2_error::Result<DaemonDir> {
         #[cfg(windows)]
         let root_relative: Cow<ForwardRelativePath> = {
             use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
@@ -72,7 +71,7 @@ impl InvocationPaths {
             .roots
             .project_root
             .root()
-            .strip_prefix(AbsNormPath::new("/")?)?;
+            .strip_prefix(buck2_core::fs::paths::abs_norm_path::AbsNormPath::new("/")?)?;
 
         let path = self
             .roots
@@ -81,10 +80,6 @@ impl InvocationPaths {
             .join(&self.isolation);
 
         Ok(DaemonDir { path })
-    }
-
-    pub fn cell_root(&self) -> &AbsNormPath {
-        &self.roots.cell_root
     }
 
     pub fn project_root(&self) -> &ProjectRoot {
@@ -176,6 +171,7 @@ mod tests {
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 
     use crate::invocation_paths::InvocationPaths;
@@ -183,11 +179,6 @@ mod tests {
 
     #[test]
     fn test_paths() {
-        let cell_root = if cfg!(windows) {
-            "C:\\my\\project\\root\\cell"
-        } else {
-            "/my/project/root/cell"
-        };
         let project_root = if cfg!(windows) {
             "C:\\my\\project"
         } else {
@@ -195,10 +186,10 @@ mod tests {
         };
         let paths = InvocationPaths {
             roots: InvocationRoots {
-                cell_root: AbsNormPathBuf::try_from(cell_root.to_owned()).unwrap(),
                 project_root: ProjectRoot::new_unchecked(
                     AbsNormPathBuf::try_from(project_root.to_owned()).unwrap(),
                 ),
+                cwd: ProjectRelativePath::empty().to_buf(),
             },
             isolation: FileNameBuf::unchecked_new("isolation"),
         };
@@ -219,12 +210,6 @@ mod tests {
             .as_os_str()
         );
 
-        let expected_path = if cfg!(windows) {
-            "C:\\my\\project\\root\\cell"
-        } else {
-            "/my/project/root/cell"
-        };
-        assert_eq!(paths.cell_root().as_os_str(), OsStr::new(expected_path));
         let expected_path = if cfg!(windows) {
             "C:\\my\\project"
         } else {

@@ -12,11 +12,11 @@
 //! One may align text left, center, or right, and top, middle, or bottom.
 //! Additionally, horizontally left aligned text may be optionally justified.
 
-use crate::components::Blank;
 use crate::Component;
 use crate::Dimensions;
 use crate::DrawMode;
 use crate::Lines;
+use crate::components::Blank;
 
 /// Select the alignment of the vertical content
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -125,15 +125,15 @@ impl<C: Component> Component for Aligned<C> {
 mod tests {
     use derive_more::AsRef;
 
-    use crate::components::alignment::HorizontalAlignmentKind;
-    use crate::components::alignment::VerticalAlignmentKind;
-    use crate::components::echo::Echo;
-    use crate::components::Aligned;
-    use crate::components::DrawMode;
     use crate::Component;
     use crate::Dimensions;
     use crate::Line;
     use crate::Lines;
+    use crate::components::Aligned;
+    use crate::components::DrawMode;
+    use crate::components::alignment::HorizontalAlignmentKind;
+    use crate::components::alignment::VerticalAlignmentKind;
+    use crate::components::echo::Echo;
 
     #[derive(AsRef, Debug)]
     #[allow(dead_code)]

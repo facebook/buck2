@@ -22,6 +22,7 @@ use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::ast::ClauseP;
 use starlark_syntax::syntax::ast::ForClauseP;
 
+use crate::eval::compiler::Compiler;
 use crate::eval::compiler::error::CompilerInternalError;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::expr_bool::ExprCompiledBool;
@@ -31,7 +32,6 @@ use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::AssignCompiledValue;
-use crate::eval::compiler::Compiler;
 
 impl Compiler<'_, '_, '_, '_> {
     pub fn list_comprehension(
@@ -148,11 +148,11 @@ impl ComprCompiled {
 
     pub(crate) fn optimize(&self, ctx: &mut OptCtx) -> ExprCompiled {
         match self {
-            ComprCompiled::List(ref x, ref clauses) => {
+            ComprCompiled::List(x, clauses) => {
                 let clauses = clauses.optimize(ctx);
                 ExprCompiled::compr(ComprCompiled::List(Box::new(x.optimize(ctx)), clauses))
             }
-            ComprCompiled::Dict(k_v, ref clauses) => {
+            ComprCompiled::Dict(k_v, clauses) => {
                 let (k, v) = &**k_v;
                 let clauses = clauses.optimize(ctx);
                 ExprCompiled::compr(ComprCompiled::Dict(

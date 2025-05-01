@@ -457,8 +457,6 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
     "GLKit": {
         "appletvos": (9, 0, 0),
         "iphoneos": (5, 0, 0),
-        # TODO(T191992091): Enable OpenGLES/GLKit for Catalyst platforms
-        "maccatalyst": (13, 0, 0),
         "macosx": (10, 8, 0),
     },
     "GLUT": {"macosx": (10, 0, 0)},
@@ -756,8 +754,7 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
     "OpenCL": {"macosx": (10, 6, 0)},
     "OpenDirectory": {"maccatalyst": (13, 0, 0), "macosx": (10, 6, 0)},
     "OpenGL": {"macosx": (10, 0, 0)},
-    # TODO(T191992091): Enable OpenGLES/GLKit for Catalyst platforms
-    "OpenGLES": {"appletvos": (9, 0, 0), "iphoneos": (2, 0, 0), "maccatalyst": (13, 0, 0)},
+    "OpenGLES": {"appletvos": (9, 0, 0), "iphoneos": (2, 0, 0)},
     "PCSC": {"macosx": (10, 0, 0)},
     "PDFKit": {"iphoneos": (11, 0, 0), "macosx": (10, 4, 0)},
     "PHASE": {

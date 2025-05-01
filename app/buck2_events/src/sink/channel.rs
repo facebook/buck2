@@ -8,6 +8,7 @@
  */
 
 use buck2_core::soft_error;
+use buck2_error::conversion::from_any_with_tag;
 use dupe::Dupe;
 
 use crate::Event;
@@ -36,7 +37,7 @@ impl EventSink for ChannelEventSink {
             if should_panic {
                 // TODO iguridi: this panic was here before. We probably should just ignore these errors
                 // but first, let's check how often this happens.
-                let _res = soft_error!("event_sink_send_panic", e.clone().into(), quiet: true);
+                let _res = soft_error!("event_sink_send_panic", from_any_with_tag(e.clone(), buck2_error::ErrorTag::Tier0), quiet: true);
                 panic!("failed to send control event to ChannelEventSink: {}", e);
             }
         }
@@ -53,10 +54,10 @@ mod tests {
     use std::collections::HashMap;
     use std::time::SystemTime;
 
-    use buck2_data::buck_event::Data::SpanStart;
-    use buck2_data::span_start_event::Data::Command;
     use buck2_data::CommandStart;
     use buck2_data::SpanStartEvent;
+    use buck2_data::buck_event::Data::SpanStart;
+    use buck2_data::span_start_event::Data::Command;
 
     use super::ChannelEventSink;
     use crate::BuckEvent;

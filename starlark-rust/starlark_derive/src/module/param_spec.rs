@@ -48,9 +48,6 @@ impl<'a> ParamSpec<'a> {
         let mut last_param_style = CurrentParamStyle::PosOnly;
         for arg in star_args {
             match arg.pass_style {
-                StarArgPassStyle::This => {
-                    continue;
-                }
                 StarArgPassStyle::Args => {
                     if last_param_style >= CurrentParamStyle::NamedOnly {
                         return Err(syn::Error::new(
@@ -93,25 +90,15 @@ impl<'a> ParamSpec<'a> {
                     last_param_style = CurrentParamStyle::PosOnly;
                     pos_only.push(arg);
                 }
-                StarArgPassStyle::Default => {
-                    last_param_style = match last_param_style {
-                        CurrentParamStyle::PosOnly | CurrentParamStyle::PosOrNamed => {
-                            pos_or_named.push(arg);
-                            CurrentParamStyle::PosOrNamed
-                        }
-                        CurrentParamStyle::NamedOnly => {
-                            // After named parameters, following parameters cannot be positional,
-                            // so defaut means named-only.
-                            named_only.push(arg);
-                            CurrentParamStyle::NamedOnly
-                        }
-                        CurrentParamStyle::NoMore => {
-                            return Err(syn::Error::new(
-                                arg.span,
-                                "Regular parameter after **kwargs",
-                            ));
-                        }
+                StarArgPassStyle::PosOrNamed => {
+                    if last_param_style > CurrentParamStyle::PosOrNamed {
+                        return Err(syn::Error::new(
+                            arg.span,
+                            "Positional-or-named parameter after named-only",
+                        ));
                     }
+                    last_param_style = CurrentParamStyle::PosOrNamed;
+                    pos_or_named.push(arg);
                 }
                 StarArgPassStyle::NamedOnly => {
                     if last_param_style > CurrentParamStyle::NamedOnly {
@@ -122,12 +109,6 @@ impl<'a> ParamSpec<'a> {
                     }
                     named_only.push(arg);
                     last_param_style = CurrentParamStyle::NamedOnly;
-                }
-                StarArgPassStyle::Arguments => {
-                    return Err(syn::Error::new(
-                        arg.span,
-                        "unreachable: signature is not meant to be created for `&Arguments`",
-                    ));
                 }
             }
 

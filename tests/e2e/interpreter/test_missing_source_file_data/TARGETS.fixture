@@ -1,1 +1,0 @@
-test_target(name = "dummy_target", srcs = ["non_existent_source_file.txt"])

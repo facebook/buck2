@@ -7,12 +7,12 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dev-dependencies]
-anyhow = { workspace = true }
 ctor = { workspace = true }
 indoc = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 
+dashmap = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 futures = { workspace = true }
@@ -28,3 +28,4 @@ buck2_interpreter = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }
 buck2_node = { workspace = true }
 buck2_query = { workspace = true }
+buck2_transition = { workspace = true }

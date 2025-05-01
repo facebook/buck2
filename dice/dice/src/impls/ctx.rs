@@ -16,18 +16,25 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_futures::owning_future::OwningFuture;
 use derivative::Derivative;
+use dice_error::DiceError;
+use dice_error::DiceResult;
+use dice_error::result::CancellableResult;
+use dice_error::result::CancellationReason;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use futures::FutureExt;
 use futures::TryFutureExt;
+use futures::future::BoxFuture;
 use itertools::Either;
 use parking_lot::Mutex;
 use typed_arena::Arena;
 
+use crate::DiceTransactionUpdater;
+use crate::LinearRecomputeDiceComputations;
+use crate::UserCycleDetectorGuard;
 use crate::api::activation_tracker::ActivationData;
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
-use crate::api::error::DiceResult;
+use crate::api::invalidation_tracking::DiceKeyTrackedInvalidationPaths;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
@@ -47,26 +54,19 @@ use crate::impls::key::CowDiceKeyHashed;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::opaque::OpaqueValueModern;
-use crate::impls::task::dice::MaybeCancelled;
+use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::sync_dice_task;
-use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::TransactionUpdater;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
-use crate::impls::value::MaybeValidDiceValue;
-use crate::impls::worker::project_for_key;
+use crate::impls::value::TrackedInvalidationPaths;
 use crate::impls::worker::DiceTaskWorker;
-use crate::result::CancellableResult;
-use crate::result::Cancelled;
+use crate::impls::worker::project_for_key;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
 use crate::versions::VersionNumber;
-use crate::DiceError;
-use crate::DiceTransactionUpdater;
-use crate::LinearRecomputeDiceComputations;
-use crate::UserCycleDetectorGuard;
 
 /// Context that is the base for which all requests start from
 #[derive(Allocative)]
@@ -203,10 +203,11 @@ impl<'d> ModernComputeCtx<'d> {
     {
         ctx_data.compute_opaque(key).map(move |cancellable_result| {
             let cancellable = cancellable_result.map(move |(dice_key, dice_value)| {
-                OpaqueValueModern::new(dice_key, dice_value.value().dupe())
+                let (value, invalidation_paths) = dice_value.into_parts();
+                OpaqueValueModern::new(dice_key, value, invalidation_paths)
             });
 
-            cancellable.map_err(|_| DiceError::cancelled())
+            cancellable.map_err(DiceError::cancelled)
         })
     }
 
@@ -255,7 +256,10 @@ impl<'d> ModernComputeCtx<'d> {
         func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut + 'a,
     ) -> impl Future<Output = T> + 'a {
         let (ctx_data, self_dep_trackers) = self.unpack();
-        let dep_trackers = Arc::new(Mutex::new(RecordingDepsTracker::new()));
+        let dep_trackers = Arc::new(Mutex::new(RecordingDepsTracker::new(
+            // TODO(cjhopman): if inspected during the with_linear_recompute, this will be missing some invalidation paths.
+            TrackedInvalidationPaths::clean(),
+        )));
         let fut = func(LinearRecomputeDiceComputations(
             LinearRecomputeDiceComputationsImpl::Modern(LinearRecomputeModern {
                 ctx_data,
@@ -271,8 +275,9 @@ impl<'d> ModernComputeCtx<'d> {
                 .collect_deps();
             let validity = dep_trackers.deps_validity;
             for k in dep_trackers.deps.iter_keys() {
-                self_dep_trackers.record(k, validity)
+                self_dep_trackers.record(k, validity, TrackedInvalidationPaths::clean())
             }
+            self_dep_trackers.update_invalidation_paths(dep_trackers.invalidation_paths.dupe());
             v
         })
     }
@@ -285,14 +290,33 @@ impl<'d> ModernComputeCtx<'d> {
         deps: DepsTrackerHolder,
         opaque: OpaqueValueModern<K>,
     ) -> K::Value {
-        deps.lock()
-            .record(opaque.derive_from_key, opaque.derive_from.validity());
+        let OpaqueValueModern {
+            derive_from_key,
+            derive_from,
+            invalidation_paths,
+            ..
+        } = opaque;
 
-        opaque
-            .derive_from
+        deps.lock()
+            .record(derive_from_key, derive_from.validity(), invalidation_paths);
+
+        derive_from
             .downcast_maybe_transient::<K::Value>()
             .expect("type mismatch")
             .dupe()
+    }
+
+    pub(crate) fn get_invalidation_paths(&mut self) -> DiceKeyTrackedInvalidationPaths {
+        let (normal, high) = {
+            let mut dep_trackers = self.dep_trackers();
+            let paths = dep_trackers.invalidation_paths();
+            (paths.get_normal(), paths.get_high())
+        };
+        DiceKeyTrackedInvalidationPaths::new(
+            self.ctx_data().async_evaluator.dice.dupe(),
+            normal,
+            high,
+        )
     }
 }
 
@@ -326,6 +350,7 @@ pub(crate) enum ModernComputeCtxParallelBuilder<'a> {
     Normal {
         ctx_data: &'a CoreCtx,
         tracker_arena: &'a Arena<RecordedDeps>,
+        invalidation_paths: &'a TrackedInvalidationPaths,
     },
     Linear {
         ctx_data: &'a CoreCtx,
@@ -341,12 +366,13 @@ impl<'a> ModernComputeCtxParallelBuilder<'a> {
             ModernComputeCtxParallelBuilder::Normal {
                 ctx_data,
                 tracker_arena,
+                invalidation_paths,
             } => OwningFuture::new(
                 (
                     tracker_arena.alloc(RecordedDeps::new()),
                     ModernComputeCtx::Parallel {
                         ctx_data,
-                        dep_trackers: RecordingDepsTracker::new(),
+                        dep_trackers: RecordingDepsTracker::new((*invalidation_paths).dupe()),
                     }
                     .into(),
                 ),
@@ -457,7 +483,7 @@ impl ModernComputeCtx<'_> {
         async_evaluator: AsyncEvaluator,
     ) -> ModernComputeCtx<'static> {
         ModernComputeCtx::Owned {
-            dep_trackers: RecordingDepsTracker::new(),
+            dep_trackers: RecordingDepsTracker::new(TrackedInvalidationPaths::clean()),
             ctx_data: CoreCtx {
                 async_evaluator,
                 parent_key,
@@ -472,17 +498,25 @@ impl ModernComputeCtx<'_> {
             ModernComputeCtx::Owned {
                 ctx_data,
                 dep_trackers,
-            } => ModernComputeCtxParallelBuilder::Normal {
-                ctx_data,
-                tracker_arena: dep_trackers.push_parallel(size_hint),
-            },
+            } => {
+                let (tracker_arena, invalidation_paths) = dep_trackers.push_parallel(size_hint);
+                ModernComputeCtxParallelBuilder::Normal {
+                    ctx_data,
+                    tracker_arena,
+                    invalidation_paths,
+                }
+            }
             ModernComputeCtx::Parallel {
                 ctx_data,
                 dep_trackers,
-            } => ModernComputeCtxParallelBuilder::Normal {
-                ctx_data,
-                tracker_arena: dep_trackers.push_parallel(size_hint),
-            },
+            } => {
+                let (tracker_arena, invalidation_paths) = dep_trackers.push_parallel(size_hint);
+                ModernComputeCtxParallelBuilder::Normal {
+                    ctx_data,
+                    tracker_arena,
+                    invalidation_paths,
+                }
+            }
             ModernComputeCtx::Linear {
                 ctx_data,
                 dep_trackers,
@@ -528,12 +562,7 @@ impl ModernComputeCtx<'_> {
         key: &P,
     ) -> DiceResult<P::Value> {
         let (ctx_data, dep_trackers) = self.unpack();
-        ctx_data.project(
-            key,
-            derive_from.derive_from_key,
-            derive_from.derive_from.dupe(),
-            dep_trackers,
-        )
+        ctx_data.project(key, derive_from, dep_trackers)
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
@@ -602,21 +631,17 @@ impl CoreCtx {
     }
 
     /// Compute "projection" based on deriving value
-    fn project<K>(
+    fn project<B: Key, K: ProjectionKey<DeriveFromKey = B>>(
         &self,
         key: &K,
-        base_key: DiceKey,
-        base: MaybeValidDiceValue,
+        base: &OpaqueValueModern<B>,
         dep_trackers: DepsTrackerHolder,
-    ) -> DiceResult<K::Value>
-    where
-        K: ProjectionKey,
-    {
+    ) -> DiceResult<K::Value> {
         let dice_key = self
             .async_evaluator
             .dice
             .key_index
-            .index(CowDiceKeyHashed::proj_ref(base_key, key));
+            .index(CowDiceKeyHashed::proj_ref(base.derive_from_key, key));
 
         let r = self
             .async_evaluator
@@ -628,7 +653,8 @@ impl CoreCtx {
                 SyncEvaluator::new(
                     self.async_evaluator.user_data.dupe(),
                     self.async_evaluator.dice.dupe(),
-                    base,
+                    base.derive_from.dupe(),
+                    base.invalidation_paths.dupe(),
                 ),
                 DiceEventDispatcher::new(
                     self.async_evaluator.user_data.tracker.dupe(),
@@ -638,10 +664,14 @@ impl CoreCtx {
 
         let r = match r {
             Ok(r) => r,
-            Err(_cancelled) => return Err(DiceError::cancelled()),
+            Err(reason) => return Err(DiceError::cancelled(reason)),
         };
 
-        dep_trackers.lock().record(dice_key, r.value().validity());
+        dep_trackers.lock().record(
+            dice_key,
+            r.value().validity(),
+            r.invalidation_paths().dupe(),
+        );
 
         Ok(r.value()
             .downcast_maybe_transient::<K::Value>()
@@ -722,18 +752,15 @@ impl SharedLiveTransactionCtx {
         eval: &AsyncEvaluator,
         cycles: UserCycleDetectorData,
     ) -> impl Future<Output = CancellableResult<DiceComputedValue>> {
-        match self.cache.get(key) {
-            DiceTaskRef::Computed(result) => {
-                DicePromise::ready(result).left_future()
-            }
+        let res: CancellableResult<DicePromise> = match self.cache.get(key) {
+            DiceTaskRef::Computed(result) => Ok(DicePromise::ready(result)),
             DiceTaskRef::Occupied(mut occupied) => {
                 match occupied.get().depended_on_by(parent_key) {
-                    MaybeCancelled::Ok(promise) => {
+                    Ok(promise) => {
                         debug!(msg = "shared state is waiting on existing task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
-
-                        promise
-                    },
-                    MaybeCancelled::Cancelled => {
+                        Ok(promise)
+                    }
+                    Err(_reason) => {
                         debug!(msg = "shared state has a cancelled task, spawning new one", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
 
                         let eval = eval.dupe();
@@ -749,20 +776,14 @@ impl SharedLiveTransactionCtx {
                                 eval,
                                 cycles,
                                 events,
-                                 Some(PreviouslyCancelledTask {
-                                    previous,
-                                }),
+                                Some(PreviouslyCancelledTask { previous }),
                             )
                         });
 
-                        occupied
-                            .get()
-                            .depended_on_by(parent_key)
-                            .not_cancelled()
-                            .expect("just created")
+                        // While we wouldn't have canceled the task, it could've already finished with a canceled result.
+                        occupied.get().depended_on_by(parent_key)
                     }
                 }
-                .left_future()
             }
             DiceTaskRef::Vacant(vacant) => {
                 debug!(msg = "shared state is empty, spawning new task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
@@ -771,35 +792,31 @@ impl SharedLiveTransactionCtx {
                 let events =
                     DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
 
-                let task = DiceTaskWorker::spawn(
-                    key,
-                    self.version_epoch,
-                    eval,
-                    cycles,
-                    events,
-                    None,
-                );
+                let task =
+                    DiceTaskWorker::spawn(key, self.version_epoch, eval, cycles, events, None);
 
-                let fut = task
-                    .depended_on_by(parent_key)
-                    .not_cancelled()
-                    .expect("just created");
-
-                vacant.insert(task);
-
-                fut.left_future()
+                // While we wouldn't have canceled the task, it could've already finished with a canceled result.
+                let result = task.depended_on_by(parent_key);
+                if result.is_ok() {
+                    vacant.insert(task);
+                }
+                result
             }
-            DiceTaskRef::TransactionCancelled => {
+            DiceTaskRef::TransactionCancelled => Err(CancellationReason::TransactionCancelled),
+        };
+
+        match res {
+            Ok(v) => v.left_future(),
+            Err(reason) => {
                 let v = self.version;
                 let v_epoch = self.version_epoch;
                 async move {
                     debug!(msg = "computing shared state is cancelled", k = ?key, v = ?v, v_epoch = ?v_epoch);
                     tokio::task::yield_now().await;
-
-                    Err(Cancelled)
+                    Err(reason)
                 }
                     .right_future()
-            },
+            }
         }
     }
 
@@ -812,12 +829,12 @@ impl SharedLiveTransactionCtx {
         eval: SyncEvaluator,
         events: DiceEventDispatcher,
     ) -> CancellableResult<DiceComputedValue> {
-        let promise = match self.cache.get(key) {
+        let result = match self.cache.get(key) {
             DiceTaskRef::Computed(value) => DicePromise::ready(value),
             DiceTaskRef::Occupied(mut occupied) => {
                 match occupied.get().depended_on_by(parent_key) {
-                    MaybeCancelled::Ok(promise) => promise,
-                    MaybeCancelled::Cancelled => {
+                    Ok(promise) => promise,
+                    Err(_reason) => {
                         let task = unsafe {
                             // SAFETY: task completed below by `IncrementalEngine::project_for_key`
                             sync_dice_task(key)
@@ -825,11 +842,7 @@ impl SharedLiveTransactionCtx {
 
                         *occupied.get_mut() = task;
 
-                        occupied
-                            .get()
-                            .depended_on_by(parent_key)
-                            .not_cancelled()
-                            .expect("just created")
+                        occupied.get().depended_on_by(parent_key)?
                     }
                 }
             }
@@ -839,12 +852,7 @@ impl SharedLiveTransactionCtx {
                     sync_dice_task(key)
                 };
 
-                vacant
-                    .insert(task)
-                    .value()
-                    .depended_on_by(parent_key)
-                    .not_cancelled()
-                    .expect("just created")
+                vacant.insert(task).value().depended_on_by(parent_key)?
             }
             DiceTaskRef::TransactionCancelled => {
                 // for projection keys, these are cheap and synchronous computes that should never
@@ -854,15 +862,13 @@ impl SharedLiveTransactionCtx {
                     sync_dice_task(key)
                 };
 
-                task.depended_on_by(parent_key)
-                    .not_cancelled()
-                    .expect("just created")
+                task.depended_on_by(parent_key)?
             }
         };
 
         project_for_key(
             state,
-            promise,
+            result,
             key,
             self.version,
             self.version_epoch,
@@ -913,8 +919,7 @@ pub(crate) mod testing {
             };
             let _r = task
                 .depended_on_by(ParentKey::None)
-                .not_cancelled()
-                .expect("just created")
+                .unwrap()
                 .sync_get_or_complete(|| DiceSyncResult::testing(v));
 
             match self.cache.get(k) {

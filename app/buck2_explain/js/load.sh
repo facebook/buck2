@@ -12,4 +12,4 @@ set -e
 $1 explain --output /dev/null --fbs-dump /tmp/fbs
 cd $(dirname "$0")
 echo "export const DATA = '$(cat /tmp/fbs)';" > src/data.ts
-cp -rX "$(buck2 build //buck2/app/buck2_explain:schema_ts --show-full-simple-output)" src
+cp -rfX "$(buck2 build //buck2/app/buck2_explain:schema_ts --show-full-simple-output)" src

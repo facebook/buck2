@@ -1,0 +1,100 @@
+load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
+load("@fbsource//tools/build_defs:selects.bzl", "selects")
+
+oncall("build_infra")
+
+prelude = native
+
+prelude.export_file(
+    name = "print_arg.bat",
+)
+
+# Test to verify we handle quoting arguments properly when generating a trampoline
+prelude.command_alias(
+    name = "quoted_args",
+    args = select({
+        "DEFAULT": [
+            "sh",
+            "-c",
+            "echo $1",
+            "--",
+            "foo bar",
+        ],
+        "ovr_config//os:windows": [
+            "$(location :print_arg.bat)",
+            "foo bar",
+        ],
+    }),
+)
+
+py_assertion(
+    name = "check_quoted_args",
+    script = """
+import subprocess
+import sys
+assert (
+    subprocess.check_output([sys.argv[1]]).decode().strip()
+    == "foo bar"
+)
+""",
+    script_args = ["$(location :quoted_args)"],
+)
+
+# In this test, the `RunInfo` that we get from the `exe` has multiple args that require quoting
+# (the ones above). This test verifies that we do that (we don't)
+prelude.command_alias(
+    name = "quoting_run_info",
+    exe = ":quoted_args",
+)
+
+py_assertion(
+    name = "check_quoting_run_info",
+    script = """
+import subprocess
+import sys
+assert (
+    subprocess.run([sys.argv[1]], capture_output=True).stdout.decode().strip()
+    == "foo bar"
+)
+""",
+    script_args = ["$(location :quoting_run_info)"],
+)
+
+# Test to verify we handle quoting things that need quoting on windows
+prelude.command_alias(
+    name = "quoted_windows_arg",
+    args = select({
+        "DEFAULT": [
+            "sh",
+            "-c",
+            "echo $1",
+            "--",
+            "%SOME_VAR%",
+        ],
+        "ovr_config//os:windows": [
+            "$(location :print_arg.bat)",
+            "%SOME_VAR%",
+        ],
+    }),
+)
+
+py_assertion(
+    name = "check_quoted_windows_arg",
+    script = selects.fmt(
+        """
+import subprocess
+import sys
+
+assert (
+    subprocess.check_output([sys.argv[1]]).decode().strip()
+    {} "%SOME_VAR%"
+)
+""",
+        select({
+            "DEFAULT": "==",
+            # FIXME(JakobDegen): We don't quote correctly on windows
+            "ovr_config//os:windows": "!=",
+        }),
+    ),
+    script_args = ["$(location :quoted_windows_arg)"],
+)

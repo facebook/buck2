@@ -11,7 +11,6 @@
 #![allow(clippy::useless_vec)]
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::file_ops::FileDigest;
@@ -20,36 +19,41 @@ use buck2_common::file_ops::FileType;
 use buck2_common::file_ops::RawDirEntry;
 use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::io::IoProvider;
 use buck2_common::io::fs::FsIoProvider;
 use buck2_common::io::fs::ReadUncheckedOptions;
-use buck2_common::io::IoProvider;
 use buck2_core;
 use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::io_counters::IoCounterKey;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use compact_str::CompactString;
 use dupe::Dupe;
 use edenfs::FileAttributes;
 use edenfs::GetAttributesFromFilesParams;
+use edenfs::GetFileContentRequest;
+use edenfs::MountId;
 use edenfs::ReaddirParams;
+use edenfs::ScmBlobOrError;
 use edenfs::SourceControlType;
 use edenfs::SyncBehavior;
 use edenfs::SynchronizeWorkingCopyParams;
 use fbinit::FacebookInit;
-use tokio::sync::Semaphore;
 
 use crate::connection::EdenConnectionManager;
-use crate::connection::EdenDataIntoResult;
-use crate::connection::EdenError;
+use crate::error::EdenDataIntoResult;
+use crate::error::EdenError;
+use crate::semaphore::buck2_default;
 
 #[derive(Allocative)]
 pub struct EdenIoProvider {
     manager: EdenConnectionManager,
     fs: FsIoProvider,
     digest: Digest,
+    use_eden_thrift_read: bool,
 }
 
 #[derive(Allocative, Copy, Clone, Dupe)]
@@ -68,7 +72,8 @@ impl EdenIoProvider {
         fb: FacebookInit,
         fs: &ProjectRoot,
         cas_digest_config: CasDigestConfig,
-    ) -> anyhow::Result<Option<Self>> {
+        use_eden_thrift_read: bool,
+    ) -> buck2_error::Result<Option<Self>> {
         let (digest, min_eden_version) = if cas_digest_config.source_files_config().allows_sha1() {
             (Digest::Sha1, "20220905-214046")
         } else if cas_digest_config
@@ -81,10 +86,9 @@ impl EdenIoProvider {
             return Ok(None);
         };
 
-        let eden_semaphore =
-            buck2_env!("BUCK2_EDEN_SEMAPHORE", type=usize, default=2048, applicability=internal)?;
+        let eden_semaphore = buck2_default();
 
-        let manager = match EdenConnectionManager::new(fb, fs, Semaphore::new(eden_semaphore))? {
+        let manager = match EdenConnectionManager::new(fb, fs, Some(eden_semaphore))? {
             Some(manager) => manager,
             None => return Ok(None),
         };
@@ -92,7 +96,7 @@ impl EdenIoProvider {
         let eden_version = manager
             .get_eden_version()
             .await
-            .context("Error querying Eden version")?;
+            .buck_error_context("Error querying Eden version")?;
 
         if let Some(eden_version) = &eden_version {
             if eden_version.as_str() < min_eden_version {
@@ -113,13 +117,14 @@ impl EdenIoProvider {
             manager,
             fs: FsIoProvider::new(fs.dupe(), cas_digest_config),
             digest,
+            use_eden_thrift_read,
         }))
     }
 
     async fn read_path_metadata_if_exists_impl(
         &self,
         path: &ProjectRelativePathBuf,
-    ) -> anyhow::Result<PathMetadataResult> {
+    ) -> buck2_error::Result<PathMetadataResult> {
         let _guard = IoCounterKey::StatEden.guard();
 
         let hash_attribute = match self.digest {
@@ -136,7 +141,9 @@ impl EdenIoProvider {
 
         let params = GetAttributesFromFilesParams {
             mountPoint: self.manager.get_mount_point(),
-            paths: self.manager.project_paths_as_eden_paths([path.as_ref()]),
+            paths: self
+                .manager
+                .project_path_list_as_eden_path_list([path.as_ref()]),
             requestedAttributes: requested_attributes,
             sync: no_sync(),
             ..Default::default()
@@ -154,15 +161,15 @@ impl EdenIoProvider {
             .res
             .into_iter()
             .next()
-            .context("Eden did not return file info")?
+            .buck_error_context("Eden did not return file info")?
             .into_result()
         {
             Ok(data) => {
                 let source_control_type = data
                     .sourceControlType
-                    .context("Eden did not return a type")?
+                    .buck_error_context("Eden did not return a type")?
                     .into_result()
-                    .context("Eden returned an error for sourceControlType")?;
+                    .buck_error_context("Eden returned an error for sourceControlType")?;
 
                 if source_control_type == SourceControlType::TREE {
                     return Ok(PathMetadataResult::Result(Some(RawPathMetadata::Directory)));
@@ -181,7 +188,7 @@ impl EdenIoProvider {
                         .fs
                         .read_unchecked(path.clone(), options)
                         .await
-                        .with_context(|| {
+                        .with_buck_error_context(|| {
                             format!(
                                 "Eden returned that `{}` was a symlink, but it was not.  \
                                 This path may have changed during the build",
@@ -194,34 +201,34 @@ impl EdenIoProvider {
 
                 let size = data
                     .size
-                    .context("Eden did not return a size")?
+                    .buck_error_context("Eden did not return a size")?
                     .into_result()
-                    .context("Eden returned an error for size")?
+                    .buck_error_context("Eden returned an error for size")?
                     .try_into()
-                    .context("Eden returned an invalid size")?;
+                    .buck_error_context("Eden returned an invalid size")?;
 
                 tracing::debug!("getAttributesFromFilesV2({}): ok", path);
                 let digest = match self.digest {
                     Digest::Sha1 => {
                         let sha1 = data
                             .sha1
-                            .context("Eden did not return a sha1")?
+                            .buck_error_context("Eden did not return a sha1")?
                             .into_result()
-                            .context("Eden returned an error for sha1")?
+                            .buck_error_context("Eden returned an error for sha1")?
                             .try_into()
                             .ok()
-                            .context("Eden returned an invalid sha1")?;
+                            .buck_error_context("Eden returned an invalid sha1")?;
                         FileDigest::new_sha1(sha1, size)
                     }
                     Digest::Blake3Keyed => {
                         let blake3 = data
                             .blake3
-                            .context("Eden did not return a blake3")?
+                            .buck_error_context("Eden did not return a blake3")?
                             .into_result()
-                            .context("Eden returned an error for blake3")?
+                            .buck_error_context("Eden returned an error for blake3")?
                             .try_into()
                             .ok()
-                            .context("Eden returned an invalid blake3")?;
+                            .buck_error_context("Eden returned an invalid blake3")?;
                         FileDigest::new_blake3_keyed(blake3, size)
                     }
                 };
@@ -249,14 +256,16 @@ impl EdenIoProvider {
     async fn read_dir_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<Vec<RawDirEntry>> {
         let _guard = IoCounterKey::ReadDirEden.guard();
 
         let requested_attributes = i64::from(i32::from(FileAttributes::SOURCE_CONTROL_TYPE));
 
         let params = ReaddirParams {
             mountPoint: self.manager.get_mount_point(),
-            directoryPaths: self.manager.project_paths_as_eden_paths([path.as_ref()]),
+            directoryPaths: self
+                .manager
+                .project_path_list_as_eden_path_list([path.as_ref()]),
             requestedAttributes: requested_attributes,
             sync: no_sync(),
             ..Default::default()
@@ -274,7 +283,7 @@ impl EdenIoProvider {
         let data = res
             .into_iter()
             .next()
-            .context("Eden did not return a directory result")?
+            .buck_error_context("Eden did not return a directory result")?
             .into_result()?;
 
         tracing::debug!("readdir({}): {} entries", path, data.len());
@@ -282,13 +291,13 @@ impl EdenIoProvider {
         let entries = data
             .into_iter()
             .map(|(file_name, attrs)| {
-                let file_name =
-                    CompactString::from_utf8(file_name).context("Filename is not UTF-8")?;
+                let file_name = CompactString::from_utf8(file_name)
+                    .buck_error_context("Filename is not UTF-8")?;
 
                 let source_control_type = attrs
                     .into_result()?
                     .sourceControlType
-                    .context("Missing sourceControlType")?
+                    .buck_error_context("Missing sourceControlType")?
                     .into_result()?;
 
                 let file_type = match source_control_type {
@@ -300,7 +309,7 @@ impl EdenIoProvider {
                     _ => FileType::Unknown,
                 };
 
-                anyhow::Ok(RawDirEntry {
+                buck2_error::Ok(RawDirEntry {
                     file_name,
                     file_type,
                 })
@@ -309,6 +318,70 @@ impl EdenIoProvider {
 
         Ok(entries)
     }
+
+    async fn read_file_if_exists_impl(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> buck2_error::Result<Option<String>> {
+        let _guard = IoCounterKey::Read.guard();
+        let params = GetFileContentRequest {
+            mount: MountId {
+                mountPoint: self.manager.get_mount_point(),
+                ..Default::default()
+            },
+            filePath: self.manager.project_path_as_eden_path(path.as_ref()),
+            sync: no_sync(),
+            ..Default::default()
+        };
+
+        let res = self
+            .manager
+            .with_eden(|eden| {
+                tracing::trace!("getFileContent({})", path);
+                eden.getFileContent(&params)
+            })
+            .await;
+
+        match res {
+            Ok(res) => match res.blob {
+                ScmBlobOrError::blob(content) => {
+                    let string_content = String::from_utf8_lossy(&content).into_owned();
+                    Ok(Some(string_content))
+                }
+                ScmBlobOrError::error(err) => {
+                    let eden_error = EdenError::from(err);
+                    match eden_error {
+                        EdenError::PosixError { code, .. } if code == libc::ENOENT => {
+                            tracing::debug!("getFileContent({}): File Not Found", path);
+                            Ok(None)
+                        }
+                        EdenError::PosixError { error, code } if code == libc::EFBIG => {
+                            // TODO(minglunli): Look at data, if this doesn't happen in practice, enforce the limit for all IoProvider
+                            soft_error!(
+                                "eden_thrift_size_limit_exceeded",
+                                buck2_error::buck2_error!(
+                                    buck2_error::ErrorTag::Input,
+                                    "File size exceeded Thrift message limit of 2GB, falling back to regular file I/O.
+                                    Set env var `BUCK2_DISABLE_EDEN_THRIFT_READ=true` if this is constantly an issue: {:#}",
+                                    error
+                                ),
+                            )
+                            .ok();
+
+                            return self.fs.read_file_if_exists_impl(path).await;
+                        }
+                        _ => Err(eden_error.into()),
+                    }
+                }
+                ScmBlobOrError::UnknownField(code) => Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::IoEden,
+                    "Eden getFileContent thrift call failed with unknown field code: {}",
+                    code
+                )),
+            },
+            Err(e) => Err(e.into()),
+        }
+    }
 }
 
 #[async_trait]
@@ -316,7 +389,7 @@ impl IoProvider for EdenIoProvider {
     async fn read_path_metadata_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
+    ) -> buck2_error::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
         match self.read_path_metadata_if_exists_impl(&path).await {
             Ok(PathMetadataResult::Result(res)) => Ok(res),
             Ok(PathMetadataResult::Error(err)) => {
@@ -346,19 +419,28 @@ impl IoProvider for EdenIoProvider {
     async fn read_file_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<String>> {
-        // Don't tag as IoEden because it uses regular file I/O.
-        self.fs.read_file_if_exists_impl(path).await
+    ) -> buck2_error::Result<Option<String>> {
+        if buck2_env!("BUCK2_ENABLE_EDEN_THRIFT_READ", bool).unwrap_or(false)
+            || self.use_eden_thrift_read
+        {
+            self.read_file_if_exists_impl(path)
+                .await
+                .tag(ErrorTag::IoEden)
+        } else {
+            // Don't tag as IoEden because it uses regular file I/O.
+            // TODO(minglunli): Can remove this arm if Eden Thrift API is better and stable
+            self.fs.read_file_if_exists_impl(path).await
+        }
     }
 
     async fn read_dir_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<Vec<RawDirEntry>> {
         self.read_dir_impl(path).await.tag(ErrorTag::IoEden)
     }
 
-    async fn settle(&self) -> anyhow::Result<()> {
+    async fn settle(&self) -> buck2_error::Result<()> {
         let _guard = IoCounterKey::EdenSettle.guard();
 
         let root = self.manager.get_mount_point();
@@ -377,7 +459,7 @@ impl IoProvider for EdenIoProvider {
                 )
             })
             .await
-            .context("Error synchronizing Eden working copy")
+            .buck_error_context("Error synchronizing Eden working copy")
             .tag(ErrorTag::IoEden)
     }
 
@@ -385,8 +467,8 @@ impl IoProvider for EdenIoProvider {
         "eden"
     }
 
-    async fn eden_version(&self) -> anyhow::Result<Option<String>> {
-        self.manager.get_eden_version().await
+    async fn eden_version(&self) -> buck2_error::Result<Option<String>> {
+        Ok(self.manager.get_eden_version().await?)
     }
 
     fn project_root(&self) -> &ProjectRoot {

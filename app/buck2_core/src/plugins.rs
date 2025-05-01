@@ -22,7 +22,16 @@ use crate::cells::cell_path::CellPath;
 use crate::target::label::label::TargetLabel;
 
 #[derive(
-    Clone, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
+    Clone,
+    Debug,
+    Display,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
 )]
 #[display("{name}")]
 struct PluginKindInner {
@@ -40,7 +49,17 @@ impl<'a> From<&'a PluginKindInner> for PluginKindInner {
 }
 
 #[derive(
-    Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
+    Clone,
+    Dupe,
+    Debug,
+    Display,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
 )]
 pub struct PluginKind(Intern<PluginKindInner>);
 
@@ -71,7 +90,18 @@ pub struct PluginKindSet(*const ());
 /// We'd ideally like to just let this type be the definition of `PluginKindSet`. Unfortunately,
 /// this type is 16 bytes in size. So instead, we store `PluginKindSet` as a pointer with `0`
 /// indicating `None` and `1` indicating `All`
-#[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
+)]
 enum PluginKindSetUnpacked {
     None,
     All,
@@ -87,7 +117,10 @@ impl PluginKindSet {
     pub const EMPTY: Self = Self::pack(PluginKindSetUnpacked::None);
     pub const ALL: Self = Self::pack(PluginKindSetUnpacked::All);
 
-    pub fn new(pulls: Vec<PluginKind>, pulls_and_pushes: Vec<PluginKind>) -> anyhow::Result<Self> {
+    pub fn new(
+        pulls: Vec<PluginKind>,
+        pulls_and_pushes: Vec<PluginKind>,
+    ) -> buck2_error::Result<Self> {
         if pulls.is_empty() && pulls_and_pushes.is_empty() {
             return Ok(Self::EMPTY);
         }
@@ -159,6 +192,12 @@ impl Eq for PluginKindSet {}
 impl std::hash::Hash for PluginKindSet {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         std::hash::Hash::hash(&self.unpack(), state)
+    }
+}
+
+impl strong_hash::StrongHash for PluginKindSet {
+    fn strong_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        strong_hash::StrongHash::strong_hash(&self.unpack(), state)
     }
 }
 

@@ -7,39 +7,44 @@
  * of this source tree.
  */
 
-use std::path::Path;
-use std::path::PathBuf;
-
 use allocative::Allocative;
-use anyhow::Context as _;
 use buck2_core::buck2_env;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::fs::working_dir::AbsWorkingDir;
+use buck2_error::BuckErrorContext;
 use once_cell::sync::Lazy;
+
+use crate::invocation_paths::InvocationPaths;
+use crate::invocation_paths_result::InvocationPathsResult;
 
 #[derive(Debug, buck2_error::Error)]
 enum BuckCliError {
     #[error(
-        "Couldn't find a buck project root for directory `{}`. Expected to find a .buckconfig file.", _0.display()
+        "Couldn't find a buck project root for directory `{}`. Expected to find a .buckconfig file.", _0.path().display()
     )]
-    NoBuckRoot(PathBuf),
+    #[buck2(tag = NoBuckRoot)]
+    NoBuckRoot(AbsWorkingDir),
 }
 
 #[derive(Clone, Allocative)]
 pub struct InvocationRoots {
-    pub cell_root: AbsNormPathBuf,
     pub project_root: ProjectRoot,
+    pub cwd: ProjectRelativePathBuf,
 }
 
 impl InvocationRoots {
-    pub fn common_buckd_dir(&self) -> anyhow::Result<AbsNormPathBuf> {
+    pub fn common_buckd_dir(&self) -> buck2_error::Result<AbsNormPathBuf> {
         Ok(home_buck_dir()?.join(FileName::unchecked_new("buckd")))
     }
 
-    pub fn paranoid_info_path(&self) -> anyhow::Result<AbsPathBuf> {
+    pub fn paranoid_info_path(&self) -> buck2_error::Result<AbsPathBuf> {
         // Used in tests
         if let Some(p) = buck2_env!("BUCK2_PARANOID_PATH")? {
             return AbsPathBuf::try_from(p.to_owned());
@@ -52,55 +57,66 @@ impl InvocationRoots {
     }
 }
 
-/// This finds the cell root and the project root.
+/// Finds the project root.
 ///
-/// This uses a rather liberal definition of "roots". It traverses the directory and
-/// its parents looking for all .buckconfig files, the closest one (i.e. with the longest
-/// path) will be detected as the "cell root" and the furthest one (with the shortest
-/// path) will be detected as the "project root".
-///
-/// This definition requires that (1) every cell has a .buckconfig file (to make the "cell
-/// root" correct) and (2) that the cell's buckconfig actually references the outermost
-/// .buckconfig directory as one of its cells, which in practice means you can't stick a
-/// buck cell/project within another one without them referencing each other (or not
-/// running buck commands within the inner one).
+/// This uses a rather liberal definition of "roots". It traverses the directory and its parents
+/// looking for all .buckconfig files and the furthest one (with the shortest path) will be detected
+/// as the "project root".
 ///
 /// We also look for .buckroot files, and if we find one of them, we don't traverse further upwards.
 /// The contents of the .buckroot file is entirely ignored.
-///
-/// Doing this without those requirements (i.e. doing it correctly), would require us to
-/// parse the buckconfig files (including all file includes). It's unclear if we'll ever
-/// do that within the buckd client dir.
-pub fn find_invocation_roots(from: &Path) -> anyhow::Result<InvocationRoots> {
-    let mut cell_root = None;
+fn get_roots(from: &AbsWorkingDir) -> buck2_error::Result<Option<InvocationRoots>> {
     let mut project_root = None;
 
     let home_dir = dirs::home_dir();
-    for curr in from.ancestors() {
-        if curr.join(".buckconfig").exists() {
+    for curr in from.path().ancestors() {
+        if fs_util::try_exists(curr.join(FileName::unchecked_new(".buckconfig")))? {
             // Do not allow /home/{unixname}, /home or / to be a cell,
             // and /home/{unixname}/.buckconfig is used for config override
             if let Some(home_dir_path) = &home_dir {
-                if home_dir_path == curr {
+                if home_dir_path == curr.as_path() {
                     break;
                 }
-            }
-            if cell_root.is_none() {
-                cell_root = Some(curr.to_owned());
             }
             project_root = Some(curr.to_owned());
         }
 
-        if curr.join(".buckroot").exists() {
+        if fs_util::try_exists(curr.join(FileName::unchecked_new(".buckroot")))? {
             break;
         }
     }
-    match (project_root, cell_root) {
-        (Some(project_root), Some(cell_root)) => Ok(InvocationRoots {
-            cell_root: AbsNormPathBuf::try_from(cell_root)?,
-            project_root: ProjectRoot::new(AbsNormPathBuf::try_from(project_root)?)?,
-        }),
-        _ => Err(BuckCliError::NoBuckRoot(from.to_owned()).into()),
+
+    #[allow(clippy::manual_map)]
+    Ok(match project_root {
+        Some(project_root) => {
+            let rel_cwd = from
+                .path()
+                .strip_prefix(&project_root)
+                .expect("By construction")
+                .into_owned();
+            Some(InvocationRoots {
+                project_root: ProjectRoot::new_unchecked(project_root),
+                cwd: rel_cwd.into(),
+            })
+        }
+        None => None,
+    })
+}
+
+pub fn find_invocation_roots(from: &AbsWorkingDir) -> buck2_error::Result<InvocationRoots> {
+    get_roots(from)?.ok_or_else(|| BuckCliError::NoBuckRoot(from.to_owned()).into())
+}
+
+pub fn get_invocation_paths_result(
+    from: &AbsWorkingDir,
+    isolation: FileNameBuf,
+) -> InvocationPathsResult {
+    match get_roots(from) {
+        Ok(Some(roots)) => InvocationPathsResult::Paths(InvocationPaths { roots, isolation }),
+        Ok(None) => {
+            InvocationPathsResult::OutsideOfRepo(BuckCliError::NoBuckRoot(from.to_owned()).into())
+        }
+        Err(e) => InvocationPathsResult::OtherError(e.into()),
     }
 }
 
@@ -122,10 +138,12 @@ pub fn find_invocation_roots(from: &Path) -> anyhow::Result<InvocationRoots> {
 ///
 /// 2. Keep user-owned .buckd directory, use some other mechanism to move ownership of
 ///    output directories between different buckd instances.
-pub(crate) fn home_buck_dir() -> anyhow::Result<&'static AbsNormPath> {
-    fn find_dir() -> anyhow::Result<AbsNormPathBuf> {
-        let home = dirs::home_dir().context("Expected a HOME directory to be available")?;
-        let home = AbsNormPathBuf::new(home).context("Expected an absolute HOME directory")?;
+pub(crate) fn home_buck_dir() -> buck2_error::Result<&'static AbsNormPath> {
+    fn find_dir() -> buck2_error::Result<AbsNormPathBuf> {
+        let home =
+            dirs::home_dir().buck_error_context("Expected a HOME directory to be available")?;
+        let home =
+            AbsNormPathBuf::new(home).buck_error_context("Expected an absolute HOME directory")?;
         Ok(home.join(FileName::new(".buck")?))
     }
 

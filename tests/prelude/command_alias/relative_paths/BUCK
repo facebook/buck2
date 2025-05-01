@@ -1,0 +1,116 @@
+load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
+load("@fbsource//tools/build_defs:selects.bzl", "selects")
+
+oncall("build_infra")
+
+prelude = native
+
+# Test to verify that relative paths in args actually work
+prelude.export_file(
+    name = "relative_path_test_file",
+    src = "test_file",
+)
+
+_args = select({
+    "DEFAULT": [
+        "sh",
+        "-c",
+        "cat $1",
+        "--",
+        "$(location :relative_path_test_file)",
+    ],
+    "ovr_config//os:windows": [
+        "cmd.exe",
+        "/c",
+        "type",
+        "$(location :relative_path_test_file)",
+    ],
+})
+
+prelude.command_alias(
+    name = "relative_path_exec_unix",
+    args = _args,
+    exec_compatible_with = [
+        "ovr_config//os:linux",
+    ],
+)
+
+prelude.command_alias(
+    name = "relative_path_exec_windows",
+    args = _args,
+    exec_compatible_with = [
+        "ovr_config//os:windows",
+    ],
+)
+
+py_assertion(
+    name = "check_relative_paths_exec_unix",
+    script = selects.fmt(
+        """
+import subprocess
+import sys
+
+stdout, ret = {}
+output = subprocess.run([sys.argv[1]], capture_output=True, text=True)
+assert output.stdout.strip() == stdout
+assert output.returncode == ret
+""",
+        select({
+            "DEFAULT": '"foo", 0',
+            # FIXME(JakobDegen): Also broken, haven't investigated the cause yet, may be the same
+            # as below
+            "ovr_config//os:windows": '"", 1',
+        }),
+    ),
+    script_args = ["$(location :relative_path_exec_unix)"],
+)
+
+py_assertion(
+    name = "check_relative_path_exec_windows",
+    script = selects.fmt(
+        """
+import subprocess
+import sys
+
+stdout, ret = {}
+output = subprocess.run([sys.argv[1]], capture_output=True, text=True)
+assert output.stdout.strip() == stdout
+assert output.returncode == ret
+""",
+        select({
+            # FIXME(JakobDegen): The trampoline we output uses line separators appropriate for the
+            # exec platform, not the target platform
+            "DEFAULT": '"", 1',
+            "ovr_config//os:windows": '"foo", 0',
+        }),
+    ),
+    script_args = ["$(location :relative_path_exec_windows)"],
+)
+
+prelude.alias(
+    name = "relative_path",
+    # So that we get something that works
+    actual = select({
+        "DEFAULT": ":relative_path_exec_unix",
+        "ovr_config//os:windows": ":relative_path_exec_windows",
+    }),
+)
+
+py_assertion(
+    name = "check_relative_path_with_other_cwd",
+    script = """
+import subprocess
+from pathlib import Path
+import sys
+
+output = subprocess.run(
+    [Path(sys.argv[1]).resolve()],
+    cwd='buck-out/v2',
+    capture_output=True,
+    text=True,
+)
+assert output.returncode == 0
+assert output.stdout.strip() == "foo"
+""",
+    script_args = ["$(location :relative_path)"],
+)

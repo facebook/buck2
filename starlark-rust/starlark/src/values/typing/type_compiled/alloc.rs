@@ -17,11 +17,10 @@
 
 use starlark_syntax::slice_vec_ext::SliceExt;
 
-use crate::typing::custom::TyCustom;
-use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
-use crate::typing::TyName;
+use crate::typing::custom::TyCustom;
+use crate::typing::starlark_value::TyStarlarkValue;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
 use crate::values::typing::type_compiled::matcher::TypeMatcherBoxAlloc;
 use crate::values::typing::type_compiled::matchers::IsAny;
@@ -35,9 +34,10 @@ use crate::values::typing::type_compiled::matchers::IsInt;
 use crate::values::typing::type_compiled::matchers::IsIterable;
 use crate::values::typing::type_compiled::matchers::IsList;
 use crate::values::typing::type_compiled::matchers::IsListOf;
-use crate::values::typing::type_compiled::matchers::IsName;
 use crate::values::typing::type_compiled::matchers::IsNever;
 use crate::values::typing::type_compiled::matchers::IsNone;
+use crate::values::typing::type_compiled::matchers::IsSet;
+use crate::values::typing::type_compiled::matchers::IsSetOf;
 use crate::values::typing::type_compiled::matchers::IsStr;
 use crate::values::typing::type_compiled::matchers::IsType;
 use crate::values::typing::type_compiled::matchers::StarlarkTypeIdMatcher;
@@ -134,14 +134,9 @@ pub trait TypeMatcherAlloc: Sized {
         }
     }
 
-    fn name(self, ty: &TyName) -> Self::Result {
-        self.alloc(IsName(ty.as_str().to_owned()))
-    }
-
     fn ty_basic(self, ty: &TyBasic) -> Self::Result {
         match ty {
             TyBasic::Any => self.any(),
-            TyBasic::Name(name) => self.name(name),
             TyBasic::StarlarkValue(x) => x.matcher(self),
             TyBasic::List(item) => self.list_of(item),
             TyBasic::Tuple(tuple) => tuple.matcher(self),
@@ -150,6 +145,7 @@ pub trait TypeMatcherAlloc: Sized {
             TyBasic::Callable(_c) => self.alloc(IsCallable),
             TyBasic::Type => self.alloc(IsType),
             TyBasic::Custom(custom) => self.custom(custom),
+            TyBasic::Set(item) => self.set_of(item),
         }
     }
 
@@ -257,6 +253,49 @@ pub trait TypeMatcherAlloc: Sized {
             let k = TypeMatcherBoxAlloc.ty(k);
             let v = TypeMatcherBoxAlloc.ty(v);
             self.dict_of_matcher(k, v)
+        }
+    }
+
+    /// `set`.
+    fn set(self) -> Self::Result {
+        self.alloc(IsSet)
+    }
+
+    /// `set[Item]`.
+    fn set_of_matcher(self, item: impl TypeMatcher) -> Self::Result {
+        if item.is_wildcard() {
+            self.set()
+        } else {
+            self.alloc(IsSetOf(item))
+        }
+    }
+
+    /// `set[Item]`.
+    fn set_of_starlark_value(self, item: TyStarlarkValue) -> Self::Result {
+        if item.is_str() {
+            self.set_of_matcher(IsStr)
+        } else {
+            self.set_of_matcher(StarlarkTypeIdMatcher::new(item))
+        }
+    }
+
+    /// `set[Item]`.
+    fn set_of_basic(self, item: &TyBasic) -> Self::Result {
+        match item {
+            TyBasic::Any => self.set(),
+            TyBasic::StarlarkValue(ty) => self.set_of_starlark_value(*ty),
+            ty => self.set_of_matcher(TypeMatcherBoxAlloc.ty_basic(ty)),
+        }
+    }
+
+    fn set_of(self, item: &Ty) -> Self::Result {
+        if item.is_any() {
+            self.set()
+        } else if let [ty] = item.iter_union() {
+            self.set_of_basic(ty)
+        } else {
+            let matcher = TypeMatcherBoxAlloc.ty(item);
+            self.set_of_matcher(matcher)
         }
     }
 }

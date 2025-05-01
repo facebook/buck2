@@ -23,22 +23,22 @@ use starlark_syntax::syntax::type_expr::TypePathP;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
+use crate::eval::compiler::Compiler;
 use crate::eval::compiler::constants::Constants;
+use crate::eval::compiler::scope::ResolvedIdent;
+use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
-use crate::eval::compiler::scope::ResolvedIdent;
-use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::span::IrSpanned;
-use crate::eval::compiler::Compiler;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::typing::Ty;
-use crate::values::types::ellipsis::Ellipsis;
-use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::FrozenValue;
 use crate::values::Value;
+use crate::values::types::ellipsis::Ellipsis;
+use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 #[derive(Debug, thiserror::Error)]
 enum TypesError {
@@ -168,7 +168,9 @@ impl<'v> Compiler<'v, '_, '_, '_> {
             TypeExprUnpackP::Path(path) => self.eval_path(path),
             TypeExprUnpackP::Index(a, i) => {
                 let a = self.eval_ident_in_type_expr(a)?;
-                if !a.ptr_eq(Constants::get().fn_list.0.to_value()) {
+                if !a.ptr_eq(Constants::get().fn_list.0.to_value())
+                    && !a.ptr_eq(Constants::get().fn_set.0.to_value())
+                {
                     return Err(EvalException::new_anyhow(
                         TypesError::TypeIndexOnNonList.into(),
                         expr.span,
@@ -210,7 +212,6 @@ impl<'v> Compiler<'v, '_, '_, '_> {
                 })?;
                 Ok(TypeCompiled::from_ty(&Ty::tuple(xs), self.eval.heap()).to_inner())
             }
-            TypeExprUnpackP::Literal(s) => Ok(self.eval.heap().alloc_str_intern(s.node).to_value()),
         }
     }
 

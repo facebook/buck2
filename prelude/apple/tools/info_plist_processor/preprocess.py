@@ -19,14 +19,15 @@ class _ReGroupName(str, Enum):
     modifier = "modifier"
     closeparen = "closeparen"
 
+    def __format__(self, spec):
+        return f"{self.value}"
 
-_re_string: str = (
-    "\\$(?P<{openparen}>[\\{{\\(])(?P<{variable}>[^\\}}\\):]+)(?::(?P<{modifier}>[^\\}}\\)]+))?(?P<{closeparen}>[\\}}\\)])".format(
-        openparen=_ReGroupName.openparen,
-        variable=_ReGroupName.variable,
-        modifier=_ReGroupName.modifier,
-        closeparen=_ReGroupName.closeparen,
-    )
+
+_re_string: str = "\\$(?P<{openparen}>[\\{{\\(])(?P<{variable}>[^\\}}\\):]+)(?::(?P<{modifier}>[^\\}}\\)]+))?(?P<{closeparen}>[\\}}\\)])".format(
+    openparen=_ReGroupName.openparen,
+    variable=_ReGroupName.variable,
+    modifier=_ReGroupName.modifier,
+    closeparen=_ReGroupName.closeparen,
 )
 
 

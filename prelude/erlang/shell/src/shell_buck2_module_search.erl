@@ -15,6 +15,10 @@
 
 -export([find_module/1, find_module_source/1]).
 
+-compile(warn_missing_spec_all).
+
+-eqwalizer(ignore).
+
 -callback find_module_source(module()) ->
     {source, file:filename_all()}
     | {error, not_found | {ambiguous, [file:filename_all()]}}.

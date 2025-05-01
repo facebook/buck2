@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use buck2_core::cells::name::CellName;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_test_api::data::ConfiguredTarget;
 use buck2_test_api::data::ExternalRunnerSpec;
 use buck2_test_api::data::ExternalRunnerSpecValue;
@@ -24,7 +25,10 @@ use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info:
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 
 pub trait TestProvider {
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()>;
+    fn visit_artifacts(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()>;
 
     fn labels(&self) -> Vec<&str>;
 
@@ -33,11 +37,14 @@ pub trait TestProvider {
         target: ConfiguredTarget,
         executor: Arc<dyn TestExecutor + 'exec>,
         working_dir_cell: CellName,
-    ) -> BoxFuture<'exec, anyhow::Result<()>>;
+    ) -> BoxFuture<'exec, buck2_error::Result<()>>;
 }
 
 impl TestProvider for FrozenExternalRunnerTestInfo {
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
+    fn visit_artifacts(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()> {
         FrozenExternalRunnerTestInfo::visit_artifacts(self, visitor)
     }
 
@@ -50,7 +57,7 @@ impl TestProvider for FrozenExternalRunnerTestInfo {
         target: ConfiguredTarget,
         executor: Arc<dyn TestExecutor + 'exec>,
         working_dir_cell: CellName,
-    ) -> BoxFuture<'exec, anyhow::Result<()>> {
+    ) -> BoxFuture<'exec, buck2_error::Result<()>> {
         let mut handle_index = 0;
 
         let command = self
@@ -89,7 +96,13 @@ impl TestProvider for FrozenExternalRunnerTestInfo {
             working_dir_cell,
         };
 
-        async move { executor.external_runner_spec(spec).await }.boxed()
+        async move {
+            executor
+                .external_runner_spec(spec)
+                .await
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+        }
+        .boxed()
     }
 }
 

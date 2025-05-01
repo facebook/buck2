@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
-use buck2_configured::configuration::calculation::ExecutionPlatformsKey;
+use buck2_configured::execution::ExecutionPlatformsKey;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::data::ConfigurationData;
@@ -25,6 +25,7 @@ use buck2_core::target::name::TargetName;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::super_package::package_value::SuperPackageValuesImpl;
 use buck2_node::attrs::attr::Attribute;
+use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
@@ -32,24 +33,24 @@ use buck2_node::attrs::attr_type::dep::DepAttrTransition;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
-use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::attrs::internal::internal_attrs;
+use buck2_node::attrs::spec::internal::is_internal_attr;
+use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::targets_map::TargetsMap;
-use buck2_node::nodes::unconfigured::testing::TargetNodeExt;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::nodes::unconfigured::testing::TargetNodeExt;
 use buck2_node::provider_id_set::ProviderIdSet;
 use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_node::super_package::SuperPackage;
 use buck2_util::arc_str::ArcSlice;
-use dice::testing::DiceBuilder;
 use dice::UserComputationData;
+use dice::testing::DiceBuilder;
 use dupe::Dupe;
 use starlark::collections::SmallMap;
 use starlark_map::smallmap;
@@ -66,7 +67,7 @@ async fn test_get_node() -> anyhow::Result<()> {
     let label2 = TargetLabel::new(pkg.dupe(), name2.as_ref());
 
     let rule_type = RuleType::Starlark(Arc::new(StarlarkRuleType {
-        import_path: ImportPath::testing_new("cell//foo/bar:def.bzl"),
+        path: BzlOrBxlPath::Bzl(ImportPath::testing_new("cell//foo/bar:def.bzl")),
         name: "some_rule".to_owned(),
     }));
     let attrs1 = vec![
@@ -93,7 +94,7 @@ async fn test_get_node() -> anyhow::Result<()> {
         ),
     ];
 
-    let node1 = TargetNode::testing_new(label1.dupe(), rule_type.dupe(), attrs1, vec![], None);
+    let node1 = TargetNode::testing_new(label1.dupe(), rule_type.dupe(), attrs1, None);
 
     let attrs2 = vec![
         (
@@ -117,7 +118,7 @@ async fn test_get_node() -> anyhow::Result<()> {
         ),
     ];
 
-    let node2 = TargetNode::testing_new(label2.dupe(), rule_type.dupe(), attrs2, vec![], None);
+    let node2 = TargetNode::testing_new(label2.dupe(), rule_type.dupe(), attrs2, None);
 
     let eval_result = EvaluationResult::new(
         Arc::new(BuildFilePath::new(
@@ -125,7 +126,7 @@ async fn test_get_node() -> anyhow::Result<()> {
             FileNameBuf::unchecked_new("BUCK"),
         )),
         Vec::new(),
-        SuperPackage::empty::<SuperPackageValuesImpl>(),
+        SuperPackage::empty::<SuperPackageValuesImpl>()?,
         TargetsMap::from_iter([node1.dupe(), node2.dupe()]),
     );
 
@@ -179,7 +180,7 @@ async fn test_get_node() -> anyhow::Result<()> {
     let node_attrs: SmallMap<_, _> = node
         .attrs(AttrInspectOptions::All)
         .filter_map(|a| {
-            if internal_attrs().contains_key(a.name) {
+            if is_internal_attr(a.name) {
                 None
             } else {
                 Some((a.name, a.value))
@@ -195,7 +196,7 @@ async fn test_get_node() -> anyhow::Result<()> {
     let node_attrs: SmallMap<_, _> = node
         .attrs(AttrInspectOptions::All)
         .filter_map(|a| {
-            if internal_attrs().contains_key(a.name) {
+            if is_internal_attr(a.name) {
                 None
             } else {
                 Some((a.name, a.value))

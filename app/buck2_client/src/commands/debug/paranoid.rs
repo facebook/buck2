@@ -11,6 +11,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::fs::fs_util;
 use prost::Message;
@@ -40,7 +41,7 @@ pub struct EnableParanoidCommand {
 pub struct DisableParanoidCommand {}
 
 impl ParanoidCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let paranoid_info_path = ctx.paths()?.roots.paranoid_info_path()?;
 
         if let Some(parent) = paranoid_info_path.parent() {

@@ -17,8 +17,8 @@
 
 use crate::collections::SmallMap;
 use crate::debug::inspect::to_scope_names_by_local_slot_id;
-use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::eval::Evaluator;
+use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::syntax::AstModule;
 use crate::values::FrozenStringValue;
 use crate::values::Value;

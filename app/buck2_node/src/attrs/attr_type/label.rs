@@ -21,7 +21,7 @@ impl LabelAttrType {
     pub(crate) fn configure(
         ctx: &dyn AttrConfigurationContext,
         label: &ProvidersLabel,
-    ) -> anyhow::Result<ConfiguredAttr> {
+    ) -> buck2_error::Result<ConfiguredAttr> {
         Ok(ConfiguredAttr::Label(ctx.configure_target(label)))
     }
 }

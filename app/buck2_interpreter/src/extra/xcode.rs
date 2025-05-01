@@ -11,14 +11,16 @@ use std::io;
 use std::path::Path;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use regex::Regex;
 use serde::Deserialize;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum XcodeVersionError {
     #[error("XCode select symlink `{}` resolved to path without parent: `{}`", XCODE_SELECT_SYMLINK, _0.display())]
     XcodeSelectSymlinkResolvedToPathWithoutParent(AbsNormPathBuf),
@@ -55,10 +57,10 @@ pub struct XcodeVersionInfo {
 
 impl XcodeVersionInfo {
     // Construct from version.plist in root of Xcode install dir.
-    pub fn new() -> anyhow::Result<Option<Self>> {
+    pub fn new() -> buck2_error::Result<Option<Self>> {
         let resolved_xcode_path =
             fs_util::canonicalize_if_exists(AbsPath::new(XCODE_SELECT_SYMLINK)?)
-                .context("resolve selected xcode link")?;
+                .buck_error_context("resolve selected xcode link")?;
         let resolved_xcode_path = match resolved_xcode_path {
             Some(p) => p,
             None => return Ok(None),
@@ -72,21 +74,20 @@ impl XcodeVersionInfo {
         Self::from_plist(&plist_path)
     }
 
-    pub(crate) fn from_plist(plist_path: &Path) -> anyhow::Result<Option<Self>> {
+    pub(crate) fn from_plist(plist_path: &Path) -> buck2_error::Result<Option<Self>> {
         let plist = plist::from_file::<_, XcodeVersionPlistSchema>(plist_path);
 
         let plist = match plist {
             Ok(plist) => plist,
             Err(e)
                 if e.as_io()
-                    .map_or(false, |e| e.kind() == io::ErrorKind::NotFound) =>
+                    .is_some_and(|e| e.kind() == io::ErrorKind::NotFound) =>
             {
                 return Ok(None);
             }
             Err(e) => {
-                return Err(
-                    anyhow::Error::from(e).context("Error deserializing Xcode `version.plist`")
-                );
+                return Err(from_any_with_tag(e, buck2_error::ErrorTag::Tier0)
+                    .context("Error deserializing Xcode `version.plist`"));
             }
         };
 
@@ -112,7 +113,7 @@ impl XcodeVersionInfo {
 
     /// Construct from a string, formatted as: "version-build"
     /// (e.g., 14.3.0-14C18 or 14.1-14B47b)
-    pub fn from_version_and_build(version_and_build: &str) -> anyhow::Result<Self> {
+    pub fn from_version_and_build(version_and_build: &str) -> buck2_error::Result<Self> {
         let re = Regex::new(r"^((\d+)\.(\d+)(?:\.(\d+))?)\-([[:alnum:]]+)$").unwrap();
         if !re.is_match(version_and_build) {
             return Err(XcodeVersionError::MalformedVersionBuildString.into());

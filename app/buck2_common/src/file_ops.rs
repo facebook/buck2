@@ -22,7 +22,9 @@ use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use cmp_any::PartialEqAny;
 use compact_str::CompactString;
+use dashmap::DashMap;
 use derive_more::Display;
+use dice::UserComputationData;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
 
@@ -112,6 +114,11 @@ impl ReadDirOutput {
     }
 }
 
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Dupe, Allocative)]
+pub struct DirectorySubListingMatchingOutput {
+    pub included: Arc<[SimpleDirEntry]>,
+}
+
 #[derive(Allocative)]
 pub struct FileDigestKind {
     _private: (),
@@ -153,7 +160,7 @@ impl FileDigestConfig {
 
 impl FileDigest {
     /// Obtain the digest of the file if you can.
-    pub fn from_file(file: &AbsPath, config: FileDigestConfig) -> anyhow::Result<Self> {
+    pub fn from_file(file: &AbsPath, config: FileDigestConfig) -> buck2_error::Result<Self> {
         if !buck2_env!("BUCK2_DISABLE_FILE_ATTR", bool)? {
             if let Some(digest) = Self::from_file_attr(file, config) {
                 return Ok(digest);
@@ -172,11 +179,14 @@ impl FileDigest {
 
         enum Digest {
             Sha1,
+            Sha256,
             Blake3Keyed,
         }
 
         let digest = if config.as_cas_digest_config().allows_sha1() {
             Digest::Sha1
+        } else if config.as_cas_digest_config().allows_sha256() {
+            Digest::Sha256
         } else if config.as_cas_digest_config().allows_blake3_keyed() {
             Digest::Blake3Keyed
         } else {
@@ -196,6 +206,10 @@ impl FileDigest {
                 .ok()
                 .flatten()
                 .and_then(|v| RawDigest::parse_sha1(&v).ok()),
+            Digest::Sha256 => xattr::get(file.as_maybe_relativized(), "user.sha256")
+                .ok()
+                .flatten()
+                .and_then(|v| RawDigest::parse_sha256(&v).ok()),
             // NOTE: Eden returns *keyed* blake3 in user.blake3, so we use that.
             Digest::Blake3Keyed => xattr::get(file.as_maybe_relativized(), "user.blake3")
                 .ok()
@@ -214,7 +228,7 @@ impl FileDigest {
 
     /// Get the digest from disk. You should usually prefer `from_file`
     /// which also uses faster methods of getting the SHA1 if it can.
-    pub fn from_file_disk(file: &AbsPath, config: FileDigestConfig) -> anyhow::Result<Self> {
+    pub fn from_file_disk(file: &AbsPath, config: FileDigestConfig) -> buck2_error::Result<Self> {
         let f = File::open(file.as_maybe_relativized())?;
         FileDigest::from_reader(f, config.as_cas_digest_config())
     }
@@ -338,26 +352,29 @@ pub trait FileOps: Send + Sync {
     async fn read_file_if_exists(
         &self,
         path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<Option<String>>;
+    ) -> buck2_error::Result<Option<String>>;
 
     /// Return the list of file outputs, sorted.
-    async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput>;
+    async fn read_dir(&self, path: CellPathRef<'async_trait>)
+    -> buck2_error::Result<ReadDirOutput>;
 
-    async fn is_ignored(&self, path: CellPathRef<'async_trait>)
-    -> anyhow::Result<FileIgnoreResult>;
+    async fn is_ignored(
+        &self,
+        path: CellPathRef<'async_trait>,
+    ) -> buck2_error::Result<FileIgnoreResult>;
 
     async fn read_path_metadata_if_exists(
         &self,
         path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<Option<RawPathMetadata>>;
+    ) -> buck2_error::Result<Option<RawPathMetadata>>;
 
     fn eq_token(&self) -> PartialEqAny;
 
-    async fn buildfiles<'a>(&self, cell: CellName) -> anyhow::Result<Arc<[FileNameBuf]>>;
+    async fn buildfiles<'a>(&self, cell: CellName) -> buck2_error::Result<Arc<[FileNameBuf]>>;
 }
 
 impl dyn FileOps + '_ {
-    pub async fn read_file(&self, path: CellPathRef<'_>) -> anyhow::Result<String> {
+    pub async fn read_file(&self, path: CellPathRef<'_>) -> buck2_error::Result<String> {
         self.read_file_if_exists(path)
             .await?
             .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
@@ -366,7 +383,7 @@ impl dyn FileOps + '_ {
     pub async fn read_path_metadata(
         &self,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<RawPathMetadata> {
+    ) -> buck2_error::Result<RawPathMetadata> {
         self.read_path_metadata_if_exists(path)
             .await?
             .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
@@ -376,6 +393,42 @@ impl dyn FileOps + '_ {
 impl PartialEq for dyn FileOps {
     fn eq(&self, other: &dyn FileOps) -> bool {
         self.eq_token() == other.eq_token()
+    }
+}
+
+pub struct ReadDirCache(DashMap<CellPath, ReadDirOutput>);
+
+impl ReadDirCache {
+    pub fn get(&self, key: &CellPath) -> Option<ReadDirOutput> {
+        self.0.get(key).map(|entry| entry.clone())
+    }
+}
+
+pub trait HasReadDirCache {
+    fn set_read_dir_cache(&mut self, cache: DashMap<CellPath, ReadDirOutput>);
+
+    fn get_read_dir_cache(&self) -> &ReadDirCache;
+
+    fn update_read_dir_cache(&self, cell_path: CellPath, read_dir_output: &ReadDirOutput);
+}
+
+impl HasReadDirCache for UserComputationData {
+    fn set_read_dir_cache(&mut self, cache: DashMap<CellPath, ReadDirOutput>) {
+        self.data.set(ReadDirCache(cache));
+    }
+
+    fn get_read_dir_cache(&self) -> &ReadDirCache {
+        &self
+            .data
+            .get::<ReadDirCache>()
+            .expect("ReadDirCache is expected to be set.")
+    }
+
+    fn update_read_dir_cache(&self, cell_path: CellPath, read_dir_output: &ReadDirOutput) {
+        let updated_cache = self.get_read_dir_cache();
+        updated_cache
+            .0
+            .insert(cell_path.to_owned(), read_dir_output.clone());
     }
 }
 
@@ -397,11 +450,11 @@ pub mod testing {
     use itertools::Itertools;
 
     use crate::cas_digest::CasDigestConfig;
-    use crate::dice::file_ops::delegate::testing::FileOpsKey;
-    use crate::dice::file_ops::delegate::testing::FileOpsValue;
+    use crate::dice::file_ops::CheckIgnores;
     use crate::dice::file_ops::delegate::FileOpsDelegate;
     use crate::dice::file_ops::delegate::FileOpsDelegateWithIgnores;
-    use crate::dice::file_ops::CheckIgnores;
+    use crate::dice::file_ops::delegate::testing::FileOpsKey;
+    use crate::dice::file_ops::delegate::testing::FileOpsValue;
     use crate::external_symlink::ExternalSymlink;
     use crate::file_ops::FileMetadata;
     use crate::file_ops::FileOps;
@@ -512,6 +565,7 @@ pub mod testing {
 
         pub fn mock_in_cell(&self, cell: CellName, builder: DiceBuilder) -> DiceBuilder {
             let data = Ok(FileOpsValue(FileOpsDelegateWithIgnores::new(
+                cell,
                 None,
                 Arc::new(TestCellFileOps(
                     cell,
@@ -543,14 +597,17 @@ pub mod testing {
         async fn read_file_if_exists(
             &self,
             path: CellPathRef<'async_trait>,
-        ) -> anyhow::Result<Option<String>> {
+        ) -> buck2_error::Result<Option<String>> {
             Ok(self.entries.get(&path.to_owned()).and_then(|e| match e {
                 TestFileOpsEntry::File(data, ..) => Some(data.clone()),
                 _ => None,
             }))
         }
 
-        async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput> {
+        async fn read_dir(
+            &self,
+            path: CellPathRef<'async_trait>,
+        ) -> buck2_error::Result<ReadDirOutput> {
             let included = self
                 .entries
                 .get(&path.to_owned())
@@ -560,14 +617,20 @@ pub mod testing {
                     }
                     _ => None,
                 })
-                .ok_or_else(|| anyhow::anyhow!("couldn't find dir {:?}", path))?;
+                .ok_or_else(|| {
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Environment,
+                        "couldn't find dir {:?}",
+                        path
+                    )
+                })?;
             Ok(ReadDirOutput { included })
         }
 
         async fn read_path_metadata_if_exists(
             &self,
             path: CellPathRef<'async_trait>,
-        ) -> anyhow::Result<Option<RawPathMetadata>> {
+        ) -> buck2_error::Result<Option<RawPathMetadata>> {
             self.entries.get(&path.to_owned()).map_or(Ok(None), |e| {
                 match e {
                     TestFileOpsEntry::File(_data, metadata) => {
@@ -577,7 +640,11 @@ pub mod testing {
                         at: Arc::new(path.to_owned()),
                         to: RawSymlink::External(sym.dupe()),
                     }),
-                    _ => Err(anyhow::anyhow!("couldn't get metadata for {:?}", path)),
+                    _ => Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Tier0,
+                        "couldn't get metadata for {:?}",
+                        path
+                    )),
                 }
                 .map(Some)
             })
@@ -586,7 +653,7 @@ pub mod testing {
         async fn is_ignored(
             &self,
             _path: CellPathRef<'async_trait>,
-        ) -> anyhow::Result<FileIgnoreResult> {
+        ) -> buck2_error::Result<FileIgnoreResult> {
             Ok(FileIgnoreResult::Ok)
         }
 
@@ -594,7 +661,7 @@ pub mod testing {
             PartialEqAny::always_false()
         }
 
-        async fn buildfiles<'a>(&self, _cell: CellName) -> anyhow::Result<Arc<[FileNameBuf]>> {
+        async fn buildfiles<'a>(&self, _cell: CellName) -> buck2_error::Result<Arc<[FileNameBuf]>> {
             Ok(Arc::from_iter([FileNameBuf::unchecked_new("BUCK")]))
         }
     }
@@ -606,7 +673,7 @@ pub mod testing {
         async fn read_file_if_exists(
             &self,
             path: &'async_trait CellRelativePath,
-        ) -> anyhow::Result<Option<String>> {
+        ) -> buck2_error::Result<Option<String>> {
             let path = CellPath::new(self.0, path.to_owned());
             FileOps::read_file_if_exists(&self.1, path.as_ref()).await
         }
@@ -615,7 +682,7 @@ pub mod testing {
         async fn read_dir(
             &self,
             path: &'async_trait CellRelativePath,
-        ) -> anyhow::Result<Vec<RawDirEntry>> {
+        ) -> buck2_error::Result<Vec<RawDirEntry>> {
             let path = CellPath::new(self.0, path.to_owned());
             let simple_entries = FileOps::read_dir(&self.1, path.as_ref()).await?.included;
             Ok(simple_entries
@@ -630,7 +697,7 @@ pub mod testing {
         async fn read_path_metadata_if_exists(
             &self,
             path: &'async_trait CellRelativePath,
-        ) -> anyhow::Result<Option<RawPathMetadata>> {
+        ) -> buck2_error::Result<Option<RawPathMetadata>> {
             let path = CellPath::new(self.0, path.to_owned());
             FileOps::read_path_metadata_if_exists(&self.1, path.as_ref()).await
         }

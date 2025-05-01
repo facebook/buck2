@@ -102,6 +102,7 @@ async def test_bxl_unconfigured_node(buck: Buck) -> None:
         "root//bin:the_binary",
         "root//rules/rules.bzl:_foo_binary",
         "normal",
+        "[root//bin/TARGETS.fixture]",
     ]
 
 

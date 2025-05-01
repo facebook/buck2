@@ -20,12 +20,12 @@ use std::ops::Deref;
 use dupe::Dupe;
 
 use crate::typing::Ty;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
+use crate::values::type_repr::StarlarkTypeRepr;
 
 /// A wrapper that keeps the original value on the heap for use elsewhere,
 /// and also, when unpacked, unpacks the value to validate it is of

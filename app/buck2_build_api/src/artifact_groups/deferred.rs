@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use buck2_artifact::deferred::key::DeferredHolderKey;
+use buck2_core::deferred::key::DeferredHolderKey;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -44,7 +44,7 @@ impl TransitiveSetKey {
     pub async fn lookup(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
+    ) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
         lookup_deferred_holder(ctx, &self.0)
             .await?
             .lookup_transitive_set(self)

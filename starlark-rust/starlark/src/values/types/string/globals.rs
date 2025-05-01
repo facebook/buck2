@@ -20,10 +20,10 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
-use crate::values::string::StarlarkStr;
 use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::string::StarlarkStr;
 
 #[starlark_module]
 pub(crate) fn register_str(globals: &mut GlobalsBuilder) {

@@ -12,7 +12,7 @@ import platform
 import re
 import stat
 from pathlib import Path
-from typing import Awaitable, Optional, Type, Union
+from typing import Awaitable, Optional, Type, TypeVar, Union
 
 import pytest
 from buck2.tests.e2e_util.api.buck_result import (
@@ -21,6 +21,9 @@ from buck2.tests.e2e_util.api.buck_result import (
     ExitCode,
     ExitCodeV2,
 )
+
+
+E = TypeVar("E", bound=BaseException)
 
 
 def assert_executable(output: Path) -> None:
@@ -37,14 +40,18 @@ def assert_not_executable(output: Path) -> None:
         assert output.stat().st_mode & stat.S_IXUSR == 0
 
 
+def _indent(text: str) -> str:
+    return "".join(f"  {line}\n" for line in text.splitlines())
+
+
 async def expect_failure(
     process: Awaitable[BuckResult],
     *,
-    exception: Type[BuckException] = BuckException,
+    exception: Type[E] = BuckException,
     exit_code: Union[ExitCode, ExitCodeV2, None] = None,
     stdout_regex: Optional[str] = None,
     stderr_regex: Optional[str] = None,
-) -> BuckException:
+) -> E:
     """
     Asserts that the process raises a BuckException.
 
@@ -67,6 +74,8 @@ async def expect_failure(
     with pytest.raises(exception) as execinfo:  # type: ignore
         await process
     failure = execinfo.value
+    if not isinstance(failure, BuckException):
+        return failure
     if exit_code is not None:
         actual_exit_code = (
             failure.get_exit_code()
@@ -75,7 +84,7 @@ async def expect_failure(
         )
         assert (
             actual_exit_code == exit_code
-        ), f"Expected exit code {exit_code} but found {actual_exit_code}"
+        ), f"Expected exit code {exit_code} but found {actual_exit_code}\n<stderr>\n{_indent(failure.stderr)}</stderr>"
     if stdout_regex is not None:
         assert re.search(
             stdout_regex, failure.stdout, re.DOTALL

@@ -16,10 +16,10 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
 use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
@@ -28,17 +28,33 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::docs::DocItem;
+use starlark::docs::DocMember;
+use starlark::docs::DocProperty;
 use starlark::docs::DocString;
 use starlark::docs::DocStringKind;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
-use starlark::typing::Param;
-use starlark::typing::ParamSpec;
+use starlark::eval::ParametersSpecParam;
+use starlark::eval::param_specs;
 use starlark::typing::Ty;
 use starlark::typing::TyCallable;
 use starlark::typing::TyStarlarkValue;
+use starlark::values::AllocValue;
+use starlark::values::Demand;
+use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
+use starlark::values::Freezer;
+use starlark::values::FrozenRef;
+use starlark::values::FrozenValue;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::StarlarkValue;
+use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictRef;
 use starlark::values::list::AllocList;
@@ -50,32 +66,20 @@ use starlark::values::typing::TypeCompiled;
 use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcher;
 use starlark::values::typing::TypeMatcherFactory;
-use starlark::values::AllocValue;
-use starlark::values::Demand;
-use starlark::values::Freeze;
-use starlark::values::Freezer;
-use starlark::values::FrozenRef;
-use starlark::values::FrozenValue;
-use starlark::values::Heap;
-use starlark::values::NoSerialize;
-use starlark::values::StarlarkValue;
-use starlark::values::Trace;
-use starlark::values::Value;
-use starlark::values::ValueLike;
-use starlark::StarlarkResultExt;
-use starlark_map::small_map::SmallMap;
-use starlark_map::small_set::SmallSet;
 use starlark_map::StarlarkHasher;
 use starlark_map::StarlarkHasherBuilder;
+use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 
 use crate::interpreter::rule_defs::provider::doc::provider_callable_documentation;
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use crate::interpreter::rule_defs::provider::ty::provider::ty_provider;
 use crate::interpreter::rule_defs::provider::ty::provider_callable::ty_provider_callable;
-use crate::interpreter::rule_defs::provider::user::user_provider_creator;
 use crate::interpreter::rule_defs::provider::user::UserProvider;
+use crate::interpreter::rule_defs::provider::user::user_provider_creator;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ProviderCallableError {
     #[error(
         "The result of `provider()` must be assigned to a top-level variable before it can be called"
@@ -123,30 +127,27 @@ fn create_callable_function_signature(
     function_name: &str,
     fields: &IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
     ret_ty: Ty,
-) -> anyhow::Result<(ParametersSpec<FrozenValue>, TyCallable)> {
-    let mut signature = ParametersSpec::with_capacity(function_name.to_owned(), fields.len());
-    let mut ty_params = Vec::with_capacity(fields.len());
-    // TODO(nmj): Should double check we don't actually need positional args in-repo
-    signature.no_more_positional_args();
-    for (name, field) in fields {
-        if field.default.is_some() {
-            signature.optional(name);
-            ty_params.push(Param::name_only(name, field.ty.as_ty().dupe()).optional());
-        } else {
-            signature.required(name);
-            ty_params.push(Param::name_only(name, field.ty.as_ty().dupe()));
-        }
-    }
+) -> buck2_error::Result<(ParametersSpec<FrozenValue>, TyCallable)> {
+    let (parameters_spec, param_spec) = param_specs(
+        function_name,
+        [],
+        [],
+        None,
+        fields.iter().map(|(name, field)| {
+            (
+                name.as_str(),
+                match field.default {
+                    None => ParametersSpecParam::Required,
+                    Some(default) => ParametersSpecParam::Defaulted(default),
+                },
+                field.ty.as_ty().dupe(),
+            )
+        }),
+        None,
+    )
+    .internal_error("Must have created correct signature")?;
 
-    Ok((
-        signature.finish(),
-        TyCallable::new(
-            ParamSpec::new(ty_params)
-                .into_anyhow_result()
-                .internal_error("Must have created correct signature")?,
-            ret_ty,
-        ),
-    ))
+    Ok((parameters_spec, TyCallable::new(param_spec, ret_ty)))
 }
 
 #[derive(Debug, Allocative)]
@@ -286,7 +287,7 @@ impl UserProviderCallable {
 }
 
 impl ProviderCallableLike for UserProviderCallable {
-    fn id(&self) -> anyhow::Result<&Arc<ProviderId>> {
+    fn id(&self) -> buck2_error::Result<&Arc<ProviderId>> {
         self.callable
             .get()
             .map(|x| &x.id)
@@ -302,17 +303,19 @@ impl<'v> AllocValue<'v> for UserProviderCallable {
 
 impl Freeze for UserProviderCallable {
     type Frozen = FrozenUserProviderCallable;
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let callable = self.callable.into_inner();
         let callable = match callable {
             Some(x) => x,
             None => {
                 // Unfortunately we have no name or location for the provider at this point,
                 // so reproduce the fields so that the provider can be identified.
-                return Err(ProviderCallableError::ProviderNotAssigned(
-                    self.fields.into_iter().map(|(name, _)| name).collect(),
-                )
-                .into());
+                return Err(FreezeError::new(
+                    ProviderCallableError::ProviderNotAssigned(
+                        self.fields.into_iter().map(|(name, _)| name).collect(),
+                    )
+                    .to_string(),
+                ));
             }
         };
 
@@ -342,7 +345,7 @@ impl TypeMatcher for UserProviderMatcher {
     }
 }
 
-#[starlark_value(type = "provider_callable")]
+#[starlark_value(type = "ProviderCallable")]
 impl<'v> StarlarkValue<'v> for UserProviderCallable {
     type Canonical = FrozenUserProviderCallable;
 
@@ -399,7 +402,9 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
     ) -> starlark::Result<Value<'v>> {
         match self.callable.get() {
             Some(callable) => callable.invoke(args, eval),
-            None => Err(starlark::Error::new_other(ProviderCallableError::NotBound)),
+            None => Err(starlark::Error::new_other(buck2_error::Error::from(
+                ProviderCallableError::NotBound,
+            ))),
         }
     }
 
@@ -411,17 +416,25 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
         self.callable.get().map(|named| named.ty_provider.dupe())
     }
 
-    fn documentation(&self) -> Option<DocItem> {
+    fn documentation(&self) -> DocItem {
         let return_types = vec![Ty::any(); self.fields.len()];
-        Some(provider_callable_documentation(
+        let Some(callable) = self.callable.get() else {
+            // This shouldn't really happen, we mostly don't even ask for documentation on
+            // non-frozen things
+            return DocItem::Member(DocMember::Property(DocProperty {
+                docs: None,
+                typ: Ty::any(),
+            }));
+        };
+        provider_callable_documentation(
             None,
-            self.callable.get()?.ty_callable.dupe(),
+            callable.ty_callable.dupe(),
             &self.docs,
             &self.fields.keys().map(|x| x.as_str()).collect::<Vec<_>>(),
             // TODO(nga): types.
             &vec![None; self.fields.len()],
             &return_types,
-        ))
+        )
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -461,12 +474,12 @@ impl FrozenUserProviderCallable {
 }
 
 impl ProviderCallableLike for FrozenUserProviderCallable {
-    fn id(&self) -> anyhow::Result<&Arc<ProviderId>> {
+    fn id(&self) -> buck2_error::Result<&Arc<ProviderId>> {
         Ok(&self.callable.id)
     }
 }
 
-#[starlark_value(type = "provider_callable")]
+#[starlark_value(type = "ProviderCallable")]
 impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
     type Canonical = Self;
 
@@ -483,16 +496,16 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
         demand.provide_value::<&dyn ProviderCallableLike>(self);
     }
 
-    fn documentation(&self) -> Option<DocItem> {
+    fn documentation(&self) -> DocItem {
         let return_types = vec![Ty::any(); self.fields.len()];
-        Some(provider_callable_documentation(
+        provider_callable_documentation(
             None,
             self.callable.ty_callable.dupe(),
             &self.docs,
             &self.fields.keys().map(|x| x.as_str()).collect::<Vec<_>>(),
             &vec![None; self.fields.len()],
             &return_types,
-        ))
+        )
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -507,8 +520,10 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
 fn provider_field_parse_type<'v>(
     ty: Value<'v>,
     eval: &mut Evaluator<'v, '_, '_>,
-) -> anyhow::Result<TypeCompiled<FrozenValue>> {
-    TypeCompiled::new(ty, eval.heap()).map(|ty| ty.to_frozen(eval.frozen_heap()))
+) -> buck2_error::Result<TypeCompiled<FrozenValue>> {
+    TypeCompiled::new(ty, eval.heap())
+        .map(|ty| ty.to_frozen(eval.frozen_heap()))
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Interpreter))
 }
 
 #[starlark_module]
@@ -518,29 +533,34 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
         #[starlark(require=pos)] ty: Value<'v>,
         #[starlark(require=named)] default: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<UserProviderField> {
+    ) -> starlark::Result<UserProviderField> {
         let ty = provider_field_parse_type(ty, eval)?;
         let default = match default {
             None => None,
             Some(x) => {
                 if let Some(x) = x.unpack_frozen() {
                     Some(x)
-                } else if ListRef::from_value(x).map_or(false, |x| x.is_empty()) {
+                } else if ListRef::from_value(x).is_some_and(|x| x.is_empty()) {
                     Some(eval.frozen_heap().alloc(AllocList::EMPTY))
-                } else if DictRef::from_value(x).map_or(false, |x| x.is_empty()) {
+                } else if DictRef::from_value(x).is_some_and(|x| x.is_empty()) {
                     Some(eval.frozen_heap().alloc(AllocDict::EMPTY))
                 } else {
                     // Dealing only with frozen values is much easier.
-                    return Err(ProviderCallableError::InvalidDefaultValue.into());
+                    return Err(buck2_error::Error::from(
+                        ProviderCallableError::InvalidDefaultValue,
+                    )
+                    .into());
                 }
             }
         };
         if let Some(default) = default {
             if !ty.matches(default.to_value()) {
-                return Err(ProviderCallableError::InvalidDefaultValueType(
-                    default.to_string(),
-                    default.to_value().get_type(),
-                    ty.as_ty().dupe(),
+                return Err(buck2_error::Error::from(
+                    ProviderCallableError::InvalidDefaultValueType(
+                        default.to_string(),
+                        default.to_value().get_type(),
+                        ty.as_ty().dupe(),
+                    ),
                 )
                 .into());
             }
@@ -570,7 +590,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
             SmallMap<String, Value<'v>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<UserProviderCallable> {
+    ) -> starlark::Result<UserProviderCallable> {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
         let path = starlark_path_from_build_context(eval)?.path();
 
@@ -586,7 +606,12 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
                     .map(|name| (name.clone(), UserProviderField::default()))
                     .collect();
                 if new_fields.len() != fields.items.len() {
-                    return Err(ProviderCallableError::NonUniqueFields(fields.items).into());
+                    return Err(
+                        buck2_error::Error::from(ProviderCallableError::NonUniqueFields(
+                            fields.items,
+                        ))
+                        .into(),
+                    );
                 }
                 new_fields
             }
@@ -600,7 +625,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
                         new_fields.insert(name, field.dupe());
                     } else {
                         let ty = provider_field_parse_type(field, eval)
-                            .with_context(|| format!("Field `{name}` type `{field}` is not created with `provider_field`, and cannot be evaluated as a type"))?;
+                            .with_buck_error_context(|| format!("Field `{name}` type `{field}` is not created with `provider_field`, and cannot be evaluated as a type"))?;
                         new_fields.insert(name, UserProviderField { ty, default: None });
                     }
                 }

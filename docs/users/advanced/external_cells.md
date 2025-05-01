@@ -13,14 +13,14 @@ External cells act much like [normal cells], except that instead of having their
 source files checked into the repo, the source files have some alternative
 origin.
 
-[normal cells]: ../../concepts/buckconfig.md/#cells
+[normal cells]: ../../../concepts/buckconfig#cells
 
 ## Setting up an external cell
 
 Configuring an external cell looks much like configuring a regular cell. First,
 add the cell to the `cells` section of your `.buckconfig` like normal:
 
-```
+```ini
 [cells]
   prelude = some/path
 ```
@@ -34,7 +34,7 @@ Next, add an entry to the `external_cells` buckconfig section that specifies the
 "origin" of the external cell given an alias. This tells buck2 where you want to
 get the cell from, if not files in the source repo.
 
-```
+```ini
 [external_cells]
   prelude = bundled
 ```
@@ -44,7 +44,8 @@ configuration.
 
 ## Origins
 
-Buck2 currently supports two external cell origins, `bundled` and `git`.
+Buck2 currently supports three external cell origins: `bundled`, `git`, and
+`disabled`.
 
 ### The `bundled` origin
 
@@ -59,7 +60,7 @@ The `git` origin indicates that an external cell's content should be loaded from
 some git repo. It accepts two additional configuration parameters, `git_origin`
 and `commit`, like this:
 
-```
+```ini
 [cells]
   root = .
   libfoo = libfoo
@@ -73,6 +74,12 @@ and `commit`, like this:
 ```
 
 The `commit_hash` value must be a sha1, it cannot be eg a branch name.
+
+### The `disabled` origin
+
+The `disabled` origin indicates that the cell is a normal cell, not an external
+cell. It is equivalent to the cell not being present in the `external_cells`
+buckconfig section.
 
 ## Expanding external cells
 

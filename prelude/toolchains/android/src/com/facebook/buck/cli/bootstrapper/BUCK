@@ -1,0 +1,52 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_binary(
+    name = "bootstrapper",
+    main_class = "com.facebook.buck.cli.bootstrapper.ClassLoaderBootstrapper",
+    visibility = [
+        "fbcode//buck2/platform/...",
+        "fbsource//xplat/buck2/platform/...",
+        "prelude//toolchains/android/config:",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/worker:",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/worker:",
+        "toolchains//...",
+        # @oss-disable[end= ]: "wa_android//buck2/toolchains/...",
+    ],
+    deps = [
+        ":bootstrapper_lib",
+    ],
+)
+
+buck_java_library(
+    name = "bootstrapper_lib",
+    srcs = glob(["*.java"]),
+    visibility = [
+        "PUBLIC",
+        "prelude//toolchains/android/test/...",
+        "prelude//toolchains/android/third-party:aosp",
+        "prelude//toolchains/android/tools/...",
+    ],
+    deps = [
+        # Be very careful what is added here, and leave comments justifying
+        # each addition. The bootstrapper is intended to keep the
+        # system ClassLoader free of classes that might conflict with
+        # those used by compiler plugins and annotation processors. As such,
+        # it cannot depend on third-party libraries, directly or indirectly.
+
+        # This is an internal API used to communicate between Buck and the source-based ABI validator
+        # running inside javac.
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/source/api:api",
+
+        # This is a set of utility classes for working with javax.lang.model that are useful both
+        # from Buck and the compiler
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/lang/model:model",
+
+        # This is an internal API used to communicate between Buck and the compiler plugin
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/plugin/api:api",
+    ],
+)

@@ -10,11 +10,13 @@
 use async_trait::async_trait;
 use buck2_cli_proto::UnstableCrashRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
@@ -43,23 +45,27 @@ pub struct CrashCommand {
     pub event_log_opts: CommonEventLogOptions,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StreamingCommand for CrashCommand {
     const COMMAND_NAME: &'static str = "crash";
 
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         _ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        let _err = buckd
+        buckd
             .with_flushing()
-            .unstable_crash(UnstableCrashRequest {
-                crash_type: self.crash_type.to_proto(),
-            })
-            .await;
-        ExitResult::success()
+            .unstable_crash(
+                UnstableCrashRequest {
+                    crash_type: self.crash_type.to_proto(),
+                },
+                events_ctx,
+            )
+            .await??;
+        unreachable!("request should have failed")
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {

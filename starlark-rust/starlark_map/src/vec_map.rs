@@ -28,7 +28,6 @@ use equivalent::Equivalent;
 
 use crate::hash_value::StarlarkHashValue;
 use crate::hashed::Hashed;
-pub(crate) use crate::vec2::Vec2;
 use crate::vec_map::hint::likely;
 pub(crate) use crate::vec_map::iter::IntoIter;
 pub(crate) use crate::vec_map::iter::IntoIterHashed;
@@ -40,6 +39,7 @@ pub(crate) use crate::vec_map::iter::Keys;
 pub(crate) use crate::vec_map::iter::Values;
 pub(crate) use crate::vec_map::iter::ValuesMut;
 use crate::vec_map::simd::find_hash_in_array;
+pub(crate) use crate::vec2::Vec2;
 
 #[derive(Debug, Clone, Allocative)]
 pub(crate) struct VecMap<K, V> {
@@ -115,16 +115,20 @@ impl<K, V> VecMap<K, V> {
 
     #[inline]
     pub(crate) unsafe fn get_unchecked(&self, index: usize) -> (Hashed<&K>, &V) {
-        debug_assert!(index < self.buckets.len());
-        let ((key, value), hash) = self.buckets.get_unchecked(index);
-        (Hashed::new_unchecked(*hash, key), value)
+        unsafe {
+            debug_assert!(index < self.buckets.len());
+            let ((key, value), hash) = self.buckets.get_unchecked(index);
+            (Hashed::new_unchecked(*hash, key), value)
+        }
     }
 
     #[inline]
     pub(crate) unsafe fn get_unchecked_mut(&mut self, index: usize) -> (Hashed<&K>, &mut V) {
-        debug_assert!(index < self.buckets.len());
-        let ((key, value), hash) = self.buckets.get_unchecked_mut(index);
-        (Hashed::new_unchecked(*hash, key), value)
+        unsafe {
+            debug_assert!(index < self.buckets.len());
+            let ((key, value), hash) = self.buckets.get_unchecked_mut(index);
+            (Hashed::new_unchecked(*hash, key), value)
+        }
     }
 
     #[inline]

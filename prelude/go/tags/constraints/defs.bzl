@@ -6,10 +6,10 @@
 # of this source tree.
 
 load("@prelude//:native.bzl", "native")
-load("@prelude//go/transitions:tags_helper.bzl", "allowed_tags")
+load("@prelude//go/transitions:tags_helper.bzl", "allowed_build_tags")
 
 def generate_tag_constraints():
-    for tag in allowed_tags:
+    for tag in allowed_build_tags:
         setting_name = "setting__" + tag
         native.constraint_setting(
             name = setting_name,

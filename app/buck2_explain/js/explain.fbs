@@ -1,0 +1,68 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+namespace explain;
+
+table CodePointer {
+  file_path: string;
+  line: int;
+}
+
+enum TargetValueType : byte { Bool, Int, String, List, Dict }
+
+table Action {
+  category: string;
+  identifier: string;
+  failed: bool;
+  repros: [string];
+  execution_kind: string;
+  input_files_bytes: int = null;
+  affected_by_file_changes: bool;
+}
+
+table TargetValue {
+  type: TargetValueType = String;
+  key: TargetValue; // used for dicts
+  bool_value: bool = null;
+  int_value: long = null;
+  string_value: string;
+  list_value: [TargetValue];
+  dict_value: [TargetValue];
+}
+
+table ConfiguredTargetLabel {
+  target_label: string;
+  cfg: string;
+  exec_cfg: string;
+}
+
+table ConfiguredTargetNode {
+    name: string;
+    // special attrs
+    type: string;
+    deps: [ConfiguredTargetLabel];
+    package: string;
+    oncall: string;
+    target_configuration: string;
+    execution_platform: string;
+    // actions
+    actions: [Action];
+    // extras
+    label: ConfiguredTargetLabel;
+    srcs: long;
+    code_pointer: CodePointer;
+    changed_files: [string];
+}
+
+table Build {
+    targets: [ConfiguredTargetNode];
+    // Couldn't associate these with a target
+    other_actions: [Action];
+    other_changed_files: [string];
+}

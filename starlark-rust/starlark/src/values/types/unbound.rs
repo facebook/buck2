@@ -21,34 +21,26 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 
-use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
-use crate::values::function::BoundMethodGen;
-use crate::values::function::NativeAttr;
-use crate::values::function::NativeAttribute;
-use crate::values::function::NativeMeth;
-use crate::values::function::NativeMethod;
+use crate::eval::runtime::frame_span::FrameSpan;
 use crate::values::FrozenRef;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::ValueLike;
+use crate::values::function::BoundMethodGen;
+use crate::values::function::NativeAttribute;
+use crate::values::function::NativeMethod;
 
 /// A value or an unbound method or unbound attribute.
 #[derive(Clone)]
 pub(crate) enum UnboundValue {
     /// A method with `this` unbound.
-    Method(
-        FrozenValueTyped<'static, NativeMethod>,
-        FrozenRef<'static, dyn NativeMeth>,
-    ),
+    Method(FrozenValueTyped<'static, NativeMethod>),
     /// An attribute with `this` unbound.
-    Attr(
-        FrozenValueTyped<'static, NativeAttribute>,
-        FrozenRef<'static, dyn NativeAttr>,
-    ),
+    Attr(FrozenValueTyped<'static, NativeAttribute>),
 }
 
 impl Debug for UnboundValue {
@@ -61,8 +53,8 @@ impl UnboundValue {
     #[inline]
     pub(crate) fn to_frozen_value(&self) -> FrozenValue {
         match self {
-            UnboundValue::Method(m, _) => m.to_frozen_value(),
-            UnboundValue::Attr(a, _) => a.to_frozen_value(),
+            UnboundValue::Method(m) => m.to_frozen_value(),
+            UnboundValue::Attr(a) => a.to_frozen_value(),
         }
     }
 
@@ -70,10 +62,10 @@ impl UnboundValue {
     #[inline]
     pub(crate) fn bind<'v>(&self, this: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match self {
-            UnboundValue::Method(m, _) => {
+            UnboundValue::Method(m) => {
                 Ok(heap.alloc_complex(BoundMethodGen::new(this.to_value(), *m)))
             }
-            UnboundValue::Attr(_, a) => a(this, heap),
+            UnboundValue::Attr(a) => a.invoke(this, heap),
         }
     }
 
@@ -89,10 +81,8 @@ impl UnboundValue {
             self.to_frozen_value().to_value(),
             Some(span),
             |eval| match self {
-                UnboundValue::Method(_, m) => m.invoke(eval, this, args),
-                UnboundValue::Attr(_, a) => {
-                    NativeAttribute::invoke_method_impl(&**a, this, args, eval)
-                }
+                UnboundValue::Method(m) => m.function.invoke(eval, this, args),
+                UnboundValue::Attr(a) => a.invoke(this, eval.heap()),
             },
         )
     }

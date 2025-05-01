@@ -11,13 +11,13 @@ use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::values::starlark_value;
 use starlark::values::AllocStaticSimple;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
+use starlark::values::starlark_value;
 
 /// We do not make metadata available to rules, so instead we expose this opaque value when trying
 /// to resolve it to a Starlark object.

@@ -6,9 +6,7 @@
  * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
  * of this source tree.
  */
-
-#ifndef __XCODE_VERSION_CHECKS_H__
-#define __XCODE_VERSION_CHECKS_H__
+#pragma once
 
 #import <Foundation/Foundation.h>
 
@@ -35,5 +33,3 @@ BOOL checkVersionPlistShortVersionMatch(
     NSString* expectedShortVersion,
     BOOL logComparisonFailure);
 BOOL checkXcodeShortVersionMatch(NSString* expectedShortVersion);
-
-#endif

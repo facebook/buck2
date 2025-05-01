@@ -14,7 +14,7 @@ buck2_e2e_test(
         "darwin",
     ],
     deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )
 
@@ -27,7 +27,7 @@ buck2_e2e_test(
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )
 
@@ -40,7 +40,7 @@ buck2_e2e_test(
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )
 
@@ -53,59 +53,46 @@ buck2_e2e_test(
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )
 
 buck2_e2e_test(
-    name = "test_bxl_cli",
-    srcs = ["test_bxl_cli.py"],
+    name = "test_bxl_lazy_analysis",
+    srcs = ["test_bxl_lazy_analysis.py"],
     data = "//buck2/tests/targets:isolated_targets",
     env = {
         "OVR_CONFIG": "1",
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )
 
 buck2_e2e_test(
-    name = "test_bxl_audit",
-    srcs = ["test_bxl_audit.py"],
+    name = "test_bxl_lazy_configured_target_node",
+    srcs = ["test_bxl_lazy_configured_target_node.py"],
     data = "//buck2/tests/targets:isolated_targets",
     env = {
         "OVR_CONFIG": "1",
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utilities",
     ],
 )
 
 buck2_e2e_test(
-    name = "test_bxl_build",
-    srcs = ["test_bxl_build.py"],
+    name = "test_bxl_lazy_unconfigured_target_node",
+    srcs = ["test_bxl_lazy_unconfigured_target_node.py"],
     data = "//buck2/tests/targets:isolated_targets",
     env = {
         "OVR_CONFIG": "1",
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        "//buck2/tests/e2e_util:utils",
-    ],
-)
-
-buck2_e2e_test(
-    name = "test_bxl_analysis",
-    srcs = ["test_bxl_analysis.py"],
-    data = "//buck2/tests/targets:isolated_targets",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
-    deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utilities",
     ],
 )
 
@@ -118,20 +105,7 @@ buck2_e2e_test(
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        "//buck2/tests/e2e_util:utils",
-    ],
-)
-
-buck2_e2e_test(
-    name = "test_bxl_actions",
-    srcs = ["test_bxl_actions.py"],
-    data = "//buck2/tests/targets:isolated_targets",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
-    deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )
 
@@ -144,67 +118,19 @@ buck2_e2e_test(
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )
 
 buck2_e2e_test(
-    name = "test_bxl_output",
-    srcs = ["test_bxl_output.py"],
-    data_dir = "test_bxl_output_data",
+    name = "test_bxl_lazy_cquery",
+    srcs = ["test_bxl_lazy_cquery.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
     deps = [
-        "//buck2/tests/e2e_util:utils",
-    ],
-)
-
-buck2_e2e_test(
-    name = "test_bxl_dynamic",
-    srcs = ["test_bxl_dynamic.py"],
-    data_dir = "test_dynamic_data",
-    deps = [
-        "//buck2/tests/e2e_util:golden",
-        "//buck2/tests/e2e_util:utils",
-    ],
-)
-
-buck2_e2e_test(
-    name = "test_bxl_typecheck",
-    srcs = ["test_bxl_typecheck.py"],
-    data_dir = "test_bxl_typecheck_data",
-)
-
-buck2_e2e_test(
-    name = "test_not_bxl",
-    srcs = ["test_not_bxl.py"],
-    data_dir = "test_not_bxl_data",
-    deps = [
-        "//buck2/tests/e2e_util:utils",
-    ],
-)
-
-buck2_e2e_test(
-    name = "test_bxl_target_universe",
-    srcs = ["test_bxl_target_universe.py"],
-    data_dir = "test_bxl_target_universe_data",
-    deps = [
-        "//buck2/tests/e2e_util:utils",
-    ],
-)
-
-buck2_e2e_test(
-    name = "test_bxl_configured_target",
-    srcs = ["test_bxl_configured_target.py"],
-    data_dir = "test_bxl_configured_target_data",
-    deps = [
-        "//buck2/tests/e2e_util:utils",
-    ],
-)
-
-buck2_e2e_test(
-    name = "test_type_names_and_symbols",
-    srcs = ["test_type_names_and_symbols.py"],
-    data_dir = "test_type_names_and_symbols_data",
-    deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )

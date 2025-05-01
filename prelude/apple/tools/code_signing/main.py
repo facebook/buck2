@@ -138,9 +138,7 @@ def _main() -> None:
                 codesign_identity=args.ad_hoc_codesign_identity
             )
         else:
-            assert (
-                args.profiles_dir
-            ), "Path to directory with provisioning profile files should be set when signing is not ad-hoc."
+            assert args.profiles_dir, "Path to directory with provisioning profile files should be set when signing is not ad-hoc."
             non_optional_profiles_dir = args.profiles_dir
             signing_context = signing_context_with_profile_selection(
                 info_plist_source=args.bundle_path / args.info_plist,
@@ -155,12 +153,18 @@ def _main() -> None:
             )
 
         bundle_path = CodesignedPath(
-            path=args.bundle_path, entitlements=args.entitlements, flags=[]
+            path=args.bundle_path,
+            entitlements=args.entitlements,
+            flags=[],
+            extra_file_paths=None,
         )
         codesign_on_copy_paths = (
             [
                 CodesignedPath(
-                    path=bundle_path.path / path, entitlements=None, flags=[]
+                    path=bundle_path.path / path,
+                    entitlements=None,
+                    flags=[],
+                    extra_file_paths=None,
                 )
                 for path in args.codesign_on_copy
             ]

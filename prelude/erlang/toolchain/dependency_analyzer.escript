@@ -1,6 +1,6 @@
 %% #!/usr/bin/env escript
 %% -*- erlang -*-
-%%! +S 1:1 +sbtu +A1
+%%! +S 1:1 +sbtu +A1 +MMscs 8 +MMsco false
 
 %% Copyright (c) Meta Platforms, Inc. and affiliates.
 %%
@@ -96,10 +96,10 @@ usage() ->
 do(InFile, Outspec) ->
     {ok, Forms} = epp_dodger:parse_file(InFile),
     Dependencies = lists:sort(process_forms(Forms, [])),
-    OutData = unicode:characters_to_binary(json:encode(Dependencies)),
+    OutData = json:encode(Dependencies),
     case Outspec of
         {file, File} ->
-            ok = file:write_file(File, OutData);
+            ok = write_file(File, OutData);
         stdout ->
             io:format("~s~n", [OutData])
     end.
@@ -144,3 +144,25 @@ process_forms([_ | Rest], Acc) ->
 -spec module_to_erl(module()) -> file:filename().
 module_to_erl(Module) ->
     unicode:characters_to_binary([atom_to_list(Module), ".erl"]).
+
+-spec write_file(file:filename(), iolist()) -> string().
+write_file(File, Data) ->
+    case
+        % We write in raw mode because this is a standalone escript, so we don't
+        % need advanced file server features, and we gain performance by avoiding
+        % calling through the file server
+        file:open(File, [write, binary, raw])
+    of
+        {ok, Handle} ->
+            try
+                % We use file:pwrite instead of file:write_file to work around
+                % the latter needlessly flattening iolists (as returned by
+                % json:encode/1, etc.) to a binary
+                file:pwrite(Handle, 0, Data)
+            after
+                file:close(Handle)
+            end,
+            ok;
+        {error, _} = Error ->
+            Error
+    end.

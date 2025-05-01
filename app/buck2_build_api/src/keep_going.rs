@@ -9,8 +9,8 @@
 
 use dice::DiceComputations;
 use dice::UserComputationData;
-use futures::future::BoxFuture;
 use futures::Future;
+use futures::future::BoxFuture;
 
 pub struct KeepGoing;
 

@@ -11,5 +11,5 @@ def test(x):
 
 Max stack size: 0
 Instructions:
-  0: ReturnConst None
+   0: ReturnConst None
   16: End

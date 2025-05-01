@@ -8,49 +8,55 @@
  */
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::fmt::Write as _;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
-use anyhow::Context;
 use async_trait::async_trait;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::display;
-use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::event_observer::EventObserver;
 use buck2_event_observer::event_observer::EventObserverExtra;
 use buck2_event_observer::humanized::HumanizedBytes;
-use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::unpack_event::VisitorError;
+use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::verbosity::Verbosity;
-use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::WhatRanCommandConsoleFormat;
-use buck2_event_observer::what_ran::WhatRanOptions;
-use buck2_event_observer::what_ran::WhatRanOptionsRegex;
 use buck2_event_observer::what_ran::WhatRanOutputCommand;
 use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_events::BuckEvent;
+use buck2_health_check::interface::HealthCheckType;
+use buck2_health_check::report::DisplayReport;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
+use once_cell::sync::Lazy;
 use superconsole::DrawMode;
 use superconsole::SuperConsole;
+use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::error::TryRecvError;
 
+use crate::subscribers::emit_event::emit_event_if_relevant;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
-use crate::subscribers::system_warning::check_download_speed;
-use crate::subscribers::system_warning::check_memory_pressure;
-use crate::subscribers::system_warning::check_remaining_disk_space;
+use crate::subscribers::system_warning::check_memory_pressure_snapshot;
+use crate::subscribers::system_warning::check_remaining_disk_space_snapshot;
 use crate::subscribers::system_warning::low_disk_space_msg;
-use crate::subscribers::system_warning::slow_download_speed_msg;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
 
 /// buck2 daemon info is printed to stderr if there are no other updates available
 /// within this duration.
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
+
+static ELAPSED_HEALTH_CHECK_MAP: Lazy<Mutex<HashMap<HealthCheckType, (Instant, u64)>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 fn now_display() -> impl Display {
     chrono::Local::now().to_rfc3339_opts(::chrono::SecondsFormat::Millis, false)
@@ -89,10 +95,53 @@ macro_rules! echo {
     };
 }
 
+// Report only if at least double time has passed since reporting interval
+fn echo_system_warning_exponential(
+    warning: &HealthCheckType,
+    msg: &str,
+) -> buck2_error::Result<()> {
+    if let Some((last_reported, every_x)) =
+        ELAPSED_HEALTH_CHECK_MAP.lock().unwrap().get_mut(warning)
+    {
+        let now = Instant::now();
+        let elapsed = now.duration_since(*last_reported);
+        let new_every_double: u64 = 2 * *every_x;
+        if elapsed > Duration::from_secs(new_every_double) {
+            echo!("{}", msg)?;
+            *every_x = new_every_double;
+            *last_reported = now;
+        }
+    }
+    Ok(())
+}
+
 #[derive(Copy, Clone, Dupe, Debug, PartialEq)]
 enum TtyMode {
     Enabled,
     Disabled,
+}
+
+fn init_remaining_system_warning_count() {
+    ELAPSED_HEALTH_CHECK_MAP
+        .lock()
+        .unwrap()
+        .insert(HealthCheckType::MemoryPressure, (Instant::now(), 1));
+    ELAPSED_HEALTH_CHECK_MAP
+        .lock()
+        .unwrap()
+        .insert(HealthCheckType::LowDiskSpace, (Instant::now(), 1));
+    ELAPSED_HEALTH_CHECK_MAP
+        .lock()
+        .unwrap()
+        .insert(HealthCheckType::SlowDownloadSpeed, (Instant::now(), 1));
+    ELAPSED_HEALTH_CHECK_MAP
+        .lock()
+        .unwrap()
+        .insert(HealthCheckType::VpnEnabled, (Instant::now(), 1));
+    ELAPSED_HEALTH_CHECK_MAP
+        .lock()
+        .unwrap()
+        .insert(HealthCheckType::StableRevision, (Instant::now(), 1));
 }
 
 /// Just repeats stdout and stderr to client process.
@@ -105,13 +154,20 @@ pub struct SimpleConsole<E> {
     action_errors: Vec<buck2_data::ActionError>,
     last_print_time: Instant,
     last_shown_snapshot_ts: Option<SystemTime>,
+    health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
 }
 
 impl<E> SimpleConsole<E>
 where
     E: EventObserverExtra,
 {
-    pub(crate) fn with_tty(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
+    pub(crate) fn with_tty(
+        trace_id: TraceId,
+        verbosity: Verbosity,
+        expect_spans: bool,
+        health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
+    ) -> Self {
+        init_remaining_system_warning_count();
         SimpleConsole {
             tty_mode: TtyMode::Enabled,
             verbosity,
@@ -120,10 +176,17 @@ where
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             last_shown_snapshot_ts: None,
+            health_check_reports_receiver,
         }
     }
 
-    pub(crate) fn without_tty(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
+    pub(crate) fn without_tty(
+        trace_id: TraceId,
+        verbosity: Verbosity,
+        expect_spans: bool,
+        health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
+    ) -> Self {
+        init_remaining_system_warning_count();
         SimpleConsole {
             tty_mode: TtyMode::Disabled,
             verbosity,
@@ -132,14 +195,30 @@ where
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             last_shown_snapshot_ts: None,
+            health_check_reports_receiver,
         }
     }
 
     /// Create a SimpleConsole that auto detects whether it has a TTY or not.
-    pub(crate) fn autodetect(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
+    pub(crate) fn autodetect(
+        trace_id: TraceId,
+        verbosity: Verbosity,
+        expect_spans: bool,
+        health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
+    ) -> Self {
         match SuperConsole::compatible() {
-            true => Self::with_tty(trace_id, verbosity, expect_spans),
-            false => Self::without_tty(trace_id, verbosity, expect_spans),
+            true => Self::with_tty(
+                trace_id,
+                verbosity,
+                expect_spans,
+                health_check_reports_receiver,
+            ),
+            false => Self::without_tty(
+                trace_id,
+                verbosity,
+                expect_spans,
+                health_check_reports_receiver,
+            ),
         }
     }
 
@@ -147,17 +226,18 @@ where
         &self.observer
     }
 
-    pub(crate) fn update_event_observer(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
-        self.observer
-            .observe(Instant::now(), event)
-            .context("Error tracking event")
+    pub(crate) async fn update_event_observer(
+        &mut self,
+        event: &Arc<BuckEvent>,
+    ) -> buck2_error::Result<()> {
+        self.observer.observe(Instant::now(), event).await
     }
 
     fn notify_printed(&mut self) {
         self.last_print_time = Instant::now();
     }
 
-    fn print_stats_while_waiting(&mut self) -> anyhow::Result<()> {
+    fn print_stats_while_waiting(&mut self) -> buck2_error::Result<()> {
         let snapshots = self.observer().two_snapshots();
 
         if let Some(h) = self
@@ -211,7 +291,7 @@ where
         Ok(())
     }
 
-    fn print_action_error(&mut self, error: &buck2_data::ActionError) -> anyhow::Result<()> {
+    fn print_action_error(&mut self, error: &buck2_data::ActionError) -> buck2_error::Result<()> {
         let display = display::display_action_error(error, TargetDisplayOptions::for_log())?;
         let message = display.simple_format_with_timestamps(with_timestamps);
         if self.tty_mode == TtyMode::Disabled {
@@ -229,7 +309,7 @@ where
         &mut self,
         file_watcher: &buck2_data::FileWatcherEnd,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if self.verbosity.print_status() {
             for x in display_file_watcher_end(file_watcher) {
                 echo!("{}", x)?;
@@ -239,27 +319,24 @@ where
         Ok(())
     }
 
-    pub(crate) async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
-        self.update_event_observer(event)?;
+    pub(crate) async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> buck2_error::Result<()> {
+        self.update_event_observer(event).await?;
 
         self.handle_event_inner(event).await?;
 
         if self.verbosity.print_all_commands() {
-            let options = WhatRanOptions::default();
-            let options_regex = WhatRanOptionsRegex::from_options(&options)?;
-            what_ran::emit_event_if_relevant(
+            emit_event_if_relevant(
                 event.parent_id().into(),
                 event.data(),
                 self.observer().spans(),
                 &mut PrintDebugCommandToStderr,
-                &options_regex,
             )?;
         }
 
         Ok(())
     }
 
-    async fn handle_event_inner(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
+    async fn handle_event_inner(&mut self, event: &BuckEvent) -> buck2_error::Result<()> {
         match unpack_event(event)? {
             buck2_event_observer::unpack_event::UnpackedBuckEvent::SpanStart(_, _, data) => {
                 match data {
@@ -330,7 +407,7 @@ where
         &mut self,
         err: &buck2_data::StructuredError,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if err.quiet {
             return Ok(());
         }
@@ -343,7 +420,7 @@ where
         &mut self,
         _command: &buck2_data::CommandStart,
         event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if cfg!(fbcode_build) {
             echo!(
                 "Buck UI: https://www.internalfb.com/buck2/{}",
@@ -360,7 +437,7 @@ where
         &mut self,
         _command: &buck2_data::CommandEnd,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let snapshots = self.observer().two_snapshots();
 
         if self.verbosity.print_status() && self.observer().action_stats().log_stats() {
@@ -403,7 +480,7 @@ where
         &mut self,
         action: &buck2_data::ActionExecutionEnd,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let action_id = display::display_action_identity(
             action.key.as_ref(),
             action.name.as_ref(),
@@ -441,7 +518,7 @@ where
     pub(crate) async fn handle_action_error(
         &mut self,
         error: &buck2_data::ActionError,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.print_action_error(error)?;
         self.action_errors.push(error.clone());
         Ok(())
@@ -451,7 +528,7 @@ where
         &mut self,
         test_info: &buck2_data::TestDiscovery,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if let Some(data) = &test_info.data {
             match data {
                 buck2_data::test_discovery::Data::Session(buck2_data::TestSessionInfo { info }) => {
@@ -469,12 +546,13 @@ where
         &mut self,
         result: &buck2_data::TestResult,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if let Some(msg) = display::format_test_result(result)? {
             let mut buffer = String::new();
 
             for line in msg {
-                writeln!(buffer, "{}", line.to_unstyled())?;
+                writeln!(buffer, "{}", line.to_unstyled())
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
             }
             //Printing the test output in multiple lines. It makes easier for the user to read.
             echo!("{}", buffer)?;
@@ -483,9 +561,37 @@ where
         Ok(())
     }
 
-    pub(crate) async fn handle_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+    pub(crate) async fn handle_stderr(&mut self, stderr: &str) -> buck2_error::Result<()> {
         echo!("{}", stderr)?;
         self.notify_printed();
+        Ok(())
+    }
+
+    pub(crate) fn try_recv_health_check_display_reports(&mut self) -> Option<Vec<DisplayReport>> {
+        if let Some(receiver) = self.health_check_reports_receiver.as_mut() {
+            let mut reports = Vec::new();
+            loop {
+                match receiver.try_recv() {
+                    Ok(report) => reports.extend(report),
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => {
+                        // If the sender has been dropped, remove the receiver so that we can avoid trying again.
+                        self.health_check_reports_receiver = None;
+                        break;
+                    }
+                }
+            }
+            if !reports.is_empty() {
+                return Some(reports);
+            }
+        }
+        None
+    }
+
+    fn echo_health_check_warning(&self, report: &DisplayReport) -> buck2_error::Result<()> {
+        if let Some(warning) = &report.health_issue {
+            echo_system_warning_exponential(&report.health_check_type, &warning.to_string())?;
+        }
         Ok(())
     }
 }
@@ -495,7 +601,7 @@ impl<E> EventSubscriber for SimpleConsole<E>
 where
     E: EventObserverExtra,
 {
-    async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
+    async fn handle_output(&mut self, raw_output: &[u8]) -> buck2_error::Result<()> {
         // We expect output that gets here to already have been buffered if possible (because it
         // primarily gets to us through a GRPC layer that already needs buffering), so we
         // unconditionally flush it.
@@ -505,21 +611,21 @@ where
         Ok(())
     }
 
-    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
+    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> buck2_error::Result<()> {
         for ev in events {
             self.handle_event(ev).await?;
         }
         Ok(())
     }
 
-    async fn handle_tailer_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+    async fn handle_tailer_stderr(&mut self, stderr: &str) -> buck2_error::Result<()> {
         self.handle_stderr(stderr).await
     }
 
     async fn handle_command_result(
         &mut self,
         result: &buck2_cli_proto::CommandResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let errors = std::mem::take(&mut self.action_errors);
 
         if !errors.is_empty() {
@@ -538,9 +644,16 @@ where
             .await
     }
 
-    async fn tick(&mut self, _: &Tick) -> anyhow::Result<()> {
+    async fn tick(&mut self, _: &Tick) -> buck2_error::Result<()> {
         if self.verbosity.print_status() && self.last_print_time.elapsed() > KEEPALIVE_TIME_LIMIT {
             let mut show_stats = self.expect_spans;
+
+            for report in self
+                .try_recv_health_check_display_reports()
+                .unwrap_or_default()
+            {
+                self.echo_health_check_warning(&report)?;
+            }
 
             let mut roots = self.observer().spans().iter_roots();
             let sample_event = roots.next();
@@ -571,25 +684,23 @@ where
                         remaining
                     )?;
 
-                    let first_snapshot = self.observer().re_state().first_snapshot();
                     let last_snapshot = self.observer().two_snapshots().last.as_ref().map(|s| &s.1);
                     let sysinfo = self.observer().system_info();
-                    let avg_re_download_speed =
-                        self.observer().re_avg_download_speed().avg_per_second();
-                    if let Some(memory_pressure) = check_memory_pressure(last_snapshot, sysinfo) {
-                        echo!("{}", system_memory_exceeded_msg(&memory_pressure))?;
-                    }
-                    if let Some(low_disk_space) = check_remaining_disk_space(last_snapshot, sysinfo)
+                    if let Some(memory_pressure) =
+                        check_memory_pressure_snapshot(last_snapshot, sysinfo)
                     {
-                        echo!("{}", low_disk_space_msg(&low_disk_space))?;
+                        echo_system_warning_exponential(
+                            &HealthCheckType::MemoryPressure,
+                            &system_memory_exceeded_msg(&memory_pressure),
+                        )?;
                     }
-                    if check_download_speed(
-                        first_snapshot,
-                        last_snapshot,
-                        sysinfo,
-                        avg_re_download_speed,
-                    ) {
-                        echo!("{}", slow_download_speed_msg(avg_re_download_speed))?;
+                    if let Some(low_disk_space) =
+                        check_remaining_disk_space_snapshot(last_snapshot, sysinfo)
+                    {
+                        echo_system_warning_exponential(
+                            &HealthCheckType::LowDiskSpace,
+                            &low_disk_space_msg(&low_disk_space),
+                        )?;
                     }
                     show_stats = self.verbosity.always_print_stats_in_status();
                 }
@@ -616,7 +727,7 @@ where
         Ok(())
     }
 
-    async fn handle_error(&mut self, _error: &buck2_error::Error) -> anyhow::Result<()> {
+    async fn handle_error(&mut self, _error: &buck2_error::Error) -> buck2_error::Result<()> {
         // We don't need to do any cleanup to exit.
         Ok(())
     }
@@ -625,7 +736,7 @@ where
 struct PrintDebugCommandToStderr;
 
 impl WhatRanOutputWriter for PrintDebugCommandToStderr {
-    fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()> {
+    fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> buck2_error::Result<()> {
         echo!(
             "{}",
             WhatRanCommandConsoleFormat {

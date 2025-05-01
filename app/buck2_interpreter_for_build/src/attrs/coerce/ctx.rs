@@ -13,13 +13,14 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use buck2_common::package_listing::listing::PackageListing;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::name::CellName;
+use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
-use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::TargetParsingRel;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -34,15 +35,15 @@ use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::query::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
-use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
+use buck2_query_parser::spanned::Spanned;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use bumpalo::Bump;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use hashbrown::hash_table;
 use hashbrown::HashTable;
+use hashbrown::hash_table;
 use tracing::info;
 
 use super::interner::AttrCoercionInterner;
@@ -163,17 +164,22 @@ impl BuildAttrCoercionContext {
         )
     }
 
-    pub fn parse_pattern<P: PatternType>(&self, value: &str) -> anyhow::Result<ParsedPattern<P>> {
-        ParsedPattern::parsed_opt_absolute(
+    pub fn parse_pattern<P: PatternType>(
+        &self,
+        value: &str,
+    ) -> buck2_error::Result<ParsedPattern<P>> {
+        ParsedPattern::parse_not_relaxed(
             value,
-            self.enclosing_package.as_ref().map(|x| x.0.as_cell_path()),
-            self.cell_name,
+            match self.enclosing_package.as_ref().map(|x| x.0.as_cell_path()) {
+                Some(package) => TargetParsingRel::AllowLimitedRelative(package),
+                None => TargetParsingRel::RequireAbsolute(self.cell_name),
+            },
             &self.cell_resolver,
             &self.cell_alias_resolver,
         )
     }
 
-    fn coerce_label_no_cache(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
+    fn coerce_label_no_cache(&self, value: &str) -> buck2_error::Result<ProvidersLabel> {
         // TODO(nmj): Make this take an import path / package
         match self.parse_pattern::<ProvidersPatternExtra>(value)? {
             ParsedPattern::Target(package, target_name, providers) => {
@@ -186,7 +192,7 @@ impl BuildAttrCoercionContext {
     fn require_enclosing_package(
         &self,
         msg: &str,
-    ) -> anyhow::Result<&(PackageLabel, PackageListing)> {
+    ) -> buck2_error::Result<&(PackageLabel, PackageListing)> {
         self.enclosing_package.as_ref().ok_or_else(|| {
             BuildAttrCoercionContextError::NotBuildFileContext(msg.to_owned()).into()
         })
@@ -194,7 +200,7 @@ impl BuildAttrCoercionContext {
 }
 
 impl AttrCoercionContext for BuildAttrCoercionContext {
-    fn coerce_providers_label(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
+    fn coerce_providers_label(&self, value: &str) -> buck2_error::Result<ProvidersLabel> {
         let hash = str_hash(value);
         let mut label_cache = self.label_cache.borrow_mut();
 
@@ -239,7 +245,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         self.select_interner.intern(value)
     }
 
-    fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath> {
+    fn coerce_path(&self, value: &str, allow_directory: bool) -> buck2_error::Result<CoercedPath> {
         let path = <&PackageRelativePath>::try_from(value)?;
         let (package, listing) = self.require_enclosing_package(value)?;
 
@@ -288,16 +294,16 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
     fn coerce_target_pattern(
         &self,
         pattern: &str,
-    ) -> anyhow::Result<ParsedPattern<TargetPatternExtra>> {
+    ) -> buck2_error::Result<ParsedPattern<TargetPatternExtra>> {
         self.parse_pattern(pattern)
     }
 
-    fn visit_query_function_literals(
+    fn visit_query_function_literals<'q>(
         &self,
-        visitor: &mut dyn QueryLiteralVisitor,
-        expr: &Spanned<Expr>,
-        query: &str,
-    ) -> anyhow::Result<()> {
+        visitor: &mut dyn QueryLiteralVisitor<'q>,
+        expr: &Spanned<Expr<'q>>,
+        query: &'q str,
+    ) -> buck2_error::Result<()> {
         CONFIGURED_GRAPH_QUERY_FUNCTIONS
             .get()?
             .visit_literals(visitor, expr)

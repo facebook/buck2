@@ -1,0 +1,37 @@
+load(":subtarget_alias.bzl", "subtarget_alias")
+
+platform(
+    name = "base",
+    constraint_values = [],
+)
+
+subtarget_alias(
+    name = "alias_platform",
+    actual = ":base",
+)
+
+stub(
+    name = "stub",
+    default_target_platform = ":alias_platform[sub]",
+)
+
+constraint_setting(
+    name = "animal",
+)
+
+constraint_value(
+    name = "cat",
+    constraint_setting = ":animal",
+)
+
+subtarget_alias(
+    name = "cat_alias",
+    actual = ":animal",
+)
+
+stub(
+    name = "with_constraint_key_dep",
+    labels = select({
+        ":cat_alias[sub]": [],
+    }),
+)

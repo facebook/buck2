@@ -7,17 +7,17 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
 use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::liveliness_observer::CancelledLivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
 use buck2_core::execution_types::executor_config::HybridExecutionLevel;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::claim::Claim;
 use buck2_execute::execute::claim::ClaimManager;
@@ -34,13 +34,15 @@ use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_futures::cancellation::CancellationContext;
 use derivative::Derivative;
 use dupe::Dupe;
+use futures::FutureExt;
 use futures::future::BoxFuture;
 use futures::future::Either;
 use futures::future::Future;
-use futures::FutureExt;
 use host_sharing::HostSharingRequirements;
+use tokio::sync::MutexGuard;
 
 use crate::executors::local::LocalExecutor;
+use crate::executors::local_actions_throttle::LocalActionsThrottle;
 use crate::low_pass_filter::LowPassFilter;
 
 /// The [HybridExecutor] will accept requests and dispatch them to both a local and remote delegate
@@ -57,6 +59,7 @@ pub struct HybridExecutor<R> {
     pub low_pass_filter: Arc<LowPassFilter>,
     pub re_max_input_files_bytes: u64,
     pub fallback_tracker: Arc<FallbackTracker>,
+    pub local_actions_throttle: Option<Arc<LocalActionsThrottle>>,
 }
 
 impl<R> HybridExecutor<R>
@@ -69,7 +72,7 @@ where
         claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
         liveliness_observer: Arc<dyn LivelinessObserver>,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
         let local_manager =
             CommandExecutionManager::new(claim_manager, events, liveliness_observer);
@@ -84,7 +87,7 @@ where
         claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
         liveliness_observer: Arc<dyn LivelinessObserver>,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
         intend_to_fallback_on_failure: bool,
     ) -> CommandExecutionResult {
         let remote_manager =
@@ -98,7 +101,7 @@ where
     fn command_executor_preference(
         &self,
         command: &PreparedCommand<'_, '_>,
-    ) -> anyhow::Result<ExecutorPreference> {
+    ) -> buck2_error::Result<ExecutorPreference> {
         self.executor_preference
             .and(command.request.executor_preference())
     }
@@ -106,6 +109,20 @@ where
     /// Indicate whether an action is too big to run on RE.
     fn is_action_too_large_for_remote(&self, paths: &CommandExecutionPaths) -> bool {
         paths.input_files_bytes() > self.re_max_input_files_bytes
+    }
+
+    async fn ensure_low_memory_pressure(&self) {
+        if let Some(ref t) = self.local_actions_throttle {
+            t.ensure_low_memory_pressure().await
+        }
+    }
+
+    async fn throttle_when_memory_pressure(&self) -> Option<MutexGuard<()>> {
+        if let Some(ref t) = self.local_actions_throttle {
+            t.throttle().await
+        } else {
+            None
+        }
     }
 }
 
@@ -193,7 +210,11 @@ where
         if executor_preference.requires_local()
             || self.is_action_too_large_for_remote(command.request.paths())
         {
-            return local_result.await;
+            return async move {
+                let _guard = self.throttle_when_memory_pressure().await;
+                local_result.await
+            }
+            .await;
         };
 
         if executor_preference.requires_remote() {
@@ -207,17 +228,20 @@ where
         };
 
         if is_limited {
+            let jobs = jobs.map_local(|local| {
+                async move {
+                    let _guard = self.throttle_when_memory_pressure().await;
+                    local.await
+                }
+                .boxed()
+            });
             return jobs.into_primary().await.0;
         }
 
         let weight = match command.request.host_sharing_requirements() {
             HostSharingRequirements::ExclusiveAccess => self.low_pass_filter.capacity(),
-            HostSharingRequirements::OnePerToken(.., class) => self
-                .local
-                .host_sharing_broker
-                .requested_permits(class)
-                .into_count_uncapped(),
-            HostSharingRequirements::Shared(class) => self
+            HostSharingRequirements::OnePerToken(.., class)
+            | HostSharingRequirements::Shared(class) => self
                 .local
                 .host_sharing_broker
                 .requested_permits(class)
@@ -231,11 +255,12 @@ where
                     // typically mean the other result asked for cancellation and we're about to
                     // receive the result here, or it could mean we're being asked to cancel by our
                     // caller.
-                    CommandExecutionStatus::Cancelled => true,
+                    CommandExecutionStatus::Cancelled { .. } => true,
                     // If the execution is successful, use the result.
                     CommandExecutionStatus::Success { .. } => false,
                     // Retry commands that failed (i.e. exit 1) only if we're instructed to do so.
-                    CommandExecutionStatus::Failure { .. } => fallback_on_failure,
+                    CommandExecutionStatus::Failure { .. }
+                    | CommandExecutionStatus::WorkerFailure { .. } => fallback_on_failure,
                     // Don't retry timeouts. They are used for tests and falling back on a timeout is
                     // sort of the opposite of what's been requested.
                     CommandExecutionStatus::TimedOut { .. } => false,
@@ -258,6 +283,13 @@ where
             if executor_preference.prefers_local() || executor_preference.prefers_remote() {
                 // Don't race in this scenario, since this is typically used for
                 // actions that are too expensive to run on RE.
+                let jobs = jobs.map_local(|local| {
+                    async move {
+                        let _guard = self.throttle_when_memory_pressure().await;
+                        local.await
+                    }
+                    .boxed()
+                });
                 jobs.execute_sequential().await
             } else {
                 // In the full-hybrid case, we do race both executors. If the low-pass filter is in
@@ -269,6 +301,7 @@ where
                             // The claim actually comes back to us via the execution report so there's no race condition
                             // where local unblocks just when RE finishes
                             remote_execution_liveliness_observer.while_alive().await;
+                            let _guard = self.throttle_when_memory_pressure().await;
                             local.await
                         }
                         .boxed()
@@ -279,7 +312,13 @@ where
                             // Block local until either condition is met:
                             // - we only have a few actions (that's low_pass_filter)
                             // - the remote executor aborts (that's remote_execution_liveliness_guard)
-                            let access = self.low_pass_filter.access(weight);
+                            let access = async move {
+                                let guard = self.low_pass_filter.access(weight).await;
+                                // we can keep the low pass filter guard since other actions
+                                // are blocked by same memory issue
+                                self.ensure_low_memory_pressure().await;
+                                guard
+                            };
                             let alive = remote_execution_liveliness_observer.while_alive();
                             futures::pin_mut!(access);
                             futures::pin_mut!(alive);
@@ -289,7 +328,13 @@ where
                         .boxed()
                     })
                 } else {
-                    jobs.map_local(|local| local.boxed())
+                    jobs.map_local(|local| {
+                        async move {
+                            self.ensure_low_memory_pressure().await;
+                            local.await
+                        }
+                        .boxed()
+                    })
                 };
                 jobs.execute_concurrent().await
             };
@@ -324,7 +369,7 @@ where
             // But if the first result was a cancelled result then we definitely don't want that.
             if matches!(
                 &primary_res.report.status,
-                CommandExecutionStatus::Cancelled
+                CommandExecutionStatus::Cancelled { .. }
             ) {
                 std::mem::swap(&mut primary_res, &mut secondary_res);
             }
@@ -446,11 +491,11 @@ impl Claim for ReClaim {
     ///
     /// In that case, RE will have failed. To fix this, we need local to release its claim instead
     /// of returning ClaimCancelled.
-    fn release(self: Box<Self>) -> anyhow::Result<()> {
+    fn release(self: Box<Self>) -> buck2_error::Result<()> {
         // An error here should only occur if local execution had started without the claim.
         self.released_liveliness_guard
             .restore()
-            .context("Unable to restore CancelledLivelinessGuard!")?
+            .buck_error_context("Unable to restore CancelledLivelinessGuard!")?
             .forget();
 
         self.claim.release()?;
@@ -555,7 +600,7 @@ impl FallbackTracker {
         };
 
         #[cfg(not(all(fbcode_build, target_os = "linux")))]
-        let max = None;
+        let max = None::<i64>;
 
         if let Some(max) = max {
             if retried >= max {

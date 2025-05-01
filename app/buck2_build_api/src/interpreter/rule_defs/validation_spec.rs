@@ -11,12 +11,16 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
-use anyhow::Context;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::starlark_value;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
+use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
@@ -25,12 +29,14 @@ use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUncheckedGeneric;
-use starlark::StarlarkResultExt;
+use starlark::values::starlark_value;
 
+use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ValidationSpecError {
     #[error("Name of validation spec should not be empty")]
     EmptyName,
@@ -102,19 +108,19 @@ where
     }
 }
 
-fn validate_validation_spec<'v, V>(spec: &StarlarkValidationSpecGen<V>) -> anyhow::Result<()>
+fn validate_validation_spec<'v, V>(spec: &StarlarkValidationSpecGen<V>) -> buck2_error::Result<()>
 where
     V: ValueLike<'v>,
 {
-    let name = spec.name.unpack().into_anyhow_result()?;
+    let name = spec.name.unpack()?;
     if name.is_empty() {
         return Err(ValidationSpecError::EmptyName.into());
     }
-    let artifact = spec.validation_result.unpack().into_anyhow_result()?;
+    let artifact = spec.validation_result.unpack()?;
     let artifact = match artifact.0.get_bound_artifact() {
         Ok(bound_artifact) => bound_artifact,
         Err(e) => {
-            return Err(e).context(ValidationSpecError::ValidationResultIsNotBound);
+            return Err(e.context(ValidationSpecError::ValidationResultIsNotBound));
         }
     };
     if artifact.is_source() {
@@ -124,9 +130,41 @@ where
 }
 
 #[starlark_value(type = "ValidationSpec")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkValidationSpecGen<V> where
-    Self: ProvidesStaticType<'v>
+impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkValidationSpecGen<V>
+where
+    Self: ProvidesStaticType<'v>,
 {
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(validation_spec_methods)
+    }
+}
+
+#[starlark_module]
+fn validation_spec_methods(builder: &mut MethodsBuilder) {
+    #[starlark(attribute)]
+    /// Name identifying validation.
+    fn name<'v>(
+        this: &'v StarlarkValidationSpec,
+        heap: &'v Heap,
+    ) -> starlark::Result<StringValue<'v>> {
+        Ok(heap.alloc_str_intern(this.name()))
+    }
+
+    #[starlark(attribute)]
+    /// Is validation optional.
+    fn optional<'v>(this: &'v StarlarkValidationSpec) -> starlark::Result<bool> {
+        Ok(this.optional())
+    }
+
+    #[starlark(attribute)]
+    /// Artifact which is the result of running a validation.
+    fn validation_result<'v>(
+        this: &'v StarlarkValidationSpec,
+    ) -> starlark::Result<StarlarkArtifact> {
+        let artifact = this.validation_result.unpack()?;
+        Ok(artifact.0.get_bound_starlark_artifact()?)
+    }
 }
 
 #[starlark_module]
@@ -136,7 +174,7 @@ pub fn register_validation_spec(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] name: StringValue<'v>,
         #[starlark(require = named)] validation_result: ValueOf<'v, ValueAsArtifactLike<'v>>,
         #[starlark(require = named, default = false)] optional: bool,
-    ) -> anyhow::Result<StarlarkValidationSpec<'v>> {
+    ) -> starlark::Result<StarlarkValidationSpec<'v>> {
         let result = StarlarkValidationSpec {
             name: name.to_value_of_unchecked().cast(),
             validation_result: validation_result.as_unchecked().cast(),

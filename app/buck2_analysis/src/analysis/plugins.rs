@@ -25,7 +25,7 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 pub fn plugins_to_starlark_value<'v>(
     node: ConfiguredTargetNodeRef,
     ctx: &dyn AttrResolutionContext<'v>,
-) -> anyhow::Result<ValueTyped<'v, AnalysisPlugins<'v>>> {
+) -> buck2_error::Result<ValueTyped<'v, AnalysisPlugins<'v>>> {
     let mut plugins = SmallMap::new();
     for kind in node.uses_plugins().iter().duped() {
         let deps: Vec<Value<'_>> = node
@@ -43,7 +43,7 @@ pub fn plugins_to_starlark_value<'v>(
                     },
                 )
             })
-            .collect::<anyhow::Result<_>>()?;
+            .collect::<buck2_error::Result<_>>()?;
         plugins.insert(kind, ctx.heap().alloc(deps));
     }
     Ok(ctx.heap().alloc_typed(AnalysisPlugins::new(plugins)))

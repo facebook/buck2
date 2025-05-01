@@ -24,7 +24,9 @@ load(
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
     "@prelude//cxx:link_groups.bzl",
+    "BuildLinkGroupsContext",
     "LinkGroupLinkInfo",  # @unused Used as a type
+    "collect_linkables",
     "create_link_groups",
     "get_filtered_labels_to_links_map",
     "get_filtered_links",
@@ -61,7 +63,7 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableGraph",
     "create_linkable_graph",
-    "get_linkable_graph_node_map_func",
+    "reduce_linkable_graph",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -239,12 +241,6 @@ RustCxxLinkGroupInfo = record(
     link_group_preferred_linkage = field(dict[Label, Linkage]),
 )
 
-def enable_link_groups(ctx: AnalysisContext):
-    if not cxx_is_gnu(ctx):
-        # check minimum requirements
-        return False
-    return ctx.attrs.auto_link_groups and ctx.attrs.link_group_map
-
 # Returns all first-order dependencies.
 def _do_resolve_deps(
         deps: list[Dependency],
@@ -269,20 +265,22 @@ def gather_explicit_sysroot_deps(dep_ctx: DepCollectionContext) -> list[RustOrNa
         out.append(RustOrNativeDependency(
             dep = explicit_sysroot_deps.core,
             name = None,
-            flags = ["nounused"],
+            flags = ["noprelude", "nounused"],
         ))
     if explicit_sysroot_deps.std:
         out.append(RustOrNativeDependency(
             dep = explicit_sysroot_deps.std,
             name = None,
-            flags = ["nounused", "force"],
+            # "force" is used here in order to link std internals (like alloc hooks) even if the rest
+            # of std is otherwise unused (e.g. we are building a no_std crate that needs to link with
+            # other std-enabled crates as a standalone dylib).
+            flags = ["noprelude", "nounused", "force"],
         ))
     if explicit_sysroot_deps.proc_macro:
-        flags = ["noprelude"] if not dep_ctx.is_proc_macro or dep_ctx.include_doc_deps else []
         out.append(RustOrNativeDependency(
             dep = explicit_sysroot_deps.proc_macro,
             name = None,
-            flags = ["nounused"] + flags,
+            flags = ["noprelude", "nounused"],
         ))
 
     # When advanced_unstable_linking is on, we only add the dep that matches the
@@ -293,19 +291,16 @@ def gather_explicit_sysroot_deps(dep_ctx: DepCollectionContext) -> list[RustOrNa
             out.append(RustOrNativeDependency(
                 dep = explicit_sysroot_deps.panic_unwind,
                 name = None,
-                flags = ["nounused"],
+                flags = ["noprelude", "nounused"],
             ))
     if explicit_sysroot_deps.panic_abort:
         if not dep_ctx.advanced_unstable_linking or dep_ctx.panic_runtime == PanicRuntime("abort"):
             out.append(RustOrNativeDependency(
                 dep = explicit_sysroot_deps.panic_abort,
                 name = None,
-                flags = ["nounused"],
+                flags = ["noprelude", "nounused"],
             ))
     for d in explicit_sysroot_deps.others:
-        # FIXME(JakobDegen): Ideally we would not be using `noprelude` here but
-        # instead report these as regular transitive dependencies. However,
-        # that's a bit harder to get right, so leave it like this for now.
         out.append(RustOrNativeDependency(
             dep = d,
             name = None,
@@ -410,13 +405,21 @@ def inherited_exported_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionCon
 def inherited_rust_cxx_link_group_info(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
-        link_strategy: [LinkStrategy, None] = None) -> RustCxxLinkGroupInfo:
+        link_strategy: LinkStrategy) -> RustCxxLinkGroupInfo | None:
+    # Check minimum requirements
+    if not cxx_is_gnu(ctx) or not ctx.attrs.auto_link_groups:
+        return None
+
     link_graphs = inherited_linkable_graphs(ctx, dep_ctx)
+
+    link_group = get_link_group(ctx)
 
     # Assume a rust executable wants to use link groups if a link group map
     # is present
-    link_group = get_link_group(ctx)
-    link_group_info = get_link_group_info(ctx, link_graphs)
+    link_group_info = get_link_group_info(ctx, link_graphs, link_strategy)
+    if link_group_info == None:
+        return None
+
     link_groups = link_group_info.groups
     link_group_mappings = link_group_info.mappings
     link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups.values())
@@ -426,7 +429,8 @@ def inherited_rust_cxx_link_group_info(
         ctx,
         deps = link_graphs,
     )
-    linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
+    reduced_linkable_graph = reduce_linkable_graph(linkable_graph)
+    linkable_graph_node_map = reduced_linkable_graph.nodes
 
     executable_deps = []
     for g in link_graphs:
@@ -447,12 +451,12 @@ def inherited_rust_cxx_link_group_info(
         ctx = ctx,
         link_groups = link_groups,
         link_strategy = link_strategy,
+        linkable_graph = reduced_linkable_graph,
         link_group_mappings = link_group_mappings,
         link_group_preferred_linkage = link_group_preferred_linkage,
         executable_deps = executable_deps,
         linker_flags = [],
         link_group_specs = auto_link_group_specs,
-        linkable_graph_node_map = linkable_graph_node_map,
         other_roots = [],
         prefer_stripped_objects = False,  # Does Rust ever use stripped objects?
         anonymous = ctx.attrs.anonymous_link_groups,
@@ -467,22 +471,37 @@ def inherited_rust_cxx_link_group_info(
         if linked_link_group.library != None:
             link_group_libs[name] = linked_link_group.library
 
-    labels_to_links = get_filtered_labels_to_links_map(
-        public_link_group_nodes,
-        linkable_graph_node_map,
-        link_group,
-        link_groups,
-        link_group_mappings,
+    roots = set(executable_deps)
+    pic_behavior = PicBehavior("always_enabled") if link_strategy == LinkStrategy("static_pic") else PicBehavior("supported")
+    is_executable_link = True
+    exec_linkables = collect_linkables(
+        reduced_linkable_graph,
+        is_executable_link,
+        link_strategy,
         link_group_preferred_linkage,
-        pic_behavior = PicBehavior("always_enabled") if link_strategy == LinkStrategy("static_pic") else PicBehavior("supported"),
+        pic_behavior,
+        roots,
+    )
+    build_context = BuildLinkGroupsContext(
+        public_nodes = public_link_group_nodes,
+        linkable_graph = reduced_linkable_graph,
+        link_groups = link_groups,
+        link_group_mappings = link_group_mappings,
+        link_group_preferred_linkage = link_group_preferred_linkage,
+        link_strategy = link_strategy,
+        pic_behavior = pic_behavior,
         link_group_libs = {
             name: (lib.label, lib.shared_link_infos)
             for name, lib in link_group_libs.items()
         },
-        link_strategy = link_strategy,
-        roots = executable_deps,
-        is_executable_link = True,
         prefer_stripped = False,
+        prefer_optimized = False,
+    )
+    labels_to_links = get_filtered_labels_to_links_map(
+        link_group = link_group,
+        linkables = exec_linkables,
+        is_executable_link = is_executable_link,
+        build_context = build_context,
         force_static_follows_dependents = True,
     )
 

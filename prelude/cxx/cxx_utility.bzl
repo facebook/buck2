@@ -24,6 +24,11 @@ def cxx_toolchain_allow_cache_upload_args():
             default = None,
             doc = doc,
         ),
+        "cuda_compiler_allow_cache_upload": attrs.option(
+            attrs.bool(),
+            default = None,
+            doc = doc,
+        ),
         "cxx_compiler_allow_cache_upload": attrs.option(
             attrs.bool(),
             default = None,

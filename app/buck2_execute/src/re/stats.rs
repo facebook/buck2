@@ -8,6 +8,7 @@
  */
 
 use std::future::Future;
+use std::sync::atomic::AtomicI64;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
@@ -49,6 +50,9 @@ pub struct RemoteExecutionClientStats {
     pub materializes: RemoteExecutionClientOpStats,
     pub write_action_results: RemoteExecutionClientOpStats,
     pub get_digest_expirations: RemoteExecutionClientOpStats,
+
+    // Local cache hits and misses stats
+    pub local_cache: LocalCacheRemoteExecutionClientStats,
 }
 
 #[derive(Default, Allocative)]
@@ -59,9 +63,9 @@ pub(super) struct OpStats {
 }
 
 impl OpStats {
-    pub(super) fn op<'a, R, F>(&'a self, f: F) -> impl Future<Output = anyhow::Result<R>> + 'a
+    pub(super) fn op<'a, R, F>(&'a self, f: F) -> impl Future<Output = buck2_error::Result<R>> + 'a
     where
-        F: Future<Output = anyhow::Result<R>> + 'a,
+        F: Future<Output = buck2_error::Result<R>> + 'a,
     {
         // We avoid using `async fn` or `async move` here to avoid doubling the
         // future size. See https://github.com/rust-lang/rust/issues/62958
@@ -112,6 +116,46 @@ impl PerBackendRemoteExecutionClientStats {
         #[cfg(not(fbcode_build))]
         {
             let _unused = metrics;
+        }
+    }
+}
+
+#[derive(Default, Allocative)]
+pub(super) struct LocalCacheStats {
+    hits_files: AtomicI64,
+    hits_bytes: AtomicI64,
+    misses_files: AtomicI64,
+    misses_bytes: AtomicI64,
+}
+
+impl LocalCacheStats {
+    pub(super) fn update(&self, stat: &remote_execution::TLocalCacheStats) {
+        self.hits_files
+            .fetch_add(stat.hits_files, Ordering::Relaxed);
+        self.hits_bytes
+            .fetch_add(stat.hits_bytes, Ordering::Relaxed);
+        self.misses_files
+            .fetch_add(stat.misses_files, Ordering::Relaxed);
+        self.misses_bytes
+            .fetch_add(stat.misses_bytes, Ordering::Relaxed);
+    }
+}
+
+#[derive(Default)]
+pub struct LocalCacheRemoteExecutionClientStats {
+    pub hits_files: i64,
+    pub hits_bytes: i64,
+    pub misses_files: i64,
+    pub misses_bytes: i64,
+}
+
+impl From<&'_ LocalCacheStats> for LocalCacheRemoteExecutionClientStats {
+    fn from(stats: &LocalCacheStats) -> LocalCacheRemoteExecutionClientStats {
+        LocalCacheRemoteExecutionClientStats {
+            hits_files: stats.hits_files.load(Ordering::Relaxed),
+            hits_bytes: stats.hits_bytes.load(Ordering::Relaxed),
+            misses_files: stats.misses_files.load(Ordering::Relaxed),
+            misses_bytes: stats.misses_bytes.load(Ordering::Relaxed),
         }
     }
 }

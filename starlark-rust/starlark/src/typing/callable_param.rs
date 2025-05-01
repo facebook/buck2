@@ -23,22 +23,26 @@ use std::iter;
 use allocative::Allocative;
 use dupe::Dupe;
 use starlark_map::small_set::SmallSet;
-use starlark_syntax::internal_error;
 use starlark_syntax::other_error;
 use starlark_syntax::syntax::def::DefParamIndices;
 
-use crate::eval::runtime::params::display::fmt_param_spec;
-use crate::eval::runtime::params::display::ParamFmt;
 use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
-use crate::typing::small_arc_vec_or_static::SmallArcVec1OrStatic;
+use crate::eval::runtime::params::display::ParamFmt;
+use crate::eval::runtime::params::display::fmt_param_spec;
 use crate::typing::Ty;
-use crate::values::layout::heap::profile::arc_str::ArcStr;
+use crate::typing::small_arc_vec_or_static::SmallArcVec1OrStatic;
+use crate::typing::ty::TyDisplay;
+use crate::typing::ty::TypeRenderConfig;
+use crate::util::arc_str::ArcStr;
 
+/// Indication whether parameter is required.
 #[derive(
     Debug, Clone, Dupe, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative
 )]
-pub(crate) enum ParamIsRequired {
+pub enum ParamIsRequired {
+    /// Parameter is required.
     Yes,
+    /// Parameter is optional.
     No,
 }
 
@@ -59,7 +63,7 @@ pub(crate) enum ParamMode {
 
 /// A parameter argument to a function
 #[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
-pub struct Param {
+pub(crate) struct Param {
     /// The type of parameter
     pub(crate) mode: ParamMode,
     /// The type of the parameter.
@@ -69,44 +73,6 @@ pub struct Param {
 }
 
 impl Param {
-    /// Create a positional only parameter.
-    pub fn pos_only(ty: Ty) -> Self {
-        Self {
-            mode: ParamMode::PosOnly(ParamIsRequired::Yes),
-            ty,
-        }
-    }
-
-    /// Create a named only parameter.
-    pub fn name_only(name: &str, ty: Ty) -> Self {
-        Self {
-            mode: ParamMode::NameOnly(ArcStr::from(name), ParamIsRequired::Yes),
-            ty,
-        }
-    }
-
-    /// Create a positional or named parameter.
-    pub fn pos_or_name(name: &str, ty: Ty) -> Self {
-        Self {
-            mode: ParamMode::PosOrName(ArcStr::from(name), ParamIsRequired::Yes),
-            ty,
-        }
-    }
-
-    /// Make a parameter optional.
-    pub fn optional(self) -> Self {
-        Param {
-            mode: match self.mode {
-                ParamMode::PosOnly(_x) => ParamMode::PosOnly(ParamIsRequired::No),
-                ParamMode::PosOrName(x, _y) => ParamMode::PosOrName(x, ParamIsRequired::No),
-                ParamMode::NameOnly(x, _y) => ParamMode::NameOnly(x, ParamIsRequired::No),
-                ParamMode::Args => ParamMode::Args,
-                ParamMode::Kwargs => ParamMode::Kwargs,
-            },
-            ty: self.ty,
-        }
-    }
-
     /// Create a `*args` parameter.
     ///
     /// `ty` is a tuple item type.
@@ -156,6 +122,14 @@ impl Param {
     }
 }
 
+struct ParamSpecSplit<'a> {
+    pos_only: &'a [Param],
+    pos_or_named: &'a [Param],
+    args: Option<&'a Param>,
+    named_only: &'a [Param],
+    kwargs: Option<&'a Param>,
+}
+
 /// Callable parameter specification (e.g. positional only followed by `**kwargs`).
 #[derive(Debug, Eq, PartialEq, Clone, Dupe, Hash, PartialOrd, Ord, Allocative)]
 pub struct ParamSpec {
@@ -165,16 +139,28 @@ pub struct ParamSpec {
 
 impl Display for ParamSpec {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let pf = |i: u32| -> ParamFmt<'_, &'_ Ty, &'static str> {
-            let p = &self.params()[i as usize];
+        self.fmt_with_config(f, &TypeRenderConfig::Default)
+    }
+}
+
+impl ParamSpec {
+    pub(crate) fn fmt_with_config(
+        &self,
+        f: &mut Formatter<'_>,
+        config: &TypeRenderConfig,
+    ) -> fmt::Result {
+        fn pf<'a>(
+            p: &'a Param,
+            config: &'a TypeRenderConfig,
+        ) -> ParamFmt<'a, TyDisplay<'a>, &'static str> {
             ParamFmt {
                 name: match &p.mode {
-                    ParamMode::PosOrName(name, _) | ParamMode::NameOnly(name, _) => name,
+                    ParamMode::PosOrName(name, _) | ParamMode::NameOnly(name, _) => name.as_str(),
                     ParamMode::PosOnly(_) => "_",
                     ParamMode::Args => "args",
                     ParamMode::Kwargs => "kwargs",
                 },
-                ty: Some(&p.ty),
+                ty: Some(p.ty.display_with(config)),
                 default: match p.mode {
                     ParamMode::PosOnly(ParamIsRequired::Yes)
                     | ParamMode::PosOrName(_, ParamIsRequired::Yes)
@@ -185,203 +171,151 @@ impl Display for ParamSpec {
                     ParamMode::Args | ParamMode::Kwargs => None,
                 },
             }
-        };
+        }
+
+        let ParamSpecSplit {
+            pos_only,
+            pos_or_named,
+            args,
+            named_only,
+            kwargs,
+        } = self.split();
 
         fmt_param_spec(
             f,
-            self.indices.pos_only().map(pf),
-            self.indices.pos_or_named().map(pf),
-            self.indices.args.map(pf),
-            self.indices.named_only(self.params().len() as u32).map(pf),
-            self.indices.kwargs.map(pf),
+            pos_only.iter().map(|p| pf(p, config)),
+            pos_or_named.iter().map(|p| pf(p, config)),
+            args.map(|p| pf(p, config)),
+            named_only.iter().map(|p| pf(p, config)),
+            kwargs.map(|p| pf(p, config)),
         )
     }
-}
 
-impl ParamSpec {
+    pub(crate) fn display_with<'a>(&'a self, config: &'a TypeRenderConfig) -> ParamSpecDisplay<'a> {
+        ParamSpecDisplay {
+            param_spec: self,
+            config,
+        }
+    }
+
     pub(crate) fn params(&self) -> &[Param] {
         &self.params
     }
 
-    /// Constructor.
-    /// Return an error if the sequence of parameters is incorrect,
-    /// for example, if positional-only parameters follow named-only.
-    pub fn new(params: Vec<Param>) -> crate::Result<ParamSpec> {
-        if params.as_slice() == Self::any().params() {
-            Ok(ParamSpec::any())
-        } else {
-            #[derive(Ord, PartialOrd, Eq, PartialEq)]
-            enum State {
-                PosOnly,
-                PosOrName,
-                Args,
-                NameOnly,
-                Kwargs,
-            }
-
-            let mut names = SmallSet::new();
-
-            let mut state = State::PosOnly;
-
-            let mut seen_optional = false;
-
-            let mut num_positional_only = 0;
-            let mut num_positional = 0;
-            let mut args = None;
-            let mut kwargs = None;
-
-            for (i, param) in params.iter().enumerate() {
-                if let Some(name) = param.name() {
-                    if !names.insert(name) {
-                        return Err(other_error!("duplicate parameter name: `{}`", name));
-                    }
-                }
-
-                match param.mode {
-                    ParamMode::PosOnly(req) => {
-                        if state > State::PosOnly {
-                            return Err(other_error!(
-                                "positional only parameters may only be in the beginning"
-                            ));
-                        }
-                        if req == ParamIsRequired::Yes && seen_optional {
-                            return Err(other_error!(
-                                "required positional only parameter after optional"
-                            ));
-                        }
-                        if req == ParamIsRequired::No {
-                            seen_optional = true;
-                        }
-                        state = State::PosOnly;
-                    }
-                    ParamMode::PosOrName(_, req) => {
-                        if state > State::PosOrName {
-                            return Err(other_error!(
-                                "positional or named parameters may only follow positional only"
-                            ));
-                        }
-                        if req == ParamIsRequired::Yes && seen_optional {
-                            return Err(other_error!(
-                                "required positional or named parameter after optional"
-                            ));
-                        }
-                        if req == ParamIsRequired::No {
-                            seen_optional = true;
-                        }
-                        state = State::PosOrName;
-                    }
-                    ParamMode::Args => {
-                        if state >= State::Args {
-                            return Err(other_error!("*args must not come after *-args"));
-                        }
-                        if args.is_some() {
-                            return Err(internal_error!("args must not be already set"));
-                        }
-                        args = Some(i.try_into().unwrap());
-                        state = State::Args;
-                    }
-                    ParamMode::NameOnly(_, req) => {
-                        if state > State::NameOnly {
-                            return Err(other_error!("named only parameters may only follow star"));
-                        }
-                        if req == ParamIsRequired::No {
-                            // This is no-op, but update for consistency.
-                            seen_optional = true;
-                        }
-                        state = State::NameOnly;
-                    }
-                    ParamMode::Kwargs => {
-                        if state >= State::Kwargs {
-                            return Err(other_error!("**kwargs must be the last parameter"));
-                        }
-                        if kwargs.is_some() {
-                            return Err(internal_error!("kwargs must not be already set"));
-                        }
-                        kwargs = Some(i.try_into().unwrap());
-                        state = State::Kwargs;
-                    }
-                }
-
-                if state <= State::PosOnly {
-                    num_positional_only += 1;
-                }
-                if state <= State::PosOrName {
-                    num_positional += 1;
-                }
-            }
-
-            Ok(ParamSpec {
-                params: SmallArcVec1OrStatic::clone_from_slice(&params),
-                indices: DefParamIndices {
-                    num_positional_only,
-                    num_positional,
-                    args,
-                    kwargs,
-                },
-            })
-        }
-    }
-
-    pub(crate) fn new_parts(
+    /// Create a new parameter specification from different parameter kinds in order.
+    pub fn new_parts(
         pos_only: impl IntoIterator<Item = (ParamIsRequired, Ty)>,
         pos_or_name: impl IntoIterator<Item = (ArcStr, ParamIsRequired, Ty)>,
         args: Option<Ty>,
         named_only: impl IntoIterator<Item = (ArcStr, ParamIsRequired, Ty)>,
         kwargs: Option<Ty>,
     ) -> crate::Result<ParamSpec> {
-        Self::new(
-            iter::empty()
-                .chain(pos_only.into_iter().map(|(req, ty)| Param {
-                    mode: ParamMode::PosOnly(req),
-                    ty,
-                }))
-                .chain(pos_or_name.into_iter().map(|(name, req, ty)| Param {
-                    mode: ParamMode::PosOrName(name, req),
-                    ty,
-                }))
-                .chain(args.map(|ty| Param {
-                    mode: ParamMode::Args,
-                    ty,
-                }))
-                .chain(named_only.into_iter().map(|(name, req, ty)| Param {
-                    mode: ParamMode::NameOnly(name, req),
-                    ty,
-                }))
-                .chain(kwargs.map(|ty| Param {
-                    mode: ParamMode::Kwargs,
-                    ty,
-                }))
-                .collect(),
-        )
+        let pos_only = pos_only.into_iter();
+        let pos_or_name = pos_or_name.into_iter();
+        let named_only = named_only.into_iter();
+
+        let mut seen_names: SmallSet<ArcStr> = SmallSet::new();
+
+        let mut params = Vec::with_capacity(
+            pos_only.size_hint().0
+                + pos_or_name.size_hint().0
+                + args.is_some() as usize
+                + named_only.size_hint().0
+                + kwargs.is_some() as usize,
+        );
+
+        for (req, ty) in pos_only {
+            params.push(Param {
+                mode: ParamMode::PosOnly(req),
+                ty,
+            });
+        }
+
+        let num_positional_only = params.len() as u32;
+
+        for (name, req, ty) in pos_or_name {
+            if !seen_names.insert(name.dupe()) {
+                return Err(other_error!("duplicate parameter name: `{}`", name));
+            }
+            params.push(Param {
+                mode: ParamMode::PosOrName(name, req),
+                ty,
+            });
+        }
+
+        let num_positional = params.len() as u32;
+
+        let mut index_of_args = None;
+        if let Some(ty) = args {
+            index_of_args = Some(params.len() as u32);
+            params.push(Param {
+                mode: ParamMode::Args,
+                ty,
+            });
+        }
+
+        for (name, req, ty) in named_only {
+            if !seen_names.insert(name.dupe()) {
+                return Err(other_error!("duplicate parameter name: `{}`", name));
+            }
+            params.push(Param {
+                mode: ParamMode::NameOnly(name, req),
+                ty,
+            });
+        }
+
+        let mut index_of_kwargs = None;
+        if let Some(ty) = kwargs {
+            index_of_kwargs = Some(params.len() as u32);
+            params.push(Param {
+                mode: ParamMode::Kwargs,
+                ty,
+            });
+        }
+
+        Ok(ParamSpec {
+            params: SmallArcVec1OrStatic::clone_from_slice(&params),
+            indices: DefParamIndices {
+                num_positional,
+                num_positional_only,
+                args: index_of_args,
+                kwargs: index_of_kwargs,
+            },
+        })
+    }
+
+    /// `*, x, y`.
+    pub fn new_named_only(
+        named_only: impl IntoIterator<Item = (ArcStr, ParamIsRequired, Ty)>,
+    ) -> crate::Result<ParamSpec> {
+        Self::new_parts([], [], None, named_only, None)
     }
 
     /// `*args`.
     pub(crate) fn args(ty: Ty) -> ParamSpec {
-        ParamSpec::new(vec![Param::args(ty)]).unwrap()
+        ParamSpec::new_parts([], [], Some(ty), [], None).expect("Cannot fail")
     }
 
     /// `**kwargs`.
     pub fn kwargs(ty: Ty) -> ParamSpec {
-        ParamSpec::new(vec![Param::kwargs(ty)]).unwrap()
+        ParamSpec::new_parts([], [], None, [], Some(ty)).expect("Cannot fail")
     }
 
-    /// `/, arg=, arg=, ..., arg, arg, ...`.
+    /// `arg=, arg=, ..., arg, arg, ..., /`.
     pub(crate) fn pos_only(
         required: impl IntoIterator<Item = Ty>,
         optional: impl IntoIterator<Item = Ty>,
     ) -> ParamSpec {
-        ParamSpec::new(
-            required
-                .into_iter()
-                .map(Param::pos_only)
-                .chain(
-                    optional
-                        .into_iter()
-                        .map(|ty| Param::pos_only(ty).optional()),
-                )
-                .collect(),
+        ParamSpec::new_parts(
+            iter::empty()
+                .chain(required.into_iter().map(|ty| (ParamIsRequired::Yes, ty)))
+                .chain(optional.into_iter().map(|ty| (ParamIsRequired::No, ty))),
+            [],
+            None,
+            [],
+            None,
         )
-        .unwrap()
+        .expect("Cannot fail")
     }
 
     /// No parameters.
@@ -407,15 +341,67 @@ impl ParamSpec {
         self == &Self::any()
     }
 
+    fn split(&self) -> ParamSpecSplit<'_> {
+        ParamSpecSplit {
+            pos_only: &self.params[self.indices.pos_only()],
+            pos_or_named: &self.params[self.indices.pos_or_named()],
+            args: self.indices.args.map(|a| &self.params[a as usize]),
+            named_only: &self.params[self.indices.named_only(self.params.len())],
+            kwargs: self.indices.kwargs.map(|a| &self.params[a as usize]),
+        }
+    }
+
     /// All parameters are required and positional only.
-    pub(crate) fn all_required_pos_only(&self) -> Option<Vec<Ty>> {
-        self.params
-            .iter()
-            .map(|p| match &p.mode {
-                ParamMode::PosOnly(ParamIsRequired::Yes) => Some(p.ty.clone()),
-                _ => None,
-            })
-            .collect()
+    pub(crate) fn all_required_pos_only(&self) -> Option<Vec<&Ty>> {
+        let (pos_only, named_only) = self.all_required_pos_only_named_only()?;
+        if named_only.is_empty() {
+            Some(pos_only)
+        } else {
+            None
+        }
+    }
+
+    /// All parameters are required and positional only or named only.
+    pub(crate) fn all_required_pos_only_named_only(&self) -> Option<(Vec<&Ty>, Vec<(&str, &Ty)>)> {
+        match self.split() {
+            ParamSpecSplit {
+                pos_only,
+                pos_or_named: [],
+                args: None,
+                named_only,
+                kwargs: None,
+            } => {
+                let pos_only: Vec<&Ty> = pos_only
+                    .iter()
+                    .map(|p| match p.mode {
+                        ParamMode::PosOnly(ParamIsRequired::Yes) => Some(&p.ty),
+                        _ => None,
+                    })
+                    .collect::<Option<_>>()?;
+                let named_only: Vec<(&str, &Ty)> = named_only
+                    .iter()
+                    .map(|p| match &p.mode {
+                        ParamMode::NameOnly(name, ParamIsRequired::Yes) => {
+                            Some((name.as_str(), &p.ty))
+                        }
+                        _ => None,
+                    })
+                    .collect::<Option<_>>()?;
+                Some((pos_only, named_only))
+            }
+            _ => None,
+        }
+    }
+}
+
+pub(crate) struct ParamSpecDisplay<'a> {
+    param_spec: &'a ParamSpec,
+    config: &'a TypeRenderConfig,
+}
+
+impl Display for ParamSpecDisplay<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.param_spec.fmt_with_config(f, self.config)
     }
 }
 

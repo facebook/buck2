@@ -42,6 +42,7 @@ SharedLibrary = record(
     for_primary_apk = field(bool, False),
     soname = field(Soname),
     label = field(Label),
+    extra_outputs = field(dict[str, list[DefaultInfo]], default = {}),
 )
 
 def _ensure_str(soname: str | Artifact) -> str:
@@ -278,6 +279,18 @@ def create_shlib_symlink_tree(actions: AnalysisActions, out: str, shared_libs: l
         gen_action = lambda actions, output, shared_libs: actions.symlinked_dir(
             output,
             {name: shlib.lib.output for name, shlib in shared_libs.items()},
+        ),
+        dir = True,
+    )
+
+def create_shlib_dwp_tree(actions: AnalysisActions, out: str, shared_libs: list[SharedLibrary]) -> Artifact:
+    return gen_shared_libs_action(
+        actions = actions,
+        out = out,
+        shared_libs = shared_libs,
+        gen_action = lambda actions, output, shared_libs: actions.symlinked_dir(
+            output,
+            {name + ".dwp": shlib.lib.dwp for name, shlib in shared_libs.items() if shlib.lib.dwp != None},
         ),
         dir = True,
     )

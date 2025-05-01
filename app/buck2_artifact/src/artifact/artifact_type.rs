@@ -9,6 +9,8 @@
 
 use std::cell::Ref;
 use std::cell::RefCell;
+use std::fmt;
+use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::Deref;
@@ -16,15 +18,15 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::buck_out_path::BuckOutPath;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::artifact_path::ArtifactPath;
+use buck2_util::arc_str::ThinArcS;
 use derivative::Derivative;
 use derive_more::Display;
 use derive_more::From;
@@ -32,42 +34,60 @@ use dupe::Dupe;
 use either::Either;
 use gazebo::cell::ARef;
 use starlark_map::Hashed;
+use static_assertions::assert_eq_size;
 
 use crate::actions::key::ActionKey;
 use crate::artifact::build_artifact::BuildArtifact;
-use crate::artifact::projected_artifact::ProjectedArtifact;
 use crate::artifact::source_artifact::SourceArtifact;
 
 /// An 'Artifact' that can be materialized at its path. The underlying data is not very large here,
 /// but we do store many copies of it, which is why we store this as an Arc.
 #[derive(
-    Clone, Debug, Display, Dupe, Allocative, Derivative, PartialEq, Eq, Hash
+    Clone,
+    Debug,
+    Display,
+    Dupe,
+    Allocative,
+    Derivative,
+    PartialEq,
+    Eq,
+    Hash,
+    strong_hash::StrongHash
 )]
 pub struct Artifact(Arc<ArtifactData>);
 
-#[derive(Clone, Debug, Display, Dupe, Allocative, Derivative)]
-#[derivative(Hash, Eq, PartialEq)]
+#[derive(
+    Clone,
+    Debug,
+    Display,
+    Dupe,
+    Allocative,
+    Hash,
+    Eq,
+    PartialEq,
+    strong_hash::StrongHash
+)]
 #[display("{}", data)]
 struct ArtifactData {
     data: Hashed<ArtifactKind>,
 
     /// The number of components at the prefix of that path that are internal details to the rule,
-    /// not returned by `.short_path`. Omitted from Eq and Hash comparisons.
-    #[derivative(Hash = "ignore", PartialEq = "ignore")]
+    /// not returned by `.short_path`.
     hidden_components_count: usize,
 }
+
+assert_eq_size!(ArtifactData, [usize; 9]);
 
 impl Artifact {
     pub fn new(
         artifact: impl Into<BaseArtifactKind>,
-        projected_path: Option<Arc<ForwardRelativePathBuf>>,
+        projected_path: ThinArcS<ForwardRelativePath>,
         hidden_components_count: usize,
     ) -> Self {
-        let artifact = match projected_path {
-            Some(path) => ArtifactKind::Projected(ProjectedArtifact::new(artifact.into(), path)),
-            None => ArtifactKind::Base(artifact.into()),
+        let artifact = ArtifactKind {
+            base: artifact.into(),
+            path: projected_path,
         };
-
         Self(Arc::new(ArtifactData {
             data: Hashed::new(artifact),
             hidden_components_count,
@@ -75,16 +95,13 @@ impl Artifact {
     }
 
     pub fn as_output_artifact(&self) -> Option<OutputArtifact> {
-        let (kind, projected_path) = match self.0.data.key() {
-            ArtifactKind::Base(a) => (a, None),
-            ArtifactKind::Projected(a) => (a.base(), Some(a.path_shared())),
-        };
-        match kind {
+        let key = self.0.data.key();
+        match &key.base {
             BaseArtifactKind::Source(_) => None,
             BaseArtifactKind::Build(artifact) => {
                 let bound = BoundBuildArtifact {
                     artifact: artifact.dupe(),
-                    projected_path: projected_path.cloned(),
+                    projected_path: key.path.dupe(),
                     hidden_components_count: self.0.hidden_components_count,
                 };
                 Some(bound.into_declared_artifact().into())
@@ -114,7 +131,7 @@ impl Artifact {
     pub fn owner(&self) -> Option<&BaseDeferredKey> {
         match self.as_parts().0 {
             BaseArtifactKind::Source(_) => None,
-            BaseArtifactKind::Build(b) => Some(b.get_path().owner()),
+            BaseArtifactKind::Build(b) => Some(b.get_path().owner().owner()),
         }
     }
 
@@ -126,11 +143,9 @@ impl Artifact {
         }
     }
 
-    pub fn as_parts(&self) -> (&BaseArtifactKind, Option<&ForwardRelativePath>) {
-        match self.0.data.key() {
-            ArtifactKind::Base(a) => (a, None),
-            ArtifactKind::Projected(a) => (a.base(), Some(a.path())),
-        }
+    pub fn as_parts(&self) -> (&BaseArtifactKind, &ForwardRelativePath) {
+        let key = self.0.data.key();
+        (&key.base, &key.path)
     }
 
     pub fn get_path(&self) -> ArtifactPath<'_> {
@@ -162,21 +177,18 @@ impl Artifact {
 
         let (base, already_projected) = self.as_parts();
 
-        let projected = already_projected
-            .unwrap_or(ForwardRelativePath::empty())
-            .to_owned()
-            .join(path);
+        let projected = already_projected.join(path);
 
         Self::new(
             base.dupe(),
-            Some(Arc::new(projected)),
+            ThinArcS::from(projected.as_ref()),
             hidden_components_count,
         )
     }
 }
 
 impl ArtifactDyn for Artifact {
-    fn resolve_path(&self, fs: &ArtifactFs) -> anyhow::Result<ProjectRelativePathBuf> {
+    fn resolve_path(&self, fs: &ArtifactFs) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.get_path().resolve(fs)
     }
 
@@ -193,38 +205,71 @@ impl ArtifactDyn for Artifact {
     }
 }
 
-#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, From, Allocative)]
+#[derive(
+    Clone,
+    Debug,
+    Display,
+    Dupe,
+    PartialEq,
+    Eq,
+    Hash,
+    From,
+    Allocative,
+    strong_hash::StrongHash
+)]
 pub enum BaseArtifactKind {
     Source(SourceArtifact),
     Build(BuildArtifact),
 }
 
-#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative)]
-pub enum ArtifactKind {
-    Base(BaseArtifactKind),
-    Projected(ProjectedArtifact),
+assert_eq_size!(BaseArtifactKind, [usize; 6]);
+
+#[derive(
+    Clone,
+    Debug,
+    Dupe,
+    PartialEq,
+    Eq,
+    Hash,
+    Allocative,
+    strong_hash::StrongHash
+)]
+pub struct ArtifactKind {
+    pub base: BaseArtifactKind,
+    /// When non-empty, the artifact is considered "projected".
+    pub path: ThinArcS<ForwardRelativePath>,
 }
+
+impl Display for ArtifactKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if self.path.is_empty() {
+            write!(f, "{}", self.base)
+        } else {
+            write!(f, "{}/{}", self.base, self.path)
+        }
+    }
+}
+
+assert_eq_size!(ArtifactKind, [usize; 7]);
 
 impl From<SourceArtifact> for Artifact {
     fn from(a: SourceArtifact) -> Self {
-        Self::new(a, None, 0)
+        Self::new(a, ThinArcS::from(ForwardRelativePath::empty()), 0)
     }
 }
 
 impl From<BuildArtifact> for Artifact {
     fn from(a: BuildArtifact) -> Self {
-        Self::new(a, None, 0)
+        Self::new(a, ThinArcS::from(ForwardRelativePath::empty()), 0)
     }
 }
 
 /// An intermediate struct to respond to calls to `ensure_bound`.
-#[derive(Clone, Dupe, Debug, Display, Allocative, Derivative)]
-#[derivative(Hash, Eq, PartialEq)]
+#[derive(Clone, Dupe, Debug, Display, Allocative, Hash, Eq, PartialEq)]
 #[display("{}", self.get_path())]
 pub struct BoundBuildArtifact {
     artifact: BuildArtifact,
-    projected_path: Option<Arc<ForwardRelativePathBuf>>,
-    #[derivative(Hash = "ignore", PartialEq = "ignore")]
+    projected_path: ThinArcS<ForwardRelativePath>,
     hidden_components_count: usize,
 }
 
@@ -256,10 +301,7 @@ impl BoundBuildArtifact {
     pub fn get_path(&self) -> ArtifactPath<'_> {
         ArtifactPath {
             base_path: Either::Left(ARef::new_ptr(self.artifact.get_path())),
-            projected_path: self
-                .projected_path
-                .as_ref()
-                .map(|p| AsRef::<ForwardRelativePath>::as_ref(&**p)),
+            projected_path: &self.projected_path,
             hidden_components_count: self.hidden_components_count,
         }
     }
@@ -280,13 +322,13 @@ impl BoundBuildArtifact {
 pub struct DeclaredArtifact {
     /// `Rc` here is not optimization: `DeclaredArtifactKind` is a shared mutable state.
     artifact: Rc<RefCell<DeclaredArtifactKind>>,
-    projected_path: Option<Arc<ForwardRelativePathBuf>>,
+    projected_path: ThinArcS<ForwardRelativePath>,
     hidden_components_count: usize,
 }
 
 impl DeclaredArtifact {
     pub fn new(
-        path: BuckOutPath,
+        path: BuildArtifactPath,
         output_type: OutputType,
         hidden_components_count: usize,
     ) -> DeclaredArtifact {
@@ -294,7 +336,7 @@ impl DeclaredArtifact {
             artifact: Rc::new(RefCell::new(DeclaredArtifactKind::Unbound(
                 UnboundArtifact(path, output_type),
             ))),
-            projected_path: None,
+            projected_path: ThinArcS::from(ForwardRelativePath::empty()),
             hidden_components_count,
         }
     }
@@ -313,10 +355,7 @@ impl DeclaredArtifact {
 
         Self {
             artifact: self.artifact.dupe(),
-            projected_path: Some(Arc::new(match self.projected_path.as_ref() {
-                Some(existing_path) => existing_path.join(path),
-                None => path.to_owned(),
-            })),
+            projected_path: ThinArcS::from(self.projected_path.join(path).as_ref()),
             hidden_components_count,
         }
     }
@@ -328,10 +367,7 @@ impl DeclaredArtifact {
     pub fn get_path(&self) -> ArtifactPath<'_> {
         let borrow = self.artifact.borrow();
 
-        let projected_path = self
-            .projected_path
-            .as_ref()
-            .map(|p| AsRef::<ForwardRelativePath>::as_ref(&**p));
+        let projected_path = &self.projected_path;
 
         let base_path = Ref::map(borrow, |a| match &a {
             DeclaredArtifactKind::Bound(a) => a.get_path(),
@@ -358,15 +394,13 @@ impl DeclaredArtifact {
     /// When we freeze `DeclaredArtifact`, we then just call `get_bound_artifact()`, and `expect`
     /// it to be valid. We have the `ensure_bound` method to make sure that we can return
     /// a friendlier message to users because `freeze()` does not return error messages
-    pub fn ensure_bound(self) -> anyhow::Result<BoundBuildArtifact> {
+    pub fn ensure_bound(self) -> buck2_error::Result<BoundBuildArtifact> {
         let borrow = self.artifact.borrow();
 
         let artifact = match &*borrow {
             DeclaredArtifactKind::Bound(built) => built.dupe(),
             DeclaredArtifactKind::Unbound(unbound) => {
-                return Err(anyhow::anyhow!(ArtifactErrors::UnboundArtifact(
-                    unbound.dupe()
-                )));
+                return Err(ArtifactErrors::UnboundArtifact(unbound.dupe()).into());
             }
         };
 
@@ -383,7 +417,7 @@ impl DeclaredArtifact {
 
     pub fn owner(&self) -> Option<BaseDeferredKey> {
         match &*self.artifact.borrow() {
-            DeclaredArtifactKind::Bound(b) => Some(b.get_path().owner().dupe()),
+            DeclaredArtifactKind::Bound(b) => Some(b.get_path().owner().owner().dupe()),
             DeclaredArtifactKind::Unbound(_) => None,
         }
     }
@@ -443,7 +477,7 @@ impl From<DeclaredArtifact> for OutputArtifact {
 }
 
 impl OutputArtifact {
-    pub fn bind(&self, key: ActionKey) -> anyhow::Result<BoundBuildArtifact> {
+    pub fn bind(&self, key: ActionKey) -> buck2_error::Result<BoundBuildArtifact> {
         match &mut *self.0.artifact.borrow_mut() {
             DeclaredArtifactKind::Bound(a) => {
                 // NOTE: If the artifact was already bound to the same action, we leave it alone.
@@ -451,15 +485,12 @@ impl OutputArtifact {
                 // the projected artifacts and then try to bind each of them, but the same
                 // underlying artifact is the one that gets bound.
                 if *a.key() != key {
-                    return Err(anyhow::anyhow!(ArtifactErrors::DuplicateBind(
-                        a.dupe(),
-                        key
-                    )));
+                    return Err(ArtifactErrors::DuplicateBind(a.dupe(), key).into());
                 }
             }
             a => take_mut::take(a, |artifact| match artifact {
                 DeclaredArtifactKind::Unbound(unbound) => {
-                    DeclaredArtifactKind::Bound(unbound.bind(key))
+                    DeclaredArtifactKind::Bound(unbound.bind(key).unwrap())
                 }
                 DeclaredArtifactKind::Bound(_) => {
                     unreachable!("should already be verified to be unbound")
@@ -479,7 +510,7 @@ impl OutputArtifact {
         })
     }
 
-    pub fn ensure_output_type(&self, output_type: OutputType) -> anyhow::Result<()> {
+    pub fn ensure_output_type(&self, output_type: OutputType) -> buck2_error::Result<()> {
         output_type.check_path(self, self.0.output_type())
     }
 }
@@ -494,17 +525,18 @@ impl Deref for OutputArtifact {
 
 #[derive(Clone, Dupe, Debug, Display, Allocative)]
 #[display("{}", self.0)]
-pub struct UnboundArtifact(BuckOutPath, OutputType);
+pub struct UnboundArtifact(BuildArtifactPath, OutputType);
 
 impl UnboundArtifact {
-    fn bind(self, key: ActionKey) -> BuildArtifact {
+    fn bind(self, key: ActionKey) -> buck2_error::Result<BuildArtifact> {
         BuildArtifact::new(self.0, key, self.1)
     }
 }
 
 pub mod testing {
-    use buck2_core::base_deferred_key::BaseDeferredKey;
-    use buck2_core::fs::buck_out_path::BuckOutPath;
+    use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+    use buck2_core::deferred::key::DeferredHolderKey;
+    use buck2_core::fs::buck_out_path::BuildArtifactPath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_execute::execute::request::OutputType;
@@ -515,7 +547,6 @@ pub mod testing {
     use crate::artifact::artifact_type::DeclaredArtifact;
     use crate::artifact::artifact_type::DeclaredArtifactKind;
     use crate::artifact::build_artifact::BuildArtifact;
-    use crate::deferred::key::DeferredHolderKey;
 
     pub trait ArtifactTestingExt {
         fn testing_is_bound(&self) -> bool;
@@ -561,37 +592,36 @@ pub mod testing {
             id: ActionIndex,
         ) -> BuildArtifact {
             BuildArtifact::new(
-                BuckOutPath::new(
+                BuildArtifactPath::new(
                     BaseDeferredKey::TargetLabel(target.dupe()),
                     ForwardRelativePath::new(path).unwrap().to_buf(),
                 ),
-                ActionKey::unchecked_new(
+                ActionKey::new(
                     DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
                     id,
                 ),
                 OutputType::File,
             )
+            .unwrap()
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::Hash;
-    use std::hash::Hasher;
-
     use assert_matches::assert_matches;
-    use buck2_core::base_deferred_key::BaseDeferredKey;
+    use buck2_core::cells::CellResolver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
-    use buck2_core::cells::CellResolver;
     use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+    use buck2_core::deferred::key::DeferredHolderKey;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-    use buck2_core::fs::buck_out_path::BuckOutPath;
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
+    use buck2_core::fs::buck_out_path::BuildArtifactPath;
     use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project::ProjectRootTemp;
@@ -600,31 +630,31 @@ mod tests {
     use buck2_core::package::source_path::SourcePath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_execute::execute::request::OutputType;
+    use buck2_util::arc_str::ThinArcS;
     use dupe::Dupe;
 
     use crate::actions::key::ActionIndex;
     use crate::actions::key::ActionKey;
-    use crate::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use crate::artifact::artifact_type::Artifact;
     use crate::artifact::artifact_type::DeclaredArtifact;
     use crate::artifact::artifact_type::DeclaredArtifactKind;
+    use crate::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use crate::artifact::build_artifact::BuildArtifact;
     use crate::artifact::source_artifact::SourceArtifact;
-    use crate::deferred::key::DeferredHolderKey;
 
     #[test]
-    fn artifact_binding() -> anyhow::Result<()> {
+    fn artifact_binding() -> buck2_error::Result<()> {
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
         let declared = DeclaredArtifact::new(
-            BuckOutPath::new(
+            BuildArtifactPath::new(
                 BaseDeferredKey::TargetLabel(target.dupe()),
                 ForwardRelativePathBuf::unchecked_new("bar.out".into()),
             ),
             OutputType::File,
             0,
         );
-        let key = ActionKey::unchecked_new(
+        let key = ActionKey::new(
             DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target.dupe())),
             ActionIndex::new(0),
         );
@@ -646,7 +676,7 @@ mod tests {
         out.bind(key)?;
 
         // Binding again to a different key should fail
-        let other_key = ActionKey::unchecked_new(
+        let other_key = ActionKey::new(
             DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
             ActionIndex::new(1),
         );
@@ -657,7 +687,7 @@ mod tests {
     }
 
     #[test]
-    fn resolve_artifact() -> anyhow::Result<()> {
+    fn resolve_artifact() -> buck2_error::Result<()> {
         let source = SourceArtifact::new(SourcePath::testing_new("cell//pkg", "src.cpp"));
 
         let project_fs =
@@ -681,7 +711,7 @@ mod tests {
     }
 
     #[test]
-    fn writes_files() -> anyhow::Result<()> {
+    fn writes_files() -> buck2_error::Result<()> {
         let project_root = ProjectRootTemp::new().unwrap();
         let project_fs = project_root.path();
 
@@ -702,20 +732,20 @@ mod tests {
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
             project_fs.dupe(),
         );
-        let expected_path1 = project_fs.resolve(&fs.resolve_build(artifact1.get_path()));
-        let expected_path2 = project_fs.resolve(&fs.resolve_build(artifact2.get_path()));
+        let expected_path1 = project_fs.resolve(fs.resolve_build(artifact1.get_path())?);
+        let expected_path2 = project_fs.resolve(fs.resolve_build(artifact2.get_path())?);
 
-        let dest_path = fs.resolve_build(artifact1.get_path());
+        let dest_path = fs.resolve_build(artifact1.get_path())?;
         fs.fs().write_file(&dest_path, "artifact1", false)?;
 
         assert_eq!("artifact1", fs_util::read_to_string(&expected_path1)?);
 
-        let dest_path = fs.resolve_build(artifact2.get_path());
+        let dest_path = fs.resolve_build(artifact2.get_path())?;
         fs.fs().write_file(&dest_path, "artifact2", true)?;
 
         assert_eq!("artifact2", fs_util::read_to_string(&expected_path2)?);
 
-        let dest_path = fs.resolve_build(artifact3.get_path());
+        let dest_path = fs.resolve_build(artifact3.get_path())?;
         fs.fs()
             .write_file(&dest_path, "artifact3", false)
             .expect_err("should fail because bar.cpp is a file");
@@ -738,45 +768,19 @@ mod tests {
     }
 
     #[test]
-    fn test_eq_hash() -> anyhow::Result<()> {
+    fn test_short_path() -> buck2_error::Result<()> {
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
 
         let artifact =
             BuildArtifact::testing_new(target.dupe(), "foo/bar.cpp", ActionIndex::new(0));
 
-        let full = Artifact::new(artifact.clone(), None, 0);
-        let hidden = Artifact::new(artifact, None, 1);
-
-        assert_eq!(full, hidden);
-
-        let hash_full = {
-            let mut hasher = DefaultHasher::new();
-            full.hash(&mut hasher);
-            hasher.finish()
-        };
-
-        let hash_hidden = {
-            let mut hasher = DefaultHasher::new();
-            hidden.hash(&mut hasher);
-            hasher.finish()
-        };
-
-        assert_eq!(hash_full, hash_hidden);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_short_path() -> anyhow::Result<()> {
-        let target =
-            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
-
-        let artifact =
-            BuildArtifact::testing_new(target.dupe(), "foo/bar.cpp", ActionIndex::new(0));
-
-        let full = Artifact::new(artifact.clone(), None, 0);
-        let hidden = Artifact::new(artifact, None, 1);
+        let full = Artifact::new(
+            artifact.clone(),
+            ThinArcS::from(ForwardRelativePath::empty()),
+            0,
+        );
+        let hidden = Artifact::new(artifact, ThinArcS::from(ForwardRelativePath::empty()), 1);
 
         full.get_path()
             .with_full_path(|p| assert_eq!(p, "foo/bar.cpp"));

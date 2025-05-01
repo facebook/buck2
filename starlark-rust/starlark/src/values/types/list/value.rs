@@ -29,9 +29,8 @@ use std::slice;
 use allocative::Allocative;
 use display_container::fmt_container;
 use serde::Serialize;
-use starlark_derive::starlark_value;
-use starlark_derive::StarlarkDocs;
 use starlark_derive::Trace;
+use starlark_derive::starlark_value;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::slice_vec_ext::VecExt;
 
@@ -44,18 +43,6 @@ use crate::hint::likely;
 use crate::hint::unlikely;
 use crate::private::Private;
 use crate::typing::Ty;
-use crate::values::array::Array;
-use crate::values::comparison::compare_slice;
-use crate::values::comparison::equals_slice;
-use crate::values::error::ValueError;
-use crate::values::index::apply_slice;
-use crate::values::index::convert_index;
-use crate::values::layout::avalue::alloc_static;
-use crate::values::layout::avalue::AValueFrozenList;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::list::ListRef;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -67,17 +54,20 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueTyped;
+use crate::values::array::Array;
+use crate::values::comparison::compare_slice;
+use crate::values::comparison::equals_slice;
+use crate::values::error::ValueError;
+use crate::values::index::apply_slice;
+use crate::values::index::convert_index;
+use crate::values::layout::avalue::AValueFrozenList;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::list::ListRef;
+use crate::values::type_repr::StarlarkTypeRepr;
 
-#[derive(
-    Clone,
-    Default,
-    Trace,
-    Debug,
-    ProvidesStaticType,
-    StarlarkDocs,
-    Allocative
-)]
-#[starlark_docs(builtin = "standard")]
+#[derive(Clone, Default, Trace, Debug, ProvidesStaticType, Allocative)]
 #[repr(transparent)]
 pub(crate) struct ListGen<T>(pub(crate) T);
 
@@ -146,9 +136,11 @@ impl<'v> ListData<'v> {
     }
 
     pub(crate) unsafe fn from_value_unchecked_mut(x: Value<'v>) -> &'v Self {
-        let list = x.downcast_ref_unchecked::<ListGen<ListData<'v>>>();
-        debug_assert!(list.0.check_can_mutate().is_ok());
-        &list.0
+        unsafe {
+            let list = x.downcast_ref_unchecked::<ListGen<ListData<'v>>>();
+            debug_assert!(list.0.check_can_mutate().is_ok());
+            &list.0
+        }
     }
 
     pub(crate) fn is_list_type(x: TypeId) -> bool {
@@ -194,12 +186,8 @@ impl<'v> ListData<'v> {
 
     #[inline]
     pub(crate) fn extend<I: IntoIterator<Item = Value<'v>>>(&self, iter: I, heap: &'v Heap) {
-        match self.try_extend(iter.into_iter().map(Ok), heap) {
+        match self.try_extend(iter.into_iter().map(Ok::<_, Infallible>), heap) {
             Ok(()) => {}
-            Err(e) => {
-                let e: Infallible = e;
-                match e {}
-            }
         }
     }
 
@@ -524,19 +512,21 @@ where
     }
 
     unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
-        Ok(self.0.new_iter(me))
+        unsafe { Ok(self.0.new_iter(me)) }
     }
 
     unsafe fn iter_size_hint(&self, index: usize) -> (usize, Option<usize>) {
-        self.0.iter_size_hint(index)
+        unsafe { self.0.iter_size_hint(index) }
     }
 
     unsafe fn iter_next(&self, index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
-        self.0.iter_next(index)
+        unsafe { self.0.iter_next(index) }
     }
 
     unsafe fn iter_stop(&self) {
-        self.0.iter_stop();
+        unsafe {
+            self.0.iter_stop();
+        }
     }
 
     fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {

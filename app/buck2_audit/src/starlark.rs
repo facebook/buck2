@@ -15,9 +15,9 @@ pub mod package_deps;
 use async_trait::async_trait;
 use buck2_client_ctx::common::CommonCommandOptions;
 
+use crate::AuditSubcommand;
 use crate::starlark::module::StarlarkModuleCommand;
 use crate::starlark::package_deps::StarlarkPackageDepsCommand;
-use crate::AuditSubcommand;
 
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
 #[clap(name = "starlark", about = "Debug Starlark interpreter")]

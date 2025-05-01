@@ -21,13 +21,13 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
 )
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
 def java_test_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs._build_only_native_code:
@@ -61,23 +61,14 @@ def build_junit_test(
     if java_test_toolchain.jvm_args:
         cmd.extend(java_test_toolchain.jvm_args)
 
-    classpath = []
-
-    if java_test_toolchain.use_java_custom_class_loader:
-        cmd.append("-Djava.system.class.loader=" + java_test_toolchain.java_custom_class_loader_class)
-        cmd.extend(java_test_toolchain.java_custom_class_loader_vm_args)
-        classpath.append(java_test_toolchain.java_custom_class_loader_library_jar)
-
     cmd.append(cmd_args(ctx.attrs.java_agents, format = "-javaagent:{}"))
 
-    classpath.extend(
-        [java_test_toolchain.test_runner_library_jar] +
-        [
-            get_all_java_packaging_deps_tset(ctx, java_packaging_infos = [tests_java_packaging_info])
-                .project_as_args("full_jar_args", ordering = "bfs"),
-        ] +
-        extra_classpath_entries,
-    )
+    classpath = [
+        java_test_toolchain.test_runner_library_jar,
+    ] + [
+        get_all_java_packaging_deps_tset(ctx, java_packaging_infos = [tests_java_packaging_info])
+            .project_as_args("full_jar_args", ordering = "bfs"),
+    ] + extra_classpath_entries
 
     if ctx.attrs.unbundled_resources_root:
         classpath.append(ctx.attrs.unbundled_resources_root)
@@ -187,10 +178,8 @@ def _get_native_libs_env(ctx: AnalysisContext) -> dict:
     if not ctx.attrs.use_cxx_libraries:
         return {}
 
-    if ctx.attrs.cxx_library_whitelist:
-        shared_library_infos = filter(None, [x.get(SharedLibraryInfo) for x in ctx.attrs.cxx_library_whitelist])
-    else:
-        shared_library_infos = filter(None, [x.get(SharedLibraryInfo) for x in ctx.attrs.deps])
+    deps_to_search = ctx.attrs.cxx_library_allowlist or ctx.attrs.deps
+    shared_library_infos = filter(None, [x.get(SharedLibraryInfo) for x in deps_to_search])
 
     shared_library_info = merge_shared_libraries(
         ctx.actions,

@@ -20,14 +20,14 @@ use std::fmt::Debug;
 use std::vec;
 
 use dupe::Dupe;
+use starlark_syntax::ErrorKind;
 use starlark_syntax::codemap::FileSpan;
 use starlark_syntax::slice_vec_ext::SliceExt;
-use starlark_syntax::ErrorKind;
 
 use crate::errors::Frame;
+use crate::eval::CallStack;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrames;
-use crate::eval::CallStack;
 use crate::hint::unlikely;
 use crate::values::FrozenRef;
 use crate::values::Trace;
@@ -130,7 +130,7 @@ impl<'v> CheapCallStack<'v> {
     // * [tokio default stack size is 2MB][1]
     // [1] https://docs.rs/tokio/0.2.1/tokio/runtime/struct.Builder.html#method.thread_stack_size
     pub(crate) fn alloc_if_needed(&mut self, max_size: usize) -> anyhow::Result<()> {
-        if self.stack.len() != 0 {
+        if !self.stack.is_empty() {
             return if self.stack.len() == max_size {
                 Ok(())
             } else {
@@ -157,7 +157,7 @@ impl<'v> CheapCallStack<'v> {
         span: Option<FrozenRef<'static, FrameSpan>>,
     ) -> crate::Result<()> {
         if unlikely(self.count >= self.stack.len()) {
-            return Err(crate::Error::new(ErrorKind::StackOverflow(
+            return Err(crate::Error::new_kind(ErrorKind::StackOverflow(
                 CallStackError::Overflow.into(),
             )));
         }

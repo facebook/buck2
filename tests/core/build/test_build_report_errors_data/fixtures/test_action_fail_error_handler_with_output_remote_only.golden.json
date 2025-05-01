@@ -1,0 +1,69 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "failures": {
+    "root//fail_action:fail_error_handler_with_output": "Action failed: root//fail_action:fail_error_handler_with_output (<unspecified>) (fail_error_handler_with_output)\nRemote command returned non-zero exit code 1\nRemote action, reproduce with: `frecli cas download-action <DIGEST>`\nStdout: <empty>\nStderr: <empty>\n\nAction sub-errors produced by error handlers:\n- [compilation]\n- [ErrorCode123] Try doing xyz\n"
+  },
+  "results": {
+    "root//fail_action:fail_error_handler_with_output": {
+      "configured": {
+        "<unspecified>": {
+          "configured_graph_size": null,
+          "errors": [
+            {
+              "action_error": {
+                "digest": "<DIGEST>",
+                "error_content": "<STRING_HASH>",
+                "error_diagnostics": {
+                  "sub_errors": [
+                    {
+                      "category": "compilation",
+                      "locations": null,
+                      "message_content": null
+                    },
+                    {
+                      "category": "ErrorCode123",
+                      "locations": null,
+                      "message_content": "<STRING_HASH>"
+                    }
+                  ]
+                },
+                "key": {
+                  "owner": "root//fail_action:fail_error_handler_with_output (<unspecified>)"
+                },
+                "name": {
+                  "category": "fail_error_handler_with_output",
+                  "identifier": ""
+                },
+                "stderr_content": "<STRING_HASH>",
+                "stdout_content": "<STRING_HASH>"
+              },
+              "cause_index": 0,
+              "error_tags": [
+                "ACTION_COMMAND_FAILURE",
+                "ANY_ACTION_EXECUTION"
+              ],
+              "message_content": "<STRING_HASH>"
+            }
+          ],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "FAIL"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "FAIL"
+    }
+  },
+  "strings": {
+    "<STRING_HASH>": "",
+    "<STRING_HASH>": "Action failed: root//fail_action:fail_error_handler_with_output (<unspecified>) (fail_error_handler_with_output)\nRemote command returned non-zero exit code 1\nRemote action, reproduce with: `frecli cas download-action <DIGEST>`\nStdout: <empty>\nStderr: <empty>\n\nAction sub-errors produced by error handlers:\n- [compilation]\n- [ErrorCode123] Try doing xyz\n",
+    "<STRING_HASH>": "Remote command returned non-zero exit code 1",
+    "<STRING_HASH>": "Try doing xyz"
+  },
+  "success": false,
+  "truncated": false
+}

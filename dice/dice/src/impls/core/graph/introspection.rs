@@ -12,6 +12,8 @@ use std::collections::BTreeMap;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 
+use crate::HashMap;
+use crate::HashSet;
 use crate::arc::Arc;
 use crate::impls::core::graph::nodes::ForceDirtyHistory;
 use crate::impls::core::graph::nodes::VersionedGraphNode;
@@ -27,8 +29,6 @@ use crate::introspection::graph::SerializedGraphNode;
 use crate::introspection::graph::SerializedGraphNodesForKey;
 use crate::introspection::graph::VersionNumber;
 use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
-use crate::HashMap;
-use crate::HashSet;
 
 pub struct VersionedGraphIntrospectable {
     nodes: HashMap<DiceKey, SerializedGraphNode>,

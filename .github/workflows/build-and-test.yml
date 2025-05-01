@@ -2,6 +2,7 @@ name: Build and test
 on:
   push:
   pull_request:
+  workflow_dispatch: # allows manual triggering
 jobs:
   linux-build-and-test:
     runs-on: 4-core-ubuntu
@@ -21,7 +22,7 @@ jobs:
     - uses: ./.github/actions/build_debug
     - uses: ./.github/actions/run_test_py
   windows-build-and-test:
-    runs-on: windows-latest
+    runs-on: windows-8-core
     steps:
     - uses: actions/checkout@v4.1.0
     - uses: ./.github/actions/setup_windows_env
@@ -51,7 +52,7 @@ jobs:
     - uses: ./.github/actions/setup_reindeer
     - uses: ./.github/actions/build_bootstrap
   linux-build-examples:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4.1.0
     - uses: ./.github/actions/setup_linux_env
@@ -69,10 +70,13 @@ jobs:
         $RUNNER_TEMP/artifacts/buck2 test //... -v 2
     - uses: ./.github/actions/build_example_conan
     - uses: ./.github/actions/build_example_no_prelude
+    - uses: ./.github/actions/build_example_persistent_worker
+      with:
+        buildbuddyApiKey: ${{ secrets.BUILDBUDDY_API_KEY }}
     - uses: ./.github/actions/setup_reindeer
     - uses: ./.github/actions/build_bootstrap
   windows-build-examples:
-    runs-on: windows-latest
+    runs-on: windows-8-core
     steps:
       - uses: actions/checkout@v4.1.0
       - uses: ./.github/actions/setup_windows_env
@@ -83,11 +87,5 @@ jobs:
           & $Env:RUNNER_TEMP/artifacts/buck2 build //... -v 2
           & $Env:RUNNER_TEMP/artifacts/buck2 test //... -v 2
       - uses: ./.github/actions/build_example_no_prelude
-      - name: Configure CARGO_HOME
-        run: |-
-          echo CARGO_HOME=$GITHUB_WORKSPACE/.cargo >> $GITHUB_ENV
-          echo $GITHUB_WORKSPACE/.cargo/bin >> $GITHUB_PATH
-        shell:
-          bash
       - uses: ./.github/actions/setup_reindeer
       - uses: ./.github/actions/build_bootstrap

@@ -21,7 +21,7 @@ use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::project_root::StarlarkProjectRoot;
-use buck2_interpreter::types::regex::BuckStarlarkRegex;
+use buck2_interpreter::types::regex::StarlarkBuckRegex;
 use buck2_util::thin_box::ThinBoxSlice;
 use derive_more::Display;
 use display_container::fmt_container;
@@ -31,9 +31,8 @@ use gazebo::prelude::*;
 use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
-use starlark::values::string::StarlarkStr;
-use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValueOfUnchecked;
@@ -43,16 +42,17 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
+use starlark::values::string::StarlarkStr;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use static_assertions::assert_eq_size;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::regex::FrozenCmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::shlex_quote::shlex_quote;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
-use crate::starlark::StarlarkResultExt;
 
 /// Supported ways of quoting arguments.
 #[derive(Debug, Clone, Copy, Dupe, Trace, Freeze, Serialize, Allocative)]
@@ -71,6 +71,7 @@ impl Display for QuoteStyle {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum CommandLineArgError {
     #[error("Unknown quoting style `{0}`")]
     UnknownQuotingStyle(String),
@@ -79,12 +80,10 @@ enum CommandLineArgError {
 }
 
 impl QuoteStyle {
-    pub fn parse(s: &str) -> anyhow::Result<QuoteStyle> {
+    pub fn parse(s: &str) -> buck2_error::Result<QuoteStyle> {
         match s {
             "shell" => Ok(QuoteStyle::Shell),
-            _ => Err(anyhow::anyhow!(CommandLineArgError::UnknownQuotingStyle(
-                s.to_owned()
-            ))),
+            _ => Err(CommandLineArgError::UnknownQuotingStyle(s.to_owned()).into()),
         }
     }
 }
@@ -367,7 +366,7 @@ impl Serialize for FrozenCommandLineOptions {
 impl<'v> Freeze for CommandLineOptions<'v> {
     type Frozen = FrozenCommandLineOptions;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenCommandLineOptions> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenCommandLineOptions> {
         let CommandLineOptions {
             relative_to,
             absolute_prefix,
@@ -449,7 +448,7 @@ pub(crate) enum RelativeOrigin<'v> {
 }
 
 impl<'v> RelativeOrigin<'v> {
-    pub(crate) fn resolve<C>(&self, ctx: &C) -> anyhow::Result<RelativePathBuf>
+    pub(crate) fn resolve<C>(&self, ctx: &C) -> buck2_error::Result<RelativePathBuf>
     where
         C: CommandLineContext + ?Sized,
     {
@@ -496,8 +495,8 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
         f: impl for<'b> FnOnce(
             &'b mut dyn CommandLineBuilder,
             &'b mut dyn CommandLineContext,
-        ) -> anyhow::Result<R>,
-    ) -> anyhow::Result<R> {
+        ) -> buck2_error::Result<R>,
+    ) -> buck2_error::Result<R> {
         struct ExtrasBuilder<'a, 'v> {
             builder: &'a mut dyn CommandLineBuilder,
             opts: &'a CommandLineOptionsRef<'v, 'a>,
@@ -517,7 +516,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             fn resolve_project_path(
                 &self,
                 path: ProjectRelativePathBuf,
-            ) -> anyhow::Result<CommandLineLocation> {
+            ) -> buck2_error::Result<CommandLineLocation> {
                 let Self {
                     ctx,
                     relative_to,
@@ -564,7 +563,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
                 self.ctx.fs()
             }
 
-            fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf> {
+            fn next_macro_file_path(&mut self) -> buck2_error::Result<RelativePathBuf> {
                 let macro_path = self.ctx.next_macro_file_path()?;
                 if let Some(relative_to_path) = &self.relative_to {
                     Ok(relative_to_path.relative(macro_path))
@@ -609,7 +608,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
                     let re = match &pattern {
                         CmdArgsRegex::Str(pattern) => {
                             // We checked that regex is valid in replace_regex(), so unwrap is safe.
-                            re = BuckStarlarkRegex::Regular(Regex::new(pattern.as_str()).unwrap());
+                            re = StarlarkBuckRegex::Regular(Regex::new(pattern.as_str()).unwrap());
                             &re
                         }
                         CmdArgsRegex::Regex(regex) => regex,
@@ -672,7 +671,10 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
         }
     }
 
-    pub(crate) fn relative_to_path<C>(&self, ctx: &C) -> anyhow::Result<Option<RelativePathBuf>>
+    pub(crate) fn relative_to_path<C>(
+        &self,
+        ctx: &C,
+    ) -> buck2_error::Result<Option<RelativePathBuf>>
     where
         C: CommandLineContext + ?Sized,
     {
@@ -683,17 +685,14 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
 
         let origin = value
             .unpack()
-            .into_anyhow_result()
             .internal_error("Must be a valid RelativeOrigin as this was checked in the setter")?;
         let mut relative_path = origin.resolve(ctx)?;
         for _ in 0..parent {
             if !relative_path.pop() {
-                return Err(
-                    anyhow::anyhow!(CommandLineArgError::TooManyParentCalls).context(format!(
-                        "Error accessing {}-th parent of {}",
-                        parent, origin
-                    )),
-                );
+                return Err(CommandLineArgError::TooManyParentCalls).buck_error_context(format!(
+                    "Error accessing {}-th parent of {}",
+                    parent, origin
+                ));
             }
         }
 

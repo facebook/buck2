@@ -72,7 +72,7 @@ do(AppInfoFile) ->
         mod := Mod,
         env := Env,
         metadata := Metadata
-    } = AppInfo = do_parse_app_info_file(AppInfoFile),
+    } = do_parse_app_info_file(AppInfoFile),
     VerifiedTerms = check_and_normalize_template(
         Name,
         Version,
@@ -144,7 +144,7 @@ get_mod(_, undefined) ->
 get_mod(AppName, [ModuleName, StringArgs]) ->
     parse_term(
         AppName,
-        ["{", ModuleName, ",[", lists:join(",", StringArgs), "]}"],
+        ["{", ModuleName, ", ", StringArgs, "}"],
         "mod field"
     ).
 

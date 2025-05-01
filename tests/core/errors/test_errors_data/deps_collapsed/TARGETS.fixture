@@ -1,0 +1,62 @@
+load("@nano_prelude//prelude.bzl", "execution_platform", "execution_platforms", "platform")
+
+platform(
+    name = "target",
+)
+
+platform(
+    name = "exec-cfg",
+)
+
+execution_platform(
+    name = "exec",
+    platform = ":exec-cfg",
+)
+
+execution_platforms(
+    name = "exec_platforms",
+    platforms = [":exec"],
+)
+
+simple_rule(
+    name = "top",
+    default_target_platform = ":target",
+    deps = [":mid1"],
+)
+
+simple_rule(
+    name = "mid1",
+    deps = [":mid2"],
+)
+
+simple_rule(
+    name = "mid2",
+    deps = [":mid3"],
+)
+
+simple_rule(
+    name = "mid3",
+    toolchain_deps = [":toolchain1"],
+)
+
+simple_toolchain_rule(
+    name = "toolchain1",
+    deps = [":toolchain2"],
+)
+
+broken_select_in_toolchain = read_root_config("core_test_errors", "broken_select_in_toolchain") == "1"
+
+simple_toolchain_rule(
+    name = "toolchain2",
+    exec_deps = [select({})] if broken_select_in_toolchain else [":exec1"],
+)
+
+simple_rule(
+    name = "exec1",
+    deps = [":broken"],
+)
+
+simple_rule(
+    name = "broken",
+    deps = [":missing"],
+)

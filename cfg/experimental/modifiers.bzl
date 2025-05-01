@@ -5,9 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cfg/modifier:asserts.bzl?v2_only", "verify_normalized_modifier", "verify_normalized_target")
+load("@prelude//cfg/modifier:asserts.bzl", "verify_normalized_modifier", "verify_normalized_target")
 load(
-    "@prelude//cfg/modifier:types.bzl?v2_only",
+    "@prelude//cfg/modifier:types.bzl",
     "Modifier",  # @unused Used in type annotation
     "ModifiersMatch",
 )

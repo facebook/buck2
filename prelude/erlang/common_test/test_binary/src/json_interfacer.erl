@@ -12,6 +12,7 @@
 %
 %
 %
+-eqwalizer(ignore).
 
 -export([write_json_output/2, format_json/1, status_name/1]).
 
@@ -21,18 +22,23 @@
 -define(TIMEOUT, <<"TIMEOUT">>).
 -define(OMITTED, <<"OMITTED">>).
 
+-type status() :: passed | failed | skipped | timeout | omitted.
+
+-spec status(status()) -> integer().
 status(passed) -> 1;
 status(failed) -> 2;
 status(skipped) -> 3;
 status(timeout) -> 5;
 status(omitted) -> 7.
 
+-spec status_name(integer()) -> status().
 status_name(1) -> passed;
 status_name(2) -> failed;
 status_name(3) -> skipped;
 status_name(5) -> timeout;
 status_name(7) -> omitted.
 
+-spec summary(status()) -> binary().
 summary(passed) -> ?PASSED;
 summary(failed) -> ?FAILED;
 summary(skipped) -> ?SKIPPED;
@@ -42,17 +48,12 @@ summary(omitted) -> ?OMITTED.
 -type formatted_result() ::
     #{
         name := binary(),
-        status := binary(),
-        summary := integer(),
-        details := binary()
-    }
-    | #{
-        name := binary(),
-        status := binary(),
-        summary := integer(),
+        status := integer(),
+        summary := binary(),
         details := binary(),
-        endedTime := float(),
-        durationSecs := float()
+        durationSecs := float(),
+        std_out := binary(),
+        endedTime => float()
     }.
 
 -type case_result() :: cth_tpx_test_tree:case_result().
@@ -64,17 +65,17 @@ summary(omitted) -> ?OMITTED.
         ends := [formatted_result()]
     }.
 
--spec write_json_output(string(), [case_result()]) -> {ok, file:filename()}.
+-spec write_json_output(string(), [case_result()]) -> {ok, file:filename_all()}.
 write_json_output(OutputDir, TpxResults) ->
     OuptputFile = filename:join(OutputDir, "result_exec.json"),
     file:write_file(OuptputFile, format_json(TpxResults)),
     {ok, OuptputFile}.
 
--spec format_json([case_result()]) -> string().
+-spec format_json([case_result()]) -> iodata().
 format_json(TpxResults) ->
     json:encode(lists:map(fun(CaseResult) -> format_case(CaseResult) end, TpxResults)).
 
--spec format_case([case_result()]) -> [formatted_case_result()].
+-spec format_case(case_result()) -> formatted_case_result().
 format_case(
     #{
         inits := Inits,
@@ -89,7 +90,6 @@ format_case(
     }.
 
 -spec format_method_result(cth_tpx_test_tree:method_result()) -> formatted_result().
-
 format_method_result(
     #{
         name := Name,
@@ -106,8 +106,8 @@ format_method_result(
         durationSecs => End - Start,
         status => status(Outcome),
         summary => summary(Outcome),
-        details => unicode:characters_to_binary(Details),
-        std_out => unicode:characters_to_binary(StdOut)
+        details => unicode_characters_to_binary(Details),
+        std_out => unicode_characters_to_binary(StdOut)
     };
 format_method_result(
     #{
@@ -121,7 +121,13 @@ format_method_result(
         name => list_to_binary(Name),
         status => status(Outcome),
         summary => summary(Outcome),
-        details => unicode:characters_to_binary(Details),
-        std_out => unicode:characters_to_binary(StdOut),
+        details => unicode_characters_to_binary(Details),
+        std_out => unicode_characters_to_binary(StdOut),
         durationSecs => 0.0
     }.
+
+-spec unicode_characters_to_binary(io_lib:chars()) -> binary().
+unicode_characters_to_binary(Chars) ->
+    case unicode:characters_to_binary(Chars) of
+        Binary when is_binary(Binary) -> Binary
+    end.

@@ -9,8 +9,8 @@
 
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_core::bzl::ImportPath;
-use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
+use buck2_interpreter_for_build::interpreter::testing::expect_error;
 use buck2_interpreter_for_build::label::testing::label_creator;
 use indoc::indoc;
 
@@ -79,7 +79,7 @@ fn test_validation_1() {
     expect_error(
         tester.run_starlark_bzl_test(test),
         test,
-        "Expected type `artifact | cell_root",
+        "Expected type `CellPath | CellRoot | Label",
     );
 }
 

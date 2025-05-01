@@ -18,8 +18,8 @@
 use allocative::Allocative;
 use dupe::Dupe;
 
-use crate::values::layout::const_type_id::ConstTypeId;
 use crate::values::StarlarkValue;
+use crate::values::layout::const_type_id::ConstTypeId;
 
 /// Identifier of a starlark type.
 ///
@@ -67,7 +67,7 @@ impl StarlarkTypeId {
 /// `TypeId` is 16 bytes aligned on Rust 1.72 on Apple Silicon.
 /// Use this struct to put `ConstTypeId` in a `StarlarkValue`.
 // TODO(nga): remove alignment requirement from `Heap`.
-#[repr(packed(8))]
+#[repr(C, packed(8))]
 #[derive(Allocative, Eq, Clone, Copy, Dupe, Debug)]
 #[allocative(skip)] // There are no heap allocations in this struct.
 pub(crate) struct StarlarkTypeIdAligned {

@@ -24,25 +24,17 @@ use std::slice;
 
 use allocative::Allocative;
 use display_container::fmt_container;
-use serde::ser::SerializeTuple;
 use serde::Serialize;
+use serde::ser::SerializeTuple;
 use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::coerce::coerce;
 use crate::coerce::Coerce;
+use crate::coerce::coerce;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::typing::Ty;
-use crate::values::comparison::compare_slice;
-use crate::values::comparison::equals_slice;
-use crate::values::index::apply_slice;
-use crate::values::index::convert_index;
-use crate::values::layout::avalue::alloc_static;
-use crate::values::layout::avalue::AValueFrozenTuple;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
@@ -51,6 +43,14 @@ use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
+use crate::values::comparison::compare_slice;
+use crate::values::comparison::equals_slice;
+use crate::values::index::apply_slice;
+use crate::values::index::convert_index;
+use crate::values::layout::avalue::AValueFrozenTuple;
+use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::heap::repr::AValueRepr;
 
 /// Define the tuple type. See [`Tuple`] and [`FrozenTuple`] as the two aliases.
 #[repr(C)]

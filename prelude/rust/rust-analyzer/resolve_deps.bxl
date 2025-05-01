@@ -9,7 +9,6 @@ load("@prelude//linking:link_info.bzl", "LinkStrategy")
 load("@prelude//rust:build_params.bzl", "MetadataKind")
 load("@prelude//rust:link_info.bzl", "RustLinkInfo")
 load("@prelude//rust/rust-analyzer:provider.bzl", "RustAnalyzerInfo")
-load("@prelude//utils:set.bzl", "set")
 load("@prelude//utils:type_defs.bzl", "is_list")
 
 TargetInfo = dict[str, typing.Any]
@@ -41,7 +40,10 @@ def _process_target_config(
         target: bxl.ConfiguredTargetNode,
         analysis: bxl.AnalysisResult,
         in_workspace: bool) -> TargetInfo:
+    target = target.unwrap_forward()
+
     providers = analysis.providers()
+    ra_info = providers[RustAnalyzerInfo]
 
     # convert all source paths to absolute paths
     resolved_attrs = target.resolved_attrs_eager(ctx)
@@ -55,7 +57,7 @@ def _process_target_config(
     # remove the configured platform from the deps. for example,
     # `fbsource//third-party/rust:tracing (ovr_config//platform/linux:x86_64-fbcode-platform010-clang-9f23200ddcddc3cb)`
     # becomes `fbsource//third-party/rust:tracing`.
-    deps = [dep.label.raw_target() for dep in providers[RustAnalyzerInfo].rust_deps]
+    deps = [dep.label.raw_target() for dep in ra_info.rust_deps]
 
     # Grab only the values that the the gen-rules are being mapped to.
     mapped_srcs = {}
@@ -78,21 +80,14 @@ def _process_target_config(
     for test in resolved_attrs.tests:
         tests.append(test.raw_target())
 
-    # materialize a file containing the dynamic crate name
-    crate_dynamic = getattr(resolved_attrs, "crate_dynamic", None)
-    if crate_dynamic:
-        crate_dynamic = crate_dynamic.get(DefaultInfo).default_outputs[0]
-
-    # resolved_attrs.env maps str to various output types (str | string_with_macros | artifact).
-    # Wrapping with cmd_args here to ensure the value is always a flat string and not a list
-    env = {k: cmd_args(v, delimiter = "") for k, v in resolved_attrs.env.items()}
+    env = {k: cmd_args(v, delimiter = "") for k, v in ra_info.env.items()}
 
     # copy over the absolute paths and raw targets into the output
     attrs = target.attrs_eager()
     return {
-        "crate": _get_nullable_attr(attrs, "crate"),
-        "crate_dynamic": crate_dynamic,
-        "crate_root": providers[RustAnalyzerInfo].crate_root,
+        "crate": ra_info.crate.simple,
+        "crate_dynamic": ra_info.crate.dynamic,
+        "crate_root": ra_info.crate_root,
         "deps": deps,
         "edition": _get_nullable_attr(attrs, "edition"),
         "env": env,
@@ -111,17 +106,19 @@ def _process_target_config(
         "tests": tests,
     }
 
-def cquery_deps(
+def gather_deps(
         ctx: bxl.Context,
-        top_targets: list[TargetLabel],
+        target_analysis: dict[Label, bxl.AnalysisResult],
         workspaces: list[TargetLabel]) -> dict[TargetLabel, TargetInfo]:
-    targets = set([])
-    analysis_set = ctx.analysis(top_targets)
-    for _target, analysis in analysis_set.items():
+    targets = set()
+    for _target, analysis in target_analysis.items():
         info = analysis.providers().get(RustAnalyzerInfo)
         if info:
-            targets.update(info.transitive_target_set)
-    outputs = ctx.target_universe(targets.list()).target_set()
+            for target_set in info.transitive_target_set:
+                targets.add(target_set)
+
+    #TODO(romanp) support set as target_universe arg
+    outputs = ctx.target_universe(list(targets)).target_set()
     out = {}
 
     # Eagerly analyze targets
@@ -129,8 +126,9 @@ def cquery_deps(
 
     for target in outputs:
         attrs = target.attrs_lazy()
+        label = target.label.with_sub_target()
 
-        in_workspace = target.label.raw_target() in top_targets
+        in_workspace = label in target_analysis
         candidate_workspaces = attrs.get("_workspaces")
         if candidate_workspaces:
             for candidate_workspace in candidate_workspaces.value():
@@ -151,30 +149,29 @@ def cquery_deps(
 
 def expand_proc_macros(
         ctx: bxl.Context,
-        targets: list[TargetLabel]) -> dict[TargetLabel, MacroOutput]:
-    target_universe = ctx.target_universe(targets).target_set()
-    targets = ctx.cquery().deps(target_universe)
-    targets = ctx.cquery().kind("^(rust_binary|rust_library)$", targets)
+        target_analysis: dict[Label, bxl.AnalysisResult]) -> dict[TargetLabel, MacroOutput]:
+    macros = set()
+    for _target, analysis in target_analysis.items():
+        info = analysis.providers().get(RustAnalyzerInfo)
+        if info:
+            macros.update([d.label for d in info.available_proc_macros])
 
+    proc_macro_analysis = ctx.analysis(list(macros))
     out = {}
-    for target in targets:
-        attrs = target.resolved_attrs_eager(ctx)
-        proc_macro = getattr(attrs, "proc_macro", False)
-        if proc_macro:
-            analysis = ctx.analysis(target)
-            rlib = analysis.providers()[RustLinkInfo].strategies[LinkStrategy("shared")].outputs[MetadataKind("link")]
-            label = target.label.raw_target()
-            out[label] = MacroOutput(
-                actual = label,
-                dylib = rlib,
-            )
+    for target, analysis in proc_macro_analysis.items():
+        rlib = analysis.providers()[RustLinkInfo].strategies[LinkStrategy("shared")].outputs[MetadataKind("link")]
+        label = target.raw_target()
+        out[label] = MacroOutput(
+            actual = label,
+            dylib = rlib,
+        )
     return out
 
 # Returns a list of all the expanded targets including any workspaces, followed by just the workspaces
 def expand_targets(
         ctx: bxl.Context,
         targets: list[TargetLabel],
-        exclude_workspaces: bool) -> (list[TargetLabel], list[TargetLabel]):
+        exclude_workspaces: bool) -> (dict[Label, bxl.AnalysisResult], list[TargetLabel]):
     target_universe = ctx.target_universe(targets).target_set()
     kind_target_list = ctx.cquery().kind("^(rust_binary|rust_library|rust_test|alias)$", target_universe)
 
@@ -195,7 +192,7 @@ def expand_targets(
 
                     possible_workspaces.setdefault(workspace.raw_target(), []).append(label)
 
-    workspace_analysis = ctx.analysis(possible_workspaces.keys())
+    workspace_analysis = ctx.analysis(ctx.target_universe(possible_workspaces.keys()).target_set())
 
     active_workspaces = {}
     for workspace_label, analysis in workspace_analysis.items():
@@ -203,7 +200,7 @@ def expand_targets(
         candidate_deps = possible_workspaces[workspace]
         workspace_info = analysis.providers().get(RustAnalyzerInfo)
         if workspace_info:
-            workspace_deps = {t: () for t in workspace_info.transitive_target_set}
+            workspace_deps = {t.raw_target(): () for t in workspace_info.transitive_target_set}
         else:
             workspace_deps = {}
 
@@ -219,23 +216,24 @@ def expand_targets(
                 # FIXME: Add a test for this. It's currently a bit hard to test because proc macros
                 # in the prelude are a bit hard in general
                 expanded_targets.pop(d, None)
-
-    return dedupe(sorted(expanded_targets.keys() + active_workspaces.keys())), sorted(possible_workspaces.keys())
+    target_set = ctx.target_universe(expanded_targets.keys() + active_workspaces.keys()).target_set()
+    target_analysis = ctx.analysis(target_set)
+    return target_analysis, sorted(possible_workspaces.keys())
 
 def resolve_targets_impl(ctx: bxl.Context) -> None:
     # equivalent of `flat_map`ing
     targets = [target for sublist in ctx.cli_args.targets for target in sublist]
     actions = ctx.bxl_actions().actions
 
-    expanded_targets, workspaces = expand_targets(ctx, targets, ctx.cli_args.exclude_workspaces)
-    queried_proc_macros = expand_proc_macros(ctx, expanded_targets)
-    resolved_deps = cquery_deps(ctx, expanded_targets, workspaces)
+    target_analysis, workspaces = expand_targets(ctx, targets, ctx.cli_args.exclude_workspaces)
+    queried_proc_macros = expand_proc_macros(ctx, target_analysis)
+    resolved_deps = gather_deps(ctx, target_analysis, workspaces)
 
     artifact = actions.declare_output("resolve_targets.json")
     artifacts = actions.write_json(
         artifact,
         ExpandedAndResolved(
-            expanded_targets = expanded_targets,
+            expanded_targets = sorted([t.raw_target() for t in target_analysis.keys()]),
             queried_proc_macros = queried_proc_macros,
             resolved_deps = resolved_deps,
         ),

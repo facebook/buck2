@@ -9,8 +9,8 @@
 
 use buck2_client_ctx::path_arg::PathArg;
 
-use crate::commands::profile::profile_mode_to_profile;
 use crate::commands::profile::BuckProfileMode;
+use crate::commands::profile::profile_mode_to_profile;
 
 /// Starlark profiling options
 #[derive(Debug, Clone, clap::Parser)]

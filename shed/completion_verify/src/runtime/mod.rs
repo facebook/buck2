@@ -32,6 +32,7 @@
 use std::ffi::OsStr;
 use std::io::Read as _;
 use std::io::Write as _;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
@@ -40,36 +41,16 @@ use ptyprocess::PtyProcess;
 
 use crate::Shell;
 
-/// Terminal that shell's will run completions in
-#[derive(Debug)]
-pub(crate) struct Term {
-    width: u16,
-    height: u16,
-}
-
-impl Term {
-    pub(crate) fn new() -> Self {
-        Self {
-            width: 120,
-            height: 60,
-        }
-    }
-}
-
 /// Zsh runtime
 #[derive(Debug)]
 pub(crate) struct ZshRuntime {
     home: PathBuf,
-    timeout: Duration,
 }
 
 impl ZshRuntime {
     /// Reuse an existing runtime's home
     pub(crate) fn with_home(home: PathBuf) -> std::io::Result<Self> {
-        Ok(Self {
-            home,
-            timeout: Duration::from_millis(2000),
-        })
+        Ok(Self { home })
     }
 
     /// Register a completion script
@@ -80,12 +61,12 @@ impl ZshRuntime {
     }
 
     /// Get the output from typing `input` into the shell
-    pub(crate) fn complete(&mut self, input: &str, term: &Term) -> std::io::Result<String> {
+    pub(crate) fn complete(&self, input: &str) -> std::io::Result<String> {
         let mut command = Shell::Zsh.find()?;
         command.arg("--noglobalrcs");
         command.env("TERM", "xterm").env("ZDOTDIR", &self.home);
         let echo = false;
-        comptest(command, echo, input, term, self.timeout)
+        comptest(command, echo, input, &self.home)
     }
 }
 
@@ -94,7 +75,6 @@ impl ZshRuntime {
 pub(crate) struct BashRuntime {
     home: PathBuf,
     config: PathBuf,
-    timeout: Duration,
 }
 
 impl BashRuntime {
@@ -105,8 +85,6 @@ impl BashRuntime {
         Ok(Self {
             home,
             config: config_path,
-            // Bash needs an artifically high timeout because of echo being enabled
-            timeout: Duration::from_millis(2000),
         })
     }
 
@@ -120,7 +98,7 @@ impl BashRuntime {
     }
 
     /// Get the output from typing `input` into the shell
-    pub(crate) fn complete(&mut self, input: &str, term: &Term) -> std::io::Result<String> {
+    pub(crate) fn complete(&self, input: &str) -> std::io::Result<String> {
         let mut command = Shell::Bash.find()?;
         let inputrc_path = self.home.join(".inputrc");
         command
@@ -133,7 +111,7 @@ impl BashRuntime {
                 self.config.as_os_str(),
             ]);
         let echo = !input.contains("\t\t");
-        comptest(command, echo, input, term, self.timeout)
+        comptest(command, echo, input, &self.home)
     }
 }
 
@@ -141,7 +119,6 @@ impl BashRuntime {
 #[derive(Debug)]
 pub(crate) struct FishRuntime {
     home: PathBuf,
-    timeout: Duration,
 }
 
 impl FishRuntime {
@@ -168,10 +145,7 @@ end;
 
     /// Reuse an existing runtime's home
     pub(crate) fn with_home(home: PathBuf) -> std::io::Result<Self> {
-        Ok(Self {
-            home,
-            timeout: Duration::from_millis(2000),
-        })
+        Ok(Self { home })
     }
 
     /// Register a completion script
@@ -182,36 +156,42 @@ end;
     }
 
     /// Get the output from typing `input` into the shell
-    pub(crate) fn complete(&mut self, input: &str, term: &Term) -> std::io::Result<String> {
+    pub(crate) fn complete(&self, input: &str) -> std::io::Result<String> {
         let mut command = Shell::Fish.find()?;
         command
             // fish requires TERM to be set.
             .env("TERM", "xterm")
             .env("XDG_CONFIG_HOME", &self.home);
         let echo = false;
-        comptest(command, echo, input, term, self.timeout)
+        comptest(command, echo, input, &self.home)
     }
 }
 
+const TERM_WIDTH: u16 = 120;
+const TERM_HEIGHT: u16 = 60;
+
 fn comptest(
-    command: Command,
+    mut command: Command,
     echo: bool,
     input: &str,
-    term: &Term,
-    timeout: Duration,
+    lockfile_dir: &Path,
 ) -> std::io::Result<String> {
     #![allow(clippy::unwrap_used)] // some unwraps need extra investigation
+
+    let lockfile = lockfile_dir.join("completion_verify_lockfile");
+
+    command.env("COMPLETION_VERIFY_LOCKFILE", &lockfile);
 
     // spawn a new process, pass it the input was.
     //
     // This triggers completion loading process which takes some time in shell so we should let it
     // run for some time
     let mut process = PtyProcess::spawn(command)?;
-    process.set_window_size(term.width, term.height)?;
+    process.set_window_size(TERM_WIDTH, TERM_HEIGHT)?;
     // for some reason bash does not produce anything with echo disabled...
     process.set_echo(echo, None)?;
 
-    let mut parser = vt100::Parser::new(term.height, term.width, 0);
+    let mut parser = vt100::Parser::new(TERM_HEIGHT, TERM_WIDTH, 0);
 
     let mut stream = process.get_raw_handle()?;
     // pass the completion input
@@ -224,15 +204,25 @@ fn comptest(
     let shutdown_ref = &shutdown;
     std::thread::scope(|scope| {
         scope.spawn(move || {
-            // since we don't know when exactly shell is done completing the idea is to wait until
-            // something at all is produced, then wait for some duration since the last produced chunk.
+            // The lockfile can be created by a completions impl to indicate that it hasn't finished
+            // yet
+            let check_lockfile = || lockfile.exists();
+
+            // First wait for anything to be produced. This is usually the prompt
             rcv.recv().unwrap();
-            while rcv.recv_timeout(timeout).is_ok() {}
+            // Then, wait for a potentially extended amount of time for the next data to be
+            // produced. This will only not happen if there are no completions to output
+            if rcv.recv_timeout(Duration::from_millis(5000)).is_ok() || check_lockfile() {
+                // Finally, wait for shorter intervals until new output stops being produced
+                while rcv.recv_timeout(Duration::from_millis(1000)).is_ok() || check_lockfile() {}
+            }
+
             shutdown_ref.store(true, std::sync::atomic::Ordering::SeqCst);
             process.exit(false).unwrap();
         });
 
         let mut buf = [0; 2048];
+        let mut seen_prompt = false;
         while let Ok(n) = stream.read(&mut buf) {
             if shutdown.load(std::sync::atomic::Ordering::SeqCst) {
                 // fish clears completions on process teardown
@@ -242,8 +232,21 @@ fn comptest(
             if buf.is_empty() {
                 break;
             }
-            let _ = snd.send(());
             parser.process(buf);
+
+            // We know that we will see at least one prompt, so we never need to consider exiting
+            // before that comes through
+            match seen_prompt {
+                false => {
+                    if buf.contains(&b'%') {
+                        seen_prompt = true;
+                        _ = snd.send(());
+                    }
+                }
+                true => {
+                    _ = snd.send(());
+                }
+            }
         }
     });
 

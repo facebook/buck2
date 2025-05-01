@@ -5,13 +5,13 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":filter.bxl", "filter_root_targets")
+load(":filter.bxl", "get_unfiltered_root_targets")
 
 def _owners_entry_point(ctx: bxl.Context) -> None:
     query = ctx.uquery()
     root = ctx.root()
 
-    owning_targets = filter_root_targets(query, query.owner(ctx.cli_args.source))
+    owning_targets = get_unfiltered_root_targets(query, query.owner(ctx.cli_args.source))
 
     files = []
     if len(owning_targets) > 0:

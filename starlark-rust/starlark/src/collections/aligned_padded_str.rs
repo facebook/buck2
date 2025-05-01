@@ -43,7 +43,7 @@ impl<'a> AlignedPaddedStr<'a> {
     /// Len of string in words.
     #[inline]
     fn len_words(self) -> usize {
-        (self.len + mem::size_of::<usize>() - 1) / mem::size_of::<usize>()
+        self.len.div_ceil(mem::size_of::<usize>())
     }
 }
 

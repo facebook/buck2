@@ -10,11 +10,11 @@ version = "0.1.0"
 
 [dependencies]
 allocative = { workspace = true }
-anyhow = { workspace = true }
 async-trait = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
 dice = { workspace = true }
+dice_error = { workspace = true }
 dupe = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
@@ -26,4 +26,3 @@ buck2_build_api = { workspace = true }
 buck2_core = { workspace = true }
 buck2_error = { workspace = true }
 buck2_execute = { workspace = true }
-buck2_node = { workspace = true }

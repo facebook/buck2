@@ -23,7 +23,7 @@ pub(crate) fn metadata_content(
     fs: &ArtifactFs,
     inputs: &[&ArtifactGroupValues],
     digest_config: DigestConfig,
-) -> anyhow::Result<(PathsWithDigestBlobData, TrackedFileDigest)> {
+) -> buck2_error::Result<(PathsWithDigestBlobData, TrackedFileDigest)> {
     let mut blob_builder = PathsWithDigestBuilder::default();
 
     let mut builder = ActionDirectoryBuilder::empty();

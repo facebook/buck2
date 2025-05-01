@@ -162,11 +162,9 @@
 //! });
 //! ```
 
-#![feature(entry_insert)]
 #![feature(fn_traits)]
 #![feature(test)]
 #![feature(map_try_insert)]
-#![feature(map_entry_replace)]
 #![feature(result_flattening)]
 // This sometimes flag false positives where proc-macros expand pass by value into pass by refs
 #![allow(clippy::trivially_copy_pass_by_ref)]
@@ -187,7 +185,6 @@ mod legacy;
 pub(crate) mod metrics;
 mod opaque;
 pub(crate) mod owned;
-pub(crate) mod result;
 pub(crate) mod stats;
 mod transaction;
 mod transaction_update;
@@ -198,10 +195,9 @@ use std::io::Write;
 use std::sync::Arc;
 
 use allocative::Allocative;
-pub use buck2_futures::cancellation::future::CancellationHandle; // expose cancellation handle as api
 pub use buck2_futures::cancellation::CancellationContext; // expose cancellation context as api
+pub use buck2_futures::cancellation::CancellationHandle; // expose cancellation handle as api
 pub use buck2_futures::spawn::CancellableJoinHandle; // expose cancellation context as api
-pub use buck2_futures::spawn::FutureAndCancellationHandle;
 pub use buck2_futures::spawn::WeakFutureError; // expose future errors as api
 pub(crate) type HashMap<K, V> = std::collections::HashMap<K, V, fxhash::FxBuildHasher>;
 pub(crate) type HashSet<K> = std::collections::HashSet<K, fxhash::FxBuildHasher>;
@@ -215,13 +211,18 @@ pub use crate::api::computations::DiceComputations;
 pub use crate::api::computations::LinearRecomputeDiceComputations;
 pub use crate::api::cycles::DetectCycles;
 pub use crate::api::data::DiceData;
+pub use crate::api::demand::Demand;
 pub use crate::api::dice::Dice;
 pub use crate::api::dice::DiceDataBuilder;
-pub use crate::api::error::DiceError;
-pub use crate::api::error::DiceResult;
+pub use crate::api::dyn_key::DynKey;
 pub use crate::api::events::DiceEvent;
 pub use crate::api::events::DiceEventListener;
 pub use crate::api::injected::InjectedKey;
+pub use crate::api::invalidation_tracking::DiceInvalidationPath;
+pub use crate::api::invalidation_tracking::DiceKeyTrackedInvalidationPaths;
+pub use crate::api::invalidation_tracking::DiceTrackedInvalidationPath;
+pub use crate::api::invalidation_tracking::InvalidationPathEntry;
+pub use crate::api::key::InvalidationSourcePriority;
 pub use crate::api::key::Key;
 pub use crate::api::opaque::OpaqueValue;
 pub use crate::api::projection::DiceProjectionComputations;

@@ -8,6 +8,7 @@
 %% % @format
 
 -module(test_runner).
+-eqwalizer(ignore).
 
 -include_lib("common/include/tpx_records.hrl").
 -include_lib("common/include/buck_ct_records.hrl").
@@ -42,7 +43,8 @@ run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing) ->
                 common_app_env = TestInfo#test_info.common_app_env,
                 erl_cmd = TestInfo#test_info.erl_cmd,
                 extra_flags = TestInfo#test_info.extra_flags,
-                artifact_annotation_mfa = TestInfo#test_info.artifact_annotation_mfa
+                artifact_annotation_mfa = TestInfo#test_info.artifact_annotation_mfa,
+                raw_target = TestInfo#test_info.raw_target
             })
     end.
 
@@ -100,15 +102,13 @@ run_test(
                         )
                     );
                 {run_succeed, Result} ->
+                    ensure_test_exec_stopped(),
                     test_run_succeed(TestEnv, Result);
                 {run_failed, Result} ->
+                    ensure_test_exec_stopped(),
                     test_run_fail(TestEnv, Result)
             after max_timeout(TestEnv) ->
-                {Pid, Monitor} = erlang:spawn_monitor(fun() -> application:stop(test_exec) end),
-                receive
-                    {'DOWN', Monitor, process, Pid, _} -> ok
-                after 5000 -> ok
-                end,
+                ensure_test_exec_stopped(),
                 ErrorMsg =
                     "\n***************************************************************\n"
                     "* the suite timed out, all tests will be reported as failure. *\n"
@@ -123,6 +123,14 @@ run_test(
             test_run_fail(
                 TestEnv, ErrorMsg
             )
+    end.
+
+-spec ensure_test_exec_stopped() -> ok.
+ensure_test_exec_stopped() ->
+    {Pid, Monitor} = erlang:spawn_monitor(fun() -> application:stop(test_exec) end),
+    receive
+        {'DOWN', Monitor, process, Pid, _} -> ok
+    after 5000 -> ok
     end.
 
 %% @doc Provides xml result as specified by the tpx protocol when test failed to ran.
@@ -169,7 +177,9 @@ provide_output_file(
                 collect_results_broken_run(
                     Tests, Suite, "internal crash", ResultExec, OutLog
                 );
-            Other when Other =:= passed orelse Other =:= timeout ->
+            timeout ->
+                collect_results_broken_run(Tests, Suite, "", ResultExec, StdOut);
+            passed ->
                 % Here we either passed or timeout.
                 case file:read_file(ResultsFile) of
                     {ok, JsonFile} ->
@@ -191,31 +201,12 @@ provide_output_file(
                                     Tests, Suite, ErrorMsg, ResultExec, OutLog
                                 );
                             _ ->
-                                case Status of
-                                    timeout ->
-                                        % The ct node crashed after having produced results:
-                                        % some post-processing functionalities might be missing.
-                                        % We create a .timeout file at the root of the exec dir
-                                        % To alert tpx on the situation.
-                                        {ok, FileHandle} = file:open(
-                                            filename:join(OutputDir, ".timeout"), [write]
-                                        ),
-                                        io:format(FileHandle, "~p", [Suite]);
-                                    _ ->
-                                        ok
-                                end,
                                 collect_results_fine_run(TreeResults, Tests)
                         end;
                     {error, _Reason} ->
-                        ErrorMsg =
-                            case Status of
-                                timeout ->
-                                    undefined;
-                                _ ->
-                                    io_lib:format("ct failed to produced results file ~p", [
-                                        ResultsFile
-                                    ])
-                            end,
+                        ErrorMsg = io_lib:format("ct failed to produced results file ~p", [
+                            ResultsFile
+                        ]),
                         collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, OutLog)
                 end
         end,
@@ -250,7 +241,7 @@ trimmed_content_file(File) ->
     end.
 
 %% @doc Provide tpx with a result when CT failed to provide results for tests.
--spec collect_results_broken_run([atom()], atom(), string() | undefined, term(), binary()) ->
+-spec collect_results_broken_run([#ct_test{}], atom(), string() | undefined, term(), binary()) ->
     [cth_tpx_test_tree:case_result()].
 
 collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, StdOut) ->

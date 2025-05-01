@@ -7,14 +7,14 @@
 
 load("@prelude//rust:outputs.bzl", "RustcExtraOutputsInfo")
 
-def check_targets_impl(ctx: bxl.Context) -> None:
+def _check_targets_impl(ctx: bxl.Context) -> list[bxl.EnsuredArtifact]:
     uquery_owners = ctx.uquery().owner(ctx.cli_args.file)
     target_universe = ctx.target_universe(uquery_owners)
     owners = ctx.cquery().owner(ctx.cli_args.file, target_universe.target_set())
     nodes = ctx.cquery().kind("^(rust_binary|rust_library|rust_test)$", owners)
 
     if len(nodes) == 0:
-        return
+        return []
 
     analysis = ctx.analysis(nodes).values()
 
@@ -28,15 +28,23 @@ def check_targets_impl(ctx: bxl.Context) -> None:
 
     art_output = ctx.output.ensure_multiple(artifacts)
 
-    out = [
+    return [
         artifact.abs_path()
         for artifact in art_output
     ]
 
+def _run(ctx: bxl.Context) -> None:
+    diagnostic_paths = _check_targets_impl(ctx)
+
+    out = {
+        "diagnostic_paths": diagnostic_paths,
+        "project_root": ctx.root(),
+    }
+
     ctx.output.print_json(out)
 
 check = bxl_main(
-    impl = check_targets_impl,
+    impl = _run,
     cli_args = {
         "file": cli_args.string(),
         "use-clippy": cli_args.bool(),

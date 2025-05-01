@@ -12,8 +12,8 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::bzl::ImportPath;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::paths::path::StarlarkPath;
 use derive_more::Display;
@@ -21,8 +21,8 @@ use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::coerce;
 use starlark::coerce::Coerce;
+use starlark::coerce::coerce;
 use starlark::collections::SmallMap;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
@@ -31,11 +31,10 @@ use starlark::typing::Ty;
 use starlark::typing::TyStarlarkValue;
 use starlark::typing::TyUser;
 use starlark::typing::TyUserParams;
-use starlark::values::starlark_value;
-use starlark::values::typing::TypeInstanceId;
-use starlark::values::typing::TypeMatcherFactory;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
@@ -43,12 +42,20 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
+use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::list::ListType;
+use starlark::values::starlark_value;
+use starlark::values::typing::FrozenStarlarkCallable;
+use starlark::values::typing::StarlarkCallableChecked;
+use starlark::values::typing::TypeInstanceId;
+use starlark::values::typing::TypeMatcherFactory;
 
-use crate::interpreter::rule_defs::transitive_set::transitive_set::TransitiveSetMatcher;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
+use crate::interpreter::rule_defs::transitive_set::transitive_set::TransitiveSetMatcher;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum TransitiveSetDefinitionError {
     #[error("`transitive_set()` can only be used in `bzl` files")]
     TransitiveSetOnlyInBzl,
@@ -81,7 +88,7 @@ impl TransitiveSetProjectionKind {
 #[repr(C)]
 pub struct TransitiveSetProjectionSpec<V: ValueLifetimeless> {
     pub kind: TransitiveSetProjectionKind,
-    pub projection: V,
+    pub projection: ValueOfUncheckedGeneric<V, FrozenStarlarkCallable<(FrozenValue,), FrozenValue>>,
 }
 
 /// A unique identity for a given [`TransitiveSetDefinition`].
@@ -122,7 +129,13 @@ pub struct TransitiveSetOperationsGen<V: ValueLifetimeless> {
 
     /// Callables that will reduce the values contained in transitive sets to a single value per
     /// node. This can be used to e.g. aggregate flags throughout a transitive set;
-    pub(crate) reductions: SmallMap<String, V>,
+    pub(crate) reductions: SmallMap<
+        String,
+        ValueOfUncheckedGeneric<
+            V,
+            FrozenStarlarkCallable<(ListType<FrozenValue>, FrozenValue), FrozenValue>,
+        >,
+    >,
 }
 
 pub type TransitiveSetOperations<'v> = TransitiveSetOperationsGen<Value<'v>>;
@@ -145,7 +158,7 @@ impl<V: ValueLifetimeless> TransitiveSetOperationsGen<V> {
         &self,
         kind: TransitiveSetProjectionKind,
         proj: &str,
-    ) -> anyhow::Result<usize> {
+    ) -> buck2_error::Result<usize> {
         let index = match self.projections.get_index_of(proj) {
             Some(index) => index,
             None => {
@@ -211,7 +224,7 @@ impl<'v> AllocValue<'v> for TransitiveSetDefinition<'v> {
     }
 }
 
-#[starlark_value(type = "transitive_set_definition")]
+#[starlark_value(type = "TransitiveSetDefinition")]
 impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
     type Canonical = FrozenTransitiveSetDefinition;
 
@@ -239,7 +252,7 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
                     ..TyUserParams::default()
                 },
             )?);
-            anyhow::Ok(TransitiveSetDefinitionExported {
+            buck2_error::Ok(TransitiveSetDefinitionExported {
                 id,
                 set_ty,
                 set_type_instance_id,
@@ -261,7 +274,7 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
             let typ = self
                 .exported
                 .get()
-                .map_or("transitive_set_definition", |exported| {
+                .map_or("TransitiveSetDefinition", |exported| {
                     exported.id.name.as_str()
                 });
             Some(heap.alloc(typ))
@@ -274,7 +287,7 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
         let exported = self
             .exported
             .get()
-            .context("cannot hash a transitive_set_definition without id")?;
+            .buck_error_context("cannot hash a transitive_set_definition without id")?;
         exported.id.hash(hasher);
         Ok(())
     }
@@ -311,7 +324,7 @@ impl Serialize for FrozenTransitiveSetDefinition {
     }
 }
 
-#[starlark_value(type = "transitive_set_definition")]
+#[starlark_value(type = "TransitiveSetDefinition")]
 impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition {
     type Canonical = Self;
 
@@ -347,7 +360,7 @@ starlark_simple_value!(FrozenTransitiveSetDefinition);
 impl<'v> Freeze for TransitiveSetDefinition<'v> {
     type Frozen = FrozenTransitiveSetDefinition;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let Self {
             exported,
             module_id: _,
@@ -358,7 +371,9 @@ impl<'v> Freeze for TransitiveSetDefinition<'v> {
             Some(x) => x,
             None => {
                 // Unfortunately we have no name or location for the definition at this point.
-                return Err(TransitiveSetError::TransitiveSetNotAssigned.into());
+                return Err(FreezeError::new(
+                    TransitiveSetError::TransitiveSetNotAssigned.to_string(),
+                ));
             }
         };
 
@@ -410,12 +425,20 @@ impl<'v> TransitiveSetDefinitionLike<'v> for FrozenTransitiveSetDefinition {
 #[starlark_module]
 pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
     fn transitive_set<'v>(
-        #[starlark(require = named)] args_projections: Option<SmallMap<String, Value<'v>>>,
-        #[starlark(require = named)] json_projections: Option<SmallMap<String, Value<'v>>>,
-        #[starlark(require = named)] reductions: Option<SmallMap<String, Value<'v>>>,
+        #[starlark(require = named)] args_projections: Option<
+            SmallMap<String, StarlarkCallableChecked<'v, (Value<'v>,), Value<'v>>>,
+        >,
+        #[starlark(require = named)] json_projections: Option<
+            SmallMap<String, StarlarkCallableChecked<'v, (Value<'v>,), Value<'v>>>,
+        >,
+        #[starlark(require = named)] reductions: Option<
+            SmallMap<
+                String,
+                StarlarkCallableChecked<'v, (ListType<Value<'v>>, Value<'v>), Value<'v>>,
+            >,
+        >,
         eval: &mut Evaluator,
-    ) -> anyhow::Result<TransitiveSetDefinition<'v>> {
-        // TODO(cjhopman): Reductions could do similar signature checking.
+    ) -> starlark::Result<TransitiveSetDefinition<'v>> {
         let projections: SmallMap<_, _> = args_projections
             .into_iter()
             .flat_map(|v| v.into_iter())
@@ -424,7 +447,7 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
                     k,
                     TransitiveSetProjectionSpec {
                         kind: TransitiveSetProjectionKind::Args,
-                        projection: v,
+                        projection: ValueOfUncheckedGeneric::new(v.0),
                     },
                 )
             })
@@ -437,37 +460,33 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
                             k,
                             TransitiveSetProjectionSpec {
                                 kind: TransitiveSetProjectionKind::Json,
-                                projection: v,
+                                projection: ValueOfUncheckedGeneric::new(v.0),
                             },
                         )
                     }),
             )
             .collect();
 
-        // Both kinds of projections take functions with the same signature.
-        for (name, spec) in projections.iter() {
-            // We should probably be able to require that the projection returns a parameters_spec, but
-            // we don't depend on this type-checking and we'd just error out later when calling it if it
-            // were wrong.
-            if let Some(v) = spec.projection.parameters_spec() {
-                if v.len() != 1 {
-                    return Err(TransitiveSetError::ProjectionSignatureError {
-                        name: name.clone(),
-                    }
-                    .into());
-                }
-            };
-        }
+        let reductions = reductions
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(k, v)| (k, ValueOfUncheckedGeneric::new(v.0)))
+            .collect();
 
         let starlark_path: StarlarkPath = starlark_path_from_build_context(eval)?;
         Ok(TransitiveSetDefinition::new(
             match starlark_path {
                 StarlarkPath::LoadFile(import_path) => import_path.clone(),
-                _ => return Err(TransitiveSetDefinitionError::TransitiveSetOnlyInBzl.into()),
+                _ => {
+                    return Err(buck2_error::Error::from(
+                        TransitiveSetDefinitionError::TransitiveSetOnlyInBzl,
+                    )
+                    .into());
+                }
             },
             TransitiveSetOperations {
                 projections,
-                reductions: reductions.unwrap_or_default(),
+                reductions,
             },
         ))
     }

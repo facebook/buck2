@@ -1,6 +1,0 @@
-load(":rules.bzl", "foo_platform")
-
-foo_platform(
-    name = "platform1",
-    visibility = ["PUBLIC"],
-)

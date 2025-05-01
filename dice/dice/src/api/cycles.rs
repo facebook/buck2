@@ -15,7 +15,6 @@ use std::str::FromStr;
 use allocative::Allocative;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
-use thiserror::Error;
 
 #[derive(Clone, Dupe, Copy, Debug, VariantName, Allocative)]
 pub enum DetectCycles {
@@ -23,12 +22,8 @@ pub enum DetectCycles {
     Disabled,
 }
 
-#[derive(Error, Debug)]
-#[error("Invalid type of DetectCycles: `{0}`")]
-pub struct InvalidType(String);
-
 impl FromStr for DetectCycles {
-    type Err = InvalidType;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.eq_ignore_ascii_case("ENABLED") {
@@ -36,7 +31,7 @@ impl FromStr for DetectCycles {
         } else if s.eq_ignore_ascii_case("DISABLED") {
             Ok(DetectCycles::Disabled)
         } else {
-            Err(InvalidType(s.to_owned()))
+            Err(format!("Invalid type of DetectCycles: `{s}`"))
         }
     }
 }
@@ -59,9 +54,13 @@ mod tests {
             "DISABLED".parse::<DetectCycles>(),
             Ok(DetectCycles::Disabled)
         );
-        assert_matches!(
-            "foo".parse::<DetectCycles>(),
-            Err(InvalidType(x)) if x == "foo"
+
+        let invalid = "foo".parse::<DetectCycles>();
+        assert!(invalid.is_err());
+        assert!(
+            invalid
+                .unwrap_err()
+                .contains("Invalid type of DetectCycles: `foo`")
         );
     }
 }

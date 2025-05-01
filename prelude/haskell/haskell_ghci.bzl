@@ -190,7 +190,7 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
     # Need to exclude all transitive deps of excluded deps
     all_nodes_to_exclude = depth_first_traversal(
         dep_graph,
-        [dep.label for dep in preload_deps],
+        [dep[LinkableGraph].label for dep in preload_deps if LinkableGraph in dep],
     )
 
     # Body nodes should support haskell omnibus (e.g. cxx_library)
@@ -532,11 +532,10 @@ def _build_preload_deps_root(
     )
 
 # Symlink the ghci binary that will be used, e.g. the internal fork in Haxlsh
-def _symlink_ghci_binary(ctx, ghci_bin: Artifact):
-    # TODO(T155760998): set ghci_ghc_path as a dependency instead of string
+def _symlink_ghci_binary(ctx, haskell_toolchain: HaskellToolchainInfo, ghci_bin: Artifact):
     ghci_bin_dep = ctx.attrs.ghci_bin_dep
     if not ghci_bin_dep:
-        fail("GHC binary path not specified")
+        ghci_bin_dep = haskell_toolchain.ghci_ghc_path
 
     # NOTE: In the buck1 version we'd symlink the binary only if a custom one
     # was provided, but in buck2 we're always setting `ghci_bin_dep` (i.e.
@@ -602,15 +601,15 @@ def _write_start_ghci(
         ctx.actions.copy_file(script_file, header_ghci)
 
 def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
+    haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
     enable_profiling = ctx.attrs.enable_profiling
 
     start_ghci_file = ctx.actions.declare_output("start.ghci")
     _write_start_ghci(ctx, start_ghci_file, enable_profiling)
 
     ghci_bin = ctx.actions.declare_output(ctx.attrs.name + ".bin/ghci")
-    _symlink_ghci_binary(ctx, ghci_bin)
+    _symlink_ghci_binary(ctx, haskell_toolchain, ghci_bin)
 
-    haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
     preload_deps_info = _build_preload_deps_root(ctx, haskell_toolchain)
 
     ghci_script_template = haskell_toolchain.ghci_script_template

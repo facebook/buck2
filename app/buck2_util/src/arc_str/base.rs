@@ -23,6 +23,7 @@ use std::sync::atomic::AtomicU32;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use strong_hash::StrongHash;
 
 use crate::rtabort;
 
@@ -148,6 +149,13 @@ impl<P: ArcStrLenStrategy> Hash for ArcStrBase<P> {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.as_str().hash(state)
+    }
+}
+
+impl<P: ArcStrLenStrategy> StrongHash for ArcStrBase<P> {
+    #[inline]
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        self.as_str().strong_hash(state)
     }
 }
 

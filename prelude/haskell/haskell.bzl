@@ -26,7 +26,9 @@ load(
 load("@prelude//cxx:groups.bzl", "get_dedupped_roots_from_groups")
 load(
     "@prelude//cxx:link_groups.bzl",
+    "BuildLinkGroupsContext",
     "LinkGroupContext",
+    "collect_linkables",
     "create_link_groups",
     "find_relevant_roots",
     "get_filtered_labels_to_links_map",
@@ -97,6 +99,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "Archive",
+    "ArchiveContentsType",
     "ArchiveLinkable",
     "LibOutputStyle",
     "LinkArgs",
@@ -121,7 +124,7 @@ load(
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
-    "get_linkable_graph_node_map_func",
+    "reduce_linkable_graph",
 )
 load(
     "@prelude//linking:linkables.bzl",
@@ -141,7 +144,6 @@ load(
     "PythonLibraryInfo",
 )
 load("@prelude//utils:argfile.bzl", "at_argfile")
-load("@prelude//utils:set.bzl", "set")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx", "flatten")
 
 HaskellIndexingTSet = transitive_set()
@@ -388,8 +390,9 @@ set -eu
 GHC_PKG=$1
 DB=$2
 PKGCONF=$3
+ALWAYS_USE_CACHE=$4
 "$GHC_PKG" init "$DB"
-"$GHC_PKG" register --package-conf "$DB" --no-expand-pkgroot "$PKGCONF"
+"$GHC_PKG" register --package-conf "$DB" --no-expand-pkgroot $ALWAYS_USE_CACHE "$PKGCONF"
 """
 
 # Create a package
@@ -470,6 +473,17 @@ def _make_package(
     )
 
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
+
+    # --always-use-cache is a custom option to ghc-pkg that tells it to ignore the
+    # modification time on the package cache and use it anyway. This is useful in
+    # RE where file modification times can't be relied upon; without this option
+    # ghc-pkg will fall back to reading all the package configs which is much
+    # slower.
+    if haskell_toolchain.support_always_use_cache:
+        use_cache_arg = "--always-use-cache"
+    else:
+        use_cache_arg = ""
+
     ctx.actions.run(
         cmd_args(
             [
@@ -480,6 +494,7 @@ def _make_package(
                 haskell_toolchain.packager,
                 db.as_output(),
                 pkg_conf,
+                use_cache_arg,
             ],
             # needs hi, because ghc-pkg checks that the .hi files exist
             hidden = hi.values() + lib.values(),
@@ -597,7 +612,7 @@ def _build_haskell_lib(
         # (but would that work with Template Haskell?)
         archive = make_archive(ctx, lib_short_path, objfiles)
         lib = archive.artifact
-        libs = [lib] + archive.external_objects
+        libs = [lib] + (archive.external_objects if archive.archive_contents_type == ArchiveContentsType("thin") else [])
         link_infos = LinkInfos(
             default = LinkInfo(
                 linkables = [
@@ -914,7 +929,11 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     link_style = attr_link_style(ctx)
 
     # Link Groups
-    link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, attr_deps(ctx)))
+    link_group_info = get_link_group_info(
+        ctx,
+        filter_and_map_idx(LinkableGraph, attr_deps(ctx)),
+        to_link_strategy(link_style),
+    )
 
     # Profiling doesn't support shared libraries
     if enable_profiling and link_style == LinkStyle("shared"):
@@ -967,7 +986,8 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         auto_link_groups = {}
         link_group_libs = {}
         link_deps = linkables(attr_deps(ctx))
-        linkable_graph_node_map = get_linkable_graph_node_map_func(link_group_info.graph)()
+        reduced_linkable_graph = reduce_linkable_graph(link_group_info.graph)
+        linkable_graph_node_map = reduced_linkable_graph.nodes
         link_group_preferred_linkage = get_link_group_preferred_linkage(link_group_info.groups.values())
 
         # If we're using auto-link-groups, where we generate the link group links
@@ -985,11 +1005,11 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             linked_link_groups = create_link_groups(
                 ctx = ctx,
                 link_strategy = link_strategy,
+                linkable_graph = reduced_linkable_graph,
                 link_group_mappings = link_group_info.mappings,
                 link_group_preferred_linkage = link_group_preferred_linkage,
                 executable_deps = executable_deps,
                 link_group_specs = auto_link_group_specs,
-                linkable_graph_node_map = linkable_graph_node_map,
                 public_nodes = public_nodes,
             )
             for name, linked_link_group in linked_link_groups.libs.items():
@@ -1012,29 +1032,45 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             roots = get_dedupped_roots_from_groups(link_group_info.groups.values()),
         )
 
-        labels_to_links = get_filtered_labels_to_links_map(
+        roots = set(
+            [
+                d.linkable_graph.nodes.value.label
+                for d in link_deps
+                if d.linkable_graph != None
+            ] +
+            link_group_relevant_roots,
+        )
+        is_executable_link = True
+        pic_behavior = PicBehavior("supported")
+        exec_linkables = collect_linkables(
+            reduced_linkable_graph,
+            is_executable_link,
+            link_strategy,
+            link_group_preferred_linkage,
+            pic_behavior,
+            roots,
+        )
+        build_context = BuildLinkGroupsContext(
             public_nodes = public_nodes,
-            linkable_graph_node_map = linkable_graph_node_map,
-            link_group = None,
+            linkable_graph = reduced_linkable_graph,
             link_groups = link_group_info.groups,
             link_group_mappings = link_group_info.mappings,
             link_group_preferred_linkage = link_group_preferred_linkage,
+            link_strategy = link_strategy,
+            pic_behavior = pic_behavior,
             link_group_libs = {
                 name: (lib.label, lib.shared_link_infos)
                 for name, lib in link_group_libs.items()
             },
-            link_strategy = link_strategy,
-            roots = (
-                [
-                    d.linkable_graph.nodes.value.label
-                    for d in link_deps
-                    if d.linkable_graph != None
-                ] +
-                link_group_relevant_roots
-            ),
+            prefer_stripped = False,
+            prefer_optimized = False,
+        )
+        labels_to_links = get_filtered_labels_to_links_map(
+            link_group = None,
+            linkables = exec_linkables,
             is_executable_link = True,
+            build_context = build_context,
             force_static_follows_dependents = True,
-            pic_behavior = PicBehavior("supported"),
         )
 
         # NOTE: Our Haskell DLL support impl currently links transitive haskell

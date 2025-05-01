@@ -10,7 +10,7 @@
 use crate::buck2_env;
 
 /// Are we running in CI?
-pub fn is_ci() -> anyhow::Result<bool> {
+pub fn is_ci() -> buck2_error::Result<bool> {
     // The CI environment variable is consistently set by CI providers.
     //
     // - GitHub Actions: https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables
@@ -19,17 +19,14 @@ pub fn is_ci() -> anyhow::Result<bool> {
     // - many others
     //
     // Internally, CI should be setting SANDCASTLE env var.
-    Ok(
-        buck2_env!("SANDCASTLE", applicability = internal)?.is_some()
-            || buck2_env!("CI", type = bool, default = false)?,
-    )
+    Ok(buck2_env!("SANDCASTLE", applicability = internal)?.is_some() || buck2_env!("CI", bool)?)
 }
 
 /// Returns a list of possible identifiers for the currently running CI job, in `(name, value)` form
 ///
 /// Earlier items in the list are better identifiers
-pub fn ci_identifiers() -> anyhow::Result<impl Iterator<Item = (&'static str, Option<&'static str>)>>
-{
+pub fn ci_identifiers()
+-> buck2_error::Result<impl Iterator<Item = (&'static str, Option<&'static str>)>> {
     Ok([
         (
             "sandcastle_job_info",
@@ -46,6 +43,10 @@ pub fn ci_identifiers() -> anyhow::Result<impl Iterator<Item = (&'static str, Op
         (
             "skycastle_workflow_alias",
             buck2_env!("SKYCASTLE_WORKFLOW_ALIAS", applicability = internal)?,
+        ),
+        (
+            "sandcastle_type",
+            buck2_env!("SANDCASTLE_TYPE", applicability = internal)?,
         ),
     ]
     .into_iter())

@@ -240,7 +240,7 @@ def f(x, *, y):
     pass
 noop(f)(1)
 "#,
-        "Missing parameter `y`",
+        "Missing named-only parameter `y`",
     );
 }
 
@@ -277,7 +277,7 @@ g = noop(f) # Hide from static type checker.
 g(x=1, y=2)
 "#,
         // TODO(nga): bad message.
-        "Missing parameter `x` for call",
+        "Missing positional-only parameter `x` for call",
     );
 }
 

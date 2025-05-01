@@ -15,12 +15,13 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProvide
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::CqueryRequest;
 use buck2_cli_proto::CqueryResponse;
+use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
@@ -31,8 +32,8 @@ use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
+use buck2_server_ctx::template::run_server_command;
 use buck2_util::truncate::truncate;
 use dice::DiceTransaction;
 use dice::LinearRecomputeDiceComputations;
@@ -94,7 +95,7 @@ pub(crate) async fn cquery_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: CqueryRequest,
-) -> anyhow::Result<CqueryResponse> {
+) -> buck2_error::Result<CqueryResponse> {
     run_server_command(CqueryServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
@@ -122,7 +123,7 @@ impl ServerCommandTemplate for CqueryServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         cquery(
             server_ctx,
             partial_result_dispatcher.as_writer(),
@@ -142,12 +143,13 @@ async fn cquery(
     mut stdout: impl Write,
     mut ctx: DiceTransaction,
     request: &CqueryRequest,
-) -> anyhow::Result<CqueryResponse> {
+) -> buck2_error::Result<CqueryResponse> {
     let cell_resolver = ctx.get_cell_resolver().await?;
     let output_configuration = QueryResultPrinter::from_request_options(
         &cell_resolver,
         &request.output_attributes,
         request.unstable_output_format,
+        request.client_context()?.trace_id.clone(),
     )?;
 
     let CqueryRequest {
@@ -180,7 +182,7 @@ async fn cquery(
 
     let profile_mode = request
         .profile_mode
-        .map(|i| buck2_cli_proto::ProfileMode::from_i32(i).internal_error("Invalid profile mode"))
+        .map(|i| buck2_cli_proto::ProfileMode::try_from(i).internal_error("Invalid profile mode"))
         .transpose()?;
 
     let (query_result, universes) = QUERY_FRONTEND
@@ -250,7 +252,7 @@ async fn cquery(
                     .await?
             }
         };
-        anyhow::Ok(())
+        buck2_error::Ok(())
     })
     .await?;
 
@@ -262,12 +264,13 @@ impl ProviderLookUp<ConfiguredTargetNode> for LinearRecomputeDiceComputations<'_
     async fn lookup(
         &self,
         t: &ConfiguredTargetNode,
-    ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>> {
-        self.get()
+    ) -> buck2_error::Result<MaybeCompatible<FrozenProviderCollectionValue>> {
+        Ok(self
+            .get()
             .get_providers(&ConfiguredProvidersLabel::new(
                 t.label().dupe(),
                 ProvidersName::Default,
             ))
-            .await
+            .await?)
     }
 }

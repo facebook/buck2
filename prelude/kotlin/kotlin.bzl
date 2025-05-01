@@ -8,9 +8,9 @@
 load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME")
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version")
-load("@prelude//decls/common.bzl", "buck")
-load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load(":kotlin_library.bzl", "kotlin_library_impl")
 load(":kotlin_test.bzl", "kotlin_test_impl")
 
@@ -22,9 +22,9 @@ implemented_rules = {
 extra_attributes = {
     "kotlin_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-        "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
-        "resources_root": attrs.option(attrs.string(), default = None),
+        "keep_synthetics_in_class_abi": attrs.option(attrs.bool(), default = None),
         VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.dep(), sorted = True, default = []),
+        "resources_root": attrs.option(attrs.string(), default = None),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
         "_dex_toolchain": toolchains_common.dex(),
@@ -36,7 +36,6 @@ extra_attributes = {
     "kotlin_test": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "java_agents": attrs.list(attrs.source(), default = []),
-        "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         "test_class_names_file": attrs.option(attrs.source(), default = None),
         "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),

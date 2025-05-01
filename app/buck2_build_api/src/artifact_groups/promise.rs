@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::fmt;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::sync::Arc;
@@ -14,12 +15,13 @@ use std::sync::OnceLock;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
 use starlark::codemap::FileSpan;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub enum PromiseArtifactResolveError {
     #[error("Resolved promise of the artifact promise was not an artifact (was `{0}`)")]
     NotAnArtifact(String),
@@ -66,7 +68,16 @@ pub struct PromiseArtifact {
     pub id: Arc<PromiseArtifactId>,
 }
 
-#[derive(Clone, Debug, Dupe, Allocative, Hash, Eq, PartialEq)]
+#[derive(
+    Clone,
+    Debug,
+    Dupe,
+    Allocative,
+    Hash,
+    Eq,
+    PartialEq,
+    strong_hash::StrongHash
+)]
 pub struct PromiseArtifactId {
     owner: BaseDeferredKey,
     id: usize,
@@ -93,7 +104,7 @@ impl PromiseArtifact {
         Self { artifact, id }
     }
 
-    pub fn get_err(&self) -> anyhow::Result<&Artifact> {
+    pub fn get_err(&self) -> buck2_error::Result<&Artifact> {
         match self.artifact.get() {
             Some(v) => Ok(v),
             None => Err(PromiseArtifactResolveError::PromiseNotYetResolved.into()),
@@ -112,7 +123,7 @@ impl PromiseArtifact {
         &self,
         artifact: Artifact,
         expected_short_path: &Option<ForwardRelativePathBuf>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let bound = artifact;
         if bound.is_source() {
             return Err(PromiseArtifactResolveError::SourceArtifact.into());
@@ -120,7 +131,7 @@ impl PromiseArtifact {
         if let Some(expected_short_path) = expected_short_path {
             bound.get_path().with_short_path(|artifact_short_path| {
                 if artifact_short_path != expected_short_path {
-                    Err(anyhow::Error::from(
+                    Err(buck2_error::Error::from(
                         PromiseArtifactResolveError::ShortPathMismatch(
                             expected_short_path.clone(),
                             artifact_short_path.to_string(),
@@ -173,3 +184,26 @@ impl PartialEq for PromiseArtifact {
 }
 
 impl Eq for PromiseArtifact {}
+
+// When passing promise artifacts into anon targets, we will coerce them into this type.
+// During resolve, we look up the analysis of the target that produced the promise artifact,
+// assert short paths, and produce a new `StarlarkPromiseArtifact` with the `OnceLock` resolved.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, strong_hash::StrongHash)]
+pub struct PromiseArtifactAttr {
+    pub id: PromiseArtifactId,
+    pub short_path: Option<ForwardRelativePathBuf>,
+}
+
+impl fmt::Display for PromiseArtifactAttr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO(@wendyy) - we should figure out what to do about the declaration location.
+        // It's possible that 2 targets produce the same promise artifact and try to pass
+        // it into a downstream target, so then there would be 2 declaration locations.
+        write!(f, "<promise artifact attr (id = {})", self.id)?;
+        if let Some(short_path) = &self.short_path {
+            write!(f, " with short_path `{}`", short_path)?;
+        }
+        write!(f, ">")?;
+        Ok(())
+    }
+}

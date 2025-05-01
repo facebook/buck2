@@ -5,13 +5,14 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@prelude//utils:buckconfig.bzl", "read_bool")
 load("@prelude//utils:selects.bzl", "selects")
 # @lint-ignore-every FBCODEBZLADDLOADS
 
 load("@prelude//utils:type_defs.bzl", "is_dict", "is_list", "is_select", "is_tuple")
 load("@shim//build_defs:auto_headers.bzl", "AutoHeaders", "get_auto_headers")
+load("@shim//build_defs/lib:oss.bzl", "translate_target")
 
 prelude = native
 
@@ -49,10 +50,12 @@ _HEADER_SUFFIXES = (
     "-defs.tcc",
 )
 
-CPP_UNITTEST_MAIN_DEP = "shim//third-party/googletest:cpp_unittest_main"
-CPP_UNITTEST_LIB_DEPS = [
-    "shim//third-party/googletest:gtest",
-    "shim//third-party/googletest:gmock",
+CPP_UNITTEST_DEPS = [
+    "shim//third-party/googletest:cpp_unittest_main",
+]
+CPP_FOLLY_UNITTEST_DEPS = [
+    "gh_facebook_folly//folly/test/common:test_main_lib",
+    "gh_facebook_folly//folly/ext/buck2:test_ext",
 ]
 
 def _get_headers_from_sources(srcs):
@@ -97,7 +100,7 @@ def _update_headers_with_src_headers(src_headers, out_headers):
     """
     Helper function to update raw headers with headers from srcs
     """
-    src_headers = sets.to_list(sets.difference(src_headers, sets.make(out_headers)))
+    src_headers = list(src_headers.difference(out_headers))
 
     # Looks simple, right? But if a header is explicitly added in, say, a
     # dictionary mapping, we want to make sure to keep the original mapping
@@ -135,7 +138,7 @@ def cpp_library(
         modular_headers = None,
         os_deps = [],
         arch_compiler_flags = None,
-        tags = None,
+        labels = None,
         linker_flags = None,
         private_linker_flags = None,
         exported_linker_flags = None,
@@ -144,17 +147,17 @@ def cpp_library(
         propagated_pp_flags = (),
         **kwargs):
     base_path = native.package_name()
-    oss_depends_on_folly = read_config("oss_depends_on", "folly", False)
+    oss_depends_on_folly = read_bool("oss_depends_on", "folly", False)
     header_base_path = base_path
     if oss_depends_on_folly and header_base_path.startswith("folly"):
         header_base_path = header_base_path.replace("folly/", "", 1)
 
-    _unused = (undefined_symbols, arch_preprocessor_flags, modular_headers, arch_compiler_flags, tags, propagated_pp_flags)  # @unused
+    _unused = (undefined_symbols, arch_preprocessor_flags, modular_headers, arch_compiler_flags, labels, propagated_pp_flags)  # @unused
     if os_deps:
         deps += _select_os_deps(_fix_dict_deps(os_deps))
     if headers == None:
         headers = []
-    if tags != None and "oss_dependency" in tags:
+    if labels != None and "oss_dependency" in labels:
         if oss_depends_on_folly:
             headers = [item.replace("//:", "//folly:") if item == "//:folly-config.h" else item for item in headers]
     if is_select(srcs) and auto_headers == AutoHeaders.SOURCES:
@@ -164,9 +167,9 @@ def cpp_library(
         )
     auto_headers = get_auto_headers(auto_headers)
     if auto_headers == AutoHeaders.SOURCES and not is_select(srcs):
-        src_headers = sets.make(_get_headers_from_sources(srcs))
+        src_headers = set(_get_headers_from_sources(srcs))
         if private_headers:
-            src_headers = sets.difference(src_headers, sets.make(private_headers))
+            src_headers = src_headers.difference(set(private_headers))
 
         headers = selects.apply(
             headers,
@@ -180,8 +183,8 @@ def cpp_library(
     prelude.cxx_library(
         name = name,
         srcs = srcs,
-        deps = _maybe_select_map(deps + external_deps_to_targets(external_deps), _fix_deps),
-        exported_deps = _maybe_select_map(exported_deps + external_deps_to_targets(exported_external_deps), _fix_deps),
+        deps = _fix_deps(deps + external_deps_to_targets(external_deps)),
+        exported_deps = _fix_deps(exported_deps + external_deps_to_targets(exported_external_deps)),
         visibility = visibility,
         preferred_linkage = "static",
         exported_headers = headers,
@@ -199,17 +202,24 @@ def cpp_unittest(
         supports_static_listing = None,
         allocator = None,
         owner = None,
-        tags = None,
+        labels = None,
         emails = None,
         extract_helper_lib = None,
         compiler_specific_flags = None,
         default_strip_mode = None,
         resources = {},
+        test_main = None,
         **kwargs):
-    _unused = (supports_static_listing, allocator, owner, tags, emails, extract_helper_lib, compiler_specific_flags, default_strip_mode)  # @unused
-    deps = deps + [CPP_UNITTEST_MAIN_DEP] + CPP_UNITTEST_LIB_DEPS
+    _unused = (supports_static_listing, allocator, owner, labels, emails, extract_helper_lib, compiler_specific_flags, default_strip_mode)  # @unused
+    if test_main != None:
+        deps = deps + [test_main]
+    elif read_bool("oss", "folly_cxx_tests", True):
+        deps = deps + CPP_FOLLY_UNITTEST_DEPS
+    else:
+        deps = deps + CPP_UNITTEST_DEPS
+
     prelude.cxx_test(
-        deps = _maybe_select_map(deps + external_deps_to_targets(external_deps), _fix_deps),
+        deps = _fix_deps(deps + external_deps_to_targets(external_deps)),
         visibility = visibility,
         resources = _fix_resources(resources),
         **kwargs
@@ -227,7 +237,7 @@ def cpp_binary(
         **kwargs):
     _unused = (dlopen_enabled, compiler_specific_flags, os_linker_flags, allocator, modules)  # @unused
     prelude.cxx_binary(
-        deps = _maybe_select_map(deps + external_deps_to_targets(external_deps), _fix_deps),
+        deps = _fix_deps(deps + external_deps_to_targets(external_deps)),
         visibility = visibility,
         **kwargs
     )
@@ -246,7 +256,7 @@ def rust_library(
         visibility = ["PUBLIC"],
         **kwargs):
     _unused = (test_deps, test_env, test_os_deps, named_deps, autocargo, unittests, visibility)  # @unused
-    deps = _maybe_select_map(deps, _fix_deps)
+    deps = _fix_deps(deps)
     mapped_srcs = _maybe_select_map(mapped_srcs, _fix_mapped_srcs)
     if os_deps:
         deps += _select_os_deps(_fix_dict_deps(os_deps))
@@ -272,7 +282,7 @@ def rust_binary(
         visibility = ["PUBLIC"],
         **kwargs):
     _unused = (unittests, allocator, default_strip_mode, autocargo)  # @unused
-    deps = _maybe_select_map(deps, _fix_deps)
+    deps = _fix_deps(deps)
 
     # @lint-ignore BUCKLINT: avoid "Direct usage of native rules is not allowed."
     prelude.rust_binary(
@@ -287,7 +297,7 @@ def rust_unittest(
         deps = [],
         visibility = ["PUBLIC"],
         **kwargs):
-    deps = _maybe_select_map(deps, _fix_deps)
+    deps = _fix_deps(deps)
 
     prelude.rust_test(
         rustc_flags = rustc_flags + [_CFG_BUCK_BUILD],
@@ -305,12 +315,6 @@ def rust_protobuf_library(
         deps = [],
         test_deps = None,
         doctests = True):
-    if build_env:
-        build_env = {
-            k: _fix_dep_in_string(v)
-            for k, v in build_env.items()
-        }
-
     build_name = name + "-build"
     proto_name = name + "-proto"
 
@@ -327,15 +331,15 @@ def rust_protobuf_library(
     build_env = build_env or {}
     build_env.update(
         {
-            "PROTOC": "$(exe buck//third-party/proto:protoc)",
-            "PROTOC_INCLUDE": "$(location buck//third-party/proto:google_protobuf)",
+            "PROTOC": "$(exe shim//third-party/proto:protoc)",
+            "PROTOC_INCLUDE": "$(location shim//third-party/proto:google_protobuf)",
         },
     )
 
     prelude.genrule(
         name = proto_name,
         srcs = protos + [
-            "buck//third-party/proto:google_protobuf",
+            "shim//third-party/proto:google_protobuf",
         ],
         out = ".",
         cmd = "$(exe :" + build_name + ")",
@@ -361,7 +365,7 @@ def ocaml_binary(
         deps = [],
         visibility = ["PUBLIC"],
         **kwargs):
-    deps = _maybe_select_map(deps, _fix_deps)
+    deps = _fix_deps(deps)
 
     prelude.ocaml_binary(
         deps = deps,
@@ -393,85 +397,21 @@ def _fix_dict_deps(xss):
 def _fix_mapped_srcs(xs: dict[str, str]):
     # For reasons, this is source -> file path, which is the opposite of what
     # it should be.
-    return {_fix_dep(k): v for (k, v) in xs.items()}
+    return {translate_target(k): v for (k, v) in xs.items()}
 
 def _fix_deps(xs):
     if is_select(xs):
-        return xs
-    return filter(None, map(_fix_dep, xs))
+        return select_map(xs, lambda child_targets: _fix_deps(child_targets))
+    return map(translate_target, xs)
 
 def _fix_resources(resources):
     if is_list(resources):
-        return [_fix_dep(r) for r in resources]
+        return [translate_target(r) for r in resources]
 
     if is_dict(resources):
-        return {k: _fix_dep(v) for k, v in resources.items()}
+        return {k: translate_target(v) for k, v in resources.items()}
 
     fail("Unexpected type {} for resources".format(type(resources)))
-
-def _fix_dep(x: str) -> [
-    None,
-    str,
-]:
-    def remove_version(x: str) -> str:
-        # When upgrading libraries we either suffix them as `-old` or with a version, e.g. `-1-08`
-        # Strip those so we grab the right one in open source.
-        if x.endswith(":md-5"):  # md-5 is the one exception
-            return x
-        xs = x.split("-")
-        for i in reversed(range(len(xs))):
-            s = xs[i]
-            if s == "old" or s.isdigit():
-                xs.pop(i)
-            else:
-                break
-        return "-".join(xs)
-
-    if x == "//common/rust/shed/fbinit:fbinit":
-        return "fbsource//third-party/rust:fbinit"
-    elif x == "//common/rust/shed/sorted_vector_map:sorted_vector_map":
-        return "fbsource//third-party/rust:sorted_vector_map"
-    elif x == "//watchman/rust/watchman_client:watchman_client":
-        return "fbsource//third-party/rust:watchman_client"
-    elif x.startswith("fbsource//third-party/rust:"):
-        return remove_version(x)
-    elif x.startswith(":"):
-        return x
-    elif x.startswith("//buck2/facebook/"):
-        return None
-    elif x.startswith("//buck2/"):
-        return "root//" + x.removeprefix("//buck2/")
-    elif x.startswith("fbcode//common/ocaml/interop/"):
-        return "root//" + x.removeprefix("fbcode//common/ocaml/interop/")
-    elif x.startswith("fbcode//third-party-buck/platform010/build/supercaml"):
-        return "shim//third-party/ocaml" + x.removeprefix("fbcode//third-party-buck/platform010/build/supercaml")
-    elif x.startswith("fbcode//third-party-buck/platform010/build"):
-        return "shim//third-party" + x.removeprefix("fbcode//third-party-buck/platform010/build")
-    elif x.startswith("fbsource//third-party"):
-        return "shim//third-party" + x.removeprefix("fbsource//third-party")
-    elif x.startswith("third-party//"):
-        return "shim//third-party/" + x.removeprefix("third-party//")
-    elif x.startswith("//folly"):
-        oss_depends_on_folly = read_config("oss_depends_on", "folly", False)
-        if oss_depends_on_folly:
-            return "root//folly/" + x.removeprefix("//")
-        return "root//" + x.removeprefix("//")
-    elif x.startswith("root//folly"):
-        return x
-    elif x.startswith("//fizz"):
-        return "root//" + x.removeprefix("//")
-    elif x.startswith("shim//"):
-        return x
-    elif x.startswith("prelude//"):
-        return x
-    else:
-        fail("Dependency is unaccounted for `{}`.\n".format(x) +
-             "Did you forget 'oss-disable'?")
-
-def _fix_dep_in_string(x: str) -> str:
-    """Replace internal labels in string values such as env-vars."""
-    return (x
-        .replace("//buck2/", "root//"))
 
 # Do a nasty conversion of e.g. ("supercaml", None, "ocaml-dev") to
 # 'fbcode//third-party-buck/platform010/build/supercaml:ocaml-dev'
@@ -484,12 +424,3 @@ def external_dep_to_target(t):
 
 def external_deps_to_targets(ts):
     return [external_dep_to_target(t) for t in ts]
-
-def _assert_eq(x, y):
-    if x != y:
-        fail("Expected {} == {}".format(x, y))
-
-def _test():
-    _assert_eq(_fix_dep("fbsource//third-party/rust:derive_more-1"), "fbsource//third-party/rust:derive_more")
-
-_test()

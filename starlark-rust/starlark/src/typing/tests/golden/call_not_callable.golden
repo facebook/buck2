@@ -9,7 +9,7 @@ def foo(x: list):
     x()
 
 Error:
-error: Call to a non-callable type `list[typing.Any]`
+error: Call to a non-callable type `list`
  --> filename:3:5
   |
 3 |     x()
@@ -17,7 +17,7 @@ error: Call to a non-callable type `list[typing.Any]`
   |
 
 Compiler typechecker (eval):
-error: Call to a non-callable type `list[typing.Any]`
+error: Call to a non-callable type `list`
  --> filename:3:5
   |
 3 |     x()

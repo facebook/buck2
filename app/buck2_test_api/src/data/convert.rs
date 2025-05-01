@@ -14,6 +14,7 @@ use anyhow::Context as _;
 use buck2_core::cells::name::CellName;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_error::BuckErrorContext;
 use gazebo::prelude::*;
 
 use super::LocalExecutionCommand;
@@ -53,12 +54,20 @@ impl TryFrom<buck2_test_proto::TestStage> for TestStage {
     type Error = anyhow::Error;
 
     fn try_from(s: buck2_test_proto::TestStage) -> Result<Self, Self::Error> {
-        use buck2_test_proto::test_stage::*;
         use buck2_test_proto::Testing;
+        use buck2_test_proto::test_stage::*;
 
         let res = match s.item.context("Missing `item`")? {
-            Item::Listing(Listing { suite }) => Self::Listing(suite),
-            Item::Testing(Testing { suite, testcases }) => Self::Testing { suite, testcases },
+            Item::Listing(Listing { suite, cacheable }) => Self::Listing { suite, cacheable },
+            Item::Testing(Testing {
+                suite,
+                testcases,
+                variant,
+            }) => Self::Testing {
+                suite,
+                testcases,
+                variant,
+            },
         };
 
         Ok(res)
@@ -69,12 +78,20 @@ impl TryInto<buck2_test_proto::TestStage> for TestStage {
     type Error = anyhow::Error;
 
     fn try_into(self) -> Result<buck2_test_proto::TestStage, Self::Error> {
-        use buck2_test_proto::test_stage::*;
         use buck2_test_proto::Testing;
+        use buck2_test_proto::test_stage::*;
 
         let item = match self {
-            Self::Listing(suite) => Item::Listing(Listing { suite }),
-            Self::Testing { suite, testcases } => Item::Testing(Testing { suite, testcases }),
+            Self::Listing { suite, cacheable } => Item::Listing(Listing { suite, cacheable }),
+            Self::Testing {
+                suite,
+                testcases,
+                variant,
+            } => Item::Testing(Testing {
+                suite,
+                testcases,
+                variant,
+            }),
         };
 
         Ok(buck2_test_proto::TestStage { item: Some(item) })
@@ -206,7 +223,7 @@ impl TryFrom<i32> for TestStatus {
     type Error = anyhow::Error;
 
     fn try_from(s: i32) -> Result<Self, Self::Error> {
-        let s = buck2_test_proto::TestStatus::from_i32(s).context("Invalid `status`")?;
+        let s = buck2_test_proto::TestStatus::try_from(s).context("Invalid `status`")?;
 
         Ok(match s {
             buck2_test_proto::TestStatus::NotSet => {
@@ -256,6 +273,7 @@ impl TryFrom<buck2_test_proto::TestResult> for TestResult {
             msg,
             duration,
             details,
+            max_memory_used_bytes,
         } = s;
 
         let duration = duration
@@ -272,6 +290,7 @@ impl TryFrom<buck2_test_proto::TestResult> for TestResult {
             status: status.try_into().context("Invalid `status`")?,
             msg: msg.map(|m| m.msg),
             duration,
+            max_memory_used_bytes,
             details,
         })
     }
@@ -290,6 +309,7 @@ impl TryInto<buck2_test_proto::TestResult> for TestResult {
             details: self.details,
             msg: self.msg.map(|msg| OptionalMsg { msg }),
             duration: self.duration.try_map(|d| d.try_into())?,
+            max_memory_used_bytes: self.max_memory_used_bytes,
         })
     }
 }
@@ -676,9 +696,12 @@ impl TryInto<buck2_test_proto::Output> for Output {
         use buck2_test_proto::output::*;
 
         let value = match self {
-            Self::LocalPath(value) => {
-                Value::LocalPath(value.to_str().context("Invalid local path")?.to_owned())
-            }
+            Self::LocalPath(value) => Value::LocalPath(
+                value
+                    .to_str()
+                    .buck_error_context_anyhow("Invalid local path")?
+                    .to_owned(),
+            ),
             Self::RemoteObject(value) => Value::RemoteObject(value.try_into()?),
         };
 
@@ -693,9 +716,11 @@ impl TryFrom<buck2_test_proto::Output> for Output {
         use buck2_test_proto::output::*;
 
         Ok(match s.value.context("Missing `value`")? {
-            Value::LocalPath(value) => {
-                Self::LocalPath(value.try_into().context("Invalid local path value.")?)
-            }
+            Value::LocalPath(value) => Self::LocalPath(
+                value
+                    .try_into()
+                    .buck_error_context_anyhow("Invalid local path value.")?,
+            ),
             Value::RemoteObject(value) => Self::RemoteObject(value.try_into()?),
         })
     }
@@ -727,6 +752,7 @@ impl TryInto<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             ),
             execution_time: Some(self.execution_time.try_into()?),
             execution_details: Some(self.execution_details),
+            max_memory_used_bytes: self.max_memory_used_bytes,
         })
     }
 }
@@ -743,6 +769,7 @@ impl TryFrom<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             start_time,
             execution_time,
             execution_details,
+            max_memory_used_bytes,
         } = s;
         let status = status
             .context("Missing `status`")?
@@ -794,6 +821,7 @@ impl TryFrom<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             start_time,
             execution_time,
             execution_details,
+            max_memory_used_bytes,
         })
     }
 }
@@ -897,7 +925,7 @@ impl TryInto<buck2_test_proto::PrepareForLocalExecutionResponse>
             .command
             .cwd
             .to_str()
-            .context("Invalid cwd path")?
+            .buck_error_context_anyhow("Invalid cwd path")?
             .to_owned();
 
         Ok(buck2_test_proto::PrepareForLocalExecutionResponse {
@@ -937,7 +965,7 @@ impl TryInto<buck2_test_proto::SetupLocalResourceLocalExecutionCommand> for Loca
             cwd: self
                 .cwd
                 .to_str()
-                .context("Invalid cwd path for local resource")?
+                .buck_error_context_anyhow("Invalid cwd path for local resource")?
                 .to_owned(),
             env: self
                 .env
@@ -954,7 +982,10 @@ impl TryFrom<buck2_test_proto::PrepareForLocalExecutionResult> for LocalExecutio
     fn try_from(s: buck2_test_proto::PrepareForLocalExecutionResult) -> Result<Self, Self::Error> {
         Ok(Self {
             cmd: s.cmd,
-            cwd: s.cwd.try_into().context("Invalid cwd value.")?,
+            cwd: s
+                .cwd
+                .try_into()
+                .buck_error_context_anyhow("Invalid cwd value.")?,
             env: s
                 .env
                 .into_iter()
@@ -972,7 +1003,10 @@ impl TryFrom<buck2_test_proto::SetupLocalResourceLocalExecutionCommand> for Loca
     ) -> Result<Self, Self::Error> {
         Ok(Self {
             cmd: s.cmd,
-            cwd: s.cwd.try_into().context("Invalid cwd value.")?,
+            cwd: s
+                .cwd
+                .try_into()
+                .buck_error_context_anyhow("Invalid cwd value.")?,
             env: s
                 .env
                 .into_iter()
@@ -1068,7 +1102,10 @@ mod tests {
         };
 
         let test_executable = TestExecutable {
-            stage: TestStage::Listing("name".to_owned()),
+            stage: TestStage::Listing {
+                suite: "name".to_owned(),
+                cacheable: true,
+            },
             target: ConfiguredTargetHandle(42),
             cmd: vec![
                 ArgValue {
@@ -1128,6 +1165,7 @@ mod tests {
             start_time: SystemTime::UNIX_EPOCH + Duration::from_secs(123),
             execution_time: Duration::from_secs(456),
             execution_details: Default::default(),
+            max_memory_used_bytes: None,
         };
         assert_roundtrips::<buck2_test_proto::ExecutionResult2, ExecutionResult2>(&result);
     }
@@ -1170,7 +1208,10 @@ mod tests {
         };
 
         let test_executable = TestExecutable {
-            stage: TestStage::Listing("name".to_owned()),
+            stage: TestStage::Listing {
+                suite: "name".to_owned(),
+                cacheable: true,
+            },
             target: ConfiguredTargetHandle(42),
             cmd: vec![
                 ArgValue {

@@ -18,7 +18,6 @@
 use dupe::Dupe;
 use starlark::syntax::AstModule;
 use starlark_syntax::syntax::ast::StmtP;
-use starlark_syntax::syntax::module::AstModuleFields;
 use starlark_syntax::syntax::top_level_stmts::top_level_stmts;
 
 /// A loaded symbol. Returned from [`AstModule::loaded_symbols`].

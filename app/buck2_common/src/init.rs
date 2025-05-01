@@ -13,6 +13,8 @@ use std::time::Duration;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::buck2_env;
+use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -59,7 +61,7 @@ pub struct HttpConfig {
 }
 
 impl HttpConfig {
-    pub fn from_config(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+    pub fn from_config(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
         let connect_timeout_ms = config.parse(BuckconfigKeyRef {
             section: "http",
             property: "connect_timeout_ms",
@@ -144,10 +146,17 @@ pub struct SystemWarningConfig {
     /// If None, we don't warn the user.
     /// The corresponding buckconfig is `buck2_system_warning.avg_re_download_bytes_per_sec_threshold`.
     pub avg_re_download_bytes_per_sec_threshold: Option<u64>,
+    /// A regex that controls which targets are opted into the vpn check.
+    /// The corresponding buckconfig is `buck2_health_check.optin_vpn_check_targets_regex`.
+    pub optin_vpn_check_targets_regex: Option<String>,
+    /// Whether to enable the stable revision check.
+    pub enable_stable_revision_check: Option<bool>,
+    /// Run the health checks in a separate process.
+    pub enable_health_check_process_isolation: Option<bool>,
 }
 
 impl SystemWarningConfig {
-    pub fn from_config(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+    pub fn from_config(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
         let memory_pressure_threshold_percent = config.parse(BuckconfigKeyRef {
             section: "buck2_system_warning",
             property: "memory_pressure_threshold_percent",
@@ -164,20 +173,36 @@ impl SystemWarningConfig {
             section: "buck2_system_warning",
             property: "avg_re_download_bytes_per_sec_threshold",
         })?;
+        let optin_vpn_check_targets_regex = config.parse(BuckconfigKeyRef {
+            section: "buck2_health_check",
+            property: "optin_vpn_check_targets_regex",
+        })?;
+        let enable_stable_revision_check = config.parse(BuckconfigKeyRef {
+            section: "buck2_health_check",
+            property: "enable_stable_revision_check",
+        })?;
+        let enable_health_check_process_isolation = config.parse(BuckconfigKeyRef {
+            section: "buck2_health_check",
+            property: "enable_health_check_process_isolation",
+        })?;
         Ok(Self {
             memory_pressure_threshold_percent,
             remaining_disk_space_threshold_gb,
             min_re_download_bytes_threshold,
             avg_re_download_bytes_per_sec_threshold,
+            optin_vpn_check_targets_regex,
+            enable_stable_revision_check,
+            enable_health_check_process_isolation,
         })
     }
 
-    pub fn serialize(&self) -> anyhow::Result<String> {
-        serde_json::to_string(&self).context("Error serializing SystemWarningConfig")
+    pub fn serialize(&self) -> buck2_error::Result<String> {
+        serde_json::to_string(&self).buck_error_context("Error serializing SystemWarningConfig")
     }
 
-    pub fn deserialize(s: &str) -> anyhow::Result<Self> {
-        serde_json::from_str::<Self>(s).context("Error deserializing SystemWarningConfig")
+    pub fn deserialize(s: &str) -> buck2_error::Result<Self> {
+        serde_json::from_str::<Self>(s)
+            .buck_error_context("Error deserializing SystemWarningConfig")
     }
 }
 
@@ -202,6 +227,11 @@ pub struct ResourceControlConfig {
     /// is that all the processes are killed by OOMKiller.
     /// The corresponding buckconfig is `buck2_resource_control.memory_max`.
     pub memory_max: Option<String>,
+    /// A memory threshold that any action is allowed to allocate.
+    pub memory_max_per_action: Option<String>,
+    /// If provided and above the threshold, hybrid executor will stop scheduling local actions.
+    /// The corresponding buckconfig is `buck2_resource_control.hybrid_execution_memory_limit_gibibytes`.
+    pub hybrid_execution_memory_limit_gibibytes: Option<u64>,
 }
 
 #[derive(
@@ -226,24 +256,29 @@ pub enum ResourceControlStatus {
 }
 
 impl FromStr for ResourceControlStatus {
-    type Err = anyhow::Error;
+    type Err = buck2_error::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "off" => Ok(Self::Off),
             "if_available" => Ok(Self::IfAvailable),
             "required" => Ok(Self::Required),
-            _ => Err(anyhow::anyhow!("Invalid resource control status: `{}`", s)),
+            _ => Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Invalid resource control status: `{}`",
+                s
+            )),
         }
     }
 }
 
 impl ResourceControlConfig {
-    pub fn from_config(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+    pub fn from_config(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
         if let Some(env_conf) = buck2_env!(
             "BUCK2_TEST_RESOURCE_CONTROL_CONFIG",
             applicability = testing,
         )? {
-            Ok(Self::deserialize(env_conf)?)
+            Self::deserialize(env_conf)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
         } else {
             let status = config
                 .parse(BuckconfigKeyRef {
@@ -255,16 +290,70 @@ impl ResourceControlConfig {
                 section: "buck2_resource_control",
                 property: "memory_max",
             })?;
-            Ok(Self { status, memory_max })
+            let memory_max_per_action = config.parse(BuckconfigKeyRef {
+                section: "buck2_resource_control",
+                property: "memory_max_per_action",
+            })?;
+            let hybrid_execution_memory_limit_gibibytes = config.parse(BuckconfigKeyRef {
+                section: "buck2_resource_control",
+                property: "hybrid_execution_memory_limit_gibibytes",
+            })?;
+            Ok(Self {
+                status,
+                memory_max,
+                memory_max_per_action,
+                hybrid_execution_memory_limit_gibibytes,
+            })
         }
     }
 
-    pub fn serialize(&self) -> anyhow::Result<String> {
-        serde_json::to_string(&self).context("Error serializing ResourceControlConfig")
+    pub fn serialize(&self) -> buck2_error::Result<String> {
+        serde_json::to_string(&self).buck_error_context("Error serializing ResourceControlConfig")
     }
 
     pub fn deserialize(s: &str) -> anyhow::Result<Self> {
         serde_json::from_str::<Self>(s).context("Error deserializing ResourceControlConfig")
+    }
+}
+
+#[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum LogDownloadMethod {
+    Manifold,
+    Curl(String),
+    None,
+}
+
+#[derive(
+    Allocative,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq
+)]
+pub struct HealthCheckConfig {
+    pub enable_health_checks: bool,
+    pub disabled_health_check_names: Option<String>,
+}
+
+impl HealthCheckConfig {
+    pub fn from_config(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
+        let enable_health_checks = config.parse(BuckconfigKeyRef {
+            section: "buck2_health_check",
+            property: "enable_health_checks",
+        })?;
+        let disabled_health_check_names = config.parse(BuckconfigKeyRef {
+            section: "buck2_health_check",
+            property: "disabled_health_check_names",
+        })?;
+
+        Ok(Self {
+            // TODO(rajneeshl): When the rollout is successful, change this to default to true.
+            enable_health_checks: enable_health_checks.unwrap_or(false),
+            disabled_health_check_names,
+        })
     }
 }
 
@@ -287,11 +376,47 @@ pub struct DaemonStartupConfig {
     pub materializations: Option<String>,
     pub http: HttpConfig,
     pub resource_control: ResourceControlConfig,
+    pub log_download_method: LogDownloadMethod,
+    pub health_check_config: HealthCheckConfig,
 }
 
 impl DaemonStartupConfig {
-    pub fn new(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+    pub fn new(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
         // Intepreted client side because we need the value here.
+
+        let log_download_method = {
+            // Determine the log download method to use. Only default to
+            // manifold in fbcode contexts, or when specifically asked.
+            let use_manifold_default = cfg!(fbcode_build);
+            let use_manifold = config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "log_use_manifold",
+                })?
+                .unwrap_or(use_manifold_default);
+
+            if use_manifold {
+                Ok(LogDownloadMethod::Manifold)
+            } else {
+                let log_url = config.get(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "log_url",
+                });
+                if let Some(log_url) = log_url {
+                    if log_url.is_empty() {
+                        Err(buck2_error::buck2_error!(
+                            buck2_error::ErrorTag::Input,
+                            "log_url is empty, but log_use_manifold is false"
+                        ))
+                    } else {
+                        Ok(LogDownloadMethod::Curl(log_url.to_owned()))
+                    }
+                } else {
+                    Ok(LogDownloadMethod::None)
+                }
+            }
+        }?;
+
         Ok(Self {
             daemon_buster: config
                 .get(BuckconfigKeyRef {
@@ -320,11 +445,13 @@ impl DaemonStartupConfig {
                 .map(ToOwned::to_owned),
             http: HttpConfig::from_config(config)?,
             resource_control: ResourceControlConfig::from_config(config)?,
+            log_download_method,
+            health_check_config: HealthCheckConfig::from_config(config)?,
         })
     }
 
-    pub fn serialize(&self) -> anyhow::Result<String> {
-        serde_json::to_string(&self).context("Error serializing DaemonStartupConfig")
+    pub fn serialize(&self) -> buck2_error::Result<String> {
+        serde_json::to_string(&self).buck_error_context("Error serializing DaemonStartupConfig")
     }
 
     pub fn deserialize(s: &str) -> anyhow::Result<Self> {
@@ -340,6 +467,12 @@ impl DaemonStartupConfig {
             materializations: None,
             http: HttpConfig::default(),
             resource_control: ResourceControlConfig::default(),
+            log_download_method: if cfg!(fbcode_build) {
+                LogDownloadMethod::Manifold
+            } else {
+                LogDownloadMethod::None
+            },
+            health_check_config: HealthCheckConfig::default(),
         }
     }
 }

@@ -17,9 +17,9 @@
 
 use proc_macro2::Span;
 use quote::quote;
+use syn::DeriveInput;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::DeriveInput;
 
 use crate::util::DeriveInputUtil;
 use crate::util::GenericsUtil;
@@ -123,7 +123,7 @@ pub(crate) fn derive_provides_static_type(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     match derive_provides_static_type_impl(input) {
-        Ok(gen) => quote! { #gen }.into(),
+        Ok(r#gen) => quote! { #r#gen }.into(),
         Err(e) => e.to_compile_error().into(),
     }
 }

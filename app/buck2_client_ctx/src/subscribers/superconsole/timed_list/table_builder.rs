@@ -14,15 +14,15 @@ use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::fmt_duration;
 use buck2_event_observer::span_tracker::BuckEventSpanInfo;
 use derive_more::From;
-use superconsole::style::style;
-use superconsole::style::StyledContent;
-use superconsole::style::Stylize;
 use superconsole::Component;
 use superconsole::Dimensions;
 use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
+use superconsole::style::StyledContent;
+use superconsole::style::Stylize;
+use superconsole::style::style;
 
 use crate::subscribers::superconsole::timed_list::Cutoffs;
 
@@ -106,7 +106,7 @@ impl TimedRow {
         time_speed: f64,
         cutoffs: &Cutoffs,
         display_platform: bool,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let event = display::display_event(
             &span.event,
             TargetDisplayOptions::for_console(display_platform),
@@ -122,7 +122,7 @@ impl TimedRow {
         time: String,
         age: Duration,
         cutoffs: &Cutoffs,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         Self::styled(padding, style(event), style(time), age, cutoffs)
     }
 
@@ -132,7 +132,7 @@ impl TimedRow {
         time: StyledContent<String>,
         age: Duration,
         cutoffs: &Cutoffs,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let event = Span::new_styled(styled_for_delay(event, age, cutoffs))?;
 
         let line = if padding > 0 {

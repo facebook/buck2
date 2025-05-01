@@ -57,7 +57,10 @@ impl<T> Deref for Arc<T> {
 
 impl<T> AtomicValue for Arc<T> {
     type Raw = *const T;
-    type Ref<'a> = &'a T where Self: 'a;
+    type Ref<'a>
+        = &'a T
+    where
+        Self: 'a;
 
     #[inline]
     fn null() -> Self::Raw {

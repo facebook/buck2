@@ -7,11 +7,9 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
 dupe = { workspace = true }
-serde = { workspace = true }
 termimad = { workspace = true }
 
 buck2_cli_proto = { workspace = true }

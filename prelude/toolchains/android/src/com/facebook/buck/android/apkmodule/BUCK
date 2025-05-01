@@ -1,0 +1,75 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library", "buck_kotlin_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+APK_MODULE_ONLY = [
+    "APKModule.kt",
+]
+
+BINARY_SRCS = ["APKModuleGraphExecutableMain.java"]
+
+buck_kotlin_library(
+    name = "module-only",
+    srcs = APK_MODULE_ONLY,
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/android/apkmodule:apkmodule",
+    ],
+    visibility = ["PUBLIC"],
+    deps = [
+    ],
+    exported_deps = [
+    ],
+)
+
+buck_java_library(
+    name = "apkmodule",
+    srcs = glob(
+        ["*.java"],
+        exclude = APK_MODULE_ONLY + BINARY_SRCS,
+    ),
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/android/apkmodule:apkmodule",
+    ],
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/util/graph:graph",
+        "prelude//toolchains/android/src/com/facebook/buck/io/filesystem:filesystem",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/classes:classes",
+        "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/third-party:guava",
+    ],
+    exported_deps = [
+        ":module-only",
+    ],
+)
+
+buck_java_library(
+    name = "apkmodule-binary-lib",
+    srcs = BINARY_SRCS,
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/android/apkmodule:apkmodule",
+    ],
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
+        "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
+        "prelude//toolchains/android/src/com/facebook/buck/util/json:json",
+        "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:guava",
+        ":apkmodule",
+    ],
+)
+
+buck_java_binary(
+    name = "apkmodule_binary",
+    main_class = "com.facebook.buck.android.apkmodule.APKModuleGraphExecutableMain",
+    visibility = [
+        "PUBLIC",
+    ],
+    deps = [
+        ":apkmodule-binary-lib",
+    ],
+)

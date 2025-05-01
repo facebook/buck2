@@ -1,0 +1,24 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library", "buck_java_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_java_test(
+    name = "bootstrapper-util",
+    srcs = glob(["*Test.java"]),
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/cli/bootstrapper:bootstrapper_lib",
+        "prelude//toolchains/android/third-party:junit",
+        ":bootstrapper-util-lib",
+    ],
+)
+
+buck_java_library(
+    name = "bootstrapper-util-lib",
+    srcs = glob(
+        ["*.java"],
+        exclude = ["*Test.java"],
+    ),
+)

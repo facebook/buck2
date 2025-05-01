@@ -15,7 +15,7 @@ load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
 load("@prelude//utils:argfile.bzl", "argfile")
-load("@prelude//utils:set.bzl", "set")
+load("@prelude//utils:utils.bzl", "flatten")
 
 def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     android_binary_info = get_binary_info(ctx, use_proto_format = False)
@@ -24,6 +24,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     dex_files_info = android_binary_info.dex_files_info
     native_library_info = android_binary_info.native_library_info
     resources_info = android_binary_info.resources_info
+    validation_info = android_binary_info.validation_info
 
     keystore = ctx.attrs.keystore[KeystoreInfo]
     output_apk = build_apk(
@@ -84,7 +85,9 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             java_packaging_deps = set([dep.label.raw_target() for dep in java_packaging_deps]),
             keystore = keystore,
             manifest_entries = ctx.attrs.manifest_entries,
+            min_sdk_version = ctx.attrs.min_sdk_version,
             prebuilt_native_library_dirs = set([native_lib.raw_target for native_lib in native_library_info.prebuilt_native_library_dirs]),
+            platform_configurations = set([str(x.label.configured_target().config()) for x in flatten(android_binary_info.deps_by_platform.values())]),
             platforms = android_binary_info.deps_by_platform.keys(),
             primary_platform = android_binary_info.primary_platform,
             resource_infos = set([info.raw_target for info in resources_info.unfiltered_resource_infos]),
@@ -100,7 +103,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             },
         ),
         class_to_srcs,
-    ]
+    ] + validation_info
 
 def build_apk(
         label: Label,
@@ -139,6 +142,7 @@ def build_apk(
     asset_directories = (
         native_library_info.root_module_native_lib_assets +
         native_library_info.non_root_module_native_lib_assets +
+        dex_files_info.root_module_bootstrap_dex_dirs +
         dex_files_info.root_module_secondary_dex_dirs +
         dex_files_info.non_root_module_secondary_dex_dirs +
         resources_info.module_manifests
@@ -229,7 +233,6 @@ def get_install_config(apex_mode: bool) -> dict[str, typing.Any]:
     install_config = {
         "adb_restart_on_failure": read_root_config("adb", "adb_restart_on_failure", "true"),
         "agent_port_base": read_root_config("adb", "agent_port_base", "2828"),
-        "always_use_java_agent": read_root_config("adb", "always_use_java_agent", "false"),
         "apex_mode": apex_mode,
         "is_zstd_compression_enabled": read_root_config("adb", "is_zstd_compression_enabled", "false"),
         "max_retries": read_root_config("adb", "retries", "5"),

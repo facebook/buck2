@@ -31,7 +31,6 @@ def extract_source_files(
     file_name_extensions: List[str],
     temp_dir: tempfile.TemporaryDirectory,
 ) -> pathlib.Path:
-
     extracted_zip_dir = os.path.join(temp_dir, "extracted_srcs")
     all_extracted_files = []
 

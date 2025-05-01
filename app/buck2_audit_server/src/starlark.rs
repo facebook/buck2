@@ -27,7 +27,7 @@ impl ServerAuditSubcommand for StarlarkCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self {
             StarlarkCommand::Module(cmd) => {
                 module::server_execute(cmd, server_ctx, stdout, client_ctx).await

@@ -10,24 +10,26 @@
 use std::convert::Infallible;
 use std::ops::ControlFlow;
 use std::ops::FromResidual;
+use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::Context as _;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestFromReExt;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::Symlink;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::re_tree_to_directory;
-use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::action_digest::TrackedActionDigest;
 use buck2_execute::execute::executor_stage_async;
 use buck2_execute::execute::kind::RemoteCommandExecutionDetails;
@@ -52,12 +54,13 @@ use chrono::DateTime;
 use chrono::Duration;
 use chrono::Utc;
 use dupe::Dupe;
-use futures::future;
 use futures::FutureExt;
+use futures::future;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
 
+use crate::executors::local::materialize_build_outputs;
 use crate::executors::local::materialize_inputs;
 use crate::re::paranoid_download::ParanoidDownloader;
 use crate::storage_resource_exhausted::is_storage_resource_exhausted;
@@ -66,7 +69,6 @@ pub async fn download_action_results<'a>(
     request: &CommandExecutionRequest,
     materializer: &dyn Materializer,
     re_client: &ManagedRemoteExecutionClient,
-    re_use_case: RemoteExecutorUseCase,
     digest_config: DigestConfig,
     manager: CommandExecutionManager,
     identity: &ReActionIdentity<'_>,
@@ -76,12 +78,14 @@ pub async fn download_action_results<'a>(
     details: RemoteCommandExecutionDetails,
     response: &dyn RemoteActionResult,
     paranoid: Option<&ParanoidDownloader>,
-    cancellations: &CancellationContext<'_>,
+    cancellations: &CancellationContext,
     action_exit_code: i32,
     artifact_fs: &ArtifactFs,
     materialize_failed_re_action_inputs: bool,
+    materialize_failed_re_action_outputs: bool,
+    additional_message: Option<String>,
 ) -> DownloadResult {
-    let std_streams = response.std_streams(re_client, re_use_case, digest_config);
+    let std_streams = response.std_streams(re_client, digest_config);
     let std_streams = async {
         if request.prefetch_lossy_stderr() {
             std_streams.prefetch_lossy_stderr().await
@@ -104,12 +108,12 @@ pub async fn download_action_results<'a>(
             CommandStdStreams::Remote(std_streams),
             Some(action_exit_code),
             response.timing(),
+            additional_message,
         ));
     }
     let downloader = CasDownloader {
         materializer,
         re_client,
-        re_use_case,
         digest_config,
         paranoid,
     };
@@ -145,6 +149,7 @@ pub async fn download_action_results<'a>(
                         match materialize_inputs(artifact_fs, materializer, request).await {
                             Ok(materialized_paths) => Some(materialized_paths.paths.clone()),
                             Err(e) => {
+                                // TODO(minglunli): Properly handle this and the error below and add a test for it.
                                 console_message(format!(
                                     "Failed to materialize inputs for failed action: {}",
                                     e
@@ -159,15 +164,42 @@ pub async fn download_action_results<'a>(
                 None
             };
 
+            let materialized_outputs = if materialize_failed_re_action_outputs {
+                match materialize_build_outputs(artifact_fs, materializer, request).await {
+                    Ok(materialized_paths) => Some(materialized_paths.clone()),
+                    Err(e) => {
+                        console_message(format!(
+                            "Failed to materialize outputs for failed action: {}",
+                            e
+                        ));
+                        None
+                    }
+                }
+            } else if !request.outputs_for_error_handler().is_empty() {
+                match materializer
+                    .ensure_materialized(request.outputs_for_error_handler().to_vec())
+                    .await
+                {
+                    Ok(()) => Some(request.outputs_for_error_handler().to_vec()),
+                    // Do nothing here, handle file not materialized/doesn't exit case in the error handler.
+                    // This way local/remote behavior would be consistent and errors are handled at the same place
+                    Err(_) => None,
+                }
+            } else {
+                None
+            };
+
             manager.failure(
-                response.execution_kind_with_materialized_inputs_for_failed(
+                response.execution_kind_for_failed_actions(
                     details,
                     materialized_inputs,
+                    materialized_outputs,
                 ),
                 outputs,
                 CommandStdStreams::Remote(std_streams),
                 Some(e),
                 response.timing(),
+                additional_message,
             )
         }
     };
@@ -178,7 +210,6 @@ pub async fn download_action_results<'a>(
 pub struct CasDownloader<'a> {
     pub materializer: &'a dyn Materializer,
     pub re_client: &'a ManagedRemoteExecutionClient,
-    pub re_use_case: RemoteExecutorUseCase,
     pub digest_config: DigestConfig,
     pub paranoid: Option<&'a ParanoidDownloader>,
 }
@@ -193,7 +224,7 @@ impl CasDownloader<'_> {
         requested_outputs: impl IntoIterator<Item = CommandExecutionOutputRef<'a>>,
         output_spec: &dyn RemoteActionResult,
         details: &RemoteCommandExecutionDetails,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
     ) -> ControlFlow<
         DownloadResult,
         (
@@ -211,11 +242,13 @@ impl CasDownloader<'_> {
                 match artifacts {
                     Ok(artifacts) => artifacts,
                     Err(e) => {
-                        let error = e.context(format!("action_digest={}", details.action_digest));
+                        let error: buck2_error::Error = e
+                            .context(format!("action_digest={}", details.action_digest))
+                            .into();
                         let is_storage_resource_exhausted = error
-                            .downcast_ref::<RemoteExecutionError>()
-                            .map_or(false, |re_client_error| {
-                                is_storage_resource_exhausted(re_client_error)
+                            .find_typed_context::<RemoteExecutionError>()
+                            .is_some_and(|re_client_error| {
+                                is_storage_resource_exhausted(re_client_error.as_ref())
                             });
                         let error_type = if is_storage_resource_exhausted {
                             CommandExecutionErrorType::StorageResourceExhausted
@@ -234,7 +267,7 @@ impl CasDownloader<'_> {
                     artifacts.expires,
                     self.digest_config.cas_digest_config(),
                 ),
-                self.re_use_case,
+                self.re_client.use_case,
                 artifacts.now,
                 artifacts.ttl,
             );
@@ -286,7 +319,7 @@ impl CasDownloader<'_> {
         paths: &CommandExecutionPaths,
         requested_outputs: impl IntoIterator<Item = CommandExecutionOutputRef<'a>>,
         output_spec: &dyn RemoteActionResult,
-    ) -> anyhow::Result<ExtractedArtifacts> {
+    ) -> buck2_error::Result<ExtractedArtifacts> {
         let now = Utc::now();
         let ttl = Duration::seconds(output_spec.ttl());
         let expires = now + ttl;
@@ -315,6 +348,13 @@ impl CasDownloader<'_> {
             input_dir.insert(re_forward_path(x.name.as_str())?, entry)?;
         }
 
+        for x in output_spec.output_symlinks() {
+            let entry = DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(
+                Symlink::new(RelativePathBuf::from_path(Path::new(&x.target))?),
+            )));
+            input_dir.insert(re_forward_path(x.name.as_str())?, entry)?;
+        }
+
         // Compute the re_outputs from the output_directories
         // This requires traversing the trees to find symlinks that point outside such trees
         let trees = self
@@ -324,11 +364,10 @@ impl CasDownloader<'_> {
                 output_spec
                     .output_directories()
                     .map(|x| x.tree_digest.clone()),
-                self.re_use_case,
             )
             .boxed()
             .await
-            .context(DownloadError::DownloadTrees)?;
+            .buck_error_context(DownloadError::DownloadTrees)?;
 
         for (dir, tree) in output_spec.output_directories().iter().zip(trees) {
             let entry = re_tree_to_directory(&tree, &expires, self.digest_config)?;
@@ -358,18 +397,18 @@ impl CasDownloader<'_> {
         })
     }
 
-    async fn materialize_outputs<'a>(
+    async fn materialize_outputs(
         &self,
         artifacts: ExtractedArtifacts,
         info: CasDownloadInfo,
-        cancellations: &CancellationContext<'_>,
-    ) -> anyhow::Result<IndexMap<CommandExecutionOutput, ArtifactValue>> {
+        cancellations: &CancellationContext,
+    ) -> buck2_error::Result<IndexMap<CommandExecutionOutput, ArtifactValue>> {
         // Declare the outputs to the materializer
         self.materializer
             .declare_cas_many(Arc::new(info), artifacts.to_declare, cancellations)
             .boxed()
             .await
-            .context(DownloadError::Materialization)?;
+            .buck_error_context(DownloadError::Materialization)?;
 
         Ok(artifacts.mapped_outputs)
     }
@@ -378,13 +417,14 @@ impl CasDownloader<'_> {
 /// Takes a path that came from RE and tries to convert it to
 /// a `ForwardRelativePath`. These paths are supposed to be forward relative,
 /// so if the conversion fails, RE is broken.
-fn re_forward_path(re_path: &str) -> anyhow::Result<&ForwardRelativePath> {
+fn re_forward_path(re_path: &str) -> buck2_error::Result<&ForwardRelativePath> {
     // RE sends us paths with trailing slash.
     ForwardRelativePath::new_trim_trailing_slashes(re_path)
-        .context(DownloadError::InvalidPathFromRe)
+        .buck_error_context(DownloadError::InvalidPathFromRe)
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum DownloadError {
     #[error("Failed to declare in materializer")]
     Materialization,
@@ -415,7 +455,6 @@ impl FromResidual<ControlFlow<Self, Infallible>> for DownloadResult {
     fn from_residual(residual: ControlFlow<Self, Infallible>) -> Self {
         match residual {
             ControlFlow::Break(v) => v,
-            ControlFlow::Continue(_) => unreachable!(),
         }
     }
 }

@@ -22,7 +22,8 @@ use crate::executors::to_re_platform::RePlatformFieldsToRePlatform;
 pub(crate) fn empty_action_result(
     platform: &RePlatformFields,
     digest_config: DigestConfig,
-) -> anyhow::Result<(ActionDigestAndBlobs, TActionResult2)> {
+) -> buck2_error::Result<(ActionDigestAndBlobs, TActionResult2)> {
+
     let mut blobs = ActionDigestAndBlobsBuilder::new(digest_config);
 
     let command = blobs.add_command(&RE::Command {

@@ -14,8 +14,8 @@ use allocative::Allocative;
 use buck2_core::directory_digest::DirectoryDigest;
 use buck2_core::directory_digest::InternableDirectoryDigest;
 use buck2_util::hash::BuckHasherBuilder;
-use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
+use dashmap::mapref::entry::Entry;
 use dupe::Clone_;
 use dupe::Dupe;
 use dupe::Dupe_;
@@ -58,7 +58,7 @@ where
             .map(|inner| SharedDirectory { inner })
     }
 
-    /// Insert a new entry into the interner. This may insert this data, or return anexisitng
+    /// Insert a new entry into the interner. This may insert this data, or return an existing
     /// entry.
     pub fn intern(&self, data: SharedDirectoryData<L, H>) -> SharedDirectory<L, H> {
         let new_inner = match self.inner.entry(data.fingerprint.dupe()) {

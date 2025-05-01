@@ -12,8 +12,8 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo")
 load("@prelude//java:java_test.bzl", "build_junit_test")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
 def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs._build_only_native_code:
@@ -52,8 +52,9 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
     test_config_properties_file = ctx.actions.write(
         "test_config.properties",
         [
-            cmd_args(["android_resource_apk", resources_info.primary_resources_apk], delimiter = "="),
-            cmd_args(["android_merged_manifest", resources_info.manifest], delimiter = "="),
+            # Replace \ with \\ for Windows compatibility
+            cmd_args(["android_resource_apk", resources_info.primary_resources_apk], delimiter = "=", replace_regex = ("\\\\\\b", "\\\\")),
+            cmd_args(["android_merged_manifest", resources_info.manifest], delimiter = "=", replace_regex = ("\\\\\\b", "\\\\")),
         ],
     )
 
@@ -71,19 +72,30 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(jar_cmd, category = "test_config_properties_jar_cmd")
     extra_cmds.append(cmd_args(hidden = [resources_info.primary_resources_apk, resources_info.manifest]))
 
-    r_dot_javas = [r_dot_java.library_info.library_output.full_library for r_dot_java in resources_info.r_dot_java_infos if r_dot_java.library_info.library_output]
+    list_tests_command = ctx.attrs._android_toolchain[AndroidToolchainInfo].list_tests_command
+    if (list_tests_command != None):
+        codesense_cmd = cmd_args([
+            list_tests_command[RunInfo],
+            "list-tests",
+            "--buck-root",
+            "$(buck2 root)",
+            ctx.attrs.srcs,
+        ])
+        ctx.attrs.env["TPX_LIST_TESTS_COMMAND"] = codesense_cmd
+
+    r_dot_javas = [r_dot_java.library_info.library_output for r_dot_java in resources_info.r_dot_java_infos if r_dot_java.library_info.library_output]
     expect(len(r_dot_javas) <= 1, "android_library only works with single R.java")
 
     extra_sub_targets = {}
     if r_dot_javas:
         r_dot_java = r_dot_javas[0]
-        extra_sub_targets["r_dot_java"] = [DefaultInfo(default_output = r_dot_java)]
+        extra_sub_targets["r_dot_java"] = [DefaultInfo(default_output = r_dot_java.full_library)]
     else:
         r_dot_java = None
     java_providers, _ = build_android_library(ctx, r_dot_java = r_dot_java, extra_sub_targets = extra_sub_targets)
 
     extra_classpath_entries = [test_config_properties_jar] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath + optional_jars(ctx)
-    extra_classpath_entries.extend(r_dot_javas)
+    extra_classpath_entries.extend([r_dot_java.full_library for r_dot_java in r_dot_javas])
     external_runner_test_info = build_junit_test(
         ctx,
         java_providers.java_library_info,

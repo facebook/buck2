@@ -1,0 +1,49 @@
+load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
+
+oncall("build_infra")
+
+prelude = native
+
+# Test JSON is encoded correctly when serialized to env variable.
+prelude.command_alias(
+    name = "echo_arg",
+    args = select({
+        "DEFAULT": [
+            "sh",
+            "-c",
+            "echo $COMMAND_ALIAS_ENV_TEST_VARS",
+        ],
+        "ovr_config//os:windows": [
+            "cmd.exe",
+            "/c",
+            "echo %COMMAND_ALIAS_ENV_TEST_VARS%",
+        ],
+    }),
+)
+
+prelude.command_alias(
+    name = "with_json_env",
+    env = {
+        "COMMAND_ALIAS_ENV_TEST_VARS": prelude.json.encode(struct(
+            key = "value",
+            key2 = {
+                "test2_key": "test2_value",
+                "test_key": "test_value",
+            },
+        )),
+    },
+    exe = ":echo_arg",
+)
+
+py_assertion(
+    name = "check_json_encoding",
+    script = """
+import subprocess
+import sys
+assert (
+    subprocess.check_output([sys.argv[1]]).decode().strip()
+    == r'{"key":"value","key2":{"test2_key":"test2_value","test_key":"test_value"}}'
+)
+""",
+    script_args = ["$(exe_target :with_json_env)"],
+)

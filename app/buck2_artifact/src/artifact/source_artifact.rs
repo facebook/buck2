@@ -18,11 +18,31 @@ use dupe::Dupe;
 
 /// An artifact in the source tree
 #[derive(
-    Clone, Debug, Display, Dupe, Hash, PartialEq, Eq, PartialOrd, Ord, Allocative
+    Clone,
+    Debug,
+    Display,
+    Dupe,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Allocative,
+    strong_hash::StrongHash
 )]
 pub struct SourceArtifact(Arc<SourceArtifactData>);
 
-#[derive(Debug, Display, Hash, PartialEq, Eq, PartialOrd, Ord, Allocative)]
+#[derive(
+    Debug,
+    Display,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Allocative,
+    strong_hash::StrongHash
+)]
 struct SourceArtifactData(SourcePath);
 
 impl SourceArtifact {

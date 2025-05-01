@@ -12,9 +12,9 @@ use std::any::Any;
 
 use anyhow::Context as _;
 
+use crate::Dimensions;
 use crate::output::SuperConsoleOutput;
 use crate::superconsole::SuperConsole;
-use crate::Dimensions;
 
 /// An output for testing that doesn't do real I/O.
 pub struct TestOutput {

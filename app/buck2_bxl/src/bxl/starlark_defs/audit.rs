@@ -8,13 +8,12 @@
  */
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use buck2_build_api::audit_cell::audit_cell;
-use buck2_build_api::audit_output::audit_output;
 use buck2_build_api::audit_output::AuditOutputResult;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
+use buck2_build_api::audit_output::audit_output;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use derivative::Derivative;
 use derive_more::Display;
@@ -25,16 +24,17 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
-use starlark::values::dict::AllocDict;
-use starlark::values::list_or_tuple::UnpackListOrTuple;
-use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::StarlarkDocs;
+use starlark::values::ValueTyped;
+use starlark::values::dict::AllocDict;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
+use starlark::values::none::NoneOr;
+use starlark::values::starlark_value;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::nodes::action::StarlarkAction;
@@ -46,17 +46,14 @@ use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
     Display,
     Trace,
     NoSerialize,
-    Allocative,
-    StarlarkDocs
+    Allocative
 )]
-#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display("{:?}", self)]
 #[allocative(skip)]
 pub(crate) struct StarlarkAuditCtx<'v> {
-    #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
-    ctx: &'v BxlContext<'v>,
+    ctx: ValueTyped<'v, BxlContext<'v>>,
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     working_dir: ProjectRelativePathBuf,
@@ -81,10 +78,10 @@ impl<'v> AllocValue<'v> for StarlarkAuditCtx<'v> {
 
 impl<'v> StarlarkAuditCtx<'v> {
     pub(crate) fn new(
-        ctx: &'v BxlContext<'v>,
+        ctx: ValueTyped<'v, BxlContext<'v>>,
         working_dir: ProjectRelativePathBuf,
         cell_resolver: CellResolver,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         Ok(Self {
             ctx,
             working_dir,
@@ -106,7 +103,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
     /// Takes in an optional target platform, otherwise will use the default target platform.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_audit_output(ctx):
     ///     target_platform = "foo"
     ///     result = ctx.audit().output("buck-out/v2/gen/fbcode/some_cfg_hash/path/to/__target__/artifact", target_platform)
@@ -119,45 +116,41 @@ fn audit_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Option<Value<'v>>> {
-        let target_platform = target_platform.parse_target_platforms(
-            this.ctx.target_alias_resolver(),
-            this.ctx.cell_resolver(),
-            this.ctx.cell_alias_resolver(),
-            this.ctx.cell_name(),
-            &this.ctx.global_cfg_options().target_platform,
-        )?;
+    ) -> starlark::Result<
+        // TODO(nga): used precise type.
+        NoneOr<Value<'v>>,
+    > {
+        let global_cfg_options = this
+            .ctx
+            .resolve_global_cfg_options(target_platform, vec![].into())?;
 
-        this.ctx.async_ctx.borrow_mut().via(|ctx| {
+        Ok(this.ctx.async_ctx.borrow_mut().via(|ctx| {
             async move {
-                audit_output(
+                let output = audit_output(
                     output_path,
                     &this.working_dir,
                     &this.cell_resolver,
                     ctx,
-                    &GlobalCfgOptions {
-                        target_platform,
-                        cli_modifiers: vec![].into(),
-                    },
+                    &global_cfg_options,
                 )
-                .await?
-                .map(|result| {
-                    anyhow::Ok(match result {
+                .await?;
+                match output {
+                    None => Ok(NoneOr::None),
+                    Some(result) => buck2_error::Ok(NoneOr::Other(match result {
                         AuditOutputResult::Match(action) => heap.alloc(StarlarkAction(
                             action
                                 .action()
-                                .context("audit_output did not return an action")?
+                                .buck_error_context("audit_output did not return an action")?
                                 .dupe(),
                         )),
                         AuditOutputResult::MaybeRelevant(label) => {
                             heap.alloc(StarlarkTargetLabel::new(label))
                         }
-                    })
-                })
-                .transpose()
+                    })),
+                }
             }
             .boxed_local()
-        })
+        })?)
     }
 
     /// Query information about the [cells] list in .buckconfig.
@@ -169,7 +162,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
     /// Returns a dict of cell name to absolute path mappings.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_audit_cell(ctx):
     ///     result = ctx.audit().cell(aliases = True)
     ///     ctx.output.print(result)
@@ -181,8 +174,8 @@ fn audit_methods(builder: &mut MethodsBuilder) {
             String,
         >,
         #[starlark(require = named, default = false)] aliases: bool,
-    ) -> anyhow::Result<AllocDict<impl Iterator<Item = (String, String)>>> {
-        this.ctx.async_ctx.borrow_mut().via(|ctx| {
+    ) -> starlark::Result<AllocDict<impl Iterator<Item = (String, String)>>> {
+        Ok(this.ctx.async_ctx.borrow_mut().via(|ctx| {
             async {
                 let result = audit_cell(
                     ctx,
@@ -197,6 +190,6 @@ fn audit_methods(builder: &mut MethodsBuilder) {
                 ))
             }
             .boxed_local()
-        })
+        })?)
     }
 }

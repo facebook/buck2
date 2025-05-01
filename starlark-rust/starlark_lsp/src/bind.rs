@@ -38,7 +38,6 @@ use starlark_syntax::syntax::ast::ForP;
 use starlark_syntax::syntax::ast::IdentP;
 use starlark_syntax::syntax::ast::LambdaP;
 use starlark_syntax::syntax::ast::Stmt;
-use starlark_syntax::syntax::module::AstModuleFields;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) enum Assigner {

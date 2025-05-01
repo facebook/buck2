@@ -10,11 +10,11 @@
 use std::io;
 use std::io::Write;
 
+use crate::Dimensions;
+use crate::SuperConsole;
 use crate::output::BlockingSuperConsoleOutput;
 use crate::output::NonBlockingSuperConsoleOutput;
 use crate::output::SuperConsoleOutput;
-use crate::Dimensions;
-use crate::SuperConsole;
 
 /// A builder to create SuperConsole, with more options.
 pub struct Builder {

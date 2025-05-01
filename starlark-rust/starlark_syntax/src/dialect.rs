@@ -58,7 +58,8 @@ pub struct Dialect {
     /// Are `for`, `if` and other statements allowed at the top level.
     /// Disabled by default.
     pub enable_top_level_stmt: bool,
-    /// Are `f"{expression}"` strings supported?
+    /// Are `f"{expression}"` strings supported? Only works where `expression` is an atomic
+    /// identifier.
     /// Disabled by default.
     ///
     /// [Starlark spec proposal](https://github.com/bazelbuild/starlark/issues/91).

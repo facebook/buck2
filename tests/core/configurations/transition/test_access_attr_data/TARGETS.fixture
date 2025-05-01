@@ -1,0 +1,11 @@
+load(":rules.bzl", "my_java_library")
+
+platform(
+    name = "default_p",
+)
+
+my_java_library(
+    name = "faithful",
+    java_version = 14,
+    default_target_platform = ":default_p",
+)

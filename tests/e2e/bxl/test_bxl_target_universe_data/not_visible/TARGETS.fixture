@@ -1,7 +1,0 @@
-load("//:rules.bzl", "simple")
-
-simple(
-    name = "not_visible",
-    deps = [],
-    visibility = ["//not_visible/..."],
-)

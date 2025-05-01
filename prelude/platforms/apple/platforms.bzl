@@ -10,6 +10,7 @@ load("@prelude//platforms/apple:base.bzl", "BUILD_MODE_TO_CONSTRAINTS_MAP", "app
 load(
     "@prelude//platforms/apple:build_mode.bzl",
     "APPLE_BUILD_MODES",
+    "REMAPPED_BUILD_MODES",
     "get_build_mode",
     "get_build_mode_debug",
 )
@@ -43,6 +44,8 @@ _DEFAULT_ANALYSIS_IOS_PLATFORM = ios_platforms.IPHONEOS_ARM64
 _DEFAULT_ANALYSIS_MACOS_PLATFORM = mac_platforms.MACOS_X86_64
 
 DEFAULT_SUPPORTED_CXX_PLATFORMS = _SUPPORTED_IOS_PLATFORMS
+
+INVERSE_REMAPPED_BUILD_MODES = {v: k for k, v in REMAPPED_BUILD_MODES.items()}
 
 def apple_target_platforms(
         base_name,
@@ -85,7 +88,7 @@ def apple_target_platforms(
 
     # Define the generated platforms
     for platform in supported_cxx_platforms:
-        platform_dep = get_default_target_platform_for_platform(platform)
+        platform_dep = _get_base_target_platform_for_platform(platform)
         cxx_platform_constraints = cxx_platforms_constraint_values.get(platform, [])
         if is_mobile_platform(platform) or is_buck2_mac_platform(platform):
             for build_mode in supported_build_modes:
@@ -119,7 +122,7 @@ def apple_target_platforms(
     )
 
     analysis_platform = _get_analysis_platform_for_supported_platforms(supported_cxx_platforms)
-    analysis_platform_dep = get_default_target_platform_for_platform(analysis_platform)
+    analysis_platform_dep = _get_base_target_platform_for_platform(analysis_platform)
     analysis_platform_build_mode_constraints = build_mode_constraint_values.get(get_build_mode_debug(), [])
 
     platform_rule(
@@ -129,9 +132,15 @@ def apple_target_platforms(
         deps = deps + [analysis_platform_dep],
     )
 
-def config_backed_apple_target_platform(target_platform = None, platform = None, build_mode = None):
+def config_backed_apple_target_platform(target_platform = None, platform = None, build_mode = None, supported_build_modes = None):
     platform = _get_default_platform() if platform == None else platform
+
     build_mode = get_build_mode() if build_mode == None else build_mode
+    supported_build_modes = APPLE_BUILD_MODES if supported_build_modes == None else supported_build_modes
+    if build_mode not in supported_build_modes:
+        # If build_mode is an unsupported build mode, attempt to map it to a supported one using the inverse map
+        build_mode = INVERSE_REMAPPED_BUILD_MODES.get(build_mode, build_mode)
+
     if target_platform == None:
         return get_default_target_platform_for_platform(platform)
 
@@ -144,7 +153,7 @@ def get_default_target_platform_for_platform(sdk_arch) -> [str, None]:
 
     return None
 
-def set_apple_platforms(platform, base_config_backed_target_platform, kwargs):
+def set_apple_platforms(platform, base_config_backed_target_platform, kwargs, supported_build_modes = None):
     def get_supported_platforms():
         if platform in _SUPPORTED_IOS_PLATFORMS:
             return _SUPPORTED_IOS_PLATFORMS
@@ -154,6 +163,8 @@ def set_apple_platforms(platform, base_config_backed_target_platform, kwargs):
             return _SUPPORTED_MAC_CATALYST_PLATFORMS
         else:
             return None
+
+    supported_build_modes = APPLE_BUILD_MODES if supported_build_modes == None else supported_build_modes
 
     supported_platforms = get_supported_platforms()
     if not supported_platforms:
@@ -165,7 +176,7 @@ def set_apple_platforms(platform, base_config_backed_target_platform, kwargs):
 
     apple_platforms = {}
     for platform in supported_platforms:
-        for build_mode in APPLE_BUILD_MODES:
+        for build_mode in supported_build_modes:
             identifier = "{}-{}".format(platform, build_mode)
             if base_config_backed_target_platform:
                 apple_platforms[identifier] = config_backed_apple_target_platform(base_config_backed_target_platform, platform, build_mode)

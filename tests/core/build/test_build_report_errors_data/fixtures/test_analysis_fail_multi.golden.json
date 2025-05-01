@@ -1,0 +1,68 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "failures": {
+    "root//fail_analysis:alias": "Error running analysis for `root//fail_analysis:alias (<unspecified>)`\n\nCaused by:\n    0: Error running analysis for `root//fail_analysis:fail_analysis (<unspecified>)`\n    1: Traceback (most recent call last):\n         File <builtin>, in <module>\n         * fail_analysis/fail_analysis.bzl:9, in _impl\n             fail(\"Failure during analysis\")\n       error: fail: Failure during analysis\n        --> fail_analysis/fail_analysis.bzl:9:5\n         |\n       9 |     fail(\"Failure during analysis\")\n         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n         |\n       ",
+    "root//fail_analysis:fail_analysis": "Error running analysis for `root//fail_analysis:fail_analysis (<unspecified>)`\n\nCaused by:\n    Traceback (most recent call last):\n      File <builtin>, in <module>\n      * fail_analysis/fail_analysis.bzl:9, in _impl\n          fail(\"Failure during analysis\")\n    error: fail: Failure during analysis\n     --> fail_analysis/fail_analysis.bzl:9:5\n      |\n    9 |     fail(\"Failure during analysis\")\n      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      |\n    "
+  },
+  "results": {
+    "root//fail_analysis:alias": {
+      "configured": {
+        "<unspecified>": {
+          "configured_graph_size": null,
+          "errors": [
+            {
+              "action_error": null,
+              "cause_index": 0,
+              "error_tags": [
+                "ANALYSIS",
+                "STARLARK_FAIL"
+              ],
+              "message_content": "<STRING_HASH>"
+            }
+          ],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "FAIL"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "FAIL"
+    },
+    "root//fail_analysis:fail_analysis": {
+      "configured": {
+        "<unspecified>": {
+          "configured_graph_size": null,
+          "errors": [
+            {
+              "action_error": null,
+              "cause_index": 0,
+              "error_tags": [
+                "ANALYSIS",
+                "STARLARK_FAIL"
+              ],
+              "message_content": "<STRING_HASH>"
+            }
+          ],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "FAIL"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "FAIL"
+    }
+  },
+  "strings": {
+    "<STRING_HASH>": "Error running analysis for `root//fail_analysis:alias (<unspecified>)`\n\nCaused by:\n    0: Error running analysis for `root//fail_analysis:fail_analysis (<unspecified>)`\n    1: Traceback (most recent call last):\n         File <builtin>, in <module>\n         * fail_analysis/fail_analysis.bzl:9, in _impl\n             fail(\"Failure during analysis\")\n       error: fail: Failure during analysis\n        --> fail_analysis/fail_analysis.bzl:9:5\n         |\n       9 |     fail(\"Failure during analysis\")\n         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n         |\n       ",
+    "<STRING_HASH>": "Error running analysis for `root//fail_analysis:fail_analysis (<unspecified>)`\n\nCaused by:\n    Traceback (most recent call last):\n      File <builtin>, in <module>\n      * fail_analysis/fail_analysis.bzl:9, in _impl\n          fail(\"Failure during analysis\")\n    error: fail: Failure during analysis\n     --> fail_analysis/fail_analysis.bzl:9:5\n      |\n    9 |     fail(\"Failure during analysis\")\n      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n      |\n    "
+  },
+  "success": false,
+  "truncated": false
+}
