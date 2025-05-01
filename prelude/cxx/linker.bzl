@@ -21,8 +21,6 @@ Linker = record(
     shared_library_name_linker_flags_format = list[str],
     # Flags to pass to the linker to make it generate a shared library.
     shared_library_flags = list[str],
-    # Flag used to mark a symbol as undefined in the link.
-    undefined_sym_flag = str,
 )
 
 # Allows overriding the default shared library flags.
@@ -41,14 +39,12 @@ LINKERS = {
         default_shared_library_versioned_extension_format = "{}.dylib",
         shared_library_name_linker_flags_format = ["-install_name", "@rpath/{}"],
         shared_library_flags = ["-shared"],
-        undefined_sym_flag = "-u",
     ),
     LinkerType("gnu"): Linker(
         default_shared_library_extension = "so",
         default_shared_library_versioned_extension_format = "so.{}",
         shared_library_name_linker_flags_format = ["-Wl,-soname,{}"],
         shared_library_flags = ["-shared"],
-        undefined_sym_flag = "-Wl,--undefined-glob=",
     ),
     LinkerType("wasm"): Linker(
         default_shared_library_extension = "wasm",
@@ -57,7 +53,6 @@ LINKERS = {
         # lld supports this, at least.
         # See https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md#llvm-implementation
         shared_library_flags = ["-shared"],
-        undefined_sym_flag = "-u",
     ),
     LinkerType("windows"): Linker(
         default_shared_library_extension = "dll",
@@ -66,7 +61,6 @@ LINKERS = {
         # library name, and relies on the basename.
         shared_library_name_linker_flags_format = [],
         shared_library_flags = ["/DLL"],
-        undefined_sym_flag = "-u",
     ),
 }
 
