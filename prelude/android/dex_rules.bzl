@@ -446,11 +446,13 @@ def check_for_duplicate_classes(
             ],
     )
 
-def get_pre_dexed_libs_with_class_names_and_weight_estimates_files(
+def merge_to_split_dex(
         ctx: AnalysisContext,
         android_toolchain: AndroidToolchainInfo,
         pre_dexed_libs: list[DexLibraryInfo],
-        split_dex_merge_config: SplitDexMergeConfig) -> list[DexInputsWithClassNamesAndWeightEstimatesFile]:
+        split_dex_merge_config: SplitDexMergeConfig,
+        apk_module_graph_file: Artifact | None = None,
+        enable_bootstrap_dexes: bool = False) -> DexFilesInfo:
     is_exopackage_enabled_for_secondary_dex = _is_exopackage_enabled_for_secondary_dex(ctx)
     if is_exopackage_enabled_for_secondary_dex:
         supported_dex_compression = ["jar", "raw"]
@@ -475,16 +477,6 @@ def get_pre_dexed_libs_with_class_names_and_weight_estimates_files(
             ),
         )
 
-    return pre_dexed_libs_with_class_names_and_weight_estimates_files
-
-def merge_to_split_dex(
-        ctx: AnalysisContext,
-        android_toolchain: AndroidToolchainInfo,
-        pre_dexed_libs_with_class_names_and_weight_estimates_files: list[DexInputsWithClassNamesAndWeightEstimatesFile],
-        split_dex_merge_config: SplitDexMergeConfig,
-        apk_module_graph_file: Artifact | None = None,
-        enable_bootstrap_dexes: bool = False) -> DexFilesInfo:
-    is_exopackage_enabled_for_secondary_dex = _is_exopackage_enabled_for_secondary_dex(ctx)
     input_artifacts = [
         input.weight_estimate_and_filtered_class_names_file
         for input in pre_dexed_libs_with_class_names_and_weight_estimates_files
