@@ -158,14 +158,19 @@ impl EdenConnectionManager {
         self.project_root.as_ref()
     }
 
-    /// Converts project relative paths to values that are suitable for passing to Eden requests
-    pub fn project_paths_as_eden_paths<'a>(
+    /// Converts a single project relative path to a value that are suitable for passing to Eden requests
+    pub fn project_path_as_eden_path(&self, path: &ProjectRelativePath) -> Vec<u8> {
+        self.project_root.join(path).to_string().into_bytes()
+    }
+
+    /// Converts a list of project relative paths to a list of values that are suitable for passing to Eden requests
+    pub fn project_path_list_as_eden_path_list<'a>(
         &self,
         paths: impl IntoIterator<Item = &'a ProjectRelativePath>,
     ) -> Vec<Vec<u8>> {
         paths
             .into_iter()
-            .map(|p| self.project_root.join(p).to_string().into_bytes())
+            .map(|p| self.project_path_as_eden_path(p))
             .collect()
     }
 
