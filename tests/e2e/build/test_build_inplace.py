@@ -519,6 +519,8 @@ if fbcode_linux_only():  # noqa: C901
     async def test_instruction_count_disabled(buck: Buck) -> None:
         package = "fbcode//buck2/tests/targets/rules/instruction_counts"
         name = "three_billion_instructions"
+        # disable resource control as it uses miniperf to read cgroup's memory peak
+        env = {"BUCK2_TEST_RESOURCE_CONTROL_CONFIG": '{"status":"Off"}'}
 
         await buck.build(
             f"{package}:{name}",
@@ -528,6 +530,7 @@ if fbcode_linux_only():  # noqa: C901
             "--local-only",
             "-c",
             f"test.cache_buster={random_string()}",
+            env=env,
         )
 
         log = (await buck.log("show")).stdout.strip().splitlines()
