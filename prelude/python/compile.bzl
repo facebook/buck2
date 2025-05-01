@@ -72,5 +72,6 @@ def compile_manifests_for_mode(
         env = env,
         category = "py_compile",
         identifier = mode,
+        error_handler = ctx.attrs._python_toolchain[PythonToolchainInfo].python_error_handler,
     )
     return ManifestInfo(manifest = bytecode_manifest, artifacts = [(output, "bytecode")])
