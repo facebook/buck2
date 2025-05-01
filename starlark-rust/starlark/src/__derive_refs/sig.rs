@@ -54,6 +54,6 @@ pub fn parameter_spec(
 }
 
 /// `ParametersSpec` for a function which accepts `&Arguments`.
-pub fn parameter_spec_for_arguments(name: &'static str) {
-    parameter_spec(name, &[], &[], true, &[], true);
+pub fn parameter_spec_for_arguments(name: &'static str) -> ParametersSpec<FrozenValue> {
+    parameter_spec(name, &[], &[], true, &[], true)
 }

@@ -158,23 +158,15 @@ impl StarFun {
 
     /// Fields and field initializers for the struct implementing the trait.
     fn struct_fields(&self) -> syn::Result<(Vec<syn::Field>, Vec<syn::FieldValue>)> {
-        let signature = if let StarFunSource::Signature { .. } = self.source {
-            Some(render_signature(self)?)
-        } else {
-            None
-        };
-        if let Some(signature) = signature {
-            Ok((
-                vec![syn::parse_quote! {
-                    signature: starlark::eval::ParametersSpec<starlark::values::FrozenValue>
-                }],
-                vec![syn::parse_quote! {
-                    signature: #signature
-                }],
-            ))
-        } else {
-            Ok((Vec::new(), Vec::new()))
-        }
+        let signature = render_signature(self)?;
+        Ok((
+            vec![syn::parse_quote! {
+                signature: starlark::eval::ParametersSpec<starlark::values::FrozenValue>
+            }],
+            vec![syn::parse_quote! {
+                signature: #signature
+            }],
+        ))
     }
 
     /// Globals builder call to register the function.
