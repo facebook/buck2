@@ -264,34 +264,34 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
         }
     };
 
-    let impl_struct: syn::ItemImpl = syn::parse_quote! {
-        impl #struct_name {
-            // TODO(nga): copy lifetime parameter from declaration,
-            //   so the warning would be precise.
-            #[allow(clippy::extra_unused_lifetimes)]
-            #( #attrs )*
-            fn invoke_impl<'v>(
-                #( #invoke_params, )*
-            ) -> #return_type {
-                #body
-            }
+    let item_invoke_impl: syn::ItemFn = syn::parse_quote! {
+        // TODO(nga): copy lifetime parameter from declaration,
+        //   so the warning would be precise.
+        #[allow(clippy::extra_unused_lifetimes)]
+        #( #attrs )*
+        fn __starlark_invoke_impl<'v>(
+            #( #invoke_params, )*
+        ) -> #return_type {
+            #body
+        }
+    };
 
-            // When function signature declares return type as `anyhow::Result<impl AllocValue>`,
-            // we cannot call `T::starlark_type_repr` to render documentation, because there's no T.
-            // Future Rust will provide syntax `type ReturnType = impl AllocValue`:
-            // https://github.com/rust-lang/rfcs/pull/2515
-            // Until then we use this hack as a workaround.
-            #[allow(dead_code)] // Function is not used when return type is specified explicitly.
-            fn return_type_starlark_type_repr() -> starlark::typing::Ty {
-                fn get_impl<'v, T: starlark::values::AllocValue<'v>, E>(
-                    _f: fn(
-                        #( #param_types, )*
-                    ) -> std::result::Result<T, E>,
-                ) -> starlark::typing::Ty {
-                    <T as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
-                }
-                get_impl(Self::invoke_impl)
+    let item_return_type_repr: syn::ItemFn = syn::parse_quote! {
+        // When function signature declares return type as `anyhow::Result<impl AllocValue>`,
+        // we cannot call `T::starlark_type_repr` to render documentation, because there's no T.
+        // Future Rust will provide syntax `type ReturnType = impl AllocValue`:
+        // https://github.com/rust-lang/rfcs/pull/2515
+        // Until then we use this hack as a workaround.
+        #[allow(dead_code)] // Function is not used when return type is specified explicitly.
+        fn __starlark_return_type_starlark_type_repr() -> starlark::typing::Ty {
+            fn get_impl<'v, T: starlark::values::AllocValue<'v>, E>(
+                _f: fn(
+                    #( #param_types, )*
+                ) -> std::result::Result<T, E>,
+            ) -> starlark::typing::Ty {
+                <T as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
             }
+            get_impl(__starlark_invoke_impl)
         }
     };
 
@@ -306,7 +306,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
             ) -> starlark::Result<starlark::values::Value<'v>> {
                 #this_prepare
                 #prepare
-                match Self::invoke_impl(#( #invoke_args, )*) {
+                match __starlark_invoke_impl(#( #invoke_args, )*) {
                     Ok(v) => Ok(eval.heap().alloc(v)),
                     Err(e) => Err(starlark::__derive_refs::invoke_macro_error::InvokeMacroError::into_starlark_error(e)),
                 }
@@ -317,7 +317,8 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
     Ok(syn::parse_quote! {
         {
             #struct_def
-            #impl_struct
+            #item_invoke_impl
+            #item_return_type_repr
             #impl_trait
             #builder_set
         }
@@ -541,13 +542,6 @@ fn render_starlark_type(typ: &syn::Type) -> syn::Expr {
     }
 }
 
-fn render_starlark_return_type(fun: &StarFun) -> syn::Expr {
-    let struct_name = fun.struct_name();
-    syn::parse_quote! {
-        #struct_name::return_type_starlark_type_repr()
-    }
-}
-
 fn render_regular_native_callable_param(arg: &StarArg) -> syn::Result<syn::Expr> {
     let ty = render_starlark_type(arg.without_option());
     let name_str = ident_string(&arg.param.ident);
@@ -656,7 +650,6 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
         }
     };
 
-    let return_type_str = render_starlark_return_type(x);
     let speculative_exec_safe = x.speculative_exec_safe;
     Ok(quote!(
         {
@@ -665,7 +658,7 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
                 speculative_exec_safe: #speculative_exec_safe,
                 rust_docstring: #docs,
                 param_spec,
-                return_type: #return_type_str,
+                return_type: __starlark_return_type_starlark_type_repr(),
             }
         }
     ))
