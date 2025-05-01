@@ -368,6 +368,9 @@ def _copied_bundle_spec(bundle_info: AppleBundleInfo) -> [None, AppleBundlePart]
     elif bundle_extension == ".xpc":
         destination = AppleBundleDestination("xpcservices")
         codesign_on_copy = True
+    elif bundle_extension == ".bundle":
+        destination = AppleBundleDestination("plugins")
+        codesign_on_copy = True
     else:
         fail("Extension `{}` is not yet supported.".format(bundle_extension))
     return AppleBundlePart(
