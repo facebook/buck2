@@ -159,3 +159,21 @@ async def test_cleanup_timeout(buck: Buck, tmp_path: Path) -> None:
     assert len(finalizing_errors) == 1
     assert "'invocation recorder' failed to finalize" in finalizing_errors[0]
     assert "Scribe sink not enabled" in finalizing_errors[0]
+
+
+# Should match behavior of command report test in buck wrapper
+@buck_test(data_dir="empty_buckconfig")
+async def test_empty_buckconfig(buck: Buck, tmp_path: Path) -> None:
+    uuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    await expect_failure(
+        buck.targets(
+            ":",
+            env={"BUCK_WRAPPER_UUID": uuid},
+        )
+    )
+    report_path = buck.cwd / "buck-out/v2/log" / uuid / "command_report.json"
+
+    with open(report_path) as f:
+        report = json.loads(f.read())
+
+    assert "Error creating cell resolver" in report["error_messages"][0]

@@ -59,9 +59,13 @@ fn default_subscribers<T: StreamingCommand>(
 
     let enable_health_checks = ctx
         .immediate_config
-        .daemon_startup_config()?
-        .health_check_config
-        .enable_health_checks;
+        .daemon_startup_config()
+        .map(|daemon_startup_config| {
+            daemon_startup_config
+                .health_check_config
+                .enable_health_checks
+        })
+        .unwrap_or(false);
 
     let (
         health_check_tags_receiver,
