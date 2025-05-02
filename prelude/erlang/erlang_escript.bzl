@@ -62,11 +62,11 @@ def _unbundled_escript_impl(ctx: AnalysisContext, dependencies: ErlAppDependenci
         all_outputs,
     )
 
-    cmd = cmd_args([
+    cmd = cmd_args(
         toolchain.escript_trampoline,
         output,
         toolchain.otp_binaries.escript,
-    ])
+    )
 
     return [DefaultInfo(default_output = output), RunInfo(cmd)]
 

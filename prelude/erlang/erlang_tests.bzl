@@ -111,6 +111,19 @@ def erlang_tests_macro(
 def normalize_suite_name(suite_name: str) -> str:
     return suite_name.replace(":", "_")
 
+default_test_args = cmd_args(
+    "-mode",
+    "minimal",
+    "-noinput",
+    "-noshell",
+    "+A0",
+    "+S1:1",
+    "+sbtu",
+    "-run",
+    "test_binary",  # provided by ctx.attr._test_binary_lib
+    "main",
+)
+
 def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchains = select_toolchains(ctx)
     primary_toolchain_name = get_primary(ctx)
@@ -158,29 +171,16 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     config_files = [config_file[DefaultInfo].default_outputs[0] for config_file in ctx.attrs.config_files]
 
     cmd = cmd_args([trampoline[RunInfo] for trampoline in ctx.attrs._trampolines])
+    cmd.add(tools.erl, default_test_args)
 
     binary_lib_deps = flatten_dependencies(ctx, [ctx.attrs._test_binary_lib])
-    cmd.add([
-        tools.erl,
-        "-mode",
-        "minimal",
-        "-noinput",
-        "-noshell",
-        "+A0",
-        "+S1:1",
-        "+sbtu",
-        "-run",
-        "test_binary",  # provided by ctx.attr._test_binary_lib
-        "main",
-    ])
-
-    for dep in binary_lib_deps.values():
-        if dep[ErlangAppInfo].virtual:
-            continue
-        app_folder = dep[ErlangAppInfo].app_folders[primary_toolchain_name]
-        cmd.add(["-pa", cmd_args(app_folder, format = "{}/ebin", delimiter = "")])
-
-    cmd.add(["--"])
+    app_folders = [
+        dep[ErlangAppInfo].app_folders[primary_toolchain_name]
+        for dep in binary_lib_deps.values()
+        if not dep[ErlangAppInfo].virtual
+    ]
+    cmd.add(cmd_args(app_folders, format = "{}/ebin", prepend = "-pa"))
+    cmd.add("--")
 
     suite = ctx.attrs.suite
     suite_name = module_name(suite)
@@ -212,7 +212,6 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     cmd.add(test_info_file)
 
     default_info = _build_default_info(ctx, dependencies, output_dir)
-    cmd.add(cmd_args(hidden = default_info.other_outputs))
 
     # prepare shell dependencies
     additional_shell_paths = [
@@ -225,11 +224,11 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # So we wrap everything in extra double-quotes to protect from spaces in the path
     test_info_file_arg = cmd_args(test_info_file, format = '"<<\\"${REPO_ROOT}/{}\\">>"')
 
-    additional_shell_args = cmd_args([
-        cmd_args(["-test_cli_lib", "test_info_file", test_info_file_arg], delimiter = " "),
+    additional_shell_args = cmd_args(
+        cmd_args("-test_cli_lib", "test_info_file", test_info_file_arg, delimiter = " "),
         cmd_args("-eval", ctx.attrs.preamble, quote = "shell", delimiter = " "),
         "-noshell",
-    ])
+    )
 
     cli_lib_deps = flatten_dependencies(ctx, [ctx.attrs._cli_lib])
     shell_deps = dict(dependencies)
@@ -239,7 +238,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         dependencies = shell_deps.values(),
         additional_paths = additional_shell_paths,
-        additional_args = [additional_shell_args],
+        additional_args = additional_shell_args,
     )
 
     re_executor = get_re_executor_from_props(ctx)

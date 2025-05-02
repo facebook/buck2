@@ -265,13 +265,13 @@ def _gen_parse_transform_beam(
     output = ctx.actions.declare_output(beam)
 
     # NOTE: since we do NOT define +debug_info, this is hermetic
-    cmd = cmd_args([
+    cmd = cmd_args(
         erlc,
         "+deterministic",
         "-o",
         cmd_args(output.as_output(), parent = 1),
         src,
-    ])
+    )
     ctx.actions.run(cmd, category = "erlc", identifier = src.short_path)
     return output, resource_dir
 

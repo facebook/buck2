@@ -259,12 +259,12 @@ def _build_release_variables(ctx: AnalysisContext, toolchain: Toolchain) -> dict
         }}),
     )
 
-    release_variables_build_cmd = cmd_args([
+    release_variables_build_cmd = cmd_args(
         toolchain.otp_binaries.escript,
         toolchain.release_variables_builder,
         spec_file,
         release_variables.as_output(),
-    ])
+    )
 
     erlang_build.utils.run_with_env(
         ctx,
@@ -291,11 +291,11 @@ def _build_erts(ctx: AnalysisContext, toolchain: Toolchain) -> dict[str, Artifac
 
     output_artifact = ctx.actions.declare_output(erts_dir)
     ctx.actions.run(
-        cmd_args([
+        cmd_args(
             toolchain.otp_binaries.escript,
             toolchain.include_erts,
             output_artifact.as_output(),
-        ]),
+        ),
         category = "include_erts",
         identifier = action_identifier(toolchain, release_name),
     )

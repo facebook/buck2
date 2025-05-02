@@ -16,7 +16,7 @@ def _build_run_info(
         dependencies: list[Dependency],
         additional_app_paths: list[Artifact] = [],
         additional_paths: list[Artifact] = [],
-        additional_args: list[cmd_args] = []) -> Provider:
+        additional_args: [cmd_args, None] = None) -> Provider:
     """Builds an Erlang shell with the dependencies and additional code paths available."""
     primary_toolchain_name = get_primary(ctx)
 
@@ -35,7 +35,7 @@ def _build_run_info(
 
     tools = get_primary_tools(ctx)
     erl = cmd_args(cmd_args(tools.erl, delimiter = " "), format = "\"${REPO_ROOT}\"/{}")
-    erl_args = cmd_args(["exec", erl], delimiter = " \\\n")
+    erl_args = cmd_args("exec", erl, delimiter = " \\\n")
 
     # add paths
     erl_args.add(cmd_args(app_paths, format = "-pa \"${REPO_ROOT}\"/{}/ebin"))
@@ -46,15 +46,16 @@ def _build_run_info(
     erl_args.add(cmd_args(config_files, format = "-config \"${REPO_ROOT}\"/{}"))
 
     # add extra args
-    erl_args.add(additional_args)
+    if additional_args:
+        erl_args.add(additional_args)
     erl_args.add('"$@"')
 
-    start_shell_content = cmd_args([
+    start_shell_content = cmd_args(
         "#!/usr/bin/env bash",
         "export REPO_ROOT=$(buck2 root --kind=project)",
         erl_args,
         "",
-    ])
+    )
 
     shell_script = ctx.actions.write(
         "start_shell.sh",

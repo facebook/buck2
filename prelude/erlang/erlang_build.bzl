@@ -384,12 +384,7 @@ def _deps_key(src: Artifact) -> str:
 def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, src: Artifact) -> Artifact:
     dependency_json = ctx.actions.declare_output(_dep_file_name(toolchain, src))
 
-    dependency_analyzer_args = cmd_args(
-        [
-            src,
-            dependency_json.as_output(),
-        ],
-    )
+    dependency_analyzer_args = cmd_args(src, dependency_json.as_output())
     _run_escript(
         ctx,
         toolchain,
@@ -460,18 +455,16 @@ def _build_erl(
     def dynamic_lambda(ctx: AnalysisContext, artifacts, outputs):
         erl_opts = _get_erl_opts(ctx, toolchain, src)
         erlc_cmd = cmd_args(
-            [
-                trampoline,
-                erlc,
-                erl_opts,
-                _erlc_dependency_args(
-                    _dependency_include_dirs(build_environment),
-                    _dependency_code_paths(build_environment),
-                ),
-                "-o",
-                cmd_args(outputs[output].as_output(), parent = 1),
-                src,
-            ],
+            trampoline,
+            erlc,
+            erl_opts,
+            _erlc_dependency_args(
+                _dependency_include_dirs(build_environment),
+                _dependency_code_paths(build_environment),
+            ),
+            "-o",
+            cmd_args(outputs[output].as_output(), parent = 1),
+            src,
         )
         deps_args, mapping = _dependencies_to_args(artifacts, final_dep_file, build_environment)
         erlc_cmd.add(deps_args)
@@ -499,20 +492,18 @@ def _build_edoc(
         preprocess: bool) -> None:
     """Build edoc from erl files."""
     eval_cmd = cmd_args(
-        [
-            toolchain.otp_binaries.escript,
-            toolchain.edoc,
-            cmd_args(toolchain.edoc_options),
-            "-app",
-            ctx.attrs.name,
-            "-files",
-            src,
-            "-chunks",
-            "-pa",
-            toolchain.utility_modules,
-            "-o",
-            cmd_args(output.as_output(), parent = 2),
-        ],
+        toolchain.otp_binaries.escript,
+        toolchain.edoc,
+        cmd_args(toolchain.edoc_options),
+        "-app",
+        ctx.attrs.name,
+        "-files",
+        src,
+        "-chunks",
+        "-pa",
+        toolchain.utility_modules,
+        "-o",
+        cmd_args(output.as_output(), parent = 2),
     )
 
     if not preprocess:
@@ -621,7 +612,7 @@ def _erlc_dependency_args(
     # A: the whole string would get passed as a single argument, as if it was quoted in CLI e.g. '-I include_path'
     # ...which the escript cannot parse, as it expects two separate arguments, e.g. '-I' 'include_path'
 
-    args = cmd_args([], ignore_artifacts = True)
+    args = cmd_args(ignore_artifacts = True)
 
     # build -I options
     if path_in_arg:
@@ -679,7 +670,7 @@ def _get_erl_opts(
     path_type = "{path_type, relative}"
     preserved_opts = _preserved_opts(opts)
 
-    compile_info = cmd_args([source, path_type, preserved_opts], delimiter = ", ")
+    compile_info = cmd_args(source, path_type, preserved_opts, delimiter = ", ")
 
     # add relevant compile_info manually
     args.add(cmd_args(compile_info, format = "+{compile_info, [{}]}"))
@@ -818,24 +809,28 @@ def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, *args, **kwargs):
     kwargs["env"] = env
     ctx.actions.run(*args, **kwargs)
 
+default_escript_args = cmd_args(
+    "+A0",
+    "+S1:1",
+    "+sbtu",
+    "+MMscs",
+    "8",
+    "+MMsco",
+    "false",
+    "-env",
+    "MALLOC_ARENA_MAX",
+    "2",
+    "-mode",
+    "minimal",
+    "-noinput",
+    "-noshell",
+)
+
 def _run_escript(ctx: AnalysisContext, toolchain: Toolchain, script: Artifact, args: cmd_args, **kwargs) -> None:
     """ run escript with env and providing toolchain-configured utility modules"""
-    cmd = cmd_args([
+    cmd = cmd_args(
         toolchain.otp_binaries.erl,
-        "+A0",
-        "+S1:1",
-        "+sbtu",
-        "+MMscs",
-        "8",
-        "+MMsco",
-        "false",
-        "-env",
-        "MALLOC_ARENA_MAX",
-        "2",
-        "-mode",
-        "minimal",
-        "-noinput",
-        "-noshell",
+        default_escript_args,
         "-pa",
         toolchain.utility_modules,
         "-run",
@@ -844,7 +839,7 @@ def _run_escript(ctx: AnalysisContext, toolchain: Toolchain, script: Artifact, a
         "--",
         script,
         args,
-    ])
+    )
     _run_with_env(ctx, toolchain, cmd, **kwargs)
 
 def _peek_private_includes(
