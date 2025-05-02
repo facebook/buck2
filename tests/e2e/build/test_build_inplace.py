@@ -24,7 +24,12 @@ from buck2.tests.e2e_util.api.buck_result import BuckException, BuildResult
 from buck2.tests.e2e_util.api.process import Process
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env, get_mode_from_platform
-from buck2.tests.e2e_util.helper.utils import json_get, random_string, read_what_ran
+from buck2.tests.e2e_util.helper.utils import (
+    json_get,
+    random_string,
+    read_invocation_record,
+    read_what_ran,
+)
 
 
 # rust rule implementations hardcode invocation of `/bin/jq` which is not available on Mac RE workers (or mac laptops)
@@ -737,6 +742,20 @@ async def test_exit_when_preemptible_always(buck: Buck, same_state: bool) -> Non
         exit_code, stderr = task.result()
         assert "daemon preempted" in stderr
         assert exit_code == 5
+
+
+@buck_test(inplace=True)
+async def test_preemptible_logged(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
+    await buck.targets(
+        "@fbcode//mode/dev",
+        "--preemptible=always",
+        ":",
+        "--unstable-write-invocation-record",
+        str(record_path),
+    )
+    record = read_invocation_record(record_path)
+    assert record["preemptible"] == "ALWAYS"
 
 
 @buck_test(inplace=True)

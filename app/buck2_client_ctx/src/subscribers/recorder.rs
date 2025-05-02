@@ -68,7 +68,9 @@ use tokio::sync::mpsc::Receiver;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::client_metadata::ClientMetadata;
+use crate::common::CommonBuildConfigurationOptions;
 use crate::common::CommonEventLogOptions;
+use crate::common::PreemptibleWhen;
 use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::exit_result::ExitCode;
 use crate::exit_result::ExitResult;
@@ -163,6 +165,7 @@ pub(crate) struct InvocationRecorder {
     daemon_materializer_state_is_corrupted: bool,
     enable_restarter: bool,
     restarted_trace_id: Option<TraceId>,
+    preemptible: Option<PreemptibleWhen>,
     has_command_result: bool,
     has_end_of_stream: bool,
     compressed_event_log_size_bytes: Option<Arc<AtomicU64>>,
@@ -240,6 +243,7 @@ impl InvocationRecorder {
         build_count_manager: Option<BuildCountManager>,
         filesystem: String,
         restarted_trace_id: Option<TraceId>,
+        preemptible: Option<PreemptibleWhen>,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
         client_metadata: Vec<buck2_data::ClientMetadata>,
         health_check_tags_receiver: Option<Receiver<Vec<String>>>,
@@ -316,6 +320,7 @@ impl InvocationRecorder {
             daemon_materializer_state_is_corrupted: false,
             enable_restarter: false,
             restarted_trace_id,
+            preemptible,
             has_command_result: false,
             has_end_of_stream: false,
             compressed_event_log_size_bytes: log_size_counter_bytes,
@@ -658,6 +663,16 @@ impl InvocationRecorder {
         let mut metadata = Self::default_metadata();
         metadata.strings.extend(std::mem::take(&mut self.metadata));
 
+        let preemptible = self
+            .preemptible
+            .take()
+            .map(|p| match p {
+                PreemptibleWhen::Never => "NEVER",
+                PreemptibleWhen::Always => "ALWAYS",
+                PreemptibleWhen::OnDifferentState => "ON_DIFFERENT_STATE",
+            })
+            .unwrap_or("UNSPECIFIED");
+
         let errors = self.finalize_errors();
 
         let record = buck2_data::InvocationRecord {
@@ -836,6 +851,7 @@ impl InvocationRecorder {
             exit_code: self.exit_code.take(),
             exit_result_name: self.exit_result_name.take(),
             outcome: self.outcome.take().map(|out| out.into()),
+            preemptible: Some(preemptible.to_owned()),
         };
 
         let event = BuckEvent::new(
@@ -1910,14 +1926,15 @@ fn merge_file_watcher_stats(
 
 pub(crate) fn try_get_invocation_recorder(
     ctx: &ClientCommandContext<'_>,
-    opts: &CommonEventLogOptions,
+    event_log_opts: &CommonEventLogOptions,
+    build_config_opts: Option<&CommonBuildConfigurationOptions>,
     command_name: &'static str,
     sanitized_argv: Vec<String>,
     representative_config_flags: Vec<String>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
     health_check_tags_receiver: Option<Receiver<Vec<String>>>,
 ) -> buck2_error::Result<Box<InvocationRecorder>> {
-    let write_to_path = opts
+    let write_to_path = event_log_opts
         .unstable_write_invocation_record
         .as_ref()
         .map(|path| path.resolve(&ctx.working_dir));
@@ -1957,6 +1974,7 @@ pub(crate) fn try_get_invocation_recorder(
         build_count,
         filesystem,
         ctx.restarted_trace_id.dupe(),
+        build_config_opts.and_then(|opts| opts.preemptible),
         log_size_counter_bytes,
         ctx.client_metadata
             .iter()

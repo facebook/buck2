@@ -108,6 +108,7 @@ fn default_subscribers<T: StreamingCommand>(
     let mut recorder = try_get_invocation_recorder(
         ctx,
         cmd.event_log_opts(),
+        Some(cmd.build_config_opts()),
         cmd.logging_name(),
         cmd.sanitize_argv(ctx.argv.clone()).argv,
         representative_config_flags,

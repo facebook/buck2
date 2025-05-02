@@ -345,6 +345,7 @@ pub trait BuckSubcommand {
         let mut recorder = try_get_invocation_recorder(
             ctx,
             self.event_log_opts(),
+            None,
             self.logging_name(),
             std::env::args().collect(),
             Vec::new(),

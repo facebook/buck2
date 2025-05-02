@@ -2315,6 +2315,9 @@ message InvocationRecord {
 
   // High level outcome of the command.
   optional InvocationOutcome outcome = 251;
+
+  // Value of --preemptible.
+  optional string preemptible = 252;
 }
 
 enum InvocationOutcome {
