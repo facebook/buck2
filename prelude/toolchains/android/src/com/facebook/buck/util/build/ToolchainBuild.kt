@@ -13,5 +13,5 @@ package com.facebook.buck.util.build
 object ToolchainBuild {
 
   /** Whether this toolchain is compiled for open-source. */
-  @JvmStatic val isOss: Boolean = java.lang.Boolean.parseBoolean(null)
+  @JvmStatic val isOss: Boolean = true
 }
