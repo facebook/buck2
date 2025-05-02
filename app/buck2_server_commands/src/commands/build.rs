@@ -20,6 +20,7 @@ use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::build::build_report::build_report_opts;
 use buck2_build_api::build::build_report::generate_build_report;
+use buck2_build_api::build::detailed_aggregated_metrics::dice::HasDetailedAggregatedMetrics;
 use buck2_build_api::build::graph_properties::GraphPropertiesOptions;
 use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_cli_proto::CommonBuildOptions;
@@ -46,6 +47,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
+use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::span_async;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::load_patterns::MissingTargetBehavior;
@@ -215,6 +217,22 @@ async fn build(
             .await
         })
         .await?;
+
+    let want_detailed_metrics = ctx
+        .parse_legacy_config_property(
+            cell_resolver.root_cell(),
+            BuckconfigKeyRef {
+                section: "buck2",
+                property: "detailed_aggregated_metrics",
+            },
+        )
+        .await?
+        .unwrap_or_default();
+
+    if want_detailed_metrics {
+        let events = ctx.take_per_build_events()?;
+        instant_event(ctx.compute_detailed_metrics(events).await?);
+    }
 
     send_target_cfg_event(
         server_ctx.events(),

@@ -566,6 +566,10 @@ message CriticalPathEntry2 {
   }
 }
 
+// Detailed metrics aggregated to top-level targets and for the overall build.
+//
+// This includes per-action, per-analysis, and potentially other metrics,
+// aggregated across the whole graph.
 message DetailedAggregatedMetrics {
   repeated TopLevelTargetMetrics topLevelTargetMetrics = 1;
 
@@ -580,12 +584,22 @@ message TopLevelTargetMetrics {
   // traverse it.
   optional uint64 action_graph_size = 3;
 
+  // These are metrics aggregated without normalization.
   AggregatedBuildMetrics metrics = 4;
+
+  // "Amortized" metrics are aggregated by dividing the metric/cost evenly
+  // across all top-level targets that require the node that produced the
+  // metric. For example, when building four targets `//:foo`, `//:bar`,
+  // `//:baz`, `//:qux` if some intermediate action is required for each of the
+  // first three, its costs will be aggregated to them each multiplied by 1/3
+  // while no cost will be attributed to `//:qux`.
   AggregatedBuildMetrics amortized_metrics = 5;
 }
 
 // Aggregated metrics across all targets in a build.
 message AllTargetsBuildMetrics {
+  // The total number of nodes in the action graph, if we were able to fully
+  // traverse it.
   optional uint64 action_graph_size = 1;
   AggregatedBuildMetrics metrics = 2;
   optional uint64 compute_time_ms = 3;

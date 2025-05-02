@@ -115,10 +115,12 @@ trait AggregatedBuildMetricsExt {
 
 impl AggregatedBuildMetricsExt for buck2_data::AggregatedBuildMetrics {
     fn aggregate_execution(&mut self, factor: f64, ev: &ActionExecutionMetrics, when: BuiltWhen) {
+        // Accumulate metrics computed over the full graph.
         self.full_graph_execution_time_ms += factor * (ev.execution_time_ms as f64);
         self.full_graph_output_size_bytes += factor * (ev.output_size_bytes as f64);
 
         if let BuiltWhen::ThisBuild = when {
+            // Accumulate metrics associated with costs during this build.
             match ev.execution_kind {
                 buck2_data::ActionExecutionKind::Local
                 | buck2_data::ActionExecutionKind::LocalWorker => {
