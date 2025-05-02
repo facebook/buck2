@@ -435,6 +435,13 @@ def _is_shared_only(info: LinkableNode) -> bool:
     """
     return info.preferred_linkage == Linkage("shared")
 
+def _is_static_deps(info: LinkableNode) -> bool:
+    """
+    Return whether avoid excluding this nodes deps, even if this node is shared
+    -only.
+    """
+    return "omnibus_static_deps" in info.labels
+
 def _create_omnibus(
         ctx: AnalysisContext,
         spec: OmnibusSpec,
@@ -572,25 +579,30 @@ def _build_omnibus_spec(
     use to link the various parts of omnibus.
     """
 
-    exclusion_roots = (
-        graph.excluded.keys() +
-        # Exclude any body nodes which can't be linked statically.
-        [
-            label
-            for label, info in graph.nodes.items()
-            if (label not in graph.roots) and _is_shared_only(info)
-        ]
-    )
-
     # Build up the set of all nodes that we have to exclude from omnibus linking
-    # (any node that is excluded will exclude all it's transitive deps).
-    excluded = {
-        label: None
-        for label in get_transitive_deps(
-            graph.nodes,
-            exclusion_roots,
-        )
-    }
+    excluded = {}
+
+    # Track excluded nodes that need to transitively exclude their children.
+    exclusion_roots = []
+    exclusion_roots.extend(graph.excluded.keys())
+
+    # Walk graph nodes, looking for ones to exclude.
+    for label, info in graph.nodes.items():
+        # Exclude any body nodes which can't be linked statically.
+        if (label not in graph.roots) and _is_shared_only(info):
+            # By default, we'll also exclude this nodes transitive children,
+            # but nodes can opt-out.
+            if _is_static_deps(info):
+                excluded[label] = None
+            else:
+                exclusion_roots.append(label)
+
+    # Recursively expand exluded roots and add them to the excluded list.
+    for label in get_transitive_deps(
+        graph.nodes,
+        exclusion_roots,
+    ):
+        excluded[label] = None
 
     # Finalized root nodes, after removing any excluded roots.
     roots = {
