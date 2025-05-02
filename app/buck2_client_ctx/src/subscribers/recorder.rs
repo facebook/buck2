@@ -427,7 +427,7 @@ impl InvocationRecorder {
     }
 
     fn outcome(&self, exit_result: &ExitResult) -> InvocationOutcome {
-        let has_errors = exit_result.get_all_errors().is_empty();
+        let has_errors = !exit_result.get_all_errors().is_empty();
 
         // Could be replaced with an error tag check.
         let crashed =
