@@ -16,8 +16,8 @@ import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
 import com.facebook.buck.util.json.ObjectMappers;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableSortedSet;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
@@ -65,7 +65,7 @@ public class DefaultClassUsageFileWriter implements ClassUsageFileWriter {
               rootPath, configuredBuckOut, jarAbsolutePath)
           .ifPresent(
               projectPath ->
-                  builder.put(projectPath, ImmutableSet.copyOf(jarClassesEntry.getValue())));
+                  builder.put(projectPath, ImmutableSortedSet.copyOf(jarClassesEntry.getValue())));
     }
 
     return builder.build();
