@@ -330,7 +330,9 @@ impl RecordedActions {
     }
 
     /// Inserts a binding for a dynamic_outputs' "outputs" arg.
-    pub(crate) fn insert_dynamic_output(&mut self, key: ActionKey, bound_to_key: ActionKey) {
+    pub fn insert_dynamic_output(&mut self, key: ActionKey, bound_to_key: ActionKey) {
+        // TODO(cjhopman): This doesn't seem to work the way it's intended. We won't ever hit the Some case because we insert all
+        // the dynamic_output "outputs" first before inserting the actual registered actions.
         match self.actions.get(bound_to_key.action_index().0 as usize) {
             Some(ActionLookup::Action(v)) => {
                 // indicates that a dynamic_output "outputs" has been bound to an action it created

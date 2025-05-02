@@ -15,6 +15,7 @@ mod actions;
 mod analysis;
 mod artifact_groups;
 mod attrs;
+mod build;
 mod interpreter;
 mod nodes;
 

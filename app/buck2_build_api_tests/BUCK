@@ -11,6 +11,7 @@ rust_unittest(
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:ctor",
         "fbsource//third-party/rust:derivative",
+        "fbsource//third-party/rust:fxhash",
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:itertools",

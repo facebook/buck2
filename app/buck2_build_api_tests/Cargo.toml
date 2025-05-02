@@ -12,6 +12,7 @@ assert_matches = { workspace = true }
 async-trait = { workspace = true }
 ctor = { workspace = true }
 derivative = { workspace = true }
+fxhash = { workspace = true }
 indexmap = { workspace = true }
 indoc = { workspace = true }
 maplit = { workspace = true }
