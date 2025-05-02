@@ -136,7 +136,7 @@ def unarchive(
         # Tar excludes files using globs, but we take regexes, so we need to
         # apply our regexes onto the file listing and produce an exclusion list
         # that just has strings.
-        exclusions = ctx.actions.declare_output("exclusions")
+        exclusions = ctx.actions.declare_output(output_name + "_exclusions")
         create_exclusion_list = [
             exec_deps.create_exclusion_list[RunInfo],
             "--tar-archive",
@@ -167,7 +167,7 @@ def unarchive(
     script_output = ctx.actions.declare_output(output_name + "_tmp", dir = True) if needs_strip_prefix else output
 
     script, _ = ctx.actions.write(
-        "unpack.{}".format(ext),
+        "{}_unpack.{}".format(output_name, ext),
         [
             cmd_args(script_output, format = mkdir),
             cmd_args(script_output, format = "cd {}"),
@@ -183,6 +183,7 @@ def unarchive(
             hidden = exclude_hidden + [archive, script_output.as_output()],
         ),
         category = "http_archive",
+        identifier = output_name,
         prefer_local = prefer_local,
     )
 
