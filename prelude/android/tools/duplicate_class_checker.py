@@ -16,15 +16,9 @@ def main() -> None:
         description="Check whether the provided list of files contains any duplicate class names in them."
     )
     parser.add_argument(
-        "--target-names-file",
+        "--target-name-to-class-names-map-file",
         type=Path,
-        help="Target names",
-        required=True,
-    )
-    parser.add_argument(
-        "--class-name-paths-file",
-        type=Path,
-        help="Paths to the files that contain the mapping of target name to class names file",
+        help="A file that contains the mapping between target names and file paths containing the class names for that target.",
         required=True,
     )
     parser.add_argument(
@@ -35,7 +29,7 @@ def main() -> None:
     args = parser.parse_args()
 
     target_to_class_names_map = get_class_to_target_mapping(
-        args.target_names_file, args.class_name_paths_file
+        args.target_name_to_class_names_map_file
     )
 
     duplicate_classes = {
@@ -58,16 +52,13 @@ def main() -> None:
 
 
 def get_class_to_target_mapping(
-    target_names_file: Path, class_name_paths_file: Path
+    target_name_to_class_names_map_file: Path,
 ) -> Dict[str, List[str]]:
-    with open(target_names_file) as f:
-        target_names = [line.rstrip() for line in f]
-    with open(class_name_paths_file) as f:
-        class_name_paths = [line.rstrip() for line in f]
-    zipped_dict = dict(zip(target_names, class_name_paths))
+    with open(target_name_to_class_names_map_file) as f:
+        target_to_class_name_file_map = json.loads(f.read())
 
     class_to_target_mapping = {}
-    for target_name, path in zipped_dict.items():
+    for target_name, path in target_to_class_name_file_map.items():
         with open(path) as f:
             class_names = f.readlines()
             for class_name in class_names:
@@ -76,12 +67,6 @@ def get_class_to_target_mapping(
                 class_to_target_mapping.setdefault(class_name, []).append(target_name)
 
     return class_to_target_mapping
-
-
-def get_duplicate_classes(
-    target_to_classes_mapping: Dict[str, List[str]],
-) -> Dict[str, List[str]]:
-    return []
 
 
 def build_validation_message(
