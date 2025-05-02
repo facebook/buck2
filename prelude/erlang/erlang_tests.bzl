@@ -157,15 +157,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # Config files for ct
     config_files = [config_file[DefaultInfo].default_outputs[0] for config_file in ctx.attrs.config_files]
 
-    trampolines = ctx.attrs._trampolines
-    if ctx.attrs._trampoline != None:
-        if trampolines != None:
-            fail("_trampoline and _trampolines can't be both provided")
-        trampolines = [ctx.attrs._trampoline]
-
-    cmd = cmd_args([])
-    if trampolines:
-        cmd.add(*[trampoline[RunInfo] for trampoline in trampolines])
+    cmd = cmd_args([trampoline[RunInfo] for trampoline in ctx.attrs._trampolines])
 
     binary_lib_deps = flatten_dependencies(ctx, [ctx.attrs._test_binary_lib])
     cmd.add([
