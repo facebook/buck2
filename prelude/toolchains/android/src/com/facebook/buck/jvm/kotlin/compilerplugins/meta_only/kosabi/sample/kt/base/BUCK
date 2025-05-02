@@ -1,0 +1,13 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_kotlin_library")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_kotlin_library(
+    name = "sample-no-deps",
+    abi_generation_mode = "source_only",
+    visibility = ["prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/compilerplugins/meta_only/kosabi/sample/..."],
+    deps = [],
+)
