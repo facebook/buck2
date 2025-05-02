@@ -107,6 +107,7 @@ def replace_digest(s: str) -> str:
 
 
 def read_invocation_record(record: Path) -> typing.Dict[str, typing.Any]:
-    return json.loads(record.read_text(encoding="utf-8"))["data"]["Record"]["data"][
-        "InvocationRecord"
-    ]
+    record_json = json.loads(record.read_text(encoding="utf-8"))
+    record = record_json["data"]["Record"]["data"]["InvocationRecord"]
+    record["trace_id"] = record_json["trace_id"]
+    return record

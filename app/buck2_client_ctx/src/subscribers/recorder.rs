@@ -1854,7 +1854,7 @@ impl EventSubscriber for InvocationRecorder {
     }
 
     fn handle_should_restart(&mut self) {
-        self.should_restart = true;
+        self.should_restart = self.restarted_trace_id.is_none();
     }
 }
 
