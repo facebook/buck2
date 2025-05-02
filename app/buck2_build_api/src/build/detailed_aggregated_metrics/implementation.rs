@@ -7,7 +7,4 @@
  * of this source tree.
  */
 
-pub mod dice;
-pub mod events;
-mod implementation;
-pub mod types;
+pub(crate) mod state;

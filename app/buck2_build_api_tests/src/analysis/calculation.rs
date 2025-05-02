@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsEventHandler;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
 use buck2_build_api::interpreter::rule_defs::provider::callable::register_provider;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
@@ -144,6 +145,7 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
         .set_data(|data| {
             data.set_testing_io_provider(&fs);
             data.set_digest_config(DigestConfig::testing_default());
+            data.set_detailed_aggregated_metrics_event_handler(None);
         })
         .build({
             let mut data = UserComputationData::new();

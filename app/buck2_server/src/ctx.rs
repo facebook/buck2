@@ -21,6 +21,7 @@ use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
 use buck2_build_api::actions::impls::run_action_knobs::HasRunActionKnobs;
 use buck2_build_api::actions::impls::run_action_knobs::RunActionKnobs;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
+use buck2_build_api::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsEventsHolder;
 use buck2_build_api::build_signals::BuildSignalsInstaller;
 use buck2_build_api::build_signals::SetBuildSignals;
 use buck2_build_api::build_signals::create_build_signals;
@@ -701,6 +702,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
             activation_tracker: Some(self.build_signals.activation_tracker.dupe()),
             ..Default::default()
         };
+        data.set_detailed_aggregated_metrics_events_holder();
 
         let worker_pool = Arc::new(WorkerPool::new(persistent_worker_shutdown_timeout_s));
 

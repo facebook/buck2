@@ -23,7 +23,8 @@ use dice::Dice;
 use dice::WhichDice;
 
 use crate::actions::execute::dice_data::SetInvalidationTrackingConfig;
-
+use crate::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsEventHandler;
+use crate::build::detailed_aggregated_metrics::events::start_detailed_aggregated_metrics_state_tracker;
 /// This is just a simple version number to allow us to more easily rollout modern dice.
 const CURRENT_MODERN_DICE_VERSION: u32 = 3;
 
@@ -67,6 +68,10 @@ pub async fn configure_dice_for_buck(
         None => false,
     };
     dice.set_invalidation_tracking_config(invalidation_tracking_enabled);
+
+    dice.set_detailed_aggregated_metrics_event_handler(Some(
+        start_detailed_aggregated_metrics_state_tracker(),
+    ));
 
     let dice = dice.build(detect_cycles);
     let mut dice_ctx = dice.updater();

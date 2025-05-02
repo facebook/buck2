@@ -93,6 +93,7 @@ pub async fn lookup_deferred_holder(
 
 /// Represents an Analysis or Deferred result. Technically, we can treat analysis as a 'Deferred'
 /// and get rid of this enum
+#[derive(Clone, Dupe)]
 pub enum DeferredHolder {
     Analysis(AnalysisResult),
     Bxl(Arc<BxlResult>),

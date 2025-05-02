@@ -29,3 +29,9 @@ pub struct TopLevelTargetSpec {
     pub target: ConfiguredTargetNode,
     pub outputs: Arc<Vec<(ArtifactGroup, BuildProviderType)>>,
 }
+
+#[derive(Default)]
+pub struct PerBuildEvents {
+    pub executed_actions: fxhash::FxHashSet<ActionKey>,
+    pub top_level_targets: Vec<TopLevelTargetSpec>,
+}

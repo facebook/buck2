@@ -36,6 +36,8 @@ use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
+use buck2_build_api::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsEventHandler;
+use buck2_build_api::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsEventsHolder;
 use buck2_build_api::context::SetBuildContextData;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;
@@ -194,6 +196,7 @@ async fn make_default_dice_state(
         data.set_testing_io_provider(temp_fs);
         data.set_digest_config(DigestConfig::testing_default());
         data.set_invalidation_tracking_config(true);
+        data.set_detailed_aggregated_metrics_event_handler(None);
     });
 
     for mock in mocks.into_iter() {
@@ -226,6 +229,7 @@ async fn make_default_dice_state(
 
     set_fallback_executor_config(&mut extra.data, CommandExecutorConfig::testing_local());
     extra.set_command_executor(Box::new(CommandExecutorProvider { dry_run_tracker }));
+    extra.set_detailed_aggregated_metrics_events_holder();
     extra.set_blocking_executor(Arc::new(DummyBlockingExecutor { fs }));
     extra.set_materializer(Arc::new(NoDiskMaterializer));
     extra.set_re_client(UnconfiguredRemoteExecutionClient::testing_new_dummy());

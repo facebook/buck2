@@ -8,8 +8,13 @@
  */
 
 use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_error::internal_error;
 use dice::DiceComputations;
+use dice::DiceDataBuilder;
+use dice::UserComputationData;
 
+use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsEventHandler;
+use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsPerBuildEventsHolder;
 use crate::build::detailed_aggregated_metrics::types::ActionExecutionMetrics;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetSpec;
 use crate::deferred::calculation::DeferredHolder;
@@ -26,23 +31,81 @@ pub trait HasDetailedAggregatedMetrics {
 }
 
 impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
-    fn top_level_target(&self, _spec: TopLevelTargetSpec) -> buck2_error::Result<()> {
+    fn top_level_target(&self, spec: TopLevelTargetSpec) -> buck2_error::Result<()> {
+        get_per_build_events_holder(self)?.top_level_target(spec);
         Ok(())
     }
 
-    fn action_executed(&self, _ev: ActionExecutionMetrics) -> buck2_error::Result<()> {
+    fn action_executed(&self, ev: ActionExecutionMetrics) -> buck2_error::Result<()> {
+        get_per_build_events_holder(self)?.action_executed(&ev.key);
+        if let Some(v) = get_detailed_aggregated_metrics_event_handler(self)? {
+            v.action_executed(ev);
+        }
         Ok(())
     }
 
-    fn analysis_started(&self, _key: &DeferredHolderKey) -> buck2_error::Result<()> {
+    fn analysis_started(&self, key: &DeferredHolderKey) -> buck2_error::Result<()> {
+        if let Some(v) = get_detailed_aggregated_metrics_event_handler(self)? {
+            v.analysis_started(key);
+        }
         Ok(())
     }
 
     fn analysis_complete(
         &self,
-        _key: &DeferredHolderKey,
-        _result: &DeferredHolder,
+        key: &DeferredHolderKey,
+        result: &DeferredHolder,
     ) -> buck2_error::Result<()> {
+        if let Some(v) = get_detailed_aggregated_metrics_event_handler(self)? {
+            v.analysis_complete(key, result);
+        }
         Ok(())
+    }
+}
+
+/// This is set on the global data (rather than per-transaction data) because it tracks the state across builds.
+pub trait SetDetailedAggregatedMetricsEventHandler {
+    /// We set an Option<> here (rather than have None be implicit by not calling it) to require that a value is set. We use the None case for
+    /// tests just so we don't need to startup the tracking there.
+    fn set_detailed_aggregated_metrics_event_handler(
+        &mut self,
+        sender: Option<DetailedAggregatedMetricsEventHandler>,
+    );
+}
+
+impl SetDetailedAggregatedMetricsEventHandler for DiceDataBuilder {
+    fn set_detailed_aggregated_metrics_event_handler(
+        &mut self,
+        sender: Option<DetailedAggregatedMetricsEventHandler>,
+    ) {
+        self.set(sender);
+    }
+}
+
+fn get_detailed_aggregated_metrics_event_handler<'a>(
+    ctx: &'a DiceComputations<'_>,
+) -> buck2_error::Result<&'a Option<DetailedAggregatedMetricsEventHandler>> {
+    ctx.global_data()
+        .get::<Option<DetailedAggregatedMetricsEventHandler>>()
+        .map_err(|e| internal_error!("global data invalid: {}", e))
+}
+
+fn get_per_build_events_holder<'a>(
+    ctx: &'a DiceComputations<'_>,
+) -> buck2_error::Result<&'a DetailedAggregatedMetricsPerBuildEventsHolder> {
+    ctx.per_transaction_data()
+        .data
+        .get::<DetailedAggregatedMetricsPerBuildEventsHolder>()
+        .map_err(|e| internal_error!("per-transaction data invalid: {}", e))
+}
+
+pub trait SetDetailedAggregatedMetricsEventsHolder {
+    fn set_detailed_aggregated_metrics_events_holder(&mut self);
+}
+
+impl SetDetailedAggregatedMetricsEventsHolder for UserComputationData {
+    fn set_detailed_aggregated_metrics_events_holder(&mut self) {
+        self.data
+            .set(DetailedAggregatedMetricsPerBuildEventsHolder::new())
     }
 }
