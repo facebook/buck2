@@ -456,6 +456,32 @@ async def test_env_var_filtering(buck: Buck) -> None:
     )
 
 
+@buck_test(inplace=True, skip_for_os=["windows"])
+async def test_prepare_for_local_execution_env_with_env_cli_parameter(
+    buck: Buck, tmp_path: Path
+) -> None:
+    out = tmp_path / "out"
+    await buck.test(
+        "fbcode//buck2/tests/targets/rules/python/test:test",
+        "--",
+        "--env",
+        "EXTRA_VAR=foo",
+        "--no-run-output-test-commands-for-fdb",
+        str(out),
+    )
+
+    with open(out) as f:
+        config = json.load(f)
+
+    # Expect python/test:test target to support debugging. Executable field is populated only when debugging is supported.
+    assert "debuggers" in config
+    assert len(config["debuggers"]) > 0
+    assert "executable" in config
+    env = config["executable"]["env"]
+    assert "PWD" in env
+    assert "EXTRA_VAR" in env
+
+
 # TODO(marwhal): Fix and enable on Windows
 @buck_test(inplace=True, skip_for_os=["windows"])
 @env("EXTRA_VAR", "foo")
