@@ -1,0 +1,38 @@
+load("defs.bzl", "my_rule")
+
+dyn_input_good = read_config("user", "dyn_input_good", "1") == "1"
+
+my_rule(
+    name = "foo1",
+    deps = [],
+    input = "defs.bzl",
+    dyn_input_good = dyn_input_good,
+)
+
+my_rule(
+    name = "foo2",
+    deps = [":foo1"],
+    input = "defs.bzl",
+    dyn_input_good = dyn_input_good,
+)
+
+my_rule(
+    name = "foo3",
+    deps = [],
+    input = "defs.bzl",
+    dyn_input_good = dyn_input_good,
+)
+
+my_rule(
+    name = "foo4",
+    deps = [":foo2", ":foo3"],
+    input = "defs.bzl",
+    dyn_input_good = dyn_input_good,
+)
+
+my_rule(
+    name = "foo5",
+    deps = [":foo2", ":foo3"],
+    input = "defs.bzl",
+    dyn_input_good = dyn_input_good,
+)

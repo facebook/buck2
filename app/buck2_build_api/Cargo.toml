@@ -23,6 +23,7 @@ internment = { workspace = true }
 inventory = { workspace = true }
 itertools = { workspace = true }
 linkme = { workspace = true }
+multimap = { workspace = true }
 once_cell = { workspace = true }
 probminhash = { workspace = true }
 ref-cast = { workspace = true }

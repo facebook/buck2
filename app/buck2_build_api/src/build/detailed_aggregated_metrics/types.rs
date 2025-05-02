@@ -156,7 +156,6 @@ pub struct AllTargetsAggregatedData {
     pub proto: buck2_data::AllTargetsBuildMetrics,
 }
 
-#[expect(unused)]
 impl AllTargetsAggregatedData {
     pub fn new(action_graph_size: Option<usize>) -> Self {
         Self {

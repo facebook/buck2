@@ -10,7 +10,10 @@
 use std::future::Future;
 
 use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_data::ComputeDetailedAggregatedMetricsEnd;
+use buck2_data::ComputeDetailedAggregatedMetricsStart;
 use buck2_error::internal_error;
+use buck2_events::dispatch::span_async_simple;
 use dice::DiceComputations;
 use dice::DiceDataBuilder;
 use dice::UserComputationData;
@@ -78,13 +81,20 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
         &self,
         events: PerBuildEvents,
     ) -> buck2_error::Result<buck2_data::DetailedAggregatedMetrics> {
-        get_detailed_aggregated_metrics_event_handler(self)?
-            .as_ref()
-            .ok_or_else(|| {
-                internal_error!("should have had a detailed aggreged metrics event holder")
-            })?
-            .compute_metrics(events)
-            .await
+        span_async_simple(
+            ComputeDetailedAggregatedMetricsStart {},
+            async move {
+                get_detailed_aggregated_metrics_event_handler(self)?
+                    .as_ref()
+                    .ok_or_else(|| {
+                        internal_error!("should have had a detailed aggreged metrics event holder")
+                    })?
+                    .compute_metrics(events)
+                    .await
+            },
+            ComputeDetailedAggregatedMetricsEnd {},
+        )
+        .await
     }
 }
 

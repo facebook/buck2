@@ -686,4 +686,13 @@ impl RecordedAnalysisValues {
             ))
         }
     }
+
+    pub(crate) fn retained_memory(&self) -> buck2_error::Result<usize> {
+        Ok(self
+            .analysis_storage
+            .as_ref()
+            .internal_error("missing analysis storage")?
+            .owner()
+            .allocated_bytes())
+    }
 }

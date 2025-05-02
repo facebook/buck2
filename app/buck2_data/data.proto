@@ -87,6 +87,8 @@ message SpanStartEvent {
     ActionErrorHandlerExecutionStart action_error_handler_execution = 85;
     CqueryUniverseBuildStart cquery_universe_build = 87;
     DepFileUploadStart dep_file_upload = 88;
+    ComputeDetailedAggregatedMetricsStart compute_detailed_aggregated_metrics =
+        89;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -138,6 +140,8 @@ message SpanEndEvent {
     ActionErrorHandlerExecutionEnd action_error_handler_execution = 86;
     CqueryUniverseBuildEnd cquery_universe_build = 87;
     DepFileUploadEnd dep_file_upload = 88;
+    ComputeDetailedAggregatedMetricsEnd compute_detailed_aggregated_metrics =
+        89;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -2497,6 +2501,10 @@ message BxlDiceInvocationEnd {}
 message BxlEnsureArtifactsStart {}
 
 message BxlEnsureArtifactsEnd {}
+
+message ComputeDetailedAggregatedMetricsStart {}
+
+message ComputeDetailedAggregatedMetricsEnd {}
 
 message DiceBlockConcurrentCommandStart {
   string current_active_trace_id = 1;

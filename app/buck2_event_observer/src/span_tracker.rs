@@ -543,7 +543,8 @@ pub fn is_span_shown(event: &BuckEvent) -> bool {
             | Data::LocalResources(..)
             | Data::ReleaseLocalResources(..)
             | Data::ActionErrorHandlerExecution(..)
-            | Data::CqueryUniverseBuild(..),
+            | Data::CqueryUniverseBuild(..)
+            | Data::ComputeDetailedAggregatedMetrics(..),
         ) => true,
         None => false,
     }
