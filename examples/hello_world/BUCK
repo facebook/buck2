@@ -27,3 +27,10 @@ kotlin_library(
     source = "8",
     target = "8",
 )
+
+android_library(
+    name = "android_lib",
+    srcs = ["java/com/example/MainActivity.java"],
+    source = "8",
+    target = "8",
+)
