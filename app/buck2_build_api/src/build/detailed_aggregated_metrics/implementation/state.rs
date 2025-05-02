@@ -9,11 +9,13 @@
 
 use buck2_artifact::actions::key::ActionKey;
 use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_error::internal_error;
 use dupe::Dupe;
 
 use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsEvent;
 use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsEventHandler;
 use crate::build::detailed_aggregated_metrics::types::ActionExecutionMetrics;
+use crate::build::detailed_aggregated_metrics::types::PerBuildEvents;
 use crate::deferred::calculation::DeferredHolder;
 
 /// Tracks the state required to compute aggregated metrics.
@@ -59,9 +61,19 @@ impl DetailedAggregatedMetricsStateTracker {
             DetailedAggregatedMetricsEvent::AnalysisComplete(key, data) => {
                 self.analysis_nodes.insert(key, data);
             }
+            DetailedAggregatedMetricsEvent::ComputeMetrics(events, sender) => {
+                drop(sender.send(self.compute_metrics(events)))
+            }
             DetailedAggregatedMetricsEvent::ActionExecuted(metrics) => {
                 self.observed_executions.insert(metrics.key.dupe(), metrics);
             }
         }
+    }
+
+    fn compute_metrics(
+        &mut self,
+        _events: PerBuildEvents,
+    ) -> buck2_error::Result<buck2_data::DetailedAggregatedMetrics> {
+        Err(internal_error!("not yet implemented"))
     }
 }

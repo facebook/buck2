@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::future::Future;
+
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_error::internal_error;
 use dice::DiceComputations;
@@ -16,6 +18,7 @@ use dice::UserComputationData;
 use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsEventHandler;
 use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsPerBuildEventsHolder;
 use crate::build::detailed_aggregated_metrics::types::ActionExecutionMetrics;
+use crate::build::detailed_aggregated_metrics::types::PerBuildEvents;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetSpec;
 use crate::deferred::calculation::DeferredHolder;
 
@@ -28,6 +31,11 @@ pub trait HasDetailedAggregatedMetrics {
         result: &DeferredHolder,
     ) -> buck2_error::Result<()>;
     fn top_level_target(&self, spec: TopLevelTargetSpec) -> buck2_error::Result<()>;
+    fn take_per_build_events(&self) -> buck2_error::Result<PerBuildEvents>;
+    fn compute_detailed_metrics(
+        &self,
+        events: PerBuildEvents,
+    ) -> impl Future<Output = buck2_error::Result<buck2_data::DetailedAggregatedMetrics>> + Send;
 }
 
 impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
@@ -60,6 +68,23 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
             v.analysis_complete(key, result);
         }
         Ok(())
+    }
+
+    fn take_per_build_events(&self) -> buck2_error::Result<PerBuildEvents> {
+        get_per_build_events_holder(self)?.take_events()
+    }
+
+    async fn compute_detailed_metrics(
+        &self,
+        events: PerBuildEvents,
+    ) -> buck2_error::Result<buck2_data::DetailedAggregatedMetrics> {
+        get_detailed_aggregated_metrics_event_handler(self)?
+            .as_ref()
+            .ok_or_else(|| {
+                internal_error!("should have had a detailed aggreged metrics event holder")
+            })?
+            .compute_metrics(events)
+            .await
     }
 }
 
