@@ -27,10 +27,10 @@ def _make_entry(ctx: bxl.Context, compile_command: CxxSrcCompileCommand) -> dict
 
 def _impl(ctx: bxl.Context):
     actions = ctx.bxl_actions().actions
-    targets = flatten(ctx.cli_args.targets)
 
     db = []
-    for _name, target in ctx.analysis(ctx.configured_targets(targets)).items():
+    targets = ctx.configured_targets(flatten(ctx.cli_args.targets), modifiers = ctx.modifiers)
+    for _name, target in ctx.analysis(targets).items():
         comp_db_info = target.providers().get(CxxCompilationDbInfo)
         if comp_db_info:
             db += [_make_entry(ctx, cc) for cc in comp_db_info.info.values()]
