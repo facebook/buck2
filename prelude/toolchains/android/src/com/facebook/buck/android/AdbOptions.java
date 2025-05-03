@@ -13,6 +13,7 @@ public class AdbOptions {
 
   public static final String MULTI_INSTALL_MODE_SHORT_ARG = "-x";
 
+  private String adbExecutablePath;
   private int adbThreadCount;
   private int adbServerPort;
   private boolean multiInstallMode;
@@ -22,6 +23,7 @@ public class AdbOptions {
   private boolean apexMode;
 
   public AdbOptions(
+      String adbExecutablePath,
       int adbThreadCount,
       int adbServerPort,
       boolean multiInstallMode,
@@ -29,6 +31,7 @@ public class AdbOptions {
       int adbTimeout,
       boolean ignoreMissingDevice,
       boolean apexMode) {
+    this.adbExecutablePath = adbExecutablePath;
     this.adbThreadCount = adbThreadCount;
     this.adbServerPort = adbServerPort;
     this.multiInstallMode = multiInstallMode;
@@ -36,6 +39,10 @@ public class AdbOptions {
     this.adbTimeout = adbTimeout;
     this.ignoreMissingDevice = ignoreMissingDevice;
     this.apexMode = apexMode;
+  }
+
+  public String getAdbExecutablePath() {
+    return adbExecutablePath;
   }
 
   public int getAdbThreadCount() {
@@ -69,7 +76,9 @@ public class AdbOptions {
   @Override
   public String toString() {
     return "AdbOptions{"
-        + "adbThreadCount="
+        + "adbExecutablePath="
+        + adbExecutablePath
+        + ", adbThreadCount="
         + adbThreadCount
         + ", adbServerPort="
         + adbServerPort

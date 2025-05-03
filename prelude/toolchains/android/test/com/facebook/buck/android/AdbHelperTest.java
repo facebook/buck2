@@ -623,6 +623,6 @@ public class AdbHelperTest {
   private static AdbOptions createAdbOptions(
       boolean multiInstallMode, boolean stagedInstallMode, boolean ignoreMissingDevices) {
     return new AdbOptions(
-        0, 0, multiInstallMode, stagedInstallMode, 5000, ignoreMissingDevices, false);
+        null, 0, 0, multiInstallMode, stagedInstallMode, 5000, ignoreMissingDevices, false);
   }
 }

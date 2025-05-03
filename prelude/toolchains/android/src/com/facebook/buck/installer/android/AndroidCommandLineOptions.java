@@ -49,6 +49,14 @@ class AndroidCommandLineOptions {
   @Nullable
   public String serialNumber;
 
+  static final String ADB_EXECUTABLE_PATH_LONG_ARG = "--adb-executable-path";
+
+  @Option(
+      name = ADB_EXECUTABLE_PATH_LONG_ARG,
+      metaVar = "<Adb-executable-path>",
+      usage = "Use specified adb executable.")
+  public String adbExecutablePath;
+
   @VisibleForTesting static final String ADB_THREADS_LONG_ARG = "--adb-threads";
   @VisibleForTesting static final String ADB_THREADS_SHORT_ARG = "-T";
 

@@ -71,6 +71,7 @@ class AndroidInstall {
     // Set-up adbOptions
     AdbOptions adbOptions =
         new AdbOptions(
+            cliOptions.adbExecutablePath,
             cliOptions.adbThreadCount,
             cliOptions.adbServerPort,
             cliOptions.multiInstallMode,
@@ -104,7 +105,8 @@ class AndroidInstall {
             targetDeviceOptions,
             new AdbExecutionContext(console),
             new IsolatedAndroidInstallerPrinter(logger),
-            Optional.of(apkOptions.adbExecutable),
+            Optional.ofNullable(adbOptions.getAdbExecutablePath())
+                .or(() -> Optional.ofNullable(apkOptions.adbExecutable)),
             agentApk.map(AbsPath::getPath),
             apkOptions.restartAdbOnFailure,
             apkOptions.skipInstallMetadata,

@@ -71,6 +71,8 @@ public class AndroidInstallApkOptions {
    * 1. adb_executable from json artifact
    * 2. adb from PATH
    * 3. /opt/android_sdk/platform-tools/adb
+   *
+   * --adb-executable-path command line option takes precedence over all of the above
    */
   private String getAdbExecutable(Map<String, String> jsonData) {
     String adbExecutable =
