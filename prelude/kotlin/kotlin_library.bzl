@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
 load(
@@ -548,6 +549,10 @@ def build_kotlin_library(
                 java_packaging_info,
                 extra_sub_targets = extra_sub_targets,
             )
+
+            validation_specs = get_attrs_validation_specs(ctx)
+            validation_info = ValidationInfo(validations = validation_specs) if validation_specs else None
+
             return JavaProviders(
                 java_library_info = java_library_info,
                 java_library_intellij_info = intellij_info,
@@ -559,7 +564,7 @@ def build_kotlin_library(
                 template_placeholder_info = template_placeholder_info,
                 default_info = default_info,
                 class_to_src_map = class_to_src_map,
-                validation_info = None,
+                validation_info = validation_info,
             )
         else:
             fail("unrecognized kotlinc protocol `{}`".format(kotlin_toolchain.kotlinc_protocol))
