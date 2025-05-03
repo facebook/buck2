@@ -129,7 +129,6 @@ async fn do_apply_transition(
     transition_id: &TransitionId,
 ) -> buck2_error::Result<TransitionApplied> {
     let transition = ctx.fetch_transition(transition_id).await?;
-    let module = Module::new();
     let mut refs = Vec::new();
     let mut refs_refs = Vec::new();
     for (s, t) in transition.refs() {
@@ -152,6 +151,7 @@ async fn do_apply_transition(
         &mut StarlarkProfilerOpt::disabled(),
         &StarlarkEvalKind::Transition(Arc::new(transition_id.clone())),
         move |provider, _| {
+            let module = Module::new();
             let (mut eval, _) = provider.make(&module)?;
             eval.set_print_handler(&print);
             eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);

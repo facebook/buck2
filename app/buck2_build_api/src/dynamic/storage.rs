@@ -18,7 +18,7 @@ use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::Trace;
 
-pub trait DynamicLambdaParamsStorage<'v>: Trace<'v> + Debug + Allocative + Send + 'v {
+pub trait DynamicLambdaParamsStorage<'v>: Trace<'v> + Debug + Allocative + 'v {
     fn as_any_mut(&mut self) -> &mut dyn AnyLifetime<'v>;
 
     fn freeze(

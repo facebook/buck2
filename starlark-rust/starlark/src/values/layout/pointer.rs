@@ -24,7 +24,6 @@
 // We group our bytes based on the tag info, not traditional alignment.
 #![allow(clippy::unusual_byte_groupings)]
 
-use std::cell::Cell;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::mem;
@@ -159,9 +158,9 @@ impl RawPointer {
 #[derive(Clone, Copy, Dupe)]
 pub(crate) struct Pointer<'p> {
     ptr: RawPointer,
-    // Make sure we are invariant in all the types/lifetimes.
+    // Make sure we are invariant in all the types/lifetimes, and are not `Send` or `Sync`
     // See https://stackoverflow.com/questions/62659221/why-does-a-program-compile-despite-an-apparent-lifetime-mismatch
-    _phantom: PhantomData<Cell<&'p AValueHeader>>,
+    _phantom: PhantomData<*mut &'p ()>,
 }
 
 // Similar to `Pointer` but allows widening lifetime, which is valid operation for frozen pointers.
