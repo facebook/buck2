@@ -6,25 +6,20 @@
 # of this source tree.
 
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup", "ScriptLanguage")
-load("@prelude//utils:arglike.bzl", "ArgLike")
+load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused: Used as a type
 
 def command_alias_impl(ctx: AnalysisContext):
     target_os = ctx.attrs._target_os_type[OsLookup]
 
     if target_os.os == Os("fat_mac_linux") and len(ctx.attrs.platform_exe) > 0:
-        variants = {
+        base = {
             "Darwin": _get_os_base(ctx, Os("macos")),
             "Linux": _get_os_base(ctx, Os("linux")),
         }
-        return _command_alias_impl_target_unix(ctx, variants)
-
-    base = _get_os_base(ctx, target_os.os)
-    if target_os.script == ScriptLanguage("sh"):
-        return _command_alias_impl_target_unix(ctx, base)
-    elif target_os.script == ScriptLanguage("bat"):
-        return _command_alias_impl_target_windows(ctx, base)
     else:
-        fail("Unsupported script language: {}".format(target_os.script))
+        base = _get_os_base(ctx, target_os.os)
+
+    return _command_alias_impl(ctx, target_os, base, cmd_args(ctx.attrs.args), ctx.attrs.env)
 
 def _get_os_base(ctx: AnalysisContext, os: Os) -> RunInfo:
     exe = ctx.attrs.platform_exe.get(os.value)
@@ -45,11 +40,26 @@ def _get_os_base(ctx: AnalysisContext, os: Os) -> RunInfo:
 
     return run_info
 
+def _command_alias_impl(
+        ctx: AnalysisContext,
+        target_os: OsLookup,
+        base: RunInfo | dict[str, RunInfo],
+        args: cmd_args,
+        env: dict[str, ArgLike]) -> list[Provider]:
+    if target_os.script == ScriptLanguage("sh"):
+        return _command_alias_impl_target_unix(ctx, base, args, env)
+    elif target_os.script == ScriptLanguage("bat"):
+        return _command_alias_impl_target_windows(ctx, base, args, env)
+    else:
+        fail("Unsupported script language: {}".format(target_os.script))
+
 def _command_alias_impl_target_unix(
         ctx: AnalysisContext,
         # Either the `RunInfo` to use, or in the case of a fat platform, the choice of `RunInfo`
         # depending on `uname`
-        base: RunInfo | dict[str, RunInfo]) -> list[Provider]:
+        base: RunInfo | dict[str, RunInfo],
+        args: cmd_args,
+        env: dict[str, ArgLike]) -> list[Provider]:
     trampoline_args = cmd_args()
     trampoline_args.add("#!/usr/bin/env bash")
     trampoline_args.add("set -euo pipefail")
@@ -58,11 +68,11 @@ def _command_alias_impl_target_unix(
         trampoline_args.add('case "$(uname)" in')
         for uname, run_info in base.items():
             trampoline_args.add("    {})".format(uname))
-            _add_args_declaration_to_trampoline_args(trampoline_args, run_info, ctx.attrs.args)
+            _add_args_declaration_to_trampoline_args(trampoline_args, run_info, args)
             trampoline_args.add("        ;;")
         trampoline_args.add("esac")
     else:
-        _add_args_declaration_to_trampoline_args(trampoline_args, base, ctx.attrs.args)
+        _add_args_declaration_to_trampoline_args(trampoline_args, base, args)
 
     # We can't use cwd relative paths (since we don't know the cwd when this script is run) and so
     # we instead use paths relative to the script itself. However, we can't just naively stick a
@@ -81,7 +91,7 @@ done
 """,
     )
 
-    for (k, v) in ctx.attrs.env.items():
+    for (k, v) in env.items():
         # TODO(akozhevnikov): maybe check environment variable is not conflicting with pre-existing one
         trampoline_args.add(cmd_args("export ", k, "=", cmd_args(v, quote = "shell"), delimiter = ""))
         trampoline_args.add(cmd_args("export ", k, '="${', k, '//BUCK_COMMAND_ALIAS_ABSOLUTE_PREFIX/$BASE}"', delimiter = ""))
@@ -107,14 +117,14 @@ done
     # FIXME(JakobDegen): We should not accept `platform_exe` as meaning `run_using_single_arg`, but
     # there are things that depend on that
     if ctx.attrs.run_using_single_arg or \
-       len(ctx.attrs.env) > 0 or \
+       len(env) > 0 or \
        isinstance(base, dict) or \
        len(ctx.attrs.platform_exe) > 0:
         run_info_args_args.append(trampoline)
         run_info_args_hidden.append(trampoline_args)
     else:
         run_info_args_args.append(base.args)
-        run_info_args_args.append(ctx.attrs.args)
+        run_info_args_args.append(args)
 
     run_info_args_hidden.append(ctx.attrs.resources)
 
@@ -125,7 +135,11 @@ done
         RunInfo(args = run_info_args),
     ]
 
-def _command_alias_impl_target_windows(ctx: AnalysisContext, base: RunInfo):
+def _command_alias_impl_target_windows(
+        ctx: AnalysisContext,
+        base: RunInfo,
+        args: cmd_args,
+        env: dict[str, ArgLike]) -> list[Provider]:
     trampoline_args = cmd_args()
     trampoline_args.add("@echo off")
 
@@ -140,12 +154,12 @@ def _command_alias_impl_target_windows(ctx: AnalysisContext, base: RunInfo):
     trampoline_args.add("set BUCK_COMMAND_ALIAS_ABSOLUTE=%~dp0")
 
     # Handle envs
-    for (k, v) in ctx.attrs.env.items():
+    for (k, v) in env.items():
         # TODO(akozhevnikov): maybe check environment variable is not conflicting with pre-existing one
         trampoline_args.add(cmd_args(["set ", k, "=", v], delimiter = ""))
 
     # FIXME(JakobDegen): This should be batch quoting, not shell quoting
-    cmd = cmd_args(cmd_args(base.args, ctx.attrs.args, quote = "shell"), "%*", delimiter = " ")
+    cmd = cmd_args(cmd_args(base.args, args, quote = "shell"), "%*", delimiter = " ")
 
     trampoline_args.add(cmd)
 
@@ -164,12 +178,12 @@ def _command_alias_impl_target_windows(ctx: AnalysisContext, base: RunInfo):
 
     run_info_args_args = []
     run_info_args_hidden = []
-    if ctx.attrs.run_using_single_arg or len(ctx.attrs.env) > 0:
+    if ctx.attrs.run_using_single_arg or len(env) > 0:
         run_info_args_args.append(trampoline)
         run_info_args_hidden.append(trampoline_args)
     else:
         run_info_args_args.append(base.args)
-        run_info_args_args.append(ctx.attrs.args)
+        run_info_args_args.append(args)
 
     run_info_args_hidden.append(ctx.attrs.resources)
 
@@ -180,7 +194,7 @@ def _command_alias_impl_target_windows(ctx: AnalysisContext, base: RunInfo):
         RunInfo(args = run_info_args),
     ]
 
-def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: RunInfo, args: list[ArgLike]):
+def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: RunInfo, args: cmd_args):
     trampoline_args.add("ARGS=(")
     trampoline_args.add(cmd_args(base.args, args, quote = "shell"))
     trampoline_args.add(")")
