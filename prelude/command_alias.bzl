@@ -25,24 +25,11 @@ def command_alias_impl(ctx: AnalysisContext):
         default_output = output.output.default_outputs[0],
         other_outputs = list(output.output.other_outputs) + ctx.attrs.resources,
     )
-
-    # FIXME(JakobDegen): We should not accept `platform_exe` as meaning `run_using_single_arg`, but
-    # there are things that depend on that
-    #
-    # FIXME(JakobDegen): It's easy to end up depending on either one of these behaviors. Life would
-    # probably be easier if we just always went the `output.cmd` route
-    if output.maybe_directly_runnable == None or \
-       ctx.attrs.run_using_single_arg or \
-       len(ctx.attrs.platform_exe) > 0:
-        run_info = RunInfo(args = output.cmd)
-    else:
-        run_info = RunInfo(args = output.maybe_directly_runnable)
-
-    run_info_with_resources = RunInfo(
-        args = cmd_args(run_info, hidden = ctx.attrs.resources),
+    run_info = RunInfo(
+        args = cmd_args(output.run_info.args, hidden = ctx.attrs.resources),
     )
 
-    return [default_info, run_info_with_resources]
+    return [default_info, run_info]
 
 def _get_os_base(ctx: AnalysisContext, os: Os) -> RunInfo:
     exe = ctx.attrs.platform_exe.get(os.value)
@@ -69,12 +56,7 @@ CommandAliasOutput = record(
     # `DefaultInfo` instead of `Artifact` because the `other_outputs` will usually need to be
     # included as hidden somewhere
     output = DefaultInfo,
-    # The output wrapped into a `cmd_args` in the obvious way
-    cmd = cmd_args,
-    # For some values of the arguments to `command_alias` it is possible to represent the
-    # command_alias entirely within a `cmd_args`, without needing to write out a script. If that is
-    # the case, those args are made available here.
-    maybe_directly_runnable = cmd_args | None,
+    run_info = RunInfo,
 )
 
 def _command_alias_impl(
@@ -90,18 +72,27 @@ def _command_alias_impl(
     else:
         fail("Unsupported script language: {}".format(target_os.script))
 
-    if len(env) > 0 or isinstance(base, dict):
-        maybe_directly_runnable = None
+    run_info_args_args = []
+
+    # FIXME(JakobDegen): We should not accept `platform_exe` as meaning `run_using_single_arg`, but
+    # there are things that depend on that
+    if ctx.attrs.run_using_single_arg or \
+       len(env) > 0 or \
+       isinstance(base, dict) or \
+       len(ctx.attrs.platform_exe) > 0:
+        run_info_args_args.append(trampoline)
     else:
-        maybe_directly_runnable = cmd_args(base.args, args)
+        run_info_args_args.append(base.args)
+        run_info_args_args.append(args)
+
+    run_info_args = cmd_args(run_info_args_args, hidden = hidden)
 
     return CommandAliasOutput(
         output = DefaultInfo(
             default_output = trampoline,
             other_outputs = [hidden],
         ),
-        cmd = cmd_args(trampoline, hidden = hidden),
-        maybe_directly_runnable = maybe_directly_runnable,
+        run_info = RunInfo(args = run_info_args),
     )
 
 def _command_alias_write_trampoline_unix(
