@@ -19,14 +19,7 @@ def command_alias_impl(ctx: AnalysisContext):
     else:
         base = _get_os_base(ctx, target_os.os)
 
-    output = command_alias(
-        ctx,
-        "__command_alias_trampoline",
-        target_os,
-        base,
-        cmd_args(ctx.attrs.args),
-        ctx.attrs.env,
-    )
+    output = _command_alias_impl(ctx, target_os, base, cmd_args(ctx.attrs.args), ctx.attrs.env)
 
     default_info = DefaultInfo(
         default_output = output.output.default_outputs[0],
@@ -84,21 +77,16 @@ CommandAliasOutput = record(
     maybe_directly_runnable = cmd_args | None,
 )
 
-def command_alias(
+def _command_alias_impl(
         ctx: AnalysisContext,
-        # The path at which to write the output to, without an extension - that will be added
-        path: str,
-        # The target where this script should be able to run (this may actually be your exec platform)
         target_os: OsLookup,
-        # Either the `RunInfo` to use, or in the case of a fat platform, the choice of `RunInfo`
-        # depending on `uname`
         base: RunInfo | dict[str, RunInfo],
         args: cmd_args,
         env: dict[str, ArgLike]) -> CommandAliasOutput:
     if target_os.script == ScriptLanguage("sh"):
-        trampoline, hidden = _command_alias_write_trampoline_unix(ctx, path + ".sh", base, args, env)
+        trampoline, hidden = _command_alias_write_trampoline_unix(ctx, base, args, env)
     elif target_os.script == ScriptLanguage("bat"):
-        trampoline, hidden = _command_alias_write_trampoline_windows(ctx, path + ".bat", base, args, env)
+        trampoline, hidden = _command_alias_write_trampoline_windows(ctx, base, args, env)
     else:
         fail("Unsupported script language: {}".format(target_os.script))
 
@@ -118,7 +106,8 @@ def command_alias(
 
 def _command_alias_write_trampoline_unix(
         ctx: AnalysisContext,
-        path: str,
+        # Either the `RunInfo` to use, or in the case of a fat platform, the choice of `RunInfo`
+        # depending on `uname`
         base: RunInfo | dict[str, RunInfo],
         args: cmd_args,
         env: dict[str, ArgLike]) -> (Artifact, cmd_args):
@@ -160,7 +149,7 @@ done
 
     trampoline_args.add('exec "${R_ARGS[@]}" "$@"')
 
-    trampoline = ctx.actions.declare_output(path)
+    trampoline = ctx.actions.declare_output("__command_alias_trampoline.sh")
     trampoline_args = cmd_args(
         trampoline_args,
         relative_to = (trampoline, 1),
@@ -177,7 +166,6 @@ done
 
 def _command_alias_write_trampoline_windows(
         ctx: AnalysisContext,
-        path: str,
         base: RunInfo,
         args: cmd_args,
         env: dict[str, ArgLike]) -> (Artifact, cmd_args):
@@ -204,7 +192,7 @@ def _command_alias_write_trampoline_windows(
 
     trampoline_args.add(cmd)
 
-    trampoline = ctx.actions.declare_output(path)
+    trampoline = ctx.actions.declare_output("__command_alias_trampoline.bat")
     trampoline_args = cmd_args(
         trampoline_args,
         relative_to = (trampoline, 1),
