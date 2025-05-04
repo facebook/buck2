@@ -164,11 +164,16 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
     else:
         sysroot_args = cmd_args()
 
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
+    path_sep = "\\" if exec_is_windows else "/"
+
     return CompileContext(
         toolchain_info = toolchain_info,
         internal_tools_info = internal_tools_info,
         cxx_toolchain_info = cxx_toolchain_info,
         dep_ctx = dep_ctx,
+        exec_is_windows = exec_is_windows,
+        path_sep = path_sep,
         symlinked_srcs = symlinked_srcs,
         linker_args = linker,
         clippy_wrapper = clippy_wrapper,
@@ -185,8 +190,6 @@ def generate_rustdoc(
         params: BuildParams,
         default_roots: list[str],
         document_private_items: bool) -> Artifact:
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
-
     toolchain_info = compile_ctx.toolchain_info
 
     common_args = _compute_common_args(
@@ -207,7 +210,7 @@ def generate_rustdoc(
     subdir = common_args.subdir + "-rustdoc"
     output = ctx.actions.declare_output(subdir)
 
-    plain_env, path_env = process_env(compile_ctx, toolchain_info.rustdoc_env | ctx.attrs.env, exec_is_windows)
+    plain_env, path_env = process_env(compile_ctx, toolchain_info.rustdoc_env | ctx.attrs.env)
     plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
 
     rustdoc_cmd = cmd_args(
@@ -267,8 +270,7 @@ def generate_rustdoc_coverage(
     file = common_args.subdir + "-rustdoc-coverage"
     output = ctx.actions.declare_output(file)
 
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
-    plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
+    plain_env, path_env = process_env(compile_ctx, ctx.attrs.env)
     plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
 
     # `--show-coverage` is unstable.
@@ -307,8 +309,6 @@ def generate_rustdoc_test(
         link_infos: dict[LibOutputStyle, LinkInfos],
         params: BuildParams,
         default_roots: list[str]) -> cmd_args:
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
-
     toolchain_info = compile_ctx.toolchain_info
     internal_tools_info = compile_ctx.internal_tools_info
     doc_dep_ctx = DepCollectionContext(
@@ -389,13 +389,13 @@ def generate_rustdoc_test(
         allow_args = True,
     )
 
-    if exec_is_windows:
+    if compile_ctx.exec_is_windows:
         runtool = ["--runtool=cmd.exe", "--runtool-arg=/V:OFF", "--runtool-arg=/C"]
     else:
         runtool = ["--runtool=/usr/bin/env"]
 
-    plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
-    doc_plain_env, doc_path_env = process_env(compile_ctx, ctx.attrs.doc_env, exec_is_windows)
+    plain_env, path_env = process_env(compile_ctx, ctx.attrs.env)
+    doc_plain_env, doc_path_env = process_env(compile_ctx, ctx.attrs.doc_env)
     for k, v in doc_plain_env.items():
         path_env.pop(k, None)
         plain_env[k] = v
@@ -407,7 +407,6 @@ def generate_rustdoc_test(
     plain_env["RUSTC_BOOTSTRAP"] = cmd_args("1")
     unstable_options = ["-Zunstable-options"]
 
-    path_sep = "\\" if exec_is_windows else "/"
     rustdoc_cmd = cmd_args(
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
         [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
@@ -428,7 +427,7 @@ def generate_rustdoc_test(
         cmd_args("--runtool-arg=--resources=", resources, delimiter = ""),
         "--color=always",
         "--test-args=--color=always",
-        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, path_sep, "=", ctx.label.path, path_sep, delimiter = ""),
+        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", ctx.label.path, compile_ctx.path_sep, delimiter = ""),
         hidden = [
             compile_ctx.symlinked_srcs,
             link_args_output.hidden,
@@ -464,8 +463,6 @@ def rust_compile(
         infallible_diagnostics: bool = False,
         rust_cxx_link_group_info: [RustCxxLinkGroupInfo, None] = None,
         profile_mode: ProfileMode | None = None) -> RustcOutput:
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
-
     toolchain_info = compile_ctx.toolchain_info
 
     lints = _lint_flags(compile_ctx, infallible_diagnostics, emit == Emit("clippy"))
@@ -527,14 +524,13 @@ def rust_compile(
     else:
         linker_args = compile_ctx.linker_args
 
-    path_sep = "\\" if exec_is_windows else "/"
     rustc_cmd = cmd_args(
         # Lints go first to allow other args to override them.
         lints,
         # Report unused --extern crates in the notification stream.
         ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
         common_args.args,
-        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, path_sep, "=", ctx.label.path, path_sep, delimiter = ""),
+        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", ctx.label.path, compile_ctx.path_sep, delimiter = ""),
         ["-Zremap-cwd-prefix=."] if toolchain_info.nightly_features else [],
         cmd_args(linker_args, format = "-Clinker={}"),
         extra_flags,
@@ -995,9 +991,6 @@ def _compute_common_args(
         incremental_enabled: bool,
         is_rustdoc_test: bool,
         profile_mode: ProfileMode | None) -> CommonArgsInfo:
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
-    path_sep = "\\" if exec_is_windows else "/"
-
     crate_type = params.crate_type
 
     args_key = (crate_type, emit, params.dep_link_strategy, is_rustdoc_test, infallible_diagnostics, incremental_enabled, profile_mode)
@@ -1019,7 +1012,7 @@ def _compute_common_args(
     tempfile = "{}-{}".format(attr_simple_crate_for_filenames(ctx), emit.value)
 
     root = crate_root(ctx, default_roots)
-    if exec_is_windows:
+    if compile_ctx.exec_is_windows:
         root = root.replace("/", "\\")
 
     # With `advanced_unstable_linking`, we unconditionally pass the metadata
@@ -1157,7 +1150,7 @@ def _compute_common_args(
     }[compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")]
 
     args = cmd_args(
-        cmd_args(compile_ctx.symlinked_srcs, path_sep, root, delimiter = ""),
+        cmd_args(compile_ctx.symlinked_srcs, compile_ctx.path_sep, root, delimiter = ""),
         crate_name_arg,
         "--crate-type={}".format(crate_type.value),
         "-Crelocation-model={}".format(params.reloc_model.value),
@@ -1511,13 +1504,11 @@ def _rustc_invoke(
         env: dict[str, str | ResolvedStringWithMacros | Artifact],
         deferred_link_cmd: cmd_args | None,
         profile_mode: ProfileMode | None) -> Invoke:
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
-
     toolchain_info = compile_ctx.toolchain_info
 
-    plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
+    plain_env, path_env = process_env(compile_ctx, ctx.attrs.env)
 
-    more_plain_env, more_path_env = process_env(compile_ctx, env, exec_is_windows)
+    more_plain_env, more_path_env = process_env(compile_ctx, env)
     plain_env.update(more_plain_env)
     path_env.update(more_path_env)
 
@@ -1650,7 +1641,6 @@ _DIRECTORY_ENV = [
 def process_env(
         compile_ctx: CompileContext,
         env: dict[str, str | ResolvedStringWithMacros | Artifact],
-        exec_is_windows: bool,
         escape_for_rustc_action: bool = True) -> (dict[str, cmd_args], dict[str, cmd_args]):
     # Values with inputs (ie artifact references).
     path_env = {}
@@ -1717,7 +1707,7 @@ def process_env(
         if value:
             path_env[key] = cmd_args(
                 compile_ctx.symlinked_srcs,
-                "\\" if exec_is_windows else "/",
+                compile_ctx.path_sep,
                 value,
                 delimiter = "",
             )

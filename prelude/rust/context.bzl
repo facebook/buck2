@@ -50,6 +50,8 @@ CompileContext = record(
     internal_tools_info = field(RustInternalToolsInfo),
     cxx_toolchain_info = field(CxxToolchainInfo),
     dep_ctx = field(DepCollectionContext),
+    exec_is_windows = field(bool),
+    path_sep = field(str),
     # Symlink root containing all sources.
     symlinked_srcs = field(Artifact),
     # Linker args to pass the linker wrapper to rustc.
