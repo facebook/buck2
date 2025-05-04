@@ -19,7 +19,8 @@ def command_alias_impl(ctx: AnalysisContext):
     else:
         base = _get_os_base(ctx, target_os.os)
 
-    return _command_alias_impl(ctx, target_os, base, cmd_args(ctx.attrs.args), ctx.attrs.env)
+    output = _command_alias_impl(ctx, target_os, base, cmd_args(ctx.attrs.args), ctx.attrs.env)
+    return [output.output, output.run_info]
 
 def _get_os_base(ctx: AnalysisContext, os: Os) -> RunInfo:
     exe = ctx.attrs.platform_exe.get(os.value)
@@ -40,12 +41,21 @@ def _get_os_base(ctx: AnalysisContext, os: Os) -> RunInfo:
 
     return run_info
 
+CommandAliasOutput = record(
+    # A batch or sh script representing the command alias
+    #
+    # `DefaultInfo` instead of `Artifact` because the `other_outputs` will usually need to be
+    # included as hidden somewhere
+    output = DefaultInfo,
+    run_info = RunInfo,
+)
+
 def _command_alias_impl(
         ctx: AnalysisContext,
         target_os: OsLookup,
         base: RunInfo | dict[str, RunInfo],
         args: cmd_args,
-        env: dict[str, ArgLike]) -> list[Provider]:
+        env: dict[str, ArgLike]) -> CommandAliasOutput:
     if target_os.script == ScriptLanguage("sh"):
         return _command_alias_impl_target_unix(ctx, base, args, env)
     elif target_os.script == ScriptLanguage("bat"):
@@ -59,7 +69,7 @@ def _command_alias_impl_target_unix(
         # depending on `uname`
         base: RunInfo | dict[str, RunInfo],
         args: cmd_args,
-        env: dict[str, ArgLike]) -> list[Provider]:
+        env: dict[str, ArgLike]) -> CommandAliasOutput:
     trampoline_args = cmd_args()
     trampoline_args.add("#!/usr/bin/env bash")
     trampoline_args.add("set -euo pipefail")
@@ -130,16 +140,19 @@ done
 
     run_info_args = cmd_args(run_info_args_args, hidden = run_info_args_hidden)
 
-    return [
-        DefaultInfo(default_output = trampoline, other_outputs = [trampoline_args] + ctx.attrs.resources),
-        RunInfo(args = run_info_args),
-    ]
+    return CommandAliasOutput(
+        output = DefaultInfo(
+            default_output = trampoline,
+            other_outputs = [trampoline_args] + ctx.attrs.resources,
+        ),
+        run_info = RunInfo(args = run_info_args),
+    )
 
 def _command_alias_impl_target_windows(
         ctx: AnalysisContext,
         base: RunInfo,
         args: cmd_args,
-        env: dict[str, ArgLike]) -> list[Provider]:
+        env: dict[str, ArgLike]) -> CommandAliasOutput:
     trampoline_args = cmd_args()
     trampoline_args.add("@echo off")
 
@@ -189,10 +202,13 @@ def _command_alias_impl_target_windows(
 
     run_info_args = cmd_args(run_info_args_args, hidden = run_info_args_hidden)
 
-    return [
-        DefaultInfo(default_output = trampoline, other_outputs = [trampoline_args] + ctx.attrs.resources),
-        RunInfo(args = run_info_args),
-    ]
+    return CommandAliasOutput(
+        output = DefaultInfo(
+            default_output = trampoline,
+            other_outputs = [trampoline_args] + ctx.attrs.resources,
+        ),
+        run_info = RunInfo(args = run_info_args),
+    )
 
 def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: RunInfo, args: cmd_args):
     trampoline_args.add("ARGS=(")
