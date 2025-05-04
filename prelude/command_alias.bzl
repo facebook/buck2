@@ -20,7 +20,16 @@ def command_alias_impl(ctx: AnalysisContext):
         base = _get_os_base(ctx, target_os.os)
 
     output = _command_alias_impl(ctx, target_os, base, cmd_args(ctx.attrs.args), ctx.attrs.env)
-    return [output.output, output.run_info]
+
+    default_info = DefaultInfo(
+        default_output = output.output.default_outputs[0],
+        other_outputs = list(output.output.other_outputs) + ctx.attrs.resources,
+    )
+    run_info = RunInfo(
+        args = cmd_args(output.run_info.args, hidden = ctx.attrs.resources),
+    )
+
+    return [default_info, run_info]
 
 def _get_os_base(ctx: AnalysisContext, os: Os) -> RunInfo:
     exe = ctx.attrs.platform_exe.get(os.value)
@@ -136,14 +145,12 @@ done
         run_info_args_args.append(base.args)
         run_info_args_args.append(args)
 
-    run_info_args_hidden.append(ctx.attrs.resources)
-
     run_info_args = cmd_args(run_info_args_args, hidden = run_info_args_hidden)
 
     return CommandAliasOutput(
         output = DefaultInfo(
             default_output = trampoline,
-            other_outputs = [trampoline_args] + ctx.attrs.resources,
+            other_outputs = [trampoline_args],
         ),
         run_info = RunInfo(args = run_info_args),
     )
@@ -198,14 +205,12 @@ def _command_alias_impl_target_windows(
         run_info_args_args.append(base.args)
         run_info_args_args.append(args)
 
-    run_info_args_hidden.append(ctx.attrs.resources)
-
     run_info_args = cmd_args(run_info_args_args, hidden = run_info_args_hidden)
 
     return CommandAliasOutput(
         output = DefaultInfo(
             default_output = trampoline,
-            other_outputs = [trampoline_args] + ctx.attrs.resources,
+            other_outputs = [trampoline_args],
         ),
         run_info = RunInfo(args = run_info_args),
     )
