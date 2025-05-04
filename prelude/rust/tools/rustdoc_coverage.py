@@ -35,7 +35,7 @@ _REGEX = re.compile(r"(\d+(?:\.\d+)?)")
 
 def main():
     args = arg_parse()
-    stdout = subprocess.run(args.cmd, capture_output=True, text=True).stdout
+    stdout = subprocess.check_output(args.cmd, text=True)
 
     with open(args.out, "w") as f:
         # not using json output until https://github.com/rust-lang/rust/issues/117291 is fixed
