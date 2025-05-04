@@ -267,24 +267,24 @@ def generate_rustdoc_coverage(
     file = common_args.subdir + "-rustdoc-coverage"
     output = ctx.actions.declare_output(file)
 
-    rustdoc_cmd = cmd_args(
+    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
+    plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
+    plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
+
+    # `--show-coverage` is unstable.
+    plain_env["RUSTC_BOOTSTRAP"] = cmd_args("1")
+    unstable_options = ["-Zunstable-options"]
+
+    rustdoc_cmd_action = cmd_args(
+        [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
+        [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
         toolchain_info.rustdoc,
         "--rustc-action-separator",
         toolchain_info.rustdoc_flags,
         ctx.attrs.rustdoc_flags,
         common_args.args,
-        "-Zunstable-options",
+        unstable_options,
         "--show-coverage",
-    )
-
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
-    plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
-    plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
-
-    rustdoc_cmd_action = cmd_args(
-        [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
-        [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
-        rustdoc_cmd,
     )
 
     rustdoc_cmd = _long_command(
