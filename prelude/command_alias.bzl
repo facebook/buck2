@@ -66,42 +66,19 @@ def _command_alias_impl(
         args: cmd_args,
         env: dict[str, ArgLike]) -> CommandAliasOutput:
     if target_os.script == ScriptLanguage("sh"):
-        trampoline, hidden = _command_alias_write_trampoline_unix(ctx, base, args, env)
+        return _command_alias_impl_target_unix(ctx, base, args, env)
     elif target_os.script == ScriptLanguage("bat"):
-        trampoline, hidden = _command_alias_write_trampoline_windows(ctx, base, args, env)
+        return _command_alias_impl_target_windows(ctx, base, args, env)
     else:
         fail("Unsupported script language: {}".format(target_os.script))
 
-    run_info_args_args = []
-
-    # FIXME(JakobDegen): We should not accept `platform_exe` as meaning `run_using_single_arg`, but
-    # there are things that depend on that
-    if ctx.attrs.run_using_single_arg or \
-       len(env) > 0 or \
-       isinstance(base, dict) or \
-       len(ctx.attrs.platform_exe) > 0:
-        run_info_args_args.append(trampoline)
-    else:
-        run_info_args_args.append(base.args)
-        run_info_args_args.append(args)
-
-    run_info_args = cmd_args(run_info_args_args, hidden = hidden)
-
-    return CommandAliasOutput(
-        output = DefaultInfo(
-            default_output = trampoline,
-            other_outputs = [hidden],
-        ),
-        run_info = RunInfo(args = run_info_args),
-    )
-
-def _command_alias_write_trampoline_unix(
+def _command_alias_impl_target_unix(
         ctx: AnalysisContext,
         # Either the `RunInfo` to use, or in the case of a fat platform, the choice of `RunInfo`
         # depending on `uname`
         base: RunInfo | dict[str, RunInfo],
         args: cmd_args,
-        env: dict[str, ArgLike]) -> (Artifact, cmd_args):
+        env: dict[str, ArgLike]) -> CommandAliasOutput:
     trampoline_args = cmd_args()
     trampoline_args.add("#!/usr/bin/env bash")
     trampoline_args.add("set -euo pipefail")
@@ -153,13 +130,36 @@ done
         is_executable = True,
     )
 
-    return trampoline, trampoline_args
+    run_info_args_args = []
+    run_info_args_hidden = []
 
-def _command_alias_write_trampoline_windows(
+    # FIXME(JakobDegen): We should not accept `platform_exe` as meaning `run_using_single_arg`, but
+    # there are things that depend on that
+    if ctx.attrs.run_using_single_arg or \
+       len(env) > 0 or \
+       isinstance(base, dict) or \
+       len(ctx.attrs.platform_exe) > 0:
+        run_info_args_args.append(trampoline)
+        run_info_args_hidden.append(trampoline_args)
+    else:
+        run_info_args_args.append(base.args)
+        run_info_args_args.append(args)
+
+    run_info_args = cmd_args(run_info_args_args, hidden = run_info_args_hidden)
+
+    return CommandAliasOutput(
+        output = DefaultInfo(
+            default_output = trampoline,
+            other_outputs = [trampoline_args],
+        ),
+        run_info = RunInfo(args = run_info_args),
+    )
+
+def _command_alias_impl_target_windows(
         ctx: AnalysisContext,
         base: RunInfo,
         args: cmd_args,
-        env: dict[str, ArgLike]) -> (Artifact, cmd_args):
+        env: dict[str, ArgLike]) -> CommandAliasOutput:
     trampoline_args = cmd_args()
     trampoline_args.add("@echo off")
 
@@ -196,7 +196,24 @@ def _command_alias_write_trampoline_windows(
         is_executable = True,
     )
 
-    return trampoline, trampoline_args
+    run_info_args_args = []
+    run_info_args_hidden = []
+    if ctx.attrs.run_using_single_arg or len(env) > 0:
+        run_info_args_args.append(trampoline)
+        run_info_args_hidden.append(trampoline_args)
+    else:
+        run_info_args_args.append(base.args)
+        run_info_args_args.append(args)
+
+    run_info_args = cmd_args(run_info_args_args, hidden = run_info_args_hidden)
+
+    return CommandAliasOutput(
+        output = DefaultInfo(
+            default_output = trampoline,
+            other_outputs = [trampoline_args],
+        ),
+        run_info = RunInfo(args = run_info_args),
+    )
 
 def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: RunInfo, args: cmd_args):
     trampoline_args.add("ARGS=(")
