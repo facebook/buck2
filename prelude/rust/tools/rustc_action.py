@@ -328,6 +328,21 @@ async def main() -> int:  # noqa: C901
     separator = args.rustc.index("--rustc-action-separator")
     rustc_cmd, rustc_args = args.rustc[:separator], args.rustc[separator + 1 :]
 
+    # Build.bzl uses the following expression to generate remap flags:
+    #   cmd_args("--remap-path-prefix=", ... "=", ctx.label.path, path_sep, delimiter = "")
+    # The ctx.label.path (which is of type StarlarkCellPath) has the
+    # inconvenient behavior that if the label's package has fewer than two
+    # components, it gets an extra "./" prepended. So for targets //:repro and
+    # //one:repro and //one/two:repro we would get remap flags with the
+    # right-hand side as "./" and "./one/" and "one/two/". In compiler
+    # diagnostics we would never want this leading "./" so strip it off.
+    for i, arg in enumerate(rustc_args):
+        if arg.startswith("--remap-path-prefix="):
+            flag, buck_out, mapped = arg.split("=", 2)
+            if mapped.startswith("./"):
+                mapped = mapped[2:]
+            rustc_args[i] = "{}={}={}".format(flag, buck_out, mapped)
+
     if args.remap_cwd_prefix is not None:
         rustc_args.append(
             "--remap-path-prefix={}={}".format(os.getcwd(), args.remap_cwd_prefix)
