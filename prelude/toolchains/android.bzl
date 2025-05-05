@@ -43,7 +43,7 @@ def _android_sdk_tools_impl(ctx):
 android_sdk_tools = rule(
     impl = _android_sdk_tools_impl,
     attrs = {
-        "android_sdk_path": attrs.string(default = "/opt/android/sdk_D37111790"),
+        "android_sdk_path": attrs.string(default = "/opt/android_sdk"),
         "build_tools_version": attrs.string(default = "35.0.0"),
         "compile_sdk_version": attrs.string(default = "android-35"),
     },

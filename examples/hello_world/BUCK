@@ -30,7 +30,8 @@ kotlin_library(
 
 android_library(
     name = "android_lib",
-    srcs = ["java/com/example/MainActivity.java"],
-    source = "8",
-    target = "8",
+    language = "kotlin",
+    srcs = ["java/com/example/MainActivity.kt"],
+    source = "11",
+    target = "11",
 )
