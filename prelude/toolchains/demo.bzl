@@ -92,7 +92,7 @@ def system_demo_toolchains():
 
     system_java_tool(
         name = "java_tool",
-        tool_name = "java",
+        tool_name = "/usr/local/bin/java",
         visibility = ["PUBLIC"],
     )
 
