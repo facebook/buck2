@@ -45,6 +45,7 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_data::BuildResult;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::instant_event;
@@ -118,6 +119,12 @@ impl ServerCommandTemplate for BuildServerCommand {
 
     fn is_success(&self, response: &Self::Response) -> bool {
         response.errors.is_empty()
+    }
+
+    fn build_result(&self, response: &Self::Response) -> Option<BuildResult> {
+        Some(BuildResult {
+            build_completed: response.errors.is_empty(),
+        })
     }
 }
 

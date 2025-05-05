@@ -89,8 +89,7 @@ mod tests {
             metadata: Default::default(),
         };
         let end = CommandEnd {
-            data: Default::default(),
-            is_success: true,
+            ..Default::default()
         };
 
         (start, end)
