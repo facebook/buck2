@@ -75,6 +75,7 @@ JavaTestToolchainInfo = provider(
         "junit_test_runner_main_class_args": provider_field(typing.Any, default = None),
         "jvm_args": provider_field(typing.Any, default = None),
         "list_class_names": provider_field(typing.Any, default = None),
+        "list_tests": provider_field(typing.Any, default = None),
         "test_runner_library_jar": provider_field(typing.Any, default = None),
         "testng_test_runner_main_class_args": provider_field(typing.Any, default = None),
     },

@@ -161,6 +161,17 @@ def build_junit_test(
             transitive_class_to_src_map = cmd_args(transitive_class_to_src_map, relative_to = ctx.label.cell_root)
         env["JACOCO_CLASSNAME_SOURCE_MAP"] = transitive_class_to_src_map
 
+    list_tests = java_test_toolchain.list_tests
+    if (list_tests != None):
+        list_tests_command = cmd_args([
+            list_tests[RunInfo],
+            "list-tests",
+            "--buck-root",
+            "$(buck2 root)",
+            ctx.attrs.srcs,
+        ])
+        env["TPX_LIST_TESTS_COMMAND"] = list_tests_command
+
     test_info = ExternalRunnerTestInfo(
         type = "junit",
         command = cmd,
