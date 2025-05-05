@@ -361,7 +361,7 @@ def prepare_cd_exe(
         class_loader_bootstrapper: Artifact,
         compiler: Artifact,
         main_class: str,
-        worker: WorkerInfo,
+        worker: WorkerInfo | None,
         target_specified_debug_port: [int, None],
         toolchain_specified_debug_port: [int, None],
         toolchain_specified_debug_target: [Label, None],
@@ -425,8 +425,8 @@ def prepare_cd_exe(
 
     non_worker_args = cmd_args([java, jvm_args, "-cp", compiler, "-jar", class_loader_bootstrapper, main_class])
 
-    if local_only:
-        return RunInfo(args = non_worker_args), True
+    if local_only or not worker:
+        return RunInfo(args = non_worker_args), local_only
     else:
         worker_run_info = WorkerRunInfo(
             # Specifies the command to compile using a non-worker process, on RE or if workers are disabled
@@ -454,10 +454,11 @@ def prepare_final_jar(
         additional_compiled_srcs: Artifact | None,
         jar_builder: RunInfo,
         jar_postprocessor: [RunInfo, None],
-        jar_postprocessor_runner: RunInfo,
+        jar_postprocessor_runner: RunInfo | None,
         zip_scrubber: RunInfo) -> FinalJarOutput:
     def make_output(jar: Artifact) -> FinalJarOutput:
         if jar_postprocessor:
+            expect(jar_postprocessor_runner != None, "Must provide a jar_postprocessor_runner if jar_postprocessor is provided!")
             postprocessed_jar = postprocess_jar(actions, zip_scrubber, jar_postprocessor, jar_postprocessor_runner, jar, actions_identifier)
             return FinalJarOutput(final_jar = postprocessed_jar, preprocessed_jar = jar)
         else:

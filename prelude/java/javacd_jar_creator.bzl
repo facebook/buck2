@@ -161,7 +161,7 @@ def create_jar_artifact_javacd(
         additional_compiled_srcs = additional_compiled_srcs,
         jar_builder = java_toolchain.jar_builder,
         jar_postprocessor = jar_postprocessor,
-        jar_postprocessor_runner = java_toolchain.postprocessor_runner[RunInfo],
+        jar_postprocessor_runner = java_toolchain.postprocessor_runner[RunInfo] if java_toolchain.postprocessor_runner else None,
         zip_scrubber = java_toolchain.zip_scrubber,
     )
 
@@ -279,7 +279,7 @@ def _define_javacd_action(
         class_loader_bootstrapper = java_toolchain.class_loader_bootstrapper,
         compiler = compiler,
         main_class = java_toolchain.javacd_main_class,
-        worker = java_toolchain.javacd_worker[WorkerInfo],
+        worker = java_toolchain.javacd_worker[WorkerInfo] if java_toolchain.javacd_worker else None,
         target_specified_debug_port = debug_port,
         toolchain_specified_debug_port = java_toolchain.javacd_debug_port,
         toolchain_specified_debug_target = java_toolchain.javacd_debug_target,
