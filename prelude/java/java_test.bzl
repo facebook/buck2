@@ -166,8 +166,6 @@ def build_junit_test(
         list_tests_command = cmd_args([
             list_tests[RunInfo],
             "list-tests",
-            "--buck-root",
-            "$(buck2 root)",
             ctx.attrs.srcs,
         ])
         env["TPX_LIST_TESTS_COMMAND"] = list_tests_command
