@@ -60,6 +60,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::tag_result;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_data::BuildResult;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
@@ -256,6 +257,19 @@ impl ServerCommandTemplate for TestServerCommand {
 
     fn is_success(&self, response: &Self::Response) -> bool {
         matches!(response.exit_code, Some(0)) && response.errors.is_empty()
+    }
+
+    fn build_result(&self, response: &Self::Response) -> Option<BuildResult> {
+        let build_completed =
+            if let Some(buck2_cli_proto::test_response::TestStatuses { build_errors, .. }) =
+                response.test_statuses
+            {
+                build_errors == 0
+            } else {
+                false
+            };
+
+        Some(BuildResult { build_completed })
     }
 
     fn end_event(&self, _response: &buck2_error::Result<Self::Response>) -> Self::EndEvent {

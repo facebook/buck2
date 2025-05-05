@@ -11,6 +11,7 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use buck2_core::logging::log_file::TracingLogFile;
+use buck2_data::BuildResult;
 use buck2_events::dispatch::span_async;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceTransaction;
@@ -47,6 +48,13 @@ pub trait ServerCommandTemplate: Send + Sync {
     /// * `command` returns `Ok`
     /// * and this function returns `true`
     fn is_success(&self, response: &Self::Response) -> bool;
+
+    /// Used to report (successful) builds since rebase, only for commands that return a `BuildResult` (build, install, test).
+    /// If the command succeeded in building the target specified, `BuildResult.build_completed` should be true,
+    /// even if the command failed for another reason.
+    fn build_result(&self, _response: &Self::Response) -> Option<BuildResult> {
+        None
+    }
 
     /// If not `None`, command will block and be blocked by any concurrent commands.
     fn exclusive_command_name(&self) -> Option<String> {
@@ -92,9 +100,12 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
             )
             .await
             .map_err(Into::into);
-        let end_event = command_end_ext(&result, command.end_event(&result), |result| {
-            command.is_success(result)
-        });
+        let end_event = command_end_ext(
+            &result,
+            command.end_event(&result),
+            |result| command.is_success(result),
+            |result| command.build_result(result),
+        );
         (result.map_err(Into::into), end_event)
     })
     .await

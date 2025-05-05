@@ -59,6 +59,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::name::TargetName;
+use buck2_data::BuildResult;
 use buck2_data::InstallEventInfoEnd;
 use buck2_data::InstallEventInfoStart;
 use buck2_directory::directory::entry::DirectoryEntry;
@@ -201,6 +202,13 @@ impl ServerCommandTemplate for InstallServerCommand {
     fn is_success(&self, _response: &Self::Response) -> bool {
         // No response if we failed.
         true
+    }
+
+    fn build_result(&self, _response: &Self::Response) -> Option<BuildResult> {
+        // TODO report this correctly
+        Some(BuildResult {
+            build_completed: true,
+        })
     }
 }
 

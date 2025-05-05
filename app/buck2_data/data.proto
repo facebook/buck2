@@ -1046,6 +1046,11 @@ message CommandEnd {
   }
 
   bool is_success = 2;
+  optional BuildResult build_result = 5;
+}
+
+message BuildResult {
+  bool build_completed = 1;
 }
 
 // Marks the exit of the `CommandCriticalStart` event, such that the command has
