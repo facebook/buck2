@@ -22,6 +22,7 @@ pub async fn create_io_provider(
     root_config: &LegacyBuckConfig,
     cas_digest_config: CasDigestConfig,
     trace_io: bool,
+    _use_eden_thrift_read: bool,
 ) -> buck2_error::Result<Arc<dyn IoProvider>> {
     #[cfg(fbcode_build)]
     {
@@ -39,19 +40,12 @@ pub async fn create_io_provider(
             .unwrap_or(allow_eden_io_default)
             .roll();
 
-        let use_eden_thrift_read = root_config
-            .parse(BuckconfigKeyRef {
-                section: "buck2",
-                property: "use_eden_thrift_read",
-            })?
-            .unwrap_or(false);
-
         if allow_eden_io {
             if let Some(eden) = buck2_eden::io_provider::EdenIoProvider::new(
                 fb,
                 &project_fs,
                 cas_digest_config,
-                use_eden_thrift_read,
+                _use_eden_thrift_read,
             )
             .await?
             {

@@ -470,6 +470,13 @@ impl DaemonState {
                 )
                 .unwrap();
 
+            let use_eden_thrift_read = root_config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "use_eden_thrift_read",
+                })?
+                .unwrap_or(false);
+
             let (io, _, (materializer_db, materializer_state)) = futures::future::try_join3(
                 create_io_provider(
                     fb,
@@ -477,6 +484,7 @@ impl DaemonState {
                     root_config,
                     digest_config.cas_digest_config(),
                     init_ctx.enable_trace_io,
+                    use_eden_thrift_read,
                 ),
                 (blocking_executor.dupe() as Arc<dyn BlockingExecutor>).execute_io_inline(|| {
                     // Using `execute_io_inline` is just out of convenience.
@@ -627,6 +635,7 @@ impl DaemonState {
                     "disable-eager-write-dispatch-v2:{}",
                     disable_eager_write_dispatch,
                 ),
+                format!("use-eden-thrift-read:{}", use_eden_thrift_read),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
             // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
