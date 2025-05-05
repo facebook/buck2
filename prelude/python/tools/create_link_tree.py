@@ -48,7 +48,7 @@ def main() -> None:
 
     # Create any missing ones.
     for pkg in pkgs - pkgs_with_init:
-        with open(os.path.join(pkg, "__init__.py"), "wb") as _:
+        with open(os.path.join(args.output, pkg, "__init__.py"), "wb") as _:
             pass
 
 
