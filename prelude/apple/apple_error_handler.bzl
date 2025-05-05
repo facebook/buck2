@@ -27,7 +27,6 @@ _APPLE_STDERR_ERROR_CATEGORIES = [
     AppleErrorCategory(string_match = ".modulemap:", category = "apple_modulemap_compilation_failure"),
     AppleErrorCategory(string_match = "missing required modules", category = "apple_missing_required_modules_error"),
     AppleErrorCategory(string_match = "has a minimum deployment target", category = "apple_deployment_target_error"),
-    AppleErrorCategory(string_match = "file not found", category = "apple_file_not_found_error"),
 
     #toolchain / genrule issues
     AppleErrorCategory(string_match = "stack dump:", category = "apple_binary_execution_failure"),
