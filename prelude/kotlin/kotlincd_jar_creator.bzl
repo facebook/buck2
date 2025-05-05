@@ -107,7 +107,7 @@ def create_jar_artifact_kotlincd(
         jvm_abi_gen = None
         should_use_jvm_abi_gen = False
 
-    should_kotlinc_run_incrementally = kotlin_toolchain.enable_incremental_compilation and incremental
+    should_kotlinc_run_incrementally = (kotlin_toolchain.enable_incremental_compilation and incremental) or False
     incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", dir = True)
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
@@ -198,7 +198,7 @@ def create_jar_artifact_kotlincd(
         additional_compiled_srcs = None,
         jar_builder = java_toolchain.jar_builder,
         jar_postprocessor = jar_postprocessor,
-        jar_postprocessor_runner = java_toolchain.postprocessor_runner[RunInfo],
+        jar_postprocessor_runner = java_toolchain.postprocessor_runner[RunInfo] if java_toolchain.postprocessor_runner else None,
         zip_scrubber = java_toolchain.zip_scrubber,
     )
 
@@ -425,7 +425,7 @@ def _define_kotlincd_action(
         class_loader_bootstrapper = kotlin_toolchain.class_loader_bootstrapper,
         compiler = compiler,
         main_class = kotlin_toolchain.kotlincd_main_class,
-        worker = kotlin_toolchain.kotlincd_worker[WorkerInfo],
+        worker = kotlin_toolchain.kotlincd_worker[WorkerInfo] if kotlin_toolchain.kotlincd_worker else None,
         target_specified_debug_port = debug_port,
         toolchain_specified_debug_port = kotlin_toolchain.kotlincd_debug_port,
         toolchain_specified_debug_target = kotlin_toolchain.kotlincd_debug_target,
