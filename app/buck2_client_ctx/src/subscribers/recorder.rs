@@ -1959,9 +1959,13 @@ pub(crate) fn try_get_invocation_recorder(
         filesystem = "default".to_owned();
     }
 
-    let build_count = paths
-        .map(|p| BuildCountManager::new(p.build_count_dir()))
-        .transpose()?;
+    let build_count = paths.and_then(|p| match BuildCountManager::new(p.build_count_dir()) {
+        Ok(manager) => Some(manager),
+        Err(e) => {
+            let _unused = soft_error!("build_count_init_failed", e);
+            None
+        }
+    });
 
     let recorder = InvocationRecorder::new(
         ctx.fbinit(),
