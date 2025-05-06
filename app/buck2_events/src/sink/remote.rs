@@ -297,6 +297,7 @@ mod fbcode {
                     Some(Data::PersistEventLogSubprocess(..)) => true,
                     Some(Data::CleanStaleResult(..)) => true,
                     Some(Data::ConfigurationCreated(..)) => true,
+                    Some(Data::DetailedAggregatedMetrics(..)) => true,
                     None => false,
                     _ => false,
                 }
