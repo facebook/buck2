@@ -446,26 +446,19 @@ impl<'a> BuckArgMatches<'a> {
     /// A subset of the expanded argv containing config flags. When a config flag is from an argfile in the project,
     /// it will be represented with the argfile rather than the raw config flag. This gives a compact, stable, and
     /// recognizable form of the flags.
-    pub fn get_representative_config_flags(&self) -> buck2_error::Result<Vec<String>> {
+    pub fn get_representative_config_flags(&self) -> Vec<String> {
         self.get_representative_config_flags_by_source()
-            .map(|flags| {
-                flags
-                    .into_iter()
-                    .map(|flag| match flag.source {
-                        Some(RepresentativeConfigFlagSource::ConfigFlag(v)) => format!("-c {}", v),
-                        Some(RepresentativeConfigFlagSource::ConfigFile(v)) => {
-                            format!("--config-file {}", v)
-                        }
-                        Some(RepresentativeConfigFlagSource::ModeFile(v)) => v,
-                        None => unreachable!("impossible flag"),
-                    })
-                    .collect()
+            .map(|flags| match &flags.source {
+                Some(RepresentativeConfigFlagSource::ConfigFlag(v)) => format!("-c {}", v),
+                Some(RepresentativeConfigFlagSource::ConfigFile(v)) => {
+                    format!("--config-file {}", v)
+                }
+                Some(RepresentativeConfigFlagSource::ModeFile(v)) => v.clone(),
+                None => unreachable!("impossible flag"),
             })
     }
 
-    pub fn get_representative_config_flags_by_source(
-        &self,
-    ) -> buck2_error::Result<Vec<RepresentativeConfigFlag>> {
+    pub fn get_representative_config_flags_by_source(&self) -> Vec<RepresentativeConfigFlag> {
         fn get_flagfile_for_logging<'a>(
             flagfile: &'a FlagfileArgSource,
         ) -> Option<&'a FlagfileArgSource> {
@@ -562,7 +555,7 @@ impl<'a> BuckArgMatches<'a> {
             last_flagfile = flagfile;
         }
 
-        Ok(args)
+        args
     }
 }
 
@@ -602,7 +595,7 @@ mod tests {
         let clap = clap::ArgMatches::default(); // we don't actually inspect this right now so just use an empty one.
         let matches = BuckArgMatches::from_clap(&clap, &argv);
 
-        let flags = matches.get_representative_config_flags()?;
+        let flags = matches.get_representative_config_flags();
 
         assert_eq!(
             flags,
@@ -662,7 +655,7 @@ mod tests {
         let clap = clap::ArgMatches::default(); // we don't actually inspect this right now so just use an empty one.
         let matches = BuckArgMatches::from_clap(&clap, &argv);
 
-        let flags = matches.get_representative_config_flags()?;
+        let flags = matches.get_representative_config_flags();
 
         assert_eq!(
             flags,

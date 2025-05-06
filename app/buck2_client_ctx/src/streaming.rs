@@ -98,14 +98,14 @@ fn default_subscribers<T: StreamingCommand>(
     if let Some(re_log) = try_get_re_log_subscriber(ctx)? {
         subscribers.push(re_log)
     }
-    if let Some(build_id_writer) = try_get_build_id_writer(cmd.event_log_opts(), ctx)? {
+    if let Some(build_id_writer) = get_build_id_writer(cmd.event_log_opts(), ctx) {
         subscribers.push(build_id_writer)
     }
-    if let Some(build_graph_stats) = try_get_build_graph_stats(cmd, ctx)? {
+    if let Some(build_graph_stats) = get_build_graph_stats(cmd, ctx) {
         subscribers.push(build_graph_stats)
     }
-    let representative_config_flags = if ctx.maybe_paths()?.is_some() {
-        matches.get_representative_config_flags()?
+    let representative_config_flags = if ctx.paths().is_ok() {
+        matches.get_representative_config_flags()
     } else {
         Vec::new()
     };
@@ -301,30 +301,30 @@ fn try_get_re_log_subscriber(
     Ok(Some(Box::new(log)))
 }
 
-fn try_get_build_id_writer(
+fn get_build_id_writer(
     opts: &CommonEventLogOptions,
     ctx: &ClientCommandContext,
-) -> buck2_error::Result<Option<Box<dyn EventSubscriber>>> {
+) -> Option<Box<dyn EventSubscriber>> {
     if let Some(file_loc) = opts.write_build_id.as_ref() {
-        Ok(Some(Box::new(BuildIdWriter::new(
+        Some(Box::new(BuildIdWriter::new(
             file_loc.resolve(&ctx.working_dir),
-        ))))
+        )))
     } else {
-        Ok(None)
+        None
     }
 }
 
-fn try_get_build_graph_stats<T: StreamingCommand>(
+fn get_build_graph_stats<T: StreamingCommand>(
     cmd: &T,
     ctx: &ClientCommandContext,
-) -> buck2_error::Result<Option<Box<dyn EventSubscriber>>> {
+) -> Option<Box<dyn EventSubscriber>> {
     if should_handle_build_graph_stats(cmd) {
-        Ok(Some(Box::new(BuildGraphStats::new(
+        Some(Box::new(BuildGraphStats::new(
             ctx.fbinit(),
             ctx.trace_id.dupe(),
-        ))))
+        )))
     } else {
-        Ok(None)
+        None
     }
 }
 

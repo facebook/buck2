@@ -264,7 +264,7 @@ impl<'a> ClientCommandContext<'a> {
                 .map(|path| path.to_string())
                 .collect(),
             target_call_stacks: starlark_opts.target_call_stacks,
-            representative_config_flags: arg_matches.get_representative_config_flags_by_source()?,
+            representative_config_flags: arg_matches.get_representative_config_flags_by_source(),
             ..self.empty_client_context(cmd.logging_name())?
         })
     }
