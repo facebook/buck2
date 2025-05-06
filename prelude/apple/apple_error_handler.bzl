@@ -16,38 +16,37 @@ _APPLE_STDERR_ERROR_CATEGORIES = [
     # I would only add additional categories here if you think someone in open-source would benefit    @oss-disable
 
     #codesigning issues
-    AppleErrorCategory(matcher = "codesignprovisioningerror", category = "apple_code_sign_error"),
-    AppleErrorCategory(matcher = "codesignprovisioningerror", category = "code_sign_provisioning_error"),
-    AppleErrorCategory(matcher = "the timestamp service is not available", category = "apple_code_sign_error"),
+    AppleErrorCategory(matcher = "codesignprovisioningerror", category = "code_sign_error"),
+    AppleErrorCategory(matcher = "the timestamp service is not available", category = "code_sign_error"),
 
     #compilation issues
-    AppleErrorCategory(matcher = "failed to emit precompiled module", category = "apple_pcm_compilation_failure"),
-    AppleErrorCategory(matcher = "please rebuild precompiled header", category = "apple_pcm_compilation_failure"),
-    AppleErrorCategory(matcher = "llvm-lipo", category = "apple_lipo_failure"),
-    AppleErrorCategory(matcher = ".modulemap:", category = "apple_modulemap_compilation_failure"),
-    AppleErrorCategory(matcher = "missing required modules", category = "apple_missing_required_modules_error"),
-    AppleErrorCategory(matcher = "has a minimum deployment target", category = "apple_deployment_target_error"),
+    AppleErrorCategory(matcher = "failed to emit precompiled module", category = "pcm_compilation_failure"),
+    AppleErrorCategory(matcher = "please rebuild precompiled header", category = "pcm_compilation_failure"),
+    AppleErrorCategory(matcher = "llvm-lipo", category = "lipo_failure"),
+    AppleErrorCategory(matcher = ".modulemap:", category = "modulemap_compilation_failure"),
+    AppleErrorCategory(matcher = "missing required modules", category = "missing_required_modules_error"),
+    AppleErrorCategory(matcher = "has a minimum deployment target", category = "deployment_target_error"),
 
     #toolchain / genrule issues
-    AppleErrorCategory(matcher = "stack dump:", category = "apple_binary_execution_failure"),
-    AppleErrorCategory(matcher = "thread 'main' panicked", category = "apple_binary_execution_failure"),
-    AppleErrorCategory(matcher = "error while loading shared libraries", category = "apple_binary_execution_failure"),
-    AppleErrorCategory(matcher = "traceback (most recent call last)", category = "apple_python_execution_failure"),
-    AppleErrorCategory(matcher = "command not found", category = "apple_command_not_found_failure"),
-    AppleErrorCategory(matcher = "command timed out", category = "apple_timeout_failure"),
-    AppleErrorCategory(matcher = "no such file or directory", category = "apple_no_such_file_failure"),
+    AppleErrorCategory(matcher = "stack dump:", category = "binary_execution_failure"),
+    AppleErrorCategory(matcher = "thread 'main' panicked", category = "binary_execution_failure"),
+    AppleErrorCategory(matcher = "error while loading shared libraries", category = "binary_execution_failure"),
+    AppleErrorCategory(matcher = "traceback (most recent call last)", category = "python_execution_failure"),
+    AppleErrorCategory(matcher = "command not found", category = "command_not_found_failure"),
+    AppleErrorCategory(matcher = "command timed out", category = "timeout_failure"),
+    AppleErrorCategory(matcher = "no such file or directory", category = "no_such_file_failure"),
 
     #user errors
-    AppleErrorCategory(matcher = "unknown target", category = "apple_unknown_buck_target_failure"),
+    AppleErrorCategory(matcher = "unknown target", category = "unknown_buck_target_failure"),
 
     #linker issues
-    AppleErrorCategory(matcher = "linker command failed", category = "apple_linker_failure"),
-    AppleErrorCategory(matcher = "duplicate symbol", category = "apple_duplicate_symbol_failure"),
-    AppleErrorCategory(matcher = "undefined symbol", category = "apple_undefined_symbol_failure"),
-    AppleErrorCategory(matcher = "framework not found", category = "apple_framework_not_found_failure"),
+    AppleErrorCategory(matcher = "linker command failed", category = "linker_failure"),
+    AppleErrorCategory(matcher = "duplicate symbol", category = "duplicate_symbol_failure"),
+    AppleErrorCategory(matcher = "undefined symbol", category = "undefined_symbol_failure"),
+    AppleErrorCategory(matcher = "framework not found", category = "framework_not_found_failure"),
 
     #buck configuration issues
-    AppleErrorCategory(matcher = "unknown cell alias", category = "apple_unknown_cell_alias_failure"),
+    AppleErrorCategory(matcher = "unknown cell alias", category = "unknown_cell_alias_failure"),
 ]
 
 def _match(matcher: str | BuckRegex, lowercase_stderr: str) -> bool:
@@ -61,7 +60,7 @@ def _match(matcher: str | BuckRegex, lowercase_stderr: str) -> bool:
 def _add_category_strings(ctx: ActionErrorCtx, lowercase_stderr: str, errors: list[ActionSubError], source: list[AppleErrorCategory]):
     for error_category in source:
         if _match(error_category.matcher, lowercase_stderr):
-            errors.append(ctx.new_sub_error(category = error_category.category, message = error_category.message))
+            errors.append(ctx.new_sub_error(category = "apple_" + error_category.category, message = error_category.message))
 
 def apple_build_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     lowercase_stderr = ctx.stderr.lower()

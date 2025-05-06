@@ -10,6 +10,7 @@ AppleErrorCategory = record(
     # If you pass a regex(), it will run `regex("exp").match(stderr.lower())`.
     matcher = str | BuckRegex,
     # List of category tags to be applied in the event of this error.
+    # Categories are automatically prefixed with "apple_" for historical reasons.
     category = str,
     # Based on the error, you can inject something like a wiki link/etc.
     message = field([str, None], default = None),
