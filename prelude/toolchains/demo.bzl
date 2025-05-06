@@ -18,6 +18,7 @@ load("@prelude//toolchains:ocaml.bzl", "system_ocaml_toolchain")
 load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain", "system_python_toolchain")
 load("@prelude//toolchains:remote_test_execution.bzl", "remote_test_execution_toolchain")
 load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
+load("@prelude//toolchains:zip_file.bzl", "zip_file_toolchain")
 
 def system_demo_toolchains():
     """
@@ -156,5 +157,10 @@ def system_demo_toolchains():
 
     noop_test_toolchain(
         name = "test",
+        visibility = ["PUBLIC"],
+    )
+
+    zip_file_toolchain(
+        name = "zip_file",
         visibility = ["PUBLIC"],
     )
