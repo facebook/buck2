@@ -115,6 +115,7 @@ pub fn starlark_library_extensions_for_buck2() -> &'static [LibraryExtension] {
         LibraryExtension::Internal,
         LibraryExtension::CallStack,
         LibraryExtension::SetType,
+        LibraryExtension::NamespaceType,
     ]
 }
 
