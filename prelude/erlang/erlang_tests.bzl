@@ -158,7 +158,6 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         ebin_dirs = pre_build_environment.ebin_dirs,
         deps_files = pre_build_environment.deps_files,
         app_files = pre_build_environment.app_files,
-        full_dependencies = pre_build_environment.full_dependencies,
         # convenience storrage
         app_includes = pre_build_environment.app_includes,
         app_beams = pre_build_environment.app_beams,

@@ -49,7 +49,6 @@ BuildEnvironment = record(
     ebin_dirs = field(PathArtifactMapping, {}),
     deps_files = field(PathArtifactMapping, {}),
     app_files = field(PathArtifactMapping, {}),
-    full_dependencies = field(list[Artifact], []),
     # convenience storrage
     app_includes = field(IncludesMapping, {}),
     app_beams = field(ModuleArtifactMapping, {}),
@@ -81,7 +80,6 @@ def _prepare_build_environment(
     includes = {}
     beams = {}
     app_files = {}
-    full_dependencies = []
     input_mapping = {}
 
     if includes_target:
@@ -150,7 +148,6 @@ def _prepare_build_environment(
         ebin_dirs = ebin_dirs,
         deps_files = deps_files,
         app_files = app_files,
-        full_dependencies = full_dependencies,
         input_mapping = input_mapping,
     )
 
@@ -181,7 +178,6 @@ def _generate_input_mapping(build_environment: BuildEnvironment, input_artifacts
         ebin_dirs = build_environment.ebin_dirs,
         deps_files = build_environment.deps_files,
         app_files = build_environment.app_files,
-        full_dependencies = build_environment.full_dependencies,
         app_includes = build_environment.app_includes,
         app_beams = build_environment.app_beams,
         app_chunks = build_environment.app_chunks,
@@ -256,7 +252,6 @@ def _generate_include_artifacts(
         ebin_dirs = build_environment.ebin_dirs,
         app_beams = build_environment.app_beams,
         app_files = build_environment.app_files,
-        full_dependencies = build_environment.full_dependencies,
         input_mapping = build_environment.input_mapping,
     )
 
@@ -295,7 +290,6 @@ def _generate_beam_artifacts(
         private_include_dir = build_environment.private_include_dir,
         app_includes = build_environment.app_includes,
         app_files = build_environment.app_files,
-        full_dependencies = build_environment.full_dependencies,
         input_mapping = build_environment.input_mapping,
     )
 
@@ -331,7 +325,6 @@ def _generate_chunk_artifacts(
         ebin_dirs = build_environment.ebin_dirs,
         deps_files = build_environment.deps_files,
         app_files = build_environment.app_files,
-        full_dependencies = build_environment.full_dependencies,
         app_includes = build_environment.app_includes,
         app_beams = build_environment.app_beams,
         input_mapping = build_environment.input_mapping,
@@ -468,8 +461,6 @@ def _build_erl(
         )
         deps_args, mapping = _dependencies_to_args(artifacts, final_dep_file, build_environment)
         erlc_cmd.add(deps_args)
-        full_deps_args = _full_dependencies(build_environment)
-        erlc_cmd.add(full_deps_args)
         _run_with_env(
             ctx,
             toolchain,
@@ -587,9 +578,6 @@ def _dependencies_to_args(
         args_hidden.append(artifact)
 
     return cmd_args(hidden = args_hidden), input_mapping
-
-def _full_dependencies(build_environment: BuildEnvironment) -> cmd_args:
-    return cmd_args(hidden = build_environment.full_dependencies)
 
 def _dependency_include_dirs(build_environment: BuildEnvironment) -> list[cmd_args]:
     private = build_environment.private_include_dir
@@ -872,7 +860,6 @@ def _peek_private_includes(
         ebin_dirs = build_environment.ebin_dirs,
         deps_files = build_environment.deps_files,
         app_files = build_environment.app_files,
-        full_dependencies = build_environment.full_dependencies,
         app_includes = build_environment.app_includes,
         app_beams = build_environment.app_beams,
         app_chunks = build_environment.app_chunks,
