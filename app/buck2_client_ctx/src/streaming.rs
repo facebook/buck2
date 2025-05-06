@@ -89,7 +89,7 @@ fn default_subscribers<T: StreamingCommand>(
         T::COMMAND_NAME,
         console_opts.superconsole_config(),
         health_check_display_reports_receiver,
-    )?);
+    ));
 
     if let Some(event_log) = try_get_event_log_subscriber(cmd, ctx, log_size_counter_bytes.clone())?
     {

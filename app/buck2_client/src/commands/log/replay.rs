@@ -77,7 +77,7 @@ impl BuckSubcommand for ReplayCommand {
                 "(replay)", // Could be better
                 console_opts.superconsole_config(),
                 None,
-            )?;
+            );
 
             let res = EventsCtx::new(EventSubscribers::new(vec![console]))
                 .unpack_stream::<_, ReplayResult, _>(
