@@ -39,7 +39,7 @@ use crate::subscribers::build_id_writer::BuildIdWriter;
 use crate::subscribers::event_log::EventLog;
 use crate::subscribers::health_check_subscriber::HealthCheckSubscriber;
 use crate::subscribers::re_log::ReLog;
-use crate::subscribers::recorder::try_get_invocation_recorder;
+use crate::subscribers::recorder::get_invocation_recorder;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscribers::EventSubscribers;
 
@@ -49,7 +49,7 @@ fn default_subscribers<T: StreamingCommand>(
     cmd: &T,
     matches: BuckArgMatches<'_>,
     ctx: &ClientCommandContext,
-) -> buck2_error::Result<EventSubscribers> {
+) -> EventSubscribers {
     let console_opts = cmd.console_opts();
     let event_log_opts = cmd.event_log_opts();
     let mut subscribers = vec![];
@@ -116,7 +116,7 @@ fn default_subscribers<T: StreamingCommand>(
     } else {
         Vec::new()
     };
-    let mut recorder = try_get_invocation_recorder(
+    let mut recorder = get_invocation_recorder(
         ctx,
         cmd.event_log_opts(),
         Some(cmd.build_config_opts()),
@@ -126,7 +126,7 @@ fn default_subscribers<T: StreamingCommand>(
         log_size_counter_bytes,
         health_check_tags_receiver,
         paths,
-    )?;
+    );
     recorder.update_metadata_from_client_metadata(&ctx.client_metadata);
     subscribers.push(recorder);
 
@@ -135,7 +135,7 @@ fn default_subscribers<T: StreamingCommand>(
     }
 
     subscribers.extend(cmd.extra_subscribers());
-    Ok(EventSubscribers::new(subscribers))
+    EventSubscribers::new(subscribers)
 }
 
 /// Trait to generalize the behavior of executable buck2 commands that rely on a server.
@@ -256,7 +256,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
         &self,
         matches: BuckArgMatches<'_>,
         ctx: &ClientCommandContext,
-    ) -> buck2_error::Result<EventSubscribers> {
+    ) -> EventSubscribers {
         default_subscribers(self, matches, ctx)
     }
 

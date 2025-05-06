@@ -1925,7 +1925,7 @@ fn merge_file_watcher_stats(
     Some(a)
 }
 
-pub(crate) fn try_get_invocation_recorder(
+pub(crate) fn get_invocation_recorder(
     ctx: &ClientCommandContext<'_>,
     event_log_opts: &CommonEventLogOptions,
     build_config_opts: Option<&CommonBuildConfigurationOptions>,
@@ -1935,7 +1935,7 @@ pub(crate) fn try_get_invocation_recorder(
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
     health_check_tags_receiver: Option<Receiver<Vec<String>>>,
     paths: Option<&InvocationPaths>,
-) -> buck2_error::Result<Box<InvocationRecorder>> {
+) -> Box<InvocationRecorder> {
     let write_to_path = event_log_opts
         .unstable_write_invocation_record
         .as_ref()
@@ -1987,7 +1987,7 @@ pub(crate) fn try_get_invocation_recorder(
         health_check_tags_receiver,
         ctx.start_time,
     );
-    Ok(Box::new(recorder))
+    Box::new(recorder)
 }
 
 fn truncate_stderr(stderr: &str) -> &str {
