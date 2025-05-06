@@ -186,15 +186,6 @@ def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, depend
         src_artifacts,
     )
 
-    # edoc chunks (only materialised in edoc subtarget)
-    build_environment = erlang_build.build_steps.generate_chunk_artifacts(
-        ctx,
-        toolchain,
-        build_environment,
-        name,
-        src_artifacts,
-    )
-
     # create <appname>.app file
     build_environment = _generate_app_file(
         ctx,
@@ -337,7 +328,6 @@ def link_output(
 
     ebin = build_environment.app_beams.values() + [build_environment.app_files[name]]
     include = build_environment.include_dirs[name]
-    chunks = build_environment.app_chunks.values()
     priv = build_environment.priv_dirs[name]
 
     ebin = {
@@ -347,18 +337,9 @@ def link_output(
 
     srcs = _link_srcs_folder(ctx)
 
-    if getattr(ctx.attrs, "build_edoc_chunks", False):
-        edoc = {
-            paths.join("doc", "chunks", chunk_file.basename): chunk_file
-            for chunk_file in chunks
-        }
-    else:
-        edoc = {}
-
     link_spec = {}
     link_spec.update(ebin)
     link_spec.update(srcs)
-    link_spec.update(edoc)
     link_spec["include"] = include
     link_spec["priv"] = priv
 

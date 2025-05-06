@@ -106,10 +106,6 @@ ErlangToolchainInfo = provider(
         "release_variables_builder": provider_field(typing.Any, default = None),
         # copying erts
         "include_erts": provider_field(typing.Any, default = None),
-        # edoc-generating escript
-        "edoc": provider_field(typing.Any, default = None),
-        "edoc_options": provider_field(typing.Any, default = None),
-        "edoc_preprocess": provider_field(list[str], default = []),
         # beams we need for various reasons
         "utility_modules": provider_field(typing.Any, default = None),
         # env to be set for toolchain invocations

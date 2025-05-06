@@ -51,7 +51,6 @@ BuildEnvironment = record(
     # convenience storrage
     app_includes = field(IncludesMapping, {}),
     app_beams = field(ModuleArtifactMapping, {}),
-    app_chunks = field(ModuleArtifactMapping, {}),
     # input artifact mapping
     input_mapping = field(InputArtifactMapping, {}),
 )
@@ -59,11 +58,6 @@ BuildEnvironment = record(
 DepInfo = record(
     dep_file = field(Artifact),
     path = field(str),
-)
-
-Anchor = record(
-    artifact = field(Artifact),
-    dirname = field(str),
 )
 
 def _prepare_build_environment(
@@ -175,7 +169,6 @@ def _generate_input_mapping(build_environment: BuildEnvironment, input_artifacts
         app_files = build_environment.app_files,
         app_includes = build_environment.app_includes,
         app_beams = build_environment.app_beams,
-        app_chunks = build_environment.app_chunks,
     )
 
 def _generated_source_artifacts(ctx: AnalysisContext, toolchain: Toolchain, name: str) -> PathArtifactMapping:
@@ -287,51 +280,6 @@ def _generate_beam_artifacts(
         _build_erl(ctx, toolchain, updated_build_environment, dep_info_file, erl, beam_mapping[module_name(erl)])
 
     return updated_build_environment
-
-def _generate_chunk_artifacts(
-        ctx: AnalysisContext,
-        toolchain: Toolchain,
-        build_environment: BuildEnvironment,
-        name: str,
-        src_artifacts: list[Artifact]) -> BuildEnvironment:
-    anchor = _make_dir_anchor(ctx, paths.join(_build_dir(toolchain), name, "chunks"))
-
-    chunk_mapping = {
-        module_name(src): ctx.actions.declare_output(chunk_path(anchor, src))
-        for src in src_artifacts
-    }
-
-    updated_build_environment = BuildEnvironment(
-        app_chunks = chunk_mapping,
-        # copied fields
-        includes = build_environment.includes,
-        private_includes = build_environment.private_includes,
-        beams = build_environment.beams,
-        priv_dirs = build_environment.priv_dirs,
-        include_dirs = build_environment.include_dirs,
-        private_include_dir = build_environment.private_include_dir,
-        deps_files = build_environment.deps_files,
-        app_files = build_environment.app_files,
-        app_includes = build_environment.app_includes,
-        app_beams = build_environment.app_beams,
-        input_mapping = build_environment.input_mapping,
-    )
-
-    preprocess_modules = toolchain.edoc_preprocess
-    preprocess_all = "__all__" in preprocess_modules
-
-    for erl in src_artifacts:
-        preprocess = preprocess_all or module_name(erl) in preprocess_modules
-        _build_edoc(ctx, toolchain, updated_build_environment, erl, chunk_mapping[module_name(erl)], preprocess)
-
-    return updated_build_environment
-
-def _make_dir_anchor(ctx: AnalysisContext, path: str) -> Anchor:
-    artifact = ctx.actions.write(
-        paths.normalize(paths.join(path, ".hidden")),
-        cmd_args([""]),
-    )
-    return Anchor(dirname = paths.dirname(artifact.short_path), artifact = artifact)
 
 def _get_deps_files(
         ctx: AnalysisContext,
@@ -447,48 +395,6 @@ def _build_erl(
         )
 
     ctx.actions.dynamic_output(dynamic = [final_dep_file], inputs = [src], outputs = [output.as_output()], f = dynamic_lambda)
-    return None
-
-def _build_edoc(
-        ctx: AnalysisContext,
-        toolchain: Toolchain,
-        build_environment: BuildEnvironment,
-        src: Artifact,
-        output: Artifact,
-        preprocess: bool) -> None:
-    """Build edoc from erl files."""
-    eval_cmd = cmd_args(
-        toolchain.otp_binaries.escript,
-        toolchain.edoc,
-        cmd_args(toolchain.edoc_options),
-        "-app",
-        ctx.attrs.name,
-        "-files",
-        src,
-        "-chunks",
-        "-pa",
-        toolchain.utility_modules,
-        "-o",
-        cmd_args(output.as_output(), parent = 2),
-    )
-
-    if not preprocess:
-        eval_cmd.add("-no-preprocess")
-
-    private_include = build_environment.private_include_dir
-    public_includes = build_environment.include_dirs.values()
-    eval_cmd.add(cmd_args(private_include, prepend = "-I"))
-    eval_cmd.add(cmd_args(public_includes, prepend = "-I"))
-    eval_cmd.add(cmd_args(public_includes, prepend = "-I", parent = 2))
-
-    _run_with_env(
-        ctx,
-        toolchain,
-        eval_cmd,
-        always_print_stderr = True,
-        category = "edoc",
-        identifier = action_identifier(toolchain, src.basename),
-    )
     return None
 
 def _dependencies_to_args(
@@ -636,18 +542,6 @@ def generated_erl_path(toolchain: Toolchain, appname: str, src: Artifact) -> str
         "%s.erl" % (module_name(src),),
     )
 
-def anchor_path(anchor: Anchor, basename: str) -> str:
-    """ Returns the output path for hrl files. """
-    return paths.join(anchor.dirname, basename)
-
-def beam_path(anchor: Anchor, src: Artifact) -> str:
-    """ Returns the output path for beam files. """
-    return anchor_path(anchor, module_name(src) + ".beam")
-
-def chunk_path(anchor: Anchor, src: Artifact) -> str:
-    """Returns the output path for chunk files."""
-    return anchor_path(anchor, module_name(src) + ".chunk")
-
 def module_name(in_file: Artifact) -> str:
     """ Returns the basename of the artifact without extension """
     end = in_file.basename.rfind(".")
@@ -760,6 +654,9 @@ default_escript_args = cmd_args(
     "minimal",
     "-noinput",
     "-noshell",
+    "-run",
+    "escript",
+    "start",
 )
 
 def _run_escript(ctx: AnalysisContext, toolchain: Toolchain, script: Artifact, args: cmd_args, **kwargs) -> None:
@@ -767,11 +664,10 @@ def _run_escript(ctx: AnalysisContext, toolchain: Toolchain, script: Artifact, a
     cmd = cmd_args(
         toolchain.otp_binaries.erl,
         default_escript_args,
-        "-pa",
-        toolchain.utility_modules,
-        "-run",
-        "escript",
-        "start",
+    )
+    if toolchain.utility_modules:
+        cmd.add("-pa", toolchain.utility_modules)
+    cmd.add(
         "--",
         script,
         args,
@@ -809,7 +705,6 @@ def _peek_private_includes(
         app_files = build_environment.app_files,
         app_includes = build_environment.app_includes,
         app_beams = build_environment.app_beams,
-        app_chunks = build_environment.app_chunks,
         input_mapping = build_environment.input_mapping,
     )
 
@@ -822,7 +717,6 @@ erlang_build = struct(
         generated_source_artifacts = _generated_source_artifacts,
         generate_include_artifacts = _generate_include_artifacts,
         generate_beam_artifacts = _generate_beam_artifacts,
-        generate_chunk_artifacts = _generate_chunk_artifacts,
     ),
     utils = struct(
         is_hrl = _is_hrl,
@@ -832,7 +726,6 @@ erlang_build = struct(
         is_config = _is_config,
         module_name = module_name,
         private_include_name = private_include_name,
-        make_dir_anchor = _make_dir_anchor,
         build_dir = _build_dir,
         run_with_env = _run_with_env,
         run_escript = _run_escript,

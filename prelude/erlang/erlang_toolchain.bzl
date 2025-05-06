@@ -49,9 +49,6 @@ Toolchain = record(
     core_parse_transforms = field(dict[str, (Artifact, Artifact)]),
     parse_transforms = field(dict[str, (Artifact, Artifact)]),
     parse_transforms_filters = field(dict[str, list[str]]),
-    edoc = field(Artifact),
-    edoc_options = field(list[str]),
-    edoc_preprocess = field(list[str]),
     utility_modules = field(Artifact),
     env = field(dict[str, str]),
 )
@@ -64,7 +61,6 @@ ToolchainUtillInfo = provider(
         "core_parse_transforms": provider_field(typing.Any, default = None),
         "dependency_analyzer": provider_field(typing.Any, default = None),
         "dependency_finalizer": provider_field(typing.Any, default = None),
-        "edoc": provider_field(typing.Any, default = None),
         "erlc_trampoline": provider_field(typing.Any, default = None),
         "escript_trampoline": provider_field(typing.Any, default = None),
         "escript_builder": provider_field(typing.Any, default = None),
@@ -107,9 +103,6 @@ def _multi_version_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             core_parse_transforms = toolchain_info.core_parse_transforms,
             parse_transforms = toolchain_info.parse_transforms,
             parse_transforms_filters = toolchain_info.parse_transforms_filters,
-            edoc = toolchain_info.edoc,
-            edoc_options = toolchain_info.edoc_options,
-            edoc_preprocess = toolchain_info.edoc_preprocess,
             utility_modules = toolchain_info.utility_modules,
             env = toolchain_info.env,
         )
@@ -136,8 +129,6 @@ def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     # split the options string to get a list of options
     erl_opts = ctx.attrs.erl_opts.split()
     emu_flags = ctx.attrs.emu_flags.split()
-    edoc_options = ctx.attrs.edoc_options.split()
-    edoc_preprocess = ctx.attrs.edoc_preprocess.split()
 
     # get otp binaries
     binaries_info = ctx.attrs.otp_binaries[ErlangOTPBinariesInfo]
@@ -197,9 +188,6 @@ def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             core_parse_transforms = core_parse_transforms,
             parse_transforms = parse_transforms,
             parse_transforms_filters = ctx.attrs.parse_transforms_filters,
-            edoc = utils.edoc,
-            edoc_options = edoc_options,
-            edoc_preprocess = edoc_preprocess,
             utility_modules = utility_modules,
         ),
     ]
@@ -279,8 +267,6 @@ config_erlang_toolchain_rule = rule(
     impl = _config_erlang_toolchain_impl,
     attrs = {
         "core_parse_transforms": attrs.list(attrs.dep(), default = ["@prelude//erlang/toolchain:transform_project_root"]),
-        "edoc_options": attrs.string(default = ""),
-        "edoc_preprocess": attrs.string(default = ""),
         "emu_flags": attrs.string(default = ""),
         "env": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}),
         "erl_opts": attrs.string(default = ""),
@@ -359,7 +345,6 @@ def _toolchain_utils(ctx: AnalysisContext) -> list[Provider]:
             core_parse_transforms = ctx.attrs.core_parse_transforms,
             dependency_analyzer = ctx.attrs.dependency_analyzer,
             dependency_finalizer = ctx.attrs.dependency_finalizer,
-            edoc = ctx.attrs.edoc,
             erlc_trampoline = ctx.attrs.erlc_trampoline,
             escript_trampoline = ctx.attrs.escript_trampoline,
             escript_builder = ctx.attrs.escript_builder,
@@ -377,7 +362,6 @@ toolchain_utilities = rule(
         "core_parse_transforms": attrs.list(attrs.dep()),
         "dependency_analyzer": attrs.source(),
         "dependency_finalizer": attrs.source(),
-        "edoc": attrs.source(),
         "erlc_trampoline": attrs.source(),
         "escript_builder": attrs.source(),
         "escript_trampoline": attrs.source(),
