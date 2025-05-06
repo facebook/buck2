@@ -6,9 +6,9 @@
 # of this source tree.
 
 AppleErrorCategory = record(
-    # Lowercase string that should (preferably uniquely) match the lowercased
-    # stderr output caused by an error of interest.
-    string_match = str,
+    # If you pass a string, it will use `matcher in stderr.lower()`.
+    # If you pass a regex(), it will run `regex("exp").match(stderr.lower())`.
+    matcher = str | BuckRegex,
     # List of category tags to be applied in the event of this error.
     category = str,
     # Based on the error, you can inject something like a wiki link/etc.
