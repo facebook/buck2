@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//tests:test_toolchain.bzl", "noop_test_toolchain")
+load("@prelude//toolchains:android.bzl", "system_android_toolchain")
 load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
 load("@prelude//toolchains:dex.bzl", "system_noop_dex_toolchain")
 load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
@@ -23,6 +24,11 @@ def system_demo_toolchains():
     All the default toolchains, suitable for a quick demo or early prototyping.
     Most real projects should copy/paste the implementation to configure them.
     """
+    system_android_toolchain(
+        name = "android",
+        visibility = ["PUBLIC"],
+    )
+
     system_cxx_toolchain(
         name = "cxx",
         visibility = ["PUBLIC"],
