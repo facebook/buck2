@@ -336,18 +336,13 @@ def link_output(
     name = app_name(ctx)
 
     ebin = build_environment.app_beams.values() + [build_environment.app_files[name]]
-    include = build_environment.app_includes.values()
+    include = build_environment.include_dirs[name]
     chunks = build_environment.app_chunks.values()
     priv = build_environment.priv_dirs[name]
 
     ebin = {
         paths.join("ebin", ebin_file.basename): ebin_file
         for ebin_file in ebin
-    }
-
-    include = {
-        paths.join("include", include_file.basename): include_file
-        for include_file in include
     }
 
     srcs = _link_srcs_folder(ctx)
@@ -362,9 +357,9 @@ def link_output(
 
     link_spec = {}
     link_spec.update(ebin)
-    link_spec.update(include)
     link_spec.update(srcs)
     link_spec.update(edoc)
+    link_spec["include"] = include
     link_spec["priv"] = priv
 
     return ctx.actions.symlinked_dir(link_path, link_spec)

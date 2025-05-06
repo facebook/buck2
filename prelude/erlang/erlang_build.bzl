@@ -206,28 +206,23 @@ def _generate_include_artifacts(
         name: str,
         header_artifacts: list[Artifact],
         is_private: bool = False) -> BuildEnvironment:
-    # anchor for include dir
-    anchor = _make_dir_anchor(ctx, paths.join(_build_dir(toolchain), name, "include"))
+    include_files = {hrl.basename: hrl for hrl in header_artifacts}
+    include_dir = ctx.actions.symlinked_dir(paths.join(_build_dir(toolchain), name, "include"), include_files)
 
-    # output artifacts
     include_mapping = {
-        _header_key(hrl, name, is_private): ctx.actions.declare_output(anchor_path(anchor, hrl.basename))
+        _header_key(hrl, name, is_private): include_dir
         for hrl in header_artifacts
     }
 
     # dep files
     deps_files = _get_deps_files(ctx, toolchain, header_artifacts, build_environment.deps_files)
 
-    # generate actions
-    for hrl in header_artifacts:
-        _build_hrl(ctx, hrl, include_mapping[_header_key(hrl, name, is_private)])
-
     # construct updates build environment
     if not is_private:
         # fields for public include directory
         includes = _merge(include_mapping, build_environment.includes)
         private_includes = build_environment.private_includes
-        include_dirs = _add(build_environment.include_dirs, name, anchor.artifact)
+        include_dirs = _add(build_environment.include_dirs, name, include_dir)
         private_include_dir = build_environment.private_include_dir
         app_includes = include_mapping
     else:
@@ -235,7 +230,7 @@ def _generate_include_artifacts(
         includes = build_environment.includes
         private_includes = _merge(include_mapping, build_environment.private_includes)
         include_dirs = build_environment.include_dirs
-        private_include_dir = [anchor.artifact] + build_environment.private_include_dir
+        private_include_dir = [include_dir] + build_environment.private_include_dir
         app_includes = build_environment.app_includes
 
     return BuildEnvironment(
@@ -388,14 +383,6 @@ def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, src: Artifact) ->
     )
     return dependency_json
 
-def _build_hrl(
-        ctx: AnalysisContext,
-        hrl: Artifact,
-        output: Artifact) -> None:
-    """Copy the header file and add dependencies on other includes."""
-    ctx.actions.copy_file(output.as_output(), hrl)
-    return None
-
 def _build_xyrl(
         ctx: AnalysisContext,
         toolchain: Toolchain,
@@ -535,7 +522,7 @@ def _dependencies_to_args(
             app = dep["app"]
             if (app, file) in build_environment.includes:
                 artifact = build_environment.includes[(app, file)]
-                input_mapping[file] = (True, build_environment.input_mapping[artifact.basename])
+                input_mapping[file] = (True, build_environment.input_mapping[file])
             else:
                 # the file might come from OTP
                 input_mapping[file] = (False, paths.join(app, "include", file))
@@ -548,7 +535,7 @@ def _dependencies_to_args(
                 artifact = build_environment.private_includes[file]
 
                 if artifact.basename in build_environment.input_mapping:
-                    input_mapping[file] = (True, build_environment.input_mapping[artifact.basename])
+                    input_mapping[file] = (True, build_environment.input_mapping[file])
             else:
                 # at this point we don't know the application the include is coming
                 # from, and have to check all public include directories
@@ -558,7 +545,7 @@ def _dependencies_to_args(
                     fail("-include(\"%s\") is ambiguous as the following applications declare public includes with the same name: %s" % (file, offending_apps))
                 elif candidates:
                     artifact = build_environment.includes[candidates[0]]
-                    input_mapping[file] = (True, build_environment.input_mapping[artifact.basename])
+                    input_mapping[file] = (True, build_environment.input_mapping[file])
                 else:
                     # we didn't find the include, build will fail during compile
                     continue
@@ -583,9 +570,9 @@ def _dependency_include_dirs(build_environment: BuildEnvironment) -> list[cmd_ar
     private = build_environment.private_include_dir
     public = build_environment.include_dirs.values()
     return [
-        cmd_args(private, parent = 1),
-        cmd_args(public, parent = 1),
-        cmd_args(public, parent = 3),
+        cmd_args(private),
+        cmd_args(public),
+        cmd_args(public, parent = 2),
     ]
 
 def _dependency_code_paths(build_environment: BuildEnvironment) -> list[cmd_args]:

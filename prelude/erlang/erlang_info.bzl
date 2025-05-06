@@ -15,7 +15,7 @@ ErlangAppCommonFields = [
     "name",
     # mapping from ("application", "basename") -> to header artifact
     "includes",
-    # references to ankers for the include directory
+    # path to include directory
     "include_dir",
     # deps files short_path -> artifact
     "deps_files",
