@@ -22,9 +22,9 @@ pub struct ConfiguredAttrFull<'a> {
     pub value: ConfiguredAttr,
 }
 
-impl<'a> ConfiguredAttrFull<'a> {
-    pub fn traverse<'v>(
-        &'v self,
+impl ConfiguredAttrFull<'_> {
+    pub fn traverse(
+        &self,
         pkg: PackageLabel,
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> buck2_error::Result<()> {

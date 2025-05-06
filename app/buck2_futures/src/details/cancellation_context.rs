@@ -93,7 +93,7 @@ impl<'a> ExplicitCriticalSectionGuard<'a> {
     }
 }
 
-impl<'a> Drop for ExplicitCriticalSectionGuard<'a> {
+impl Drop for ExplicitCriticalSectionGuard<'_> {
     fn drop(&mut self) {
         if let Some(context) = &self.context {
             // never actually exited during normal poll, but dropping this means we'll never poll

@@ -23,7 +23,7 @@ pub enum DirectoryFindError {
 trait FindConflict<T> {
     fn new<'b>(path: &'b FileName, remaining: impl Iterator<Item = &'b FileName>, leaf: T) -> Self;
 
-    fn with<'b>(self, path: &'b FileName) -> Self;
+    fn with(self, path: &FileName) -> Self;
 }
 
 impl<T> FindConflict<T> for PathAccumulator {
@@ -35,7 +35,7 @@ impl<T> FindConflict<T> for PathAccumulator {
         PathAccumulator::new(path)
     }
 
-    fn with<'b>(self, path: &'b FileName) -> Self {
+    fn with(self, path: &FileName) -> Self {
         PathAccumulator::with(self, path)
     }
 }
@@ -55,7 +55,7 @@ impl<T> FindConflict<T> for PrefixLookupContainer<T> {
         }
     }
 
-    fn with<'b>(self, _path: &'b FileName) -> Self {
+    fn with(self, _path: &FileName) -> Self {
         self
     }
 }

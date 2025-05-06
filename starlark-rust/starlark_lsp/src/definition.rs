@@ -275,7 +275,7 @@ impl LspModule {
 
     /// Look at the given scope and child scopes to try to find where the identifier
     /// accessed at Pos is defined.
-    fn find_definition_in_scope<'a>(scope: &'a Scope, pos: Pos) -> TempDefinition<'a> {
+    fn find_definition_in_scope(scope: &Scope, pos: Pos) -> TempDefinition<'_> {
         /// Look for a name in the given scope, with a given source, and return the right
         /// type of [`TempIdentifierDefinition`] based on whether / how the variable is bound.
         fn resolve_get_in_scope<'a>(

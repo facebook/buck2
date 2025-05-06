@@ -39,7 +39,7 @@ pub(crate) enum StarlarkFilePath {
 }
 
 impl StarlarkFilePath {
-    fn to_starlark_module_path<'a>(&'a self) -> StarlarkModulePath<'a> {
+    fn to_starlark_module_path(&self) -> StarlarkModulePath<'_> {
         match self {
             StarlarkFilePath::Bzl(import_path) => StarlarkModulePath::LoadFile(import_path),
             StarlarkFilePath::Bxl(bxl_path) => StarlarkModulePath::BxlFile(bxl_path),

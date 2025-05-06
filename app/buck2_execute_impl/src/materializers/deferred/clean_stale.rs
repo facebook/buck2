@@ -485,12 +485,12 @@ enum FoundPath {
     Retained(u64),
 }
 
-impl<'a, T: IoHandler> StaleFinder<'a, T> {
+impl<T: IoHandler> StaleFinder<'_, T> {
     /// Start from `path` and `subtree` and visit everything below.
-    fn visit_recursively<'t>(
+    fn visit_recursively(
         &mut self,
         path: ProjectRelativePathBuf,
-        subtree: &'t HashMap<FileNameBuf, ArtifactTree>,
+        subtree: &HashMap<FileNameBuf, ArtifactTree>,
     ) -> buck2_error::Result<()> {
         let mut queue = vec![(path, subtree)];
 

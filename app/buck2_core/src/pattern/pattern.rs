@@ -565,9 +565,9 @@ impl<'a, T: PatternType> PatternData<'a, T> {
 }
 
 // Splits a pattern into cell alias and forward relative path if "//" is present, otherwise returns None,
-pub fn maybe_split_cell_alias_and_relative_path<'a>(
-    pattern: &'a str,
-) -> buck2_error::Result<Option<(CellAlias, &'a ForwardRelativePath)>> {
+pub fn maybe_split_cell_alias_and_relative_path(
+    pattern: &str,
+) -> buck2_error::Result<Option<(CellAlias, &ForwardRelativePath)>> {
     Ok(match split1_opt_ascii(pattern, AsciiStr2::new("//")) {
         Some((a, p)) => Some((
             CellAlias::new(trim_prefix_ascii(a, AsciiChar::new('@')).to_owned()),
@@ -577,10 +577,10 @@ pub fn maybe_split_cell_alias_and_relative_path<'a>(
     })
 }
 
-fn lex_provider_pattern<'a>(
-    pattern: &'a str,
+fn lex_provider_pattern(
+    pattern: &str,
     strip_package_trailing_slash: bool,
-) -> buck2_error::Result<PatternParts<'a, ProvidersPatternExtra>> {
+) -> buck2_error::Result<PatternParts<'_, ProvidersPatternExtra>> {
     let (cell_alias, pattern) = match split1_opt_ascii(pattern, AsciiStr2::new("//")) {
         Some((a, p)) => (Some(trim_prefix_ascii(a, AsciiChar::new('@'))), p),
         None => (None, pattern),
@@ -683,10 +683,10 @@ fn split_cfg(s: &str) -> Option<(&str, &str)> {
     None
 }
 
-pub fn lex_configured_providers_pattern<'a>(
-    pattern: &'a str,
+pub fn lex_configured_providers_pattern(
+    pattern: &str,
     strip_package_trailing_slash: bool,
-) -> buck2_error::Result<PatternParts<'a, ConfiguredProvidersPatternExtra>> {
+) -> buck2_error::Result<PatternParts<'_, ConfiguredProvidersPatternExtra>> {
     let (provider_pattern, cfg) = match split_cfg(pattern) {
         Some((providers, cfg)) => {
             let provider_pattern = lex_provider_pattern(providers, strip_package_trailing_slash)?;
@@ -704,10 +704,10 @@ pub fn lex_configured_providers_pattern<'a>(
 }
 
 // Lex the target pattern into the relevant pieces.
-pub fn lex_target_pattern<'a, T: PatternType>(
-    pattern: &'a str,
+pub fn lex_target_pattern<T: PatternType>(
+    pattern: &str,
     strip_package_trailing_slash: bool,
-) -> buck2_error::Result<PatternParts<'a, T>> {
+) -> buck2_error::Result<PatternParts<'_, T>> {
     let provider_pattern = lex_configured_providers_pattern(pattern, strip_package_trailing_slash)?;
     provider_pattern
         .try_map(|extra| T::from_configured_providers(extra))
@@ -717,10 +717,10 @@ pub fn lex_target_pattern<'a, T: PatternType>(
         })
 }
 
-fn normalize_package<'a>(
-    package: &'a str,
+fn normalize_package(
+    package: &str,
     strip_package_trailing_slash: bool,
-) -> buck2_error::Result<&'a ForwardRelativePath> {
+) -> buck2_error::Result<&ForwardRelativePath> {
     // Strip or reject trailing `/`, such as in `foo/:bar`.
     if let Some(stripped) = strip_suffix_ascii(package, AsciiChar::new('/')) {
         if strip_package_trailing_slash {

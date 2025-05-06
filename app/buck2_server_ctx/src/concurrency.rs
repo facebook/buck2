@@ -278,7 +278,7 @@ enum ExclusiveCommandLockGuard<'a> {
     ),
 }
 
-impl<'a> Drop for ExclusiveCommandLockGuard<'a> {
+impl Drop for ExclusiveCommandLockGuard<'_> {
     fn drop(&mut self) {
         if let ExclusiveCommandLockGuard::Exclusive(_, owner) = self {
             let mut own = owner.lock();

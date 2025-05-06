@@ -54,26 +54,26 @@ impl QueryTarget for ConfiguredTargetNode {
         ConfiguredTargetNode::buildfile_path(self)
     }
 
-    fn deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
+    fn deps(&self) -> impl Iterator<Item = &Self::Key> + Send + '_ {
         ConfiguredTargetNode::deps(self).map(|v| v.label())
     }
 
-    fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
+    fn exec_deps(&self) -> impl Iterator<Item = &Self::Key> + Send + '_ {
         ConfiguredTargetNode::exec_deps(self).map(|v| v.label())
     }
 
-    fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
+    fn target_deps(&self) -> impl Iterator<Item = &Self::Key> + Send + '_ {
         ConfiguredTargetNode::target_deps(self).map(|v| v.label())
     }
 
-    fn configuration_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
+    fn configuration_deps(&self) -> impl Iterator<Item = &Self::Key> + Send + '_ {
         ConfiguredTargetNode::configuration_deps(self).map(|v| v.label())
     }
 
-    fn toolchain_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
+    fn toolchain_deps(&self) -> impl Iterator<Item = &Self::Key> + Send + '_ {
         ConfiguredTargetNode::toolchain_deps(self).map(|v| v.label())
     }
-    fn tests<'a>(&'a self) -> Option<impl Iterator<Item = Self::Key> + Send + 'a> {
+    fn tests(&self) -> Option<impl Iterator<Item = Self::Key> + Send + '_> {
         Some(self.tests().map(|t| t.target().dupe()))
     }
 
@@ -144,7 +144,7 @@ impl QueryTarget for ConfiguredTargetNode {
     }
 }
 
-impl<'a> LabeledNode for ConfiguredTargetNodeRef<'a> {
+impl LabeledNode for ConfiguredTargetNodeRef<'_> {
     type Key = ConfiguredTargetLabel;
 
     fn node_key(&self) -> &Self::Key {

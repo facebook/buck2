@@ -33,7 +33,7 @@ pub struct LoadedSymbol<'a> {
 pub(crate) trait AstModuleLoadedSymbols {
     /// Which symbols are loaded by this module. These are the top-level load
     /// statements.
-    fn loaded_symbols<'a>(&'a self) -> Vec<LoadedSymbol<'a>>;
+    fn loaded_symbols(&self) -> Vec<LoadedSymbol<'_>>;
 }
 
 impl AstModuleLoadedSymbols for AstModule {

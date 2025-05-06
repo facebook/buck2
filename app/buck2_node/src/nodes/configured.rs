@@ -95,10 +95,10 @@ enum TargetNodeOrForward {
 const ACTUAL_ATTR_NAME: &str = "actual";
 
 impl TargetNodeOrForward {
-    fn attrs<'a>(
-        &'a self,
+    fn attrs(
+        &self,
         opts: AttrInspectOptions,
-    ) -> impl Iterator<Item = CoercedAttrFull<'a>> + 'a {
+    ) -> impl Iterator<Item = CoercedAttrFull<'_>> + '_ {
         match self {
             TargetNodeOrForward::TargetNode(target_node) => Either::Left(target_node.attrs(opts)),
             TargetNodeOrForward::Forward(actual, _) => {
@@ -469,10 +469,10 @@ impl ConfiguredTargetNode {
         self.as_ref().oncall()
     }
 
-    pub fn attrs<'a>(
-        &'a self,
+    pub fn attrs(
+        &self,
         opts: AttrInspectOptions,
-    ) -> impl Iterator<Item = ConfiguredAttrFull<'a>> + 'a {
+    ) -> impl Iterator<Item = ConfiguredAttrFull<'_>> + '_ {
         self.as_ref().attrs(opts)
     }
 
@@ -639,7 +639,7 @@ impl Hash for ConfiguredTargetNodeDeps {
 #[derive(Debug, Copy, Clone)]
 pub struct ConfiguredTargetNodeRef<'a>(triomphe::ArcBorrow<'a, Hashed<ConfiguredTargetNodeData>>);
 
-impl<'a> Dupe for ConfiguredTargetNodeRef<'a> {}
+impl Dupe for ConfiguredTargetNodeRef<'_> {}
 
 impl<'a> ConfiguredTargetNodeRef<'a> {
     #[inline]

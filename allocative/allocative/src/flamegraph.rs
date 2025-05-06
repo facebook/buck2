@@ -137,7 +137,7 @@ struct TreeRef<'a> {
     tree_id: TreeId,
 }
 
-impl<'a> TreeRef<'a> {
+impl TreeRef<'_> {
     fn write_flame_graph(&self, stack: &[&str], warnings: &mut String) -> FlameGraph {
         let mut flame_graph = FlameGraph::default();
         let tree = &self.trees[self.tree_id];
@@ -240,7 +240,7 @@ struct TreeStackRef<'t, 's> {
     stack: &'s mut TreeStack,
 }
 
-impl<'t, 's> TreeStackRef<'t, 's> {
+impl<'t> TreeStackRef<'t, '_> {
     fn current_data(&'t mut self) -> &'t mut TreeData {
         &mut self.trees[self.stack.tree]
     }

@@ -549,7 +549,7 @@ impl<'a> BuckLspContext<'a> {
     }
 }
 
-impl<'a> LspContext for BuckLspContext<'a> {
+impl LspContext for BuckLspContext<'_> {
     fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
         let dispatcher = self.server_ctx.events().dupe();
         self.runtime

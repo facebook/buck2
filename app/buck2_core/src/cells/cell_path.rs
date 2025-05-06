@@ -411,7 +411,7 @@ pub(crate) enum CellPathCow<'a> {
     Owned(CellPath),
 }
 
-impl<'a> CellPathCow<'a> {
+impl CellPathCow<'_> {
     pub(crate) fn into_owned(self) -> CellPath {
         match self {
             CellPathCow::Borrowed(v) => v.to_owned(),

@@ -34,7 +34,7 @@ pub trait Directory<L, H> {
     where
         Self: Sized + 'a;
 
-    fn unordered_walk<'a>(&'a self) -> UnorderedDirectoryWalk<'a, Self::DirectoryRef<'a>>
+    fn unordered_walk(&self) -> UnorderedDirectoryWalk<'_, Self::DirectoryRef<'_>>
     where
         Self: Sized,
     {
@@ -50,7 +50,7 @@ pub trait Directory<L, H> {
         self.unordered_walk().leaves()
     }
 
-    fn ordered_walk<'a>(&'a self) -> OrderedDirectoryWalk<'a, Self::DirectoryRef<'a>>
+    fn ordered_walk(&self) -> OrderedDirectoryWalk<'_, Self::DirectoryRef<'_>>
     where
         Self: Sized,
     {
@@ -72,7 +72,7 @@ pub trait Directory<L, H> {
         H: DirectoryDigest;
 }
 
-impl<'a, L, H> fmt::Debug for &'a dyn Directory<L, H> {
+impl<L, H> fmt::Debug for &dyn Directory<L, H> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Directory")
     }

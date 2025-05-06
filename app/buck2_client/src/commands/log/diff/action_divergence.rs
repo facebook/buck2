@@ -39,8 +39,8 @@ struct ActionExecutionData {
     output_tiny_digests: String,
 }
 
-fn get_action_execution_data<'a>(
-    event: &'a buck2_data::BuckEvent,
+fn get_action_execution_data(
+    event: &buck2_data::BuckEvent,
 ) -> Option<(ActionKey, ActionExecutionData)> {
     event.data.as_ref().and_then(|data| match data {
         buck2_data::buck_event::Data::SpanEnd(end) => {

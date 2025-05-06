@@ -56,7 +56,7 @@ pub(crate) trait CqueryDelegate: Send + Sync {
         target: &TargetLabel,
     ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
 
-    fn ctx<'a>(&'a self) -> DiceComputations<'a>;
+    fn ctx(&self) -> DiceComputations<'_>;
 }
 
 pub(crate) struct CqueryEnvironment<'c> {
@@ -117,7 +117,7 @@ impl<'c> CqueryEnvironment<'c> {
 }
 
 #[async_trait]
-impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
+impl QueryEnvironment for CqueryEnvironment<'_> {
     type Target = ConfiguredTargetNode;
 
     async fn get_node(

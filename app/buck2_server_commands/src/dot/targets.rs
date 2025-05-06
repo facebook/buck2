@@ -63,7 +63,7 @@ impl<'a, T: QueryCommandTarget> DotDigraph<'a> for DotTargetGraph<T> {
     }
 }
 
-impl<'a, T: QueryCommandTarget> DotNode for DotTargetGraphNode<'a, T> {
+impl<T: QueryCommandTarget> DotNode for DotTargetGraphNode<'_, T> {
     fn attrs(&self) -> buck2_error::Result<DotNodeAttrs> {
         let extra = match &self.1.attributes {
             Some(attr_regex) => {

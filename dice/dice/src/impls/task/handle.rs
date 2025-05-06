@@ -74,7 +74,7 @@ impl<'a> DiceTaskHandle<'a> {
     }
 }
 
-unsafe impl<'a> Send for DiceTaskHandle<'a> {}
+unsafe impl Send for DiceTaskHandle<'_> {}
 
 impl Drop for DiceTaskHandle<'_> {
     fn drop(&mut self) {

@@ -96,7 +96,7 @@ impl std::fmt::Debug for LegacyBuckConfigOnDice<'_, '_> {
     }
 }
 
-impl<'a, 'd> LegacyBuckConfigView for LegacyBuckConfigOnDice<'a, 'd> {
+impl LegacyBuckConfigView for LegacyBuckConfigOnDice<'_, '_> {
     fn get(&mut self, key: BuckconfigKeyRef) -> buck2_error::Result<Option<Arc<str>>> {
         self.config.lookup(self.ctx, key)
     }

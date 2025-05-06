@@ -163,7 +163,7 @@ impl DerefMut for BaseComputeCtx {
     }
 }
 
-impl<'d> ModernComputeCtx<'d> {
+impl ModernComputeCtx<'_> {
     /// Gets all the result of of the given computation key.
     /// recorded as dependencies of the current computation for which this
     /// context is for.
@@ -493,7 +493,7 @@ impl ModernComputeCtx<'_> {
         }
     }
 
-    fn parallel_builder<'a>(&'a mut self, size_hint: usize) -> ModernComputeCtxParallelBuilder<'a> {
+    fn parallel_builder(&mut self, size_hint: usize) -> ModernComputeCtxParallelBuilder<'_> {
         match self {
             ModernComputeCtx::Owned {
                 ctx_data,
@@ -605,8 +605,8 @@ impl CoreCtx {
     /// Projections allow accessing derived results from the "opaque" value,
     /// where the dependency of reading a projection is the projection value rather
     /// than the entire opaque value.
-    pub(crate) fn compute_opaque<'a, K>(
-        &'a self,
+    pub(crate) fn compute_opaque<K>(
+        &self,
         key: &K,
     ) -> impl Future<Output = CancellableResult<(DiceKey, DiceComputedValue)>>
     where

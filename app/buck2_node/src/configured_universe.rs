@@ -122,7 +122,7 @@ impl CqueryUniverse {
             .sum()
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = ConfiguredTargetNodeRef<'a>> {
+    pub fn iter(&self) -> impl Iterator<Item = ConfiguredTargetNodeRef<'_>> {
         self.data
             .data()
             .targets

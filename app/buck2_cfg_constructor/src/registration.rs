@@ -91,7 +91,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkCfgConstructor {
     type Canonical = StarlarkCfgConstructor<'v>;
 }
 
-impl<'v> Freeze for StarlarkCfgConstructor<'v> {
+impl Freeze for StarlarkCfgConstructor<'_> {
     type Frozen = FrozenStarlarkCfgConstructor;
 
     fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {

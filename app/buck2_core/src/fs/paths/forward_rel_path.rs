@@ -154,7 +154,7 @@ impl<'a> DoubleEndedIterator for ForwardRelativePathIter<'a> {
     }
 }
 
-impl<'a> Clone for ForwardRelativePathIter<'a> {
+impl Clone for ForwardRelativePathIter<'_> {
     fn clone(&self) -> Self {
         ForwardRelativePathIter(ForwardRelativePath::unchecked_new(self.0.as_str()))
     }

@@ -97,7 +97,7 @@ pub struct PartialResultCtx<'a> {
     inner: &'a mut EventsCtx,
 }
 
-impl<'a> PartialResultCtx<'a> {
+impl PartialResultCtx<'_> {
     pub async fn stdout(&mut self, bytes: &[u8]) -> buck2_error::Result<()> {
         self.inner
             .subscribers

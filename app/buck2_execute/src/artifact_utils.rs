@@ -149,7 +149,7 @@ mod tests {
     use super::*;
     use crate::directory::Symlink;
 
-    fn path<'a>(s: &'a str) -> &'a ProjectRelativePath {
+    fn path(s: &str) -> &ProjectRelativePath {
         ProjectRelativePath::new(s).unwrap()
     }
 

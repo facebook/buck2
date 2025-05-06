@@ -45,7 +45,7 @@ impl StrongHash for CellNameData {
 #[derive(Clone, Debug, Display, Hash, Eq, PartialEq, StrongHash)]
 struct CellNameDataRef<'a>(&'a str);
 
-impl<'a> Equivalent<CellNameData> for CellNameDataRef<'a> {
+impl Equivalent<CellNameData> for CellNameDataRef<'_> {
     fn equivalent(&self, key: &CellNameData) -> bool {
         self.0 == &*key.0
     }

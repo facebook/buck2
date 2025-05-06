@@ -74,7 +74,7 @@ impl<'a, T: WalkType<'a>> DirectoryIterator for Walk<'a, T> {
         Self: 'b;
     type Item = DirectoryEntry<T::Directory, &'a T::Leaf>;
 
-    fn next<'b>(&'b mut self) -> Option<(DirectoryIteratorPathAccessor<'b, Self>, Self::Item)> {
+    fn next(&mut self) -> Option<(DirectoryIteratorPathAccessor<'_, Self>, Self::Item)> {
         loop {
             let frame = self.stack.last_mut()?;
 

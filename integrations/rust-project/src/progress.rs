@@ -96,7 +96,7 @@ where
 
 struct JsonVisitor<'a>(&'a mut FxHashMap<String, serde_json::Value>);
 
-impl<'a> tracing::field::Visit for JsonVisitor<'a> {
+impl tracing::field::Visit for JsonVisitor<'_> {
     fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
         let value: String = if field.name() == "project" {
             serde_json::from_str(value).unwrap()

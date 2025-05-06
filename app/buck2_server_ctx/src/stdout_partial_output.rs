@@ -26,7 +26,7 @@ impl<'a> StdoutPartialOutput<'a> {
     }
 }
 
-impl<'a> Write for StdoutPartialOutput<'a> {
+impl Write for StdoutPartialOutput<'_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.inner.write(buf)
     }
@@ -40,7 +40,7 @@ struct WriterWrapper<'a> {
     inner: &'a mut PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
 }
 
-impl<'a> Write for WriterWrapper<'a> {
+impl Write for WriterWrapper<'_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.inner.emit(buck2_cli_proto::StdoutBytes {
             data: buf.to_owned(),

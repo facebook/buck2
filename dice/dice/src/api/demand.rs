@@ -28,7 +28,7 @@ impl<T: 'static> DemandImpl for DemandValue<T> {
     }
 }
 
-impl<'a, T: ?Sized + 'static> DemandImpl for DemandRef<'a, T> {
+impl<T: ?Sized + 'static> DemandImpl for DemandRef<'_, T> {
     fn tag() -> TypeId {
         TypeId::of::<DemandRef<'static, T>>()
     }

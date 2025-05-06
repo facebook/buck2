@@ -178,7 +178,7 @@ struct BuckRootComponent<'s> {
     state: &'s SuperConsoleState,
 }
 
-impl<'s> Component for BuckRootComponent<'s> {
+impl Component for BuckRootComponent<'_> {
     fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         // bound all components to our recommended grapheme-width
         let dimensions = dimensions.intersect(Dimensions {

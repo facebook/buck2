@@ -152,7 +152,7 @@ pub async fn ignore_stack_overflow_checks_for_future<F: Future>(f: F) -> F::Outp
         f: Pin<&'a mut F>,
     }
 
-    impl<'a, F: Future> Future for IgnoreStackOverflowChecksForFuture<'a, F> {
+    impl<F: Future> Future for IgnoreStackOverflowChecksForFuture<'_, F> {
         type Output = F::Output;
 
         fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {

@@ -364,7 +364,7 @@ impl Lines {
 
     pub fn fmt_for_test(&self) -> impl Display + '_ {
         struct Impl<'a>(&'a Lines);
-        impl<'a> Display for Impl<'a> {
+        impl Display for Impl<'_> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 for line in self.0.iter() {
                     writeln!(f, "{}", line.fmt_for_test())?;

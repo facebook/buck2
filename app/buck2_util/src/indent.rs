@@ -17,7 +17,7 @@ pub fn indent<'a>(indent: &'a str, text: &'a str) -> impl Display + 'a {
         text: &'a str,
     }
 
-    impl<'a> Display for Indent<'a> {
+    impl Display for Indent<'_> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             for line in self.text.lines() {
                 writeln!(f, "{}{}", self.indent, line)?;

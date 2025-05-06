@@ -126,7 +126,7 @@ impl<'b> AttrConfigurationContextImpl<'b> {
     }
 }
 
-impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
+impl AttrConfigurationContext for AttrConfigurationContextImpl<'_> {
     fn matched_cfg_keys(&self) -> &MatchedConfigurationSettingKeys {
         self.resolved_cfg.settings()
     }

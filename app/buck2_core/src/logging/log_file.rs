@@ -53,7 +53,7 @@ impl TracingLogFile {
     }
 }
 
-impl<'a> io::Write for &'a TracingLogFile {
+impl io::Write for &TracingLogFile {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.writer.lock().unwrap().write(buf)
     }

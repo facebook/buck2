@@ -394,9 +394,9 @@ impl TargetNode {
 #[derive(Copy, Clone)]
 pub struct TargetNodeRef<'a>(triomphe::ArcBorrow<'a, TargetNodeData>);
 
-impl<'a> Dupe for TargetNodeRef<'a> {}
+impl Dupe for TargetNodeRef<'_> {}
 
-impl<'a> Deref for TargetNodeRef<'a> {
+impl Deref for TargetNodeRef<'_> {
     type Target = TargetNodeData;
 
     #[inline]
@@ -606,7 +606,7 @@ impl<'a> TargetNodeRef<'a> {
             inputs: Vec<CellPath>,
         }
 
-        impl<'a> CoercedAttrTraversal<'a> for InputsCollector {
+        impl CoercedAttrTraversal<'_> for InputsCollector {
             fn input(&mut self, path: SourcePathRef) -> buck2_error::Result<()> {
                 self.inputs.push(path.to_cell_path());
                 Ok(())

@@ -40,7 +40,7 @@ pub struct StderrOutputWriter {
     chunk_size: usize,
 }
 
-impl<'a> Write for StderrOutputGuard<'a> {
+impl Write for StderrOutputGuard<'_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.inner.write(buf)
     }
@@ -50,7 +50,7 @@ impl<'a> Write for StderrOutputGuard<'a> {
     }
 }
 
-impl<'a> Drop for StderrOutputGuard<'a> {
+impl Drop for StderrOutputGuard<'_> {
     fn drop(&mut self) {
         // This would only happen if we had output that isn't utf-8 and got flushed. For now we live with ignoring
         // this.

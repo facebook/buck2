@@ -55,7 +55,7 @@ impl<T: AtomicValue, const SHARDS: usize> ShardedLockFreeRawTable<T, SHARDS> {
 
     /// Find an entry.
     #[inline]
-    pub fn lookup<'a>(&'a self, hash: u64, eq: impl Fn(T::Ref<'_>) -> bool) -> Option<T::Ref<'a>> {
+    pub fn lookup(&self, hash: u64, eq: impl Fn(T::Ref<'_>) -> bool) -> Option<T::Ref<'_>> {
         self.table_for_hash(hash).lookup(hash, eq)
     }
 
@@ -66,13 +66,13 @@ impl<T: AtomicValue, const SHARDS: usize> ShardedLockFreeRawTable<T, SHARDS> {
     ///
     /// Otherwise the pointer to existing entry along with the given value is returned.
     #[inline]
-    pub fn insert<'a>(
-        &'a self,
+    pub fn insert(
+        &self,
         hash: u64,
         value: T,
         eq: impl Fn(T::Ref<'_>, T::Ref<'_>) -> bool,
         hash_fn: impl Fn(T::Ref<'_>) -> u64,
-    ) -> (T::Ref<'a>, Option<T>) {
+    ) -> (T::Ref<'_>, Option<T>) {
         self.table_for_hash(hash).insert(hash, value, eq, hash_fn)
     }
 

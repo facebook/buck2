@@ -101,7 +101,7 @@ pub(crate) trait UqueryDelegate: Send + Sync {
 
     fn linear_dice_computations(&self) -> &LinearRecomputeDiceComputations<'_>;
 
-    fn ctx<'a>(&'a self) -> DiceComputations<'a>;
+    fn ctx(&self) -> DiceComputations<'_>;
 }
 
 #[async_trait]
@@ -207,7 +207,7 @@ impl<'c> UqueryEnvironment<'c> {
 }
 
 #[async_trait]
-impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
+impl QueryEnvironment for UqueryEnvironment<'_> {
     type Target = TargetNode;
 
     async fn get_node(&self, node_ref: &TargetLabel) -> buck2_error::Result<Self::Target> {

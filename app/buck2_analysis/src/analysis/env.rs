@@ -149,10 +149,10 @@ pub fn resolve_unkeyed_placeholder<'v>(
     None
 }
 
-pub fn resolve_query<'v>(
+pub fn resolve_query(
     query_results: &HashMap<String, Arc<AnalysisQueryResult>>,
     query: &str,
-    module: &'v Module,
+    module: &Module,
 ) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
     match query_results.get(query) {
         None => Err(AnalysisError::MissingQuery(query.to_owned()).into()),
@@ -219,7 +219,7 @@ pub fn get_deps_from_analysis_results(
 // Used to express that the impl Future below captures multiple named lifetimes.
 // See https://github.com/rust-lang/rust/issues/34511#issuecomment-373423999 for more details.
 trait Captures<'x> {}
-impl<'x, T: ?Sized> Captures<'x> for T {}
+impl<T: ?Sized> Captures<'_> for T {}
 
 fn run_analysis_with_env<'a, 'd: 'a>(
     dice: &'a mut DiceComputations<'d>,
@@ -371,8 +371,8 @@ pub fn transitive_validations(
     }
 }
 
-fn get_rule_callable<'v>(
-    eval: &mut Evaluator<'v, '_, '_>,
+fn get_rule_callable(
+    eval: &mut Evaluator<'_, '_, '_>,
     module: &FrozenModule,
     name: &str,
 ) -> buck2_error::Result<FrozenValue> {
@@ -388,8 +388,8 @@ fn get_rule_callable<'v>(
     Ok(rule_callable)
 }
 
-pub fn get_rule_impl<'v>(
-    eval: &mut Evaluator<'v, '_, '_>,
+pub fn get_rule_impl(
+    eval: &mut Evaluator<'_, '_, '_>,
     module: &FrozenModule,
     name: &str,
 ) -> buck2_error::Result<FrozenValue> {

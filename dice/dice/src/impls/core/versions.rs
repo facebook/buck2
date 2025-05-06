@@ -165,7 +165,7 @@ pub(crate) struct VersionForWrites<'a> {
     tracker: &'a mut VersionTracker,
 }
 
-impl<'a> VersionForWrites<'a> {
+impl VersionForWrites<'_> {
     /// Commits the version write and increases the global version number
     pub(crate) fn commit(self) -> VersionNumber {
         self.tracker.current.inc();

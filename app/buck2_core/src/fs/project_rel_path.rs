@@ -309,28 +309,28 @@ impl ProjectRelativePath {
     ///
     /// # buck2_error::Ok(())
     /// ```
-    pub fn strip_prefix<'a, P>(&'a self, base: P) -> buck2_error::Result<&'a ForwardRelativePath>
+    pub fn strip_prefix<P>(&self, base: P) -> buck2_error::Result<&ForwardRelativePath>
     where
         P: AsRef<ProjectRelativePath>,
     {
         self.0.strip_prefix(&base.as_ref().0)
     }
 
-    pub fn strip_prefix_opt<'a, P>(&'a self, base: P) -> Option<&'a ForwardRelativePath>
+    pub fn strip_prefix_opt<P>(&self, base: P) -> Option<&ForwardRelativePath>
     where
         P: AsRef<ProjectRelativePath>,
     {
         self.0.strip_prefix_opt(&base.as_ref().0)
     }
 
-    pub fn strip_suffix<'a, P>(&'a self, suffix: P) -> buck2_error::Result<&'a ProjectRelativePath>
+    pub fn strip_suffix<P>(&self, suffix: P) -> buck2_error::Result<&ProjectRelativePath>
     where
         P: AsRef<ForwardRelativePath>,
     {
         Ok(ProjectRelativePath::ref_cast(self.0.strip_suffix(suffix)?))
     }
 
-    pub fn strip_suffix_opt<'a, P>(&'a self, suffix: P) -> Option<&'a ProjectRelativePath>
+    pub fn strip_suffix_opt<P>(&self, suffix: P) -> Option<&ProjectRelativePath>
     where
         P: AsRef<ForwardRelativePath>,
     {

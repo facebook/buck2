@@ -40,13 +40,13 @@ use starlark_map::smallmap;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 
-pub(crate) fn resolution_ctx<'v>(module: &'v Module) -> impl AttrResolutionContext<'v> {
+pub(crate) fn resolution_ctx(module: &Module) -> impl AttrResolutionContext<'_> {
     resolution_ctx_with_providers(module).0
 }
 
-pub(crate) fn resolution_ctx_with_providers<'v>(
-    module: &'v Module,
-) -> (impl AttrResolutionContext<'v>, ProviderIdSet) {
+pub(crate) fn resolution_ctx_with_providers(
+    module: &Module,
+) -> (impl AttrResolutionContext<'_>, ProviderIdSet) {
     struct Ctx<'v> {
         module: &'v Module,
         // This module needs to be kept alive in order for the FrozenValues to stick around
@@ -54,7 +54,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
         deps: SmallMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
     }
 
-    impl<'v> Ctx<'v> {
+    impl Ctx<'_> {
         fn eval(env: &Module, globals: &Globals) {
             testing::to_value(
                 env,

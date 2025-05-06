@@ -81,7 +81,7 @@ impl From<String> for ContextValue {
     }
 }
 
-impl<'a> From<&'a str> for ContextValue {
+impl From<&str> for ContextValue {
     fn from(value: &str) -> Self {
         ContextValue::Dyn(value.into())
     }

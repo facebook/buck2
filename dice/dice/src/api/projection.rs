@@ -70,7 +70,7 @@ pub struct DiceProjectionComputations<'a> {
     pub(crate) user_data: &'a UserComputationData,
 }
 
-impl<'a> DiceProjectionComputations<'a> {
+impl DiceProjectionComputations<'_> {
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub fn global_data(&self) -> &DiceData {

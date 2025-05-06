@@ -326,7 +326,7 @@ pub enum Entry<'a, K, V> {
     Vacant(VacantEntry<'a, K, V>),
 }
 
-impl<'a, K: Eq + Hash, V> VacantEntry<'a, K, V> {
+impl<K: Eq + Hash, V> VacantEntry<'_, K, V> {
     /// Insert a value into the map.
     #[inline]
     pub fn insert(self, value: V) {
@@ -334,7 +334,7 @@ impl<'a, K: Eq + Hash, V> VacantEntry<'a, K, V> {
     }
 }
 
-impl<'a, K, V> OccupiedEntry<'a, K, V> {
+impl<K, V> OccupiedEntry<'_, K, V> {
     /// Remove the entry from the map.
     #[inline]
     pub fn get(&self) -> &V {
@@ -413,7 +413,7 @@ pub enum RawEntryMut<'a, K, V> {
     Vacant(RawVacantEntryMut<'a, K, V>),
 }
 
-impl<'a, K, V> RawOccupiedEntryMut<'a, K, V> {
+impl<K, V> RawOccupiedEntryMut<'_, K, V> {
     /// Replace the value associated with the entry.
     #[inline]
     pub fn insert(&mut self, value: V) -> V {

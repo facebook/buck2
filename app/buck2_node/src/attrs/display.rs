@@ -37,7 +37,7 @@ pub struct AttrDisplayWithContextAsDisplay<'a, A: ?Sized> {
     value: &'a A,
 }
 
-impl<'a, A: AttrDisplayWithContext + ?Sized> Display for AttrDisplayWithContextAsDisplay<'a, A> {
+impl<A: AttrDisplayWithContext + ?Sized> Display for AttrDisplayWithContextAsDisplay<'_, A> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.value.fmt(self.ctx, f)
     }

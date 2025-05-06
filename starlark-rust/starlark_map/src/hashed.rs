@@ -118,7 +118,7 @@ impl<K> Hashed<K> {
     }
 }
 
-impl<'a, K> Hashed<&'a K> {
+impl<K> Hashed<&K> {
     /// Make `Hashed<K>` from `Hashed<&K>`.
     pub fn copied(self) -> Hashed<K>
     where
@@ -136,7 +136,7 @@ impl<'a, K> Hashed<&'a K> {
     }
 }
 
-impl<'a, K: ?Sized> Hashed<&'a K> {
+impl<K: ?Sized> Hashed<&K> {
     /// Make `Hashed<K>` from `Hashed<&K>`, where `T` is the owned form of `K`.
     pub fn owned<T>(self) -> Hashed<T>
     where

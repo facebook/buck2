@@ -24,7 +24,7 @@ pub(crate) struct IoHeader<'s> {
     pub(crate) two_snapshots: &'s TwoSnapshots,
 }
 
-impl<'s> Component for IoHeader<'s> {
+impl Component for IoHeader<'_> {
     fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         render(
             self.two_snapshots,

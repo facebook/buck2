@@ -72,7 +72,7 @@ pub trait IoProvider: Allocative + Send + Sync {
     fn as_any(&self) -> &dyn std::any::Any;
 }
 
-impl<'a> dyn IoProvider + 'a {
+impl dyn IoProvider + '_ {
     pub async fn read_file_if_exists(
         &self,
         path: ProjectRelativePathBuf,

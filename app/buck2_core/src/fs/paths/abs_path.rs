@@ -140,7 +140,7 @@ impl PartialEq<AbsPathBuf> for &'_ AbsPath {
 }
 
 impl AbsPath {
-    pub fn new<'a, P: AsRef<Path> + ?Sized>(path: &'a P) -> buck2_error::Result<&'a AbsPath> {
+    pub fn new<P: AsRef<Path> + ?Sized>(path: &P) -> buck2_error::Result<&AbsPath> {
         // Wrapper function to make sure the lifetimes are right
         fn inner(path: &Path) -> buck2_error::Result<&AbsPath> {
             if path.is_absolute() {

@@ -20,7 +20,7 @@ pub(crate) struct ReHeader<'a> {
     pub(crate) two_snapshots: &'a TwoSnapshots,
 }
 
-impl<'a> Component for ReHeader<'a> {
+impl Component for ReHeader<'_> {
     fn draw_unchecked(
         &self,
         _dimensions: superconsole::Dimensions,

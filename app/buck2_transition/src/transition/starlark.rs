@@ -132,7 +132,7 @@ impl<'v> StarlarkValue<'v> for FrozenTransition {
     }
 }
 
-impl<'v> Freeze for Transition<'v> {
+impl Freeze for Transition<'_> {
     type Frozen = FrozenTransition;
 
     fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenTransition> {
@@ -162,7 +162,7 @@ impl<'v> Freeze for Transition<'v> {
 
 starlark_complex_values!(Transition);
 
-impl<'v> TransitionValue for Transition<'v> {
+impl TransitionValue for Transition<'_> {
     fn transition_id(&self) -> buck2_error::Result<Arc<TransitionId>> {
         self.id
             .borrow()

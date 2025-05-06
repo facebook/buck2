@@ -728,7 +728,7 @@ impl<Kind: CasDigestKind> Borrow<CasDigest<Kind>> for TrackedCasDigest<Kind> {
     }
 }
 
-impl<'a, Kind: CasDigestKind> Borrow<CasDigest<Kind>> for &'a TrackedCasDigest<Kind> {
+impl<Kind: CasDigestKind> Borrow<CasDigest<Kind>> for &TrackedCasDigest<Kind> {
     fn borrow(&self) -> &CasDigest<Kind> {
         self.data()
     }

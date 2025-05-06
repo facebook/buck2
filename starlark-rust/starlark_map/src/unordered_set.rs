@@ -204,7 +204,7 @@ pub enum RawEntryMut<'a, T> {
     Vacant(RawVacantEntryMut<'a, T>),
 }
 
-impl<'a, T> RawOccupiedEntryMut<'a, T> {
+impl<T> RawOccupiedEntryMut<'_, T> {
     /// Remove the entry.
     #[inline]
     pub fn remove(self) -> T {
@@ -218,7 +218,7 @@ impl<'a, T> RawOccupiedEntryMut<'a, T> {
     }
 }
 
-impl<'a, T> RawVacantEntryMut<'a, T> {
+impl<T> RawVacantEntryMut<'_, T> {
     /// Insert an entry to the set. This function computes the hash of the key.
     #[inline]
     pub fn insert(self, value: T)

@@ -22,7 +22,7 @@ pub trait DirectoryMut<L, H>: Directory<L, H> {
     ) -> Option<DirectoryEntry<&'a mut dyn DirectoryMut<L, H>, &'a mut L>>;
 }
 
-impl<'a, L, H> fmt::Debug for &'a mut dyn DirectoryMut<L, H> {
+impl<L, H> fmt::Debug for &mut dyn DirectoryMut<L, H> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "DirectoryMut")
     }

@@ -316,7 +316,7 @@ pub struct FlushingBuckdClient<'a> {
     inner: &'a mut BuckdClient,
 }
 
-impl<'a> FlushingBuckdClient<'a> {
+impl FlushingBuckdClient<'_> {
     fn enter(&mut self) -> buck2_error::Result<()> {
         self.inner.open_tailers()?;
         Ok(())
@@ -495,7 +495,7 @@ macro_rules! wrap_method {
      };
  }
 
-impl<'a> FlushingBuckdClient<'a> {
+impl FlushingBuckdClient<'_> {
     stream_method!(
         aquery,
         AqueryRequest,

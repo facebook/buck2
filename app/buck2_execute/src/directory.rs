@@ -321,10 +321,10 @@ pub fn re_tree_to_directory(
     }
 
     // Recursively builds the directory
-    fn dfs_build<'a>(
+    fn dfs_build(
         re_dir: &'_ RE::Directory,
         re_dir_name: &'_ (impl fmt::Display + ?Sized),
-        dirmap: &'_ mut DirMap<'a>,
+        dirmap: &'_ mut DirMap<'_>,
         leaf_expires: &DateTime<Utc>,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<ActionDirectoryBuilder> {
@@ -774,7 +774,7 @@ mod tests {
 
     use super::*;
 
-    fn path<'a>(s: &'a str) -> &'a ProjectRelativePath {
+    fn path(s: &str) -> &ProjectRelativePath {
         ProjectRelativePath::new(s).unwrap()
     }
 

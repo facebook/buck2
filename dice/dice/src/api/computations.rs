@@ -42,7 +42,7 @@ fn _test_computations_sync_send() {
     _assert_sync_send::<DiceComputations>();
 }
 
-impl<'d> DiceComputations<'d> {
+impl DiceComputations<'_> {
     /// Gets the result of the given computation key.
     /// Record dependencies of the current computation for which this
     /// context is for.
@@ -70,16 +70,16 @@ impl<'d> DiceComputations<'d> {
         self.0.compute_opaque(key)
     }
 
-    pub fn projection<'a, K: Key, P: ProjectionKey<DeriveFromKey = K>>(
-        &'a mut self,
+    pub fn projection<K: Key, P: ProjectionKey<DeriveFromKey = K>>(
+        &mut self,
         derive_from: &OpaqueValue<K>,
         projection_key: &P,
     ) -> DiceResult<P::Value> {
         self.0.projection(derive_from, projection_key)
     }
 
-    pub fn opaque_into_value<'a, K: Key>(
-        &'a mut self,
+    pub fn opaque_into_value<K: Key>(
+        &mut self,
         derive_from: OpaqueValue<K>,
     ) -> DiceResult<K::Value> {
         self.0.opaque_into_value(derive_from)

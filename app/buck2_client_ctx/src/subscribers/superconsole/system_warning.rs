@@ -41,7 +41,7 @@ fn warning_styled(text: &str) -> buck2_error::Result<Line> {
     )?]))
 }
 
-impl<'a> Component for SystemWarningComponent<'a> {
+impl Component for SystemWarningComponent<'_> {
     fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
         let mut lines = Vec::new();
 

@@ -94,7 +94,7 @@ impl<'a, T> CountingReader<'a, T> {
     }
 }
 
-impl<'a, T> AsyncRead for CountingReader<'a, T>
+impl<T> AsyncRead for CountingReader<'_, T>
 where
     T: AsyncRead,
 {

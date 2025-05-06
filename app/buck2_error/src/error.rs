@@ -74,7 +74,7 @@ impl Error {
         buck2_error.tag([error_tag])
     }
 
-    fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {
+    fn iter_kinds(&self) -> impl Iterator<Item = &ErrorKind> {
         let mut cur = Some(self);
         std::iter::from_fn(move || {
             let out = cur?;
@@ -97,7 +97,7 @@ impl Error {
         self.root().action_error()
     }
 
-    pub(crate) fn iter_context<'a>(&'a self) -> impl Iterator<Item = &'a ContextValue> {
+    pub(crate) fn iter_context(&self) -> impl Iterator<Item = &ContextValue> {
         self.iter_kinds().filter_map(|kind| match kind {
             ErrorKind::WithContext(ctx, _) => Some(ctx),
             _ => None,
@@ -117,7 +117,7 @@ impl Error {
     ///
     /// After the error has been shown to the user for the first time, it is marked as emitted. The
     /// late formatter that is returned here is what should be printed at the end of the build
-    pub fn is_emitted<'a>(&'a self) -> Option<impl fmt::Debug + fmt::Display + 'a> {
+    pub fn is_emitted(&self) -> Option<impl fmt::Debug + fmt::Display + '_> {
         let (val, was_late_formatted) = into_anyhow_for_format(self, true);
         if was_late_formatted { Some(val) } else { None }
     }

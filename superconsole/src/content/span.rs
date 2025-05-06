@@ -288,7 +288,7 @@ impl Span {
         }
 
         struct Impl<'a>(&'a Span);
-        impl<'a> Display for Impl<'a> {
+        impl Display for Impl<'_> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 let style_is_default = self.0.style.foreground_color.is_none()
                     && self.0.style.background_color.is_none()
@@ -353,7 +353,7 @@ impl TryFrom<StyledContent<String>> for Span {
 
 pub(crate) struct SpanIterator<'a>(&'a ContentStyle, Graphemes<'a>, &'a Option<Hyperlink>);
 
-impl<'a> Iterator for SpanIterator<'a> {
+impl Iterator for SpanIterator<'_> {
     type Item = Span;
 
     fn next(&mut self) -> Option<Self::Item> {

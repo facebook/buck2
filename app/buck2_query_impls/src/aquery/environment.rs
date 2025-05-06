@@ -39,7 +39,7 @@ use crate::uquery::environment::QueryLiterals;
 pub(crate) trait AqueryDelegate: Send + Sync {
     fn cquery_delegate(&self) -> &dyn CqueryDelegate;
 
-    fn ctx<'a>(&'a self) -> DiceComputations<'a>;
+    fn ctx(&self) -> DiceComputations<'_>;
 
     async fn get_node(&self, key: &ActionKey) -> buck2_error::Result<ActionQueryNode>;
 
@@ -85,7 +85,7 @@ impl<'c> AqueryEnvironment<'c> {
 }
 
 #[async_trait]
-impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
+impl QueryEnvironment for AqueryEnvironment<'_> {
     type Target = ActionQueryNode;
 
     async fn get_node(&self, node_ref: &ActionQueryNodeRef) -> buck2_error::Result<Self::Target> {
@@ -182,7 +182,7 @@ struct AqueryNodeLookup<'a, 'c> {
 }
 
 #[async_trait]
-impl<'a, 'c> AsyncNodeLookup<ActionQueryNode> for AqueryNodeLookup<'a, 'c> {
+impl AsyncNodeLookup<ActionQueryNode> for AqueryNodeLookup<'_, '_> {
     async fn get(&self, label: &ActionQueryNodeRef) -> buck2_error::Result<ActionQueryNode> {
         // Lookup the node in `roots` first since `env.get_node` isn't capable of looking up
         // analysis nodes, and while won't find new analysis nodes while doing a DFS, we might pass

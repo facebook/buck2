@@ -36,7 +36,7 @@ impl<'s> TasksHeader<'s> {
     }
 }
 
-impl<'s> Component for TasksHeader<'s> {
+impl Component for TasksHeader<'_> {
     fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         if self.state.config.expanded_progress {
             let mut phase_stats = self.state.extra().progress_state().phase_stats();
@@ -104,7 +104,7 @@ impl<'s> SimpleHeader<'s> {
     }
 }
 
-impl<'s> Component for SimpleHeader<'s> {
+impl Component for SimpleHeader<'_> {
     fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         match mode {
             DrawMode::Normal => HeaderLineComponent::new(
@@ -128,7 +128,7 @@ struct CountComponent<'s> {
     data: &'s HeaderData<'s>,
 }
 
-impl<'s> Component for CountComponent<'s> {
+impl Component for CountComponent<'_> {
     fn draw_unchecked(&self, _dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         match mode {
             DrawMode::Normal => {
@@ -399,7 +399,7 @@ impl ProgressHeader<'_> {
     }
 }
 
-impl<'s> Component for ProgressHeader<'s> {
+impl Component for ProgressHeader<'_> {
     fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         fn digits_len(v: u64) -> usize {
             (v.checked_ilog10().unwrap_or(0) + 1) as usize

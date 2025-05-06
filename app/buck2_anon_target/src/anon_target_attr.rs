@@ -144,8 +144,8 @@ pub(crate) enum AnonTargetFromCoercedAttrError {
 
 impl AnonTargetAttr {
     /// Traverses the anon target attribute and calls the traverse for every encountered target label (in deps, sources, or other places).
-    pub fn traverse<'a>(
-        &'a self,
+    pub fn traverse(
+        &self,
         pkg: PackageLabel,
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> buck2_error::Result<()> {
@@ -184,8 +184,8 @@ impl AnonTargetAttr {
     }
 
     #[allow(unused)]
-    pub(crate) fn traverse_anon_attr<'a>(
-        &'a self,
+    pub(crate) fn traverse_anon_attr(
+        &self,
         traversal: &mut dyn AnonTargetAttrTraversal,
     ) -> buck2_error::Result<()> {
         match self {

@@ -433,7 +433,7 @@ impl ImplStarlarkValue {
             lifetime: &'a syn::Lifetime,
         }
 
-        impl<'a> syn::visit_mut::VisitMut for PatchTypesVisitor<'a> {
+        impl syn::visit_mut::VisitMut for PatchTypesVisitor<'_> {
             fn visit_type_mut(&mut self, i: &mut syn::Type) {
                 let lifetime = self.lifetime;
                 *i = syn::parse_quote_spanned! { i.span() =>

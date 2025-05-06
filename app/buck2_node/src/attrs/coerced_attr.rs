@@ -78,7 +78,7 @@ impl CoercedSelectorKeyRef<'_> {
     pub const DEFAULT_KEY_STR: &'static str = "DEFAULT";
 }
 
-impl<'a> fmt::Display for CoercedSelectorKeyRef<'a> {
+impl fmt::Display for CoercedSelectorKeyRef<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CoercedSelectorKeyRef::Target(target) => write!(f, "{}", target.0),

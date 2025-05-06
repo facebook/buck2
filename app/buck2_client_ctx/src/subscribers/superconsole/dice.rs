@@ -20,7 +20,7 @@ pub(crate) struct DiceComponent<'s> {
     pub(crate) dice_state: &'s DiceState,
 }
 
-impl<'s> Component for DiceComponent<'s> {
+impl Component for DiceComponent<'_> {
     fn draw_unchecked(
         &self,
         _dimensions: superconsole::Dimensions,

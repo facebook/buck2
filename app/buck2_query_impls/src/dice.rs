@@ -187,7 +187,7 @@ impl<'c, 'd> DiceQueryDelegate<'c, 'd> {
         Self { ctx, query_data }
     }
 
-    pub(crate) fn ctx<'x>(&'x self) -> DiceComputations<'x> {
+    pub(crate) fn ctx(&self) -> DiceComputations<'_> {
         self.ctx.get()
     }
 
@@ -197,7 +197,7 @@ impl<'c, 'd> DiceQueryDelegate<'c, 'd> {
 }
 
 #[async_trait]
-impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
+impl UqueryDelegate for DiceQueryDelegate<'_, '_> {
     // get the list of potential buildfile names for each cell
     async fn get_buildfile_names_by_cell(
         &self,
@@ -262,13 +262,13 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
         self.ctx
     }
 
-    fn ctx<'a>(&'a self) -> DiceComputations<'a> {
+    fn ctx(&self) -> DiceComputations<'_> {
         self.ctx.get()
     }
 }
 
 #[async_trait]
-impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
+impl CqueryDelegate for DiceQueryDelegate<'_, '_> {
     fn uquery_delegate(&self) -> &dyn UqueryDelegate {
         self
     }
@@ -293,7 +293,7 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
         self.ctx.get().get_configured_target_node(&target).await
     }
 
-    fn ctx<'a>(&'a self) -> DiceComputations<'a> {
+    fn ctx(&self) -> DiceComputations<'_> {
         self.ctx.get()
     }
 }

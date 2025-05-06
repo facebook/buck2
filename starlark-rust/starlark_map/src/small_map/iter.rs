@@ -41,14 +41,14 @@ impl<'a, K, V> Iterator for IterHashed<'a, K, V> {
     def_iter!();
 }
 
-impl<'a, K, V> ExactSizeIterator for IterHashed<'a, K, V> {
+impl<K, V> ExactSizeIterator for IterHashed<'_, K, V> {
     #[inline]
     fn len(&self) -> usize {
         self.iter.len()
     }
 }
 
-impl<'a, K, V> DoubleEndedIterator for IterHashed<'a, K, V> {
+impl<K, V> DoubleEndedIterator for IterHashed<'_, K, V> {
     def_double_ended_iter!();
 }
 
@@ -71,14 +71,14 @@ impl<'a, K, V> Iterator for Iter<'a, K, V> {
     def_iter!();
 }
 
-impl<'a, K, V> ExactSizeIterator for Iter<'a, K, V> {
+impl<K, V> ExactSizeIterator for Iter<'_, K, V> {
     #[inline]
     fn len(&self) -> usize {
         self.iter.len()
     }
 }
 
-impl<'a, K, V> DoubleEndedIterator for Iter<'a, K, V> {
+impl<K, V> DoubleEndedIterator for Iter<'_, K, V> {
     def_double_ended_iter!();
 }
 
@@ -114,14 +114,14 @@ impl<'a, K, V> Iterator for IterMut<'a, K, V> {
     def_iter!();
 }
 
-impl<'a, K, V> ExactSizeIterator for IterMut<'a, K, V> {
+impl<K, V> ExactSizeIterator for IterMut<'_, K, V> {
     #[inline]
     fn len(&self) -> usize {
         self.iter.len()
     }
 }
 
-impl<'a, K, V> DoubleEndedIterator for IterMut<'a, K, V> {
+impl<K, V> DoubleEndedIterator for IterMut<'_, K, V> {
     def_double_ended_iter!();
 }
 
@@ -131,14 +131,14 @@ impl<'a, K, V> Iterator for IterMutUnchecked<'a, K, V> {
     def_iter!();
 }
 
-impl<'a, K, V> ExactSizeIterator for IterMutUnchecked<'a, K, V> {
+impl<K, V> ExactSizeIterator for IterMutUnchecked<'_, K, V> {
     #[inline]
     fn len(&self) -> usize {
         self.iter.len()
     }
 }
 
-impl<'a, K, V> DoubleEndedIterator for IterMutUnchecked<'a, K, V> {
+impl<K, V> DoubleEndedIterator for IterMutUnchecked<'_, K, V> {
     def_double_ended_iter!();
 }
 
@@ -219,14 +219,14 @@ impl<'a, K, V> Iterator for Keys<'a, K, V> {
     def_iter!();
 }
 
-impl<'a, K, V> ExactSizeIterator for Keys<'a, K, V> {
+impl<K, V> ExactSizeIterator for Keys<'_, K, V> {
     #[inline]
     fn len(&self) -> usize {
         self.iter.len()
     }
 }
 
-impl<'a, K, V> DoubleEndedIterator for Keys<'a, K, V> {
+impl<K, V> DoubleEndedIterator for Keys<'_, K, V> {
     def_double_ended_iter!();
 }
 
@@ -249,14 +249,14 @@ impl<'a, K, V> Iterator for Values<'a, K, V> {
     def_iter!();
 }
 
-impl<'a, K, V> ExactSizeIterator for Values<'a, K, V> {
+impl<K, V> ExactSizeIterator for Values<'_, K, V> {
     #[inline]
     fn len(&self) -> usize {
         self.iter.len()
     }
 }
 
-impl<'a, K, V> DoubleEndedIterator for Values<'a, K, V> {
+impl<K, V> DoubleEndedIterator for Values<'_, K, V> {
     def_double_ended_iter!();
 }
 
@@ -336,14 +336,14 @@ impl<'a, K, V> Iterator for ValuesMut<'a, K, V> {
     def_iter!();
 }
 
-impl<'a, K, V> ExactSizeIterator for ValuesMut<'a, K, V> {
+impl<K, V> ExactSizeIterator for ValuesMut<'_, K, V> {
     #[inline]
     fn len(&self) -> usize {
         self.iter.len()
     }
 }
 
-impl<'a, K, V> DoubleEndedIterator for ValuesMut<'a, K, V> {
+impl<K, V> DoubleEndedIterator for ValuesMut<'_, K, V> {
     def_double_ended_iter!();
 }
 

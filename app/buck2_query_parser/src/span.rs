@@ -31,7 +31,7 @@ pub struct Span<'a> {
     fragment: &'a str,
 }
 
-impl<'a> Deref for Span<'a> {
+impl Deref for Span<'_> {
     type Target = str;
 
     fn deref(&self) -> &str {
@@ -56,15 +56,15 @@ impl<'a> Span<'a> {
     }
 }
 
-impl<'a> UnspecializedInput for Span<'a> {}
+impl UnspecializedInput for Span<'_> {}
 
-impl<'a> InputLength for Span<'a> {
+impl InputLength for Span<'_> {
     fn input_len(&self) -> usize {
         self.fragment.input_len()
     }
 }
 
-impl<'a> Slice<RangeFrom<usize>> for Span<'a> {
+impl Slice<RangeFrom<usize>> for Span<'_> {
     fn slice(&self, range: RangeFrom<usize>) -> Self {
         Span {
             offset: self.offset + range.start,
@@ -73,7 +73,7 @@ impl<'a> Slice<RangeFrom<usize>> for Span<'a> {
     }
 }
 
-impl<'a> Slice<RangeTo<usize>> for Span<'a> {
+impl Slice<RangeTo<usize>> for Span<'_> {
     fn slice(&self, range: RangeTo<usize>) -> Self {
         Span {
             offset: self.offset,
@@ -82,7 +82,7 @@ impl<'a> Slice<RangeTo<usize>> for Span<'a> {
     }
 }
 
-impl<'a> InputTake for Span<'a> {
+impl InputTake for Span<'_> {
     fn take(&self, count: usize) -> Self {
         Span {
             offset: self.offset,
@@ -130,7 +130,7 @@ impl<'a> InputIter for Span<'a> {
     }
 }
 
-impl<'a> Offset for Span<'a> {
+impl Offset for Span<'_> {
     fn offset(&self, second: &Self) -> usize {
         let fst = self.offset;
         let snd = second.offset;

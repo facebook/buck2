@@ -37,7 +37,7 @@ struct StoreName(String);
 #[derive(Display)]
 struct CustomerName(String);
 
-impl<'a> Component for Greeter<'a> {
+impl Component for Greeter<'_> {
     /// Prints a greeting to the current customer.
     fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
         let store_name = self.store_name;
