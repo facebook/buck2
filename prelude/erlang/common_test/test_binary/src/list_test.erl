@@ -77,17 +77,14 @@ throw_if_duplicate(TestNames) ->
     throw_if_duplicate(sets:new([{version, 2}]), TestNames).
 
 -spec throw_if_duplicate(sets:set(binary()), list(binary())) -> ok.
+throw_if_duplicate(_, []) ->
+    ok;
 throw_if_duplicate(TestNameSet, [TestName | Tail]) ->
-    case sets:is_empty(TestNameSet) of
+    case sets:is_element(TestName, TestNameSet) of
         true ->
-            ok;
+            throw({found_duplicate_test, TestName});
         false ->
-            case sets:is_element(TestName, TestNameSet) of
-                true ->
-                    throw({found_duplicate_test, TestName});
-                false ->
-                    throw_if_duplicate(sets:add_element(TestName, TestNameSet), Tail)
-            end
+            throw_if_duplicate(sets:add_element(TestName, TestNameSet), Tail)
     end.
 
 %% @doc Test that all the tests in the list are exported.
