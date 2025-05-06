@@ -45,7 +45,6 @@ BuildEnvironment = record(
     beams = field(ModuleArtifactMapping, {}),
     priv_dirs = field(PathArtifactMapping, {}),
     include_dirs = field(PathArtifactMapping, {}),
-    private_include_dir = field(list[Artifact], []),
     deps_files = field(PathArtifactMapping, {}),
     app_files = field(PathArtifactMapping, {}),
     # convenience storrage
@@ -164,7 +163,6 @@ def _generate_input_mapping(build_environment: BuildEnvironment, input_artifacts
         beams = build_environment.beams,
         priv_dirs = build_environment.priv_dirs,
         include_dirs = build_environment.include_dirs,
-        private_include_dir = build_environment.private_include_dir,
         deps_files = build_environment.deps_files,
         app_files = build_environment.app_files,
         app_includes = build_environment.app_includes,
@@ -211,14 +209,12 @@ def _generate_include_artifacts(
         includes = _merge(include_mapping, build_environment.includes)
         private_includes = build_environment.private_includes
         include_dirs = _add(build_environment.include_dirs, name, include_dir)
-        private_include_dir = build_environment.private_include_dir
         app_includes = include_mapping
     else:
         # fields for private include directory
         includes = build_environment.includes
         private_includes = _merge(include_mapping, build_environment.private_includes)
         include_dirs = build_environment.include_dirs
-        private_include_dir = [include_dir] + build_environment.private_include_dir
         app_includes = build_environment.app_includes
 
     return BuildEnvironment(
@@ -226,7 +222,6 @@ def _generate_include_artifacts(
         includes = includes,
         private_includes = private_includes,
         include_dirs = include_dirs,
-        private_include_dir = private_include_dir,
         deps_files = deps_files,
         app_includes = app_includes,
         # copied fields
@@ -268,7 +263,6 @@ def _generate_beam_artifacts(
         private_includes = build_environment.private_includes,
         priv_dirs = build_environment.priv_dirs,
         include_dirs = build_environment.include_dirs,
-        private_include_dir = build_environment.private_include_dir,
         app_includes = build_environment.app_includes,
         app_files = build_environment.app_files,
         input_mapping = build_environment.input_mapping,
@@ -685,17 +679,14 @@ def _peek_private_includes(
 
     # get mutable dict for private includes
     new_private_includes = dict(build_environment.private_includes)
-    new_private_include_dir = list(build_environment.private_include_dir)
 
     # get private deps from dependencies
     for dep in dependencies.values():
         if ErlangAppInfo in dep:
-            if dep[ErlangAppInfo].private_include_dir:
-                new_private_include_dir.extend(dep[ErlangAppInfo].private_include_dir[toolchain.name])
+            if not dep[ErlangAppInfo].virtual:
                 new_private_includes.update(dep[ErlangAppInfo].private_includes[toolchain.name])
     return BuildEnvironment(
         private_includes = new_private_includes,
-        private_include_dir = new_private_include_dir,
         # copied fields
         includes = build_environment.includes,
         beams = build_environment.beams,

@@ -53,7 +53,6 @@ ErlangAppInfo = provider(
             "resources",
             # references to ankers for the relevant directories for the application
             "priv_dir",
-            "private_include_dir",
             # applications that are in path but not build by buck2 are virtual
             # the use-case for virtual apps are OTP applications that are shipeped
             # with the Erlang distribution
