@@ -13,6 +13,7 @@ use std::sync::atomic::AtomicU64;
 use async_trait::async_trait;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
+use buck2_common::invocation_paths::InvocationPaths;
 use dupe::Dupe;
 
 use crate::client_ctx::BuckSubcommand;
@@ -50,8 +51,11 @@ fn default_subscribers<T: StreamingCommand>(
     ctx: &ClientCommandContext,
 ) -> buck2_error::Result<EventSubscribers> {
     let console_opts = cmd.console_opts();
+    let event_log_opts = cmd.event_log_opts();
     let mut subscribers = vec![];
     let expect_spans = cmd.should_expect_spans();
+
+    let paths = ctx.paths().ok();
 
     // Need this to get information from one subscriber (event_log)
     // and log it in another (invocation_recorder)
@@ -91,12 +95,15 @@ fn default_subscribers<T: StreamingCommand>(
         health_check_display_reports_receiver,
     ));
 
-    if let Some(event_log) = try_get_event_log_subscriber(cmd, ctx, log_size_counter_bytes.clone())?
-    {
-        subscribers.push(event_log)
-    }
-    if let Some(re_log) = try_get_re_log_subscriber(ctx)? {
-        subscribers.push(re_log)
+    if let Some(paths) = paths {
+        let re_log_subscriber = ReLog::new(paths.isolation.clone());
+        subscribers.push(Box::new(re_log_subscriber));
+
+        if !event_log_opts.no_event_log {
+            let event_log_subscriber =
+                get_event_log_subscriber(cmd, ctx, log_size_counter_bytes.clone(), paths);
+            subscribers.push(event_log_subscriber);
+        }
     }
     if let Some(build_id_writer) = get_build_id_writer(cmd.event_log_opts(), ctx) {
         subscribers.push(build_id_writer)
@@ -118,6 +125,7 @@ fn default_subscribers<T: StreamingCommand>(
         representative_config_flags,
         log_size_counter_bytes,
         health_check_tags_receiver,
+        paths,
     )?;
     recorder.update_metadata_from_client_metadata(&ctx.client_metadata);
     subscribers.push(recorder);
@@ -266,19 +274,17 @@ impl<T: StreamingCommand> BuckSubcommand for T {
 }
 
 /// Given the command arguments, conditionally create an event log.
-fn try_get_event_log_subscriber<T: StreamingCommand>(
+fn get_event_log_subscriber<T: StreamingCommand>(
     cmd: &T,
     ctx: &ClientCommandContext,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
-) -> buck2_error::Result<Option<Box<dyn EventSubscriber>>> {
+    paths: &InvocationPaths,
+) -> Box<dyn EventSubscriber> {
     let event_log_opts = cmd.event_log_opts();
     let sanitized_argv = cmd.sanitize_argv(ctx.argv.clone());
     let user_event_log = cmd.user_event_log();
 
-    if event_log_opts.no_event_log {
-        return Ok(None);
-    }
-    let logdir = ctx.paths()?.log_dir();
+    let logdir = paths.log_dir();
     let log = EventLog::new(
         logdir,
         ctx.working_dir.clone(),
@@ -290,15 +296,8 @@ fn try_get_event_log_subscriber<T: StreamingCommand>(
         sanitized_argv,
         T::COMMAND_NAME.to_owned(),
         log_size_counter_bytes,
-    )?;
-    Ok(Some(Box::new(log)))
-}
-
-fn try_get_re_log_subscriber(
-    ctx: &ClientCommandContext,
-) -> buck2_error::Result<Option<Box<dyn EventSubscriber>>> {
-    let log = ReLog::new(ctx.paths()?.isolation.clone());
-    Ok(Some(Box::new(log)))
+    );
+    Box::new(log)
 }
 
 fn get_build_id_writer(

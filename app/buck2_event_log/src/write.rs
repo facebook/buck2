@@ -71,8 +71,8 @@ impl WriteEventLog {
         sanitized_argv: SanitizedArgv,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
-    ) -> buck2_error::Result<Self> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             state: LogWriterState::Unopened {
                 logdir,
                 extra_path,
@@ -83,7 +83,7 @@ impl WriteEventLog {
             working_dir,
             buf: Vec::new(),
             log_size_counter_bytes,
-        })
+        }
     }
 
     /// Get the command line arguments and cwd and serialize them for replaying later.

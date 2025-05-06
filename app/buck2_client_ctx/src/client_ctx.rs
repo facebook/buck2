@@ -342,6 +342,7 @@ pub trait BuckSubcommand {
         _matches: BuckArgMatches<'_>,
         ctx: &ClientCommandContext,
     ) -> buck2_error::Result<EventSubscribers> {
+        let paths = ctx.paths().ok();
         let mut recorder = try_get_invocation_recorder(
             ctx,
             self.event_log_opts(),
@@ -351,6 +352,7 @@ pub trait BuckSubcommand {
             Vec::new(),
             None,
             None,
+            paths,
         )?;
 
         recorder.update_metadata_from_client_metadata(&ctx.client_metadata);

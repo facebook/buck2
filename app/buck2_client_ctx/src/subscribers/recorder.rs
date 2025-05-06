@@ -24,6 +24,7 @@ use buck2_cli_proto::command_result;
 use buck2_common::build_count::BuildCount;
 use buck2_common::build_count::BuildCountManager;
 use buck2_common::convert::ProstDurationExt;
+use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::buck2_env;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
@@ -1933,13 +1934,12 @@ pub(crate) fn try_get_invocation_recorder(
     representative_config_flags: Vec<String>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
     health_check_tags_receiver: Option<Receiver<Vec<String>>>,
+    paths: Option<&InvocationPaths>,
 ) -> buck2_error::Result<Box<InvocationRecorder>> {
     let write_to_path = event_log_opts
         .unstable_write_invocation_record
         .as_ref()
         .map(|path| path.resolve(&ctx.working_dir));
-
-    let paths = ctx.maybe_paths()?;
 
     let filesystem;
     #[cfg(fbcode_build)]

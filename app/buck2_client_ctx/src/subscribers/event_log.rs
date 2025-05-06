@@ -36,8 +36,8 @@ impl EventLog {
         sanitized_argv: SanitizedArgv,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
-    ) -> buck2_error::Result<EventLog> {
-        Ok(Self {
+    ) -> EventLog {
+        Self {
             writer: WriteEventLog::new(
                 logdir,
                 working_dir,
@@ -46,8 +46,8 @@ impl EventLog {
                 sanitized_argv,
                 command_name,
                 log_size_counter_bytes,
-            )?,
-        })
+            ),
+        }
     }
 }
 
