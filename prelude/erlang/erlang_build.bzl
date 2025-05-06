@@ -434,20 +434,16 @@ def _build_erl(
 
     def dynamic_lambda(ctx: AnalysisContext, artifacts, outputs):
         erl_opts = _get_erl_opts(ctx, toolchain, src)
+        deps_args, mapping = _dependencies_to_args(artifacts, final_dep_file, build_environment)
         erlc_cmd = cmd_args(
             trampoline,
             erlc,
             erl_opts,
-            _erlc_dependency_args(
-                _dependency_include_dirs(build_environment),
-                _dependency_code_paths(build_environment),
-            ),
+            deps_args,
             "-o",
             cmd_args(outputs[output].as_output(), parent = 1),
             src,
         )
-        deps_args, mapping = _dependencies_to_args(artifacts, final_dep_file, build_environment)
-        erlc_cmd.add(deps_args)
         _run_with_env(
             ctx,
             toolchain,
@@ -487,11 +483,11 @@ def _build_edoc(
     if not preprocess:
         eval_cmd.add("-no-preprocess")
 
-    args = _erlc_dependency_args(_dependency_include_dirs(build_environment), [], False)
-    eval_cmd.add(args)
-
-    eval_cmd.add(cmd_args(hidden = build_environment.includes.values()))
-    eval_cmd.add(cmd_args(hidden = build_environment.private_includes.values()))
+    private_include = build_environment.private_include_dir
+    public_includes = build_environment.include_dirs.values()
+    eval_cmd.add(cmd_args(private_include, prepend = "-I"))
+    eval_cmd.add(cmd_args(public_includes, prepend = "-I"))
+    eval_cmd.add(cmd_args(public_includes, prepend = "-I", parent = 2))
 
     _run_with_env(
         ctx,
@@ -509,32 +505,37 @@ def _dependencies_to_args(
         build_environment: BuildEnvironment) -> (cmd_args, dict[str, (bool, [str, Artifact])]):
     """Add the transitive closure of all per-file Erlang dependencies as specified in the deps files to the `args` with .hidden.
     """
-    args_hidden = []
+    includes = set()
+    include_libs = set()
+    beams = set()
+    precise_includes = []
 
     input_mapping = {}
     deps = artifacts[final_dep_file].read_json()
 
     # silently ignore not found dependencies and let erlc report the not found stuff
     for dep in deps:
-        artifact = None
         file = dep["file"]
         if dep["type"] == "include_lib":
             app = dep["app"]
             if (app, file) in build_environment.includes:
-                artifact = build_environment.includes[(app, file)]
+                include_dir = build_environment.include_dirs[app]
+                include_libs.add(include_dir)
+                precise_includes.append(include_dir.project(file))
                 input_mapping[file] = (True, build_environment.input_mapping[file])
             else:
                 # the file might come from OTP
                 input_mapping[file] = (False, paths.join(app, "include", file))
-                continue
 
         elif dep["type"] == "include":
             # these includes can either reside in the private includes
             # or the public ones
             if file in build_environment.private_includes:
-                artifact = build_environment.private_includes[file]
+                include_dir = build_environment.private_includes[file]
+                includes.add(include_dir)
+                precise_includes.append(include_dir.project(file))
 
-                if artifact.basename in build_environment.input_mapping:
+                if file in build_environment.input_mapping:
                     input_mapping[file] = (True, build_environment.input_mapping[file])
             else:
                 # at this point we don't know the application the include is coming
@@ -544,64 +545,32 @@ def _dependencies_to_args(
                     offending_apps = [app for (app, _) in candidates]
                     fail("-include(\"%s\") is ambiguous as the following applications declare public includes with the same name: %s" % (file, offending_apps))
                 elif candidates:
-                    artifact = build_environment.includes[candidates[0]]
+                    include_dir = build_environment.includes[candidates[0]]
+                    includes.add(include_dir)
+                    precise_includes.append(include_dir.project(file))
                     input_mapping[file] = (True, build_environment.input_mapping[file])
                 else:
                     # we didn't find the include, build will fail during compile
-                    continue
+                    pass
 
         elif (dep["type"] == "behaviour" or
               dep["type"] == "parse_transform" or
               dep["type"] == "manual_dependency"):
             module, _ = paths.split_extension(file)
             if module in build_environment.beams:
-                artifact = build_environment.beams[module]
-            else:
-                continue
+                beams.add(build_environment.beams[module])
 
         else:
             fail("unrecognized dependency type %s", (dep["type"]))
 
-        args_hidden.append(artifact)
+    args = cmd_args(
+        cmd_args(list(includes), format = "-I{}", ignore_artifacts = True),
+        cmd_args(list(include_libs), format = "-I{}", parent = 2, ignore_artifacts = True),
+        cmd_args(list(beams), format = "-pa{}", parent = 1),
+        hidden = precise_includes,
+    )
 
-    return cmd_args(hidden = args_hidden), input_mapping
-
-def _dependency_include_dirs(build_environment: BuildEnvironment) -> list[cmd_args]:
-    private = build_environment.private_include_dir
-    public = build_environment.include_dirs.values()
-    return [
-        cmd_args(private),
-        cmd_args(public),
-        cmd_args(public, parent = 2),
-    ]
-
-def _dependency_code_paths(build_environment: BuildEnvironment) -> list[cmd_args]:
-    return [cmd_args(build_environment.ebin_dirs.values(), parent = 1)]
-
-def _erlc_dependency_args(
-        includes: list[cmd_args],
-        code_paths: list[cmd_args],
-        path_in_arg: bool = True) -> cmd_args:
-    """Build include and path options."""
-    # Q: why not just change format here - why do we add -I/-pa as a separate argument?
-    # A: the whole string would get passed as a single argument, as if it was quoted in CLI e.g. '-I include_path'
-    # ...which the escript cannot parse, as it expects two separate arguments, e.g. '-I' 'include_path'
-
-    args = cmd_args(ignore_artifacts = True)
-
-    # build -I options
-    if path_in_arg:
-        args.add(cmd_args(includes, format = "-I{}"))
-    else:
-        args.add(cmd_args(includes, prepend = "-I"))
-
-    # build -pa options
-    if path_in_arg:
-        args.add(cmd_args(code_paths, format = "-pa{}"))
-    else:
-        args.add(cmd_args(code_paths, prepend = "-pa"))
-
-    return args
+    return args, input_mapping
 
 def _get_erl_opts(
         ctx: AnalysisContext,
