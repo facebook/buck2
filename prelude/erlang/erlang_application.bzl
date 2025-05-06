@@ -458,7 +458,6 @@ def build_app_info(
         app_file = multidict_projection_key(build_environments, "app_files", name),
         priv_dir = multidict_projection_key(build_environments, "priv_dirs", name),
         include_dir = multidict_projection_key(build_environments, "include_dirs", name),
-        ebin_dir = multidict_projection_key(build_environments, "ebin_dirs", name),
         private_include_dir = multidict_projection(build_environments, "private_include_dir"),
         private_includes = multidict_projection(build_environments, "private_includes"),
         deps_files = multidict_projection(build_environments, "deps_files"),

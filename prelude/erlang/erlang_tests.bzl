@@ -155,7 +155,6 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         priv_dirs = pre_build_environment.priv_dirs,
         include_dirs = pre_build_environment.include_dirs,
         private_include_dir = pre_build_environment.private_include_dir,
-        ebin_dirs = pre_build_environment.ebin_dirs,
         deps_files = pre_build_environment.deps_files,
         app_files = pre_build_environment.app_files,
         # convenience storrage
@@ -192,7 +191,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         [suite],
     )
 
-    ebin_dir = paths.dirname(build_environment.ebin_dirs["tests"].short_path)
+    ebin_dir = paths.dirname(build_environment.beams[suite_name].short_path)
 
     suite_data = paths.join(ebin_dir, suite_name + "_data")
     data_dir = _build_resource_dir(ctx, ctx.attrs.resources, suite_data)

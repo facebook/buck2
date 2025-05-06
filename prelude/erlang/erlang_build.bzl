@@ -46,7 +46,6 @@ BuildEnvironment = record(
     priv_dirs = field(PathArtifactMapping, {}),
     include_dirs = field(PathArtifactMapping, {}),
     private_include_dir = field(list[Artifact], []),
-    ebin_dirs = field(PathArtifactMapping, {}),
     deps_files = field(PathArtifactMapping, {}),
     app_files = field(PathArtifactMapping, {}),
     # convenience storrage
@@ -75,7 +74,6 @@ def _prepare_build_environment(
     """Prepare build environment and collect the context from all dependencies."""
     priv_dirs = {}
     include_dirs = {}
-    ebin_dirs = {}
     deps_files = {}
     includes = {}
     beams = {}
@@ -108,7 +106,6 @@ def _prepare_build_environment(
 
             # collect dirs
             priv_dirs[name] = dep_info.priv_dir[toolchain.name]
-            ebin_dirs[name] = dep_info.ebin_dir[toolchain.name]
 
             # collect app files
             app_files[name] = dep_info.app_file[toolchain.name]
@@ -145,7 +142,6 @@ def _prepare_build_environment(
         beams = beams,
         priv_dirs = priv_dirs,
         include_dirs = include_dirs,
-        ebin_dirs = ebin_dirs,
         deps_files = deps_files,
         app_files = app_files,
         input_mapping = input_mapping,
@@ -175,7 +171,6 @@ def _generate_input_mapping(build_environment: BuildEnvironment, input_artifacts
         priv_dirs = build_environment.priv_dirs,
         include_dirs = build_environment.include_dirs,
         private_include_dir = build_environment.private_include_dir,
-        ebin_dirs = build_environment.ebin_dirs,
         deps_files = build_environment.deps_files,
         app_files = build_environment.app_files,
         app_includes = build_environment.app_includes,
@@ -244,7 +239,6 @@ def _generate_include_artifacts(
         # copied fields
         beams = build_environment.beams,
         priv_dirs = build_environment.priv_dirs,
-        ebin_dirs = build_environment.ebin_dirs,
         app_beams = build_environment.app_beams,
         app_files = build_environment.app_files,
         input_mapping = build_environment.input_mapping,
@@ -261,12 +255,12 @@ def _generate_beam_artifacts(
         name: str,
         src_artifacts: list[Artifact]) -> BuildEnvironment:
     # anchor for ebin dir
-    anchor = _make_dir_anchor(ctx, paths.join(_build_dir(toolchain), name, "ebin"))
+    ebin = paths.join(_build_dir(toolchain), name, "ebin")
 
-    beam_mapping = {
-        module_name(src): ctx.actions.declare_output(beam_path(anchor, src))
-        for src in src_artifacts
-    }
+    beam_mapping = {}
+    for erl in src_artifacts:
+        module = module_name(erl)
+        beam_mapping[module] = ctx.actions.declare_output(ebin, module + ".beam")
 
     # dep files
     deps_files = _get_deps_files(ctx, toolchain, src_artifacts, build_environment.deps_files)
@@ -274,7 +268,6 @@ def _generate_beam_artifacts(
     updated_build_environment = BuildEnvironment(
         # updated fields
         beams = _merge(beam_mapping, build_environment.beams),
-        ebin_dirs = _add(build_environment.ebin_dirs, name, anchor.artifact),
         deps_files = deps_files,
         app_beams = beam_mapping,
         # copied fields
@@ -317,7 +310,6 @@ def _generate_chunk_artifacts(
         priv_dirs = build_environment.priv_dirs,
         include_dirs = build_environment.include_dirs,
         private_include_dir = build_environment.private_include_dir,
-        ebin_dirs = build_environment.ebin_dirs,
         deps_files = build_environment.deps_files,
         app_files = build_environment.app_files,
         app_includes = build_environment.app_includes,
@@ -813,7 +805,6 @@ def _peek_private_includes(
         beams = build_environment.beams,
         priv_dirs = build_environment.priv_dirs,
         include_dirs = build_environment.include_dirs,
-        ebin_dirs = build_environment.ebin_dirs,
         deps_files = build_environment.deps_files,
         app_files = build_environment.app_files,
         app_includes = build_environment.app_includes,

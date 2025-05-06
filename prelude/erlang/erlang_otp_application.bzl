@@ -79,7 +79,6 @@ def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
             priv_dir = None,
             include_dir = None,
             private_include_dir = None,
-            ebin_dir = None,
             virtual = True,
             app_folder = None,
         ),
