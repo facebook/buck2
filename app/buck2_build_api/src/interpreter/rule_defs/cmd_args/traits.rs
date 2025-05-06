@@ -231,7 +231,7 @@ impl CommandLineArgLike for CellRoot {
         cli: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
     ) -> buck2_error::Result<()> {
-        cli.push_arg(ctx.resolve_cell_path(self.cell_path())?.into_string());
+        cli.push_location(ctx.resolve_cell_path(self.cell_path())?);
         Ok(())
     }
 
@@ -257,10 +257,7 @@ impl CommandLineArgLike for StarlarkProjectRoot {
         cli: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
     ) -> buck2_error::Result<()> {
-        cli.push_arg(
-            ctx.resolve_project_path(ProjectRelativePath::empty().to_owned())?
-                .into_string(),
-        );
+        cli.push_location(ctx.resolve_project_path(ProjectRelativePath::empty().to_owned())?);
         Ok(())
     }
 
@@ -387,6 +384,10 @@ pub trait CommandLineContext {
 pub trait CommandLineBuilder {
     /// Add a standalone element to this command line builder. This element
     fn push_arg(&mut self, s: String);
+
+    fn push_location(&mut self, location: CommandLineLocation<'_>) {
+        self.push_arg(location.into_string());
+    }
 }
 
 impl CommandLineBuilder for Vec<String> {

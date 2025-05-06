@@ -25,8 +25,7 @@ impl CommandLineArgLike for StarlarkCellPath {
         cli: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
     ) -> buck2_error::Result<()> {
-        let path = ctx.resolve_cell_path(self.0.as_ref())?.into_string();
-        cli.push_arg(path);
+        cli.push_location(ctx.resolve_cell_path(self.0.as_ref())?);
         Ok(())
     }
 

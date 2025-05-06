@@ -181,10 +181,7 @@ impl CommandLineArgLike for FrozenStarlarkOutputArtifact {
         cli: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
     ) -> buck2_error::Result<()> {
-        cli.push_arg(
-            ctx.resolve_artifact(&self.inner()?.artifact())?
-                .into_string(),
-        );
+        cli.push_location(ctx.resolve_artifact(&self.inner()?.artifact())?);
         Ok(())
     }
 

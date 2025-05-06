@@ -1732,8 +1732,7 @@ impl<'a> Execute2RequestExpander<'a> {
                     let test_path =
                         BuckOutTestPath::new(output_root.to_owned(), output.name.into());
                     let path = fs.fs().buck_out_path_resolver().resolve_test(&test_path);
-                    let path = ctx.resolve_project_path(path)?.into_string();
-                    cli.push_arg(path);
+                    cli.push_location(ctx.resolve_project_path(path)?);
                     declared_outputs.insert(test_path, OutputCreationBehavior::Parent);
                 }
             };
