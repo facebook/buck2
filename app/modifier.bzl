@@ -118,7 +118,7 @@ def buck2_modifiers():
                 "DEFAULT": None,
                 "ovr_config//os:linux": modifiers.conditional({
                     "DEFAULT": None,
-                    "ovr_config//cpu:arm64": "ovr_config//cpu/constraints:armv8.4a",
+                    "ovr_config//cpu:arm64": "ovr_config//cpu/constraints:armv9.0a",
                 }),
             }),
         }),
