@@ -7,6 +7,8 @@
 
 %% % @format
 -module(cth_tpx).
+
+-export([is_running_in_sandcastle/0]).
 -eqwalizer(ignore).
 
 %% Callbacks
@@ -33,6 +35,9 @@
 
 -export([terminate/1]).
 
+%% please dialyzer
+-export([ok_group/1, fail_group/1]).
+
 %% For tests purposes
 
 -include("method_ids.hrl").
@@ -53,21 +58,21 @@
 
 -record(state, {
     io_buffer :: pid() | undefined,
-    suite :: string(),
+    suite :: string() | undefined,
     groups :: list(string()),
     starting_times :: starting_times(),
     tree_results :: tree_node(),
-    previous_group_failed :: string(),
+    previous_group_failed :: boolean() | undefined,
     output :: {file, string()} | stdout
 }).
 
--type hook_opts() :: #{role := top, result_json => string()} | #{role := bot}.
+-type hook_opts() :: #{role := cth_tpx_role:role(), result_json => string()}.
 
 -type shared_state() :: #state{}.
 -type hook_state() :: #{
     id := term(),
-    role := ct_tpx_role:role(),
-    server := shared_state()
+    role := cth_tpx_role:role(),
+    server := 'undefined' | pid() | port()
 }.
 -type starting_times() :: #{method_id() => float()}.
 
@@ -117,13 +122,13 @@ fmt_stack(_Suite, _CasePat, _CaseArgs, Reason, _Label) ->
 %% -----------------------------------------------------------------------------
 
 %% @doc Return a unique id for this CTH.
--spec id(hook_opts()) -> term().
+-spec id(hook_opts()) -> {?MODULE, cth_tpx_role:role()}.
 id(#{role := Role}) ->
     {?MODULE, Role}.
 
 %% @doc Always called before any other callback function. Use this to initiate
 %% any common state.
--spec init(_Id :: term(), Opts :: hook_opts()) -> {ok, hook_state()}.
+-spec init(_Id :: term(), Opts :: hook_opts()) -> {ok, hook_state(), integer()}.
 init(Id, Opts = #{role := Role}) ->
     ServerName = '$cth_tpx$server$',
     case Role of
@@ -138,7 +143,8 @@ init(Id, Opts = #{role := Role}) ->
             init_role_bot(Id, ServerName)
     end.
 
--spec init_role_top(Id :: term(), ServerName :: atom(), Output :: stdout | {file, string()}) -> {ok, hook_state()}.
+-spec init_role_top(Id :: term(), ServerName :: atom(), Output :: stdout | {file, string()}) ->
+    {ok, hook_state(), integer()}.
 init_role_top(Id, ServerName, Output) ->
     % IoBuffer that will catpures all the output produced by ct
     IoBuffer = whereis(cth_tpx_io_buffer),
@@ -167,7 +173,7 @@ init_role_top(Id, ServerName, Output) ->
     },
     {ok, HookState, cth_tpx_role:role_priority(top)}.
 
--spec init_role_bot(Id :: term(), ServerName :: atom()) -> {ok, hook_state()}.
+-spec init_role_bot(Id :: term(), ServerName :: atom()) -> {ok, hook_state(), integer()}.
 init_role_bot(Id, ServerName) ->
     % Put there by init_role_top
     Handle = whereis(ServerName),
@@ -180,7 +186,7 @@ init_role_bot(Id, ServerName) ->
     {ok, HookState, cth_tpx_role:role_priority(bot)}.
 
 %% @doc Called before init_per_suite is called.
--spec pre_init_per_suite(string(), any(), hook_state()) -> hook_state().
+-spec pre_init_per_suite(string(), any(), hook_state()) -> {any(), hook_state()}.
 pre_init_per_suite(Suite, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
         initialize_stdout_capture(State),
@@ -480,11 +486,6 @@ add_result(
         output = {file, OutputFile}
     }
 ) ->
-    NameMethod =
-        case Method of
-            {TestCase, Phase} -> io_lib:format("~s.~s", [TestCase, atom_to_list(Phase)]);
-            NameMethod0 -> NameMethod0
-        end,
     StdOut =
         case IoBuffer of
             undefined ->
@@ -515,7 +516,8 @@ add_result(
                         Io
                 end
         end,
-    QualifiedName = cth_tpx_test_tree:qualified_name(Groups, NameMethod),
+
+    QualifiedName = method_name(Method, Groups),
     TS = second_timestamp(),
     Result0 = #{
         name => QualifiedName,
@@ -538,6 +540,15 @@ add_result(
     ST1 = maps:remove(Method, ST0),
     NewTreeResults = cth_tpx_test_tree:register_result(TreeResults, Result, Groups, Method),
     State#state{starting_times = ST1, tree_results = NewTreeResults}.
+
+-spec method_name(method_id(), [string()]) -> string().
+method_name(Method, Groups) ->
+    MethodName =
+        case Method of
+            {TestCase, Phase} -> io_lib:format("~s.~s", [atom_to_list(TestCase), atom_to_list(Phase)]);
+            MethodName0 -> atom_to_list(MethodName0)
+        end,
+    cth_tpx_test_tree:qualified_name(Groups, MethodName).
 
 pre_end_per_testcase(_SuiteName, TC, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
@@ -632,7 +643,7 @@ terminate(#{role := top, server := Handle}) ->
 terminate(#{role := bot}) ->
     ok.
 
--spec write_output({file, string()} | stdout, string()) -> ok.
+-spec write_output({file, string()} | stdout, binary()) -> ok.
 write_output({file, FN}, JSON) ->
     io:format("Writing result file ~p", [FN]),
     ok = filelib:ensure_dir(FN),

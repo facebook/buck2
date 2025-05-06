@@ -34,7 +34,7 @@
 
 -type group_name() :: atom().
 -type test_name() :: atom().
--type suite() :: atom().
+-type suite() :: module().
 
 %% coming from the output of the group/0 method.
 %% See https://www.erlang.org/doc/man/ct_suite.html#Module:groups-0 for the upstream type.
@@ -77,13 +77,17 @@ throw_if_duplicate(TestNames) ->
     throw_if_duplicate(sets:new([{version, 2}]), TestNames).
 
 -spec throw_if_duplicate(sets:set(binary()), list(binary())) -> ok.
-throw_if_duplicate(#{}, []) -> ok;
 throw_if_duplicate(TestNameSet, [TestName | Tail]) ->
-    case sets:is_element(TestName, TestNameSet) of
+    case sets:is_empty(TestNameSet) of
         true ->
-            throw({found_duplicate_test, TestName});
+            ok;
         false ->
-            throw_if_duplicate(sets:add_element(TestName, TestNameSet), Tail)
+            case sets:is_element(TestName, TestNameSet) of
+                true ->
+                    throw({found_duplicate_test, TestName});
+                false ->
+                    throw_if_duplicate(sets:add_element(TestName, TestNameSet), Tail)
+            end
     end.
 
 %% @doc Test that all the tests in the list are exported.
@@ -133,7 +137,7 @@ suite_groups(Suite, Hooks) ->
         Hooks
     ).
 
--spec suite_all(suite(), [module()], groups_output) -> all_output().
+-spec suite_all(suite(), [module()], groups_output()) -> all_output().
 suite_all(Suite, Hooks, GroupsDef) ->
     TestsDef = Suite:all(),
     lists:foldl(

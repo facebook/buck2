@@ -46,12 +46,12 @@
     type := node,
     init_method := option(method_result()),
     end_method := option(method_result()),
-    test_cases := #{string() => test_leaf()},
+    test_cases := #{name() => test_leaf()},
     sub_groups := #{name() => tree_node()}
 }.
 
 -type test_leaf() :: #{
-    name := string(),
+    name := name(),
     type := leaf,
     init_method := option(method_result()),
     end_method := option(method_result()),
@@ -59,7 +59,7 @@
 }.
 
 -type method_result() :: #{
-    name := string(),
+    name := name(),
     startedTime => float(),
     endedTime => float(),
     outcome := outcome(),
@@ -87,9 +87,8 @@ qualified_name(Groups, TestCase) ->
     JoinedGroups = string:join(lists:reverse(StringGroups), ":"),
     Raw = io_lib:format("~s.~s", [JoinedGroups, TestCase]),
     case unicode:characters_to_list(Raw, latin1) of
-        Res when is_list(Res) -> Res
+        Res when not is_tuple(Res) -> Res
     end.
-
 
 %% Tree creation and update
 
@@ -106,7 +105,7 @@ new_node(Name) ->
     }.
 
 %% @doc Creates a new leaf
--spec new_leaf(Name :: string()) -> test_leaf().
+-spec new_leaf(Name :: name()) -> test_leaf().
 new_leaf(Name) ->
     #{
         name => Name,
@@ -198,15 +197,19 @@ report_end_failure(
 ) ->
     MergedOutcome = merge_outcome(EndOutcome, ResultOutcome),
     EndFailedDetails =
-        unicode_characters_to_string([io_lib:format("~p ~p because ~p failed with ~n", [TestName, MergedOutcome, EndName]), EndDetails]),
+        unicode_characters_to_string([
+            io_lib:format("~p ~p because ~p failed with ~n", [TestName, MergedOutcome, EndName]), EndDetails
+        ]),
     MergedDetails =
         case ResultOutcome of
             passed ->
                 EndFailedDetails;
             _ ->
-                unicode_characters_to_string(lists:flatten(
-                    io_lib:format("~s~n~n~s", [ResultDetails, EndFailedDetails])
-                ))
+                unicode_characters_to_string(
+                    lists:flatten(
+                        io_lib:format("~s~n~n~s", [ResultDetails, EndFailedDetails])
+                    )
+                )
         end,
     report_end_failure(Rest, ResultAcc#{outcome => MergedOutcome, details => MergedDetails}).
 

@@ -63,7 +63,9 @@ find_module_source(Module) ->
     ),
     case
         [
-            RelPath
+            case unicode:characters_to_list(RelPath) of
+                Value when not is_tuple(Value) -> Value
+            end
          || RelPath <- [
                 string:prefix(Path, [Root, "/"])
              || Path <- string:split(Output, "\n", all)

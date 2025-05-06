@@ -20,7 +20,7 @@
 
 -define(DEFAULT_OUTPUT_FORMAT, json).
 
--spec run_tests([string()], #test_info{}, string(), [#test_spec_test_case{}]) -> ok.
+-spec run_tests([string()], #test_info{}, string(), #test_spec_test_case{}) -> ok.
 run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing) ->
     check_ct_opts(TestInfo#test_info.ct_opts),
     Suite = binary_to_atom(filename:basename(TestInfo#test_info.test_suite, ".beam")),
@@ -133,7 +133,7 @@ ensure_test_exec_stopped() ->
     after 5000 -> ok
     end.
 
-%% @doc Provides xml result as specified by the tpx protocol when test failed to ran.
+%% @doc Provides result as specified by the tpx protocol when test failed to ran.
 -spec test_run_fail(#test_env{}, string()) -> ok.
 test_run_fail(#test_env{} = TestEnv, Reason) ->
     provide_output_file(
@@ -148,19 +148,18 @@ test_run_timeout(#test_env{} = TestEnv, Reason) ->
         TestEnv, Reason, timeout
     ).
 
-%% @doc Provides xml result as specified by the tpx protocol when test succeed to ran.
+%% @doc Provides result as specified by the tpx protocol when test succeed to ran.
 -spec test_run_succeed(#test_env{}, string()) -> ok.
 test_run_succeed(#test_env{} = TestEnv, Reason) ->
     provide_output_file(TestEnv, Reason, passed).
 
-%% @doc Provides xml result as specified by the tpx protocol.
+%% @doc Provides result as specified by the tpx protocol.
 -spec provide_output_file(#test_env{}, unicode:chardata(), failed | passed | timeout) -> ok.
 provide_output_file(
     #test_env{
         output_dir = OutputDir,
         tests = Tests,
-        suite = Suite,
-        output_format = OutputFormat
+        suite = Suite
     } = TestEnv,
     ResultExec,
     Status
@@ -187,16 +186,11 @@ provide_output_file(
                         case TreeResults of
                             undefined ->
                                 ErrorMsg =
-                                    case Status of
-                                        passed ->
-                                            io_lib:format(
-                                                "ct failed to produced results valid file ~p", [
-                                                    ResultsFile
-                                                ]
-                                            );
-                                        timeout ->
-                                            undefined
-                                    end,
+                                    io_lib:format(
+                                        "ct failed to produced results valid file ~p", [
+                                            ResultsFile
+                                        ]
+                                    ),
                                 collect_results_broken_run(
                                     Tests, Suite, ErrorMsg, ResultExec, OutLog
                                 );
@@ -210,13 +204,7 @@ provide_output_file(
                         collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, OutLog)
                 end
         end,
-    {ok, _ResultOuptuFile} =
-        case OutputFormat of
-            xml ->
-                junit_interfacer:write_xml_output(OutputDir, Results, Suite, ResultExec, OutLog);
-            json ->
-                json_interfacer:write_json_output(OutputDir, Results)
-        end,
+    {ok, _ResultOuptuFile} = json_interfacer:write_json_output(OutputDir, Results),
     test_artifact_directory:link_to_artifact_dir(test_logger:get_std_out(OutputDir, ct_executor), OutputDir, TestEnv),
     test_artifact_directory:link_to_artifact_dir(test_logger:get_std_out(OutputDir, test_runner), OutputDir, TestEnv),
     test_artifact_directory:prepare(OutputDir, TestEnv).
@@ -241,15 +229,10 @@ trimmed_content_file(File) ->
     end.
 
 %% @doc Provide tpx with a result when CT failed to provide results for tests.
--spec collect_results_broken_run([#ct_test{}], atom(), string() | undefined, term(), binary()) ->
+-spec collect_results_broken_run([#ct_test{}], atom(), io_lib:chars(), term(), io_lib:chars()) ->
     [cth_tpx_test_tree:case_result()].
-
 collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, StdOut) ->
-    FormattedErrorMsg =
-        case ErrorMsg of
-            undefined -> "";
-            Msg -> io_lib:format("~ts~n", [Msg])
-        end,
+    FormattedErrorMsg = io_lib:format("~ts~n", [ErrorMsg]),
     lists:map(
         fun(Test) ->
             #{

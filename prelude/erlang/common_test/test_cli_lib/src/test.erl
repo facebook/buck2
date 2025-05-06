@@ -357,7 +357,7 @@ init_group_leader() ->
 
 -spec print_tests([{module(), [{non_neg_integer(), string()}]}]) -> string().
 print_tests([]) ->
-    lists:flatten(io_lib:format("no tests found~n"));
+    "no tests found\n";
 print_tests(Tests) ->
     lists:flatten(print_tests_impl(lists:reverse(Tests))).
 

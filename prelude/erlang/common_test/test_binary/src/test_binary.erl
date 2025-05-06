@@ -15,9 +15,11 @@
 -include_lib("common/include/tpx_records.hrl").
 -include_lib("kernel/include/logger.hrl").
 
+-spec main() -> no_return().
 main() ->
     main(init:get_plain_arguments()).
 
+-spec main([string()]) -> no_return().
 main([TestInfoFile, "list", OutputDir]) ->
     test_logger:set_up_logger(OutputDir, test_listing),
     ExitCode =

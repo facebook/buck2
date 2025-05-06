@@ -35,7 +35,7 @@
 -type run_result() :: term().
 
 -type setup_state() :: {[atom()], [fun((proplists:proplist()) -> term())]}.
--type setup() :: #{config => proplists:proplists(), setup_state => setup_state()}.
+-type setup() :: #{config => proplists:proplist(), setup_state => setup_state()}.
 
 -export_type([reason/0, run_result/0, setup/0]).
 
@@ -104,7 +104,7 @@ from_qualified(FullName) ->
         name => string:slice(FullName, NameS, NameL)
     }.
 
--spec list(module()) -> [string()].
+-spec list(module()) -> [string()] | {error, {could_not_find_module, module()}}.
 list(Suite) ->
     case code:which(Suite) of
         non_existing ->
@@ -383,21 +383,16 @@ path_timetrap([Suite | Groups]) ->
 path_timetrap([Suite | Groups], Test) ->
     do_path_timetrap(#{suite => Suite, groups => Groups, test => Test}, ?DEFAULT_TIMETRAP).
 
-do_path_timetrap(#{suite := Suite} = Spec, Current) ->
+do_path_timetrap(#{suite := Suite, groups := Groups} = Spec, Current) ->
     TimeTrap0 = suite_timetrap(Suite, Current),
     Timetrap1 =
-        case Spec of
-            #{groups := Groups} ->
-                lists:foldl(
-                    fun(Group, Curr) ->
-                        group_timetrap(Suite, Group, Curr)
-                    end,
-                    TimeTrap0,
-                    Groups
-                );
-            _ ->
-                TimeTrap0
-        end,
+        lists:foldl(
+            fun(Group, Curr) ->
+                group_timetrap(Suite, Group, Curr)
+            end,
+            TimeTrap0,
+            Groups
+        ),
     UnscaledTimetrap =
         case Spec of
             #{test := Test} -> test_timetrap(Suite, Test, Timetrap1);

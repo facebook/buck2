@@ -28,7 +28,7 @@
     suite_path :: file:filename_all(),
     output_dir :: file:filename_all(),
     dependencies :: [file:filename_all()],
-    test_spec_file :: file:filename_all(),
+    test_spec_file :: file:filename_all() | undefined,
     output_format :: xml | json,
     config_files :: [file:filename_all()],
     providers :: [{module(), [term()]}],
@@ -37,7 +37,7 @@
     erl_cmd :: [binary()],
     extra_flags :: [string()],
     artifact_annotation_mfa :: artifact_annotations:annotation_function(),
-    raw_target :: binary()
+    raw_target :: binary() | undefined
 }).
 
 -record(run_specs, {

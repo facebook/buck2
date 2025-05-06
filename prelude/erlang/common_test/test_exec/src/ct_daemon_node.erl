@@ -35,7 +35,8 @@
 
 -type opt() ::
     {multiply_timetraps, number() | infinity}
-    | {ct_hooks, [atom() | {atom(), [term()]}]}.
+    | {ct_hooks, [atom() | {atom(), [term()]}]}
+    | {output_dir, file:filename()}.
 
 -export_type([config/0]).
 
@@ -76,18 +77,20 @@ start(
     FullOptions = [{output_dir, OutputDir} | Options],
     Args = build_daemon_args(Type, Node, Cookie, FullOptions, OutputDir),
     % Replay = maps:get(replay, Config, false),
-    Port = ct_runner:start_test_node(
-        ErlCommand,
-        [],
-        CodePaths,
-        ConfigFiles,
-        OutputDir,
-        [{args, Args}, {cd, OutputDir}],
-        false
-    ),
+    Port =
+        ct_runner:start_test_node(
+            ErlCommand,
+            [],
+            CodePaths,
+            ConfigFiles,
+            OutputDir,
+            [{args, Args}, {cd, OutputDir}],
+            false
+        ),
     %% wait for the ct_daemon gen_server to be started
     true = erlang:register(?MODULE, self()),
-    port_loop(Port, []).
+    port_loop(Port, []),
+    ok.
 
 -spec port_loop(port(), list()) -> ok | {error, {crash_on_startup, integer()}}.
 port_loop(Port, Acc) ->
@@ -242,14 +245,8 @@ random_name() ->
 
 -spec get_domain_type() -> longnames | shortnames.
 get_domain_type() ->
-    %% now the docs say this returns shortnames or longnames for field
-    %% name_domain, but the code says domain_type long or short
-    %% Upstream code agrees with the documentation, and until we have
-    %% updated to at least 25 this code supports both versions.
     case net_kernel:get_state() of
-        #{domain_type := short} -> shortnames;
         #{name_domain := shortnames} -> shortnames;
-        #{domain_type := long} -> longnames;
         #{name_domain := longnames} -> longnames
     end.
 

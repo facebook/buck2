@@ -64,7 +64,7 @@ rebuild_modules(Modules) ->
     {ok, RawQueryResult} = buck2_query("owner(\%s)", RelSources),
     Targets = string:split(string:trim(RawQueryResult), "\n", all),
     case Targets of
-        [] ->
+        [[]] ->
             io:format("ERROR: couldn't find targets for ~w~n", [Modules]),
             error;
         _ ->

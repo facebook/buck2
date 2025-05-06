@@ -181,8 +181,8 @@ multi_request([], {LatestReply, State}) ->
     {LatestReply, State};
 multi_request([_ | _], {{error, Error}, State}) ->
     {{error, Error}, State};
-multi_request([R | _Rs], {_Reply, State}) ->
-    multi_request(R, request(R, State)).
+multi_request([R | Rs], {_Reply, State}) ->
+    multi_request(Rs, request(R, State)).
 
 terminate(#state{process = Process, group_leader = GroupLeader} = _State) ->
     group_leader(GroupLeader, Process).

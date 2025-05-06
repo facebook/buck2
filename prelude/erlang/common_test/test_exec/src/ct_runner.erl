@@ -156,7 +156,7 @@ run_test(
     % where the suite is as part of the dependencies.
     SuiteFolder = filename:dirname(filename:absname(SuitePath)),
     CodePath = [SuiteFolder | Dependencies],
-    CommonAppEnv1 = CommonAppEnv0#{raw_target => lists:flatten(io_lib:format("~0p", [RawTarget]))},
+    CommonAppEnv1 = CommonAppEnv0#{"raw_target" => lists:flatten(io_lib:format("~0p", [RawTarget]))},
 
     Args = build_run_args(OutputDir, Providers, Suite, TestSpecFile, CommonAppEnv1),
 
@@ -182,7 +182,7 @@ run_test(
     ConfigFiles :: [file:filename_all()]
 ) -> [string()].
 build_common_args(CodePath, ConfigFiles) ->
-    lists:concat([
+    lists:append([
         ["-noinput"],
         ["-pa"],
         CodePath,

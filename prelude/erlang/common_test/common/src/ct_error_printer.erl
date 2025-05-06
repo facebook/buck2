@@ -50,7 +50,7 @@ format_error(ErrType, Reason, FormatStackTrace) ->
             end
     end.
 
--spec format_reason(term()) -> {ok, unicode:chardata()}.
+-spec format_reason(term()) -> {ok, unicode:chardata()} | unrecognized_error.
 format_reason(Reason) ->
     blame_reason(Reason),
     lists:foldl(
