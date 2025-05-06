@@ -29,6 +29,9 @@ def _from_mvn_url(url: str) -> str:
     elif count == 6:
         mvn, repo_protocol, repo_host, group, id, typ, version = url.split(":")
         repo = repo_protocol + ":" + repo_host
+    elif count == 7:
+        mvn, repo_protocol, repo_host, group, id, typ, mod, version = url.split(":")
+        repo = repo_protocol + ":" + repo_host
     else:
         fail("Unsupported mvn URL scheme: " + url + " (" + str(count) + ")")
 
