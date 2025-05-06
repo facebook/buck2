@@ -81,7 +81,7 @@ impl DirectoryHasher<NopEntry, TestDigest> for TestHasher {
 type TestDirectoryBuilder = DirectoryBuilder<NopEntry, TestDigest>;
 type NoHasherDirectoryBuilder = DirectoryBuilder<NopEntry, NoDigest>;
 
-fn path<'a>(s: &'a str) -> &'a ForwardRelativePath {
+fn path(s: &str) -> &ForwardRelativePath {
     ForwardRelativePath::unchecked_new(s)
 }
 

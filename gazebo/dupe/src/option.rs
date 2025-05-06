@@ -28,7 +28,7 @@ pub trait OptionDupedExt {
         Self::Item: Dupe;
 }
 
-impl<'a, T> OptionDupedExt for Option<&'a T> {
+impl<T> OptionDupedExt for Option<&T> {
     type Item = T;
 
     fn duped(self) -> Option<T>

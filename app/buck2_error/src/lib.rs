@@ -85,8 +85,8 @@ use crate::source_location::SourceLocation;
 /// This is a manual alternative to deriving `buck2_error::Error`, which should be preferred if at
 /// all possible. This function has a pretty strict contract: You must call it within the `provide`
 /// implementation for an error type `E`, and must pass `E` as the type parameter.
-pub fn provide_metadata<'a, 'b>(
-    request: &'b mut Request<'a>,
+pub fn provide_metadata(
+    request: &mut Request<'_>,
     tags: impl IntoIterator<Item = crate::ErrorTag>,
     string_tags: impl IntoIterator<Item = String>,
     source_location: SourceLocation,

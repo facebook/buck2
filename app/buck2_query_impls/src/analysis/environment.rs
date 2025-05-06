@@ -185,7 +185,7 @@ pub(crate) fn init_query_functions() {
 }
 
 #[async_trait]
-impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
+impl QueryEnvironment for ConfiguredGraphQueryEnvironment<'_> {
     type Target = ConfiguredGraphNodeRef;
 
     async fn get_node(
@@ -426,7 +426,7 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
                                 &'a mut VecDeque<(ConfiguredTargetLabel, ArtifactGroup)>,
                                 ConfiguredTargetLabel,
                             );
-                            impl<'a> CommandLineArtifactVisitor for Visitor<'a> {
+                            impl CommandLineArtifactVisitor for Visitor<'_> {
                                 fn visit_input(
                                     &mut self,
                                     input: ArtifactGroup,

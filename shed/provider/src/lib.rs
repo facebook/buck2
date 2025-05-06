@@ -32,7 +32,7 @@ impl<T: 'static> DemandImpl for DemandValue<T> {
     }
 }
 
-impl<'a, T: ?Sized + 'static> DemandImpl for DemandRef<'a, T> {
+impl<T: ?Sized + 'static> DemandImpl for DemandRef<'_, T> {
     fn tag() -> TypeId {
         TypeId::of::<DemandRef<'static, T>>()
     }
@@ -95,16 +95,14 @@ pub trait Provider {
 }
 
 /// Request a value from the provider.
-pub fn request_value<'a, T: 'static>(provider: &'a (impl Provider + ?Sized)) -> Option<T> {
+pub fn request_value<T: 'static>(provider: &(impl Provider + ?Sized)) -> Option<T> {
     let mut demand_impl = DemandValue { value: None };
     provider.provide(&mut Demand::new(&mut demand_impl));
     demand_impl.value
 }
 
 /// Request a reference from the provider.
-pub fn request_ref<'a, T: ?Sized + 'static>(
-    provider: &'a (impl Provider + ?Sized),
-) -> Option<&'a T> {
+pub fn request_ref<T: ?Sized + 'static>(provider: &(impl Provider + ?Sized)) -> Option<&T> {
     let mut demand_impl = DemandRef { value: None };
     provider.provide(&mut Demand::new(&mut demand_impl));
     demand_impl.value

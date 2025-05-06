@@ -45,7 +45,7 @@ pub unsafe fn ptr_mut<From, To>(x: &mut From) -> &mut To {
 }
 
 #[inline(always)]
-pub unsafe fn ptr_lifetime<'a, 'b, T: ?Sized>(x: &'a T) -> &'b T {
+pub unsafe fn ptr_lifetime<'b, T: ?Sized>(x: &T) -> &'b T {
     unsafe { &*(x as *const T) }
 }
 

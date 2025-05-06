@@ -73,8 +73,8 @@ impl StringWithMacros<ConfiguredProvidersLabel> {
 }
 
 impl StringWithMacros<ConfiguredProvidersLabel> {
-    pub fn traverse<'a>(
-        &'a self,
+    pub fn traverse(
+        &self,
         traversal: &mut dyn ConfiguredAttrTraversal,
         pkg: PackageLabel,
     ) -> buck2_error::Result<()> {
@@ -180,8 +180,8 @@ pub enum MacroBase<P: ProvidersLabelMaybeConfigured> {
 }
 
 impl MacroBase<ConfiguredProvidersLabel> {
-    pub fn traverse<'a>(
-        &'a self,
+    pub fn traverse(
+        &self,
         traversal: &mut dyn ConfiguredAttrTraversal,
         pkg: PackageLabel,
     ) -> buck2_error::Result<()> {

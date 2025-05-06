@@ -32,7 +32,7 @@ struct StoreName(String);
 #[derive(Display)]
 struct CustomerName(String);
 
-impl<'a> Component for Greeter<'a> {
+impl Component for Greeter<'_> {
     fn draw_unchecked(&self, _dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         Ok(match mode {
             DrawMode::Normal => {

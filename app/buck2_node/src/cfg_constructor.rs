@@ -39,7 +39,7 @@ pub trait CfgConstructorImpl: Send + Sync + Debug + Allocative {
     ) -> Pin<Box<dyn Future<Output = buck2_error::Result<ConfigurationData>> + Send + 'a>>;
 
     /// Returns the metadata key used to encode modifiers in PACKAGE values and metadata attribute
-    fn key<'a>(&'a self) -> &'a MetadataKeyRef;
+    fn key(&self) -> &MetadataKeyRef;
 }
 
 pub static CFG_CONSTRUCTOR_CALCULATION_IMPL: LateBinding<

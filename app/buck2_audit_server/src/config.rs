@@ -201,7 +201,7 @@ struct SimpleCellConfigRenderer<'a> {
     location_style: LocationStyle,
 }
 
-impl<'a> CellConfigRenderer for SimpleCellConfigRenderer<'a> {
+impl CellConfigRenderer for SimpleCellConfigRenderer<'_> {
     fn render_cell_header(&mut self, cell: CellName) -> buck2_error::Result<()> {
         if self.render_cell_headers {
             writeln!(&mut self.stdout, "# Cell: {cell}")?;
@@ -241,7 +241,7 @@ struct JsonCellConfigRenderer<'a> {
     json_output: HashMap<String, String>,
 }
 
-impl<'a> CellConfigRenderer for JsonCellConfigRenderer<'a> {
+impl CellConfigRenderer for JsonCellConfigRenderer<'_> {
     fn render_cell_header(&mut self, _cell: CellName) -> buck2_error::Result<()> {
         Ok(())
     }

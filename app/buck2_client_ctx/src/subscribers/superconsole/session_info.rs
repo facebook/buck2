@@ -22,7 +22,7 @@ pub struct SessionInfoComponent<'s> {
     pub session_info: &'s SessionInfo,
 }
 
-impl<'s> Component for SessionInfoComponent<'s> {
+impl Component for SessionInfoComponent<'_> {
     fn draw_unchecked(&self, dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
         let mut headers = Lines::new();
         let mut ids = vec![];

@@ -30,7 +30,7 @@ pub struct ArtifactPath<'a> {
     pub hidden_components_count: usize,
 }
 
-impl<'a> ArtifactPath<'a> {
+impl ArtifactPath<'_> {
     pub fn with_filename<F, T>(&self, f: F) -> T
     where
         for<'b> F: FnOnce(buck2_error::Result<&'b FileName>) -> T,

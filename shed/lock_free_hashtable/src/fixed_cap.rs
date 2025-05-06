@@ -33,7 +33,7 @@ pub(crate) struct IterPtrs<'a, T: AtomicValue> {
     iter: slice::Iter<'a, Atomic<T::Raw>>,
 }
 
-impl<'a, T: AtomicValue> Iterator for IterPtrs<'a, T> {
+impl<T: AtomicValue> Iterator for IterPtrs<'_, T> {
     type Item = T::Raw;
 
     #[inline]
@@ -136,11 +136,7 @@ impl<T: AtomicValue> FixedCapTable<T> {
     }
 
     #[inline]
-    pub(crate) fn lookup<'a>(
-        &'a self,
-        hash: u64,
-        eq: impl Fn(T::Ref<'_>) -> bool,
-    ) -> Option<T::Ref<'a>> {
+    pub(crate) fn lookup(&self, hash: u64, eq: impl Fn(T::Ref<'_>) -> bool) -> Option<T::Ref<'_>> {
         let mut index = hash as usize & (self.entries.len() - 1);
         for _ in 0..self.entries.len() {
             let entry = self.entries[index].load(Ordering::Acquire);

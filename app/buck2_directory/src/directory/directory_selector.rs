@@ -176,7 +176,7 @@ impl<'a, 'b, T: WalkType<'b>> Search<'a, 'b, T> {
     }
 }
 
-impl<'a, 'b, T: WalkType<'b>> DirectoryIterator for Search<'a, 'b, T> {
+impl<'b, T: WalkType<'b>> DirectoryIterator for Search<'_, 'b, T> {
     type PathStack<'c>
         = DirectoryIteratorPathAccessor<'c, Self>
     where
@@ -184,7 +184,7 @@ impl<'a, 'b, T: WalkType<'b>> DirectoryIterator for Search<'a, 'b, T> {
     type Item =
         Result<DirectoryEntry<T::Directory, &'b T::Leaf>, DirectorySearchError<&'b T::Leaf>>;
 
-    fn next<'c>(&'c mut self) -> Option<(DirectoryIteratorPathAccessor<'c, Self>, Self::Item)> {
+    fn next(&mut self) -> Option<(DirectoryIteratorPathAccessor<'_, Self>, Self::Item)> {
         match &mut self.inner {
             SearchInner::ReturnRoot(root) => {
                 let root = root.take()?;
@@ -253,7 +253,7 @@ impl<'a, 'b, T: WalkType<'b>> DirectoryIterator for Search<'a, 'b, T> {
     }
 }
 
-impl<'a, 'b, T: WalkType<'b>> DirectoryIteratorPathStack for Search<'a, 'b, T> {
+impl<'b, T: WalkType<'b>> DirectoryIteratorPathStack for Search<'_, 'b, T> {
     fn path(&self) -> impl Iterator<Item = &FileName> {
         match &self.inner {
             SearchInner::ReturnRoot(_) => Either::Left(iter::empty()),

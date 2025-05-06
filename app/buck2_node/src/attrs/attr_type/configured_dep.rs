@@ -85,8 +85,8 @@ impl ConfiguredExplicitConfiguredDep {
         filter(&self.to_string())
     }
 
-    pub(crate) fn traverse<'a>(
-        &'a self,
+    pub(crate) fn traverse(
+        &self,
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> buck2_error::Result<()> {
         traversal.dep(&self.label)

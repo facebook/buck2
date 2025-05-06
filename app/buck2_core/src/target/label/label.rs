@@ -279,7 +279,7 @@ pub struct TargetLabelBorrow<'a> {
     borrow: ThinArcBorrow<'a, TargetLabelHeader, u8>,
 }
 
-impl<'a> TargetLabelBorrow<'a> {
+impl TargetLabelBorrow<'_> {
     /// Obtain a temporary reference to the `TargetLabel`.
     fn with_target_label<R>(self, mut f: impl FnMut(&TargetLabel) -> R) -> R {
         self.borrow.with_arc(|arc| f(TargetLabel::ref_cast(arc)))
@@ -297,13 +297,13 @@ impl<'a> TargetLabelBorrow<'a> {
     }
 }
 
-impl<'a> PartialEq for TargetLabelBorrow<'a> {
+impl PartialEq for TargetLabelBorrow<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.with_target_label(|a| other.with_target_label(|b| a == b))
     }
 }
 
-impl<'a> Hash for TargetLabelBorrow<'a> {
+impl Hash for TargetLabelBorrow<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.with_target_label(|a| a.hash(state))
     }

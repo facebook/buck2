@@ -97,7 +97,7 @@ pub fn display_pair<'a, K: Display + 'a, V: Display + 'a>(
 
 struct DisplayPair<'a, K: Display, V: Display>(pub K, pub &'a str, pub V);
 
-impl<'a, K: Display, V: Display> Display for DisplayPair<'a, K, V> {
+impl<K: Display, V: Display> Display for DisplayPair<'_, K, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.0, f)?;
         f.write_str(self.1)?;
@@ -210,7 +210,7 @@ where
         suffix: &'a str,
         items: C,
     }
-    impl<'a, C> Display for Impl<'a, C>
+    impl<C> Display for Impl<'_, C>
     where
         C: Copy + IntoIterator,
         <C as IntoIterator>::Item: Display,

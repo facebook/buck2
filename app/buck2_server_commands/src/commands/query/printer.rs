@@ -98,13 +98,13 @@ struct PrintableQueryTarget<'a, T: QueryTarget> {
     target_call_stacks: bool,
 }
 
-impl<'a, T: QueryTarget> PrintableQueryTarget<'a, T> {
+impl<T: QueryTarget> PrintableQueryTarget<'_, T> {
     fn label(&self) -> String {
         self.value.node_key().to_string()
     }
 }
 
-impl<'a, T: QueryCommandTarget> Display for PrintableQueryTarget<'a, T> {
+impl<T: QueryCommandTarget> Display for PrintableQueryTarget<'_, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.value.node_key())?;
 
@@ -136,7 +136,7 @@ impl<'a, T: QueryCommandTarget> Display for PrintableQueryTarget<'a, T> {
     }
 }
 
-impl<'a, T: QueryCommandTarget> Serialize for PrintableQueryTarget<'a, T> {
+impl<T: QueryCommandTarget> Serialize for PrintableQueryTarget<'_, T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -151,7 +151,7 @@ impl<'a, T: QueryCommandTarget> Serialize for PrintableQueryTarget<'a, T> {
                         attr: &'a T::Attr<'b>,
                     }
 
-                    impl<'a, 'b, T: QueryCommandTarget> Serialize for AttrValueSerialize<'a, 'b, T> {
+                    impl<T: QueryCommandTarget> Serialize for AttrValueSerialize<'_, '_, T> {
                         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
                         where
                             S: Serializer,
@@ -184,7 +184,7 @@ impl<'a, T: QueryCommandTarget> Serialize for PrintableQueryTarget<'a, T> {
     }
 }
 
-impl<'a, T: QueryCommandTarget> Serialize for TargetSetJsonPrinter<'a, T> {
+impl<T: QueryCommandTarget> Serialize for TargetSetJsonPrinter<'_, T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -202,7 +202,7 @@ struct FileSetJsonPrinter<'a> {
     resolver: &'a CellResolver,
 }
 
-impl<'a> Serialize for FileSetJsonPrinter<'a> {
+impl Serialize for FileSetJsonPrinter<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

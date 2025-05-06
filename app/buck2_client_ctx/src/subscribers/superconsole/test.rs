@@ -141,7 +141,7 @@ pub(crate) struct TestHeader<'a> {
     pub(crate) test_state: &'a TestState,
 }
 
-impl<'a> Component for TestHeader<'a> {
+impl Component for TestHeader<'_> {
     fn draw_unchecked(
         &self,
         dimensions: superconsole::Dimensions,

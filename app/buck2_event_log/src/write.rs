@@ -408,7 +408,7 @@ pub enum StreamValueForWrite<'a> {
     Event(&'a buck2_data::BuckEvent),
 }
 
-impl<'a> SerializeForLog for StreamValueForWrite<'a> {
+impl SerializeForLog for StreamValueForWrite<'_> {
     fn serialize_to_json(&self, buf: &mut Vec<u8>) -> buck2_error::Result<()> {
         serde_json::to_writer(buf, &self).buck_error_context("Failed to serialize event")
     }

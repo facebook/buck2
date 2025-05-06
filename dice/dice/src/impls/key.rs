@@ -196,7 +196,7 @@ impl<'a> DiceKeyErasedRef<'a> {
     }
 }
 
-impl<'a> PartialEq for DiceKeyErasedRef<'a> {
+impl PartialEq for DiceKeyErasedRef<'_> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (DiceKeyErasedRef::Key(k), DiceKeyErasedRef::Key(ok)) => k.cmp_any() == ok.cmp_any(),
@@ -268,7 +268,7 @@ impl<'a> CowDiceKeyHashed<'a> {
     }
 }
 
-impl<'a> Display for CowDiceKeyHashed<'a> {
+impl Display for CowDiceKeyHashed<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.cow)
     }
@@ -448,7 +448,7 @@ pub(crate) struct ProjectionWithBaseRef<'a> {
     proj: &'a dyn DiceProjectionDyn,
 }
 
-impl<'a> ProjectionWithBaseRef<'a> {
+impl ProjectionWithBaseRef<'_> {
     fn to_owned(&self) -> ProjectionWithBase {
         ProjectionWithBase {
             base: self.base,
@@ -466,15 +466,15 @@ impl<'a> ProjectionWithBaseRef<'a> {
     }
 }
 
-impl<'a> PartialEq for ProjectionWithBaseRef<'a> {
+impl PartialEq for ProjectionWithBaseRef<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.proj.cmp_any() == other.proj.cmp_any() && self.base == other.base
     }
 }
 
-impl<'a> Eq for ProjectionWithBaseRef<'a> {}
+impl Eq for ProjectionWithBaseRef<'_> {}
 
-impl<'a> Display for ProjectionWithBaseRef<'a> {
+impl Display for ProjectionWithBaseRef<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.proj)
     }

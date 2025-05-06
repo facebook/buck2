@@ -56,7 +56,7 @@ impl<'a> IntoFileNameBufIterator for &'a ProjectRelativePathBuf {
     }
 }
 
-impl<'a> IntoFileNameBufIterator for &'a FileName {
+impl IntoFileNameBufIterator for &FileName {
     type Iterator = impl Iterator<Item = FileNameBuf>;
 
     fn into_iter(self) -> Self::Iterator {
@@ -64,7 +64,7 @@ impl<'a> IntoFileNameBufIterator for &'a FileName {
     }
 }
 
-impl<'a> IntoFileNameBufIterator for &'a FileNameBuf {
+impl IntoFileNameBufIterator for &FileNameBuf {
     type Iterator = impl Iterator<Item = FileNameBuf>;
 
     fn into_iter(self) -> Self::Iterator {

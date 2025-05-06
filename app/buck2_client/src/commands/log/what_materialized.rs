@@ -111,7 +111,7 @@ impl<'a> AggregatedRecord<'a> {
     }
 }
 
-impl<'a> Display for AggregatedRecord<'a> {
+impl Display for AggregatedRecord<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

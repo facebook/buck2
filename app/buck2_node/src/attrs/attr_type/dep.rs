@@ -81,8 +81,8 @@ impl<T: ProvidersLabelMaybeConfigured + AttrLike> Display for DepAttr<T> {
 }
 
 impl DepAttr<ConfiguredProvidersLabel> {
-    pub(crate) fn traverse<'a>(
-        &'a self,
+    pub(crate) fn traverse(
+        &self,
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> buck2_error::Result<()> {
         match &self.attr_type.transition {

@@ -182,7 +182,7 @@ pub enum LegacyBuckConfigLocation<'a> {
     CommandLineArgument,
 }
 
-impl<'a> Display for LegacyBuckConfigLocation<'a> {
+impl Display for LegacyBuckConfigLocation<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::File(file, line) => {

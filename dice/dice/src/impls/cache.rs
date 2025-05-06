@@ -51,7 +51,7 @@ pub(crate) enum DiceTaskRef<'a> {
     TransactionCancelled,
 }
 
-impl<'a> DiceTaskRef<'a> {
+impl DiceTaskRef<'_> {
     #[cfg(test)]
     pub(crate) fn testing_insert(self, task: DiceTask) {
         if let Self::Vacant(e) = self {

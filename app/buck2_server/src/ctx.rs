@@ -535,7 +535,7 @@ fn create_cycle_detector() -> Arc<dyn UserCycleDetector> {
 }
 
 #[async_trait]
-impl<'s, 'a> DiceUpdater for DiceCommandUpdater<'s, 'a> {
+impl DiceUpdater for DiceCommandUpdater<'_, '_> {
     async fn update(
         &self,
         mut ctx: DiceTransactionUpdater,
@@ -593,7 +593,7 @@ impl<'s, 'a> DiceUpdater for DiceCommandUpdater<'s, 'a> {
     }
 }
 
-impl<'a, 's> DiceCommandUpdater<'a, 's> {
+impl DiceCommandUpdater<'_, '_> {
     fn make_user_computation_data(
         &self,
         root_config: &LegacyBuckConfig,
@@ -790,7 +790,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
     }
 }
 
-impl<'a> Drop for ServerCommandContext<'a> {
+impl Drop for ServerCommandContext<'_> {
     fn drop(&mut self) {
         // Ensure we cancel the heartbeat guard first.
         std::mem::drop(self.heartbeat_guard_handle.take());
@@ -798,7 +798,7 @@ impl<'a> Drop for ServerCommandContext<'a> {
 }
 
 #[async_trait]
-impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
+impl ServerCommandContextTrait for ServerCommandContext<'_> {
     fn working_dir(&self) -> &ProjectRelativePath {
         &self.working_dir
     }

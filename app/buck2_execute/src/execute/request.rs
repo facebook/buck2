@@ -463,7 +463,7 @@ impl CommandExecutionRequest {
         &self.paths.inputs
     }
 
-    pub fn outputs<'a>(&'a self) -> impl Iterator<Item = CommandExecutionOutputRef<'a>> + 'a {
+    pub fn outputs(&self) -> impl Iterator<Item = CommandExecutionOutputRef<'_>> + '_ {
         self.paths.outputs.iter().map(|output| output.as_ref())
     }
 
@@ -675,7 +675,7 @@ pub enum CommandExecutionOutputRef<'a> {
     },
 }
 
-impl<'a> CommandExecutionOutputRef<'a> {
+impl CommandExecutionOutputRef<'_> {
     /// Resolve this output to a ResolvedCommandExecutionOutput that allows access to the output
     /// path as well as any dirs to create.
     pub fn resolve(&self, fs: &ArtifactFs) -> buck2_error::Result<ResolvedCommandExecutionOutput> {
@@ -720,7 +720,7 @@ pub enum CommandExecutionOutput {
 }
 
 impl CommandExecutionOutput {
-    pub fn as_ref<'a>(&'a self) -> CommandExecutionOutputRef<'a> {
+    pub fn as_ref(&self) -> CommandExecutionOutputRef<'_> {
         match self {
             Self::BuildArtifact {
                 ref path,

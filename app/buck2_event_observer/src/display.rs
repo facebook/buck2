@@ -631,7 +631,7 @@ fn strip_trailing_newline(stream_contents: &str) -> &str {
     }
 }
 
-impl<'a> ActionErrorDisplay<'a> {
+impl ActionErrorDisplay<'_> {
     /// Format the error message in a way that is suitable for use with the build report
     ///
     /// The output may include terminal colors that need to be sanitized.
@@ -759,9 +759,7 @@ impl<'a> ActionErrorDisplay<'a> {
     }
 }
 
-pub fn get_action_error_reason<'a>(
-    error: &'a buck2_data::ActionError,
-) -> buck2_error::Result<String> {
+pub fn get_action_error_reason(error: &buck2_data::ActionError) -> buck2_error::Result<String> {
     use buck2_data::action_error::Error;
 
     Ok(
@@ -784,10 +782,10 @@ pub fn get_action_error_reason<'a>(
     )
 }
 
-pub fn display_action_error<'a>(
-    error: &'a buck2_data::ActionError,
+pub fn display_action_error(
+    error: &buck2_data::ActionError,
     opts: TargetDisplayOptions,
-) -> buck2_error::Result<ActionErrorDisplay<'a>> {
+) -> buck2_error::Result<ActionErrorDisplay<'_>> {
     let command = error.last_command.as_ref().and_then(|c| c.details.as_ref());
 
     let reason = get_action_error_reason(error)?;
@@ -881,10 +879,10 @@ fn failure_reason_for_command_execution(
     })
 }
 
-pub fn success_stderr<'a>(
-    action: &'a buck2_data::ActionExecutionEnd,
+pub fn success_stderr(
+    action: &buck2_data::ActionExecutionEnd,
     verbosity: Verbosity,
-) -> buck2_error::Result<Option<&'a str>> {
+) -> buck2_error::Result<Option<&str>> {
     if !(verbosity.print_success_stderr() || action.always_print_stderr) {
         return Ok(None);
     }

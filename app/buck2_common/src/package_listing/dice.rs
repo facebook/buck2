@@ -77,7 +77,7 @@ impl Key for PackageListingKey {
 pub struct DicePackageListingResolver<'compute, 'dice>(pub &'compute mut DiceComputations<'dice>);
 
 #[async_trait]
-impl<'c, 'd> PackageListingResolver for DicePackageListingResolver<'c, 'd> {
+impl PackageListingResolver for DicePackageListingResolver<'_, '_> {
     async fn resolve(&mut self, package: PackageLabel) -> buck2_error::Result<PackageListing> {
         self.0.compute(&PackageListingKey(package)).await?
     }

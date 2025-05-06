@@ -447,7 +447,7 @@ impl<A, B> Vec2<A, B> {
             next: usize,
         }
 
-        impl<'a, A, B> Drop for Retain<'a, A, B> {
+        impl<A, B> Drop for Retain<'_, A, B> {
             fn drop(&mut self) {
                 debug_assert!(self.written <= self.next);
                 debug_assert!(self.next <= self.vec.len);

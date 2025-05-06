@@ -26,7 +26,7 @@ struct LoadingBar<'a> {
     iteration: usize,
 }
 
-impl<'a> Component for LoadingBar<'a> {
+impl Component for LoadingBar<'_> {
     fn draw_unchecked(
         &self,
 

@@ -315,10 +315,10 @@ async fn process_package(
 }
 
 /// Given the patterns, separate into those which have an explicit package, and those which are recursive
-fn stream_packages<'a, T: PatternType>(
-    dice: &'a DiceTransaction,
+fn stream_packages<T: PatternType>(
+    dice: &DiceTransaction,
     patterns: Vec<ParsedPattern<T>>,
-) -> impl Stream<Item = buck2_error::Result<(PackageLabel, PackageSpec<T>)>> + 'a {
+) -> impl Stream<Item = buck2_error::Result<(PackageLabel, PackageSpec<T>)>> + '_ {
     let mut spec = ResolvedPattern::<T>::new();
     let mut recursive_paths = Vec::new();
 

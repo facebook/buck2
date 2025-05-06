@@ -153,8 +153,8 @@ impl AttrDisplayWithContext for ConfiguredAttr {
 
 impl ConfiguredAttr {
     /// Traverses the configured attribute and calls the traverse for every encountered target label (in deps, sources, or other places).
-    pub fn traverse<'a>(
-        &'a self,
+    pub fn traverse(
+        &self,
         pkg: PackageLabel,
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> buck2_error::Result<()> {

@@ -34,7 +34,7 @@ pub(crate) struct FieldsUtil<'a> {
     pub(crate) fields: &'a Fields,
 }
 
-impl<'a> Deref for FieldsUtil<'a> {
+impl Deref for FieldsUtil<'_> {
     type Target = Fields;
 
     fn deref(&self) -> &Self::Target {
@@ -75,7 +75,7 @@ pub(crate) struct DataStructUtil<'a> {
     pub(crate) data: &'a DataStruct,
 }
 
-impl<'a> Deref for DataStructUtil<'a> {
+impl Deref for DataStructUtil<'_> {
     type Target = DataStruct;
 
     fn deref(&self) -> &Self::Target {
@@ -171,7 +171,7 @@ pub(crate) struct VariantUtil<'a> {
     pub(crate) enum_util: DataEnumUtil<'a>,
 }
 
-impl<'a> Deref for VariantUtil<'a> {
+impl Deref for VariantUtil<'_> {
     type Target = syn::Variant;
 
     fn deref(&self) -> &Self::Target {
@@ -244,7 +244,7 @@ pub(crate) struct DataEnumUtil<'a> {
     pub(crate) data: &'a DataEnum,
 }
 
-impl<'a> Deref for DataEnumUtil<'a> {
+impl Deref for DataEnumUtil<'_> {
     type Target = DataEnum;
 
     fn deref(&self) -> &Self::Target {
@@ -289,7 +289,7 @@ pub(crate) enum StructOrEnumVariant<'a> {
     EnumVariant(VariantUtil<'a>),
 }
 
-impl<'a> StructOrEnumVariant<'a> {
+impl StructOrEnumVariant<'_> {
     pub(crate) fn span(self) -> Span {
         match self {
             StructOrEnumVariant::Struct(data) => data.span(),
@@ -311,7 +311,7 @@ pub(crate) enum DeriveInputUtil<'a> {
     Enum(DataEnumUtil<'a>),
 }
 
-impl<'a> Deref for DeriveInputUtil<'a> {
+impl Deref for DeriveInputUtil<'_> {
     type Target = DeriveInput;
 
     fn deref(&self) -> &Self::Target {
@@ -445,7 +445,7 @@ impl<'a> GenericsUtil<'a> {
     }
 }
 
-impl<'a> Deref for GenericsUtil<'a> {
+impl Deref for GenericsUtil<'_> {
     type Target = syn::Generics;
 
     fn deref(&self) -> &Self::Target {

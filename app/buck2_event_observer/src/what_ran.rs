@@ -101,7 +101,7 @@ pub struct WhatRanOutputCommand<'a> {
     pub duration: Option<std::time::Duration>,
 }
 
-impl<'a> WhatRanOutputCommand<'a> {
+impl WhatRanOutputCommand<'_> {
     pub fn as_tabulated_reproducer(&self) -> impl fmt::Display + '_ {
         WhatRanOutputCommandHeader { cmd: self }
     }
@@ -435,7 +435,7 @@ pub struct WhatRanCommandConsoleFormat<'a> {
     pub repro: CommandReproducer,
 }
 
-impl<'a> fmt::Display for WhatRanCommandConsoleFormat<'a> {
+impl fmt::Display for WhatRanCommandConsoleFormat<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

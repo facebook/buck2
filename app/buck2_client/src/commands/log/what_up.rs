@@ -127,12 +127,12 @@ impl BuckSubcommand for WhatUpCommand {
 }
 
 impl WhatUpCommand {
-    fn component<'a>(state: &'a SuperConsoleState) -> impl Component + 'a {
+    fn component(state: &SuperConsoleState) -> impl Component + '_ {
         struct ComponentImpl<'a> {
             state: &'a SuperConsoleState,
         }
 
-        impl<'a> Component for ComponentImpl<'a> {
+        impl Component for ComponentImpl<'_> {
             fn draw_unchecked(
                 &self,
                 dimensions: Dimensions,

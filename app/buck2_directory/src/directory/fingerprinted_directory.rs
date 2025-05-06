@@ -29,7 +29,7 @@ pub trait FingerprintedDirectory<L, H>: Directory<L, H> {
         H: DirectoryDigest;
 }
 
-impl<'a, L, H> fmt::Debug for &'a dyn FingerprintedDirectory<L, H> {
+impl<L, H> fmt::Debug for &dyn FingerprintedDirectory<L, H> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "FingerprintedDirectory")
     }

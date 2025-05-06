@@ -35,7 +35,7 @@ struct Input<'a> {
     input: &'a DeriveInput,
 }
 
-impl<'a> Input<'a> {
+impl Input<'_> {
     fn angle_brankets(&self, tokens: &[TokenStream]) -> TokenStream {
         let span = self.input.span();
         if tokens.is_empty() {

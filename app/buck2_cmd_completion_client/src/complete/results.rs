@@ -93,7 +93,7 @@ impl<'a> CompletionResults<'a> {
     }
 }
 
-impl<'a> From<CompletionResults<'a>> for Vec<String> {
+impl From<CompletionResults<'_>> for Vec<String> {
     fn from(pr: CompletionResults) -> Self {
         pr.results.iter().map(String::from).collect()
     }

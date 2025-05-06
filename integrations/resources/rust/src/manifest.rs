@@ -18,7 +18,7 @@ struct ResourcePath<'a> {
     base_dir: &'a Path,
 }
 
-impl<'de> de::Visitor<'de> for ResourcePath<'_> {
+impl de::Visitor<'_> for ResourcePath<'_> {
     type Value = PathBuf;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

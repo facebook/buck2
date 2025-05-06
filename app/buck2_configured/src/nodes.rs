@@ -172,7 +172,7 @@ fn unpack_target_compatible_with_attr(
         resolved_cfg: &'c MatchedConfigurationSettingKeysWithCfg,
     }
 
-    impl<'c> AttrConfigurationContext for AttrConfigurationContextToResolveCompatibleWith<'c> {
+    impl AttrConfigurationContext for AttrConfigurationContextToResolveCompatibleWith<'_> {
         fn matched_cfg_keys(&self) -> &MatchedConfigurationSettingKeys {
             self.resolved_cfg.settings()
         }
@@ -569,7 +569,7 @@ async fn resolve_transition_attrs<'a>(
         platform_cfgs: &'c OrderedMap<TargetLabel, ConfigurationData>,
     }
 
-    impl<'c> AttrConfigurationContext for AttrConfigurationContextToResolveTransitionAttrs<'c> {
+    impl AttrConfigurationContext for AttrConfigurationContextToResolveTransitionAttrs<'_> {
         fn matched_cfg_keys(&self) -> &MatchedConfigurationSettingKeys {
             self.matched_cfg_keys.settings()
         }
@@ -645,9 +645,9 @@ async fn resolve_transition_attrs<'a>(
 
 /// Verifies if configured node's attributes are equal to the same attributes configured with pre-transition configuration.
 /// Only check attributes used in transition.
-fn verify_transitioned_attrs<'a>(
+fn verify_transitioned_attrs(
     // Attributes resolved with pre-transition configuration
-    pre_transition_attrs: &OrderedMap<&'a str, Arc<ConfiguredAttr>>,
+    pre_transition_attrs: &OrderedMap<&str, Arc<ConfiguredAttr>>,
     pre_transition_config: &ConfigurationData,
     node: &ConfiguredTargetNode,
 ) -> buck2_error::Result<()> {

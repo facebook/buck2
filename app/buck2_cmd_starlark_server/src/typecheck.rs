@@ -52,7 +52,7 @@ struct Cache<'a> {
     cache: HashMap<OwnedStarlarkModulePath, Interface>,
 }
 
-impl<'a> Cache<'a> {
+impl Cache<'_> {
     async fn typecheck(&mut self, path: OwnedStarlarkPath) -> buck2_error::Result<()> {
         self.run(path).await?;
         Ok(())

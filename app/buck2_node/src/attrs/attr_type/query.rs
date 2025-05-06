@@ -43,8 +43,8 @@ pub struct QueryAttr<P: ProvidersLabelMaybeConfigured> {
 }
 
 impl QueryAttr<ConfiguredProvidersLabel> {
-    pub(crate) fn traverse<'a>(
-        &'a self,
+    pub(crate) fn traverse(
+        &self,
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> buck2_error::Result<()> {
         self.query.traverse(traversal)
@@ -85,8 +85,8 @@ impl<P: ProvidersLabelMaybeConfigured> Display for QueryMacroBase<P> {
 }
 
 impl QueryMacroBase<ConfiguredProvidersLabel> {
-    pub(crate) fn traverse<'a>(
-        &'a self,
+    pub(crate) fn traverse(
+        &self,
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> buck2_error::Result<()> {
         self.query.traverse(traversal)
@@ -131,8 +131,8 @@ pub struct ResolvedQueryLiterals<P: ProvidersLabelMaybeConfigured>(
 );
 
 impl QueryAttrBase<ConfiguredProvidersLabel> {
-    pub(crate) fn traverse<'a>(
-        &'a self,
+    pub(crate) fn traverse(
+        &self,
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> buck2_error::Result<()> {
         // queries have no inputs.

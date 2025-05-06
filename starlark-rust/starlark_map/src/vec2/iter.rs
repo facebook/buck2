@@ -52,14 +52,14 @@ impl<'s, A, B> Iterator for Iter<'s, A, B> {
     }
 }
 
-impl<'s, A, B> ExactSizeIterator for Iter<'s, A, B> {
+impl<A, B> ExactSizeIterator for Iter<'_, A, B> {
     #[inline]
     fn len(&self) -> usize {
         self.aaa.len()
     }
 }
 
-impl<'s, A, B> DoubleEndedIterator for Iter<'s, A, B> {
+impl<A, B> DoubleEndedIterator for Iter<'_, A, B> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         let a = self.aaa.next_back()?;

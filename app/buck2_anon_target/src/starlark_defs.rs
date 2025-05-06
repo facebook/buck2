@@ -92,7 +92,7 @@ impl<'v> StarlarkAnonTarget<'v> {
     }
 }
 
-impl<'v> Display for StarlarkAnonTarget<'v> {
+impl Display for StarlarkAnonTarget<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<anon target")?;
         if let Some(location) = &self.declaration_location {
@@ -185,7 +185,7 @@ struct StarlarkAnonTargets<'v> {
     declaration_location: Option<FileSpan>,
 }
 
-impl<'v> Display for StarlarkAnonTargets<'v> {
+impl Display for StarlarkAnonTargets<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<anon targets")?;
         if let Some(location) = &self.declaration_location {

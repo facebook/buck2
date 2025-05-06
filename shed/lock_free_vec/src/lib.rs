@@ -384,7 +384,7 @@ impl<'a, T, const SHARDS: usize> Iterator for Iter<'a, T, SHARDS> {
     }
 }
 
-impl<'a, T, const SHARDS: usize> ExactSizeIterator for Iter<'a, T, SHARDS> {}
+impl<T, const SHARDS: usize> ExactSizeIterator for Iter<'_, T, SHARDS> {}
 
 impl<'a, T, const SHARDS: usize> IntoIterator for &'a LockFreeVec<T, SHARDS> {
     type Item = &'a T;

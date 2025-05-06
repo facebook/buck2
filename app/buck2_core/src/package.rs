@@ -119,7 +119,7 @@ impl Hash for PackageLabelData {
     }
 }
 
-impl<'a> Equivalent<PackageLabelData> for PackageLabelDataRef<'a> {
+impl Equivalent<PackageLabelData> for PackageLabelDataRef<'_> {
     fn equivalent(&self, key: &PackageLabelData) -> bool {
         self == &key.as_ref()
     }

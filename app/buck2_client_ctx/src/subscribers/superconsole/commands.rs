@@ -19,7 +19,7 @@ pub(crate) struct CommandsComponent<'a> {
     pub(crate) action_stats: &'a ActionStats,
 }
 
-impl<'a> Component for CommandsComponent<'a> {
+impl Component for CommandsComponent<'_> {
     fn draw_unchecked(
         &self,
         _dimensions: superconsole::Dimensions,

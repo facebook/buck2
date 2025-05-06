@@ -218,10 +218,7 @@ pub(crate) fn trim_prefix_ascii(s: &str, prefix: impl AsciiPattern) -> &str {
 
 /// `s.split_once(needle)`.
 #[inline]
-pub(crate) fn split1_opt_ascii<'a>(
-    s: &'a str,
-    needle: impl AsciiPattern,
-) -> Option<(&'a str, &'a str)> {
+pub(crate) fn split1_opt_ascii(s: &str, needle: impl AsciiPattern) -> Option<(&str, &str)> {
     needle
         .first_index_in(s)
         .map(|i| unsafe { (s.get_unchecked(..i), s.get_unchecked(i + needle.len()..)) })

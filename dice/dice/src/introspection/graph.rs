@@ -76,13 +76,11 @@ impl EngineForIntrospection for ModernIntrospectable {
         }))
     }
 
-    fn keys_currently_running<'a>(
-        &'a self,
-    ) -> Vec<(AnyKey, VersionNumber, DiceTaskStateForDebugging)> {
+    fn keys_currently_running(&self) -> Vec<(AnyKey, VersionNumber, DiceTaskStateForDebugging)> {
         self.version_data.keys_currently_running(&self.key_map)
     }
 
-    fn versions_currently_running<'a>(&'a self) -> Vec<VersionNumber> {
+    fn versions_currently_running(&self) -> Vec<VersionNumber> {
         self.version_data.versions_currently_running()
     }
 
@@ -225,11 +223,9 @@ pub(crate) trait EngineForIntrospection {
     #[allow(dead_code)]
     fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a>;
     fn edges<'a>(&'a self) -> Box<dyn Iterator<Item = (AnyKey, Vec<AnyKey>)> + 'a>;
-    fn keys_currently_running<'a>(
-        &'a self,
-    ) -> Vec<(AnyKey, VersionNumber, DiceTaskStateForDebugging)>;
+    fn keys_currently_running(&self) -> Vec<(AnyKey, VersionNumber, DiceTaskStateForDebugging)>;
     #[allow(dead_code)]
-    fn versions_currently_running<'a>(&'a self) -> Vec<VersionNumber>;
+    fn versions_currently_running(&self) -> Vec<VersionNumber>;
     fn nodes<'a>(
         &'a self,
         keys: &'a mut HashMap<AnyKey, KeyID>,

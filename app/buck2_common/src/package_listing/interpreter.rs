@@ -419,8 +419,8 @@ impl Directory {
         }))
     }
 
-    fn gather_subdirs<'a, 'd>(
-        ctx: &'a mut DiceComputations<'d>,
+    fn gather_subdirs<'a>(
+        ctx: &'a mut DiceComputations<'_>,
         buildfile_candidates: &'a [FileNameBuf],
         root: CellPathRef<'a>,
         subdirs: Vec<PackageRelativePathBuf>,

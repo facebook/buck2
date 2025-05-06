@@ -61,7 +61,7 @@ pub struct Visitor<'a> {
     pub(crate) node_kind: NodeKind,
 }
 
-impl<'a> Drop for Visitor<'a> {
+impl Drop for Visitor<'_> {
     fn drop(&mut self) {
         self.exit_impl();
     }

@@ -17,7 +17,7 @@ pub(crate) struct StarlarkDebuggerComponent<'s> {
     pub(crate) starlark_debugger_state: &'s StarlarkDebuggerState,
 }
 
-impl<'s> Component for StarlarkDebuggerComponent<'s> {
+impl Component for StarlarkDebuggerComponent<'_> {
     fn draw_unchecked(
         &self,
 

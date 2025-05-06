@@ -459,9 +459,7 @@ impl<'a> BuckArgMatches<'a> {
     }
 
     pub fn get_representative_config_flags_by_source(&self) -> Vec<RepresentativeConfigFlag> {
-        fn get_flagfile_for_logging<'a>(
-            flagfile: &'a FlagfileArgSource,
-        ) -> Option<&'a FlagfileArgSource> {
+        fn get_flagfile_for_logging(flagfile: &FlagfileArgSource) -> Option<&FlagfileArgSource> {
             if let Some(parent) = &flagfile.parent {
                 if let Some(v) = get_flagfile_for_logging(parent) {
                     return Some(v);

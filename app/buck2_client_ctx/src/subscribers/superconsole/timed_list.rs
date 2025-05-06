@@ -54,7 +54,7 @@ struct TimedListBody<'c> {
     state: &'c SuperConsoleState,
 }
 
-impl<'c> TimedListBody<'c> {
+impl TimedListBody<'_> {
     /// Render a root  as `root [first child + remaining children]`
     fn draw_root_first_child(
         &self,
@@ -149,7 +149,7 @@ impl<'c> TimedListBody<'c> {
     }
 }
 
-impl<'c> Component for TimedListBody<'c> {
+impl Component for TimedListBody<'_> {
     fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         let config = &self.state.config;
         let max_lines = config.max_lines;
@@ -213,7 +213,7 @@ impl<'a> TimedList<'a> {
     }
 }
 
-impl<'a> Component for TimedList<'a> {
+impl Component for TimedList<'_> {
     fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
         let span_tracker: &BuckEventSpanTracker = self.state.simple_console.observer().spans();
 

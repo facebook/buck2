@@ -56,10 +56,7 @@ fn insert_config_values(
         .for_each(|config_value| insert_config_value(&mut dict, config_value))
 }
 
-fn process_buckconfig_data<'a>(
-    mut dict: &mut BTreeMap<String, String>,
-    event: &'a buck2_data::BuckEvent,
-) {
+fn process_buckconfig_data(mut dict: &mut BTreeMap<String, String>, event: &buck2_data::BuckEvent) {
     use buck2_data::buckconfig_component::Data::ConfigFile;
     use buck2_data::buckconfig_component::Data::ConfigValue;
     use buck2_data::buckconfig_component::Data::GlobalExternalConfigFile;
@@ -132,7 +129,7 @@ pub enum DiffType<'a> {
     },
 }
 
-impl<'a> Display for DiffType<'a> {
+impl Display for DiffType<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DiffType::Changed {

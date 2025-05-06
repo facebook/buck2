@@ -20,7 +20,7 @@ pub(crate) enum MaterializeStack<'a> {
     Child(&'a MaterializeStack<'a>, &'a ProjectRelativePath),
 }
 
-impl<'a> Display for MaterializeStack<'a> {
+impl Display for MaterializeStack<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if let MaterializeStack::Empty = self {
             return write!(f, "(empty)");

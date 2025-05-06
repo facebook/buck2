@@ -43,7 +43,7 @@ pub(crate) trait QueryCommandTarget: QueryTarget {
 }
 
 pub struct AttrDisplay<'a, 'b, T: QueryCommandTarget>(&'a T, &'a T::Attr<'b>, AttrFmtOptions);
-impl<'a, 'b, T: QueryCommandTarget> std::fmt::Display for AttrDisplay<'a, 'b, T> {
+impl<T: QueryCommandTarget> std::fmt::Display for AttrDisplay<'_, '_, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.0.attr_fmt(f, self.2.dupe(), self.1)
     }

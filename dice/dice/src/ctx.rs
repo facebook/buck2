@@ -40,7 +40,7 @@ pub(crate) enum DiceComputationsImpl<'a> {
     Modern(ModernComputeCtx<'a>),
 }
 
-impl<'d> DiceComputationsImpl<'d> {
+impl DiceComputationsImpl<'_> {
     /// Gets all the result of of the given computation key.
     /// recorded as dependencies of the current computation for which this
     /// context is for.
@@ -74,8 +74,8 @@ impl<'d> DiceComputationsImpl<'d> {
         }
     }
 
-    pub fn projection<'a, K: Key, P: ProjectionKey<DeriveFromKey = K>>(
-        &'a mut self,
+    pub fn projection<K: Key, P: ProjectionKey<DeriveFromKey = K>>(
+        &mut self,
         derive_from: &OpaqueValue<K>,
         projection_key: &P,
     ) -> DiceResult<P::Value> {
@@ -87,8 +87,8 @@ impl<'d> DiceComputationsImpl<'d> {
         }
     }
 
-    pub fn opaque_into_value<'a, K: Key>(
-        &'a mut self,
+    pub fn opaque_into_value<K: Key>(
+        &mut self,
         derive_from: OpaqueValue<K>,
     ) -> DiceResult<K::Value> {
         match self {

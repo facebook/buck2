@@ -175,7 +175,7 @@ struct DaemonTargetResolver<'a> {
     events_ctx: &'a mut EventsCtx,
 }
 
-impl<'a> TargetResolver for DaemonTargetResolver<'a> {
+impl TargetResolver for DaemonTargetResolver<'_> {
     fn resolve(&mut self, partial_target: String) -> BoxFuture<CommandOutcome<Vec<String>>> {
         let request = NewGenericRequest::Complete(CompleteRequest {
             target_cfg: self.target_cfg.target_cfg(),

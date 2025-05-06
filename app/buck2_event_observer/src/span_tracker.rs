@@ -364,7 +364,7 @@ impl<T: SpanTrackable + Dupe> SpanTracker<T> {
         Ok(())
     }
 
-    pub fn iter_roots<'a>(&'a self) -> impl ExactSizeIterator<Item = SpanHandle<'a, T>> + 'a {
+    pub fn iter_roots(&self) -> impl ExactSizeIterator<Item = SpanHandle<'_, T>> + '_ {
         self.roots.iter().map(move |s| {
             // NOTE: This unwrap is safe because we guarantee that `roots` only references spans
             // that exist in `all`.

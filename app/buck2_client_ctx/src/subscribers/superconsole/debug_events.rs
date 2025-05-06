@@ -21,7 +21,7 @@ pub(crate) struct DebugEventsComponent<'s> {
     pub(crate) debug_events_state: &'s DebugEventsState,
 }
 
-impl<'s> Component for DebugEventsComponent<'s> {
+impl Component for DebugEventsComponent<'_> {
     fn draw_unchecked(
         &self,
 

@@ -293,12 +293,12 @@ impl<'c, 'd> DiceAqueryDelegate<'c, 'd> {
 }
 
 #[async_trait]
-impl<'c, 'd> AqueryDelegate for DiceAqueryDelegate<'c, 'd> {
+impl AqueryDelegate for DiceAqueryDelegate<'_, '_> {
     fn cquery_delegate(&self) -> &dyn CqueryDelegate {
         &self.base_delegate
     }
 
-    fn ctx<'a>(&'a self) -> DiceComputations<'a> {
+    fn ctx(&self) -> DiceComputations<'_> {
         self.base_delegate.ctx()
     }
 

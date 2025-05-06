@@ -35,7 +35,7 @@ impl<'a> ConsoleInteractionStream<'a> {
     }
 }
 
-impl<'a> Drop for ConsoleInteractionStream<'a> {
+impl Drop for ConsoleInteractionStream<'_> {
     fn drop(&mut self) {
         if let Err(e) = self.term.disable() {
             tracing::warn!("Failed to disable interactive terminal: {:#}", e);
@@ -240,7 +240,7 @@ pub trait SuperConsoleInteraction: Send + Sync {
 }
 
 #[async_trait::async_trait]
-impl<'a> SuperConsoleInteraction for ConsoleInteractionStream<'a> {
+impl SuperConsoleInteraction for ConsoleInteractionStream<'_> {
     async fn toggle(&mut self) -> buck2_error::Result<Option<SuperConsoleToggle>> {
         match self.stdin.read_u8().await {
             Ok(c) => {

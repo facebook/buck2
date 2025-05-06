@@ -133,7 +133,7 @@ pub struct ConfigurationData(Intern<HashedConfigurationPlatform>);
 #[derive(Hash)]
 struct ConfigurationHashRef<'a>(&'a str);
 
-impl<'a> Equivalent<HashedConfigurationPlatform> for ConfigurationHashRef<'a> {
+impl Equivalent<HashedConfigurationPlatform> for ConfigurationHashRef<'_> {
     fn equivalent(&self, key: &HashedConfigurationPlatform) -> bool {
         self.0 == key.output_hash.as_str()
     }

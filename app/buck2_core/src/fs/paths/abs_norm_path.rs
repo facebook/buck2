@@ -151,7 +151,7 @@ impl AbsNormPath {
         self.join_cow(path).into_owned()
     }
 
-    pub fn join_cow<'a, P: AsRef<ForwardRelativePath>>(&'a self, path: P) -> Cow<'a, AbsNormPath> {
+    pub fn join_cow<P: AsRef<ForwardRelativePath>>(&self, path: P) -> Cow<'_, AbsNormPath> {
         let path = path.as_ref();
         if path.is_empty() {
             Cow::Borrowed(self)

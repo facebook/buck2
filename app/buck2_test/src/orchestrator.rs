@@ -677,7 +677,7 @@ enum ExecuteDiceErr {
 }
 
 #[async_trait]
-impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
+impl TestOrchestrator for BuckTestOrchestrator<'_> {
     async fn execute2(
         &self,
         stage: TestStage,
@@ -922,7 +922,7 @@ struct ExecuteData {
     pub outputs: Vec<(BuckOutTestPath, ArtifactValue)>,
 }
 
-impl<'b> BuckTestOrchestrator<'b> {
+impl BuckTestOrchestrator<'_> {
     fn executor_preference(
         opts: TestSessionOptions,
         test_supports_re: bool,
@@ -1647,7 +1647,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     }
 }
 
-impl<'a> Drop for BuckTestOrchestrator<'a> {
+impl Drop for BuckTestOrchestrator<'_> {
     fn drop(&mut self) {
         // If we didn't close the sender yet, then notify the receiver that our stream is
         // incomplete.
@@ -1834,7 +1834,7 @@ struct CommandLineBuilderFormatWrapper<'a> {
     format: Option<String>,
 }
 
-impl<'a> CommandLineBuilder for CommandLineBuilderFormatWrapper<'a> {
+impl CommandLineBuilder for CommandLineBuilderFormatWrapper<'_> {
     fn push_arg(&mut self, s: String) {
         let s = if let Some(format) = &self.format {
             format.replace("{}", &s)

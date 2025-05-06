@@ -68,7 +68,7 @@ struct JobArg<'a> {
     barrier_0: &'a Barrier,
 }
 
-impl<'a> JobArg<'a> {
+impl JobArg<'_> {
     /// Generate values unique to this job iteration among all threads.
     fn unique_values(&self, count: u32) -> impl Iterator<Item = u32> + '_ {
         (0..count).map(move |i| self.i + self.thread_i * count + i)

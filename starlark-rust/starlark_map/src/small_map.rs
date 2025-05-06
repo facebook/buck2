@@ -721,7 +721,7 @@ impl<K, V> SmallMap<K, V> {
             map: &'a mut SmallMap<K, V>,
         }
 
-        impl<'a, K, V> Drop for RebuildIndexOnDrop<'a, K, V> {
+        impl<K, V> Drop for RebuildIndexOnDrop<'_, K, V> {
             fn drop(&mut self) {
                 self.map.rebuild_index();
             }
@@ -772,7 +772,7 @@ impl<K, V> SmallMap<K, V> {
             map: &'a mut SmallMap<K, V>,
         }
 
-        impl<'a, K, V> Drop for RebuildIndexOnDrop<'a, K, V> {
+        impl<K, V> Drop for RebuildIndexOnDrop<'_, K, V> {
             fn drop(&mut self) {
                 debug_assert!(self.map.entries.len() <= self.original_len);
                 if self.map.len() < self.original_len {

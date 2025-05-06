@@ -342,7 +342,7 @@ pub struct ManifoldChunkedUploader<'a> {
     ttl: Ttl,
 }
 
-impl<'a> ManifoldChunkedUploader<'a> {
+impl ManifoldChunkedUploader<'_> {
     pub async fn write(&mut self, chunk: Bytes) -> buck2_error::Result<()> {
         let len = u64::try_from(chunk.len())?;
 

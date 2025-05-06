@@ -61,10 +61,10 @@ pub(crate) struct OutputFormatWithWriter<'a> {
     pub(crate) omit_empty_std_err: bool,
 }
 
-pub(crate) fn transform_format<'a>(
+pub(crate) fn transform_format(
     format: LogCommandOutputFormat,
-    w: &'a mut (dyn std::io::Write),
-) -> LogCommandOutputFormatWithWriter<'a> {
+    w: &mut (dyn std::io::Write),
+) -> LogCommandOutputFormatWithWriter<'_> {
     match format {
         LogCommandOutputFormat::Tabulated => LogCommandOutputFormatWithWriter::Tabulated(w),
         LogCommandOutputFormat::Json => LogCommandOutputFormatWithWriter::Json(w),
