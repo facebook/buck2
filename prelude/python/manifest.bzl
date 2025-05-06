@@ -107,7 +107,7 @@ def create_manifest_for_source_dir(
     ctx.actions.run(cmd, category = "py_source_manifest", identifier = param)
 
     # TODO: enumerate directory?
-    return ManifestInfo(manifest = manifest, artifacts = [(extracted, param)])
+    return ManifestInfo(manifest = manifest.without_associated_artifacts(), artifacts = [(extracted, param)])
 
 def create_manifest_for_extensions(
         ctx: AnalysisContext,
