@@ -78,6 +78,18 @@ def system_demo_toolchains():
         visibility = ["PUBLIC"],
     )
 
+    system_java_bootstrap_toolchain(
+        name = "java_graalvm_bootstrap",
+        java = ":java_tool",
+        visibility = ["PUBLIC"],
+    )
+
+    system_java_bootstrap_toolchain(
+        name = "java_for_android",
+        java = ":java_tool",
+        visibility = ["PUBLIC"],
+    )
+
     system_java_tool(
         name = "java_tool",
         tool_name = "java",
@@ -92,6 +104,11 @@ def system_demo_toolchains():
 
     system_kotlin_bootstrap_toolchain(
         name = "kotlin_bootstrap",
+        visibility = ["PUBLIC"],
+    )
+
+    system_kotlin_bootstrap_toolchain(
+        name = "kotlin_for_android",
         visibility = ["PUBLIC"],
     )
 
