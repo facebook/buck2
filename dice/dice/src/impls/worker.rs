@@ -319,7 +319,7 @@ impl DiceTaskWorker {
     skip(eval, cycles),
     fields(version = %eval.per_live_version_ctx.get_version(), version = %version)
 ))]
-pub(crate) async fn check_dependencies<'a>(
+async fn check_dependencies<'a>(
     eval: &'a AsyncEvaluator,
     parent_key: ParentKey,
     deps: &'a SeriesParallelDeps,
@@ -539,7 +539,6 @@ pub(crate) fn project_for_key(
 
 #[cfg(test)]
 pub(crate) mod testing {
-
     use crate::impls::worker::CheckDependenciesResult;
 
     pub(crate) trait CheckDependenciesResultExt {
