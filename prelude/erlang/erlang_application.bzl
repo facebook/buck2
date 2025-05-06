@@ -88,12 +88,7 @@ def build_application(ctx, toolchains, dependencies) -> list[Provider]:
         # build start dependencies in reverse order
         start_dependencies[toolchain.name] = _build_start_dependencies(ctx, toolchain)
 
-    primary_build = build_environments[get_primary(ctx)]
-    primary_app_folder = link_output(
-        ctx,
-        name,
-        primary_build,
-    )
+    primary_app_folder = ctx.actions.symlink_file(name, app_folders[get_primary(ctx)])
 
     app_info = build_app_info(
         ctx,
