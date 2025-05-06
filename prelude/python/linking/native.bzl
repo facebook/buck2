@@ -321,6 +321,7 @@ def _compute_cxx_executable_info(
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
+        error_handler = python_toolchain.python_error_handler,
     )
 
     return cxx_executable(ctx, impl_params)
