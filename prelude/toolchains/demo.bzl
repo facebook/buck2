@@ -20,6 +20,16 @@ load("@prelude//toolchains:remote_test_execution.bzl", "remote_test_execution_to
 load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
 load("@prelude//toolchains:zip_file.bzl", "zip_file_toolchain")
 
+def _hack_impl(ctx):
+    return ctx.attrs.actual.providers
+
+android_hack_alias = rule(
+    impl = _hack_impl,
+    attrs = {
+        "actual": attrs.toolchain_dep(),
+    },
+)
+
 def system_demo_toolchains():
     """
     All the default toolchains, suitable for a quick demo or early prototyping.
@@ -27,6 +37,12 @@ def system_demo_toolchains():
     """
     system_android_toolchain(
         name = "android",
+        visibility = ["PUBLIC"],
+    )
+
+    android_hack_alias(
+        name = "android-hack",
+        actual = ":cxx",
         visibility = ["PUBLIC"],
     )
 
