@@ -21,6 +21,14 @@ fn main() -> io::Result<()> {
         "../buck2_data".to_owned()
     };
 
+    let host_sharing_include = if let Ok(value) = env::var("BUCK_HACK_HOST_SHARING_PROTOC_INCLUDE")
+    {
+        let path = PathBuf::from(value);
+        path.parent().unwrap().to_str().unwrap().to_owned()
+    } else {
+        "../buck2_host_sharing_proto".to_owned()
+    };
+
     buck2_protoc_dev::configure()
         .setup_protoc()
         .type_attribute(
@@ -28,5 +36,6 @@ fn main() -> io::Result<()> {
             "#[allow(clippy::large_enum_variant)]",
         )
         .extern_path(".buck.data", "::buck2_data")
-        .compile(proto_files, &[".", &data_include])
+        .extern_path(".buck.host_sharing", "::buck2_host_sharing_proto")
+        .compile(proto_files, &[".", &data_include, &host_sharing_include])
 }
