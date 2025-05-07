@@ -35,7 +35,7 @@ const MAX_GRAPHEME_BUFFER: usize = 1000000;
 /// Handles rendering the console using the user-defined [Component](Component)s and emitted messages.
 /// A Canvas area at the bottom of the terminal is re-rendered in place at each tick for the components,
 /// while a log area of emitted messages is produced above.
-/// Producing output from sources other than SuperConsole while break the TUI.
+/// Producing output from sources other than SuperConsole will break the TUI.
 pub struct SuperConsole {
     /// Number of lines that were used to render the canvas last time.
     canvas_contents: Lines,
