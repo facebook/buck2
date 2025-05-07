@@ -11,7 +11,7 @@ third_party_jar(
     name = "aapt2-proto-prebuilt",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/android/tools/build/aapt2-proto:aapt2-proto",
     sha1 = "605bc2d642e5812469ff0333df1b65ead289ccd8",
-    url = "mvn:com.android.tools.build:aapt2-proto:jar:8.7.3-12006047",
+    url = "mvn:https://maven.google.com:com.android.tools.build:aapt2-proto:jar:8.7.3-12006047",
 )
 
 buck_java_library(
@@ -30,7 +30,7 @@ third_party_jar(
     name = "android-annotations",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/android/tools/annotations:annotations",
     sha1 = "1946e7f75bc1615b4abfc0f83899934dfcbdf1fc",
-    url = "mvn:com.android.tools:annotations:jar:31.7.3",
+    url = "mvn:https://maven.google.com:com.android.tools:annotations:jar:31.7.3",
     visibility = ["PUBLIC"],
 )
 
@@ -38,7 +38,7 @@ third_party_jar(
     name = "sdklib",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/android/tools/sdklib:sdklib",
     sha1 = "0adb7cac2ab282100e2b8b6d66b997a69ed06adf",
-    url = "mvn:com.android.tools:sdklib:jar:31.7.3",
+    url = "mvn:https://maven.google.com:com.android.tools:sdklib:jar:31.7.3",
     visibility = [
         "prelude//toolchains/android/third-party/aosp:aosp",
     ],
@@ -64,7 +64,7 @@ third_party_jar(
     name = "android-common",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/android/tools/common:common",
     sha1 = "c3df7b51ee1a72acf051e0e5efbeb8023fb4ea57",
-    url = "mvn:com.android.tools:common:jar:31.7.3",
+    url = "mvn:https://maven.google.com:com.android.tools:common:jar:31.7.3",
     visibility = ["PUBLIC"],
 )
 
@@ -72,7 +72,7 @@ third_party_jar(
     name = "sdk-common",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/android/tools/sdk-common:sdk-common",
     sha1 = "d17c3d28724a5f3e90a5ae053714627b740ff80c",
-    url = "mvn:com.android.tools:sdk-common:jar:31.7.3",
+    url = "mvn:https://maven.google.com:com.android.tools:sdk-common:jar:31.7.3",
     deps = [":guava"],
 )
 
@@ -80,7 +80,7 @@ third_party_jar(
     name = "layoutlib-api",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/android/tools/layoutlib/layoutlib-api:layoutlib-api",
     sha1 = "6abada4555fa60825ea5f353443a7e561445c4f0",
-    url = "mvn:com.android.tools.layoutlib:layoutlib-api:jar:31.7.3",
+    url = "mvn:https://maven.google.com:com.android.tools.layoutlib:layoutlib-api:jar:31.7.3",
     visibility = [
         "prelude//toolchains/android/src/com/facebook/buck/android/aapt:merge_android_resource_sources",
     ],
@@ -90,7 +90,7 @@ third_party_jar(
     name = "ddmlib",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/android/tools/ddms/ddmlib:ddmlib",
     sha1 = "525b44de6936a7c487095652f014d0bfc84bb9ad",
-    url = "mvn:com.android.tools.ddms:ddmlib:jar:31.7.3",
+    url = "mvn:https://maven.google.com:com.android.tools.ddms:ddmlib:jar:31.7.3",
     visibility = ["PUBLIC"],
     deps = [
         ":android-common",
@@ -152,7 +152,7 @@ third_party_jar(
     name = "bundletool-prebuilt",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/android/tools/build/bundletool:bundletool__toolchain",
     sha1 = "88e6c67d315e7d2a860bb00b1bd93914f2c4fd33",
-    url = "mvn:com.android.tools.build:bundletool:jar:1.16.0",
+    url = "mvn:https://maven.google.com:com.android.tools.build:bundletool:jar:1.16.0",
 )
 
 buck_java_library(
