@@ -103,7 +103,6 @@ def system_android_toolchain(
     ]
     kwargs["instrumentation_test_runner_main_class"] = "com.facebook.buck.testrunner.InstrumentationMain"
     kwargs["jar_splitter_command"] = "prelude//toolchains/android/src/com/facebook/buck/android/dex:jar_splitter_binary"
-    kwargs["list_tests_command"] = None
     kwargs["manifest_utils"] = "prelude//toolchains/android/src/com/facebook/buck/android:manifest_utils_binary"
     kwargs["merge_android_resource_sources"] = "prelude//toolchains/android/src/com/facebook/buck/android/aapt:merge_android_resource_sources_binary"
     kwargs["merge_android_resources"] = "prelude//toolchains/android/src/com/facebook/buck/android/resources:merge_android_resources_binary"
@@ -169,7 +168,6 @@ def system_android_toolchain_rule_impl(ctx):
             instrumentation_test_runner_classpath = ctx.attrs.instrumentation_test_runner_classpath,
             instrumentation_test_runner_main_class = ctx.attrs.instrumentation_test_runner_main_class,
             jar_splitter_command = ctx.attrs.jar_splitter_command,
-            list_tests_command = ctx.attrs.list_tests_command,
             manifest_utils = ctx.attrs.manifest_utils,
             merge_android_resource_sources = ctx.attrs.merge_android_resource_sources,
             merge_android_resources = ctx.attrs.merge_android_resources,
@@ -227,7 +225,6 @@ system_android_toolchain_rule = rule(
         "instrumentation_test_runner_classpath": attrs.list(attrs.source()),
         "instrumentation_test_runner_main_class": attrs.string(),
         "jar_splitter_command": attrs.dep(providers = [RunInfo]),
-        "list_tests_command": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "manifest_utils": attrs.dep(providers = [RunInfo]),
         "merge_android_resource_sources": attrs.dep(providers = [RunInfo]),
         "merge_android_resources": attrs.dep(providers = [RunInfo]),
