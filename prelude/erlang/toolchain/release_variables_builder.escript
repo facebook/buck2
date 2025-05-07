@@ -50,11 +50,8 @@ usage() ->
 
 -spec do(file:filename(), file:filename()) -> ok.
 do(Spec, ReleaseVariablesFile) ->
-    {ok, [
-        #{
-            "variables" := Variables
-        }
-    ]} = file:consult(Spec),
+    {ok, Contents} = file:read_file(Spec, [raw]),
+    Variables = json:decode(Contents),
     {ok, F} = file:open(ReleaseVariablesFile, [write, raw]),
     [ ok = file:write(F, io_lib:format("~s=\"~s\"~n", [Key, Value]))
       || Key := Value <- Variables#{"ERTS_VSN" => erlang:system_info(version)}

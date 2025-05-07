@@ -45,22 +45,24 @@ usage() ->
     io:format("boot_script_builder.escript release_spec.term output_dir~n").
 
 do(SpecFile, OutDir) ->
-    {ok, [
-        #{
-            "apps" := Apps,
-            "lib_dir" := LibDir,
-            "name" := RelName,
-            "version" := RelVersion
-        }
-    ]} = file:consult(SpecFile),
+    {ok, SpecFileContents} = file:read_file(SpecFile, [raw]),
+    #{
+        <<"apps">> := Apps,
+        <<"lib_dir">> := LibDir,
+        <<"name">> := RelNameBin,
+        <<"version">> := RelVersionBin
+    } = json:decode(SpecFileContents),
     OTPAppMapping = get_otp_apps_mapping(),
-    LibDirWildcard = filename:absname(filename:join([LibDir, "*", "ebin"])),
+    LibDirWildcard = binary_to_list(filename:absname(filename:join([LibDir, "*", "ebin"]))),
 
     %% systools requires us to be in the same directory as the .rel file
     %% it also magically discovers the release root and makes all paths
     %% relative to it if the structure is OTP compliant
+    ok = filelib:ensure_path(OutDir),
     ok = file:set_cwd(OutDir),
 
+    RelName = binary_to_list(RelNameBin),
+    RelVersion = binary_to_list(RelVersionBin),
     build_start_boot(Apps, LibDirWildcard, RelName, RelVersion, OTPAppMapping).
 
 build_start_boot(
@@ -73,7 +75,7 @@ build_start_boot(
     %% OTP apps dependencies are not captures and we need to calculate
     %% them first
     {OTPApps, Others} = lists:partition(
-        fun(#{"resolved" := Resolved}) -> Resolved =:= "False" end,
+        fun(#{<<"resolved">> := Resolved}) -> not Resolved end,
         Apps
     ),
     OTPAppDeps = get_otp_app_deps(OTPApps, OTPAppMapping),
@@ -85,13 +87,13 @@ build_start_boot(
         {erts, erlang:system_info(version)},
         [
             case StartType of
-                "permanent" -> {erlang:list_to_atom(AppName), AppVersion};
-                "load" -> {erlang:list_to_atom(AppName), AppVersion, load}
+                <<"permanent">> -> {binary_to_atom(AppName), binary_to_list(AppVersion)};
+                <<"load">> -> {binary_to_atom(AppName), binary_to_list(AppVersion), load}
             end
          || #{
-                "name" := AppName,
-                "version" := AppVersion,
-                "type" := StartType
+                <<"name">> := AppName,
+                <<"version">> := AppVersion,
+                <<"type">> := StartType
             } <- Others ++ OTPAppDeps
         ]
     },
@@ -122,8 +124,8 @@ get_otp_apps_mapping() ->
                     Acc;
                 [AppName, AppVersion] ->
                     Acc#{
-                        AppName => #{
-                            version => AppVersion,
+                        list_to_binary(AppName) => #{
+                            version => list_to_binary(AppVersion),
                             app_file => app_file_path(Path, AppName)
                         }
                     }
@@ -135,42 +137,43 @@ get_otp_apps_mapping() ->
 
 get_otp_app_deps(OTPApps, OTPAppMapping) ->
     InitialDeps = [
-        begin
+        Dependency
+     || #{<<"name">> := AppName} <- OTPApps,
+        Dependency <- begin
             #{AppName := #{app_file := AppFile, version := AppVersion}} = OTPAppMapping,
             #{name := AppName, version := AppVersion, deps := Dependencies} = parse_app_file(
                 AppFile
             ),
             Dependencies
         end
-     || #{"name" := AppName} <- OTPApps
     ],
 
     InitialAcc = lists:foldl(
-        fun(UnVersionedSpec = #{"name" := AppName}, Acc) ->
+        fun(UnVersionedSpec = #{<<"name">> := AppName}, Acc) ->
             % get specific version from toolchain
             #{AppName := #{version := AppVersion}} = OTPAppMapping,
             % replace dynamic version with specific one
-            VersionedSpec = UnVersionedSpec#{"version" => AppVersion},
-            Acc#{erlang:list_to_atom(AppName) => VersionedSpec}
+            VersionedSpec = UnVersionedSpec#{<<"version">> => AppVersion},
+            Acc#{binary_to_atom(AppName) => VersionedSpec}
         end,
         #{},
         OTPApps
     ),
 
-    get_otp_app_deps(lists:flatten(InitialDeps), OTPAppMapping, InitialAcc).
+    get_otp_app_deps(InitialDeps, OTPAppMapping, InitialAcc).
 
 get_otp_app_deps([], _, Acc) ->
     maps:values(Acc);
 get_otp_app_deps([App | Rest], OTPAppMapping, Acc) ->
-    AppName = erlang:atom_to_list(App),
+    AppName = atom_to_binary(App),
     #{AppName := #{app_file := AppFile, version := AppVersion}} = OTPAppMapping,
     #{name := AppName, version := AppVersion, deps := Dependencies} = parse_app_file(AppFile),
     Spec = #{
-        "name" => AppName,
-        "version" => AppVersion,
-        "type" => "permanent"
+        <<"name">> => AppName,
+        <<"version">> => AppVersion,
+        <<"type">> => <<"permanent">>
     },
-    FilteredDependencies = [Dep || Dep <- Dependencies, not maps:is_key(Dep, Acc)],
+    FilteredDependencies = [Dep || Dep <- Dependencies, not is_map_key(Dep, Acc)],
     get_otp_app_deps(Rest ++ FilteredDependencies, OTPAppMapping, Acc#{App => Spec}).
 
 app_file_path(Path, Name) ->
@@ -194,8 +197,8 @@ parse_app_file(File) ->
     io:format("~s~n", [File]),
     {ok, [{application, App, Props}]} =
         file:consult(File),
-    AppName = erlang:atom_to_list(App),
-    Version = proplists:get_value(vsn, Props),
+    AppName = atom_to_binary(App),
+    Version = list_to_binary(proplists:get_value(vsn, Props)),
     Dependencies =
         proplists:get_value(applications, Props, []) ++
             proplists:get_value(included_applications, Props, []),
