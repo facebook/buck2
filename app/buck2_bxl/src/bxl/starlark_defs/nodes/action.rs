@@ -174,7 +174,7 @@ pub(crate) struct StarlarkActionAttr(pub(crate) OwnedActionAttr);
 starlark_simple_value!(StarlarkActionAttr);
 
 /// Action attr from an action query node.
-#[starlark_value(type = "action_attr")]
+#[starlark_value(type = "bxl.ActionAttr")]
 impl<'v> StarlarkValue<'v> for StarlarkActionAttr {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
