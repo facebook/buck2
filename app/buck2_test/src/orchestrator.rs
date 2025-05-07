@@ -1205,13 +1205,14 @@ impl BuckTestOrchestrator<'_> {
         let CommandExecutorResponse {
             executor,
             platform,
-            cache_checker,
+            action_cache_checker,
+            remote_dep_file_cache_checker: _,
             cache_uploader,
         } = dice.get_command_executor_from_dice(executor_config).await?;
 
         // Caching is enabled only for listings
-        let (cache_uploader, cache_checker) = match stage {
-            TestStage::Listing { .. } => (cache_uploader, cache_checker),
+        let (cache_uploader, action_cache_checker) = match stage {
+            TestStage::Listing { .. } => (cache_uploader, action_cache_checker),
             TestStage::Testing { .. } => (
                 Arc::new(NoOpCacheUploader {}) as _,
                 Arc::new(NoOpCommandOptionalExecutor {}) as _,
@@ -1220,7 +1221,8 @@ impl BuckTestOrchestrator<'_> {
 
         let executor = CommandExecutor::new(
             executor,
-            cache_checker,
+            action_cache_checker,
+            Arc::new(NoOpCommandOptionalExecutor {}),
             cache_uploader,
             fs.clone(),
             executor_config.options,
@@ -1244,13 +1246,15 @@ impl BuckTestOrchestrator<'_> {
         let CommandExecutorResponse {
             executor,
             platform,
-            cache_checker: _,
+            action_cache_checker: _,
+            remote_dep_file_cache_checker: _,
             cache_uploader: _,
         } = dice
             .get_command_executor_from_dice(&executor_config)
             .await?;
         let executor = CommandExecutor::new(
             executor,
+            Arc::new(NoOpCommandOptionalExecutor {}),
             Arc::new(NoOpCommandOptionalExecutor {}),
             Arc::new(NoOpCacheUploader {}),
             fs.clone(),

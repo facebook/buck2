@@ -32,7 +32,8 @@ use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 pub struct CommandExecutorResponse {
     pub executor: Arc<dyn PreparedCommandExecutor>,
     pub platform: RE::Platform,
-    pub cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
+    pub action_cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
+    pub remote_dep_file_cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
     pub cache_uploader: Arc<dyn UploadCache>,
 }
 

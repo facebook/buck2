@@ -213,6 +213,13 @@ pub trait ActionExecutionCtx: Send + Sync {
         prepared_action: &PreparedAction,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager>;
 
+    async fn remote_dep_file_cache(
+        &mut self,
+        manager: CommandExecutionManager,
+        request: &CommandExecutionRequest,
+        prepared_action: &PreparedAction,
+    ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager>;
+
     async fn cache_upload(
         &mut self,
         action: &ActionDigestAndBlobs,

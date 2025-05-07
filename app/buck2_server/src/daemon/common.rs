@@ -206,7 +206,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
             return Ok(CommandExecutorResponse {
                 executor: Arc::new(local_executor_new(&LocalExecutorOptions::default())),
                 platform: Default::default(),
-                cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
+                action_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
+                remote_dep_file_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                 cache_uploader: Arc::new(NoOpCacheUploader {}),
             });
         }
@@ -243,7 +244,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     Some(CommandExecutorResponse {
                         executor: Arc::new(local_executor_new(local)),
                         platform: Default::default(),
-                        cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
+                        action_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
+                        remote_dep_file_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                         cache_uploader: Arc::new(NoOpCacheUploader {}),
                     })
                 }
@@ -268,12 +270,15 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     applicability = testing
                 )?;
 
-                let cache_checker_new = || -> Arc<dyn PreparedCommandOptionalExecutor> {
+                let cache_checker_new = || -> (Arc<dyn PreparedCommandOptionalExecutor>, Arc<dyn PreparedCommandOptionalExecutor>) {
                     if disable_caching {
-                        return Arc::new(NoOpCommandOptionalExecutor {}) as _;
+                        return (
+                            Arc::new(NoOpCommandOptionalExecutor {}) as _,
+                            Arc::new(NoOpCommandOptionalExecutor {}) as _,
+                        );
                     }
 
-                    let remote_dep_file_checker: Arc<dyn PreparedCommandOptionalExecutor> =
+                    let remote_dep_file_cache_checker: Arc<dyn PreparedCommandOptionalExecutor> =
                         if remote_options.remote_dep_file_cache_enabled {
                             Arc::new(RemoteDepFileCacheChecker {
                                 artifact_fs: artifact_fs.clone(),
@@ -288,20 +293,22 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             Arc::new(NoOpCommandOptionalExecutor {}) as _
                         };
 
-                    if only_remote_dep_file_cache {
-                        remote_dep_file_checker
-                    } else {
-                        Arc::new(ActionCacheChecker {
-                            artifact_fs: artifact_fs.clone(),
-                            materializer: self.materializer.dupe(),
-                            re_client: self.get_prepared_re_client(remote_options.re_use_case),
-                            re_action_key: remote_options.re_action_key.clone(),
-                            upload_all_actions: self.upload_all_actions,
-                            knobs: self.executor_global_knobs.dupe(),
-                            paranoid: self.paranoid.dupe(),
-                            remote_dep_file_checker,
-                        }) as _
-                    }
+                    let action_cache_checker: Arc<dyn PreparedCommandOptionalExecutor> =
+                        if only_remote_dep_file_cache {
+                            Arc::new(NoOpCommandOptionalExecutor {}) as _
+                        } else {
+                            Arc::new(ActionCacheChecker {
+                                artifact_fs: artifact_fs.clone(),
+                                materializer: self.materializer.dupe(),
+                                re_client: self.get_prepared_re_client(remote_options.re_use_case),
+                                re_action_key: remote_options.re_action_key.clone(),
+                                upload_all_actions: self.upload_all_actions,
+                                knobs: self.executor_global_knobs.dupe(),
+                                paranoid: self.paranoid.dupe(),
+                            }) as _
+                        };
+
+                    (action_cache_checker, remote_dep_file_cache_checker)
                 };
 
                 let executor: Option<Arc<dyn PreparedCommandExecutor>> =
@@ -343,10 +350,13 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 let executor_preference = executor_preference
                                     .and(ExecutorPreference::DefaultErasePreferences)?;
 
+                                let (action_cache_checker, remote_dep_file_cache_checker) =
+                                    cache_checker_new();
                                 Some(Arc::new(HybridExecutor {
                                     local,
                                     remote: StackedExecutor {
-                                        optional: cache_checker_new(),
+                                        optional1: action_cache_checker,
+                                        optional2: remote_dep_file_cache_checker,
                                         fallback: remote,
                                     },
                                     level: HybridExecutionLevel::Full {
@@ -375,11 +385,15 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         _ => None,
                     };
 
-                let cache_checker = if self.paranoid.is_some() {
-                    Arc::new(NoOpCommandOptionalExecutor {}) as _
-                } else {
-                    cache_checker_new()
-                };
+                let (action_cache_checker, remote_dep_file_cache_checker) =
+                    if self.paranoid.is_some() {
+                        (
+                            Arc::new(NoOpCommandOptionalExecutor {}) as _,
+                            Arc::new(NoOpCommandOptionalExecutor {}) as _,
+                        )
+                    } else {
+                        cache_checker_new()
+                    };
 
                 let cache_uploader = if force_cache_upload()? {
                     Arc::new(CacheUploader::new(
@@ -410,7 +424,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 executor.map(|executor| CommandExecutorResponse {
                     executor,
                     platform: remote_options.re_properties.to_re_platform(),
-                    cache_checker,
+                    action_cache_checker,
+                    remote_dep_file_cache_checker,
                     cache_uploader,
                 })
             }

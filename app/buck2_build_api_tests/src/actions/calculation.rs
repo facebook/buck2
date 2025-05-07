@@ -220,7 +220,8 @@ async fn make_default_dice_state(
             ));
             Ok(CommandExecutorResponse {
                 executor,
-                cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
+                action_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
+                remote_dep_file_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                 platform: Default::default(),
                 cache_uploader: Arc::new(NoOpCacheUploader {}),
             })

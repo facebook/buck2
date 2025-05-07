@@ -241,7 +241,8 @@ impl HasActionExecutor for DiceComputations<'_> {
         let CommandExecutorResponse {
             executor,
             platform,
-            cache_checker,
+            action_cache_checker,
+            remote_dep_file_cache_checker,
             cache_uploader,
         } = self.get_command_executor_from_dice(executor_config).await?;
         let blocking_executor = self.get_blocking_executor();
@@ -257,7 +258,8 @@ impl HasActionExecutor for DiceComputations<'_> {
         Ok(Arc::new(BuckActionExecutor::new(
             CommandExecutor::new(
                 executor,
-                cache_checker,
+                action_cache_checker,
+                remote_dep_file_cache_checker,
                 cache_uploader,
                 artifact_fs,
                 executor_config.options,
@@ -411,6 +413,28 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         self.executor
             .command_executor
             .action_cache(
+                manager,
+                &PreparedCommand {
+                    target: &action as _,
+                    request,
+                    prepared_action,
+                    digest_config: self.digest_config(),
+                },
+                self.cancellations,
+            )
+            .await
+    }
+
+    async fn remote_dep_file_cache(
+        &mut self,
+        manager: CommandExecutionManager,
+        request: &CommandExecutionRequest,
+        prepared_action: &PreparedAction,
+    ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
+        let action = self.target();
+        self.executor
+            .command_executor
+            .remote_dep_file_cache(
                 manager,
                 &PreparedCommand {
                     target: &action as _,
@@ -773,6 +797,7 @@ mod tests {
         let executor = BuckActionExecutor::new(
             CommandExecutor::new(
                 Arc::new(DryRunExecutor::new(tracker, artifact_fs.clone())),
+                Arc::new(NoOpCommandOptionalExecutor {}),
                 Arc::new(NoOpCommandOptionalExecutor {}),
                 Arc::new(NoOpCacheUploader {}),
                 artifact_fs,

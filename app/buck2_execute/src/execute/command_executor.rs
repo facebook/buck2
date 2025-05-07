@@ -77,7 +77,8 @@ pub struct CommandExecutor(Arc<CommandExecutorData>);
 
 struct CommandExecutorData {
     inner: Arc<dyn PreparedCommandExecutor>,
-    cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
+    action_cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
+    remote_dep_file_cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
     artifact_fs: ArtifactFs,
     options: CommandGenerationOptions,
     re_platform: RE::Platform,
@@ -87,7 +88,8 @@ struct CommandExecutorData {
 impl CommandExecutor {
     pub fn new(
         inner: Arc<dyn PreparedCommandExecutor>,
-        cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
+        action_cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
+        remote_dep_file_cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
         cache_uploader: Arc<dyn UploadCache>,
         artifact_fs: ArtifactFs,
         options: CommandGenerationOptions,
@@ -95,7 +97,8 @@ impl CommandExecutor {
     ) -> Self {
         Self(Arc::new(CommandExecutorData {
             inner,
-            cache_checker,
+            action_cache_checker,
+            remote_dep_file_cache_checker,
             artifact_fs,
             options,
             re_platform,
@@ -123,7 +126,19 @@ impl CommandExecutor {
         cancellations: &CancellationContext,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         self.0
-            .cache_checker
+            .action_cache_checker
+            .maybe_execute(prepared_command, manager, cancellations)
+            .await
+    }
+
+    pub async fn remote_dep_file_cache(
+        &self,
+        manager: CommandExecutionManager,
+        prepared_command: &PreparedCommand<'_, '_>,
+        cancellations: &CancellationContext,
+    ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
+        self.0
+            .remote_dep_file_cache_checker
             .maybe_execute(prepared_command, manager, cancellations)
             .await
     }

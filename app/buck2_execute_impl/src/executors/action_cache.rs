@@ -47,7 +47,6 @@ pub struct ActionCacheChecker {
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
     pub paranoid: Option<ParanoidDownloader>,
-    pub remote_dep_file_checker: Arc<dyn PreparedCommandOptionalExecutor>,
 }
 
 enum CacheType {
@@ -234,7 +233,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             &cache_type,
             details.clone(),
         ));
-        let result = query_action_cache_and_download_result(
+        query_action_cache_and_download_result(
             cache_type,
             &self.artifact_fs,
             &self.materializer,
@@ -249,17 +248,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             self.knobs.log_action_keys,
             details,
         )
-        .await;
-
-        // If continue (not a cache hit), invoke the remote dep file cache checker
-        match result {
-            ControlFlow::Continue(manager) => {
-                self.remote_dep_file_checker
-                    .maybe_execute(command, manager, cancellations)
-                    .await
-            }
-            ControlFlow::Break(result) => ControlFlow::Break(result),
-        }
+        .await
     }
 }
 

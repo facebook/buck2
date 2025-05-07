@@ -674,19 +674,27 @@ impl RunAction {
 
         let action_cache_result = ctx.action_cache(manager, &req, &prepared_action).await;
 
-        // If the result was served by the remote dep file cache, we can't use the result just yet. We need to verify that
-        // the inputs tracked by a depfile that was actually used in the cache hit are indentical to the inputs we have for this action.
-        let result = if let ControlFlow::Break(res) = action_cache_result {
-            self.check_cache_result_is_useable(
-                ctx,
-                &req,
-                &prepared_action.action_and_blobs.action,
-                res,
-                &dep_file_bundle,
-            )
-            .await?
-        } else {
-            action_cache_result
+        let result = match action_cache_result {
+            ControlFlow::Break(_) => action_cache_result,
+            ControlFlow::Continue(manager) => {
+                let remote_dep_file_result = ctx
+                    .remote_dep_file_cache(manager, &req, &prepared_action)
+                    .await;
+                if let ControlFlow::Break(res) = remote_dep_file_result {
+                    // If the result was served by the remote dep file cache, we can't use the result just yet. We need to verify that
+                    // the inputs tracked by a depfile that was actually used in the cache hit are identical to the inputs we have for this action.
+                    self.check_cache_result_is_useable(
+                        ctx,
+                        &req,
+                        &prepared_action.action_and_blobs.action,
+                        res,
+                        &dep_file_bundle,
+                    )
+                    .await?
+                } else {
+                    remote_dep_file_result
+                }
+            }
         };
 
         // If the cache queries did not yield to a result, fallback to local dep file query (continuation), then execution.

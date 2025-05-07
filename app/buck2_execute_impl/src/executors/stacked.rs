@@ -17,7 +17,8 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_futures::cancellation::CancellationContext;
 
 pub struct StackedExecutor<O, F> {
-    pub optional: O,
+    pub optional1: O,
+    pub optional2: O,
     pub fallback: F,
 }
 
@@ -34,7 +35,11 @@ where
         cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
         let manager = self
-            .optional
+            .optional1
+            .maybe_execute(command, manager, cancellations)
+            .await?; // This actually returns if we get a response.
+        let manager = self
+            .optional2
             .maybe_execute(command, manager, cancellations)
             .await?; // This actually returns if we get a response.
 
