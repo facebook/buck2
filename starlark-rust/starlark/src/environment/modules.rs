@@ -36,6 +36,7 @@ use crate::collections::Hashed;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocModule;
+use crate::docs::DocProperty;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::environment::EnvironmentError;
@@ -242,10 +243,17 @@ impl FrozenModule {
             })
             // FIXME(JakobDegen): Throws out information
             .map(|(k, v)| {
-                (
-                    k.as_str().to_owned(),
-                    DocItem::Member(DocMember::from_value(v.to_value())),
-                )
+                let doc_item = match v.to_value().documentation() {
+                    doc_module @ DocItem::Module(_) => doc_module,
+                    member @ DocItem::Member(_) => member,
+                    // If we have a value which is a complex type, the right type to put in the docs is not the type
+                    // it represents, but it's just a property we should point at
+                    DocItem::Type(_) => DocItem::Member(DocMember::Property(DocProperty {
+                        docs: None,
+                        typ: v.to_value().get_type_starlark_repr(),
+                    })),
+                };
+                (k.as_str().to_owned(), doc_item)
             })
             .collect();
 

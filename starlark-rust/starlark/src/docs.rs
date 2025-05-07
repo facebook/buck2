@@ -39,7 +39,6 @@ use crate::eval::runtime::params::display::iter_fmt_param_spec;
 use crate::typing::Ty;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
-use crate::values::Value;
 use crate::values::type_repr::StarlarkTypeRepr;
 
 /// The documentation provided by a user for a specific module, object, function, etc.
@@ -204,20 +203,6 @@ pub struct DocProperty {
 pub enum DocMember {
     Property(DocProperty),
     Function(DocFunction),
-}
-
-impl DocMember {
-    pub(crate) fn from_value(value: Value) -> Self {
-        // If we have a value which is a complex type, the right type to put in the docs is not the type
-        // it represents, but it's just a property we should point at
-        match value.documentation() {
-            DocItem::Member(x) => x,
-            _ => DocMember::Property(DocProperty {
-                docs: None,
-                typ: value.get_type_starlark_repr(),
-            }),
-        }
-    }
 }
 
 /// The documentation for a type
