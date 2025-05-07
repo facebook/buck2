@@ -114,6 +114,7 @@ def _java_toolchain_impl(ctx):
             nullsafe_extra_args = [],
             nullsafe_signatures = None,
             global_code_config = {},
+            merge_class_to_source_maps = ctx.attrs.merge_class_to_source_maps,
         ),
     ]
 
@@ -139,6 +140,10 @@ _java_toolchain = rule(
         "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source(), attrs.string()), default = None),
         "javac_protocol": attrs.enum(JavacProtocol.values()),
         "javacd_main_class": attrs.option(attrs.string(), default = None),
+        "merge_class_to_source_maps": attrs.exec_dep(
+            default = "prelude//java/tools:merge_class_to_source_maps",
+            providers = [RunInfo],
+        ),
         "zip_scrubber": attrs.source(default = "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip_scrubber"),
     },
 )
