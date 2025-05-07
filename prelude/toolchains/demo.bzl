@@ -12,7 +12,7 @@ load("@prelude//toolchains:dex.bzl", "system_noop_dex_toolchain")
 load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
 load("@prelude//toolchains:go.bzl", "system_go_bootstrap_toolchain", "system_go_toolchain")
 load("@prelude//toolchains:haskell.bzl", "system_haskell_toolchain")
-load("@prelude//toolchains:java.bzl", "javacd_toolchain", "system_java_bootstrap_toolchain", "system_java_tool", "system_prebuilt_jar_bootstrap_toolchain")
+load("@prelude//toolchains:java.bzl", "java_test_toolchain", "javacd_toolchain", "system_java_bootstrap_toolchain", "system_java_tool", "system_prebuilt_jar_bootstrap_toolchain")
 load("@prelude//toolchains:kotlin.bzl", "kotlincd_toolchain", "system_kotlin_bootstrap_toolchain")
 load("@prelude//toolchains:ocaml.bzl", "system_ocaml_toolchain")
 load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain", "system_python_toolchain")
@@ -85,6 +85,7 @@ def system_demo_toolchains():
     javacd_toolchain(
         name = "java",
         java = ":java_tool",
+        jar = ":jar_tool",
         visibility = ["PUBLIC"],
     )
 
@@ -103,12 +104,34 @@ def system_demo_toolchains():
     javacd_toolchain(
         name = "java_for_android",
         java = ":java_tool",
+        jar = ":jar_tool",
         visibility = ["PUBLIC"],
+    )
+
+    javacd_toolchain(
+        name = "java_for_host_test",
+        java = ":java_tool",
+        java_for_tests = ":java_tool",
+        jar = ":jar_tool",
+        visibility = ["PUBLIC"],
+    )
+
+    java_test_toolchain(
+        name = "java_test",
+        visibility = [
+            "PUBLIC",
+        ],
     )
 
     system_java_tool(
         name = "java_tool",
         tool_name = read_root_config("java", "java_binary", "/usr/local/bin/java"),
+        visibility = ["PUBLIC"],
+    )
+
+    system_java_tool(
+        name = "jar_tool",
+        tool_name = read_root_config("java", "jar_binary", "/usr/local/bin/jar"),
         visibility = ["PUBLIC"],
     )
 

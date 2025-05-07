@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaPlatformInfo", "JavaToolchainInfo", "JavacProtocol", "PrebuiltJarToolchainInfo")
+load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaPlatformInfo", "JavaTestToolchainInfo", "JavaToolchainInfo", "JavacProtocol", "PrebuiltJarToolchainInfo")
 
 def _system_java_tool_impl(ctx):
     return [
@@ -51,11 +51,15 @@ _prebuilt_jar_toolchain_rule = rule(
 def javacd_toolchain(
         name,
         java,
+        jar,
+        java_for_tests = None,
         visibility = None):
     _java_toolchain(
         name = name,
         visibility = visibility,
         java = java,
+        jar = jar,
+        java_for_tests = java_for_tests,
         is_bootstrap_toolchain = False,
         class_abi_generator = "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi:api-stubber",
         class_loader_bootstrapper = "prelude//toolchains/android/src/com/facebook/buck/cli/bootstrapper:bootstrapper",
@@ -98,8 +102,9 @@ def _java_toolchain_impl(ctx):
             gen_class_to_source_map_debuginfo = None,
             fat_jar = ctx.attrs.fat_jar,
             is_bootstrap_toolchain = ctx.attrs.is_bootstrap_toolchain,
-            jar = None,
+            jar = ctx.attrs.jar[RunInfo] if ctx.attrs.jar else None,
             java = ctx.attrs.java,
+            java_for_tests = ctx.attrs.java_for_tests[RunInfo] if ctx.attrs.java_for_tests else ctx.attrs.java[RunInfo],
             javac = ctx.attrs.javac,
             javac_protocol = ctx.attrs.javac_protocol,
             javacd_jvm_args = [],
@@ -137,8 +142,10 @@ _java_toolchain = rule(
             "androidx.databinding",
         ]),
         "is_bootstrap_toolchain": attrs.bool(default = False),
+        "jar": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "jar_builder": attrs.source(default = "prelude//toolchains/android/src/com/facebook/buck/util/zip:jar_builder"),
         "java": attrs.dep(),
+        "java_for_tests": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source(), attrs.string()), default = None),
         "javac_protocol": attrs.enum(JavacProtocol.values()),
         "javacd_main_class": attrs.option(attrs.string(), default = None),
@@ -150,4 +157,43 @@ _java_toolchain = rule(
         "target_level": attrs.string(default = "11"),
         "zip_scrubber": attrs.source(default = "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip_scrubber"),
     },
+)
+
+def java_test_toolchain(name, **kwargs):
+    kwargs["test_runner_library_jar"] = "prelude//toolchains/android/src/com/facebook/buck/testrunner:testrunner-bin-fixed"
+    kwargs["junit_test_runner_main_class_args"] = ["com.facebook.buck.jvm.java.runner.FileClassPathRunner", "com.facebook.buck.testrunner.JUnitMain"]
+    kwargs["junit5_test_runner_main_class_args"] = ["com.facebook.buck.jvm.java.runner.FileClassPathRunner", "com.facebook.buck.testrunner.JupiterMain"]
+    kwargs["testng_test_runner_main_class_args"] = ["com.facebook.buck.jvm.java.runner.FileClassPathRunner", "com.facebook.buck.testrunner.TestNGMain"]
+    kwargs["list_class_names"] = "prelude//java/tools:list_class_names"
+
+    _java_test_toolchain_rule(name = name, **kwargs)
+
+def _java_test_toolchain_rule_impl(ctx):
+    return [
+        DefaultInfo(),
+        JavaTestToolchainInfo(
+            junit5_test_runner_main_class_args = ctx.attrs.junit5_test_runner_main_class_args,
+            junit_test_runner_main_class_args = ctx.attrs.junit_test_runner_main_class_args,
+            jvm_args = ctx.attrs.jvm_args,
+            list_class_names = ctx.attrs.list_class_names,
+            list_tests = None,
+            test_runner_library_jar = ctx.attrs.test_runner_library_jar,
+            testng_test_runner_main_class_args = ctx.attrs.testng_test_runner_main_class_args,
+        ),
+    ]
+
+_java_test_toolchain_rule = rule(
+    impl = _java_test_toolchain_rule_impl,
+    attrs = {
+        "junit5_test_runner_main_class_args": attrs.list(attrs.string()),
+        "junit_test_runner_main_class_args": attrs.list(attrs.string()),
+        "jvm_args": attrs.list(
+            attrs.string(),
+            default = [],
+        ),
+        "list_class_names": attrs.dep(providers = [RunInfo]),
+        "test_runner_library_jar": attrs.source(),
+        "testng_test_runner_main_class_args": attrs.list(attrs.string()),
+    },
+    is_toolchain_rule = True,
 )
