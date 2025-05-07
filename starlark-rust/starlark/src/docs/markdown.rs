@@ -180,7 +180,13 @@ pub(super) fn render_members<'a>(
     let member_details: Vec<_> = after_summary.into_iter().chain(member_details).collect();
     let members_details = member_details.join("\n\n---\n\n");
 
-    format!("# {name}{summary}\n\n{members_details}")
+    let header = if name == "" {
+        "".to_owned()
+    } else {
+        format!("# {name}")
+    };
+
+    format!("{header}{summary}\n\n{members_details}")
 }
 
 pub(super) fn render_doc_type(

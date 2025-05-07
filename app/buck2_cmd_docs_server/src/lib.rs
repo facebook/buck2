@@ -26,7 +26,6 @@ use crate::starlark_::docs_starlark;
 
 mod builtins;
 mod json;
-mod markdown;
 mod starlark_;
 
 struct DocsServerCommandImpl;

@@ -8,6 +8,7 @@
  */
 
 use std::collections::HashSet;
+use std::path::PathBuf;
 
 use buck2_cli_proto::new_generic::DocsOutputFormat;
 use buck2_cli_proto::new_generic::DocsResponse;
@@ -28,9 +29,10 @@ use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use dice::DiceTransaction;
 use futures::FutureExt;
+use starlark::docs::multipage::DocModuleInfo;
 
+use crate::builtins::write_docs_to_subdir;
 use crate::json;
-use crate::markdown::generate_markdown_files;
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub(crate) enum StarlarkFilePath {
@@ -135,8 +137,23 @@ pub(crate) async fn docs_starlark(
 
     let json_output = match &request.format {
         DocsOutputFormat::Json => Some(json::to_json(docs)?),
-        DocsOutputFormat::Markdown(path) => {
-            generate_markdown_files(&path, docs)?;
+        DocsOutputFormat::Markdown(output_dir) => {
+            let module_infos = docs
+                .iter()
+                .map(|(path, doc)| {
+                    let path = PathBuf::from(path.cell().as_str())
+                        .join(path.path().path().as_forward_relative_path().as_path());
+                    let path = path.to_str().map(|s| s.to_owned()).unwrap_or("".to_owned());
+
+                    DocModuleInfo {
+                        module: doc,
+                        name: "".to_owned(),
+                        page_path: path,
+                    }
+                })
+                .collect();
+
+            write_docs_to_subdir(module_infos, output_dir.to_str()?, None)?;
             None
         }
     };
