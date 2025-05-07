@@ -1,5 +1,4 @@
-load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
-load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
+load("@fbcode//buck2:proto_defs.bzl", "proto_srcs", "rust_protobuf_library")
 
 oncall("build_infra")
 
@@ -7,15 +6,15 @@ rust_protobuf_library(
     name = "buck2_host_sharing_proto",
     srcs = glob(["src/**/*.rs"]),
     build_script = "build.rs",
-    protos = ["host_sharing.proto"],
+    proto_srcs = ":host_sharing.proto",
     deps = [
         "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:tonic",
     ],
 )
 
-export_file(
+proto_srcs(
     name = "host_sharing.proto",
-    src = "host_sharing.proto",
+    srcs = ["host_sharing.proto"],
     visibility = ["PUBLIC"],
 )

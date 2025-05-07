@@ -7,13 +7,20 @@
  * of this source tree.
  */
 
+use std::env;
 use std::io;
 
 fn main() -> io::Result<()> {
     let proto_files = &["host_sharing.proto"];
 
+    let includes = if let Ok(path) = env::var("BUCK_PROTO_SRCS") {
+        vec![path]
+    } else {
+        vec![".".to_owned()]
+    };
+
     buck2_protoc_dev::configure()
         .setup_protoc()
         .extern_path(".buck.data", "::buck2_data")
-        .compile(proto_files, &["."])
+        .compile(proto_files, &includes)
 }

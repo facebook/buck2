@@ -1,4 +1,4 @@
-load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
+load("@fbcode//buck2:proto_defs.bzl", "proto_srcs", "rust_protobuf_library")
 load("@fbcode//grpc_fb/codegen:buck_macros.bzl", "grpc_library")
 
 oncall("build_infra")
@@ -7,10 +7,16 @@ rust_protobuf_library(
     name = "buck2_install_proto",
     srcs = glob(["src/**/*.rs"]),
     build_script = "build.rs",
-    protos = ["install.proto"],
+    proto_srcs = ":buck2_install_proto.proto",
     deps = [
         "fbsource//third-party/rust:tonic",
     ],
+)
+
+proto_srcs(
+    name = "buck2_install_proto.proto",
+    srcs = ["install.proto"],
+    visibility = ["PUBLIC"],
 )
 
 grpc_library(

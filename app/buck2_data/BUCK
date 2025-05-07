@@ -1,6 +1,6 @@
-load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
+load("@fbcode//buck2:proto_defs.bzl", "proto_srcs", "rust_protobuf_library")
 load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
-load(":export_file_with.bzl", "export_file_with")
+load("@fbcode_macros//build_defs/lib:oss.bzl", "translate_target")
 
 oncall("build_infra")
 
@@ -8,10 +8,7 @@ rust_protobuf_library(
     name = "buck2_data",
     srcs = glob(["src/**/*.rs"]),
     build_script = "build.rs",
-    protos = [
-        "data.proto",
-        "error.proto",
-    ],
+    proto_srcs = ":data_proto",
     deps = [
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:hex",
@@ -19,16 +16,22 @@ rust_protobuf_library(
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:tonic",
         "//buck2/allocative/allocative:allocative",
+        "//buck2/app/buck2_host_sharing_proto:buck2_host_sharing_proto",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",
     ],
 )
 
-export_file_with(
+proto_srcs(
     name = "data_proto",
-    src = "data.proto",
-    attach = ["error.proto"],
+    srcs = [
+        "data.proto",
+        "error.proto",
+    ],
     visibility = ["PUBLIC"],
+    deps = [
+        translate_target("//buck2/app/buck2_host_sharing_proto:host_sharing.proto"),
+    ],
 )
 
 export_file(

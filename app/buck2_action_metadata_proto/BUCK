@@ -1,4 +1,4 @@
-load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
+load("@fbcode//buck2:proto_defs.bzl", "proto_srcs", "rust_protobuf_library")
 
 oncall("build_infra")
 
@@ -6,8 +6,14 @@ rust_protobuf_library(
     name = "buck2_action_metadata_proto",
     srcs = glob(["src/**/*.rs"]),
     build_script = "build.rs",
-    protos = ["action_metadata.proto"],
+    proto_srcs = ":buck2_action_metadata_proto.proto",
     deps = [
         "fbsource//third-party/rust:tonic",
     ],
+)
+
+proto_srcs(
+    name = "buck2_action_metadata_proto.proto",
+    srcs = ["action_metadata.proto"],
+    visibility = ["PUBLIC"],
 )

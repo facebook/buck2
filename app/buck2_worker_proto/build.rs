@@ -7,12 +7,19 @@
  * of this source tree.
  */
 
+use std::env;
 use std::io;
 
 fn main() -> io::Result<()> {
     let proto_files = &["worker.proto"];
 
+    let includes = if let Ok(path) = env::var("BUCK_PROTO_SRCS") {
+        vec![path]
+    } else {
+        vec![".".to_owned(), "../buck2_data".to_owned()]
+    };
+
     buck2_protoc_dev::configure()
         .setup_protoc()
-        .compile(proto_files, &["."])
+        .compile(proto_files, &includes)
 }

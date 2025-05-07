@@ -7,10 +7,17 @@
  * of this source tree.
  */
 
+use std::env;
 use std::io;
 
 fn main() -> io::Result<()> {
     let proto_files = &["data.proto", "error.proto"];
+
+    let includes = if let Ok(path) = env::var("BUCK_PROTO_SRCS") {
+        vec![path]
+    } else {
+        vec![".".to_owned()]
+    };
 
     buck2_protoc_dev::configure()
         .setup_protoc()
@@ -259,5 +266,5 @@ fn main() -> io::Result<()> {
         .boxed("SpanEndEvent.data.action_execution")
         .boxed("SpanEndEvent.data.cache_upload")
         .boxed("InstantEvent.data.snapshot")
-        .compile(proto_files, &["."])
+        .compile(proto_files, &includes)
 }

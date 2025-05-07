@@ -9,24 +9,18 @@
 
 use std::env;
 use std::io;
-use std::path::PathBuf;
 
 fn main() -> io::Result<()> {
     let proto_files = &["test.proto"];
 
-    let data_include = if let Ok(value) = env::var("BUCK_HACK_DATA_PROTOC_INCLUDE") {
-        let path = PathBuf::from(value);
-        path.parent().unwrap().to_str().unwrap().to_owned()
+    let includes = if let Ok(path) = env::var("BUCK_PROTO_SRCS") {
+        vec![path]
     } else {
-        "../buck2_data".to_owned()
-    };
-
-    let host_sharing_include = if let Ok(value) = env::var("BUCK_HACK_HOST_SHARING_PROTOC_INCLUDE")
-    {
-        let path = PathBuf::from(value);
-        path.parent().unwrap().to_str().unwrap().to_owned()
-    } else {
-        "../buck2_host_sharing_proto".to_owned()
+        vec![
+            ".".to_owned(),
+            "../buck2_data".to_owned(),
+            "../buck2_host_sharing_proto".to_owned(),
+        ]
     };
 
     buck2_protoc_dev::configure()
@@ -37,5 +31,5 @@ fn main() -> io::Result<()> {
         )
         .extern_path(".buck.data", "::buck2_data")
         .extern_path(".buck.host_sharing", "::buck2_host_sharing_proto")
-        .compile(proto_files, &[".", &data_include, &host_sharing_include])
+        .compile(proto_files, &includes)
 }

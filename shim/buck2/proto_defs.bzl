@@ -7,7 +7,9 @@
 
 load(
     "@shim//:shims.bzl",
+    _proto_srcs = "proto_srcs",
     _rust_protobuf_library = "rust_protobuf_library",
 )
 
 rust_protobuf_library = _rust_protobuf_library
+proto_srcs = _proto_srcs

@@ -1,4 +1,4 @@
-load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
+load("@fbcode//buck2:proto_defs.bzl", "proto_srcs", "rust_protobuf_library")
 load("@fbcode_macros//build_defs/lib:oss.bzl", "translate_target")
 
 oncall("build_infra")
@@ -6,18 +6,22 @@ oncall("build_infra")
 rust_protobuf_library(
     name = "buck2_forkserver_proto",
     srcs = glob(["src/**/*.rs"]),
-    build_env = {
-        "BUCK_HACK_DATA_PROTOC_INCLUDE": "$(location {})".format(
-            translate_target("//buck2/app/buck2_data:data_proto"),
-        ),
-    },
     build_script = "build.rs",
-    protos = ["forkserver.proto"],
+    proto_srcs = ":buck2_forkserver_proto.proto",
     deps = [
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:tonic",
         "//buck2/app/buck2_data:buck2_data",
         "//buck2/gazebo/gazebo:gazebo",
+    ],
+)
+
+proto_srcs(
+    name = "buck2_forkserver_proto.proto",
+    srcs = ["forkserver.proto"],
+    visibility = ["PUBLIC"],
+    deps = [
+        translate_target("//buck2/app/buck2_data:data_proto"),
     ],
 )

@@ -7,10 +7,17 @@
  * of this source tree.
  */
 
+use std::env;
 use std::io;
 
 fn main() -> io::Result<()> {
     let proto_files = &["subscription.proto"];
+
+    let includes = if let Ok(path) = env::var("BUCK_PROTO_SRCS") {
+        vec![path]
+    } else {
+        vec![".".to_owned()]
+    };
 
     buck2_protoc_dev::configure()
         .setup_protoc()
@@ -24,5 +31,5 @@ fn main() -> io::Result<()> {
             "buck.subscription.SubscriptionResponse.response",
             "#[derive(::derive_more::From)]",
         )
-        .compile(proto_files, &["."])
+        .compile(proto_files, &includes)
 }

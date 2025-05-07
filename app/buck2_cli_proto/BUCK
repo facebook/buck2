@@ -1,4 +1,4 @@
-load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
+load("@fbcode//buck2:proto_defs.bzl", "proto_srcs", "rust_protobuf_library")
 load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 load("@fbcode_macros//build_defs/lib:oss.bzl", "translate_target")
 
@@ -7,16 +7,8 @@ oncall("build_infra")
 rust_protobuf_library(
     name = "buck2_cli_proto",
     srcs = glob(["src/**/*.rs"]),
-    build_env = {
-        "BUCK_HACK_DATA_PROTOC_INCLUDE": "$(location {})".format(
-            translate_target("//buck2/app/buck2_data:data_proto"),
-        ),
-        "BUCK_HACK_SUBSCRIPTION_PROTOC_INCLUDE": "$(location {})".format(
-            translate_target("//buck2/app/buck2_subscription_proto:subscription.proto"),
-        ),
-    },
     build_script = "build.rs",
-    protos = ["daemon.proto"],
+    proto_srcs = ":buck2_cli_proto.proto",
     test_deps = [
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:tokio",
@@ -32,6 +24,16 @@ rust_protobuf_library(
         "//buck2/app/buck2_data:buck2_data",
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_subscription_proto:buck2_subscription_proto",
+    ],
+)
+
+proto_srcs(
+    name = "buck2_cli_proto.proto",
+    srcs = ["daemon.proto"],
+    visibility = ["PUBLIC"],
+    deps = [
+        translate_target("//buck2/app/buck2_data:data_proto"),
+        translate_target("//buck2/app/buck2_subscription_proto:buck2_subscription_proto.proto"),
     ],
 )
 

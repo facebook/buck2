@@ -13,11 +13,12 @@ def rust_protobuf_library(
         name,
         srcs,
         build_script,
-        protos,
-        build_env = None,
+        protos = None,  # Pass a list of files. Thye'll be placed in the cwd. Prefer using proto_srcs.
         deps = None,
         test_deps = None,
-        doctests = True):
+        doctests = True,
+        build_env = None,
+        proto_srcs = None):  # Use a proto_srcs() target, path is exposed as BUCK_PROTO_SRCS.
     build_name = name + "-build"
     proto_name = name + "-proto"
 
@@ -31,12 +32,12 @@ def rust_protobuf_library(
     )
 
     build_env = build_env or {}
-    build_env.update(
-        {
-            "PROTOC": "$(exe fbsource//third-party/protobuf:protoc)",
-            "PROTOC_INCLUDE": "$(location fbsource//third-party/protobuf:google.protobuf)",
-        },
-    )
+    build_env.update({
+        "PROTOC": "$(exe fbsource//third-party/protobuf:protoc)",
+        "PROTOC_INCLUDE": "$(location fbsource//third-party/protobuf:google.protobuf)",
+    })
+    if proto_srcs:
+        build_env["BUCK_PROTO_SRCS"] = "$(location {})".format(proto_srcs)
 
     buck_genrule(
         name = proto_name,
@@ -69,3 +70,23 @@ def rust_protobuf_library(
         ] + (deps or []),
         test_deps = test_deps,
     )
+
+ProtoSrcsInfo = provider(fields = ["srcs"])
+
+def _proto_srcs_impl(ctx):
+    srcs = {src.basename: src for src in ctx.attrs.srcs}
+    for dep in ctx.attrs.deps:
+        for src in dep[ProtoSrcsInfo].srcs:
+            if src.basename in srcs:
+                fail("Duplicate src:", src.basename)
+            srcs[src.basename] = src
+    out = ctx.actions.copied_dir(ctx.attrs.name, srcs)
+    return [DefaultInfo(default_output = out), ProtoSrcsInfo(srcs = srcs.values())]
+
+proto_srcs = rule(
+    impl = _proto_srcs_impl,
+    attrs = {
+        "deps": attrs.list(attrs.dep(), default = []),
+        "srcs": attrs.list(attrs.source(), default = []),
+    },
+)
