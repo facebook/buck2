@@ -246,7 +246,7 @@ impl fmt::Display for StarlarkReadDirSet {
     }
 }
 
-#[starlark_value(type = "read_dir_set")]
+#[starlark_value(type = "bxl.ReadDirSet")]
 impl<'v> StarlarkValue<'v> for StarlarkReadDirSet {
     fn iterate_collect(&self, heap: &'v Heap) -> starlark::Result<Vec<Value<'v>>> {
         Ok(self
