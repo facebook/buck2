@@ -19,7 +19,7 @@
 %%%    escript_builder.escript escript_build_spec.term
 %%% @end
 
--module(app_src_builder).
+-module(escript_builder).
 -author("loscher@fb.com").
 
 -export([main/1]).
@@ -27,7 +27,7 @@
 -include_lib("kernel/include/file.hrl").
 
 -type escript_artifact_spec() :: #{
-    ArchivePath :: file:filename() => FileSystemPath :: file:filename()
+    ArchivePath :: file:filename_all() => FileSystemPath :: file:filename_all()
 }.
 -type escript_load_spec() :: [{ArchivePath :: file:filename(), FileSystemPath :: file:filename()}].
 -type escript_archive_spec() :: [{ArchivePath :: file:filename(), binary()}].
@@ -35,8 +35,9 @@
 -spec main([string()]) -> ok.
 main([Spec]) ->
     try
-        {ok, [Terms]} = file:consult(Spec),
-        do(Terms)
+        {ok, Contents} = file:read_file(Spec, [raw]),
+        Decoded = json:decode(Contents),
+        do(Decoded)
     catch
         Type:{abort, Reason} ->
             io:format(standard_error, "~s: ~s~n", [Type, Reason]),
@@ -49,18 +50,18 @@ main(_) ->
 usage() ->
     io:format("escript_builder.escript build_spec.term ~n").
 
--spec do(#{}) -> ok.
+-spec do(map()) -> ok.
 do(#{
-    "artifacts" := Artifacts,
-    "emu_args" := EmuArgs0,
-    "output" := EscriptPath
+    <<"artifacts">> := Artifacts,
+    <<"emu_args">> := EmuArgs0,
+    <<"output">> := EscriptPath
 }) ->
     ArchiveSpec = prepare_files(Artifacts),
     Shebang = "/usr/bin/env escript",
     Comment = "",
-    EmuArgs1 = [string:strip(Arg) || Arg <- EmuArgs0],
+    EmuArgs1 = [string:trim(Arg) || Arg <- EmuArgs0],
     FinalEmuArgs = unicode:characters_to_list(
-        [" ", string:join(EmuArgs1, " ")]
+        [" ", lists:join(" ", EmuArgs1)]
     ),
     EscriptSections =
         [
@@ -74,7 +75,7 @@ do(#{
         ok ->
             ok;
         {error, EscriptError} ->
-            error(io_lib:format("could not create escript: ~p", [EscriptError]))
+            error(unicode:characters_to_binary(io_lib:format("could not create escript: ~p", [EscriptError])))
     end,
 
     %% set executable bits (unix only)
@@ -89,10 +90,11 @@ prepare_files(Artifacts) ->
 -spec expand_to_files_list(escript_artifact_spec()) -> escript_load_spec().
 expand_to_files_list(Artifacts) ->
     maps:fold(
-        fun(ArchivePath, FSPath, AccOuter) ->
+        fun(ArchivePathBin, FSPath, AccOuter) ->
+            ArchivePath = binary_to_list(ArchivePathBin),
             case filelib:is_dir(FSPath) of
                 true ->
-                    Files = filelib:wildcard("**", FSPath),
+                    Files = filelib:wildcard("**", binary_to_list(FSPath)),
                     lists:foldl(
                         fun(FileShortPath, AccInner) ->
                             FileOrDirPath = filename:join(FSPath, FileShortPath),
