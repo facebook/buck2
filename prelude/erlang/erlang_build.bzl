@@ -20,9 +20,8 @@ load(
 load(":erlang_utils.bzl", "action_identifier")
 
 # mapping
-#   from include base name and application (e.g. ("app1", "header.hrl")
-#   to symlinked include/ dir artifact
-IncludesMapping = dict[(str, str), Artifact]
+#   from application to set of basenames in include dir for that application
+IncludesMapping = dict[str, set[str]]
 
 # mapping
 #   from include base name (e.g. "header.hrl"
@@ -48,7 +47,7 @@ BuildEnvironment = record(
     deps_files = field(PathArtifactMapping, {}),
     app_files = field(PathArtifactMapping, {}),
     # convenience storrage
-    app_includes = field(IncludesMapping, {}),
+    app_includes = field(set[str], set()),
     app_beams = field(ModuleArtifactMapping, {}),
     # input artifact mapping
     input_mapping = field(InputArtifactMapping, {}),
@@ -75,7 +74,7 @@ def _prepare_build_environment(
 
     if includes_target:
         include_dirs = {includes_target.name: includes_target.include_dir[toolchain.name]}
-        includes = dict(includes_target.includes[toolchain.name])
+        includes = {includes_target.name: includes_target.includes[toolchain.name]}
         deps_files = dict(includes_target.deps_files[toolchain.name])
         input_mapping = dict(includes_target.input_mapping[toolchain.name])
 
@@ -120,17 +119,17 @@ def _prepare_build_environment(
 
         # collect includes
         include_dirs[name] = dep_info.include_dir[toolchain.name]
-        includes.update(dep_info.includes[toolchain.name])
+        includes[name] = dep_info.includes[toolchain.name]
 
         # collect deps_files
         new_deps = dep_info.deps_files[toolchain.name]
         for dep_file in new_deps:
             if dep_file in deps_files and deps_files[dep_file] != new_deps[dep_file]:
                 fail("conflicting artifact found in build {}: {} and {}".format(dep_info.name, deps_files[dep_file], new_deps[dep_file]))
-        deps_files.update(new_deps)
+            deps_files[dep_file] = new_deps[dep_file]
 
     return BuildEnvironment(
-        app_includes = includes_target.includes[toolchain.name] if includes_target else {},
+        app_includes = includes_target.includes[toolchain.name] if includes_target else set(),
         includes = includes,
         beams = beams,
         priv_dirs = priv_dirs,
@@ -195,27 +194,22 @@ def _generate_include_artifacts(
     include_files = {hrl.basename: hrl for hrl in header_artifacts}
     include_dir = ctx.actions.symlinked_dir(paths.join(_build_dir(toolchain), name, "include"), include_files)
 
-    include_mapping = {
-        _header_key(hrl, name, is_private): include_dir
-        for hrl in header_artifacts
-    }
-
     # dep files
     deps_files = _get_deps_files(ctx, toolchain, header_artifacts, build_environment.deps_files)
 
     # construct updates build environment
     if not is_private:
         # fields for public include directory
-        includes = _merge(include_mapping, build_environment.includes)
+        app_includes = set([hrl.basename for hrl in header_artifacts])
+        includes = _add(build_environment.includes, name, app_includes)
         private_includes = build_environment.private_includes
         include_dirs = _add(build_environment.include_dirs, name, include_dir)
-        app_includes = include_mapping
     else:
         # fields for private include directory
-        includes = build_environment.includes
-        private_includes = _merge(include_mapping, build_environment.private_includes)
-        include_dirs = build_environment.include_dirs
         app_includes = build_environment.app_includes
+        includes = build_environment.includes
+        private_includes = {hrl.basename: include_dir for hrl in header_artifacts}
+        include_dirs = build_environment.include_dirs
 
     return BuildEnvironment(
         # updated fields
@@ -231,10 +225,6 @@ def _generate_include_artifacts(
         app_files = build_environment.app_files,
         input_mapping = build_environment.input_mapping,
     )
-
-def _header_key(hrl: Artifact, name: str, is_private: bool) -> [(str, str), str]:
-    """Return the key for either public `("string", "string")` or private `"string"` include """
-    return hrl.basename if is_private else (name, hrl.basename)
 
 def _generate_beam_artifacts(
         ctx: AnalysisContext,
@@ -411,7 +401,7 @@ def _dependencies_to_args(
         file = dep["file"]
         if dep["type"] == "include_lib":
             app = dep["app"]
-            if (app, file) in build_environment.includes:
+            if app in build_environment.include_dirs:
                 include_dir = build_environment.include_dirs[app]
                 include_libs.add(include_dir)
                 precise_includes.append(include_dir.project(file))
@@ -433,12 +423,14 @@ def _dependencies_to_args(
             else:
                 # at this point we don't know the application the include is coming
                 # from, and have to check all public include directories
-                candidates = [key for key in build_environment.includes.keys() if key[1] == file]
+                candidates = []
+                for app in build_environment.includes:
+                    if file in build_environment.includes[app]:
+                        candidates.append(app)
                 if len(candidates) > 1:
-                    offending_apps = [app for (app, _) in candidates]
-                    fail("-include(\"%s\") is ambiguous as the following applications declare public includes with the same name: %s" % (file, offending_apps))
+                    fail("-include(\"%s\") is ambiguous as the following applications declare public includes with the same name: %s" % (file, candidates))
                 elif candidates:
-                    include_dir = build_environment.includes[candidates[0]]
+                    include_dir = build_environment.include_dirs[candidates[0]]
                     includes.add(include_dir)
                     precise_includes.append(include_dir.project(file))
                     input_mapping[file] = (True, build_environment.input_mapping[file])
