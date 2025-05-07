@@ -115,6 +115,8 @@ def _java_toolchain_impl(ctx):
             nullsafe_signatures = None,
             global_code_config = {},
             merge_class_to_source_maps = ctx.attrs.merge_class_to_source_maps,
+            source_level = ctx.attrs.source_level,
+            target_level = ctx.attrs.target_level,
         ),
     ]
 
@@ -144,6 +146,8 @@ _java_toolchain = rule(
             default = "prelude//java/tools:merge_class_to_source_maps",
             providers = [RunInfo],
         ),
+        "source_level": attrs.string(default = "11"),
+        "target_level": attrs.string(default = "11"),
         "zip_scrubber": attrs.source(default = "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip_scrubber"),
     },
 )
