@@ -8,22 +8,49 @@
 load("@prelude//java:java_toolchain.bzl", "DepFiles")
 load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo", "KotlincProtocol")
 
-def system_kotlin_bootstrap_toolchain(
+def kotlincd_toolchain(
         name,
-        **kwargs):
-    kwargs["annotation_processing_jar"] = "prelude//toolchains/android/third-party:kotlin-annotation-processing-embeddable"
-    kwargs["compile_kotlin"] = "prelude//kotlin/tools/compile_kotlin:compile_kotlin"
-    kwargs["kapt_base64_encoder"] = "prelude//kotlin/tools/kapt_base64_encoder:kapt_base64_encoder"
-    kwargs["kotlin_stdlib"] = "prelude//toolchains/android/third-party:kotlin-stdlib"
-    kwargs["kotlin_version"] = "2.0.0"
-
-    kwargs["kotlinc"] = "prelude//toolchains/android/third-party:kotlin-compiler-binary"
-    kwargs["kotlinc_protocol"] = "classic"
-    kwargs["dep_files"] = None
-
+        visibility = None):
     _kotlin_toolchain_rule(
         name = name,
-        **kwargs
+        annotation_processing_jar = "prelude//toolchains/android/third-party:kotlin-annotation-processing-embeddable",
+        class_loader_bootstrapper = "prelude//toolchains/android/src/com/facebook/buck/cli/bootstrapper:bootstrapper",
+        compile_kotlin = "prelude//kotlin/tools/compile_kotlin:compile_kotlin",
+        dep_files = "none",
+        kapt_base64_encoder = "prelude//kotlin/tools/kapt_base64_encoder:kapt_base64_encoder",
+        kotlin_stdlib = "prelude//toolchains/android/third-party:kotlin-stdlib",
+        kotlin_version = "2.0.0",
+        kotlin_home_libraries = [
+            "prelude//toolchains/android/third-party:kotlin-annotations",
+            "prelude//toolchains/android/third-party:kotlin-build-tools-impl",
+            "prelude//toolchains/android/third-party:kotlin-daemon-client",
+            "prelude//toolchains/android/third-party:kotlin-compiler-embeddable",
+            "prelude//toolchains/android/third-party:kotlin-reflect",
+            "prelude//toolchains/android/third-party:kotlin-script-runtime",
+            "prelude//toolchains/android/third-party:kotlin-stdlib",
+            "prelude//toolchains/android/third-party:trove",
+            "prelude//toolchains/android/third-party:kotlinx-coroutines-core-jvm",
+        ],
+        kotlinc = "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/workertool:kotlincd_tool",
+        kotlinc_protocol = "kotlincd",
+        kotlincd_main_class = "com.facebook.buck.jvm.kotlin.cd.workertool.KotlinCDMain",
+        visibility = visibility,
+    )
+
+def system_kotlin_bootstrap_toolchain(
+        name,
+        visibility = None):
+    _kotlin_toolchain_rule(
+        name = name,
+        annotation_processing_jar = "prelude//toolchains/android/third-party:kotlin-annotation-processing-embeddable",
+        compile_kotlin = "prelude//kotlin/tools/compile_kotlin:compile_kotlin",
+        dep_files = "none",
+        kapt_base64_encoder = "prelude//kotlin/tools/kapt_base64_encoder:kapt_base64_encoder",
+        kotlin_stdlib = "prelude//toolchains/android/third-party:kotlin-stdlib",
+        kotlin_version = read_config("kotlin", "kotlin_version", "2.0.0"),
+        kotlinc = "prelude//toolchains/android/third-party:kotlin-compiler-binary",
+        kotlinc_protocol = "classic",
+        visibility = visibility,
     )
 
 def _kotlin_toolchain_rule_impl(ctx):
@@ -40,7 +67,7 @@ def _kotlin_toolchain_rule_impl(ctx):
             kotlin_stdlib = ctx.attrs.kotlin_stdlib,
             kotlin_version = ctx.attrs.kotlin_version,
             kotlin_home_libraries = ctx.attrs.kotlin_home_libraries,
-            enable_incremental_compilation = ctx.attrs.enable_incremental_compilation,
+            enable_incremental_compilation = ctx.attrs.enable_incremental_compilation or False,
             kotlinc_protocol = ctx.attrs.kotlinc_protocol,
             kotlinc_run_via_build_tools_api = ctx.attrs.kotlinc_run_via_build_tools_api,
             kosabi_stubs_gen_plugin = ctx.attrs.kosabi_stubs_gen_plugin,
