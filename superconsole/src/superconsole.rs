@@ -241,16 +241,23 @@ impl SuperConsole {
         // We don't trust the child to not truncate the result.
         canvas.shrink_lines_to_dimensions(size);
 
+        // The closure to compute the limit to render the emit lines above the canvas.
         // Render at most a single frame if this not the last render.
         // Does not buffer if there is a ridiculous amount of data.
-        let mut limit = match mode {
-            DrawMode::Normal if !is_big(&self.to_emit, &self.aux_to_emit) => {
-                let limit = size.height.saturating_sub(canvas.len());
-                // arbitrary value picked so we don't starve `emit` on small terminal sizes.
-                Some(cmp::max(limit, MINIMUM_EMIT))
+        let compute_limit = |buf0: &Lines, buf1: &Lines| {
+            match mode {
+                DrawMode::Normal if !is_big(buf0, buf1) => {
+                    let limit = size.height.saturating_sub(canvas.len());
+                    // arbitrary value picked so we don't starve `emit` on small terminal sizes.
+                    Some(cmp::max(limit, MINIMUM_EMIT))
+                }
+                _ => None,
             }
-            _ => None,
         };
+
+        // Render at most a single frame if this not the last render.
+        // Does not buffer if there is a ridiculous amount of data.
+        let mut limit = compute_limit(&self.to_emit, &self.aux_to_emit);
 
         // How much of the canvas hasn't changed, so I can avoid overwriting
         // and thus avoid flickering things like URL's in VS Code terminal.
@@ -265,15 +272,25 @@ impl SuperConsole {
         Self::clear_canvas_pre(&mut buffer, self.canvas_contents.len() - reuse_prefix)?;
 
         if !self.aux_to_emit.is_empty() {
-            // If we have aux_to_emit, we need to output the main output (stderr by default) first
-            // and flushed, so that we can make sure the all output order is correct.
-            self.output.output(buffer)?;
-            let mut aux_buffer = Vec::new();
-            limit = self.aux_to_emit.render_with_limit(&mut aux_buffer, limit)?;
-            self.output.output_to(aux_buffer, OutputTarget::Aux)?;
+            if self.output.aux_stream_is_tty() {
+                // If we have aux_to_emit and the aux stream is tty, we need to output the main output (stderr by default) first
+                // and flushed, so that we can make sure the all output order is correct.
+                self.output.output(buffer)?;
+                let mut aux_buffer = Vec::new();
+                limit = self.aux_to_emit.render_with_limit(&mut aux_buffer, limit)?;
+                self.output.output_to(aux_buffer, OutputTarget::Aux)?;
 
-            // Since output is moved at `self.output.output(buffer)`, we need to new a new buffer
-            buffer = Vec::new();
+                // Since output is moved at `self.output.output(buffer)`, we need to new a new buffer
+                buffer = Vec::new();
+            } else {
+                // If the aux stream is not tty, we don't need to render the line, we just output to the auxillary output
+                let mut output_buffer = Vec::new();
+                self.aux_to_emit.render_raw(&mut output_buffer)?;
+                self.output.output_to(output_buffer, OutputTarget::Aux)?;
+
+                // Since we clear the aux_to_emit, we need to recompute the `limit`
+                limit = compute_limit(&self.to_emit, &self.aux_to_emit);
+            }
         }
 
         self.to_emit.render_with_limit(&mut buffer, limit)?;
@@ -299,6 +316,7 @@ mod tests {
     use crate::testing::TestOutput;
     use crate::testing::frame_contains;
     use crate::testing::test_console;
+    use crate::testing::test_console_aux_incompatible;
 
     #[derive(AsRef, Debug)]
     #[allow(dead_code)]
@@ -584,6 +602,31 @@ mod tests {
             TestOutput::aux_output_with_prefix("aux line 1")
         ));
         assert!(frame_contains(&frame, "aux line 2"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_emit_aux_with_aux_incompatible_output() -> anyhow::Result<()> {
+        let mut console = test_console_aux_incompatible();
+
+        let root = Echo(Lines(vec![vec!["state"].try_into()?]));
+        console.emit_aux(Lines(vec![vec!["aux line 1"].try_into()?]));
+        console.emit_aux(Lines(vec![vec!["aux line 2"].try_into()?]));
+        console.render(&root)?;
+
+        // Since we emit aux, we don't output the whole frame once in TestConsole
+        let frame: Vec<u8> = console
+            .test_output_mut()?
+            .frames
+            .iter()
+            .flatten()
+            .copied()
+            .collect();
+        println!("frame: {:?}", String::from_utf8_lossy(&frame));
+        assert!(frame_contains(&frame, "state"));
+        // Since aux output is incompatible with tty, we don't output the any escape sequence to clear the line.
+        assert!(frame_contains(&frame, "aux line 1\naux line 2"));
 
         Ok(())
     }

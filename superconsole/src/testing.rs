@@ -25,6 +25,8 @@ pub struct TestOutput {
     pub terminal_size: Dimensions,
     /// The frames that were written to this output.
     pub frames: Vec<Vec<u8>>,
+    /// Whether auxiliary output is compatible with tty
+    aux_stream_is_tty: bool,
 }
 
 impl TestOutput {
@@ -61,6 +63,10 @@ impl SuperConsoleOutput for TestOutput {
                 Ok(())
             }
         }
+    }
+
+    fn aux_stream_is_tty(&self) -> bool {
+        self.aux_stream_is_tty
     }
 
     fn terminal_size(&self) -> anyhow::Result<Dimensions> {
@@ -102,6 +108,14 @@ impl SuperConsoleTestingExt for SuperConsole {
 }
 
 pub fn test_console() -> SuperConsole {
+    test_console_inner(true)
+}
+
+pub fn test_console_aux_incompatible() -> SuperConsole {
+    test_console_inner(false)
+}
+
+fn test_console_inner(aux_stream_is_tty: bool) -> SuperConsole {
     let size = Dimensions {
         width: 80,
         height: 80,
@@ -112,6 +126,7 @@ pub fn test_console() -> SuperConsole {
             should_render: true,
             terminal_size: size,
             frames: Vec::new(),
+            aux_stream_is_tty,
         }),
     )
 }

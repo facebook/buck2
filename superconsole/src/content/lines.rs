@@ -12,6 +12,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::io::Write;
 use std::iter;
 use std::mem;
 
@@ -315,6 +316,16 @@ impl Lines {
         for line in self.0.iter().skip(start) {
             line.render_with_clear_and_nl(writer)?;
         }
+        Ok(())
+    }
+
+    /// Render the lines without an escape sequence to clear the line.
+    /// It will clear the lines at the end.
+    pub(crate) fn render_raw(&mut self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+        for line in self.0.iter() {
+            writeln!(writer, "{}", line.render())?;
+        }
+        self.0.clear();
         Ok(())
     }
 

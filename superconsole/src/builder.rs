@@ -13,6 +13,7 @@ use std::io::Write;
 use crate::Dimensions;
 use crate::SuperConsole;
 use crate::output::BlockingSuperConsoleOutput;
+use crate::output::IsTtyWrite;
 use crate::output::NonBlockingSuperConsoleOutput;
 use crate::output::SuperConsoleOutput;
 
@@ -22,7 +23,7 @@ pub struct Builder {
     // The stream that superconsole writes to by default (emit output + canvas). By default is stderr.
     stream: Box<dyn Write + Send + 'static + Sync>,
     // The stream that superconsole writes to for auxiliary output. By default is stdout.
-    aux_stream: Box<dyn Write + Send + 'static + Sync>,
+    aux_stream: Box<dyn IsTtyWrite + Send + 'static + Sync>,
 }
 
 impl Default for Builder {

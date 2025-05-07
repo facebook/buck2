@@ -17,6 +17,7 @@ use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use crossbeam_channel::bounded;
 use crossbeam_channel::unbounded;
+use crossterm::tty::IsTty;
 
 use crate::Dimensions;
 
@@ -28,6 +29,10 @@ pub enum OutputTarget {
     /// Auxiliary output stream (default: stdout)
     Aux,
 }
+
+pub trait IsTtyWrite: IsTty + Write {}
+
+impl<T: IsTty + Write> IsTtyWrite for T {}
 
 pub trait SuperConsoleOutput: Send + Sync + 'static {
     /// Called before rendering will occur. This has a chance to prevent rendering by returning
@@ -44,6 +49,11 @@ pub trait SuperConsoleOutput: Send + Sync + 'static {
     fn output_to(&mut self, buffer: Vec<u8>, target: OutputTarget) -> anyhow::Result<()> {
         let _ = target;
         self.output(buffer)
+    }
+
+    /// Check if auxillary stream is tty
+    fn aux_stream_is_tty(&self) -> bool {
+        true
     }
 
     /// How big is the terminal to write to.
@@ -66,13 +76,13 @@ pub struct BlockingSuperConsoleOutput {
     /// Stream to write to.
     stream: Box<dyn Write + Send + 'static + Sync>,
     /// Auxiliary stream to write to.
-    aux_stream: Box<dyn Write + Send + 'static + Sync>,
+    aux_stream: Box<dyn IsTtyWrite + Send + 'static + Sync>,
 }
 
 impl BlockingSuperConsoleOutput {
     pub fn new(
         stream: Box<dyn Write + Send + 'static + Sync>,
-        aux_stream: Box<dyn Write + Send + 'static + Sync>,
+        aux_stream: Box<dyn IsTtyWrite + Send + 'static + Sync>,
     ) -> Self {
         Self { stream, aux_stream }
     }
@@ -85,6 +95,10 @@ impl SuperConsoleOutput for BlockingSuperConsoleOutput {
 
     fn output(&mut self, buffer: Vec<u8>) -> anyhow::Result<()> {
         self.output_to(buffer, OutputTarget::Main)
+    }
+
+    fn aux_stream_is_tty(&self) -> bool {
+        self.aux_stream.is_tty()
     }
 
     fn output_to(&mut self, buffer: Vec<u8>, target: OutputTarget) -> anyhow::Result<()> {
@@ -127,22 +141,25 @@ pub(crate) struct NonBlockingSuperConsoleOutput {
     /// The thread doing the writing. It owns the other end of the aforementioned channels and will
     /// exit when the data sender is closed.
     handle: JoinHandle<()>,
+    /// The auxillary output is compatible with tty
+    aux_compatible: bool,
 }
 
 impl NonBlockingSuperConsoleOutput {
     pub fn new(
         stream: Box<dyn Write + Send + 'static + Sync>,
-        aux_stream: Box<dyn Write + Send + 'static + Sync>,
+        aux_stream: Box<dyn IsTtyWrite + Send + 'static + Sync>,
     ) -> anyhow::Result<Self> {
         Self::new_for_writer(stream, aux_stream)
     }
 
     fn new_for_writer(
         mut stream: Box<dyn Write + Send + 'static + Sync>,
-        mut aux_stream: Box<dyn Write + Send + 'static + Sync>,
+        mut aux_stream: Box<dyn IsTtyWrite + Send + 'static + Sync>,
     ) -> anyhow::Result<Self> {
         let (sender, receiver) = bounded::<(Vec<u8>, OutputTarget)>(1);
         let (error_sender, errors) = unbounded::<io::Error>();
+        let aux_compatible = aux_stream.is_tty();
 
         let handle = std::thread::Builder::new()
             .name("superconsole-io".to_owned())
@@ -150,7 +167,7 @@ impl NonBlockingSuperConsoleOutput {
                 for (data, output_target) in receiver.into_iter() {
                     let out_stream = match output_target {
                         OutputTarget::Main => &mut stream,
-                        OutputTarget::Aux => &mut aux_stream,
+                        OutputTarget::Aux => &mut aux_stream as &mut dyn Write,
                     };
                     match out_stream.write_all(&data).and_then(|()| stream.flush()) {
                         Ok(()) => {}
@@ -168,6 +185,7 @@ impl NonBlockingSuperConsoleOutput {
             sender,
             errors,
             handle,
+            aux_compatible,
         })
     }
 }
@@ -198,12 +216,17 @@ impl SuperConsoleOutput for NonBlockingSuperConsoleOutput {
         Ok(())
     }
 
+    fn aux_stream_is_tty(&self) -> bool {
+        self.aux_compatible
+    }
+
     /// Notify our writer thread that no further writes are expected. Wait for it to flush.
     fn finalize(self: Box<Self>) -> anyhow::Result<()> {
         let Self {
             sender,
             errors,
             handle,
+            aux_compatible: _,
         } = *self;
         drop(sender);
 
@@ -244,6 +267,12 @@ mod tests {
         pub fn new() -> (Self, Receiver<()>) {
             let (sender, receiver) = bounded(0);
             (Self { sender }, receiver)
+        }
+    }
+
+    impl IsTty for TestWriter {
+        fn is_tty(&self) -> bool {
+            true
         }
     }
 
