@@ -7,9 +7,8 @@
 
 load("@prelude//:paths.bzl", "paths")
 load(":erlang_build.bzl", "erlang_build")
-load(":erlang_dependencies.bzl", "ErlAppDependencies", "flatten_dependencies")
+load(":erlang_dependencies.bzl", "flatten_dependencies")
 load(":erlang_info.bzl", "ErlangAppInfo")
-load(":erlang_release.bzl", "build_lib_dir")
 load(
     ":erlang_toolchain.bzl",
     "Toolchain",  # @unused Used as type
@@ -24,53 +23,6 @@ def erlang_escript_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # collect all dependencies
     dependencies = flatten_dependencies(ctx, ctx.attrs.deps)
-
-    if ctx.attrs.bundled:
-        return _bundled_escript_impl(ctx, dependencies, toolchain)
-    else:
-        return _unbundled_escript_impl(ctx, dependencies, toolchain)
-
-def _unbundled_escript_impl(ctx: AnalysisContext, dependencies: ErlAppDependencies, toolchain: Toolchain) -> list[Provider]:
-    if ctx.attrs.resources:
-        fail("resources are not supported with unbundled escripts, add them to an applications priv/ directory instead")
-
-    escript_name = _escript_name(ctx)
-
-    lib_dir = build_lib_dir(
-        ctx,
-        toolchain,
-        escript_name,
-        dependencies,
-    )
-
-    config_files = _escript_config_files(ctx)
-    escript_trampoline = build_escript_unbundled_trampoline(ctx, toolchain, config_files)
-
-    trampoline = {
-        "run.escript": escript_trampoline,
-    }
-
-    all_outputs = {}
-    for outputs in [lib_dir, trampoline]:
-        all_outputs.update(outputs)
-
-    for config_file in config_files:
-        all_outputs[config_file.short_path] = config_file
-
-    output = ctx.actions.symlinked_dir(
-        escript_name,
-        all_outputs,
-    )
-
-    cmd = cmd_args(
-        toolchain.escript_trampoline,
-        output,
-        toolchain.otp_binaries.escript,
-    )
-
-    return [DefaultInfo(default_output = output), RunInfo(cmd)]
-
-def _bundled_escript_impl(ctx: AnalysisContext, dependencies: ErlAppDependencies, toolchain: Toolchain) -> list[Provider]:
     toolchain_name = get_primary(ctx)
     artifacts = {}
 

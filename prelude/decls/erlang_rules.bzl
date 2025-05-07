@@ -170,9 +170,6 @@ rules_attributes = {
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
     },
     "erlang_escript": {
-        "bundled": attrs.bool(default = True, doc = """
-                Setting bundled to `True` does generate a folder structure and escript trampoline instead of an archive.
-        """),
         "configs": attrs.list(attrs.dep(), default = [], doc = """
             This attribute allows to set config files for the escript. The dependencies that are typically used
             here are `export_file` targets."""),
