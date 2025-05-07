@@ -497,6 +497,9 @@ impl StatefulSuperConsoleImpl {
                     buck2_data::instant_event::Data::ActionError(error) => {
                         self.handle_action_error(error).await
                     }
+                    buck2_data::instant_event::Data::StreamingOutput(message) => {
+                        self.handle_streaming_output(message).await
+                    }
                     _ => Ok(()),
                 }
             }
@@ -551,6 +554,17 @@ impl StatefulSuperConsoleImpl {
         // TODO(nmj): Maybe better handling of messages that have color data in them. Right now
         //            they're just stripped
         self.super_console.emit(Lines::from_multiline_string(
+            &message.message,
+            ContentStyle::default(),
+        ));
+        Ok(())
+    }
+
+    async fn handle_streaming_output(
+        &mut self,
+        message: &buck2_data::StdoutStreamingOutput,
+    ) -> buck2_error::Result<()> {
+        self.super_console.emit_aux(Lines::from_multiline_string(
             &message.message,
             ContentStyle::default(),
         ));

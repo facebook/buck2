@@ -190,6 +190,12 @@ message CellHasNewConfigs {
   // for which configs had not previously been loaded.
   string cell = 1;
 }
+
+/// A message that should be streaming printed to the user via stdout
+message StdoutStreamingOutput {
+  string message = 1;
+}
+
 // An event that represents a single point in time.
 message InstantEvent {
   reserved 2, 8, 9, 12, 13, 22, 24, 38, 41;
@@ -303,6 +309,9 @@ message InstantEvent {
     // Detailed aggregated metrics. Expensive to compute, so not always
     // available.
     DetailedAggregatedMetrics detailedAggregatedMetrics = 50;
+
+    // Event that used for emitting streaming std output
+    StdoutStreamingOutput streaming_output = 51;
   }
 }
 

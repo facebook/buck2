@@ -392,6 +392,12 @@ where
                     buck2_data::instant_event::Data::ActionError(error) => {
                         self.handle_action_error(error).await
                     }
+                    buck2_data::instant_event::Data::StreamingOutput(message) => {
+                        crate::stdio::print_bytes(message.message.as_bytes())?;
+                        crate::stdio::flush()?;
+                        self.notify_printed();
+                        Ok(())
+                    }
                     _ => Ok(()),
                 }
             }

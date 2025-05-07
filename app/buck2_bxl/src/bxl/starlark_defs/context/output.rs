@@ -32,7 +32,6 @@ use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_server_ctx::bxl::BxlStreamingTracker;
 use buck2_server_ctx::bxl::GetBxlStreamingTracker;
-use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -79,6 +78,7 @@ use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable;
 use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
+use crate::bxl::streaming_output_writer::StreamingOutputWriter;
 
 /// Represents the internal state of an output stream, including collected artifacts,
 /// standard output buffers, and error buffers.
@@ -332,20 +332,19 @@ impl Write for StreamingOutput {
 }
 
 struct BxlStreamingWriter {
-    inner: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
+    output: StreamingOutputWriter,
     streaming_tracker: Arc<BxlStreamingTracker>,
 }
 
 impl BxlStreamingWriter {
     fn new(dice: &dyn BxlDiceComputations) -> Self {
         let dispatcher = dice.per_transaction_data().get_dispatcher().dupe();
-        let partial_result_dispatcher = PartialResultDispatcher::new(dispatcher);
         let streaming_tracker = dice
             .per_transaction_data()
             .get_bxl_streaming_tracker()
             .expect("BxlStreamingTracker should be set");
         Self {
-            inner: partial_result_dispatcher,
+            output: StreamingOutputWriter::new(dispatcher),
             streaming_tracker,
         }
     }
@@ -353,16 +352,14 @@ impl BxlStreamingWriter {
 
 impl Write for BxlStreamingWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.inner.emit(buck2_cli_proto::StdoutBytes {
-            data: buf.to_owned(),
-        });
+        let len = self.output.write(buf)?;
         self.streaming_tracker.mark_as_called();
 
-        Ok(buf.len())
+        Ok(len)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
+        self.output.flush()
     }
 }
 

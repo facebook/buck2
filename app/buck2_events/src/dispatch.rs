@@ -102,6 +102,10 @@ impl EventDispatcher {
         self.instant_event(buck2_data::ConsoleWarning { message })
     }
 
+    pub fn streaming_output(&self, message: String) {
+        self.instant_event(buck2_data::StdoutStreamingOutput { message })
+    }
+
     fn event_with_span_id<E: Into<buck_event::Data>>(
         &self,
         data: E,

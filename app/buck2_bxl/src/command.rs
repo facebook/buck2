@@ -28,6 +28,7 @@ use buck2_cli_proto::BxlResponse;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::build_request::Uploads;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::events::HasEvents;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::bxl::BxlFilePath;
 use buck2_core::cells::CellAliasResolver;
@@ -71,6 +72,7 @@ use crate::bxl::eval::get_bxl_callable;
 use crate::bxl::eval::resolve_cli_args;
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
+use crate::bxl::streaming_output_writer::StreamingOutputWriter;
 
 pub(crate) async fn bxl_command(
     ctx: &dyn ServerCommandContextTrait,
@@ -120,7 +122,7 @@ impl BxlServerCommand {
     async fn execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
-        mut stdout: impl Write + Send,
+        _stdout: impl Write + Send,
         mut dice_ctx: DiceTransaction,
     ) -> buck2_error::Result<buck2_cli_proto::BxlResponse> {
         let bxl_cmd_ctx = self
@@ -141,25 +143,42 @@ impl BxlServerCommand {
 
         let bxl_eval_result = self.eval_bxl(&bxl_cmd_ctx, &mut dice_ctx, bxl_args).await;
 
+        // let per_transaction_data = dice_ctx.per_transaction_data();
+        let dispatcher = dice_ctx.per_transaction_data().get_dispatcher().dupe();
+        let mut streaming_output_writer = StreamingOutputWriter::new(dispatcher);
+
         // If the bxl result is cached, we need to output the streaming outputs to stdout
         let bxl_result = match bxl_eval_result {
             Ok(bxl_result) => {
-                self.emit_streaming_output(&mut dice_ctx, bxl_result.streaming(), &mut stdout)?;
+                self.emit_streaming_output(
+                    &mut dice_ctx,
+                    bxl_result.streaming(),
+                    &mut streaming_output_writer,
+                )?;
                 bxl_result
             }
             Err(e) => {
                 if let Some(output) = &e.ouput_stream_state {
-                    self.emit_streaming_output(&mut dice_ctx, &output.streaming, &mut stdout)?;
+                    self.emit_streaming_output(
+                        &mut dice_ctx,
+                        &output.streaming,
+                        &mut streaming_output_writer,
+                    )?;
                 }
                 return Err(e.error);
             }
         };
 
         let errors = self
-            .materialize_artifacts(&mut dice_ctx, bxl_result.dupe(), &mut stdout)
+            .materialize_artifacts(
+                &mut dice_ctx,
+                bxl_result.dupe(),
+                &mut streaming_output_writer,
+            )
             .await;
 
-        self.emit_outputs(server_ctx, bxl_result, stdout).await?;
+        self.emit_outputs(server_ctx, bxl_result, &mut streaming_output_writer)
+            .await?;
 
         let serialized_build_report = self
             .generate_build_report(&bxl_cmd_ctx, &mut dice_ctx, server_ctx)
@@ -414,6 +433,7 @@ impl BxlServerCommand {
             .expect("BXL streaming tracker should be set");
         if !bxl_streaming_tracker.was_called() {
             stdout.write_all(streaming_output)?;
+            stdout.flush()?;
             Ok(())
         } else {
             Ok(())
