@@ -67,7 +67,7 @@ async def test_cquery_inputs(buck: Buck) -> None:
     )
 
     assert "TARGETS.fixture" in result.stdout
-    assert "file_set" in result.stdout
+    assert "bxl.FileSet" in result.stdout
     assert "1" in result.stdout
 
 

@@ -84,7 +84,7 @@ pub(crate) struct StarlarkFileSet(
 
 starlark_simple_value!(StarlarkFileSet);
 
-#[starlark_value(type = "file_set")]
+#[starlark_value(type = "bxl.FileSet")]
 impl<'v> StarlarkValue<'v> for StarlarkFileSet {
     fn iterate_collect(&self, heap: &'v Heap) -> starlark::Result<Vec<Value<'v>>> {
         Ok(self
