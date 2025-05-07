@@ -30,6 +30,7 @@ use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -115,6 +116,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             ForwardRelativePathBuf::try_from(path.to_owned()).unwrap(),
             OutputType::File,
             None,
+            BuckOutPathKind::default(),
         )?;
         Ok(StarlarkDeclaredArtifact::new(
             None,
@@ -138,6 +140,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             ForwardRelativePathBuf::try_from(path.to_owned()).unwrap(),
             OutputType::File,
             None,
+            BuckOutPathKind::default(),
         )?;
         let outputs = indexset![artifact.as_output()];
         registry.register(

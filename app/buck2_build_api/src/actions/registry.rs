@@ -20,6 +20,7 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_core::category::Category;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -167,13 +168,18 @@ impl ActionsRegistry {
         path: ForwardRelativePathBuf,
         output_type: OutputType,
         declaration_location: Option<FileSpan>,
+        path_resolution_method: BuckOutPathKind,
     ) -> buck2_error::Result<DeclaredArtifact> {
         let (path, hidden) = match prefix {
             None => (path, 0),
             Some(prefix) => (prefix.join(path), prefix.iter().count()),
         };
         self.claim_output_path(&path, declaration_location)?;
-        let out_path = BuildArtifactPath::with_dynamic_actions_action_key(self.owner.dupe(), path);
+        let out_path = BuildArtifactPath::with_dynamic_actions_action_key(
+            self.owner.dupe(),
+            path,
+            path_resolution_method,
+        );
         let declared = DeclaredArtifact::new(out_path, output_type, hidden);
         if !self.artifacts.insert(declared.dupe()) {
             panic!("not expected duplicate artifact after output path was successfully claimed");

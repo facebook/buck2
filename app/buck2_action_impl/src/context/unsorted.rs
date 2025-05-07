@@ -14,6 +14,7 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::digest_config::StarlarkDigestConfig;
 use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
+use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_execute::execute::request::OutputType;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
@@ -50,6 +51,7 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] prefix: &str,
         #[starlark(require = pos)] filename: Option<&str>,
         #[starlark(require = named, default = false)] dir: bool,
+        #[starlark(require = named, default = false)] uses_experimental_content_based_path_hashing: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkDeclaredArtifact> {
         // We take either one or two positional arguments, namely (filename) or (prefix, filename).
@@ -65,11 +67,17 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
         } else {
             OutputType::FileOrDirectory
         };
+        let path_resolution_method = if uses_experimental_content_based_path_hashing {
+            BuckOutPathKind::ContentHash
+        } else {
+            BuckOutPathKind::Configuration
+        };
         let artifact = this.state()?.declare_output(
             prefix,
             filename,
             output_type,
             eval.call_stack_top_location(),
+            path_resolution_method,
         )?;
 
         Ok(StarlarkDeclaredArtifact::new(

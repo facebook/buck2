@@ -22,6 +22,7 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::BuckErrorContext;
@@ -148,6 +149,7 @@ impl<'v> AnalysisRegistry<'v> {
         filename: &str,
         output_type: OutputType,
         declaration_location: Option<FileSpan>,
+        path_resolution_method: BuckOutPathKind,
     ) -> buck2_error::Result<DeclaredArtifact> {
         // We don't allow declaring `` as an output, although technically there's nothing preventing
         // that
@@ -160,8 +162,13 @@ impl<'v> AnalysisRegistry<'v> {
             None => None,
             Some(x) => Some(ForwardRelativePath::new(x)?.to_owned()),
         };
-        self.actions
-            .declare_artifact(prefix, path, output_type, declaration_location)
+        self.actions.declare_artifact(
+            prefix,
+            path,
+            output_type,
+            declaration_location,
+            path_resolution_method,
+        )
     }
 
     /// Takes a string or artifact/output artifact and converts it into an output artifact
@@ -186,8 +193,13 @@ impl<'v> AnalysisRegistry<'v> {
         let heap = eval.heap();
         let declared_artifact = match value {
             OutputArtifactArg::Str(path) => {
-                let artifact =
-                    self.declare_output(None, path, output_type, declaration_location.dupe())?;
+                let artifact = self.declare_output(
+                    None,
+                    path,
+                    output_type,
+                    declaration_location.dupe(),
+                    BuckOutPathKind::default(),
+                )?;
                 heap.alloc_typed(StarlarkDeclaredArtifact::new(
                     declaration_location,
                     artifact,

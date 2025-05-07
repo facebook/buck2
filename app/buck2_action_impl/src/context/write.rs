@@ -23,6 +23,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
+use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_execute::execute::request::OutputType;
 use dupe::Dupe;
 use either::Either;
@@ -253,6 +254,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                     &format!("{}/{}.macro", &macro_directory_path, i),
                     OutputType::File,
                     eval.call_stack_top_location(),
+                    BuckOutPathKind::default(),
                 )?;
                 written_macro_files.insert(macro_file);
             }

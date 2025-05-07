@@ -99,17 +99,22 @@ pub struct BuildArtifactPath(Arc<BuildArtifactPathData>);
 
 impl BuildArtifactPath {
     pub fn new(owner: BaseDeferredKey, path: ForwardRelativePathBuf) -> Self {
-        Self::with_dynamic_actions_action_key(DeferredHolderKey::Base(owner), path)
+        Self::with_dynamic_actions_action_key(
+            DeferredHolderKey::Base(owner),
+            path,
+            BuckOutPathKind::default(),
+        )
     }
 
     pub fn with_dynamic_actions_action_key(
         owner: DeferredHolderKey,
         path: ForwardRelativePathBuf,
+        path_resolution_method: BuckOutPathKind,
     ) -> Self {
         BuildArtifactPath(Arc::new(BuildArtifactPathData {
             owner,
             path: path.into_box(),
-            path_resolution_method: BuckOutPathKind::Configuration,
+            path_resolution_method,
         }))
     }
 
@@ -411,6 +416,7 @@ mod tests {
     use crate::deferred::dynamic::DynamicLambdaResultsKey;
     use crate::deferred::key::DeferredHolderKey;
     use crate::fs::artifact_path_resolver::ArtifactFs;
+    use crate::fs::buck_out_path::BuckOutPathKind;
     use crate::fs::buck_out_path::BuckOutPathResolver;
     use crate::fs::buck_out_path::BuckOutScratchPath;
     use crate::fs::buck_out_path::BuildArtifactPath;
@@ -552,6 +558,7 @@ mod tests {
                 DynamicLambdaIndex::new(17),
             ))),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
+            BuckOutPathKind::Configuration,
         );
         let resolved_gen_path = path_resolver.resolve_gen(&path)?;
 
