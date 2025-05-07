@@ -30,7 +30,7 @@ def derive_javac(javac_attribute: [str, Dependency, Artifact]) -> [str, RunInfo,
         expect(len(outputs) == 1, "Expect one default output from build dep of attr javac!")
         return outputs[0]
 
-    if javac_attr_type == "artifact":
+    if isinstance(javac_attribute, Artifact):
         return javac_attribute
 
     if javac_attr_type == type(""):
