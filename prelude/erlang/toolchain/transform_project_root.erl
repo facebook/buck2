@@ -84,8 +84,18 @@ get_source(Options) ->
 
 -spec get_mapping([compile:option()]) -> mapping().
 get_mapping(Options) ->
-    String = os:getenv("BUCK2_FILE_MAPPING", "#{}."),
-    {ok, Tokens, _} = erl_scan:string(String),
-    {ok, Mapping} = erl_parse:parse_term(Tokens),
     Source = get_source(Options),
-    Mapping#{filename:basename(Source) => {true, Source}}.
+    BaseMapping = #{filename:basename(Source) => {true, Source}},
+    case os:getenv("BUCK2_FILE_MAPPING") of
+        false ->
+            BaseMapping;
+        MappingFile ->
+            {ok, Contents} = file:read_file(MappingFile, [raw]),
+            {Mapping, ok, <<>>} = json:decode(Contents, ok, #{object_push => fun json_mapping_push/3}),
+            maps:merge(BaseMapping, Mapping)
+    end.
+
+json_mapping_push(Key, [Bool, Path], Acc) when is_binary(Key), is_boolean(Bool), is_binary(Path) ->
+    [{binary_to_list(Key), {Bool, binary_to_list(Path)}} | Acc];
+json_mapping_push(Key, Value, Acc) ->
+    [{Key, Value} | Acc].

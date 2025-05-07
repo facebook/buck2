@@ -17,7 +17,7 @@ load(
     ":erlang_toolchain.bzl",
     "Toolchain",  # @unused Used as type
 )
-load(":erlang_utils.bzl", "action_identifier", "to_term_args")
+load(":erlang_utils.bzl", "action_identifier")
 
 # mapping
 #   from include base name and application (e.g. ("app1", "header.hrl")
@@ -378,13 +378,14 @@ def _build_erl(
             cmd_args(outputs[output].as_output(), parent = 1),
             src,
         )
+        mapping_file = ctx.actions.write_json(_dep_mapping_name(toolchain, src), mapping)
         _run_with_env(
             ctx,
             toolchain,
             erlc_cmd,
             category = "erlc",
             identifier = action_identifier(toolchain, src.basename),
-            env = {"BUCK2_FILE_MAPPING": _generate_file_mapping_string(mapping)},
+            env = {"BUCK2_FILE_MAPPING": mapping_file},
             always_print_stderr = True,
         )
 
@@ -579,6 +580,13 @@ def _dep_final_name(toolchain: Toolchain, src: Artifact) -> str:
         src.short_path + ".final.dep",
     )
 
+def _dep_mapping_name(toolchain: Toolchain, src: Artifact) -> str:
+    return paths.join(
+        _build_dir(toolchain),
+        "__dep_files",
+        src.short_path + ".mapping",
+    )
+
 def _dep_info_name(toolchain: Toolchain) -> str:
     return paths.join(
         _build_dir(toolchain),
@@ -607,15 +615,6 @@ def _add(a: dict, key: typing.Any, value: typing.Any) -> dict:
 
 def _build_dir(toolchain: Toolchain) -> str:
     return paths.join("__build", toolchain.name)
-
-def _generate_file_mapping_string(mapping: dict[str, (bool, [str, Artifact])]) -> cmd_args:
-    """produces an easily parsable string for the file mapping"""
-    items = {}
-    for file in mapping:
-        (if_found, artifact) = mapping[file]
-        items[file] = (if_found, artifact)
-
-    return to_term_args(items)
 
 def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, *args, **kwargs):
     """ run interfact that injects env"""
