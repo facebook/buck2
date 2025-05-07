@@ -12,8 +12,6 @@
 //! Test executors are expected to implement the trait `TestExecutor`. Buck will need to implement
 //! the trait `Buck` for the test executor to interact against.
 
-pub mod convert;
-
 use std::time::Duration;
 
 use dupe::Dupe;

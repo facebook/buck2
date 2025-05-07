@@ -18,3 +18,5 @@ pub use crate::host_sharing::HostSharingRequirements;
 pub use crate::host_sharing::HostSharingStrategy;
 pub use crate::host_sharing::WeightClass;
 pub use crate::host_sharing::WeightPercentage;
+
+pub mod convert;

@@ -16,6 +16,8 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use gazebo::prelude::*;
+use host_sharing::convert::host_sharing_requirements_from_grpc;
+use host_sharing::convert::host_sharing_requirements_to_grpc;
 
 use super::LocalExecutionCommand;
 use super::LocalResourceType;
@@ -47,8 +49,6 @@ use crate::data::TestExecutable;
 use crate::data::TestResult;
 use crate::data::TestStage;
 use crate::data::TestStatus;
-use crate::protocol::convert::host_sharing_requirements_from_grpc;
-use crate::protocol::convert::host_sharing_requirements_to_grpc;
 
 impl TryFrom<buck2_test_proto::TestStage> for TestStage {
     type Error = anyhow::Error;
