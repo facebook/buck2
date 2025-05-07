@@ -677,6 +677,17 @@ impl RunAction {
         let result = match action_cache_result {
             ControlFlow::Break(_) => action_cache_result,
             ControlFlow::Continue(manager) => {
+                // If we didn't find anything in the action cache, first do a local dep file cache lookup, and if that fails,
+                // try to find a remote dep file cache hit.
+                if should_fully_check_dep_file_cache {
+                    let lookup = dep_file_bundle
+                        .check_local_dep_file_cache(ctx, self.outputs.as_slice())
+                        .await?;
+                    if let Some((outputs, metadata)) = lookup {
+                        return Ok(ExecuteResult::LocalDepFileHit(outputs, metadata));
+                    }
+                }
+
                 let remote_dep_file_result = ctx
                     .remote_dep_file_cache(manager, &req, &prepared_action)
                     .await;
@@ -697,21 +708,10 @@ impl RunAction {
             }
         };
 
-        // If the cache queries did not yield to a result, fallback to local dep file query (continuation), then execution.
+        // If the cache queries did not yield to a result, then we need to execute the action.
         let mut result = match result {
             ControlFlow::Break(res) => res,
-            ControlFlow::Continue(manager) => {
-                if should_fully_check_dep_file_cache {
-                    let lookup = dep_file_bundle
-                        .check_local_dep_file_cache(ctx, self.outputs.as_slice())
-                        .await?;
-                    if let Some((outputs, metadata)) = lookup {
-                        return Ok(ExecuteResult::LocalDepFileHit(outputs, metadata));
-                    }
-                }
-
-                ctx.exec_cmd(manager, &req, &prepared_action).await
-            }
+            ControlFlow::Continue(manager) => ctx.exec_cmd(manager, &req, &prepared_action).await,
         };
 
         // If the action has a dep file, log the remote dep file key so we can look out for collisions

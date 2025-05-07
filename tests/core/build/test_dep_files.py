@@ -620,10 +620,21 @@ async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
         # Check the MatchDepFiles events
         await check_match_dep_files(buck, expected_dep_file_match)
 
+    # # Change a file that is tracked by a dep file but shows up as unused, we get a local dep file cache hit
+    # # as that is checked first.
+    tagged_unused.write_text("CHANGE")
+    result = await buck.build(*target_upload_enabled)
+    output = result.get_build_report().output_for_target(target).read_text()
+    assert output == "used1\nused2\nused3\n"
+
+    execution_kind = await _get_execution_kind(buck)
+    assert execution_kind == ACTION_EXECUTION_KIND_LOCAL_DEP_FILE
+
     # Change a file that is tracked by a dep file but shows up as unused, this will again result in one of
     # 1. A remote dep file cache hit and a subsequent dep file validation
     # 2. A remote dep file cache miss, fall back to local execution (local dep file cache is flushed)
-    tagged_unused.write_text("CHANGE")
+    await buck.debug("flush-dep-files")
+    tagged_unused.write_text("CHANGE_AGAIN")
     result = await buck.build(*target_upload_enabled)
     output = result.get_build_report().output_for_target(target).read_text()
     assert output == "used1\nused2\nused3\n"
