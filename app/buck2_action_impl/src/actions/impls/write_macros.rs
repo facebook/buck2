@@ -176,7 +176,8 @@ impl Action for WriteMacrosToFileAction {
                 std::iter::zip(self.outputs.iter(), output_contents.into_iter())
                     .map(|(output, content)| {
                         Ok(WriteRequest {
-                            path: fs.fs().resolve_build(output.get_path())?,
+                            // TODO(T219919866) Add support for experimental content-based path hashing
+                            path: fs.fs().resolve_build(output.get_path(), None)?,
                             content: content.into_bytes(),
                             is_executable: false,
                         })

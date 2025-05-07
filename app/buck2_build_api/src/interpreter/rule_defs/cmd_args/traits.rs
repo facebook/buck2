@@ -365,7 +365,8 @@ pub trait CommandLineContext {
 
     /// Resolves the 'Artifact's to a 'CommandLineLocation' relative to the directory this command will run in.
     fn resolve_artifact(&self, artifact: &Artifact) -> buck2_error::Result<CommandLineLocation> {
-        self.resolve_project_path(artifact.resolve_path(self.fs().fs())?)
+        // TODO(T219919866) Add support for experimental content-based path hashing
+        self.resolve_project_path(artifact.resolve_path(self.fs().fs(), None)?)
             .with_buck_error_context(|| format!("Error resolving artifact: {}", artifact))
     }
 

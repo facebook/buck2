@@ -98,11 +98,15 @@ struct BuildArtifactPathData {
 pub struct BuildArtifactPath(Arc<BuildArtifactPathData>);
 
 impl BuildArtifactPath {
-    pub fn new(owner: BaseDeferredKey, path: ForwardRelativePathBuf) -> Self {
+    pub fn new(
+        owner: BaseDeferredKey,
+        path: ForwardRelativePathBuf,
+        path_resolution_method: BuckOutPathKind,
+    ) -> Self {
         Self::with_dynamic_actions_action_key(
             DeferredHolderKey::Base(owner),
             path,
-            BuckOutPathKind::default(),
+            path_resolution_method,
         )
     }
 
@@ -250,6 +254,7 @@ impl BuckOutPathResolver {
     pub fn resolve_gen(
         &self,
         path: &BuildArtifactPath,
+        content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("gen"),
@@ -260,13 +265,14 @@ impl BuckOutPathResolver {
             path.path(),
             false,
             path.path_resolution_method(),
-            None,
+            content_hash,
         )
     }
 
     pub fn resolve_offline_cache(
         &self,
         path: &BuildArtifactPath,
+        content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("offline-cache"),
@@ -277,7 +283,7 @@ impl BuckOutPathResolver {
             path.path(),
             false,
             path.path_resolution_method(),
-            None,
+            content_hash,
         )
     }
 
@@ -309,6 +315,7 @@ impl BuckOutPathResolver {
         &self,
         path: &BuckOutScratchPath,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
+        // TODO(T219919866) Add support for experimental content-based path hashing
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("tmp"),
             &path.owner,
@@ -411,6 +418,7 @@ mod tests {
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePath;
     use crate::configuration::data::ConfigurationData;
+    use crate::content_hash::ContentBasedPathHash;
     use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::deferred::dynamic::DynamicLambdaIndex;
     use crate::deferred::dynamic::DynamicLambdaResultsKey;
@@ -489,10 +497,14 @@ mod tests {
         let cfg_target = target.configure(ConfigurationData::testing_new());
         let owner = BaseDeferredKey::TargetLabel(cfg_target);
 
-        let resolved_gen_path = path_resolver.resolve_gen(&BuildArtifactPath::new(
-            owner.dupe(),
-            ForwardRelativePathBuf::unchecked_new("faz.file".into()),
-        ))?;
+        let resolved_gen_path = path_resolver.resolve_gen(
+            &BuildArtifactPath::new(
+                owner.dupe(),
+                ForwardRelativePathBuf::unchecked_new("faz.file".into()),
+                BuckOutPathKind::Configuration,
+            ),
+            None,
+        )?;
 
         let expected_gen_path = Regex::new(
             "base/buck-out/v2/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/faz.file",
@@ -502,6 +514,25 @@ mod tests {
             "{}.is_match({})",
             expected_gen_path,
             resolved_gen_path
+        );
+
+        let resolved_gen_content_based_path = path_resolver.resolve_gen(
+            &BuildArtifactPath::new(
+                owner.dupe(),
+                ForwardRelativePathBuf::unchecked_new("faz.file".into()),
+                BuckOutPathKind::ContentHash,
+            ),
+            Some(&ContentBasedPathHash::new("aaaabbbbccccdddd".to_owned())?),
+        )?;
+
+        let expected_gen_content_based_path = Regex::new(
+            "base/buck-out/v2/gen/foo/baz-package/__target-name__/aaaabbbbccccdddd/faz.file",
+        )?;
+        assert!(
+            expected_gen_content_based_path.is_match(resolved_gen_content_based_path.as_str()),
+            "{}.is_match({})",
+            expected_gen_content_based_path,
+            resolved_gen_content_based_path
         );
 
         let resolved_scratch_path = path_resolver.resolve_scratch(
@@ -538,10 +569,14 @@ mod tests {
         let cfg_target = target.configure(ConfigurationData::testing_new());
         let owner = BaseDeferredKey::TargetLabel(cfg_target);
 
-        let resolved_gen_path = path_resolver.resolve_gen(&BuildArtifactPath::new(
-            owner.dupe(),
-            ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
-        ))?;
+        let resolved_gen_path = path_resolver.resolve_gen(
+            &BuildArtifactPath::new(
+                owner.dupe(),
+                ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
+                BuckOutPathKind::Configuration,
+            ),
+            None,
+        )?;
 
         let expected_gen_path: Regex =
             Regex::new("buck-out/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/quux")?;
@@ -560,7 +595,7 @@ mod tests {
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
             BuckOutPathKind::Configuration,
         );
-        let resolved_gen_path = path_resolver.resolve_gen(&path)?;
+        let resolved_gen_path = path_resolver.resolve_gen(&path, None)?;
 
         let expected_gen_path = Regex::new(
             "buck-out/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/__action___17__/quux",
@@ -570,6 +605,29 @@ mod tests {
             "{}.is_match({})",
             expected_gen_path,
             resolved_gen_path
+        );
+
+        let content_based_path = BuildArtifactPath::with_dynamic_actions_action_key(
+            DeferredHolderKey::DynamicLambda(Arc::new(DynamicLambdaResultsKey::new(
+                DeferredHolderKey::Base(owner.dupe()),
+                DynamicLambdaIndex::new(17),
+            ))),
+            ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
+            BuckOutPathKind::ContentHash,
+        );
+        let resolved_gen_content_based_path = path_resolver.resolve_gen(
+            &content_based_path,
+            Some(&ContentBasedPathHash::new("aaaabbbbccccdddd".to_owned())?),
+        )?;
+
+        let expected_gen_content_based_path = Regex::new(
+            "buck-out/gen/foo/baz-package/__target-name__/__action___17__/aaaabbbbccccdddd/quux",
+        )?;
+        assert!(
+            expected_gen_content_based_path.is_match(resolved_gen_content_based_path.as_str()),
+            "{}.is_match({})",
+            expected_gen_content_based_path,
+            resolved_gen_content_based_path
         );
 
         let resolved_scratch_path = path_resolver.resolve_scratch(

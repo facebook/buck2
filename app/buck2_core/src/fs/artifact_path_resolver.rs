@@ -12,6 +12,7 @@ use dupe::Dupe;
 
 use crate::cells::CellResolver;
 use crate::cells::cell_path::CellPathRef;
+use crate::content_hash::ContentBasedPathHash;
 use crate::fs::buck_out_path::BuckOutPathResolver;
 use crate::fs::buck_out_path::BuildArtifactPath;
 use crate::fs::project::ProjectRoot;
@@ -48,8 +49,9 @@ impl ArtifactFs {
     pub fn resolve_build(
         &self,
         path: &BuildArtifactPath,
+        content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        self.buck_out_path_resolver.resolve_gen(path)
+        self.buck_out_path_resolver.resolve_gen(path, content_hash)
     }
 
     pub fn resolve_cell_path(
@@ -82,8 +84,10 @@ impl ArtifactFs {
     pub fn resolve_offline_output_cache_path(
         &self,
         path: &BuildArtifactPath,
+        content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        self.buck_out_path_resolver.resolve_offline_cache(path)
+        self.buck_out_path_resolver
+            .resolve_offline_cache(path, content_hash)
     }
 
     pub fn fs(&self) -> &ProjectRoot {

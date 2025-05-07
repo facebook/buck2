@@ -772,7 +772,13 @@ async fn outputs_match(
     let output_matches = previous_state
         .result
         .iter()
-        .map(|(path, value)| Ok((fs.buck_out_path_resolver().resolve_gen(path)?, value.dupe())))
+        // TODO(T219919866) Add support for experimental content-based path hashing
+        .map(|(path, value)| {
+            Ok((
+                fs.buck_out_path_resolver().resolve_gen(path, None)?,
+                value.dupe(),
+            ))
+        })
         .collect::<buck2_error::Result<Vec<(ProjectRelativePathBuf, ArtifactValue)>>>()?;
 
     let materializer_accepts = ctx
@@ -1231,7 +1237,8 @@ impl DeclaredDepFiles {
 
         for declared_dep_file in self.tagged.values() {
             let dep_file = &declared_dep_file.output;
-            let path = dep_file.resolve_path(fs).map_err(|e| {
+            // TODO(T219919866) Add support for experimental content-based path hashing
+            let path = dep_file.resolve_path(fs, None).map_err(|e| {
                 MaterializeDepFilesError::MaterializationFailed { source: e.into() }
             })?;
             paths.push(path);
@@ -1276,7 +1283,8 @@ impl DeclaredDepFiles {
         for declared_dep_file in self.tagged.values() {
             let mut selector = DirectorySelector::empty();
 
-            let dep_file = declared_dep_file.output.resolve_path(fs)?;
+            // TODO(T219919866) Add support for experimental content-based path hashing
+            let dep_file = declared_dep_file.output.resolve_path(fs, None)?;
 
             let read_dep_file: buck2_error::Result<()> = try {
                 let dep_file_path = fs.fs().resolve(&dep_file);

@@ -208,7 +208,8 @@ impl Action for WriteJsonAction {
                 execution_start = Some(Instant::now());
                 let content = self.get_contents(&ctx.executor_fs())?;
                 Ok(vec![WriteRequest {
-                    path: fs.resolve_build(self.output.get_path())?,
+                    // TODO(T219919866) Add support for experimental content-based path hashing
+                    path: fs.resolve_build(self.output.get_path(), None)?,
                     content,
                     is_executable: false,
                 }])

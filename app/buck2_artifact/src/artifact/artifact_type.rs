@@ -18,6 +18,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
@@ -188,8 +189,12 @@ impl Artifact {
 }
 
 impl ArtifactDyn for Artifact {
-    fn resolve_path(&self, fs: &ArtifactFs) -> buck2_error::Result<ProjectRelativePathBuf> {
-        self.get_path().resolve(fs)
+    fn resolve_path(
+        &self,
+        fs: &ArtifactFs,
+        content_hash: Option<&ContentBasedPathHash>,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
+        self.get_path().resolve(fs, content_hash)
     }
 
     fn requires_materialization(&self, fs: &ArtifactFs) -> bool {
@@ -536,6 +541,7 @@ impl UnboundArtifact {
 pub mod testing {
     use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
     use buck2_core::deferred::key::DeferredHolderKey;
+    use buck2_core::fs::buck_out_path::BuckOutPathKind;
     use buck2_core::fs::buck_out_path::BuildArtifactPath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -595,6 +601,7 @@ pub mod testing {
                 BuildArtifactPath::new(
                     BaseDeferredKey::TargetLabel(target.dupe()),
                     ForwardRelativePath::new(path).unwrap().to_buf(),
+                    BuckOutPathKind::default(),
                 ),
                 ActionKey::new(
                     DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
@@ -617,6 +624,7 @@ mod tests {
     use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
     use buck2_core::deferred::key::DeferredHolderKey;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+    use buck2_core::fs::buck_out_path::BuckOutPathKind;
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::buck_out_path::BuildArtifactPath;
     use buck2_core::fs::fs_util;
@@ -650,6 +658,7 @@ mod tests {
             BuildArtifactPath::new(
                 BaseDeferredKey::TargetLabel(target.dupe()),
                 ForwardRelativePathBuf::unchecked_new("bar.out".into()),
+                BuckOutPathKind::default(),
             ),
             OutputType::File,
             0,
@@ -703,7 +712,7 @@ mod tests {
         );
 
         assert_eq!(
-            Artifact::from(source).get_path().resolve(&fs)?,
+            Artifact::from(source).get_path().resolve(&fs, None)?,
             ProjectRelativePath::unchecked_new("cell_path/pkg/src.cpp")
         );
 
@@ -732,20 +741,20 @@ mod tests {
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
             project_fs.dupe(),
         );
-        let expected_path1 = project_fs.resolve(fs.resolve_build(artifact1.get_path())?);
-        let expected_path2 = project_fs.resolve(fs.resolve_build(artifact2.get_path())?);
+        let expected_path1 = project_fs.resolve(fs.resolve_build(artifact1.get_path(), None)?);
+        let expected_path2 = project_fs.resolve(fs.resolve_build(artifact2.get_path(), None)?);
 
-        let dest_path = fs.resolve_build(artifact1.get_path())?;
+        let dest_path = fs.resolve_build(artifact1.get_path(), None)?;
         fs.fs().write_file(&dest_path, "artifact1", false)?;
 
         assert_eq!("artifact1", fs_util::read_to_string(&expected_path1)?);
 
-        let dest_path = fs.resolve_build(artifact2.get_path())?;
+        let dest_path = fs.resolve_build(artifact2.get_path(), None)?;
         fs.fs().write_file(&dest_path, "artifact2", true)?;
 
         assert_eq!("artifact2", fs_util::read_to_string(&expected_path2)?);
 
-        let dest_path = fs.resolve_build(artifact3.get_path())?;
+        let dest_path = fs.resolve_build(artifact3.get_path(), None)?;
         fs.fs()
             .write_file(&dest_path, "artifact3", false)
             .expect_err("should fail because bar.cpp is a file");

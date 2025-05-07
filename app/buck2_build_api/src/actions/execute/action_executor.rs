@@ -559,7 +559,8 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         let output_paths = self
             .outputs
             .iter()
-            .map(|o| self.fs().resolve_build(o.get_path()))
+            // TODO(T219919866) Add support for experimental content-based path hashing
+            .map(|o| self.fs().resolve_build(o.get_path(), None))
             .collect::<buck2_error::Result<Vec<_>>>()?;
 
         // Invalidate all the output paths this action might provide. Note that this is a bit
@@ -635,7 +636,11 @@ impl BuckActionExecutor {
                         };
                         if real != declared {
                             return Err(ExecuteError::WrongOutputType {
-                                path: self.command_executor.fs().resolve_build(x.get_path())?,
+                                // TODO(T219919866) Add support for experimental content-based path hashing
+                                path: self
+                                    .command_executor
+                                    .fs()
+                                    .resolve_build(x.get_path(), None)?,
                                 declared,
                                 real,
                             });
@@ -671,7 +676,8 @@ impl BuckActionExecutor {
                 let declared = outputs
                     .iter()
                     .filter(|x| !result.0.outputs.contains_key(x.get_path()))
-                    .map(|x| self.command_executor.fs().resolve_build(x.get_path()))
+                    // TODO(T219919866) Add support for experimental content-based path hashing
+                    .map(|x| self.command_executor.fs().resolve_build(x.get_path(), None))
                     .collect::<buck2_error::Result<_>>()?;
                 let real = result
                     .0
@@ -681,7 +687,8 @@ impl BuckActionExecutor {
                         // This is error message, linear search is fine.
                         !outputs.iter().map(|b| b.get_path()).contains(x)
                     })
-                    .map(|x| self.command_executor.fs().resolve_build(x))
+                    // TODO(T219919866) Add support for experimental content-based path hashing
+                    .map(|x| self.command_executor.fs().resolve_build(x, None))
                     .collect::<buck2_error::Result<Vec<_>>>()?;
                 if real.is_empty() {
                     Err(ExecuteError::MissingOutputs { declared })
@@ -903,7 +910,7 @@ mod tests {
                 // Must write out the things we promised to do
                 for x in &self.outputs {
                     let dest = x.get_path();
-                    let dest_path = ctx.fs().resolve_build(dest)?;
+                    let dest_path = ctx.fs().resolve_build(dest, None)?;
                     ctx.fs().fs().write_file(&dest_path, "", false)?
                 }
 

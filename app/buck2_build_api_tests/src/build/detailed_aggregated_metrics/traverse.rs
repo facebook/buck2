@@ -33,6 +33,7 @@ mod tests {
     use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
     use buck2_core::deferred::key::DeferredHolderKey;
     use buck2_core::execution_types::executor_config::CommandExecutorConfig;
+    use buck2_core::fs::buck_out_path::BuckOutPathKind;
     use buck2_core::fs::buck_out_path::BuildArtifactPath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::package::source_path::SourcePath;
@@ -182,6 +183,7 @@ mod tests {
                 BuildArtifactPath::new(
                     self.holder_key.owner().dupe(),
                     ForwardRelativePathBuf::unchecked_new(format!("output-{}", key.action_index())),
+                    BuckOutPathKind::default(),
                 ),
                 key.dupe(),
                 buck2_execute::execute::request::OutputType::File,

@@ -84,7 +84,9 @@ impl ServerAuditSubcommand for AuditClasspathCommand {
                                 let classpaths: buck2_error::Result<Vec<_>> = label_to_artifact
                                     .into_values()
                                     .map(|artifact| {
-                                        let path = artifact.get_path().resolve(&artifact_fs)?;
+                                        // TODO(T219919866) Add support for experimental content-based path hashing
+                                        let path =
+                                            artifact.get_path().resolve(&artifact_fs, None)?;
                                         buck2_error::Ok(artifact_fs.fs().resolve(&path))
                                     })
                                     .collect();
@@ -107,7 +109,8 @@ impl ServerAuditSubcommand for AuditClasspathCommand {
                     )
                     .await?;
                     for (_label, artifact) in label_to_artifact {
-                        let path = artifact.get_path().resolve(&artifact_fs)?;
+                        // TODO(T219919866) Add support for experimental content-based path hashing
+                        let path = artifact.get_path().resolve(&artifact_fs, None)?;
                         let abs_path = artifact_fs.fs().resolve(&path);
                         writeln!(stdout, "{}", &abs_path)?;
                     }

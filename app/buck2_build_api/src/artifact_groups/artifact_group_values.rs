@@ -45,7 +45,8 @@ impl ArtifactGroupValues {
 
         for (artifact, value) in values.iter() {
             let path = artifact
-                .resolve_path(artifact_fs)
+                // TODO(T219919866) Add support for experimental content-based path hashing
+                .resolve_path(artifact_fs, None)
                 .buck_error_context("Invalid artifact")?;
             insert_artifact(&mut builder, path.as_ref(), value)?;
         }
@@ -95,7 +96,8 @@ impl ArtifactGroupValues {
         }
 
         for (artifact, value) in self.iter() {
-            let projrel_path = artifact.resolve_path(artifact_fs)?;
+            // TODO(T219919866) Add support for experimental content-based path hashing
+            let projrel_path = artifact.resolve_path(artifact_fs, None)?;
             insert_artifact(builder, projrel_path.as_ref(), value)?;
         }
 

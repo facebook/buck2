@@ -88,7 +88,8 @@ async fn materialize_artifact_group(
 
         ctx.try_compute_join(artifacts_to_materialize, |ctx, artifact| {
             async move {
-                ctx.try_materialize_requested_artifact(artifact, *force)
+                // TODO(T219919866) Add support for experimental content-based path hashing
+                ctx.try_materialize_requested_artifact(artifact, *force, None)
                     .await
             }
             .boxed()
@@ -109,7 +110,8 @@ async fn ensure_uploaded(
     let mut dir = ActionDirectoryBuilder::empty();
     let values = ctx.ensure_artifact_group(&artifact_group).await?;
     for (artifact, value) in values.iter() {
-        let path = artifact.resolve_path(&artifact_fs)?;
+        // TODO(T219919866) Add support for experimental content-based path hashing
+        let path = artifact.resolve_path(&artifact_fs, None)?;
         buck2_execute::directory::insert_artifact(&mut dir, &path, &value)?;
     }
     let dir = dir.fingerprint(digest_config.as_directory_serializer());

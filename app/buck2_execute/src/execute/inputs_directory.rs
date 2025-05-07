@@ -27,7 +27,10 @@ pub fn inputs_directory(
                 group.add_to_directory(&mut builder, fs)?;
             }
             CommandExecutionInput::ActionMetadata(metadata) => {
-                let path = fs.buck_out_path_resolver().resolve_gen(&metadata.path)?;
+                // TODO(T219919866) Add support for experimental content-based path hashing
+                let path = fs
+                    .buck_out_path_resolver()
+                    .resolve_gen(&metadata.path, None)?;
                 builder.insert(
                     &path,
                     DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {

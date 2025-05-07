@@ -901,7 +901,8 @@ pub(crate) fn get_artifact_path_display(
     project_fs: &ProjectRoot,
     artifact_fs: &ArtifactFs,
 ) -> buck2_error::Result<String> {
-    let resolved = artifact_path.resolve(artifact_fs)?;
+    // TODO(T219919866) Add support for experimental content-based path hashing
+    let resolved = artifact_path.resolve(artifact_fs, None)?;
     Ok(if abs {
         project_fs.resolve(&resolved).to_string()
     } else {

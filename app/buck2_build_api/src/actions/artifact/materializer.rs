@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::env::NodeDuration;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::current_span;
@@ -30,6 +31,7 @@ pub trait ArtifactMaterializer {
     async fn materialize(
         &mut self,
         artifact: &Artifact,
+        content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf>;
 
     /// called to materialized the final set of requested artifacts for the build of a target.
@@ -38,6 +40,7 @@ pub trait ArtifactMaterializer {
         &mut self,
         artifact: &BuildArtifact,
         required: bool,
+        content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<()>;
 }
 
@@ -46,10 +49,11 @@ impl ArtifactMaterializer for DiceComputations<'_> {
     async fn materialize(
         &mut self,
         artifact: &Artifact,
+        content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         let materializer = self.per_transaction_data().get_materializer();
         let artifact_fs = self.get_artifact_fs().await?;
-        let path = artifact.resolve_path(&artifact_fs)?;
+        let path = artifact.resolve_path(&artifact_fs, content_hash)?;
         materializer.ensure_materialized(vec![path.clone()]).await?;
         Ok(path)
     }
@@ -58,10 +62,11 @@ impl ArtifactMaterializer for DiceComputations<'_> {
         &mut self,
         artifact: &BuildArtifact,
         required: bool,
+        content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<()> {
         let materializer = self.per_transaction_data().get_materializer();
         let artifact_fs = self.get_artifact_fs().await?;
-        let path = artifact_fs.resolve_build(artifact.get_path())?;
+        let path = artifact_fs.resolve_build(artifact.get_path(), content_hash)?;
 
         let start_event = buck2_data::MaterializeRequestedArtifactStart {
             artifact: Some(artifact.as_proto()),

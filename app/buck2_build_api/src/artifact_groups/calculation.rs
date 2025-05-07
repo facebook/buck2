@@ -387,7 +387,8 @@ impl Key for EnsureProjectedArtifactKey {
         let digest_config = ctx.global_data().get_digest_config();
 
         let base_path = match base {
-            BaseArtifactKind::Build(built) => artifact_fs.resolve_build(built.get_path())?,
+            // TODO(T219919866) Add support for experimental content-based path hashing
+            BaseArtifactKind::Build(built) => artifact_fs.resolve_build(built.get_path(), None)?,
             BaseArtifactKind::Source(source) => artifact_fs.resolve_source(source.get_path())?,
         };
 

@@ -122,7 +122,8 @@ async fn targets_show_outputs(
     {
         let mut paths = Vec::new();
         for artifact in targets_artifacts.artifacts {
-            let path = artifact.resolve_path(&artifact_fs)?;
+            // TODO(T219919866) Add support for experimental content-based path hashing
+            let path = artifact.resolve_path(&artifact_fs, None)?;
             paths.push(path.to_string());
         }
         targets_paths.push(TargetPaths {

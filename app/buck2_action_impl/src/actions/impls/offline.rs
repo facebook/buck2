@@ -26,10 +26,11 @@ pub(crate) async fn declare_copy_to_offline_output_cache(
     output: &BuildArtifact,
     value: ArtifactValue,
 ) -> buck2_error::Result<ProjectRelativePathBuf> {
-    let build_path = ctx.fs().resolve_build(output.get_path())?;
+    // TODO(T219919866) Add support for experimental content-based path hashing
+    let build_path = ctx.fs().resolve_build(output.get_path(), None)?;
     let offline_cache_path = ctx
         .fs()
-        .resolve_offline_output_cache_path(output.get_path())?;
+        .resolve_offline_output_cache_path(output.get_path(), None)?;
     declare_copy_materialization(ctx, build_path, offline_cache_path.clone(), value).await?;
 
     Ok(offline_cache_path)
@@ -43,9 +44,10 @@ pub(crate) async fn declare_copy_from_offline_cache(
     ctx: &mut dyn ActionExecutionCtx,
     output: &BuildArtifact,
 ) -> buck2_error::Result<ActionOutputs> {
+    // TODO(T219919866) Add support for experimental content-based path hashing
     let offline_cache_path = ctx
         .fs()
-        .resolve_offline_output_cache_path(output.get_path())?;
+        .resolve_offline_output_cache_path(output.get_path(), None)?;
 
     let (value, _hashing_time) = build_entry_from_disk(
         ctx.fs().fs().resolve(&offline_cache_path),
@@ -69,7 +71,8 @@ pub(crate) async fn declare_copy_from_offline_cache(
         });
     let value = ArtifactValue::from(entry);
 
-    let build_path = ctx.fs().resolve_build(output.get_path())?;
+    // TODO(T219919866) Add support for experimental content-based path hashing
+    let build_path = ctx.fs().resolve_build(output.get_path(), None)?;
     declare_copy_materialization(ctx, offline_cache_path, build_path, value.dupe()).await?;
 
     Ok(ActionOutputs::from_single(output.get_path().dupe(), value))

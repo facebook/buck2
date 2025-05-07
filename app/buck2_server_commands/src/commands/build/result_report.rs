@@ -159,7 +159,8 @@ impl<'a> ResultReporter<'a> {
             // Write it this way because `.into_iter()` gets rust-analyzer confused
             IntoIterator::into_iter(artifacts)
                 .map(|(a, providers)| proto::BuildOutput {
-                    path: a.resolve_path(artifact_fs).unwrap().to_string(),
+                    // TODO(T219919866) Add support for experimental content-based path hashing
+                    path: a.resolve_path(artifact_fs, None).unwrap().to_string(),
                     providers: Some(providers),
                 })
                 .collect()

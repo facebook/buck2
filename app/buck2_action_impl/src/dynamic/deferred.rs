@@ -388,7 +388,8 @@ async fn materialize_inputs(
     let mut paths = Vec::with_capacity(materialized_artifacts.len());
 
     for artifact in materialized_artifacts {
-        let path = artifact.resolve_path(&artifact_fs)?;
+        // TODO(T219919866) Add support for experimental content-based path hashing
+        let path = artifact.resolve_path(&artifact_fs, None)?;
         paths.push(path.clone());
     }
 
@@ -453,7 +454,8 @@ fn artifact_values<'v>(
     let mut artifact_values_dict = Vec::with_capacity(artifact_values.len());
     for x in artifact_values {
         let k = StarlarkArtifact::new(x.dupe());
-        let path = x.get_path().resolve(artifact_fs)?;
+        // TODO(T219919866) Add support for experimental content-based path hashing
+        let path = x.get_path().resolve(artifact_fs, None)?;
         // `InputArtifactsMaterialized` marker indicates that the artifact is materialized.
         let v = StarlarkArtifactValue::new(x.dupe(), path.to_owned(), artifact_fs.fs().dupe());
         artifact_values_dict.push((k, v));
@@ -500,7 +502,8 @@ fn new_attr_value<'v>(
             Ok(env.heap().alloc(StarlarkOutputArtifact::new(artifact)))
         }
         DynamicAttrValue::ArtifactValue(artifact) => {
-            let path = artifact.get_path().resolve(&artifact_fs)?;
+            // TODO(T219919866) Add support for experimental content-based path hashing
+            let path = artifact.get_path().resolve(&artifact_fs, None)?;
             // `InputArtifactsMaterialized` marker indicates that the artifact is materialized.
             Ok(env.heap().alloc(StarlarkArtifactValue::new(
                 Artifact::from(artifact.dupe()),

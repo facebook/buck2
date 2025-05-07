@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::hash::Hash;
 
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::file_name::FileName;
@@ -86,7 +87,11 @@ impl ArtifactPath<'_> {
         f(&path)
     }
 
-    pub fn resolve(&self, artifact_fs: &ArtifactFs) -> buck2_error::Result<ProjectRelativePathBuf> {
+    pub fn resolve(
+        &self,
+        artifact_fs: &ArtifactFs,
+        content_hash: Option<&ContentBasedPathHash>,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         let ArtifactPath {
             base_path,
             projected_path,
@@ -94,7 +99,9 @@ impl ArtifactPath<'_> {
         } = self;
 
         let base_path = match base_path {
-            Either::Left(build) => artifact_fs.buck_out_path_resolver().resolve_gen(build)?,
+            Either::Left(build) => artifact_fs
+                .buck_out_path_resolver()
+                .resolve_gen(build, content_hash)?,
             Either::Right(source) => artifact_fs.resolve_source(*source)?,
         };
 

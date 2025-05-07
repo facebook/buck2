@@ -466,7 +466,8 @@ impl<'a> ConnectedInstaller<'a> {
                 let artifact_path = &self
                     .artifact_fs
                     .fs()
-                    .resolve(&artifact.resolve_path(&self.artifact_fs)?);
+                    // TODO(T219919866) Add support for experimental content-based path hashing
+                    .resolve(&artifact.resolve_path(&self.artifact_fs, None)?);
                 files_map
                     .entry((*file_name).to_owned())
                     .or_insert_with(|| artifact_path.to_string());
@@ -579,7 +580,8 @@ impl<'a> ConnectedInstaller<'a> {
         let path = &self
             .artifact_fs
             .fs()
-            .resolve(&artifact.resolve_path(&self.artifact_fs)?);
+            // TODO(T219919866) Add support for experimental content-based path hashing
+            .resolve(&artifact.resolve_path(&self.artifact_fs, None)?);
         let request = tonic::Request::new(FileReadyRequest {
             install_id: install_id.to_owned(),
             name: name.to_owned(),

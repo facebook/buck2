@@ -681,7 +681,8 @@ impl CommandExecutionOutputRef<'_> {
     pub fn resolve(&self, fs: &ArtifactFs) -> buck2_error::Result<ResolvedCommandExecutionOutput> {
         match self {
             Self::BuildArtifact { path, output_type } => Ok(ResolvedCommandExecutionOutput {
-                path: fs.resolve_build(path)?,
+                // TODO(T219919866) Add support for experimental content-based path hashing
+                path: fs.resolve_build(path, None)?,
                 create: OutputCreationBehavior::Parent,
                 output_type: *output_type,
             }),

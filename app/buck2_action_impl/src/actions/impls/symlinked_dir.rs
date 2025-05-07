@@ -224,7 +224,8 @@ impl Action for SymlinkedDirAction {
         ctx: &mut dyn ActionExecutionCtx,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let fs = ctx.fs().fs();
-        let output = ctx.fs().resolve_build(self.output().get_path())?;
+        // TODO(T219919866) Add support for experimental content-based path hashing
+        let output = ctx.fs().resolve_build(self.output().get_path(), None)?;
         let mut builder = ArtifactValueBuilder::new(fs, ctx.digest_config());
         let mut srcs = Vec::new();
 
@@ -235,7 +236,8 @@ impl Action for SymlinkedDirAction {
                 .into_singleton()
                 .buck_error_context("Input did not dereference to exactly one artifact")?;
 
-            let src = src_artifact.resolve_path(ctx.fs())?;
+            // TODO(T219919866) Add support for experimental content-based path hashing
+            let src = src_artifact.resolve_path(ctx.fs(), None)?;
             let dest = output.join(dest);
 
             if self.copy {

@@ -43,6 +43,7 @@ use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -533,10 +534,14 @@ impl RunAction {
         extra_env: &mut Vec<(String, String)>,
     ) -> buck2_error::Result<()> {
         if let Some(metadata_param) = &self.inner.metadata_param {
-            let path =
-                BuildArtifactPath::new(ctx.target().owner().dupe(), metadata_param.path.clone());
+            let path = BuildArtifactPath::new(
+                ctx.target().owner().dupe(),
+                metadata_param.path.clone(),
+                BuckOutPathKind::default(),
+            );
+            // TODO(T219919866) Add support for experimental content-based path hashing
             let env = cli_ctx
-                .resolve_project_path(fs.buck_out_path_resolver().resolve_gen(&path)?)?
+                .resolve_project_path(fs.buck_out_path_resolver().resolve_gen(&path, None)?)?
                 .into_string();
             let (data, digest) = metadata_content(fs, artifact_inputs, ctx.digest_config())?;
             inputs.push(CommandExecutionInput::ActionMetadata(ActionMetadataBlob {
@@ -628,7 +633,8 @@ impl RunAction {
             .map(|artifact| {
                 artifact
                     .artifact()
-                    .and_then(|a| a.get_path().resolve(ctx.fs()))
+                    // TODO(T219919866) Add support for experimental content-based path hashing
+                    .and_then(|a| a.get_path().resolve(ctx.fs(), None))
             })
             .collect::<buck2_error::Result<Vec<_>>>()?;
 
@@ -868,7 +874,8 @@ impl Action for RunAction {
 
         for x in self.starlark_values.outputs_for_error_handler.iter() {
             let artifact = (*x.artifact()?).dupe().ensure_bound()?.into_artifact();
-            let path = artifact.get_path().resolve(artifact_fs)?;
+            // TODO(T219919866) Add support for experimental content-based path hashing
+            let path = artifact.get_path().resolve(artifact_fs, None)?;
 
             let abs = artifact_fs.fs().resolve(&path);
             // Check if the output file specified exists. We will return an error if it doesn't

@@ -870,14 +870,16 @@ pub async fn materialize_inputs(
             CommandExecutionInput::Artifact(group) => {
                 for (artifact, _) in group.iter() {
                     if artifact.requires_materialization(artifact_fs) {
-                        paths.push(artifact.resolve_path(artifact_fs)?);
+                        // TODO(T219919866) Add support for experimental content-based path hashing
+                        paths.push(artifact.resolve_path(artifact_fs, None)?);
                     }
                 }
             }
             CommandExecutionInput::ActionMetadata(metadata) => {
                 let path = artifact_fs
                     .buck_out_path_resolver()
-                    .resolve_gen(&metadata.path)?;
+                    // TODO(T219919866) Add support for experimental content-based path hashing
+                    .resolve_gen(&metadata.path, None)?;
                 CleanOutputPaths::clean(std::iter::once(path.as_ref()), artifact_fs.fs())?;
                 artifact_fs
                     .fs()
@@ -937,7 +939,8 @@ async fn check_inputs(
                     CommandExecutionInput::Artifact(group) => {
                         for (artifact, _) in group.iter() {
                             if artifact.requires_materialization(artifact_fs) {
-                                let path = artifact.resolve_path(artifact_fs)?;
+                                // TODO(T219919866) Add support for experimental content-based path hashing
+                                let path = artifact.resolve_path(artifact_fs, None)?;
                                 let abs_path = artifact_fs.fs().resolve(&path);
 
                                 // We ignore the result here because while we want to tag it, we'd
@@ -987,10 +990,11 @@ pub(crate) async fn materialize_build_outputs(
 
     for output in request.outputs() {
         match output {
+            // TODO(T219919866) Add support for experimental content-based path hashing
             CommandExecutionOutputRef::BuildArtifact {
                 path,
                 output_type: _,
-            } => paths.push(artifact_fs.resolve_build(path)?),
+            } => paths.push(artifact_fs.resolve_build(path, None)?),
             CommandExecutionOutputRef::TestPath { path: _, create: _ } => {}
         }
     }

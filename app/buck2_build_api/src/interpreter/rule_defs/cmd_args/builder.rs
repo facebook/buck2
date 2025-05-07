@@ -89,7 +89,8 @@ impl CommandLineContext for DefaultCommandLineContext<'_> {
             }
             self.maybe_macros_state = Some((files, pos + 1));
             Ok(self
-                .resolve_project_path(files[pos].resolve_path(self.fs.fs())?)?
+                // TODO(T219919866) Add support for experimental content-based path hashing
+                .resolve_project_path(files[pos].resolve_path(self.fs.fs(), None)?)?
                 .into_relative())
         } else {
             Err(CommandLineBuilderErrors::WriteToFileMacroNotSupported.into())

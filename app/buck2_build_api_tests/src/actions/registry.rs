@@ -46,7 +46,7 @@ fn declaring_artifacts() -> anyhow::Result<()> {
         ExecutionPlatformResolution::unspecified(),
     );
     let out1 = ForwardRelativePathBuf::unchecked_new("bar.out".into());
-    let buckout1 = BuildArtifactPath::new(base.dupe(), out1.clone());
+    let buckout1 = BuildArtifactPath::new(base.dupe(), out1.clone(), BuckOutPathKind::default());
     let declared1 = actions.declare_artifact(
         None,
         out1.clone(),
@@ -59,7 +59,7 @@ fn declaring_artifacts() -> anyhow::Result<()> {
         .with_full_path(|p| assert_eq!(p, buckout1.path()));
 
     let out2 = ForwardRelativePathBuf::unchecked_new("bar2.out".into());
-    let buckout2 = BuildArtifactPath::new(base, out2.clone());
+    let buckout2 = BuildArtifactPath::new(base, out2.clone(), BuckOutPathKind::default());
     let declared2 = actions.declare_artifact(
         None,
         out2,

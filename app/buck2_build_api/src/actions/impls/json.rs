@@ -207,7 +207,8 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                         serializer.serialize_str("")
                     }
                     Some(fs) => {
-                        let path = err(err(x.artifact())?.resolve_path(fs.fs()))?;
+                        // TODO(T219919866) Add support for experimental content-based path hashing
+                        let path = err(err(x.artifact())?.resolve_path(fs.fs(), None))?;
                         let path = with_command_line_context(fs, self.absolute, |ctx| {
                             err(ctx.resolve_project_path(path)).map(|loc| loc.into_string())
                         })?;

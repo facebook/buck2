@@ -64,7 +64,8 @@ impl Key for SingleValidationKey {
         };
 
         let fs = ctx.get_artifact_fs().await?;
-        let project_relative_path = fs.buck_out_path_resolver().resolve_gen(&gen_path)?;
+        // TODO(T219919866) Add support for experimental content-based path hashing
+        let project_relative_path = fs.buck_out_path_resolver().resolve_gen(&gen_path, None)?;
 
         let validation_result_path = fs.fs().resolve(&project_relative_path);
 
