@@ -15,58 +15,26 @@ load(
     "ErlangOTPBinariesInfo",
     "ErlangParseTransformInfo",
     "ErlangToolchainInfo",
+    "Tool",
+    "Tools",
 )
 
-Tool = cmd_args
-
-ToolsBinaries = record(
-    erl = field(Artifact),
-    erlc = field(Artifact),
-    escript = field(Artifact),
-)
-
-Tools = record(
-    name = field(str),
-    erl = field(Tool),
-    erlc = field(Tool),
-    escript = field(Tool),
-    _tools_binaries = field(ToolsBinaries),
-)
-
-Toolchain = record(
-    name = field(str),
-    erl_opts = field(list[str]),
-    app_file_script = field(Artifact),
-    boot_script_builder = field(Artifact),
-    dependency_analyzer = field(Artifact),
-    dependency_finalizer = field(Artifact),
-    erlc_trampoline = field(Artifact),
-    escript_trampoline = field(Artifact),
-    escript_builder = field(Artifact),
-    otp_binaries = field(Tools),
-    release_variables_builder = field(Artifact),
-    include_erts = field(Artifact),
-    core_parse_transforms = field(dict[str, (Artifact, Artifact)]),
-    parse_transforms = field(dict[str, (Artifact, Artifact)]),
-    parse_transforms_filters = field(dict[str, list[str]]),
-    utility_modules = field(Artifact),
-    env = field(dict[str, str]),
-)
+Toolchain = ErlangToolchainInfo
 
 ToolchainUtillInfo = provider(
     # @unsorted-dict-items
     fields = {
-        "app_src_script": provider_field(typing.Any, default = None),
-        "boot_script_builder": provider_field(typing.Any, default = None),
-        "core_parse_transforms": provider_field(typing.Any, default = None),
-        "dependency_analyzer": provider_field(typing.Any, default = None),
-        "dependency_finalizer": provider_field(typing.Any, default = None),
-        "erlc_trampoline": provider_field(typing.Any, default = None),
-        "escript_trampoline": provider_field(typing.Any, default = None),
-        "escript_builder": provider_field(typing.Any, default = None),
-        "release_variables_builder": provider_field(typing.Any, default = None),
-        "include_erts": provider_field(typing.Any, default = None),
-        "utility_modules": provider_field(typing.Any, default = None),
+        "app_src_script": provider_field(Artifact),
+        "boot_script_builder": provider_field(Artifact),
+        "core_parse_transforms": provider_field(list[Dependency]),
+        "dependency_analyzer": provider_field(Artifact),
+        "dependency_finalizer": provider_field(Artifact),
+        "erlc_trampoline": provider_field(Artifact),
+        "escript_trampoline": provider_field(Artifact),
+        "escript_builder": provider_field(Artifact),
+        "release_variables_builder": provider_field(Artifact),
+        "include_erts": provider_field(Artifact),
+        "utility_modules": provider_field(list[Artifact]),
     },
 )
 
@@ -87,25 +55,7 @@ def _multi_version_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchains = {}
     for toolchain in ctx.attrs.targets:
         toolchain_info = toolchain[ErlangToolchainInfo]
-        toolchains[toolchain_info.name] = Toolchain(
-            name = toolchain_info.name,
-            app_file_script = toolchain_info.app_file_script,
-            boot_script_builder = toolchain_info.boot_script_builder,
-            dependency_analyzer = toolchain_info.dependency_analyzer,
-            dependency_finalizer = toolchain_info.dependency_finalizer,
-            erl_opts = toolchain_info.erl_opts,
-            erlc_trampoline = toolchain_info.erlc_trampoline,
-            escript_trampoline = toolchain_info.escript_trampoline,
-            escript_builder = toolchain_info.escript_builder,
-            otp_binaries = toolchain_info.otp_binaries,
-            release_variables_builder = toolchain_info.release_variables_builder,
-            include_erts = toolchain_info.include_erts,
-            core_parse_transforms = toolchain_info.core_parse_transforms,
-            parse_transforms = toolchain_info.parse_transforms,
-            parse_transforms_filters = toolchain_info.parse_transforms_filters,
-            utility_modules = toolchain_info.utility_modules,
-            env = toolchain_info.env,
-        )
+        toolchains[toolchain_info.name] = toolchain_info
     return [
         DefaultInfo(),
         ErlangMultiVersionToolchainInfo(
@@ -135,17 +85,12 @@ def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     erl = cmd_args([binaries_info.erl] + emu_flags)
     erlc = cmd_args(binaries_info.erlc, hidden = binaries_info.erl)
     escript = cmd_args(binaries_info.escript, hidden = binaries_info.erl)
-    tools_binaries = ToolsBinaries(
-        erl = binaries_info.erl,
-        erlc = binaries_info.erl,
-        escript = binaries_info.escript,
-    )
     otp_binaries = Tools(
         name = ctx.attrs.name,
         erl = erl,
         erlc = erlc,
         escript = escript,
-        _tools_binaries = tools_binaries,
+        _tools_binaries = binaries_info,
     )
 
     # extract utility artefacts
