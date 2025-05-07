@@ -32,6 +32,7 @@ pub mod cells;
 pub mod ci;
 pub mod client_only;
 pub mod configuration;
+pub mod content_hash;
 pub mod deferred;
 pub mod directory_digest;
 pub mod env;
