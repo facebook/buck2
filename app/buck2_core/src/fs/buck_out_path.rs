@@ -20,6 +20,7 @@ use itertools::Itertools;
 use crate::category::CategoryRef;
 use crate::cells::external::ExternalCellOrigin;
 use crate::cells::paths::CellRelativePath;
+use crate::content_hash::ContentBasedPathHash;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::key::DeferredHolderKey;
 use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
@@ -30,6 +31,31 @@ use crate::fs::project_rel_path::ProjectRelativePathBuf;
 use crate::provider::label::ConfiguredProvidersLabel;
 use crate::provider::label::NonDefaultProvidersName;
 use crate::provider::label::ProvidersName;
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    Allocative,
+    Hash,
+    Eq,
+    PartialEq,
+    strong_hash::StrongHash
+)]
+pub enum BuckOutPathKind {
+    /// A path that contains the configuration of the owning target.
+    Configuration,
+
+    /// A path that contains the content hash of the artifact stored at the path.
+    ContentHash,
+}
+
+impl Default for BuckOutPathKind {
+    fn default() -> Self {
+        Self::Configuration
+    }
+}
 
 #[derive(
     Clone,
@@ -47,6 +73,8 @@ struct BuildArtifactPathData {
     owner: DeferredHolderKey,
     /// The path relative to that target.
     path: Box<ForwardRelativePath>,
+    /// How the path is resolved
+    path_resolution_method: BuckOutPathKind,
 }
 
 /// Represents a resolvable path corresponding to outputs of rules that are part
@@ -81,6 +109,7 @@ impl BuildArtifactPath {
         BuildArtifactPath(Arc::new(BuildArtifactPathData {
             owner,
             path: path.into_box(),
+            path_resolution_method: BuckOutPathKind::Configuration,
         }))
     }
 
@@ -94,6 +123,10 @@ impl BuildArtifactPath {
 
     pub fn path(&self) -> &ForwardRelativePath {
         &self.0.path
+    }
+
+    pub fn path_resolution_method(&self) -> BuckOutPathKind {
+        self.0.path_resolution_method
     }
 }
 
@@ -221,6 +254,8 @@ impl BuckOutPathResolver {
                 .map(|x| x.as_str()),
             path.path(),
             false,
+            path.path_resolution_method(),
+            None,
         )
     }
 
@@ -236,6 +271,8 @@ impl BuckOutPathResolver {
                 .map(|x| x.as_str()),
             path.path(),
             false,
+            path.path_resolution_method(),
+            None,
         )
     }
 
@@ -274,6 +311,8 @@ impl BuckOutPathResolver {
             &path.path,
             // Fully hash scratch path as it can be very long and cause path too long issue on Windows.
             true,
+            BuckOutPathKind::Configuration,
+            None,
         )
     }
 
@@ -311,6 +350,8 @@ impl BuckOutPathResolver {
             None,
             &path,
             true,
+            BuckOutPathKind::Configuration,
+            None,
         )
     }
 
@@ -321,8 +362,18 @@ impl BuckOutPathResolver {
         action_key: Option<&str>,
         path: &ForwardRelativePath,
         fully_hash_path: bool,
+        path_resolution_method: BuckOutPathKind,
+        content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        owner.make_hashed_path(&self.buck_out_v2, prefix, action_key, path, fully_hash_path)
+        owner.make_hashed_path(
+            &self.buck_out_v2,
+            prefix,
+            action_key,
+            path,
+            fully_hash_path,
+            path_resolution_method,
+            content_hash,
+        )
     }
 
     /// This function returns the exact location of the symlink of a given target.

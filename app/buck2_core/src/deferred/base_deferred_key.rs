@@ -24,6 +24,8 @@ use dupe::Dupe;
 use static_assertions::assert_eq_size;
 use strong_hash::StrongHash;
 
+use crate::content_hash::ContentBasedPathHash;
+use crate::fs::buck_out_path::BuckOutPathKind;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
@@ -58,6 +60,13 @@ impl PartialEq for BaseDeferredKeyBxl {
     fn eq(&self, other: &Self) -> bool {
         self.0.eq_token() == other.0.eq_token()
     }
+}
+
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+pub enum PathResolutionError {
+    #[error("Tried to resolve a content-based path {0} without providing the content hash!")]
+    ContentBasedPathWithNoContentHash(ForwardRelativePathBuf),
 }
 
 #[derive(Debug, derive_more::Display, Dupe, Clone, Allocative)]
@@ -132,6 +141,8 @@ impl BaseDeferredKey {
         action_key: Option<&str>,
         path: &ForwardRelativePath,
         fully_hash_path: bool,
+        path_resolution_method: BuckOutPathKind,
+        content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         match self {
             BaseDeferredKey::TargetLabel(target) => {
@@ -141,33 +152,66 @@ impl BaseDeferredKey {
                 // It is performance critical that we use slices and allocate via `join` instead of
                 // repeated calls to `join` on the path object because `join` allocates on each call,
                 // which has a significant impact.
-                let path_identifier = [
-                    target.cfg().output_hash().as_str(),
-                    if target.exec_cfg().is_some() { "-" } else { "" },
-                    target
-                        .exec_cfg()
-                        .as_ref()
-                        .map_or("", |x| x.output_hash().as_str()),
-                    "/",
-                    cell_relative_path,
-                    if cell_relative_path.is_empty() {
-                        ""
-                    } else {
-                        "/"
-                    },
-                    "__",
-                    escaped_target_name.as_ref(),
-                    "__",
-                    "/",
-                    if action_key.is_none() {
-                        ""
-                    } else {
-                        "__action__"
-                    },
-                    action_key.unwrap_or_default(),
-                    if action_key.is_none() { "" } else { "__/" },
-                ];
-
+                let path_identifier = match path_resolution_method {
+                    BuckOutPathKind::Configuration => [
+                        target.cfg().output_hash().as_str(),
+                        if target.exec_cfg().is_some() { "-" } else { "" },
+                        target
+                            .exec_cfg()
+                            .as_ref()
+                            .map_or("", |x| x.output_hash().as_str()),
+                        "/",
+                        cell_relative_path,
+                        if cell_relative_path.is_empty() {
+                            ""
+                        } else {
+                            "/"
+                        },
+                        "__",
+                        escaped_target_name.as_ref(),
+                        "__",
+                        "/",
+                        if action_key.is_none() {
+                            ""
+                        } else {
+                            "__action__"
+                        },
+                        action_key.unwrap_or_default(),
+                        if action_key.is_none() { "" } else { "__/" },
+                    ],
+                    BuckOutPathKind::ContentHash => {
+                        let content_hash = content_hash.as_ref().map(|x| x.as_str());
+                        if let Some(content_hash) = content_hash {
+                            [
+                                cell_relative_path,
+                                if cell_relative_path.is_empty() {
+                                    ""
+                                } else {
+                                    "/"
+                                },
+                                "__",
+                                escaped_target_name.as_ref(),
+                                "__",
+                                "/",
+                                if action_key.is_none() {
+                                    ""
+                                } else {
+                                    "__action__"
+                                },
+                                action_key.unwrap_or_default(),
+                                if action_key.is_none() { "" } else { "__/" },
+                                content_hash,
+                                "/",
+                                "",
+                                "",
+                            ]
+                        } else {
+                            return Err(PathResolutionError::ContentBasedPathWithNoContentHash(
+                                path.to_buf(),
+                            ))?;
+                        }
+                    }
+                };
                 let path_or_hash = if fully_hash_path {
                     let mut hasher = DefaultHasher::new();
                     path_identifier.hash(&mut hasher);
