@@ -20,6 +20,7 @@ fn main() -> io::Result<()> {
             ".".to_owned(),
             "../buck2_data".to_owned(),
             "../buck2_subscription_proto".to_owned(),
+            "../buck2_host_sharing_proto".to_owned(),
         ]
     };
 

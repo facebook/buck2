@@ -16,7 +16,11 @@ fn main() -> io::Result<()> {
     let includes = if let Ok(path) = env::var("BUCK_PROTO_SRCS") {
         vec![path]
     } else {
-        vec![".".to_owned(), "../buck2_data".to_owned()]
+        vec![
+            ".".to_owned(),
+            "../buck2_data".to_owned(),
+            "../buck2_host_sharing_proto".to_owned(),
+        ]
     };
 
     buck2_protoc_dev::configure()

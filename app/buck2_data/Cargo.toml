@@ -7,6 +7,7 @@ version = "0.1.0"
 
 [dependencies]
 allocative = { workspace = true }
+buck2_host_sharing_proto = { workspace = true }
 derive_more = { workspace = true }
 hex = { workspace = true }
 prost = { workspace = true }

@@ -7,8 +7,10 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
+allocative = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
+serde = { workspace = true }
 tonic = { workspace = true }
 
 [build-dependencies]

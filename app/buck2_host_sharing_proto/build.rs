@@ -21,6 +21,8 @@ fn main() -> io::Result<()> {
 
     buck2_protoc_dev::configure()
         .setup_protoc()
+        .type_attribute(".", "#[derive(::allocative::Allocative)]")
+        .type_attribute(".", "#[derive(::serde::Serialize, ::serde::Deserialize)]")
         .extern_path(".buck.data", "::buck2_data")
         .compile(proto_files, &includes)
 }

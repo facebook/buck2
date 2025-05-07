@@ -148,6 +148,7 @@ use futures::channel::mpsc::UnboundedSender;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
 use host_sharing::HostSharingRequirements;
+use host_sharing::convert::host_sharing_requirements_to_grpc;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indexmap::indexset;
@@ -1016,6 +1017,10 @@ impl BuckTestOrchestrator<'_> {
                                     .to_command_execution_proto(true, true, false)
                                     .await,
                             ),
+                            command_host_sharing_requirements: host_sharing_requirements_to_grpc(
+                                prepared_command.request.host_sharing_requirements().clone(),
+                            )
+                            .ok(),
                             re_cache_enabled: *cacheable && re_cache_enabled,
                         };
                         ((result, cached), end)
@@ -1068,6 +1073,10 @@ impl BuckTestOrchestrator<'_> {
                                     .to_command_execution_proto(true, true, false)
                                     .await,
                             ),
+                            command_host_sharing_requirements: host_sharing_requirements_to_grpc(
+                                prepared_command.request.host_sharing_requirements().clone(),
+                            )
+                            .ok(),
                         };
                         (result, end)
                     })

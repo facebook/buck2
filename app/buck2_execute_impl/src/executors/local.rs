@@ -413,6 +413,7 @@ impl LocalExecutor {
                         value: v.into_string_lossy(),
                     })
                     .collect();
+
                 let stage = match worker {
                     None => buck2_data::LocalExecute {
                         command: Some(buck2_data::LocalCommand {

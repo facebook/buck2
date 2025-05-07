@@ -16,7 +16,7 @@ fn main() -> io::Result<()> {
     let includes = if let Ok(path) = env::var("BUCK_PROTO_SRCS") {
         vec![path]
     } else {
-        vec![".".to_owned()]
+        vec![".".to_owned(), "../buck2_host_sharing_proto".to_owned()]
     };
 
     buck2_protoc_dev::configure()
@@ -266,5 +266,6 @@ fn main() -> io::Result<()> {
         .boxed("SpanEndEvent.data.action_execution")
         .boxed("SpanEndEvent.data.cache_upload")
         .boxed("InstantEvent.data.snapshot")
+        .extern_path(".buck.host_sharing", "::buck2_host_sharing_proto")
         .compile(proto_files, &includes)
 }
