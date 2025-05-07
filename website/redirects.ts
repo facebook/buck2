@@ -27,9 +27,13 @@ const baseRedirects = [
       from: '/docs/bootstrapping',
     },
     {
-      to: '/docs/prelude/globals',
+      to: '/docs/prelude/rules',
       from: '/docs/api/rules',
     },
+    {
+      to: '/docs/prelude/rules',
+      from: '/docs/prelude/globals',
+    }
   ];
 
 // Redirects that need to be introduced following changes to the generated API docs in D61778036

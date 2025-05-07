@@ -64,9 +64,9 @@ def copy_starlark_docs() -> None:
         write_file(base_path / (name + ".generated.md"), prefix + read_file(x))
 
 
-def generate_api_docs(buck: str) -> None:
+def generate_prelude_rules_docs(buck: str) -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        base_dir = Path("docs") / "prelude"
+        base_dir = Path("docs") / "prelude" / "rules"
         setup_gen_dir(base_dir)
         # Actually generate the docs
         print("Running Buck...")
@@ -79,16 +79,23 @@ def generate_api_docs(buck: str) -> None:
             check=True,
         )
 
-        src = read_file(Path(tmp) / "prelude" / "docs" / "rules.bzl.md")
-        dest = base_dir / "globals.generated.md"
+        # Copy the files under Path(tmp) / prelude / docs / rules to base_dir
+        folder = Path(tmp) / "prelude" / "docs" / "rules.bzl"
+        for orig in folder.glob("*.md"):
+            path = orig.relative_to(folder)
+            dest = base_dir.joinpath(path)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(orig, dest)
 
-        prefix = "---\nid: globals\n---\n"
-        prefix += "# Rules\n\nThese rules are available as standard in Buck2.\n"
-        src = "\n".join(src.splitlines()[1:])
+        index_file_content = (
+            "# Rules\n\nThese rules are available as standard in Buck2.\n"
+        )
 
-        os.makedirs(dest.parent, exist_ok=True)
-        write_file(dest, prefix + src)
+        os.makedirs(base_dir, exist_ok=True)
+        write_file(base_dir / "index.md", index_file_content)
 
+
+def generate_api_docs(buck: str) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         base_dir = Path("docs") / "api"
         setup_gen_dir(base_dir)
@@ -254,6 +261,7 @@ def main() -> None:
 
     buck = buck_command(args)
     copy_starlark_docs()
+    generate_prelude_rules_docs(buck)
     generate_api_docs(buck)
     generate_bxl_utils_api_docs(buck)
     generate_help_docs(buck)

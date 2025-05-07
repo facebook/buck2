@@ -134,7 +134,7 @@ instead explicitly downloads and tracks them as part of the build.
 Doing is typically as follows:
 
 - Download the tools, e.g. using the
-  [`http_archive`](../../prelude/globals/#http_archive) rule (see the
+  [`http_archive`](../../prelude/rules/http_archive) rule (see the
   [Zig-based C++ toolchain in the prelude](https://github.com/facebook/buck2/tree/main/prelude/toolchains/cxx/zig)
   as an example).
 - Expose those tools as [`RunInfo`](../../api/build/RunInfo/) providers in rules

@@ -10,4 +10,4 @@
 
 load("@prelude//:rules.bzl", _rules = "rules")
 
-load_symbols(_rules)
+load_symbols({name: namespace(name = r) for name, r in _rules.items()})

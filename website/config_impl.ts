@@ -60,7 +60,7 @@ const themeConfig: ClassicPresetConfig = ({
         activeBaseRegex: '/docs/api',
       },
       {
-        to: '/docs/prelude/globals',
+        to: '/docs/prelude/rules',
         position: 'left',
         label: 'Rules',
         activeBasePath: '/docs/prelude',
