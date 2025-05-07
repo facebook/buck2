@@ -285,20 +285,27 @@ impl Lines {
     /// If a limit is specified, no more than that amount will be drained.
     /// The limit is on the number of *lines*, **NOT** the number of *bytes*.
     /// Care should be taken with calling a limit of 0 - this will cause no lines to render and the buffer to never be drained.
+    ///
+    /// Returns the remain limit after rendering.  If the limit is None, means no limit
     pub(crate) fn render_with_limit(
         &mut self,
         writer: &mut Vec<u8>,
         limit: Option<usize>,
-    ) -> anyhow::Result<()> {
-        let limit = limit.unwrap_or(self.len());
-        let amt = cmp::min(limit, self.len());
+    ) -> anyhow::Result<Option<usize>> {
+        let output_limit = limit.unwrap_or(self.len());
+        let amt = cmp::min(output_limit, self.len());
         for line in self.0.drain(..amt) {
             line.render_with_clear_and_nl(writer)?;
         }
-        Ok(())
+        if limit.is_some() {
+            Ok(Some(output_limit - amt))
+        } else {
+            // if the original limit was None, it means no limit, so just return None meaning no limit
+            Ok(None)
+        }
     }
 
-    /// Formats and renders all lines to `stdout`.
+    /// Formats and renders all lines to `buffer`.
     /// Notably, this *queues* the lines for rendering.  You must flush the buffer.
     pub(crate) fn render_from_line(
         &self,

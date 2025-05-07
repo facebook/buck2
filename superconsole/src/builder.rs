@@ -19,7 +19,10 @@ use crate::output::SuperConsoleOutput;
 /// A builder to create SuperConsole, with more options.
 pub struct Builder {
     non_blocking: bool,
+    // The stream that superconsole writes to by default (emit output + canvas). By default is stderr.
     stream: Box<dyn Write + Send + 'static + Sync>,
+    // The stream that superconsole writes to for auxiliary output. By default is stdout.
+    aux_stream: Box<dyn Write + Send + 'static + Sync>,
 }
 
 impl Default for Builder {
@@ -33,6 +36,7 @@ impl Builder {
         Self {
             non_blocking: false,
             stream: Box::new(io::stderr()),
+            aux_stream: Box::new(io::stdout()),
         }
     }
 
@@ -62,14 +66,21 @@ impl Builder {
     }
 
     fn build_inner(self, fallback_size: Option<Dimensions>) -> anyhow::Result<SuperConsole> {
-        Ok(SuperConsole::new_with_output(fallback_size, self.output()?))
+        let output = self.output()?;
+        Ok(SuperConsole::new_with_output(fallback_size, output))
     }
 
     fn output(self) -> anyhow::Result<Box<dyn SuperConsoleOutput>> {
         if self.non_blocking {
-            Ok(Box::new(NonBlockingSuperConsoleOutput::new(self.stream)?))
+            Ok(Box::new(NonBlockingSuperConsoleOutput::new(
+                self.stream,
+                self.aux_stream,
+            )?))
         } else {
-            Ok(Box::new(BlockingSuperConsoleOutput::new(self.stream)))
+            Ok(Box::new(BlockingSuperConsoleOutput::new(
+                self.stream,
+                self.aux_stream,
+            )))
         }
     }
 }

@@ -26,6 +26,7 @@ use crate::components::Component;
 use crate::components::DrawMode;
 use crate::content::Line;
 use crate::output::BlockingSuperConsoleOutput;
+use crate::output::OutputTarget;
 use crate::output::SuperConsoleOutput;
 
 const MINIMUM_EMIT: usize = 5;
@@ -38,8 +39,10 @@ const MAX_GRAPHEME_BUFFER: usize = 1000000;
 pub struct SuperConsole {
     /// Number of lines that were used to render the canvas last time.
     canvas_contents: Lines,
-    /// Buffer storing the lines we should emit next time we render.
+    /// Buffer storing the lines (stderr by default) we should emit next time we render.
     to_emit: Lines,
+    // Buffer storing auxillary output (stdio by default) that should be emitted next time we render.
+    aux_to_emit: Lines,
     /// A default screen size to use if the size cannot be fetched
     /// from the terminal. This generally is only used for testing
     /// situations.
@@ -55,7 +58,10 @@ impl SuperConsole {
         Self::compatible().then(|| {
             Self::new_with_output(
                 None,
-                Box::new(BlockingSuperConsoleOutput::new(Box::new(io::stderr()))),
+                Box::new(BlockingSuperConsoleOutput::new(
+                    Box::new(io::stderr()),
+                    Box::new(io::stdout()),
+                )),
             )
         })
     }
@@ -65,7 +71,10 @@ impl SuperConsole {
     pub fn forced_new(fallback_size: Dimensions) -> Self {
         Self::new_with_output(
             Some(fallback_size),
-            Box::new(BlockingSuperConsoleOutput::new(Box::new(io::stderr()))),
+            Box::new(BlockingSuperConsoleOutput::new(
+                Box::new(io::stderr()),
+                Box::new(io::stdout()),
+            )),
         )
     }
 
@@ -78,6 +87,7 @@ impl SuperConsole {
             to_emit: Lines::new(),
             fallback_size,
             output,
+            aux_to_emit: Lines::new(),
         }
     }
 
@@ -100,14 +110,18 @@ impl SuperConsole {
         // or until the rendered frame is too large to print anything.
         let mut anything_emitted = true;
         let mut has_rendered = false;
-        while !has_rendered || (anything_emitted && !self.to_emit.is_empty()) {
+        while !has_rendered
+            || (anything_emitted && !(self.to_emit.is_empty() && self.aux_to_emit.is_empty()))
+        {
             if !self.output.should_render() {
                 break;
             }
 
             let last_len = self.to_emit.len();
+            let last_aux_len = self.aux_to_emit.len();
             self.render_with_mode(root, DrawMode::Normal)?;
-            anything_emitted = last_len == self.to_emit.len();
+            anything_emitted =
+                last_len == self.to_emit.len() && last_aux_len == self.aux_to_emit.len();
             has_rendered = true;
         }
 
@@ -146,6 +160,12 @@ impl SuperConsole {
     /// The lines *will not* appear until the next render is called.
     pub fn emit(&mut self, lines: Lines) {
         self.to_emit.extend(lines);
+    }
+
+    /// Queues the passed lines of auxillary output to be drawn on the next render.
+    /// The lines *will not* appear until the next render is called.
+    pub fn emit_aux(&mut self, lines: Lines) {
+        self.aux_to_emit.extend(lines);
     }
 
     fn size(&self) -> anyhow::Result<Dimensions> {
@@ -195,25 +215,25 @@ impl SuperConsole {
 
         // We remove the last line as we always have a blank final line in our output.
         let size = self.size()?.saturating_sub(1, Direction::Vertical);
-        let mut buffer = Vec::new();
 
-        self.render_general(&mut buffer, root, mode, size)?;
-        self.output.output(buffer)
+        self.render_general(root, mode, size)?;
+
+        Ok(())
     }
 
     /// Helper method that makes rendering highly configurable.
     fn render_general(
         &mut self,
-        buffer: &mut Vec<u8>,
         root: &dyn Component,
         mode: DrawMode,
         size: Dimensions,
     ) -> anyhow::Result<()> {
         /// Heuristic to determine if a buffer is too large to buffer.
         /// Can be tuned, but is currently set to 1000000 graphemes.
-        fn is_big(buf: &Lines) -> bool {
-            let len: usize = buf.iter().map(Line::len).sum();
-            len > MAX_GRAPHEME_BUFFER
+        fn is_big(buf0: &Lines, buf1: &Lines) -> bool {
+            let len0: usize = buf0.iter().map(Line::len).sum();
+            let len1: usize = buf1.iter().map(Line::len).sum();
+            (len0 + len1) > MAX_GRAPHEME_BUFFER
         }
 
         // Pre-draw the frame *and then* start rendering emitted messages.
@@ -223,8 +243,8 @@ impl SuperConsole {
 
         // Render at most a single frame if this not the last render.
         // Does not buffer if there is a ridiculous amount of data.
-        let limit = match mode {
-            DrawMode::Normal if !is_big(&self.to_emit) => {
+        let mut limit = match mode {
+            DrawMode::Normal if !is_big(&self.to_emit, &self.aux_to_emit) => {
                 let limit = size.height.saturating_sub(canvas.len());
                 // arbitrary value picked so we don't starve `emit` on small terminal sizes.
                 Some(cmp::max(limit, MINIMUM_EMIT))
@@ -234,17 +254,35 @@ impl SuperConsole {
 
         // How much of the canvas hasn't changed, so I can avoid overwriting
         // and thus avoid flickering things like URL's in VS Code terminal.
-        let reuse_prefix = if self.to_emit.is_empty() {
+        let reuse_prefix = if self.to_emit.is_empty() && self.aux_to_emit.is_empty() {
             self.canvas_contents.lines_equal(&canvas)
         } else {
             0
         };
 
-        Self::clear_canvas_pre(buffer, self.canvas_contents.len() - reuse_prefix)?;
-        self.to_emit.render_with_limit(buffer, limit)?;
-        canvas.render_from_line(buffer, reuse_prefix)?;
-        Self::clear_canvas_post(buffer)?;
+        let mut buffer = Vec::new();
+
+        Self::clear_canvas_pre(&mut buffer, self.canvas_contents.len() - reuse_prefix)?;
+
+        if !self.aux_to_emit.is_empty() {
+            // If we have aux_to_emit, we need to output the main output (stderr by default) first
+            // and flushed, so that we can make sure the all output order is correct.
+            self.output.output(buffer)?;
+            let mut aux_buffer = Vec::new();
+            limit = self.aux_to_emit.render_with_limit(&mut aux_buffer, limit)?;
+            self.output.output_to(aux_buffer, OutputTarget::Aux)?;
+
+            // Since output is moved at `self.output.output(buffer)`, we need to new a new buffer
+            buffer = Vec::new();
+        }
+
+        self.to_emit.render_with_limit(&mut buffer, limit)?;
+
+        canvas.render_from_line(&mut buffer, reuse_prefix)?;
+        Self::clear_canvas_post(&mut buffer)?;
         self.canvas_contents = canvas;
+
+        self.output.output(buffer)?;
 
         Ok(())
     }
@@ -272,15 +310,9 @@ mod tests {
         console.emit(Lines(vec![vec!["line 1"].try_into()?; msg_count]));
         let msg = Lines(vec![vec!["line"].try_into()?; msg_count]);
         let root = Echo(msg);
-        let mut buffer = Vec::new();
 
         // even though the canvas is larger than the tty
-        console.render_general(
-            &mut buffer,
-            &root,
-            DrawMode::Normal,
-            Dimensions::new(100, 2),
-        )?;
+        console.render_general(&root, DrawMode::Normal, Dimensions::new(100, 2))?;
 
         // we should still drain a minimum of 5 messages.
         assert_eq!(console.to_emit.len(), msg_count - MINIMUM_EMIT);
@@ -296,15 +328,9 @@ mod tests {
             MAX_GRAPHEME_BUFFER * 2
         ]));
         let root = Echo(Lines(vec![vec!["line"].try_into()?]));
-        let mut buffer = Vec::new();
 
         // Even though we have more messages than fit on the screen in the `to_emit` buffer
-        console.render_general(
-            &mut buffer,
-            &root,
-            DrawMode::Normal,
-            Dimensions::new(100, 20),
-        )?;
+        console.render_general(&root, DrawMode::Normal, Dimensions::new(100, 20))?;
 
         // We have so many that we should just drain them all.
         assert!(console.to_emit.is_empty());

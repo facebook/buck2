@@ -20,6 +20,15 @@ use crossbeam_channel::unbounded;
 
 use crate::Dimensions;
 
+/// Represents the target stream for output
+#[derive(Copy, Clone, Debug)]
+pub enum OutputTarget {
+    /// Main output stream (default: stderr)
+    Main,
+    /// Auxiliary output stream (default: stdout)
+    Aux,
+}
+
 pub trait SuperConsoleOutput: Send + Sync + 'static {
     /// Called before rendering will occur. This has a chance to prevent rendering by returning
     /// false.
@@ -28,6 +37,14 @@ pub trait SuperConsoleOutput: Send + Sync + 'static {
     /// Called to produce output. This may be called without should_render if we are finalizing or
     /// clearing. This should flush if possible.
     fn output(&mut self, buffer: Vec<u8>) -> anyhow::Result<()>;
+
+    /// Called to produce to a specific output target.
+    ///This may be called without should_render if we are finalizing or clearing. This should flush if possible.
+    /// Default implementation sends all to main output for backwards compatibility
+    fn output_to(&mut self, buffer: Vec<u8>, target: OutputTarget) -> anyhow::Result<()> {
+        let _ = target;
+        self.output(buffer)
+    }
 
     /// How big is the terminal to write to.
     fn terminal_size(&self) -> anyhow::Result<Dimensions> {
@@ -48,11 +65,16 @@ pub trait SuperConsoleOutput: Send + Sync + 'static {
 pub struct BlockingSuperConsoleOutput {
     /// Stream to write to.
     stream: Box<dyn Write + Send + 'static + Sync>,
+    /// Auxiliary stream to write to.
+    aux_stream: Box<dyn Write + Send + 'static + Sync>,
 }
 
 impl BlockingSuperConsoleOutput {
-    pub fn new(stream: Box<dyn Write + Send + 'static + Sync>) -> Self {
-        Self { stream }
+    pub fn new(
+        stream: Box<dyn Write + Send + 'static + Sync>,
+        aux_stream: Box<dyn Write + Send + 'static + Sync>,
+    ) -> Self {
+        Self { stream, aux_stream }
     }
 }
 
@@ -62,9 +84,20 @@ impl SuperConsoleOutput for BlockingSuperConsoleOutput {
     }
 
     fn output(&mut self, buffer: Vec<u8>) -> anyhow::Result<()> {
-        self.stream.write_all(&buffer)?;
-        self.stream.flush()?;
+        self.output_to(buffer, OutputTarget::Main)
+    }
 
+    fn output_to(&mut self, buffer: Vec<u8>, target: OutputTarget) -> anyhow::Result<()> {
+        match target {
+            OutputTarget::Main => {
+                self.stream.write_all(&buffer)?;
+                self.stream.flush()?;
+            }
+            OutputTarget::Aux => {
+                self.aux_stream.write_all(&buffer)?;
+                self.aux_stream.flush()?;
+            }
+        }
         Ok(())
     }
 
@@ -88,7 +121,7 @@ impl SuperConsoleOutput for BlockingSuperConsoleOutput {
 /// - When an error occurs, the next fallible call will return it.
 pub(crate) struct NonBlockingSuperConsoleOutput {
     /// A channel to send frames for writing.
-    sender: Sender<Vec<u8>>,
+    sender: Sender<(Vec<u8>, OutputTarget)>,
     /// A channel back for errors encountered by the thread doing the writing.
     errors: Receiver<io::Error>,
     /// The thread doing the writing. It owns the other end of the aforementioned channels and will
@@ -97,19 +130,29 @@ pub(crate) struct NonBlockingSuperConsoleOutput {
 }
 
 impl NonBlockingSuperConsoleOutput {
-    pub fn new(stream: Box<dyn Write + Send + 'static + Sync>) -> anyhow::Result<Self> {
-        Self::new_for_writer(stream)
+    pub fn new(
+        stream: Box<dyn Write + Send + 'static + Sync>,
+        aux_stream: Box<dyn Write + Send + 'static + Sync>,
+    ) -> anyhow::Result<Self> {
+        Self::new_for_writer(stream, aux_stream)
     }
 
-    fn new_for_writer(mut stream: Box<dyn Write + Send + 'static + Sync>) -> anyhow::Result<Self> {
-        let (sender, receiver) = bounded::<Vec<u8>>(1);
+    fn new_for_writer(
+        mut stream: Box<dyn Write + Send + 'static + Sync>,
+        mut aux_stream: Box<dyn Write + Send + 'static + Sync>,
+    ) -> anyhow::Result<Self> {
+        let (sender, receiver) = bounded::<(Vec<u8>, OutputTarget)>(1);
         let (error_sender, errors) = unbounded::<io::Error>();
 
         let handle = std::thread::Builder::new()
             .name("superconsole-io".to_owned())
             .spawn(move || {
-                for frame in receiver.into_iter() {
-                    match stream.write_all(&frame).and_then(|()| stream.flush()) {
+                for (data, output_target) in receiver.into_iter() {
+                    let out_stream = match output_target {
+                        OutputTarget::Main => &mut stream,
+                        OutputTarget::Aux => &mut aux_stream,
+                    };
+                    match out_stream.write_all(&data).and_then(|()| stream.flush()) {
                         Ok(()) => {}
                         Err(e) => {
                             // This can only fail if the sender disconnected, in which case they'll
@@ -140,12 +183,16 @@ impl SuperConsoleOutput for NonBlockingSuperConsoleOutput {
     /// Attempt to send out a frame. If we called should_render, this won't block. If we didn't,
     /// then it may block.
     fn output(&mut self, buffer: Vec<u8>) -> anyhow::Result<()> {
+        self.output_to(buffer, OutputTarget::Main)
+    }
+
+    fn output_to(&mut self, buffer: Vec<u8>, target: OutputTarget) -> anyhow::Result<()> {
         if let Ok(err) = self.errors.try_recv() {
             return Err(anyhow::Error::from(err).context("Superconsole I/O thread errored"));
         }
 
         self.sender
-            .send(buffer)
+            .send((buffer, target))
             .context("Superconsole I/O thread has crashed")?;
 
         Ok(())
@@ -221,29 +268,44 @@ mod tests {
 
     #[test]
     fn test_non_blocking_output_errors_on_next_output() -> anyhow::Result<()> {
-        let (writer, drain) = TestWriter::new();
+        fn test_send_target(target0: OutputTarget, target1: OutputTarget) -> anyhow::Result<()> {
+            let (writer, drain) = TestWriter::new();
+            let aux_writer = writer.clone();
 
-        let mut output = NonBlockingSuperConsoleOutput::new_for_writer(Box::new(writer))?;
+            let mut output = NonBlockingSuperConsoleOutput::new_for_writer(
+                Box::new(writer),
+                Box::new(aux_writer),
+            )?;
 
-        // Send a first message, this will go into write()
-        assert!(output.should_render());
-        output.output(msg())?;
+            // Send a first message, this will go into write()
+            assert!(output.should_render());
+            output.output_to(msg(), target0)?;
 
-        // Send a second message, this will stay in the channel.
-        output.output(msg())?;
+            // Send a second message, this will stay in the channel.
+            output.output_to(msg(), target1)?;
 
-        // Now, kill the output
-        assert!(!output.should_render());
-        drop(drain);
+            // Now, kill the output
+            assert!(!output.should_render());
+            drop(drain);
 
-        // We expect that should_render() will eventually return true.
-        while !output.should_render() {
-            std::thread::yield_now();
+            // We expect that should_render() will eventually return true.
+            while !output.should_render() {
+                std::thread::yield_now();
+            }
+
+            // Likewise, we expect that sending output and finalizing wold fail.
+            assert!(output.output(Vec::new()).is_err());
+            assert!(Box::new(output).finalize().is_err());
+
+            Ok(())
         }
 
-        // Likewise, we expect that sending output and finalizing wold fail.
-        assert!(output.output(Vec::new()).is_err());
-        assert!(Box::new(output).finalize().is_err());
+        // Test all combinations of targets
+        for target0 in [OutputTarget::Main, OutputTarget::Aux] {
+            for target1 in [OutputTarget::Main, OutputTarget::Aux] {
+                test_send_target(target0, target1)?
+            }
+        }
 
         Ok(())
     }
