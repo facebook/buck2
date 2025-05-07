@@ -36,6 +36,7 @@ use crate::bxl::starlark_defs::lazy_ctx::StarlarkLazyCtx;
 use crate::bxl::starlark_defs::lazy_ctx::lazy_cquery_ctx::StarlarkLazyCqueryCtx;
 use crate::bxl::starlark_defs::lazy_ctx::lazy_uquery_ctx::StarlarkLazyUqueryCtx;
 use crate::bxl::starlark_defs::lazy_ctx::operation::StarlarkLazy;
+use crate::bxl::starlark_defs::nodes::action::StarlarkActionAttr;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredAttr;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkLazyAttrs;
@@ -51,6 +52,7 @@ use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
 pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuilder) {
     const CliArgs: StarlarkValueAsType<CliArgs> = StarlarkValueAsType::new();
     const Context: StarlarkValueAsType<BxlContext> = StarlarkValueAsType::new();
+    const ActionAttr: StarlarkValueAsType<StarlarkActionAttr> = StarlarkValueAsType::new();
     const AuditContext: StarlarkValueAsType<StarlarkAuditCtx> = StarlarkValueAsType::new();
     const AqueryContext: StarlarkValueAsType<StarlarkAQueryCtx> = StarlarkValueAsType::new();
     const CqueryContext: StarlarkValueAsType<StarlarkCQueryCtx> = StarlarkValueAsType::new();
