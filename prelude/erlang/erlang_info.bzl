@@ -46,13 +46,9 @@ ErlangAppInfo = provider(
             "dependencies",
             # Transitive Set for calculating the start order
             "start_dependencies",
-            # reference to the .app file
-            "app_file",
             # additional targets that the application depends on, the
             # default output will end up in priv/
             "resources",
-            # references to ankers for the relevant directories for the application
-            "priv_dir",
             # applications that are in path but not build by buck2 are virtual
             # the use-case for virtual apps are OTP applications that are shipeped
             # with the Erlang distribution

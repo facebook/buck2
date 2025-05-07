@@ -32,7 +32,6 @@ load(
     ":erlang_utils.bzl",
     "action_identifier",
     "app_name",
-    "build_paths",
     "multidict_projection",
     "multidict_projection_key",
 )
@@ -220,7 +219,7 @@ def _generate_priv_dir(
             if type(file) == "artifact":
                 priv_symlinks[file.short_path] = file
 
-    build_environment.priv_dirs[name] = ctx.actions.symlinked_dir(
+    build_environment.app_resources["priv"] = ctx.actions.symlinked_dir(
         paths.join(
             erlang_build.utils.build_dir(toolchain),
             name,
@@ -243,7 +242,7 @@ def _generate_app_file(
     """
     _check_application_dependencies(ctx)
 
-    app_file_name = build_paths.app_file(ctx)
+    app_file_name = name + ".app"
     output = ctx.actions.declare_output(
         paths.join(
             erlang_build.utils.build_dir(toolchain),
@@ -260,7 +259,7 @@ def _generate_app_file(
         identifier = action_identifier(toolchain, name),
     )
 
-    build_environment.app_files[name] = output
+    build_environment.app_resources[app_file_name] = output
 
     return build_environment
 
@@ -326,9 +325,9 @@ def link_output(
     """Link application output folder in working dir root folder."""
     name = app_name(ctx)
 
-    ebin = build_environment.app_beams.values() + [build_environment.app_files[name]]
+    ebin = build_environment.app_beams.values() + [build_environment.app_resources[name + ".app"]]
     include = build_environment.include_dirs[name]
-    priv = build_environment.priv_dirs[name]
+    priv = build_environment.app_resources["priv"]
 
     ebin = {
         paths.join("ebin", ebin_file.basename): ebin_file
@@ -436,8 +435,6 @@ def build_app_info(
         includes = multidict_projection(build_environments, "app_includes"),
         dependencies = dependencies,
         start_dependencies = start_dependencies,
-        app_file = multidict_projection_key(build_environments, "app_files", name),
-        priv_dir = multidict_projection_key(build_environments, "priv_dirs", name),
         include_dir = multidict_projection_key(build_environments, "include_dirs", name),
         private_includes = multidict_projection(build_environments, "private_includes"),
         deps_files = multidict_projection(build_environments, "deps_files"),

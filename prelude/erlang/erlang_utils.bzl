@@ -29,18 +29,6 @@ def app_name(ctx: AnalysisContext) -> str:
     else:
         return ctx.attrs.app_name
 
-# paths
-def app_file(ctx: AnalysisContext) -> str:
-    return paths.join(beam_dir(ctx), app_name(ctx) + ".app")
-
-def beam_dir(ctx: AnalysisContext) -> str:
-    return paths.join(ctx.attrs.name, "ebin")
-
-build_paths = struct(
-    app_file = app_file,
-    beam_dir = beam_dir,
-)
-
 def convert(data: typing.Any, ignore_artifacts: bool = False) -> cmd_args:
     """ converts a lists/tuple/map data structure to a sub-term that can be embedded in another to_term_args or convert
     """

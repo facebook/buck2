@@ -152,10 +152,8 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         includes = pre_build_environment.includes,
         private_includes = pre_build_environment.private_includes,
         beams = pre_build_environment.beams,
-        priv_dirs = pre_build_environment.priv_dirs,
         include_dirs = pre_build_environment.include_dirs,
         deps_files = pre_build_environment.deps_files,
-        app_files = pre_build_environment.app_files,
         # convenience storrage
         app_includes = pre_build_environment.app_includes,
         app_beams = pre_build_environment.app_beams,

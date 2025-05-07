@@ -42,11 +42,10 @@ BuildEnvironment = record(
     includes = field(IncludesMapping, {}),
     private_includes = field(PathArtifactMapping, {}),
     beams = field(ModuleArtifactMapping, {}),
-    priv_dirs = field(PathArtifactMapping, {}),
     include_dirs = field(PathArtifactMapping, {}),
     deps_files = field(PathArtifactMapping, {}),
-    app_files = field(PathArtifactMapping, {}),
     # convenience storrage
+    app_resources = field(PathArtifactMapping, {}),
     app_includes = field(set[str], set()),
     app_beams = field(ModuleArtifactMapping, {}),
     # input artifact mapping
@@ -64,12 +63,10 @@ def _prepare_build_environment(
         dependencies: ErlAppDependencies,
         includes_target: [ErlangAppIncludeInfo, None] = None) -> BuildEnvironment:
     """Prepare build environment and collect the context from all dependencies."""
-    priv_dirs = {}
     include_dirs = {}
     deps_files = {}
     includes = {}
     beams = {}
-    app_files = {}
     input_mapping = {}
 
     if includes_target:
@@ -95,12 +92,6 @@ def _prepare_build_environment(
                 if module in beams:
                     fail("duplicated beam found in build: {}".format(module))
                 beams[module] = dep_beams[module]
-
-            # collect dirs
-            priv_dirs[name] = dep_info.priv_dir[toolchain.name]
-
-            # collect app files
-            app_files[name] = dep_info.app_file[toolchain.name]
 
         elif ErlangAppIncludeInfo in dep:
             dep_info = dep[ErlangAppIncludeInfo]
@@ -130,12 +121,11 @@ def _prepare_build_environment(
 
     return BuildEnvironment(
         app_includes = includes_target.includes[toolchain.name] if includes_target else set(),
+        app_resources = {},
         includes = includes,
         beams = beams,
-        priv_dirs = priv_dirs,
         include_dirs = include_dirs,
         deps_files = deps_files,
-        app_files = app_files,
         input_mapping = input_mapping,
     )
 
@@ -160,11 +150,10 @@ def _generate_input_mapping(build_environment: BuildEnvironment, input_artifacts
         includes = build_environment.includes,
         private_includes = build_environment.private_includes,
         beams = build_environment.beams,
-        priv_dirs = build_environment.priv_dirs,
         include_dirs = build_environment.include_dirs,
         deps_files = build_environment.deps_files,
-        app_files = build_environment.app_files,
         app_includes = build_environment.app_includes,
+        app_resources = build_environment.app_resources,
         app_beams = build_environment.app_beams,
     )
 
@@ -220,9 +209,8 @@ def _generate_include_artifacts(
         app_includes = app_includes,
         # copied fields
         beams = build_environment.beams,
-        priv_dirs = build_environment.priv_dirs,
         app_beams = build_environment.app_beams,
-        app_files = build_environment.app_files,
+        app_resources = build_environment.app_resources,
         input_mapping = build_environment.input_mapping,
     )
 
@@ -251,10 +239,9 @@ def _generate_beam_artifacts(
         # copied fields
         includes = build_environment.includes,
         private_includes = build_environment.private_includes,
-        priv_dirs = build_environment.priv_dirs,
         include_dirs = build_environment.include_dirs,
         app_includes = build_environment.app_includes,
-        app_files = build_environment.app_files,
+        app_resources = build_environment.app_resources,
         input_mapping = build_environment.input_mapping,
     )
 
@@ -681,11 +668,10 @@ def _peek_private_includes(
         # copied fields
         includes = build_environment.includes,
         beams = build_environment.beams,
-        priv_dirs = build_environment.priv_dirs,
         include_dirs = build_environment.include_dirs,
         deps_files = build_environment.deps_files,
-        app_files = build_environment.app_files,
         app_includes = build_environment.app_includes,
+        app_resources = build_environment.app_resources,
         app_beams = build_environment.app_beams,
         input_mapping = build_environment.input_mapping,
     )
