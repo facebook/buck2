@@ -13,6 +13,7 @@ use std::any::Any;
 use anyhow::Context as _;
 
 use crate::Dimensions;
+use crate::output::OutputTarget;
 use crate::output::SuperConsoleOutput;
 use crate::superconsole::SuperConsole;
 
@@ -26,6 +27,16 @@ pub struct TestOutput {
     pub frames: Vec<Vec<u8>>,
 }
 
+impl TestOutput {
+    fn aux_prefix() -> &'static str {
+        "AUX PREFIX: "
+    }
+
+    pub fn aux_output_with_prefix(content: &str) -> String {
+        format!("{}{}", Self::aux_prefix(), content)
+    }
+}
+
 impl SuperConsoleOutput for TestOutput {
     fn should_render(&mut self) -> bool {
         self.should_render
@@ -34,6 +45,22 @@ impl SuperConsoleOutput for TestOutput {
     fn output(&mut self, buffer: Vec<u8>) -> anyhow::Result<()> {
         self.frames.push(buffer);
         Ok(())
+    }
+
+    fn output_to(&mut self, buffer: Vec<u8>, target: OutputTarget) -> anyhow::Result<()> {
+        match target {
+            OutputTarget::Main => self.output(buffer),
+            OutputTarget::Aux => {
+                let output = Self::aux_prefix()
+                    .as_bytes()
+                    .iter()
+                    .copied()
+                    .chain(buffer.into_iter())
+                    .collect::<Vec<u8>>();
+                self.frames.push(output);
+                Ok(())
+            }
+        }
     }
 
     fn terminal_size(&self) -> anyhow::Result<Dimensions> {

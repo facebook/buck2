@@ -296,6 +296,7 @@ mod tests {
     use super::*;
     use crate::components::echo::Echo;
     use crate::testing::SuperConsoleTestingExt;
+    use crate::testing::TestOutput;
     use crate::testing::frame_contains;
     use crate::testing::test_console;
 
@@ -449,6 +450,141 @@ mod tests {
             assert!(frame_contains(frame, format!("number {}", i + 1)));
             assert!(frame_contains(frame, format!("special {}", i + 1)));
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_emit_aux() -> anyhow::Result<()> {
+        let mut console = test_console();
+
+        let root = Echo(Lines(vec![vec!["state"].try_into()?]));
+
+        // Emit auxiliary output
+        console.emit_aux(Lines(vec![vec!["aux line 1"].try_into()?]));
+        console.render(&root)?;
+
+        // Since we emit aux, we don't output the whole frame once in TestConsole
+        let frame: Vec<u8> = console
+            .test_output_mut()?
+            .frames
+            .iter()
+            .flatten()
+            .copied()
+            .collect();
+
+        assert!(frame_contains(&frame, "state"));
+        assert!(frame_contains(
+            &frame,
+            TestOutput::aux_output_with_prefix("aux line 1"),
+        ));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_emit_aux_multiple_lines() -> anyhow::Result<()> {
+        let mut console = test_console();
+
+        let root = Echo(Lines(vec![vec!["state"].try_into()?]));
+
+        // Emit multiple auxiliary output lines
+        console.emit_aux(Lines(vec![
+            vec!["aux line 1"].try_into()?,
+            vec!["aux line 2"].try_into()?,
+            vec!["aux line 3"].try_into()?,
+        ]));
+        console.render(&root)?;
+
+        // Since we emit aux, we don't output the whole frame once in TestConsole
+        let frame: Vec<u8> = console
+            .test_output_mut()?
+            .frames
+            .iter()
+            .flatten()
+            .copied()
+            .collect();
+
+        println!("frame: {:?}", String::from_utf8_lossy(&frame));
+
+        assert!(frame_contains(&frame, "state"));
+        assert!(frame_contains(
+            &frame,
+            TestOutput::aux_output_with_prefix("aux line 1")
+        ));
+        // Only the first line of a render of aux output is prefixed
+        assert!(frame_contains(&frame, "aux line 2"));
+        assert!(frame_contains(&frame, "aux line 3"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_block_aux_lines() -> anyhow::Result<()> {
+        let mut console = test_console();
+
+        let root = Echo(Lines(vec![vec!["state"].try_into()?]));
+
+        // Block rendering and emit auxiliary output
+        console.test_output_mut()?.should_render = false;
+        console.emit_aux(Lines(vec![vec!["aux line 1"].try_into()?]));
+        console.render(&root)?;
+        assert_eq!(console.test_output()?.frames.len(), 0);
+
+        // Unblock rendering and check if auxiliary output is rendered
+        console.test_output_mut()?.should_render = true;
+        console.emit_aux(Lines(vec![vec!["aux line 2"].try_into()?]));
+        console.render(&root)?;
+
+        // Since we emit aux, we don't output the whole frame once in TestConsole
+        let frame: Vec<u8> = console
+            .test_output_mut()?
+            .frames
+            .iter()
+            .flatten()
+            .copied()
+            .collect();
+
+        assert!(frame_contains(&frame, "state"));
+        assert!(frame_contains(
+            &frame,
+            TestOutput::aux_output_with_prefix("aux line 1")
+        ));
+        assert!(frame_contains(&frame, "aux line 2"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_emit_and_emit_aux() -> anyhow::Result<()> {
+        let mut console = test_console();
+
+        let root = Echo(Lines(vec![vec!["state"].try_into()?]));
+
+        // Emit both regular and auxiliary output
+        console.emit(Lines(vec![vec!["regular line 1"].try_into()?]));
+        console.emit(Lines(vec![vec!["regular line 2"].try_into()?]));
+        console.emit_aux(Lines(vec![vec!["aux line 1"].try_into()?]));
+        console.emit_aux(Lines(vec![vec!["aux line 2"].try_into()?]));
+        console.render(&root)?;
+
+        // Since we emit aux, we don't output the whole frame once in TestConsole
+        let frame: Vec<u8> = console
+            .test_output_mut()?
+            .frames
+            .iter()
+            .flatten()
+            .copied()
+            .collect();
+
+        assert!(frame_contains(&frame, "state"));
+        assert!(frame_contains(&frame, "regular line 1"));
+        assert!(frame_contains(&frame, "regular line 2"));
+        assert!(frame_contains(
+            &frame,
+            TestOutput::aux_output_with_prefix("aux line 1")
+        ));
+        assert!(frame_contains(&frame, "aux line 2"));
+
         Ok(())
     }
 }
