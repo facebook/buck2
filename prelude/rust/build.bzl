@@ -1459,8 +1459,7 @@ def _rustc_emit(
         emit_args.add(cmd_args(extra_out.as_output(), format = "--out-dir={}"))
 
         if incremental_enabled:
-            build_mode = ctx.attrs.incremental_build_mode
-            incremental_out = ctx.actions.declare_output("{}/extras/incremental/{}".format(subdir, build_mode))
+            incremental_out = ctx.actions.declare_output("{}/extras/incremental".format(subdir))
             incremental_cmd = cmd_args(incremental_out.as_output(), format = "-Cincremental={}")
             emit_args.add(incremental_cmd)
 
