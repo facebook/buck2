@@ -47,7 +47,7 @@ impl DiceComputationsImpl<'_> {
     pub(crate) fn compute<'a, K>(
         &'a mut self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + 'a
+    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + use<'a, K>
     where
         K: Key,
     {
@@ -63,7 +63,7 @@ impl DiceComputationsImpl<'_> {
     pub(crate) fn compute_opaque<'a, K>(
         &'a self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<OpaqueValue<K>>> + 'a
+    ) -> impl Future<Output = DiceResult<OpaqueValue<K>>> + use<'a, K>
     where
         K: Key,
     {
@@ -98,37 +98,51 @@ impl DiceComputationsImpl<'_> {
     }
 
     /// Computes all the given tasks in parallel, returning an unordered Stream
-    pub(crate) fn compute_many<'a, T: 'a>(
+    pub(crate) fn compute_many<'a, Computes, F, T>(
         &'a mut self,
-        computes: impl IntoIterator<
-            Item = impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
-        >,
-    ) -> Vec<impl Future<Output = T> + 'a> {
+        computes: Computes,
+    ) -> Vec<impl Future<Output = T> + use<'a, Computes, F, T>>
+    where
+        Computes: IntoIterator<Item = F>,
+        F: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+    {
         match self {
             DiceComputationsImpl::Modern(delegate) => delegate.compute_many(computes),
         }
     }
 
-    pub(crate) fn compute2<'a, T: 'a, U: 'a>(
+    pub(crate) fn compute2<'a, Compute1, T, Compute2, U>(
         &'a mut self,
-        compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
-        compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
-    ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
+        compute1: Compute1,
+        compute2: Compute2,
+    ) -> (
+        impl Future<Output = T> + use<'a, Compute1, T, Compute2, U>,
+        impl Future<Output = U> + use<'a, Compute1, T, Compute2, U>,
+    )
+    where
+        Compute1: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        Compute2: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
+    {
         match self {
             DiceComputationsImpl::Modern(delegate) => delegate.compute2(compute1, compute2),
         }
     }
 
-    pub(crate) fn compute3<'a, T: 'a, U: 'a, V: 'a>(
+    pub(crate) fn compute3<'a, Compute1, T, Compute2, U, Compute3, V>(
         &'a mut self,
-        compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
-        compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
-        compute3: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, V> + Send,
+        compute1: Compute1,
+        compute2: Compute2,
+        compute3: Compute3,
     ) -> (
-        impl Future<Output = T> + 'a,
-        impl Future<Output = U> + 'a,
-        impl Future<Output = V> + 'a,
-    ) {
+        impl Future<Output = T> + use<'a, Compute1, T, Compute2, U, Compute3, V>,
+        impl Future<Output = U> + use<'a, Compute1, T, Compute2, U, Compute3, V>,
+        impl Future<Output = V> + use<'a, Compute1, T, Compute2, U, Compute3, V>,
+    )
+    where
+        Compute1: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        Compute2: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
+        Compute3: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, V> + Send,
+    {
         match self {
             DiceComputationsImpl::Modern(delegate) => {
                 delegate.compute3(compute1, compute2, compute3)
@@ -136,10 +150,14 @@ impl DiceComputationsImpl<'_> {
         }
     }
 
-    pub(crate) fn with_linear_recompute<'a, T, Fut: Future<Output = T> + 'a>(
+    pub(crate) fn with_linear_recompute<'a, Func, Fut, T>(
         &'a mut self,
-        func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut + 'a,
-    ) -> impl Future<Output = T> + 'a {
+        func: Func,
+    ) -> impl Future<Output = T> + use<'a, Func, Fut, T>
+    where
+        Func: FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
+        Fut: Future<Output = T>,
+    {
         match self {
             DiceComputationsImpl::Modern(delegate) => delegate.with_linear_recompute(func),
         }

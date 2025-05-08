@@ -305,7 +305,7 @@ impl DiceImplementation {
     }
 
     /// Wait until all active versions have exited.
-    pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static {
+    pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static + use<> {
         match self {
             DiceImplementation::Modern(dice) => dice.wait_for_idle(),
         }

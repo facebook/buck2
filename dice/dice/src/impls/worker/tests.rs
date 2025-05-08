@@ -881,7 +881,7 @@ fn update_computed_value(
     v: VersionNumber,
     value: DiceValidValue,
     deps: Arc<SeriesParallelDeps>,
-) -> impl Future<Output = CancellableResult<DiceComputedValue>> {
+) -> impl Future<Output = CancellableResult<DiceComputedValue>> + use<> {
     dice.state_handle.update_computed(
         VersionedGraphKey::new(v, k),
         ctx.testing_get_epoch(),

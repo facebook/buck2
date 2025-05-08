@@ -170,10 +170,9 @@ impl ModernComputeCtx<'_> {
     pub(crate) fn compute<'a, K>(
         &'a mut self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + 'a
+    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + use<'a, K>
     where
         K: Key,
-        Self: 'a,
     {
         let (ctx_data, dep_trackers) = self.unpack();
         Self::compute_opaque_impl(ctx_data, key)
@@ -187,17 +186,17 @@ impl ModernComputeCtx<'_> {
     pub(crate) fn compute_opaque<'a, K>(
         &'a self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<OpaqueValueModern<K>>> + 'a
+    ) -> impl Future<Output = DiceResult<OpaqueValueModern<K>>> + use<'a, K>
     where
         K: Key,
     {
         Self::compute_opaque_impl(self.ctx_data(), key)
     }
 
-    fn compute_opaque_impl<'a, K>(
+    fn compute_opaque_impl<K>(
         ctx_data: &CoreCtx,
         key: &K,
-    ) -> impl Future<Output = DiceResult<OpaqueValueModern<K>>> + 'a
+    ) -> impl Future<Output = DiceResult<OpaqueValueModern<K>>> + use<K>
     where
         K: Key,
     {
@@ -212,36 +211,50 @@ impl ModernComputeCtx<'_> {
     }
 
     /// Computes all the given tasks in parallel, returning an unordered Stream
-    pub(crate) fn compute_many<'a, T: 'a>(
+    pub(crate) fn compute_many<'a, Computes, F, T>(
         &'a mut self,
-        computes: impl IntoIterator<
-            Item = impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
-        >,
-    ) -> Vec<impl Future<Output = T> + 'a> {
+        computes: Computes,
+    ) -> Vec<impl Future<Output = T> + use<'a, Computes, F, T>>
+    where
+        Computes: IntoIterator<Item = F>,
+        F: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+    {
         let iter = computes.into_iter();
         let parallel = self.parallel_builder(iter.size_hint().0);
         iter.map(|func| parallel.compute(func)).collect()
     }
 
-    pub(crate) fn compute2<'a, T: 'a, U: 'a>(
+    pub(crate) fn compute2<'a, Compute1, T, Compute2, U>(
         &'a mut self,
-        compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
-        compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
-    ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
+        compute1: Compute1,
+        compute2: Compute2,
+    ) -> (
+        impl Future<Output = T> + use<'a, Compute1, T, Compute2, U>,
+        impl Future<Output = U> + use<'a, Compute1, T, Compute2, U>,
+    )
+    where
+        Compute1: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        Compute2: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
+    {
         let parallel = self.parallel_builder(2);
         (parallel.compute(compute1), parallel.compute(compute2))
     }
 
-    pub(crate) fn compute3<'a, T: 'a, U: 'a, V: 'a>(
+    pub(crate) fn compute3<'a, Compute1, T, Compute2, U, Compute3, V>(
         &'a mut self,
-        compute1: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
-        compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
-        compute3: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, V> + Send,
+        compute1: Compute1,
+        compute2: Compute2,
+        compute3: Compute3,
     ) -> (
-        impl Future<Output = T> + 'a,
-        impl Future<Output = U> + 'a,
-        impl Future<Output = V> + 'a,
-    ) {
+        impl Future<Output = T> + use<'a, Compute1, T, Compute2, U, Compute3, V>,
+        impl Future<Output = U> + use<'a, Compute1, T, Compute2, U, Compute3, V>,
+        impl Future<Output = V> + use<'a, Compute1, T, Compute2, U, Compute3, V>,
+    )
+    where
+        Compute1: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        Compute2: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
+        Compute3: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, V> + Send,
+    {
         let parallel = self.parallel_builder(3);
 
         (
@@ -251,10 +264,14 @@ impl ModernComputeCtx<'_> {
         )
     }
 
-    pub(crate) fn with_linear_recompute<'a, T, Fut: Future<Output = T> + 'a>(
+    pub(crate) fn with_linear_recompute<'a, Func, Fut, T>(
         &'a mut self,
-        func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut + 'a,
-    ) -> impl Future<Output = T> + 'a {
+        func: Func,
+    ) -> impl Future<Output = T> + use<'a, Func, Fut, T>
+    where
+        Func: FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
+        Fut: Future<Output = T>,
+    {
         let (ctx_data, self_dep_trackers) = self.unpack();
         let dep_trackers = Arc::new(Mutex::new(RecordingDepsTracker::new(
             // TODO(cjhopman): if inspected during the with_linear_recompute, this will be missing some invalidation paths.
@@ -358,10 +375,10 @@ pub(crate) enum ModernComputeCtxParallelBuilder<'a> {
     },
 }
 impl<'a> ModernComputeCtxParallelBuilder<'a> {
-    fn compute<T: 'a>(
-        &self,
-        func: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
-    ) -> impl Future<Output = T> + 'a {
+    fn compute<F, T>(&self, func: F) -> impl Future<Output = T> + use<'a, F, T>
+    where
+        F: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+    {
         match self {
             ModernComputeCtxParallelBuilder::Normal {
                 ctx_data,
@@ -471,7 +488,7 @@ impl ModernComputeCtx<'static> {
 
 struct DepsTrackerHolder<'a>(Either<&'a mut RecordingDepsTracker, &'a Mutex<RecordingDepsTracker>>);
 impl<'a> DepsTrackerHolder<'a> {
-    fn lock(self) -> impl DerefMut<Target = RecordingDepsTracker> + 'a {
+    fn lock(self) -> impl DerefMut<Target = RecordingDepsTracker> {
         self.0.map_right(|v| v.lock())
     }
 }
@@ -584,7 +601,7 @@ impl ModernComputeCtx<'_> {
     }
 
     #[allow(unused)] // used in test
-    pub(super) fn dep_trackers(&mut self) -> impl DerefMut<Target = RecordingDepsTracker> + '_ {
+    pub(super) fn dep_trackers(&mut self) -> impl DerefMut<Target = RecordingDepsTracker> {
         self.unpack().1.lock()
     }
 
@@ -608,7 +625,7 @@ impl CoreCtx {
     pub(crate) fn compute_opaque<K>(
         &self,
         key: &K,
-    ) -> impl Future<Output = CancellableResult<(DiceKey, DiceComputedValue)>>
+    ) -> impl Future<Output = CancellableResult<(DiceKey, DiceComputedValue)>> + use<K>
     where
         K: Key,
     {
@@ -751,7 +768,7 @@ impl SharedLiveTransactionCtx {
         parent_key: ParentKey,
         eval: &AsyncEvaluator,
         cycles: UserCycleDetectorData,
-    ) -> impl Future<Output = CancellableResult<DiceComputedValue>> {
+    ) -> impl Future<Output = CancellableResult<DiceComputedValue>> + use<> {
         let res: CancellableResult<DicePromise> = match self.cache.get(key) {
             DiceTaskRef::Computed(result) => Ok(DicePromise::ready(result)),
             DiceTaskRef::Occupied(mut occupied) => {

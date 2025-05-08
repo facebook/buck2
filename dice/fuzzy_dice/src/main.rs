@@ -206,7 +206,7 @@ fn main() -> anyhow::Result<()> {
             QuickCheck::new()
                 .max_tests(fuzz.cmd.max_tests)
                 .tests(fuzz.cmd.num_tests)
-                .gen(Gen::new(10))
+                .r#gen(Gen::new(10))
                 .quickcheck(fuzzer);
         }
         Commands::Replay(replay_cmd) => {

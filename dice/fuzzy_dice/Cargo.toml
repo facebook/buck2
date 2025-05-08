@@ -1,5 +1,5 @@
 [package]
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "fuzzy_dice"
 repository = { workspace = true }

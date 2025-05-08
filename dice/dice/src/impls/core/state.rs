@@ -57,7 +57,11 @@ impl CoreStateHandle {
         self.tx.send(message).expect("dice runner died");
     }
 
-    fn call<T>(&self, message: StateRequest, recv: Receiver<T>) -> impl Future<Output = T> {
+    fn call<T>(
+        &self,
+        message: StateRequest,
+        recv: Receiver<T>,
+    ) -> impl Future<Output = T> + use<T> {
         self.request(message);
         futures::FutureExt::map(recv, |v| v.unwrap())
     }
@@ -66,13 +70,13 @@ impl CoreStateHandle {
     pub(crate) fn update_state(
         &self,
         changes: Vec<(DiceKey, ChangeType, InvalidationSourcePriority)>,
-    ) -> impl Future<Output = VersionNumber> {
+    ) -> impl Future<Output = VersionNumber> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(StateRequest::UpdateState { changes, resp }, recv)
     }
 
     /// Gets the current version number
-    pub(crate) fn current_version(&self) -> impl Future<Output = VersionNumber> {
+    pub(crate) fn current_version(&self) -> impl Future<Output = VersionNumber> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(StateRequest::CurrentVersion { resp }, recv)
     }
@@ -82,7 +86,7 @@ impl CoreStateHandle {
         &self,
         version: VersionNumber,
         guard: ActiveTransactionGuard,
-    ) -> impl Future<Output = (SharedLiveTransactionCtx, ActiveTransactionGuard)> {
+    ) -> impl Future<Output = (SharedLiveTransactionCtx, ActiveTransactionGuard)> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(
             StateRequest::CtxAtVersion {
@@ -103,7 +107,7 @@ impl CoreStateHandle {
     pub(crate) fn lookup_key(
         &self,
         key: VersionedGraphKey,
-    ) -> impl Future<Output = VersionedGraphResult> {
+    ) -> impl Future<Output = VersionedGraphResult> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(StateRequest::LookupKey { key, resp }, recv)
     }
@@ -117,7 +121,7 @@ impl CoreStateHandle {
         value: DiceValidValue,
         deps: Arc<SeriesParallelDeps>,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> impl Future<Output = CancellableResult<DiceComputedValue>> {
+    ) -> impl Future<Output = CancellableResult<DiceComputedValue>> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(
             StateRequest::UpdateComputed {
@@ -141,7 +145,7 @@ impl CoreStateHandle {
         storage: StorageType,
         previous: VersionedGraphResultMismatch,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> impl Future<Output = CancellableResult<DiceComputedValue>> {
+    ) -> impl Future<Output = CancellableResult<DiceComputedValue>> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(
             StateRequest::UpdateMismatchAsUnchanged {
@@ -159,7 +163,7 @@ impl CoreStateHandle {
     /// Get all the tasks pending cancellation
     pub(crate) fn get_tasks_pending_cancellation(
         &self,
-    ) -> impl Future<Output = Vec<TerminationObserver>> {
+    ) -> impl Future<Output = Vec<TerminationObserver>> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(StateRequest::GetTasksPendingCancellation { resp }, recv)
     }

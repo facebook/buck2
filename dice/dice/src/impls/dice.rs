@@ -106,7 +106,7 @@ impl DiceModern {
     }
 
     /// Wait until all active versions have exited.
-    pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static {
+    pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static + use<> {
         let rx = self.state_handle.get_tasks_pending_cancellation();
         async move {
             let tasks = rx.await;

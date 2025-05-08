@@ -158,7 +158,7 @@ impl DiceTask {
                     .read_value()
                     .expect("invalid state where deps are taken before state is ready")
                     .map(DicePromise::ready),
-                Some(ref mut wakers) => {
+                Some(wakers) => {
                     let waker = Arc::new(AtomicWaker::new());
                     let id = wakers.insert((k, waker.dupe()));
 
@@ -208,7 +208,7 @@ impl DiceTask {
 
                 TerminationObserver::Done
             }
-            Some(ref mut wakers) => {
+            Some(wakers) => {
                 let waker = Arc::new(AtomicWaker::new());
                 let id = wakers.insert(waker.dupe());
 

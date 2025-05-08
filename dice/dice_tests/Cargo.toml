@@ -1,6 +1,6 @@
 [package]
 description = "e2e tests for DICE. Live in a separate crate for faster development."
-edition = "2021"
+edition = "2024"
 name = "dice_tests"
 publish = false
 version = "0.0.0"

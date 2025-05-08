@@ -8,3 +8,6 @@ root = gh_facebook_buck2
 [oss]
 internal_cell = fbcode
 stripped_root_dirs = buck2
+
+[rust]
+default_edition:dice = 2024

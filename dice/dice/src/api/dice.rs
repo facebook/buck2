@@ -241,7 +241,7 @@ impl Dice {
     }
 
     /// Wait until all active versions have exited.
-    pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static {
+    pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static + use<> {
         self.implementation.wait_for_idle()
     }
 

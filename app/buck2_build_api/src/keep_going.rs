@@ -24,7 +24,7 @@ impl KeepGoing {
             + Sync
             + Copy
         ),
-    ) -> impl Future<Output = Result<Vec<R>, E>> + 'a {
+    ) -> impl Future<Output = Result<Vec<R>, E>> + Captures<'a> {
         let keep_going = ctx.per_transaction_data().get_keep_going();
 
         let futs = ctx.compute_many(items.into_iter().map(move |v| {
@@ -66,3 +66,7 @@ impl HasKeepGoing for UserComputationData {
             .0
     }
 }
+
+pub trait Captures<'a> {}
+
+impl<'a, T: ?Sized> Captures<'a> for T {}

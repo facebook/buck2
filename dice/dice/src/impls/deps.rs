@@ -104,7 +104,7 @@ impl RecordedDeps {
     }
 
     #[cfg(test)]
-    pub(crate) fn iter_keys(&self) -> impl Iterator<Item = DiceKey> + '_ {
+    pub(crate) fn iter_keys(&self) -> impl Iterator<Item = DiceKey> {
         self.deps.iter_keys()
     }
 }

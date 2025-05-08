@@ -79,11 +79,11 @@ impl<T> AtomicValue for Arc<T> {
 
     #[inline]
     unsafe fn from_raw(raw: Self::Raw) -> Self {
-        Arc(triomphe::Arc::from_raw(raw))
+        Arc(unsafe { triomphe::Arc::from_raw(raw) })
     }
 
     #[inline]
     unsafe fn deref<'a>(raw: Self::Raw) -> Self::Ref<'a> {
-        &*raw
+        unsafe { &*raw }
     }
 }
