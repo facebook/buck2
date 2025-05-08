@@ -6,9 +6,9 @@
 # of this source tree.
 
 load("@prelude//tests:test_toolchain.bzl", "noop_test_toolchain")
-load("@prelude//toolchains:android.bzl", "system_android_toolchain")
+load("@prelude//toolchains:android.bzl", "android_sdk_tools", "system_android_toolchain")
 load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
-load("@prelude//toolchains:dex.bzl", "system_noop_dex_toolchain")
+load("@prelude//toolchains:dex.bzl", "system_dex_toolchain", "system_noop_dex_toolchain")
 load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
 load("@prelude//toolchains:go.bzl", "system_go_bootstrap_toolchain", "system_go_toolchain")
 load("@prelude//toolchains:haskell.bzl", "system_haskell_toolchain")
@@ -35,8 +35,14 @@ def system_demo_toolchains():
     All the default toolchains, suitable for a quick demo or early prototyping.
     Most real projects should copy/paste the implementation to configure them.
     """
+    android_sdk_tools(
+        name = "android_sdk_tools",
+        visibility = ["PUBLIC"],
+    )
+
     system_android_toolchain(
         name = "android",
+        android_sdk_tools_target = ":android_sdk_tools",
         visibility = ["PUBLIC"],
     )
 
@@ -51,9 +57,9 @@ def system_demo_toolchains():
         visibility = ["PUBLIC"],
     )
 
-    # TODO(ianc) Make this toolchain actually do something
-    system_noop_dex_toolchain(
+    system_dex_toolchain(
         name = "dex",
+        android_sdk_tools_target = ":android_sdk_tools",
         visibility = ["PUBLIC"],
     )
 

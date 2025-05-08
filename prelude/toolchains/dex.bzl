@@ -9,10 +9,21 @@ load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 
 def system_noop_dex_toolchain(
         name,
-        **kwargs):
+        visibility = None):
     _dex_toolchain_rule(
         name = name,
-        **kwargs
+        visibility = visibility,
+    )
+
+def system_dex_toolchain(
+        name,
+        android_sdk_tools_target,
+        visibility = None):
+    _dex_toolchain_rule(
+        name = name,
+        android_jar = "{}[android.jar]".format(android_sdk_tools_target),
+        d8_command_binary = "prelude//toolchains/android/src/com/facebook/buck/android/dex:run_d8_binary",
+        visibility = visibility,
     )
 
 def _dex_toolchain_rule_impl(ctx):

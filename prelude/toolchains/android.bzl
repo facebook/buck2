@@ -51,14 +51,8 @@ android_sdk_tools = rule(
 
 def system_android_toolchain(
         name,
+        android_sdk_tools_target,
         **kwargs):
-    android_sdk_tools_name = "{}_android_sdk_tools".format(name)
-    android_sdk_tools(
-        name = android_sdk_tools_name,
-    )
-
-    android_sdk_tools_target = ":{}".format(android_sdk_tools_name)
-
     kwargs["aapt2_filter_resources"] = "prelude//android/tools:filter_extra_resources"
     kwargs["aapt2"] = "{}[aapt2]".format(android_sdk_tools_target)
     kwargs["aar_builder"] = "prelude//toolchains/android/src/com/facebook/buck/android/aar:aar_builder_binary"
