@@ -283,12 +283,10 @@ def _deps_key(src: Artifact) -> str:
 def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, src: Artifact) -> Artifact:
     dependency_json = ctx.actions.declare_output(_dep_file_name(toolchain, src))
 
-    dependency_analyzer_args = cmd_args(src, dependency_json.as_output())
-    _run_escript(
+    _run_with_env(
         ctx,
         toolchain,
-        toolchain.dependency_analyzer,
-        dependency_analyzer_args,
+        cmd_args(toolchain.dependency_analyzer, src, dependency_json.as_output()),
         category = "dependency_analyzer",
         identifier = action_identifier(toolchain, src.short_path),
     )
@@ -325,25 +323,18 @@ def _build_erl(
         output: Artifact) -> None:
     """Compile erl files into beams."""
 
-    trampoline = toolchain.erlc_trampoline
-    erlc = toolchain.otp_binaries.erlc
-
     final_dep_file = ctx.actions.declare_output(_dep_final_name(toolchain, src))
-    finalize_deps_cmd = cmd_args(
-        src,
-        dep_info_file,
-        final_dep_file.as_output(),
-    )
-    _run_escript(
+    _run_with_env(
         ctx,
         toolchain,
-        toolchain.dependency_finalizer,
-        finalize_deps_cmd,
+        cmd_args(toolchain.dependency_finalizer, src, dep_info_file, final_dep_file.as_output()),
         category = "dependency_finalizer",
         identifier = action_identifier(toolchain, src.basename),
     )
 
     def dynamic_lambda(ctx: AnalysisContext, artifacts, outputs):
+        trampoline = toolchain.erlc_trampoline
+        erlc = toolchain.otp_binaries.erlc
         erl_opts = _get_erl_opts(ctx, toolchain, src)
         deps_args, mapping = _dependencies_to_args(artifacts, final_dep_file, build_environment)
         erlc_cmd = cmd_args(
@@ -595,7 +586,7 @@ def _add(a: dict, key: typing.Any, value: typing.Any) -> dict:
 def _build_dir(toolchain: Toolchain) -> str:
     return paths.join("__build", toolchain.name)
 
-def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, *args, **kwargs):
+def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, args: cmd_args, **kwargs):
     """ run interfact that injects env"""
 
     # use os_env defined in target if present
@@ -609,42 +600,7 @@ def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, *args, **kwargs):
     else:
         env = env
     kwargs["env"] = env
-    ctx.actions.run(*args, **kwargs)
-
-default_escript_args = cmd_args(
-    "+A0",
-    "+S1:1",
-    "+sbtu",
-    "+MMscs",
-    "8",
-    "+MMsco",
-    "false",
-    "-env",
-    "MALLOC_ARENA_MAX",
-    "2",
-    "-mode",
-    "minimal",
-    "-noinput",
-    "-noshell",
-    "-run",
-    "escript",
-    "start",
-)
-
-def _run_escript(ctx: AnalysisContext, toolchain: Toolchain, script: Artifact, args: cmd_args, **kwargs) -> None:
-    """ run escript with env and providing toolchain-configured utility modules"""
-    cmd = cmd_args(
-        toolchain.otp_binaries.erl,
-        default_escript_args,
-    )
-    if toolchain.utility_modules:
-        cmd.add("-pa", toolchain.utility_modules)
-    cmd.add(
-        "--",
-        script,
-        args,
-    )
-    _run_with_env(ctx, toolchain, cmd, **kwargs)
+    ctx.actions.run(args, **kwargs)
 
 def _peek_private_includes(
         ctx: AnalysisContext,
@@ -696,7 +652,6 @@ erlang_build = struct(
         private_include_name = private_include_name,
         build_dir = _build_dir,
         run_with_env = _run_with_env,
-        run_escript = _run_escript,
         peek_private_includes = _peek_private_includes,
     ),
 )

@@ -99,12 +99,12 @@ ErlangToolchainInfo = provider(
         "otp_binaries": provider_field(Tools),
         # utility scripts
         # building .app file
-        "app_file_script": provider_field(Artifact),
+        "app_src_script": provider_field(Tool),
         # building escripts
-        "escript_builder": provider_field(Artifact),
+        "escript_builder": provider_field(Tool),
         # analyzing .(h|e)rl dependencies
-        "dependency_analyzer": provider_field(Artifact),
-        "dependency_finalizer": provider_field(Artifact),
+        "dependency_analyzer": provider_field(Tool),
+        "dependency_finalizer": provider_field(Tool),
         # trampoline rerouting stdout to stderr
         "erlc_trampoline": provider_field(Artifact),
         "escript_trampoline": provider_field(Artifact),
@@ -115,11 +115,11 @@ ErlangToolchainInfo = provider(
         # filter spec for parse transforms
         "parse_transforms_filters": provider_field(dict[str, list[str]]),
         # release boot script builder
-        "boot_script_builder": provider_field(Artifact),
+        "boot_script_builder": provider_field(Tool),
         # build release_variables
-        "release_variables_builder": provider_field(Artifact),
+        "release_variables_builder": provider_field(Tool),
         # copying erts
-        "include_erts": provider_field(Artifact),
+        "include_erts": provider_field(Tool),
         # beams we need for various reasons
         "utility_modules": provider_field(Artifact),
         # env to be set for toolchain invocations

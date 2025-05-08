@@ -1,7 +1,3 @@
-%% #!/usr/bin/env escript
-%% -*- erlang -*-
-%%! +S 1:1 +sbtu +A1 +MMscs 8 +MMsco false
-
 %%% % @format
 %%% Copyright (c) Meta Platforms, Inc. and affiliates.
 %%%
@@ -12,6 +8,8 @@
 
 -module(dependency_finalizer).
 -author("loscher@meta.com").
+
+-export([main/1]).
 
 -type dep_files_data() :: #{file:filename() => #{string() := file:filename()}}.
 

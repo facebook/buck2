@@ -1,7 +1,3 @@
-%% #!/usr/bin/env escript
-%% -*- erlang -*-
-%%! +S 1:1 +sbtu +A1
-
 %% Copyright (c) Meta Platforms, Inc. and affiliates.
 %%
 %% This source code is licensed under both the MIT license found in the

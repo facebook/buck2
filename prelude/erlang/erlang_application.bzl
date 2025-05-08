@@ -250,11 +250,11 @@ def _generate_app_file(
         ),
     )
     app_info_file = _app_info_content(ctx, toolchain, name, srcs, output.as_output())
-    erlang_build.utils.run_escript(
+
+    erlang_build.utils.run_with_env(
         ctx,
         toolchain,
-        toolchain.app_file_script,
-        cmd_args(app_info_file),
+        cmd_args(toolchain.app_src_script, app_info_file),
         category = "app_resource",
         identifier = action_identifier(toolchain, name),
     )

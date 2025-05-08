@@ -94,18 +94,11 @@ def create_escript(
         escript_name: str) -> None:
     """ build the escript with the escript builder tool
     """
-    script = toolchain.escript_builder
-
-    escript_build_cmd = cmd_args(
-        toolchain.otp_binaries.escript,
-        script,
-        spec_file,
-    )
 
     erlang_build.utils.run_with_env(
         ctx,
         toolchain,
-        escript_build_cmd,
+        cmd_args(toolchain.escript_builder, spec_file),
         category = "escript",
         identifier = action_identifier(toolchain, escript_name),
     )

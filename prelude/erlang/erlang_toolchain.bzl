@@ -113,23 +113,31 @@ def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
 
     utility_modules = _gen_util_beams(ctx, utils.utility_modules, otp_binaries.erlc)
 
+    app_src_script = _gen_toolchain_script(ctx, utils.app_src_script, otp_binaries)
+    boot_script_builder = _gen_toolchain_script(ctx, utils.boot_script_builder, otp_binaries)
+    dependency_analyzer = _gen_toolchain_script(ctx, utils.dependency_analyzer, otp_binaries)
+    dependency_finalizer = _gen_toolchain_script(ctx, utils.dependency_finalizer, otp_binaries)
+    escript_builder = _gen_toolchain_script(ctx, utils.escript_builder, otp_binaries)
+    release_variables_builder = _gen_toolchain_script(ctx, utils.release_variables_builder, otp_binaries)
+    include_erts = _gen_toolchain_script(ctx, utils.include_erts, otp_binaries)
+
     return [
         DefaultInfo(),
         ErlangToolchainInfo(
             name = ctx.attrs.name,
-            app_file_script = utils.app_src_script,
-            boot_script_builder = utils.boot_script_builder,
-            dependency_analyzer = utils.dependency_analyzer,
-            dependency_finalizer = utils.dependency_finalizer,
+            app_src_script = app_src_script,
+            boot_script_builder = boot_script_builder,
+            dependency_analyzer = dependency_analyzer,
+            dependency_finalizer = dependency_finalizer,
             erl_opts = erl_opts,
             env = ctx.attrs.env,
             emu_flags = emu_flags,
             erlc_trampoline = utils.erlc_trampoline,
             escript_trampoline = utils.escript_trampoline,
-            escript_builder = utils.escript_builder,
+            escript_builder = escript_builder,
             otp_binaries = otp_binaries,
-            release_variables_builder = utils.release_variables_builder,
-            include_erts = utils.include_erts,
+            release_variables_builder = release_variables_builder,
+            include_erts = include_erts,
             core_parse_transforms = core_parse_transforms,
             parse_transforms = parse_transforms,
             parse_transforms_filters = ctx.attrs.parse_transforms_filters,
@@ -191,22 +199,39 @@ def _gen_parse_transform_beam(
     )
 
     # build beam
-    beam = paths.join(
-        name,
-        paths.replace_extension(src.basename, ".beam"),
-    )
-    output = ctx.actions.declare_output(beam)
+    output = ctx.actions.declare_output(name, name + ".beam")
+    _compile_toolchain_module(ctx, src, output.as_output(), erlc)
 
-    # NOTE: since we do NOT define +debug_info, this is hermetic
-    cmd = cmd_args(
-        erlc,
-        "+deterministic",
-        "-o",
-        cmd_args(output.as_output(), parent = 1),
-        src,
-    )
-    ctx.actions.run(cmd, category = "erlc", identifier = src.short_path)
     return output, resource_dir
+
+default_toolchain_script_args_pre = cmd_args(
+    "+A0",
+    "+S1:1",
+    "+sbtu",
+    "+MMscs",
+    "8",
+    "+MMsco",
+    "false",
+    "-mode",
+    "minimal",
+    "-noinput",
+    "-noshell",
+    "-eval",
+)
+default_toolchain_script_args_post = cmd_args("-s", "erlang", "halt", "--")
+
+def _gen_toolchain_script(ctx: AnalysisContext, script: Artifact, tools: Tools) -> Tool:
+    name, _ext = paths.split_extension(script.basename)
+    out = ctx.actions.declare_output(name, name + ".beam")
+    _compile_toolchain_module(ctx, script, out.as_output(), tools.erlc)
+    eval = cmd_args(name, ":main(init:get_plain_arguments())", delimiter = "")
+    return cmd_args(
+        tools.erl,
+        cmd_args(out, parent = 1, prepend = "-pa"),
+        default_toolchain_script_args_pre,
+        eval,
+        default_toolchain_script_args_post,
+    )
 
 config_erlang_toolchain_rule = rule(
     impl = _config_erlang_toolchain_impl,
@@ -232,17 +257,7 @@ def _gen_util_beams(
             "__build",
             paths.replace_extension(src.basename, ".beam"),
         ))
-        ctx.actions.run(
-            [
-                erlc,
-                "+deterministic",
-                "-o",
-                cmd_args(output.as_output(), parent = 1),
-                src,
-            ],
-            category = "erlc",
-            identifier = src.short_path,
-        )
+        _compile_toolchain_module(ctx, src, output.as_output(), erlc)
         beams.append(output)
 
     beam_dir = ctx.actions.symlinked_dir(
@@ -251,6 +266,18 @@ def _gen_util_beams(
     )
 
     return beam_dir
+
+def _compile_toolchain_module(
+        ctx: AnalysisContext,
+        src: Artifact,
+        out: OutputArtifact,
+        erlc: Tool):
+    # NOTE: since we do NOT define +debug_info, this is hermetic
+    ctx.actions.run(
+        [erlc, "+deterministic", "-o", cmd_args(out, parent = 1), src],
+        category = "erlc",
+        identifier = src.short_path,
+    )
 
 # Parse Transform
 

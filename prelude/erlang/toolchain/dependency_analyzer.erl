@@ -1,7 +1,3 @@
-%% #!/usr/bin/env escript
-%% -*- erlang -*-
-%%! +S 1:1 +sbtu +A1 +MMscs 8 +MMsco false
-
 %% Copyright (c) Meta Platforms, Inc. and affiliates.
 %%
 %% This source code is licensed under both the MIT license found in the
@@ -36,6 +32,8 @@
 
 -module(dependency_analyzer).
 -author("loscher@fb.com").
+
+-export([main/1]).
 
 %%% AST nodes to parse
 %%%
