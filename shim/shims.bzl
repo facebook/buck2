@@ -243,6 +243,7 @@ def cpp_binary(
     )
 
 def rust_library(
+        edition = None,
         rustc_flags = [],
         deps = [],
         named_deps = None,
@@ -265,6 +266,7 @@ def rust_library(
     visibility = ["PUBLIC"]
 
     prelude.rust_library(
+        edition = edition or _default_rust_edition(),
         rustc_flags = rustc_flags + [_CFG_BUCK_BUILD],
         deps = deps,
         visibility = visibility,
@@ -273,6 +275,7 @@ def rust_library(
     )
 
 def rust_binary(
+        edition = None,
         rustc_flags = [],
         deps = [],
         autocargo = None,
@@ -286,6 +289,7 @@ def rust_binary(
 
     # @lint-ignore BUCKLINT: avoid "Direct usage of native rules is not allowed."
     prelude.rust_binary(
+        edition = edition or _default_rust_edition(),
         rustc_flags = rustc_flags + [_CFG_BUCK_BUILD],
         deps = deps,
         visibility = visibility,
@@ -293,6 +297,7 @@ def rust_binary(
     )
 
 def rust_unittest(
+        edition = None,
         rustc_flags = [],
         deps = [],
         visibility = ["PUBLIC"],
@@ -300,6 +305,7 @@ def rust_unittest(
     deps = _fix_deps(deps)
 
     prelude.rust_test(
+        edition = edition or _default_rust_edition(),
         rustc_flags = rustc_flags + [_CFG_BUCK_BUILD],
         deps = deps,
         visibility = visibility,
@@ -435,6 +441,26 @@ def _fix_resources(resources):
         return {k: translate_target(v) for k, v in resources.items()}
 
     fail("Unexpected type {} for resources".format(type(resources)))
+
+def _default_rust_edition():
+    package = native.package_name()
+
+    # Parse buckconfig entries in the following form:
+    #
+    #     [rust]
+    #     default_edition = 2024
+    #     default_edition:buck2 = 2021
+    #     default_edition:buck2/dice = 2024
+    #
+    if package:
+        split = package.split("/")
+        for i in range(len(split)):
+            parent_directory = "/".join(split[:len(split) - i])
+            edition = read_config("rust", "default_edition:" + parent_directory)
+            if edition != None:
+                return edition
+
+    return read_config("rust", "default_edition")
 
 # Do a nasty conversion of e.g. ("supercaml", None, "ocaml-dev") to
 # 'fbcode//third-party-buck/platform010/build/supercaml:ocaml-dev'
