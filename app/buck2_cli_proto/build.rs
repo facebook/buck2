@@ -24,8 +24,8 @@ fn main() -> io::Result<()> {
         ]
     };
 
-    buck2_protoc_dev::configure()
-        .setup_protoc()
+    let builder = buck2_protoc_dev::configure();
+    unsafe { builder.setup_protoc() }
         .type_attribute(".", "#[derive(::serde::Serialize, ::serde::Deserialize)] #[serde(rename_all = \"snake_case\")]")
         .type_attribute(".", "#[derive(::allocative::Allocative)]")
         .field_attribute("start_time", "#[serde(with = \"serialize_timestamp\")]")

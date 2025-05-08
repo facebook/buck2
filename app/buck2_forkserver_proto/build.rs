@@ -23,8 +23,8 @@ fn main() -> io::Result<()> {
         ]
     };
 
-    buck2_protoc_dev::configure()
-        .setup_protoc()
+    let builder = buck2_protoc_dev::configure();
+    unsafe { builder.setup_protoc() }
         .type_attribute(
             "buck.forkserver.RequestEvent.data",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName, ::gazebo::variants::UnpackVariants)]",

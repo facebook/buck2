@@ -22,8 +22,8 @@ fn main() -> io::Result<()> {
         "proto/google/rpc/status.proto",
     ];
 
-    buck2_protoc_dev::configure()
-        .setup_protoc()
+    let builder = buck2_protoc_dev::configure();
+    unsafe { builder.setup_protoc() }
         .type_attribute(".", "#[derive(::serde::Serialize, ::serde::Deserialize)]")
         .field_attribute(
             "build.bazel.remote.execution.v2.Action.timeout",

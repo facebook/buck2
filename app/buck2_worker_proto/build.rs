@@ -19,7 +19,6 @@ fn main() -> io::Result<()> {
         vec![".".to_owned(), "../buck2_data".to_owned()]
     };
 
-    buck2_protoc_dev::configure()
-        .setup_protoc()
-        .compile(proto_files, &includes)
+    let builder = buck2_protoc_dev::configure();
+    unsafe { builder.setup_protoc() }.compile(proto_files, &includes)
 }

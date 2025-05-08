@@ -19,8 +19,8 @@ fn main() -> io::Result<()> {
         vec![".".to_owned()]
     };
 
-    buck2_protoc_dev::configure()
-        .setup_protoc()
+    let builder = buck2_protoc_dev::configure();
+    unsafe { builder.setup_protoc() }
         .type_attribute(".", "#[derive(::serde::Serialize, ::serde::Deserialize)]")
         .type_attribute(".", "#[derive(::allocative::Allocative)]")
         .type_attribute(

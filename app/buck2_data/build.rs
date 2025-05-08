@@ -19,8 +19,8 @@ fn main() -> io::Result<()> {
         vec![".".to_owned(), "../buck2_host_sharing_proto".to_owned()]
     };
 
-    buck2_protoc_dev::configure()
-        .setup_protoc()
+    let builder = buck2_protoc_dev::configure();
+    unsafe { builder.setup_protoc() }
         .type_attribute(
             "buck.data.BuckEvent.data",
             "#[allow(clippy::large_enum_variant)]",

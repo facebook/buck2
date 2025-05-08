@@ -22,7 +22,11 @@ fn get_env(key: &str) -> Option<OsString> {
 }
 
 #[cfg(not(buck2_build))]
-fn set_var(var: &str, override_var: &str, path: Result<PathBuf, protoc_bin_vendored::Error>) {
+unsafe fn set_var(
+    var: &str,
+    override_var: &str,
+    path: Result<PathBuf, protoc_bin_vendored::Error>,
+) {
     let path = if let Some(override_var_value) = env::var_os(override_var) {
         eprintln!("INFO: Variable ${} is overridden by ${}", var, override_var);
         PathBuf::from(override_var_value)
@@ -40,13 +44,13 @@ fn set_var(var: &str, override_var: &str, path: Result<PathBuf, protoc_bin_vendo
 
     let path = dunce::canonicalize(path).expect("Failed to canonicalize path");
     eprintln!("INFO: Variable ${} set to {:?}", var, path);
-    env::set_var(var, path);
+    unsafe { env::set_var(var, path) };
 }
 
 /// Set up $PROTOC to point to the in repo binary if available.
 ///
 /// Note: repo root is expected to be a relative or absolute path to the root of the repository.
-fn maybe_set_protoc() {
+unsafe fn maybe_set_protoc() {
     #[cfg(not(buck2_build))]
     {
         // `cargo build` of `buck2` does not require external `protoc` dependency
@@ -55,23 +59,27 @@ fn maybe_set_protoc() {
         // https://github.com/facebook/buck2/issues/65
         // So for NixOS builds path to `protoc` binary can be overridden with
         // `BUCK2_BUILD_PROTOC` environment variable.
-        set_var(
-            "PROTOC",
-            "BUCK2_BUILD_PROTOC",
-            protoc_bin_vendored::protoc_bin_path(),
-        );
+        unsafe {
+            set_var(
+                "PROTOC",
+                "BUCK2_BUILD_PROTOC",
+                protoc_bin_vendored::protoc_bin_path(),
+            );
+        }
     }
 }
 
 /// Set $PROTOC_INCLUDE.
-fn maybe_set_protoc_include() {
+unsafe fn maybe_set_protoc_include() {
     #[cfg(not(buck2_build))]
     {
-        set_var(
-            "PROTOC_INCLUDE",
-            "BUCK2_BUILD_PROTOC_INCLUDE",
-            protoc_bin_vendored::include_path(),
-        );
+        unsafe {
+            set_var(
+                "PROTOC_INCLUDE",
+                "BUCK2_BUILD_PROTOC_INCLUDE",
+                protoc_bin_vendored::include_path(),
+            );
+        }
     }
 }
 
@@ -112,10 +120,10 @@ impl Builder {
         }
     }
 
-    pub fn setup_protoc(self) -> Self {
+    pub unsafe fn setup_protoc(self) -> Self {
         // It would be great if there were on the config rather than an env variables...
-        maybe_set_protoc();
-        maybe_set_protoc_include();
+        unsafe { maybe_set_protoc() };
+        unsafe { maybe_set_protoc_include() };
         self
     }
 
