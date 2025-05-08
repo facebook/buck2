@@ -49,7 +49,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     parsed_patterns: Vec<ParsedPattern<T>>,
 ) -> buck2_error::Result<(
     ResolvedPattern<T>,
-    impl Stream<Item = (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)> + 'c,
+    impl Stream<Item = (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)> + use<'c, T>,
 )> {
     let mut spec = ResolvedPattern::<T>::new();
     let mut recursive_packages = Vec::new();

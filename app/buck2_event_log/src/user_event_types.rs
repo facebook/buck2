@@ -93,7 +93,7 @@ pub(crate) fn try_get_user_event(buck_event: &BuckEvent) -> buck2_error::Result<
         .as_ref()
         .buck_error_context(SerializeUserEventError::MissingData("BuckEvent".to_owned()))?
     {
-        buck2_data::buck_event::Data::Instant(ref instant) => {
+        buck2_data::buck_event::Data::Instant(instant) => {
             match instant
                 .data
                 .as_ref()
@@ -107,7 +107,7 @@ pub(crate) fn try_get_user_event(buck_event: &BuckEvent) -> buck2_error::Result<
                 _ => Ok(None),
             }
         }
-        buck2_data::buck_event::Data::SpanEnd(ref span_end_event) => {
+        buck2_data::buck_event::Data::SpanEnd(span_end_event) => {
             let duration_millis = span_end_event
                 .duration
                 .as_ref()

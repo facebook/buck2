@@ -241,9 +241,9 @@ impl WriteToFileMacroVisitor for MacroToFileWriter<'_> {
 
     fn set_current_relative_to_path(
         &mut self,
-        gen: &dyn Fn(&dyn CommandLineContext) -> buck2_error::Result<Option<RelativePathBuf>>,
+        generate: &dyn Fn(&dyn CommandLineContext) -> buck2_error::Result<Option<RelativePathBuf>>,
     ) -> buck2_error::Result<()> {
-        self.relative_to_path = gen(&DefaultCommandLineContext::new(self.fs))?;
+        self.relative_to_path = generate(&DefaultCommandLineContext::new(self.fs))?;
         Ok(())
     }
 }

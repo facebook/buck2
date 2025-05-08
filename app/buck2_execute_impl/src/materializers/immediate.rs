@@ -38,12 +38,12 @@ pub async fn write_to_disk<'a>(
     fs: &ProjectRoot,
     io_executor: &dyn BlockingExecutor,
     digest_config: DigestConfig,
-    gen: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
+    generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
 ) -> buck2_error::Result<Vec<ArtifactValue>> {
     io_executor
         .execute_io_inline({
             move || {
-                let requests = gen()?;
+                let requests = generate()?;
                 let mut values = Vec::with_capacity(requests.len());
 
                 for WriteRequest {

@@ -653,7 +653,7 @@ pub(crate) fn define_provider(
     let input: syn::Item = syn::parse_quote_spanned! { codegen.span=>
         #input
     };
-    let gen: Vec<syn::Item> = [
+    let generated: Vec<syn::Item> = [
         vec![codegen.builtin_provider_ty()?],
         vec![input],
         vec![codegen.impl_display()?],
@@ -669,9 +669,9 @@ pub(crate) fn define_provider(
     .flatten()
     .collect();
 
-    let gen = quote! {
-        #( #gen )*
+    let generated = quote! {
+        #(#generated)*
     };
 
-    Ok(gen.into())
+    Ok(generated.into())
 }

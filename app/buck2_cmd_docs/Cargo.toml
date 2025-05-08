@@ -1,6 +1,6 @@
 [package]
 description = "`buck2 docs` command client implementation"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_cmd_docs"
 repository = { workspace = true }

@@ -268,7 +268,7 @@ impl EventLogPathBuf {
         stats: Option<&'a ReaderStats>,
     ) -> buck2_error::Result<(
         Invocation,
-        impl Stream<Item = buck2_error::Result<StreamValue>> + 'a,
+        impl Stream<Item = buck2_error::Result<StreamValue>> + use<'a>,
     )> {
         match self.encoding.mode {
             LogMode::Json => self.unpack_stream_json(stats).await,
@@ -282,7 +282,7 @@ impl EventLogPathBuf {
         stats: &'a ReaderStats,
     ) -> buck2_error::Result<(
         Invocation,
-        impl Stream<Item = buck2_error::Result<StreamValue>> + 'a,
+        impl Stream<Item = buck2_error::Result<StreamValue>> + use<'a>,
     )> {
         self.unpack_stream_inner(Some(stats)).await
     }
@@ -291,7 +291,7 @@ impl EventLogPathBuf {
         &self,
     ) -> buck2_error::Result<(
         Invocation,
-        impl Stream<Item = buck2_error::Result<StreamValue>> + 'static,
+        impl Stream<Item = buck2_error::Result<StreamValue>> + 'static + use<>,
     )> {
         self.unpack_stream_inner(None).await
     }

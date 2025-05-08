@@ -198,7 +198,7 @@ impl TargetLabel {
     }
 
     unsafe fn from_raw(raw: *const ()) -> Self {
-        TargetLabel(ThinArc::from_raw(raw as *const _))
+        TargetLabel(unsafe { ThinArc::from_raw(raw as *const _) })
     }
 
     pub(crate) fn arc_borrow(&self) -> TargetLabelBorrow {
@@ -292,7 +292,7 @@ impl TargetLabelBorrow<'_> {
 
     pub(crate) unsafe fn from_raw(raw: *const ()) -> Self {
         TargetLabelBorrow {
-            borrow: ThinArcBorrow::from_raw(raw),
+            borrow: unsafe { ThinArcBorrow::from_raw(raw) },
         }
     }
 }
@@ -329,10 +329,10 @@ impl AtomicValue for TargetLabel {
     }
 
     unsafe fn from_raw(raw: Self::Raw) -> Self {
-        TargetLabel::from_raw(raw)
+        unsafe { TargetLabel::from_raw(raw) }
     }
 
     unsafe fn deref<'a>(raw: Self::Raw) -> Self::Ref<'a> {
-        TargetLabelBorrow::from_raw(raw)
+        unsafe { TargetLabelBorrow::from_raw(raw) }
     }
 }

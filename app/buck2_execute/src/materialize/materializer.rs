@@ -187,7 +187,7 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
     /// cleans up paths that the WriteRequest declares.
     async fn declare_write<'a>(
         &self,
-        gen: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
+        generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> buck2_error::Result<Vec<ArtifactValue>>;
 
     /// Ask the materializer if the artifacts at the set of paths match what is on disk or

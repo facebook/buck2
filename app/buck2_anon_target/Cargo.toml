@@ -1,6 +1,6 @@
 [package]
 description = "Anonymous targets"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_anon_target"
 repository = { workspace = true }

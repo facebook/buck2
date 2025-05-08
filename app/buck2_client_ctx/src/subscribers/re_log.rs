@@ -38,7 +38,7 @@ impl ReLog {
 
     fn log_upload(
         &mut self,
-    ) -> impl Future<Output = buck2_error::Result<()>> + 'static + Send + Sync {
+    ) -> impl Future<Output = buck2_error::Result<()>> + 'static + Send + Sync + use<> {
         // We put `None` in place of re_session_id which means we will only attempt to upload
         // the logs once no matter how many times this function is called
         let session_id = self.re_session_id.take();

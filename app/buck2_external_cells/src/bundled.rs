@@ -173,7 +173,7 @@ impl BundledFileOpsDelegate {
     ) -> buck2_error::Result<
         Option<
             DirectoryEntry<
-                impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = NoDigest>,
+                impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = NoDigest> + use<'_>,
                 &ContentsAndMetadata,
             >,
         >,
@@ -191,7 +191,7 @@ impl BundledFileOpsDelegate {
         path: &CellRelativePath,
     ) -> buck2_error::Result<
         DirectoryEntry<
-            impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = NoDigest>,
+            impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = NoDigest> + use<'_>,
             &ContentsAndMetadata,
         >,
     > {

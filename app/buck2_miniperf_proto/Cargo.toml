@@ -1,7 +1,7 @@
 [package]
 authors = ["Meta"]
 description = "Serialized datastructures for buck2_miniperf"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_miniperf_proto"
 repository = { workspace = true }

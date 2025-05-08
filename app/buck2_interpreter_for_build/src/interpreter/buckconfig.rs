@@ -105,9 +105,9 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
 
         let mut inner = self.inner.borrow_mut();
         let BuckConfigsInner {
-            ref mut configs_view,
-            ref mut current_cell_cache,
-            ref mut root_cell_cache,
+            configs_view,
+            current_cell_cache,
+            root_cell_cache,
         } = inner.deref_mut();
 
         let cache = if from_root_cell {

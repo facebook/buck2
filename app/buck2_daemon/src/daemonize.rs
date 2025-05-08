@@ -161,12 +161,12 @@ impl Daemonize {
 }
 
 unsafe fn perform_fork() -> buck2_error::Result<Option<libc::pid_t>> {
-    let pid = check_err(libc::fork(), ErrorKind::Fork)?;
+    let pid = check_err(unsafe { libc::fork() }, ErrorKind::Fork)?;
     if pid == 0 { Ok(None) } else { Ok(Some(pid)) }
 }
 
 unsafe fn set_sid() -> buck2_error::Result<()> {
-    check_err(libc::setsid(), ErrorKind::DetachSession)?;
+    check_err(unsafe { libc::setsid() }, ErrorKind::DetachSession)?;
     Ok(())
 }
 
@@ -176,15 +176,21 @@ unsafe fn redirect_standard_streams(
     stderr: Stdio,
 ) -> buck2_error::Result<()> {
     let devnull_fd = check_err(
-        libc::open(b"/dev/null\0" as *const [u8; 10] as _, libc::O_RDWR),
+        unsafe { libc::open(b"/dev/null\0" as *const [u8; 10] as _, libc::O_RDWR) },
         ErrorKind::OpenDevnull,
     )?;
 
     let process_stdio = |fd, stdio: Stdio| match stdio.inner {
-        StdioImpl::Devnull => check_err(libc::dup2(devnull_fd, fd), ErrorKind::RedirectStreams),
+        StdioImpl::Devnull => check_err(
+            unsafe { libc::dup2(devnull_fd, fd) },
+            ErrorKind::RedirectStreams,
+        ),
         StdioImpl::RedirectToFile(file) => {
             let raw_fd = file.as_raw_fd();
-            check_err(libc::dup2(raw_fd, fd), ErrorKind::RedirectStreams)
+            check_err(
+                unsafe { libc::dup2(raw_fd, fd) },
+                ErrorKind::RedirectStreams,
+            )
         }
     };
 
@@ -192,7 +198,7 @@ unsafe fn redirect_standard_streams(
     process_stdio(libc::STDOUT_FILENO, stdout)?;
     process_stdio(libc::STDERR_FILENO, stderr)?;
 
-    check_err(libc::close(devnull_fd), ErrorKind::CloseDevnull)?;
+    check_err(unsafe { libc::close(devnull_fd) }, ErrorKind::CloseDevnull)?;
 
     Ok(())
 }

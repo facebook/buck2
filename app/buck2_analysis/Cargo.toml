@@ -1,6 +1,6 @@
 [package]
 description = "Execute rule function"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_analysis"
 repository = { workspace = true }

@@ -108,7 +108,7 @@ pub trait IoHandler: Sized + Sync + Send + 'static {
 
     async fn immediate_write<'a>(
         self: &Arc<Self>,
-        gen: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
+        generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> buck2_error::Result<Vec<ArtifactValue>>;
 
     fn clean_path<'a>(
@@ -349,13 +349,13 @@ impl IoHandler for DefaultIoHandler {
 
     async fn immediate_write<'a>(
         self: &Arc<Self>,
-        gen: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
+        generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> buck2_error::Result<Vec<ArtifactValue>> {
         immediate::write_to_disk(
             self.fs(),
             self.io_executor.as_ref(),
             self.digest_config(),
-            gen,
+            generate,
         )
         .await
     }
@@ -510,7 +510,7 @@ pub(super) fn create_ttl_refresh(
     re_manager: &Arc<ReConnectionManager>,
     min_ttl: Duration,
     digest_config: DigestConfig,
-) -> Option<impl Future<Output = buck2_error::Result<()>>> {
+) -> Option<impl Future<Output = buck2_error::Result<()>> + use<>> {
     let mut digests_to_refresh = HashMap::<_, HashSet<_>>::new();
 
     let ttl_deadline = Utc::now() + min_ttl;

@@ -1,6 +1,6 @@
 [package]
 description = "Interpreter setup to BUCK files"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_interpreter_for_build"
 repository = { workspace = true }

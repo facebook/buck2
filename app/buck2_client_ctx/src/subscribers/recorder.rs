@@ -943,7 +943,7 @@ impl InvocationRecorder {
     ) -> buck2_error::Result<()> {
         // Awkwardly unpacks the SpanEnd event so we can read its duration.
         let command_end = match event.data() {
-            buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
+            buck2_data::buck_event::Data::SpanEnd(end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
                     ErrorTag::InvalidEvent,
@@ -1169,7 +1169,7 @@ impl InvocationRecorder {
         event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         let bxl_ensure_artifacts_end = match event.data() {
-            buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
+            buck2_data::buck_event::Data::SpanEnd(end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
                     ErrorTag::InvalidEvent,
@@ -1489,7 +1489,7 @@ impl InvocationRecorder {
         event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         let block_concurrent_command = match event.data() {
-            buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
+            buck2_data::buck_event::Data::SpanEnd(end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
                     ErrorTag::InvalidEvent,
@@ -1516,7 +1516,7 @@ impl InvocationRecorder {
         event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         let dice_cleanup_end = match event.data() {
-            buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
+            buck2_data::buck_event::Data::SpanEnd(end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
                     ErrorTag::InvalidEvent,
@@ -1559,7 +1559,7 @@ impl InvocationRecorder {
         self.event_count += 1;
 
         match event.data() {
-            buck2_data::buck_event::Data::SpanStart(ref start) => {
+            buck2_data::buck_event::Data::SpanStart(start) => {
                 match start.data.as_ref().buck_error_context("Missing `start`")? {
                     buck2_data::span_start_event::Data::Command(command) => {
                         self.handle_command_start(command, event)
@@ -1591,7 +1591,7 @@ impl InvocationRecorder {
                     _ => Ok(()),
                 }
             }
-            buck2_data::buck_event::Data::SpanEnd(ref end) => {
+            buck2_data::buck_event::Data::SpanEnd(end) => {
                 match end.data.as_ref().buck_error_context("Missing `end`")? {
                     buck2_data::span_end_event::Data::Command(command) => {
                         self.handle_command_end(command, event).await
@@ -1635,7 +1635,7 @@ impl InvocationRecorder {
                     _ => Ok(()),
                 }
             }
-            buck2_data::buck_event::Data::Instant(ref instant) => {
+            buck2_data::buck_event::Data::Instant(instant) => {
                 match instant.data.as_ref().buck_error_context("Missing `data`")? {
                     buck2_data::instant_event::Data::ReSession(session) => {
                         self.handle_re_session_created(session, event)

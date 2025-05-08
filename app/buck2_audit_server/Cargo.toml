@@ -1,6 +1,6 @@
 [package]
 description = "Server side of `buck2 audit`"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_audit_server"
 repository = { workspace = true }

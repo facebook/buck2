@@ -59,14 +59,14 @@ impl Stats {
     fn update_with_event(&mut self, event: &buck2_data::BuckEvent) {
         match &event.data {
             Some(buck2_data::buck_event::Data::SpanEnd(end)) => match end.data.as_ref() {
-                Some(buck2_data::span_end_event::Data::ReUpload(ref data)) => {
+                Some(buck2_data::span_end_event::Data::ReUpload(data)) => {
                     self.total_bytes_uploaded += data.bytes_uploaded.unwrap_or_default();
                 }
-                Some(buck2_data::span_end_event::Data::Materialization(ref data)) => {
+                Some(buck2_data::span_end_event::Data::Materialization(data)) => {
                     self.total_files_materialized += data.file_count;
                     self.total_bytes_materialized += data.total_bytes;
                 }
-                Some(buck2_data::span_end_event::Data::ActionExecution(ref data)) => {
+                Some(buck2_data::span_end_event::Data::ActionExecution(data)) => {
                     match ActionExecutionKind::try_from(data.execution_kind) {
                         Ok(ActionExecutionKind::Local) => self.total_local_actions += 1,
                         Ok(ActionExecutionKind::Remote) => self.total_remote_actions += 1,

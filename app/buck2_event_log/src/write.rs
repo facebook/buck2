@@ -211,7 +211,7 @@ impl WriteEventLog {
         self.log_invocation(event.trace_id()?).await
     }
 
-    pub fn exit(&mut self) -> impl Future<Output = ()> + 'static + Send + Sync {
+    pub fn exit(&mut self) -> impl Future<Output = ()> + 'static + Send + Sync + use<> {
         // Shut down writers, flush all our files before exiting.
         let state = std::mem::replace(&mut self.state, LogWriterState::Closed);
 

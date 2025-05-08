@@ -55,7 +55,7 @@ where
     pub fn add_target(&mut self, package: PackageLabel, target_name: TargetName, extra: T) {
         if let Some(s) = self.specs.get_mut(&package) {
             match s {
-                PackageSpec::Targets(ref mut t) => t.push((target_name, extra)),
+                PackageSpec::Targets(t) => t.push((target_name, extra)),
                 PackageSpec::All => {}
             }
         } else {

@@ -10,4 +10,5 @@ internal_cell = fbcode
 stripped_root_dirs = buck2
 
 [rust]
+default_edition:app = 2024
 default_edition:dice = 2024

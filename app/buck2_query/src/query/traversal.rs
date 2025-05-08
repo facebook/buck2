@@ -348,7 +348,7 @@ mod tests {
     struct Graph(HashMap<Ref, Node>);
 
     impl Graph {
-        fn child_visitor<'a>(&self) -> impl AsyncChildVisitor<Node> + 'a {
+        fn child_visitor<'a>(&self) -> impl AsyncChildVisitor<Node> + use<'a> {
             struct ChildVisitorImpl;
 
             impl AsyncChildVisitor<Node> for ChildVisitorImpl {

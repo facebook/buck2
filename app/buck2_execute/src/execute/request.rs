@@ -723,14 +723,11 @@ pub enum CommandExecutionOutput {
 impl CommandExecutionOutput {
     pub fn as_ref(&self) -> CommandExecutionOutputRef<'_> {
         match self {
-            Self::BuildArtifact {
-                ref path,
-                output_type,
-            } => CommandExecutionOutputRef::BuildArtifact {
+            Self::BuildArtifact { path, output_type } => CommandExecutionOutputRef::BuildArtifact {
                 path,
                 output_type: *output_type,
             },
-            Self::TestPath { ref path, create } => CommandExecutionOutputRef::TestPath {
+            Self::TestPath { path, create } => CommandExecutionOutputRef::TestPath {
                 path,
                 create: *create,
             },

@@ -95,8 +95,8 @@ impl<Kind: CasDigestKind> CasDigestConversionResultExt
 {
     fn as_display(&self) -> &dyn fmt::Display {
         match self {
-            Self::Ok(ref v) => v as _,
-            Self::Err(DigestConversionError::ParseError { ref digest, .. }) => digest as _,
+            Self::Ok(v) => v as _,
+            Self::Err(DigestConversionError::ParseError { digest, .. }) => digest as _,
         }
     }
 }

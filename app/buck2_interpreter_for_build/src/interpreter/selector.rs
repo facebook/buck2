@@ -260,14 +260,14 @@ where
 
     fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<starlark::Result<Value<'v>>> {
         match self {
-            Self::Primary(ref v) => match ValueOf::unpack_value_err(v.get().to_value()) {
+            Self::Primary(v) => match ValueOf::unpack_value_err(v.get().to_value()) {
                 Ok(v) => {
                     let this = heap.alloc(StarlarkSelector::new(v));
                     Some(Ok(StarlarkSelector::sum(this, other, heap)))
                 }
                 Err(e) => Some(Err(e.into())),
             },
-            Self::Sum(ref l, ref r) => {
+            Self::Sum(l, r) => {
                 let this = StarlarkSelector::sum(l.to_value(), r.to_value(), heap);
                 Some(Ok(StarlarkSelector::sum(this, other, heap)))
             }

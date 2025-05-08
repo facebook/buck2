@@ -233,7 +233,7 @@ impl CommonBuildConfigurationOptions {
             collection: &'a [T],
             name: &str,
             matches: BuckArgMatches<'a>,
-        ) -> impl Iterator<Item = (usize, &'a T)> + 'a {
+        ) -> impl Iterator<Item = (usize, &'a T)> + use<'a, T> {
             let indices = matches.inner.indices_of(name);
             let indices = indices.unwrap_or_default();
             assert_eq!(

@@ -65,7 +65,7 @@ impl<'v, P: StarlarkValue<'v> + ProviderLike<'v>, C: StarlarkValue<'v> + Provide
             .get_or_init(|| {
                 ty_provider(
                     P::TYPE,
-                    TypeInstanceId::gen(),
+                    TypeInstanceId::r#gen(),
                     TyStarlarkValue::new::<P>(),
                     None,
                     SortedMap::new(),

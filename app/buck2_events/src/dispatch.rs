@@ -145,7 +145,11 @@ impl EventDispatcher {
     /// the future itself is suspended and resumed, respectively.
     ///
     /// TODO(swgillespie) actually implement suspend/resume
-    pub fn span_async<Start, End, Fut, R>(&self, start: Start, fut: Fut) -> impl Future<Output = R>
+    pub fn span_async<Start, End, Fut, R>(
+        &self,
+        start: Start,
+        fut: Fut,
+    ) -> impl Future<Output = R> + use<Start, End, Fut, R>
     where
         Start: Into<span_start_event::Data>,
         End: Into<span_end_event::Data>,

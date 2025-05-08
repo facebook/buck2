@@ -1,6 +1,6 @@
 [package]
 description = "Artifact types"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_artifact"
 repository = { workspace = true }

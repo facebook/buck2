@@ -270,7 +270,7 @@ impl Uploader {
                             ..
                         },
                     ) => {
-                        if let DirectoryEntry::Leaf(ActionDirectoryMember::File(ref file)) =
+                        if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) =
                             entry.as_ref()
                         {
                             // NOTE: find_missing has negative caching, so when we query to know if an

@@ -1,7 +1,7 @@
 [package]
 build = "build.rs"
 description = "Buck2 external cells bundled data"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_external_cells_bundled"
 repository = { workspace = true }

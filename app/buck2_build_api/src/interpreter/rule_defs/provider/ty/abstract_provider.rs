@@ -41,7 +41,7 @@ fn mk_ty_provider() -> buck2_error::Result<Ty> {
         UserProvider::TYPE.to_owned(),
         // Builtin providers behave like `UserProvider`.
         TyStarlarkValue::new::<UserProvider>(),
-        TypeInstanceId::gen(),
+        TypeInstanceId::r#gen(),
         TyUserParams {
             matcher: Some(TypeMatcherFactory::new(ProviderMatcher)),
             fields: TyUserFields::unknown(),

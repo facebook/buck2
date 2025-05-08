@@ -1,6 +1,6 @@
 [package]
 description = ""
-edition = "2021"
+edition = "2024"
 name = "buck2_daemon"
 repository = { workspace = true }
 version = "0.1.0"

@@ -2,7 +2,7 @@
 description = """
 This crate defines the implementation logic for validation functionality.
 """
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_validation"
 repository = { workspace = true }

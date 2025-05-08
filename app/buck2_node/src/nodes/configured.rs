@@ -390,7 +390,7 @@ impl ConfiguredTargetNode {
     }
 
     /// Return the `tests` declared for this target configured in same target platform as this target.
-    pub fn tests(&self) -> impl Iterator<Item = ConfiguredProvidersLabel> {
+    pub fn tests(&self) -> impl Iterator<Item = ConfiguredProvidersLabel> + use<> {
         #[derive(Default)]
         struct TestCollector {
             labels: Vec<ConfiguredProvidersLabel>,

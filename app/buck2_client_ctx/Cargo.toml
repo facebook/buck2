@@ -1,6 +1,6 @@
 [package]
 description = "Code supporting buck2 client commands"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_client_ctx"
 repository = { workspace = true }

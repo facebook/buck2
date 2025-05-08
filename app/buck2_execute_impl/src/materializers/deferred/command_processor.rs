@@ -1053,8 +1053,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 Some((entry.dupe(), method.dupe()))
             }
             ArtifactMaterializationStage::Materialized {
-                ref mut last_access_time,
-                ..
+                last_access_time, ..
             } => match check_deps {
                 true => None,
                 false => {

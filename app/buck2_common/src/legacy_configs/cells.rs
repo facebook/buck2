@@ -417,7 +417,8 @@ impl BuckConfigBasedCells {
 
     pub(crate) fn get_cell_aliases_from_config(
         config: &LegacyBuckConfig,
-    ) -> buck2_error::Result<impl Iterator<Item = (NonEmptyCellAlias, NonEmptyCellAlias)>> {
+    ) -> buck2_error::Result<impl Iterator<Item = (NonEmptyCellAlias, NonEmptyCellAlias)> + use<>>
+    {
         let mut aliases = Vec::new();
         if let Some(section) = config
             .get_section("cell_aliases")

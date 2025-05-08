@@ -174,7 +174,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
             String,
         >,
         #[starlark(require = named, default = false)] aliases: bool,
-    ) -> starlark::Result<AllocDict<impl Iterator<Item = (String, String)>>> {
+    ) -> starlark::Result<AllocDict<impl Iterator<Item = (String, String)> + use<>>> {
         Ok(this.ctx.async_ctx.borrow_mut().via(|ctx| {
             async {
                 let result = audit_cell(

@@ -260,7 +260,7 @@ async fn collect_install_request_data<'a>(
     server_ctx: &dyn ServerCommandContextTrait,
     ctx: &mut DiceTransaction,
     request: &InstallRequest,
-) -> buck2_error::Result<impl IntoIterator<Item = InstallRequestData<'a>>> {
+) -> buck2_error::Result<impl IntoIterator<Item = InstallRequestData<'a>> + use<'a>> {
     let cwd = server_ctx.working_dir();
 
     let global_cfg_options = global_cfg_options_from_client_context(

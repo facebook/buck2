@@ -1,6 +1,6 @@
 [package]
 description = "Common parts of Buck commands"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_server_ctx"
 repository = { workspace = true }

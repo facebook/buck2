@@ -80,7 +80,7 @@ impl StringWithMacros<ConfiguredProvidersLabel> {
     ) -> buck2_error::Result<()> {
         match self {
             Self::StringPart(..) => {}
-            Self::ManyParts(ref parts) => {
+            Self::ManyParts(parts) => {
                 for part in parts.iter() {
                     match part {
                         StringWithMacrosPart::String(_) => {}
@@ -122,7 +122,7 @@ impl StringWithMacros<ProvidersLabel> {
     ) -> buck2_error::Result<()> {
         match self {
             Self::StringPart(..) => {}
-            Self::ManyParts(ref parts) => {
+            Self::ManyParts(parts) => {
                 for part in parts.iter() {
                     match part {
                         StringWithMacrosPart::String(_) => {}
@@ -399,7 +399,7 @@ impl<P: ProvidersLabelMaybeConfigured> Display for StringWithMacros<P> {
             Self::StringPart(part) => {
                 write!(f, "{}", part)?;
             }
-            Self::ManyParts(ref parts) => {
+            Self::ManyParts(parts) => {
                 for part in parts.iter() {
                     write!(f, "{}", part)?;
                 }

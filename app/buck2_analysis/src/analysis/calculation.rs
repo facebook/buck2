@@ -237,7 +237,7 @@ pub async fn get_loaded_module(
 pub async fn get_rule_spec(
     ctx: &mut DiceComputations<'_>,
     func: &StarlarkRuleType,
-) -> buck2_error::Result<impl RuleSpec> {
+) -> buck2_error::Result<impl RuleSpec + use<>> {
     let module = get_loaded_module(ctx, func).await?;
     Ok(get_user_defined_rule_spec(module.env().dupe(), func))
 }

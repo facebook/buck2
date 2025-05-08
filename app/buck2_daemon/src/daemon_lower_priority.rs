@@ -63,7 +63,7 @@ fn do_lower_priority() -> buck2_error::Result<()> {
 
     use buck2_error::BuckErrorContext;
 
-    extern "C" {
+    unsafe extern "C" {
         // https://github.com/rust-lang/libc/pull/3128
         pub fn posix_spawnattr_set_qos_class_np(
             attr: *mut libc::posix_spawnattr_t,

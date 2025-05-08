@@ -424,7 +424,7 @@ impl ConcurrencyHandler {
     ) -> buck2_error::Result<(
         OnExecExit,
         DiceTransaction,
-        impl Future<Output = Result<(), RecvError>>,
+        impl Future<Output = Result<(), RecvError>> + use<>,
     )> {
         // Have to put it on the function unfortunately, https://github.com/rust-lang/rust-clippy/issues/9047
         #![allow(clippy::await_holding_invalid_type)]

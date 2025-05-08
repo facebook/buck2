@@ -22,7 +22,7 @@ pub(crate) fn ty_provider_callable<'v, C: StarlarkValue<'v> + ProviderCallableLi
     Ok(Ty::custom(TyUser::new(
         C::TYPE.to_owned(),
         TyStarlarkValue::new::<C>(),
-        TypeInstanceId::gen(),
+        TypeInstanceId::r#gen(),
         TyUserParams {
             callable: Some(creator_func),
             ..TyUserParams::default()

@@ -135,7 +135,7 @@ where
         Self(v, PhantomData)
     }
 
-    pub fn keys(&self) -> impl DoubleEndedIterator<Item = AbstractVertexId<Kind>> {
+    pub fn keys(&self) -> impl DoubleEndedIterator<Item = AbstractVertexId<Kind>> + use<T, Kind> {
         // By construction the length of this is always less than the maximum vertex id.
         let len: u32 = self.0.len().try_into().unwrap();
         (0..len).map(AbstractVertexId::new)

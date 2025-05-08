@@ -111,7 +111,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] pretty: bool,
         #[starlark(require = named, default = false)] absolute: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> starlark::Result<impl AllocValue<'v>> {
+    ) -> starlark::Result<impl AllocValue<'v> + use<'v>> {
         let mut this = this.state()?;
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, OutputType::File)?;

@@ -184,8 +184,7 @@ impl HttpDownloadError {
     fn into_final(mut self) -> Self {
         match &mut self {
             Self::Client(..) | Self::IoError(..) => {}
-            Self::InvalidChecksum { ref mut debug, .. }
-            | Self::MaybeNotAllowedOnVpnless { ref mut debug, .. } => {
+            Self::InvalidChecksum { debug, .. } | Self::MaybeNotAllowedOnVpnless { debug, .. } => {
                 debug.is_final = true;
             }
         }

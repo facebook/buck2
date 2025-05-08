@@ -75,7 +75,7 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
             StringWithMacros::StringPart(s) => {
                 vec![ResolvedStringWithMacrosPart::String(s.dupe())]
             }
-            StringWithMacros::ManyParts(ref parts) => {
+            StringWithMacros::ManyParts(parts) => {
                 let mut resolved_parts = Vec::with_capacity(parts.len());
                 for part in parts.iter() {
                     match part {

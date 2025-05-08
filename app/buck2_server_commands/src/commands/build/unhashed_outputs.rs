@@ -144,7 +144,7 @@ fn create_unhashed_link(
 fn iter_reverse_ancestors<'a>(
     path: &'a AbsPath,
     stop_at: &'_ AbsPath,
-) -> impl Iterator<Item = &'a AbsPath> {
+) -> impl Iterator<Item = &'a AbsPath> + use<'a> {
     let ancestors = path
         .ancestors()
         .take_while(|a| *a != stop_at)

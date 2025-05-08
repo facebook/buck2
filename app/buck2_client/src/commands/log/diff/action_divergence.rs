@@ -45,7 +45,7 @@ fn get_action_execution_data(
     event.data.as_ref().and_then(|data| match data {
         buck2_data::buck_event::Data::SpanEnd(end) => {
             end.data.as_ref().and_then(|data| match data {
-                buck2_data::span_end_event::Data::ActionExecution(ref data) => {
+                buck2_data::span_end_event::Data::ActionExecution(data) => {
                     data.key.as_ref().map(|key: &ActionKey| {
                         (
                             key.clone(),

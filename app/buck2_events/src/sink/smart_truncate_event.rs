@@ -20,32 +20,32 @@ pub(crate) fn smart_truncate_event(d: &mut buck2_data::buck_event::Data) {
     use buck2_data::buck_event::Data;
 
     match d {
-        Data::SpanEnd(ref mut s) => {
+        Data::SpanEnd(s) => {
             use buck2_data::span_end_event::Data;
 
             match &mut s.data {
-                Some(Data::ActionExecution(ref mut action_execution)) => {
+                Some(Data::ActionExecution(action_execution)) => {
                     truncate_action_execution_end(action_execution);
                 }
-                Some(Data::Command(ref mut command_end)) => {
+                Some(Data::Command(command_end)) => {
                     truncate_command_end(command_end, false);
                 }
-                Some(Data::TestEnd(ref mut test_end)) => {
+                Some(Data::TestEnd(test_end)) => {
                     truncate_test_end(test_end);
                 }
                 _ => {}
             };
         }
-        Data::Instant(ref mut inst) => {
+        Data::Instant(inst) => {
             use buck2_data::instant_event::Data;
             match &mut inst.data {
-                Some(Data::TargetPatterns(ref mut target_patterns)) => {
+                Some(Data::TargetPatterns(target_patterns)) => {
                     truncate_target_patterns(&mut target_patterns.target_patterns);
                 }
                 _ => {}
             }
         }
-        Data::Record(ref mut rec) => {
+        Data::Record(rec) => {
             if let Some(buck2_data::record_event::Data::InvocationRecord(invocation_record)) =
                 &mut rec.data
             {

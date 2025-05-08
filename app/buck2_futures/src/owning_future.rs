@@ -91,7 +91,7 @@ impl<T, D> OwningFuture<T, D> {
 
             fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
                 let (output, d) = match self.as_mut().get_mut() {
-                    Map::Incomplete { ref mut future, .. } => {
+                    Map::Incomplete { future, .. } => {
                         let output = ready!(future.as_mut().poll(cx));
 
                         // drop the future first before taking the object it references

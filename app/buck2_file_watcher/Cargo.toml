@@ -1,6 +1,6 @@
 [package]
 description = "Buck2 file watcher"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_file_watcher"
 repository = { workspace = true }

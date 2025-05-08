@@ -239,7 +239,7 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
                 module_id: self.module_id.clone(),
                 name: variable_name.to_owned(),
             });
-            let set_type_instance_id = TypeInstanceId::gen();
+            let set_type_instance_id = TypeInstanceId::r#gen();
             let set_ty = Ty::custom(TyUser::new(
                 variable_name.to_owned(),
                 TyStarlarkValue::new::<TransitiveSet>(),

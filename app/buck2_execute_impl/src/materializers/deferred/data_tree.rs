@@ -114,7 +114,7 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
         I: Iterator<Item = &'a Q>,
     {
         let mut entries = match self {
-            Self::Tree(ref t) => t,
+            Self::Tree(t) => t,
             Self::Data(..) => {
                 return Err(buck2_error!(
                     buck2_error::ErrorTag::Tier0,
@@ -130,7 +130,7 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
             };
 
             entries = match node {
-                Self::Tree(ref t) => t,
+                Self::Tree(t) => t,
                 Self::Data(..) => {
                     return Err(buck2_error!(
                         buck2_error::ErrorTag::Tier0,
@@ -245,8 +245,8 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            Self::Stack(ref mut stack, _) => loop {
-                let (_, ref mut last) = stack.last_mut()?;
+            Self::Stack(stack, _) => loop {
+                let (_, last) = stack.last_mut()?;
 
                 match last.next() {
                     Some((k, DataTree::Tree(t))) => {
@@ -285,8 +285,8 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            Self::Stack(ref mut stack, _) => loop {
-                let (_, ref mut last) = stack.last_mut()?;
+            Self::Stack(stack, _) => loop {
+                let (_, last) = stack.last_mut()?;
 
                 match last.next() {
                     Some((k, DataTree::Tree(t))) => {

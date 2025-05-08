@@ -398,7 +398,7 @@ impl<'a> BuildReportCollector<'a> {
 
             errors.extend(result.errors.iter().cloned());
 
-            if let Some(Ok(MaybeCompatible::Compatible(ref graph_properties))) =
+            if let Some(Ok(MaybeCompatible::Compatible(graph_properties))) =
                 &result.graph_properties
             {
                 configured_report.inner.configured_graph_size =

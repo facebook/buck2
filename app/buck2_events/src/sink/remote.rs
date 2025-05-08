@@ -182,7 +182,7 @@ mod fbcode {
                                     continue;
                                 };
                                 let buck2_data::command_execution_kind::Command::RemoteCommand(
-                                    ref remote,
+                                    remote,
                                 ) = command
                                 else {
                                     continue;

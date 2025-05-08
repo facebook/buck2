@@ -52,11 +52,13 @@ pub async unsafe fn scope_and_collect_with_dispatcher<'d, 'a, T, R, F>(
         T: Send + 'static,
         F: for<'x> FnOnce(&mut Scope<'a, 'x, T>) -> R,
 {
-    async_scoped::TokioScope::scope_and_collect(|scope| {
-        let mut scope = Scope { scope, dispatcher };
-        f(&mut scope)
-    })
-    .await
+    unsafe {
+        async_scoped::TokioScope::scope_and_collect(|scope| {
+            let mut scope = Scope { scope, dispatcher };
+            f(&mut scope)
+        })
+        .await
+    }
 }
 
 /// Wrap `async_scoped::TokioScope::scope_and_collect` propagating the event dispatcher.
@@ -71,6 +73,8 @@ where
     T: Send + 'static,
     F: for<'x> FnOnce(&'c mut DiceComputations<'d>, &mut Scope<'a, 'x, T>) -> R,
 {
-    let dispatcher = ctx.per_transaction_data().get_dispatcher().dupe();
-    scope_and_collect_with_dispatcher(dispatcher, |scope| f(ctx, scope)).await
+    unsafe {
+        let dispatcher = ctx.per_transaction_data().get_dispatcher().dupe();
+        scope_and_collect_with_dispatcher(dispatcher, |scope| f(ctx, scope)).await
+    }
 }

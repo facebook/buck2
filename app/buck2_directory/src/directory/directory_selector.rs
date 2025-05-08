@@ -162,7 +162,7 @@ pub struct Search<'a, 'b, T: WalkType<'b>> {
 impl<'a, 'b, T: WalkType<'b>> Search<'a, 'b, T> {
     pub fn new(selector: &'a DirectorySelector, root: T::Directory) -> Self {
         match selector {
-            DirectorySelector::Traverse(ref search) => Search {
+            DirectorySelector::Traverse(search) => Search {
                 inner: SearchInner::Stack(vec![SearchFrame {
                     search,
                     name: None,

@@ -360,7 +360,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
                 path: Some(self.path.clone()),
                 name: variable_name.to_owned(),
             });
-            let ty_provider_type_instance_id = TypeInstanceId::gen();
+            let ty_provider_type_instance_id = TypeInstanceId::r#gen();
             let ty_provider = ty_provider(
                 &provider_id.name,
                 ty_provider_type_instance_id,

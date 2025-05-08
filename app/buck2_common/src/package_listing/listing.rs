@@ -81,7 +81,7 @@ impl PackageListing {
     pub fn files_within<'a>(
         &'a self,
         dir: &PackageRelativePath,
-    ) -> impl Iterator<Item = &'a ArcS<PackageRelativePath>> {
+    ) -> impl Iterator<Item = &'a ArcS<PackageRelativePath>> + use<'a> {
         self.listing.files.files_within(dir)
     }
 

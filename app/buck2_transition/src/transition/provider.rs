@@ -88,7 +88,7 @@ fn transition_info_creator(globals: &mut GlobalsBuilder) {
 }
 
 impl<'v, V: ValueLike<'v>> TransitionInfoGen<V> {
-    pub(crate) fn get_attrs_names(&self) -> Option<impl IntoIterator<Item = &'v str>> {
+    pub(crate) fn get_attrs_names(&self) -> Option<impl IntoIterator<Item = &'v str> + use<'v, V>> {
         let v = self.attrs.get().to_value();
         let slice: &[_] = if v.is_none() {
             return None;

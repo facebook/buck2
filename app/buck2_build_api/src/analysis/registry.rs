@@ -294,7 +294,7 @@ impl<'v> AnalysisRegistry<'v> {
         self,
         env: &'v Module,
     ) -> buck2_error::Result<
-        impl FnOnce(&FrozenModule) -> buck2_error::Result<RecordedAnalysisValues> + 'static,
+        impl FnOnce(&FrozenModule) -> buck2_error::Result<RecordedAnalysisValues> + 'static + use<>,
     > {
         let AnalysisRegistry {
             actions,

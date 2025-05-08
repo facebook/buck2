@@ -99,7 +99,7 @@ impl ArtifactGroupCalculation for DiceComputations<'_> {
 pub(crate) fn ensure_artifact_group_staged<'a>(
     ctx: &'a mut DiceComputations,
     input: ResolvedArtifactGroup<'a>,
-) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + 'a {
+) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a> {
     match input {
         ResolvedArtifactGroup::Artifact(artifact) => {
             ensure_artifact_staged(ctx, artifact.clone()).left_future()
@@ -115,7 +115,7 @@ pub(crate) fn ensure_artifact_group_staged<'a>(
 pub(super) fn ensure_base_artifact_staged<'a>(
     dice: &'a mut DiceComputations,
     artifact: BaseArtifactKind,
-) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + 'a {
+) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a> {
     match artifact {
         BaseArtifactKind::Build(built) => ensure_build_artifact_staged(dice, built).left_future(),
         BaseArtifactKind::Source(source) => {
@@ -128,7 +128,7 @@ pub(super) fn ensure_base_artifact_staged<'a>(
 pub(super) fn ensure_artifact_staged<'a>(
     dice: &'a mut DiceComputations,
     artifact: Artifact,
-) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + 'a {
+) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a> {
     let ArtifactKind { base, path } = artifact.data();
     match path.is_empty() {
         true => ensure_base_artifact_staged(dice, base.clone()).left_future(),
@@ -142,7 +142,7 @@ pub(super) fn ensure_artifact_staged<'a>(
 fn ensure_build_artifact_staged<'a>(
     dice: &'a mut DiceComputations,
     built: BuildArtifact,
-) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + 'a {
+) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a> {
     ActionCalculation::build_action(dice, built.key()).map(move |action_outputs| {
         let action_outputs = action_outputs?;
         if let Some(value) = action_outputs.get(built.get_path()) {
@@ -159,7 +159,7 @@ fn ensure_build_artifact_staged<'a>(
 fn ensure_source_artifact_staged<'a>(
     dice: &'a mut DiceComputations,
     source: SourceArtifact,
-) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + 'a {
+) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a> {
     async move {
         Ok(EnsureArtifactGroupReady::Single(
             path_artifact_value(dice, Arc::new(source.get_path().to_cell_path()))

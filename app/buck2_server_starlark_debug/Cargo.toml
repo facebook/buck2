@@ -1,6 +1,6 @@
 [package]
 description = "Server implementation of starlark debug command"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_server_starlark_debug"
 repository = { workspace = true }

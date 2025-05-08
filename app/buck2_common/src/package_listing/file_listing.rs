@@ -29,7 +29,7 @@ impl PackageFileListing {
     pub(crate) fn files_within(
         &self,
         prefix: &PackageRelativePath,
-    ) -> impl Iterator<Item = &ArcS<PackageRelativePath>> {
+    ) -> impl Iterator<Item = &ArcS<PackageRelativePath>> + use<'_> {
         let len = prefix.as_str().len();
         self.files_with_prefix(prefix.as_str()).filter(move |x| {
             // Same logic as PackageRelativePath.starts_with,
@@ -41,7 +41,7 @@ impl PackageFileListing {
     pub fn files_with_prefix(
         &self,
         prefix: &str,
-    ) -> impl Iterator<Item = &ArcS<PackageRelativePath>> {
+    ) -> impl Iterator<Item = &ArcS<PackageRelativePath>> + use<'_> {
         use std::cmp::Ordering;
         let files = &self.files;
         let len = files.len();

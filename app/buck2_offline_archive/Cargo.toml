@@ -1,6 +1,6 @@
 [package]
 description = "Supporting code and utilities for manipulating offline build archives"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_offline_archive"
 repository = { workspace = true }

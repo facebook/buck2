@@ -2,7 +2,7 @@
 description = """
 Fork of thiserror used by buck2_error
 """
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_error_derive"
 repository = { workspace = true }

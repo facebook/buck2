@@ -17,12 +17,14 @@ use base64::engine::general_purpose::STANDARD;
 use buck2_core::buck2_env;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 
+#[allow(unsafe_op_in_unsafe_fn)]
 #[allow(unused_imports)]
 #[allow(unused_extern_crates)]
 #[allow(clippy::extra_unused_lifetimes)]
 mod explain_generated;
 mod flatbuffers;
 mod output_format_flatbuffers;
+#[allow(unsafe_op_in_unsafe_fn)]
 #[allow(unused_imports)]
 #[allow(unused_extern_crates)]
 #[allow(clippy::extra_unused_lifetimes)]

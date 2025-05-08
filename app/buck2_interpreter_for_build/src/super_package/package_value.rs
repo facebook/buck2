@@ -154,7 +154,7 @@ impl OwnedFrozenStarlarkPackageValue {
         owner: FrozenHeapRef,
         value: FrozenStarlarkPackageValue,
     ) -> OwnedFrozenStarlarkPackageValue {
-        OwnedFrozenStarlarkPackageValue(OwnedFrozenValue::new(owner, value.0))
+        OwnedFrozenStarlarkPackageValue(unsafe { OwnedFrozenValue::new(owner, value.0) })
     }
 
     pub(crate) fn to_json_value(&self) -> buck2_error::Result<serde_json::Value> {

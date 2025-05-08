@@ -1,7 +1,7 @@
 [package]
 authors = ["Meta"]
 description = "Interface for build signals"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_build_signals"
 repository = { workspace = true }

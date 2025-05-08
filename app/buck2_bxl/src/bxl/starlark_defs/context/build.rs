@@ -71,7 +71,7 @@ impl<'v, V: ValueLike<'v>> StarlarkProvidersArtifactIterableGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn iter(&self) -> impl Iterator<Item = &'v Artifact> {
+    fn iter(&self) -> impl Iterator<Item = &'v Artifact> + use<'v, V> {
         self.0
             .downcast_ref::<StarlarkBxlBuildResult>()
             .unwrap()
@@ -133,7 +133,7 @@ impl<'v, V: ValueLike<'v>> StarlarkFailedArtifactIterableGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn iter(&self) -> impl Iterator<Item = &'v buck2_error::Error> {
+    fn iter(&self) -> impl Iterator<Item = &'v buck2_error::Error> + use<'v, V> {
         self.0
             .downcast_ref::<StarlarkBxlBuildResult>()
             .unwrap()

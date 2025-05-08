@@ -10,7 +10,7 @@
 #![cfg(target_os = "macos")]
 
 pub(crate) fn mach_error_string(err: libc::kern_return_t) -> &'static str {
-    extern "C" {
+    unsafe extern "C" {
         fn mach_error_string(err: libc::kern_return_t) -> *const libc::c_char;
     }
 

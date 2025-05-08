@@ -283,7 +283,7 @@ impl PluginLists {
     pub fn iter_for_kind(
         &self,
         kind: &PluginKind,
-    ) -> impl Iterator<Item = (&TargetLabel, &PluginListElemKind)> {
+    ) -> impl Iterator<Item = (&TargetLabel, &PluginListElemKind)> + use<'_> {
         self.0.get(kind).into_iter().flatten()
     }
 }

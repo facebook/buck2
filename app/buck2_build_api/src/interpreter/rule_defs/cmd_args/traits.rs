@@ -80,7 +80,7 @@ pub trait WriteToFileMacroVisitor {
     /// Generator produces a 'RelativePathBuf' relative to the directory which owning command will run in.
     fn set_current_relative_to_path(
         &mut self,
-        gen: &dyn Fn(&dyn CommandLineContext) -> buck2_error::Result<Option<RelativePathBuf>>,
+        generate: &dyn Fn(&dyn CommandLineContext) -> buck2_error::Result<Option<RelativePathBuf>>,
     ) -> buck2_error::Result<()>;
 }
 

@@ -197,7 +197,7 @@ impl BuckSubcommand for WhatUploadedCommand {
 
                         Some(buck2_data::buck_event::Data::SpanEnd(end)) => {
                             match end.data.as_ref() {
-                                Some(buck2_data::span_end_event::Data::ReUpload(ref u)) => {
+                                Some(buck2_data::span_end_event::Data::ReUpload(u)) => {
                                     let upload = ReUploadEvent {
                                         parent_span_id: event.parent_id,
                                         inner: u,

@@ -220,7 +220,7 @@ pub fn display_action_identity(
 pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_error::Result<String> {
     let res: buck2_error::Result<_> = try {
         let data = match event.data() {
-            buck2_data::buck_event::Data::SpanStart(ref start) => start.data.as_ref().unwrap(),
+            buck2_data::buck_event::Data::SpanStart(start) => start.data.as_ref().unwrap(),
             _ => Err(buck2_error::Error::from(ParseEventError::UnexpectedEvent))?,
         };
 

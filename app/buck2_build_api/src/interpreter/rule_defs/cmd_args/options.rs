@@ -150,7 +150,7 @@ impl<'v, 'a> OptionsReplacementsRef<'v, 'a> {
 
     pub(crate) fn iter(
         &self,
-    ) -> impl ExactSizeIterator<Item = (CmdArgsRegex<'v>, StringValue<'v>)> + 'a {
+    ) -> impl ExactSizeIterator<Item = (CmdArgsRegex<'v>, StringValue<'v>)> + use<'v, 'a> {
         match self {
             Self::Unfrozen(v) => Either::Left(v.iter().copied()),
             Self::Frozen(v) => Either::Right(v.iter().map(|(r, s)| {
@@ -701,7 +701,8 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
 
     pub(crate) fn iter_fields_display(
         &self,
-    ) -> impl Iterator<Item = (&'static str, CommandLineOptionsIterItem<'v, 'x>)> {
+    ) -> impl Iterator<Item = (&'static str, CommandLineOptionsIterItem<'v, 'x>)> + use<'v, 'x>
+    {
         let CommandLineOptionsRef {
             relative_to,
             absolute_prefix,

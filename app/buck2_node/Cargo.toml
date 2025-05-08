@@ -1,6 +1,6 @@
 [package]
 description = "Target graph node"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_node"
 repository = { workspace = true }

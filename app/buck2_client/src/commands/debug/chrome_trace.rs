@@ -103,7 +103,7 @@ impl ChromeTraceFirstPass {
 
     fn handle_event(&mut self, event: &BuckEvent) -> buck2_error::Result<()> {
         match event.data() {
-            buck2_data::buck_event::Data::SpanStart(ref start) => {
+            buck2_data::buck_event::Data::SpanStart(start) => {
                 match start.data.as_ref() {
                     Some(buck2_data::span_start_event::Data::ExecutorStage(exec)) => {
                         // A local stage means that we want to show the entire action execution.
@@ -133,7 +133,7 @@ impl ChromeTraceFirstPass {
                     _ => {}
                 }
             }
-            buck2_data::buck_event::Data::SpanEnd(ref end) => {
+            buck2_data::buck_event::Data::SpanEnd(end) => {
                 match end.data.as_ref() {
                     Some(buck2_data::span_end_event::Data::Analysis(_)) => {
                         if end
@@ -160,7 +160,7 @@ impl ChromeTraceFirstPass {
                     _ => {}
                 };
             }
-            buck2_data::buck_event::Data::Instant(ref instant) => match instant.data.as_ref() {
+            buck2_data::buck_event::Data::Instant(instant) => match instant.data.as_ref() {
                 Some(buck2_data::instant_event::Data::BuildGraphInfo(info)) => {
                     self.critical_path_action_keys = info
                         .critical_path
@@ -841,9 +841,9 @@ impl ChromeTraceWriter {
             // Data field is oneof and `None` means the event is produced with newer version of `.proto` file
             // which added a variant which is not available in version used when compiling this program.
             buck2_data::buck_event::Data::SpanStart(buck2_data::SpanStartEvent { data: None }) => {}
-            buck2_data::buck_event::Data::SpanEnd(ref end) => self.handle_event_end(end, event)?,
+            buck2_data::buck_event::Data::SpanEnd(end) => self.handle_event_end(end, event)?,
             buck2_data::buck_event::Data::Instant(buck2_data::InstantEvent {
-                data: Some(ref instant_data),
+                data: Some(instant_data),
             }) => {
                 if let buck2_data::instant_event::Data::Snapshot(snapshot) = instant_data {
                     self.process_memory_counters.set(

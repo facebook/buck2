@@ -1132,7 +1132,7 @@ mod tests {
         }
     }
 
-    fn aliases(aliases: &[(&str, &str)]) -> impl TargetAliasResolver {
+    fn aliases(aliases: &[(&str, &str)]) -> impl TargetAliasResolver + use<> {
         struct Aliases(Vec<(String, String)>);
 
         impl TargetAliasResolver for Aliases {

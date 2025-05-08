@@ -224,7 +224,7 @@ where
     pub(super) fn as_mut(
         &mut self,
     ) -> &mut SmallMap<FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>> {
-        if let Self::Mutable(ref mut dir) = self {
+        if let Self::Mutable(dir) = self {
             return dir;
         };
 
@@ -234,7 +234,7 @@ where
         };
 
         match self {
-            Self::Mutable(ref mut e) => {
+            Self::Mutable(e) => {
                 *e = entries;
                 e
             }

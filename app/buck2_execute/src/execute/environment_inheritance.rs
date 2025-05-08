@@ -117,11 +117,11 @@ impl EnvironmentInheritance {
         }
     }
 
-    pub fn values(&self) -> impl Iterator<Item = (&'static str, &'static OsString)> {
+    pub fn values(&self) -> impl Iterator<Item = (&'static str, &'static OsString)> + use<> {
         self.values.iter().map(|(k, v)| (*k, v))
     }
 
-    pub fn exclusions(&self) -> impl Iterator<Item = &'static str> {
+    pub fn exclusions(&self) -> impl Iterator<Item = &'static str> + use<> {
         self.exclusions.iter().copied()
     }
 

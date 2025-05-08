@@ -359,7 +359,7 @@ impl<'a> CellPathRef<'a> {
         self.path
     }
 
-    pub fn ancestors(&self) -> impl Iterator<Item = CellPathRef<'a>> + 'a {
+    pub fn ancestors(&self) -> impl Iterator<Item = CellPathRef<'a>> + use<'a> {
         struct Ancestors<'a>(Option<CellPathRef<'a>>);
         impl<'a> Iterator for Ancestors<'a> {
             type Item = CellPathRef<'a>;

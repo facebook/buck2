@@ -231,19 +231,19 @@ impl OutputStreamState {
         Ok(())
     }
 
-    fn output(&self) -> RefMut<'_, impl Write> {
+    fn output(&self) -> RefMut<'_, impl Write + use<>> {
         RefMut::map(self.inner.borrow_mut(), |inner| {
             &mut inner.as_mut().expect("should not have been taken").output
         })
     }
 
-    pub(crate) fn error(&self) -> RefMut<'_, impl Write> {
+    pub(crate) fn error(&self) -> RefMut<'_, impl Write + use<>> {
         RefMut::map(self.inner.borrow_mut(), |inner| {
             &mut inner.as_mut().expect("should not have been taken").error
         })
     }
 
-    pub(crate) fn streaming(&self) -> RefMut<'_, impl Write> {
+    pub(crate) fn streaming(&self) -> RefMut<'_, impl Write + use<>> {
         RefMut::map(self.inner.borrow_mut(), |inner| {
             &mut inner
                 .as_mut()

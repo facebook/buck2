@@ -401,13 +401,13 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
 
     async fn declare_write<'a>(
         &self,
-        gen: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
+        generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> buck2_error::Result<Vec<ArtifactValue>> {
         if !self.defer_write_actions {
-            return self.io.immediate_write(gen).await;
+            return self.io.immediate_write(generate).await;
         }
 
-        let contents = gen()?;
+        let contents = generate()?;
 
         let mut paths = Vec::with_capacity(contents.len());
         let mut values = Vec::with_capacity(contents.len());

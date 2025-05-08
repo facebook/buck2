@@ -603,7 +603,7 @@ where
     pub(crate) fn sync(
         &self,
         dice: P,
-    ) -> impl Future<Output = buck2_error::Result<(T, P)>> + Send + 'static {
+    ) -> impl Future<Output = buck2_error::Result<(T, P)>> + Send + 'static + use<T, P> {
         let (sync_done_tx, sync_done_rx) = tokio::sync::oneshot::channel();
         let tx_res = self
             .control_tx

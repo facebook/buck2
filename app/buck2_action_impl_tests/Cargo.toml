@@ -1,6 +1,6 @@
 [package]
 description = "Tests for buck2_action_impl"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_action_impl_tests"
 repository = { workspace = true }

@@ -50,8 +50,8 @@ impl<D, L> DirectoryEntry<D, L> {
 
     pub fn as_ref(&self) -> DirectoryEntry<&'_ D, &'_ L> {
         match self {
-            Self::Dir(ref d) => DirectoryEntry::Dir(d),
-            Self::Leaf(ref l) => DirectoryEntry::Leaf(l),
+            Self::Dir(d) => DirectoryEntry::Dir(d),
+            Self::Leaf(l) => DirectoryEntry::Leaf(l),
         }
     }
 
@@ -67,8 +67,8 @@ impl<D, L> DirectoryEntry<D, L> {
 
     pub fn as_mut(&mut self) -> DirectoryEntry<&'_ mut D, &'_ mut L> {
         match self {
-            Self::Dir(ref mut d) => DirectoryEntry::Dir(d),
-            Self::Leaf(ref mut l) => DirectoryEntry::Leaf(l),
+            Self::Dir(d) => DirectoryEntry::Dir(d),
+            Self::Leaf(l) => DirectoryEntry::Leaf(l),
         }
     }
 

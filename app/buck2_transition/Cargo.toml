@@ -1,6 +1,6 @@
 [package]
 description = "Implementation of configuration transition"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "buck2_transition"
 repository = { workspace = true }

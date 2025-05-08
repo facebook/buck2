@@ -58,7 +58,7 @@ impl RolloutPercentage {
                     }
                 }
             }
-            Inner::Rate(pct) => rand::thread_rng().gen::<f64>() < pct,
+            Inner::Rate(pct) => rand::thread_rng().r#gen::<f64>() < pct,
             Inner::Bool(b) => b,
         }
     }

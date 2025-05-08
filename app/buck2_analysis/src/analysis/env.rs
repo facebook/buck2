@@ -416,7 +416,7 @@ pub fn promise_artifact_mappings<'v>(
 pub fn get_user_defined_rule_spec(
     module: FrozenModule,
     rule_type: &StarlarkRuleType,
-) -> impl RuleSpec {
+) -> impl RuleSpec + use<> {
     struct Impl {
         module: FrozenModule,
         name: String,
