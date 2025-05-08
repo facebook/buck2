@@ -166,8 +166,15 @@ pub(crate) fn find_symbols_at_location<P: AstPayload>(
 mod tests {
     use std::collections::HashMap;
 
+    use starlark::docs::DocFunction;
+    use starlark::docs::DocItem;
+    use starlark::docs::DocMember;
+    use starlark::docs::DocParam;
+    use starlark::docs::DocParams;
+    use starlark::docs::DocReturn;
     use starlark::syntax::AstModule;
     use starlark::syntax::Dialect;
+    use starlark::typing::Ty;
     use starlark_syntax::codemap::ResolvedPos;
     use starlark_syntax::syntax::module::AstModuleFields;
 
@@ -181,7 +188,7 @@ mod tests {
             "t.star",
             r#"load("foo.star", "exported_a", renamed = "exported_b")
 
-def method(param):
+def method(param = True):
     pass
 
 my_var = True
@@ -191,12 +198,14 @@ my_var = True
         )
         .unwrap();
 
+        let foo = find_symbols_at_location(
+            ast_module.codemap(),
+            ast_module.statement(),
+            ResolvedPos { line: 6, column: 0 },
+        );
+
         assert_eq!(
-            find_symbols_at_location(
-                ast_module.codemap(),
-                ast_module.statement(),
-                ResolvedPos { line: 6, column: 0 },
-            ),
+            foo,
             HashMap::from([
                 (
                     "exported_a".to_owned(),
@@ -224,7 +233,25 @@ my_var = True
                         name: "method".to_owned(),
                         detail: None,
                         kind: SymbolKind::Method,
-                        doc: None,
+                        doc: Some(DocItem::Member(DocMember::Function(DocFunction {
+                            docs: None,
+                            params: DocParams {
+                                pos_only: vec![],
+                                pos_or_named: vec![DocParam {
+                                    name: String::from("param"),
+                                    docs: None,
+                                    typ: Ty::any(),
+                                    default_value: Some(String::from("True"))
+                                }],
+                                args: None,
+                                named_only: vec![],
+                                kwargs: None
+                            },
+                            ret: DocReturn {
+                                docs: None,
+                                typ: Ty::any()
+                            }
+                        }))),
                         param: None,
                     },
                 ),
@@ -291,7 +318,25 @@ my_var = True
                         name: "method".to_owned(),
                         detail: None,
                         kind: SymbolKind::Method,
-                        doc: None,
+                        doc: Some(DocItem::Member(DocMember::Function(DocFunction {
+                            docs: None,
+                            params: DocParams {
+                                pos_only: vec![],
+                                pos_or_named: vec![DocParam {
+                                    name: String::from("param"),
+                                    docs: None,
+                                    typ: Ty::any(),
+                                    default_value: None
+                                }],
+                                args: None,
+                                named_only: vec![],
+                                kwargs: None
+                            },
+                            ret: DocReturn {
+                                docs: None,
+                                typ: Ty::any()
+                            }
+                        }))),
                         param: None,
                     },
                 ),
@@ -302,7 +347,15 @@ my_var = True
                         detail: None,
                         kind: SymbolKind::Variable,
                         doc: None,
-                        param: None,
+                        param: Some((
+                            String::from("param"),
+                            DocParam {
+                                name: String::from("param"),
+                                docs: None,
+                                typ: Ty::any(),
+                                default_value: None
+                            }
+                        )),
                     }
                 ),
                 (

@@ -30,6 +30,7 @@ use starlark_syntax::syntax::ast::AstStmtP;
 use starlark_syntax::syntax::ast::DefP;
 use starlark_syntax::syntax::ast::ExprP;
 use starlark_syntax::syntax::ast::StmtP;
+use starlark_syntax::syntax::def::DefParamKind;
 use starlark_syntax::syntax::def::DefParams;
 
 /// Given the AST node for a `def` statement, return a `DocFunction` if the
@@ -38,38 +39,45 @@ pub(crate) fn get_doc_item_for_def<P: AstPayload>(
     def: &DefP<P>,
     codemap: &CodeMap,
 ) -> Option<DocFunction> {
-    if let Some(doc_string) = peek_docstring(&def.body) {
-        // TODO(nga): do not unwrap.
-        let def = DefParams::unpack(&def.params, codemap).unwrap();
+    let raw_docstring = peek_docstring(&def.body);
+    // TODO(nga): do not unwrap.
+    let def = DefParams::unpack(&def.params, codemap).unwrap();
 
-        let dp = |i: usize| -> DocParam {
-            let param = &def.params[i];
-            DocParam {
-                name: param.ident.ident.clone(),
-                docs: None,
-                typ: Ty::any(),
-                default_value: None,
+    let dp = |i: usize| -> DocParam {
+        let param = &def.params[i];
+
+        // Just get the default's expr directly out of the source file for now
+        // TODO(jadel): maybe this should be re-formatted somehow?
+        let default_value = match param.node.kind {
+            DefParamKind::Regular(_, Some(default)) => {
+                Some(codemap.source_span(default.span).to_owned())
             }
+            _ => None,
         };
 
-        let doc_params = DocParams {
-            pos_only: def.indices.pos_only().map(dp).collect(),
-            pos_or_named: def.indices.pos_or_named().map(dp).collect(),
-            args: def.indices.args.map(|a| a as usize).map(dp),
-            named_only: def.indices.named_only(def.params.len()).map(dp).collect(),
-            kwargs: def.indices.kwargs.map(|a| a as usize).map(dp),
-        };
-        let doc_function = DocFunction::from_docstring(
-            DocStringKind::Starlark,
-            doc_params,
-            // TODO: Figure out how to get a `Ty` from the `def.return_type`.
-            Ty::any(),
-            Some(doc_string),
-        );
-        Some(doc_function)
-    } else {
-        None
-    }
+        DocParam {
+            name: param.ident.ident.clone(),
+            docs: None,
+            typ: Ty::any(),
+            default_value,
+        }
+    };
+
+    let doc_params = DocParams {
+        pos_only: def.indices.pos_only().map(dp).collect(),
+        pos_or_named: def.indices.pos_or_named().map(dp).collect(),
+        args: def.indices.args.map(|a| a as usize).map(dp),
+        named_only: def.indices.named_only(def.params.len()).map(dp).collect(),
+        kwargs: def.indices.kwargs.map(|a| a as usize).map(dp),
+    };
+    let doc_function = DocFunction::from_docstring(
+        DocStringKind::Starlark,
+        doc_params,
+        // TODO: Figure out how to get a `Ty` from the `def.return_type`.
+        Ty::any(),
+        raw_docstring,
+    );
+    Some(doc_function)
 }
 
 pub(crate) fn get_doc_item_for_assign<P: AstPayload>(

@@ -87,7 +87,8 @@ pub struct DocFunction {
     /// they are present.
     pub docs: Option<DocString>,
     /// The parameters that this function takes. Docs for these parameters should generally be
-    /// extracted from the main docstring's details.
+    /// extracted from the main docstring's details, but may be extracted from the definition if the
+    /// docstring is not present.
     pub params: DocParams,
     /// Details about what this function returns.
     pub ret: DocReturn,

@@ -49,9 +49,14 @@ pub enum DefParamKind<'a, P: AstPayload> {
     Kwargs,
 }
 
+/// One function parameter.
 pub struct DefParam<'a, P: AstPayload> {
+    /// Name of the parameter.
     pub ident: &'a AstAssignIdentP<P>,
+    /// Whether this is a regular parameter (with optional default) or a varargs construct (*args,
+    /// **kwargs).
     pub kind: DefParamKind<'a, P>,
+    /// Type of the parameter. This is None when a type is not specified.
     pub ty: Option<&'a AstTypeExprP<P>>,
 }
 
