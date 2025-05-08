@@ -128,7 +128,7 @@ impl CacheUploader {
                         }
                     }
 
-                    if let Err(rejected) = self.check_upload_permission().await? {
+                    if let Err(rejected) = self.check_upload_permission(info).await? {
                         return Ok(rejected);
                     }
 
@@ -224,7 +224,7 @@ impl CacheUploader {
                         DepFileReActionResultMissingError(remote_dep_file_key.clone()),
                     )?;
 
-                    if let Err(rejected) = self.check_upload_permission().await? {
+                    if let Err(rejected) = self.check_upload_permission(info).await? {
                         return Ok(rejected);
                     }
                     let remote_dep_file = dep_file_bundle
@@ -285,10 +285,13 @@ impl CacheUploader {
         .await
     }
 
-    async fn check_upload_permission(&self) -> buck2_error::Result<Result<(), CacheUploadOutcome>> {
+    async fn check_upload_permission(
+        &self,
+        info: &CacheUploadInfo<'_>,
+    ) -> buck2_error::Result<Result<(), CacheUploadOutcome>> {
         let outcome = if let Err(reason) = self
             .cache_upload_permission_checker
-            .has_permission_to_upload_to_cache(&self.re_client, &self.platform)
+            .has_permission_to_upload_to_cache(&self.re_client, &self.platform, info.digest_config)
             .await?
         {
             Err(CacheUploadOutcome::Rejected(
