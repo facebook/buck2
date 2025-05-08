@@ -31,15 +31,6 @@ lint_levels = importlib.machinery.SourceFileLoader(
 ).load_module()
 
 
-def is_opensource() -> bool:
-    # @oss-disable[end= ]: return False
-    return True # @oss-enable
-
-
-def is_macos() -> bool:
-    return sys.platform == "darwin"
-
-
 def is_windows() -> bool:
     return sys.platform == "win32"
 
@@ -477,12 +468,8 @@ def main() -> None:
             starlark_linter(args.buck2, args.git)
 
     if not (args.rustfmt_only or args.lint_starlark_only):
-        if args.ci and is_opensource() and is_macos():
-            # TODO(nga): re-enable with next rust version bump (current is nightly-2024-02-01)
-            print_error("Clippy crashes on macOS; skipping")
-        else:
-            with timing():
-                clippy(package_args, args.clippy_fix)
+        with timing():
+            clippy(package_args, args.clippy_fix)
 
     if not args.lint_starlark_only:
         with timing():

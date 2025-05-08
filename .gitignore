@@ -3,6 +3,7 @@ Cargo.lock
 buck-out
 /.direnv
 .buckconfig.local
+.envrc.local
 
 # symlinks
 /examples/with_prelude/prelude
