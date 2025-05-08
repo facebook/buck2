@@ -147,7 +147,7 @@ def _get_run_cmd(
     else:
         return cmd_args([java_toolchain.java[RunInfo]] + attrs.java_args_for_run_info + ["-jar", main_artifact])
 
-def _get_java_tool_artifacts(java_toolchain: JavaToolchainInfo) -> list[Artifact]:
+def _get_java_tool_artifacts(java_toolchain: JavaToolchainInfo) -> list:
     default_info = java_toolchain.java[DefaultInfo]
     return default_info.default_outputs + default_info.other_outputs
 
