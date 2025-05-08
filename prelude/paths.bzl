@@ -264,17 +264,17 @@ def _strip_suffix(a: str, b: str) -> [str, None]:
     # Return the original path, minus the suffix.
     return "/".join(pa[:len(pa) - len(pb)])
 
-def _starts_with(a: str, b: str) -> bool:
-    """Returns `True` if `b` is a prefix path of `b`.
+def _starts_with(path: str, prefix: str) -> bool:
+    """Returns `True` if `prefix` is a prefix path of `path`.
 
     Args:
-      a: A path (which is a string).
-      b: A prefix path (which is a string).
+      path: A path (which is a string).
+      prefix: A prefix path (which is a string).
     Returns:
-      `True` if `b` is a prefix path of `b`.
+      `True` if `prefix` is a prefix path of `path`.
     """
 
-    return a == b or a.startswith(b + "/")
+    return path == prefix or path.startswith(prefix + "/")
 
 paths = struct(
     basename = _basename,
