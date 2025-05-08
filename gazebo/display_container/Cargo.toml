@@ -3,7 +3,7 @@ authors = ["Facebook"]
 categories = ["rust-patterns"]
 description = "Utilities to implement Display"
 documentation = "https://docs.rs/display_container"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "display_container"
 repository = "https://github.com/facebookincubator/gazebo"

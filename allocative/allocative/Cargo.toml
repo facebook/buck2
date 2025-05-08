@@ -2,7 +2,7 @@
 authors = ["Meta"]
 description = "Inspect rust object tree and output it as flamegraph"
 documentation = "https://docs.rs/allocative"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "allocative"
 repository = "https://github.com/facebookexperimental/allocative"

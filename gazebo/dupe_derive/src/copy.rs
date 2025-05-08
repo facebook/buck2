@@ -16,9 +16,9 @@ pub fn derive_copy_(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let name = &input.ident;
-    let r#gen = quote! {
+    let generated = quote! {
         impl #impl_generics ::std::marker::Copy for #name #ty_generics #where_clause {
         }
     };
-    r#gen.into()
+    generated.into()
 }

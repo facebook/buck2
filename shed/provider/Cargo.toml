@@ -1,6 +1,6 @@
 [package]
 description = "std::any::Provider replacement"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "provider"
 repository = { workspace = true }

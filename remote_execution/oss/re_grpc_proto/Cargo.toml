@@ -1,6 +1,6 @@
 [package]
 description = "A library providing gRPC client for Bazel remote execution"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "re_grpc_proto"
 repository = { workspace = true }

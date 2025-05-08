@@ -1,6 +1,6 @@
 [package]
 description = "Example of running starlark-rust interpreter in browser"
-edition = "2021"
+edition = "2024"
 name = "starlark_js_example"
 publish = false
 version = "0.0.0"

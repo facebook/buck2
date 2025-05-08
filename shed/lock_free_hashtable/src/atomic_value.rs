@@ -98,7 +98,7 @@ impl<T> AtomicValue for Arc<T> {
 
     #[inline]
     unsafe fn from_raw(raw: Self::Raw) -> Self {
-        Arc::from_raw(raw)
+        unsafe { Arc::from_raw(raw) }
     }
 
     #[inline]
@@ -128,12 +128,12 @@ impl AtomicValue for NonZeroU64 {
 
     #[inline]
     unsafe fn from_raw(raw: u64) -> NonZeroU64 {
-        NonZeroU64::new_unchecked(raw)
+        unsafe { NonZeroU64::new_unchecked(raw) }
     }
 
     #[inline]
     unsafe fn deref<'a>(raw: u64) -> Self::Ref<'a> {
-        NonZeroU64::new_unchecked(raw)
+        unsafe { NonZeroU64::new_unchecked(raw) }
     }
 }
 
@@ -158,12 +158,12 @@ impl AtomicValue for NonZeroU32 {
 
     #[inline]
     unsafe fn from_raw(raw: u32) -> NonZeroU32 {
-        NonZeroU32::new_unchecked(raw)
+        unsafe { NonZeroU32::new_unchecked(raw) }
     }
 
     #[inline]
     unsafe fn deref<'a>(raw: u32) -> Self::Ref<'a> {
-        NonZeroU32::new_unchecked(raw)
+        unsafe { NonZeroU32::new_unchecked(raw) }
     }
 }
 
@@ -195,7 +195,7 @@ impl<T> AtomicValue for RawPtr<T> {
 
     #[inline]
     unsafe fn from_raw(raw: *mut T) -> RawPtr<T> {
-        RawPtr(NonNull::new_unchecked(raw))
+        unsafe { RawPtr(NonNull::new_unchecked(raw)) }
     }
 
     #[inline]
@@ -203,6 +203,6 @@ impl<T> AtomicValue for RawPtr<T> {
     where
         Self: 'a,
     {
-        NonNull::new_unchecked(raw)
+        unsafe { NonNull::new_unchecked(raw) }
     }
 }

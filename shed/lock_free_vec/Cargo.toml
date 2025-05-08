@@ -1,6 +1,6 @@
 [package]
 description = "Data structure"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "lock_free_vec"
 repository = { workspace = true }

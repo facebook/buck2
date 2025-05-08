@@ -2,7 +2,7 @@
 authors = ["Meta"]
 description = "Implementation of derive(Allocative) for allocative crate"
 documentation = "https://docs.rs/allocative"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "allocative_derive"
 repository = "https://github.com/facebookexperimental/allocative"

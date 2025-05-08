@@ -1,6 +1,6 @@
 [package]
 description = "Proc macro for strong_hash crate"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "strong_hash_derive"
 repository = { workspace = true }

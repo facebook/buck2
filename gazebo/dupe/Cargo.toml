@@ -3,7 +3,7 @@ authors = ["Facebook"]
 categories = ["rust-patterns"]
 description = "Marker for types which are cheap to clone"
 documentation = "https://docs.rs/dupe"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "dupe"
 repository = "https://github.com/facebookincubator/gazebo"

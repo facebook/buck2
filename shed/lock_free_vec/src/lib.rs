@@ -54,7 +54,7 @@ impl<T> BucketAlloc<T> {
     unsafe fn drop_data(&self, len: usize) {
         assert!(len <= self.cap);
         let data: *mut [T] = unsafe { slice::from_raw_parts_mut(self.data, len) };
-        ptr::drop_in_place(data)
+        unsafe { ptr::drop_in_place(data) };
     }
 
     #[inline]
@@ -201,20 +201,20 @@ impl<T, const BUCKETS: usize> LockFreeVec<T, BUCKETS> {
     #[inline]
     unsafe fn init_bucket(&self, bucket: usize) -> *mut T {
         let bucket_ptr_ptr: *mut *mut T = self.buckets[bucket].get();
-        let bucket_ptr = *bucket_ptr_ptr;
+        let bucket_ptr = unsafe { *bucket_ptr_ptr };
         if !bucket_ptr.is_null() {
             return bucket_ptr;
         }
-        self.init_bucket_slow(bucket)
+        unsafe { self.init_bucket_slow(bucket) }
     }
 
     #[cold]
     unsafe fn init_bucket_slow(&self, bucket: usize) -> *mut T {
         let bucket_ptr_ptr: *mut *mut T = self.buckets[bucket].get();
-        assert!((*bucket_ptr_ptr).is_null());
+        assert!(unsafe { *bucket_ptr_ptr }.is_null());
         let bucket_alloc = BucketAlloc::new(Self::bucket_capacity(bucket));
         let bucket_ptr = bucket_alloc.data;
-        *bucket_ptr_ptr = bucket_ptr;
+        unsafe { *bucket_ptr_ptr = bucket_ptr };
         mem::forget(bucket_alloc);
         bucket_ptr
     }

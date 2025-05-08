@@ -4,7 +4,7 @@ authors = [
 ]
 description = "Map implementation with starlark-rust specific optimizations"
 documentation = "https://docs.rs/starlark_map"
-edition = "2021"
+edition = "2024"
 license = "Apache-2.0"
 name = "starlark_map"
 repository = "https://github.com/facebook/starlark-rust"

@@ -735,7 +735,7 @@ impl REClient {
         let stream = stream.map(move |mut r| {
             match &mut r {
                 Ok(ExecuteWithProgressResponse {
-                    execute_response: Some(ref mut response),
+                    execute_response: Some(response),
                     ..
                 }) => {
                     response.action_digest = std::mem::take(&mut execute_request.action_digest);

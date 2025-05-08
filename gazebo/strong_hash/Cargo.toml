@@ -1,6 +1,6 @@
 [package]
 description = "Hash trait similar to std::hash::Hash but for strong/cryptographic hashes"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "strong_hash"
 repository = { workspace = true }

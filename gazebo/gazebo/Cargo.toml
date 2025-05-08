@@ -3,7 +3,7 @@ authors = ["Facebook"]
 categories = ["rust-patterns"]
 description = "A collection of well-tested utilities"
 documentation = "https://docs.rs/gazebo"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "gazebo"
 repository = "https://github.com/facebookincubator/gazebo"

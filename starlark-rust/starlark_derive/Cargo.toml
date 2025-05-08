@@ -2,7 +2,7 @@
 authors = ["Facebook"]
 description = "Derive helpers for the starlark package."
 documentation = "https://docs.rs/starlark_derive"
-edition = "2021"
+edition = "2024"
 license = "Apache-2.0"
 name = "starlark_derive"
 repository = "https://github.com/facebook/starlark-rust"
