@@ -85,6 +85,7 @@ def buck_kotlin_library(name, **kwargs):
     kwargs = _maybe_add_java_version(**kwargs)
     kwargs = _set_buck2_java_toolchain(**kwargs)
     kwargs = _set_buck2_kotlin_toolchain(**kwargs)
+    kwargs = _set_buck2_dex_toolchain(**kwargs)
     kwargs = _add_kotlin_deps(**kwargs)
     return fb_native.kotlin_library(
         name = name,

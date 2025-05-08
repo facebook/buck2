@@ -24,11 +24,13 @@ def java_bootstrap_binary(**kwargs):
 
 def java_bootstrap_library(**kwargs):
     kwargs = _set_bootstrap_java_toolchain(**kwargs)
+    kwargs = _set_dex_toolchain(**kwargs)
     native.java_library(**kwargs)
 
 def kotlin_bootstrap_library(**kwargs):
     kwargs = _set_bootstrap_java_toolchain(**kwargs)
     kwargs = _set_bootstrap_kotlin_toolchain(**kwargs)
+    kwargs = _set_dex_toolchain(**kwargs)
     native.kotlin_library(**kwargs)
 
 def prebuilt_jar_bootstrap(**kwargs):
@@ -41,4 +43,13 @@ def _set_bootstrap_java_toolchain(**kwargs):
 
 def _set_bootstrap_kotlin_toolchain(**kwargs):
     kwargs["_kotlin_toolchain"] = "toolchains//:kotlin_bootstrap"
+    return kwargs
+
+def _set_dex_toolchain(**kwargs):
+    # Override dex toolchain to avoid dependency cycles in unconfigured graph
+    dex_toolchain = kwargs.pop("_dex_toolchain", None)
+    kwargs["_dex_toolchain"] = dex_toolchain or select({
+        "DEFAULT": "toolchains//:empty_dex",
+        "config//os/constraints:android": "toolchains//:dex",
+    })
     return kwargs
