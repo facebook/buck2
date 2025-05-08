@@ -92,12 +92,14 @@ def system_demo_toolchains():
     system_java_bootstrap_toolchain(
         name = "java_bootstrap",
         java = ":java_tool",
+        javac = ":javac_tool",
         visibility = ["PUBLIC"],
     )
 
     system_java_bootstrap_toolchain(
         name = "java_graalvm_bootstrap",
         java = ":java_tool",
+        javac = ":javac_tool",
         visibility = ["PUBLIC"],
     )
 
@@ -123,9 +125,16 @@ def system_demo_toolchains():
         ],
     )
 
+    java_home = read_root_config("java", "java_home", "/usr/local/java-runtime/impl/17/bin")
     system_java_tool(
         name = "java_tool",
-        tool_name = read_root_config("java", "java_binary", "/usr/local/bin/java"),
+        tool_name = java_home + "/java",
+        visibility = ["PUBLIC"],
+    )
+
+    system_java_tool(
+        name = "javac_tool",
+        tool_name = java_home + "/javac",
         visibility = ["PUBLIC"],
     )
 

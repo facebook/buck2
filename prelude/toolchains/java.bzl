@@ -72,13 +72,14 @@ def javacd_toolchain(
 def system_java_bootstrap_toolchain(
         name,
         java,
+        javac,
         visibility = None):
     _java_toolchain(
         name = name,
         visibility = visibility,
         java = java,
         is_bootstrap_toolchain = True,
-        javac = "javac",
+        javac = javac,
         javac_protocol = "classic",
     )
 
