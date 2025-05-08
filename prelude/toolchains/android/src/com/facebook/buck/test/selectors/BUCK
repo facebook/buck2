@@ -12,8 +12,8 @@ buck_java_library(
     # This target is pulled in by testrunner, which needs to compile against Java 8.
     # @oss-disable[end= ]: source = "8",
     # @oss-disable[end= ]: target = "8",
-    source = "17", # @oss-enable
-    target = "17", # @oss-enable
+    source = "11", # @oss-enable
+    target = "11", # @oss-enable
     tests = [
         "prelude//toolchains/android/test/com/facebook/buck/test/selectors:selectors",
     ],

@@ -146,7 +146,7 @@ def system_demo_toolchains():
 
     system_java_tool(
         name = "jar_tool",
-        tool_name = read_root_config("java", "jar_binary", "/usr/local/bin/jar"),
+        tool_name = java_home + "/jar",
         visibility = ["PUBLIC"],
     )
 

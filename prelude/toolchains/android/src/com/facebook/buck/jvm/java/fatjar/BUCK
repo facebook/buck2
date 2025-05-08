@@ -17,8 +17,8 @@ buck_java_library(
     # Maximum compatibility
     # @oss-disable[end= ]: source = "8",
     # @oss-disable[end= ]: target = "8",
-    source = "17", # @oss-enable
-    target = "17", # @oss-enable
+    source = "11", # @oss-enable
+    target = "11", # @oss-enable
     visibility = [
         "prelude//toolchains/android/src/com/facebook/buck/util:util",
         "prelude//toolchains/android/test/com/facebook/buck/util:util",
@@ -33,8 +33,8 @@ buck_java_library(
     # Maximum compatibility
     # @oss-disable[end= ]: source = "8",
     # @oss-disable[end= ]: target = "8",
-    source = "17", # @oss-enable
-    target = "17", # @oss-enable
+    source = "11", # @oss-enable
+    target = "11", # @oss-enable
     visibility = [
         "PUBLIC",
     ],

@@ -10,8 +10,8 @@ buck_java_library(
     srcs = ["Quoter.java"],
     # @oss-disable[end= ]: source = "8",
     # @oss-disable[end= ]: target = "8",
-    source = "17", # @oss-enable
-    target = "17", # @oss-enable
+    source = "11", # @oss-enable
+    target = "11", # @oss-enable
     visibility = ["PUBLIC"],
     deps = [
     ],
@@ -22,8 +22,8 @@ buck_java_library(
     srcs = ["EscaperUtils.java"],
     # @oss-disable[end= ]: source = "8",
     # @oss-disable[end= ]: target = "8",
-    source = "17", # @oss-enable
-    target = "17", # @oss-enable
+    source = "11", # @oss-enable
+    target = "11", # @oss-enable
     visibility = ["PUBLIC"],
     deps = [
         "prelude//toolchains/android/third-party:guava",
@@ -36,8 +36,8 @@ buck_java_library(
     srcs = ["BashEscaper.java"],
     # @oss-disable[end= ]: source = "8",
     # @oss-disable[end= ]: target = "8",
-    source = "17", # @oss-enable
-    target = "17", # @oss-enable
+    source = "11", # @oss-enable
+    target = "11", # @oss-enable
     visibility = ["PUBLIC"],
     deps = [
         "prelude//toolchains/android/third-party:guava",

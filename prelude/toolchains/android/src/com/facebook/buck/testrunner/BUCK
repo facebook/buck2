@@ -16,8 +16,8 @@ buck_java_library(
     ],
     # @oss-disable[end= ]: source = "8",
     # @oss-disable[end= ]: target = "8",
-    source = "17", # @oss-enable
-    target = "17", # @oss-enable
+    source = "11", # @oss-enable
+    target = "11", # @oss-enable
     tests = [
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
     ],
@@ -55,8 +55,8 @@ buck_java_library(
     resources_root = ".",
     # @oss-disable[end= ]: source = "8",
     # @oss-disable[end= ]: target = "8",
-    source = "17", # @oss-enable
-    target = "17", # @oss-enable
+    source = "11", # @oss-enable
+    target = "11", # @oss-enable
     tests = [
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
     ],
@@ -99,8 +99,8 @@ buck_java_library(
     required_for_source_only_abi = True,
     # @oss-disable[end= ]: source = "8",
     # @oss-disable[end= ]: target = "8",
-    source = "17", # @oss-enable
-    target = "17", # @oss-enable
+    source = "11", # @oss-enable
+    target = "11", # @oss-enable
     tests = [
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
     ],
@@ -125,8 +125,8 @@ buck_java_library(
     required_for_source_only_abi = True,
     # @oss-disable[end= ]: source = "8",
     # @oss-disable[end= ]: target = "8",
-    source = "17", # @oss-enable
-    target = "17", # @oss-enable
+    source = "11", # @oss-enable
+    target = "11", # @oss-enable
     visibility = [
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
     ],
@@ -144,8 +144,8 @@ buck_java_library(
     ],
     # @oss-disable[end= ]: source = "8",
     # @oss-disable[end= ]: target = "8",
-    source = "17", # @oss-enable
-    target = "17", # @oss-enable
+    source = "11", # @oss-enable
+    target = "11", # @oss-enable
     visibility = [
     ],
     deps = [
