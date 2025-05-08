@@ -73,7 +73,7 @@ def get_android_binary_resources_info(
         package_id_offset = 0,
         should_keep_raw_values = getattr(ctx.attrs, "aapt2_keep_raw_values", False),
         resource_stable_ids = getattr(ctx.attrs, "resource_stable_ids", None),
-        compiled_resource_apks = [],
+        compiled_resource_apks = getattr(ctx.attrs, "compiled_resource_apks", []),
         additional_aapt2_params = getattr(ctx.attrs, "additional_aapt_params", []),
         extra_filtered_resources = getattr(ctx.attrs, "extra_filtered_resources", []),
         locales = getattr(ctx.attrs, "locales", []) or getattr(ctx.attrs, "locales_for_binary_resources", []),
