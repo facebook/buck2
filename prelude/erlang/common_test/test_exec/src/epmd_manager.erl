@@ -101,8 +101,10 @@ start_epmd(EpmdOutPath) -> start_epmd(EpmdOutPath, 3, no_error).
 start_epmd(EpmdOutPath, Attempts, _Error) when Attempts > 0 ->
     case find_free_port() of
         {ok, Port} ->
-            {ok, PortEpmd, LogHandle} = start_epmd_instance(Port, EpmdOutPath),
-            {ok, Port, PortEpmd, LogHandle};
+            case start_epmd_instance(Port, EpmdOutPath) of
+                {ok, PortEpmd, LogHandle} -> {ok, Port, PortEpmd, LogHandle};
+                {failed, Reason} -> start_epmd(EpmdOutPath, Attempts - 1, Reason)
+            end;
         Error ->
             start_epmd(EpmdOutPath, Attempts - 1, Error)
     end;
@@ -126,7 +128,7 @@ find_free_port() ->
 
 %% @doc Starts the epmd daemon on the given port,
 %% and writes stdout, stderr to files in the LogDir.
--spec start_epmd_instance(inet:port_number(), file:filename_all()) -> {ok, port(), pid()}.
+-spec start_epmd_instance(inet:port_number(), file:filename_all()) -> {ok, port(), pid()} | {failed, term()}.
 start_epmd_instance(Port, EpmdOutPath) ->
     %% Note on the -d flag from `man 1 epmd`:
     %% Enables debug output. The more -d flags specified, the more
@@ -152,8 +154,9 @@ start_epmd_instance(Port, EpmdOutPath) ->
     case listen_loop(ProcessPort, LogHandle, []) of
         ok ->
             {ok, ProcessPort, LogHandle};
-        _Error ->
-            exit(LogHandle, closing_epmd)
+        {failed, _} = Error ->
+            exit(LogHandle, closing_epmd),
+            Error
     end.
 
 -spec listen_loop(port(), pid(), Acc :: [string()]) -> {failed, term()} | ok.
