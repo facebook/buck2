@@ -43,7 +43,11 @@ nix develop . # add 'rustc' and 'cargo' to $PATH
 cargo build --release --bin=buck2
 ```
 
-A Nix package (e.g. `nix build .#buck2`) does not yet exist.
+A Nix package (e.g. `nix build .#buck2`) does not yet exist; see `buck2` in
+nixpkgs for inspiration for writing one.
+
+An `.envrc` file using the Nix flake is provided for `direnv` users:
+`direnv allow` will give a usable development environment.
 
 [Nix]: https://nixos.org/nix
 
@@ -83,6 +87,42 @@ export BUCK2_BUILD_PROTOC_INCLUDE=/opt/protobuf/include
 ```
 
 Buck2 should then build with `cargo` using the steps above.
+
+### Building buck2 with buck2
+
+See [Bootstrapping] for details; the gist is: use
+`reindeer --third-party-dir shim/third-party/rust buckify` to generate BUCK
+files for Cargo dependencies, then `buck2 build //:buck2` will work.
+
+[Bootstrapping]: ./docs/about/bootstrapping.md
+
+## Running tests and lints
+
+It's possible to run buck2's test suite with `cargo test`.
+
+[Currently][clippy-bug], `cargo clippy` will generate spurious warnings as the
+canonical lint configuration is in `lint_levels.bzl` rather than `Cargo.toml`,
+so it's recommended to use `test.py` instead.
+
+[clippy-bug]: https://github.com/facebook/buck2/issues/943
+
+To run the build, tests, rustdoc, and lints in the same way as buck2's OSS CI,
+run:
+
+```
+python3 test.py --git
+```
+
+Various checks can be run individually with `--lint-only`, `--test-only` and
+similar; see `python3 test.py --help` for details.
+
+N.B. This command will not run Starlark lints since the Starlark linter is
+[disabled due to Git gremlins][Git gremlins] that may be fixable with enough
+effort. FIXME: It may be possible to use Sapling on OSS Buck2 to get a working
+Starlark linter, but the instructions to do so would need to be written.
+
+[Git gremlins]:
+  https://github.com/facebook/buck2/commit/54f986c0329f4f60e9057d7e86f3d361f1b5e1bf)
 
 ## Coding conventions
 
