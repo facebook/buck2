@@ -7,12 +7,16 @@
  * of this source tree.
  */
 
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
+use buck2_core::content_hash::ContentBasedPathHash;
+use buck2_util::strong_hasher::Blake3StrongHasher;
 use dupe::Dupe;
 
 use crate::directory::ActionDirectoryEntry;
@@ -94,5 +98,27 @@ impl ArtifactValue {
             ActionDirectoryEntry::Leaf(ActionDirectoryMember::Symlink(..)) => None,
             ActionDirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(..)) => None,
         }
+    }
+
+    pub fn content_based_path_hash(&self) -> ContentBasedPathHash {
+        match &self.entry {
+            ActionDirectoryEntry::Dir(d) => {
+                ContentBasedPathHash::new(d.fingerprint().data().to_string())
+            }
+            ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
+                ContentBasedPathHash::new(f.digest.data().to_string())
+            }
+            ActionDirectoryEntry::Leaf(ActionDirectoryMember::Symlink(s)) => {
+                let mut hasher = Blake3StrongHasher::new();
+                s.target().hash(&mut hasher);
+                ContentBasedPathHash::new(format!("{:016x}", hasher.finish()))
+            }
+            ActionDirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s)) => {
+                let mut hasher = Blake3StrongHasher::new();
+                s.hash(&mut hasher);
+                ContentBasedPathHash::new(format!("{:016x}", hasher.finish()))
+            }
+        }
+        .expect("Constructed valid content-based path hash")
     }
 }
