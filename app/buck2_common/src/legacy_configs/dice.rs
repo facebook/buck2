@@ -155,7 +155,7 @@ pub trait HasLegacyConfigs {
 pub trait SetLegacyConfigs {
     fn set_legacy_config_external_data(
         &mut self,
-        overrides: Arc<ExternalBuckconfigData>,
+        overrides: ExternalBuckconfigData,
     ) -> buck2_error::Result<()>;
 
     fn set_none_legacy_config_external_data(&mut self) -> buck2_error::Result<()>;
@@ -362,7 +362,7 @@ impl HasLegacyConfigs for DiceComputations<'_> {
 impl SetLegacyConfigs for DiceTransactionUpdater {
     fn set_legacy_config_external_data(
         &mut self,
-        data: Arc<ExternalBuckconfigData>,
+        data: ExternalBuckconfigData,
     ) -> buck2_error::Result<()> {
         // Don't invalidate state if RE use case is overridden.
         let data = data.filter_values(should_keep_config_change);

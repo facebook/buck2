@@ -180,7 +180,7 @@ impl LegacyConfigParser {
         }
     }
 
-    pub(crate) fn filter_values<F>(&mut self, filter: F)
+    pub(crate) fn filter_values<F>(mut self, filter: F) -> Self
     where
         F: Fn(&BuckconfigKeyRef) -> bool,
     {
@@ -192,6 +192,7 @@ impl LegacyConfigParser {
                 })
             });
         }
+        self
     }
 
     pub(crate) fn to_proto_external_config_values(

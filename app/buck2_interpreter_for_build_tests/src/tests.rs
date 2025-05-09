@@ -73,7 +73,7 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
         .unwrap(),
     )
     .unwrap();
-    ctx.set_legacy_config_external_data(Arc::new(ExternalBuckconfigData::testing_default()))
+    ctx.set_legacy_config_external_data(ExternalBuckconfigData::testing_default())
         .unwrap();
     ctx.set_starlark_profiler_configuration(StarlarkProfilerConfiguration::default())
         .unwrap();

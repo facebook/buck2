@@ -475,7 +475,8 @@ impl ServerCommandContext<'_> {
                     cell_resolver: new_configs.cell_resolver,
                     root_config: new_configs.root_config,
                     config_paths: HashSet::new(),
-                    external_data: dice_ctx.get_injected_external_buckconfig_data().await?,
+                    external_data: (*dice_ctx.get_injected_external_buckconfig_data().await?)
+                        .clone(),
                 })
             } else {
                 // If there is no previous command but the flag was set, then the flag is ignored,

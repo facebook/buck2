@@ -55,7 +55,7 @@ use crate::legacy_configs::path::ProjectConfigSource;
 
 /// Buckconfigs can partially be loaded from within dice. However, some parts of what makes up the
 /// buckconfig comes from outside the buildgraph, and this type represents those parts.
-#[derive(PartialEq, Eq, Allocative)]
+#[derive(Clone, PartialEq, Eq, Allocative)]
 pub struct ExternalBuckconfigData {
     // The result of parsing the buckconfigs coming from either global (e.g. /etc/buckconfig.d) or
     // user (e.g. ~/.buckconfig.d or $home_dir/.buckconfig.local) files/dirs outside of the repo
@@ -80,27 +80,22 @@ impl ExternalBuckconfigData {
         }
     }
 
-    pub fn filter_values<F>(&self, filter: F) -> Self
+    pub fn filter_values<F>(self, filter: F) -> Self
     where
         F: Fn(&BuckconfigKeyRef) -> bool,
     {
         Self {
             external_path_configs: self
                 .external_path_configs
-                .clone()
                 .into_iter()
-                .map(|o| {
-                    let mut parse_state = o.parse_state.clone();
-                    parse_state.filter_values(&filter);
-                    ExternalPathBuckconfigData {
-                        parse_state,
-                        origin_path: o.origin_path.clone(),
-                    }
+                .map(|o| ExternalPathBuckconfigData {
+                    parse_state: o.parse_state.filter_values(&filter),
+                    origin_path: o.origin_path,
                 })
                 .collect(),
             args: self
                 .args
-                .iter()
+                .into_iter()
                 .filter(|arg| match arg {
                     ResolvedLegacyConfigArg::Flag(flag) => {
                         flag.cell.is_some()
@@ -111,7 +106,6 @@ impl ExternalBuckconfigData {
                     }
                     _ => true,
                 })
-                .cloned()
                 .collect(),
         }
     }
@@ -193,12 +187,11 @@ impl ExternalBuckconfigData {
 ///
 /// We don't (currently) enforce that all aliases appear in the root config, but
 /// unlike v1, our cells implementation works just fine if that isn't the case.
-#[derive(Clone)]
 pub struct BuckConfigBasedCells {
     pub cell_resolver: CellResolver,
     pub root_config: LegacyBuckConfig,
     pub config_paths: HashSet<ConfigPath>,
-    pub external_data: Arc<ExternalBuckconfigData>,
+    pub external_data: ExternalBuckconfigData,
 }
 
 impl BuckConfigBasedCells {
@@ -408,10 +401,10 @@ impl BuckConfigBasedCells {
             cell_resolver,
             root_config,
             config_paths: file_ops.trace,
-            external_data: Arc::new(ExternalBuckconfigData {
+            external_data: ExternalBuckconfigData {
                 external_path_configs: started_parse,
                 args: processed_config_args,
-            }),
+            },
         })
     }
 
