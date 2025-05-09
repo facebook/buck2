@@ -244,7 +244,7 @@ def py_attr_resources(ctx: AnalysisContext) -> (dict[str, ArtifactOutputs], dict
     standalone_artifacts = {}
     for key, value in resources.items():
         resource = value
-        if type(value) != "artifact" and DefaultInfo in value:
+        if not isinstance(value, Artifact) and DefaultInfo in value:
             if "standalone" in value[DefaultInfo].sub_targets:
                 resource = value[DefaultInfo].sub_targets["standalone"][DefaultInfo].default_outputs[0]
         standalone_artifacts[key] = resource
@@ -264,7 +264,7 @@ def py_resources(
     hidden = []
     for name, resource in resources.items():
         for o in resource.nondebug_runtime_files:
-            if type(o) == "artifact" and o.basename == shared_libs_symlink_tree_name(resource.default_output):
+            if isinstance(o, Artifact) and o.basename == shared_libs_symlink_tree_name(resource.default_output):
                 # Package the binary's shared libs next to the binary
                 # (the path is stored in RPATH relative to the binary).
                 d[paths.join(paths.dirname(name), o.basename)] = o

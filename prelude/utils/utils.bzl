@@ -36,7 +36,7 @@ def from_named_set(srcs: [dict[str, Artifact | Dependency], list[Artifact | Depe
     if type(srcs) == type([]):
         srcs_dict = {}
         for src in srcs:
-            if type(src) == "artifact":
+            if isinstance(src, Artifact):
                 name = src.short_path
             else:
                 # If the src is a `dependency`, use the short path of the

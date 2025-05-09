@@ -216,7 +216,7 @@ def _generate_priv_dir(
         for file in resource[DefaultInfo].default_outputs:
             priv_symlinks[file.short_path] = file
         for file in resource[DefaultInfo].other_outputs:
-            if type(file) == "artifact":
+            if isinstance(file, Artifact):
                 priv_symlinks[file.short_path] = file
 
     build_environment.app_resources["priv"] = ctx.actions.symlinked_dir(

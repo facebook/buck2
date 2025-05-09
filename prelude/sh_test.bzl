@@ -18,7 +18,7 @@ def sh_test_impl(ctx: AnalysisContext) -> list[Provider]:
     args_hidden = []
 
     if ctx.attrs.test != None:
-        if type(ctx.attrs.test) == "artifact":
+        if isinstance(ctx.attrs.test, Artifact):
             args_args.append(ctx.attrs.test)
         elif isinstance(ctx.attrs.test, Dependency):
             run_info = ctx.attrs.test.get(RunInfo)
