@@ -1,0 +1,20 @@
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_kotlin_test")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("android_devxx")
+
+source_listing()
+
+buck_kotlin_test(
+    name = "cd",
+    srcs = glob(
+        [
+            "**/*.kt",
+        ],
+    ),
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/cd:cd",
+        "prelude//toolchains/android/src/com/facebook/buck/util/json:json",
+        "prelude//toolchains/android/third-party:junit",
+    ],
+)

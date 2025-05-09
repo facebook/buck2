@@ -62,7 +62,8 @@ public class DepFileUtils {
     }
 
     Files.write(
-        depFileOutput, allUsedPaths.stream().map(Path::toString).collect(Collectors.toList()));
+        depFileOutput,
+        allUsedPaths.stream().map(Path::toString).sorted().collect(Collectors.toList()));
   }
 
   /**
