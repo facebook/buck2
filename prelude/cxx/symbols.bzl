@@ -74,7 +74,7 @@ def _extract_symbol_names(
                 $lines = $lines | ForEach-Object {{ ($_ -split ' ')[1] }}
                 $lines = $lines | ForEach-Object {{ ($_ -split '@')[0] }}
                 $lines = $lines | Where-Object {{ $_ -notmatch '__odr_asan_gen_.*' }}
-                $lines = $lines | Sort-Object -Unique
+                $lines = $lines | Sort-Object -Unique -CaseSensitive
                 # Avoid a trailing newline for empty symbol lists
                 if ($lines.count -eq 0) {{
                     [IO.File]::WriteAllText('{{}}', $lines)
