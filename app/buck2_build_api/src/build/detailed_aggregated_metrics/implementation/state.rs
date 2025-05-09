@@ -130,6 +130,7 @@ impl DetailedAggregatedMetricsStateTracker {
                 let amortization_factor = owners.len();
                 for idx in owners {
                     agg_data[idx].aggregate_execution_event(amortization_factor, ev, built_when);
+                    agg_data[idx].aggregate_max_memory(ev);
                 }
             }
         }

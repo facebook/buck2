@@ -180,6 +180,7 @@ async fn build_action_no_redirect(
             .unwrap_or_default(),
         execution_kind: action_execution_data.extra_data.execution_kind,
         output_size_bytes: action_execution_data.extra_data.output_size,
+        memory_peak: action_execution_data.memory_peak,
     };
     ctx.store_evaluation_data(BuildKeyActivationData {
         action_with_extra_data: ActionWithExtraData {
@@ -222,6 +223,9 @@ async fn build_action_inner(
     let action_digest = get_action_digest(&commands);
 
     let queue_duration = command_reports.last().and_then(|r| r.timing.queue_duration);
+    let memory_peak = command_reports
+        .last()
+        .and_then(|r| r.timing.execution_stats.and_then(|s| s.memory_peak));
 
     let action_key = action.key().as_proto();
 
@@ -365,6 +369,7 @@ async fn build_action_inner(
             action_result,
             wall_time,
             queue_duration,
+            memory_peak,
             extra_data: ActionExtraData {
                 execution_kind,
                 target_rule_type_name: target_rule_type_name.clone(),
@@ -525,6 +530,7 @@ struct ActionExecutionData {
     action_result: buck2_error::Result<ActionOutputs>,
     wall_time: Option<std::time::Duration>,
     queue_duration: Option<std::time::Duration>,
+    memory_peak: Option<u64>,
     extra_data: ActionExtraData,
 }
 

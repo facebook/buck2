@@ -608,6 +608,11 @@ message TopLevelTargetMetrics {
   // first three, its costs will be aggregated to them each multiplied by 1/3
   // while no cost will be attributed to `//:qux`.
   AggregatedBuildMetrics amortized_metrics = 5;
+
+  // Max value for peak memory usage across all remote actions.
+  optional uint64 remote_max_memory_peak_bytes = 6;
+  // Max value for peak memory usage across all local actions.
+  optional uint64 local_max_memory_peak_bytes = 7;
 }
 
 // Aggregated metrics across all targets in a build.

@@ -7,11 +7,13 @@
  * of this source tree.
  */
 
+use std::cmp::max;
 use std::sync::Arc;
 
 use buck2_artifact::actions::key::ActionKey;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
+use buck2_data::ActionExecutionKind;
 use buck2_data::ToProtoMessage;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dupe::Dupe;
@@ -25,6 +27,7 @@ pub struct ActionExecutionMetrics {
     pub execution_time_ms: u64,
     pub execution_kind: buck2_data::ActionExecutionKind,
     pub output_size_bytes: u64,
+    pub memory_peak: Option<u64>,
 }
 
 pub struct AnalysisMetrics {
@@ -66,6 +69,8 @@ impl TopLevelTargetAggregatedData {
                 action_graph_size: action_graph_size.map(|v| v as u64),
                 metrics: Some(buck2_data::AggregatedBuildMetrics::default()),
                 amortized_metrics: Some(buck2_data::AggregatedBuildMetrics::default()),
+                remote_max_memory_peak_bytes: None,
+                local_max_memory_peak_bytes: None,
             },
         }
     }
@@ -101,6 +106,37 @@ impl TopLevelTargetAggregatedData {
             .as_mut()
             .unwrap()
             .aggregate_analysis(factor, ev);
+    }
+
+    pub fn aggregate_max_memory(&mut self, ev: &ActionExecutionMetrics) {
+        let Some(memory_peak) = ev.memory_peak else {
+            return;
+        };
+        match ev.execution_kind {
+            ActionExecutionKind::Local | ActionExecutionKind::LocalWorker => {
+                let max_memory_peak = self
+                    .proto
+                    .local_max_memory_peak_bytes
+                    .get_or_insert_default();
+                *max_memory_peak = max(*max_memory_peak, memory_peak);
+            }
+            ActionExecutionKind::Remote => {
+                let max_memory_peak = self
+                    .proto
+                    .remote_max_memory_peak_bytes
+                    .get_or_insert_default();
+                *max_memory_peak = max(*max_memory_peak, memory_peak);
+            }
+            ActionExecutionKind::NotSet
+            | ActionExecutionKind::ActionCache
+            | ActionExecutionKind::Simple
+            | ActionExecutionKind::Deferred
+            | ActionExecutionKind::LocalDepFile
+            | ActionExecutionKind::RemoteDepFileCache
+            | ActionExecutionKind::LocalActionCache => {
+                // ignore
+            }
+        }
     }
 
     pub fn into_proto(self) -> buck2_data::TopLevelTargetMetrics {
