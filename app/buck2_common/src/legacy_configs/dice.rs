@@ -195,7 +195,7 @@ impl Key for LegacyBuckConfigForCellKey {
             .with_buck_error_context(|| {
                 format!("Computing legacy buckconfigs for cell `{}`", self.cell_name)
             })?;
-        let config = config.filter_values(should_keep_config_change);
+        let config = config.filter_values(is_config_invisible_to_dice);
 
         let event = buck2_data::CellHasNewConfigs {
             cell: self.cell_name.as_str().to_owned(),
@@ -364,8 +364,7 @@ impl SetLegacyConfigs for DiceTransactionUpdater {
         &mut self,
         data: ExternalBuckconfigData,
     ) -> buck2_error::Result<()> {
-        // Don't invalidate state if RE use case is overridden.
-        let data = data.filter_values(should_keep_config_change);
+        let data = data.filter_values(is_config_invisible_to_dice);
         Ok(self.changed_to(vec![(
             LegacyExternalBuckConfigDataKey,
             Some(Arc::new(data)),
@@ -377,9 +376,17 @@ impl SetLegacyConfigs for DiceTransactionUpdater {
     }
 }
 
-fn should_keep_config_change(config_key: &BuckconfigKeyRef) -> bool {
-    !(config_key.section == "buck2_re_client" && config_key.property == "override_use_case")
+fn is_config_invisible_to_dice(key: &BuckconfigKeyRef) -> bool {
+    !CONFIGS_INVISIBLE_TO_DICE.contains(key)
 }
+
+/// A set of buckconfigs that are visibile outside of dice, but not within it. Importantly, changes
+/// to these configs do not cause state invalidations.
+// FIXME(JakobDegen): Error if someone tries to read any of these from in dice
+const CONFIGS_INVISIBLE_TO_DICE: &[BuckconfigKeyRef<'static>] = &[BuckconfigKeyRef {
+    section: "buck2_re_client",
+    property: "override_use_case",
+}];
 
 #[cfg(test)]
 mod tests {
