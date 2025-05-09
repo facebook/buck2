@@ -23,7 +23,7 @@ bindeps = true
 
 [buck]
 # Name of the generated file.
-file_name = "BUCK"
+file_name = "BUCK.reindeer"
 
 # Rules used for various kinds of targets.
 rust_library = "cargo.rust_library"
