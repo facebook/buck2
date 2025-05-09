@@ -64,6 +64,7 @@ enum WriteContentArg<'v> {
 struct CommandLineInputVisitor {
     associated_artifacts: SmallSet<ArtifactGroup>,
     with_associated_artifacts: bool,
+    content_based_inputs: IndexSet<ArtifactGroup>,
 }
 
 impl CommandLineInputVisitor {
@@ -71,6 +72,7 @@ impl CommandLineInputVisitor {
         Self {
             associated_artifacts: Default::default(),
             with_associated_artifacts,
+            content_based_inputs: Default::default(),
         }
     }
 }
@@ -78,7 +80,19 @@ impl CommandLineInputVisitor {
 impl CommandLineArtifactVisitor for CommandLineInputVisitor {
     fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
         if self.with_associated_artifacts {
-            self.associated_artifacts.insert(input);
+            self.associated_artifacts.insert(input.dupe());
+        }
+
+        let is_content_based_input = match input {
+            ArtifactGroup::Artifact(ref artifact) => artifact.has_content_based_path(),
+            // Promised artifacts are not allowed to use content-based paths
+            ArtifactGroup::Promise(_) => false,
+            // TODO(T219919866) Support transitive sets in write actions
+            ArtifactGroup::TransitiveSetProjection(_) => false,
+        };
+
+        if is_content_based_input {
+            self.content_based_inputs.insert(input);
         }
     }
 
@@ -89,7 +103,7 @@ impl CommandLineArtifactVisitor for CommandLineInputVisitor {
         declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact,
         tag: Option<&ArtifactTag>,
     ) -> buck2_error::Result<()> {
-        if self.with_associated_artifacts {
+        if self.with_associated_artifacts || declared_artifact.has_content_based_path() {
             let artifact = declared_artifact.ensure_bound()?.into_artifact();
             self.visit_input(ArtifactGroup::Artifact(artifact), tag);
         }
@@ -229,34 +243,38 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         fn get_cli_inputs(
             with_inputs: bool,
             cli: &dyn CommandLineArgLike,
-        ) -> buck2_error::Result<SmallSet<ArtifactGroup>> {
+        ) -> buck2_error::Result<(SmallSet<ArtifactGroup>, IndexSet<ArtifactGroup>)> {
             let mut visitor = CommandLineInputVisitor::new(with_inputs);
             cli.visit_artifacts(&mut visitor)?;
-            Ok(visitor.associated_artifacts)
+            Ok((visitor.associated_artifacts, visitor.content_based_inputs))
         }
 
         let mut this = this.state()?;
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, OutputType::File)?;
 
-        let (content_cli, written_macro_count, mut associated_artifacts) = match content {
-            WriteContentArg::CommandLineArg(content) => {
-                let content_arg = content.as_command_line_arg();
-                let count = count_write_to_file_macros(allow_args, content_arg)?;
-                let cli_inputs = get_cli_inputs(with_inputs, content_arg)?;
-                (content, count, cli_inputs)
-            }
-            WriteContentArg::StarlarkCommandLineValueUnpack(content) => {
-                let cli = StarlarkCmdArgs::try_from_value_typed(content)?;
-                let count = count_write_to_file_macros(allow_args, &cli)?;
-                let cli_inputs = get_cli_inputs(with_inputs, &cli)?;
-                (
-                    CommandLineArg::from_cmd_args(eval.heap().alloc_typed(cli)),
-                    count,
-                    cli_inputs,
-                )
-            }
-        };
+        let (content_cli, written_macro_count, mut associated_artifacts, content_based_inputs) =
+            match content {
+                WriteContentArg::CommandLineArg(content) => {
+                    let content_arg = content.as_command_line_arg();
+                    let count = count_write_to_file_macros(allow_args, content_arg)?;
+                    let (associated_artifacts, content_based_inputs) =
+                        get_cli_inputs(with_inputs, content_arg)?;
+                    (content, count, associated_artifacts, content_based_inputs)
+                }
+                WriteContentArg::StarlarkCommandLineValueUnpack(content) => {
+                    let cli = StarlarkCmdArgs::try_from_value_typed(content)?;
+                    let count = count_write_to_file_macros(allow_args, &cli)?;
+                    let (associated_artifacts, content_based_inputs) =
+                        get_cli_inputs(with_inputs, &cli)?;
+                    (
+                        CommandLineArg::from_cmd_args(eval.heap().alloc_typed(cli)),
+                        count,
+                        associated_artifacts,
+                        content_based_inputs,
+                    )
+                }
+            };
 
         let written_macro_files = if written_macro_count > 0 {
             let macro_directory_path = {
@@ -316,7 +334,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             }
         };
         this.register_action(
-            indexset![],
+            content_based_inputs,
             indexset![output_artifact],
             action,
             Some(content_cli.to_value()),

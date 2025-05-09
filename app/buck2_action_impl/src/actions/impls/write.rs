@@ -41,8 +41,6 @@ use starlark::values::UnpackValue;
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Tier0)]
 enum WriteActionValidationError {
-    #[error("WriteAction received inputs")]
-    TooManyInputs,
     #[error("WriteAction received no outputs")]
     NoOutputs,
     #[error("WriteAction received more than one output")]
@@ -76,6 +74,7 @@ impl UnregisteredAction for UnregisteredWriteAction {
 #[derive(Debug, Allocative)]
 struct WriteAction {
     contents: OwnedFrozenValue, // StarlarkCmdArgs
+    inputs: Box<[ArtifactGroup]>,
     output: BuildArtifact,
     inner: UnregisteredWriteAction,
 }
@@ -87,6 +86,7 @@ impl WriteAction {
         outputs: IndexSet<BuildArtifact>,
         inner: UnregisteredWriteAction,
     ) -> buck2_error::Result<Self> {
+        let inputs = inputs.into_iter().collect();
         let mut outputs = outputs.into_iter();
 
         let output = match (outputs.next(), outputs.next()) {
@@ -94,10 +94,6 @@ impl WriteAction {
             (None, ..) => return Err(WriteActionValidationError::NoOutputs.into()),
             (Some(..), Some(..)) => return Err(WriteActionValidationError::TooManyOutputs.into()),
         };
-
-        if !inputs.is_empty() {
-            return Err(WriteActionValidationError::TooManyInputs.into());
-        }
 
         if ValueAsCommandLineLike::unpack_value(contents.value())?.is_none() {
             return Err(WriteActionValidationError::ContentsNotCommandLineValue(
@@ -108,6 +104,7 @@ impl WriteAction {
 
         Ok(WriteAction {
             contents,
+            inputs,
             output,
             inner,
         })
@@ -147,7 +144,7 @@ impl Action for WriteAction {
     }
 
     fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
-        Ok(Cow::Borrowed(&[]))
+        Ok(Cow::Borrowed(&self.inputs))
     }
 
     fn outputs(&self) -> Cow<'_, [BuildArtifact]> {
