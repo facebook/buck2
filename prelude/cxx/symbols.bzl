@@ -92,7 +92,7 @@ def _extract_symbol_names(
         script = (
             "set -euo pipefail; " +
             '"$1" {} "${{@:2}}"'.format(nm_flags) +
-            (" | grep -v \"\\sw\\s*$\"" if undefined_only and not undefined_weak else "") +
+            (" | (grep -v \"\\sw\\s*$\" || true)" if undefined_only and not undefined_weak else "") +
             # Grab only the symbol name field.
             ' | cut -d" " -f2 ' +
             # Strip off ABI Version (@...) when using llvm-nm to keep compat with buck1
