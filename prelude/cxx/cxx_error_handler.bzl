@@ -46,6 +46,10 @@ CXX_GENERIC_ERROR_TYPES = [
         string_match = "ld.lld: error: unable to find library",
         category_suffix = "linker_missing_library",
     ),
+    make_error_type(
+        string_match = "cannot be used against local symbol",
+        category_suffix = "linker_relocation",
+    ),
 
     # compilation errors
     make_error_type(
