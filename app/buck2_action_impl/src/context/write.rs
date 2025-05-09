@@ -83,6 +83,19 @@ impl CommandLineArtifactVisitor for CommandLineInputVisitor {
     }
 
     fn visit_output(&mut self, _artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {}
+
+    fn visit_declared_artifact(
+        &mut self,
+        declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact,
+        tag: Option<&ArtifactTag>,
+    ) -> buck2_error::Result<()> {
+        if self.with_associated_artifacts {
+            let artifact = declared_artifact.ensure_bound()?.into_artifact();
+            self.visit_input(ArtifactGroup::Artifact(artifact), tag);
+        }
+
+        Ok(())
+    }
 }
 
 #[starlark_module]
@@ -217,10 +230,6 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             with_inputs: bool,
             cli: &dyn CommandLineArgLike,
         ) -> buck2_error::Result<SmallSet<ArtifactGroup>> {
-            if !with_inputs {
-                return Ok(Default::default());
-            }
-
             let mut visitor = CommandLineInputVisitor::new(with_inputs);
             cli.visit_artifacts(&mut visitor)?;
             Ok(visitor.associated_artifacts)

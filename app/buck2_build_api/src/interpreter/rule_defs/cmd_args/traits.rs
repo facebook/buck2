@@ -11,6 +11,7 @@ use std::borrow::Cow;
 use std::fmt::Debug;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
@@ -47,6 +48,18 @@ pub trait CommandLineArtifactVisitor {
     }
 
     fn pop_frame(&mut self) {}
+
+    fn visit_declared_artifact(
+        &mut self,
+        declared_artifact: DeclaredArtifact,
+        tag: Option<&ArtifactTag>,
+    ) -> buck2_error::Result<()> {
+        self.visit_input(
+            ArtifactGroup::Artifact(declared_artifact.ensure_bound()?.into_artifact()),
+            tag,
+        );
+        Ok(())
+    }
 }
 
 /// A CommandLineArtifactVisitor that gathers inputs and outputs.

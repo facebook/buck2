@@ -274,10 +274,8 @@ impl CommandLineArgLike for StarlarkDeclaredArtifact {
         &self,
         visitor: &mut dyn CommandLineArtifactVisitor,
     ) -> buck2_error::Result<()> {
-        visitor.visit_input(
-            ArtifactGroup::Artifact(self.artifact.dupe().ensure_bound()?.into_artifact()),
-            None,
-        );
+        visitor.visit_declared_artifact(self.artifact.dupe(), None)?;
+
         self.associated_artifacts
             .iter()
             .for_each(|ag| visitor.visit_input(ag.dupe(), None));
