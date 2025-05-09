@@ -1,0 +1,15 @@
+
+fail("""----------------------------------------------------
+
+You need to generate BUCK dependencies from Cargo.toml using reindeer!
+
+Try this:
+
+    ./bootstrap/reindeer --third-party-dir shim/third-party/rust buckify
+
+See the following links for more information:
+
+    <https://buck2.build/docs/about/bootstrapping/>
+    <https://dotslash-cli.com>
+
+----------------------------------------------------""")
