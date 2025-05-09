@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_error_handler.bzl", "cxx_generic_error_handler")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 
 LinkerType = enum("gnu", "darwin", "windows", "wasm")
@@ -310,6 +311,24 @@ def cxx_toolchain_infos(
             **{k: getattr(cxx_compiler_info, k, None) for k in _compiler_fields}
         )
 
+    # TODO(minglunli): Should probably dedup from Buck2 side instead
+    def cxx_combined_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
+        categories = []
+        seen_categories = set()
+
+        # cxx specific error handler is called if it's defined
+        if cxx_error_handler != None:
+            specific_errors = cxx_error_handler(ctx)
+            categories.extend(specific_errors)
+            seen_categories.update([err.category for err in specific_errors])
+
+        # generic error handler is always called
+        for generic in cxx_generic_error_handler(ctx):
+            if generic.category not in seen_categories:
+                categories.append(generic)
+                seen_categories.add(generic.category)
+        return categories
+
     toolchain_info = CxxToolchainInfo(
         as_compiler_info = as_compiler_info,
         asm_compiler_info = asm_compiler_info,
@@ -346,7 +365,7 @@ def cxx_toolchain_infos(
         target_sdk_version = target_sdk_version,
         use_dep_files = use_dep_files,
         use_distributed_thinlto = use_distributed_thinlto,
-        cxx_error_handler = cxx_error_handler,
+        cxx_error_handler = cxx_combined_error_handler,
     )
 
     # Provide placeholder mappings, used primarily by cxx_genrule.
