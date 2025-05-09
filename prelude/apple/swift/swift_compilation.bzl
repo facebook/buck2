@@ -585,7 +585,7 @@ def _compile_swiftmodule(
         ])
 
     dep_files = {}
-    if toolchain.use_depsfiles:
+    if toolchain.use_depsfiles and not output_swiftinterface:
         # Dependency file output paths are only specifiable via output file maps.
         dep_file = ctx.actions.declare_output("__depfiles__/" + ctx.attrs.name + "-swiftmodule.d").as_output()
         tagged_dep_file = inputs_tag.tag_artifacts(dep_file)
