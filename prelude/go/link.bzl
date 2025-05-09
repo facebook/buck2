@@ -118,9 +118,11 @@ def link(
     if build_mode == GoBuildMode("c_shared"):
         file_extension = shared_extension
         use_shared_code = True  # PIC
+        link_style = LinkStyle("shared")
     elif build_mode == GoBuildMode("c_archive"):
         file_extension = archive_extension
         use_shared_code = True  # PIC
+        link_style = LinkStyle("static_pic")
     else:  # GoBuildMode("executable")
         file_extension = executable_extension
         use_shared_code = False  # non-PIC
