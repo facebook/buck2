@@ -137,6 +137,10 @@ impl BuildArtifactPath {
     pub fn path_resolution_method(&self) -> BuckOutPathKind {
         self.0.path_resolution_method
     }
+
+    pub fn is_content_based_path(&self) -> bool {
+        self.0.path_resolution_method == BuckOutPathKind::ContentHash
+    }
 }
 
 #[derive(Clone, Debug, Display, Eq, PartialEq)]

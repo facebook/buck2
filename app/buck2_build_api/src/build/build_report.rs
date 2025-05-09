@@ -388,8 +388,19 @@ impl<'a> BuildReportCollector<'a> {
                                 .outputs
                                 .entry(provider_name.dupe())
                                 .or_default()
-                                // TODO(T219919866) Add support for experimental content-based path hashing
-                                .insert(artifact.resolve_path(self.artifact_fs, None).unwrap());
+                                .insert({
+                                    artifact
+                                        .resolve_path(
+                                            self.artifact_fs,
+                                            if artifact.has_content_based_path() {
+                                                Some(value.content_based_path_hash())
+                                            } else {
+                                                None
+                                            }
+                                            .as_ref(),
+                                        )
+                                        .unwrap()
+                                });
                         }
                     }
                 }

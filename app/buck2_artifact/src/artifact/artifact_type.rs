@@ -186,6 +186,13 @@ impl Artifact {
             hidden_components_count,
         )
     }
+
+    pub fn has_content_based_path(&self) -> bool {
+        match self.as_parts().0 {
+            BaseArtifactKind::Source(_) => false,
+            BaseArtifactKind::Build(b) => b.get_path().is_content_based_path(),
+        }
+    }
 }
 
 impl ArtifactDyn for Artifact {

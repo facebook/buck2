@@ -126,16 +126,22 @@ impl<'a> ResultReporter<'a> {
                     continue;
                 }
 
-                for (artifact, _value) in values.iter() {
-                    let entry =
-                        artifacts
-                            .entry(artifact)
-                            .or_insert_with(|| proto::BuildOutputProviders {
-                                default_info: false,
-                                run_info: false,
-                                other: false,
-                                test_info: false,
-                            });
+                for (artifact, value) in values.iter() {
+                    let entry = artifacts
+                        .entry((
+                            artifact,
+                            if artifact.has_content_based_path() {
+                                Some(value.content_based_path_hash())
+                            } else {
+                                None
+                            },
+                        ))
+                        .or_insert_with(|| proto::BuildOutputProviders {
+                            default_info: false,
+                            run_info: false,
+                            other: false,
+                            test_info: false,
+                        });
 
                     match provider_type {
                         BuildProviderType::Default => {
@@ -158,11 +164,15 @@ impl<'a> ResultReporter<'a> {
 
             // Write it this way because `.into_iter()` gets rust-analyzer confused
             IntoIterator::into_iter(artifacts)
-                .map(|(a, providers)| proto::BuildOutput {
-                    // TODO(T219919866) Add support for experimental content-based path hashing
-                    path: a.resolve_path(artifact_fs, None).unwrap().to_string(),
-                    providers: Some(providers),
-                })
+                .map(
+                    |((a, content_based_path_hash), providers)| proto::BuildOutput {
+                        path: a
+                            .resolve_path(artifact_fs, content_based_path_hash.as_ref())
+                            .unwrap()
+                            .to_string(),
+                        providers: Some(providers),
+                    },
+                )
                 .collect()
         } else {
             Vec::new()
