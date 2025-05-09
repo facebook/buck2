@@ -982,37 +982,32 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         // metadata. Depending on what sort of things we're missing by dropping int default columns, we might want
         // to consider adding support to the protocol for integer metadata.
 
-        if let Ok(cwd_cell_name) = cells.find(&self.working_dir) {
-            let cwd_cell_config = ctx.get_legacy_config_for_cell(cwd_cell_name).await?;
-            if let Some(normals_obj) = extract_scuba_defaults(&cwd_cell_config) {
-                for (key, value) in normals_obj.iter() {
-                    if let Some(value) = value.as_str() {
-                        metadata.insert(key.clone(), value.to_owned());
-                    }
+        if let Some(normals_obj) = extract_scuba_defaults(&config) {
+            for (key, value) in normals_obj.iter() {
+                if let Some(value) = value.as_str() {
+                    metadata.insert(key.clone(), value.to_owned());
                 }
             }
-
-            // `client.id` is often set via the `-c` flag; `-c` configuration is assigned to the cwd cell and not
-            // the root cell.
-            add_config(
-                &mut metadata,
-                &config,
-                BuckconfigKeyRef {
-                    section: "client",
-                    property: "id",
-                },
-                "client",
-            );
-            add_config(
-                &mut metadata,
-                &config,
-                BuckconfigKeyRef {
-                    section: "cache",
-                    property: "schedule_type",
-                },
-                "schedule_type",
-            );
         }
+
+        add_config(
+            &mut metadata,
+            &config,
+            BuckconfigKeyRef {
+                section: "client",
+                property: "id",
+            },
+            "client",
+        );
+        add_config(
+            &mut metadata,
+            &config,
+            BuckconfigKeyRef {
+                section: "cache",
+                property: "schedule_type",
+            },
+            "schedule_type",
+        );
 
         Ok(metadata)
     }
