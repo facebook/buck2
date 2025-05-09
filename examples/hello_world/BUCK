@@ -28,18 +28,13 @@ kotlin_library(
     target = "8",
 )
 
-# TODO(navidq) remove this when we can run android targets on sandcastle
-_SKIP_ANDROID = (read_root_config("build", "skip_android", "False").lower() == "true")
-
-[
-    android_library(
-        name = "android_lib",
-        srcs = ["java/com/example/MainActivity.kt"],
-        language = "kotlin",
-        source = "11",
-        target = "11",
-    ),
-] if not _SKIP_ANDROID else []
+android_library(
+    name = "android_lib",
+    srcs = ["java/com/example/MainActivity.kt"],
+    language = "kotlin",
+    source = "11",
+    target = "11",
+)
 
 remote_file(
     name = "hamcrest-core_remote",
