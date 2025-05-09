@@ -49,6 +49,10 @@ pub enum PromiseArtifactResolveError {
         "Internal error: promise artifact (id: {0}) owner is ({1}), which is not an anon target"
     )]
     OwnerIsNotAnonTarget(PromiseArtifactId, BaseDeferredKey),
+    #[error(
+        "Artifact promise resolved to artifact that uses content based paths, this isn't allowed"
+    )]
+    UsesContentBasedPath,
 }
 
 fn maybe_declared_at(location: &Option<FileSpan>) -> String {
@@ -127,6 +131,10 @@ impl PromiseArtifact {
         let bound = artifact;
         if bound.is_source() {
             return Err(PromiseArtifactResolveError::SourceArtifact.into());
+        }
+        // TODO(T219919866) Add content-based paths support to promised artifacts.
+        if bound.has_content_based_path() {
+            return Err(PromiseArtifactResolveError::UsesContentBasedPath.into());
         }
         if let Some(expected_short_path) = expected_short_path {
             bound.get_path().with_short_path(|artifact_short_path| {
