@@ -1780,11 +1780,11 @@ def create_relinker_version_script(actions: AnalysisActions, relinker_allowlist:
     def create_version_script(ctx, artifacts, outputs):
         all_needed_symbols = {}
         for symbols_file in needed_symbols:
-            for line in artifacts[symbols_file].read_string().strip().split("\n"):
+            for line in artifacts[symbols_file].read_string().splitlines():
                 all_needed_symbols[line] = True
 
         symbols_to_keep = []
-        for symbol in artifacts[provided_symbols].read_string().strip().split("\n"):
+        for symbol in artifacts[provided_symbols].read_string().splitlines():
             keep_symbol = False
             if symbol in all_needed_symbols:
                 keep_symbol = True
@@ -1819,7 +1819,7 @@ def union_needed_symbols(actions: AnalysisActions, output: Artifact, needed_symb
     def compute_union(ctx, artifacts, outputs):
         unioned_symbols = {}
         for symbols_file in needed_symbols:
-            for line in artifacts[symbols_file].read_string().strip().split("\n"):
+            for line in artifacts[symbols_file].read_string().splitlines():
                 unioned_symbols[line] = True
         symbols = sorted(unioned_symbols.keys())
         ctx.actions.write(outputs[output], symbols)
