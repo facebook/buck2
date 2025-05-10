@@ -6,5 +6,8 @@
 # of this source tree.
 
 BuildModeInfo = provider(
-    fields = {"cell": provider_field(typing.Any, default = None), "mode": provider_field(typing.Any, default = None)},
+    fields = {
+        "cell": str,
+        "mode": str | None,
+    },
 )
