@@ -23,7 +23,7 @@ def stringify_build_mode_infos(infos: list[BuildModeInfo], label: Label, platfor
             hash_parts.append(str(platform.configuration))
         h = hash("-".join(hash_parts))
         shard = abs(h / (1 << 31))
-        if shard < 0.5:
+        if shard < 0.6:
             continue
         kvs.append(info.cell + "=" + info.mode)
 
