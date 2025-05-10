@@ -10,5 +10,4 @@ def _get_build_mode():
 
 config = struct(
     get_build_mode = _get_build_mode,
-    get_non_selectified_build_mode = _get_build_mode,
 )
