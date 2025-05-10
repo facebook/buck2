@@ -204,7 +204,6 @@ inventory = "0.3.8"
 ipnetwork = "0.20.0"
 is_proc_translated = "0.1.1"
 itertools = "0.13.0"
-jemallocator = { version = "0.5.0", features = ["profiling"] }
 lalrpop = { version = "0.19.7", artifact = "bin" }
 lalrpop-util = "0.19.7"
 libc = "0.2.158"
@@ -289,6 +288,7 @@ test-case = "3.1.0"
 textwrap = { version = "0.11", features = ["term_size"] }
 thiserror = "1.0.36"
 threadpool = "1.8.1"
+tikv-jemallocator = { version = "0.6.0", features = ["profiling"] }
 tokio = { version = "1.25.0", features = ["full", "test-util", "tracing"] }
 tokio-rustls = { package = "tokio-rustls", version = "0.24.1", features = ["dangerous_configuration"] }
 tokio-stream = { version = "0.1.14", features = ["fs", "io-util", "net", "sync", "time", "signal"] }
