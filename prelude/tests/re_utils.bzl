@@ -79,7 +79,11 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
         unexpected_props = ", ".join(re_props_copy.keys())
         fail("found unexpected re props: " + unexpected_props)
 
-    remote_execution_action_key = stringify_build_mode_infos([ctx.attrs.remote_execution_action_key_providers[BuildModeInfo]])
+    remote_execution_action_key = stringify_build_mode_infos(
+        [ctx.attrs.remote_execution_action_key_providers[BuildModeInfo]],
+        ctx.label,
+        None,
+    )
 
     default_executor = CommandExecutorConfig(
         local_enabled = local_enabled,

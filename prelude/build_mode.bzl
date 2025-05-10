@@ -12,10 +12,18 @@ BuildModeInfo = provider(
     },
 )
 
-def stringify_build_mode_infos(infos: list[BuildModeInfo]) -> str | None:
+def stringify_build_mode_infos(infos: list[BuildModeInfo], label: Label, platform: PlatformInfo | None) -> str | None:
     kvs = []
     for info in infos:
         if info.mode == None:
+            continue
+        hash_parts = [str(label)]
+        hash_parts.append(info.mode)
+        if platform != None:
+            hash_parts.append(str(platform.configuration))
+        h = hash("-".join(hash_parts))
+        shard = abs(h / (1 << 31))
+        if shard < 0.0:
             continue
         kvs.append(info.cell + "=" + info.mode)
 
