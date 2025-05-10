@@ -11,3 +11,15 @@ BuildModeInfo = provider(
         "mode": str | None,
     },
 )
+
+def stringify_build_mode_infos(infos: list[BuildModeInfo]) -> str | None:
+    kvs = []
+    for info in infos:
+        if info.mode == None:
+            continue
+        kvs.append(info.cell + "=" + info.mode)
+
+    remote_execution_action_key = None
+    if kvs:
+        remote_execution_action_key = " ".join(kvs)
+    return remote_execution_action_key

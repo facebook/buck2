@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:build_mode.bzl", "BuildModeInfo")
+load("@prelude//:build_mode.bzl", "BuildModeInfo", "stringify_build_mode_infos")
 load("@prelude//tests:remote_test_execution_toolchain.bzl", "RemoteTestExecutionToolchainInfo")
 load("@prelude//utils:expect.bzl", "expect_non_none")
 
@@ -79,10 +79,7 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
         unexpected_props = ", ".join(re_props_copy.keys())
         fail("found unexpected re props: " + unexpected_props)
 
-    remote_execution_action_key = None
-    build_mode_info = ctx.attrs.remote_execution_action_key_providers[BuildModeInfo]
-    if build_mode_info != None:
-        remote_execution_action_key = "{}={}".format(build_mode_info.cell, build_mode_info.mode)
+    remote_execution_action_key = stringify_build_mode_infos([ctx.attrs.remote_execution_action_key_providers[BuildModeInfo]])
 
     default_executor = CommandExecutorConfig(
         local_enabled = local_enabled,
