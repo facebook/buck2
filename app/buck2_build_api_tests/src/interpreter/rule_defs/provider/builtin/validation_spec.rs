@@ -121,7 +121,7 @@ fn test_validation_failure() -> anyhow::Result<()> {
         expect_error(
             tester.run_starlark_bzl_test(test),
             test,
-            "Expected type `artifact` but got `str`",
+            "Expected type `Artifact` but got `str`",
         );
     }
     {

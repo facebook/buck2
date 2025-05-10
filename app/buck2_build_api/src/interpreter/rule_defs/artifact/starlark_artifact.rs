@@ -268,7 +268,7 @@ impl CommandLineArgLike for StarlarkArtifact {
     }
 }
 
-#[starlark_value(type = "artifact")]
+#[starlark_value(type = "Artifact")]
 impl<'v> StarlarkValue<'v> for StarlarkArtifact {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

@@ -326,7 +326,7 @@ impl<'v> AllocValue<'v> for StarlarkDeclaredArtifact {
     }
 }
 
-#[starlark_value(type = "artifact", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "Artifact", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact {
     type Canonical = StarlarkArtifact;
 
