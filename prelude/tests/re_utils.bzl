@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:build_mode.bzl", "BuildModeInfo", "stringify_build_mode_infos")
 load("@prelude//tests:remote_test_execution_toolchain.bzl", "RemoteTestExecutionToolchainInfo")
 load("@prelude//utils:expect.bzl", "expect_non_none")
 
@@ -79,19 +78,12 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
         unexpected_props = ", ".join(re_props_copy.keys())
         fail("found unexpected re props: " + unexpected_props)
 
-    remote_execution_action_key = stringify_build_mode_infos(
-        [ctx.attrs.remote_execution_action_key_providers[BuildModeInfo]],
-        ctx.label,
-        None,
-    )
-
     default_executor = CommandExecutorConfig(
         local_enabled = local_enabled,
         remote_enabled = True,
         remote_execution_properties = capabilities,
         remote_execution_use_case = use_case or "tpx-default",
         remote_cache_enabled = remote_cache_enabled,
-        remote_execution_action_key = remote_execution_action_key,
         remote_execution_dependencies = re_dependencies,
         remote_execution_resource_units = re_resource_units,
         remote_execution_dynamic_image = re_dynamic_image,
@@ -105,7 +97,6 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
             remote_execution_properties = listing_capabilities,
             remote_execution_use_case = use_case or "tpx-default",
             remote_cache_enabled = remote_cache_enabled,
-            remote_execution_action_key = remote_execution_action_key,
             remote_execution_resource_units = re_resource_units,
             remote_execution_dynamic_image = re_dynamic_image,
         )

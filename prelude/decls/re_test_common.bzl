@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:build_mode.bzl", "BuildModeInfo")
-load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load(":toolchains_common.bzl", "toolchains_common")
 
 def _opts_for_tests_arg() -> Attr:
@@ -46,16 +44,6 @@ def _opts_for_tests_arg() -> Attr:
         sorted = False,
     )
 
-def _action_key_provider_arg() -> Attr:
-    if is_full_meta_repo():
-        default_build_mode = read_root_config("fb", "remote_execution_test_build_mode", "fbcode//buck2/platform/build_mode:build_mode")
-    else:
-        default_build_mode = read_root_config("re", "remote_execution_test_build_mode")
-    if default_build_mode != None:
-        return attrs.dep(providers = [BuildModeInfo], default = default_build_mode)
-    else:
-        return attrs.option(attrs.dep(providers = [BuildModeInfo]), default = None)
-
 def _test_args() -> dict[str, Attr]:
     return {
         "remote_execution": attrs.option(
@@ -65,7 +53,6 @@ def _test_args() -> dict[str, Attr]:
             ),
             default = None,
         ),
-        "remote_execution_action_key_providers": _action_key_provider_arg(),
         "_remote_test_execution_toolchain": toolchains_common.remote_test_execution(),
     }
 
