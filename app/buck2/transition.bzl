@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@fbcode_macros//build_defs/lib:oss.bzl", "translate_target")
+
 def _transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
     val = refs.val[ConstraintValueInfo]
     new_cfg = ConfigurationInfo(
@@ -19,7 +21,7 @@ def _transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
 _transition_func = transition(
     impl = _transition_impl,
     refs = {
-        "val": "//buck2/app/buck2:buck2_client_only_build",
+        "val": translate_target("//buck2/app/buck2:buck2_client_only_build"),
     },
 )
 

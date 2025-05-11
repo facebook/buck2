@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
+load("@fbcode_macros//build_defs/lib:oss.bzl", "translate_target")
 load("@prelude//decls:common.bzl", "buck")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 
@@ -56,7 +57,13 @@ _buck2_bundle = rule(
     },
 )
 
-def buck2_bundle(**kwargs):
+def buck2_bundle(buck2, buck2_client, buck2_health_check, tpx, **kwargs):
     cxx_platform = platform_utils.get_cxx_platform_for_base_path(native.package_name())
-    kwargs["default_target_platform"] = cxx_platform.target_platform
-    _buck2_bundle(**kwargs)
+    _buck2_bundle(
+        buck2 = translate_target(buck2),
+        buck2_client = translate_target(buck2_client),
+        buck2_health_check = translate_target(buck2_health_check),
+        tpx = translate_target(tpx),
+        default_target_platform = cxx_platform.target_platform,
+        **kwargs
+    )
