@@ -1,4 +1,5 @@
 load("@fbcode//buck2:proto_defs.bzl", "proto_srcs", "rust_protobuf_library")
+load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 
 oncall("build_infra")
 
@@ -19,4 +20,9 @@ proto_srcs(
     name = "host_sharing.proto",
     srcs = ["host_sharing.proto"],
     visibility = ["PUBLIC"],
+)
+
+export_file(
+    name = "host_sharing_proto",
+    src = "host_sharing.proto",
 )

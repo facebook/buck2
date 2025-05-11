@@ -1,4 +1,5 @@
 load("@fbcode//buck2:proto_defs.bzl", "proto_srcs", "rust_protobuf_library")
+load("@fbcode//grpc_fb/codegen:buck_macros.bzl", "grpc_library")
 load("@fbcode_macros//build_defs/lib:oss.bzl", "translate_target")
 
 oncall("build_infra")
@@ -20,5 +21,18 @@ proto_srcs(
     visibility = ["PUBLIC"],
     deps = [
         translate_target("//buck2/app/buck2_data:data_proto"),
+    ],
+)
+
+grpc_library(
+    name = "health_check",
+    srcs = [
+        "health_check.proto",
+        "//buck2/app/buck2_data:data.proto",
+        "//buck2/app/buck2_data:error.proto",
+        "//buck2/app/buck2_host_sharing_proto:host_sharing_proto",
+    ],
+    languages = [
+        "py",
     ],
 )
