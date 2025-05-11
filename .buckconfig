@@ -9,5 +9,13 @@ root = gh_facebook_buck2
 internal_cell = fbcode
 stripped_root_dirs = buck2
 
+[project]
+ignore = \
+    app/buck2_explain, \
+    app_dep_graph_rules, \
+    examples, \
+    integrations/rust-project/tests, \
+    tests
+
 [rust]
 default_edition = 2024
