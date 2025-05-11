@@ -9,12 +9,17 @@
 
 #![allow(dead_code)]
 
-use std::net::SocketAddr;
+use std::net::Ipv4Addr;
+use std::time::Duration;
 
+use buck2_common::client_utils::get_channel_tcp;
+use buck2_common::client_utils::retrying;
 use buck2_core::async_once_cell::AsyncOnceCell;
+use buck2_core::fs::async_fs_util;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
@@ -24,7 +29,6 @@ use buck2_util::properly_reaped_child::ProperlyReapedChild;
 use buck2_util::properly_reaped_child::reap_on_drop_command;
 use dupe::Dupe;
 use futures::FutureExt;
-use tokio::net::TcpListener;
 use tonic::transport::Channel;
 
 use crate::interface::HealthCheckContextEvent;
@@ -32,6 +36,7 @@ use crate::interface::HealthCheckService;
 use crate::report::Report;
 
 const CLI_NAME: &str = "buck2-health-check";
+const CLI_INFO_FILE: &str = "buck2-health-check-server-info";
 
 struct HealthCheckServerConnection {
     pub(crate) rpc_client: HealthCheckClient<Channel>,
@@ -55,7 +60,8 @@ impl HealthCheckRpcClient {
 
     async fn connection(&self) -> buck2_error::Result<&HealthCheckServerConnection> {
         let init_fut = async move {
-            Self::spawn_out_of_process_health_check_server()
+            let file_path = self.get_state_info_file_path().await?;
+            Self::spawn_out_of_process_health_check_server(file_path)
                 .boxed()
                 .await
         };
@@ -69,17 +75,32 @@ impl HealthCheckRpcClient {
         Ok(self.connection().await?.rpc_client.clone())
     }
 
-    async fn spawn_out_of_process_health_check_server()
-    -> buck2_error::Result<HealthCheckServerConnection> {
-        let (addr, tcp_listener) = Self::create_tcp_listener().await?;
+    async fn spawn_out_of_process_health_check_server(
+        file_path: AbsNormPathBuf,
+    ) -> buck2_error::Result<HealthCheckServerConnection> {
+        let initial_delay = Duration::from_millis(10);
+        let max_delay = Duration::from_millis(100);
+        let timeout = Duration::from_secs(20);
 
         let exe = Self::get_cli_path()?;
-        let process = reap_on_drop_command(&exe, &["--io-addr", &addr], None)?;
+        let process =
+            reap_on_drop_command(&exe, &["--state-info-file", &file_path.to_string()], None)?;
 
-        let (tcp_stream, _) = tcp_listener.accept().await?;
-        let channel = buck2_grpc::make_channel(tcp_stream, "health_check")
-            .await
-            .map_err(|e| from_any_with_tag(e, ErrorTag::HealthCheck))?;
+        let tcp_port = retrying(initial_delay, max_delay, timeout, || async {
+            // Wait for the health check server to write the TCP port to the file.
+            async_fs_util::read_to_string(&file_path).await
+        })
+        .await
+        .buck_error_context("Failed to find TCP socket from health check server")?;
+
+        let tcp_port = tcp_port.trim().parse::<u16>()?;
+
+        let channel = retrying(initial_delay, max_delay, timeout, || async {
+            get_channel_tcp(Ipv4Addr::LOCALHOST, tcp_port).await
+        })
+        .await
+        .buck_error_context("Failed to connect to the health check server using TCP")?;
+
         let rpc_client = HealthCheckClient::new(channel)
             .max_encoding_message_size(usize::MAX)
             .max_decoding_message_size(usize::MAX);
@@ -87,19 +108,6 @@ impl HealthCheckRpcClient {
             rpc_client,
             process,
         })
-    }
-
-    async fn create_tcp_listener() -> buck2_error::Result<(String, TcpListener)> {
-        let addr: SocketAddr = "127.0.0.1:0"
-            .parse()
-            .map_err(|e| from_any_with_tag(e, ErrorTag::HealthCheck))?;
-        let tcp_listener = TcpListener::bind(addr)
-            .await
-            .map_err(|e| from_any_with_tag(e, ErrorTag::HealthCheck))?;
-        let local_addr = tcp_listener
-            .local_addr()
-            .map_err(|e| from_any_with_tag(e, ErrorTag::HealthCheck))?;
-        Ok((local_addr.to_string(), tcp_listener))
     }
 
     fn get_cli_path() -> buck2_error::Result<String> {
@@ -124,6 +132,20 @@ impl HealthCheckRpcClient {
         let cli_name = format!("{}{}", CLI_NAME, ext);
 
         Ok(exe_dir.join(cli_name).to_string())
+    }
+
+    async fn get_state_info_file_path(&self) -> buck2_error::Result<AbsNormPathBuf> {
+        async fn create_state_info_file_path(
+            dir: &AbsNormPathBuf,
+        ) -> buck2_error::Result<AbsNormPathBuf> {
+            async_fs_util::create_dir_all(dir).await?;
+            Ok(dir.join(ForwardRelativePath::unchecked_new(CLI_INFO_FILE)))
+        }
+
+        match std::env::var("BUCK2_HEALTH_CHECK_STATE_INFO_PATH") {
+            Err(_) => create_state_info_file_path(&self.health_check_dir).await,
+            Ok(path) => AbsNormPathBuf::try_from(path),
+        }
     }
 }
 
