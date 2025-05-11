@@ -19,8 +19,6 @@ name_v2 = TARGETS,BUCK
 
 # Some sort of defaults to make ovrsource macros stop complaining.
 [ovrsource]
-  build_host_compiler = clang
-  build_host_os = linux
 
 [java]
   bootclasspath_8 = fbsource//xplat/third-party/java/jdk8:jce-stub fbsource//xplat/third-party/java/jdk8:jsse-stub fbsource//xplat/third-party/java/jdk8:rt-stub
