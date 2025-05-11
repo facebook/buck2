@@ -1,3 +1,4 @@
+load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup", "buck_genrule")
 load("@fbsource//xplat/third-party/yarn:yarn_offline_mirror_helper.bzl", "yarn_offline_mirror_path")
 
@@ -32,4 +33,8 @@ buck_genrule(
     out = "src/fbs",
     cmd = "$(exe fbsource//third-party/flatbuffers-23.5.26:flatc) --ts -o ${OUT} ${SRCS}",
     default_outs = ["."],
+)
+
+export_file(
+    name = "output_format.fbs",
 )

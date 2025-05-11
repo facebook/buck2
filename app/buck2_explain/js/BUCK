@@ -1,3 +1,4 @@
+load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup", "buck_genrule")
 load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
 load("@fbsource//xplat/third-party/yarn:yarn_offline_mirror_helper.bzl", "yarn_offline_mirror_path")
@@ -39,4 +40,8 @@ python_binary(
     name = "build_html_script",
     main_function = ".build_html.main",
     main_src = "build_html.py",
+)
+
+export_file(
+    name = "explain.fbs",
 )

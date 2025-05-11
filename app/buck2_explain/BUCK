@@ -35,7 +35,7 @@ rust_library(
 buck_genrule(
     name = "output_format_schema_rust",
     srcs = [
-        "output_format_js/output_format.fbs",
+        "//buck2/app/buck2_explain/output_format_js:output_format.fbs",
     ],
     outs = {
         "output_format_generated.rs": ["output_format_generated.rs"],
@@ -47,7 +47,7 @@ buck_genrule(
 buck_genrule(
     name = "schema_rust",
     srcs = [
-        "js/explain.fbs",
+        "//buck2/app/buck2_explain/js:explain.fbs",
     ],
     outs = {
         "explain_generated.rs": ["explain_generated.rs"],
