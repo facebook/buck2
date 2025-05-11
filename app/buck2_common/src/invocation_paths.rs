@@ -160,6 +160,12 @@ impl InvocationPaths {
     pub fn valid_cache_dirs(&self) -> Vec<&FileName> {
         vec![self.materializer_state_dir_name()]
     }
+
+    /// This is used by the health check server and client to preserve states across runs, and for temporary files.
+    pub fn health_check_state_dir(&self) -> AbsNormPathBuf {
+        self.buck_out_path()
+            .join(ForwardRelativePath::unchecked_new("health_check"))
+    }
 }
 
 #[cfg(test)]
@@ -256,6 +262,16 @@ mod tests {
         };
         assert_eq!(
             paths.materializer_state_path().as_os_str(),
+            OsStr::new(expected_path),
+        );
+
+        let expected_path = if cfg!(windows) {
+            "C:\\my\\project\\buck-out\\isolation\\health_check"
+        } else {
+            "/my/project/buck-out/isolation/health_check"
+        };
+        assert_eq!(
+            paths.health_check_state_dir().as_os_str(),
             OsStr::new(expected_path),
         );
     }
