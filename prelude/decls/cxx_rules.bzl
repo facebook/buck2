@@ -996,7 +996,6 @@ cxx_toolchain = prelude_rule(
             "c_preprocessor_flags": attrs.list(attrs.arg(), default = []),
             "cache_links": attrs.bool(default = False),
             "compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
-            "conflicting_header_basename_exemptions": attrs.set(attrs.string(), sorted = True, default = []),
             "contacts": attrs.list(attrs.string(), default = []),
             "cuda_compiler": attrs.option(attrs.source(), default = None),
             "cuda_compiler_flags": attrs.list(attrs.arg(), default = []),

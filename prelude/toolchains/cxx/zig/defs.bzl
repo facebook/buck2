@@ -415,7 +415,6 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
         header_mode = HeaderMode("symlink_tree_only"),  # header map modes require mk_hmap
         #headers_as_raw_headers_mode = None,
-        #conflicting_header_basename_allowlist = [],
         #asm_compiler_info = None,
         #as_compiler_info = None,
         #hip_compiler_info = None,

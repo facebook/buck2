@@ -203,7 +203,6 @@ def _cxx_toolchain_override(ctx):
         gcno_files = base_toolchain.gcno_files,
         clang_trace = base_toolchain.clang_trace,
         object_format = CxxObjectFormat(ctx.attrs.object_format) if ctx.attrs.object_format != None else base_toolchain.object_format,
-        conflicting_header_basename_allowlist = base_toolchain.conflicting_header_basename_allowlist,
         strip_flags_info = strip_flags_info,
         pic_behavior = PicBehavior(ctx.attrs.pic_behavior) if ctx.attrs.pic_behavior != None else base_toolchain.pic_behavior.value,
         split_debug_mode = SplitDebugMode(value_or(ctx.attrs.split_debug_mode, base_toolchain.split_debug_mode.value)),

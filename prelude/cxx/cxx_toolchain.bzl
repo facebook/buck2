@@ -198,7 +198,6 @@ def cxx_toolchain_impl(ctx):
         c_compiler_info = c_info,
         clang_remarks = ctx.attrs.clang_remarks,
         clang_trace = value_or(ctx.attrs.clang_trace, False),
-        conflicting_header_basename_allowlist = ctx.attrs.conflicting_header_basename_exemptions,
         cpp_dep_tracking_mode = DepTrackingMode(ctx.attrs.cpp_dep_tracking_mode),
         cuda_compiler_info = cuda_info,
         cuda_dep_tracking_mode = DepTrackingMode(ctx.attrs.cuda_dep_tracking_mode),
