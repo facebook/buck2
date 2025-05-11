@@ -2,8 +2,6 @@
 members = [
     "allocative/allocative",
     "allocative/allocative_derive",
-    # @oss-disable: "attic/uniplate",
-    # @oss-disable: "attic/uniplate_derive",
     "app/buck2",
     "app/buck2_action_impl",
     "app/buck2_action_impl_tests",
