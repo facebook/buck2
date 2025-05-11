@@ -9,6 +9,8 @@
 
 #![allow(dead_code)] // TODO(rajneeshl): Remove this when the health checks are moved to the server.
 
+use buck2_common::invocation_paths::InvocationPaths;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::soft_error;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
@@ -34,12 +36,21 @@ impl StreamingHealthCheckClient {
         tags_sender: Option<Sender<Vec<String>>>,
         display_reports_sender: Option<Sender<Vec<DisplayReport>>>,
         event_receiver: Receiver<HealthCheckEvent>,
-    ) -> Self {
+        paths: Option<&InvocationPaths>,
+    ) -> buck2_error::Result<Self> {
+        let Some(path) = paths else {
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::HealthCheck,
+                "Error setting up health check state dir. Health checks will not be run."
+            ));
+        };
+        let health_check_dir = path.health_check_state_dir();
         let inner = tokio::spawn(async move {
-            let mut client = HealthCheckClientInner::new(tags_sender, display_reports_sender);
+            let mut client =
+                HealthCheckClientInner::new(tags_sender, display_reports_sender, health_check_dir);
             client.run_event_loop(event_receiver).await;
         });
-        Self { inner }
+        Ok(Self { inner })
     }
 }
 
@@ -63,8 +74,9 @@ impl HealthCheckClientInner {
     fn new(
         tags_sender: Option<Sender<Vec<String>>>,
         display_reports_sender: Option<Sender<Vec<DisplayReport>>>,
+        health_check_dir: AbsNormPathBuf,
     ) -> Self {
-        let health_check_service = Self::create_service();
+        let health_check_service = Self::create_service(health_check_dir);
         Self::new_with_service(tags_sender, display_reports_sender, health_check_service)
     }
 
@@ -79,16 +91,22 @@ impl HealthCheckClientInner {
             health_check_service,
         }
     }
-    fn create_service() -> Box<dyn HealthCheckService> {
+    fn create_service(health_check_dir: AbsNormPathBuf) -> Box<dyn HealthCheckService> {
         #[cfg(fbcode_build)]
         {
-            Box::new(crate::service::health_check_rpc_client::HealthCheckRpcClient::new())
+            Box::new(
+                crate::service::health_check_rpc_client::HealthCheckRpcClient::new(
+                    health_check_dir,
+                ),
+            )
         }
         #[cfg(not(fbcode_build))]
         {
             // There is no easy binary distribution mechanism for OSS, hence default to in-process execution.
             Box::new(
-                crate::service::health_check_in_process_service::HealthCheckInProcessService::new(),
+                crate::service::health_check_in_process_service::HealthCheckInProcessService::new(
+                    health_check_dir,
+                ),
             )
         }
     }

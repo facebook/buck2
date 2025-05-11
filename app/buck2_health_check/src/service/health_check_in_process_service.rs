@@ -9,6 +9,8 @@
 
 #![allow(dead_code)] // Presently used only in oss
 
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+
 use crate::interface::HealthCheckContextEvent;
 use crate::interface::HealthCheckService;
 use crate::report::Report;
@@ -19,7 +21,7 @@ pub struct HealthCheckInProcessService {
 }
 
 impl HealthCheckInProcessService {
-    pub fn new() -> Self {
+    pub fn new(_health_check_dir: AbsNormPathBuf) -> Self {
         Self {
             executor: HealthCheckExecutor::new(),
         }

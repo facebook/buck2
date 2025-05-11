@@ -12,6 +12,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::soft_error;
 use buck2_data::buck_event::Data::*;
 use buck2_error::BuckErrorContext;
@@ -55,11 +56,18 @@ impl HealthCheckSubscriber {
     pub fn new(
         tags_sender: Sender<Vec<String>>,
         display_reports_sender: Sender<Vec<DisplayReport>>,
+        paths: Option<&InvocationPaths>,
     ) -> Box<Self> {
         let (tx, rx) = tokio::sync::mpsc::channel(EVENT_CHANNEL_SIZE);
-        let client =
-            StreamingHealthCheckClient::new(Some(tags_sender), Some(display_reports_sender), rx);
-        Self::new_with_client(Some(Box::new(client)), tx)
+        let client = StreamingHealthCheckClient::new(
+            Some(tags_sender),
+            Some(display_reports_sender),
+            rx,
+            paths,
+        )
+        .map(|c| Box::new(c) as Box<dyn HealthCheckClient>)
+        .ok();
+        Self::new_with_client(client, tx)
     }
 
     fn new_with_client(

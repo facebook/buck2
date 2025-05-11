@@ -13,6 +13,7 @@ use std::net::SocketAddr;
 
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
@@ -41,12 +42,14 @@ struct HealthCheckServerConnection {
 pub(crate) struct HealthCheckRpcClient {
     // The connection is lazily created when the first event to update the context or to run checks is received.
     connection: AsyncOnceCell<buck2_error::Result<HealthCheckServerConnection>>,
+    health_check_dir: AbsNormPathBuf,
 }
 
 impl HealthCheckRpcClient {
-    pub fn new() -> Self {
+    pub fn new(health_check_dir: AbsNormPathBuf) -> Self {
         Self {
             connection: AsyncOnceCell::new(),
+            health_check_dir,
         }
     }
 

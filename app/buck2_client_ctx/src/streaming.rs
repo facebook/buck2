@@ -78,7 +78,7 @@ fn default_subscribers<T: StreamingCommand>(
     ) = if enable_health_checks {
         let (tag_tx, tag_rx) = tokio::sync::mpsc::channel(HEALTH_CHECK_CHANNEL_SIZE);
         let (report_tx, report_rx) = tokio::sync::mpsc::channel(HEALTH_CHECK_CHANNEL_SIZE);
-        let subscriber = HealthCheckSubscriber::new(tag_tx, report_tx);
+        let subscriber = HealthCheckSubscriber::new(tag_tx, report_tx, paths);
         (Some(tag_rx), Some(report_rx), Some(subscriber))
     } else {
         (None, None, None)
