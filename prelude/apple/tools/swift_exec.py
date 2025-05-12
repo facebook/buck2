@@ -113,8 +113,8 @@ def _rewrite_dependency_file(command):
             # from any macro library dependencies.
             relative_paths.append(path[len(cwd) + 1 :])
         elif path.startswith("/"):
+            # This can occur for Xcode toolchain plugins like libSwiftUIMacros.dylib
             print(f"Dependency file contains absolute path: {path}", file=sys.stderr)
-            sys.exit(1)
         else:
             relative_paths.append(path)
 
