@@ -21,7 +21,7 @@ load(
 
 _INTERPRETER = select({
     "DEFAULT": "python3",
-    "config//os:windows": "python",
+    "config//os:windows": "python.exe",
 })
 
 def _system_python_bootstrap_toolchain_impl(ctx):
