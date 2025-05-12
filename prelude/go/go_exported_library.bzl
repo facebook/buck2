@@ -42,7 +42,6 @@ load(
     "create_shlib",
     "merge_shared_libraries",
 )
-load("@prelude//linking:types.bzl", "Linkage")
 load(
     "@prelude//utils:utils.bzl",
     "map_idx",
@@ -126,7 +125,6 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
     ])
 
     own_exported_preprocessors = [cgo_exported_preprocessor(ctx, pkg_info)] if ctx.attrs.generate_exported_header else []
-    preferred_linkage = Linkage("any") if ctx.attrs.build_mode == "c_archive" else Linkage("shared")
 
     return [
         DefaultInfo(
@@ -135,7 +133,6 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         create_merged_link_info(
             ctx,
             cxx_toolchain.pic_behavior,
-            preferred_linkage = preferred_linkage,
             link_infos = link_infos,
             deps = filter(None, map_idx(MergedLinkInfo, ctx.attrs.deps)),
         ),
@@ -152,7 +149,6 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 linkable_node = create_linkable_node(
                     ctx,
                     default_soname = soname,
-                    preferred_linkage = preferred_linkage,
                     deps = ctx.attrs.deps,
                     link_infos = link_infos,
                     shared_libs = shared_libs,
