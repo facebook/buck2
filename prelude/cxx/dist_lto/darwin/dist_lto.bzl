@@ -433,59 +433,58 @@ def cxx_darwin_dist_link(
     prepare_index_flags(include_inputs = False, index_args_out = index_flags_for_debugging, index_meta_records_out = [], ctx = ctx, artifacts = None, outputs = None)
     index_flags_for_debugging_argsfile, _ = ctx.actions.write(output.basename + ".thinlto_index_debugging_argsfile", index_flags_for_debugging, allow_args = True)
 
+    def plan(ctx: AnalysisContext, artifacts, outputs, link_plan):
+        # index link command args
+        index_args = cmd_args()
+
+        # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
+        index_meta_records = []
+
+        prepare_index_flags(include_inputs = True, index_args_out = index_args, index_meta_records_out = index_meta_records, ctx = ctx, artifacts = artifacts, outputs = outputs)
+
+        index_argfile, _ = ctx.actions.write(
+            outputs[index_argsfile_out].as_output(),
+            index_args,
+            allow_args = True,
+        )
+
+        index_cat = make_cat("thin_lto_index")
+        index_file_out = ctx.actions.declare_output(make_id(index_cat) + "/index")
+        index_out_dir = cmd_args(index_file_out.as_output(), parent = 1)
+
+        index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
+
+        index_cmd = index_cmd_parts.link_cmd
+        index_cmd.add(common_link_flags)
+        index_cmd.add(cmd_args(index_argfile, format = "@{}"))
+
+        index_cmd.add(cmd_args(index_file_out.as_output(), format = "-Wl,--thinlto-index-only={}"))
+        index_cmd.add("-Wl,--thinlto-emit-imports-files")
+        index_cmd.add("-Wl,--thinlto-full-index")
+
+        # By default the linker will write artifacts (import files and sharded indices) next to input bitcode files with
+        # a different suffix. This can be problematic if you are running two distributed links on the same machine at the # same time consuming the same input bitcode files. That is the links would overwrite each other's artifacts. This
+        # flag allows you to write all these artifacts into a unique directory per link to avoid this problem.
+        index_cmd.add(cmd_args(index_out_dir, format = "-Wl,--thinlto-prefix-replace=;{}/"))
+        index_cmd.add(index_cmd_parts.post_linker_flags)
+
+        index_meta_file = ctx.actions.write_json(
+            output.basename + ".thinlto.meta.json",
+            index_meta_records,
+            with_inputs = True,
+        )
+
+        plan_cmd = cmd_args([lto_planner, "--meta", index_meta_file, "--index", index_out_dir, "--link-plan", outputs[link_plan].as_output(), "--final-link-index", outputs[final_link_index].as_output()])
+        if premerger_enabled:
+            plan_cmd.add("--enable-premerger")
+        plan_cmd.add("--", index_cmd)
+
+        plan_cmd.add(cmd_args(hidden = [
+            index_args,
+        ]))
+        ctx.actions.run(plan_cmd, category = index_cat, identifier = identifier, local_only = _execute_link_actions_locally())
+
     def dynamic_plan(link_plan: Artifact, index_argsfile_out: Artifact, final_link_index: Artifact):
-        def plan(ctx: AnalysisContext, artifacts, outputs):
-            # index link command args
-            index_args = cmd_args()
-
-            # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
-            index_meta_records = []
-
-            prepare_index_flags(include_inputs = True, index_args_out = index_args, index_meta_records_out = index_meta_records, ctx = ctx, artifacts = artifacts, outputs = outputs)
-
-            index_argfile, _ = ctx.actions.write(
-                outputs[index_argsfile_out].as_output(),
-                index_args,
-                allow_args = True,
-            )
-
-            index_cat = make_cat("thin_lto_index")
-            index_file_out = ctx.actions.declare_output(make_id(index_cat) + "/index")
-            index_out_dir = cmd_args(index_file_out.as_output(), parent = 1)
-
-            index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
-
-            index_cmd = index_cmd_parts.link_cmd
-            index_cmd.add(common_link_flags)
-            index_cmd.add(cmd_args(index_argfile, format = "@{}"))
-
-            index_cmd.add(cmd_args(index_file_out.as_output(), format = "-Wl,--thinlto-index-only={}"))
-            index_cmd.add("-Wl,--thinlto-emit-imports-files")
-            index_cmd.add("-Wl,--thinlto-full-index")
-
-            # By default the linker will write artifacts (import files and sharded indices) next to input bitcode files with
-            # a different suffix. This can be problematic if you are running two distributed links on the same machine at the # same time consuming the same input bitcode files. That is the links would overwrite each other's artifacts. This
-            # flag allows you to write all these artifacts into a unique directory per link to avoid this problem.
-            index_cmd.add(cmd_args(index_out_dir, format = "-Wl,--thinlto-prefix-replace=;{}/"))
-            index_cmd.add(index_cmd_parts.post_linker_flags)
-
-            index_meta_file = ctx.actions.write_json(
-                output.basename + ".thinlto.meta.json",
-                index_meta_records,
-                with_inputs = True,
-            )
-
-            plan_cmd = cmd_args([lto_planner, "--meta", index_meta_file, "--index", index_out_dir, "--link-plan", outputs[link_plan].as_output(), "--final-link-index", outputs[final_link_index].as_output()])
-            if premerger_enabled:
-                plan_cmd.add("--enable-premerger")
-            plan_cmd.add("--", index_cmd)
-
-            plan_cmd.add(cmd_args(hidden = [
-                index_args,
-            ]))
-
-            ctx.actions.run(plan_cmd, category = index_cat, identifier = identifier, local_only = _execute_link_actions_locally())
-
         # TODO(T117513091) - dynamic_output does not allow for an empty list of dynamic inputs. If we have no archives
         # to process, we will have no dynamic inputs, and the plan action can be non-dynamic.
         #
@@ -494,7 +493,7 @@ def cxx_darwin_dist_link(
         # the lack of `ctx.outputs`, we declare an empty file as a dynamic input.
         plan_inputs.append(ctx.actions.write(output.basename + ".plan_hack.txt", ""))
         plan_outputs.extend([link_plan.as_output(), index_argsfile_out.as_output(), final_link_index.as_output()])
-        ctx.actions.dynamic_output(dynamic = plan_inputs, inputs = [], outputs = plan_outputs, f = plan)
+        ctx.actions.dynamic_output(dynamic = plan_inputs, inputs = [], outputs = plan_outputs, f = lambda ctx, artifacts, outputs: plan(ctx, artifacts, outputs, link_plan))
 
     link_plan_out = ctx.actions.declare_output(output.basename + ".link-plan.json")
     dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index)
@@ -520,37 +519,107 @@ def cxx_darwin_dist_link(
     opt_flags_for_debugging_argsfile = ctx.actions.declare_output(output.basename + ".thin_lto_codegen_debugging_argsfile")
     ctx.actions.write(opt_flags_for_debugging_argsfile.as_output(), opt_flags_for_debugging, allow_args = True)
 
+    def optimize_object(ctx: AnalysisContext, artifacts, outputs, name, initial_object, bc_file, plan, opt_object, merged_bc):
+        optimization_plan = ObjectFileOptimizationPlan(**artifacts[plan].read_json())
+
+        # If the object was not compiled with thinlto flags, then there
+        # won't be valid outputs for it from the indexing, but we still
+        # need to bind the artifact. Similarily, if a bitcode file is not
+        # loaded by the indexing phase, or is absorbed by another module,
+        # there is no point optimizing it.
+        if not optimization_plan.loaded_by_linker or not optimization_plan.is_bitcode or optimization_plan.merge_state == BitcodeMergeState("ABSORBED").value:
+            ctx.actions.write(outputs[opt_object].as_output(), "")
+            return
+
+        opt_cmd = cmd_args(lto_opt)
+        opt_cmd.add("--out", outputs[opt_object].as_output())
+        if premerger_enabled:
+            if optimization_plan.merge_state == BitcodeMergeState("STANDALONE").value:
+                opt_cmd.add("--input", initial_object)
+            elif optimization_plan.merge_state == BitcodeMergeState("ROOT").value:
+                opt_cmd.add("--input", merged_bc)
+            else:
+                fail("Invalid merge state {} for bitcode file: {}".format(optimization_plan.merge_state, bc_file))
+        else:
+            opt_cmd.add("--input", initial_object)
+
+        opt_cmd.add("--index", bc_file)
+
+        opt_cmd.add(cmd_args(hidden = common_opt_cmd))
+        opt_cmd.add("--args", opt_argsfile)
+
+        opt_cmd.add("--")
+        opt_cmd.add(cxx_toolchain.cxx_compiler_info.compiler)
+
+        imported_input_bitcode_files = [sorted_index_link_data[idx].link_data.initial_object for idx in optimization_plan.imports]
+        imported_archives_input_bitcode_files_directory = [sorted_index_link_data[idx].link_data.objects_dir for idx in optimization_plan.archive_imports]
+
+        if premerger_enabled:
+            imported_merged_input_bitcode_files = [sorted_index_link_data[idx].link_data.merged_bc for idx in optimization_plan.imports]
+            imported_archives_merged_bitcode_files_directory = [sorted_index_link_data[idx].link_data.merged_bc_dir for idx in optimization_plan.archive_imports]
+            opt_cmd.add(cmd_args(hidden = imported_merged_input_bitcode_files + imported_archives_merged_bitcode_files_directory))
+
+        opt_cmd.add(cmd_args(hidden = imported_input_bitcode_files + imported_archives_input_bitcode_files_directory))
+        ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt_object"), identifier = name)
+
     # We declare a separate dynamic_output for every object file. It would
     # maybe be simpler to have a single dynamic_output that produced all the
     # opt actions, but an action needs to re-run whenever the analysis that
     # produced it re-runs. And so, with a single dynamic_output, we'd need to
     # re-run all actions when any of the plans changed.
     def dynamic_optimize(name: str, initial_object: Artifact, bc_file: Artifact, plan: Artifact, opt_object: Artifact, merged_bc: Artifact | None):
-        def optimize_object(ctx: AnalysisContext, artifacts, outputs):
-            optimization_plan = ObjectFileOptimizationPlan(**artifacts[plan].read_json())
+        ctx.actions.dynamic_output(dynamic = [plan], inputs = [], outputs = [opt_object.as_output()], f = lambda ctx, artifacts, outputs: optimize_object(ctx, artifacts, outputs, name, initial_object, bc_file, plan, opt_object, merged_bc))
 
-            # If the object was not compiled with thinlto flags, then there
-            # won't be valid outputs for it from the indexing, but we still
-            # need to bind the artifact. Similarily, if a bitcode file is not
-            # loaded by the indexing phase, or is absorbed by another module,
-            # there is no point optimizing it.
-            if not optimization_plan.loaded_by_linker or not optimization_plan.is_bitcode or optimization_plan.merge_state == BitcodeMergeState("ABSORBED").value:
-                ctx.actions.write(outputs[opt_object].as_output(), "")
-                return
+    def optimize_archive(ctx: AnalysisContext, artifacts, outputs, archive):
+        plan_json = artifacts[archive.plan].read_json()
+        archive_optimization_plan = ArchiveOptimizationPlan(
+            object_plans = [
+                ArchiveMemberOptimizationPlan(**object_plan_json)
+                for object_plan_json in plan_json["object_plans"]
+            ],
+            base_dir = plan_json["base_dir"],
+        )
+        if lazy.is_all(lambda e: not e.is_bitcode, archive_optimization_plan.object_plans):
+            # Nothing in this directory was lto-able; let's just copy the archive.
+            ctx.actions.copy_file(outputs[archive.opt_objects_dir], archive.objects_dir)
+            ctx.actions.write(outputs[archive.opt_manifest], "")
+            return
 
+        output_dir = {}
+        output_manifest = cmd_args()
+        for object_optimization_plan in archive_optimization_plan.object_plans:
+            if not object_optimization_plan.loaded_by_linker:
+                continue
+
+            if premerger_enabled and object_optimization_plan.merge_state == BitcodeMergeState("ABSORBED").value:
+                continue
+
+            base_dir = archive_optimization_plan.base_dir
+            source_path = paths.relativize(object_optimization_plan.path, base_dir)
+            if not object_optimization_plan.is_bitcode:
+                opt_object = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_copy"), source_path))
+                output_manifest.add(opt_object)
+                copy_cmd = cmd_args([
+                    lto_copy,
+                    "--to",
+                    opt_object.as_output(),
+                    "--from",
+                    object_optimization_plan.path,
+                ], hidden = archive.objects_dir)
+                ctx.actions.run(copy_cmd, category = make_cat("thin_lto_opt_copy"), identifier = source_path)
+                output_dir[source_path] = opt_object
+                continue
+
+            opt_object = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_archive"), source_path))
+            output_manifest.add(opt_object)
+            output_dir[source_path] = opt_object
             opt_cmd = cmd_args(lto_opt)
-            opt_cmd.add("--out", outputs[opt_object].as_output())
-            if premerger_enabled:
-                if optimization_plan.merge_state == BitcodeMergeState("STANDALONE").value:
-                    opt_cmd.add("--input", initial_object)
-                elif optimization_plan.merge_state == BitcodeMergeState("ROOT").value:
-                    opt_cmd.add("--input", merged_bc)
-                else:
-                    fail("Invalid merge state {} for bitcode file: {}".format(optimization_plan.merge_state, bc_file))
+            opt_cmd.add("--out", opt_object.as_output())
+            if premerger_enabled and object_optimization_plan.merge_state == BitcodeMergeState("ROOT").value:
+                opt_cmd.add("--input", object_optimization_plan.merged_bitcode_path)
             else:
-                opt_cmd.add("--input", initial_object)
-
-            opt_cmd.add("--index", bc_file)
+                opt_cmd.add("--input", object_optimization_plan.path)
+            opt_cmd.add("--index", object_optimization_plan.index_shard_file_path)
 
             opt_cmd.add(cmd_args(hidden = common_opt_cmd))
             opt_cmd.add("--args", opt_argsfile)
@@ -558,95 +627,25 @@ def cxx_darwin_dist_link(
             opt_cmd.add("--")
             opt_cmd.add(cxx_toolchain.cxx_compiler_info.compiler)
 
-            imported_input_bitcode_files = [sorted_index_link_data[idx].link_data.initial_object for idx in optimization_plan.imports]
-            imported_archives_input_bitcode_files_directory = [sorted_index_link_data[idx].link_data.objects_dir for idx in optimization_plan.archive_imports]
-
+            imported_input_bitcode_files = [sorted_index_link_data[idx].link_data.initial_object for idx in object_optimization_plan.imports]
+            imported_archives_input_bitcode_files_directory = [sorted_index_link_data[idx].link_data.objects_dir for idx in object_optimization_plan.archive_imports]
             if premerger_enabled:
-                imported_merged_input_bitcode_files = [sorted_index_link_data[idx].link_data.merged_bc for idx in optimization_plan.imports]
-                imported_archives_merged_bitcode_files_directory = [sorted_index_link_data[idx].link_data.merged_bc_dir for idx in optimization_plan.archive_imports]
-                opt_cmd.add(cmd_args(hidden = imported_merged_input_bitcode_files + imported_archives_merged_bitcode_files_directory))
+                imported_merged_input_bitcode_files = [sorted_index_link_data[idx].link_data.merged_bc for idx in object_optimization_plan.imports]
+                imported_archives_merged_bitcode_files_directory = [sorted_index_link_data[idx].link_data.merged_bc_dir for idx in object_optimization_plan.archive_imports]
+                opt_cmd.add(cmd_args(hidden = imported_merged_input_bitcode_files + imported_archives_merged_bitcode_files_directory + [archive.merged_bc_dir]))
 
-            opt_cmd.add(cmd_args(hidden = imported_input_bitcode_files + imported_archives_input_bitcode_files_directory))
-            ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt_object"), identifier = name)
+            opt_cmd.add(cmd_args(
+                hidden = imported_input_bitcode_files + imported_archives_input_bitcode_files_directory + [archive.indexes_dir, archive.objects_dir],
+            ))
+            ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt_archive"), identifier = source_path)
 
-        ctx.actions.dynamic_output(dynamic = [plan], inputs = [], outputs = [opt_object.as_output()], f = optimize_object)
+        ctx.actions.symlinked_dir(outputs[archive.opt_objects_dir], output_dir)
+        ctx.actions.write(outputs[archive.opt_manifest], output_manifest, allow_args = True)
 
     def dynamic_optimize_archive(archive: _ArchiveLinkData):
-        def optimize_archive(ctx: AnalysisContext, artifacts, outputs):
-            plan_json = artifacts[archive.plan].read_json()
-            archive_optimization_plan = ArchiveOptimizationPlan(
-                object_plans = [
-                    ArchiveMemberOptimizationPlan(**object_plan_json)
-                    for object_plan_json in plan_json["object_plans"]
-                ],
-                base_dir = plan_json["base_dir"],
-            )
-            if lazy.is_all(lambda e: not e.is_bitcode, archive_optimization_plan.object_plans):
-                # Nothing in this directory was lto-able; let's just copy the archive.
-                ctx.actions.copy_file(outputs[archive.opt_objects_dir], archive.objects_dir)
-                ctx.actions.write(outputs[archive.opt_manifest], "")
-                return
-
-            output_dir = {}
-            output_manifest = cmd_args()
-            for object_optimization_plan in archive_optimization_plan.object_plans:
-                if not object_optimization_plan.loaded_by_linker:
-                    continue
-
-                if premerger_enabled and object_optimization_plan.merge_state == BitcodeMergeState("ABSORBED").value:
-                    continue
-
-                base_dir = archive_optimization_plan.base_dir
-                source_path = paths.relativize(object_optimization_plan.path, base_dir)
-                if not object_optimization_plan.is_bitcode:
-                    opt_object = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_copy"), source_path))
-                    output_manifest.add(opt_object)
-                    copy_cmd = cmd_args([
-                        lto_copy,
-                        "--to",
-                        opt_object.as_output(),
-                        "--from",
-                        object_optimization_plan.path,
-                    ], hidden = archive.objects_dir)
-                    ctx.actions.run(copy_cmd, category = make_cat("thin_lto_opt_copy"), identifier = source_path)
-                    output_dir[source_path] = opt_object
-                    continue
-
-                opt_object = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_archive"), source_path))
-                output_manifest.add(opt_object)
-                output_dir[source_path] = opt_object
-                opt_cmd = cmd_args(lto_opt)
-                opt_cmd.add("--out", opt_object.as_output())
-                if premerger_enabled and object_optimization_plan.merge_state == BitcodeMergeState("ROOT").value:
-                    opt_cmd.add("--input", object_optimization_plan.merged_bitcode_path)
-                else:
-                    opt_cmd.add("--input", object_optimization_plan.path)
-                opt_cmd.add("--index", object_optimization_plan.index_shard_file_path)
-
-                opt_cmd.add(cmd_args(hidden = common_opt_cmd))
-                opt_cmd.add("--args", opt_argsfile)
-
-                opt_cmd.add("--")
-                opt_cmd.add(cxx_toolchain.cxx_compiler_info.compiler)
-
-                imported_input_bitcode_files = [sorted_index_link_data[idx].link_data.initial_object for idx in object_optimization_plan.imports]
-                imported_archives_input_bitcode_files_directory = [sorted_index_link_data[idx].link_data.objects_dir for idx in object_optimization_plan.archive_imports]
-                if premerger_enabled:
-                    imported_merged_input_bitcode_files = [sorted_index_link_data[idx].link_data.merged_bc for idx in object_optimization_plan.imports]
-                    imported_archives_merged_bitcode_files_directory = [sorted_index_link_data[idx].link_data.merged_bc_dir for idx in object_optimization_plan.archive_imports]
-                    opt_cmd.add(cmd_args(hidden = imported_merged_input_bitcode_files + imported_archives_merged_bitcode_files_directory + [archive.merged_bc_dir]))
-
-                opt_cmd.add(cmd_args(
-                    hidden = imported_input_bitcode_files + imported_archives_input_bitcode_files_directory + [archive.indexes_dir, archive.objects_dir],
-                ))
-                ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt_archive"), identifier = source_path)
-
-            ctx.actions.symlinked_dir(outputs[archive.opt_objects_dir], output_dir)
-            ctx.actions.write(outputs[archive.opt_manifest], output_manifest, allow_args = True)
-
         archive_opt_inputs = [archive.plan]
         archive_opt_outputs = [archive.opt_objects_dir.as_output(), archive.opt_manifest.as_output()]
-        ctx.actions.dynamic_output(dynamic = archive_opt_inputs, inputs = [], outputs = archive_opt_outputs, f = optimize_archive)
+        ctx.actions.dynamic_output(dynamic = archive_opt_inputs, inputs = [], outputs = archive_opt_outputs, f = lambda ctx, artifacts, outputs: optimize_archive(ctx, artifacts, outputs, archive))
 
     for artifact in sorted_index_link_data:
         link_data = artifact.link_data
