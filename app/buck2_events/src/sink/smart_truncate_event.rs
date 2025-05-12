@@ -12,7 +12,7 @@ fn truncate(s: &str, max_bytes: usize) -> String {
     // to a reasonable length unconditionally
     const MAX_STRING_BYTES: usize = 20 * 1024;
 
-    buck2_util::truncate::truncate(s, max_bytes.max(MAX_STRING_BYTES))
+    buck2_util::truncate::truncate(s, max_bytes.min(MAX_STRING_BYTES))
 }
 
 #[cfg_attr(not(fbcode_build), allow(dead_code))]
@@ -338,11 +338,11 @@ mod tests {
     fn smart_truncate_action_execution_end_long_stderr_command_truncated() {
         let command_execution_with_stderr =
             make_command_execution_with_stderr("this is a test".to_owned());
-        let mut over_sized_str = "0123456789".repeat(10 * 1024);
-        over_sized_str.push_str("0123456789"); // 100k + 10; 10-byte over
+        let mut over_sized_str = "0123456789".repeat(2 * 1024);
+        over_sized_str.push_str("0123456789"); // 20k + 10; 10-byte over
         let command_execution_with_long_stderr = make_command_execution_with_stderr(over_sized_str);
-        let mut omitted_str = "0123456789".repeat(10 * 1024);
-        omitted_str.replace_range((50 * 1024 - 6)..(50 * 1024 + 6), "<<omitted>>");
+        let mut omitted_str = "0123456789".repeat(2 * 1024);
+        omitted_str.replace_range((10 * 1024 - 6)..(10 * 1024 + 6), "<<omitted>>");
         let command_execution_stderr_partially_omitted =
             make_command_execution_with_stderr(omitted_str);
         let command_execution_stderr_all_omitted =
