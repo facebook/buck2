@@ -16,6 +16,7 @@ use buck2_error::buck2_error;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use relative_path::RelativePath;
 
 use crate::cells::CellAliasResolver;
 use crate::cells::CellResolver;
@@ -471,7 +472,7 @@ where
                     .file_name()
                     .buck_error_context(TargetPatternParseError::PackageIsEmpty)?;
 
-                let target_name = TargetName::new(target.as_ref())?;
+                let target_name = TargetName::new(target)?;
 
                 Ok(PatternData::TargetInPackage {
                     package,
@@ -505,14 +506,14 @@ where
 #[derive(Debug)]
 pub enum PatternData<'a, T: PatternType> {
     /// A pattern like `foo/bar/...`.
-    Recursive { package: &'a ForwardRelativePath },
+    Recursive { package: &'a RelativePath },
 
     /// A pattern like `foo/bar:`, or `:`
-    AllTargetsInPackage { package: &'a ForwardRelativePath },
+    AllTargetsInPackage { package: &'a RelativePath },
 
     /// A pattern like `foo/bar:qux`, or `:qux`. The target will never be empty.
     TargetInPackage {
-        package: &'a ForwardRelativePath,
+        package: &'a RelativePath,
         target_name: TargetName,
         extra: T,
     },
@@ -540,7 +541,7 @@ impl<'a, T: PatternType> PatternData<'a, T> {
         }
     }
 
-    pub fn package_path(&self) -> &'a ForwardRelativePath {
+    pub fn package_path(&self) -> &'a RelativePath {
         match self {
             Self::Recursive { package } => package,
             Self::AllTargetsInPackage { package } => package,
@@ -560,7 +561,7 @@ impl<'a, T: PatternType> PatternData<'a, T> {
 
     /// Whether this is a target that looks like `:target`.
     pub fn is_adjacent_target(&self) -> bool {
-        self.package_path().is_empty() && self.target().is_some()
+        self.package_path().as_str().is_empty() && self.target().is_some()
     }
 }
 
@@ -605,12 +606,12 @@ fn lex_provider_pattern(
         None => {
             if let Some(package) = strip_suffix_ascii(pattern, AsciiStr::new("/...")) {
                 PatternData::Recursive {
-                    package: ForwardRelativePath::new(package)?,
+                    package: RelativePath::new(package),
                 }
                 .into()
             } else if pattern == "..." {
                 PatternData::Recursive {
-                    package: ForwardRelativePath::new("")?,
+                    package: RelativePath::new(""),
                 }
                 .into()
             } else if !pattern.is_empty() {
@@ -720,11 +721,11 @@ pub fn lex_target_pattern<T: PatternType>(
 fn normalize_package(
     package: &str,
     strip_package_trailing_slash: bool,
-) -> buck2_error::Result<&ForwardRelativePath> {
+) -> buck2_error::Result<&RelativePath> {
     // Strip or reject trailing `/`, such as in `foo/:bar`.
     if let Some(stripped) = strip_suffix_ascii(package, AsciiChar::new('/')) {
         if strip_package_trailing_slash {
-            return ForwardRelativePath::new(stripped);
+            return Ok(RelativePath::new(stripped));
         } else {
             return Err(buck2_error::Error::from(
                 TargetPatternParseError::PackageTrailingSlash,
@@ -732,7 +733,7 @@ fn normalize_package(
         }
     }
 
-    ForwardRelativePath::new(package)
+    Ok(RelativePath::new(package))
 }
 
 #[derive(Clone, Dupe)]
@@ -902,8 +903,13 @@ where
     let package_path = pattern.package_path();
 
     let path = match relative.dir() {
-        Some(rel) if cell_alias.is_none() => CellPathCow::Owned(rel.join(package_path)),
-        _ => CellPathCow::Borrowed(CellPathRef::new(cell, CellRelativePath::new(package_path))),
+        Some(rel) if cell_alias.is_none() => {
+            CellPathCow::Owned(rel.join(<&ForwardRelativePath>::try_from(package_path)?))
+        }
+        _ => CellPathCow::Borrowed(CellPathRef::new(
+            cell,
+            CellRelativePath::new(<&ForwardRelativePath>::try_from(package_path)?),
+        )),
     };
 
     match pattern {

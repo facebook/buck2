@@ -42,6 +42,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::PatternData;
 use buck2_core::pattern::pattern::lex_target_pattern;
@@ -272,7 +273,10 @@ impl AnonTargetKey {
                 target_name,
                 extra: TargetPatternExtra,
             } => Ok(TargetLabel::new(
-                PackageLabel::new(cell, CellRelativePath::new(package)),
+                PackageLabel::new(
+                    cell,
+                    CellRelativePath::new(<&ForwardRelativePath>::try_from(package)?),
+                ),
                 target_name.as_ref(),
             )),
             _ => Err(err().into()),

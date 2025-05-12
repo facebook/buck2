@@ -34,6 +34,7 @@ use crate::cells::paths::CellRelativePath;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
 use crate::configuration::pair::ConfigurationNoExec;
+use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::package::PackageLabel;
 use crate::pattern::pattern::ParsedPattern;
 use crate::pattern::pattern::lex_target_pattern;
@@ -222,7 +223,10 @@ impl TargetLabel {
         TargetLabel::new(
             PackageLabel::new(
                 cell_name,
-                CellRelativePath::new(pattern_data.package_path()),
+                CellRelativePath::new(
+                    <&ForwardRelativePath>::try_from(pattern_data.package_path())
+                        .expect("must be valid path"),
+                ),
             ),
             target_name,
         )
