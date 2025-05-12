@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::PackageLabel;
@@ -121,6 +122,9 @@ fn attr_coercer_coerces() -> buck2_error::Result<()> {
         enclosing_package,
         false,
         Arc::new(ConcurrentTargetLabelInterner::default()),
+        CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
+            package.as_cell_path().to_owned(),
+        ),
     );
     let label_coercer = AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY);
     let string_coercer = AttrType::string();
@@ -296,6 +300,9 @@ fn coercing_src_to_path_works() -> buck2_error::Result<()> {
         ),
         false,
         Arc::new(ConcurrentTargetLabelInterner::default()),
+        CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
+            package.as_cell_path().to_owned(),
+        ),
     );
     let no_package_ctx = BuildAttrCoercionContext::new_no_package(
         cell_resolver,

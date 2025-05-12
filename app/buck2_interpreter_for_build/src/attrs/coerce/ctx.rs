@@ -15,7 +15,10 @@ use std::sync::Arc;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
@@ -78,6 +81,8 @@ pub struct BuildAttrCoercionContext {
     /// evaluated. The latter case occurs when default values for attributes
     /// are coerced when a UDR is declared.
     enclosing_package: Option<(PackageLabel, PackageListing)>,
+    /// This defines the limited scope in which we allow parsing patterns beginning with `../`
+    current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
     /// Does this package (if present) have a package boundary exception on it.
     package_boundary_exception: bool,
     /// Allocator for `label_cache`.
@@ -114,12 +119,14 @@ impl BuildAttrCoercionContext {
         enclosing_package: Option<(PackageLabel, PackageListing)>,
         package_boundary_exception: bool,
         global_label_interner: Arc<ConcurrentTargetLabelInterner>,
+        current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
     ) -> Self {
         Self {
             cell_resolver,
             cell_name,
             cell_alias_resolver,
             enclosing_package,
+            current_dir_with_allowed_relative_dirs,
             package_boundary_exception,
             alloc: Bump::new(),
             global_label_interner,
@@ -144,6 +151,10 @@ impl BuildAttrCoercionContext {
             None,
             false,
             global_label_interner,
+            CellPathWithAllowedRelativeDir::backwards_relative_not_supported(CellPath::new(
+                cell_name,
+                CellRelativePathBuf::unchecked_new("".into()),
+            )),
         )
     }
 
@@ -153,6 +164,7 @@ impl BuildAttrCoercionContext {
         enclosing_package: (PackageLabel, PackageListing),
         package_boundary_exception: bool,
         global_label_interner: Arc<ConcurrentTargetLabelInterner>,
+        current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
     ) -> Self {
         Self::new(
             cell_resolver,
@@ -161,6 +173,7 @@ impl BuildAttrCoercionContext {
             Some(enclosing_package),
             package_boundary_exception,
             global_label_interner,
+            current_dir_with_allowed_relative_dirs,
         )
     }
 
@@ -168,12 +181,25 @@ impl BuildAttrCoercionContext {
         &self,
         value: &str,
     ) -> buck2_error::Result<ParsedPattern<P>> {
+        let target_parsing_rel = match self.enclosing_package.as_ref().map(|x| x.0.as_cell_path()) {
+            Some(package) => {
+                if self
+                    .current_dir_with_allowed_relative_dirs
+                    .has_allowed_relative_dir()
+                {
+                    TargetParsingRel::AllowRelative(
+                        &self.current_dir_with_allowed_relative_dirs,
+                        None,
+                    )
+                } else {
+                    TargetParsingRel::AllowLimitedRelative(package)
+                }
+            }
+            None => TargetParsingRel::RequireAbsolute(self.cell_name),
+        };
         ParsedPattern::parse_not_relaxed(
             value,
-            match self.enclosing_package.as_ref().map(|x| x.0.as_cell_path()) {
-                Some(package) => TargetParsingRel::AllowLimitedRelative(package),
-                None => TargetParsingRel::RequireAbsolute(self.cell_name),
-            },
+            target_parsing_rel,
             &self.cell_resolver,
             &self.cell_alias_resolver,
         )

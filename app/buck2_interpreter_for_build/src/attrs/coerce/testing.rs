@@ -16,6 +16,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::build_file_cell::BuildFileCell;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
@@ -68,6 +69,9 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
         (package, package_listing),
         false,
         Arc::new(ConcurrentTargetLabelInterner::default()),
+        CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
+            package.as_cell_path().to_owned(),
+        ),
     )
 }
 

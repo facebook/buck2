@@ -124,6 +124,10 @@ impl CellPathWithAllowedRelativeDir {
     pub fn current_dir(&self) -> &CellPath {
         &self.current_dir
     }
+
+    pub fn has_allowed_relative_dir(&self) -> bool {
+        self.allowed_relative_dir.is_some()
+    }
 }
 
 #[cfg(test)]

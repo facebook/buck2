@@ -5,4 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-test_target = rule(impl = lambda _ctx: [DefaultInfo()], attrs = {})
+test_target = rule(impl = lambda _ctx: [DefaultInfo()], attrs = {
+    "deps": attrs.list(attrs.dep(), default = []),
+})

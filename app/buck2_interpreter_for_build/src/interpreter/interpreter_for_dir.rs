@@ -356,6 +356,9 @@ impl InterpreterForDir {
             package_boundary_exception,
             loaded_modules,
             self.package_import(build_file),
+            self.current_dir_with_allowed_relative_dirs
+                .as_ref()
+                .to_owned(),
         )?;
         let env = self.create_env(StarlarkPath::BuildFile(build_file), loaded_modules)?;
 

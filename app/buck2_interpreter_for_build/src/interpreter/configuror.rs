@@ -13,6 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -110,6 +111,7 @@ impl BuildInterpreterConfiguror {
         package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
         implicit_import: Option<&Arc<ImplicitImport>>,
+        current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
     ) -> buck2_error::Result<ModuleInternals> {
         let record_target_call_stack = self.record_target_call_stack;
         let skip_targets_with_duplicate_names = self.skip_targets_with_duplicate_names;
@@ -135,6 +137,7 @@ impl BuildInterpreterConfiguror {
             (buildfile_path.package().dupe(), package_listing.dupe()),
             package_boundary_exception,
             self.global_target_interner.dupe(),
+            current_dir_with_allowed_relative_dirs,
         );
 
         let imports = loaded_modules.imports().cloned().collect();
