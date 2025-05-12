@@ -792,6 +792,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         ), LinkGroupLibInfo(libs = {}), SharedLibraryInfo(set = None)] + additional_providers
 
     if getattr(ctx.attrs, "supports_header_symlink_subtarget", False):
+        package_prefix = str(ctx.label.path)
         header_symlink_mapping = {}
         for records in propagated_preprocessor.set.traverse():
             for record in records:
@@ -800,6 +801,18 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     if header.namespace:
                         header_path = paths.join(header.namespace, header_path)
                     header_symlink_mapping[paths.normalize(header_path)] = header.artifact
+
+                all_include_dirs = record.include_dirs + record.system_include_dirs.include_dirs
+                for header in record.raw_headers:
+                    full_header_path = paths.join(package_prefix, header.short_path)
+                    for include_dir in all_include_dirs:
+                        include_dir_path = str(include_dir)
+
+                        if not paths.starts_with(full_header_path, include_dir_path):
+                            continue
+
+                        mapping_path = paths.relativize(full_header_path, include_dir_path)
+                        header_symlink_mapping[mapping_path] = header
 
         sub_targets["header-symlink-tree"] = [DefaultInfo(
             default_output = ctx.actions.symlinked_dir("header_symlink_tree", header_symlink_mapping),
