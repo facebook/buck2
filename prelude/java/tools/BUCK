@@ -23,7 +23,7 @@ prelude.python_bootstrap_binary(
     main = "compile_and_package.py",
     visibility = ["PUBLIC"],
     deps = [
-        ":compile_and_package_lib",
+        ":utils_lib",
     ],
 )
 
@@ -32,7 +32,6 @@ prelude.python_bootstrap_binary(
     main = "fat_jar.py",
     visibility = ["PUBLIC"],
     deps = [
-        ":fat_jar_lib",
         ":utils_lib",
     ],
 )
@@ -41,36 +40,6 @@ prelude.python_bootstrap_binary(
     name = "list_class_names",
     main = "list_class_names.py",
     visibility = ["PUBLIC"],
-    deps = [
-        ":list_class_names_lib",
-    ],
-)
-
-prelude.python_bootstrap_library(
-    name = "fat_jar_lib",
-    srcs = [
-        "fat_jar.py",
-    ],
-    deps = [
-        ":utils_lib",
-    ],
-)
-
-prelude.python_bootstrap_library(
-    name = "compile_and_package_lib",
-    srcs = [
-        "compile_and_package.py",
-    ],
-    deps = [
-        ":utils_lib",
-    ],
-)
-
-prelude.python_bootstrap_library(
-    name = "list_class_names_lib",
-    srcs = [
-        "list_class_names.py",
-    ],
     deps = [
         ":utils_lib",
     ],

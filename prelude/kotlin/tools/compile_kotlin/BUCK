@@ -11,16 +11,6 @@ prelude.python_bootstrap_binary(
     main = "compile_kotlin.py",
     visibility = ["PUBLIC"],
     deps = [
-        ":compile_kotlin_lib",
-    ],
-)
-
-prelude.python_bootstrap_library(
-    name = "compile_kotlin_lib",
-    srcs = [
-        "compile_kotlin.py",
-    ],
-    deps = [
         "prelude//java/tools:utils_lib",
     ],
 )

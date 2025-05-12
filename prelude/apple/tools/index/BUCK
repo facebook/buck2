@@ -7,7 +7,6 @@ python_bootstrap_binary(
     name = "merge_index_store",
     main = "merge_index_store.py",
     visibility = ["PUBLIC"],
-    deps = [":merge_index_store_lib"],
 )
 
 python_bootstrap_library(

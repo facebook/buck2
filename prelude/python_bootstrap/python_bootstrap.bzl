@@ -39,27 +39,24 @@ def python_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             run_tree_inputs[src.short_path] = src
             run_tree_recorded_deps[src.short_path] = dep
 
+    main = ctx.attrs.main
+    if main.short_path in run_tree_inputs:
+        original_dep = run_tree_recorded_deps[main.short_path].label
+        fail("dependency `{}` declares a source file with the same name as main file; consider renaming it".format(original_dep))
+
+    run_tree_inputs[main.short_path] = main
     if copy_deps:
         run_tree = ctx.actions.copied_dir("__%s__" % ctx.attrs.name, run_tree_inputs)
     else:
         run_tree = ctx.actions.symlinked_dir("__%s__" % ctx.attrs.name, run_tree_inputs)
 
-    output = ctx.actions.copy_file(ctx.attrs.main.short_path, ctx.attrs.main)
-
     interpreter = ctx.attrs._python_bootstrap_toolchain[PythonBootstrapToolchainInfo].interpreter
-
-    if ctx.attrs._win_python_wrapper != None:
-        run_args = cmd_args(
-            ctx.attrs._win_python_wrapper[RunInfo],
-            run_tree,
-            interpreter,
-            output,
-        )
-    else:
-        run_args = cmd_args(
-            "/usr/bin/env",
-            cmd_args(run_tree, format = "PYTHONPATH={}"),
-            interpreter,
-            output,
-        )
-    return [DefaultInfo(default_output = output), RunInfo(args = run_args)]
+    main_artifact = run_tree.project(main.short_path)
+    run_args = cmd_args(
+        [interpreter, run_tree.project(main.short_path)],
+        hidden = run_tree,
+    )
+    return [
+        DefaultInfo(default_output = main_artifact, other_outputs = [run_tree]),
+        RunInfo(args = run_args),
+    ]
