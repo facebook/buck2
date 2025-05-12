@@ -144,7 +144,7 @@ def cxx_toolchain_impl(ctx):
         linker_flags = cmd_args(ctx.attrs.linker_flags, c_lto_flags),
         executable_linker_flags = ctx.attrs.executable_linker_flags,
         binary_linker_flags = ctx.attrs.binary_linker_flags,
-        dist_thin_lto_codegen_flags = cmd_args(ctx.attrs.dist_thin_lto_codegen_flags) if ctx.attrs.dist_thin_lto_codegen_flags else None,
+        dist_thin_lto_codegen_flags = cmd_args(ctx.attrs.dist_thin_lto_codegen_flags) if ctx.attrs.dist_thin_lto_codegen_flags else cmd_args(),
         post_linker_flags = cmd_args(ctx.attrs.post_linker_flags),
         link_metadata_flag = ctx.attrs.link_metadata_flag,
         lto_mode = lto_mode,
