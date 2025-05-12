@@ -38,6 +38,7 @@ use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::with_dispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
+use buck2_interpreter::allow_relative_paths::HasAllowRelativePaths;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
@@ -492,12 +493,15 @@ impl<'a> BuckLspContext<'a> {
         current_package: CellPathRef<'_>,
         literal: &str,
     ) -> buck2_error::Result<Option<StringLiteralResult>> {
-        let (artifact_fs, cell_alias_resolver) = self
+        let (artifact_fs, cell_alias_resolver, dir_with_allowed_relative_dirs) = self
             .with_dice_ctx(|mut dice_ctx| async move {
                 Ok((
                     dice_ctx.get_artifact_fs().await?,
                     dice_ctx
                         .get_cell_alias_resolver(current_package.cell())
+                        .await?,
+                    dice_ctx
+                        .dirs_allowing_relative_paths(current_package.to_owned())
                         .await?,
                 ))
             })
@@ -505,7 +509,11 @@ impl<'a> BuckLspContext<'a> {
         let cell_resolver = artifact_fs.cell_resolver();
         match ParsedPattern::<ProvidersPatternExtra>::parse_not_relaxed(
             literal,
-            TargetParsingRel::AllowLimitedRelative(current_package),
+            if dir_with_allowed_relative_dirs.has_allowed_relative_dir() {
+                TargetParsingRel::AllowRelative(&dir_with_allowed_relative_dirs, None)
+            } else {
+                TargetParsingRel::AllowLimitedRelative(current_package)
+            },
             &cell_resolver,
             &cell_alias_resolver,
         ) {
