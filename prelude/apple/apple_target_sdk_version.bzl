@@ -51,6 +51,7 @@ _MACCATALYST_IOS_TO_MACOS_VERSION_MAP = {
     "18.2": "15.2",
     "18.3": "15.3",
     "18.4": "15.4",
+    "18.5": "15.5",  # Extracted from Xcode 16.4.0 Beta 1 (16F1t)
 }
 
 _SDK_NAME_TO_PLATFORM_NAME_OVERRIDE_MAP = {
