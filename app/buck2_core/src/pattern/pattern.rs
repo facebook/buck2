@@ -24,6 +24,7 @@ use crate::cells::alias::CellAlias;
 use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathCow;
 use crate::cells::cell_path::CellPathRef;
+use crate::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
@@ -325,7 +326,12 @@ impl<T: PatternType> ParsedPattern<T> {
             cell_resolver,
             cell_alias_resolver,
             TargetParsingOptions {
-                relative: TargetParsingRel::AllowRelative(relative_dir, target_alias_resolver),
+                relative: TargetParsingRel::AllowRelative(
+                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
+                        relative_dir.to_owned(),
+                    ),
+                    Some(target_alias_resolver),
+                ),
                 infer_target: true,
                 strip_package_trailing_slash: true,
             },
@@ -739,7 +745,10 @@ fn normalize_package(
 #[derive(Clone, Dupe)]
 pub enum TargetParsingRel<'a> {
     /// Parse the pattern relative to this package path
-    AllowRelative(CellPathRef<'a>, &'a dyn TargetAliasResolver),
+    AllowRelative(
+        &'a CellPathWithAllowedRelativeDir,
+        Option<&'a dyn TargetAliasResolver>,
+    ),
     /// Allows relative patterns, but only if they're like `:foo`, not `bar:foo`
     AllowLimitedRelative(CellPathRef<'a>),
     /// Require the pattern to be absolute.
@@ -751,7 +760,7 @@ pub enum TargetParsingRel<'a> {
 impl<'a> TargetParsingRel<'a> {
     fn dir(&self) -> Option<CellPathRef<'a>> {
         match self {
-            TargetParsingRel::AllowRelative(dir, _) => Some(*dir),
+            TargetParsingRel::AllowRelative(dir, _) => Some(dir.current_dir().as_ref()),
             TargetParsingRel::AllowLimitedRelative(dir) => Some(*dir),
             TargetParsingRel::RequireAbsolute(_) => None,
         }
@@ -767,7 +776,7 @@ impl<'a> TargetParsingRel<'a> {
 
     fn target_alias_resolver(&self) -> Option<&dyn TargetAliasResolver> {
         match self {
-            TargetParsingRel::AllowRelative(_, r) => Some(*r),
+            TargetParsingRel::AllowRelative(_, r) => *r,
             TargetParsingRel::AllowLimitedRelative(_) => None,
             TargetParsingRel::RequireAbsolute(_) => None,
         }
@@ -775,9 +784,21 @@ impl<'a> TargetParsingRel<'a> {
 
     fn cell(&self) -> CellName {
         match self {
-            TargetParsingRel::AllowRelative(p, _) => p.cell(),
+            TargetParsingRel::AllowRelative(p, _) => p.current_dir().cell(),
             TargetParsingRel::AllowLimitedRelative(p) => p.cell(),
             TargetParsingRel::RequireAbsolute(c) => *c,
+        }
+    }
+
+    fn join_relative(&self, path: &RelativePath) -> buck2_error::Result<CellPath> {
+        match self {
+            TargetParsingRel::AllowRelative(dir, _) => Ok(dir.join_normalized(path)?),
+            TargetParsingRel::AllowLimitedRelative(dir) => {
+                Ok(dir.join(<&ForwardRelativePath>::try_from(path)?))
+            }
+            TargetParsingRel::RequireAbsolute(_) => Err(buck2_error::Error::from(
+                TargetPatternParseError::AbsoluteRequired,
+            )),
         }
     }
 }
@@ -903,8 +924,8 @@ where
     let package_path = pattern.package_path();
 
     let path = match relative.dir() {
-        Some(rel) if cell_alias.is_none() => {
-            CellPathCow::Owned(rel.join(<&ForwardRelativePath>::try_from(package_path)?))
+        Some(_) if cell_alias.is_none() => {
+            CellPathCow::Owned(relative.join_relative(package_path)?)
         }
         _ => CellPathCow::Borrowed(CellPathRef::new(
             cell,
@@ -1037,6 +1058,7 @@ mod tests {
     use crate::cells::CellResolver;
     use crate::cells::alias::NonEmptyCellAlias;
     use crate::cells::cell_path::CellPath;
+    use crate::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
     use crate::cells::cell_root_path::CellRootPathBuf;
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePath;
@@ -1275,7 +1297,12 @@ mod tests {
             mk_recursive::<T>("root", "package/path"),
             ParsedPattern::<T>::parse_not_relaxed(
                 "...",
-                TargetParsingRel::AllowRelative(package.as_ref(), &NoAliases),
+                TargetParsingRel::AllowRelative(
+                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
+                        package.clone()
+                    ),
+                    Some(&NoAliases),
+                ),
                 &resolver(),
                 &alias_resolver(),
             )
@@ -1285,7 +1312,10 @@ mod tests {
             mk_recursive::<T>("root", "package/path/foo"),
             ParsedPattern::<T>::parse_not_relaxed(
                 "foo/...",
-                TargetParsingRel::AllowRelative(package.as_ref(), &NoAliases),
+                TargetParsingRel::AllowRelative(
+                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(package),
+                    Some(&NoAliases),
+                ),
                 &resolver(),
                 &alias_resolver(),
             )
@@ -1313,7 +1343,10 @@ mod tests {
             mk_target("root", "package/path/foo", "target"),
             ParsedPattern::parse_not_relaxed(
                 "foo:target",
-                TargetParsingRel::AllowRelative(package.as_ref(), &NoAliases),
+                TargetParsingRel::AllowRelative(
+                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(package),
+                    Some(&NoAliases),
+                ),
                 &resolver(),
                 &alias_resolver(),
             )?
@@ -1331,7 +1364,10 @@ mod tests {
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
                 "path",
-                TargetParsingRel::AllowRelative(package.as_ref(), &NoAliases),
+                TargetParsingRel::AllowRelative(
+                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(package.clone()),
+                    Some(&NoAliases),
+                ),
                 &resolver(),
                 &alias_resolver(),
             ),
@@ -2041,8 +2077,65 @@ mod tests {
         .unwrap_err();
         let err = format!("{:?}", err);
         assert!(
-            err.contains("Pattern `root//cell1/xx/cell2/yy/...` is parsed as `root//cell1/xx/cell2/yy/...` which crosses cell boundaries. Try `cell2//yy/...`"),
-            "Error is: {}",
-            err);
+             err.contains("Pattern `root//cell1/xx/cell2/yy/...` is parsed as `root//cell1/xx/cell2/yy/...` which crosses cell boundaries. Try `cell2//yy/...`"),
+             "Error is: {}",
+             err);
+    }
+
+    #[test]
+    fn test_relative_pattern_with_parent() -> buck2_error::Result<()> {
+        let package = CellPath::new(
+            CellName::testing_new("root"),
+            CellRelativePath::unchecked_new("package/path").to_owned(),
+        );
+
+        assert_eq!(
+            mk_target("root", "package/sibling", "target"),
+            ParsedPattern::parse_not_relaxed(
+                "../sibling:target",
+                TargetParsingRel::AllowRelative(
+                    &CellPathWithAllowedRelativeDir::new(
+                        package.clone(),
+                        Some(CellPath::testing_new("root//package"))
+                    ),
+                    Some(&NoAliases),
+                ),
+                &resolver(),
+                &alias_resolver(),
+            )?
+        );
+
+        fails(
+            ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
+                "../sibling:target",
+                TargetParsingRel::AllowRelative(
+                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
+                        package.clone(),
+                    ),
+                    Some(&NoAliases),
+                ),
+                &resolver(),
+                &alias_resolver(),
+            ),
+            &["Invalid target pattern `../sibling:target` is not allowed"],
+        );
+
+        fails(
+            ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
+                "../../not_allowed:target",
+                TargetParsingRel::AllowRelative(
+                    &CellPathWithAllowedRelativeDir::new(
+                        package.clone(),
+                        Some(CellPath::testing_new("root//package")),
+                    ),
+                    Some(&NoAliases),
+                ),
+                &resolver(),
+                &alias_resolver(),
+            ),
+            &["Invalid target pattern `../../not_allowed:target` is not allowed"],
+        );
+
+        Ok(())
     }
 }

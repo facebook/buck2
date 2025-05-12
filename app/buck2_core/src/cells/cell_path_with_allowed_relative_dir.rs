@@ -29,7 +29,7 @@ enum RelativeImportParseError {
     InvalidCurrentPathWhenFileRelativeImport(String),
 }
 
-#[derive(Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Allocative)]
+#[derive(Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Allocative, Clone)]
 pub struct CellPathWithAllowedRelativeDir {
     current_dir: CellPath,
     allowed_relative_dir: Option<CellPath>,
@@ -49,6 +49,13 @@ impl CellPathWithAllowedRelativeDir {
         Self {
             current_dir,
             allowed_relative_dir,
+        }
+    }
+
+    pub fn backwards_relative_not_supported(current_dir: CellPath) -> Self {
+        Self {
+            current_dir,
+            allowed_relative_dir: None,
         }
     }
 
@@ -112,6 +119,10 @@ impl CellPathWithAllowedRelativeDir {
 
     pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> CellPath {
         self.current_dir.join(path)
+    }
+
+    pub fn current_dir(&self) -> &CellPath {
+        &self.current_dir
     }
 }
 

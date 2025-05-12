@@ -25,6 +25,7 @@ use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::name::CellName;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -115,7 +116,12 @@ impl LiteralParser {
     ) -> buck2_error::Result<ParsedPattern<ProvidersPatternExtra>> {
         ParsedPattern::parse_not_relaxed(
             value,
-            TargetParsingRel::AllowRelative(self.working_dir.as_ref(), &self.target_alias_resolver),
+            TargetParsingRel::AllowRelative(
+                &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
+                    self.working_dir.clone(),
+                ),
+                Some(&self.target_alias_resolver),
+            ),
             &self.cell_resolver,
             &self.cell_alias_resolver,
         )
