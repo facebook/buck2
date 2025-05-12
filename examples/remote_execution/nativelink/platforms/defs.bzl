@@ -21,7 +21,7 @@ def _platforms(ctx):
             # Set those up based on what workers you've registered with NativeLink.
             remote_execution_properties = {
                 "OSFamily": "linux",
-                "container-image": "docker://buck2-github:latest",
+                "container-image": "docker://nativelink-toolchain-buck2:latest",
             },
             remote_execution_use_case = "buck2-default",
             remote_output_paths = "output_paths",
