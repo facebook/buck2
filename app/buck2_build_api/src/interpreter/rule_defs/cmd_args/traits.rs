@@ -14,6 +14,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
@@ -381,6 +382,20 @@ pub trait CommandLineContext {
         // TODO(T219919866) Add support for experimental content-based path hashing
         self.resolve_project_path(artifact.resolve_path(self.fs().fs(), None)?)
             .with_buck_error_context(|| format!("Error resolving artifact: {}", artifact))
+    }
+
+    /// Resolves the OutputArtifact to a 'CommandLineLocation' relative to the directory this command will run in.
+    /// For content-based paths, this will resolve to a "constant" path, i.e. one that is known in advance and is
+    /// not actually dependent upon the artifact's content.
+    fn resolve_output_artifact(
+        &self,
+        artifact: &OutputArtifact,
+    ) -> buck2_error::Result<CommandLineLocation> {
+        self.resolve_project_path(artifact.get_path().resolve(
+            self.fs().fs(),
+            Some(&ContentBasedPathHash::for_output_artifact()),
+        )?)
+        .with_buck_error_context(|| format!("Error resolving output artifact: {}", artifact))
     }
 
     fn resolve_cell_path(&self, path: CellPathRef) -> buck2_error::Result<CommandLineLocation> {
