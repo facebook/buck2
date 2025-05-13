@@ -107,8 +107,8 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
 #else
   // In Python 3.10 (and earlier) we need to handle package context swapping
   // ourselves
-  auto _Py_PackageContext = namestr.c_str();
   const char* oldcontext = _Py_PackageContext;
+  _Py_PackageContext = namestr.c_str();
   if (_Py_PackageContext == nullptr) {
     _Py_PackageContext = oldcontext;
     Py_DECREF(name);
