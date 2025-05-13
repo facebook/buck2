@@ -139,7 +139,12 @@ impl HealthCheckRpcClient {
             dir: &AbsNormPathBuf,
         ) -> buck2_error::Result<AbsNormPathBuf> {
             async_fs_util::create_dir_all(dir).await?;
-            Ok(dir.join(ForwardRelativePath::unchecked_new(CLI_INFO_FILE)))
+            let state_info_file = dir.join(ForwardRelativePath::unchecked_new(CLI_INFO_FILE));
+            if fs_util::try_exists(&state_info_file)? {
+                // Clean up any state info file from previous build.
+                fs_util::remove_file(&state_info_file)?;
+            }
+            Ok(state_info_file)
         }
 
         match std::env::var("BUCK2_HEALTH_CHECK_STATE_INFO_PATH") {
@@ -181,5 +186,40 @@ impl HealthCheckService for HealthCheckRpcClient {
             }
         }
         Ok(reports)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::TempDir;
+
+    use super::*;
+
+    async fn temp_state_info(
+        temp_dir: &TempDir,
+    ) -> buck2_error::Result<(AbsNormPathBuf, AbsNormPathBuf)> {
+        let temp_path = AbsNormPathBuf::try_from(temp_dir.path().to_path_buf()).unwrap();
+        Ok((
+            temp_path.clone(),
+            temp_path.join(ForwardRelativePath::unchecked_new(CLI_INFO_FILE)),
+        ))
+    }
+
+    #[tokio::test]
+    async fn test_server_state_reset() -> buck2_error::Result<()> {
+        let temp_dir_guard = tempfile::tempdir()?;
+        let (dir, file) = temp_state_info(&temp_dir_guard).await?;
+
+        // Write some content representing a previous health check server state.
+        async_fs_util::write(&file, "TestContent").await?;
+
+        let client = HealthCheckRpcClient::new(dir.clone());
+        client.get_state_info_file_path().await.unwrap();
+
+        // Ensure that the file is deleted but the directory exists.
+        assert!(fs_util::try_exists(&file).is_ok_and(|exists| !exists));
+        assert!(dir.is_dir());
+        drop(temp_dir_guard);
+        Ok(())
     }
 }

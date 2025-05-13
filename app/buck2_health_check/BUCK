@@ -17,7 +17,10 @@ rust_library(
     mapped_srcs = {
         # @oss-disable[end= ]: "fbsource//xplat/graphql:intern-schema.graphql": "intern-schema.graphql",
     },
-    test_deps = ["fbsource//third-party/rust:tokio"],
+    test_deps = [
+        "fbsource//third-party/rust:tempfile",
+        "fbsource//third-party/rust:tokio",
+    ],
     deps = [
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:futures",
