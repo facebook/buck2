@@ -26,7 +26,9 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
+use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::category::CategoryRef;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -187,9 +189,21 @@ impl Action for WriteAction {
             .declare_write(Box::new(|| {
                 execution_start = Some(Instant::now());
                 let content = self.get_contents(&ctx.executor_fs())?.into_bytes();
+                let path = fs.resolve_build(
+                    self.output.get_path(),
+                    if self.output.get_path().is_content_based_path() {
+                        let digest = TrackedFileDigest::from_content(
+                            &content,
+                            ctx.digest_config().cas_digest_config(),
+                        );
+                        Some(ContentBasedPathHash::new(digest.to_string())?)
+                    } else {
+                        None
+                    }
+                    .as_ref(),
+                )?;
                 Ok(vec![WriteRequest {
-                    // TODO(T219919866) Add support for experimental content-based path hashing
-                    path: fs.resolve_build(self.output.get_path(), None)?,
+                    path,
                     content,
                     is_executable: self.inner.is_executable,
                 }])

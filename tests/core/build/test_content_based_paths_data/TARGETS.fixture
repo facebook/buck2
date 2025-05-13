@@ -1,0 +1,27 @@
+load(":defs.bzl", "write_with_content_based_path")
+
+write_with_content_based_path(
+    name = "write_with_content_based_path",
+    data = "hello world",
+)
+
+platform(
+    name = "p_default",
+    constraint_values = [],
+)
+
+platform(
+    name = "p_cat",
+    constraint_values = [
+        ":cat",
+    ],
+)
+
+constraint_setting(
+    name = "animal",
+)
+
+constraint_value(
+    name = "cat",
+    constraint_setting = ":animal",
+)
