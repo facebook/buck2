@@ -176,7 +176,7 @@ impl HealthCheckService for HealthCheckRpcClient {
             match Report::try_from(report) {
                 Ok(report) => reports.push(report),
                 Err(e) => {
-                    soft_error!("health_check_rpc_client", e)?;
+                    soft_error!("health_check_rpc_client", e, quiet: true)?;
                 }
             }
         }

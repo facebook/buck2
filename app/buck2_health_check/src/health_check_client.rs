@@ -126,7 +126,7 @@ impl HealthCheckClientInner {
 
     async fn update_context(&mut self, event: HealthCheckContextEvent) {
         if let Err(e) = self.health_check_service.update_context(event).await {
-            let _ignored = soft_error!("health_check_context_update_failed", e);
+            let _ignored = soft_error!("health_check_context_update_failed", e,  quiet: true);
         }
     }
 
@@ -134,11 +134,11 @@ impl HealthCheckClientInner {
         match self.health_check_service.run_checks().await {
             Ok(reports) => {
                 if let Err(e) = self.send_reports(reports) {
-                    let _ignored = soft_error!("health_check_reports_error", e);
+                    let _ignored = soft_error!("health_check_reports_error", e,  quiet: true);
                 }
             }
             Err(e) => {
-                let _ignored = soft_error!("health_check_run_error", e);
+                let _ignored = soft_error!("health_check_run_error", e, quiet: true);
             }
         }
     }
