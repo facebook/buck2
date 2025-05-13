@@ -35,15 +35,15 @@ def cxx_generic_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
 CXX_GENERIC_ERROR_TYPES = [
     # linker errors
     make_error_type(
-        string_match = "ld.lld: error: duplicate symbol",
+        string_match = "error: duplicate symbol",
         category_suffix = "linker_duplicate_symbol",
     ),
     make_error_type(
-        string_match = "ld.lld: error: undefined symbol",
+        string_match = "error: undefined symbol",
         category_suffix = "linker_undefined_symbol",
     ),
     make_error_type(
-        string_match = "ld.lld: error: unable to find library",
+        string_match = "error: unable to find library",
         category_suffix = "linker_missing_library",
     ),
     make_error_type(
