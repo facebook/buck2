@@ -107,6 +107,7 @@ mod fbcode {
         pub shared_casd_copy_policy: Option<CopyPolicy>,
         pub shared_casd_address: Option<CASdAddress>,
         pub shared_casd_use_tls: Option<bool>,
+        pub cas_client_label: Option<String>,
         pub action_cache_address: Option<String>,
         pub action_cache_connection_count: i32,
         pub engine_address: Option<String>,
@@ -218,6 +219,10 @@ mod fbcode {
                 shared_casd_use_tls: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
                     property: "cas_shared_cache_tls",
+                })?,
+                cas_client_label: legacy_config.parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "cas_client_label",
                 })?,
                 action_cache_address: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,

@@ -684,6 +684,11 @@ impl RemoteExecutionClientImpl {
                 // otherwise actions that are modifying outputs will fail due to a permission error
                 embedded_cas_daemon_config.writable_outputs = true;
 
+                embedded_cas_daemon_config.client_label = static_metadata
+                    .cas_client_label
+                    .clone()
+                    .unwrap_or_else(|| "".to_owned());
+
                 let minimal_blob_ttl_threshold =
                     static_metadata.minimal_blob_ttl_seconds.unwrap_or(3600);
                 let remaining_ttl_fraction_refresh_threshold = static_metadata
