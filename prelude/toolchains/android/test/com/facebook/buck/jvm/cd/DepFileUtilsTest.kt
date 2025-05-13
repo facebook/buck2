@@ -10,6 +10,7 @@
 package com.facebook.buck.jvm.cd
 
 import com.facebook.buck.util.json.ObjectMappers
+import com.fasterxml.jackson.core.type.TypeReference
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -64,6 +65,31 @@ class DepFileUtilsTest {
             "/expanded/C/Class3.class",
             "/path/to/B.jar")
     assertEquals(expectedSortedPaths, outputLines)
+  }
+
+  @Test
+  fun `when usedClassesToUsedJars is called then it produces sorted output`() {
+    val usedClassesMapPath =
+        createUsedClassesJson(
+            mapOf(
+                "/path/to/C.jar" to setOf("Class3.class", "Class1.class"),
+                "/path/to/A.jar" to setOf("ClassA.class"),
+                "/path/to/B.jar" to setOf("ClassB.class")))
+    val usedJarsOutput = tempFolder.newFile("used-jars.txt").toPath()
+
+    DepFileUtils.usedClassesToUsedJars(listOf(usedClassesMapPath), usedJarsOutput)
+
+    val outputLines = Files.readAllLines(usedJarsOutput).joinToString("\n")
+    val actual =
+        ObjectMappers.readValue(
+            outputLines, object : TypeReference<LinkedHashMap<String, List<String>>>() {})
+    val expected =
+        mapOf(
+            "/path/to/A.jar" to listOf("ClassA.class"),
+            "/path/to/B.jar" to listOf("ClassB.class"),
+            "/path/to/C.jar" to listOf("Class1.class", "Class3.class"),
+        )
+    assertEquals(expected, actual)
   }
 
   private fun createUsedClassesJson(classesMap: Map<String, Set<String>>): Path {

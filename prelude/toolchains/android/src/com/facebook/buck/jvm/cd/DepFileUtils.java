@@ -17,11 +17,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 public class DepFileUtils {
@@ -73,7 +74,7 @@ public class DepFileUtils {
   public static void usedClassesToUsedJars(List<Path> usedClassesJsonPaths, Path usedJarsFileOutput)
       throws IOException {
     // Merge multiple used-classes.json files into a single map of jar to classes
-    Map<Path, List<Path>> usedJarsToClasses = new HashMap<>();
+    Map<Path, List<Path>> usedJarsToClasses = new TreeMap<>();
     for (Path usedClassesJsonPath : usedClassesJsonPaths) {
       ImmutableMap<Path, Set<Path>> usedClassesMap =
           ObjectMappers.readValue(usedClassesJsonPath, new TypeReference<>() {});
@@ -82,6 +83,10 @@ public class DepFileUtils {
           (usedJarPath, classes) -> {
             usedJarsToClasses.computeIfAbsent(usedJarPath, k -> new ArrayList<>()).addAll(classes);
           });
+    }
+
+    for (final Map.Entry<Path, List<Path>> entry : usedJarsToClasses.entrySet()) {
+      entry.getValue().sort(Comparator.naturalOrder());
     }
     ObjectMappers.WRITER.writeValue(usedJarsFileOutput.toFile(), usedJarsToClasses);
   }
