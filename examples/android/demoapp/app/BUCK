@@ -1,0 +1,67 @@
+keystore(
+    name = "debug",
+    properties = "debug.keystore.properties",
+    store = "debug.keystore",
+)
+
+android_binary(
+    name = "demoapp_debug",
+    # TODO Investigate why pre-dexing is so slow
+    disable_pre_dex = True,
+    keystore = ":debug",
+    # NOTE: If you use `manifest` attribute, buck2 will use the manifest file as-is.
+    # With `manifest_skeleton`, buck2 will merge all manifests in the graph using Manifest Merger.
+    # See: https://developer.android.com/build/manage-manifests
+    manifest_skeleton = "src/main/AndroidManifest.xml",
+    use_split_dex = True,
+    deps = [
+        ":res",
+        "//app/src/main/java/com/facebook/demoapp/ui:ui",
+    ],
+)
+
+android_resource(
+    name = "res",
+    package = "com.facebook.demoapp",
+    res = "src/main/res",
+    visibility = ["PUBLIC"],
+)
+
+robolectric_test(
+    name = "tests",
+    srcs = glob(["src/test/**/*.kt"]),
+    language = "KOTLIN",
+    manifest = "src/test/resources/TestAndroidManifest.xml",
+    robolectric_runtime_dependencies = ["//app/libs/org/robolectric/android-all-instrumented:android-all-instrumented"],
+    deps = [
+        "//app/libs/junit/junit:junit",
+        "//app/libs/org/robolectric/robolectric:robolectric",
+        "//app/src/main/java/com/facebook/demoapp/model:model",
+    ],
+)
+
+android_library(
+    name = "android_tests_lib",
+    srcs = glob(["src/androidTest/**/*.kt"]),
+    language = "KOTLIN",
+    deps = [
+        "//app/src/main/java/com/facebook/demoapp/ui:ui",
+    ],
+)
+
+android_binary(
+    name = "android_tests_apk",
+    disable_pre_dex = True,
+    keystore = ":debug",
+    manifest_skeleton = "src/main/AndroidManifest.xml",
+    use_split_dex = True,
+    deps = [
+        ":android_tests_lib",
+    ],
+)
+
+# TODO Fix instrumentation test
+android_instrumentation_test(
+    name = "android_tests",
+    apk = ":android_tests_apk",
+)

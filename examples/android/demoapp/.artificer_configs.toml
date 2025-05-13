@@ -1,0 +1,19 @@
+# This is a configuration file for Artificer.
+# See app/libs/external_deps.txt for more information on Artificer.
+
+[core]
+# Whether artifacts (jar, aar files) are stored in the repository or in a local cache directory.
+# Default cache directory: ~/.artificer/artifacts
+# Set to 'true' if you plan to check in artifacts into source control.
+# Set to 'false' otherwise. Buck will download and maintain its own cache for artifacts at build
+# time.
+store_artifacts_locally = false
+
+# List of Maven repositories Artificer can use.
+[repositories]
+central = 'https://repo1.maven.org/maven2/'
+google-maven = 'https://maven.google.com/'
+
+[buck]
+# Artificer generates BUCK files at this location.
+base_path = "//app/libs"

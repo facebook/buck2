@@ -1,0 +1,32 @@
+# = What is this file? =
+# A list of Maven coordinates for external dependencies used in the project.
+
+# = How is this used? =
+# Unlike Gradle, buck2 does not have native support for external dependency management.
+# For Java/Android projects at Meta we use a tool called Artificer to resolve the dependency tree
+# and generate BUCK files with targets that other modules can depend on.
+#
+# Artificer code is not open-sourced yet, but we plan to do so. A runnable jar is available for
+# download on the GitHub releases page:
+# https://github.com/facebook/buck2/releases/tag/androidToolchain%2F2025-04-03
+
+# = How to update dependencies? =
+# First download the Artificer jar from GitHub.
+# Run:
+# `cd buck2/examples/demoapp`
+# `java -jar ~/artificer-0.0.1.jar download --log=DEBUG --depth=FULL @app/libs/external_deps.txt`
+
+# See the `.artificer_configs` file for additional information.
+
+# App dependencies
+androidx.activity:activity-ktx:1.10.1
+androidx.activity:activity-compose:1.10.1
+androidx.compose.material3:material3:1.3.2
+
+# Compiler plugins
+org.jetbrains.kotlin:kotlin-compose-compiler-plugin-embeddable:2.1.0
+
+# Tests
+junit:junit:4.13.2
+org.robolectric:robolectric:4.14
+org.robolectric:android-all-instrumented:15-robolectric-12650502-i7

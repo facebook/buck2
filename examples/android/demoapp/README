@@ -1,0 +1,6 @@
+# Installing
+
+`cargo install --path=app/buck2`
+`alias buck2=~/.cargo/bin/buck2`
+`buck2 install -r demoapp`
+
