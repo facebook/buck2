@@ -16,48 +16,8 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(
-    inplace=True,
-    extra_buck_config={
-        "buck2_health_check": {
-            "enable_health_checks": "false",
-        }
-    },
-)
-async def test_health_check_disabled_with_request_hang(buck: Buck) -> None:
-    await buck.kill()
-    (
-        health_check_state_file,
-        server_output,
-        server_process,
-    ) = await start_health_check_server(buck, "--with-request-hang")
-
-    env = {
-        # Set the CLI_PATH to `echo` making it effectively a no-op since we want buck to use the test server and not spawn a new one.
-        "BUCK2_HEALTH_CHECK_CLI_PATH": "echo",
-        "BUCK2_HEALTH_CHECK_STATE_INFO_PATH": health_check_state_file,
-    }
-    await buck.build(
-        "fbcode//buck2/tests/targets/rules/rust/hello_world:welcome",
-        env=env,
-    )
-    with open(server_output, "r") as f:
-        # Until the health check server is enabled via buckconfig, the server will not receive any requests.
-        assert f.read().strip() == ""
-
-    server_process.kill()
-
-
-@buck_test(
-    inplace=True,
-    extra_buck_config={
-        "buck2_health_check": {
-            "enable_health_checks": "true",
-        }
-    },
-)
-async def test_health_check_enabled_with_request_hang(buck: Buck) -> None:
-    await buck.kill()
+@buck_test(inplace=True)
+async def test_health_check_with_request_hang(buck: Buck) -> None:
     (
         health_check_state_file,
         server_output,
