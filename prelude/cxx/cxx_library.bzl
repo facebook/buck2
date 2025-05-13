@@ -802,7 +802,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                         header_path = paths.join(header.namespace, header_path)
                     header_symlink_mapping[paths.normalize(header_path)] = header.artifact
 
-                all_include_dirs = record.include_dirs + record.system_include_dirs.include_dirs
+                all_include_dirs = record.include_dirs + (record.system_include_dirs.include_dirs if record.system_include_dirs else [])
                 for header in record.raw_headers:
                     full_header_path = paths.join(package_prefix, header.short_path)
                     for include_dir in all_include_dirs:
