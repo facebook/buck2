@@ -19,8 +19,6 @@ ErlangAppCommonFields = [
     "include_dir",
     # deps files short_path -> artifact
     "deps_files",
-    # input mapping
-    "input_mapping",
 ]
 
 # target type to break circular dependencies

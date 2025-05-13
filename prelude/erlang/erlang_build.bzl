@@ -20,36 +20,35 @@ load(
 load(":erlang_utils.bzl", "action_identifier")
 
 # mapping
-#   from application to set of basenames in include dir for that application
-IncludesMapping = dict[str, set[str]]
-
-# mapping
-#   from include base name (e.g. "header.hrl"
+#   from include base name (e.g. "header.hrl")
 #   to artifact
 PathArtifactMapping = dict[str, Artifact]
+
+# mapping
+#   from application to public includes in that application
+#   the artifacts are source .hrl files
+IncludesMapping = dict[str, PathArtifactMapping]
+
+# mapping
+#   from include base name (e.g. "header.hrl")
+#   to (include dir, include source)
+PrivateIncludesMapping = dict[str, (Artifact, Artifact)]
 
 # mapping
 #   from module name
 #   to artifact
 ModuleArtifactMapping = dict[str, Artifact]
 
-# mapping
-#   from input base name
-#   path to input artifact from repo root
-InputArtifactMapping = dict[str, Artifact]
-
 BuildEnvironment = record(
     includes = field(IncludesMapping, {}),
-    private_includes = field(PathArtifactMapping, {}),
+    private_includes = field(PrivateIncludesMapping, {}),
     beams = field(ModuleArtifactMapping, {}),
     include_dirs = field(PathArtifactMapping, {}),
     deps_files = field(PathArtifactMapping, {}),
     # convenience storrage
     app_resources = field(PathArtifactMapping, {}),
-    app_includes = field(set[str], set()),
+    app_includes = field(PathArtifactMapping, {}),
     app_beams = field(ModuleArtifactMapping, {}),
-    # input artifact mapping
-    input_mapping = field(InputArtifactMapping, {}),
 )
 
 DepInfo = record(
@@ -67,13 +66,11 @@ def _prepare_build_environment(
     deps_files = {}
     includes = {}
     beams = {}
-    input_mapping = {}
 
     if includes_target:
         include_dirs = {includes_target.name: includes_target.include_dir[toolchain.name]}
         includes = {includes_target.name: includes_target.includes[toolchain.name]}
         deps_files = dict(includes_target.deps_files[toolchain.name])
-        input_mapping = dict(includes_target.input_mapping[toolchain.name])
 
     for name in dependencies:
         dep = dependencies[name]
@@ -104,10 +101,6 @@ def _prepare_build_environment(
         else:
             fail("invalid dep {}", dep)
 
-        # add transitive input mapping
-        # Note: the build will fail if there is ambiguity in the basename
-        input_mapping.update(dep_info.input_mapping[toolchain.name])
-
         # collect includes
         include_dirs[name] = dep_info.include_dir[toolchain.name]
         includes[name] = dep_info.includes[toolchain.name]
@@ -116,46 +109,22 @@ def _prepare_build_environment(
         new_deps = dep_info.deps_files[toolchain.name]
         for dep_file in new_deps:
             if dep_file in deps_files and deps_files[dep_file] != new_deps[dep_file]:
-                fail("conflicting artifact found in build {}: {} and {}".format(dep_info.name, deps_files[dep_file], new_deps[dep_file]))
+                _fail_dep_conflict(dep_file, deps_files[dep_file], new_deps[dep_file])
             deps_files[dep_file] = new_deps[dep_file]
 
     return BuildEnvironment(
-        app_includes = includes_target.includes[toolchain.name] if includes_target else set(),
+        app_includes = includes_target.includes[toolchain.name] if includes_target else {},
         app_resources = {},
         includes = includes,
         beams = beams,
         include_dirs = include_dirs,
         deps_files = deps_files,
-        input_mapping = input_mapping,
     )
 
-def _generate_input_mapping(build_environment: BuildEnvironment, input_artifacts: list[Artifact]) -> BuildEnvironment:
-    # collect input artifacts for current targets
-    # Note: this must be after the dependencies to overwrite private includes
-    if not input_artifacts:
-        return build_environment
-
-    input_mapping = dict(build_environment.input_mapping)
-
-    for input_artifact in input_artifacts:
-        key = input_artifact.basename
-        if key in input_mapping and input_mapping[key] != input_artifact:
-            fail("conflicting inputs for {}: {} {}".format(key, input_mapping[key], input_artifact))
-        input_mapping[key] = input_artifact
-
-    return BuildEnvironment(
-        # updated field
-        input_mapping = input_mapping,
-        # copied fields
-        includes = build_environment.includes,
-        private_includes = build_environment.private_includes,
-        beams = build_environment.beams,
-        include_dirs = build_environment.include_dirs,
-        deps_files = build_environment.deps_files,
-        app_includes = build_environment.app_includes,
-        app_resources = build_environment.app_resources,
-        app_beams = build_environment.app_beams,
-    )
+def _fail_dep_conflict(artifact_name: str, dep1: Artifact, dep2: Artifact) -> None:
+    app1_name = dep1.owner.name.removesuffix("_includes_only")
+    app2_name = dep2.owner.name.removesuffix("_includes_only")
+    fail("conflicting artifact `{}` found, defined in applications '{}' and '{}'".format(artifact_name, app1_name, app2_name))
 
 def _generated_source_artifacts(ctx: AnalysisContext, toolchain: Toolchain, name: str) -> PathArtifactMapping:
     """Generate source output artifacts and build actions for generated erl files."""
@@ -189,7 +158,7 @@ def _generate_include_artifacts(
     # construct updates build environment
     if not is_private:
         # fields for public include directory
-        app_includes = set([hrl.basename for hrl in header_artifacts])
+        app_includes = include_files
         includes = _add(build_environment.includes, name, app_includes)
         private_includes = build_environment.private_includes
         include_dirs = _add(build_environment.include_dirs, name, include_dir)
@@ -197,7 +166,7 @@ def _generate_include_artifacts(
         # fields for private include directory
         app_includes = build_environment.app_includes
         includes = build_environment.includes
-        private_includes = {hrl.basename: include_dir for hrl in header_artifacts}
+        private_includes = {hrl.basename: (include_dir, hrl) for hrl in header_artifacts}
         include_dirs = build_environment.include_dirs
 
     return BuildEnvironment(
@@ -211,7 +180,6 @@ def _generate_include_artifacts(
         beams = build_environment.beams,
         app_beams = build_environment.app_beams,
         app_resources = build_environment.app_resources,
-        input_mapping = build_environment.input_mapping,
     )
 
 def _generate_beam_artifacts(
@@ -242,7 +210,6 @@ def _generate_beam_artifacts(
         include_dirs = build_environment.include_dirs,
         app_includes = build_environment.app_includes,
         app_resources = build_environment.app_resources,
-        input_mapping = build_environment.input_mapping,
     )
 
     dep_info_file = ctx.actions.write_json(_dep_info_name(toolchain), updated_build_environment.deps_files, with_inputs = True)
@@ -269,7 +236,7 @@ def _get_deps_files(
         key = _deps_key(src)
         file = _get_deps_file(ctx, toolchain, src)
         if key in deps_deps and file != deps_deps[key]:
-            fail("conflicting artifact found in build: {} and {}".format(file, deps[key]))
+            _fail_dep_conflict(key, file, deps[key])
         deps[key] = file
 
     return deps
@@ -385,7 +352,7 @@ def _dependencies_to_args(
                     include_dir = build_environment.include_dirs[app]
                     include_libs.add(include_dir)
                     precise_includes.append(include_dir.project(file))
-                    input_mapping[file] = (True, build_environment.input_mapping[file])
+                    input_mapping[file] = (True, build_environment.includes[app][file])
             else:
                 # the file might come from OTP
                 input_mapping[file] = (False, paths.join(app, "include", file))
@@ -394,12 +361,10 @@ def _dependencies_to_args(
             # these includes can either reside in the private includes
             # or the public ones
             if file in build_environment.private_includes:
-                include_dir = build_environment.private_includes[file]
+                include_dir, input_artifact = build_environment.private_includes[file]
                 includes.add(include_dir)
                 precise_includes.append(include_dir.project(file))
-
-                if file in build_environment.input_mapping:
-                    input_mapping[file] = (True, build_environment.input_mapping[file])
+                input_mapping[file] = (True, input_artifact)
             else:
                 # at this point we don't know the application the include is coming
                 # from, and have to check all public include directories
@@ -410,10 +375,11 @@ def _dependencies_to_args(
                 if len(candidates) > 1:
                     fail("-include(\"%s\") is ambiguous as the following applications declare public includes with the same name: %s" % (file, candidates))
                 elif candidates:
-                    include_dir = build_environment.include_dirs[candidates[0]]
+                    app = candidates[0]
+                    include_dir = build_environment.include_dirs[app]
                     includes.add(include_dir)
                     precise_includes.append(include_dir.project(file))
-                    input_mapping[file] = (True, build_environment.input_mapping[file])
+                    input_mapping[file] = (True, build_environment.includes[app][file])
                 else:
                     # we didn't find the include, build will fail during compile
                     pass
@@ -631,7 +597,6 @@ def _peek_private_includes(
         app_includes = build_environment.app_includes,
         app_resources = build_environment.app_resources,
         app_beams = build_environment.app_beams,
-        input_mapping = build_environment.input_mapping,
     )
 
 # export
@@ -639,7 +604,6 @@ def _peek_private_includes(
 erlang_build = struct(
     prepare_build_environment = _prepare_build_environment,
     build_steps = struct(
-        generate_input_mapping = _generate_input_mapping,
         generated_source_artifacts = _generated_source_artifacts,
         generate_include_artifacts = _generate_include_artifacts,
         generate_beam_artifacts = _generate_beam_artifacts,

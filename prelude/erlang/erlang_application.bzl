@@ -135,16 +135,6 @@ def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, depend
 
     private_header_artifacts = [header for header in ctx.attrs.srcs if erlang_build.utils.is_hrl(header)]
 
-    # build input mapping
-    sources = src_artifacts + private_header_artifacts
-    if not include_info:
-        sources.extend(ctx.attrs.includes)
-
-    build_environment = erlang_build.build_steps.generate_input_mapping(
-        build_environment,
-        sources,
-    )
-
     # build output artifacts
 
     # public includes only triggered if this won't called from erlang_application macro
@@ -438,7 +428,6 @@ def build_app_info(
         include_dir = multidict_projection_key(build_environments, "include_dirs", name),
         private_includes = multidict_projection(build_environments, "private_includes"),
         deps_files = multidict_projection(build_environments, "deps_files"),
-        input_mapping = multidict_projection(build_environments, "input_mapping"),
         virtual = False,
         app_folders = app_folders,
         app_folder = primary_app_folder,

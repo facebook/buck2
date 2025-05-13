@@ -24,9 +24,6 @@ def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
     # prepare include directory for current app
     name = ctx.attrs.app_name
 
-    # input mapping
-    input_mapping = {input_artifact.basename: input_artifact for input_artifact in ctx.attrs.includes}
-
     toolchains = select_toolchains(ctx)
     build_environments = {}
     for toolchain in toolchains.values():
@@ -34,7 +31,7 @@ def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
             erlang_build.build_steps.generate_include_artifacts(
                 ctx,
                 toolchain,
-                BuildEnvironment(input_mapping = input_mapping),
+                BuildEnvironment(),
                 name,
                 ctx.attrs.includes,
             )
@@ -46,7 +43,6 @@ def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
         includes = multidict_projection(build_environments, "app_includes"),
         include_dir = multidict_projection_key(build_environments, "include_dirs", name),
         deps_files = multidict_projection(build_environments, "deps_files"),
-        input_mapping = multidict_projection(build_environments, "input_mapping"),
         _original_includes = ctx.attrs.includes,
     )
 

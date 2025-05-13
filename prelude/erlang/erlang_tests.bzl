@@ -157,8 +157,6 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         # convenience storrage
         app_includes = pre_build_environment.app_includes,
         app_beams = pre_build_environment.app_beams,
-        # input mapping
-        input_mapping = pre_build_environment.input_mapping,
     )
 
     # Config files for ct
