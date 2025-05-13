@@ -379,11 +379,13 @@ def _dependencies_to_args(
         file = dep["file"]
         if dep["type"] == "include_lib":
             app = dep["app"]
-            if app in build_environment.include_dirs:
-                include_dir = build_environment.include_dirs[app]
-                include_libs.add(include_dir)
-                precise_includes.append(include_dir.project(file))
-                input_mapping[file] = (True, build_environment.input_mapping[file])
+            if app in build_environment.includes:
+                # if file doesn't exist in app, let the compiler fail
+                if file in build_environment.includes[app]:
+                    include_dir = build_environment.include_dirs[app]
+                    include_libs.add(include_dir)
+                    precise_includes.append(include_dir.project(file))
+                    input_mapping[file] = (True, build_environment.input_mapping[file])
             else:
                 # the file might come from OTP
                 input_mapping[file] = (False, paths.join(app, "include", file))
