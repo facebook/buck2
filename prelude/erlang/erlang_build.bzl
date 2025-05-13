@@ -35,20 +35,22 @@ IncludesMapping = dict[str, PathArtifactMapping]
 PrivateIncludesMapping = dict[str, (Artifact, Artifact)]
 
 # mapping
-#   from module name
-#   to artifact
+#   from module name to beam file location
 ModuleArtifactMapping = dict[str, Artifact]
+
+# mapping
+#   from application to beam files it defines
+EbinMapping = dict[str, ModuleArtifactMapping]
 
 BuildEnvironment = record(
     includes = field(IncludesMapping, {}),
     private_includes = field(PrivateIncludesMapping, {}),
-    beams = field(ModuleArtifactMapping, {}),
+    beams = field(EbinMapping, {}),
     include_dirs = field(PathArtifactMapping, {}),
     deps_files = field(PathArtifactMapping, {}),
     # convenience storrage
     app_resources = field(PathArtifactMapping, {}),
     app_includes = field(PathArtifactMapping, {}),
-    app_beams = field(ModuleArtifactMapping, {}),
 )
 
 DepInfo = record(
@@ -84,11 +86,7 @@ def _prepare_build_environment(
                 continue
 
             # collect beams
-            dep_beams = dep_info.beams[toolchain.name]
-            for module in dep_beams:
-                if module in beams:
-                    fail("duplicated beam found in build: {}".format(module))
-                beams[module] = dep_beams[module]
+            beams[name] = dep_info.beams[toolchain.name]
 
         elif ErlangAppIncludeInfo in dep:
             dep_info = dep[ErlangAppIncludeInfo]
@@ -178,7 +176,6 @@ def _generate_include_artifacts(
         app_includes = app_includes,
         # copied fields
         beams = build_environment.beams,
-        app_beams = build_environment.app_beams,
         app_resources = build_environment.app_resources,
     )
 
@@ -201,9 +198,8 @@ def _generate_beam_artifacts(
 
     updated_build_environment = BuildEnvironment(
         # updated fields
-        beams = _merge(beam_mapping, build_environment.beams),
+        beams = _add(build_environment.beams, name, beam_mapping),
         deps_files = deps_files,
-        app_beams = beam_mapping,
         # copied fields
         includes = build_environment.includes,
         private_includes = build_environment.private_includes,
@@ -388,8 +384,12 @@ def _dependencies_to_args(
               dep["type"] == "parse_transform" or
               dep["type"] == "manual_dependency"):
             module, _ = paths.split_extension(file)
-            if module in build_environment.beams:
-                beams.add(build_environment.beams[module])
+
+            # we made sure earlier there are no conflicts, we'll find at most one
+            for app in build_environment.beams:
+                if module in build_environment.beams[app]:
+                    beams.add(build_environment.beams[app][module])
+                    break
 
         else:
             fail("unrecognized dependency type %s", (dep["type"]))
@@ -596,7 +596,6 @@ def _peek_private_includes(
         deps_files = build_environment.deps_files,
         app_includes = build_environment.app_includes,
         app_resources = build_environment.app_resources,
-        app_beams = build_environment.app_beams,
     )
 
 # export

@@ -315,7 +315,7 @@ def link_output(
     """Link application output folder in working dir root folder."""
     name = app_name(ctx)
 
-    ebin = build_environment.app_beams.values() + [build_environment.app_resources[name + ".app"]]
+    ebin = build_environment.beams[name].values() + [build_environment.app_resources[name + ".app"]]
     include = build_environment.include_dirs[name]
     priv = build_environment.app_resources["priv"]
 
@@ -421,7 +421,7 @@ def build_app_info(
     return ErlangAppInfo(
         name = name,
         version = version,
-        beams = multidict_projection(build_environments, "app_beams"),
+        beams = multidict_projection_key(build_environments, "beams", name),
         includes = multidict_projection(build_environments, "app_includes"),
         dependencies = dependencies,
         start_dependencies = start_dependencies,

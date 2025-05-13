@@ -156,7 +156,6 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         deps_files = pre_build_environment.deps_files,
         # convenience storrage
         app_includes = pre_build_environment.app_includes,
-        app_beams = pre_build_environment.app_beams,
     )
 
     # Config files for ct
@@ -185,13 +184,14 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         [suite],
     )
 
-    ebin_dir = paths.dirname(build_environment.beams[suite_name].short_path)
+    beam = build_environment.beams["tests"][suite_name]
+    ebin_dir = paths.dirname(beam.short_path)
 
     suite_data = paths.join(ebin_dir, suite_name + "_data")
     data_dir = _build_resource_dir(ctx, ctx.attrs.resources, suite_data)
     property_dir = _build_resource_dir(ctx, ctx.attrs.property_tests, paths.join(ebin_dir, "property_test"))
 
-    output_dir = link_output(ctx, suite_name, build_environment, data_dir, property_dir)
+    output_dir = link_output(ctx, beam, data_dir, property_dir)
     test_info_file = _write_test_info_file(
         ctx = ctx,
         test_suite = suite_name,
@@ -334,13 +334,11 @@ def _build_resource_dir(ctx: AnalysisContext, resources: list, target_dir: str) 
 
 def link_output(
         ctx: AnalysisContext,
-        test_suite: str,
-        build_environment: BuildEnvironment,
+        beam: Artifact,
         data_dir: Artifact,
         property_dir: Artifact) -> Artifact:
     """Link the data_dirs and the test_suite beam in a single output folder."""
     link_spec = {}
-    beam = build_environment.app_beams[test_suite]
     link_spec[beam.basename] = beam
     link_spec[data_dir.basename] = data_dir
     link_spec[property_dir.basename] = property_dir
