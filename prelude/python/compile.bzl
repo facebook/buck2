@@ -74,4 +74,4 @@ def compile_manifests_for_mode(
         identifier = mode,
         error_handler = ctx.attrs._python_toolchain[PythonToolchainInfo].python_error_handler,
     )
-    return ManifestInfo(manifest = bytecode_manifest, artifacts = [(output, "bytecode")])
+    return ManifestInfo(manifest = bytecode_manifest.without_associated_artifacts(), artifacts = [(output, "bytecode")])
