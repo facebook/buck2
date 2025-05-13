@@ -97,4 +97,5 @@ pub enum ResolvedArtifactGroupBuildSignalsKey {
 pub struct TransitiveSetProjectionKey {
     pub key: TransitiveSetKey,
     pub projection: usize,
+    pub uses_content_based_paths: bool,
 }

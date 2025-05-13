@@ -87,8 +87,9 @@ impl CommandLineArtifactVisitor for CommandLineInputVisitor {
             ArtifactGroup::Artifact(ref artifact) => artifact.has_content_based_path(),
             // Promised artifacts are not allowed to use content-based paths
             ArtifactGroup::Promise(_) => false,
-            // TODO(T219919866) Support transitive sets in write actions
-            ArtifactGroup::TransitiveSetProjection(_) => false,
+            ArtifactGroup::TransitiveSetProjection(ref transitive_set_projection_key) => {
+                transitive_set_projection_key.uses_content_based_paths
+            }
         };
 
         if is_content_based_input {

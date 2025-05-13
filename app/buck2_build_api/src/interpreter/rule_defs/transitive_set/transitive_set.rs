@@ -12,6 +12,7 @@ use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_error::BuckErrorContext;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -53,6 +54,8 @@ use crate::actions::impls::json::visit_json_artifacts;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::artifact_groups::deferred::TransitiveSetKey;
+use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
+use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::transitive_set::BfsTransitiveSetIteratorGen;
@@ -113,6 +116,9 @@ pub struct TransitiveSetGen<V: ValueLifetimeless> {
 
     /// Pre-computed reductions. Those are arbitrary values based on the set's definition.
     pub(crate) reductions: Box<[V]>,
+
+    /// For each projection, whether it uses content based paths or not.
+    pub(crate) projection_uses_content_based_paths: Box<[bool]>,
 
     /// Further transitive sets.
     pub children: Box<[V]>,
@@ -215,6 +221,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
         TransitiveSetProjectionKey {
             key: self.key.dupe(),
             projection,
+            uses_content_based_paths: self.projection_uses_content_based_paths[projection],
         }
     }
 
@@ -260,6 +267,7 @@ impl FrozenTransitiveSet {
                 TransitiveSetProjectionKey {
                     key: v.key().dupe(),
                     projection,
+                    uses_content_based_paths: v.projection_uses_content_based_paths[projection],
                 },
             )));
         }
@@ -371,17 +379,21 @@ impl<'v> Freeze for TransitiveSet<'v> {
             definition,
             node,
             reductions,
+            projection_uses_content_based_paths,
             children,
         } = self;
         let definition = definition.freeze(freezer)?;
         let node = node.try_map(|node| node.freeze(freezer))?;
         let children = children.freeze(freezer)?;
         let reductions = reductions.freeze(freezer)?;
+        let projection_uses_content_based_paths =
+            projection_uses_content_based_paths.freeze(freezer)?;
         Ok(TransitiveSetGen {
             key,
             definition,
             node,
             reductions,
+            projection_uses_content_based_paths,
             children,
         })
     }
@@ -470,6 +482,88 @@ impl<'v> TransitiveSet<'v> {
             })
             .collect::<Result<Box<[_]>, _>>()?;
 
+        struct HasContentBasedInputVisitor {
+            has_content_based_input: bool,
+        }
+
+        impl HasContentBasedInputVisitor {
+            fn new() -> Self {
+                Self {
+                    has_content_based_input: false,
+                }
+            }
+        }
+
+        impl CommandLineArtifactVisitor for HasContentBasedInputVisitor {
+            fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
+                let is_content_based_input = match input {
+                    ArtifactGroup::Artifact(a) => a.has_content_based_path(),
+                    // Promised artifacts are not allowed to use content-based paths
+                    ArtifactGroup::Promise(_) => false,
+                    ArtifactGroup::TransitiveSetProjection(transitive_set_projection_key) => {
+                        transitive_set_projection_key.uses_content_based_paths
+                    }
+                };
+                if is_content_based_input {
+                    self.has_content_based_input = true;
+                }
+            }
+
+            fn visit_output(&mut self, _artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {}
+
+            fn visit_declared_artifact(
+                &mut self,
+                declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact,
+                _tag: Option<&ArtifactTag>,
+            ) -> buck2_error::Result<()> {
+                if declared_artifact.has_content_based_path() {
+                    self.has_content_based_input = true;
+                }
+
+                Ok(())
+            }
+        }
+
+        let projection_uses_content_based_paths = def
+            .operations()
+            .projections
+            .iter()
+            .enumerate()
+            .map(|(idx, (_name, spec))| {
+                if let Some(node) = &node {
+                    let projection = node
+                        .projections
+                        .get(idx)
+                        .buck_error_context("Invalid projection id")?;
+                    let mut visitor = HasContentBasedInputVisitor::new();
+                    match spec.kind {
+                        TransitiveSetProjectionKind::Args => {
+                            TransitiveSetArgsProjection::as_command_line(*projection)?
+                                .visit_artifacts(&mut visitor)?;
+                        }
+                        TransitiveSetProjectionKind::Json => {
+                            visit_json_artifacts(*projection, &mut visitor)?
+                        }
+                    }
+                    if visitor.has_content_based_input {
+                        return buck2_error::Ok(true);
+                    }
+                }
+
+                for child in children_sets.iter() {
+                    let child_projection_uses_content_based_paths = child
+                        .projection_uses_content_based_paths
+                        .get(idx)
+                        .buck_error_context("Invalid projection id")?;
+                    if *child_projection_uses_content_based_paths {
+                        return buck2_error::Ok(true);
+                    }
+                }
+
+                buck2_error::Ok(false)
+            })
+            .collect::<Result<Box<[_]>, _>>()?;
+
         Ok(Self {
             key,
             definition:
@@ -477,6 +571,7 @@ impl<'v> TransitiveSet<'v> {
             FrozenValueTyped::<FrozenTransitiveSetDefinition>::new(FrozenValueTyped::<FrozenTransitiveSetDefinition>::to_frozen_value(definition)).buck_error_context("internal error")?,
             node,
             reductions,
+            projection_uses_content_based_paths,
             children,
         })
     }

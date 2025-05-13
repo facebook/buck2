@@ -207,6 +207,7 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
             TransitiveSetProjectionKey {
                 key: set.key.dupe(),
                 projection: 0,
+                uses_content_based_paths: false,
             },
         )))
         .await?
