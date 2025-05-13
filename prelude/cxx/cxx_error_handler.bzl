@@ -108,4 +108,16 @@ CXX_GENERIC_ERROR_TYPES = [
         string_match = "cannot initialize a member subobject of type",
         category_suffix = "type_mismatch",
     ),
+    make_error_type(
+        string_match = "no matching member function",
+        category_suffix = "missing_member_function",
+    ),
+    make_error_type(
+        string_match = "unused variable",
+        category_suffix = "unused_variable",
+    ),
+    make_error_type(
+        string_match = "Wheader-hygiene",
+        category_suffix = "header_hygiene_violated",
+    ),
 ]
