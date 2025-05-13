@@ -100,15 +100,15 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
 #if PY_VERSION_HEX >= 0x030D0000
   // Python 3.13 has a new C-API for calling module init functions
   mod = _Ci_PyImport_CallInitFuncWithContext(namestr.c_str(), initfunc);
-#elif PY_VERSION_HEX >= 0x030C0000
+#elif PY_VERSION_HEX >= 0x030C0000 && !defined(OSS_PYTHON)
   // Use our custom Python 3.12 C-API to call the statically linked module init
   // function
   mod = _Ci_PyImport_CallInitFuncWithContext(namestr.c_str(), initfunc);
 #else
   // In Python 3.10 (and earlier) we need to handle package context swapping
   // ourselves
+  auto _Py_PackageContext = namestr.c_str();
   const char* oldcontext = _Py_PackageContext;
-  _Py_PackageContext = namestr.c_str();
   if (_Py_PackageContext == nullptr) {
     _Py_PackageContext = oldcontext;
     Py_DECREF(name);

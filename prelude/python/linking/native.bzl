@@ -251,7 +251,7 @@ def _compute_cxx_executable_info(
         allow_cache_upload) -> CxxExecutableOutput:
     cxx_executable_srcs = [
         CxxSrcWithFlags(file = ctx.attrs.cxx_main, flags = []),
-        CxxSrcWithFlags(file = ctx.attrs.static_extension_utils, flags = []),
+        CxxSrcWithFlags(file = ctx.attrs.static_extension_utils, flags = ["-DOSS_PYTHON=1"] if ctx.attrs.use_oss_python else []),
         CxxSrcWithFlags(file = static_extension_info_out, flags = []),
     ]
 
