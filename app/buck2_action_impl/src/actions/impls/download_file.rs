@@ -51,6 +51,8 @@ enum DownloadFileActionError {
     WrongNumberOfInputs(usize),
     #[error("Exactly one output file must be specified for a download file action, got {0}")]
     WrongNumberOfOutputs(usize),
+    #[error("Downloads using content-based paths must supply either a sha1 or a sha256!")]
+    ContentBasedPathWithoutMetadata(),
 }
 
 #[derive(Debug, Allocative)]
@@ -279,8 +281,16 @@ impl Action for DownloadFileAction {
             match self.declared_metadata(&client, ctx.digest_config()).await? {
                 Some(metadata) => {
                     let artifact_fs = ctx.fs();
-                    // TODO(T219919866) Add support for experimental content-based path hashing
-                    let rel_path = artifact_fs.resolve_build(self.output().get_path(), None)?;
+                    let value = ArtifactValue::file(metadata.dupe());
+                    let rel_path = artifact_fs.resolve_build(
+                        self.output().get_path(),
+                        if self.output().get_path().is_content_based_path() {
+                            Some(value.content_based_path_hash())
+                        } else {
+                            None
+                        }
+                        .as_ref(),
+                    )?;
 
                     // Fast path: download later via the materializer.
                     ctx.materializer()
@@ -289,21 +299,28 @@ impl Action for DownloadFileAction {
                             HttpDownloadInfo {
                                 url: url.dupe(),
                                 checksum: self.inner.checksum.dupe(),
-                                metadata: metadata.dupe(),
+                                metadata,
                                 owner: ctx.target().owner().dupe(),
                             },
                             ctx.cancellation_context(),
                         )
                         .await?;
 
-                    (ArtifactValue::file(metadata), ActionExecutionKind::Deferred)
+                    (value, ActionExecutionKind::Deferred)
                 }
                 None => {
                     ctx.cleanup_outputs().await?;
 
                     let artifact_fs = ctx.fs();
                     let project_fs = artifact_fs.fs();
-                    // TODO(T219919866) Add support for experimental content-based path hashing
+
+                    if self.output().get_path().is_content_based_path() {
+                        return Err(ExecuteError::Error {
+                            error: DownloadFileActionError::ContentBasedPathWithoutMetadata()
+                                .into(),
+                        });
+                    }
+
                     let rel_path = artifact_fs.resolve_build(self.output().get_path(), None)?;
 
                     // Slow path: download now.

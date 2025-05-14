@@ -2,6 +2,7 @@ load(
     ":defs.bzl",
     "cas_artifact_with_content_based_path",
     "copy",
+    "download_with_content_based_path",
     "dynamic_new_with_content_based_path",
     "dynamic_with_content_based_path",
     "failing_validation_with_content_based_path",
@@ -48,6 +49,10 @@ cas_artifact_with_content_based_path(
     digest = "da39a3ee5e6b4b0d3255bfef95601890afd80709:0",
     use_case = "buck2-testing",
     expires_after_timestamp = 0,
+)
+
+download_with_content_based_path(
+    name = "download_with_content_based_path",
 )
 
 failing_validation_with_content_based_path(
