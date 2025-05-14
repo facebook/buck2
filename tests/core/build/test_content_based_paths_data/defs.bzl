@@ -81,3 +81,26 @@ symlink = rule(
         "to_symlink": attrs.source(),
     },
 )
+
+def _cas_artifact_with_content_based_path_impl(ctx: AnalysisContext):
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.cas_artifact(
+        out,
+        ctx.attrs.digest,
+        ctx.attrs.use_case,
+        expires_after_timestamp = ctx.attrs.expires_after_timestamp,
+        is_tree = ctx.attrs.is_tree,
+        is_directory = ctx.attrs.is_directory,
+    )
+    return [DefaultInfo(default_output = out)]
+
+cas_artifact_with_content_based_path = rule(
+    impl = _cas_artifact_with_content_based_path_impl,
+    attrs = {
+        "digest": attrs.string(),
+        "expires_after_timestamp": attrs.int(),
+        "is_directory": attrs.bool(default = False),
+        "is_tree": attrs.bool(default = False),
+        "use_case": attrs.string(),
+    },
+)

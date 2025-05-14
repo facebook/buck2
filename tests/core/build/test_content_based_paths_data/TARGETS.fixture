@@ -1,4 +1,4 @@
-load(":defs.bzl", "copy", "run_remote_with_content_based_path", "symlink", "write_with_content_based_path")
+load(":defs.bzl", "cas_artifact_with_content_based_path", "copy", "run_remote_with_content_based_path", "symlink", "write_with_content_based_path")
 
 write_with_content_based_path(
     name = "write_with_content_based_path",
@@ -18,6 +18,14 @@ copy(
 symlink(
     name = "symlink_with_content_based_path",
     to_symlink = ":write_with_content_based_path",
+)
+
+cas_artifact_with_content_based_path(
+    name = "empty_cas_artifact_with_content_based_path",
+    # The empty file is guaranteed to exist in RE.
+    digest = "da39a3ee5e6b4b0d3255bfef95601890afd80709:0",
+    use_case = "buck2-testing",
+    expires_after_timestamp = 0,
 )
 
 platform(

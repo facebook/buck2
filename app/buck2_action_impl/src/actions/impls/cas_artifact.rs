@@ -291,8 +291,15 @@ impl Action for CasArtifactAction {
             }
         };
 
-        // TODO(T219919866) Add support for experimental content-based path hashing
-        let path = ctx.fs().resolve_build(self.output.get_path(), None)?;
+        let path = ctx.fs().resolve_build(
+            self.output.get_path(),
+            if self.output.get_path().is_content_based_path() {
+                Some(value.content_based_path_hash())
+            } else {
+                None
+            }
+            .as_ref(),
+        )?;
         ctx.materializer()
             .declare_cas_many(
                 Arc::new(CasDownloadInfo::new_declared(self.inner.re_use_case)),
