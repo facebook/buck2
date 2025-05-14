@@ -495,7 +495,9 @@ def build_kotlin_library(
                 generated_sources = []
 
             java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
+            maybe_has_java_srcs = lazy.is_any(lambda src: src.extension == ".java" or src.basename.endswith(".src.zip") or src.basename.endswith("-sources.jar"), srcs)
             if (
+                maybe_has_java_srcs and
                 not java_toolchain.is_bootstrap_toolchain and
                 not ctx.attrs._is_building_android_binary
             ):
