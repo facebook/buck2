@@ -123,3 +123,28 @@ cas_artifact_with_content_based_path = rule(
         "use_case": attrs.string(),
     },
 )
+
+def _failing_validation_with_content_based_path_impl(ctx):
+    validation = ctx.actions.declare_output("validation.json", uses_experimental_content_based_path_hashing = True)
+    validation = ctx.actions.write_json(validation, {
+        "data": {
+            "message": "This is a failing validation",
+            "status": "failure",
+        },
+        "version": 1,
+    }, pretty = True)
+
+    return [
+        DefaultInfo(default_output = ctx.actions.write("out", "hello world")),
+        ValidationInfo(validations = [
+            ValidationSpec(
+                name = "whistle",
+                validation_result = validation,
+            ),
+        ]),
+    ]
+
+failing_validation_with_content_based_path = rule(
+    impl = _failing_validation_with_content_based_path_impl,
+    attrs = {},
+)

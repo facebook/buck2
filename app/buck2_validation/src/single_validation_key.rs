@@ -49,23 +49,30 @@ impl Key for SingleValidationKey {
         ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> Self::Value {
-        let gen_path = {
-            let build_result = ActionCalculation::build_action(ctx, &self.0).await?;
+        let build_result = ActionCalculation::build_action(ctx, &self.0).await?;
+        let (gen_path, artifact_value) = {
             if build_result.iter().count() != 1 {
                 return Err(buck2_error::Error::from(
                     ParseValidationResultError::WrongNumberOfArtifacts,
                 ));
             }
-            let (gen_path, ..) = build_result
+            let (gen_path, artifact_value) = build_result
                 .iter()
                 .next()
                 .internal_error("Just checked single element")?;
-            gen_path.dupe()
+            (gen_path.dupe(), artifact_value)
         };
 
         let fs = ctx.get_artifact_fs().await?;
-        // TODO(T219919866) Add support for experimental content-based path hashing
-        let project_relative_path = fs.buck_out_path_resolver().resolve_gen(&gen_path, None)?;
+        let project_relative_path = fs.buck_out_path_resolver().resolve_gen(
+            &gen_path,
+            if gen_path.is_content_based_path() {
+                Some(artifact_value.content_based_path_hash())
+            } else {
+                None
+            }
+            .as_ref(),
+        )?;
 
         let validation_result_path = fs.fs().resolve(&project_relative_path);
 

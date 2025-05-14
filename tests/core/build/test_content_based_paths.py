@@ -11,6 +11,7 @@
 from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
@@ -90,4 +91,17 @@ async def test_symlink_with_content_based_path(buck: Buck) -> None:
 async def test_cas_artifact_with_content_based_path(buck: Buck) -> None:
     await build_target_with_different_platforms_and_verify_output_paths_are_identical(
         buck, "root//:empty_cas_artifact_with_content_based_path"
+    )
+
+
+@buck_test()
+async def test_validation_with_content_based_path(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "root//:failing_validation_with_content_based_path",
+            "--target-platforms",
+            "root//:p_default",
+            "--show-output",
+        ),
+        stderr_regex="This is a failing validation",
     )
