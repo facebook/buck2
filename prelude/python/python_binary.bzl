@@ -33,6 +33,13 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_debug_with_gnu_debuglink")
 load("@prelude//python:compute_providers.bzl", "ExecutableType", "compute_providers")
+load(
+    "@prelude//python/linking:link_helper.bzl",
+    "LinkProviders",
+    "cxx_implicit_attrs",
+    "process_native_linking_rule",
+    "python_implicit_attrs",
+)
 load("@prelude//python/linking:native.bzl", "process_native_linking")
 load("@prelude//python/linking:native_python_util.bzl", "compute_link_strategy")
 load("@prelude//python/linking:omnibus.bzl", "process_omnibus_linking")
@@ -113,7 +120,7 @@ def python_executable(
         standalone_resources: dict[str, ArtifactOutputs] | None,
         compile: bool,
         allow_cache_upload: bool,
-        executable_type: ExecutableType) -> list[Provider]:
+        executable_type: ExecutableType) -> list[Provider] | Promise:
     # Returns a three tuple: the Python binary, all its potential runtime files,
     # and a provider for its source DB.
 
@@ -261,10 +268,12 @@ def _compute_pex_providers(
         extensions: dict[str, (LinkedObject, Label)],
         link_args: list[LinkArgs],
         extra: dict[str, typing.Any],
-        extra_artifacts: dict[str, typing.Any],
-        executable_type: ExecutableType) -> list[Provider]:
+        link_extra_artifacts: dict[str, typing.Any],
+        executable_type: ExecutableType) -> list[Provider] | Promise:
     dbg_source_db_output = ctx.actions.declare_output("dbg-db.json")
     dbg_source_db = create_dbg_source_db(ctx, dbg_source_db_output, src_manifest, python_deps)
+
+    extra_artifacts = {key: value for key, value in link_extra_artifacts.items()}
 
     link_strategy = compute_link_strategy(ctx)
     build_args = ctx.attrs.build_args
@@ -397,7 +406,7 @@ def _convert_python_library_to_executable(
         src_manifest: ManifestInfo | None,
         python_deps: list[PythonLibraryInfo],
         source_db_no_deps: DefaultInfo,
-        executable_type: ExecutableType) -> list[Provider]:
+        executable_type: ExecutableType) -> list[Provider] | Promise:
     extra = {}
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
@@ -408,13 +417,49 @@ def _convert_python_library_to_executable(
     link_strategy = compute_link_strategy(ctx)
 
     if link_strategy == NativeLinkStrategy("native"):
-        shared_libs, extensions, link_args, extra, extra_artifacts = process_native_linking(
-            ctx,
-            deps,
-            python_toolchain,
-            package_style,
-            allow_cache_upload,
-        )
+        use_anon_target = getattr(ctx.attrs, "use_anon_target_for_analysis", False)
+        if use_anon_target:
+            explicit_attrs = {
+                "allow_cache_upload": allow_cache_upload,
+                "deps": deps,
+                "name": "python_linking:" + ctx.attrs.name,
+                "package_style": package_style,
+                "python_toolchain": ctx.attrs._python_toolchain,
+                "rpath": ctx.attrs.name,
+                "static_extension_utils": ctx.attrs.static_extension_utils,
+                "_cxx_toolchain": ctx.attrs._cxx_toolchain,
+            }
+            implicit_attrs = {
+                a: getattr(ctx.attrs, a)
+                for a in (set(cxx_implicit_attrs.keys()) | set(python_implicit_attrs.keys())) - set(explicit_attrs.keys())
+            }
+            return ctx.actions.anon_target(
+                process_native_linking_rule,
+                explicit_attrs | implicit_attrs,
+            ).promise.map(lambda providers: _compute_pex_providers(
+                ctx,
+                src_manifest,
+                python_deps,
+                source_db_no_deps,
+                main,
+                compile,
+                library,
+                allow_cache_upload,
+                providers[LinkProviders].shared_libraries,
+                providers[LinkProviders].extensions,
+                providers[LinkProviders].link_args,
+                providers[LinkProviders].extra,
+                providers[LinkProviders].extra_artifacts,
+                executable_type,
+            ))
+        else:
+            shared_libs, extensions, link_args, extra, extra_artifacts = process_native_linking(
+                ctx,
+                deps,
+                python_toolchain,
+                package_style,
+                allow_cache_upload,
+            )
     else:
         extensions = {}
         for manifest in library.manifests.traverse():
@@ -452,7 +497,7 @@ def _convert_python_library_to_executable(
         executable_type,
     )
 
-def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
+def python_binary_impl(ctx: AnalysisContext) -> list[Provider] | Promise:
     main_module = ctx.attrs.main_module
     main_function = ctx.attrs.main_function
     if main_module != None and ctx.attrs.main != None:

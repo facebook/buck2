@@ -34,7 +34,7 @@ def _write_test_modules_list(
     contents += "]\n"
     return name, ctx.actions.write(name, contents)
 
-def python_test_executable(ctx: AnalysisContext) -> list[Provider]:
+def python_test_executable(ctx: AnalysisContext) -> list[Provider] | Promise:
     main_module = value_or(ctx.attrs.main_module, "__test_main__")
 
     srcs = qualify_srcs(ctx.label, ctx.attrs.base_module, from_named_set(ctx.attrs.srcs))
@@ -63,5 +63,5 @@ def python_test_executable(ctx: AnalysisContext) -> list[Provider]:
         executable_type = ExecutableType("test"),
     )
 
-def python_test_impl(ctx: AnalysisContext) -> list[Provider]:
+def python_test_impl(ctx: AnalysisContext) -> list[Provider] | Promise:
     return python_test_executable(ctx)

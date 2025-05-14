@@ -280,7 +280,13 @@ def _compute_cxx_executable_info(
         extra_binary_link_flags.append(rpath_ldflag + "../..")
         extra_binary_link_flags.append(rpath_ldflag + "../lib")
     else:
-        rpath_ldflag_prefix = rpath_ldflag + "{}#link-tree".format(ctx.attrs.name)
+        use_anon_target = getattr(ctx.attrs, "use_anon_target_for_analysis", False)
+        if use_anon_target:
+            link_tree_name = getattr(ctx.attrs, "name", ctx.attrs.rpath)
+        else:
+            link_tree_name = ctx.attrs.name
+
+        rpath_ldflag_prefix = rpath_ldflag + "{}#link-tree".format(link_tree_name)
         extra_binary_link_flags.append(rpath_ldflag_prefix + "/runtime/lib")
         extra_binary_link_flags.append(rpath_ldflag_prefix)
 
