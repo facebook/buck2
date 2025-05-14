@@ -32,6 +32,25 @@ write_with_content_based_path = rule(
     },
 )
 
+def _write_json_with_content_based_path_impl(ctx):
+    out = ctx.actions.declare_output("out.json", uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.write_json(
+        out,
+        {
+            "baz": 42,
+            "foo": "bar",
+            "source": ctx.attrs.source,
+        },
+    )
+    return [DefaultInfo(default_output = out)]
+
+write_json_with_content_based_path = rule(
+    impl = _write_json_with_content_based_path_impl,
+    attrs = {
+        "source": attrs.source(),
+    },
+)
+
 def _run_remote_with_content_based_path_impl(ctx):
     script = ctx.actions.declare_output("script.py", uses_experimental_content_based_path_hashing = True)
     script = ctx.actions.write(

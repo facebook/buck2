@@ -1,8 +1,21 @@
-load(":defs.bzl", "cas_artifact_with_content_based_path", "copy", "run_remote_with_content_based_path", "symlink", "write_with_content_based_path")
+load(
+    ":defs.bzl",
+    "cas_artifact_with_content_based_path",
+    "copy",
+    "run_remote_with_content_based_path",
+    "symlink",
+    "write_json_with_content_based_path",
+    "write_with_content_based_path",
+)
 
 write_with_content_based_path(
     name = "write_with_content_based_path",
     data = "hello world",
+)
+
+write_json_with_content_based_path(
+    name = "write_json_with_content_based_path",
+    source = ":write_with_content_based_path",
 )
 
 run_remote_with_content_based_path(

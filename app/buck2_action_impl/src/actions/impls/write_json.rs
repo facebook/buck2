@@ -34,7 +34,9 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
+use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::category::CategoryRef;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -141,7 +143,11 @@ impl WriteJsonAction {
         })
     }
 
-    fn get_contents(&self, fs: &ExecutorFs) -> buck2_error::Result<Vec<u8>> {
+    fn get_contents(
+        &self,
+        fs: &ExecutorFs,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
+    ) -> buck2_error::Result<Vec<u8>> {
         let mut writer = Vec::new();
         json::write_json(
             JsonUnpack::unpack_value_err(self.contents.value())?,
@@ -149,6 +155,7 @@ impl WriteJsonAction {
             &mut writer,
             self.inner.pretty,
             self.inner.absolute,
+            artifact_path_mapping,
         )?;
         Ok(writer)
     }
@@ -181,7 +188,9 @@ impl Action for WriteJsonAction {
     }
 
     fn aquery_attributes(&self, fs: &ExecutorFs) -> IndexMap<String, String> {
-        let res: buck2_error::Result<String> = try { String::from_utf8(self.get_contents(fs)?)? };
+        // TODO(T219919866) Support aquery with content-based paths.
+        let res: buck2_error::Result<String> =
+            try { String::from_utf8(self.get_contents(fs, &IndexMap::new())?)? };
         // TODO(cjhopman): We should change this api to support returning a Result.
         indexmap! {
             "contents".to_owned() => match res {
@@ -204,10 +213,23 @@ impl Action for WriteJsonAction {
             .materializer()
             .declare_write(Box::new(|| {
                 execution_start = Some(Instant::now());
-                let content = self.get_contents(&ctx.executor_fs())?;
+                let content =
+                    self.get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping())?;
+                let path = fs.resolve_build(
+                    self.output.get_path(),
+                    if self.output.get_path().is_content_based_path() {
+                        let digest = TrackedFileDigest::from_content(
+                            &content,
+                            ctx.digest_config().cas_digest_config(),
+                        );
+                        Some(ContentBasedPathHash::new(digest.to_string())?)
+                    } else {
+                        None
+                    }
+                    .as_ref(),
+                )?;
                 Ok(vec![WriteRequest {
-                    // TODO(T219919866) Add support for experimental content-based path hashing
-                    path: fs.resolve_build(self.output.get_path(), None)?,
+                    path,
                     content,
                     is_executable: false,
                 }])
