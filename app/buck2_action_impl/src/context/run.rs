@@ -84,7 +84,7 @@ pub(crate) enum RunActionError {
     )]
     ArtifactVisitRecursionLimitExceeded,
     #[error(
-        "`{}` was marked to be materialized on failure but is not declared as an output of the action.", .path 
+        "`{}` was marked to be materialized on failure but is not declared as an output of the action.", .path
     )]
     FailedActionArtifactNotDeclared { path: String },
 }
@@ -142,8 +142,10 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     ///     from the host.
     ///  * `meta_internal_extra_params`: a dictionary to pass extra parameters to RE, can add more keys in the future:
     ///     * `remote_execution_policy`: refer to TExecutionPolicy.
-    ///  * `outputs_for_error_handler`: Output files to be provided by action error handler the event of failure
+    ///  * `outputs_for_error_handler`: Output files to be provided to the action error handler and read by
+    /// [error handler](https://buck2.build/docs/api/build/ActionErrorCtx/#actionerrorctxoutput_artifacts) in the event of a failure..
     ///     * The output must also be declared as an output of the action
+    ///     * The output artifact must be created if the action fails
     ///     * Nothing will be provided if left empty (Which is the default)
     ///
     /// When actions execute, they'll do so from the root of the repository. As they execute,

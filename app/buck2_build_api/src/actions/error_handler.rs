@@ -118,8 +118,8 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         Ok(&this.stdout)
     }
 
-    /// Allows the output artifacts to be retrieve if 'outputs_for_error_handler' is set and the output artifact exists.
-    /// This is useful for languages with structured error output, making the error retrieval process simpler.
+    /// Allows the output artifacts to be retrieve if [`outputs_for_error_handler`](https://buck2.build/docs/api/build/AnalysisActions/#analysisactionsrun)
+    /// is set and the output artifact exists. This is useful for languages with structured error output, making the error retrieval process simpler.
     ///
     /// This is also the recommended way to retrieve file path and line number, as reliably extracting that information
     /// from stdout/stderr can be challenging
