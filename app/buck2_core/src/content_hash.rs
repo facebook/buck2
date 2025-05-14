@@ -31,7 +31,10 @@ enum ContentBasedPathHashError {
     Ord,
     PartialOrd
 )]
-pub struct ContentBasedPathHash(pub(crate) String);
+pub enum ContentBasedPathHash {
+    Specified(String),
+    OutputArtifact,
+}
 
 impl ContentBasedPathHash {
     pub fn new(value: String) -> buck2_error::Result<ContentBasedPathHash> {
@@ -48,18 +51,21 @@ impl ContentBasedPathHash {
                 return Err(ContentBasedPathHashError::NotHexDigits(value.to_owned()).into());
             }
         }
-        Ok(ContentBasedPathHash(value))
+        Ok(ContentBasedPathHash::Specified(value))
     }
 
     /// Output artifacts are written to a known location before being moved to their
     /// final, content-based location.
     pub fn for_output_artifact() -> ContentBasedPathHash {
-        ContentBasedPathHash("output_artifact".to_owned())
+        ContentBasedPathHash::OutputArtifact
     }
 
     #[inline]
     pub fn as_str(&self) -> &str {
-        &self.0
+        match self {
+            ContentBasedPathHash::Specified(value) => value,
+            ContentBasedPathHash::OutputArtifact => "output_artifact",
+        }
     }
 }
 
