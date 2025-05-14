@@ -24,7 +24,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
-use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_execute::execute::request::OutputType;
 use dupe::Dupe;
 use either::Either;
@@ -263,7 +262,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, OutputType::File)?;
 
-        let (content_cli, written_macro_count, mut associated_artifacts, content_based_inputs) =
+        let (content_cli, written_macro_count, mut associated_artifacts, mut content_based_inputs) =
             match content {
                 WriteContentArg::CommandLineArg(content) => {
                     let content_arg = content.as_command_line_arg();
@@ -286,6 +285,8 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 }
             };
 
+        let path_resolution_method = output_artifact.path_resolution_method();
+
         let written_macro_files = if written_macro_count > 0 {
             let macro_directory_path = {
                 // There might be several write actions at once, use write action output hash to deterministically avoid collisions for .macro files.
@@ -303,7 +304,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                     &format!("{}/{}.macro", &macro_directory_path, i),
                     OutputType::File,
                     eval.call_stack_top_location(),
-                    BuckOutPathKind::default(),
+                    path_resolution_method,
                 )?;
                 written_macro_files.insert(macro_file);
             }
@@ -315,7 +316,9 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                     .with_short_path(|p| p.to_string()),
             );
             state.register_action(
-                indexset![],
+                // We need the same inputs as the write action itself since it is processing the same content
+                // and may need to resolve any of the paths in the content.
+                content_based_inputs.iter().map(|a| a.dupe()).collect(),
                 written_macro_files.iter().map(|a| a.as_output()).collect(),
                 action,
                 Some(content_cli.to_value()),
@@ -331,7 +334,9 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             let maybe_macro_files = if allow_args {
                 let mut macro_files = indexset![];
                 for a in &written_macro_files {
-                    macro_files.insert(a.dupe().ensure_bound()?.into_artifact());
+                    let artifact = a.dupe().ensure_bound()?.into_artifact();
+                    macro_files.insert(artifact.dupe());
+                    content_based_inputs.insert(ArtifactGroup::Artifact(artifact));
                 }
                 Some(macro_files)
             } else {

@@ -10,6 +10,7 @@
 use std::fmt::Debug;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
@@ -37,7 +38,10 @@ pub struct DefaultCommandLineContext<'v> {
     fs: &'v ExecutorFs<'v>,
     // First element is list of artifacts, each corresponding to a file with macro contents. Ordering is very important.
     // Second element is a current position in that list.
-    maybe_macros_state: Option<(&'v IndexSet<Artifact>, usize)>,
+    maybe_macros_state: Option<(
+        &'v IndexSet<(&'v Artifact, Option<&'v ContentBasedPathHash>)>,
+        usize,
+    )>,
 }
 
 impl<'v> DefaultCommandLineContext<'v> {
@@ -53,7 +57,7 @@ impl<'v> DefaultCommandLineContext<'v> {
 
     pub fn new_with_write_to_file_macros_support(
         fs: &'v ExecutorFs,
-        macro_files: &'v IndexSet<Artifact>,
+        macro_files: &'v IndexSet<(&'v Artifact, Option<&'v ContentBasedPathHash>)>,
     ) -> Self {
         Self {
             fs,
@@ -89,8 +93,7 @@ impl CommandLineContext for DefaultCommandLineContext<'_> {
             }
             self.maybe_macros_state = Some((files, pos + 1));
             Ok(self
-                // TODO(T219919866) Add support for experimental content-based path hashing
-                .resolve_project_path(files[pos].resolve_path(self.fs.fs(), None)?)?
+                .resolve_project_path(files[pos].0.resolve_path(self.fs.fs(), files[pos].1)?)?
                 .into_relative())
         } else {
             Err(CommandLineBuilderErrors::WriteToFileMacroNotSupported.into())

@@ -21,6 +21,7 @@ use allocative::Allocative;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -531,6 +532,13 @@ impl OutputArtifact {
 
     pub fn ensure_output_type(&self, output_type: OutputType) -> buck2_error::Result<()> {
         output_type.check_path(self, self.0.output_type())
+    }
+
+    pub fn path_resolution_method(&self) -> BuckOutPathKind {
+        match &*self.0.artifact.borrow() {
+            DeclaredArtifactKind::Bound(b) => b.get_path().path_resolution_method(),
+            DeclaredArtifactKind::Unbound(u) => u.0.path_resolution_method(),
+        }
     }
 }
 

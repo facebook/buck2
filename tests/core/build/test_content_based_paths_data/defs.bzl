@@ -32,6 +32,23 @@ write_with_content_based_path = rule(
     },
 )
 
+def _write_macro_with_content_based_path_impl(ctx):
+    out = ctx.actions.declare_output("out.txt", uses_experimental_content_based_path_hashing = True)
+    out, macro_files = ctx.actions.write(out, ctx.attrs.arg, allow_args = True)
+    if not len(macro_files) == 1:
+        fail("Expected exactly one macro file, got {}".format(macro_files))
+    else:
+        macro_file = macro_files[0]
+
+    return [DefaultInfo(default_output = macro_file, other_outputs = [out])]
+
+write_macro_with_content_based_path = rule(
+    impl = _write_macro_with_content_based_path_impl,
+    attrs = {
+        "arg": attrs.arg(),
+    },
+)
+
 def _write_json_with_content_based_path_impl(ctx):
     out = ctx.actions.declare_output("out.json", uses_experimental_content_based_path_hashing = True)
     out = ctx.actions.write_json(

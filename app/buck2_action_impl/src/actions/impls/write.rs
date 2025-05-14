@@ -120,7 +120,14 @@ impl WriteAction {
     ) -> buck2_error::Result<String> {
         let mut cli = Vec::<String>::new();
 
-        let mut ctx = if let Some(macro_files) = &self.inner.macro_files {
+        let macro_files = self.inner.macro_files.as_ref().map(|macro_files| {
+            macro_files
+                .iter()
+                .map(|a| (a, artifact_path_mapping.get(a)))
+                .collect()
+        });
+
+        let mut ctx = if let Some(ref macro_files) = macro_files {
             DefaultCommandLineContext::new_with_write_to_file_macros_support(fs, macro_files)
         } else {
             DefaultCommandLineContext::new(fs)

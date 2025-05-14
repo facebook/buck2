@@ -29,11 +29,12 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
+use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::category::CategoryRef;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
@@ -63,13 +64,7 @@ impl UnregisteredAction for UnregisteredWriteMacrosToFileAction {
     ) -> buck2_error::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("Action data should be present");
 
-        if !inputs.is_empty() {
-            return Err(internal_error!(
-                "Input artifacts mut be empty for write macros action"
-            ));
-        }
-
-        let action = WriteMacrosToFileAction::new(self.identifier, contents, outputs)?;
+        let action = WriteMacrosToFileAction::new(self.identifier, contents, inputs, outputs)?;
 
         Ok(Box::new(action))
     }
@@ -92,6 +87,7 @@ enum WriteMacrosActionValidationError {
 struct WriteMacrosToFileAction {
     identifier: String,
     contents: OwnedFrozenValue, // StarlarkCmdArgs
+    inputs: Box<[ArtifactGroup]>,
     outputs: Box<[BuildArtifact]>,
 }
 
@@ -99,6 +95,7 @@ impl WriteMacrosToFileAction {
     fn new(
         identifier: String,
         contents: OwnedFrozenValue,
+        inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
     ) -> buck2_error::Result<Self> {
         if outputs.is_empty() {
@@ -114,6 +111,7 @@ impl WriteMacrosToFileAction {
             Ok(Self {
                 identifier,
                 contents,
+                inputs: inputs.into_iter().collect(),
                 outputs: outputs.into_iter().collect(),
             })
         }
@@ -127,7 +125,7 @@ impl Action for WriteMacrosToFileAction {
     }
 
     fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
-        Ok(Cow::Borrowed(&[]))
+        Ok(Cow::Borrowed(&self.inputs))
     }
 
     fn outputs(&self) -> Cow<'_, [BuildArtifact]> {
@@ -176,10 +174,22 @@ impl Action for WriteMacrosToFileAction {
 
                 std::iter::zip(self.outputs.iter(), output_contents.into_iter())
                     .map(|(output, content)| {
+                        let content = content.into_bytes();
+                        let path = if output.get_path().is_content_based_path() {
+                            let digest = TrackedFileDigest::from_content(
+                                &content,
+                                ctx.digest_config().cas_digest_config(),
+                            );
+                            fs.fs().resolve_build(
+                                output.get_path(),
+                                Some(&ContentBasedPathHash::new(digest.to_string())?),
+                            )?
+                        } else {
+                            fs.fs().resolve_build(output.get_path(), None)?
+                        };
                         Ok(WriteRequest {
-                            // TODO(T219919866) Add support for experimental content-based path hashing
-                            path: fs.fs().resolve_build(output.get_path(), None)?,
-                            content: content.into_bytes(),
+                            path,
+                            content,
                             is_executable: false,
                         })
                     })
