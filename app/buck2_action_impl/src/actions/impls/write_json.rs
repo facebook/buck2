@@ -66,8 +66,6 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Tier0)]
 enum WriteJsonActionValidationError {
-    #[error("WriteJsonAction received inputs")]
-    TooManyInputs,
     #[error("WriteJsonAction received no outputs")]
     NoOutputs,
     #[error("WriteJsonAction received more than one output")]
@@ -110,6 +108,7 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
 #[derive(Debug, Allocative)]
 struct WriteJsonAction {
     contents: OwnedFrozenValue, // JSON value
+    inputs: Box<[ArtifactGroup]>,
     output: BuildArtifact,
     inner: UnregisteredWriteJsonAction,
 }
@@ -123,6 +122,7 @@ impl WriteJsonAction {
     ) -> buck2_error::Result<Self> {
         validate_json(JsonUnpack::unpack_value_err(contents.value())?)?;
 
+        let inputs = inputs.into_iter().collect();
         let mut outputs = outputs.into_iter();
 
         let output = match (outputs.next(), outputs.next()) {
@@ -133,12 +133,9 @@ impl WriteJsonAction {
             }
         };
 
-        if !inputs.is_empty() {
-            return Err(WriteJsonActionValidationError::TooManyInputs.into());
-        }
-
         Ok(WriteJsonAction {
             contents,
+            inputs,
             output,
             inner,
         })
@@ -164,7 +161,7 @@ impl Action for WriteJsonAction {
     }
 
     fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
-        Ok(Cow::Borrowed(&[]))
+        Ok(Cow::Borrowed(&self.inputs))
     }
 
     fn outputs(&self) -> Cow<'_, [BuildArtifact]> {
@@ -264,6 +261,16 @@ where
 {
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
+    }
+}
+
+impl<'v, V: ValueLike<'v>> StarlarkWriteJsonCommandLineArgGen<V> {
+    pub fn visit_contents(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()> {
+        let content = self.content.to_value();
+        json::visit_json_artifacts(content, visitor)
     }
 }
 

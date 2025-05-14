@@ -146,15 +146,20 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, OutputType::File)?;
 
+        let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
+        let cli = UnregisteredWriteJsonAction::cli(value.to_value(), content.value)?;
+
+        let mut visitor = CommandLineInputVisitor::new(false);
+        cli.visit_contents(&mut visitor)?;
+
         this.register_action(
-            IndexSet::new(),
+            visitor.content_based_inputs,
             indexset![output_artifact],
             UnregisteredWriteJsonAction::new(pretty, absolute),
             Some(content.value),
             None,
         )?;
 
-        let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
         // TODO(cjhopman): The with_inputs thing can go away once we have artifact dependencies (we'll still
         // need the UnregisteredWriteJsonAction::cli() to represent the dependency though).
         if with_inputs {
