@@ -123,7 +123,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     dex_java_packaging_deps = [packaging_dep for packaging_dep in java_packaging_deps if packaging_dep.dex and packaging_dep.dex.dex.owner.raw_target() not in no_dx_target_labels]
     if should_pre_dex:
         pre_dexed_libs = [packaging_dep.dex for packaging_dep in dex_java_packaging_deps]
-        if ctx.attrs._android_toolchain[AndroidToolchainInfo].duplicate_class_checker:
+        if ctx.attrs.duplicate_class_checker_enabled:
             validation_info.append(
                 check_for_duplicate_classes(
                     ctx,
