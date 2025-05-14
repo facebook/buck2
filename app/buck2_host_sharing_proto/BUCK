@@ -9,7 +9,6 @@ rust_protobuf_library(
     build_script = "build.rs",
     proto_srcs = ":host_sharing.proto",
     deps = [
-        "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:tonic",
         "//buck2/allocative/allocative:allocative",
