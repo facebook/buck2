@@ -31,3 +31,27 @@ write_with_content_based_path = rule(
         "data": attrs.string(),
     },
 )
+
+def _run_remote_with_content_based_path_impl(ctx):
+    script = ctx.actions.declare_output("script.py", uses_experimental_content_based_path_hashing = True)
+    script = ctx.actions.write(
+        script,
+        [
+            "import sys",
+            "with open(sys.argv[1], 'w') as f:",
+            "  f.write(sys.argv[2])",
+        ],
+    )
+
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    args = cmd_args(["python3", script, out.as_output(), ctx.attrs.data])
+    ctx.actions.run(args, category = "test_run", prefer_remote = True)
+
+    return [DefaultInfo(default_output = out)]
+
+run_remote_with_content_based_path = rule(
+    impl = _run_remote_with_content_based_path_impl,
+    attrs = {
+        "data": attrs.string(),
+    },
+)

@@ -103,8 +103,15 @@ impl ArtifactGroupValues {
         }
 
         for (artifact, value) in self.iter() {
-            // TODO(T219919866) Add support for experimental content-based path hashing
-            let projrel_path = artifact.resolve_path(artifact_fs, None)?;
+            let projrel_path = artifact.resolve_path(
+                artifact_fs,
+                if artifact.has_content_based_path() {
+                    Some(value.content_based_path_hash())
+                } else {
+                    None
+                }
+                .as_ref(),
+            )?;
             insert_artifact(builder, projrel_path.as_ref(), value)?;
         }
 

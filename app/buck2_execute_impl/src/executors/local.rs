@@ -591,7 +591,8 @@ impl LocalExecutor {
         let mut total_hashing_time = Duration::ZERO;
         let mut total_hashed_outputs = 0;
         for output in request.outputs() {
-            let path = output.resolve(&self.artifact_fs)?.into_path();
+            // TODO(T219919866) Add support for experimental content-based path hashing
+            let path = output.resolve(&self.artifact_fs, None)?.into_path();
             let abspath = self.root.join(&path);
             let (entry, hashing_info) = build_entry_from_disk(
                 abspath,
@@ -1016,7 +1017,8 @@ pub async fn create_output_dirs(
 ) -> buck2_error::Result<()> {
     let outputs: Vec<_> = request
         .outputs()
-        .map(|output| output.resolve(artifact_fs))
+        // TODO(T219919866) Add support for experimental content-based path hashing
+        .map(|output| output.resolve(artifact_fs, None))
         .collect::<buck2_error::Result<Vec<_>>>()?;
 
     // Invalidate all the output paths this action might provide. Note that this is a bit

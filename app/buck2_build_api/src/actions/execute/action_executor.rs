@@ -686,8 +686,12 @@ impl BuckActionExecutor {
                 let declared = outputs
                     .iter()
                     .filter(|x| !result.0.outputs.contains_key(x.get_path()))
-                    // TODO(T219919866) Add support for experimental content-based path hashing
-                    .map(|x| self.command_executor.fs().resolve_build(x.get_path(), None))
+                    .map(|x| {
+                        self.command_executor.fs().resolve_build(
+                            x.get_path(),
+                            Some(&ContentBasedPathHash::for_output_artifact()),
+                        )
+                    })
                     .collect::<buck2_error::Result<_>>()?;
                 let real = result
                     .0
@@ -697,8 +701,11 @@ impl BuckActionExecutor {
                         // This is error message, linear search is fine.
                         !outputs.iter().map(|b| b.get_path()).contains(x)
                     })
-                    // TODO(T219919866) Add support for experimental content-based path hashing
-                    .map(|x| self.command_executor.fs().resolve_build(x, None))
+                    .map(|x| {
+                        self.command_executor
+                            .fs()
+                            .resolve_build(x, Some(&ContentBasedPathHash::for_output_artifact()))
+                    })
                     .collect::<buck2_error::Result<Vec<_>>>()?;
                 if real.is_empty() {
                     Err(ExecuteError::MissingOutputs { declared })

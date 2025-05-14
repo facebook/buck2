@@ -281,9 +281,20 @@ impl CommandExecutionResult {
     ) -> impl Iterator<
         Item = buck2_error::Result<(ResolvedCommandExecutionOutput, &'a ArtifactValue)>,
     > + 'a {
-        self.outputs
-            .iter()
-            .map(|(output, value)| Ok((output.as_ref().resolve(fs)?, value)))
+        self.outputs.iter().map(|(output, value)| {
+            Ok((
+                output.as_ref().resolve(
+                    fs,
+                    if output.has_content_based_path() {
+                        Some(value.content_based_path_hash())
+                    } else {
+                        None
+                    }
+                    .as_ref(),
+                )?,
+                value,
+            ))
+        })
     }
 }
 

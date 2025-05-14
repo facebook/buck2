@@ -13,6 +13,7 @@ use std::time::Duration;
 use allocative::Allocative;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::local_resource_state::LocalResourceState;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
@@ -226,7 +227,7 @@ impl CommandExecutionPaths {
             .sorted_by_key(|e| {
                 let resolved = e
                     .as_ref()
-                    .resolve(fs)
+                    .resolve(fs, Some(&ContentBasedPathHash::for_output_artifact()))
                     .expect("Failed to resolve output path");
                 resolved.into_path()
             })
@@ -235,7 +236,9 @@ impl CommandExecutionPaths {
         let output_paths = outputs
             .iter()
             .map(|o| {
-                let resolved = o.as_ref().resolve(fs)?;
+                let resolved = o
+                    .as_ref()
+                    .resolve(fs, Some(&ContentBasedPathHash::for_output_artifact()))?;
                 if let Some(dir) = resolved.path_to_create() {
                     builder.mkdir(dir)?;
                 }
@@ -678,11 +681,14 @@ pub enum CommandExecutionOutputRef<'a> {
 impl CommandExecutionOutputRef<'_> {
     /// Resolve this output to a ResolvedCommandExecutionOutput that allows access to the output
     /// path as well as any dirs to create.
-    pub fn resolve(&self, fs: &ArtifactFs) -> buck2_error::Result<ResolvedCommandExecutionOutput> {
+    pub fn resolve(
+        &self,
+        fs: &ArtifactFs,
+        content_hash: Option<&ContentBasedPathHash>,
+    ) -> buck2_error::Result<ResolvedCommandExecutionOutput> {
         match self {
             Self::BuildArtifact { path, output_type } => Ok(ResolvedCommandExecutionOutput {
-                // TODO(T219919866) Add support for experimental content-based path hashing
-                path: fs.resolve_build(path, None)?,
+                path: fs.resolve_build(path, content_hash)?,
                 create: OutputCreationBehavior::Parent,
                 output_type: *output_type,
             }),
@@ -704,6 +710,13 @@ impl CommandExecutionOutputRef<'_> {
                 path: (*path).clone(),
                 create: *create,
             },
+        }
+    }
+
+    pub fn has_content_based_path(&self) -> bool {
+        match self {
+            Self::BuildArtifact { path, .. } => path.is_content_based_path(),
+            Self::TestPath { .. } => false,
         }
     }
 }
@@ -731,6 +744,13 @@ impl CommandExecutionOutput {
                 path,
                 create: *create,
             },
+        }
+    }
+
+    pub fn has_content_based_path(&self) -> bool {
+        match self {
+            Self::BuildArtifact { path, .. } => path.is_content_based_path(),
+            Self::TestPath { .. } => false,
         }
     }
 }

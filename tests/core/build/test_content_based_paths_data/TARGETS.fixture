@@ -1,7 +1,12 @@
-load(":defs.bzl", "write_with_content_based_path")
+load(":defs.bzl", "run_remote_with_content_based_path", "write_with_content_based_path")
 
 write_with_content_based_path(
     name = "write_with_content_based_path",
+    data = "hello world",
+)
+
+run_remote_with_content_based_path(
+    name = "run_remote_with_content_based_path",
     data = "hello world",
 )
 

@@ -8,19 +8,26 @@
 # pyre-strict
 
 
+from typing import List
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
 async def build_target_with_different_platforms_and_verify_output_paths_are_identical(
-    buck: Buck, target: str
+    buck: Buck,
+    target: str,
+    args: List[str] | None = None,
 ) -> None:
+    if args is None:
+        args = []
     result1 = await buck.build(
         target,
         "--target-platforms",
         "root//:p_default",
         "--show-output",
         "--materializations=none",
+        *args,
     )
     result2 = await buck.build(
         target,
@@ -28,12 +35,14 @@ async def build_target_with_different_platforms_and_verify_output_paths_are_iden
         "root//:p_cat",
         "--show-output",
         "--materializations=none",
+        *args,
     )
 
     path1 = result1.get_target_to_build_output().get(target)
     path2 = result2.get_target_to_build_output().get(target)
 
     assert path1 is not None
+    assert "output_artifact" not in path1
     assert path1 == path2
 
 
@@ -42,4 +51,14 @@ async def test_write_with_content_based_path(buck: Buck) -> None:
     target = "root//:write_with_content_based_path"
     await build_target_with_different_platforms_and_verify_output_paths_are_identical(
         buck, target
+    )
+
+
+@buck_test()
+async def test_run_remote_with_content_based_path(buck: Buck) -> None:
+    target = "root//:run_remote_with_content_based_path"
+    await build_target_with_different_platforms_and_verify_output_paths_are_identical(
+        buck,
+        target,
+        ["--remote-only"],
     )

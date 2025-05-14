@@ -119,6 +119,7 @@ pub async fn download_action_results<'a>(
     };
 
     let download = downloader.download(
+        artifact_fs,
         manager,
         identity,
         stage,
@@ -217,6 +218,7 @@ pub struct CasDownloader<'a> {
 impl CasDownloader<'_> {
     async fn download<'a>(
         &self,
+        artifact_fs: &ArtifactFs,
         manager: CommandExecutionManager,
         identity: &ReActionIdentity<'_>,
         stage: buck2_data::executor_stage_start::Stage,
@@ -235,7 +237,7 @@ impl CasDownloader<'_> {
         let manager = manager.with_execution_kind(output_spec.execution_kind(details.clone()));
         executor_stage_async(stage, async {
             let artifacts = self
-                .extract_artifacts(identity, paths, requested_outputs, output_spec)
+                .extract_artifacts(artifact_fs, identity, paths, requested_outputs, output_spec)
                 .await;
 
             let artifacts =
@@ -315,6 +317,7 @@ impl CasDownloader<'_> {
 
     async fn extract_artifacts<'a>(
         &self,
+        artifact_fs: &ArtifactFs,
         identity: &ReActionIdentity<'_>,
         paths: &CommandExecutionPaths,
         requested_outputs: impl IntoIterator<Item = CommandExecutionOutputRef<'a>>,
@@ -383,7 +386,21 @@ impl CasDownloader<'_> {
         for (requested, (path, _)) in requested_outputs.into_iter().zip(output_paths.iter()) {
             let value = extract_artifact_value(&input_dir, path, self.digest_config)?;
             if let Some(value) = value {
-                to_declare.push((path.to_owned(), value.dupe()));
+                to_declare.push((
+                    requested
+                        .resolve(
+                            artifact_fs,
+                            if requested.has_content_based_path() {
+                                Some(value.content_based_path_hash())
+                            } else {
+                                None
+                            }
+                            .as_ref(),
+                        )?
+                        .path
+                        .to_owned(),
+                    value.dupe(),
+                ));
                 mapped_outputs.insert(requested.cloned(), value);
             }
         }
