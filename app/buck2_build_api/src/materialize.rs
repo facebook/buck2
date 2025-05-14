@@ -76,24 +76,37 @@ async fn materialize_artifact_group(
             .per_transaction_data()
             .get_materialization_queue_tracker();
         let mut artifacts_to_materialize = Vec::new();
-        for (artifact, _value) in values.iter() {
+        for (artifact, value) in values.iter() {
             if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
                 if !queue_tracker.insert(artifact.dupe()) {
                     // We've already requested this artifact, no use requesting it again.
                     continue;
                 }
-                artifacts_to_materialize.push(artifact);
+                artifacts_to_materialize.push((
+                    artifact,
+                    if artifact.get_path().is_content_based_path() {
+                        Some(value.content_based_path_hash())
+                    } else {
+                        None
+                    },
+                ));
             }
         }
 
-        ctx.try_compute_join(artifacts_to_materialize, |ctx, artifact| {
-            async move {
-                // TODO(T219919866) Add support for experimental content-based path hashing
-                ctx.try_materialize_requested_artifact(artifact, *force, None)
+        ctx.try_compute_join(
+            artifacts_to_materialize,
+            |ctx, (artifact, content_based_path_hash)| {
+                async move {
+                    ctx.try_materialize_requested_artifact(
+                        artifact,
+                        *force,
+                        content_based_path_hash.as_ref(),
+                    )
                     .await
-            }
-            .boxed()
-        })
+                }
+                .boxed()
+            },
+        )
         .await
         .buck_error_context("Failed to materialize artifacts")?;
     }
@@ -110,8 +123,15 @@ async fn ensure_uploaded(
     let mut dir = ActionDirectoryBuilder::empty();
     let values = ctx.ensure_artifact_group(&artifact_group).await?;
     for (artifact, value) in values.iter() {
-        // TODO(T219919866) Add support for experimental content-based path hashing
-        let path = artifact.resolve_path(&artifact_fs, None)?;
+        let path = artifact.resolve_path(
+            &artifact_fs,
+            if artifact.has_content_based_path() {
+                Some(value.content_based_path_hash())
+            } else {
+                None
+            }
+            .as_ref(),
+        )?;
         buck2_execute::directory::insert_artifact(&mut dir, &path, &value)?;
     }
     let dir = dir.fingerprint(digest_config.as_directory_serializer());

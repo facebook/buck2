@@ -26,7 +26,6 @@ async def build_target_with_different_platforms_and_verify_output_paths_are_iden
         "--target-platforms",
         "root//:p_default",
         "--show-output",
-        "--materializations=none",
         *args,
     )
     result2 = await buck.build(
@@ -34,7 +33,6 @@ async def build_target_with_different_platforms_and_verify_output_paths_are_iden
         "--target-platforms",
         "root//:p_cat",
         "--show-output",
-        "--materializations=none",
         *args,
     )
 
