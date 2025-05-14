@@ -39,13 +39,20 @@ pub(crate) fn create_unhashed_outputs(
         }
 
         match provider_artifact.values.iter().exactly_one() {
-            Ok((artifact, _)) => match artifact.as_parts() {
+            Ok((artifact, value)) => match artifact.as_parts() {
                 (BaseArtifactKind::Build(build), _projected_path) => {
                     if let Some(unhashed_path) =
                         artifact_fs.retrieve_unhashed_location(build.get_path())
                     {
-                        // TODO(T219919866) Add support for experimental content-based path hashing
-                        let path = artifact_fs.resolve_build(build.get_path(), None)?;
+                        let path = artifact_fs.resolve_build(
+                            build.get_path(),
+                            if build.get_path().is_content_based_path() {
+                                Some(value.content_based_path_hash())
+                            } else {
+                                None
+                            }
+                            .as_ref(),
+                        )?;
                         let abs_unhashed_path = fs.resolve(&unhashed_path);
                         let entry = unhashed_to_hashed
                             .entry(abs_unhashed_path)

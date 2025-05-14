@@ -10,3 +10,6 @@
 
 [buildfile]
   name = TARGETS.fixture
+
+[buck2]
+  create_unhashed_links = true
