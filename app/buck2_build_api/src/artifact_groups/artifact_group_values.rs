@@ -45,8 +45,15 @@ impl ArtifactGroupValues {
 
         for (artifact, value) in values.iter() {
             let path = artifact
-                // TODO(T219919866) Add support for experimental content-based path hashing
-                .resolve_path(artifact_fs, None)
+                .resolve_path(
+                    artifact_fs,
+                    if artifact.has_content_based_path() {
+                        Some(value.content_based_path_hash())
+                    } else {
+                        None
+                    }
+                    .as_ref(),
+                )
                 .buck_error_context("Invalid artifact")?;
             insert_artifact(&mut builder, path.as_ref(), value)?;
         }

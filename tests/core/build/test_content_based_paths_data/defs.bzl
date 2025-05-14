@@ -5,9 +5,25 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+def project(f: Artifact):
+    return f
+
+NameSet = transitive_set(args_projections = {
+    "project": project,
+})
+
 def _write_with_content_based_path_impl(ctx):
+    artifact_input = ctx.actions.declare_output("artifact_input", uses_experimental_content_based_path_hashing = True)
+    artifact_input = ctx.actions.write(artifact_input, "artifact_input")
+
+    tset_item1 = ctx.actions.declare_output("tset_item1", uses_experimental_content_based_path_hashing = True)
+    tset1 = ctx.actions.tset(NameSet, value = ctx.actions.write(tset_item1, "tset_item1"))
+    tset_item2 = ctx.actions.declare_output("tset_item2", uses_experimental_content_based_path_hashing = True)
+    tset2 = ctx.actions.tset(NameSet, value = ctx.actions.write(tset_item2, "tset_item2"))
+    tset = ctx.actions.tset(NameSet, children = [tset1, tset2])
+
     out = ctx.actions.declare_output("out.txt", uses_experimental_content_based_path_hashing = True)
-    return [DefaultInfo(default_output = ctx.actions.write(out, ctx.attrs.data))]
+    return [DefaultInfo(default_output = ctx.actions.write(out, cmd_args(artifact_input, ctx.attrs.data, tset.project_as_args("project"))))]
 
 write_with_content_based_path = rule(
     impl = _write_with_content_based_path_impl,
