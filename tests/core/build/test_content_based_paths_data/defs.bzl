@@ -55,3 +55,29 @@ run_remote_with_content_based_path = rule(
         "data": attrs.string(),
     },
 )
+
+def _copy_impl(ctx):
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    ctx.actions.copy_file(out, ctx.attrs.to_copy)
+
+    return [DefaultInfo(default_output = out)]
+
+copy = rule(
+    impl = _copy_impl,
+    attrs = {
+        "to_copy": attrs.source(),
+    },
+)
+
+def _symlink_impl(ctx):
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    ctx.actions.symlink_file(out, ctx.attrs.to_symlink)
+
+    return [DefaultInfo(default_output = out)]
+
+symlink = rule(
+    impl = _symlink_impl,
+    attrs = {
+        "to_symlink": attrs.source(),
+    },
+)

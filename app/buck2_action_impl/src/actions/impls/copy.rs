@@ -157,9 +157,15 @@ impl Action for CopyAction {
             .buck_error_context("Input did not dereference to exactly one artifact")?;
 
         let artifact_fs = ctx.fs();
-        // TODO(T219919866) Add support for experimental content-based path hashing
-        let src = input.resolve_path(artifact_fs, None)?;
-        let dest = artifact_fs.resolve_build(self.output().get_path(), None)?;
+        let content_based_path_hash =
+            if input.has_content_based_path() || self.output().get_path().is_content_based_path() {
+                Some(src_value.content_based_path_hash())
+            } else {
+                None
+            };
+        let src = input.resolve_path(artifact_fs, content_based_path_hash.as_ref())?;
+        let dest = artifact_fs
+            .resolve_build(self.output().get_path(), content_based_path_hash.as_ref())?;
 
         let value = {
             let fs = artifact_fs.fs();
