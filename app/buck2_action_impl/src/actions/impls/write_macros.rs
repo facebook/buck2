@@ -21,6 +21,7 @@ use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
@@ -164,7 +165,7 @@ impl Action for WriteMacrosToFileAction {
 
                 ValueAsCommandLineLike::unpack_value_err(self.contents.value())?
                     .0
-                    .visit_write_to_file_macros(&mut macro_writer)?;
+                    .visit_write_to_file_macros(&mut macro_writer, &ctx.artifact_path_mapping())?;
 
                 if self.outputs.len() != output_contents.len() {
                     return Err(buck2_error::Error::from(
@@ -225,13 +226,14 @@ impl WriteToFileMacroVisitor for MacroToFileWriter<'_> {
     fn visit_write_to_file_macro(
         &mut self,
         resolved_macro: &ResolvedMacro,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         let content = {
             let mut builder = MacroOutput {
                 result: String::new(),
             };
             let mut ctx = MacroContext::new(self.fs, &self.relative_to_path);
-            resolved_macro.add_to_arg(&mut builder, &mut ctx)?;
+            resolved_macro.add_to_arg(&mut builder, &mut ctx, artifact_path_mapping)?;
             builder.result
         };
 

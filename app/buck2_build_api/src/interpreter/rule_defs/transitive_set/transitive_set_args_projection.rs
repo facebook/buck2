@@ -44,6 +44,7 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
@@ -117,14 +118,15 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
                 &self,
                 cli: &mut dyn CommandLineBuilder,
                 context: &mut dyn CommandLineContext,
+                artifact_path_mapping: &dyn ArtifactPathMapper,
             ) -> buck2_error::Result<()> {
                 match self {
-                    Impl::Item(v) => v.add_to_command_line(cli, context),
+                    Impl::Item(v) => v.add_to_command_line(cli, context, artifact_path_mapping),
                     Impl::List(items) => {
                         for v in *items {
                             ValueAsCommandLineLike::unpack_value_err(*v)?
                                 .0
-                                .add_to_command_line(cli, context)?;
+                                .add_to_command_line(cli, context, artifact_path_mapping)?;
                         }
                         Ok(())
                     }
@@ -152,14 +154,15 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
             fn visit_write_to_file_macros(
                 &self,
                 visitor: &mut dyn WriteToFileMacroVisitor,
+                artifact_path_mapping: &dyn ArtifactPathMapper,
             ) -> buck2_error::Result<()> {
                 match self {
-                    Impl::Item(v) => v.visit_write_to_file_macros(visitor),
+                    Impl::Item(v) => v.visit_write_to_file_macros(visitor, artifact_path_mapping),
                     Impl::List(items) => {
                         for v in *items {
                             ValueAsCommandLineLike::unpack_value_err(*v)?
                                 .0
-                                .visit_write_to_file_macros(visitor)?;
+                                .visit_write_to_file_macros(visitor, artifact_path_mapping)?;
                         }
                         Ok(())
                     }
@@ -224,6 +227,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
         &self,
         builder: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         let set = TransitiveSet::from_value(self.transitive_set.get().to_value())
             .buck_error_context("Invalid transitive_set")?;
@@ -234,8 +238,11 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
                 .get(self.projection)
                 .buck_error_context("Invalid projection id")?;
 
-            TransitiveSetArgsProjection::as_command_line(*projection)?
-                .add_to_command_line(builder, context)?;
+            TransitiveSetArgsProjection::as_command_line(*projection)?.add_to_command_line(
+                builder,
+                context,
+                artifact_path_mapping,
+            )?;
         }
 
         Ok(())
@@ -273,6 +280,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         // TODO(cjhopman): This seems wrong, there's no verification that the projected
         // values don't have write_to_file_macros in them.

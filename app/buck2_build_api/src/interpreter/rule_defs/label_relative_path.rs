@@ -10,6 +10,7 @@
 use buck2_interpreter::types::cell_path::StarlarkCellPath;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
+use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
@@ -24,6 +25,7 @@ impl CommandLineArgLike for StarlarkCellPath {
         &self,
         cli: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         cli.push_location(ctx.resolve_cell_path(self.0.as_ref())?);
         Ok(())
@@ -36,6 +38,7 @@ impl CommandLineArgLike for StarlarkCellPath {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         Ok(())
     }

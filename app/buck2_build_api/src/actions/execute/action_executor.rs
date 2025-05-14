@@ -14,12 +14,14 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
 use buck2_common::http::HasHttpClient;
 use buck2_common::io::IoProvider;
 use buck2_common::liveliness_observer::NoopLivelinessObserver;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
@@ -364,6 +366,14 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
 
     fn artifact_values(&self, artifact: &ArtifactGroup) -> &ArtifactGroupValues {
         self.inputs.get(artifact).unwrap_or_else(|| panic!("Internal error: action {} tried to grab the artifact {} even though it was not an input.", self.action.owner(), artifact))
+    }
+
+    fn artifact_path_mapping(&self) -> IndexMap<&Artifact, ContentBasedPathHash> {
+        self.inputs
+            .iter()
+            .flat_map(|(_, v)| v.iter())
+            .map(|(a, v)| (a, v.content_based_path_hash()))
+            .collect()
     }
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor {

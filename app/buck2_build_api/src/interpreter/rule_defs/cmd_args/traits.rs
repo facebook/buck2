@@ -27,6 +27,7 @@ use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::project_root::StarlarkProjectRoot;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use indexmap::IndexMap;
 use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
 use starlark::typing::Ty;
@@ -89,13 +90,38 @@ impl CommandLineArtifactVisitor for SimpleCommandLineArtifactVisitor {
 }
 
 pub trait WriteToFileMacroVisitor {
-    fn visit_write_to_file_macro(&mut self, m: &ResolvedMacro) -> buck2_error::Result<()>;
+    fn visit_write_to_file_macro(
+        &mut self,
+        m: &ResolvedMacro,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
+    ) -> buck2_error::Result<()>;
 
     /// Generator produces a 'RelativePathBuf' relative to the directory which owning command will run in.
     fn set_current_relative_to_path(
         &mut self,
         generate: &dyn Fn(&dyn CommandLineContext) -> buck2_error::Result<Option<RelativePathBuf>>,
     ) -> buck2_error::Result<()>;
+}
+
+/// Used to provide a mapping from artifacts to the content-based hash that should be used when
+/// resolving their path.
+///
+/// In general, for artifacts that have been built (e.g. inputs to an action), we use a hash based
+/// on the content of the artifact. For some other situations where we do not yet have the content
+/// hash available, this mapper may choose to resolve artifacts to a different "hash". For example,
+/// prior to being built, output artifacts always resolve to a known constant value.  
+///
+/// Only artifacts that are specified to use content-based paths actually use the value that is
+/// returned here. Any other artifacts will continue to resolve their path using the configuration
+/// hash.
+pub trait ArtifactPathMapper {
+    fn get(&self, artifact: &Artifact) -> Option<&ContentBasedPathHash>;
+}
+
+impl ArtifactPathMapper for IndexMap<&Artifact, ContentBasedPathHash> {
+    fn get(&self, artifact: &Artifact) -> Option<&ContentBasedPathHash> {
+        self.get(artifact)
+    }
 }
 
 /// Implemented by anything that can show up in a command line. This method adds any args and env vars that are needed
@@ -109,6 +135,7 @@ pub trait CommandLineArgLike {
         &self,
         cli: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()>;
 
     fn visit_artifacts(
@@ -124,6 +151,7 @@ pub trait CommandLineArgLike {
     fn visit_write_to_file_macros(
         &self,
         visitor: &mut dyn WriteToFileMacroVisitor,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()>;
 }
 
@@ -140,6 +168,7 @@ impl CommandLineArgLike for &str {
         &self,
         cli: &mut dyn CommandLineBuilder,
         _context: &mut dyn CommandLineContext,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         cli.push_arg((*self).to_owned());
         Ok(())
@@ -152,6 +181,7 @@ impl CommandLineArgLike for &str {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         Ok(())
     }
@@ -166,6 +196,7 @@ impl CommandLineArgLike for StarlarkStr {
         &self,
         cli: &mut dyn CommandLineBuilder,
         _context: &mut dyn CommandLineContext,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         cli.push_arg(self.as_str().to_owned());
         Ok(())
@@ -178,6 +209,7 @@ impl CommandLineArgLike for StarlarkStr {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         Ok(())
     }
@@ -192,6 +224,7 @@ impl CommandLineArgLike for StarlarkTargetLabel {
         &self,
         cli: &mut dyn CommandLineBuilder,
         _context: &mut dyn CommandLineContext,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         cli.push_arg(self.to_string());
         Ok(())
@@ -204,6 +237,7 @@ impl CommandLineArgLike for StarlarkTargetLabel {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         Ok(())
     }
@@ -218,6 +252,7 @@ impl CommandLineArgLike for StarlarkConfiguredProvidersLabel {
         &self,
         cli: &mut dyn CommandLineBuilder,
         _context: &mut dyn CommandLineContext,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         cli.push_arg(self.to_string());
         Ok(())
@@ -230,6 +265,7 @@ impl CommandLineArgLike for StarlarkConfiguredProvidersLabel {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         Ok(())
     }
@@ -244,6 +280,7 @@ impl CommandLineArgLike for CellRoot {
         &self,
         cli: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         cli.push_location(ctx.resolve_cell_path(self.cell_path())?);
         Ok(())
@@ -256,6 +293,7 @@ impl CommandLineArgLike for CellRoot {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         Ok(())
     }
@@ -270,6 +308,7 @@ impl CommandLineArgLike for StarlarkProjectRoot {
         &self,
         cli: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         cli.push_location(ctx.resolve_project_path(ProjectRelativePath::empty().to_owned())?);
         Ok(())
@@ -282,6 +321,7 @@ impl CommandLineArgLike for StarlarkProjectRoot {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         Ok(())
     }
@@ -378,10 +418,15 @@ pub trait CommandLineContext {
     fn fs(&self) -> &ExecutorFs;
 
     /// Resolves the 'Artifact's to a 'CommandLineLocation' relative to the directory this command will run in.
-    fn resolve_artifact(&self, artifact: &Artifact) -> buck2_error::Result<CommandLineLocation> {
-        // TODO(T219919866) Add support for experimental content-based path hashing
-        self.resolve_project_path(artifact.resolve_path(self.fs().fs(), None)?)
-            .with_buck_error_context(|| format!("Error resolving artifact: {}", artifact))
+    fn resolve_artifact(
+        &self,
+        artifact: &Artifact,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
+    ) -> buck2_error::Result<CommandLineLocation> {
+        self.resolve_project_path(
+            artifact.resolve_path(self.fs().fs(), artifact_path_mapping.get(artifact))?,
+        )
+        .with_buck_error_context(|| format!("Error resolving artifact: {}", artifact))
     }
 
     /// Resolves the OutputArtifact to a 'CommandLineLocation' relative to the directory this command will run in.

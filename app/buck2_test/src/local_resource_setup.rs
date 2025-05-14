@@ -73,7 +73,12 @@ pub(crate) async fn required_local_resources_setup_contexts(
     for (source_target_label, provider) in providers {
         let setup_command_line = provider.setup_command_line();
         let mut cmd: Vec<String> = vec![];
-        setup_command_line.add_to_command_line(&mut cmd, &mut cmd_line_context)?;
+        setup_command_line.add_to_command_line(
+            &mut cmd,
+            &mut cmd_line_context,
+            // TODO(T219919866) Do we need to fill this in for content-based path hashing?
+            &IndexMap::new(),
+        )?;
 
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
         setup_command_line.visit_artifacts(&mut artifact_visitor)?;

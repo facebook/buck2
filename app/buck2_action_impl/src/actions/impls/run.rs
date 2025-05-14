@@ -70,6 +70,7 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use host_sharing::WeightClass;
+use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indexmap::indexmap;
 use itertools::Itertools;
@@ -364,16 +365,19 @@ impl RunAction {
         let values = Self::unpack(&self.starlark_values)?;
 
         let mut exe_rendered = Vec::<String>::new();
+        let artifact_path_mapping = action_execution_ctx.artifact_path_mapping();
         values
             .exe
-            .add_to_command_line(&mut exe_rendered, &mut cli_ctx)?;
+            .add_to_command_line(&mut exe_rendered, &mut cli_ctx, &artifact_path_mapping)?;
         values.exe.visit_artifacts(artifact_visitor)?;
 
         let worker = if let Some(worker) = values.worker {
             let mut worker_rendered = Vec::<String>::new();
-            worker
-                .exe
-                .add_to_command_line(&mut worker_rendered, &mut cli_ctx)?;
+            worker.exe.add_to_command_line(
+                &mut worker_rendered,
+                &mut cli_ctx,
+                &artifact_path_mapping,
+            )?;
             worker.exe.visit_artifacts(artifact_visitor)?;
             let worker_key = if worker.supports_bazel_remote_persistent_worker_protocol {
                 let mut worker_visitor = SimpleCommandLineArtifactVisitor::new();
@@ -410,9 +414,11 @@ impl RunAction {
         };
 
         let mut args_rendered = Vec::<String>::new();
-        values
-            .args
-            .add_to_command_line(&mut args_rendered, &mut cli_ctx)?;
+        values.args.add_to_command_line(
+            &mut args_rendered,
+            &mut cli_ctx,
+            &artifact_path_mapping,
+        )?;
         values.args.visit_artifacts(artifact_visitor)?;
 
         let cli_env: buck2_error::Result<SortedVectorMap<_, _>> = values
@@ -424,6 +430,7 @@ impl RunAction {
                 v.add_to_command_line(
                     &mut SpaceSeparatedCommandLineBuilder::wrap_string(&mut env),
                     &mut ctx,
+                    &artifact_path_mapping,
                 )?;
                 v.visit_artifacts(artifact_visitor)?;
                 Ok((k.to_owned(), env))
@@ -834,13 +841,15 @@ impl Action for RunAction {
         let mut cli_rendered = Vec::<String>::new();
         let mut ctx = DefaultCommandLineContext::new(fs);
         let values = Self::unpack(&self.starlark_values).unwrap();
+        // TODO(T219919866) Make aquery work with content-based path hashing
+        let artifact_path_mapping = IndexMap::new();
         values
             .exe
-            .add_to_command_line(&mut cli_rendered, &mut ctx)
+            .add_to_command_line(&mut cli_rendered, &mut ctx, &artifact_path_mapping)
             .unwrap();
         values
             .args
-            .add_to_command_line(&mut cli_rendered, &mut ctx)
+            .add_to_command_line(&mut cli_rendered, &mut ctx, &artifact_path_mapping)
             .unwrap();
         let cmd = format!("[{}]", cli_rendered.iter().join(", "));
         indexmap! {

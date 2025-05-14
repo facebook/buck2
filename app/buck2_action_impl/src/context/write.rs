@@ -14,6 +14,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArt
 use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
+use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
@@ -27,6 +28,7 @@ use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_execute::execute::request::OutputType;
 use dupe::Dupe;
 use either::Either;
+use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indexmap::indexset;
 use relative_path::RelativePathBuf;
@@ -220,6 +222,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 fn visit_write_to_file_macro(
                     &mut self,
                     _m: &ResolvedMacro,
+                    _artifact_path_mapping: &dyn ArtifactPathMapper,
                 ) -> buck2_error::Result<()> {
                     self.count += 1;
                     Ok(())
@@ -237,7 +240,8 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             }
 
             let mut counter = WriteToFileMacrosCounter { count: 0 };
-            cli.visit_write_to_file_macros(&mut counter)?;
+            // At this point the mapping doesn't matter because we're only doing a count
+            cli.visit_write_to_file_macros(&mut counter, &IndexMap::new())?;
             Ok(counter.count)
         }
 

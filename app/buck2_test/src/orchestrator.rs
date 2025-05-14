@@ -1710,6 +1710,9 @@ impl<'a> Execute2RequestExpander<'a> {
 
         let env_for_interpolation = test_info.env().collect::<HashMap<_, _>>();
 
+        // TODO(T219919866) Add a proper mapping here for content-based path hashing
+        let artifact_path_mapping = IndexMap::new();
+
         let expand_arg_value = |cli: &mut dyn CommandLineBuilder,
                                 ctx: &mut dyn CommandLineContext,
                                 artifact_visitor: &mut dyn CommandLineArtifactVisitor,
@@ -1724,7 +1727,8 @@ impl<'a> Execute2RequestExpander<'a> {
 
             match content {
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::Verbatim(v)) => {
-                    v.as_str().add_to_command_line(&mut cli, ctx)?;
+                    v.as_str()
+                        .add_to_command_line(&mut cli, ctx, &artifact_path_mapping)?;
                 }
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::ArgHandle(h)) => {
                     let arg = cli_args_for_interpolation
@@ -1732,14 +1736,14 @@ impl<'a> Execute2RequestExpander<'a> {
                         .with_context(|| format!("Invalid ArgHandle: {:?}", h))?;
 
                     arg.visit_artifacts(artifact_visitor)?;
-                    arg.add_to_command_line(&mut cli, ctx)?;
+                    arg.add_to_command_line(&mut cli, ctx, &artifact_path_mapping)?;
                 }
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::EnvHandle(h)) => {
                     let arg = env_for_interpolation
                         .get(h.0.as_str())
                         .with_context(|| format!("Invalid EnvHandle: {:?}", h))?;
                     arg.visit_artifacts(artifact_visitor)?;
-                    arg.add_to_command_line(&mut cli, ctx)?;
+                    arg.add_to_command_line(&mut cli, ctx, &artifact_path_mapping)?;
                 }
                 ArgValueContent::DeclaredOutput(output) => {
                     let test_path =
@@ -1788,7 +1792,11 @@ impl<'a> Execute2RequestExpander<'a> {
             Some(worker) => {
                 let mut worker_rendered = Vec::<String>::new();
                 let worker_exe = worker.exe_command_line();
-                worker_exe.add_to_command_line(&mut worker_rendered, &mut ctx)?;
+                worker_exe.add_to_command_line(
+                    &mut worker_rendered,
+                    &mut ctx,
+                    &artifact_path_mapping,
+                )?;
                 worker_exe.visit_artifacts(&mut artifact_visitor)?;
                 Some(WorkerSpec {
                     exe: worker_rendered,

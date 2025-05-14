@@ -17,6 +17,7 @@ use static_assertions::assert_eq_size;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
@@ -58,6 +59,7 @@ impl ResolvedQueryMacro {
         &self,
         builder: &mut dyn ArgBuilder,
         ctx: &mut dyn CommandLineContext,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         match self {
             Self::Outputs(list) => {
@@ -68,7 +70,7 @@ impl ResolvedQueryMacro {
                             builder.push_str(" ");
                         }
                         first = false;
-                        add_output_to_arg(builder, ctx, output)?;
+                        add_output_to_arg(builder, ctx, output, artifact_path_mapping)?;
                     }
                 }
             }
@@ -83,7 +85,7 @@ impl ResolvedQueryMacro {
                         first = false;
                         builder.push_str(&target.unconfigured().to_string());
                         builder.push_str(sep);
-                        add_output_to_arg(builder, ctx, output)?;
+                        add_output_to_arg(builder, ctx, output, artifact_path_mapping)?;
                     }
                 }
             }

@@ -27,6 +27,7 @@ use starlark::values::list::ListRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate as buck2_build_api;
+use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
@@ -73,11 +74,12 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for RunInfoGen<V> {
         &self,
         cli: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         ValueAsCommandLineLike::unpack_value_err(self.args.get().to_value())
             .expect("a command line from construction")
             .0
-            .add_to_command_line(cli, context)?;
+            .add_to_command_line(cli, context, artifact_path_mapping)?;
         Ok(())
     }
 
@@ -102,6 +104,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for RunInfoGen<V> {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         Ok(())
     }

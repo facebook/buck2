@@ -28,6 +28,7 @@ use display_container::fmt_container;
 use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::*;
+use indexmap::IndexMap;
 use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
@@ -457,7 +458,8 @@ impl<'v> RelativeOrigin<'v> {
                 // Shame we require the artifact to be bound here, we really just needs its
                 // path even if it is unbound.
                 let artifact = artifact.get_bound_artifact()?;
-                ctx.resolve_artifact(&artifact)?
+                // TODO(T219919866) support this properly
+                ctx.resolve_artifact(&artifact, &IndexMap::new())?
             }
             Self::CellRoot(cell_root) => ctx.resolve_cell_path(cell_root.cell_path())?,
             Self::ProjectRoot(_) => {

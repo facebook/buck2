@@ -26,6 +26,7 @@ use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use super::StarlarkTaggedValueGen;
+use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
@@ -80,10 +81,11 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkTaggedCommandLineGen<V
         &self,
         cli: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())?
             .0
-            .add_to_command_line(cli, context)
+            .add_to_command_line(cli, context, artifact_path_mapping)
     }
 
     fn visit_artifacts(
@@ -105,10 +107,11 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkTaggedCommandLineGen<V
     fn visit_write_to_file_macros(
         &self,
         visitor: &mut dyn WriteToFileMacroVisitor,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())?
             .0
-            .visit_write_to_file_macros(visitor)
+            .visit_write_to_file_macros(visitor, artifact_path_mapping)
     }
 }
 

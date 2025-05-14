@@ -31,10 +31,12 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_common::io::IoProvider;
 use buck2_core::category::Category;
 use buck2_core::category::CategoryRef;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -254,6 +256,8 @@ pub trait ActionExecutionCtx: Send + Sync {
     /// Get the value of an Artifact. This Artifact _must_ have been declared
     /// as an input to the associated action or a panic will be raised.
     fn artifact_values(&self, input: &ArtifactGroup) -> &ArtifactGroupValues;
+
+    fn artifact_path_mapping(&self) -> IndexMap<&Artifact, ContentBasedPathHash>;
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor;
 

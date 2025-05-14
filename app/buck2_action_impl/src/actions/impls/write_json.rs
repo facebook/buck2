@@ -27,6 +27,7 @@ use buck2_build_api::actions::impls::json::JsonUnpack;
 use buck2_build_api::actions::impls::json::validate_json;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::command_line_arg_like_impl;
+use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
@@ -275,10 +276,11 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkWriteJsonCommandLineAr
         &self,
         builder: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         ValueAsCommandLineLike::unpack_value_err(self.artifact.to_value())?
             .0
-            .add_to_command_line(builder, context)
+            .add_to_command_line(builder, context, artifact_path_mapping)
     }
 
     fn visit_artifacts(
@@ -301,6 +303,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkWriteJsonCommandLineAr
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         // In the write_json implementation, the commandlinebuilders we use don't support args.
         Ok(())

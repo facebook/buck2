@@ -35,6 +35,7 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
@@ -133,6 +134,7 @@ impl<'v> CommandLineArgLike for StarlarkOutputArtifact<'v> {
         &self,
         _cli: &mut dyn CommandLineBuilder,
         _ctx: &mut dyn CommandLineContext,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         // TODO: proper error message
         Err(buck2_error::buck2_error!(
@@ -156,6 +158,7 @@ impl<'v> CommandLineArgLike for StarlarkOutputArtifact<'v> {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         Ok(())
     }
@@ -180,7 +183,10 @@ impl CommandLineArgLike for FrozenStarlarkOutputArtifact {
         &self,
         cli: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
+        // We do not need to use the ArtifactPathMapper here as output artifacts are always
+        // resolved to a known path since their content hash is not yet available.
         cli.push_location(ctx.resolve_output_artifact(&self.artifact()?)?);
         Ok(())
     }
@@ -200,6 +206,7 @@ impl CommandLineArgLike for FrozenStarlarkOutputArtifact {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         Ok(())
     }

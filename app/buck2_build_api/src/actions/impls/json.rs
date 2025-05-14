@@ -20,6 +20,7 @@ use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProv
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
 use either::Either;
+use indexmap::IndexMap;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::values::UnpackValue;
@@ -233,7 +234,11 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                         let mut items = Vec::<String>::new();
 
                         with_command_line_context(fs, self.absolute, |ctx| {
-                            err(x.as_command_line_arg().add_to_command_line(&mut items, ctx))
+                            err(x.as_command_line_arg().add_to_command_line(
+                                &mut items,
+                                ctx,
+                                &IndexMap::new(),
+                            ))
                         })?;
 
                         // We change the type, based on the value - singleton = String, otherwise list.

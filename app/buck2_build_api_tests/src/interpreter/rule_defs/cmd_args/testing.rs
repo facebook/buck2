@@ -17,6 +17,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter_for_build::interpreter::testing::cells;
+use indexmap::IndexMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::UnpackValue;
@@ -41,10 +42,12 @@ fn get_command_line(value: Value) -> buck2_error::Result<Vec<String>> {
     let mut ctx = DefaultCommandLineContext::new(&executor_fs);
 
     match ValueAsCommandLineLike::unpack_value(value)? {
-        Some(v) => v.0.add_to_command_line(&mut cli, &mut ctx),
+        Some(v) => {
+            v.0.add_to_command_line(&mut cli, &mut ctx, &IndexMap::new())
+        }
         None => ValueAsCommandLineLike::unpack_value_err(value)?
             .0
-            .add_to_command_line(&mut cli, &mut ctx),
+            .add_to_command_line(&mut cli, &mut ctx, &IndexMap::new()),
     }?;
     Ok(cli)
 }
@@ -62,7 +65,7 @@ pub(crate) fn command_line_stringifier(builder: &mut GlobalsBuilder) {
         let mut ctx = DefaultCommandLineContext::new(&executor_fs);
         ValueAsCommandLineLike::unpack_value_err(value)?
             .0
-            .add_to_command_line(&mut cli, &mut ctx)?;
+            .add_to_command_line(&mut cli, &mut ctx, &IndexMap::new())?;
         assert_eq!(1, cli.len());
         Ok(cli.first().unwrap().clone())
     }

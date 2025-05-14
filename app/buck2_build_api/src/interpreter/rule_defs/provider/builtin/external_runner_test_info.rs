@@ -40,6 +40,7 @@ use starlark::values::none::NoneType;
 use starlark::values::tuple::TupleRef;
 
 use crate as buck2_build_api;
+use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
@@ -220,10 +221,15 @@ impl<'v> TestCommandMember<'v> {
         &self,
         cli: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         match self {
-            Self::Literal(literal) => literal.add_to_command_line(cli, context),
-            Self::Arglike(arglike) => arglike.add_to_command_line(cli, context),
+            Self::Literal(literal) => {
+                literal.add_to_command_line(cli, context, artifact_path_mapping)
+            }
+            Self::Arglike(arglike) => {
+                arglike.add_to_command_line(cli, context, artifact_path_mapping)
+            }
         }
     }
 }

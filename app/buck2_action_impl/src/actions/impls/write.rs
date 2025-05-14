@@ -24,6 +24,7 @@ use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -112,7 +113,11 @@ impl WriteAction {
         })
     }
 
-    fn get_contents(&self, fs: &ExecutorFs) -> buck2_error::Result<String> {
+    fn get_contents(
+        &self,
+        fs: &ExecutorFs,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
+    ) -> buck2_error::Result<String> {
         let mut cli = Vec::<String>::new();
 
         let mut ctx = if let Some(macro_files) = &self.inner.macro_files {
@@ -133,7 +138,7 @@ impl WriteAction {
         ValueAsCommandLineLike::unpack_value_err(self.contents.value())
             .unwrap()
             .0
-            .add_to_command_line(&mut cli, ctx)?;
+            .add_to_command_line(&mut cli, ctx, artifact_path_mapping)?;
 
         Ok(cli.join("\n"))
     }
@@ -168,7 +173,8 @@ impl Action for WriteAction {
     fn aquery_attributes(&self, fs: &ExecutorFs) -> IndexMap<String, String> {
         // TODO(cjhopman): We should change this api to support returning a Result.
         indexmap! {
-            "contents".to_owned() => match self.get_contents(fs) {
+            // TODO(T219919866) Make aquery work with content-based path hashing
+            "contents".to_owned() => match self.get_contents(fs, &IndexMap::new()) {
                 Ok(v) => v,
                 Err(e) => format!("ERROR: constructing contents ({})", e)
             },
@@ -188,7 +194,9 @@ impl Action for WriteAction {
             .materializer()
             .declare_write(Box::new(|| {
                 execution_start = Some(Instant::now());
-                let content = self.get_contents(&ctx.executor_fs())?.into_bytes();
+                let content = self
+                    .get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping())?
+                    .into_bytes();
                 let path = fs.resolve_build(
                     self.output.get_path(),
                     if self.output.get_path().is_content_based_path() {

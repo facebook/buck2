@@ -95,6 +95,7 @@ use dupe::Dupe;
 use futures::future::FutureExt;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
+use indexmap::IndexMap;
 use starlark_map::small_map::SmallMap;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
@@ -833,7 +834,8 @@ async fn build_launch_installer<'a>(
             let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
             let mut run_args = Vec::<String>::new();
             let mut ctx = AbsCommandLineContext::new(&executor_fs);
-            installer_run_info.add_to_command_line(&mut run_args, &mut ctx)?;
+            // TODO(T219919866) Provide mapping to get correct command line for content-based path hashing
+            installer_run_info.add_to_command_line(&mut run_args, &mut ctx, &IndexMap::new())?;
             (artifact_visitor.inputs, run_args)
         };
         // returns IndexMap<ArtifactGroup,ArtifactGroupValues>;

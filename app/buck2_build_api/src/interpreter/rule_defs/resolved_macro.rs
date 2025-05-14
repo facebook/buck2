@@ -33,6 +33,7 @@ use static_assertions::assert_eq_size;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
+use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
@@ -82,9 +83,10 @@ pub fn add_output_to_arg(
     builder: &mut dyn ArgBuilder,
     ctx: &mut dyn CommandLineContext,
     artifact: &StarlarkArtifact,
+    artifact_path_mapping: &dyn ArtifactPathMapper,
 ) -> buck2_error::Result<()> {
     let path = ctx
-        .resolve_artifact(&artifact.get_bound_artifact()?)?
+        .resolve_artifact(&artifact.get_bound_artifact()?, artifact_path_mapping)?
         .into_string();
     builder.push_str(&path);
     Ok(())
@@ -94,12 +96,13 @@ fn add_outputs_to_arg(
     builder: &mut dyn ArgBuilder,
     ctx: &mut dyn CommandLineContext,
     outputs_list: &[StarlarkArtifact],
+    artifact_path_mapping: &dyn ArtifactPathMapper,
 ) -> buck2_error::Result<()> {
     for (i, value) in outputs_list.iter().enumerate() {
         if i != 0 {
             builder.push_str(" ");
         }
-        add_output_to_arg(builder, ctx, value)?;
+        add_output_to_arg(builder, ctx, value, artifact_path_mapping)?;
     }
     Ok(())
 }
@@ -109,24 +112,27 @@ impl<'v> ResolvedMacro<'v> {
         &self,
         builder: &mut dyn ArgBuilder,
         ctx: &mut dyn CommandLineContext,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         match self {
             Self::Source(artifact) => {
-                let s = ctx.resolve_artifact(artifact)?.into_string();
+                let s = ctx
+                    .resolve_artifact(artifact, artifact_path_mapping)?
+                    .into_string();
                 builder.push_str(&s);
             }
             Self::Location(info) => {
                 let outputs = &info.default_outputs();
 
-                add_outputs_to_arg(builder, ctx, outputs)?;
+                add_outputs_to_arg(builder, ctx, outputs, artifact_path_mapping)?;
             }
             Self::ArgLike(command_line_like) => {
                 let mut cli_builder = SpaceSeparatedCommandLineBuilder::wrap(builder);
                 command_line_like
                     .as_command_line_arg()
-                    .add_to_command_line(&mut cli_builder, ctx)?;
+                    .add_to_command_line(&mut cli_builder, ctx, artifact_path_mapping)?;
             }
-            Self::Query(value) => value.add_to_arg(builder, ctx)?,
+            Self::Query(value) => value.add_to_arg(builder, ctx, artifact_path_mapping)?,
         };
 
         Ok(())
@@ -227,6 +233,7 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
         &self,
         cmdline_builder: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         struct Builder {
             arg: String,
@@ -259,7 +266,7 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
                         builder.push_str("@");
                         builder.push_path(ctx)?;
                     } else {
-                        val.add_to_arg(&mut builder, ctx)?;
+                        val.add_to_arg(&mut builder, ctx, artifact_path_mapping)?;
                     }
                 }
             }
@@ -290,6 +297,7 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
     fn visit_write_to_file_macros(
         &self,
         visitor: &mut dyn WriteToFileMacroVisitor,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         for part in &*self.parts {
             match part {
@@ -298,7 +306,7 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
                 }
                 ResolvedStringWithMacrosPart::Macro(write_to_file, val) => {
                     if *write_to_file {
-                        visitor.visit_write_to_file_macro(val)?;
+                        visitor.visit_write_to_file_macro(val, artifact_path_mapping)?;
                     } else {
                         // nop
                     }

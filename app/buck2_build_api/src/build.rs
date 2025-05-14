@@ -36,6 +36,7 @@ use futures::FutureExt;
 use futures::future::Either;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
+use indexmap::IndexMap;
 use itertools::Itertools;
 use starlark::collections::SmallSet;
 use tokio::sync::Mutex;
@@ -533,7 +534,8 @@ async fn build_configured_label_inner<'a>(
             let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
             let mut cli = Vec::<String>::new();
             let mut ctx = AbsCommandLineContext::new(&executor_fs);
-            runinfo.add_to_command_line(&mut cli, &mut ctx)?;
+            // TODO(T219919866)
+            runinfo.add_to_command_line(&mut cli, &mut ctx, &IndexMap::new())?;
             Some(cli)
         } else {
             None
