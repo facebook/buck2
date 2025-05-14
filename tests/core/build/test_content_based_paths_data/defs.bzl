@@ -118,6 +118,42 @@ symlink = rule(
     },
 )
 
+def _copied_dir_impl(ctx):
+    another_to_copy = ctx.actions.declare_output("another_to_copy", uses_experimental_content_based_path_hashing = True)
+    ctx.actions.write(another_to_copy, "another_to_copy")
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True, dir = True)
+    ctx.actions.copied_dir(out, {
+        "another_to_copy": another_to_copy,
+        "to_copy": ctx.attrs.to_copy,
+    })
+
+    return [DefaultInfo(default_output = out)]
+
+copied_dir = rule(
+    impl = _copied_dir_impl,
+    attrs = {
+        "to_copy": attrs.source(),
+    },
+)
+
+def _symlinked_dir_impl(ctx):
+    another_to_symlink = ctx.actions.declare_output("another_to_symlink", uses_experimental_content_based_path_hashing = True)
+    ctx.actions.write(another_to_symlink, "another_to_symlink")
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True, dir = True)
+    ctx.actions.symlinked_dir(out, {
+        "another_to_symlink": another_to_symlink,
+        "to_symlink": ctx.attrs.to_symlink,
+    })
+
+    return [DefaultInfo(default_output = out)]
+
+symlinked_dir = rule(
+    impl = _symlinked_dir_impl,
+    attrs = {
+        "to_symlink": attrs.source(),
+    },
+)
+
 def _cas_artifact_with_content_based_path_impl(ctx: AnalysisContext):
     out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
     out = ctx.actions.cas_artifact(

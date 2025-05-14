@@ -24,6 +24,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_core::category::CategoryRef;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::BuckErrorContext;
@@ -224,37 +225,63 @@ impl Action for SymlinkedDirAction {
         ctx: &mut dyn ActionExecutionCtx,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let fs = ctx.fs().fs();
-        // TODO(T219919866) Add support for experimental content-based path hashing
-        let output = ctx.fs().resolve_build(self.output().get_path(), None)?;
+        let temp_output = ctx.fs().resolve_build(
+            self.output().get_path(),
+            Some(&ContentBasedPathHash::for_output_artifact()),
+        )?;
         let mut builder = ArtifactValueBuilder::new(fs, ctx.digest_config());
         let mut srcs = Vec::new();
 
-        for (group, dest) in &self.args {
+        for (group, relative_dest) in &self.args {
             let (src_artifact, value) = ctx
                 .artifact_values(group)
                 .iter()
                 .into_singleton()
                 .buck_error_context("Input did not dereference to exactly one artifact")?;
 
-            // TODO(T219919866) Add support for experimental content-based path hashing
-            let src = src_artifact.resolve_path(ctx.fs(), None)?;
-            let dest = output.join(dest);
+            let src = src_artifact.resolve_path(
+                ctx.fs(),
+                if src_artifact.has_content_based_path() {
+                    Some(value.content_based_path_hash())
+                } else {
+                    None
+                }
+                .as_ref(),
+            )?;
+            let temp_dest = temp_output.join(relative_dest);
 
             if self.copy {
-                let dest_entry = builder.add_copied(value, src.as_ref(), dest.as_ref())?;
-                srcs.push(CopiedArtifact::new(
-                    src,
-                    dest,
-                    dest_entry.map_dir(|d| d.as_immutable()),
-                ));
+                let dest_entry = builder.add_copied(value, src.as_ref(), temp_dest.as_ref())?;
+                srcs.push((src, relative_dest, dest_entry.map_dir(|d| d.as_immutable())));
             } else {
-                builder.add_symlinked(value, src.as_ref(), dest.as_ref())?;
+                builder.add_symlinked(value, src.as_ref(), temp_dest.as_ref())?;
             }
         }
 
-        let value = builder.build(output.as_ref())?;
+        let value = builder.build(&temp_output.as_ref())?;
+        let actual_output = ctx.fs().resolve_build(
+            self.output().get_path(),
+            if self.output().get_path().is_content_based_path() {
+                Some(value.content_based_path_hash())
+            } else {
+                None
+            }
+            .as_ref(),
+        )?;
+        let srcs = srcs
+            .into_iter()
+            .map(|(src, relative_dest, dest_entry)| {
+                CopiedArtifact::new(src, actual_output.join(relative_dest), dest_entry)
+            })
+            .collect_vec();
+
         ctx.materializer()
-            .declare_copy(output, value.dupe(), srcs, ctx.cancellation_context())
+            .declare_copy(
+                actual_output,
+                value.dupe(),
+                srcs,
+                ctx.cancellation_context(),
+            )
             .await?;
         Ok((
             ActionOutputs::from_single(self.output().get_path().dupe(), value),

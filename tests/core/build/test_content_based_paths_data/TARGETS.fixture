@@ -1,6 +1,7 @@
 load(
     ":defs.bzl",
     "cas_artifact_with_content_based_path",
+    "copied_dir",
     "copy",
     "download_with_content_based_path",
     "dynamic_new_with_content_based_path",
@@ -8,6 +9,7 @@ load(
     "failing_validation_with_content_based_path",
     "run_remote_with_content_based_path",
     "symlink",
+    "symlinked_dir",
     "write_json_with_content_based_path",
     "write_macro_with_content_based_path",
     "write_with_content_based_path",
@@ -40,6 +42,16 @@ copy(
 
 symlink(
     name = "symlink_with_content_based_path",
+    to_symlink = ":write_with_content_based_path",
+)
+
+copied_dir(
+    name = "copied_dir_with_content_based_path",
+    to_copy = ":write_with_content_based_path",
+)
+
+symlinked_dir(
+    name = "symlinked_dir_with_content_based_path",
     to_symlink = ":write_with_content_based_path",
 )
 
