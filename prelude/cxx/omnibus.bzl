@@ -217,7 +217,8 @@ def _create_root(
         pic_behavior: PicBehavior,
         extra_ldflags: list[typing.Any] = [],
         prefer_stripped_objects: bool = False,
-        allow_cache_upload: bool = False) -> OmnibusRootProduct:
+        allow_cache_upload: bool = False,
+        hash_counter = 0) -> OmnibusRootProduct:
     """
     Link a root omnibus node.
     """
@@ -328,6 +329,7 @@ def _create_root(
             # Same as above.
             prefer_local = True,
             allow_cache_upload = allow_cache_upload,
+            hash_counter = hash_counter,
         ),
     )
 
@@ -713,9 +715,11 @@ def create_omnibus_libraries(
 
     libraries = []
     root_products = {}
+    counter = 0  # counter to avoid hash collisions
 
     # Link all root nodes against the dummy libomnibus lib.
     for label, root, link_deps in _ordered_roots(spec, pic_behavior):
+        counter += 1
         product = _create_root(
             ctx,
             spec,
@@ -728,6 +732,7 @@ def create_omnibus_libraries(
             extra_ldflags + extra_root_ldflags.get(label, []),
             prefer_stripped_objects,
             allow_cache_upload = True,
+            hash_counter = counter,
         )
         if root.name != None:
             libraries.append(
