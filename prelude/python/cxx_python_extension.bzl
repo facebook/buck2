@@ -70,7 +70,7 @@ load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":manifest.bzl", "create_manifest_for_source_map")
-load(":python.bzl", "PythonLibraryInfo")
+load(":python.bzl", "NativeDepsInfo", "NativeDepsInfoTSet", "PythonLibraryInfo")
 load(":python_library.bzl", "create_python_library_info", "dest_prefix", "gather_dep_libraries", "qualify_srcs")
 load(":versions.bzl", "gather_versioned_dependencies")
 
@@ -275,6 +275,13 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
 
     deps, shared_deps = gather_dep_libraries(raw_deps, resolve_versioned_deps = False)
     providers.append(gather_versioned_dependencies(raw_deps))
+
+    # We dont process anything for cxx_extensions, we just add an empty set
+    native_deps = ctx.actions.tset(
+        NativeDepsInfoTSet,
+        value = NativeDepsInfo(native_deps = {}),
+        children = [],
+    )
     library_info = create_python_library_info(
         ctx.actions,
         ctx.label,
@@ -282,6 +289,8 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         deps = deps,
         extension_shared_libraries = shared_deps,
         src_types = src_type_manifest,
+        native_deps = native_deps,
+        is_native_dep = True,
     )
     providers.append(library_info)
 

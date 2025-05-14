@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:artifacts.bzl", "ArtifactGroupInfo")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
@@ -25,7 +26,9 @@ load(
     "LinkableProviders",  # @unused Used as type
     "linkable",
 )
+load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
 load("@prelude//linking:strip.bzl", "strip_debug_info")
+load("@prelude//python:python.bzl", "NativeDepsInfo", "NativeDepsInfoTSet", "PythonLibraryInfo")
 load("@prelude//python:toolchain.bzl", "NativeLinkStrategy", "PythonToolchainInfo")
 
 # Info required to link cxx_python_extensions into native python binaries
@@ -51,6 +54,33 @@ CxxExtensionLinkInfoReduced = record(
     dlopen_deps = field(list[LinkableProviders], []),
     shared_only_libs = field(list[LinkableProviders], []),
 )
+
+def merge_native_deps(ctx, deps: list[Dependency]) -> NativeDepsInfoTSet:
+    native_deps = {}
+    children = []
+    for dep in deps:
+        if PythonLibraryInfo in dep:
+            if dep[PythonLibraryInfo].is_native_dep:
+                native_deps[dep.label] = dep
+            else:
+                children.append(dep[PythonLibraryInfo].native_deps)
+
+        if DlopenableLibraryInfo in dep:
+            native_deps[dep.label] = dep
+        elif MergedLinkInfo in dep:
+            native_deps[dep.label] = dep
+        elif SharedLibraryInfo in dep:
+            native_deps[dep.label] = dep
+        elif ArtifactGroupInfo in dep:
+            native_deps[dep.label] = dep
+        elif PythonLibraryInfo not in dep:
+            native_deps[dep.label] = dep
+
+    return ctx.actions.tset(
+        NativeDepsInfoTSet,
+        value = NativeDepsInfo(native_deps = native_deps),
+        children = children,
+    )
 
 def _cxx_extension_info_python_module_names(info: CxxExtensionLinkInfoMember):
     return cmd_args(

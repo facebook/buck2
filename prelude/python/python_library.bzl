@@ -37,6 +37,7 @@ load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr"
 load(
     "@prelude//python/linking:native_python_util.bzl",
     "merge_cxx_extension_info",
+    "merge_native_deps",
 )
 load(
     "@prelude//third-party:build.bzl",
@@ -56,7 +57,7 @@ load(
     "create_manifest_for_source_map",
 )
 load(":needed_coverage.bzl", "PythonNeededCoverageInfo")
-load(":python.bzl", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibraryManifestsTSet")
+load(":python.bzl", "NativeDepsInfoTSet", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibraryManifestsTSet")
 load(":source_db.bzl", "create_python_source_db_info", "create_source_db_no_deps")
 load(":toolchain.bzl", "PythonToolchainInfo")
 load(":typing.bzl", "create_per_target_type_check")
@@ -115,6 +116,8 @@ def create_python_needed_coverage_info(
 def create_python_library_info(
         actions: AnalysisActions,
         label: Label,
+        native_deps: NativeDepsInfoTSet,
+        is_native_dep: bool,
         srcs: [ManifestInfo, None] = None,
         src_types: [ManifestInfo, None] = None,
         bytecode: [dict[PycInvalidationMode, ManifestInfo], None] = None,
@@ -165,6 +168,8 @@ def create_python_library_info(
         manifests = actions.tset(PythonLibraryManifestsTSet, value = manifests, children = [dep.manifests for dep in deps]),
         shared_libraries = new_shared_libraries,
         extension_shared_libraries = new_extension_shared_libraries,
+        is_native_dep = is_native_dep,
+        native_deps = native_deps,
     )
 
 def gather_dep_libraries(
@@ -330,6 +335,8 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     deps, shared_libraries = gather_dep_libraries(raw_deps, resolve_versioned_deps = False)
     providers.append(gather_versioned_dependencies(raw_deps))
 
+    native_deps = merge_native_deps(ctx, raw_deps)
+
     library_info = create_python_library_info(
         ctx.actions,
         ctx.label,
@@ -340,6 +347,8 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         bytecode = bytecode,
         deps = deps,
         shared_libraries = shared_libraries,
+        native_deps = native_deps,
+        is_native_dep = False,
     )
     providers.append(library_info)
 

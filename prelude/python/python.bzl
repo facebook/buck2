@@ -12,6 +12,12 @@ load(":compile.bzl", "PycInvalidationMode")
 load(":interface.bzl", "PythonLibraryManifestsInterface")
 load(":manifest.bzl", "ManifestInfo")
 
+NativeDepsInfoTSet = transitive_set()
+
+NativeDepsInfo = record(
+    native_deps = field(dict[Label, Dependency], dict()),
+)
+
 PythonLibraryManifests = record(
     label = field(Label),
     srcs = field([ManifestInfo, None]),
@@ -152,8 +158,11 @@ PythonLibraryManifestsTSet = transitive_set(
 PythonLibraryInfo = provider(fields = {
     # Shared libraries coming from cxx_python_extension targets
     "extension_shared_libraries": provider_field(SharedLibraryInfo),
+    "is_native_dep": provider_field(bool),
     # See the docs for PythonLibraryManifestsInterface
     "manifests": provider_field(PythonLibraryManifestsTSet),
+    # Native deps
+    "native_deps": provider_field(NativeDepsInfoTSet),
     # Shared libraries coming from python_library and others
     "shared_libraries": provider_field(SharedLibraryInfo),
 })

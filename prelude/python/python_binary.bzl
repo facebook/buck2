@@ -41,7 +41,7 @@ load(
     "python_implicit_attrs",
 )
 load("@prelude//python/linking:native.bzl", "process_native_linking")
-load("@prelude//python/linking:native_python_util.bzl", "compute_link_strategy")
+load("@prelude//python/linking:native_python_util.bzl", "compute_link_strategy", "merge_native_deps")
 load("@prelude//python/linking:omnibus.bzl", "process_omnibus_linking")
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 load(":compile.bzl", "compile_manifests")
@@ -187,6 +187,8 @@ def python_executable(
         bytecode = bytecode_manifest,
         deps = python_deps,
         shared_libraries = shared_deps,
+        native_deps = merge_native_deps(ctx, raw_deps),
+        is_native_dep = False,
     )
 
     source_db_no_deps = create_source_db_no_deps(ctx, srcs)
@@ -419,9 +421,14 @@ def _convert_python_library_to_executable(
     if link_strategy == NativeLinkStrategy("native"):
         use_anon_target = getattr(ctx.attrs, "use_anon_target_for_analysis", False)
         if use_anon_target:
+            # For caching link groups, we just need to pass cxx_deps
+            native_deps = {}
+            for dep in library.native_deps.traverse():
+                native_deps.update(dep.native_deps)
+
             explicit_attrs = {
                 "allow_cache_upload": allow_cache_upload,
-                "deps": deps,
+                "deps": list(native_deps.values()),
                 "name": "python_linking:" + ctx.attrs.name,
                 "package_style": package_style,
                 "python_toolchain": ctx.attrs._python_toolchain,

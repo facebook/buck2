@@ -38,6 +38,7 @@ load("@prelude//third-party:providers.bzl", "ThirdPartyBuild", "third_party_buil
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load(":compile.bzl", "compile_manifests")
 load(":manifest.bzl", "ManifestInfo", "create_manifest_for_source_dir")
+load(":python.bzl", "NativeDepsInfo", "NativeDepsInfoTSet")
 load(
     ":python_library.bzl",
     "create_python_library_info",
@@ -83,6 +84,12 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         bytecode = bytecode,
         deps = deps,
         shared_libraries = shared_deps,
+        native_deps = ctx.actions.tset(
+            NativeDepsInfoTSet,
+            value = NativeDepsInfo(native_deps = {}),
+            children = [],
+        ),
+        is_native_dep = False,
     )
     providers.append(library_info)
 
