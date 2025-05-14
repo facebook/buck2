@@ -2,6 +2,8 @@ load(
     ":defs.bzl",
     "cas_artifact_with_content_based_path",
     "copy",
+    "dynamic_new_with_content_based_path",
+    "dynamic_with_content_based_path",
     "failing_validation_with_content_based_path",
     "run_remote_with_content_based_path",
     "symlink",
@@ -44,6 +46,14 @@ cas_artifact_with_content_based_path(
 
 failing_validation_with_content_based_path(
     name = "failing_validation_with_content_based_path",
+)
+
+dynamic_with_content_based_path(
+    name = "dynamic_with_content_based_path",
+)
+
+dynamic_new_with_content_based_path(
+    name = "dynamic_new_with_content_based_path",
 )
 
 platform(

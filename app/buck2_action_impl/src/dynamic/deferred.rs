@@ -17,6 +17,7 @@ use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::artifact_groups::ArtifactGroupValues;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::dynamic::calculation::dynamic_lambda_result;
 use buck2_build_api::dynamic_value::DynamicValue;
@@ -40,6 +41,7 @@ use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
@@ -51,6 +53,7 @@ use dice::CancellationContext;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
+use indexmap::IndexMap;
 use indexmap::IndexSet;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -158,6 +161,7 @@ async fn execute_lambda(
     dice: &mut DiceComputations<'_>,
     self_key: DynamicLambdaResultsKey,
     resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
+    ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
     input_artifacts_materialized: InputArtifactsMaterialized,
     digest_config: DigestConfig,
     liveness: CancellationObserver,
@@ -169,6 +173,7 @@ async fn execute_lambda(
             lambda,
             dice,
             input_artifacts_materialized,
+            ensured_artifacts,
             resolved_dynamic_values,
             digest_config,
             liveness,
@@ -203,6 +208,7 @@ async fn execute_lambda(
                         lambda,
                         self_key,
                         input_artifacts_materialized,
+                        &ensured_artifacts,
                         &resolved_dynamic_values,
                         &artifact_fs,
                         digest_config,
@@ -302,7 +308,13 @@ pub(crate) async fn prepare_and_execute_lambda(
     // This is a bit suboptimal: we wait for all artifacts to be ready in order to
     // materialize any of them. However that is how we execute *all* local actions so in
     // the grand scheme of things that's probably not a huge deal.
-    ensure_artifacts_built(&lambda.as_ref().static_fields.artifact_values, ctx).await?;
+    let all_artifact_group_values =
+        ensure_artifacts_built(&lambda.as_ref().static_fields.artifact_values, ctx).await?;
+    let ensured_artifacts = all_artifact_group_values
+        .iter()
+        .flat_map(|x| x.iter())
+        .map(|(a, v)| (a, v))
+        .collect();
 
     span_async_simple(
         buck2_data::DynamicLambdaStart {
@@ -314,12 +326,7 @@ pub(crate) async fn prepare_and_execute_lambda(
                     stage: Some(buck2_data::MaterializedArtifacts {}.into()),
                 },
                 ctx.try_compute2(
-                    |ctx| {
-                        Box::pin(materialize_inputs(
-                            &lambda.as_ref().static_fields.artifact_values,
-                            ctx,
-                        ))
-                    },
+                    |ctx| Box::pin(materialize_inputs(&ensured_artifacts, ctx)),
                     |ctx| {
                         Box::pin(resolve_dynamic_values(
                             &lambda.as_ref().static_fields.dynamic_values,
@@ -338,6 +345,7 @@ pub(crate) async fn prepare_and_execute_lambda(
                         ctx,
                         self_holder_key,
                         resolved_dynamic_values,
+                        &ensured_artifacts,
                         input_artifacts_materialized,
                         ctx.global_data().get_digest_config(),
                         observer,
@@ -354,10 +362,11 @@ pub(crate) async fn prepare_and_execute_lambda(
 async fn ensure_artifacts_built(
     materialized_artifacts: &IndexSet<Artifact>,
     ctx: &mut DiceComputations<'_>,
-) -> buck2_error::Result<()> {
+) -> buck2_error::Result<Vec<ArtifactGroupValues>> {
     if materialized_artifacts.is_empty() {
-        return Ok(());
+        return Ok(Vec::new());
     }
+
     ctx.try_compute_join(materialized_artifacts, |ctx, artifact| {
         async move {
             ctx.ensure_artifact_group(&ArtifactGroup::Artifact(artifact.dupe()))
@@ -365,9 +374,7 @@ async fn ensure_artifacts_built(
         }
         .boxed()
     })
-    .await?;
-
-    Ok(())
+    .await
 }
 
 /// Marker to indicate artifacts we pass to dynamic actions are materialized.
@@ -376,20 +383,27 @@ async fn ensure_artifacts_built(
 pub struct InputArtifactsMaterialized(());
 
 async fn materialize_inputs(
-    materialized_artifacts: &IndexSet<Artifact>,
+    ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<InputArtifactsMaterialized> {
-    if materialized_artifacts.is_empty() {
+    if ensured_artifacts.is_empty() {
         return Ok(InputArtifactsMaterialized(()));
     }
 
     let artifact_fs = ctx.get_artifact_fs().await?;
 
-    let mut paths = Vec::with_capacity(materialized_artifacts.len());
+    let mut paths = Vec::with_capacity(ensured_artifacts.len());
 
-    for artifact in materialized_artifacts {
-        // TODO(T219919866) Add support for experimental content-based path hashing
-        let path = artifact.resolve_path(&artifact_fs, None)?;
+    for (artifact, artifact_value) in ensured_artifacts {
+        let path = artifact.resolve_path(
+            &artifact_fs,
+            if artifact.has_content_based_path() {
+                Some(artifact_value.content_based_path_hash())
+            } else {
+                None
+            }
+            .as_ref(),
+        )?;
         paths.push(path.clone());
     }
 
@@ -446,18 +460,27 @@ pub struct DynamicLambdaCtxData<'v> {
 
 /// Prepare dict of artifact values for dynamic actions.
 fn artifact_values<'v>(
-    artifact_values: &IndexSet<Artifact>,
+    ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
     _: InputArtifactsMaterialized,
     artifact_fs: &ArtifactFs,
     heap: &'v Heap,
 ) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>> {
-    let mut artifact_values_dict = Vec::with_capacity(artifact_values.len());
-    for x in artifact_values {
-        let k = StarlarkArtifact::new(x.dupe());
-        // TODO(T219919866) Add support for experimental content-based path hashing
-        let path = x.get_path().resolve(artifact_fs, None)?;
+    let mut artifact_values_dict = Vec::with_capacity(ensured_artifacts.len());
+    for (artifact, artifact_value) in ensured_artifacts.iter() {
+        let artifact = *artifact;
+        let k = StarlarkArtifact::new(artifact.dupe());
+        let path = artifact.get_path().resolve(
+            artifact_fs,
+            if artifact.has_content_based_path() {
+                Some(artifact_value.content_based_path_hash())
+            } else {
+                None
+            }
+            .as_ref(),
+        )?;
         // `InputArtifactsMaterialized` marker indicates that the artifact is materialized.
-        let v = StarlarkArtifactValue::new(x.dupe(), path.to_owned(), artifact_fs.fs().dupe());
+        let v =
+            StarlarkArtifactValue::new(artifact.dupe(), path.to_owned(), artifact_fs.fs().dupe());
         artifact_values_dict.push((k, v));
     }
     Ok(heap
@@ -486,6 +509,7 @@ fn outputs<'v>(
 fn new_attr_value<'v>(
     value: &DynamicAttrValue<FrozenValue, BoundBuildArtifact>,
     _input_artifacts_materialized: InputArtifactsMaterialized,
+    ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
     artifact_fs: &ArtifactFs,
     registry: &mut AnalysisRegistry<'v>,
     resolved_dynamic_values: &HashMap<DynamicValue, FrozenProviderCollectionValue>,
@@ -502,8 +526,20 @@ fn new_attr_value<'v>(
             Ok(env.heap().alloc(StarlarkOutputArtifact::new(artifact)))
         }
         DynamicAttrValue::ArtifactValue(artifact) => {
-            // TODO(T219919866) Add support for experimental content-based path hashing
-            let path = artifact.get_path().resolve(&artifact_fs, None)?;
+            let path = artifact.get_path().resolve(
+                &artifact_fs,
+                if artifact.has_content_based_path() {
+                    Some(
+                        ensured_artifacts
+                            .get(artifact)
+                            .internal_error("Dynamic action missing input artifact value!")?
+                            .content_based_path_hash(),
+                    )
+                } else {
+                    None
+                }
+                .as_ref(),
+            )?;
             // `InputArtifactsMaterialized` marker indicates that the artifact is materialized.
             Ok(env.heap().alloc(StarlarkArtifactValue::new(
                 Artifact::from(artifact.dupe()),
@@ -527,6 +563,7 @@ fn new_attr_value<'v>(
                     new_attr_value(
                         x,
                         _input_artifacts_materialized,
+                        ensured_artifacts,
                         artifact_fs,
                         registry,
                         resolved_dynamic_values,
@@ -544,6 +581,7 @@ fn new_attr_value<'v>(
                     new_attr_value(
                         v,
                         _input_artifacts_materialized,
+                        ensured_artifacts,
                         artifact_fs,
                         registry,
                         resolved_dynamic_values,
@@ -566,6 +604,7 @@ fn new_attr_value<'v>(
                     new_attr_value(
                         x,
                         _input_artifacts_materialized,
+                        ensured_artifacts,
                         artifact_fs,
                         registry,
                         resolved_dynamic_values,
@@ -579,6 +618,7 @@ fn new_attr_value<'v>(
             Some(v) => new_attr_value(
                 v,
                 _input_artifacts_materialized,
+                ensured_artifacts,
                 artifact_fs,
                 registry,
                 resolved_dynamic_values,
@@ -593,6 +633,7 @@ fn new_attr_values<'v>(
     values: &DynamicAttrValues<FrozenValue, BoundBuildArtifact>,
     callable: &FrozenStarlarkDynamicActionsCallable,
     input_artifacts_materialized: InputArtifactsMaterialized,
+    ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
     artifact_fs: &ArtifactFs,
     registry: &mut AnalysisRegistry<'v>,
     resolved_dynamic_values: &HashMap<DynamicValue, FrozenProviderCollectionValue>,
@@ -611,6 +652,7 @@ fn new_attr_values<'v>(
                 new_attr_value(
                     value,
                     input_artifacts_materialized,
+                    ensured_artifacts,
                     artifact_fs,
                     registry,
                     resolved_dynamic_values,
@@ -626,6 +668,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
     dynamic_lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
     self_key: DynamicLambdaResultsKey,
     input_artifacts_materialized: InputArtifactsMaterialized,
+    ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
     resolved_dynamic_values: &HashMap<DynamicValue, FrozenProviderCollectionValue>,
     artifact_fs: &ArtifactFs,
     digest_config: DigestConfig,
@@ -651,7 +694,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
     let spec = match &dynamic_lambda.attr_values {
         None => {
             let artifact_values = artifact_values(
-                &dynamic_lambda.static_fields.artifact_values,
+                ensured_artifacts,
                 input_artifacts_materialized,
                 artifact_fs,
                 env.heap(),
@@ -676,6 +719,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
                 attr_values,
                 callable.as_ref(),
                 input_artifacts_materialized,
+                ensured_artifacts,
                 artifact_fs,
                 &mut registry,
                 resolved_dynamic_values,

@@ -26,6 +26,7 @@ use buck2_action_impl::dynamic::dynamic_actions_callable::DynamicActionsCallback
 use buck2_action_impl::dynamic::dynamic_actions_callable::DynamicActionsCallbackReturnType;
 use buck2_action_impl::dynamic::new_dynamic_actions_callable;
 use buck2_action_impl::dynamic::params::FrozenDynamicLambdaParams;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::dynamic_value::DynamicValue;
@@ -37,6 +38,7 @@ use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
+use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellation::CancellationObserver;
@@ -49,6 +51,7 @@ use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use dice::DiceComputations;
 use dupe::Dupe;
+use indexmap::IndexMap;
 use itertools::Itertools;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
@@ -73,6 +76,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     dynamic_lambda: OwnedRefFrozenRef<'v, FrozenDynamicLambdaParams>,
     dice_ctx: &'v mut DiceComputations<'_>,
     input_artifacts_materialized: InputArtifactsMaterialized,
+    ensured_artifacts: &'v IndexMap<&'v Artifact, &'v ArtifactValue>,
     resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
     _digest_config: DigestConfig,
     liveness: CancellationObserver,
@@ -105,6 +109,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         dynamic_data,
         digest_config,
         input_artifacts_materialized,
+        ensured_artifacts,
         resolved_dynamic_values,
         artifact_fs,
 
@@ -162,6 +167,7 @@ struct BxlDynamicOutputEvaluator<'f> {
     dynamic_data: DynamicBxlContextData,
     digest_config: DigestConfig,
     input_artifacts_materialized: InputArtifactsMaterialized,
+    ensured_artifacts: &'f IndexMap<&'f Artifact, &'f ArtifactValue>,
     resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
     artifact_fs: ArtifactFs,
     print: EventDispatcherPrintHandler,
@@ -192,6 +198,7 @@ impl BxlDynamicOutputEvaluator<'_> {
                 self.dynamic_lambda,
                 self.self_key.dupe(),
                 self.input_artifacts_materialized,
+                self.ensured_artifacts,
                 &self.resolved_dynamic_values,
                 &self.artifact_fs,
                 self.digest_config,
@@ -254,6 +261,7 @@ pub(crate) fn init_eval_bxl_for_dynamic_output() {
          dynamic_lambda,
          dice_ctx,
          input_artifacts_materialized,
+         ensured_artifacts,
          resolved_dynamic_values,
          digest_config,
          liveness| {
@@ -263,6 +271,7 @@ pub(crate) fn init_eval_bxl_for_dynamic_output() {
                 dynamic_lambda,
                 dice_ctx,
                 input_artifacts_materialized,
+                ensured_artifacts,
                 resolved_dynamic_values,
                 digest_config,
                 liveness,

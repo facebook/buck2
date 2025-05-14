@@ -148,3 +148,50 @@ failing_validation_with_content_based_path = rule(
     impl = _failing_validation_with_content_based_path_impl,
     attrs = {},
 )
+
+def _dynamic_with_content_based_path_impl(ctx: AnalysisContext) -> list[Provider]:
+    input = ctx.actions.declare_output("input", uses_experimental_content_based_path_hashing = True)
+    input = ctx.actions.write(input, str("input"))
+    output = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+
+    def f(ctx: AnalysisContext, artifacts, outputs):
+        src = artifacts[input].read_string()
+        ctx.actions.write(outputs[output], src)
+
+    ctx.actions.dynamic_output(dynamic = [input], inputs = [], outputs = [output.as_output()], f = f)
+    return [DefaultInfo(default_output = output)]
+
+dynamic_with_content_based_path = rule(
+    impl = _dynamic_with_content_based_path_impl,
+    attrs = {
+    },
+)
+
+def _basic_dynamic_output_new_impl(actions: AnalysisActions, src: ArtifactValue, out: OutputArtifact):
+    actions.write(out, src.read_string())
+    return []
+
+_basic_dynamic_output_new = dynamic_actions(
+    impl = _basic_dynamic_output_new_impl,
+    attrs = {
+        "out": dynattrs.output(),
+        "src": dynattrs.artifact_value(),
+    },
+)
+
+def _dynamic_new_with_content_based_path_impl(ctx: AnalysisContext) -> list[Provider]:
+    input = ctx.actions.declare_output("input", uses_experimental_content_based_path_hashing = True)
+    input = ctx.actions.write(input, str("input"))
+    output = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+
+    ctx.actions.dynamic_output_new(_basic_dynamic_output_new(
+        src = input,
+        out = output.as_output(),
+    ))
+    return [DefaultInfo(default_output = output)]
+
+dynamic_new_with_content_based_path = rule(
+    impl = _dynamic_new_with_content_based_path_impl,
+    attrs = {
+    },
+)
