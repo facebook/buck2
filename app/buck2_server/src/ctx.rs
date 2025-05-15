@@ -40,6 +40,7 @@ use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_cli_proto::config_override::ConfigType;
+use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleDetectorAdapter;
 use buck2_common::dice::cycles::PairDiceCycleDetector;
 use buck2_common::file_ops::HasReadDirCache;
@@ -50,6 +51,7 @@ use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::file_ops::ConfigPath;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_configured::cycle::ConfiguredGraphCycleDescriptor;
@@ -785,99 +787,8 @@ impl DiceCommandUpdater<'_, '_> {
                 concurrency: concurrency as _,
             });
 
-        collect_config_metadata_into(root_config, &mut data);
-
         Ok(data)
     }
-}
-
-struct ConfigMetadataHolder(HashMap<String, String>);
-
-fn collect_config_metadata_into(config: &LegacyBuckConfig, data: &mut UserComputationData) {
-    // Facebook only: metadata collection for Scribe writes
-    facebook_only();
-
-    fn add_config(
-        map: &mut HashMap<String, String>,
-        cfg: &LegacyBuckConfig,
-        key: BuckconfigKeyRef<'static>,
-        field_name: &'static str,
-    ) {
-        if let Some(value) = cfg.get(key) {
-            map.insert(field_name.to_owned(), value.to_owned());
-        }
-    }
-
-    fn extract_scuba_defaults(
-        config: &LegacyBuckConfig,
-    ) -> Option<serde_json::Map<String, serde_json::Value>> {
-        let config = config.get(BuckconfigKeyRef {
-            section: "scuba",
-            property: "defaults",
-        })?;
-        let unescaped_config = shlex::split(config)?.join("");
-        let sample_json: serde_json::Value = serde_json::from_str(&unescaped_config).ok()?;
-        sample_json.get("normals")?.as_object().cloned()
-    }
-
-    let mut metadata = HashMap::new();
-
-    add_config(
-        &mut metadata,
-        &config,
-        BuckconfigKeyRef {
-            section: "log",
-            property: "repository",
-        },
-        "repository",
-    );
-
-    // Buck1 honors a configuration field, `scuba.defaults`, by drawing values from the configuration value and
-    // inserting them verbatim into Scuba samples. Buck2 doesn't write to Scuba in the same way that Buck1
-    // does, but metadata in this function indirectly makes its way to Scuba, so it makes sense to respect at
-    // least some of the data within it.
-    //
-    // The configuration field is expected to be the canonical JSON representation for a Scuba sample, which is
-    // to say something like this:
-    // ```
-    // {
-    //   "normals": { "key": "value" },
-    //   "ints": { "key": 0 },
-    // }
-    // ```
-    //
-    // TODO(swgillespie) - This only covers the normals since Buck2's event protocol only allows for string
-    // metadata. Depending on what sort of things we're missing by dropping int default columns, we might want
-    // to consider adding support to the protocol for integer metadata.
-
-    if let Some(normals_obj) = extract_scuba_defaults(&config) {
-        for (key, value) in normals_obj.iter() {
-            if let Some(value) = value.as_str() {
-                metadata.insert(key.clone(), value.to_owned());
-            }
-        }
-    }
-
-    add_config(
-        &mut metadata,
-        &config,
-        BuckconfigKeyRef {
-            section: "client",
-            property: "id",
-        },
-        "client",
-    );
-    add_config(
-        &mut metadata,
-        &config,
-        BuckconfigKeyRef {
-            section: "cache",
-            property: "schedule_type",
-        },
-        "schedule_type",
-    );
-
-    data.data.set(ConfigMetadataHolder(metadata));
 }
 
 impl Drop for ServerCommandContext<'_> {
@@ -1012,11 +923,93 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         &self,
         ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<HashMap<String, String>> {
-        ctx.per_transaction_data()
-            .data
-            .get::<ConfigMetadataHolder>()
-            .map(|holder| holder.0.clone())
-            .map_err(|_| buck2_error::internal_error!("Config metadata not set"))
+        // Facebook only: metadata collection for Scribe writes
+        facebook_only();
+
+        fn add_config(
+            map: &mut HashMap<String, String>,
+            cfg: &LegacyBuckConfig,
+            key: BuckconfigKeyRef<'static>,
+            field_name: &'static str,
+        ) {
+            if let Some(value) = cfg.get(key) {
+                map.insert(field_name.to_owned(), value.to_owned());
+            }
+        }
+
+        fn extract_scuba_defaults(
+            config: &LegacyBuckConfig,
+        ) -> Option<serde_json::Map<String, serde_json::Value>> {
+            let config = config.get(BuckconfigKeyRef {
+                section: "scuba",
+                property: "defaults",
+            })?;
+            let unescaped_config = shlex::split(config)?.join("");
+            let sample_json: serde_json::Value = serde_json::from_str(&unescaped_config).ok()?;
+            sample_json.get("normals")?.as_object().cloned()
+        }
+
+        let mut metadata = HashMap::new();
+
+        let cells = ctx.get_cell_resolver().await?;
+
+        let config = ctx.get_legacy_config_for_cell(cells.root_cell()).await?;
+        add_config(
+            &mut metadata,
+            &config,
+            BuckconfigKeyRef {
+                section: "log",
+                property: "repository",
+            },
+            "repository",
+        );
+
+        // Buck1 honors a configuration field, `scuba.defaults`, by drawing values from the configuration value and
+        // inserting them verbatim into Scuba samples. Buck2 doesn't write to Scuba in the same way that Buck1
+        // does, but metadata in this function indirectly makes its way to Scuba, so it makes sense to respect at
+        // least some of the data within it.
+        //
+        // The configuration field is expected to be the canonical JSON representation for a Scuba sample, which is
+        // to say something like this:
+        // ```
+        // {
+        //   "normals": { "key": "value" },
+        //   "ints": { "key": 0 },
+        // }
+        // ```
+        //
+        // TODO(swgillespie) - This only covers the normals since Buck2's event protocol only allows for string
+        // metadata. Depending on what sort of things we're missing by dropping int default columns, we might want
+        // to consider adding support to the protocol for integer metadata.
+
+        if let Some(normals_obj) = extract_scuba_defaults(&config) {
+            for (key, value) in normals_obj.iter() {
+                if let Some(value) = value.as_str() {
+                    metadata.insert(key.clone(), value.to_owned());
+                }
+            }
+        }
+
+        add_config(
+            &mut metadata,
+            &config,
+            BuckconfigKeyRef {
+                section: "client",
+                property: "id",
+            },
+            "client",
+        );
+        add_config(
+            &mut metadata,
+            &config,
+            BuckconfigKeyRef {
+                section: "cache",
+                property: "schedule_type",
+            },
+            "schedule_type",
+        );
+
+        Ok(metadata)
     }
 
     fn log_target_pattern(

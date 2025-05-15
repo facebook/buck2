@@ -383,16 +383,10 @@ fn is_config_invisible_to_dice(key: &BuckconfigKeyRef) -> bool {
 /// A set of buckconfigs that are visibile outside of dice, but not within it. Importantly, changes
 /// to these configs do not cause state invalidations.
 // FIXME(JakobDegen): Error if someone tries to read any of these from in dice
-const CONFIGS_INVISIBLE_TO_DICE: &[BuckconfigKeyRef<'static>] = &[
-    BuckconfigKeyRef {
-        section: "buck2_re_client",
-        property: "override_use_case",
-    },
-    BuckconfigKeyRef {
-        section: "scuba",
-        property: "defaults",
-    },
-];
+const CONFIGS_INVISIBLE_TO_DICE: &[BuckconfigKeyRef<'static>] = &[BuckconfigKeyRef {
+    section: "buck2_re_client",
+    property: "override_use_case",
+}];
 
 #[cfg(test)]
 mod tests {
