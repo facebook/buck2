@@ -75,7 +75,7 @@ export_file(
     name = "fat_platform_incompatible",
     src = "BUCK",
     target_compatible_with = select({
-        ":fat_platform_enabled": ["config//:none"],
+        ":fat_platform_enabled": ["prelude//:none"],
         "DEFAULT": [],
     }),
     visibility = ["PUBLIC"],

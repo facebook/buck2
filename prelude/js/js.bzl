@@ -17,33 +17,33 @@ def _select_platform():
     return select({
         "DEFAULT": select({
             "DEFAULT": "android",
-            "config//os/constraints:iphoneos": "ios",
-            "config//os/constraints:windows": "windows",
+            "prelude//os/constraints:iphoneos": "ios",
+            "prelude//os/constraints:windows": "windows",
         }),
-        "config//react-native:macos": "macos",
+        "prelude//react-native:macos": "macos",
         # TODO(T210407097): Remove after deleting //third-party/microsoft-fork-of-react-native
-        "fbsource//tools/build_defs/js/config:macos_legacy": "macos_legacy",
-        "fbsource//tools/build_defs/js/constraints/metro_js_platform_override:android": "android",
-        "fbsource//tools/build_defs/js/constraints/metro_js_platform_override:ios": "ios",
-        "fbsource//tools/build_defs/js/constraints/metro_js_platform_override:macos": "macos",
-        "fbsource//tools/build_defs/js/constraints/metro_js_platform_override:vr": "vr",
-        "fbsource//tools/build_defs/js/constraints/metro_js_platform_override:windows": "windows",
+        "prelude//tools/build_defs/js/config:macos_legacy": "macos_legacy",
+        "prelude//tools/build_defs/js/constraints/metro_js_platform_override:android": "android",
+        "prelude//tools/build_defs/js/constraints/metro_js_platform_override:ios": "ios",
+        "prelude//tools/build_defs/js/constraints/metro_js_platform_override:macos": "macos",
+        "prelude//tools/build_defs/js/constraints/metro_js_platform_override:vr": "vr",
+        "prelude//tools/build_defs/js/constraints/metro_js_platform_override:windows": "windows",
     })
 
 def _is_release():
     return select({
         "DEFAULT": select({
             "DEFAULT": False,
-            "fbsource//tools/build_defs/android/config:build_mode_opt": True,
+            "prelude//tools/build_defs/android/config:build_mode_opt": True,
         }),
-        "config//build_mode/constraints:release": True,
+        "prelude//build_mode/constraints:release": True,
     })
 
 def _select_asset_dest_path_resolver():
     return select({
         "DEFAULT": None,
-        "fbsource//tools/build_defs/js/config:asset_dest_path_resolver_android": "android",
-        "fbsource//tools/build_defs/js/config:asset_dest_path_resolver_generic": "generic",
+        "prelude//tools/build_defs/js/config:asset_dest_path_resolver_android": "android",
+        "prelude//tools/build_defs/js/config:asset_dest_path_resolver_generic": "generic",
     })
 
 implemented_rules = {

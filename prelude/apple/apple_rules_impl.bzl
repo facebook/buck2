@@ -75,7 +75,7 @@ def _apple_binary_extra_attrs():
         "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
         "enable_distributed_thinlto": attrs.bool(default = select({
             "DEFAULT": False,
-            "config//build_mode/constraints:distributed-thin-lto-enabled": True,
+            "prelude//build_mode/constraints:distributed-thin-lto-enabled": True,
         })),
         "enable_library_evolution": attrs.option(attrs.bool(), default = None),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
@@ -108,7 +108,7 @@ def _apple_library_extra_attrs():
         "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
         "enable_distributed_thinlto": attrs.bool(default = select({
             "DEFAULT": False,
-            "config//build_mode/constraints:distributed-thin-lto-enabled": True,
+            "prelude//build_mode/constraints:distributed-thin-lto-enabled": True,
         })),
         "enable_library_evolution": attrs.option(attrs.bool(), default = None),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
@@ -134,7 +134,7 @@ def _apple_library_extra_attrs():
         "_stripped_default": attrs.bool(default = False),
         "_swift_enable_testing": attrs.bool(default = select({
             "DEFAULT": False,
-            "config//features/apple:swift_enable_testing_enabled": True,
+            "prelude//features/apple:swift_enable_testing_enabled": True,
         })),
         APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
@@ -192,7 +192,7 @@ extra_attributes = {
         "dwarfdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "extra_linker_outputs": attrs.set(attrs.string(), default = []),
         "ibtool": attrs.exec_dep(providers = [RunInfo]),
-        "installer": attrs.default_only(attrs.label(default = "fbsource//xplat/buck2/platform/apple/installer/src/com/facebook/buck/apple/installer:apple_installer")),
+        "installer": attrs.default_only(attrs.label(default = "prelude//xplat/buck2/platform/apple/installer/src/com/facebook/buck/apple/installer:apple_installer")),
         "libtool": attrs.exec_dep(providers = [RunInfo]),
         "lipo": attrs.exec_dep(providers = [RunInfo]),
         "mapc": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),

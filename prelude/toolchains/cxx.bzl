@@ -252,7 +252,7 @@ cxx_tools_info_toolchain = rule(
         "cxx_flags": attrs.list(attrs.arg(), default = []),
         "cxx_tools_info": attrs.exec_dep(providers = [CxxToolsInfo], default = select({
             "DEFAULT": "prelude//toolchains/cxx/clang:path_clang_tools",
-            "config//os:windows": "prelude//toolchains/msvc:msvc_tools",
+            "prelude//os:windows": "prelude//toolchains/msvc:msvc_tools",
         })),
         "link_flags": attrs.list(attrs.arg(), default = []),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),

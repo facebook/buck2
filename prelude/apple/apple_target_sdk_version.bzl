@@ -60,7 +60,7 @@ _SDK_NAME_TO_PLATFORM_NAME_OVERRIDE_MAP = {
 
 def get_target_sdk_version_map() -> dict[str, str]:
     return {
-        maccatalyst_version: "config//version:constraint-value-target-sdk-version-{}".format(macos_version)
+        maccatalyst_version: "prelude//version:constraint-value-target-sdk-version-{}".format(macos_version)
         for maccatalyst_version, macos_version in _MACCATALYST_IOS_TO_MACOS_VERSION_MAP.items()
         if macos_version in TARGET_SDK_VERSIONS
     }
