@@ -62,7 +62,6 @@ pub(crate) struct UnregisteredDownloadFileAction {
     url: Arc<str>,
     vpnless_url: Option<Arc<str>>,
     is_executable: bool,
-    is_deferrable: bool,
 }
 
 impl UnregisteredDownloadFileAction {
@@ -72,7 +71,6 @@ impl UnregisteredDownloadFileAction {
         url: Arc<str>,
         vpnless_url: Option<Arc<str>>,
         is_executable: bool,
-        is_deferrable: bool,
     ) -> Self {
         Self {
             checksum,
@@ -80,7 +78,6 @@ impl UnregisteredDownloadFileAction {
             size_bytes,
             vpnless_url,
             is_executable,
-            is_deferrable,
         }
     }
 }
@@ -144,10 +141,6 @@ impl DownloadFileAction {
         client: &HttpClient,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<Option<FileMetadata>> {
-        if !self.inner.is_deferrable {
-            return Ok(None);
-        }
-
         let digest = if digest_config.cas_digest_config().allows_sha1() {
             self.inner
                 .checksum

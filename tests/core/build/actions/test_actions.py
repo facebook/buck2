@@ -227,7 +227,7 @@ async def test_download_file(buck: Buck) -> None:
 
     await runner.cleanup()
 
-    assert attempt == 3
+    assert attempt == 4
 
 
 @buck_test(data_dir="actions")
