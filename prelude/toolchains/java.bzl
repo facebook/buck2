@@ -154,8 +154,8 @@ _java_toolchain = rule(
             default = "prelude//java/tools:merge_class_to_source_maps",
             providers = [RunInfo],
         ),
-        "source_level": attrs.string(default = "11"),
-        "target_level": attrs.string(default = "11"),
+        "source_level": attrs.string(default = "8"),
+        "target_level": attrs.string(default = "8"),
         "zip_scrubber": attrs.source(default = "prelude//toolchains/android/src/com/facebook/buck/util/zip:zip_scrubber"),
     },
 )
