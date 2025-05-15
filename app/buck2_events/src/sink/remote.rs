@@ -81,13 +81,13 @@ mod fbcode {
         pub async fn send_messages_now(&self, events: Vec<BuckEvent>) -> buck2_error::Result<()> {
             let messages = events
                 .into_iter()
-                .filter_map(|e| {
+                .map(|e| {
                     let message_key = e.trace_id().unwrap().hash();
-                    Self::encode_message(e, false).map(|bytes| scribe_client::Message {
+                    scribe_client::Message {
                         category: self.category.clone(),
-                        message: bytes,
+                        message: Self::encode_message(e),
                         message_key: Some(message_key),
-                    })
+                    }
                 })
                 .collect();
             self.client
@@ -99,17 +99,15 @@ mod fbcode {
         // Send this event by placing it on the internal message queue.
         pub fn offer(&self, event: BuckEvent) {
             let message_key = event.trace_id().unwrap().hash();
-            if let Some(bytes) = Self::encode_message(event, false) {
-                self.client.offer(scribe_client::Message {
-                    category: self.category.clone(),
-                    message: bytes,
-                    message_key: Some(message_key),
-                });
-            }
+            self.client.offer(scribe_client::Message {
+                category: self.category.clone(),
+                message: Self::encode_message(event),
+                message_key: Some(message_key),
+            });
         }
 
         // Encodes message into something scribe understands.
-        fn encode_message(mut event: BuckEvent, is_truncated: bool) -> Option<Vec<u8>> {
+        fn encode_message(mut event: BuckEvent) -> Vec<u8> {
             smart_truncate_event(event.data_mut());
             let mut proto: Box<buck2_data::BuckEvent> = event.into();
 
@@ -117,15 +115,9 @@ mod fbcode {
 
             let buf = proto.encode_to_vec();
             if buf.len() > SCRIBE_MESSAGE_SIZE_LIMIT {
-                // if this BuckEvent is already a truncated one but the buffer byte size exceeds the limit,
-                // do not send Scribe another truncated version
-                if is_truncated {
-                    return None;
-                }
                 let json = serde_json::to_string(&proto).unwrap();
 
-                Self::encode_message(
-                    BuckEvent::new(
+                let proto: Box<buck2_data::BuckEvent> = BuckEvent::new(
                         SystemTime::now(),
                         TraceId::new(),
                         None,
@@ -153,11 +145,11 @@ mod fbcode {
                                 .into(),
                             ),
                         }),
-                    ),
-                    true,
-                )
+                    ).into();
+
+                proto.encode_to_vec()
             } else {
-                Some(buf)
+                buf
             }
         }
 
@@ -323,6 +315,35 @@ mod fbcode {
                 .unwrap_or(DEFAULT_SCRIBE_CATEGORY)
                 .to_owned(),
         )
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn test_encode_large_message() {
+            let large_string = "x".repeat(2 * 1024 * 1024); // 2MB string, exceeding SCRIBE_MESSAGE_SIZE_LIMIT
+            let event = BuckEvent::new(
+                SystemTime::now(),
+                TraceId::new(),
+                None,
+                None,
+                buck2_data::buck_event::Data::Instant(InstantEvent {
+                    data: Some(buck2_data::instant_event::Data::StructuredError(
+                        buck2_data::StructuredError {
+                            payload: large_string,
+                            ..Default::default()
+                        },
+                    )),
+                }),
+            );
+
+            let res = RemoteEventSink::encode_message(event);
+            let size_approx = res.len() * 8;
+            assert!(size_approx > TRUNCATED_SCRIBE_MESSAGE_SIZE);
+            assert!(size_approx < SCRIBE_MESSAGE_SIZE_LIMIT);
+        }
     }
 }
 
