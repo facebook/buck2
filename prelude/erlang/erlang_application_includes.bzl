@@ -40,7 +40,7 @@ def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
     # build application info
     app_include_info = ErlangAppIncludeInfo(
         name = name,
-        includes = multidict_projection(build_environments, "app_includes"),
+        includes = multidict_projection_key(build_environments, "includes", name),
         include_dir = multidict_projection_key(build_environments, "include_dirs", name),
         deps_files = multidict_projection(build_environments, "deps_files"),
         _original_includes = ctx.attrs.includes,

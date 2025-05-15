@@ -50,7 +50,6 @@ BuildEnvironment = record(
     deps_files = field(PathArtifactMapping, {}),
     # convenience storrage
     app_resources = field(PathArtifactMapping, {}),
-    app_includes = field(PathArtifactMapping, {}),
 )
 
 DepInfo = record(
@@ -111,7 +110,6 @@ def _prepare_build_environment(
             deps_files[dep_file] = new_deps[dep_file]
 
     return BuildEnvironment(
-        app_includes = includes_target.includes[toolchain.name] if includes_target else {},
         app_resources = {},
         includes = includes,
         beams = beams,
@@ -156,13 +154,11 @@ def _generate_include_artifacts(
     # construct updates build environment
     if not is_private:
         # fields for public include directory
-        app_includes = include_files
-        includes = _add(build_environment.includes, name, app_includes)
+        includes = _add(build_environment.includes, name, include_files)
         private_includes = build_environment.private_includes
         include_dirs = _add(build_environment.include_dirs, name, include_dir)
     else:
         # fields for private include directory
-        app_includes = build_environment.app_includes
         includes = build_environment.includes
         private_includes = {hrl.basename: (include_dir, hrl) for hrl in header_artifacts}
         include_dirs = build_environment.include_dirs
@@ -173,7 +169,6 @@ def _generate_include_artifacts(
         private_includes = private_includes,
         include_dirs = include_dirs,
         deps_files = deps_files,
-        app_includes = app_includes,
         # copied fields
         beams = build_environment.beams,
         app_resources = build_environment.app_resources,
@@ -204,7 +199,6 @@ def _generate_beam_artifacts(
         includes = build_environment.includes,
         private_includes = build_environment.private_includes,
         include_dirs = build_environment.include_dirs,
-        app_includes = build_environment.app_includes,
         app_resources = build_environment.app_resources,
     )
 
@@ -594,7 +588,6 @@ def _peek_private_includes(
         beams = build_environment.beams,
         include_dirs = build_environment.include_dirs,
         deps_files = build_environment.deps_files,
-        app_includes = build_environment.app_includes,
         app_resources = build_environment.app_resources,
     )
 

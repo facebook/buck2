@@ -154,8 +154,6 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         beams = pre_build_environment.beams,
         include_dirs = pre_build_environment.include_dirs,
         deps_files = pre_build_environment.deps_files,
-        # convenience storrage
-        app_includes = pre_build_environment.app_includes,
     )
 
     # Config files for ct

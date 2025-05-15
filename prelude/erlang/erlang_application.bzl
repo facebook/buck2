@@ -422,7 +422,7 @@ def build_app_info(
         name = name,
         version = version,
         beams = multidict_projection_key(build_environments, "beams", name),
-        includes = multidict_projection(build_environments, "app_includes"),
+        includes = multidict_projection_key(build_environments, "includes", name),
         dependencies = dependencies,
         start_dependencies = start_dependencies,
         include_dir = multidict_projection_key(build_environments, "include_dirs", name),
