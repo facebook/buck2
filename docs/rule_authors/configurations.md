@@ -133,8 +133,8 @@ target platform.
 
 ### Buck v1 compatibility
 
-Buck2 also supports the Buck v1 legacy `compatible_with` field on nodes but it
-has different behavior.
+Buck2 also supports the `compatible_with` field on nodes but it has different
+behavior.
 
 In summary:
 
