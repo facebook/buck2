@@ -128,4 +128,16 @@ CXX_GENERIC_ERROR_TYPES = [
         matcher = "Wheader-hygiene",
         category_suffix = "header_hygiene_violated",
     ),
+    make_error_type(
+        matcher = regex("reference to '.+' is ambiguous"),
+        category_suffix = "ambiguous_reference",
+    ),
+    make_error_type(
+        matcher = regex("use of overloaded operator '.+' is ambiguous"),
+        category_suffix = "ambiguous_overload_operator",
+    ),
+    make_error_type(
+        matcher = regex("call to constructor of '.+' is ambiguous"),
+        category_suffix = "ambiguous_constructor_call",
+    ),
 ]
