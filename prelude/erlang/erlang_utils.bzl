@@ -18,13 +18,6 @@ def app_name(ctx: AnalysisContext) -> str:
         return ctx.attrs.app_name
 
 # `build_environments` is a `dict[str, BuildEnvironment]`.
-def multidict_projection(build_environments: dict[str, typing.Any], field_name: str) -> dict:
-    field = {}
-    for name, env in build_environments.items():
-        field[name] = getattr(env, field_name)
-    return field
-
-# `build_environments` is a `dict[str, BuildEnvironment]`.
 def multidict_projection_key(build_environments: dict[str, typing.Any], field_name: str, key: str) -> dict:
     field = {}
     for name, env in build_environments.items():

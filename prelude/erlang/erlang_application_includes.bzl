@@ -13,7 +13,6 @@ load(
 )
 load(
     ":erlang_utils.bzl",
-    "multidict_projection",
     "multidict_projection_key",
 )
 
@@ -28,9 +27,9 @@ def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
     build_environments = {}
     for toolchain in toolchains.values():
         build_environment = BuildEnvironment(
-            deps_files = {},
             includes = {},
             include_dirs = {},
+            deps_files = {},
         )
         erlang_build.build_steps.generate_include_artifacts(
             ctx,
@@ -46,7 +45,7 @@ def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
         name = name,
         includes = multidict_projection_key(build_environments, "includes", name),
         include_dir = multidict_projection_key(build_environments, "include_dirs", name),
-        deps_files = multidict_projection(build_environments, "deps_files"),
+        deps_files = multidict_projection_key(build_environments, "deps_files", name),
         _original_includes = ctx.attrs.includes,
     )
 

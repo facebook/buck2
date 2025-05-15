@@ -30,7 +30,8 @@ usage() ->
 do(Source, InFile, OutSpec) ->
     case read_file(InFile) of
         {ok, DepFiles} ->
-            Dependencies = build_dep_info(Source, DepFiles),
+            FlatDepFiles = lists:foldl(fun maps:merge/2, #{}, maps:values(DepFiles)),
+            Dependencies = build_dep_info(Source, FlatDepFiles),
             OutData = json:encode(Dependencies),
             case OutSpec of
                 {file, File} ->

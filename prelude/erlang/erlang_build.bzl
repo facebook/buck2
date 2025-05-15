@@ -37,13 +37,17 @@ ModuleArtifactMapping = dict[str, Artifact]
 #   from application to beam files it defines
 EbinMapping = dict[str, ModuleArtifactMapping]
 
+# mapping
+#   from application to deps files it computed
+DepsMapping = dict[str, PathArtifactMapping]
+
 BuildEnvironment = record(
     includes = field(IncludesMapping, {}),
     include_dirs = field(PathArtifactMapping, {}),
     private_includes = field(IncludesMapping, {}),
     private_include_dirs = field(PathArtifactMapping, {}),
     beams = field(EbinMapping, {}),
-    deps_files = field(PathArtifactMapping, {}),
+    deps_files = field(DepsMapping, {}),
 )
 
 DepInfo = record(
@@ -59,13 +63,15 @@ def _prepare_build_environment(
     """Prepare build environment and collect the context from all dependencies."""
     include_dirs = {}
     deps_files = {}
+    all_deps_files = {}
     includes = {}
     beams = {}
 
     if includes_target:
-        include_dirs = {includes_target.name: includes_target.include_dir[toolchain.name]}
-        includes = {includes_target.name: includes_target.includes[toolchain.name]}
-        deps_files = dict(includes_target.deps_files[toolchain.name])
+        include_dirs[includes_target.name] = includes_target.include_dir[toolchain.name]
+        includes[includes_target.name] = includes_target.includes[toolchain.name]
+        all_deps_files = dict(includes_target.deps_files[toolchain.name])
+        deps_files[includes_target.name] = dict(includes_target.deps_files[toolchain.name])
 
     for name in dependencies:
         dep = dependencies[name]
@@ -99,9 +105,10 @@ def _prepare_build_environment(
         # collect deps_files
         new_deps = dep_info.deps_files[toolchain.name]
         for dep_file in new_deps:
-            if dep_file in deps_files and deps_files[dep_file] != new_deps[dep_file]:
-                _fail_dep_conflict(dep_file, deps_files[dep_file], new_deps[dep_file])
-            deps_files[dep_file] = new_deps[dep_file]
+            if dep_file in all_deps_files and all_deps_files[dep_file] != new_deps[dep_file]:
+                _fail_dep_conflict(dep_file, all_deps_files[dep_file], new_deps[dep_file])
+            all_deps_files[dep_file] = new_deps[dep_file]
+        deps_files[name] = new_deps
 
     return BuildEnvironment(
         includes = includes,
@@ -146,7 +153,7 @@ def _generate_include_artifacts(
     include_dir = ctx.actions.symlinked_dir(paths.join(_build_dir(toolchain), dir_name, "include"), include_files)
 
     # dep files
-    _get_deps_files(ctx, toolchain, header_artifacts, build_environment)
+    _get_deps_files(ctx, toolchain, name, header_artifacts, build_environment)
 
     # construct updates build environment
     if not is_private:
@@ -173,7 +180,7 @@ def _generate_beam_artifacts(
         beam_mapping[module] = ctx.actions.declare_output(ebin, module + ".beam")
 
     # dep files
-    _get_deps_files(ctx, toolchain, src_artifacts, build_environment)
+    _get_deps_files(ctx, toolchain, name, src_artifacts, build_environment)
 
     build_environment.beams[name] = beam_mapping
 
@@ -186,16 +193,21 @@ def _generate_beam_artifacts(
 def _get_deps_files(
         ctx: AnalysisContext,
         toolchain: Toolchain,
+        name: str,
         srcs: list[Artifact],
         build_environment: BuildEnvironment):
     """Mapping from the output path to the deps file artifact for each srcs artifact and dependencies."""
 
-    deps = build_environment.deps_files
+    if name not in build_environment.deps_files:
+        build_environment.deps_files[name] = {}
+
+    deps = build_environment.deps_files[name]
     for src in srcs:
         key = _deps_key(src)
         file = _get_deps_file(ctx, toolchain, src)
-        if key in deps and file != deps[key]:
-            _fail_dep_conflict(key, file, deps[key])
+        for app in build_environment.deps_files:
+            if key in build_environment.deps_files[app]:
+                _fail_dep_conflict(key, file, build_environment.deps_files[app][key])
         deps[key] = file
 
 def _deps_key(src: Artifact) -> str:

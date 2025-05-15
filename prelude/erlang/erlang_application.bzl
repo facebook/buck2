@@ -32,7 +32,6 @@ load(
     ":erlang_utils.bzl",
     "action_identifier",
     "app_name",
-    "multidict_projection",
     "multidict_projection_key",
 )
 
@@ -431,7 +430,7 @@ def build_app_info(
         include_dir = multidict_projection_key(build_environments, "include_dirs", name),
         private_includes = multidict_projection_key(build_environments, "private_includes", name),
         private_include_dir = multidict_projection_key(build_environments, "private_include_dirs", name),
-        deps_files = multidict_projection(build_environments, "deps_files"),
+        deps_files = multidict_projection_key(build_environments, "deps_files", name),
         virtual = False,
         app_folders = app_folders,
         app_folder = primary_app_folder,
