@@ -40,6 +40,7 @@ ErlangAppInfo = provider(
 
             # for tests we need to preserve the private includes
             "private_includes",
+            "private_include_dir",
             # mapping from name to dependency for all Erlang dependencies
             "dependencies",
             # Transitive Set for calculating the start order

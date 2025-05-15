@@ -150,9 +150,10 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # Records are immutable, hence we need to create a new record from the previous one.
     build_environment = BuildEnvironment(
         includes = pre_build_environment.includes,
-        private_includes = pre_build_environment.private_includes,
-        beams = pre_build_environment.beams,
         include_dirs = pre_build_environment.include_dirs,
+        private_includes = pre_build_environment.private_includes,
+        private_include_dirs = pre_build_environment.private_include_dirs,
+        beams = pre_build_environment.beams,
         deps_files = pre_build_environment.deps_files,
     )
 

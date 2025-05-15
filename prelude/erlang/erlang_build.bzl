@@ -25,14 +25,9 @@ load(":erlang_utils.bzl", "action_identifier")
 PathArtifactMapping = dict[str, Artifact]
 
 # mapping
-#   from application to public includes in that application
+#   from application to includes in that application
 #   the artifacts are source .hrl files
 IncludesMapping = dict[str, PathArtifactMapping]
-
-# mapping
-#   from include base name (e.g. "header.hrl")
-#   to (include dir, include source)
-PrivateIncludesMapping = dict[str, (Artifact, Artifact)]
 
 # mapping
 #   from module name to beam file location
@@ -44,9 +39,10 @@ EbinMapping = dict[str, ModuleArtifactMapping]
 
 BuildEnvironment = record(
     includes = field(IncludesMapping, {}),
-    private_includes = field(PrivateIncludesMapping, {}),
-    beams = field(EbinMapping, {}),
     include_dirs = field(PathArtifactMapping, {}),
+    private_includes = field(IncludesMapping, {}),
+    private_include_dirs = field(PathArtifactMapping, {}),
+    beams = field(EbinMapping, {}),
     deps_files = field(PathArtifactMapping, {}),
     # convenience storrage
     app_resources = field(PathArtifactMapping, {}),
@@ -146,7 +142,8 @@ def _generate_include_artifacts(
         header_artifacts: list[Artifact],
         is_private: bool = False) -> BuildEnvironment:
     include_files = {hrl.basename: hrl for hrl in header_artifacts}
-    include_dir = ctx.actions.symlinked_dir(paths.join(_build_dir(toolchain), name, "include"), include_files)
+    dir_name = name + "_private" if is_private else name
+    include_dir = ctx.actions.symlinked_dir(paths.join(_build_dir(toolchain), dir_name, "include"), include_files)
 
     # dep files
     deps_files = _get_deps_files(ctx, toolchain, header_artifacts, build_environment.deps_files)
@@ -155,19 +152,22 @@ def _generate_include_artifacts(
     if not is_private:
         # fields for public include directory
         includes = _add(build_environment.includes, name, include_files)
-        private_includes = build_environment.private_includes
         include_dirs = _add(build_environment.include_dirs, name, include_dir)
+        private_includes = build_environment.private_includes
+        private_include_dirs = build_environment.private_include_dirs
     else:
         # fields for private include directory
         includes = build_environment.includes
-        private_includes = {hrl.basename: (include_dir, hrl) for hrl in header_artifacts}
         include_dirs = build_environment.include_dirs
+        private_includes = _add(build_environment.private_includes, name, include_files)
+        private_include_dirs = _add(build_environment.private_include_dirs, name, include_dir)
 
     return BuildEnvironment(
         # updated fields
         includes = includes,
-        private_includes = private_includes,
         include_dirs = include_dirs,
+        private_includes = private_includes,
+        private_include_dirs = private_include_dirs,
         deps_files = deps_files,
         # copied fields
         beams = build_environment.beams,
@@ -197,8 +197,9 @@ def _generate_beam_artifacts(
         deps_files = deps_files,
         # copied fields
         includes = build_environment.includes,
-        private_includes = build_environment.private_includes,
         include_dirs = build_environment.include_dirs,
+        private_includes = build_environment.private_includes,
+        private_include_dirs = build_environment.private_include_dirs,
         app_resources = build_environment.app_resources,
     )
 
@@ -348,31 +349,28 @@ def _dependencies_to_args(
                 input_mapping[file] = (False, paths.join(app, "include", file))
 
         elif dep["type"] == "include":
-            # these includes can either reside in the private includes
-            # or the public ones
-            if file in build_environment.private_includes:
-                include_dir, input_artifact = build_environment.private_includes[file]
-                includes.add(include_dir)
-                precise_includes.append(include_dir.project(file))
-                input_mapping[file] = (True, input_artifact)
-            else:
-                # at this point we don't know the application the include is coming
-                # from, and have to check all public include directories
-                candidates = []
-                for app in build_environment.includes:
-                    if file in build_environment.includes[app]:
-                        candidates.append(app)
-                if len(candidates) > 1:
-                    fail("-include(\"%s\") is ambiguous as the following applications declare public includes with the same name: %s" % (file, candidates))
-                elif candidates:
-                    app = candidates[0]
-                    include_dir = build_environment.include_dirs[app]
+            # these includes can either reside in the private includes or the public ones
+            found_private = False
+
+            # we've checked for duplicates earlier, we'll find at most one
+            for app in build_environment.private_includes:
+                if file in build_environment.private_includes[app]:
+                    include_dir = build_environment.private_include_dirs[app]
                     includes.add(include_dir)
                     precise_includes.append(include_dir.project(file))
-                    input_mapping[file] = (True, build_environment.includes[app][file])
-                else:
-                    # we didn't find the include, build will fail during compile
-                    pass
+                    input_mapping[file] = (True, build_environment.private_includes[app][file])
+                    found_private = True
+                    break
+
+            if not found_private:
+                # we've checked for duplicates earlier, we'll find at most one
+                for app in build_environment.includes:
+                    if file in build_environment.includes[app]:
+                        include_dir = build_environment.include_dirs[app]
+                        includes.add(include_dir)
+                        precise_includes.append(include_dir.project(file))
+                        input_mapping[file] = (True, build_environment.includes[app][file])
+                        break
 
         elif (dep["type"] == "behaviour" or
               dep["type"] == "parse_transform" or
@@ -453,13 +451,6 @@ def _preserved_opts(opts: list[str]) -> cmd_args:
 
     joined = cmd_args(preserved, delimiter = ", ")
     return cmd_args(joined, format = "{options, [{}]}")
-
-def private_include_name(toolchain: Toolchain, appname: str) -> str:
-    """The temporary appname private header files."""
-    return paths.join(
-        _build_dir(toolchain),
-        "__private_includes_%s" % (appname,),
-    )
 
 def generated_erl_path(toolchain: Toolchain, appname: str, src: Artifact) -> str:
     """The output path for generated erl files."""
@@ -574,15 +565,20 @@ def _peek_private_includes(
         return build_environment
 
     # get mutable dict for private includes
-    new_private_includes = dict(build_environment.private_includes)
+    private_includes = dict(build_environment.private_includes)
+    private_include_dirs = dict(build_environment.private_include_dirs)
 
     # get private deps from dependencies
     for dep in dependencies.values():
         if ErlangAppInfo in dep:
-            if not dep[ErlangAppInfo].virtual:
-                new_private_includes.update(dep[ErlangAppInfo].private_includes[toolchain.name])
+            dep_info = dep[ErlangAppInfo]
+            if not dep_info.virtual:
+                private_includes[dep_info.name] = dep_info.private_includes[toolchain.name]
+                private_include_dirs[dep_info.name] = dep_info.private_include_dir[toolchain.name]
+
     return BuildEnvironment(
-        private_includes = new_private_includes,
+        private_includes = private_includes,
+        private_include_dirs = private_include_dirs,
         # copied fields
         includes = build_environment.includes,
         beams = build_environment.beams,
@@ -607,7 +603,6 @@ erlang_build = struct(
         is_xrl = _is_xrl,
         is_config = _is_config,
         module_name = module_name,
-        private_include_name = private_include_name,
         build_dir = _build_dir,
         run_with_env = _run_with_env,
         peek_private_includes = _peek_private_includes,
