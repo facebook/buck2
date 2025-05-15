@@ -105,8 +105,7 @@ class AndroidInstall {
             targetDeviceOptions,
             new AdbExecutionContext(console),
             new IsolatedAndroidInstallerPrinter(logger),
-            Optional.ofNullable(adbOptions.getAdbExecutablePath())
-                .or(() -> Optional.ofNullable(apkOptions.adbExecutable)),
+            Optional.of(apkOptions.adbExecutable),
             agentApk.map(AbsPath::getPath),
             apkOptions.restartAdbOnFailure,
             apkOptions.skipInstallMetadata,

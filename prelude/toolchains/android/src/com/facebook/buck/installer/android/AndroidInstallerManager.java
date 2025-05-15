@@ -72,7 +72,8 @@ class AndroidInstallerManager implements InstallCommand {
 
       AndroidArtifacts androidArtifacts = getOrMakeAndroidArtifacts(installId);
       if (artifactName.equals("options")) {
-        androidArtifacts.setApkOptions(new AndroidInstallApkOptions(artifactPath));
+        androidArtifacts.setApkOptions(
+            new AndroidInstallApkOptions(artifactPath, options.adbExecutablePath));
         LOG.log(Level.INFO, androidArtifacts.getApkOptions().toString());
       } else if (artifactName.equals("manifest")) {
         androidArtifacts.setAndroidManifestPath(AbsPath.of(artifactPath));
