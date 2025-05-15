@@ -27,15 +27,19 @@ def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchains = select_toolchains(ctx)
     build_environments = {}
     for toolchain in toolchains.values():
-        build_environments[toolchain.name] = (
-            erlang_build.build_steps.generate_include_artifacts(
-                ctx,
-                toolchain,
-                BuildEnvironment(),
-                name,
-                ctx.attrs.includes,
-            )
+        build_environment = BuildEnvironment(
+            deps_files = {},
+            includes = {},
+            include_dirs = {},
         )
+        erlang_build.build_steps.generate_include_artifacts(
+            ctx,
+            toolchain,
+            build_environment,
+            name,
+            ctx.attrs.includes,
+        )
+        build_environments[toolchain.name] = build_environment
 
     # build application info
     app_include_info = ErlangAppIncludeInfo(

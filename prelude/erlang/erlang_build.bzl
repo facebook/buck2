@@ -44,8 +44,6 @@ BuildEnvironment = record(
     private_include_dirs = field(PathArtifactMapping, {}),
     beams = field(EbinMapping, {}),
     deps_files = field(PathArtifactMapping, {}),
-    # convenience storrage
-    app_resources = field(PathArtifactMapping, {}),
 )
 
 DepInfo = record(
@@ -106,8 +104,9 @@ def _prepare_build_environment(
             deps_files[dep_file] = new_deps[dep_file]
 
     return BuildEnvironment(
-        app_resources = {},
         includes = includes,
+        private_includes = {},
+        private_include_dirs = {},
         beams = beams,
         include_dirs = include_dirs,
         deps_files = deps_files,
@@ -134,54 +133,39 @@ def _generated_source_artifacts(ctx: AnalysisContext, toolchain: Toolchain, name
     xrl_outputs = {module_name(src): build(src, "xrl_includefile") for src in ctx.attrs.srcs if _is_xrl(src)}
     return yrl_outputs | xrl_outputs
 
+# mutates build_environment in place
 def _generate_include_artifacts(
         ctx: AnalysisContext,
         toolchain: Toolchain,
         build_environment: BuildEnvironment,
         name: str,
         header_artifacts: list[Artifact],
-        is_private: bool = False) -> BuildEnvironment:
+        is_private: bool = False):
     include_files = {hrl.basename: hrl for hrl in header_artifacts}
     dir_name = name + "_private" if is_private else name
     include_dir = ctx.actions.symlinked_dir(paths.join(_build_dir(toolchain), dir_name, "include"), include_files)
 
     # dep files
-    deps_files = _get_deps_files(ctx, toolchain, header_artifacts, build_environment.deps_files)
+    _get_deps_files(ctx, toolchain, header_artifacts, build_environment)
 
     # construct updates build environment
     if not is_private:
         # fields for public include directory
-        includes = _add(build_environment.includes, name, include_files)
-        include_dirs = _add(build_environment.include_dirs, name, include_dir)
-        private_includes = build_environment.private_includes
-        private_include_dirs = build_environment.private_include_dirs
+        build_environment.includes[name] = include_files
+        build_environment.include_dirs[name] = include_dir
     else:
         # fields for private include directory
-        includes = build_environment.includes
-        include_dirs = build_environment.include_dirs
-        private_includes = _add(build_environment.private_includes, name, include_files)
-        private_include_dirs = _add(build_environment.private_include_dirs, name, include_dir)
+        build_environment.private_includes[name] = include_files
+        build_environment.private_include_dirs[name] = include_dir
 
-    return BuildEnvironment(
-        # updated fields
-        includes = includes,
-        include_dirs = include_dirs,
-        private_includes = private_includes,
-        private_include_dirs = private_include_dirs,
-        deps_files = deps_files,
-        # copied fields
-        beams = build_environment.beams,
-        app_resources = build_environment.app_resources,
-    )
-
+# mutates build_environment in place
 def _generate_beam_artifacts(
         ctx: AnalysisContext,
         toolchain: Toolchain,
         build_environment: BuildEnvironment,
         name: str,
-        src_artifacts: list[Artifact]) -> BuildEnvironment:
-    # anchor for ebin dir
-    ebin = paths.join(_build_dir(toolchain), name, "ebin")
+        src_artifacts: list[Artifact]):
+    ebin = paths.join(_build_dir(toolchain), "ebin")
 
     beam_mapping = {}
     for erl in src_artifacts:
@@ -189,48 +173,30 @@ def _generate_beam_artifacts(
         beam_mapping[module] = ctx.actions.declare_output(ebin, module + ".beam")
 
     # dep files
-    deps_files = _get_deps_files(ctx, toolchain, src_artifacts, build_environment.deps_files)
+    _get_deps_files(ctx, toolchain, src_artifacts, build_environment)
 
-    updated_build_environment = BuildEnvironment(
-        # updated fields
-        beams = _add(build_environment.beams, name, beam_mapping),
-        deps_files = deps_files,
-        # copied fields
-        includes = build_environment.includes,
-        include_dirs = build_environment.include_dirs,
-        private_includes = build_environment.private_includes,
-        private_include_dirs = build_environment.private_include_dirs,
-        app_resources = build_environment.app_resources,
-    )
+    build_environment.beams[name] = beam_mapping
 
-    dep_info_file = ctx.actions.write_json(_dep_info_name(toolchain), updated_build_environment.deps_files, with_inputs = True)
+    dep_info_file = ctx.actions.write_json(_dep_info_name(toolchain), build_environment.deps_files, with_inputs = True)
 
     for erl in src_artifacts:
-        _build_erl(ctx, toolchain, updated_build_environment, dep_info_file, erl, beam_mapping[module_name(erl)])
+        _build_erl(ctx, toolchain, build_environment, dep_info_file, erl, beam_mapping[module_name(erl)])
 
-    return updated_build_environment
-
+# updates deps_deps in place
 def _get_deps_files(
         ctx: AnalysisContext,
         toolchain: Toolchain,
         srcs: list[Artifact],
-        deps_deps: PathArtifactMapping) -> PathArtifactMapping:
+        build_environment: BuildEnvironment):
     """Mapping from the output path to the deps file artifact for each srcs artifact and dependencies."""
 
-    # Avoid copy, if we don't have any extra local files
-    if not srcs:
-        return deps_deps
-
-    deps = dict(deps_deps)
-
+    deps = build_environment.deps_files
     for src in srcs:
         key = _deps_key(src)
         file = _get_deps_file(ctx, toolchain, src)
-        if key in deps_deps and file != deps_deps[key]:
+        if key in deps and file != deps[key]:
             _fail_dep_conflict(key, file, deps[key])
         deps[key] = file
-
-    return deps
 
 def _deps_key(src: Artifact) -> str:
     if _is_erl(src):
@@ -530,12 +496,6 @@ def _merge(a: dict, b: dict) -> dict:
     r.update(b)
     return r
 
-def _add(a: dict, key: typing.Any, value: typing.Any) -> dict:
-    """ safely add a value to a dict """
-    b = dict(a)
-    b[key] = value
-    return b
-
 def _build_dir(toolchain: Toolchain) -> str:
     return paths.join("__build", toolchain.name)
 
@@ -555,37 +515,23 @@ def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, args: cmd_args, **
     kwargs["env"] = env
     ctx.actions.run(args, **kwargs)
 
+# mutates build_environment in place
 def _peek_private_includes(
         ctx: AnalysisContext,
         toolchain: Toolchain,
         build_environment: BuildEnvironment,
         dependencies: ErlAppDependencies,
-        force_peek: bool = False) -> BuildEnvironment:
+        force_peek: bool = False):
     if not (force_peek or ctx.attrs.peek_private_includes):
-        return build_environment
-
-    # get mutable dict for private includes
-    private_includes = dict(build_environment.private_includes)
-    private_include_dirs = dict(build_environment.private_include_dirs)
+        return
 
     # get private deps from dependencies
     for dep in dependencies.values():
         if ErlangAppInfo in dep:
             dep_info = dep[ErlangAppInfo]
             if not dep_info.virtual:
-                private_includes[dep_info.name] = dep_info.private_includes[toolchain.name]
-                private_include_dirs[dep_info.name] = dep_info.private_include_dir[toolchain.name]
-
-    return BuildEnvironment(
-        private_includes = private_includes,
-        private_include_dirs = private_include_dirs,
-        # copied fields
-        includes = build_environment.includes,
-        beams = build_environment.beams,
-        include_dirs = build_environment.include_dirs,
-        deps_files = build_environment.deps_files,
-        app_resources = build_environment.app_resources,
-    )
+                build_environment.private_includes[dep_info.name] = dep_info.private_includes[toolchain.name]
+                build_environment.private_include_dirs[dep_info.name] = dep_info.private_include_dir[toolchain.name]
 
 # export
 

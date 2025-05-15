@@ -9,7 +9,6 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//utils:utils.bzl", "dedupe_by_value")
 load(
     ":erlang_build.bzl",
-    "BuildEnvironment",
     "erlang_build",
     "module_name",
 )
@@ -137,24 +136,14 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     dependencies = flatten_dependencies(ctx, deps)
 
     # prepare build environment
-    pre_build_environment = erlang_build.prepare_build_environment(ctx, primary_toolchain, dependencies)
+    build_environment = erlang_build.prepare_build_environment(ctx, primary_toolchain, dependencies)
 
-    pre_build_environment = erlang_build.utils.peek_private_includes(
+    erlang_build.utils.peek_private_includes(
         ctx,
         primary_toolchain,
-        pre_build_environment,
+        build_environment,
         dependencies,
         force_peek = True,
-    )
-
-    # Records are immutable, hence we need to create a new record from the previous one.
-    build_environment = BuildEnvironment(
-        includes = pre_build_environment.includes,
-        include_dirs = pre_build_environment.include_dirs,
-        private_includes = pre_build_environment.private_includes,
-        private_include_dirs = pre_build_environment.private_include_dirs,
-        beams = pre_build_environment.beams,
-        deps_files = pre_build_environment.deps_files,
     )
 
     # Config files for ct
@@ -175,7 +164,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     suite = ctx.attrs.suite
     suite_name = module_name(suite)
 
-    build_environment = erlang_build.build_steps.generate_beam_artifacts(
+    erlang_build.build_steps.generate_beam_artifacts(
         ctx,
         primary_toolchain,
         build_environment,

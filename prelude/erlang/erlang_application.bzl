@@ -49,6 +49,12 @@ StartSpec = record(
     start_type = field(StartType),
 )
 
+BuiltApplication = record(
+    build_environment = field(BuildEnvironment),
+    app_file = field(Artifact),
+    priv_dir = field(Artifact),
+)
+
 def erlang_application_impl(ctx: AnalysisContext) -> list[Provider]:
     # select the correct tools from the toolchain
     toolchains = select_toolchains(ctx)
@@ -70,8 +76,8 @@ def build_application(ctx, toolchains, dependencies) -> list[Provider]:
     app_folders = {}
     start_dependencies = {}
     for toolchain in toolchains.values():
-        build_environment = _build_erlang_application(ctx, toolchain, dependencies)
-        build_environments[toolchain.name] = build_environment
+        result = _build_erlang_application(ctx, toolchain, dependencies)
+        build_environments[toolchain.name] = result.build_environment
 
         # link final output
         app_folders[toolchain.name] = link_output(
@@ -81,7 +87,7 @@ def build_application(ctx, toolchains, dependencies) -> list[Provider]:
                 "linked",
                 name,
             ),
-            build_environment,
+            result,
         )
 
         # build start dependencies in reverse order
@@ -111,7 +117,7 @@ def build_application(ctx, toolchains, dependencies) -> list[Provider]:
         app_info,
     ]
 
-def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, dependencies: ErlAppDependencies) -> BuildEnvironment:
+def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, dependencies: ErlAppDependencies) -> BuiltApplication:
     name = app_name(ctx)
 
     include_info = None
@@ -140,7 +146,7 @@ def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, depend
     # public includes only triggered if this won't called from erlang_application macro
     # and includes weren't redirected to the includes_target dependency
     if not include_info:
-        build_environment = erlang_build.build_steps.generate_include_artifacts(
+        erlang_build.build_steps.generate_include_artifacts(
             ctx,
             toolchain,
             build_environment,
@@ -149,7 +155,7 @@ def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, depend
         )
 
     # private includes
-    build_environment = erlang_build.build_steps.generate_include_artifacts(
+    erlang_build.build_steps.generate_include_artifacts(
         ctx,
         toolchain,
         build_environment,
@@ -159,7 +165,7 @@ def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, depend
     )
 
     # maybe peek private includes
-    build_environment = erlang_build.utils.peek_private_includes(
+    erlang_build.utils.peek_private_includes(
         ctx,
         toolchain,
         build_environment,
@@ -167,7 +173,7 @@ def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, depend
     )
 
     # beams
-    build_environment = erlang_build.build_steps.generate_beam_artifacts(
+    erlang_build.build_steps.generate_beam_artifacts(
         ctx,
         toolchain,
         build_environment,
@@ -176,27 +182,28 @@ def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, depend
     )
 
     # create <appname>.app file
-    build_environment = _generate_app_file(
+    app_file = _generate_app_file(
         ctx,
         toolchain,
-        build_environment,
         name,
         src_artifacts,
     )
 
     # priv
-    build_environment = _generate_priv_dir(
+    priv_dir = _generate_priv_dir(
         ctx,
         toolchain,
-        build_environment,
     )
 
-    return build_environment
+    return BuiltApplication(
+        build_environment = build_environment,
+        app_file = app_file,
+        priv_dir = priv_dir,
+    )
 
 def _generate_priv_dir(
         ctx: AnalysisContext,
-        toolchain: Toolchain,
-        build_environment: BuildEnvironment) -> BuildEnvironment:
+        toolchain: Toolchain) -> Artifact:
     """Generate the application's priv dir."""
     name = app_name(ctx)
 
@@ -209,7 +216,7 @@ def _generate_priv_dir(
             if isinstance(file, Artifact):
                 priv_symlinks[file.short_path] = file
 
-    build_environment.app_resources["priv"] = ctx.actions.symlinked_dir(
+    return ctx.actions.symlinked_dir(
         paths.join(
             erlang_build.utils.build_dir(toolchain),
             name,
@@ -217,14 +224,12 @@ def _generate_priv_dir(
         ),
         priv_symlinks,
     )
-    return build_environment
 
 def _generate_app_file(
         ctx: AnalysisContext,
         toolchain: Toolchain,
-        build_environment: BuildEnvironment,
         name: str,
-        srcs: list[Artifact]) -> BuildEnvironment:
+        srcs: list[Artifact]) -> Artifact:
     """ rule for generating the .app files
 
     NOTE: We are using the .erl files as input to avoid dependencies on
@@ -249,9 +254,7 @@ def _generate_app_file(
         identifier = action_identifier(toolchain, name),
     )
 
-    build_environment.app_resources[app_file_name] = output
-
-    return build_environment
+    return output
 
 def _check_application_dependencies(ctx: AnalysisContext) -> None:
     """ there must not be duplicated applications within applications and included_applications
@@ -311,13 +314,13 @@ def _app_info_content(
 def link_output(
         ctx: AnalysisContext,
         link_path: str,
-        build_environment: BuildEnvironment) -> Artifact:
+        built: BuiltApplication) -> Artifact:
     """Link application output folder in working dir root folder."""
     name = app_name(ctx)
 
-    ebin = build_environment.beams[name].values() + [build_environment.app_resources[name + ".app"]]
+    build_environment = built.build_environment
+    ebin = build_environment.beams[name].values() + [built.app_file]
     include = build_environment.include_dirs[name]
-    priv = build_environment.app_resources["priv"]
 
     ebin = {
         paths.join("ebin", ebin_file.basename): ebin_file
@@ -330,7 +333,7 @@ def link_output(
     link_spec.update(ebin)
     link_spec.update(srcs)
     link_spec["include"] = include
-    link_spec["priv"] = priv
+    link_spec["priv"] = built.priv_dir
 
     return ctx.actions.symlinked_dir(link_path, link_spec)
 
