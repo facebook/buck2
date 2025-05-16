@@ -19,6 +19,7 @@ from typing import Any, Dict, IO, NamedTuple, Optional
 
 
 IS_WINDOWS: bool = os.name == "nt"
+TOOL_CWD: str = os.getcwd()
 
 
 def eprint(*args: Any, **kwargs: Any) -> None:
@@ -181,7 +182,8 @@ class Args(NamedTuple):
     rustc_host_tuple: Optional[Path]
     manifest_dir: Path
     create_cwd: Path
-    outfile: IO[str]
+    rustc_flags_outfile: IO[str]
+    env_flags_outfile: IO[str]
 
 
 def arg_parse() -> Args:
@@ -191,7 +193,8 @@ def arg_parse() -> Args:
     parser.add_argument("--rustc-host-tuple", type=Path)
     parser.add_argument("--manifest-dir", type=Path, required=True)
     parser.add_argument("--create-cwd", type=Path, required=True)
-    parser.add_argument("--outfile", type=argparse.FileType("w"), required=True)
+    parser.add_argument("--rustc-flags-outfile", type=argparse.FileType("w"), required=True)
+    parser.add_argument("--env-flags-outfile", type=argparse.FileType("w"), required=True)
 
     return Args(**vars(parser.parse_args()))
 
@@ -227,14 +230,36 @@ def main() -> None:  # noqa: C901
     script_output = run_buildscript(args.buildscript, env=env, cwd=cwd)
 
     cargo_rustc_cfg_pattern = re.compile("^cargo:rustc-cfg=(.*)")
-    flags = ""
+    cargo_env_flag_pattern = re.compile("^cargo:rustc-env=(.+?)=(.*)")
+    rustc_flags = ""
+    env_flags = ""
     for line in script_output.split("\n"):
         cargo_rustc_cfg_match = cargo_rustc_cfg_pattern.match(line)
         if cargo_rustc_cfg_match:
-            flags += "--cfg={}\n".format(cargo_rustc_cfg_match.group(1))
+            # Case 1: Output is "cargo:rustc-cfg=VAL"
+            val = cargo_rustc_cfg_match.group(1)
+            rustc_flags += "--cfg={}\n".format(val)
         else:
-            print(line, end="\n")
-    args.outfile.write(flags)
+            cargo_env_flag_match = cargo_env_flag_pattern.match(line)
+            if cargo_env_flag_match:
+                # Case 2: Output is "cargo:rustc-env=KEY=VAL"
+                key = cargo_env_flag_match.group(1)
+                val = cargo_env_flag_match.group(2)
+                prefix = TOOL_CWD + os.path.sep
+                if val.startswith(prefix):
+                    # Case 2a: Output is "cargo:rustc-env=KEY=VAL", where VAL is an
+                    # absolute path to an artifact (under `buck-out`). This for example
+                    # turns `cargo:rustc-env=BIND_PATH=/absolute/path/to/buck-out/.../__target__/OUT_DIR/bind.rs`
+                    # into `--path-env=BIND_PATH=buck-out/.../__target__/OUT_DIR/bind.rs`
+                    env_flags += "--path-env={}={}\n".format(key, val.removeprefix(prefix))
+                else:
+                    # Case 2b: Output is "cargo:rustc-env=KEY=VAL", where VAL is not
+                    # an absolute path to an artifact.
+                    env_flags += "--env={}={}\n".format(key, val)
+            else:
+                print(line, end="\n")
+    args.rustc_flags_outfile.write(rustc_flags)
+    args.env_flags_outfile.write(env_flags)
 
 
 if __name__ == "__main__":
