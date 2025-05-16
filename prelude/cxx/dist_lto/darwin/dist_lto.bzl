@@ -505,19 +505,13 @@ def cxx_darwin_dist_link(
             opt_flags.add(link.dist_thin_lto_codegen_flags)
         return opt_flags
 
-    common_opt_cmd = cmd_args(cxx_toolchain.linker_info.linker)
-    common_opt_cmd.add(prepare_opt_flags(link_infos))
+    common_opt_cmd = prepare_opt_flags(link_infos)
 
     # Create an argsfile and dump all the flags to be processed later by lto_opt.
     # These flags are common to all opt actions, we don't need an argfile for each action, one
     # for the entire link unit will do.
     opt_argsfile = ctx.actions.declare_output(output.basename + ".lto_opt_argsfile")
     ctx.actions.write(opt_argsfile.as_output(), common_opt_cmd, allow_args = True)
-
-    # We don't want the linker itself in the argsfile for debugging / testing codegen flags
-    opt_flags_for_debugging = prepare_opt_flags(link_infos)
-    opt_flags_for_debugging_argsfile = ctx.actions.declare_output(output.basename + ".thin_lto_codegen_debugging_argsfile")
-    ctx.actions.write(opt_flags_for_debugging_argsfile.as_output(), opt_flags_for_debugging, allow_args = True)
 
     def optimize_object(ctx: AnalysisContext, artifacts, outputs, name, initial_object, bc_file, plan, opt_object, merged_bc):
         optimization_plan = ObjectFileOptimizationPlan(**artifacts[plan].read_json())
@@ -547,9 +541,7 @@ def cxx_darwin_dist_link(
 
         opt_cmd.add(cmd_args(hidden = common_opt_cmd))
         opt_cmd.add("--args", opt_argsfile)
-
-        opt_cmd.add("--")
-        opt_cmd.add(cxx_toolchain.cxx_compiler_info.compiler)
+        opt_cmd.add("--compiler", cxx_toolchain.cxx_compiler_info.compiler)
 
         imported_input_bitcode_files = [sorted_index_link_data[idx].link_data.initial_object for idx in optimization_plan.imports]
         imported_archives_input_bitcode_files_directory = [sorted_index_link_data[idx].link_data.objects_dir for idx in optimization_plan.archive_imports]
@@ -623,9 +615,7 @@ def cxx_darwin_dist_link(
 
             opt_cmd.add(cmd_args(hidden = common_opt_cmd))
             opt_cmd.add("--args", opt_argsfile)
-
-            opt_cmd.add("--")
-            opt_cmd.add(cxx_toolchain.cxx_compiler_info.compiler)
+            opt_cmd.add("--compiler", cxx_toolchain.cxx_compiler_info.compiler)
 
             imported_input_bitcode_files = [sorted_index_link_data[idx].link_data.initial_object for idx in object_optimization_plan.imports]
             imported_archives_input_bitcode_files_directory = [sorted_index_link_data[idx].link_data.objects_dir for idx in object_optimization_plan.archive_imports]
@@ -773,6 +763,6 @@ def cxx_darwin_dist_link(
         linker_argsfile = linker_argsfile_out,
         linker_command = None,  # There is no notion of a single linker command for DistLTO
         index_argsfile = index_argsfile_out,
-        dist_thin_lto_codegen_argsfile = opt_flags_for_debugging_argsfile,
+        dist_thin_lto_codegen_argsfile = opt_argsfile,
         dist_thin_lto_index_argsfile = index_flags_for_debugging_argsfile,
     ), extra_outputs.providers

@@ -30,13 +30,11 @@ def main(argv: List[str]) -> int:
     parser.add_argument(
         "--args", help="The argsfile containing unfiltered and unprocessed flags."
     )
-    parser.add_argument("opt_args", nargs=argparse.REMAINDER)
+    parser.add_argument("--compiler", help="The path to the Clang compiler binary.")
     args = parser.parse_args(argv[1:])
 
-    with open(args.args, "r") as argsfile:
-        clang_opt_flags = argsfile.read().splitlines()
-
-    clang_opt_flags.extend(
+    clang_invocation = [args.compiler, f"@{args.args}"]
+    clang_invocation.extend(
         [
             "-o",
             args.out,
@@ -52,7 +50,7 @@ def main(argv: List[str]) -> int:
         ]
     )
 
-    subprocess.check_call(clang_opt_flags)
+    subprocess.check_call(clang_invocation)
     # Work around Clang bug where it fails silently: T187767815
     if os.stat(args.out).st_size == 0:
         print("error: opt produced empty file")
