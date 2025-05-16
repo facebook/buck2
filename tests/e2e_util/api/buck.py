@@ -76,7 +76,7 @@ class Buck(Executable):
         created with the build command and any
         additional arguments.
 
-        rel_cwd: Optional Path specifying the workding directive to run
+        rel_cwd: Optional Path specifying the working directive to run
         the command relative to the root.
         env: Optional dictionary for environment variables to run command with.
         """
