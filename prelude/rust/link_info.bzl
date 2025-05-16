@@ -56,8 +56,6 @@ load(
     "LinkInfo",
     "LinkStrategy",
     "MergedLinkInfo",
-    "get_link_args_for_strategy",
-    "unpack_external_debug_info",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -581,8 +579,14 @@ def inherited_external_debug_info(
         elif MergedLinkInfo in d.dep:
             inherited_link_infos.append(d.dep[MergedLinkInfo])
 
-    link_args = get_link_args_for_strategy(ctx, inherited_link_infos, dep_link_strategy)
-    inherited_debug_infos.append(unpack_external_debug_info(ctx.actions, link_args))
+    inherited_debug_infos.append(make_artifact_tset(
+        actions = ctx.actions,
+        label = ctx.label,
+        children = filter(
+            None,
+            [x._external_debug_info.get(dep_link_strategy) for x in inherited_link_infos],
+        ),
+    ))
 
     return make_artifact_tset(
         actions = ctx.actions,
