@@ -19,6 +19,7 @@ use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
+use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::configuration::target_platform_detector::TargetPlatformDetector;
@@ -150,6 +151,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
                     node.rule_type(),
                 )
                 .await
+                .with_buck_error_context(|| format!("Resolving modifiers for target `{}`", target))
         }
 
         match node.rule_kind() {
