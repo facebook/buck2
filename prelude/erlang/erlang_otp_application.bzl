@@ -55,13 +55,16 @@ def gen_otp_applications() -> None:
     return None
 
 def normalize_application(name: str) -> str:
-    """Translate OPT application names to internal targets so users can write
+    """Try to translate OTP application names to internal targets so users can write
     `kernel` instead of `prelude//erlang/applications:kernel`
     """
-    if name in otp_applications:
-        return "prelude//erlang/applications:{}".format(name)
-    else:
-        return name
+    if ":" not in name:
+        if name in otp_applications:
+            return "prelude//erlang/applications:{}".format(name)
+        else:
+            fail('Unknown OTP application "{app}". If this is not supposed to be an OTP application,  did you mean ":{app}"?'.format(app = name))
+
+    return name
 
 def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
     """virtual OTP application for referencing only
