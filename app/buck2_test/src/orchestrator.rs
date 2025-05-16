@@ -42,6 +42,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifact
 use buck2_build_api::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::events::HasEvents;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -158,9 +159,8 @@ use uuid::Uuid;
 
 use crate::local_resource_api::LocalResourcesSetupResult;
 use crate::local_resource_registry::HasLocalResourceRegistry;
-use crate::local_resource_setup::LocalResourceSetupContext;
 use crate::local_resource_setup::TestStageSimple;
-use crate::local_resource_setup::required_local_resources_setup_contexts;
+use crate::local_resource_setup::required_providers;
 use crate::remote_storage;
 use crate::session::TestSession;
 use crate::session::TestSessionOptions;
@@ -418,22 +418,15 @@ impl<'a> BuckTestOrchestrator<'a> {
             let setup_local_resources_executor = Self::get_local_executor(dice, &fs).await?;
             let simple_stage = stage.as_ref().into();
 
-            let setup_contexts = {
-                let executor_fs = setup_local_resources_executor.executor_fs();
-                required_local_resources_setup_contexts(
-                    dice,
-                    &executor_fs,
-                    &test_info,
-                    &required_local_resources,
-                    &simple_stage,
-                )
-                .await?
+            let required_providers = {
+                required_providers(dice, &test_info, &required_local_resources, &simple_stage)
+                    .await?
             };
             // If some timeout is neeeded, use the same value as for the test itself which is better than nothing.
             Self::setup_local_resources(
                 dice,
                 cancellation,
-                setup_contexts,
+                required_providers,
                 setup_local_resources_executor,
                 timeout,
                 liveliness_observer.dupe(),
@@ -791,11 +784,9 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         // We leave that decision to actual local execution runner that requests local execution preparation.
         let setup_local_resources_executor =
             Self::get_local_executor(self.dice.dupe().deref_mut(), &fs).await?;
-        let setup_contexts = {
-            let executor_fs = setup_local_resources_executor.executor_fs();
-            required_local_resources_setup_contexts(
+        let providers = {
+            required_providers(
                 self.dice.dupe().deref_mut(),
-                &executor_fs,
                 &test_info,
                 &required_local_resources,
                 &TestStageSimple::Testing,
@@ -806,10 +797,18 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             .dice
             .dupe()
             .deref_mut()
-            .try_compute_join(setup_contexts, |dice, context| {
+            .try_compute_join(providers, |dice, provider| {
                 let fs = fs.clone();
+                let executor_fs = setup_local_resources_executor.executor_fs();
                 async move {
-                    Self::prepare_local_resource(dice, context, &fs, Duration::default()).await
+                    Self::prepare_local_resource(
+                        dice,
+                        provider,
+                        &fs,
+                        &executor_fs,
+                        Duration::default(),
+                    )
+                    .await
                 }
                 .boxed()
             })
@@ -1464,21 +1463,26 @@ impl BuckTestOrchestrator<'_> {
     async fn setup_local_resources(
         dice: &mut DiceComputations<'_>,
         cancellation: &CancellationContext,
-        setup_contexts: Vec<LocalResourceSetupContext>,
+        required_providers: Vec<(
+            &'_ ConfiguredTargetLabel,
+            OwnedFrozenValueTyped<FrozenLocalResourceInfo>,
+        )>,
         executor: CommandExecutor,
         default_timeout: Duration,
         liveliness_observer: Arc<dyn LivelinessObserver>,
     ) -> Result<Vec<LocalResourceState>, ExecuteError> {
-        if setup_contexts.is_empty() {
+        if required_providers.is_empty() {
             return Ok(vec![]);
         }
         let setup_commands = dice
-            .try_compute_join(setup_contexts, |dice, context| {
+            .try_compute_join(required_providers, |dice, provider| {
                 let fs = executor.fs();
+                let executor_fs = executor.executor_fs();
                 async move {
-                        Self::prepare_local_resource(dice, context, &fs, default_timeout).await
-                    }
-                    .boxed()
+                    Self::prepare_local_resource(dice, provider, &fs, &executor_fs, default_timeout)
+                        .await
+                }
+                .boxed()
             })
             .await?;
 
@@ -1535,30 +1539,53 @@ impl BuckTestOrchestrator<'_> {
 
     async fn prepare_local_resource(
         dice: &mut DiceComputations<'_>,
-        context: LocalResourceSetupContext,
+        provider: (
+            &ConfiguredTargetLabel,
+            OwnedFrozenValueTyped<FrozenLocalResourceInfo>,
+        ),
         fs: &ArtifactFs,
+        executor_fs: &ExecutorFs<'_>,
         default_timeout: Duration,
     ) -> anyhow::Result<PreparedLocalResourceSetupContext> {
         let digest_config = dice.global_data().get_digest_config();
 
+        let (target, provider) = provider;
+        let visited_inputs = {
+            let setup_command_line = provider.setup_command_line();
+            let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
+            setup_command_line.visit_artifacts(&mut artifact_visitor)?;
+            artifact_visitor.inputs
+        };
+
         let inputs = dice
-            .try_compute_join(context.input_artifacts, |dice, group| {
+            .try_compute_join(visited_inputs, |dice, group| {
                 async move { dice.ensure_artifact_group(&group).await }.boxed()
             })
             .await?;
+
+        let mut cmd: Vec<String> = vec![];
+        let mut cmd_line_context = DefaultCommandLineContext::new(executor_fs);
+        let setup_command_line = provider.setup_command_line();
+        setup_command_line.add_to_command_line(
+            &mut cmd,
+            &mut cmd_line_context,
+            // TODO(T219919866) Do we need to fill this in for content-based path hashing?
+            &IndexMap::new(),
+        )?;
+
         let inputs = inputs
             .into_iter()
             .map(|group_values| CommandExecutionInput::Artifact(Box::new(group_values)))
             .collect();
         let paths = CommandExecutionPaths::new(inputs, indexset![], fs, digest_config)?;
         let mut execution_request =
-            CommandExecutionRequest::new(vec![], context.cmd, paths, Default::default());
+            CommandExecutionRequest::new(vec![], cmd, paths, Default::default());
         execution_request =
-            execution_request.with_timeout(context.timeout.unwrap_or(default_timeout));
+            execution_request.with_timeout(provider.setup_timeout().unwrap_or(default_timeout));
         Ok(PreparedLocalResourceSetupContext {
-            target: context.target,
+            target: target.dupe(),
             execution_request,
-            env_var_mapping: context.env_var_mapping,
+            env_var_mapping: provider.env_var_mapping(),
         })
     }
 

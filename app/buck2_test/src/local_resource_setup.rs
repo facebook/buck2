@@ -7,26 +7,18 @@
  * of this source tree.
  */
 
-use std::time::Duration;
-
 use anyhow::Context;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
-use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestStage;
 use dice::DiceComputations;
-use dupe::Dupe;
 use futures::FutureExt;
-use indexmap::IndexMap;
 use itertools::Itertools;
 use starlark::values::OwnedFrozenValueTyped;
 
@@ -44,57 +36,7 @@ impl From<&TestStage> for TestStageSimple {
     }
 }
 
-/// Container for everything needed to set up a local resource.
-#[derive(Debug)]
-pub(crate) struct LocalResourceSetupContext {
-    /// Configured target providing a local resource.
-    pub target: ConfiguredTargetLabel,
-    /// Setup CLI command.
-    pub cmd: Vec<String>,
-    /// Artifacts referenced in setup command.
-    pub input_artifacts: Vec<ArtifactGroup>,
-    /// Mapping from keys in JSON output of setup command to environment variable names
-    /// which should be added to executions dependent on this local resource.
-    pub env_var_mapping: IndexMap<String, String>,
-    /// Timeout for setup command.
-    pub timeout: Option<Duration>,
-}
-
-pub(crate) async fn required_local_resources_setup_contexts(
-    dice: &mut DiceComputations<'_>,
-    executor_fs: &ExecutorFs<'_>,
-    test_info: &FrozenExternalRunnerTestInfo,
-    required_local_resources: &RequiredLocalResources,
-    stage: &TestStageSimple,
-) -> anyhow::Result<Vec<LocalResourceSetupContext>> {
-    let providers = required_providers(dice, test_info, required_local_resources, stage).await?;
-    let mut cmd_line_context = DefaultCommandLineContext::new(executor_fs);
-    let mut result = vec![];
-    for (source_target_label, provider) in providers {
-        let setup_command_line = provider.setup_command_line();
-        let mut cmd: Vec<String> = vec![];
-        setup_command_line.add_to_command_line(
-            &mut cmd,
-            &mut cmd_line_context,
-            // TODO(T219919866) Do we need to fill this in for content-based path hashing?
-            &IndexMap::new(),
-        )?;
-
-        let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-        setup_command_line.visit_artifacts(&mut artifact_visitor)?;
-
-        result.push(LocalResourceSetupContext {
-            target: source_target_label.dupe(),
-            cmd,
-            input_artifacts: artifact_visitor.inputs.into_iter().collect(),
-            env_var_mapping: provider.env_var_mapping(),
-            timeout: provider.setup_timeout(),
-        })
-    }
-    Ok(result)
-}
-
-async fn required_providers<'v>(
+pub(crate) async fn required_providers<'v>(
     dice: &mut DiceComputations<'_>,
     test_info: &'v FrozenExternalRunnerTestInfo,
     required_local_resources: &'v RequiredLocalResources,
