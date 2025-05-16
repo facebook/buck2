@@ -83,6 +83,7 @@ def _run_with_content_based_path_impl(ctx):
     args = cmd_args(["python3", script, out.as_output(), ctx.attrs.data])
     kwargs = {
         "category": "test_run",
+        "outputs_for_error_handler": [out.as_output()],
     }
     if ctx.attrs.prefer_local:
         kwargs["prefer_local"] = True

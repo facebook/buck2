@@ -39,6 +39,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandL
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_core::category::CategoryRef;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
@@ -638,10 +639,17 @@ impl RunAction {
             .outputs_for_error_handler
             .iter()
             .map(|artifact| {
-                artifact
-                    .artifact()
-                    // TODO(T219919866) Add support for experimental content-based path hashing
-                    .and_then(|a| a.get_path().resolve(ctx.fs(), None))
+                artifact.artifact().and_then(|a| {
+                    a.get_path().resolve(
+                        ctx.fs(),
+                        if a.has_content_based_path() {
+                            Some(ContentBasedPathHash::for_output_artifact())
+                        } else {
+                            None
+                        }
+                        .as_ref(),
+                    )
+                })
             })
             .collect::<buck2_error::Result<Vec<_>>>()?;
 
@@ -883,8 +891,15 @@ impl Action for RunAction {
 
         for x in self.starlark_values.outputs_for_error_handler.iter() {
             let artifact = (*x.artifact()?).dupe().ensure_bound()?.into_artifact();
-            // TODO(T219919866) Add support for experimental content-based path hashing
-            let path = artifact.get_path().resolve(artifact_fs, None)?;
+            let path = artifact.get_path().resolve(
+                artifact_fs,
+                if artifact.has_content_based_path() {
+                    Some(ContentBasedPathHash::for_output_artifact())
+                } else {
+                    None
+                }
+                .as_ref(),
+            )?;
 
             let abs = artifact_fs.fs().resolve(&path);
             // Check if the output file specified exists. We will return an error if it doesn't
