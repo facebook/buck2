@@ -7,7 +7,7 @@
 
 def _http_archive_impl(ctx: AnalysisContext):
     download = ctx.actions.declare_output("download")
-    ctx.actions.download_file(download, ctx.attrs.urls[0], sha1 = ctx.attrs.sha1, is_deferrable = True)
+    ctx.actions.download_file(download, ctx.attrs.urls[0], sha1 = ctx.attrs.sha1)
 
     output = ctx.actions.declare_output("output")
     ctx.actions.run(["cp", download, output.as_output()], category = "cp")

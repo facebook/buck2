@@ -30,7 +30,7 @@ def _download(ctx: AnalysisContext):
     sha1 = "1a45666759704bf08fc670aa96118a0415c470fc"
 
     download = ctx.actions.declare_output("download")
-    ctx.actions.download_file(download, url, sha1 = sha1, is_deferrable = True)
+    ctx.actions.download_file(download, url, sha1 = sha1)
 
     return [
         DefaultInfo(default_output = download),

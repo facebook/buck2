@@ -37,7 +37,6 @@ def http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
         vpnless_url = vpnless_url,
         sha1 = ctx.attrs.sha1,
         sha256 = ctx.attrs.sha256,
-        is_deferrable = True,
         size_bytes = ctx.attrs.size_bytes,
     )
 

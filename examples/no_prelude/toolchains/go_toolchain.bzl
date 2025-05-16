@@ -44,7 +44,7 @@ def _download_toolchain(ctx: AnalysisContext):
 
     # Download archive.
     archive = ctx.actions.declare_output("archive." + archive_extension)
-    ctx.actions.download_file(archive.as_output(), url, sha256 = sha256, is_deferrable = True)
+    ctx.actions.download_file(archive.as_output(), url, sha256 = sha256)
 
     output = ctx.actions.declare_output(ctx.label.name)
 

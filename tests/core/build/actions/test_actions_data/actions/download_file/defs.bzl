@@ -6,7 +6,7 @@
 # of this source tree.
 
 def _test_impl(ctx: AnalysisContext):
-    output = ctx.actions.download_file(ctx.label.name, ctx.attrs.url, sha1 = ctx.attrs.sha1, is_deferrable = False)
+    output = ctx.actions.download_file(ctx.label.name, ctx.attrs.url, sha1 = ctx.attrs.sha1)
     return [
         DefaultInfo(default_output = output),
     ]

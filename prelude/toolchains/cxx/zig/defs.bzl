@@ -223,7 +223,7 @@ def _http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Download archive.
     archive = ctx.actions.declare_output("archive." + ext)
-    ctx.actions.download_file(archive.as_output(), url, sha256 = ctx.attrs.sha256, is_deferrable = True)
+    ctx.actions.download_file(archive.as_output(), url, sha256 = ctx.attrs.sha256)
 
     # Unpack archive to output directory.
     output = ctx.actions.declare_output(ctx.label.name)

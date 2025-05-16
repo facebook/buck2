@@ -29,7 +29,6 @@ def http_file_shared(
         is_executable = is_executable,
         sha1 = sha1,
         sha256 = sha256,
-        is_deferrable = True,
         size_bytes = size_bytes,
     )
 
