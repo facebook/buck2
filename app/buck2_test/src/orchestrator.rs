@@ -1353,9 +1353,7 @@ impl BuckTestOrchestrator<'_> {
         let mut supports_re = true;
 
         let cwd;
-        let expanded;
-
-        {
+        let (expanded_cmd, expanded_env, inputs, expanded_worker) = {
             cwd = if test_info.run_from_project_root() || opts.force_run_from_project_root {
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned()))
             } else {
@@ -1375,7 +1373,9 @@ impl BuckTestOrchestrator<'_> {
                 env,
             };
 
-            expanded = if test_info.use_project_relative_paths()
+            let inputs = expander.get_inputs()?;
+            let (expanded_cmd, expanded_env, expanded_worker) = if test_info
+                .use_project_relative_paths()
                 || opts.force_use_project_relative_paths
             {
                 expander.expand::<DefaultCommandLineContext>()
@@ -1383,9 +1383,8 @@ impl BuckTestOrchestrator<'_> {
                 supports_re = false;
                 expander.expand::<AbsCommandLineContext>()
             }?;
+            (expanded_cmd, expanded_env, inputs, expanded_worker)
         };
-
-        let (expanded_cmd, expanded_env, inputs, expanded_worker) = expanded;
 
         for output in pre_create_dirs.into_owned() {
             let test_path = BuckOutTestPath::new(output_root.clone(), output.name.into());
@@ -1680,13 +1679,66 @@ struct Execute2RequestExpander<'a> {
 }
 
 impl<'a> Execute2RequestExpander<'a> {
-    /// Expand a command and env. Return CLI, env, and inputs.
+    fn get_inputs(&self) -> anyhow::Result<IndexSet<ArtifactGroup>> {
+        let Execute2RequestExpander {
+            test_info,
+            cmd,
+            env,
+            ..
+        } = self;
+        let cli_args_for_interpolation = test_info
+            .command()
+            .filter_map(|c| match c {
+                TestCommandMember::Literal(..) => None,
+                TestCommandMember::Arglike(a) => Some(a),
+            })
+            .collect::<Vec<_>>();
+        let env_for_interpolation = test_info.env().collect::<HashMap<_, _>>();
+
+        let visit_arg_artifacts = |artifact_visitor: &mut dyn CommandLineArtifactVisitor,
+                                   value: &ArgValue| {
+            match &value.content {
+                ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::ArgHandle(h)) => {
+                    let arg = cli_args_for_interpolation
+                        .get(h.0)
+                        .with_context(|| format!("Invalid ArgHandle: {:?}", h))?;
+                    arg.visit_artifacts(artifact_visitor)?;
+                }
+                ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::EnvHandle(h)) => {
+                    let arg = env_for_interpolation
+                        .get(h.0.as_str())
+                        .with_context(|| format!("Invalid EnvHandle: {:?}", h))?;
+                    arg.visit_artifacts(artifact_visitor)?;
+                }
+                ArgValueContent::DeclaredOutput(_)
+                | ArgValueContent::ExternalRunnerSpecValue(_) => {}
+            };
+
+            anyhow::Ok(())
+        };
+
+        let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
+        for var in cmd.iter() {
+            visit_arg_artifacts(&mut artifact_visitor, var)?;
+        }
+
+        for (_, var) in env.iter() {
+            visit_arg_artifacts(&mut artifact_visitor, var)?;
+        }
+        let worker_exe = test_info.worker().map(|worker| worker.exe_command_line());
+        if let Some(worker_exe) = worker_exe {
+            worker_exe.visit_artifacts(&mut artifact_visitor)?;
+        }
+
+        Ok(artifact_visitor.inputs)
+    }
+
+    /// Expand a command and env.
     fn expand<B>(
         self,
     ) -> anyhow::Result<(
         Vec<String>,
         SortedVectorMap<String, String>,
-        IndexSet<ArtifactGroup>,
         Option<WorkerSpec>,
     )>
     where
@@ -1707,7 +1759,6 @@ impl<'a> Execute2RequestExpander<'a> {
                 TestCommandMember::Arglike(a) => Some(a),
             })
             .collect::<Vec<_>>();
-
         let env_for_interpolation = test_info.env().collect::<HashMap<_, _>>();
 
         // TODO(T219919866) Add a proper mapping here for content-based path hashing
@@ -1715,7 +1766,6 @@ impl<'a> Execute2RequestExpander<'a> {
 
         let expand_arg_value = |cli: &mut dyn CommandLineBuilder,
                                 ctx: &mut dyn CommandLineContext,
-                                artifact_visitor: &mut dyn CommandLineArtifactVisitor,
                                 declared_outputs: &mut IndexMap<
             BuckOutTestPath,
             OutputCreationBehavior,
@@ -1734,15 +1784,12 @@ impl<'a> Execute2RequestExpander<'a> {
                     let arg = cli_args_for_interpolation
                         .get(h.0)
                         .with_context(|| format!("Invalid ArgHandle: {:?}", h))?;
-
-                    arg.visit_artifacts(artifact_visitor)?;
                     arg.add_to_command_line(&mut cli, ctx, &artifact_path_mapping)?;
                 }
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::EnvHandle(h)) => {
                     let arg = env_for_interpolation
                         .get(h.0.as_str())
                         .with_context(|| format!("Invalid EnvHandle: {:?}", h))?;
-                    arg.visit_artifacts(artifact_visitor)?;
                     arg.add_to_command_line(&mut cli, ctx, &artifact_path_mapping)?;
                 }
                 ArgValueContent::DeclaredOutput(output) => {
@@ -1757,18 +1804,10 @@ impl<'a> Execute2RequestExpander<'a> {
             anyhow::Ok(())
         };
 
-        let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-
         let mut expanded_cmd = Vec::<String>::new();
         let mut ctx = B::new(self.fs);
         for var in cmd.into_owned() {
-            expand_arg_value(
-                &mut expanded_cmd,
-                &mut ctx,
-                &mut artifact_visitor,
-                declared_outputs,
-                var,
-            )?;
+            expand_arg_value(&mut expanded_cmd, &mut ctx, declared_outputs, var)?;
         }
 
         let expanded_env = env
@@ -1780,7 +1819,6 @@ impl<'a> Execute2RequestExpander<'a> {
                 expand_arg_value(
                     &mut SpaceSeparatedCommandLineBuilder::wrap_string(&mut curr_env),
                     &mut ctx,
-                    &mut artifact_visitor,
                     declared_outputs,
                     v,
                 )?;
@@ -1797,7 +1835,6 @@ impl<'a> Execute2RequestExpander<'a> {
                     &mut ctx,
                     &artifact_path_mapping,
                 )?;
-                worker_exe.visit_artifacts(&mut artifact_visitor)?;
                 Some(WorkerSpec {
                     exe: worker_rendered,
                     id: WorkerId(worker.id),
@@ -1809,9 +1846,7 @@ impl<'a> Execute2RequestExpander<'a> {
             _ => None,
         };
 
-        let inputs = artifact_visitor.inputs;
-
-        Ok((expanded_cmd, expanded_env, inputs, expanded_worker))
+        Ok((expanded_cmd, expanded_env, expanded_worker))
     }
 }
 
