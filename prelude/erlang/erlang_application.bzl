@@ -235,27 +235,23 @@ def _generate_app_file(
           beams.
     """
     _check_application_dependencies(ctx)
+    build_dir = erlang_build.utils.build_dir(toolchain)
 
     app_file_name = name + ".app"
-    output = ctx.actions.declare_output(
-        paths.join(
-            erlang_build.utils.build_dir(toolchain),
-            app_file_name,
-        ),
-    )
-    app_info_file = _app_info_content(ctx, toolchain, name, srcs, output.as_output())
+    output = ctx.actions.declare_output(build_dir, app_file_name)
+    app_info_file = _app_info_content(ctx, build_dir, name, srcs)
 
     erlang_build.utils.run_with_env(
         ctx,
         toolchain,
-        cmd_args(toolchain.app_src_script, app_info_file),
+        cmd_args(toolchain.app_src_script, app_info_file, output.as_output()),
         category = "app_resource",
         identifier = action_identifier(toolchain, name),
     )
 
     return output
 
-def _check_application_dependencies(ctx: AnalysisContext) -> None:
+def _check_application_dependencies(ctx: AnalysisContext):
     """ there must not be duplicated applications within applications and included_applications
     """
     discovered = _check_applications_field(ctx.attrs.applications, "applications", {})
@@ -272,13 +268,11 @@ def _check_applications_field(field: list[Dependency], tag: str, discovered: dic
 
 def _app_info_content(
         ctx: AnalysisContext,
-        toolchain: Toolchain,
+        build_dir: str,
         name: str,
-        srcs: list[Artifact],
-        output: OutputArtifact) -> WriteJsonCliArgs:
+        srcs: list[Artifact]) -> Artifact:
     """build an app_info.json file that contains the meta information for building the .app file"""
-    if "otp_compatibility_polyfill_application" in ctx.attrs.labels:
-        srcs = []
+    app_info = ctx.actions.declare_output(build_dir, "app_info.json")
 
     data = {
         "applications": [
@@ -290,13 +284,13 @@ def _app_info_content(
             for app in ctx.attrs.included_applications
         ],
         "name": name,
-        "output": output,
         "sources": srcs,
     }
     if ctx.attrs.version:
         data["version"] = ctx.attrs.version
     if ctx.attrs.app_src:
         data["template"] = ctx.attrs.app_src
+        app_info = app_info.with_associated_artifacts([ctx.attrs.app_src])
     if ctx.attrs.mod:
         data["mod"] = ctx.attrs.mod
     if ctx.attrs.env:
@@ -304,11 +298,8 @@ def _app_info_content(
     if ctx.attrs.extra_properties:
         data["metadata"] = ctx.attrs.extra_properties
 
-    return ctx.actions.write_json(
-        paths.join(erlang_build.utils.build_dir(toolchain), "app_info.json"),
-        data,
-        with_inputs = True,
-    )
+    ctx.actions.write_json(app_info.as_output(), data)
+    return app_info
 
 def link_output(
         ctx: AnalysisContext,

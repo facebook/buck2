@@ -20,7 +20,6 @@
 %%%
 %%%   #{
 %%%       <<"name">>                   := <application_name>,
-%%%       <<"output">>                 := <path to output .app file>,
 %%%       <<"sources">>                := [<path to .erl source file>],
 %%%       <<"applications">>           := [<entry to applications field>],
 %%%       <<"included_applications">>  := I[<entry to included_applications field>],
@@ -40,9 +39,9 @@
 -export([main/1]).
 
 -spec main([string()]) -> ok.
-main([AppInfoFile]) ->
+main([AppInfoFile, Output]) ->
     try
-        do(AppInfoFile)
+        do(AppInfoFile, Output)
     catch
         Type:{abort, Reason} ->
             io:format(standard_error, "~s:~s~n", [Type, Reason]),
@@ -55,12 +54,11 @@ main(_) ->
 usage() ->
     io:format("app_src_builder.escript app_info.json~n").
 
--spec do(file:filename()) -> ok.
-do(AppInfoFile) ->
+-spec do(file:filename(), file:filename()) -> ok.
+do(AppInfoFile, Output) ->
     #{
         name := Name,
         sources := Srcs,
-        output := Output,
         template := Template,
         vsn := Version,
         applications := Applications,
@@ -85,8 +83,7 @@ do(AppInfoFile) ->
     #{
         name := string(),
         vsn := string(),
-        sources := [file:filename()],
-        output := file:filename()
+        sources := [file:filename()]
     }.
 do_parse_app_info_file(AppInfoFile) ->
     case file:read_file(AppInfoFile) of
@@ -94,7 +91,6 @@ do_parse_app_info_file(AppInfoFile) ->
             case json:decode(Content) of
                 #{
                     <<"name">> := Name,
-                    <<"output">> := Output,
                     <<"sources">> := Sources,
                     <<"applications">> := Applications,
                     <<"included_applications">> := IncludedApplications
@@ -107,7 +103,6 @@ do_parse_app_info_file(AppInfoFile) ->
                         name => Name,
                         sources => Sources,
                         vsn => maps:get(<<"version">>, Terms, undefined),
-                        output => Output,
                         template => Template,
                         applications =>
                             normalize_application([binary_to_atom(App) || App <- Applications]),
