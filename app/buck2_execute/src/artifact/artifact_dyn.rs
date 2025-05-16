@@ -20,4 +20,6 @@ pub trait ArtifactDyn: Send + Sync + 'static {
     /// Build artifacts and source artifacts from external cells require materialization. Other
     /// source artifacts do not.
     fn requires_materialization(&self, fs: &ArtifactFs) -> bool;
+
+    fn has_content_based_path(&self) -> bool;
 }

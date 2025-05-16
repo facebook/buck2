@@ -80,6 +80,14 @@ async def test_run_remote_with_content_based_path(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_run_local_with_content_based_path(buck: Buck) -> None:
+    target = "root//:run_local_with_content_based_path"
+    await build_target_with_different_platforms_and_verify_output_paths_are_identical(
+        buck, target
+    )
+
+
+@buck_test()
 async def test_copy_with_content_based_path(buck: Buck) -> None:
     target = "root//:copy_with_content_based_path"
     await build_target_with_different_platforms_and_verify_output_paths_are_identical(

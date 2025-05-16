@@ -21,6 +21,7 @@ use buck2_common::file_ops::FileDigestConfig;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
 use buck2_common::local_resource_state::LocalResourceHolder;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -591,8 +592,12 @@ impl LocalExecutor {
         let mut total_hashing_time = Duration::ZERO;
         let mut total_hashed_outputs = 0;
         for output in request.outputs() {
-            // TODO(T219919866) Add support for experimental content-based path hashing
-            let path = output.resolve(&self.artifact_fs, None)?.into_path();
+            let path = output
+                .resolve(
+                    &self.artifact_fs,
+                    Some(&ContentBasedPathHash::for_output_artifact()),
+                )?
+                .into_path();
             let abspath = self.root.join(&path);
             let (entry, hashing_info) = build_entry_from_disk(
                 abspath,
@@ -613,12 +618,34 @@ impl LocalExecutor {
         let mut to_declare = vec![];
         let mut mapped_outputs = IndexMap::with_capacity(entries.len());
 
-        for (output, path) in entries {
-            let value = extract_artifact_value(&builder, &path, digest_config)?;
+        for (output, output_path) in entries {
+            let value = extract_artifact_value(&builder, &output_path, digest_config)?;
             if let Some(value) = value {
                 match output {
                     CommandExecutionOutput::BuildArtifact { .. } => {
-                        to_declare.push((path, value.dupe()));
+                        if output.as_ref().has_content_based_path() {
+                            let hashed_path = output
+                                .as_ref()
+                                .resolve(&self.artifact_fs, Some(&value.content_based_path_hash()))?
+                                .into_path();
+                            // If we already have an artifact declared at a content-based path, we don't need to
+                            // declare it again.
+                            if !self
+                                .materializer
+                                .has_artifact_at(hashed_path.clone())
+                                .await?
+                            {
+                                self.blocking_executor
+                                    .execute_io_inline(|| {
+                                        self.artifact_fs.fs().copy(output_path, hashed_path.clone())
+                                    })
+                                    .await?;
+
+                                to_declare.push((hashed_path, value.dupe()));
+                            }
+                        } else {
+                            to_declare.push((output_path, value.dupe()));
+                        }
                     }
                     CommandExecutionOutput::TestPath { .. } => {
                         // Don't declare those as we don't currently have any form of GC so this
@@ -869,10 +896,19 @@ pub async fn materialize_inputs(
     for input in request.inputs() {
         match input {
             CommandExecutionInput::Artifact(group) => {
-                for (artifact, _) in group.iter() {
+                for (artifact, artifact_value) in group.iter() {
                     if artifact.requires_materialization(artifact_fs) {
-                        // TODO(T219919866) Add support for experimental content-based path hashing
-                        paths.push(artifact.resolve_path(artifact_fs, None)?);
+                        paths.push(
+                            artifact.resolve_path(
+                                artifact_fs,
+                                if artifact.has_content_based_path() {
+                                    Some(artifact_value.content_based_path_hash())
+                                } else {
+                                    None
+                                }
+                                .as_ref(),
+                            )?,
+                        );
                     }
                 }
             }
@@ -938,10 +974,14 @@ async fn check_inputs(
             for input in request.inputs() {
                 match input {
                     CommandExecutionInput::Artifact(group) => {
-                        for (artifact, _) in group.iter() {
+                        for (artifact, artifact_value) in group.iter() {
                             if artifact.requires_materialization(artifact_fs) {
-                                // TODO(T219919866) Add support for experimental content-based path hashing
-                                let path = artifact.resolve_path(artifact_fs, None)?;
+                                let path = artifact.resolve_path(artifact_fs,
+                                    if artifact.has_content_based_path() {
+                                        Some(artifact_value.content_based_path_hash())
+                                    } else {
+                                        None
+                                    }.as_ref())?;
                                 let abs_path = artifact_fs.fs().resolve(&path);
 
                                 // We ignore the result here because while we want to tag it, we'd
@@ -1017,8 +1057,12 @@ pub async fn create_output_dirs(
 ) -> buck2_error::Result<()> {
     let outputs: Vec<_> = request
         .outputs()
-        // TODO(T219919866) Add support for experimental content-based path hashing
-        .map(|output| output.resolve(artifact_fs, None))
+        .map(|output| {
+            output.resolve(
+                artifact_fs,
+                Some(&ContentBasedPathHash::for_output_artifact()),
+            )
+        })
         .collect::<buck2_error::Result<Vec<_>>>()?;
 
     // Invalidate all the output paths this action might provide. Note that this is a bit

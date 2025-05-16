@@ -68,7 +68,7 @@ write_json_with_content_based_path = rule(
     },
 )
 
-def _run_remote_with_content_based_path_impl(ctx):
+def _run_with_content_based_path_impl(ctx):
     script = ctx.actions.declare_output("script.py", uses_experimental_content_based_path_hashing = True)
     script = ctx.actions.write(
         script,
@@ -81,14 +81,23 @@ def _run_remote_with_content_based_path_impl(ctx):
 
     out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
     args = cmd_args(["python3", script, out.as_output(), ctx.attrs.data])
-    ctx.actions.run(args, category = "test_run", prefer_remote = True)
+    kwargs = {
+        "category": "test_run",
+    }
+    if ctx.attrs.prefer_local:
+        kwargs["prefer_local"] = True
+    else:
+        kwargs["prefer_remote"] = True
+
+    ctx.actions.run(args, **kwargs)
 
     return [DefaultInfo(default_output = out)]
 
-run_remote_with_content_based_path = rule(
-    impl = _run_remote_with_content_based_path_impl,
+run_with_content_based_path = rule(
+    impl = _run_with_content_based_path_impl,
     attrs = {
         "data": attrs.string(),
+        "prefer_local": attrs.bool(default = False),
     },
 )
 

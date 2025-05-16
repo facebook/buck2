@@ -7,7 +7,7 @@ load(
     "dynamic_new_with_content_based_path",
     "dynamic_with_content_based_path",
     "failing_validation_with_content_based_path",
-    "run_remote_with_content_based_path",
+    "run_with_content_based_path",
     "symlink",
     "symlinked_dir",
     "use_projection_with_content_based_path",
@@ -31,9 +31,16 @@ write_json_with_content_based_path(
     source = ":write_with_content_based_path",
 )
 
-run_remote_with_content_based_path(
+run_with_content_based_path(
     name = "run_remote_with_content_based_path",
     data = "hello world",
+    prefer_local = False,
+)
+
+run_with_content_based_path(
+    name = "run_local_with_content_based_path",
+    data = "hello world",
+    prefer_local = True,
 )
 
 copy(

@@ -216,6 +216,10 @@ impl ArtifactDyn for Artifact {
             .external()
             .is_some()
     }
+
+    fn has_content_based_path(&self) -> bool {
+        self.has_content_based_path()
+    }
 }
 
 #[derive(
