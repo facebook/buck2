@@ -43,6 +43,8 @@ use remote_execution as RE;
 use remote_execution::ActionResultRequest;
 use remote_execution::ActionResultResponse;
 use remote_execution::BuckInfo;
+#[cfg(fbcode_build)]
+use remote_execution::ClientBuilderCommonMethods;
 use remote_execution::DownloadRequest;
 use remote_execution::ExecuteRequest;
 use remote_execution::ExecuteResponse;
