@@ -23,6 +23,12 @@ use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionSharedDirectory;
 
+#[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative)]
+pub enum UnderlyingContentBasedPathHash {
+    Inferred,
+    Explicit(Arc<ContentBasedPathHash>),
+}
+
 /// `ArtifactValue` stores enough information about an artifact such that, if
 /// it's in the CAS, we don't have to read anything from disk. In summary:
 /// - for files, that's the digest and whether it's executable;
@@ -42,6 +48,9 @@ pub struct ArtifactValue {
     /// `entry` above, which is rooted at this artifact's path, `deps` is
     /// always rooted at the project root.
     deps: Option<ActionSharedDirectory>,
+    /// The content-based path hash of the artifact. This is usually inferred,
+    /// but in some cases (e.g. projected artifacts) it is explicitly provided.
+    content_based_path_hash: UnderlyingContentBasedPathHash,
 }
 
 impl From<ActionDirectoryEntry<ActionSharedDirectory>> for ArtifactValue {
@@ -55,13 +64,18 @@ impl ArtifactValue {
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
         deps: Option<ActionSharedDirectory>,
     ) -> Self {
-        Self { entry, deps }
+        Self {
+            entry,
+            deps,
+            content_based_path_hash: UnderlyingContentBasedPathHash::Inferred,
+        }
     }
 
     pub fn file(meta: FileMetadata) -> Self {
         Self {
             entry: ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(meta)),
             deps: None,
+            content_based_path_hash: UnderlyingContentBasedPathHash::Inferred,
         }
     }
 
@@ -69,6 +83,7 @@ impl ArtifactValue {
         Self {
             entry: ActionDirectoryEntry::Dir(dir),
             deps: None,
+            content_based_path_hash: UnderlyingContentBasedPathHash::Inferred,
         }
     }
 
@@ -80,6 +95,7 @@ impl ArtifactValue {
         Self {
             entry: ActionDirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(symlink)),
             deps: None,
+            content_based_path_hash: UnderlyingContentBasedPathHash::Inferred,
         }
     }
 
@@ -100,7 +116,23 @@ impl ArtifactValue {
         }
     }
 
+    pub fn with_content_based_path_hash(
+        self,
+        content_based_path_hash: ContentBasedPathHash,
+    ) -> Self {
+        Self {
+            content_based_path_hash: UnderlyingContentBasedPathHash::Explicit(Arc::new(
+                content_based_path_hash,
+            )),
+            ..self
+        }
+    }
+
     pub fn content_based_path_hash(&self) -> ContentBasedPathHash {
+        if let UnderlyingContentBasedPathHash::Explicit(hash) = &self.content_based_path_hash {
+            return (**hash).clone();
+        }
+
         match &self.entry {
             ActionDirectoryEntry::Dir(d) => {
                 ContentBasedPathHash::new(d.fingerprint().data().to_string())

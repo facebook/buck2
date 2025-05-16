@@ -10,6 +10,7 @@ load(
     "run_remote_with_content_based_path",
     "symlink",
     "symlinked_dir",
+    "use_projection_with_content_based_path",
     "write_json_with_content_based_path",
     "write_macro_with_content_based_path",
     "write_with_content_based_path",
@@ -77,6 +78,10 @@ dynamic_with_content_based_path(
 
 dynamic_new_with_content_based_path(
     name = "dynamic_new_with_content_based_path",
+)
+
+use_projection_with_content_based_path(
+    name = "use_projection_with_content_based_path",
 )
 
 platform(

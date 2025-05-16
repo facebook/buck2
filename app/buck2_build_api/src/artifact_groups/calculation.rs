@@ -232,7 +232,7 @@ impl EnsureArtifactGroupReady {
     }
 }
 
-static_assertions::assert_eq_size!(EnsureArtifactGroupReady, [usize; 3]);
+static_assertions::assert_eq_size!(EnsureArtifactGroupReady, [usize; 4]);
 
 // This assertion assures we don't unknowingly regress the size of this critical future.
 // TODO(cjhopman): We should be able to wrap this in a convenient assertion macro.
@@ -382,13 +382,15 @@ impl Key for EnsureProjectedArtifactKey {
         let base_value = ensure_base_artifact_staged(ctx, base.dupe())
             .await?
             .unpack_single()?;
+        let base_content_based_path_hash = base_value.content_based_path_hash();
 
         let artifact_fs = ctx.get_artifact_fs().await?;
         let digest_config = ctx.global_data().get_digest_config();
 
         let base_path = match base {
-            // TODO(T219919866) Add support for experimental content-based path hashing
-            BaseArtifactKind::Build(built) => artifact_fs.resolve_build(built.get_path(), None)?,
+            BaseArtifactKind::Build(built) => {
+                artifact_fs.resolve_build(built.get_path(), Some(&base_content_based_path_hash))?
+            }
             BaseArtifactKind::Source(source) => artifact_fs.resolve_source(source.get_path())?,
         };
 
@@ -403,6 +405,10 @@ impl Key for EnsureProjectedArtifactKey {
                 format!("The path `{path}` does not exist in the artifact `{base}`")
             })
             .tag(buck2_error::ErrorTag::ProjectMissingPath)?;
+
+        // Projected artifacts are located in the same directory as the base artifact, so we
+        // need to store the same content based path hash in order to find them in the correct place.
+        let value = value.with_content_based_path_hash(base_content_based_path_hash);
 
         Ok(value)
     }

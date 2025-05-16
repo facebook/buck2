@@ -150,3 +150,10 @@ async def test_dynamic_new_with_content_based_path(buck: Buck) -> None:
     await build_target_with_different_platforms_and_verify_output_paths_are_identical(
         buck, "root//:dynamic_new_with_content_based_path"
     )
+
+
+@buck_test()
+async def test_projection_with_content_based_path(buck: Buck) -> None:
+    await build_target_with_different_platforms_and_verify_output_paths_are_identical(
+        buck, "root//:use_projection_with_content_based_path"
+    )

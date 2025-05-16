@@ -262,3 +262,35 @@ dynamic_new_with_content_based_path = rule(
     attrs = {
     },
 )
+
+def _use_projection_with_content_based_path_impl(ctx):
+    script = ctx.actions.declare_output("script.py", uses_experimental_content_based_path_hashing = True)
+    script = ctx.actions.write(
+        script,
+        [
+            "import os",
+            "import sys",
+            "os.makedirs(sys.argv[1], exist_ok=True)",
+            "with open(sys.argv[2], 'w') as f:",
+            "  f.write('hello projection1')",
+            "with open(sys.argv[3], 'w') as f:",
+            "  f.write('hello projection2')",
+        ],
+    )
+
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    projection1 = out.project("projection1.txt")
+    projection2 = out.project("projection2.txt")
+    args = cmd_args(["python3", script, out.as_output(), projection1.as_output(), projection2.as_output()])
+    ctx.actions.run(args, category = "test_run", prefer_remote = True)
+
+    copied_projection = ctx.actions.declare_output("copied_projection.txt", uses_experimental_content_based_path_hashing = True)
+    ctx.actions.copy_file(copied_projection, projection1)
+
+    return [DefaultInfo(default_output = copied_projection)]
+
+use_projection_with_content_based_path = rule(
+    impl = _use_projection_with_content_based_path_impl,
+    attrs = {
+    },
+)
