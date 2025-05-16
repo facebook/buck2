@@ -89,6 +89,20 @@ _IndexLinkData = record(
     link_data = field([_LazyBitcodeLinkData, _EagerBitcodeLinkData, _ArchiveLinkData, _DynamicLibraryLinkData]),
 )
 
+def identity_projection(value: cmd_args):
+    return value
+
+# This tset exists for the sole purpose of saving memory. When action inputs
+# are hashed, the memory cost for hashing tset projection generated input
+# tree nodes is paid once per unique node. Without a tset projection every
+# input is hashed once per action it is included in. The opt actions created
+# here share a tremendous number of inputs, so we might end up hashing a
+# given input 1000s of times, and paying dearly for it in memory consumption.
+# This is not ideal either, the memory allocated to hash these tset projection
+# generated inputs will not be freed for the duration of the build, but in
+# testing that is a worth while tradeoff.
+IdentityTSet = transitive_set(args_projections = {"identity": identity_projection})
+
 # TODO(nuriamari) Delete once link actions over RE measured
 def _execute_link_actions_locally() -> bool:
     return read_root_config("user", "dthin_lto_link_actions_over_re", "false") not in ("True", "true")
@@ -526,7 +540,6 @@ def cxx_darwin_dist_link(
             return
 
         opt_cmd = cmd_args(lto_opt)
-        opt_cmd.add("--out", outputs[opt_object].as_output())
         if premerger_enabled:
             if optimization_plan.merge_state == BitcodeMergeState("STANDALONE").value:
                 opt_cmd.add("--input", initial_object)
@@ -552,7 +565,11 @@ def cxx_darwin_dist_link(
             opt_cmd.add(cmd_args(hidden = imported_merged_input_bitcode_files + imported_archives_merged_bitcode_files_directory))
 
         opt_cmd.add(cmd_args(hidden = imported_input_bitcode_files + imported_archives_input_bitcode_files_directory))
-        ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt_object"), identifier = name)
+        projected_opt_cmd = cmd_args(ctx.actions.tset(IdentityTSet, value = opt_cmd).project_as_args("identity"))
+
+        # We have to add outputs after wrapping the cmd_args in a projection
+        projected_opt_cmd.add("--out", outputs[opt_object].as_output())
+        ctx.actions.run(projected_opt_cmd, category = make_cat("thin_lto_opt_object"), identifier = name)
 
     # We declare a separate dynamic_output for every object file. It would
     # maybe be simpler to have a single dynamic_output that produced all the
@@ -606,7 +623,6 @@ def cxx_darwin_dist_link(
             output_manifest.add(opt_object)
             output_dir[source_path] = opt_object
             opt_cmd = cmd_args(lto_opt)
-            opt_cmd.add("--out", opt_object.as_output())
             if premerger_enabled and object_optimization_plan.merge_state == BitcodeMergeState("ROOT").value:
                 opt_cmd.add("--input", object_optimization_plan.merged_bitcode_path)
             else:
@@ -627,7 +643,14 @@ def cxx_darwin_dist_link(
             opt_cmd.add(cmd_args(
                 hidden = imported_input_bitcode_files + imported_archives_input_bitcode_files_directory + [archive.indexes_dir, archive.objects_dir],
             ))
-            ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt_archive"), identifier = source_path)
+
+            projected_opt_cmd = cmd_args(ctx.actions.tset(IdentityTSet, value = opt_cmd).project_as_args("identity"))
+            projected_opt_cmd.add("--out", opt_object.as_output())
+            ctx.actions.run(
+                projected_opt_cmd,
+                category = make_cat("thin_lto_opt_archive"),
+                identifier = source_path,
+            )
 
         ctx.actions.symlinked_dir(outputs[archive.opt_objects_dir], output_dir)
         ctx.actions.write(outputs[archive.opt_manifest], output_manifest, allow_args = True)
