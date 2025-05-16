@@ -28,7 +28,8 @@ load("@prelude//debugging:types.bzl", "ScriptSettings")
 def inspect_alias_rule(ctx: bxl.Context, actions: AnalysisActions, target: bxl.ConfiguredTargetNode, settings: ScriptSettings):
     attrs = target.attrs_lazy()
     actual = attrs.get("actual")
-    return inspect_any_target(ctx, actions, ctx.configured_targets(actual.value().configured_target()), settings)
+    actual_target_label = ctx.configured_targets(actual.value().configured_target(), modifiers = ctx.modifiers)
+    return inspect_any_target(ctx, actions, actual_target_label, settings)
 
 INSPECT_BY_RULE = {
     "prelude//rules.bzl:alias": inspect_alias_rule,
@@ -57,7 +58,7 @@ def inspect_info_ref_rule(ctx: bxl.Context, actions: AnalysisActions, target: bx
             settings,
         )
 
-    aliases_target = ctx.configured_targets(aliased_target_label)
+    aliases_target = ctx.configured_targets(aliased_target_label, modifiers = ctx.modifiers)
     return inspect_any_target(
         ctx,
         actions,
@@ -90,7 +91,7 @@ def inspect(ctx: bxl.Context, actions: AnalysisActions, target: bxl.ConfiguredTa
 
 def inspect_target_impl(ctx: bxl.Context):
     actions = ctx.bxl_actions().actions
-    node = ctx.configured_targets(ctx.cli_args.target)
+    node = ctx.configured_targets(ctx.cli_args.target, modifiers = ctx.modifiers)
     ctx.output.print(ctx.output.ensure(inspect(ctx, actions, node, ScriptSettings(
         target = node,
         args = ctx.cli_args.args if ctx.cli_args.args else [],
