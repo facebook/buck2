@@ -35,6 +35,7 @@ use starlark::values::string::StarlarkStr;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::ArtifactGroupValues;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::resolved_macro::ResolvedMacro;
@@ -121,6 +122,28 @@ pub trait ArtifactPathMapper {
 impl ArtifactPathMapper for IndexMap<&Artifact, ContentBasedPathHash> {
     fn get(&self, artifact: &Artifact) -> Option<&ContentBasedPathHash> {
         self.get(artifact)
+    }
+}
+
+pub struct ArtifactPathMapperImpl<'a> {
+    pub map: IndexMap<&'a Artifact, ContentBasedPathHash>,
+}
+
+impl<'a> From<&'a Vec<(ArtifactGroup, ArtifactGroupValues)>> for ArtifactPathMapperImpl<'a> {
+    fn from(ensured_inputs: &'a Vec<(ArtifactGroup, ArtifactGroupValues)>) -> Self {
+        Self {
+            map: ensured_inputs
+                .iter()
+                .flat_map(|(_, v)| v.iter())
+                .map(|(a, v)| (a, v.content_based_path_hash()))
+                .collect(),
+        }
+    }
+}
+
+impl ArtifactPathMapper for ArtifactPathMapperImpl<'_> {
+    fn get(&self, artifact: &Artifact) -> Option<&ContentBasedPathHash> {
+        self.map.get(artifact)
     }
 }
 

@@ -1,0 +1,8 @@
+load(
+    ":defs.bzl",
+    "run_test_with_content_based_path",
+)
+
+run_test_with_content_based_path(
+    name = "run_test_with_content_based_path",
+)

@@ -30,9 +30,11 @@ use buck2_build_api::actions::execute::dice_data::DiceHasCommandExecutor;
 use buck2_build_api::actions::execute::dice_data::GetReClient;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::artifact_groups::ArtifactGroupValues;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapperImpl;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
@@ -153,6 +155,7 @@ use host_sharing::convert::host_sharing_requirements_to_grpc;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indexmap::indexset;
+use itertools::Itertools;
 use sorted_vector_map::SortedVectorMap;
 use starlark::values::OwnedFrozenValueTyped;
 use uuid::Uuid;
@@ -405,7 +408,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             cwd,
             cmd: expanded_cmd,
             env: expanded_env,
-            inputs,
+            ensured_inputs,
             supports_re,
             declared_outputs,
             worker,
@@ -440,7 +443,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             cwd,
             expanded_cmd,
             expanded_env,
-            inputs,
+            ensured_inputs,
             declared_outputs,
             &fs,
             Some(timeout),
@@ -841,7 +844,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             cwd,
             cmd: expanded_cmd,
             env: expanded_env,
-            inputs,
+            ensured_inputs,
             supports_re: _,
             declared_outputs,
             worker,
@@ -852,7 +855,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             cwd,
             expanded_cmd,
             expanded_env,
-            inputs,
+            ensured_inputs,
             declared_outputs,
             &fs,
             None,
@@ -1352,7 +1355,7 @@ impl BuckTestOrchestrator<'_> {
         let mut supports_re = true;
 
         let cwd;
-        let (expanded_cmd, expanded_env, inputs, expanded_worker) = {
+        let (expanded_cmd, expanded_env, ensured_inputs, expanded_worker) = {
             cwd = if test_info.run_from_project_root() || opts.force_run_from_project_root {
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned()))
             } else {
@@ -1373,16 +1376,23 @@ impl BuckTestOrchestrator<'_> {
             };
 
             let inputs = expander.get_inputs()?;
+            let mut ensured_inputs = Vec::with_capacity(inputs.len());
+            for input in inputs {
+                // we already built these before reaching out to tpx, so these should already be ready
+                // hence we don't actually need to spawn these in parallel
+                let artifact_group_value = dice.ensure_artifact_group(&input).await?;
+                ensured_inputs.push((input, artifact_group_value));
+            }
             let (expanded_cmd, expanded_env, expanded_worker) = if test_info
                 .use_project_relative_paths()
                 || opts.force_use_project_relative_paths
             {
-                expander.expand::<DefaultCommandLineContext>()
+                expander.expand::<DefaultCommandLineContext>(&ensured_inputs)
             } else {
                 supports_re = false;
-                expander.expand::<AbsCommandLineContext>()
+                expander.expand::<AbsCommandLineContext>(&ensured_inputs)
             }?;
-            (expanded_cmd, expanded_env, inputs, expanded_worker)
+            (expanded_cmd, expanded_env, ensured_inputs, expanded_worker)
         };
 
         for output in pre_create_dirs.into_owned() {
@@ -1394,7 +1404,7 @@ impl BuckTestOrchestrator<'_> {
             cwd: cwd.as_project_relative_path().to_buf(),
             cmd: expanded_cmd,
             env: expanded_env,
-            inputs,
+            ensured_inputs,
             declared_outputs,
             supports_re,
             worker: expanded_worker,
@@ -1406,7 +1416,7 @@ impl BuckTestOrchestrator<'_> {
         cwd: ProjectRelativePathBuf,
         cmd: Vec<String>,
         env: SortedVectorMap<String, String>,
-        cmd_inputs: IndexSet<ArtifactGroup>,
+        ensured_inputs: Vec<(ArtifactGroup, ArtifactGroupValues)>,
         declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
         fs: &ArtifactFs,
         timeout: Option<Duration>,
@@ -1417,15 +1427,10 @@ impl BuckTestOrchestrator<'_> {
         re_dynamic_image: Option<RemoteExecutorCustomImage>,
         meta_internal_extra_params: MetaInternalExtraParams,
     ) -> anyhow::Result<CommandExecutionRequest> {
-        let mut inputs = Vec::with_capacity(cmd_inputs.len());
-        for input in &cmd_inputs {
-            // we already built these before reaching out to tpx, so these should already be ready
-            // hence we don't actually need to spawn these in parallel
-            // TODO (T102328660): Does CommandExecutionRequest need this artifact?
-            inputs.push(CommandExecutionInput::Artifact(Box::new(
-                dice.ensure_artifact_group(input).await?,
-            )));
-        }
+        let inputs = ensured_inputs
+            .into_iter()
+            .map(|(_, v)| CommandExecutionInput::Artifact(Box::new(v)))
+            .collect_vec();
 
         // NOTE: This looks a bit awkward, that's because fbcode's rustfmt and ours slightly
         // disagree about format here...
@@ -1763,6 +1768,7 @@ impl<'a> Execute2RequestExpander<'a> {
     /// Expand a command and env.
     fn expand<B>(
         self,
+        ensured_inputs: &Vec<(ArtifactGroup, ArtifactGroupValues)>,
     ) -> anyhow::Result<(
         Vec<String>,
         SortedVectorMap<String, String>,
@@ -1788,8 +1794,7 @@ impl<'a> Execute2RequestExpander<'a> {
             .collect::<Vec<_>>();
         let env_for_interpolation = test_info.env().collect::<HashMap<_, _>>();
 
-        // TODO(T219919866) Add a proper mapping here for content-based path hashing
-        let artifact_path_mapping = IndexMap::new();
+        let artifact_path_mapping = ArtifactPathMapperImpl::from(ensured_inputs);
 
         let expand_arg_value = |cli: &mut dyn CommandLineBuilder,
                                 ctx: &mut dyn CommandLineContext,
@@ -1933,7 +1938,7 @@ struct ExpandedTestExecutable {
     cwd: ProjectRelativePathBuf,
     cmd: Vec<String>,
     env: SortedVectorMap<String, String>,
-    inputs: IndexSet<ArtifactGroup>,
+    ensured_inputs: Vec<(ArtifactGroup, ArtifactGroupValues)>,
     supports_re: bool,
     declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
     worker: Option<WorkerSpec>,
