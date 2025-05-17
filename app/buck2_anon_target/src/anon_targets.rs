@@ -378,7 +378,7 @@ impl AnonTargetKey {
                             .await
                     }
                     (BzlOrBxlPath::Bzl(_), AnonTargetVariant::Bzl) => {
-                        self.eval_for_bzl(dice, dependents_analyses, exec_resolution)
+                        self.eval_for_bzl(dice, dependents_analyses, exec_resolution, cancellation)
                             .await
                     }
                     (BzlOrBxlPath::Bxl(bxl_file_path), AnonTargetVariant::Bzl) => {
@@ -414,6 +414,7 @@ impl AnonTargetKey {
         dice: &mut DiceComputations<'_>,
         dependents_analyses: AnonTargetDependentAnalysisResults<'_>,
         exec_resolution: ExecutionPlatformResolution,
+        cancellation: &CancellationContext,
     ) -> buck2_error::Result<AnalysisResult> {
         let validations_from_deps = dependents_analyses.validations();
         let rule_impl = get_rule_spec(dice, self.0.rule_type()).await?;
@@ -425,6 +426,7 @@ impl AnonTargetKey {
             dice,
             &mut StarlarkProfilerOpt::disabled(),
             &eval_kind,
+            cancellation.into(),
             |provider, dice| {
                 let (mut eval, _) = provider.make(&env)?;
                 eval.set_print_handler(&print);

@@ -110,7 +110,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             async fn compute(
                 &self,
                 ctx: &mut DiceComputations,
-                _cancellations: &CancellationContext,
+                cancellation: &CancellationContext,
             ) -> Self::Value {
                 let cfg_constructor = get_cfg_constructor(ctx).await?.buck_error_context(
                     "Internal error: Global cfg constructor instance should exist",
@@ -123,6 +123,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                         self.target_cfg_modifiers.as_ref(),
                         &self.cli_modifiers,
                         &self.rule_type,
+                        cancellation,
                     )
                     .await
                     .map_err(buck2_error::Error::from)

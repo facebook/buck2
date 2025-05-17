@@ -62,7 +62,11 @@ async fn test_package_value_same_dir_package_file() {
         .await
         .unwrap();
 
-    let result = interpreter.eval_build_file(package_label).await.1.unwrap();
+    let result = interpreter
+        .eval_build_file(package_label, None)
+        .await
+        .1
+        .unwrap();
 
     let target_nodes: Vec<_> = result.targets().values().collect();
     assert_eq!(1, target_nodes.len());
@@ -108,7 +112,11 @@ async fn test_package_value_parent_dir_package_file() {
         .await
         .unwrap();
 
-    let result = interpreter.eval_build_file(package_label).await.1.unwrap();
+    let result = interpreter
+        .eval_build_file(package_label, None)
+        .await
+        .1
+        .unwrap();
 
     let target_nodes: Vec<_> = result.targets().values().collect();
     assert_eq!(1, target_nodes.len());
@@ -142,7 +150,7 @@ async fn test_overwrite_package_value_not_allowed_without_overwrite_flag() {
         ))
         .await
         .unwrap();
-    let err = interpreter.eval_build_file(package_label).await.1;
+    let err = interpreter.eval_build_file(package_label, None).await.1;
     assert!(
         format!("{:?}", err)
             .contains("key set in parent `PACKAGE` file, and overwrite flag is not set"),
@@ -228,7 +236,11 @@ async fn test_read_parent_package_value() {
         .await
         .unwrap();
 
-    let result = interpreter.eval_build_file(package_label).await.1.unwrap();
+    let result = interpreter
+        .eval_build_file(package_label, None)
+        .await
+        .1
+        .unwrap();
 
     let target_nodes: Vec<_> = result.targets().values().collect();
     assert_eq!(1, target_nodes.len());
@@ -292,7 +304,11 @@ async fn test_read_parent_package_value_from_bzl() {
         .await
         .unwrap();
 
-    let result = interpreter.eval_build_file(package_label).await.1.unwrap();
+    let result = interpreter
+        .eval_build_file(package_label, None)
+        .await
+        .1
+        .unwrap();
 
     let target_nodes: Vec<_> = result.targets().values().collect();
     assert_eq!(1, target_nodes.len());
@@ -326,7 +342,7 @@ async fn test_read_parent_package_value_is_suggested_in_package_file() {
         ))
         .await
         .unwrap();
-    let err = interpreter.eval_build_file(package_label).await.1;
+    let err = interpreter.eval_build_file(package_label, None).await.1;
     assert!(
         format!("{:?}", err)
             .contains("In a Package context, consider using `read_parent_package_value`"),
@@ -369,7 +385,7 @@ async fn test_read_parent_package_value_is_suggested_in_bzl_file() {
         ))
         .await
         .unwrap();
-    let err = interpreter.eval_build_file(package_label).await;
+    let err = interpreter.eval_build_file(package_label, None).await;
     assert!(
         format!("{:?}", err)
             .contains("In a Package context, consider using `read_parent_package_value`"),

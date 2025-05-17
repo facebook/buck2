@@ -41,6 +41,7 @@ use buck2_interpreter::types::rule::FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_node::nodes::configured::ConfiguredTargetNodeRef;
 use buck2_node::rule_type::StarlarkRuleType;
+use dice::CancellationContext;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::Future;
@@ -186,6 +187,7 @@ struct AnalysisEnv<'a> {
     query_results: HashMap<String, Arc<AnalysisQueryResult>>,
     execution_platform: &'a ExecutionPlatformResolution,
     label: ConfiguredTargetLabel,
+    cancellation: &'a CancellationContext,
 }
 
 pub(crate) async fn run_analysis<'a>(
@@ -196,6 +198,7 @@ pub(crate) async fn run_analysis<'a>(
     execution_platform: &'a ExecutionPlatformResolution,
     rule_spec: &'a dyn RuleSpec,
     node: ConfiguredTargetNodeRef<'a>,
+    cancellation: &CancellationContext,
 ) -> buck2_error::Result<AnalysisResult> {
     let analysis_env = AnalysisEnv {
         rule_spec,
@@ -203,6 +206,7 @@ pub(crate) async fn run_analysis<'a>(
         query_results,
         execution_platform,
         label: label.dupe(),
+        cancellation,
     };
     run_analysis_with_env(dice, analysis_env, node).await
 }
@@ -275,6 +279,7 @@ async fn run_analysis_with_env_underlying(
         dice,
         &mut profiler.as_mut(),
         &eval_kind,
+        analysis_env.cancellation.into(),
         |provider, dice| {
             let (mut eval, _) = provider.make(&env)?;
             eval.set_print_handler(&print);

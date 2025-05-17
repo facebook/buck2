@@ -127,6 +127,7 @@ async fn do_apply_transition(
     attrs: Option<&[Option<Arc<ConfiguredAttr>>]>,
     conf: &ConfigurationData,
     transition_id: &TransitionId,
+    cancellation: &CancellationContext,
 ) -> buck2_error::Result<TransitionApplied> {
     let transition = ctx.fetch_transition(transition_id).await?;
     let mut refs = Vec::new();
@@ -150,6 +151,7 @@ async fn do_apply_transition(
         ctx,
         &mut StarlarkProfilerOpt::disabled(),
         &StarlarkEvalKind::Transition(Arc::new(transition_id.clone())),
+        cancellation.into(),
         move |provider, _| {
             let module = Module::new();
             let (mut eval, _) = provider.make(&module)?;
@@ -293,11 +295,17 @@ impl TransitionCalculation for TransitionCalculationImpl {
             async fn compute(
                 &self,
                 ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
+                cancellation: &CancellationContext,
             ) -> Self::Value {
                 let v: buck2_error::Result<_> = try {
-                    do_apply_transition(ctx, self.attrs.as_deref(), &self.cfg, &self.transition_id)
-                        .await?
+                    do_apply_transition(
+                        ctx,
+                        self.attrs.as_deref(),
+                        &self.cfg,
+                        &self.transition_id,
+                        cancellation,
+                    )
+                    .await?
                 };
 
                 Ok(Arc::new(v.with_buck_error_context(|| {

@@ -90,11 +90,11 @@ impl Key for AnalysisKey {
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
-        _cancellation: &CancellationContext,
+        cancellation: &CancellationContext,
     ) -> Self::Value {
         let deferred_key = DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(self.0.dupe()));
         ctx.analysis_started(&deferred_key)?;
-        let res = get_analysis_result(ctx, &self.0)
+        let res = get_analysis_result(ctx, &self.0, cancellation)
             .await
             .with_buck_error_context(|| format!("Error running analysis for `{}`", &self.0))?;
         if let MaybeCompatible::Compatible(v) = &res {
@@ -245,8 +245,9 @@ pub async fn get_rule_spec(
 async fn get_analysis_result(
     ctx: &mut DiceComputations<'_>,
     target: &ConfiguredTargetLabel,
+    cancellation: &CancellationContext,
 ) -> buck2_error::Result<MaybeCompatible<AnalysisResult>> {
-    get_analysis_result_inner(ctx, target)
+    get_analysis_result_inner(ctx, target, cancellation)
         .await
         .tag(ErrorTag::Analysis)
 }
@@ -254,6 +255,7 @@ async fn get_analysis_result(
 async fn get_analysis_result_inner(
     ctx: &mut DiceComputations<'_>,
     target: &ConfiguredTargetLabel,
+    cancellation: &CancellationContext,
 ) -> buck2_error::Result<MaybeCompatible<AnalysisResult>> {
     let configured_node: MaybeCompatible<ConfiguredTargetNode> =
         ctx.get_configured_target_node(target).await?;
@@ -304,6 +306,7 @@ async fn get_analysis_result_inner(
                                     configured_node.execution_platform_resolution(),
                                     &rule_spec,
                                     configured_node,
+                                    cancellation,
                                 ),
                                 buck2_data::AnalysisStageEnd {},
                             )

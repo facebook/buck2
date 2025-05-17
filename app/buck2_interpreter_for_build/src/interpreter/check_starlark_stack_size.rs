@@ -47,12 +47,13 @@ pub(crate) async fn check_starlark_stack_size(
         async fn compute(
             &self,
             ctx: &mut DiceComputations,
-            _cancellation: &CancellationContext,
+            cancellation: &CancellationContext,
         ) -> Self::Value {
             with_starlark_eval_provider(
                 ctx,
                 &mut StarlarkProfilerOpt::disabled(),
                 &StarlarkEvalKind::Unknown("Check starlark stack size".into()),
+                cancellation.into(),
                 move |provider, _| {
                     let env = Module::new();
                     let (mut eval, _) = provider.make(&env)?;

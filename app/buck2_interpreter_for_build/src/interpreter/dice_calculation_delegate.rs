@@ -235,6 +235,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     pub async fn eval_module_uncached(
         &mut self,
         starlark_file: StarlarkModulePath<'_>,
+        cancellation: &CancellationContext,
     ) -> buck2_error::Result<LoadedModule> {
         let (ast, deps) = self.prepare_eval(starlark_file.into()).await?;
         let loaded_modules = deps.get_loaded_modules();
@@ -248,6 +249,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             ctx,
             &mut StarlarkProfilerOpt::disabled(),
             &StarlarkEvalKind::Load(Arc::new(starlark_file.to_owned())),
+            cancellation.into(),
             move |provider, ctx| {
                 let mut buckconfigs =
                     ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
@@ -379,6 +381,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     async fn eval_package_file_uncached(
         &mut self,
         path: PackageLabel,
+        cancellation: &CancellationContext,
     ) -> buck2_error::Result<SuperPackage> {
         let parent = self.eval_parent_package_file(path.dupe()).await?;
         let ast_deps = self.prepare_package_file_eval(path.dupe()).await?;
@@ -401,6 +404,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             ctx,
             &mut StarlarkProfilerOpt::disabled(),
             &StarlarkEvalKind::LoadPackageFile(path.dupe()),
+            cancellation.into(),
             move |provider, ctx| {
                 let mut buckconfigs =
                     ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
@@ -436,7 +440,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             async fn compute(
                 &self,
                 ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
+                cancellation: &CancellationContext,
             ) -> Self::Value {
                 let mut interpreter = ctx
                     .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
@@ -444,7 +448,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                     ))
                     .await?;
                 interpreter
-                    .eval_package_file_uncached(self.0.dupe())
+                    .eval_package_file_uncached(self.0.dupe(), cancellation)
                     .await
                     .map_err(buck2_error::Error::from)
             }
@@ -507,6 +511,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     pub async fn eval_build_file(
         &mut self,
         package: PackageLabel,
+        cancellation: Option<&CancellationContext>,
     ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>) {
         let mut now = None;
         let eval_kind = StarlarkEvalKind::LoadBuildFile(package.dupe());
@@ -551,6 +556,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 ctx,
                 &mut profiler.as_mut(),
                 &eval_kind,
+                cancellation.into(),
                 move |provider, ctx| {
                     let mut buckconfigs =
                         ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);

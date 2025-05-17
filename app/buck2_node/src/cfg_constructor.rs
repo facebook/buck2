@@ -15,6 +15,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 
@@ -36,6 +37,7 @@ pub trait CfgConstructorImpl: Send + Sync + Debug + Allocative {
         target_cfg_modifiers: Option<&'a MetadataValue>,
         cli_modifiers: &'a [String],
         rule_type: &'a RuleType,
+        cancellation: &'a CancellationContext,
     ) -> Pin<Box<dyn Future<Output = buck2_error::Result<ConfigurationData>> + Send + 'a>>;
 
     /// Returns the metadata key used to encode modifiers in PACKAGE values and metadata attribute

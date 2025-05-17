@@ -26,6 +26,7 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
@@ -83,12 +84,14 @@ async fn eval_pre_constraint_analysis<'v>(
     extra_data: Option<&'v OwnedFrozenValue>,
     module: &'v Module,
     print: &'v EventDispatcherPrintHandler,
+    cancellation: &'v CancellationContext,
 ) -> buck2_error::Result<(Vec<String>, Value<'v>, Evaluator<'v, 'v, 'v>)> {
     with_starlark_eval_provider(
         ctx,
         // TODO: pass proper profiler (T163570348)
         &mut StarlarkProfilerOpt::disabled(),
         &StarlarkEvalKind::Unknown("pre constraint-analysis invocation".into()),
+        cancellation.into(),
         |provider, _| {
             let (mut eval, _) = provider.make(module)?;
             eval.set_print_handler(print);
@@ -192,12 +195,14 @@ async fn eval_post_constraint_analysis<'v>(
     params: Value<'v>,
     mut eval: Evaluator<'v, '_, '_>,
     refs_providers_map: SmallMap<String, FrozenProviderCollectionValue>,
+    cancellation: &CancellationContext,
 ) -> buck2_error::Result<ConfigurationData> {
     with_starlark_eval_provider(
         ctx,
         // TODO: pass proper profiler (T163570348)
         &mut StarlarkProfilerOpt::disabled(),
         &StarlarkEvalKind::Unknown("post constraint-analysis invocation for cfg".into()),
+        cancellation.into(),
         |_, _| -> buck2_error::Result<ConfigurationData> {
             let post_constraint_analysis_args = vec![
                 (
@@ -235,6 +240,7 @@ async fn eval_underlying(
     target_cfg_modifiers: Option<&MetadataValue>,
     cli_modifiers: &[String],
     rule_type: &RuleType,
+    cancellation: &CancellationContext,
 ) -> buck2_error::Result<ConfigurationData> {
     let module = Module::new();
     let print = EventDispatcherPrintHandler(get_dispatcher());
@@ -254,6 +260,7 @@ async fn eval_underlying(
         cfg_constructor.extra_data.as_ref(),
         &module,
         &print,
+        cancellation,
     )
     .await?;
 
@@ -269,6 +276,7 @@ async fn eval_underlying(
         params,
         eval,
         refs_providers_map,
+        cancellation,
     )
     .await
 }
@@ -283,6 +291,7 @@ impl CfgConstructorImpl for CfgConstructor {
         target_cfg_modifiers: Option<&'a MetadataValue>,
         cli_modifiers: &'a [String],
         rule_type: &'a RuleType,
+        cancellation: &'a CancellationContext,
     ) -> Pin<Box<dyn Future<Output = buck2_error::Result<ConfigurationData>> + Send + 'a>> {
         // Get around issue of Evaluator not being send by wrapping future in UnsafeSendFuture
         let fut = async move {
@@ -294,6 +303,7 @@ impl CfgConstructorImpl for CfgConstructor {
                 target_cfg_modifiers,
                 cli_modifiers,
                 rule_type,
+                cancellation,
             )
             .await
         };

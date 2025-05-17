@@ -106,7 +106,7 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
             ))
             .await
         {
-            Ok(mut interpreter) => interpreter.eval_build_file(package.dupe()).await,
+            Ok(mut interpreter) => interpreter.eval_build_file(package.dupe(), None).await,
             Err(e) => (Duration::ZERO, Err(e.into())),
         }
     }
@@ -136,7 +136,7 @@ impl Key for EvalImportKey {
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
-        _cancellation: &CancellationContext,
+        cancellation: &CancellationContext,
     ) -> Self::Value {
         let starlark_path = self.0.borrow();
         // We cannot just use the inner default delegate's eval_import
@@ -144,7 +144,7 @@ impl Key for EvalImportKey {
         Ok(ctx
             .get_interpreter_calculator(OwnedStarlarkPath::new(starlark_path.starlark_path()))
             .await?
-            .eval_module_uncached(starlark_path)
+            .eval_module_uncached(starlark_path, cancellation)
             .await?)
     }
 

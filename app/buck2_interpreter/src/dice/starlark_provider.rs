@@ -23,6 +23,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_util::arc_str::ThinArcStr;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -135,6 +136,7 @@ pub async fn with_starlark_eval_provider<'a, D: DerefMut<Target = DiceComputatio
     mut ctx: D,
     profiler_instrumentation: &mut StarlarkProfilerOpt<'_>,
     kind: &StarlarkEvalKind,
+    _cancellation: Option<&CancellationContext>,
     closure: impl FnOnce(&mut dyn StarlarkEvaluatorProvider, D) -> buck2_error::Result<R>,
 ) -> buck2_error::Result<R> {
     let root_buckconfig = ctx.get_legacy_root_config_on_dice().await?;

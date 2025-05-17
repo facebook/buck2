@@ -139,6 +139,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                         &mut StarlarkProfilerOpt::disabled(),
                         // TODO(cjhopman): not foo
                         &StarlarkEvalKind::BxlDynamic(Arc::new("foo".to_owned())),
+                        None,
                         move |provider, dice_ctx| {
                             Ok(tokio::task::block_in_place(|| {
                                 eval_ctx.do_eval(provider, dice_ctx)

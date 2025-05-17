@@ -328,6 +328,7 @@ async fn eval_bxl_inner(
         ctx,
         &mut profiler.as_mut(),
         &eval_kind,
+        None,
         // the closure here need return a buck2_error::Result, so we need to wrap the bxl::eval::Result we get from `do_eval` into a buck2_error::Result
         move |provider, ctx| Ok(eval_ctx.do_eval(provider, ctx)),
     )
