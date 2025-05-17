@@ -121,6 +121,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
             "manifest": [input_android_apk_subtargets["manifest"][DefaultInfo]],
             "native_libs": [input_android_apk_subtargets["native_libs"][DefaultInfo]],
             "unstripped_native_libraries": [input_android_apk_subtargets["unstripped_native_libraries"][DefaultInfo]],
+            "unstripped_native_libraries_files": [input_android_apk_subtargets["unstripped_native_libraries_files"][DefaultInfo]],
             "unstripped_native_libraries_json": [input_android_apk_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
         })
         expect(genrule_default_output_is_apk, "apk_genrule output must end in '.apk'")

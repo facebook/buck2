@@ -122,6 +122,7 @@ def get_android_binary_native_library_info(
         enhance_ctx.debug_output("native_libs", ctx.actions.write("native_libs", []))
         enhance_ctx.debug_output("unstripped_native_libraries", ctx.actions.write("unstripped_native_libraries", []))
         enhance_ctx.debug_output("unstripped_native_libraries_json", ctx.actions.write_json("unstripped_native_libraries_json", {}))
+        enhance_ctx.debug_output("unstripped_native_libraries_files", ctx.actions.symlinked_dir("unstripped_native_libraries_files", {}))
         return AndroidBinaryNativeLibsInfo(
             prebuilt_native_library_dirs = [],
             shared_libraries = [],
