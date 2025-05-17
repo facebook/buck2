@@ -206,7 +206,7 @@ struct SharedStateData {
 impl SharedStateData {
     #[inline(always)]
     pub(crate) fn is_cancellation_requested(&self) -> bool {
-        self.cancellation_requested.load(Ordering::SeqCst)
+        self.cancellation_requested.load(Ordering::Relaxed)
     }
 }
 
