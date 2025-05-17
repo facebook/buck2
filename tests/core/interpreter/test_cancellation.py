@@ -11,7 +11,7 @@ import time
 
 from buck2.tests.e2e_util.api.buck import Buck
 
-from buck2.tests.e2e_util.api.buck_result import BuckException, BuildResult
+from buck2.tests.e2e_util.api.buck_result import BuckException, BuildResult, BxlResult
 from buck2.tests.e2e_util.api.process import Process
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
@@ -33,6 +33,21 @@ async def test_cancellation_package(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_cancellation_bxl(buck: Buck) -> None:
+    await cancellation_result(
+        buck.bxl(
+            "--preemptible=always",
+            "--config",
+            "should.loop=bxl",
+            "//:root.bxl:loop_test",
+        ),
+        buck.build(
+            ":target",
+        ),
+    )
+
+
+@buck_test()
 async def test_cancellation_analysis(buck: Buck) -> None:
     return
     await cancellation_result(
@@ -49,7 +64,7 @@ async def test_cancellation_analysis(buck: Buck) -> None:
 
 
 async def cancellation_result(
-    aproc: Process[BuildResult, BuckException],
+    aproc: Process[BuildResult, BuckException] | Process[BxlResult, BuckException],
     bproc: Process[BuildResult, BuckException],
 ) -> None:
     # We need to give time to the above to start executing. On a heavily loaded

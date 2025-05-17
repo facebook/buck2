@@ -267,7 +267,7 @@ async fn eval_bxl_for_anon_target_inner(
         dice,
         &mut StarlarkProfilerOpt::disabled(),
         &eval_kind,
-        None,
+        liveness.dupe().into(),
         |provider, dice| {
             let env = Module::new();
 

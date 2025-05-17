@@ -83,7 +83,7 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
             dice,
             &mut StarlarkProfilerOpt::disabled(),
             &eval_kind,
-            None,
+            None::<()>.into(),
             |_provider, _| {
                 // But must bind the promises sequentially
                 for (promise, xs) in shape {

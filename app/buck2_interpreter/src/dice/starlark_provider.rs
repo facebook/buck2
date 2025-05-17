@@ -24,6 +24,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use buck2_futures::cancellation::CancellationContext;
+use buck2_futures::cancellation::CancellationObserver;
 use buck2_util::arc_str::ThinArcStr;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -121,6 +122,37 @@ impl std::fmt::Display for StarlarkEvalKind {
     }
 }
 
+#[derive(Clone, Dupe)]
+pub enum CancellationPoller<'a> {
+    None,
+    Context(&'a CancellationContext),
+    Observer(CancellationObserver),
+}
+
+impl<'a> From<&'a CancellationContext> for CancellationPoller<'a> {
+    fn from(v: &'a CancellationContext) -> Self {
+        Self::Context(v)
+    }
+}
+
+impl<'a> From<Option<&'a CancellationContext>> for CancellationPoller<'a> {
+    fn from(v: Option<&'a CancellationContext>) -> Self {
+        v.map_or(Self::None, |c| c.into())
+    }
+}
+
+impl<'a> From<Option<()>> for CancellationPoller<'a> {
+    fn from(_v: Option<()>) -> Self {
+        Self::None
+    }
+}
+
+impl<'a> From<CancellationObserver> for CancellationPoller<'a> {
+    fn from(v: CancellationObserver) -> Self {
+        Self::Observer(v)
+    }
+}
+
 /// This constructs an appropriate StarlarkEvaluatorProvider to set up
 /// profiling/instrumentation/debugging in a starlark Evaluator for buck.
 ///
@@ -136,7 +168,7 @@ pub async fn with_starlark_eval_provider<'a, 'x, D: DerefMut<Target = DiceComput
     mut ctx: D,
     profiler_instrumentation: &mut StarlarkProfilerOpt<'_>,
     kind: &StarlarkEvalKind,
-    cancellation: Option<&'a CancellationContext>,
+    cancellation: CancellationPoller<'a>,
     closure: impl FnOnce(&mut dyn StarlarkEvaluatorProvider<'a>, D) -> buck2_error::Result<R>,
 ) -> buck2_error::Result<R> {
     let root_buckconfig = ctx.get_legacy_root_config_on_dice().await?;
@@ -159,7 +191,7 @@ pub async fn with_starlark_eval_provider<'a, 'x, D: DerefMut<Target = DiceComput
         profiler: &'x mut StarlarkProfilerOpt<'y>,
         debugger: Option<Box<dyn StarlarkDebugController>>,
         starlark_max_callstack_size: Option<usize>,
-        cancellation: Option<&'a CancellationContext>,
+        cancellation: CancellationPoller<'a>,
     }
 
     impl<'a> StarlarkEvaluatorProvider<'a> for EvalProvider<'_, '_, 'a> {
@@ -176,9 +208,14 @@ pub async fn with_starlark_eval_provider<'a, 'x, D: DerefMut<Target = DiceComput
                     .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
             }
 
-            match self.cancellation {
-                None => {}
-                Some(c) => eval.set_check_cancelled(Box::new(|| c.is_cancellation_requested())),
+            match self.cancellation.dupe() {
+                CancellationPoller::None => {}
+                CancellationPoller::Context(c) => {
+                    eval.set_check_cancelled(Box::new(|| c.is_cancellation_requested()))
+                }
+                CancellationPoller::Observer(o) => {
+                    eval.set_check_cancelled(Box::new(move || o.is_cancellation_requested()))
+                }
             }
 
             let is_profiling_enabled = self.profiler.initialize(&mut eval)?;
