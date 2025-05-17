@@ -217,6 +217,7 @@ mappable-rc = { version = "0.1.1", features = ["std"] }
 memchr = "2.4.1"
 memmap2 = "0.5.0"
 memoffset = "0.6.4"
+mimalloc = "0.1.46"
 multimap = "0.8.2"
 nix = "0.22"
 nom = "7.1.3"

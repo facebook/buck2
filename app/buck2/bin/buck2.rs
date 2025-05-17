@@ -40,6 +40,9 @@ use dupe::Dupe;
 #[global_allocator]
 #[cfg(all(any(target_os = "linux", target_os = "macos"), not(buck_build)))]
 static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+#[global_allocator]
+#[cfg(target_os = "windows")]
+static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 fn init_logging() -> anyhow::Result<Arc<dyn LogConfigurationReloadHandle>> {
     static ENV_TRACING_LOG_FILE_PATH: &str = "BUCK_LOG_TO_FILE_PATH";

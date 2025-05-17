@@ -71,6 +71,7 @@ buck2_forkserver = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 libc = { workspace = true }
+mimalloc = { workspace = true }
 winapi = { workspace = true }
 
 [[bin]]
