@@ -665,7 +665,7 @@ def _can_codesign_paths_in_parallel(codesigned_paths: List[CodesignedPath]) -> b
             continue
         previous_path = paths[index - 1]
         if previous_path.startswith(current_path):
-            _LOGGER.warn(
+            _LOGGER.warning(
                 f"Found overlapping codesigned paths: {previous_path}, {current_path}"
             )
             return False
