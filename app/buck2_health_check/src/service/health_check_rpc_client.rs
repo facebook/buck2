@@ -20,7 +20,6 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
@@ -181,7 +180,7 @@ impl HealthCheckService for HealthCheckRpcClient {
             match Report::try_from(report) {
                 Ok(report) => reports.push(report),
                 Err(e) => {
-                    soft_error!("health_check_rpc_client", e, quiet: true)?;
+                    tracing::debug!("Failed to parse health check report: {e:?}");
                 }
             }
         }

@@ -11,7 +11,6 @@
 
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::soft_error;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::error::TrySendError;
@@ -126,7 +125,7 @@ impl HealthCheckClientInner {
 
     async fn update_context(&mut self, event: HealthCheckContextEvent) {
         if let Err(e) = self.health_check_service.update_context(event).await {
-            let _ignored = soft_error!("health_check_context_update_failed", e,  quiet: true);
+            tracing::debug!("Health check context update failed: {:#}", e);
         }
     }
 
@@ -134,11 +133,11 @@ impl HealthCheckClientInner {
         match self.health_check_service.run_checks().await {
             Ok(reports) => {
                 if let Err(e) = self.send_reports(reports) {
-                    let _ignored = soft_error!("health_check_reports_error", e,  quiet: true);
+                    tracing::debug!("Health check reporting failed: {:#}", e);
                 }
             }
             Err(e) => {
-                let _ignored = soft_error!("health_check_run_error", e, quiet: true);
+                tracing::debug!("Health check run failed: {:#}", e);
             }
         }
     }
