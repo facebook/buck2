@@ -14,8 +14,8 @@ def cxx_toolchain_macro_impl(cxx_toolchain_rule = None, **kwargs):
         linker_map_enabled = (read_root_config("cxx", "linker_map_enabled", "").lower() == "true")
         kwargs["generate_linker_maps"] = select({
             "DEFAULT": linker_map_enabled,
-            "config//linker/constraints:generate_linker_maps_disabled": False,
-            "config//linker/constraints:generate_linker_maps_enabled": True,
+            "prelude//linker/constraints:generate_linker_maps_disabled": False,
+            "prelude//linker/constraints:generate_linker_maps_enabled": True,
         })
 
     bitcode = read_root_config("cxx", "bitcode")

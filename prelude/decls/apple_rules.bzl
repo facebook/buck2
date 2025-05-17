@@ -1002,7 +1002,7 @@ swift_toolchain = prelude_rule(
             "swiftc_flags": attrs.list(attrs.arg(), default = []),
             "_library_interface_uses_swiftinterface": attrs.bool(default = select({
                 "DEFAULT": False,
-                "config//features/apple:swift_library_interface_uses_swiftinterface_enabled": True,
+                "prelude//features/apple:swift_library_interface_uses_swiftinterface_enabled": True,
             })),
         }
     ),
@@ -1032,7 +1032,7 @@ def _apple_universal_executable_attrs():
             """),
         "universal": attrs.option(attrs.bool(), default = None, doc = """
                 Controls whether the output is universal binary. Any value overrides the presence
-                of the `config//cpu/constraints:universal-enabled` constraint. Read the rule docs
+                of the `prelude//cpu/constraints:universal-enabled` constraint. Read the rule docs
                 for more information on resolution.
             """),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
@@ -1050,7 +1050,7 @@ apple_universal_executable = prelude_rule(
         combines the result into a single binary using `lipo`.
 
         The output of the rule is a universal binary:
-        - If `config//cpu/constraints:universal-enabled` is present in the target platform.
+        - If `prelude//cpu/constraints:universal-enabled` is present in the target platform.
         - If the `universal` attribute is set to `True`.
 
         If none of the conditions are met, then the rule acts as a nop `alias()`.
@@ -1087,7 +1087,7 @@ def _cxx_universal_executable_attrs():
         "labels": attrs.list(attrs.string(), default = []),
         "universal": attrs.option(attrs.bool(), default = None, doc = """
                 Controls whether the output is universal binary. Any value overrides the presence
-                of the `config//cpu/constraints:universal-enabled` constraint. Read the rule docs
+                of the `prelude//cpu/constraints:universal-enabled` constraint. Read the rule docs
                 for more information on resolution.
             """),
         "_cxx_toolchain": toolchains_common.cxx(),
@@ -1102,7 +1102,7 @@ cxx_universal_executable = prelude_rule(
         combines the result into a single binary using `lipo`.
 
         The output of the rule is a universal binary:
-        - If `config//cpu/constraints:universal-enabled` is present in the target platform.
+        - If `prelude//cpu/constraints:universal-enabled` is present in the target platform.
         - If the `universal` attribute is set to `True`.
 
         If none of the conditions are met, then the rule acts as a nop `alias()`.

@@ -14,59 +14,59 @@ load("@prelude//utils:selects.bzl", "selects")
 DEFAULT_PLATFORM_TEMPLATES = {
     "linux-arm64": select({
         "DEFAULT": False,
-        "config//os:linux": select({
+        "prelude//os:linux": select({
             "DEFAULT": False,
-            "config//cpu:arm64": True,
+            "prelude//cpu:arm64": True,
         }),
     }),
     "linux-x86_64": select({
         "DEFAULT": False,
-        "config//os:linux": select({
+        "prelude//os:linux": select({
             "DEFAULT": False,
-            "config//cpu:x86_64": True,
+            "prelude//cpu:x86_64": True,
         }),
     }),
     "macos-arm64": select({
         "DEFAULT": False,
-        "config//os:macos": select({
+        "prelude//os:macos": select({
             "DEFAULT": False,
-            "config//cpu:arm64": True,
+            "prelude//cpu:arm64": True,
         }),
     }),
     "macos-x86_64": select({
         "DEFAULT": False,
-        "config//os:macos": select({
+        "prelude//os:macos": select({
             "DEFAULT": False,
-            "config//cpu:x86_64": True,
+            "prelude//cpu:x86_64": True,
         }),
     }),
     "wasi": select({
         "DEFAULT": False,
-        "config//os:wasi": select({
+        "prelude//os:wasi": select({
             "DEFAULT": False,
-            "config//cpu:wasm32": True,
+            "prelude//cpu:wasm32": True,
         }),
     }),
     "wasm32": select({
         "DEFAULT": False,
-        "config//os:none": select({
+        "prelude//os:none": select({
             "DEFAULT": False,
-            "config//cpu:wasm32": True,
+            "prelude//cpu:wasm32": True,
         }),
     }),
     "windows-gnu": select({
         "DEFAULT": False,
-        "config//os:windows": select({
+        "prelude//os:windows": select({
             "DEFAULT": False,
-            "config//abi:gnu": True,
+            "prelude//abi:gnu": True,
         }),
     }),
     "windows-msvc": select({
         "DEFAULT": False,
-        "config//os:windows": select({
+        "prelude//os:windows": select({
             "DEFAULT": True,
-            "config//abi:gnu": False,
-            "config//abi:msvc": True,
+            "prelude//abi:gnu": False,
+            "prelude//abi:msvc": True,
         }),
     }),
 }

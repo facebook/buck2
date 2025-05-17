@@ -60,12 +60,12 @@ def _watch_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo
     )
 
 watch_transition = transition(impl = _watch_transition_impl, refs = {
-    "ios": "config//os/constraints:iphoneos",
-    "ios_device_sdk": "config//os/sdk/apple/constraints:iphoneos",
-    "ios_simulator_sdk": "config//os/sdk/apple/constraints:iphonesimulator",
-    "os": "config//os/constraints:os",
-    "sdk": "config//os/sdk/apple/constraints:_",
-    "watchos": "config//os/constraints:watchos",
-    "watchos_device_sdk": "config//os/sdk/apple/constraints:watchos",
-    "watchos_simulator_sdk": "config//os/sdk/apple/constraints:watchsimulator",
+    "ios": "prelude//os/constraints:iphoneos",
+    "ios_device_sdk": "prelude//os/sdk/apple/constraints:iphoneos",
+    "ios_simulator_sdk": "prelude//os/sdk/apple/constraints:iphonesimulator",
+    "os": "prelude//os/constraints:os",
+    "sdk": "prelude//os/sdk/apple/constraints:_",
+    "watchos": "prelude//os/constraints:watchos",
+    "watchos_device_sdk": "prelude//os/sdk/apple/constraints:watchos",
+    "watchos_simulator_sdk": "prelude//os/sdk/apple/constraints:watchsimulator",
 })

@@ -19,6 +19,6 @@ python_bootstrap_binary(
 
 find_msvc_tools(
     name = "msvc_tools",
-    target_compatible_with = ["config//os:windows"],
+    target_compatible_with = ["prelude//os:windows"],
     visibility = ["PUBLIC"],
 )

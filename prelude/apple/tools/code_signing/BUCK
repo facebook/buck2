@@ -8,16 +8,16 @@ source_listing()
 configured_alias(
     name = "dummy_binary_for_signing_configured",
     actual = ":dummy_binary_for_signing",
-    platform = "config//platform/macos:base",
+    platform = "prelude//platform/macos:base",
 )
 
 platform(
     name = "dummy_binary_for_signing_platform",
     constraint_values = [
-        "config//cpu/constraints:arm64",
+        "prelude//cpu/constraints:arm64",
     ],
     deps = [
-        "config//platform/macos:base",
+        "prelude//platform/macos:base",
     ],
 )
 

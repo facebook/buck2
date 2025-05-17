@@ -81,8 +81,8 @@ def _attrs():
         "only_protocols": attrs.bool(default = False),
         ## A list of source files to include. Only the name of the file, excluding the path, should be set. By default all source files are included and this doesn't need to be specified.
         "srcs": attrs.set(attrs.source(), sorted = True, default = []),
-        "_mockingbird_bin": attrs.exec_dep(providers = [RunInfo], default = "fbsource//fbobjc/VendorLib/Mockingbird:mockingbird-binary"),
-        "_mockingbird_support": attrs.dep(providers = [DefaultInfo], default = "fbsource//fbobjc/VendorLib/Mockingbird:MockingbirdSupport"),
+        "_mockingbird_bin": attrs.exec_dep(providers = [RunInfo], default = "//fbobjc/VendorLib/Mockingbird:mockingbird-binary"),
+        "_mockingbird_support": attrs.dep(providers = [DefaultInfo], default = "//fbobjc/VendorLib/Mockingbird:MockingbirdSupport"),
         APPLE_PLATFORMS_KEY: attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
     }
     return attribs

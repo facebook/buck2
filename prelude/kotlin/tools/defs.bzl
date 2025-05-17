@@ -50,6 +50,6 @@ def _set_dex_toolchain(**kwargs):
     dex_toolchain = kwargs.pop("_dex_toolchain", None)
     kwargs["_dex_toolchain"] = dex_toolchain or select({
         "DEFAULT": "toolchains//:empty_dex",
-        "config//os/constraints:android": "toolchains//:dex",
+        "prelude//os/constraints:android": "toolchains//:dex",
     })
     return kwargs

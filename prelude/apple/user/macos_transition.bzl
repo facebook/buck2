@@ -61,12 +61,12 @@ def _macos_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo
     )
 
 refs = {
-    "os": "config//os/constraints:os",
-    "os_macos": "config//os/constraints:macos",
-    "sdk": "config//os/sdk/apple/constraints:_",
-    "sdk_maccatalyst": "config//os/sdk/apple/constraints:maccatalyst",
-    "sdk_macos": "config//os/sdk/apple/constraints:macosx",
-    "target_sdk_version": "config//version:constraint-setting-target-sdk-version",
+    "os": "prelude//os/constraints:os",
+    "os_macos": "prelude//os/constraints:macos",
+    "sdk": "prelude//os/sdk/apple/constraints:_",
+    "sdk_maccatalyst": "prelude//os/sdk/apple/constraints:maccatalyst",
+    "sdk_macos": "prelude//os/sdk/apple/constraints:macosx",
+    "target_sdk_version": "prelude//version:constraint-setting-target-sdk-version",
 }
 refs.update(get_target_sdk_version_map())
 macos_transition = transition(impl = _macos_transition_impl, refs = refs)

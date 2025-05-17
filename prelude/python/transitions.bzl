@@ -84,18 +84,18 @@ def _transition_opt_by_default_impl(platform: PlatformInfo, refs: struct, attrs:
 
 def _refs():
     return {
-        "_opt_by_default__dev": "@config//build_mode/constraints:dev",
-        "_opt_by_default__dev_san": "@config//build_mode/constraints:asan-ubsan-dev",
-        "_opt_by_default__enabled": "@config//toolchain/python/constraints:python-opt-by-default-enabled",
-        "_opt_by_default__fbcode_build_info_mode_full": "@config//build_mode/constraints:fbcode-build-info-mode-full",
-        "_opt_by_default__linux": "@config//os/constraints:linux",
-        "_opt_by_default__lto_none": "@config//build_mode/constraints:lto-none",
-        "_opt_by_default__no_san": "@config//build_mode/constraints:no-san",
-        "_opt_by_default__opt": "@config//build_mode/constraints:opt",
-        "_opt_by_default__opt_cxx_enabled": "@config//build_mode/default_opt_cxx:enabled",
-        "_opt_by_default__split_dwarf_single": "@config//build_mode/constraints:split-dwarf-single",
-        "_opt_by_default__static": "@config//build_mode/constraints:static",
-        "_opt_by_default_native_debug_enabled": "@config//build_mode/constraints:native-debugging-supported",
+        "_opt_by_default__dev": "prelude//build_mode/constraints:dev",
+        "_opt_by_default__dev_san": "prelude//build_mode/constraints:asan-ubsan-dev",
+        "_opt_by_default__enabled": "prelude//toolchain/python/constraints:python-opt-by-default-enabled",
+        "_opt_by_default__fbcode_build_info_mode_full": "prelude//build_mode/constraints:fbcode-build-info-mode-full",
+        "_opt_by_default__linux": "prelude//os/constraints:linux",
+        "_opt_by_default__lto_none": "prelude//build_mode/constraints:lto-none",
+        "_opt_by_default__no_san": "prelude//build_mode/constraints:no-san",
+        "_opt_by_default__opt": "prelude//build_mode/constraints:opt",
+        "_opt_by_default__opt_cxx_enabled": "prelude//build_mode/default_opt_cxx:enabled",
+        "_opt_by_default__split_dwarf_single": "prelude//build_mode/constraints:split-dwarf-single",
+        "_opt_by_default__static": "prelude//build_mode/constraints:static",
+        "_opt_by_default_native_debug_enabled": "prelude//build_mode/constraints:native-debugging-supported",
     }
 
 def _attrs():
