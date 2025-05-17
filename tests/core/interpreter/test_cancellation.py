@@ -9,6 +9,7 @@
 
 import time
 
+import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 
 from buck2.tests.e2e_util.api.buck_result import BuckException, BuildResult, BxlResult
@@ -16,72 +17,29 @@ from buck2.tests.e2e_util.api.process import Process
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
+ALL_STAGES = ["load", "package", "analysis", "bxl"]
+
+
 @buck_test()
-async def test_cancellation_package(buck: Buck) -> None:
-    a = buck.build(
+@pytest.mark.parametrize("stage", ALL_STAGES)
+async def test_cancellation(buck: Buck, stage: str) -> None:
+    if stage == "bxl":
+        preempted_target = "//:root.bxl:loop_test"
+        a_method = buck.bxl
+    else:
+        preempted_target = ":target"
+        a_method = buck.build
+
+    aproc = a_method(
         "--preemptible=always",
         "--config",
-        "should.loop=package",
+        f"should.loop={stage}",
+        preempted_target,
+    )
+    bproc = buck.build(
         ":target",
     )
 
-    b = buck.build(
-        ":target",
-    )
-
-    await cancellation_result(a, b)
-
-
-@buck_test()
-async def test_cancellation_bxl(buck: Buck) -> None:
-    await cancellation_result(
-        buck.bxl(
-            "--preemptible=always",
-            "--config",
-            "should.loop=bxl",
-            "//:root.bxl:loop_test",
-        ),
-        buck.build(
-            ":target",
-        ),
-    )
-
-
-@buck_test()
-async def test_cancellation_analysis(buck: Buck) -> None:
-    return
-    await cancellation_result(
-        buck.build(
-            "--preemptible=always",
-            "--config",
-            "should.loop=analysis",
-            ":target",
-        ),
-        buck.build(
-            ":target",
-        ),
-    )
-
-
-@buck_test()
-async def test_cancellation_load(buck: Buck) -> None:
-    await cancellation_result(
-        buck.build(
-            "--preemptible=always",
-            "--config",
-            "should.loop=load",
-            ":target",
-        ),
-        buck.build(
-            ":target",
-        ),
-    )
-
-
-async def cancellation_result(
-    aproc: Process[BuildResult, BuckException] | Process[BxlResult, BuckException],
-    bproc: Process[BuildResult, BuckException],
-) -> None:
     # We need to give time to the above to start executing. On a heavily loaded
     # system we could still fail this race condition.
     aproc2 = await aproc.start()
