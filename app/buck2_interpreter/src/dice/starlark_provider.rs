@@ -132,12 +132,12 @@ impl std::fmt::Display for StarlarkEvalKind {
 ///
 /// The provided closure will be invoked and passed an appropriate
 /// StarlarkEvaluatorProvider.
-pub async fn with_starlark_eval_provider<'a, D: DerefMut<Target = DiceComputations<'a>>, R>(
+pub async fn with_starlark_eval_provider<'a, 'x, D: DerefMut<Target = DiceComputations<'x>>, R>(
     mut ctx: D,
     profiler_instrumentation: &mut StarlarkProfilerOpt<'_>,
     kind: &StarlarkEvalKind,
-    _cancellation: Option<&CancellationContext>,
-    closure: impl FnOnce(&mut dyn StarlarkEvaluatorProvider, D) -> buck2_error::Result<R>,
+    cancellation: Option<&'a CancellationContext>,
+    closure: impl FnOnce(&mut dyn StarlarkEvaluatorProvider<'a>, D) -> buck2_error::Result<R>,
 ) -> buck2_error::Result<R> {
     let root_buckconfig = ctx.get_legacy_root_config_on_dice().await?;
 
@@ -155,21 +155,30 @@ pub async fn with_starlark_eval_provider<'a, D: DerefMut<Target = DiceComputatio
         None => None,
     };
 
-    struct EvalProvider<'a, 'b> {
-        profiler: &'a mut StarlarkProfilerOpt<'b>,
+    struct EvalProvider<'x, 'y, 'a> {
+        profiler: &'x mut StarlarkProfilerOpt<'y>,
         debugger: Option<Box<dyn StarlarkDebugController>>,
         starlark_max_callstack_size: Option<usize>,
+        cancellation: Option<&'a CancellationContext>,
     }
 
-    impl StarlarkEvaluatorProvider for EvalProvider<'_, '_> {
-        fn make<'v, 'a, 'e>(
+    impl<'a> StarlarkEvaluatorProvider<'a> for EvalProvider<'_, '_, 'a> {
+        fn make<'v, 'b, 'e>(
             &mut self,
             module: &'v Module,
-        ) -> buck2_error::Result<(Evaluator<'v, 'a, 'e>, bool)> {
+        ) -> buck2_error::Result<(Evaluator<'v, 'b, 'e>, bool)>
+        where
+            'a: 'b,
+        {
             let mut eval = Evaluator::new(module);
             if let Some(stack_size) = self.starlark_max_callstack_size {
                 eval.set_max_callstack_size(stack_size)
                     .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            }
+
+            match self.cancellation {
+                None => {}
+                Some(c) => eval.set_check_cancelled(Box::new(|| c.is_cancellation_requested())),
             }
 
             let is_profiling_enabled = self.profiler.initialize(&mut eval)?;
@@ -189,6 +198,7 @@ pub async fn with_starlark_eval_provider<'a, D: DerefMut<Target = DiceComputatio
             profiler: profiler_instrumentation,
             debugger,
             starlark_max_callstack_size,
+            cancellation,
         };
 
         // If we're debugging, we need to move this to a tokio blocking task.

@@ -583,6 +583,44 @@ fn test_module_visibility_preserved_by_evaluator() -> crate::Result<()> {
 }
 
 #[test]
+fn test_cancellation() -> crate::Result<()> {
+    // Make sure that when we use a module in the evaluator, the entering / exiting the
+    // module with ScopeData preserves the visibility of symbols.
+
+    let globals = Globals::standard();
+    let import = Module::new();
+
+    let mut eval = Evaluator::new(&import);
+    eval.set_check_cancelled(Box::new(|| true));
+
+    let ast = AstModule::parse(
+        "prelude.bzl",
+        // Note that the exact range here is unimportant, so long as it's small enough to not trigger the "infrequent" checks
+        "def loop():\n    for i in range(10):\n       pass\nloop()".to_owned(),
+        &Dialect::Standard,
+    )
+    .unwrap();
+    eval.eval_module(ast, &globals).unwrap();
+
+    let ast = AstModule::parse(
+        "prelude.bzl",
+        // Note that the exact range here is unimportant, so long as it's large enough to trigger the "infrequent" checks
+        "def loop():\n    for i in range(1000000):\n       pass\nloop()".to_owned(),
+        &Dialect::Standard,
+    )
+    .unwrap();
+    let err = eval.eval_module(ast, &globals);
+
+    let expected = "Evaluation cancelled";
+    let err_msg = format!("{:#?}", err);
+    if !err_msg.contains(expected) {
+        panic!("Error:\n{:#?}\nExpected:\n{:?}", err, expected)
+    }
+
+    Ok(())
+}
+
+#[test]
 fn test_load_did_you_mean() {
     let mut a = Assert::new();
     a.module("categories", "colour = 1");

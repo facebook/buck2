@@ -11,13 +11,15 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 
 /// Provides a starlark Evaluator.
-pub trait StarlarkEvaluatorProvider {
+pub trait StarlarkEvaluatorProvider<'a> {
     /// Creates an Evaluator for a module. The evaluator will be configured for instrumenting/profiling/debugging
     /// as appropriate. Also returns whether profiling is enabled.
-    fn make<'v, 'a, 'e>(
+    fn make<'v, 'b, 'e>(
         &mut self,
         module: &'v Module,
-    ) -> buck2_error::Result<(Evaluator<'v, 'a, 'e>, bool)>;
+    ) -> buck2_error::Result<(Evaluator<'v, 'b, 'e>, bool)>
+    where
+        'a: 'b;
 
     fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()>;
 }
@@ -25,11 +27,14 @@ pub trait StarlarkEvaluatorProvider {
 /// Trivial provider that just constructs an Evaluator. Useful for tests (but not necessarily limited to them).
 pub struct StarlarkPassthroughProvider;
 
-impl StarlarkEvaluatorProvider for StarlarkPassthroughProvider {
-    fn make<'v, 'a, 'e>(
+impl<'a> StarlarkEvaluatorProvider<'a> for StarlarkPassthroughProvider {
+    fn make<'v, 'b, 'e>(
         &mut self,
         module: &'v Module,
-    ) -> buck2_error::Result<(Evaluator<'v, 'a, 'e>, bool)> {
+    ) -> buck2_error::Result<(Evaluator<'v, 'b, 'e>, bool)>
+    where
+        'a: 'b,
+    {
         Ok((Evaluator::new(module), true))
     }
 

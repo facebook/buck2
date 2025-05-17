@@ -104,10 +104,15 @@ enum EvaluatorError {
     CallstackSizeAlreadySet,
     #[error("Max callstack size cannot be zero")]
     ZeroCallstackSize,
+    #[error("Evaluation cancelled")]
+    Cancelled,
 }
 
 /// Number of bytes to allocate between GC's.
 pub(crate) const GC_THRESHOLD: usize = 100000;
+
+/// Number of instructions to execute before running "infrequent" checks
+const INFREQUENT_INSTRUCTION_CHECK_PERIOD: u32 = 1000;
 
 /// Default value for max starlark stack size
 pub(crate) const DEFAULT_STACK_SIZE: usize = 50;
@@ -164,6 +169,10 @@ pub struct Evaluator<'v, 'a, 'e> {
     // The Starlark-level call-stack of functions.
     // Must go last because it's quite a big structure
     pub(crate) call_stack: CheapCallStack<'v>,
+    /// Function to check if evaluation should be cancelled early
+    pub(crate) is_cancelled: Box<dyn Fn() -> bool + 'a>,
+    /// A counter to track when to perform "infrequent" checks like cancellation, timeouts, etc
+    pub(crate) infrequent_instr_check_counter: u32,
 }
 
 /// Just holds things that require using EvaluationCallbacksEnabled so that we can cache whether that needs to be enabled or not.
@@ -234,6 +243,8 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             verbose_gc: false,
             static_typechecking: false,
             max_callstack_size: None,
+            is_cancelled: Box::new(|| false),
+            infrequent_instr_check_counter: 0,
         }
     }
 
@@ -447,6 +458,11 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     /// Set deprecation handler. If not set, deprecations are treated as hard errors.
     pub fn set_soft_error_handler(&mut self, handler: &'a (dyn SoftErrorHandler + 'a)) {
         self.soft_error_handler = handler;
+    }
+
+    /// Set canceled-checking function. This function is called periodically to check if the evaluator should return early (with an error condition).
+    pub fn set_check_cancelled(&mut self, is_canceled: Box<dyn Fn() -> bool + 'a>) {
+        self.is_cancelled = is_canceled
     }
 
     /// Called to add an entry to the call stack, by the function being invoked.
@@ -852,6 +868,20 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             return Err(EvaluatorError::CallstackSizeAlreadySet.into());
         }
         self.max_callstack_size = Some(stack_size);
+        Ok(())
+    }
+
+    #[inline(always)]
+    pub(crate) fn run_infrequent_instr_checks(&mut self) -> crate::Result<()> {
+        self.infrequent_instr_check_counter += 1;
+        if self.infrequent_instr_check_counter >= INFREQUENT_INSTRUCTION_CHECK_PERIOD {
+            if (self.is_cancelled)() {
+                return Err(crate::Error::new_other(EvaluatorError::Cancelled));
+            }
+            self.infrequent_instr_check_counter = 0
+        };
+
+        // TODO(T219887296): implement CPU-time-limiting checks here
         Ok(())
     }
 }

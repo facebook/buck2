@@ -1276,6 +1276,9 @@ impl BcInstr for InstrContinue {
             BcAddrOffset,
         ),
     ) -> InstrControl<'v, 'b> {
+        if let Err(e) = eval.run_infrequent_instr_checks() {
+            return InstrControl::Err(e);
+        }
         let iter = frame.get_bc_slot(*iter);
         let loop_depth = *loop_depth;
         let i = frame.get_iter_index(loop_depth);
@@ -1475,6 +1478,7 @@ impl BcFrozenCallable for FrozenValue {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
+        eval.run_infrequent_instr_checks()?;
         self.to_value().invoke_with_loc(Some(location), args, eval)
     }
 }
@@ -1487,6 +1491,7 @@ impl BcFrozenCallable for FrozenValueTyped<'static, FrozenDef> {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
+        eval.run_infrequent_instr_checks()?;
         eval.with_call_stack(self.to_value(), Some(location), |eval| {
             self.as_ref().invoke(self.to_value(), args, eval)
         })
@@ -1501,6 +1506,7 @@ impl BcFrozenCallable for BcNativeFunction {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
+        eval.run_infrequent_instr_checks()?;
         eval.with_call_stack(self.to_value(), Some(location), |eval| {
             self.invoke(args, eval)
         })
@@ -1545,6 +1551,7 @@ impl<A: BcCallArgs<Symbol>> InstrNoFlowImpl for InstrCallImpl<A> {
         _ip: BcPtrAddr,
         (this, args, span, target): &(BcSlotIn, A, FrozenRef<'static, FrameSpan>, BcSlotOut),
     ) -> crate::Result<()> {
+        eval.run_infrequent_instr_checks()?;
         let f = frame.get_bc_slot(*this);
         let arguments = Arguments(args.pop_from_stack(frame));
         let r = f.invoke_with_loc(Some(*span), &arguments, eval)?;
@@ -1565,6 +1572,7 @@ impl<F: BcFrozenCallable, A: BcCallArgs<Symbol>> InstrNoFlowImpl
         _ip: BcPtrAddr,
         (fun, args, span, target): &(F, A, FrozenRef<'static, FrameSpan>, BcSlotOut),
     ) -> crate::Result<()> {
+        eval.run_infrequent_instr_checks()?;
         let arguments = Arguments(args.pop_from_stack(frame));
         let r = fun.bc_invoke(*span, &arguments, eval)?;
         frame.set_bc_slot(*target, r);
@@ -1592,6 +1600,7 @@ impl<A: BcCallArgsForDef> InstrNoFlowImpl for InstrCallFrozenDefImpl<A> {
             BcSlotOut,
         ),
     ) -> crate::Result<()> {
+        eval.run_infrequent_instr_checks()?;
         let arguments = args.pop_from_stack(frame);
         let r = eval.with_call_stack(fun.to_value(), Some(*span), |eval| {
             fun.as_ref()
@@ -1613,6 +1622,7 @@ fn call_method_common<'v>(
     span: FrozenRef<'static, FrameSpan>,
     target: BcSlotOut,
 ) -> crate::Result<()> {
+    eval.run_infrequent_instr_checks()?;
     // TODO: wrong span: should be span of `object.method`, not of the whole expression
     let method = get_attr_hashed_raw(this, symbol, eval.heap())?;
     let r = method.invoke(this, span, arguments, eval)?;
@@ -1728,6 +1738,7 @@ impl InstrNoFlowImpl for InstrPossibleGcImpl {
         _ip: BcPtrAddr,
         (): &(),
     ) -> crate::Result<()> {
+        eval.run_infrequent_instr_checks()?;
         possible_gc(eval);
         Ok(())
     }
