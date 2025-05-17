@@ -39,7 +39,9 @@ impl CancellationHandleSharedStateView {
         // later notify the termination observer via the channel we store in `State::Cancelled`,
         // or that we will observe the terminated state of the future and directly notify the
         // `TerminationObserver` ourselves.
-        self.inner.cancelled.store(true, Ordering::SeqCst);
+        self.inner
+            .cancellation_requested
+            .store(true, Ordering::SeqCst);
 
         let future = std::mem::replace(&mut *self.inner.state.lock(), State::Cancelled);
         match future {
@@ -78,6 +80,10 @@ impl CancellableFutureSharedStateView {
         CancellableFutureSharedStateView,
         CancellationContextSharedStateView,
     ) {
+        let shared_data = Arc::new(SharedStateData {
+            state: Mutex::new(State::Pending),
+            cancellation_requested: AtomicBool::new(false),
+        });
         let context_data = Arc::new(Mutex::new(ExecutionContextData {
             cancellation_notification: {
                 CancellationNotificationData {
@@ -85,15 +91,11 @@ impl CancellableFutureSharedStateView {
                         notified: Default::default(),
                         wakers: Mutex::new(Some(Default::default())),
                     }),
+                    shared: shared_data.dupe(),
                 }
             },
             prevent_cancellation: 0,
         }));
-
-        let shared_data = Arc::new(SharedStateData {
-            state: Mutex::new(State::Pending),
-            cancelled: AtomicBool::new(false),
-        });
 
         (
             CancellationHandleSharedStateView {
@@ -101,14 +103,17 @@ impl CancellableFutureSharedStateView {
             },
             CancellableFutureSharedStateView {
                 context_data: context_data.dupe(),
+                inner: shared_data.dupe(),
+            },
+            CancellationContextSharedStateView {
+                context_data,
                 inner: shared_data,
             },
-            CancellationContextSharedStateView { context_data },
         )
     }
 
     pub(crate) fn is_cancelled(&self) -> bool {
-        self.inner.cancelled.load(Ordering::SeqCst)
+        self.inner.cancellation_requested.load(Ordering::SeqCst)
     }
 
     pub(crate) fn set_waker(&self, cx: &mut Context<'_>) {
@@ -150,10 +155,14 @@ impl CancellableFutureSharedStateView {
 
 /// Shared cancellation related execution context for a cancellable task.
 ///
-/// This is the "inner" context, used by a CancellationContext to observe cancellation
-/// and enter critical sections.
+/// This is the "inner" context, used by a CancellationContext to observe
+/// cancellation and enter critical sections. Normal async uses of this only
+/// need to refer to the `context_data` member, which is updated by the poll
+/// loop on the associated ExplicitCancellationFuture. Synchronous tasks that
+/// want to cancel can poll the `inner.cancel_requested` member.
 pub(crate) struct CancellationContextSharedStateView {
     context_data: Arc<Mutex<ExecutionContextData>>,
+    inner: Arc<SharedStateData>,
 }
 
 impl CancellationContextSharedStateView {
@@ -180,13 +189,25 @@ impl CancellationContextSharedStateView {
         let mut shared = self.context_data.lock();
         shared.exit_prevent_cancellation()
     }
+
+    #[inline(always)]
+    pub(crate) fn is_cancellation_requested(&self) -> bool {
+        self.inner.is_cancellation_requested()
+    }
 }
 
 struct SharedStateData {
     state: Mutex<State>,
 
     /// When set, this future has been cancelled and should attempt to exit as soon as possible.
-    cancelled: AtomicBool,
+    cancellation_requested: AtomicBool,
+}
+
+impl SharedStateData {
+    #[inline(always)]
+    pub(crate) fn is_cancellation_requested(&self) -> bool {
+        self.cancellation_requested.load(Ordering::SeqCst)
+    }
 }
 
 enum State {
@@ -303,6 +324,14 @@ impl From<CancellationNotificationStatus> for u8 {
 #[derive(Clone, Dupe)]
 pub(crate) struct CancellationNotificationData {
     inner: Arc<CancellationNotificationDataInner>,
+    shared: Arc<SharedStateData>,
+}
+
+impl CancellationNotificationData {
+    #[inline(always)]
+    pub(crate) fn is_cancellation_requested(&self) -> bool {
+        self.shared.is_cancellation_requested()
+    }
 }
 
 struct CancellationNotificationDataInner {
@@ -340,6 +369,11 @@ impl CancellationNotificationFuture {
                 .as_mut()
                 .map(|wakers| wakers.remove(id));
         }
+    }
+
+    #[inline(always)]
+    pub fn is_cancellation_requested(&self) -> bool {
+        self.data.is_cancellation_requested()
     }
 }
 

@@ -49,7 +49,7 @@ impl CancellationContext {
         self.0.begin_ignore_cancellation()
     }
 
-    /// Enter a critical section during which the current future (if supports explicit cancellation)
+    /// Enter a critical section during which the current future (if it supports explicit cancellation)
     /// should not be dropped. If the future was not cancelled before entering the critical section,
     /// it becomes non-cancellable during the critical section. If it *was* cancelled before
     /// entering the critical section (i.e. the last ref was dropped during `poll`), then the
@@ -91,6 +91,16 @@ impl CancellationContext {
         Self(CancellationContextInner::Explicit(
             ExplicitCancellationContext { inner },
         ))
+    }
+
+    /// Queries whether the current future (if it supports explicit
+    /// cancellation) has been requested to be cancelled. This can be polled by
+    /// synchronous code to decide to exit early. It should NOT be used in an
+    /// async context. Async code should use the CancellationObserver returned
+    /// by `with_structured_cancellation` instead.
+    #[inline(always)]
+    pub fn is_cancellation_requested(&self) -> bool {
+        self.0.is_cancellation_requested()
     }
 }
 
@@ -153,6 +163,14 @@ pub struct CancellationObserver(pub(crate) CancellationObserverInner);
 impl CancellationObserver {
     pub(crate) fn never_cancelled() -> Self {
         CancellationObserver(CancellationObserverInner::NeverCancelled)
+    }
+
+    #[inline(always)]
+    pub fn is_cancellation_requested(&self) -> bool {
+        match &self.0 {
+            CancellationObserverInner::Explicit(fut) => fut.is_cancellation_requested(),
+            CancellationObserverInner::NeverCancelled => false,
+        }
     }
 }
 

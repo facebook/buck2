@@ -157,6 +157,11 @@ impl ExplicitCancellationContext {
             r
         }
     }
+
+    #[inline(always)]
+    pub fn is_cancellation_requested(&self) -> bool {
+        self.inner.is_cancellation_requested()
+    }
 }
 
 pub(crate) enum CancellationContextInner {
@@ -214,6 +219,14 @@ impl CancellationContextInner {
         match self {
             CancellationContextInner::NeverCancelled => CriticalSectionGuard::NeverCancelled,
             CancellationContextInner::Explicit(inner) => inner.begin_ignore_cancellation(),
+        }
+    }
+
+    #[inline(always)]
+    pub fn is_cancellation_requested(&self) -> bool {
+        match self {
+            CancellationContextInner::NeverCancelled => false,
+            CancellationContextInner::Explicit(inner) => inner.is_cancellation_requested(),
         }
     }
 }
