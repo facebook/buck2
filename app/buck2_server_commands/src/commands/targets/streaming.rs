@@ -365,7 +365,7 @@ async fn load_targets(
     let result = if cached {
         dice.get_interpreter_results(package.dupe()).await?
     } else {
-        dice.get_interpreter_results_uncached(package.dupe())
+        dice.get_interpreter_results_uncached(package.dupe(), None)
             .await
             .1?
     };

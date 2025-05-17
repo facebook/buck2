@@ -69,10 +69,12 @@ impl Key for InterpreterResultsKey {
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
-        _cancellation: &CancellationContext,
+        cancellation: &CancellationContext,
     ) -> Self::Value {
-        let ((duration, result), spans) =
-            async_record_root_spans(ctx.get_interpreter_results_uncached(self.0.dupe())).await;
+        let ((duration, result), spans) = async_record_root_spans(
+            ctx.get_interpreter_results_uncached(self.0.dupe(), Some(cancellation)),
+        )
+        .await;
 
         ctx.store_evaluation_data(InterpreterResultsKeyActivationData {
             duration,
@@ -99,6 +101,7 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         &self,
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
+        cancellation: Option<&CancellationContext>,
     ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>) {
         match ctx
             .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
@@ -106,7 +109,11 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
             ))
             .await
         {
-            Ok(mut interpreter) => interpreter.eval_build_file(package.dupe(), None).await,
+            Ok(mut interpreter) => {
+                interpreter
+                    .eval_build_file(package.dupe(), cancellation)
+                    .await
+            }
             Err(e) => (Duration::ZERO, Err(e.into())),
         }
     }

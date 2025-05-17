@@ -63,6 +63,21 @@ async def test_cancellation_analysis(buck: Buck) -> None:
     )
 
 
+@buck_test()
+async def test_cancellation_load(buck: Buck) -> None:
+    await cancellation_result(
+        buck.build(
+            "--preemptible=always",
+            "--config",
+            "should.loop=load",
+            ":target",
+        ),
+        buck.build(
+            ":target",
+        ),
+    )
+
+
 async def cancellation_result(
     aproc: Process[BuildResult, BuckException] | Process[BxlResult, BuckException],
     bproc: Process[BuildResult, BuckException],
