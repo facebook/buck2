@@ -344,12 +344,6 @@ def linkable_graph(dep: Dependency) -> [LinkableGraph, None]:
         # `cxx_precompiled_header()` does not contribute to the link, only to compile
         return None
 
-    expect(
-        LinkableGraph in dep,
-        "{} provides `MergedLinkInfo`".format(dep.label) +
-        " but doesn't also provide `LinkableGraph`",
-    )
-
     return dep[LinkableGraph]
 
 def get_link_info(
