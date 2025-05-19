@@ -25,8 +25,8 @@ use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
 use buck2_util::process::async_background_command;
 use dice::DiceTransactionUpdater;
+use tracing::debug;
 use tracing::info;
-use tracing::warn;
 use watchman_client::expr::Expr;
 use watchman_client::prelude::Connector;
 use watchman_client::prelude::FileType;
@@ -171,7 +171,7 @@ impl WatchmanQueryProcessor {
                                 log_event = buck2_data::FileWatcherEventType::Modify;
                             }
                             WatchmanEventType::Create => {
-                                warn!(
+                                debug!(
                                     "New symlink detected (source symlinks are not supported): {}",
                                     cell_path
                                 );

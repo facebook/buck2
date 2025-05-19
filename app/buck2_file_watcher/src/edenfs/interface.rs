@@ -42,8 +42,8 @@ use edenfs::LargeChangeNotification;
 use edenfs::SmallChangeNotification;
 use fbinit::FacebookInit;
 use tokio::sync::RwLock;
+use tracing::debug;
 use tracing::info;
-use tracing::warn;
 
 use crate::edenfs::sapling::MergebaseDetails;
 use crate::edenfs::sapling::SaplingGetStatusResult;
@@ -448,7 +448,7 @@ impl EdenFsFileWatcher {
                 (Type::Create, Kind::Directory) => tracker.dir_added(cell_path),
                 (Type::Create, _) => {
                     if kind == Kind::Symlink {
-                        warn!(
+                        debug!(
                             "New symlink detected (source symlinks are not supported): {}",
                             cell_path
                         );
