@@ -89,6 +89,10 @@ CXX_GENERIC_ERROR_TYPES = [
         category_suffix = "missing_type",
     ),
     make_error_type(
+        matcher = "no template named",
+        category_suffix = "missing_template",
+    ),
+    make_error_type(
         matcher = "no matching function for call",
         category_suffix = "missing_function",
     ),
@@ -127,6 +131,18 @@ CXX_GENERIC_ERROR_TYPES = [
     make_error_type(
         matcher = "Wheader-hygiene",
         category_suffix = "header_hygiene_violated",
+    ),
+    make_error_type(
+        matcher = "call to non-static member function",
+        category_suffix = "non_static_member_function_call",
+    ),
+    make_error_type(
+        matcher = "too many template arguments for class template",
+        category_suffix = "too_many_template_arguments",
+    ),
+    make_error_type(
+        matcher = regex("no member named '.+' in"),
+        category_suffix = "missing_member",
     ),
     make_error_type(
         matcher = regex("reference to '.+' is ambiguous"),
