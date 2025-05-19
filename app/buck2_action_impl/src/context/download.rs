@@ -58,9 +58,6 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] sha256: NoneOr<&str>,
         #[starlark(require = named, default = NoneOr::None)] size_bytes: NoneOr<u64>,
         #[starlark(require = named, default = false)] is_executable: bool,
-        #[allow(unused)]
-        #[starlark(require = named, default = true)]
-        is_deferrable: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         let mut this = this.state()?;

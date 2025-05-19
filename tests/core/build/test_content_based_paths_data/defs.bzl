@@ -191,7 +191,7 @@ def _download_with_content_based_path_impl(ctx: AnalysisContext):
     url = "https://interncache-all.fbcdn.net/manifold/buck_build_test/tree/buck2_test/http_archive/test.tgz"
     sha1 = "1a45666759704bf08fc670aa96118a0415c470fc"
     download = ctx.actions.declare_output("download", uses_experimental_content_based_path_hashing = True)
-    download = ctx.actions.download_file(download, url, sha1 = sha1, is_deferrable = True)
+    download = ctx.actions.download_file(download, url, sha1 = sha1)
     return [
         DefaultInfo(default_output = download),
     ]
