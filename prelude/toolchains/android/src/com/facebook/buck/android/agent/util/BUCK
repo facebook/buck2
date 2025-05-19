@@ -1,5 +1,5 @@
 load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_library")
-load("@prelude//toolchains/android/tools/build_rules:file_alias.bzl", "file_alias")
+load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
 oncall("android_devxx")
@@ -24,9 +24,9 @@ buck_java_library(
     ],
 )
 
-file_alias(
+fb_native.export_file(
     name = "util_src",
-    source = "AgentUtil.java",
+    src = "AgentUtil.java",
     visibility = [
         "prelude//toolchains/android/android/com/facebook/buck/android/agent/...",
     ],
