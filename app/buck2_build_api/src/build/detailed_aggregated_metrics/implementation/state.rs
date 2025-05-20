@@ -12,6 +12,7 @@ use std::time::Instant;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_data::ToProtoMessage;
 use buck2_error::internal_error;
 use dupe::Dupe;
 use gazebo::prelude::VecExt;
@@ -100,7 +101,7 @@ impl DetailedAggregatedMetricsStateTracker {
                 &self.analysis_nodes,
             )?;
             agg_data.push(TopLevelTargetAggregatedData::new(
-                &spec.label,
+                spec.label.dupe(),
                 if complete {
                     Some(action_graph.len())
                 } else {
@@ -154,8 +155,8 @@ impl DetailedAggregatedMetricsStateTracker {
         all_targets_data.set_compute_time(now.elapsed());
 
         Ok(buck2_data::DetailedAggregatedMetrics {
-            all_targets_build_metrics: Some(all_targets_data.into_proto()),
-            top_level_target_metrics: agg_data.into_map(|v| v.into_proto()),
+            all_targets_build_metrics: Some(all_targets_data.as_proto()),
+            top_level_target_metrics: agg_data.into_map(|v| v.as_proto()),
         })
     }
 }
