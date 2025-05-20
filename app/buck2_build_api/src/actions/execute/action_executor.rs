@@ -646,11 +646,10 @@ impl BuckActionExecutor {
                         };
                         if real != declared {
                             return Err(ExecuteError::WrongOutputType {
-                                // TODO(T219919866) Add support for experimental content-based path hashing
-                                path: self
-                                    .command_executor
-                                    .fs()
-                                    .resolve_build(x.get_path(), None)?,
+                                path: self.command_executor.fs().resolve_build(
+                                    x.get_path(),
+                                    Some(&t.content_based_path_hash()),
+                                )?,
                                 declared,
                                 real,
                             });
