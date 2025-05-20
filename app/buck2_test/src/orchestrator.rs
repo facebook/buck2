@@ -45,6 +45,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::space_separated::SpaceSep
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
+use buck2_build_api::keep_going::KeepGoing;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::events::HasEvents;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -1376,13 +1377,16 @@ impl BuckTestOrchestrator<'_> {
             };
 
             let inputs = expander.get_inputs()?;
-            let mut ensured_inputs = Vec::with_capacity(inputs.len());
-            for input in inputs {
-                // we already built these before reaching out to tpx, so these should already be ready
-                // hence we don't actually need to spawn these in parallel
-                let artifact_group_value = dice.ensure_artifact_group(&input).await?;
-                ensured_inputs.push((input, artifact_group_value));
-            }
+            // We already built these before reaching out to tpx, so these should already be ready.
+            let ensured_inputs = KeepGoing::try_compute_join_all(dice, inputs, |dice, input| {
+                async move {
+                    let artifact_group_value = dice.ensure_artifact_group(&input).await?;
+                    buck2_error::Ok((input, artifact_group_value))
+                }
+                .boxed()
+            })
+            .await?;
+
             let (expanded_cmd, expanded_env, expanded_worker) = if test_info
                 .use_project_relative_paths()
                 || opts.force_use_project_relative_paths
