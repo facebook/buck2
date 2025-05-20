@@ -1572,14 +1572,18 @@ impl BuckTestOrchestrator<'_> {
             })
             .await?;
 
+        let artifact_path_mapping: IndexMap<_, _> = inputs
+            .iter()
+            .flat_map(|v| v.iter())
+            .map(|(a, v)| (a, v.content_based_path_hash()))
+            .collect();
         let mut cmd: Vec<String> = vec![];
         let mut cmd_line_context = DefaultCommandLineContext::new(executor_fs);
         let setup_command_line = provider.setup_command_line();
         setup_command_line.add_to_command_line(
             &mut cmd,
             &mut cmd_line_context,
-            // TODO(T219919866) Do we need to fill this in for content-based path hashing?
-            &IndexMap::new(),
+            &artifact_path_mapping,
         )?;
 
         let inputs = inputs

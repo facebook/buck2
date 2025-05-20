@@ -1,8 +1,19 @@
 load(
     ":defs.bzl",
+    "broker",
+    "local_resources_test",
     "run_test_with_content_based_path",
 )
 
 run_test_with_content_based_path(
     name = "run_test_with_content_based_path",
+)
+
+broker(
+    name = "my_broker",
+)
+
+local_resources_test(
+    name = "local_resources_test",
+    broker = ":my_broker",
 )
