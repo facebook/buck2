@@ -8,6 +8,8 @@
 # pyre-strict
 
 
+import subprocess
+from pathlib import Path
 from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -130,6 +132,75 @@ async def test_cas_artifact_with_content_based_path(buck: Buck) -> None:
 async def test_download_with_content_based_path(buck: Buck) -> None:
     await build_target_with_different_platforms_and_verify_output_paths_are_identical(
         buck, "root//:download_with_content_based_path"
+    )
+
+
+def hg_init(cwd: Path) -> None:
+    subprocess.run(["hg", "init"], check=True, cwd=cwd)
+    hg_config_reponame(cwd)
+
+
+def hg_config_reponame(cwd: Path) -> None:
+    subprocess.run(
+        ["hg", "config", "remotefilelog.reponame", "--local", "no-repo"],
+        check=True,
+        cwd=cwd,
+    )
+
+
+@buck_test()
+async def test_offline_cas_artifact_with_content_based_path(buck: Buck) -> None:
+    hg_init(cwd=buck.cwd)
+
+    await buck.debug("trace-io", "enable")
+    target = "root//:empty_cas_artifact_with_content_based_path"
+    await buck.build(
+        target,
+        "--target-platforms",
+        "root//:p_default",
+        "--show-output",
+    )
+
+    await buck.debug("trace-io", "export-manifest")
+    await buck.kill()
+
+    await buck.build(
+        target,
+        "--target-platforms",
+        "root//:p_default",
+        "--show-output",
+        "-c",
+        "buck2.use_network_action_output_cache=true",
+        "--no-remote-cache",
+        "--local-only",
+    )
+
+
+@buck_test()
+async def test_offline_download_with_content_based_path(buck: Buck) -> None:
+    hg_init(cwd=buck.cwd)
+
+    await buck.debug("trace-io", "enable")
+    target = "root//:download_with_content_based_path"
+    await buck.build(
+        target,
+        "--target-platforms",
+        "root//:p_default",
+        "--show-output",
+    )
+
+    await buck.debug("trace-io", "export-manifest")
+    await buck.kill()
+
+    await buck.build(
+        target,
+        "--target-platforms",
+        "root//:p_default",
+        "--show-output",
+        "-c",
+        "buck2.use_network_action_output_cache=true",
+        "--no-remote-cache",
+        "--local-only",
     )
 
 

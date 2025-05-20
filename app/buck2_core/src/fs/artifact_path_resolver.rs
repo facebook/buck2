@@ -84,10 +84,8 @@ impl ArtifactFs {
     pub fn resolve_offline_output_cache_path(
         &self,
         path: &BuildArtifactPath,
-        content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        self.buck_out_path_resolver
-            .resolve_offline_cache(path, content_hash)
+        self.buck_out_path_resolver.resolve_offline_cache(path)
     }
 
     pub fn fs(&self) -> &ProjectRoot {

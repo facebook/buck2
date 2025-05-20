@@ -276,7 +276,6 @@ impl BuckOutPathResolver {
     pub fn resolve_offline_cache(
         &self,
         path: &BuildArtifactPath,
-        content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("offline-cache"),
@@ -286,8 +285,9 @@ impl BuckOutPathResolver {
                 .map(|x| x.as_str()),
             path.path(),
             false,
-            path.path_resolution_method(),
-            content_hash,
+            // We always resolve the offline cache to a path that uses the configuration hash.
+            BuckOutPathKind::Configuration,
+            None,
         )
     }
 
