@@ -915,7 +915,7 @@ pub async fn materialize_inputs(
             CommandExecutionInput::ActionMetadata(metadata) => {
                 let path = artifact_fs
                     .buck_out_path_resolver()
-                    // TODO(T219919866) Add support for experimental content-based path hashing
+                    // Metadata path always uses the configuration hash
                     .resolve_gen(&metadata.path, None)?;
                 CleanOutputPaths::clean(std::iter::once(path.as_ref()), artifact_fs.fs())?;
                 artifact_fs

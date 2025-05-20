@@ -545,9 +545,8 @@ impl RunAction {
             let path = BuildArtifactPath::new(
                 ctx.target().owner().dupe(),
                 metadata_param.path.clone(),
-                BuckOutPathKind::default(),
+                BuckOutPathKind::Configuration,
             );
-            // TODO(T219919866) Add support for experimental content-based path hashing
             let env = cli_ctx
                 .resolve_project_path(fs.buck_out_path_resolver().resolve_gen(&path, None)?)?
                 .into_string();

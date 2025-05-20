@@ -87,6 +87,10 @@ pub(crate) enum RunActionError {
         "`{}` was marked to be materialized on failure but is not declared as an output of the action.", .path
     )]
     FailedActionArtifactNotDeclared { path: String },
+    #[error(
+        "Action is marked with no_outputs_cleanup but output `{}` is content-based, which is not allowed.", .path
+    )]
+    NoOutputsCleanupWithContentBasedOutputs { path: String },
 }
 
 #[starlark_module]
@@ -418,6 +422,19 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
 
         let extra_params =
             parse_meta_internal_extra_params(meta_internal_extra_params.into_option())?;
+
+        if no_outputs_cleanup {
+            for o in artifacts.outputs.iter() {
+                if o.has_content_based_path() {
+                    return Err(buck2_error::Error::from(
+                        RunActionError::NoOutputsCleanupWithContentBasedOutputs {
+                            path: o.get_path().to_string(),
+                        },
+                    )
+                    .into());
+                }
+            }
+        }
 
         let action = UnregisteredRunAction {
             executor_preference,

@@ -83,6 +83,7 @@ def _run_with_content_based_path_impl(ctx):
     args = cmd_args(["python3", script, out.as_output(), ctx.attrs.data])
     kwargs = {
         "category": "test_run",
+        "no_outputs_cleanup": ctx.attrs.is_incremental,
         "outputs_for_error_handler": [out.as_output()],
     }
     if ctx.attrs.prefer_local:
@@ -98,6 +99,7 @@ run_with_content_based_path = rule(
     impl = _run_with_content_based_path_impl,
     attrs = {
         "data": attrs.string(),
+        "is_incremental": attrs.bool(default = False),
         "prefer_local": attrs.bool(default = False),
         "_ignored": attrs.string(default = "ignored"),
     },
