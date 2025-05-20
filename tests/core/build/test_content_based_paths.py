@@ -75,11 +75,34 @@ async def test_write_json_with_content_based_path(buck: Buck) -> None:
 @buck_test()
 async def test_run_remote_with_content_based_path(buck: Buck) -> None:
     target = "root//:run_remote_with_content_based_path"
-    await build_target_with_different_platforms_and_verify_output_paths_are_identical(
-        buck,
+
+    result1 = await buck.build(
         target,
-        ["--remote-only"],
+        "--target-platforms",
+        "root//:p_default",
+        "--show-output",
+        "--remote-only",
     )
+    what_ran1 = await read_what_ran(buck)
+    result2 = await buck.build(
+        target,
+        "--target-platforms",
+        "root//:p_cat",
+        "--show-output",
+        "--remote-only",
+    )
+    what_ran2 = await read_what_ran(buck)
+
+    assert (
+        what_ran1[0]["reproducer"]["details"]["digest"]
+        == what_ran2[0]["reproducer"]["details"]["digest"]
+    )
+
+    path1 = result1.get_target_to_build_output().get(target)
+    path2 = result2.get_target_to_build_output().get(target)
+
+    assert path1 is not None
+    assert path1 == path2
 
 
 @buck_test()

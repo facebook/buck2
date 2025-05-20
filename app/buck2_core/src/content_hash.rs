@@ -37,6 +37,9 @@ pub enum ContentBasedPathHash {
     /// When running aquery we don't have content hashes for any of our inputs, so we
     /// just use a placeholder value instead.
     AqueryPlaceholder,
+    /// If we're not using the configuration hash in the scratch path, then just use a
+    /// placeholder value.
+    Scratch,
 }
 
 impl ContentBasedPathHash {
@@ -69,6 +72,7 @@ impl ContentBasedPathHash {
             ContentBasedPathHash::Specified(value) => value,
             ContentBasedPathHash::OutputArtifact => "output_artifact",
             ContentBasedPathHash::AqueryPlaceholder => "aquery_placeholder",
+            ContentBasedPathHash::Scratch => "scratch",
         }
     }
 }
@@ -107,5 +111,10 @@ mod tests {
             "aquery_placeholder",
             ContentBasedPathHash::AqueryPlaceholder.as_str()
         );
+    }
+
+    #[test]
+    fn test_hash_for_scratch_path() {
+        assert_eq!("scratch", ContentBasedPathHash::Scratch.as_str());
     }
 }

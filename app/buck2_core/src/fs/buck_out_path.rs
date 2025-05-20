@@ -152,6 +152,8 @@ pub struct BuckOutScratchPath {
     path: ForwardRelativePathBuf,
     /// The unique identifier for this action
     action_key: ForwardRelativePathBuf,
+    /// Uses content hash
+    uses_content_hash: bool,
 }
 
 impl BuckOutScratchPath {
@@ -162,6 +164,7 @@ impl BuckOutScratchPath {
         category: CategoryRef,
         identifier: Option<&str>,
         action_key: ForwardRelativePathBuf,
+        uses_content_hash: bool,
     ) -> buck2_error::Result<Self> {
         const MAKE_SENSIBLE_PREFIX: &str = "_buck_";
         // Windows has MAX_PATH limit (260 chars).
@@ -212,6 +215,7 @@ impl BuckOutScratchPath {
             owner,
             path,
             action_key,
+            uses_content_hash,
         })
     }
 }
@@ -319,7 +323,6 @@ impl BuckOutPathResolver {
         &self,
         path: &BuckOutScratchPath,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        // TODO(T219919866) Add support for experimental content-based path hashing
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("tmp"),
             &path.owner,
@@ -327,8 +330,12 @@ impl BuckOutPathResolver {
             &path.path,
             // Fully hash scratch path as it can be very long and cause path too long issue on Windows.
             true,
-            BuckOutPathKind::Configuration,
-            None,
+            if path.uses_content_hash {
+                BuckOutPathKind::ContentHash
+            } else {
+                BuckOutPathKind::Configuration
+            },
+            Some(&ContentBasedPathHash::Scratch),
         )
     }
 
@@ -545,6 +552,7 @@ mod tests {
                 CategoryRef::new("category").unwrap(),
                 Some(&String::from("blah.file")),
                 ForwardRelativePathBuf::new("1_2".to_owned()).unwrap(),
+                false,
             )
             .unwrap(),
         )?;
@@ -645,6 +653,7 @@ mod tests {
                     "xxx_some_long_action_key_but_it_doesnt_matter_xxx".to_owned(),
                 )
                 .unwrap(),
+                false,
             )
             .unwrap(),
         )?;
@@ -677,6 +686,7 @@ mod tests {
             category,
             None,
             ForwardRelativePathBuf::new("1_2".to_owned()).unwrap(),
+            false,
         )
         .unwrap();
 
@@ -686,6 +696,7 @@ mod tests {
                 category,
                 Some(s),
                 ForwardRelativePathBuf::new("3_4".to_owned()).unwrap(),
+                false,
             )
             .unwrap()
             .path
@@ -729,6 +740,7 @@ mod tests {
                         CategoryRef::new("category").unwrap(),
                         Some(id),
                         ForwardRelativePathBuf::new(s.to_owned()).unwrap(),
+                        false,
                     )
                     .unwrap(),
                 )

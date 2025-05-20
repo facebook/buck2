@@ -186,6 +186,15 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
         Ok(ValueOfUnchecked::new(starlark::values::Value::new_none()))
     }
 
+    fn all_outputs_are_content_based(&self) -> bool {
+        for output in self.outputs().iter() {
+            if !output.get_path().is_content_based_path() {
+                return false;
+            }
+        }
+        true
+    }
+
     // TODO this probably wants more data for execution, like printing a short_name and the target
 }
 

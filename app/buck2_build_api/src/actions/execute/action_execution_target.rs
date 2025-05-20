@@ -49,6 +49,7 @@ impl<'a> ActionExecutionTarget<'a> {
             self.action.category(),
             self.action.identifier(),
             self.action.action_key(),
+            self.action.all_outputs_are_content_based(),
         )
         .unwrap()
     }
