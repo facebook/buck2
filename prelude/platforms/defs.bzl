@@ -17,17 +17,7 @@ def _execution_platform_impl(ctx: AnalysisContext) -> list[Provider]:
         configuration = cfg,
         executor_config = CommandExecutorConfig(
             local_enabled = True,
-            remote_enabled = True,
-            use_limited_hybrid = True,
-            allow_limited_hybrid_fallbacks = True,
-            allow_hybrid_fallbacks_on_failure = True,
-            remote_cache_enabled = True,
-            remote_execution_properties = {
-                "OSFamily": "linux",
-                "container-image": "docker://nativelink-toolchain-buck2:latest",
-            },
-            remote_execution_use_case = "buck2-default",
-            remote_output_paths = "output_paths",
+            remote_enabled = False,
             use_windows_path_separators = ctx.attrs.use_windows_path_separators,
         ),
     )
