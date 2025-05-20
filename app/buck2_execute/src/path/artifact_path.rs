@@ -107,6 +107,13 @@ impl ArtifactPath<'_> {
 
         Ok(base_path.join(projected_path))
     }
+
+    pub fn is_content_based_path(&self) -> bool {
+        match self.base_path.as_ref() {
+            Either::Left(build_artifact_path) => build_artifact_path.is_content_based_path(),
+            Either::Right(_) => false,
+        }
+    }
 }
 
 impl fmt::Display for ArtifactPath<'_> {

@@ -363,6 +363,15 @@ impl Write for BxlStreamingWriter {
     }
 }
 
+#[derive(Debug, buck2_error::Error, Clone)]
+#[buck2(tag = Input)]
+enum BxlOutputError {
+    #[error(
+        "Content-based paths are not supported for ensured artifacts in BXL, but {0} has a content-based path"
+    )]
+    ContentBasedPathNotSupported(String),
+}
+
 impl OutputStream {
     pub(crate) fn new(
         project_fs: ProjectRoot,
@@ -898,7 +907,11 @@ pub(crate) fn get_artifact_path_display(
     project_fs: &ProjectRoot,
     artifact_fs: &ArtifactFs,
 ) -> buck2_error::Result<String> {
-    // TODO(T219919866) Add support for experimental content-based path hashing
+    // Content-based paths are currently not supported at all in BXL
+    // TODO(T219919866) Refactor BXL to make it work with content-based paths
+    if artifact_path.is_content_based_path() {
+        return Err(BxlOutputError::ContentBasedPathNotSupported(artifact_path.to_string()).into());
+    }
     let resolved = artifact_path.resolve(artifact_fs, None)?;
     Ok(if abs {
         project_fs.resolve(&resolved).to_string()

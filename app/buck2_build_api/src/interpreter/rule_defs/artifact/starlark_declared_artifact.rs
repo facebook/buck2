@@ -125,6 +125,10 @@ impl StarlarkDeclaredArtifact {
             associated_artifacts: merged,
         }
     }
+
+    pub fn has_content_based_path(&self) -> bool {
+        self.artifact.has_content_based_path()
+    }
 }
 
 impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
