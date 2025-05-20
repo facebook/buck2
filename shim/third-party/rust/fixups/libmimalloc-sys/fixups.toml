@@ -1,0 +1,34 @@
+buildscript.run = false
+
+[[cxx_library]]
+name = "libmimalloc"
+add_dep = true
+srcs = [
+    "c_src/mimalloc/src/alloc.c",
+    "c_src/mimalloc/src/alloc-aligned.c",
+    "c_src/mimalloc/src/alloc-posix.c",
+    "c_src/mimalloc/src/arena.c",
+    "c_src/mimalloc/src/bitmap.c",
+    "c_src/mimalloc/src/heap.c",
+    "c_src/mimalloc/src/init.c",
+    "c_src/mimalloc/src/libc.c",
+    "c_src/mimalloc/src/options.c",
+    "c_src/mimalloc/src/os.c",
+    "c_src/mimalloc/src/page.c",
+    "c_src/mimalloc/src/prim/prim.c",
+    "c_src/mimalloc/src/random.c",
+    "c_src/mimalloc/src/segment-map.c",
+    "c_src/mimalloc/src/segment.c",
+    "c_src/mimalloc/src/stats.c",
+]
+headers = [
+    "c_src/mimalloc/include/**/*.h",
+    "c_src/mimalloc/src/alloc-override.c",
+    "c_src/mimalloc/src/arena-abandon.c",
+    "c_src/mimalloc/src/bitmap.h",
+    "c_src/mimalloc/src/free.c",
+    "c_src/mimalloc/src/page-queue.c",
+    "c_src/mimalloc/src/prim/**/*.c",
+]
+exported_headers = []
+include_paths = ["c_src/mimalloc/include"]

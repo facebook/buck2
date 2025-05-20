@@ -119,6 +119,7 @@ lalrpop = { version = "0.19.7", artifact = "bin", features = ["pico-args"] }
 lalrpop-util = "0.19.7"
 libc = "0.2.158"
 libfuzzer-sys = "0.4"
+libmimalloc-sys = "0.1.42"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
 linkme = { version = "0.3.17", features = ["used_linker"] }
 log = "0.4"
@@ -132,6 +133,7 @@ md-5 = "0.10"
 memchr = "2.4.1"
 memmap2 = "0.5.0"
 memoffset = "0.6.4"
+mimalloc = { version = "0.1.46", default-features = false }
 multimap = "0.8.2"
 nix = { version = "0.29.0", features = ["dir", "event", "hostname", "inotify", "ioctl", "mman", "mount", "net", "poll", "ptrace", "reboot", "resource", "sched", "signal", "term", "time", "user", "zerocopy"] }
 nom = "7.1.3"
