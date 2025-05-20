@@ -28,6 +28,15 @@ use indexmap::IndexMap;
 
 use crate::ServerAuditSubcommand;
 
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+enum AuditClasspathError {
+    #[error(
+        "Using `audit classpath` on output {0} which has a content-based path is not allowed! Use the [classpath] sub-target instead."
+    )]
+    ContentBasedPath(String),
+}
+
 #[async_trait]
 impl ServerAuditSubcommand for AuditClasspathCommand {
     async fn server_execute(
@@ -84,7 +93,12 @@ impl ServerAuditSubcommand for AuditClasspathCommand {
                                 let classpaths: buck2_error::Result<Vec<_>> = label_to_artifact
                                     .into_values()
                                     .map(|artifact| {
-                                        // TODO(T219919866) Add support for experimental content-based path hashing
+                                        if artifact.has_content_based_path() {
+                                            return Err(AuditClasspathError::ContentBasedPath(
+                                                artifact.to_string(),
+                                            )
+                                            .into());
+                                        }
                                         let path =
                                             artifact.get_path().resolve(&artifact_fs, None)?;
                                         buck2_error::Ok(artifact_fs.fs().resolve(&path))
@@ -109,7 +123,12 @@ impl ServerAuditSubcommand for AuditClasspathCommand {
                     )
                     .await?;
                     for (_label, artifact) in label_to_artifact {
-                        // TODO(T219919866) Add support for experimental content-based path hashing
+                        if artifact.has_content_based_path() {
+                            return Err(AuditClasspathError::ContentBasedPath(
+                                artifact.to_string(),
+                            )
+                            .into());
+                        }
                         let path = artifact.get_path().resolve(&artifact_fs, None)?;
                         let abs_path = artifact_fs.fs().resolve(&path);
                         writeln!(stdout, "{}", &abs_path)?;
