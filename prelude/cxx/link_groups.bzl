@@ -923,7 +923,8 @@ def _symbol_files_for_link_group(
         ctx: AnalysisContext,
         lib: LinkedObject,
         prefer_local: bool = False,
-        anonymous: bool = False) -> (Artifact, Artifact):
+        anonymous: bool = False,
+        hash_counter = 0) -> (Artifact, Artifact):
     """
     Find and return all undefined and global symbols form the given library.
     """
@@ -936,6 +937,7 @@ def _symbol_files_for_link_group(
         category_prefix = "link_groups",
         prefer_local = prefer_local,
         anonymous = anonymous,
+        hash_counter = hash_counter,
     )
 
     # Extract global symbols.
@@ -1079,7 +1081,7 @@ def create_link_groups(
         build_groups_context = build_groups_context,
     )
 
-    for link_group_spec in specs:
+    for counter, link_group_spec in enumerate(specs):
         # NOTE(agallagher): It might make sense to move this down to be
         # done when we generated the links for the executable, so we can
         # handle the case when a link group can depend on the executable.
@@ -1164,6 +1166,7 @@ def create_link_groups(
             ctx = ctx,
             lib = link_group_lib,
             anonymous = anonymous,
+            hash_counter = counter,
         )
         undefined_symfiles.append(undefined_symfile)
         global_symfiles.append(global_symfile)
