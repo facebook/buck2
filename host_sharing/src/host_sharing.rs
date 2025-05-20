@@ -8,6 +8,7 @@
  */
 
 use std::fmt;
+use std::iter;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -112,7 +113,7 @@ impl Default for HostSharingRequirements {
 /// Semaphores are held until this struct is dropped.
 pub struct HostSharingGuard {
     _run_guard: SharedSemaphoreReleaser,
-    _name_guard: Option<SharedSemaphoreReleaser>,
+    _name_guards: Vec<SharedSemaphoreReleaser>,
 }
 
 /// Used to ensure that host resources are properly reserved before executing a command spec.
@@ -181,33 +182,43 @@ impl HostSharingBroker {
         match host_sharing_requirements {
             HostSharingRequirements::Shared(weight_class) => {
                 let permits = self.requested_permits(weight_class).into_count();
-                let _run_guard = self.permits.acquire(permits).await;
-                HostSharingGuard {
-                    _run_guard,
-                    _name_guard: None,
-                }
+                self.acquire_from_permits_and_identifiers(permits, iter::empty())
+                    .await
             }
             HostSharingRequirements::ExclusiveAccess => {
-                let _run_guard = self.permits.acquire(self.num_machine_permits).await;
-                HostSharingGuard {
-                    _run_guard,
-                    _name_guard: None,
-                }
+                self.acquire_from_permits_and_identifiers(self.num_machine_permits, iter::empty())
+                    .await
             }
             HostSharingRequirements::OnePerToken(identifier, weight_class) => {
-                // Ensure that there is only one active run per identifier.
-                // Acquire the identifier semaphore first, then acquire the permits needed to actually run.
-                // This is so that no permits (which map to system resources / cores) are held while waiting
-                // for the previous run on this identifier to finish.
-                let run_semaphore = self.named_semaphores.get(identifier);
-                let _name_guard = Some(run_semaphore.acquire(SINGLE_RUN).await);
                 let permits = self.requested_permits(weight_class).into_count();
-                let _run_guard = self.permits.acquire(permits).await;
-                HostSharingGuard {
-                    _run_guard,
-                    _name_guard,
-                }
+                self.acquire_from_permits_and_identifiers(permits, iter::once(identifier))
+                    .await
             }
+        }
+    }
+
+    async fn acquire_from_permits_and_identifiers<'a>(
+        &self,
+        num_requested_permits: usize,
+        sorted_identifiers: impl Iterator<Item = &'a String>,
+    ) -> HostSharingGuard {
+        // Ensure that there is only one active run per identifier. The identifiers must be sorted
+        // to avoid a potential deadlock.
+        //
+        // Acquire the identifier semaphores first, then acquire the permits needed to actually run.
+        // This is so that no permits (which map to system resources / cores) are held while waiting
+        // for the previous runs on these identifiers to finish.
+        let mut name_guards = Vec::new();
+        for identifier in sorted_identifiers {
+            let run_semaphore = self.named_semaphores.get(identifier);
+            let name_guard = run_semaphore.acquire(SINGLE_RUN).await;
+            name_guards.push(name_guard);
+        }
+        let run_guard = self.permits.acquire(num_requested_permits).await;
+
+        HostSharingGuard {
+            _run_guard: run_guard,
+            _name_guards: name_guards,
         }
     }
 }
