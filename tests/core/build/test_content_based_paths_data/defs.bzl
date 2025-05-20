@@ -99,6 +99,7 @@ run_with_content_based_path = rule(
     attrs = {
         "data": attrs.string(),
         "prefer_local": attrs.bool(default = False),
+        "_ignored": attrs.string(default = "ignored"),
     },
 )
 

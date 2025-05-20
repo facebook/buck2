@@ -772,10 +772,10 @@ async fn outputs_match(
     let output_matches = previous_state
         .result
         .iter()
-        // TODO(T219919866) Add support for experimental content-based path hashing
         .map(|(path, value)| {
             Ok((
-                fs.buck_out_path_resolver().resolve_gen(path, None)?,
+                fs.buck_out_path_resolver()
+                    .resolve_gen(path, Some(&value.content_based_path_hash()))?,
                 value.dupe(),
             ))
         })
