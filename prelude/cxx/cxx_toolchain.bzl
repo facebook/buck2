@@ -208,7 +208,7 @@ def cxx_toolchain_impl(ctx):
         header_mode = _get_header_mode(ctx),
         headers_as_raw_headers_mode = HeadersAsRawHeadersMode(ctx.attrs.headers_as_raw_headers_mode) if ctx.attrs.headers_as_raw_headers_mode != None else None,
         hip_compiler_info = hip_info,
-        internal_tools = ctx.attrs._internal_tools[CxxInternalTools],
+        internal_tools = ctx.attrs.internal_tools[CxxInternalTools],
         linker_info = linker_info,
         lipo = ctx.attrs.lipo[RunInfo] if ctx.attrs.lipo else None,
         llvm_link = ctx.attrs.llvm_link[RunInfo] if ctx.attrs.llvm_link else None,
@@ -255,6 +255,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "gcno_files": attrs.bool(default = False),
         "generate_linker_maps": attrs.bool(default = False),
         "hip_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "internal_tools": dep_type(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools"),
         "link_ordering": attrs.enum(LinkOrdering.values(), default = "preorder"),
         "link_weight": attrs.int(default = 1),
         "linker": dep_type(providers = [RunInfo]),
@@ -310,7 +311,6 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
                 "ovr_config//cpu:x86_64": "fbsource//third-party/toolchains/visual_studio:cl_x64_and_tools",
             }),
         }) if is_full_meta_repo() else None)),
-        "_internal_tools": attrs.default_only(dep_type(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools")),
         "_msvc_hermetic_exec": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//windows/tools:msvc_hermetic_exec")),
     } | cxx_toolchain_allow_cache_upload_args()
 

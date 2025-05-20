@@ -30,18 +30,30 @@ def _impl(ctx):
 dist_lto_tools = rule(
     impl = _impl,
     attrs = {
-        "copy": attrs.dep(providers = [RunInfo]),
+        "copy": attrs.dep(providers = [RunInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_copy"),
         "opt": attrs.dict(
             key = attrs.enum(LinkerType.values()),
             value = attrs.dep(providers = [RunInfo]),
+            default = {
+                "darwin": "prelude//cxx/dist_lto/tools:dist_lto_opt_darwin",
+                "gnu": "prelude//cxx/dist_lto/tools:dist_lto_opt_gnu",
+            },
         ),
         "planner": attrs.dict(
             key = attrs.enum(LinkerType.values()),
             value = attrs.dep(providers = [RunInfo]),
+            default = {
+                "darwin": "prelude//cxx/dist_lto/tools:dist_lto_planner_darwin",
+                "gnu": "prelude//cxx/dist_lto/tools:dist_lto_planner_gnu",
+            },
         ),
         "prepare": attrs.dict(
             key = attrs.enum(LinkerType.values()),
             value = attrs.dep(providers = [RunInfo]),
+            default = {
+                "darwin": "prelude//cxx/dist_lto/tools:dist_lto_prepare_darwin",
+                "gnu": "prelude//cxx/dist_lto/tools:dist_lto_prepare_gnu",
+            },
         ),
     },
 )

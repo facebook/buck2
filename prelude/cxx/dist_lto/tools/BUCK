@@ -51,19 +51,6 @@ prelude.python_bootstrap_binary(
 
 dist_lto_tools(
     name = "dist_lto_tools",
-    copy = ":dist_lto_copy",
-    opt = {
-        "darwin": ":dist_lto_opt_darwin",
-        "gnu": ":dist_lto_opt_gnu",
-    },
-    planner = {
-        "darwin": ":dist_lto_planner_darwin",
-        "gnu": ":dist_lto_planner_gnu",
-    },
-    prepare = {
-        "darwin": ":dist_lto_prepare_darwin",
-        "gnu": ":dist_lto_prepare_gnu",
-    },
     visibility = ["PUBLIC"],
 )
 
