@@ -12,10 +12,8 @@ use std::time::Instant;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_data::ToProtoMessage;
 use buck2_error::internal_error;
 use dupe::Dupe;
-use gazebo::prelude::VecExt;
 
 use crate::build::detailed_aggregated_metrics::FxMultiMap;
 use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsEvent;
@@ -26,6 +24,7 @@ use crate::build::detailed_aggregated_metrics::types::ActionExecutionMetrics;
 use crate::build::detailed_aggregated_metrics::types::AllTargetsAggregatedData;
 use crate::build::detailed_aggregated_metrics::types::AnalysisMetrics;
 use crate::build::detailed_aggregated_metrics::types::BuiltWhen;
+use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use crate::build::detailed_aggregated_metrics::types::PerBuildEvents;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetAggregatedData;
 use crate::deferred::calculation::DeferredHolder;
@@ -85,7 +84,7 @@ impl DetailedAggregatedMetricsStateTracker {
     fn compute_metrics(
         &mut self,
         events: PerBuildEvents,
-    ) -> buck2_error::Result<buck2_data::DetailedAggregatedMetrics> {
+    ) -> buck2_error::Result<DetailedAggregatedMetrics> {
         let now = Instant::now();
         let mut agg_data = Vec::new();
         let mut action_mappings: FxMultiMap<ActionKey, usize> = FxMultiMap::default();
@@ -154,9 +153,9 @@ impl DetailedAggregatedMetricsStateTracker {
 
         all_targets_data.set_compute_time(now.elapsed());
 
-        Ok(buck2_data::DetailedAggregatedMetrics {
-            all_targets_build_metrics: Some(all_targets_data.as_proto()),
-            top_level_target_metrics: agg_data.into_map(|v| v.as_proto()),
+        Ok(DetailedAggregatedMetrics {
+            all_targets_build_metrics: all_targets_data,
+            top_level_target_metrics: agg_data,
         })
     }
 }

@@ -46,6 +46,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_data::BuildResult;
+use buck2_data::ToProtoMessage;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::instant_event;
@@ -238,7 +239,8 @@ async fn build(
 
     if want_detailed_metrics {
         let events = ctx.take_per_build_events()?;
-        instant_event(ctx.compute_detailed_metrics(events).await?);
+        let metrics = ctx.compute_detailed_metrics(events).await?;
+        instant_event(metrics.as_proto());
     }
 
     send_target_cfg_event(

@@ -21,6 +21,7 @@ use dice::UserComputationData;
 use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsEventHandler;
 use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsPerBuildEventsHolder;
 use crate::build::detailed_aggregated_metrics::types::ActionExecutionMetrics;
+use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use crate::build::detailed_aggregated_metrics::types::PerBuildEvents;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetSpec;
 use crate::deferred::calculation::DeferredHolder;
@@ -38,7 +39,7 @@ pub trait HasDetailedAggregatedMetrics {
     fn compute_detailed_metrics(
         &self,
         events: PerBuildEvents,
-    ) -> impl Future<Output = buck2_error::Result<buck2_data::DetailedAggregatedMetrics>> + Send;
+    ) -> impl Future<Output = buck2_error::Result<DetailedAggregatedMetrics>> + Send;
 }
 
 impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
@@ -80,7 +81,7 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
     async fn compute_detailed_metrics(
         &self,
         events: PerBuildEvents,
-    ) -> buck2_error::Result<buck2_data::DetailedAggregatedMetrics> {
+    ) -> buck2_error::Result<DetailedAggregatedMetrics> {
         span_async_simple(
             ComputeDetailedAggregatedMetricsStart {},
             async move {

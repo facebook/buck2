@@ -19,6 +19,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::build::detailed_aggregated_metrics::implementation::state::DetailedAggregatedMetricsStateTracker;
 use crate::build::detailed_aggregated_metrics::types::ActionExecutionMetrics;
+use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use crate::build::detailed_aggregated_metrics::types::PerBuildEvents;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetSpec;
 use crate::deferred::calculation::DeferredHolder;
@@ -28,7 +29,7 @@ pub(crate) enum DetailedAggregatedMetricsEvent {
     AnalysisComplete(DeferredHolderKey, DeferredHolder),
     ComputeMetrics(
         PerBuildEvents,
-        tokio::sync::oneshot::Sender<buck2_error::Result<buck2_data::DetailedAggregatedMetrics>>,
+        tokio::sync::oneshot::Sender<buck2_error::Result<DetailedAggregatedMetrics>>,
     ),
     ActionExecuted(ActionExecutionMetrics),
 }
@@ -89,7 +90,7 @@ impl DetailedAggregatedMetricsEventHandler {
     pub(crate) async fn compute_metrics(
         &self,
         events: PerBuildEvents,
-    ) -> buck2_error::Result<buck2_data::DetailedAggregatedMetrics> {
+    ) -> buck2_error::Result<DetailedAggregatedMetrics> {
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.0
             .sender
