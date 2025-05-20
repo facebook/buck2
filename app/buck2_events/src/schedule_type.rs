@@ -9,11 +9,12 @@
 
 use buck2_core::buck2_env;
 
-pub struct ScheduleType {
+pub struct SandcastleScheduleType {
     schedule_type: Option<&'static str>,
 }
 
-impl ScheduleType {
+// TODO iguridi: consolidate with buckconfig
+impl SandcastleScheduleType {
     const SCHEDULE_TYPE_CONTINUOUS: &'static str = "continuous";
     const SCHEDULE_TYPE_DIFF: &'static str = "diff";
 

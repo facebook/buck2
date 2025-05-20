@@ -10,7 +10,7 @@
 use buck2_common::manifold::Ttl;
 use buck2_core::buck2_env;
 use buck2_events::metadata::username;
-use buck2_events::schedule_type::ScheduleType;
+use buck2_events::schedule_type::SandcastleScheduleType;
 
 // Copied from "Is User Command" from scuba buck2_builds
 const ROBOTS: &[&str] = &[
@@ -28,13 +28,17 @@ const DEFAULT_TTL_DAYS: u64 = 60;
 const CI_EXCEPT_CONTINUOUS_TTL_DAYS: u64 = 28;
 
 pub fn manifold_event_log_ttl() -> buck2_error::Result<Ttl> {
-    manifold_event_log_ttl_impl(ROBOTS, username().ok().flatten(), ScheduleType::new()?)
+    manifold_event_log_ttl_impl(
+        ROBOTS,
+        username().ok().flatten(),
+        SandcastleScheduleType::new()?,
+    )
 }
 
 fn manifold_event_log_ttl_impl(
     robots: &[&str],
     username: Option<String>,
-    schedule_type: ScheduleType,
+    schedule_type: SandcastleScheduleType,
 ) -> buck2_error::Result<Ttl> {
     // 1. return if this is a test
     let env = buck2_env!("BUCK2_TEST_MANIFOLD_TTL_S", type=u64, applicability=testing)?;
@@ -68,7 +72,7 @@ mod tests {
             manifold_event_log_ttl_impl(
                 &["twsvcscm"],
                 Some("random_person".to_owned()),
-                ScheduleType::testing_new("continuous")
+                SandcastleScheduleType::testing_new("continuous")
             )?
             .as_secs(),
             365 * 24 * 60 * 60,
@@ -82,7 +86,7 @@ mod tests {
             manifold_event_log_ttl_impl(
                 &["twsvcscm"],
                 Some("twsvcscm".to_owned()),
-                ScheduleType::testing_empty()
+                SandcastleScheduleType::testing_empty()
             )?
             .as_secs(),
             60 * 24 * 60 * 60,
@@ -96,7 +100,7 @@ mod tests {
             manifold_event_log_ttl_impl(
                 &["twsvcscm"],
                 Some("twsvcscm".to_owned()),
-                ScheduleType::testing_new("foo")
+                SandcastleScheduleType::testing_new("foo")
             )?
             .as_secs(),
             28 * 24 * 60 * 60,
@@ -110,7 +114,7 @@ mod tests {
             manifold_event_log_ttl_impl(
                 &["twsvcscm"],
                 Some("twsvcscm".to_owned()),
-                ScheduleType::testing_new("continuous")
+                SandcastleScheduleType::testing_new("continuous")
             )?
             .as_secs(),
             60 * 24 * 60 * 60,

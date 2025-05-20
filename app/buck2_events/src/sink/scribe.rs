@@ -28,7 +28,7 @@ use crate::EventSinkStats;
 use crate::EventSinkWithStats;
 use crate::TraceId;
 use crate::metadata;
-use crate::schedule_type::ScheduleType;
+use crate::schedule_type::SandcastleScheduleType;
 use crate::sink::smart_truncate_event::smart_truncate_event;
 
 // 1 MiB limit
@@ -40,7 +40,7 @@ static TRUNCATED_SCRIBE_MESSAGE_SIZE: usize = 50000;
 pub struct RemoteEventSink {
     category: String,
     client: scribe_client::ScribeClient,
-    schedule_type: ScheduleType,
+    schedule_type: SandcastleScheduleType,
 }
 
 impl RemoteEventSink {
@@ -53,10 +53,7 @@ impl RemoteEventSink {
         let client = scribe_client::ScribeClient::new(fb, config)
             .map_err(|e| from_any_with_tag(e, ErrorTag::Tier0))?;
 
-        // schedule_type can change for the same daemon, because on OD some builds are pre warmed for users
-        // This would be problematic, because this is run just once on the daemon
-        // But in this case we only check for 'diff' type, which shouldn't change
-        let schedule_type = ScheduleType::new()?;
+        let schedule_type = SandcastleScheduleType::new()?;
         Ok(RemoteEventSink {
             category,
             client,
@@ -229,7 +226,10 @@ impl EventSinkWithStats for RemoteEventSink {
     }
 }
 
-fn should_send_event(d: &buck2_data::buck_event::Data, schedule_type: &ScheduleType) -> bool {
+fn should_send_event(
+    d: &buck2_data::buck_event::Data,
+    schedule_type: &SandcastleScheduleType,
+) -> bool {
     use buck2_data::buck_event::Data;
 
     match d {
