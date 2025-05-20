@@ -11,8 +11,6 @@ syntax = "proto3";
 
 package buck.host_sharing;
 
-import "google/protobuf/duration.proto";
-
 message HostSharingRequirements {
   reserved 1, 3;
 
