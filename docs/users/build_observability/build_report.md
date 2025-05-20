@@ -48,6 +48,9 @@ BuildReport {
     # A map from targets that failed to build to error messages describing the
     # failure.
     failures: dict[TargetLabel, str],
+
+    # Build metrics aggregated across all targets.
+    build_metrics: AllTargetsBuildMetrics,
 }
 
 BuildReportEntry {
@@ -97,6 +100,54 @@ ConfiguredBuildReportEntry {
     # Information about this particular artifact. Includes things like its hash, whether it is
     # executable, etc.
     artifact_info: dict[str, ArtifactInfoFile | ArtifactInfoSymlink | ArtifactInfoExternalSymlink],
+
+    # Metrics for this target. Represents the aggregated metrics for top level targets.
+    metrics: TargetBuildMetrics,
+}
+
+AllTargetsBuildMetrics {
+    #  The total number of nodes in the action graph, if we were able to fully traverse it.
+    action_graph_size: Optional[u64],
+
+    # Metrics aggregated across all targets.
+    metrics: AggregatedBuildMetrics,
+}
+
+TargetBuildMetrics {
+    # The total number of nodes in the action graph, if we were able to fully traverse it.
+    action_graph_size: Optional[u64],
+
+    # These are metrics aggregated without normalization.
+    metrics: AggregatedBuildMetrics
+
+    # "Amortized" metrics are aggregated by dividing the metric/cost evenly
+    # across all top-level targets that require the node that produced the
+    # metric. For example, when building four targets `//:foo`, `//:bar`,
+    # `//:baz`, `//:qux` if some intermediate action is required for each of the
+    # first three, its costs will be aggregated to them each multiplied by 1/3
+    # while no cost will be attributed to `//:qux`.
+    amortized_metrics: AggregatedBuildMetrics
+
+    # Max value for peak memory usage across all remote actions.
+    remote_max_memory_peak_bytes: Optional[u64]
+
+    # Max value for peak memory usage across all local actions.
+    local_max_memory_peak_bytes: Optional[u64]
+}
+
+AggregatedBuildMetrics {
+    full_graph_execution_time_ms: float
+    full_graph_output_size_bytes: float
+
+    local_execution_time_ms: float
+    remote_execution_time_ms: float
+
+    local_executions: float
+    remote_executions: float
+    remote_cache_hits: float
+
+    analysis_retained_memory: float
+    declared_actions: float
 }
 
 Error {

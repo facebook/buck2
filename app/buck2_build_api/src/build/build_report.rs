@@ -88,6 +88,9 @@ pub struct BuildReport {
     project_root: AbsNormPathBuf,
     truncated: bool,
     strings: BTreeMap<String, String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Build metrics aggregated across all targets.
+    build_metrics: Option<AllTargetsBuildMetrics>,
 }
 
 /// The fields that stored in the unconfigured `BuildReportEntry` for buck1 backcompat.
@@ -125,6 +128,49 @@ pub(crate) struct ConfiguredBuildReportEntry {
     /// The serialized graph sketch for this target, if it was produced.
     #[serde(skip_serializing_if = "Option::is_none")]
     configured_graph_sketch: Option<String>,
+    /// Build metrics for this target.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    build_metrics: Option<TargetBuildMetrics>,
+}
+
+/// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
+#[derive(Default, Debug, Serialize)]
+pub(crate) struct TargetBuildMetrics {
+    /// The total number of nodes in the action graph, if we were able to fully
+    /// traverse it.
+    pub action_graph_size: Option<u64>,
+    /// These are metrics aggregated without normalization.
+    pub metrics: AggregatedBuildMetrics,
+    /// "Amortized" metrics are aggregated by dividing the metric/cost evenly
+    /// across all top-level targets that require the node that produced the
+    /// metric.
+    pub amortized_metrics: AggregatedBuildMetrics,
+    /// Max value for peak memory usage across all remote actions.
+    pub remote_max_memory_peak_bytes: Option<u64>,
+    /// Max value for peak memory usage across all local actions.
+    pub local_max_memory_peak_bytes: Option<u64>,
+}
+
+/// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
+#[derive(Default, Debug, Serialize)]
+pub(crate) struct AggregatedBuildMetrics {
+    pub full_graph_execution_time_ms: f64,
+    pub full_graph_output_size_bytes: f64,
+    pub local_execution_time_ms: f64,
+    pub remote_execution_time_ms: f64,
+    pub local_executions: f64,
+    pub remote_executions: f64,
+    pub remote_cache_hits: f64,
+    pub analysis_retained_memory: f64,
+    pub declared_actions: f64,
+}
+
+/// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
+#[derive(Default, Debug, Serialize)]
+pub(crate) struct AllTargetsBuildMetrics {
+    pub action_graph_size: Option<u64>,
+    pub metrics: AggregatedBuildMetrics,
+    pub compute_time_ms: Option<u64>,
 }
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
@@ -266,6 +312,7 @@ impl<'a> BuildReportCollector<'a> {
             // Setting this to false since we don't currently truncate buck2's build report.
             truncated: false,
             strings: this.strings,
+            build_metrics: None,
         }
     }
 
