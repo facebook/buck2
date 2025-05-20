@@ -13,13 +13,19 @@ use buck2_build_api::build::BuildProviderType;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConfiguredBuildTargetResult;
 use buck2_build_api::build::ProviderArtifacts;
+use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use buck2_certs::validate::CertState;
 use buck2_certs::validate::check_cert_state;
 use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+use buck2_execute::artifact::fs::ExecutorFs;
 use dupe::Dupe;
+use indexmap::IndexMap;
 use starlark_map::small_map::SmallMap;
 
 mod proto {
@@ -160,7 +166,7 @@ impl<'a> ResultReporter<'a> {
                 }
             }
 
-            let artifact_fs = &self.artifact_fs;
+            let artifact_fs = self.artifact_fs;
 
             // Write it this way because `.into_iter()` gets rust-analyzer confused
             IntoIterator::into_iter(artifacts)
@@ -197,10 +203,37 @@ impl<'a> ResultReporter<'a> {
             None => None,
         };
 
+        let run_args = if let Some(providers) = result.provider_collection.as_ref() {
+            if let Some(runinfo) = providers
+                .provider_collection()
+                .builtin_provider::<FrozenRunInfo>()
+            {
+                // Produce arguments to run on a local machine.
+                let path_separator = if cfg!(windows) {
+                    PathSeparatorKind::Windows
+                } else {
+                    PathSeparatorKind::Unix
+                };
+                let executor_fs = ExecutorFs::new(self.artifact_fs, path_separator);
+                let mut cli = Vec::<String>::new();
+                let mut ctx = AbsCommandLineContext::new(&executor_fs);
+                // TODO(T219919866) Support content-based path hashing properly here
+                let artifact_path_mapping = IndexMap::new();
+                runinfo
+                    .add_to_command_line(&mut cli, &mut ctx, &artifact_path_mapping)
+                    .unwrap();
+                cli
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        };
+
         self.results.push(proto::BuildTarget {
             target,
             configuration,
-            run_args: result.run_args.clone().unwrap_or_default(),
+            run_args,
             target_rule_type_name: result.target_rule_type_name.clone(),
             outputs: artifacts,
             configured_graph_size,

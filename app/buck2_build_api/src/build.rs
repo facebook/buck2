@@ -19,13 +19,11 @@ use allocative::Allocative;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::MaybeCompatible;
-use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
-use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dice::LinearRecomputeDiceComputations;
 use dice::UserComputationData;
@@ -36,14 +34,12 @@ use futures::FutureExt;
 use futures::future::Either;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
-use indexmap::IndexMap;
 use itertools::Itertools;
 use starlark::collections::SmallSet;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::calculation::BuildKey;
 use crate::actions::calculation::get_target_rule_type_name;
 use crate::analysis::calculation::RuleAnalysisCalculation;
@@ -57,9 +53,7 @@ use crate::build::graph_properties::GraphPropertiesOptions;
 use crate::build::graph_properties::GraphPropertiesValues;
 use crate::build::outputs::get_outputs_for_top_level_target;
 use crate::build_signals::HasBuildSignals;
-use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
-use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
-use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::keep_going::KeepGoing;
 use crate::materialize::MaterializationAndUploadContext;
 use crate::materialize::materialize_and_upload_artifact_group;
@@ -83,7 +77,7 @@ pub enum BuildProviderType {
 #[derive(Clone, Debug, Allocative)]
 pub struct ConfiguredBuildTargetResultGen<T> {
     pub outputs: Vec<T>,
-    pub run_args: Option<Vec<String>>,
+    pub provider_collection: Option<FrozenProviderCollectionValue>,
     pub target_rule_type_name: Option<String>,
     pub graph_properties: Option<buck2_error::Result<MaybeCompatible<GraphPropertiesValues>>>,
     pub errors: Vec<buck2_error::Error>,
@@ -200,14 +194,14 @@ impl BuildTargetResultBuilder {
                 self.res.entry((*label).dupe()).or_insert(None);
             }
             ConfiguredBuildEventVariant::Prepared {
-                run_args,
+                provider_collection,
                 target_rule_type_name,
             } => {
                 self.res
                     .entry((*label).dupe())
                     .or_insert(Some(ConfiguredBuildTargetResultGen {
                         outputs: Vec::new(),
-                        run_args,
+                        provider_collection,
                         target_rule_type_name: Some(target_rule_type_name),
                         graph_properties: None,
                         errors: Vec::new(),
@@ -262,7 +256,7 @@ impl BuildTargetResultBuilder {
                     .entry((*label).dupe())
                     .or_insert(Some(ConfiguredBuildTargetResultGen {
                         outputs: Vec::new(),
-                        run_args: None,
+                        provider_collection: None,
                         target_rule_type_name: None,
                         graph_properties: None,
                         errors: Vec::new(),
@@ -299,7 +293,7 @@ impl BuildTargetResultBuilder {
                 let result = result.map(|result| {
                     let ConfiguredBuildTargetResultGen {
                         mut outputs,
-                        run_args,
+                        provider_collection,
                         target_rule_type_name,
                         graph_properties,
                         errors,
@@ -318,7 +312,7 @@ impl BuildTargetResultBuilder {
                             .unique_by(|(index, _outputs)| *index)
                             .map(|(_index, outputs)| outputs)
                             .collect(),
-                        run_args,
+                        provider_collection,
                         target_rule_type_name,
                         graph_properties,
                         errors,
@@ -378,7 +372,7 @@ pub enum ConfiguredBuildEventExecutionVariant {
 pub enum ConfiguredBuildEventVariant {
     SkippedIncompatible,
     Prepared {
-        run_args: Option<Vec<String>>,
+        provider_collection: Option<FrozenProviderCollectionValue>,
         target_rule_type_name: String,
     },
     Execution(ConfiguredBuildEventExecutionVariant),
@@ -475,8 +469,6 @@ async fn build_configured_label_inner<'a>(
     opts: BuildConfiguredLabelOptions,
     timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> buck2_error::Result<()> {
-    let artifact_fs = ctx.get().get_artifact_fs().await?;
-
     let outputs = match get_outputs_for_top_level_target(
         &mut ctx.get(),
         &providers_label,
@@ -514,32 +506,13 @@ async fn build_configured_label_inner<'a>(
     let target_rule_type_name =
         get_target_rule_type_name(&mut ctx.get(), providers_label.target()).await?;
 
-    let run_args = if providers_to_build.run {
+    let provider_collection = if providers_to_build.run {
         let providers = ctx
             .get()
             .get_providers(providers_label.as_ref())
             .await?
             .require_compatible()?;
-
-        if let Some(runinfo) = providers
-            .provider_collection()
-            .builtin_provider::<FrozenRunInfo>()
-        {
-            // Produce arguments to run on a local machine.
-            let path_separator = if cfg!(windows) {
-                PathSeparatorKind::Windows
-            } else {
-                PathSeparatorKind::Unix
-            };
-            let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
-            let mut cli = Vec::<String>::new();
-            let mut ctx = AbsCommandLineContext::new(&executor_fs);
-            // TODO(T219919866)
-            runinfo.add_to_command_line(&mut cli, &mut ctx, &IndexMap::new())?;
-            Some(cli)
-        } else {
-            None
-        }
+        Some(providers)
     } else {
         None
     };
@@ -629,7 +602,7 @@ async fn build_configured_label_inner<'a>(
     event_consumer.consume_configured(ConfiguredBuildEvent {
         label: providers_label.dupe(),
         variant: ConfiguredBuildEventVariant::Prepared {
-            run_args,
+            provider_collection,
             target_rule_type_name,
         },
     });
