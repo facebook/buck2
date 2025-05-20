@@ -105,7 +105,7 @@ IdentityTSet = transitive_set(args_projections = {"identity": identity_projectio
 
 # TODO(nuriamari) Delete once link actions over RE measured
 def _execute_link_actions_locally() -> bool:
-    return read_root_config("user", "dthin_lto_link_actions_over_re", "false") not in ("True", "true")
+    return read_root_config("user", "dthin_lto_link_actions_locally", "false") in ("True", "true")
 
 def cxx_darwin_dist_link(
         ctx: AnalysisContext,
