@@ -5,33 +5,31 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%% % @format
-%%%-------------------------------------------------------------------
-%%% @doc
-%%%  Extract direct dependencies from a given erl or hrl file
-%%%
-%%%  usage:
-%%%    dependency_analyzer.escript some_file.(h|e)rl [out.term]
-%%%
-%%%  The output of the tool is written either to stdout,
-%%%  or a given output file. The format is as follows and intended to
-%%%  be consumed by other file:consult/1:
-%%% ```
-%%%  [#{<<"type">> := "include"
-%%%             | "include_lib"
-%%%             | "behaviour"
-%%%             | "parse_transform"
-%%%             | "manual_dependency",
-%%%   <<"file">>  := "header_or_source_file.(h|e)rl",
-%%%  ["app"   => "application"][only for "include_lib"]
-%%%   },
-%%%   ...
-%%%  ].
-%%%  '''
-%%% @end
-
+%% @format
 -module(dependency_analyzer).
 -author("loscher@fb.com").
+-moduledoc """
+ Extract direct dependencies from a given erl or hrl file
+
+ usage:
+   dependency_analyzer.escript some_file.(h|e)rl [out.term]
+
+ The output of the tool is written either to stdout,
+ or a given output file. The format is as follows and intended to
+ be consumed by other file:consult/1:
+```
+ [#{<<"type">> := "include"
+            | "include_lib"
+            | "behaviour"
+            | "parse_transform"
+            | "manual_dependency",
+  <<"file">>  := "header_or_source_file.(h|e)rl",
+ ["app"   => "application"][only for "include_lib"]
+  },
+  ...
+ ].
+```
+""".
 
 -export([main/1]).
 

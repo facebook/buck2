@@ -5,8 +5,7 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%% % @format
-
+%% @format
 -module(test_runner).
 -eqwalizer(ignore).
 
@@ -48,7 +47,9 @@ run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing) ->
             })
     end.
 
-%% @doc Prepare the test spec and run the test.
+-doc """
+Prepare the test spec and run the test.
+""".
 -spec execute_test_suite(#test_env{}) -> ok.
 execute_test_suite(
     #test_env{
@@ -133,7 +134,9 @@ ensure_test_exec_stopped() ->
     after 5000 -> ok
     end.
 
-%% @doc Provides result as specified by the tpx protocol when test failed to ran.
+-doc """
+Provides result as specified by the tpx protocol when test failed to ran.
+""".
 -spec test_run_fail(#test_env{}, string()) -> ok.
 test_run_fail(#test_env{} = TestEnv, Reason) ->
     provide_output_file(
@@ -148,12 +151,16 @@ test_run_timeout(#test_env{} = TestEnv, Reason) ->
         TestEnv, Reason, timeout
     ).
 
-%% @doc Provides result as specified by the tpx protocol when test succeed to ran.
+-doc """
+Provides result as specified by the tpx protocol when test succeed to ran.
+""".
 -spec test_run_succeed(#test_env{}, string()) -> ok.
 test_run_succeed(#test_env{} = TestEnv, Reason) ->
     provide_output_file(TestEnv, Reason, passed).
 
-%% @doc Provides result as specified by the tpx protocol.
+-doc """
+Provides result as specified by the tpx protocol.
+""".
 -spec provide_output_file(#test_env{}, unicode:chardata(), failed | passed | timeout) -> ok.
 provide_output_file(
     #test_env{
@@ -228,7 +235,9 @@ trimmed_content_file(File) ->
             end
     end.
 
-%% @doc Provide tpx with a result when CT failed to provide results for tests.
+-doc """
+Provide tpx with a result when CT failed to provide results for tests.
+""".
 -spec collect_results_broken_run([#ct_test{}], atom(), io_lib:chars(), term(), io_lib:chars()) ->
     [cth_tpx_test_tree:case_result()].
 collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, StdOut) ->
@@ -266,17 +275,21 @@ collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, StdOut) ->
         Tests
     ).
 
-%% @doc Provide the results from the tests as specified by tpx protocol, from the json file
-%% provided by ct displaying results of all the tests ran.
+-doc """
+Provide the results from the tests as specified by tpx protocol, from the json file
+provided by ct displaying results of all the tests ran.
+""".
 -spec collect_results_fine_run(cth_tpx_test_tree:tree_node(), [#ct_test{}]) -> [cth_tpx_test_tree:case_result()].
 collect_results_fine_run(TreeResults, Tests) ->
     cth_tpx_test_tree:get_result(TreeResults, maps:from_list(get_requested_tests(Tests))).
 
-%% @doc Returns a list of the tests by classifying from the (sequence) of groups they belong.
-%% The list is [{[sequence of groups] => [list of tests belonging to this sequence]}].
-%% We make sure to respect the group / test insertion order. That is, if the sequence is
-%% g1.t1, g2.t2, g1.t2, g1.t3, g2.t2, we produce:
-%% [g1.[t1,t2,t3], g2.[t1,t2]]
+-doc """
+Returns a list of the tests by classifying from the (sequence) of groups they belong.
+The list is [{[sequence of groups] => [list of tests belonging to this sequence]}].
+We make sure to respect the group / test insertion order. That is, if the sequence is
+g1.t1, g2.t2, g1.t2, g1.t3, g2.t2, we produce:
+[g1.[t1,t2,t3], g2.[t1,t2]]
+""".
 -spec get_requested_tests([#ct_test{}]) -> [{[atom()], [atom()]}].
 get_requested_tests(Tests) ->
     lists:foldl(
@@ -302,8 +315,10 @@ add_or_append(List, {Key, Value}) ->
         false -> List0
     end.
 
-%% @doc Built the test_spec selecting the requested tests and
-%% specifying the result output.
+-doc """
+Built the test_spec selecting the requested tests and
+specifying the result output.
+""".
 -spec build_test_spec(atom(), [atom()], string(), string(), [term()]) -> [term()].
 build_test_spec(Suite, Tests, TestDir0, OutputDir, CtOpts) ->
     TestDir = unicode:characters_to_list(TestDir0),
@@ -326,7 +341,9 @@ build_test_spec(Suite, Tests, TestDir0, OutputDir, CtOpts) ->
     ),
     SpecTests ++ [TpxCtHook] ++ CtOpts2.
 
-%% @doc Create a ct_hook for the test spec by plugging together
+-doc """
+Create a ct_hook for the test spec by plugging together
+""".
 -spec getCtHook([term()], string()) -> {term(), [term()]}.
 getCtHook(CtOpts, ResultOutput) ->
     {NewOpts, Hooks} = addOptsHook(CtOpts, []),
@@ -344,7 +361,9 @@ addOptsHook(CtOpts, Hooks) ->
         {ct_hooks, NewHooks} -> addOptsHook(lists:keydelete(ct_hooks, 1, CtOpts), NewHooks ++ Hooks)
     end.
 
-%% @doc Add a spec tuple to the list of ct_options if a tuple defining the property isn't present yet.
+-doc """
+Add a spec tuple to the list of ct_options if a tuple defining the property isn't present yet.
+""".
 -spec add_spec_if_absent({atom(), term()}, [term()]) -> [term()].
 add_spec_if_absent({Key, Value}, CtOpts) ->
     case lists:keyfind(Key, 1, CtOpts) of
@@ -352,7 +371,9 @@ add_spec_if_absent({Key, Value}, CtOpts) ->
         _ -> CtOpts
     end.
 
-%% @doc Parse the test name, and decompose it into the test, group and suite atoms
+-doc """
+Parse the test name, and decompose it into the test, group and suite atoms
+""".
 -spec parse_test_name(string(), atom()) -> #ct_test{}.
 parse_test_name(Test, Suite) ->
     [Groups0, TestName] = string:split(Test, ".", all),
@@ -389,30 +410,38 @@ reorder_tests(Tests, #test_spec_test_case{testcases = TestCases}) ->
         TestCases
     ).
 
-%% @doc LogDir is the directory where ct will log to.
-%% Make sure it exists and returns it.
+-doc """
+LogDir is the directory where ct will log to.
+Make sure it exists and returns it.
+""".
 set_up_log_dir(OutputDir) ->
     LogDir = filename:join(OutputDir, "log_dir"),
     ok = filelib:ensure_path(LogDir),
     LogDir.
 
-%% @doc Informs the test runner of a successful test run.
+-doc """
+Informs the test runner of a successful test run.
+""".
 -spec mark_success(unicode:chardata()) -> ok.
 mark_success(Result) ->
     ?MODULE ! {run_succeed, Result},
     ok.
 
-%% @doc Informs the test runner of a fataled test run.
+-doc """
+Informs the test runner of a fataled test run.
+""".
 -spec mark_failure(unicode:chardata()) -> ok.
 mark_failure(Error) ->
     ?MODULE ! {run_failed, Error},
     ok.
 
-%% @doc CtOpts must be tuple as defined here:
-%% https://www.erlang.org/doc/apps/common_test/run_test_chapter.html#test-specification-syntax
-%% that will be inserted to the test specification.
-%% We do not check here that those are valid, but that they do not conflict with those
-%% created here by the runner.
+-doc """
+CtOpts must be tuple as defined here:
+https://www.erlang.org/doc/apps/common_test/run_test_chapter.html#test-specification-syntax
+that will be inserted to the test specification.
+We do not check here that those are valid, but that they do not conflict with those
+created here by the runner.
+""".
 -spec check_ct_opts([term()]) -> ok.
 check_ct_opts(CtOpts) ->
     ProblematicsOpts = [suites, groups, cases, skip_suites, skip_groups, skip_cases],

@@ -5,12 +5,13 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%% % @format
-
-%% @doc This module interfaces with the tpx listing protocol, presented in https://www.internalfb.com/code/fbsource/[51311877d966]/fbcode/buck2/docs/test_execution.md?lines=50
-%% for high level, see https://www.internalfb.com/code/fbsource/[0101a07bcb98bf8dbed51f55b7b5e4ab8346130f]/fbcode/testinfra/tpx/tpx-buck/src/listing/test_xml.rs?lines=39-55). for
-%% code implementation.
+%% @format
 -module(listing_interfacer).
+-moduledoc """
+This module interfaces with the tpx listing protocol, presented in https://www.internalfb.com/code/fbsource/[51311877d966]/fbcode/buck2/docs/test_execution.md?lines=50
+for high level, see https://www.internalfb.com/code/fbsource/[0101a07bcb98bf8dbed51f55b7b5e4ab8346130f]/fbcode/testinfra/tpx/tpx-buck/src/listing/test_xml.rs?lines=39-55). for
+code implementation.
+""".
 -eqwalizer(ignore).
 
 -include_lib("common/include/tpx_records.hrl").

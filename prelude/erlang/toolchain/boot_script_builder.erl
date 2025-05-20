@@ -5,18 +5,16 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%% % @format
-%%%-------------------------------------------------------------------
-%%% @doc
-%%%  Build the release resource file, and boot scripts from a given spec file. The spec file format
-%%%  is defined in erlang_release.bzl
-%%%
-%%%  usage:
-%%%    boot_script_builder.escript release_spec.term output_dir
-%%% @end
-
+%% @format
 -module(boot_script_builder).
 -author("loscher@fb.com").
+-moduledoc """
+Build the release resource file, and boot scripts from a given spec file. The spec file format
+is defined in erlang_release.bzl
+
+usage:
+  boot_script_builder.escript release_spec.term output_dir
+""".
 
 -export([main/1]).
 

@@ -5,7 +5,7 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%% % @format
+%% @format
 -module(cth_tpx).
 
 -export([is_running_in_sandcastle/0]).
@@ -121,13 +121,17 @@ fmt_stack(_Suite, _CasePat, _CaseArgs, Reason, _Label) ->
 %% CT hooks functions
 %% -----------------------------------------------------------------------------
 
-%% @doc Return a unique id for this CTH.
+-doc """
+Return a unique id for this CTH.
+""".
 -spec id(hook_opts()) -> {?MODULE, cth_tpx_role:role()}.
 id(#{role := Role}) ->
     {?MODULE, Role}.
 
-%% @doc Always called before any other callback function. Use this to initiate
-%% any common state.
+-doc """
+Always called before any other callback function. Use this to initiate
+any common state.
+""".
 -spec init(_Id :: term(), Opts :: hook_opts()) -> {ok, hook_state(), integer()}.
 init(Id, Opts = #{role := Role}) ->
     ServerName = '$cth_tpx$server$',
@@ -185,7 +189,9 @@ init_role_bot(Id, ServerName) ->
     },
     {ok, HookState, cth_tpx_role:role_priority(bot)}.
 
-%% @doc Called before init_per_suite is called.
+-doc """
+Called before init_per_suite is called.
+""".
 -spec pre_init_per_suite(string(), any(), hook_state()) -> {any(), hook_state()}.
 pre_init_per_suite(Suite, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
@@ -199,7 +205,9 @@ pre_init_per_suite(Suite, Config, HookState) ->
         }}
     end).
 
-%% @doc Called after init_per_suite.
+-doc """
+Called after init_per_suite.
+""".
 post_init_per_suite(Suite, _Config, {skip, {failed, _Reason}} = Error, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State) ->
         Desc = fmt_stack(Suite, "", [], Error, "init_per_suite FAILED"),
@@ -227,14 +235,18 @@ post_init_per_suite(_Suite, _Config, Return, HookState) ->
         {Return, add_result(?INIT_PER_SUITE, passed, <<"">>, State)}
     end).
 
-%% @doc Called before end_per_suite.
+-doc """
+Called before end_per_suite.
+""".
 pre_end_per_suite(_Suite, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
         initialize_stdout_capture(State),
         {Config, capture_starting_time(State, ?END_PER_SUITE)}
     end).
 
-%% @doc Called after end_per_suite.
+-doc """
+Called after end_per_suite.
+""".
 post_end_per_suite(
     Suite,
     _Config,
@@ -287,7 +299,9 @@ clear_suite(#state{io_buffer = IoBuffer} = State) ->
         starting_times = #{}
     }.
 
-%% @doc Called before each init_per_group.
+-doc """
+Called before each init_per_group.
+""".
 pre_init_per_group(_SuiteName, _Group, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun
         (State = #state{groups = [_ | Groups], previous_group_failed = true}) ->
@@ -299,7 +313,9 @@ pre_init_per_group(_SuiteName, _Group, Config, HookState) ->
             {Config, capture_starting_time(State, ?INIT_PER_GROUP)}
     end).
 
-%% @doc Called after each init_per_group.
+-doc """
+Called after each init_per_group.
+""".
 post_init_per_group(
     _SuiteName,
     Group,
@@ -359,14 +375,18 @@ ok_group(State) ->
 fail_group(State) ->
     State#state{previous_group_failed = true}.
 
-%% @doc Called after each end_per_group.
+-doc """
+Called after each end_per_group.
+""".
 pre_end_per_group(_SuiteName, _Group, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
         initialize_stdout_capture(State),
         {Config, capture_starting_time(State, ?END_PER_GROUP)}
     end).
 
-%% @doc Called after each end_per_group.
+-doc """
+Called after each end_per_group.
+""".
 post_end_per_group(
     _SuiteName,
     Group,
@@ -409,7 +429,9 @@ post_end_per_group(_SuiteName, _Group, _Config, Return, HookState) ->
         {Return, State1#state{groups = tl(Groups)}}
     end).
 
-%% @doc Called before each test case.
+-doc """
+Called before each test case.
+""".
 pre_init_per_testcase(_SuiteName, TestCase, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
         initialize_stdout_capture(State),
@@ -555,7 +577,9 @@ pre_end_per_testcase(_SuiteName, TC, Config, HookState) ->
         {Config, capture_starting_time(State, {TC, ?END_PER_TESTCASE})}
     end).
 
-%% @doc Called after each test case.
+-doc """
+Called after each test case.
+""".
 post_end_per_testcase(_SuiteName, TC, _Config, ok = Return, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Return, fun(State0) ->
         State1 = add_result({TC, ?END_PER_TESTCASE}, passed, <<"">>, State0),
@@ -586,8 +610,10 @@ post_end_per_testcase(_SuiteName, TC, Config, Error, HookState) ->
         {Error, NextState}
     end).
 
-%% @doc Called after post_init_per_suite, post_end_per_suite, post_init_per_group,
-%% post_end_per_group and post_end_per_testcase if the suite, group or test case failed.
+-doc """
+Called after post_init_per_suite, post_end_per_suite, post_init_per_group,
+post_end_per_group and post_end_per_testcase if the suite, group or test case failed.
+""".
 on_tc_fail(_SuiteName, init_per_suite, _, HookState) ->
     HookState;
 on_tc_fail(_SuiteName, end_per_suite, _, HookState) ->
@@ -607,8 +633,10 @@ on_tc_fail(_SuiteName, TC, Reason, HookState) ->
         add_result({TC, ?MAIN_TESTCASE}, failed, Desc, State)
     end).
 
-%% @doc Called when a test case is skipped by either user action
-%% or due to an init function failing. (>= 19.3)
+-doc """
+Called when a test case is skipped by either user action
+or due to an init function failing. (>= 19.3)
+""".
 on_tc_skip(_SuiteName, init_per_suite, _, HookState) ->
     HookState;
 on_tc_skip(_SuiteName, end_per_suite, _, HookState) ->
@@ -635,7 +663,9 @@ handle_on_tc_skip(TC, {tc_user_skip, Reason}, State = #state{suite = Suite, grou
     NewState = add_result({TC, ?MAIN_TESTCASE}, skipped, Desc, State),
     NewState#state{suite = Suite}.
 
-%% @doc Called when the scope of the CTH is done
+-doc """
+Called when the scope of the CTH is done
+""".
 -spec terminate(hook_state()) -> ok | {error, _Reason}.
 terminate(#{role := top, server := Handle}) ->
     #state{output = Output, tree_results = TreeResults} = cth_tpx_server:get(Handle),

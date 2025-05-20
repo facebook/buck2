@@ -5,17 +5,15 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%% % @format
-%%%-------------------------------------------------------------------
-%%% @doc
-%%%  Copy ERTS for releases to the given location
-%%%
-%%%  usage:
-%%%    include_erts.escript target_location
-%%% @end
-
+%% @format
 -module(include_erts).
 -author("loscher@meta.com").
+-moduledoc """
+Copy ERTS for releases to the given location
+
+usage:
+  include_erts.escript target_location
+""".
 
 -export([main/1]).
 

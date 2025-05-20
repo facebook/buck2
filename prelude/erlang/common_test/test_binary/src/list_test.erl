@@ -5,8 +5,7 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%% % @format
-
+%% @format
 -module(list_test).
 -compile(warn_missing_spec).
 -eqwalizer(ignore).
@@ -59,10 +58,12 @@
 
 %% ------ Public Function --------
 
-%% @doc Outputs a string representation
-%% of the tests in the suite, as a XML
-%% as defined by tpx-buck2 specifications
-%% (see https://www.internalfb.com/code/fbsource/fbcode/buck2/docs/test_execution.md#test-spec-integration-with-tpx)
+-doc """
+Outputs a string representation
+of the tests in the suite, as a XML
+as defined by tpx-buck2 specifications
+(see https://www.internalfb.com/code/fbsource/fbcode/buck2/docs/test_execution.md#test-spec-integration-with-tpx)
+""".
 -spec list_tests(suite(), [module()]) -> #test_spec_test_case{}.
 list_tests(Suite, Hooks) ->
     TestNames = list_test_spec(Suite, Hooks),
@@ -87,7 +88,9 @@ throw_if_duplicate(TestNameSet, [TestName | Tail]) ->
             throw_if_duplicate(sets:add_element(TestName, TestNameSet), Tail)
     end.
 
-%% @doc Test that all the tests in the list are exported.
+-doc """
+Test that all the tests in the list are exported.
+""".
 -spec test_exported_test(suite(), test_name()) -> error | ok.
 test_exported_test(Suite, Test) ->
     case erlang:function_exported(Suite, Test, 1) of
@@ -198,8 +201,10 @@ list_group({Group, _, SubGroupTests}, Groups, SuiteGroups, Suite) ->
     Groups1 = lists:append(Groups, [Group]),
     list_test(SubGroupTests, Groups1, SuiteGroups, Suite).
 
-%% @doc Makes use of the output from the groups/0 method to get the tests and subgroups
-%% of the group name given as input
+-doc """
+Makes use of the output from the groups/0 method to get the tests and subgroups
+of the group name given as input
+""".
 -spec list_sub_group(group_name(), [group_name()], groups_output(), suite()) -> [binary()].
 list_sub_group(Group, Groups, SuiteGroups, Suite) when is_list(SuiteGroups) ->
     TestsAndGroups =
@@ -212,9 +217,11 @@ list_sub_group(Group, Groups, SuiteGroups, Suite) when is_list(SuiteGroups) ->
     Groups1 = lists:append(Groups, [Group]),
     list_test(TestsAndGroups, Groups1, SuiteGroups, Suite).
 
-%% @doc Given a test that belongs to a common test suite,
-%% prints it as follows:
-%% name_of_suite.group1:group2:...:groupn.test_name
+-doc """
+Given a test that belongs to a common test suite,
+prints it as follows:
+name_of_suite.group1:group2:...:groupn.test_name
+""".
 -spec test_format(suite(), [group_name()], test_name()) -> binary().
 test_format(Suite, Groups, Test) ->
     ok = test_exported_test(Suite, Test),
@@ -234,8 +241,10 @@ test_format(Suite, Groups, Test) ->
 list_test_spec(Suite) ->
     list_test_spec(Suite, []).
 
-%% @doc Creates a Xml representation of all the group / tests
-%% of the suite by exploring the suite
+-doc """
+Creates a Xml representation of all the group / tests
+of the suite by exploring the suite
+""".
 -spec list_test_spec(suite(), [module()]) -> [binary()].
 list_test_spec(Suite, Hooks) ->
     ok = load_hooks(Hooks),

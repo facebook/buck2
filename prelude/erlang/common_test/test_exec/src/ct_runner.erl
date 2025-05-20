@@ -5,12 +5,12 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%% % @format
-
-%% @doc Simple gen_server that will run the the test and
-%% communicates the result to the test runner.
-
+%% @format
 -module(ct_runner).
+-moduledoc """
+Simple gen_server that will run the the test and
+communicates the result to the test runner.
+""".
 -eqwalizer(ignore).
 
 -behavior(gen_server).
@@ -134,7 +134,9 @@ terminate(_Reason, #{port := Port}) ->
 terminate(_Reason, _State) ->
     ok.
 
-%% @doc Executes the test in a new node by launching ct_run.
+-doc """
+Executes the test in a new node by launching ct_run.
+""".
 -spec run_test(#test_env{}, integer()) -> port().
 run_test(
     #test_env{
@@ -316,10 +318,12 @@ generate_arg_tuple(Prop, ConfigFiles) ->
 config_arg([]) -> [];
 config_arg(ConfigFiles) -> ["-config"] ++ ConfigFiles.
 
-%% @doc Create a set up a home dir in the output directory.
-%% Each test execution will have a separate home dir with a
-%% erlang default cookie file, setting the default cookie to
-%% buck2-test-runner-cookie
+-doc """
+Create a set up a home dir in the output directory.
+Each test execution will have a separate home dir with a
+erlang default cookie file, setting the default cookie to
+buck2-test-runner-cookie
+""".
 -spec set_home_dir(file:filename_all()) -> file:filename_all().
 set_home_dir(OutputDir) ->
     HomeDir = filename:join(OutputDir, "HOME"),

@@ -5,14 +5,15 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%% % @format
-
-%% @doc Supervisor that starts two genserver sequentially: the epmd_manager, that will
-%% starts the epmd daemon, and the ct_runner, that will launch the test.
-%% If one of them stops it entails termination of the whole tree.
+%% @format
 -module(test_exec_sup).
 
 -compile([warn_missing_spec_all]).
+-moduledoc """
+Supervisor that starts two genserver sequentially: the epmd_manager, that will
+starts the epmd daemon, and the ct_runner, that will launch the test.
+If one of them stops it entails termination of the whole tree.
+""".
 
 -behavior(supervisor).
 

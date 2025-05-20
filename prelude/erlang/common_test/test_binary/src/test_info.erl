@@ -1,3 +1,4 @@
+%% @format
 -module(test_info).
 -eqwalizer(ignore).
 
@@ -44,7 +45,7 @@ load_from_file(TestInfoFile) ->
     }.
 
 -spec write_to_file(file:filename_all(), test_info()) -> ok | {error, Reason :: term()}.
-write_to_file(FileName, TestInfo ) ->
+write_to_file(FileName, TestInfo) ->
     #test_info{
         dependencies = Dependencies,
         test_suite = SuiteBeamPath,
@@ -74,7 +75,6 @@ write_to_file(FileName, TestInfo ) ->
     },
     file:write_file(FileName, json:encode(Json)).
 
-
 -spec make_path_absolute(file:filename_all()) -> file:filename_all().
 make_path_absolute(Path) ->
     case os:getenv("REPO_ROOT") of
@@ -85,22 +85,24 @@ make_path_absolute(Path) ->
 -spec try_make_path_relative(file:filename_all()) -> file:filename_all().
 try_make_path_relative(Path) ->
     case filename:pathtype(Path) of
-        relative -> Path;
+        relative ->
+            Path;
         _ ->
-               BaseDir = case os:getenv("REPO_ROOT") of
+            BaseDir =
+                case os:getenv("REPO_ROOT") of
                     false ->
                         {ok, CWD} = file:get_cwd(),
                         CWD;
-                    RepoRoot -> RepoRoot
-               end,
-               BaseDirParts = filename:split(BaseDir),
-               PathParts = filename:split(Path),
-               case lists:split(length(BaseDirParts), PathParts) of
-                   {BaseDirParts, RelativeParts} -> filename:join(RelativeParts);
-                   _ -> Path
-               end
+                    RepoRoot ->
+                        RepoRoot
+                end,
+            BaseDirParts = filename:split(BaseDir),
+            PathParts = filename:split(Path),
+            case lists:split(length(BaseDirParts), PathParts) of
+                {BaseDirParts, RelativeParts} -> filename:join(RelativeParts);
+                _ -> Path
+            end
     end.
-
 
 -spec parse_mfa(binary()) -> artifact_annotations:annotation_function() | {error, term()}.
 parse_mfa(MFA) ->

@@ -5,13 +5,12 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%% % @format
-%%%-------------------------------------------------------------------
-%%% @doc behavior module defining callbacks for buck2 test providers
-%%%-------------------------------------------------------------------
-
+%% @format
 -module(buck_ct_provider).
 -compile(warn_missing_spec).
+-moduledoc """
+behavior module defining callbacks for buck2 test providers
+""".
 
 -include("buck_ct_records.hrl").
 
@@ -59,47 +58,61 @@
 
 % ------------------- Exported Methods -------------------------
 
-%% @doc Handles calling the init method on providers.
-%% Calls the init method if this one is present and updates the state
+-doc """
+Handles calling the init method on providers.
+Calls the init method if this one is present and updates the state
+""".
 -spec do_init({atom(), init_argument_type()}, #init_provider_state{}) -> buck_ct_provider().
 do_init({ProviderName, Args}, InitState) ->
     execute_method_on_provider(init, ProviderName, InitState, [Args]).
 
-%% @doc Handles calling the pre_listing method on providers.
-%% Calls the pre_listing method if this one is present and updates the state.
+-doc """
+Handles calling the pre_listing method on providers.
+Calls the pre_listing method if this one is present and updates the state.
+""".
 -spec do_pre_listing(buck_ct_provider()) -> buck_ct_provider().
 do_pre_listing({ProviderName, ProviderState}) ->
     execute_method_on_provider(pre_listing, ProviderName, ProviderState, []).
 
-%% @doc Handles calling the post_listing method on providers.
-%% Calls the post_listing method if this one is present and updates the state.
+-doc """
+Handles calling the post_listing method on providers.
+Calls the post_listing method if this one is present and updates the state.
+""".
 -spec do_post_listing(buck_ct_provider()) -> buck_ct_provider().
 do_post_listing({ProviderName, ProviderState}) ->
     execute_method_on_provider(post_listing, ProviderName, ProviderState, []).
 
-%% @doc Handles calling the pre_running method on providers.
-%% Calls the pre_running method if this one is present and updates the state.
+-doc """
+Handles calling the pre_running method on providers.
+Calls the pre_running method if this one is present and updates the state.
+""".
 -spec do_pre_running(buck_ct_provider()) -> buck_ct_provider().
 do_pre_running({ProviderName, ProviderState}) ->
     execute_method_on_provider(pre_running, ProviderName, ProviderState, []).
 
-%% @doc Handles calling the post_running method on providers.
-%% Calls the post_running method if this one is present and updates the state
+-doc """
+Handles calling the post_running method on providers.
+Calls the post_running method if this one is present and updates the state
+""".
 -spec do_post_running(buck_ct_provider()) -> buck_ct_provider().
 do_post_running({ProviderName, ProviderState}) ->
     execute_method_on_provider(post_running, ProviderName, ProviderState, []).
 
-%% @doc Handles calling the terminate method on providers.
-%% Calls the terminate method if this one is present and updates the state.
+-doc """
+Handles calling the terminate method on providers.
+Calls the terminate method if this one is present and updates the state.
+""".
 -spec do_terminate(buck_ct_provider()) -> buck_ct_provider().
 do_terminate({ProviderName, ProviderState}) ->
     execute_method_on_provider(terminate, ProviderName, ProviderState, []).
 
 % ------------------- Helpers Methods -------------------------
 
-%% @doc Handles the execution of the method on a provider and dealing with the result.
-%% Skip if the method is undefined, updates the state or crash according to the return result
-%% of the method.
+-doc """
+Handles the execution of the method on a provider and dealing with the result.
+Skip if the method is undefined, updates the state or crash according to the return result
+of the method.
+""".
 -spec execute_method_on_provider(atom(), atom(), any(), [any()]) -> {atom(), term()}.
 execute_method_on_provider(Method, ProviderName, ProviderState, Args) ->
     try safely_execute(ProviderName, Method, Args ++ [ProviderState]) of
@@ -149,7 +162,9 @@ execute_method_on_provider(Method, ProviderName, ProviderState, Args) ->
             throw({crash_in_provider, {Class, Reason, StackTrace}})
     end.
 
-%% @doc Executes the method if this one is exported, otherwise return undefined_method.
+-doc """
+Executes the method if this one is exported, otherwise return undefined_method.
+""".
 -spec safely_execute(atom(), atom(), [any()]) -> undefined_method | any().
 safely_execute(Module, Method, Args) ->
     Module:module_info(),

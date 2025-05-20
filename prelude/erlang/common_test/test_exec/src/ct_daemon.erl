@@ -5,13 +5,11 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%%-------------------------------------------------------------------
-%%% @doc
-%%% Daemon for running Common Test in an iterative way from an Erlang Shell
-%%% @end
-%%% % @format
-
+%% @format
 -module(ct_daemon).
+-moduledoc """
+Daemon for running Common Test in an iterative way from an Erlang Shell
+""".
 
 -export([
     start/1, start/2,
@@ -31,30 +29,40 @@
     test_node/0
 ]).
 
-%% @doc start a test-node with random name and shortname
+-doc """
+start a test-node with random name and shortname
+""".
 -spec start(ErlCommand) -> ok when
     ErlCommand :: [binary()].
 start(ErlCommand) ->
     ct_daemon_node:start(ErlCommand).
 
-%% @doc starts the test node with the given distribution mode and node name
+-doc """
+starts the test node with the given distribution mode and node name
+""".
 -spec start(ErlCommand, Config) -> ok | {error, {crash_on_startup, integer()}} when
     ErlCommand :: [binary()],
     Config :: ct_daemon_node:config().
 start(ErlCommand, NodeInfo) ->
     ct_daemon_node:start(ErlCommand, NodeInfo).
 
-%% @doc stops the test node
+-doc """
+stops the test node
+""".
 -spec stop() -> node().
 stop() ->
     ct_daemon_node:stop().
 
-%% @doc returns if the test-node is alive
+-doc """
+returns if the test-node is alive
+""".
 -spec alive() -> boolean().
 alive() ->
     ct_daemon_node:alive().
 
-%% @doc run test from scratch
+-doc """
+run test from scratch
+""".
 -spec run(
     Test ::
         string()

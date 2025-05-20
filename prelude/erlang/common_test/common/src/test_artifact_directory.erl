@@ -5,15 +5,13 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%%-------------------------------------------------------------------
-%%% @doc
-%%% Artefact directory file management.
-%%% Used by TPX to upload diagnostic reports.
-%%% @end
-%%% % @format
-
+%% @format
 -module(test_artifact_directory).
 -compile(warn_missing_spec).
+-moduledoc """
+Artefact directory file management.
+Used by TPX to upload diagnostic reports.
+""".
 
 -include_lib("kernel/include/logger.hrl").
 -include_lib("common/include/buck_ct_records.hrl").

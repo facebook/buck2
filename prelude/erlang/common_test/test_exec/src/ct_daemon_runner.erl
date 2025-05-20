@@ -5,13 +5,11 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%%-------------------------------------------------------------------
-%%% @doc
-%%% gen_server holding state between test runs
-%%% @end
-%%% % @format
-
+%% @format
 -module(ct_daemon_runner).
+-moduledoc """
+gen_server holding state between test runs
+""".
 -eqwalizer(ignore).
 
 -include_lib("kernel/include/logger.hrl").
@@ -48,7 +46,9 @@ start_monitor(Node, OutputDir) ->
         []
     ).
 
-%% @doc global name based on calling node
+-doc """
+global name based on calling node
+""".
 -spec name(node()) -> atom().
 name(Node) ->
     erlang:list_to_atom(lists:flatten(io_lib:format("~s-~s", [Node, ?MODULE]))).

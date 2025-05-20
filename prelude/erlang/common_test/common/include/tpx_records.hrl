@@ -5,6 +5,8 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
+%% @format
+
 -record(test_spec_test_info, {name :: string(), filter :: string()}).
 
 -record(test_spec_test_case, {suite :: binary(), testcases :: [#test_spec_test_info{}]}).

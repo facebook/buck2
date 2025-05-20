@@ -5,16 +5,14 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%%-------------------------------------------------------------------
-%%% @doc
-%%% Documentation for shell_buck2_utils, ways to use
-%%%   it, ways to break it, etc. etc
-%%% @end
-%%% % @format
-
+%% @format
 -module(shell_buck2_utils).
 
 -compile(warn_missing_spec_all).
+-moduledoc """
+Documentation for shell_buck2_utils, ways to use
+  it, ways to break it, etc. etc
+""".
 
 -eqwalizer(ignore).
 

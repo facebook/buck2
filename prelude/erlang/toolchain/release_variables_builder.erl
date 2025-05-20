@@ -5,22 +5,20 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%% % @format
-%%%-------------------------------------------------------------------
-%%% @doc
-%%%  Reads a file containing a mapping from ENV variable to string value
-%%%  and outputs a shell file that can be included in other scripts. It
-%%%  always adds ERTS_VSN.
-%%%
-%%%  The purpose is to forward information about the release, e.g. release
-%%%  name or version, to a release startup shell script.
-%%%
-%%%  usage:
-%%%    release_variables_builder.escript release_variables
-%%% @end
-
+%% @format
 -module(release_variables_builder).
 -author("loscher@fb.com").
+-moduledoc """
+Reads a file containing a mapping from ENV variable to string value
+and outputs a shell file that can be included in other scripts. It
+always adds ERTS_VSN.
+
+The purpose is to forward information about the release, e.g. release
+name or version, to a release startup shell script.
+
+usage:
+  release_variables_builder.escript release_variables
+""".
 
 -export([main/1]).
 

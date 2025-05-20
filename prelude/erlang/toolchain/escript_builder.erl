@@ -5,18 +5,16 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%% % @format
-%%%-------------------------------------------------------------------
-%%% @doc
-%%%  Build an escript from a given spec file. The spec file format
-%%%  is defined in erlang_escript.bzl
-%%%
-%%%  usage:
-%%%    escript_builder.escript escript_build_spec.term
-%%% @end
-
+%% @format
 -module(escript_builder).
 -author("loscher@fb.com").
+-moduledoc """
+Build an escript from a given spec file. The spec file format
+is defined in erlang_escript.bzl
+
+usage:
+  escript_builder.escript escript_build_spec.term
+""".
 
 -export([main/1]).
 

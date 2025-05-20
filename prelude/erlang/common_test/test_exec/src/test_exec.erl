@@ -5,12 +5,13 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%% % @format
-
-%% @doc The test_exec application deals with running
-%% the test as part of a separate sub-process along
-%% with the epmd daemon.
+%% @format
 -module(test_exec).
+-moduledoc """
+The test_exec application deals with running
+the test as part of a separate sub-process along
+with the epmd daemon.
+""".
 
 -behavior(application).
 

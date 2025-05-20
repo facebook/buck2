@@ -5,15 +5,13 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%%-------------------------------------------------------------------
-%%% @doc
-%%% Implementation of hooks functionality. We mimic the behaviour of
-%%% common test hooks so that they can run in test shell
-%%% @end
-%%% % @format
-
+%% @format
 -module(ct_daemon_hooks).
 -compile(warn_missing_spec_all).
+-moduledoc """
+Implementation of hooks functionality. We mimic the behaviour of
+common test hooks so that they can run in test shell
+""".
 -eqwalizer(ignore).
 
 -behaviour(gen_server).
@@ -120,8 +118,9 @@ wrap(Part, Path, Fun) ->
 get_hooks() ->
     [get_hook_module(Hook) || Hook <- get_hooks_config()].
 
-%% @doc
-%% Starts the server within supervision tree
+-doc """
+Starts the server within supervision tree
+""".
 -spec start_monitor() -> gen_server:start_mon_ret().
 start_monitor() ->
     gen_server:start_monitor({local, ?MODULE}, ?MODULE, [], []).

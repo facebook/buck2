@@ -5,13 +5,7 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%%-------------------------------------------------------------------
-%%% @doc
-%%% Documentation for ct_daemon_node, ways to use
-%%%   it, ways to break it, etc. etc
-%%% @end
-%%% % @format
-
+%% @format
 -module(ct_daemon_node).
 -eqwalizer(ignore).
 
@@ -40,7 +34,9 @@
 
 -export_type([config/0]).
 
-%% @doc start node for running tests in isolated way and keep state
+-doc """
+start node for running tests in isolated way and keep state
+""".
 -spec start(ErlCommand) -> ok when
     ErlCommand :: nonempty_list(binary()).
 start(ErlCommand) ->
@@ -55,7 +51,9 @@ start(ErlCommand) ->
     },
     start(ErlCommand, StartConfig).
 
-%% @doc start node for running tests in isolated way and keep state
+-doc """
+start node for running tests in isolated way and keep state
+""".
 -spec start(ErlCommand, Config) -> ok | {error, {crash_on_startup, integer()}} when
     ErlCommand :: nonempty_list(binary()),
     Config :: config().
@@ -134,7 +132,9 @@ get_node() ->
 alive() ->
     erlang:is_pid(get_runner_pid()).
 
-%% @doc node main entry point
+-doc """
+node main entry point
+""".
 -spec node_main([node()]) -> no_return().
 node_main([Parent, OutputDirAtom]) ->
     ok = application:load(test_exec),

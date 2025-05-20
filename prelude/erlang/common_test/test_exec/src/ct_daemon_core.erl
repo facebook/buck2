@@ -5,13 +5,11 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%%-------------------------------------------------------------------
-%%% @doc
-%%% Stateless Core functionality for ct_daemon
-%%% @end
-%%% % @format
-
+%% @format
 -module(ct_daemon_core).
+-moduledoc """
+Stateless Core functionality for ct_daemon
+""".
 -eqwalizer(ignore).
 
 -include_lib("common/include/tpx_records.hrl").
@@ -271,7 +269,9 @@ test_part(Config, Suite, Test, Path) ->
 wrap_ct_hook(Part, Path, Fun) ->
     ct_daemon_hooks:wrap(Part, Path, Fun).
 
-%% @doc transform exceptions into error tuples
+-doc """
+transform exceptions into error tuples
+""".
 safe_call(F, Args) ->
     try erlang:apply(F, Args) of
         Res -> Res
@@ -319,7 +319,9 @@ get_fresh_config(Suite, OutputDir) ->
     ok = filelib:ensure_path(PrivDir),
     [{priv_dir, PrivDir}, {data_dir, DataDir}].
 
-%% @doc run an init or end or test in an isolated process like CT
+-doc """
+run an init or end or test in an isolated process like CT
+""".
 do_part_safe(Id, Fun, Config, TimeTrap) ->
     {Pid, ProcRef} = erlang:spawn_monitor(
         fun() ->

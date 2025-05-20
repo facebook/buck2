@@ -5,20 +5,17 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%%-------------------------------------------------------------------
-%%% @doc
-%%% An IOBuffer is an input only IOServer
-%%% (see https://www.erlang.org/doc/apps/stdlib/io_protocol.html)
-%%% that acts as a buffer, storing IO inputs in a queue
-%%% that one can empty using the flush method.
-%%% It is designed to work alongside a "group leader", capturing
-%%% IOEvents directed at it. This capture can be started/stopped
-%%% using appropriate methods.
-%%%
-%%% @end
-%%% % @format
-
+%% @format
 -module(io_buffer).
+-moduledoc """
+An IOBuffer is an input only IOServer
+(see https://www.erlang.org/doc/apps/stdlib/io_protocol.html)
+that acts as a buffer, storing IO inputs in a queue
+that one can empty using the flush method.
+It is designed to work alongside a "group leader", capturing
+IOEvents directed at it. This capture can be started/stopped
+using appropriate methods.
+""".
 
 -record(state, {buffer, process, group_leader, capture, pass_through, max_elements, max_length}).
 
@@ -40,7 +37,9 @@
 
 %% Public API
 
-%% @doc Starts an linked IO server.
+-doc """
+Starts an linked IO server.
+""".
 -spec start_link() -> {ok, pid()}.
 start_link() ->
     start_link(#{passthrough => true, max_elements => ?MAX_LINES, max_length => ?MAX_LENGTH}).
@@ -50,17 +49,23 @@ start_link(#{passthrough := PassThrough, max_elements := MaxElements, max_length
         ?MODULE, [self(), group_leader(), PassThrough, MaxElements, MaxLength], []
     ).
 
-%% @doc Empties the buffer and retrieves its content.
+-doc """
+Empties the buffer and retrieves its content.
+""".
 -spec flush(pid()) -> {string(), boolean()}.
 flush(IoBuffer) ->
     do_call(IoBuffer, flush).
 
-%% @doc Starts caturing IOEvents and redirecting them to its queue.
+-doc """
+Starts caturing IOEvents and redirecting them to its queue.
+""".
 -spec start_capture(pid()) -> ok.
 start_capture(IoBuffer) ->
     do_call(IoBuffer, start_capture).
 
-%% @doc Stops capturing IOEvents, letting them flow to their initial group leader.
+-doc """
+Stops capturing IOEvents, letting them flow to their initial group leader.
+""".
 -spec stop_capture(pid()) -> ok.
 stop_capture(IoBuffer) ->
     do_call(IoBuffer, stop_capture).
@@ -69,7 +74,9 @@ stop_capture(IoBuffer) ->
 do_call(IoBuffer, Request) ->
     gen_server:call(IoBuffer, Request).
 
-%% @doc Stop the IoBuffer
+-doc """
+Stop the IoBuffer
+""".
 stop(IoBuffer) ->
     gen_server:stop(IoBuffer).
 

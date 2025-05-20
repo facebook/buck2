@@ -5,15 +5,13 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%% % @format
-%%%-------------------------------------------------------------------
-%%% @doc
-%%% Utilities method to parse string args given to the test binary
-%%% via user input.
-%%% @end
-
+%% @format
 -module(buck_ct_parser).
 -compile(warn_missing_spec_all).
+-moduledoc """
+Utilities method to parse string args given to the test binary
+via user input.
+""".
 
 -import(common_util, [unicode_characters_to_list/1]).
 

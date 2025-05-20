@@ -5,6 +5,7 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
+%% @format
 -ifndef(CTH_TPX_METHOD_IDS_HRL).
 -define(CTH_TPX_METHOD_IDS, true).
 
@@ -17,13 +18,14 @@
 -define(MAIN_TESTCASE, '[main_testcase]').
 
 -type method_id() ::
-    ?INIT_PER_SUITE |
-    ?INIT_PER_GROUP |
-    ?INIT_PER_TESTCASE |
-    ?END_PER_TESTCASE |
-    ?END_PER_GROUP |
-    ?END_PER_SUITE |
-    ?MAIN_TESTCASE |
-    {atom(), ?INIT_PER_TESTCASE | ?END_PER_TESTCASE | ?MAIN_TESTCASE}.
+    ?INIT_PER_SUITE
+    | ?INIT_PER_GROUP
+    | ?INIT_PER_TESTCASE
+    | ?END_PER_TESTCASE
+    | ?END_PER_GROUP
+    | ?END_PER_SUITE
+    | ?MAIN_TESTCASE
+    | {atom(), ?INIT_PER_TESTCASE | ?END_PER_TESTCASE | ?MAIN_TESTCASE}.
 
--endif. % CTH_TPX_METHOD_IDS_HRL
+% CTH_TPX_METHOD_IDS_HRL
+-endif.

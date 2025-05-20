@@ -5,33 +5,30 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%% % @format
-%%%-------------------------------------------------------------------
-%%% @doc
-%%%  Build an .app file from a given list of modules and a template
-%%%  .app.src file.
-%%%
-%%%  usage:
-%%%    app_src_builder.escript app_info.json
-%%%
-%%%  app_info.json format:
-%%%
-%%%    The file must contain only a single JSON map with the following spec:
-%%%
-%%%   #{
-%%%       <<"name">>                   := <application_name>,
-%%%       <<"sources">>                := [<path to .erl source file>],
-%%%       <<"applications">>           := [<entry to applications field>],
-%%%       <<"included_applications">>  := I[<entry to included_applications field>],
-%%%       <<"template">>               => <path to an .app.src file>,
-%%%       <<"version">>                => <version string>,
-%%%       <<"env">>                    => [application env variable],
-%%%       <<"metadata">>               => map of metadata
-%%%   }
-%%%
-%%% @end
-
+%% @format
 -module(app_src_builder).
+-moduledoc """
+Build an .app file from a given list of modules and a template
+.app.src file.
+
+usage:
+  app_src_builder.escript app_info.json
+
+app_info.json format:
+
+  The file must contain only a single JSON map with the following spec:
+
+ #{
+     <<"name">>                   := <application_name>,
+     <<"sources">>                := [<path to .erl source file>],
+     <<"applications">>           := [<entry to applications field>],
+     <<"included_applications">>  := I[<entry to included_applications field>],
+     <<"template">>               => <path to an .app.src file>,
+     <<"version">>                => <version string>,
+     <<"env">>                    => [application env variable],
+     <<"metadata">>               => map of metadata
+ }
+""".
 
 -type application_resource() :: {application, atom(), proplists:proplist()}.
 -type mod() :: {atom(), [term()]} | undefined.

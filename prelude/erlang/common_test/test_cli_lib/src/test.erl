@@ -5,15 +5,13 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%%-------------------------------------------------------------------
-%%% @doc
-%%%   User-Facing library for quick-iteration testing of Common Test
-%%%
-%%%     use test:help() for more information
-%%% @end
-%%% % @format
-
+%% @format
 -module(test).
+-moduledoc """
+User-Facing library for quick-iteration testing of Common Test
+
+  use test:help() for more information
+""".
 -eqwalizer(ignore).
 
 -include_lib("common/include/buck_ct_records.hrl").
@@ -73,7 +71,9 @@ info() ->
     help(),
     io:format("~n").
 
-%% @doc Print a description of all available commands.
+-doc """
+Print a description of all available commands.
+""".
 -spec help() -> ok.
 help() ->
     io:format("Buck2 Common Test Runner Shell Interface~n~n"),
@@ -142,16 +142,20 @@ command_description(logs, 0) ->
 command_description(F, A) ->
     error({help_is_missing, {F, A}}).
 
-%% @doc List all available tests
-%% @equiv test:list("")
+-doc """
+List all available tests
+""".
+-doc #{equiv => test:list("")}.
 -spec list() -> ok | {error, term()}.
 list() ->
     list("").
 
-%% @doc List all available tests, filters by the given RegEx. Please check
-%% [https://www.erlang.org/doc/man/re.html#regexp_syntax] for the supported
-%% regular expression syntax. If a module is given as argument, list all
-%% tests from that module instead
+-doc """
+List all available tests, filters by the given RegEx. Please check
+[https://www.erlang.org/doc/man/re.html#regexp_syntax] for the supported
+regular expression syntax. If a module is given as argument, list all
+tests from that module instead
+""".
 -spec list(RegExOrModule :: module() | string()) -> ok | {error, term()}.
 list(RegEx) when is_list(RegEx) ->
     case list_impl(RegEx) of
@@ -159,26 +163,32 @@ list(RegEx) when is_list(RegEx) ->
         Error -> Error
     end.
 
-%% @doc Run a test given by either the test id from the last list() command, or
-%% a regex that matches exactly one test. Tests are run with the shortest possible
-%% setup. This call does not recompile the test suite and its dependencies, but
-%% runs them as is. You can manually recompile code with c(Module).
-%% To reset the test state use reset().
+-doc """
+Run a test given by either the test id from the last list() command, or
+a regex that matches exactly one test. Tests are run with the shortest possible
+setup. This call does not recompile the test suite and its dependencies, but
+runs them as is. You can manually recompile code with c(Module).
+To reset the test state use reset().
+""".
 -spec rerun(run_spec()) -> run_result().
 rerun(Spec) ->
     ensure_initialized(),
     do_plain_test_run(Spec).
 
-%% @doc update code and run all tests
-%% @equiv run("")
+-doc """
+update code and run all tests
+""".
+-doc #{equiv => run("")}.
 -spec run() -> run_result() | error.
 run() ->
     run("").
 
-%% @doc Run a test given by either the test id from the last list() command, or
-%% a regex that matches exactly one test. Tests are run with the shortest possible
-%% setup. This call does recompile the test suite and its dependencies. You can
-%% manually recompile code with c(Module). To reset the test state use reset().
+-doc """
+Run a test given by either the test id from the last list() command, or
+a regex that matches exactly one test. Tests are run with the shortest possible
+setup. This call does recompile the test suite and its dependencies. You can
+manually recompile code with c(Module). To reset the test state use reset().
+""".
 -spec run(string() | non_neg_integer()) -> run_result() | error.
 run(RegExOrId) ->
     ensure_initialized(),
@@ -205,7 +215,9 @@ run(RegExOrId) ->
             end
     end.
 
-%% @doc restarts the test node, enabling a clean test state
+-doc """
+restarts the test node, enabling a clean test state
+""".
 -spec reset() -> ok | {error, term()}.
 reset() ->
     case is_debug_session() of
@@ -220,7 +232,9 @@ reset() ->
             })
     end.
 
-%% @doc Print all the logs of the currently running test suites
+-doc """
+Print all the logs of the currently running test suites
+""".
 -spec logs() -> ok.
 logs() ->
     ensure_initialized(),

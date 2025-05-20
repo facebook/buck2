@@ -5,20 +5,18 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%%-------------------------------------------------------------------
-%%% @doc
-%%% This file acts as a manual erlang sync for the thrift type struct
-%%% TestResultArtifactAnnotations defined in  https://fburl.com/code/r2t4vclb
-%%%
-%%%  == How To Update This File ==
-%%% We mostly expect next iterations of thrift data structure to include
-%%% more testArtifactTypes. Those should be manually added to the
-%%% test_artifact_type() here.
-%%% @end
-%%% % @format
-
+%% @format
 -module(artifact_annotations).
 -compile(warn_missing_spec_all).
+-moduledoc """
+This file acts as a manual erlang sync for the thrift type struct
+TestResultArtifactAnnotations defined in  https://fburl.com/code/r2t4vclb
+
+ == How To Update This File ==
+We mostly expect next iterations of thrift data structure to include
+more testArtifactTypes. Those should be manually added to the
+test_artifact_type() here.
+""".
 
 -include_lib("common/include/buck_ct_records.hrl").
 

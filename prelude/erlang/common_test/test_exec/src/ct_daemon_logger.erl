@@ -5,18 +5,16 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%%-------------------------------------------------------------------
-%%% @doc
-%%% CT handles logging and printing by sending a message to the ct_logs
-%%%  process. We intercept those messages for test shell by starting a
-%%%  gen_server that intercepts the messages and prints them to the test
-%%%  shell. We do this instead of using the ct_logs process to have more
-%%%  control over the output and to avoid starting ct processes that
-%%%  might interfere with test shell's functionality.
-%%% @end
-%%% % @format
-
+%% @format
 -module(ct_daemon_logger).
+-moduledoc """
+CT handles logging and printing by sending a message to the ct_logs
+ process. We intercept those messages for test shell by starting a
+ gen_server that intercepts the messages and prints them to the test
+ shell. We do this instead of using the ct_logs process to have more
+ control over the output and to avoid starting ct processes that
+ might interfere with test shell's functionality.
+""".
 -eqwalizer(ignore).
 
 -include_lib("kernel/include/logger.hrl").
@@ -70,7 +68,9 @@ handle_call(_Info, _From, State) -> {noreply, State}.
     State :: state().
 handle_cast(_Info, State) -> {noreply, State}.
 
-%% @doc mocks for ct_logs functions
+-doc """
+mocks for ct_logs functions
+""".
 -spec start(file:filename_all()) -> ok.
 start(OutputDir) ->
     LogFile = test_logger:get_log_file(OutputDir, ct_daemon),

@@ -5,13 +5,11 @@
 %% License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 %% of this source tree.
 
-%%%-------------------------------------------------------------------
-%%% @doc
-%%% Abstractions for pretty printing test results
-%%% @end
-%%% % @format
-
+%% @format
 -module(ct_daemon_printer).
+-moduledoc """
+Abstractions for pretty printing test results
+""".
 
 %% Public API
 -export([print_result/2, print_summary/3]).
