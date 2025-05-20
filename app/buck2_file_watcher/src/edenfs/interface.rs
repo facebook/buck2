@@ -247,17 +247,21 @@ impl EdenFsFileWatcher {
                 }
                 SmallChangeNotification::replaced(replaced) => {
                     if replaced.fileType == Dtype::DIR {
-                        soft_error!(
-                            "edenfs_small_change_dir_replace",
-                            buck2_error::buck2_error!(
-                                buck2_error::ErrorTag::Environment,
-                                "EdenFS reported SmallChangeNotification::replaced directory: '{}' -> '{}'. \
-                                 Directory cannot be replaced (e.g. moving an a dir over an existing dir). \
-                                 EdenFS Thrift API has changed and the buck2 code needs to be updated.",
-                                 bytes_to_string_or_unknown(&replaced.from),
-                                 bytes_to_string_or_unknown(&replaced.to)
-                            )
-                            .into()
+                        // The only case when it could happen is if newname exists and
+                        // is an empty directory, it is removed, and oldname is renamed to newname.
+                        self.process_file_watcher_event(
+                            tracker,
+                            stats,
+                            Kind::Directory,
+                            Type::Create,
+                            &replaced.to,
+                        )?;
+                        self.process_file_watcher_event(
+                            tracker,
+                            stats,
+                            Kind::Directory,
+                            Type::Delete,
+                            &replaced.from,
                         )?;
                     } else {
                         let kind = dtype_into_file_watcher_kind(replaced.fileType);
