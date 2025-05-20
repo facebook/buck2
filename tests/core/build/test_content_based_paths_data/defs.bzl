@@ -92,7 +92,7 @@ def _run_with_content_based_path_impl(ctx):
 
     ctx.actions.run(args, **kwargs)
 
-    return [DefaultInfo(default_output = out)]
+    return [DefaultInfo(default_output = out), RunInfo(args = [out])]
 
 run_with_content_based_path = rule(
     impl = _run_with_content_based_path_impl,

@@ -115,24 +115,34 @@ impl<'a> ResultReporter<'a> {
             .iter()
             .filter_map(|output| output.as_ref().ok());
 
-        let artifacts = if self.options.return_outputs {
-            // NOTE: We use an SmallMap here to preserve the order the rule author wrote, all
-            // the while avoiding duplicates.
-            let mut artifacts = SmallMap::new();
+        let mut artifact_path_mapping = IndexMap::new();
 
-            for output in outputs {
-                let ProviderArtifacts {
-                    values,
-                    provider_type,
-                } = output;
+        // NOTE: We use an SmallMap here to preserve the order the rule author wrote, all
+        // the while avoiding duplicates.
+        let mut artifacts = SmallMap::new();
 
-                if !self.options.return_default_other_outputs
-                    && matches!(provider_type, BuildProviderType::DefaultOther)
-                {
-                    continue;
+        for output in outputs {
+            let ProviderArtifacts {
+                values,
+                provider_type,
+            } = output;
+
+            if !self.options.return_outputs && !matches!(provider_type, BuildProviderType::Run) {
+                continue;
+            }
+
+            if !self.options.return_default_other_outputs
+                && matches!(provider_type, BuildProviderType::DefaultOther)
+            {
+                continue;
+            }
+
+            for (artifact, value) in values.iter() {
+                if matches!(provider_type, BuildProviderType::Run) {
+                    artifact_path_mapping.insert(artifact, value.content_based_path_hash());
                 }
 
-                for (artifact, value) in values.iter() {
+                if self.options.return_outputs {
                     let entry = artifacts
                         .entry((
                             artifact,
@@ -165,24 +175,22 @@ impl<'a> ResultReporter<'a> {
                     }
                 }
             }
+        }
 
-            let artifact_fs = self.artifact_fs;
+        let artifact_fs = self.artifact_fs;
 
-            // Write it this way because `.into_iter()` gets rust-analyzer confused
-            IntoIterator::into_iter(artifacts)
-                .map(
-                    |((a, content_based_path_hash), providers)| proto::BuildOutput {
-                        path: a
-                            .resolve_path(artifact_fs, content_based_path_hash.as_ref())
-                            .unwrap()
-                            .to_string(),
-                        providers: Some(providers),
-                    },
-                )
-                .collect()
-        } else {
-            Vec::new()
-        };
+        // Write it this way because `.into_iter()` gets rust-analyzer confused
+        let outputs = IntoIterator::into_iter(artifacts)
+            .map(
+                |((a, content_based_path_hash), providers)| proto::BuildOutput {
+                    path: a
+                        .resolve_path(artifact_fs, content_based_path_hash.as_ref())
+                        .unwrap()
+                        .to_string(),
+                    providers: Some(providers),
+                },
+            )
+            .collect();
 
         let target = label.unconfigured().to_string();
         let configuration = label.cfg().to_string();
@@ -217,8 +225,6 @@ impl<'a> ResultReporter<'a> {
                 let executor_fs = ExecutorFs::new(self.artifact_fs, path_separator);
                 let mut cli = Vec::<String>::new();
                 let mut ctx = AbsCommandLineContext::new(&executor_fs);
-                // TODO(T219919866) Support content-based path hashing properly here
-                let artifact_path_mapping = IndexMap::new();
                 runinfo
                     .add_to_command_line(&mut cli, &mut ctx, &artifact_path_mapping)
                     .unwrap();
@@ -235,7 +241,7 @@ impl<'a> ResultReporter<'a> {
             configuration,
             run_args,
             target_rule_type_name: result.target_rule_type_name.clone(),
-            outputs: artifacts,
+            outputs,
             configured_graph_size,
         })
     }
