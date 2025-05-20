@@ -152,6 +152,16 @@ async def test_download_with_content_based_path(buck: Buck) -> None:
     )
 
 
+@buck_test()
+async def test_download_with_content_based_path_and_no_metadata(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "root//:download_with_content_based_path_and_no_metadata",
+        ),
+        stderr_regex=r"Downloads using content-based path .* must supply metadata \(usually in the form of a sha1\)!",
+    )
+
+
 def hg_init(cwd: Path) -> None:
     subprocess.run(["hg", "init"], check=True, cwd=cwd)
     hg_config_reponame(cwd)

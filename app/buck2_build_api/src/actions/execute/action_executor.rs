@@ -26,6 +26,7 @@ use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -569,8 +570,12 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         let output_paths = self
             .outputs
             .iter()
-            // TODO(T219919866) Add support for experimental content-based path hashing
-            .map(|o| self.fs().resolve_build(o.get_path(), None))
+            .map(|o| {
+                if o.get_path().is_content_based_path() {
+                    internal_error!("Cleanup outputs is not supported for content-based paths!");
+                }
+                self.fs().resolve_build(o.get_path(), None)
+            })
             .collect::<buck2_error::Result<Vec<_>>>()?;
 
         // Invalidate all the output paths this action might provide. Note that this is a bit

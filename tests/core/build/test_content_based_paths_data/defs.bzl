@@ -190,16 +190,27 @@ cas_artifact_with_content_based_path = rule(
 
 def _download_with_content_based_path_impl(ctx: AnalysisContext):
     url = "https://interncache-all.fbcdn.net/manifold/buck_build_test/tree/buck2_test/http_archive/test.tgz"
-    sha1 = "1a45666759704bf08fc670aa96118a0415c470fc"
+
+    if ctx.attrs.defer_download:
+        sha1 = "1a45666759704bf08fc670aa96118a0415c470fc"
+        dummy_sha_256 = None
+    else:
+        # sha256 is not actually supported for deferrable downloads, but we do need to provide either a sha1 or a sha256.
+        # So, this causes us to fall into the "non-deferrable" code path, which is what we want.
+        sha1 = None
+        dummy_sha_256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
     download = ctx.actions.declare_output("download", uses_experimental_content_based_path_hashing = True)
-    download = ctx.actions.download_file(download, url, sha1 = sha1)
+    download = ctx.actions.download_file(download, url, sha1 = sha1, sha256 = dummy_sha_256)
     return [
         DefaultInfo(default_output = download),
     ]
 
 download_with_content_based_path = rule(
     impl = _download_with_content_based_path_impl,
-    attrs = {},
+    attrs = {
+        "defer_download": attrs.bool(default = True),
+    },
 )
 
 def _failing_validation_with_content_based_path_impl(ctx):

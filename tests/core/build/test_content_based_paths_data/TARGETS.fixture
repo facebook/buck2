@@ -77,6 +77,11 @@ download_with_content_based_path(
     name = "download_with_content_based_path",
 )
 
+download_with_content_based_path(
+    name = "download_with_content_based_path_and_no_metadata",
+    defer_download = False,
+)
+
 failing_validation_with_content_based_path(
     name = "failing_validation_with_content_based_path",
 )

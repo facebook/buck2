@@ -27,6 +27,7 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::CategoryRef;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
@@ -51,8 +52,10 @@ enum DownloadFileActionError {
     WrongNumberOfInputs(usize),
     #[error("Exactly one output file must be specified for a download file action, got {0}")]
     WrongNumberOfOutputs(usize),
-    #[error("Downloads using content-based paths must supply either a sha1 or a sha256!")]
-    ContentBasedPathWithoutMetadata(),
+    #[error(
+        "Downloads using content-based path {0} must supply metadata (usually in the form of a sha1)!"
+    )]
+    ContentBasedPathWithoutMetadata(BuildArtifactPath),
 }
 
 #[derive(Debug, Allocative)]
@@ -302,17 +305,19 @@ impl Action for DownloadFileAction {
                     (value, ActionExecutionKind::Deferred)
                 }
                 None => {
+                    if self.output().get_path().is_content_based_path() {
+                        return Err(ExecuteError::Error {
+                            error: DownloadFileActionError::ContentBasedPathWithoutMetadata(
+                                self.output().get_path().dupe(),
+                            )
+                            .into(),
+                        });
+                    }
+
                     ctx.cleanup_outputs().await?;
 
                     let artifact_fs = ctx.fs();
                     let project_fs = artifact_fs.fs();
-
-                    if self.output().get_path().is_content_based_path() {
-                        return Err(ExecuteError::Error {
-                            error: DownloadFileActionError::ContentBasedPathWithoutMetadata()
-                                .into(),
-                        });
-                    }
 
                     let rel_path = artifact_fs.resolve_build(self.output().get_path(), None)?;
 
