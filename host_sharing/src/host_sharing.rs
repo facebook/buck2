@@ -14,6 +14,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use futures_intrusive::sync::SharedSemaphore;
 use futures_intrusive::sync::SharedSemaphoreReleaser;
+use starlark_map::sorted_vec::SortedVec;
 
 use crate::NamedSemaphores;
 
@@ -86,6 +87,8 @@ pub enum HostSharingRequirements {
     ExclusiveAccess,
     /// Can share with other processes, but not with others requiring the same token
     OnePerToken(String, WeightClass),
+    /// Can share with other processes, but not with any others requiring any of the same tokens
+    OnePerTokens(SortedVec<String>, WeightClass),
     /// Run with any other processes within reasonable limits.
     Shared(WeightClass),
 }
@@ -96,6 +99,9 @@ impl fmt::Display for HostSharingRequirements {
             HostSharingRequirements::ExclusiveAccess => write!(f, "ExclusiveAccess"),
             HostSharingRequirements::OnePerToken(name, class) => {
                 write!(f, "OnePerToken({},{})", name, class)
+            }
+            HostSharingRequirements::OnePerTokens(names, class) => {
+                write!(f, "OnePerTokens({:?},{})", names, class)
             }
             HostSharingRequirements::Shared(class) => write!(f, "Shared({})", class),
         }
@@ -192,6 +198,11 @@ impl HostSharingBroker {
             HostSharingRequirements::OnePerToken(identifier, weight_class) => {
                 let permits = self.requested_permits(weight_class).into_count();
                 self.acquire_from_permits_and_identifiers(permits, iter::once(identifier))
+                    .await
+            }
+            HostSharingRequirements::OnePerTokens(sorted_identifiers, weight_class) => {
+                let permits = self.requested_permits(weight_class).into_count();
+                self.acquire_from_permits_and_identifiers(permits, sorted_identifiers.iter())
                     .await
             }
         }

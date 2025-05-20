@@ -241,6 +241,7 @@ where
         let weight = match command.request.host_sharing_requirements() {
             HostSharingRequirements::ExclusiveAccess => self.low_pass_filter.capacity(),
             HostSharingRequirements::OnePerToken(.., class)
+            | HostSharingRequirements::OnePerTokens(.., class)
             | HostSharingRequirements::Shared(class) => self
                 .local
                 .host_sharing_broker

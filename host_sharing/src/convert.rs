@@ -45,6 +45,13 @@ pub fn host_sharing_requirements_from_grpc(
             identifier,
             weight_class_from_grpc(weight_class.context("Missing `weight_class`")?)?,
         ),
+        Requirements::OnePerTokens(OnePerTokens {
+            identifiers,
+            weight_class,
+        }) => crate::HostSharingRequirements::OnePerTokens(
+            identifiers.into(),
+            weight_class_from_grpc(weight_class.context("Missing `weight_class`")?)?,
+        ),
     };
 
     Ok(requirements)
@@ -80,6 +87,12 @@ pub fn host_sharing_requirements_to_grpc(
         crate::HostSharingRequirements::OnePerToken(identifier, weight) => {
             Requirements::OnePerToken(OnePerToken {
                 identifier,
+                weight_class: Some(weight_class_to_grpc(weight)?),
+            })
+        }
+        crate::HostSharingRequirements::OnePerTokens(identifiers, weight) => {
+            Requirements::OnePerTokens(OnePerTokens {
+                identifiers: identifiers.into_iter().collect(),
                 weight_class: Some(weight_class_to_grpc(weight)?),
             })
         }

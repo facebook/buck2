@@ -25,10 +25,16 @@ message HostSharingRequirements {
     WeightClass weight_class = 2;
   }
 
+  message OnePerTokens {
+    repeated string identifiers = 1;
+    WeightClass weight_class = 2;
+  }
+
   oneof requirements {
     ExclusiveAccess exclusive_access = 2;
     Shared shared = 4;
     OnePerToken one_per_token = 5;
+    OnePerTokens one_per_tokens = 6;
   }
 }
 
