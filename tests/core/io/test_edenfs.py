@@ -302,3 +302,28 @@ async def test_edenfs_directory_rename(buck: Buck) -> None:
     # FIXME(JakobDegen): Bug: This directory doesn't exist.
     # Note: Also repros with watchman
     await buck.targets("root//d1:")
+
+
+# Dir replace is not supported on Windows
+@buck_test(setup_eden=True, skip_for_os=["windows"])
+async def test_edenfs_directory_replace(buck: Buck) -> None:
+    await setup_file_watcher_test(buck)
+    (buck.cwd / "d1").mkdir()
+    (buck.cwd / "d2").mkdir()
+    # it's only possible to replace a dir
+    # if newname exists and is an empty directory
+    (buck.cwd / "d1").rename(buck.cwd / "d2")
+
+    # we should get `create` for the newname
+    # and `delete` for the oldname
+    required = [
+        FileWatcherEvent(
+            FileWatcherEventType.CREATE, FileWatcherKind.DIRECTORY, "root//d2"
+        ),
+        FileWatcherEvent(
+            FileWatcherEventType.DELETE, FileWatcherKind.DIRECTORY, "root//d1"
+        ),
+    ]
+
+    _, results = await get_file_watcher_events(buck)
+    verify_results(results, required)
