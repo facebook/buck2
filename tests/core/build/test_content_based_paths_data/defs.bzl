@@ -305,3 +305,19 @@ use_projection_with_content_based_path = rule(
     attrs = {
     },
 )
+
+def _ignores_content_based_artifact_impl(ctx):
+    ignored = ctx.actions.declare_output("ignored.txt", uses_experimental_content_based_path_hashing = True)
+    ignored = ctx.actions.write(ignored, "ignored")
+
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    args = cmd_args([out.as_output()], cmd_args(ignored, ignore_artifacts = True))
+
+    ctx.actions.run(args, category = "test_run")
+
+    return [DefaultInfo(default_output = out)]
+
+ignores_content_based_artifact = rule(
+    impl = _ignores_content_based_artifact_impl,
+    attrs = {},
+)

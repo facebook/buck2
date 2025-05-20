@@ -18,6 +18,7 @@ use std::fmt::Formatter;
 use std::marker::PhantomData;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_core::fs::paths::RelativePathBuf;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -65,6 +66,7 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
+use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptions;
@@ -82,6 +84,13 @@ use crate::interpreter::rule_defs::cmd_args::traits::SimpleCommandLineArtifactVi
 use crate::interpreter::rule_defs::cmd_args::traits::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
+
+#[derive(Debug, buck2_error::Error)]
+pub enum CommandLineError {
+    #[error("Artifact(s) {0:?} cannot be used with ignore_artifacts as they are content-based")]
+    #[buck2(input)]
+    ContentBasedIgnoreArtifacts(IndexSet<String>),
+}
 
 /// Fields of `cmd_args`. Abstract mutable and frozen versions.
 trait Fields<'v> {
@@ -243,6 +252,61 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
                 visitor.push_frame()?;
                 item.as_command_line_arg().visit_artifacts(visitor)?;
                 visitor.pop_frame();
+            }
+        } else {
+            struct IgnoredArtifactsVisitor {
+                content_based_artifacts: IndexSet<String>,
+            }
+
+            impl IgnoredArtifactsVisitor {
+                fn new() -> Self {
+                    Self {
+                        content_based_artifacts: IndexSet::new(),
+                    }
+                }
+            }
+
+            impl CommandLineArtifactVisitor for IgnoredArtifactsVisitor {
+                fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
+                    let is_content_based = match input {
+                        ArtifactGroup::Artifact(ref x) => x.has_content_based_path(),
+                        ArtifactGroup::TransitiveSetProjection(ref p) => p.uses_content_based_paths,
+                        // Promised artifacts cannot be content based
+                        ArtifactGroup::Promise(_) => false,
+                    };
+
+                    if is_content_based {
+                        self.content_based_artifacts.insert(input.to_string());
+                    }
+                }
+
+                fn visit_declared_artifact(
+                    &mut self,
+                    declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact,
+                    _tag: Option<&ArtifactTag>,
+                ) -> buck2_error::Result<()> {
+                    if declared_artifact.has_content_based_path() {
+                        self.content_based_artifacts
+                            .insert(declared_artifact.to_string());
+                    }
+
+                    Ok(())
+                }
+
+                fn visit_output(&mut self, _artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {}
+            }
+            let mut ignored_artifacts_visitor = IgnoredArtifactsVisitor::new();
+            for item in self.0.items().iter().chain(self.0.hidden().iter()) {
+                ignored_artifacts_visitor.push_frame()?;
+                item.as_command_line_arg()
+                    .visit_artifacts(&mut ignored_artifacts_visitor)?;
+                ignored_artifacts_visitor.pop_frame();
+            }
+            if !ignored_artifacts_visitor.content_based_artifacts.is_empty() {
+                return Err(CommandLineError::ContentBasedIgnoreArtifacts(
+                    ignored_artifacts_visitor.content_based_artifacts,
+                )
+                .into());
             }
         }
         Ok(())

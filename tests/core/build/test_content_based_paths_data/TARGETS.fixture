@@ -7,6 +7,7 @@ load(
     "dynamic_new_with_content_based_path",
     "dynamic_with_content_based_path",
     "failing_validation_with_content_based_path",
+    "ignores_content_based_artifact",
     "run_with_content_based_path",
     "symlink",
     "symlinked_dir",
@@ -90,6 +91,10 @@ dynamic_new_with_content_based_path(
 
 use_projection_with_content_based_path(
     name = "use_projection_with_content_based_path",
+)
+
+ignores_content_based_artifact(
+    name = "ignores_content_based_artifact",
 )
 
 platform(

@@ -253,3 +253,16 @@ async def test_projection_with_content_based_path(buck: Buck) -> None:
     await build_target_with_different_platforms_and_verify_output_paths_are_identical(
         buck, "root//:use_projection_with_content_based_path"
     )
+
+
+@buck_test()
+async def test_ignores_content_based_artifact(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "root//:ignores_content_based_artifact",
+            "--target-platforms",
+            "root//:p_default",
+            "--show-output",
+        ),
+        stderr_regex=r"Artifact\(s\).*ignored.txt.*cannot be used with ignore_artifacts as they are content-based",
+    )
