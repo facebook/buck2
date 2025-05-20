@@ -21,6 +21,7 @@ use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::build::build_report::build_report_opts;
 use buck2_build_api::build::build_report::generate_build_report;
 use buck2_build_api::build::detailed_aggregated_metrics::dice::HasDetailedAggregatedMetrics;
+use buck2_build_api::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use buck2_build_api::build::graph_properties::GraphPropertiesOptions;
 use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_cli_proto::CommonBuildOptions;
@@ -237,11 +238,14 @@ async fn build(
         .await?
         .unwrap_or_default();
 
-    if want_detailed_metrics {
+    let detailed_metrics = if want_detailed_metrics {
         let events = ctx.take_per_build_events()?;
         let metrics = ctx.compute_detailed_metrics(events).await?;
         instant_event(metrics.as_proto());
-    }
+        Some(metrics)
+    } else {
+        None
+    };
 
     send_target_cfg_event(
         server_ctx.events(),
@@ -249,7 +253,7 @@ async fn build(
         &request.target_cfg,
     );
 
-    process_build_result(server_ctx, ctx, request, build_result).await
+    process_build_result(server_ctx, ctx, request, build_result, detailed_metrics).await
 }
 
 async fn process_build_result(
@@ -257,6 +261,7 @@ async fn process_build_result(
     mut ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
     build_result: BuildTargetResult,
+    detailed_metrics: Option<DetailedAggregatedMetrics>,
 ) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
     let fs = server_ctx.project_root();
     let cwd = server_ctx.working_dir();
@@ -290,6 +295,7 @@ async fn process_build_result(
             server_ctx.events().trace_id(),
             &build_result.configured,
             &build_result.other_errors,
+            detailed_metrics,
         )?
     } else {
         None

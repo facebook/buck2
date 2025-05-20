@@ -111,3 +111,24 @@ async def test_build_report_non_existent_directory(buck: Buck) -> None:
     with open(buck.cwd / build_report) as file:
         report = json.load(file)
         assert report["success"]
+
+
+@buck_test()
+async def test_build_report_contains_metrics(buck: Buck, tmp_path: Path) -> None:
+    report = tmp_path / "build-report.json"
+
+    await buck.build(
+        "//:rule1",
+        "-c",
+        "buck2.detailed_aggregated_metrics=true",
+        "--build-report",
+        str(report),
+    )
+
+    with open(report) as file:
+        report = json.load(file)
+        # Cannot create a golden test since the values may change across runs.
+        # Assert that some of the fields are present to ensure that the values are being populated.
+        assert report["build_metrics"]
+        assert report["build_metrics"]["action_graph_size"] == 1
+        assert report["build_metrics"]["metrics"]["declared_actions"] == 2

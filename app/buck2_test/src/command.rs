@@ -535,6 +535,7 @@ async fn test(
             server_ctx.events().trace_id(),
             &test_outcome.build_target_result.configured,
             &test_outcome.build_target_result.other_errors,
+            None,
         )?
     } else {
         None

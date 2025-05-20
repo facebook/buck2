@@ -61,6 +61,8 @@ use starlark_map::small_set::SmallSet;
 use crate::build::BuildProviderType;
 use crate::build::ConfiguredBuildTargetResult;
 use crate::build::action_error::BuildReportActionError;
+use crate::build::detailed_aggregated_metrics::types::AllTargetsAggregatedData;
+use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 
 #[derive(Debug, Serialize)]
 #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
@@ -254,6 +256,7 @@ impl<'a> BuildReportCollector<'a> {
         include_artifact_hash_information: bool,
         configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
         other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
+        detailed_metrics: Option<DetailedAggregatedMetrics>,
     ) -> BuildReport {
         let mut this: BuildReportCollector<'_> = Self {
             artifact_fs,
@@ -312,7 +315,34 @@ impl<'a> BuildReportCollector<'a> {
             // Setting this to false since we don't currently truncate buck2's build report.
             truncated: false,
             strings: this.strings,
-            build_metrics: None,
+            build_metrics: detailed_metrics
+                .map(|m| Self::convert_all_target_build_metrics(&m.all_targets_build_metrics)),
+        }
+    }
+
+    fn convert_all_target_build_metrics(
+        all_target_metrics: &AllTargetsAggregatedData,
+    ) -> AllTargetsBuildMetrics {
+        AllTargetsBuildMetrics {
+            action_graph_size: all_target_metrics.action_graph_size,
+            metrics: Self::convert_aggregated_build_metrics(&all_target_metrics.metrics),
+            compute_time_ms: all_target_metrics.compute_time_ms,
+        }
+    }
+
+    fn convert_aggregated_build_metrics(
+        metrics: &crate::build::detailed_aggregated_metrics::types::AggregatedBuildMetrics,
+    ) -> AggregatedBuildMetrics {
+        AggregatedBuildMetrics {
+            full_graph_execution_time_ms: metrics.full_graph_execution_time_ms,
+            full_graph_output_size_bytes: metrics.full_graph_output_size_bytes,
+            local_execution_time_ms: metrics.local_execution_time_ms,
+            remote_execution_time_ms: metrics.remote_execution_time_ms,
+            local_executions: metrics.local_executions,
+            remote_executions: metrics.remote_executions,
+            remote_cache_hits: metrics.remote_cache_hits,
+            analysis_retained_memory: metrics.analysis_retained_memory,
+            declared_actions: metrics.declared_actions,
         }
     }
 
@@ -688,6 +718,7 @@ pub fn generate_build_report(
     trace_id: &TraceId,
     configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
     other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
+    detailed_metrics: Option<DetailedAggregatedMetrics>,
 ) -> Result<Option<String>, buck2_error::Error> {
     let build_report = BuildReportCollector::convert(
         trace_id,
@@ -700,6 +731,7 @@ pub fn generate_build_report(
         opts.unstable_include_artifact_hash_information,
         configured,
         other_errors,
+        detailed_metrics,
     );
 
     let mut serialized_build_report = None;
