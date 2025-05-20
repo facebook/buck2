@@ -26,6 +26,7 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapperImpl;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::FrozenInstallInfo;
@@ -95,7 +96,6 @@ use dupe::Dupe;
 use futures::future::FutureExt;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
-use indexmap::IndexMap;
 use starlark_map::small_map::SmallMap;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
@@ -143,6 +143,12 @@ pub enum InstallError {
     #[error("Timed out after {timeout:?} waiting for installer to {action}")]
     #[buck2(environment)]
     RequestTimeout { timeout: Duration, action: String },
+
+    #[error(
+        "Tried to use an artifact {artifact} with a content-based path for install, not currently supported!"
+    )]
+    #[buck2(input)]
+    ContentBasedPath { artifact: Artifact },
 }
 
 async fn get_installer_log_directory(
@@ -463,11 +469,18 @@ impl<'a> ConnectedInstaller<'a> {
     async fn send_install_info(&mut self) -> buck2_error::Result<()> {
         for (installed_target, install_files) in &self.install_request_data.installed_targets {
             let mut files_map = HashMap::new();
+            // TODO(T219919866): Support content-based paths by not passing the path to the installer until
+            // the artifact is built.
             for (file_name, artifact) in install_files {
+                if artifact.has_content_based_path() {
+                    return Err(InstallError::ContentBasedPath {
+                        artifact: artifact.clone(),
+                    }
+                    .into());
+                }
                 let artifact_path = &self
                     .artifact_fs
                     .fs()
-                    // TODO(T219919866) Add support for experimental content-based path hashing
                     .resolve(&artifact.resolve_path(&self.artifact_fs, None)?);
                 files_map
                     .entry((*file_name).to_owned())
@@ -578,11 +591,10 @@ impl<'a> ConnectedInstaller<'a> {
             Data::Symlink(sym) => (format!("re-symlink:{}", sym), 0, "".to_owned()), // Messy :(
         };
 
-        let path = &self
-            .artifact_fs
-            .fs()
-            // TODO(T219919866) Add support for experimental content-based path hashing
-            .resolve(&artifact.resolve_path(&self.artifact_fs, None)?);
+        let path = &self.artifact_fs.fs().resolve(&artifact.resolve_path(
+            &self.artifact_fs,
+            Some(&file.artifact_value.content_based_path_hash()),
+        )?);
         let request = tonic::Request::new(FileReadyRequest {
             install_id: install_id.to_owned(),
             name: name.to_owned(),
@@ -821,38 +833,43 @@ async fn build_launch_installer<'a>(
         .provider_collection()
         .builtin_provider::<FrozenRunInfo>()
     {
-        let (inputs, run_args) = {
-            let artifact_fs = ctx.get_artifact_fs().await?;
+        let artifact_fs = ctx.get_artifact_fs().await?;
+        let inputs = {
+            // Restrict lifetime of mutable artifact_visitor.
             let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
             installer_run_info.visit_artifacts(&mut artifact_visitor)?;
-            // Produce arguments for local platform.
-            let path_separator = if cfg!(windows) {
-                PathSeparatorKind::Windows
-            } else {
-                PathSeparatorKind::Unix
-            };
-            let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
-            let mut run_args = Vec::<String>::new();
-            let mut ctx = AbsCommandLineContext::new(&executor_fs);
-            // TODO(T219919866) Provide mapping to get correct command line for content-based path hashing
-            installer_run_info.add_to_command_line(&mut run_args, &mut ctx, &IndexMap::new())?;
-            (artifact_visitor.inputs, run_args)
+            artifact_visitor.inputs
         };
-        // returns IndexMap<ArtifactGroup,ArtifactGroupValues>;
-        ctx.try_compute_join(inputs, |ctx, input| {
-            async move {
-                materialize_and_upload_artifact_group(
-                    ctx,
-                    &input,
-                    &MaterializationAndUploadContext::materialize(),
-                )
-                .await
-                .map(|value| (input, value))
-            }
-            .boxed()
-        })
-        .await
-        .buck_error_context("Failed to build installer")?;
+        let ensured_inputs = ctx
+            .try_compute_join(inputs, |ctx, input| {
+                async move {
+                    materialize_and_upload_artifact_group(
+                        ctx,
+                        &input,
+                        &MaterializationAndUploadContext::materialize(),
+                    )
+                    .await
+                    .map(|value| (input, value))
+                }
+                .boxed()
+            })
+            .await
+            .buck_error_context("Failed to build installer")?;
+
+        // Produce arguments for local platform.
+        let path_separator = if cfg!(windows) {
+            PathSeparatorKind::Windows
+        } else {
+            PathSeparatorKind::Unix
+        };
+        let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
+        let mut run_args = Vec::<String>::new();
+        let mut ctx = AbsCommandLineContext::new(&executor_fs);
+        installer_run_info.add_to_command_line(
+            &mut run_args,
+            &mut ctx,
+            &ArtifactPathMapperImpl::from(&ensured_inputs),
+        )?;
 
         let build_id: &str = &get_dispatcher().trace_id().to_string();
         background_command(&run_args[0])
