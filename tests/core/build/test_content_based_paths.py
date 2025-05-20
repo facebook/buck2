@@ -309,3 +309,24 @@ async def test_ignores_content_based_artifact(buck: Buck) -> None:
         ),
         stderr_regex=r"Artifact\(s\).*ignored.txt.*cannot be used with ignore_artifacts as they are content-based",
     )
+
+
+@buck_test()
+async def test_local_actions_do_not_overwrite_each_other(buck: Buck) -> None:
+    target1 = "root//:uses_slow_running_local_action_with_content_based_path1"
+    target2 = "root//:uses_slow_running_local_action_with_content_based_path2"
+    result = await buck.build(
+        target1,
+        target2,
+        "--show-output",
+    )
+
+    path1 = result.get_target_to_build_output()[target1]
+    path2 = result.get_target_to_build_output()[target2]
+
+    path1 = path1.replace(
+        "uses_slow_running_local_action_with_content_based_path1",
+        "uses_slow_running_local_action_with_content_based_path2",
+    )
+
+    assert path1 != path2

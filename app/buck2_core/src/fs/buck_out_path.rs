@@ -218,6 +218,10 @@ impl BuckOutScratchPath {
             uses_content_hash,
         })
     }
+
+    pub fn uses_content_hash(&self) -> bool {
+        self.uses_content_hash
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Allocative)]

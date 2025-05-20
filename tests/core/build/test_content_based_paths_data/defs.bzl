@@ -334,3 +334,56 @@ ignores_content_based_artifact = rule(
     impl = _ignores_content_based_artifact_impl,
     attrs = {},
 )
+
+def _slow_running_local_action_with_content_based_path_impl(ctx):
+    script = ctx.actions.declare_output("script.py", uses_experimental_content_based_path_hashing = True)
+    script = ctx.actions.write(
+        script,
+        [
+            "import sys",
+            "import time",
+            "with open(sys.argv[1], 'w') as f:",
+            "  f.write(sys.argv[2])",
+            "time.sleep(2)",
+        ],
+    )
+
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    args = cmd_args(["python3", script, out.as_output(), ctx.attrs.data])
+
+    ctx.actions.run(args, category = "test_run", local_only = True)
+
+    return [DefaultInfo(default_output = out)]
+
+slow_running_local_action_with_content_based_path = rule(
+    impl = _slow_running_local_action_with_content_based_path_impl,
+    attrs = {
+        "data": attrs.string(),
+    },
+)
+
+def _writes_input_to_output_impl(ctx):
+    script = ctx.actions.declare_output("script.py", uses_experimental_content_based_path_hashing = True)
+    script = ctx.actions.write(
+        script,
+        [
+            "import sys",
+            "with open(sys.argv[1], 'w') as output:",
+            "  with open(sys.argv[2], 'r') as input:",
+            "    output.write(input.read())",
+        ],
+    )
+
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    args = cmd_args(["python3", script, out.as_output(), ctx.attrs.input])
+
+    ctx.actions.run(args, category = "test_run", local_only = True)
+
+    return [DefaultInfo(default_output = out)]
+
+writes_input_to_output = rule(
+    impl = _writes_input_to_output_impl,
+    attrs = {
+        "input": attrs.source(),
+    },
+)

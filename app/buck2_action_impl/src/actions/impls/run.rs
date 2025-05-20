@@ -479,7 +479,7 @@ impl RunAction {
         &self,
         visitor: &mut impl RunActionVisitor,
         ctx: &mut dyn ActionExecutionCtx,
-    ) -> buck2_error::Result<PreparedRunAction> {
+    ) -> buck2_error::Result<(PreparedRunAction, HostSharingRequirements)> {
         let (expanded, worker) = self.expand_command_line_and_worker(ctx, visitor)?;
 
         // TODO (@torozco): At this point, might as well just receive the list already. Finding
@@ -493,20 +493,49 @@ impl RunAction {
             artifact_inputs[..].map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())));
         let mut extra_env = Vec::new();
 
-        {
-            let executor_fs = ctx.executor_fs();
-            let fs = executor_fs.fs();
-            let cli_ctx = DefaultCommandLineContext::new(&executor_fs);
-            self.prepare_action_metadata(
-                ctx,
-                &cli_ctx,
-                fs,
-                &artifact_inputs,
-                &mut inputs,
-                &mut extra_env,
-            )?;
-            self.prepare_scratch_path(ctx, &cli_ctx, fs, &mut inputs, &mut extra_env)?;
+        let executor_fs = ctx.executor_fs();
+        let fs = executor_fs.fs();
+        let cli_ctx = DefaultCommandLineContext::new(&executor_fs);
+        self.prepare_action_metadata(
+            ctx,
+            &cli_ctx,
+            fs,
+            &artifact_inputs,
+            &mut inputs,
+            &mut extra_env,
+        )?;
+
+        let mut shared_content_based_paths = Vec::new();
+        self.prepare_scratch_path(
+            ctx,
+            &cli_ctx,
+            fs,
+            &mut inputs,
+            &mut shared_content_based_paths,
+            &mut extra_env,
+        )?;
+
+        for output in self.outputs.iter() {
+            if output.get_path().is_content_based_path() {
+                let full_path = cli_ctx
+                    .resolve_project_path(fs.buck_out_path_resolver().resolve_gen(
+                        &output.get_path(),
+                        Some(&ContentBasedPathHash::for_output_artifact()),
+                    )?)?
+                    .into_string();
+                shared_content_based_paths.push(full_path);
+            }
         }
+
+        // TODO(ianc) Only do this if we're actually going to run the action?
+        let host_sharing_requirements = if !shared_content_based_paths.is_empty() {
+            HostSharingRequirements::OnePerTokens(
+                shared_content_based_paths.into(),
+                self.inner.weight,
+            )
+        } else {
+            HostSharingRequirements::Shared(self.inner.weight)
+        };
 
         let paths = CommandExecutionPaths::new(
             inputs,
@@ -521,12 +550,15 @@ impl RunAction {
             ctx.digest_config(),
         )?;
 
-        Ok(PreparedRunAction {
-            expanded,
-            extra_env,
-            paths,
-            worker,
-        })
+        Ok((
+            PreparedRunAction {
+                expanded,
+                extra_env,
+                paths,
+                worker,
+            },
+            host_sharing_requirements,
+        ))
     }
 
     /// Handle case when user requested file with action metadata to be generated.
@@ -568,15 +600,21 @@ impl RunAction {
         cli_ctx: &DefaultCommandLineContext,
         fs: &ArtifactFs,
         inputs: &mut Vec<CommandExecutionInput>,
+        shared_content_based_paths: &mut Vec<String>,
         extra_env: &mut Vec<(String, String)>,
     ) -> buck2_error::Result<()> {
         let scratch = ctx.target().scratch_path();
-        let scratch_path = fs.buck_out_path_resolver().resolve_scratch(&scratch)?;
-        extra_env.push((
-            "BUCK_SCRATCH_PATH".to_owned(),
-            cli_ctx.resolve_project_path(scratch_path)?.into_string(),
-        ));
+        let scratch_path = cli_ctx
+            .resolve_project_path(fs.buck_out_path_resolver().resolve_scratch(&scratch)?)?
+            .into_string();
+
+        if scratch.uses_content_hash() {
+            shared_content_based_paths.push(scratch_path.to_owned());
+        }
+
+        extra_env.push(("BUCK_SCRATCH_PATH".to_owned(), scratch_path));
         inputs.push(CommandExecutionInput::ScratchPath(scratch));
+
         Ok(())
     }
 
@@ -628,11 +666,10 @@ impl RunAction {
         ctx: &mut dyn ActionExecutionCtx,
     ) -> Result<ExecuteResult, ExecuteError> {
         let mut dep_file_visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
-        let prepared_run_action = self.prepare(&mut dep_file_visitor, ctx)?;
+        let (prepared_run_action, host_sharing_requirements) =
+            self.prepare(&mut dep_file_visitor, ctx)?;
         let cmdline_digest = prepared_run_action.expanded.fingerprint();
         let input_files_bytes = prepared_run_action.paths.input_files_bytes();
-        // Run actions are assumed to be shared
-        let host_sharing_requirements = HostSharingRequirements::Shared(self.inner.weight);
 
         let outputs_for_error_handler = self
             .starlark_values
