@@ -18,9 +18,11 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_artifact::actions::key::ActionKey;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -48,6 +50,7 @@ use starlark::values::Value;
 use crate::actions::RegisteredAction;
 use crate::analysis::AnalysisResult;
 use crate::artifact_groups::TransitiveSetProjectionKey;
+use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
 #[derive(Debug, derive_more::Display, RefCast, Serialize, Allocative)]
@@ -213,6 +216,16 @@ impl AnalysisData {
     }
 }
 
+pub struct AqueryArtifactPathMapper {
+    aquery_placeholder: ContentBasedPathHash,
+}
+
+impl ArtifactPathMapper for AqueryArtifactPathMapper {
+    fn get(&self, _artifact: &Artifact) -> Option<&ContentBasedPathHash> {
+        Some(&self.aquery_placeholder)
+    }
+}
+
 #[derive(Derivative, Clone, Dupe)]
 #[derivative(Debug)]
 pub struct ActionData {
@@ -224,10 +237,15 @@ pub struct ActionData {
 
 impl ActionData {
     fn attrs(&self) -> IndexMap<String, String> {
-        let mut attrs = self.action.action().aquery_attributes(&ExecutorFs::new(
-            &self.fs,
-            self.action.execution_config().options.path_separator,
-        ));
+        let mut attrs = self.action.action().aquery_attributes(
+            &ExecutorFs::new(
+                &self.fs,
+                self.action.execution_config().options.path_separator,
+            ),
+            &AqueryArtifactPathMapper {
+                aquery_placeholder: ContentBasedPathHash::AqueryPlaceholder,
+            },
+        );
         attrs.insert(
             "executor_configuration".to_owned(),
             self.action.execution_config().executor.to_string(),

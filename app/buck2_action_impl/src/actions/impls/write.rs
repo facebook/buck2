@@ -177,11 +177,14 @@ impl Action for WriteAction {
         Some(self.output.get_path().path().as_str())
     }
 
-    fn aquery_attributes(&self, fs: &ExecutorFs) -> IndexMap<String, String> {
+    fn aquery_attributes(
+        &self,
+        fs: &ExecutorFs,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
+    ) -> IndexMap<String, String> {
         // TODO(cjhopman): We should change this api to support returning a Result.
         indexmap! {
-            // TODO(T219919866) Make aquery work with content-based path hashing
-            "contents".to_owned() => match self.get_contents(fs, &IndexMap::new()) {
+            "contents".to_owned() => match self.get_contents(fs, artifact_path_mapping) {
                 Ok(v) => v,
                 Err(e) => format!("ERROR: constructing contents ({})", e)
             },

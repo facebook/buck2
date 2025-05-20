@@ -187,10 +187,13 @@ impl Action for WriteJsonAction {
         Some(self.output.get_path().path().as_str())
     }
 
-    fn aquery_attributes(&self, fs: &ExecutorFs) -> IndexMap<String, String> {
-        // TODO(T219919866) Support aquery with content-based paths.
+    fn aquery_attributes(
+        &self,
+        fs: &ExecutorFs,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
+    ) -> IndexMap<String, String> {
         let res: buck2_error::Result<String> =
-            try { String::from_utf8(self.get_contents(fs, &IndexMap::new())?)? };
+            try { String::from_utf8(self.get_contents(fs, artifact_path_mapping)?)? };
         // TODO(cjhopman): We should change this api to support returning a Result.
         indexmap! {
             "contents".to_owned() => match res {

@@ -34,6 +34,9 @@ enum ContentBasedPathHashError {
 pub enum ContentBasedPathHash {
     Specified(String),
     OutputArtifact,
+    /// When running aquery we don't have content hashes for any of our inputs, so we
+    /// just use a placeholder value instead.
+    AqueryPlaceholder,
 }
 
 impl ContentBasedPathHash {
@@ -65,6 +68,7 @@ impl ContentBasedPathHash {
         match self {
             ContentBasedPathHash::Specified(value) => value,
             ContentBasedPathHash::OutputArtifact => "output_artifact",
+            ContentBasedPathHash::AqueryPlaceholder => "aquery_placeholder",
         }
     }
 }
@@ -94,6 +98,14 @@ mod tests {
         assert_eq!(
             "output_artifact",
             ContentBasedPathHash::for_output_artifact().as_str()
+        );
+    }
+
+    #[test]
+    fn test_hash_for_aquery_placeholder() {
+        assert_eq!(
+            "aquery_placeholder",
+            ContentBasedPathHash::AqueryPlaceholder.as_str()
         );
     }
 }

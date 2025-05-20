@@ -27,6 +27,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::Starla
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::FrozenStarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
+use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
@@ -844,19 +845,21 @@ impl Action for RunAction {
         self.inner.always_print_stderr
     }
 
-    fn aquery_attributes(&self, fs: &ExecutorFs) -> indexmap::IndexMap<String, String> {
+    fn aquery_attributes(
+        &self,
+        fs: &ExecutorFs,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
+    ) -> IndexMap<String, String> {
         let mut cli_rendered = Vec::<String>::new();
         let mut ctx = DefaultCommandLineContext::new(fs);
         let values = Self::unpack(&self.starlark_values).unwrap();
-        // TODO(T219919866) Make aquery work with content-based path hashing
-        let artifact_path_mapping = IndexMap::new();
         values
             .exe
-            .add_to_command_line(&mut cli_rendered, &mut ctx, &artifact_path_mapping)
+            .add_to_command_line(&mut cli_rendered, &mut ctx, artifact_path_mapping)
             .unwrap();
         values
             .args
-            .add_to_command_line(&mut cli_rendered, &mut ctx, &artifact_path_mapping)
+            .add_to_command_line(&mut cli_rendered, &mut ctx, artifact_path_mapping)
             .unwrap();
         let cmd = format!("[{}]", cli_rendered.iter().join(", "));
         indexmap! {

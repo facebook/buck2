@@ -79,6 +79,7 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
+use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 
 pub mod artifact;
 pub mod box_slice_set;
@@ -163,7 +164,11 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
         }
     }
 
-    fn aquery_attributes(&self, _fs: &ExecutorFs) -> IndexMap<String, String> {
+    fn aquery_attributes(
+        &self,
+        _fs: &ExecutorFs,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
+    ) -> IndexMap<String, String> {
         indexmap! {}
     }
 
