@@ -13,6 +13,7 @@ load(
     "symlink",
     "symlinked_dir",
     "use_projection_with_content_based_path",
+    "uses_relative_to",
     "write_json_with_content_based_path",
     "write_macro_with_content_based_path",
     "write_with_content_based_path",
@@ -128,6 +129,10 @@ writes_input_to_output(
     name = "uses_slow_running_local_action_with_content_based_path2",
     input = ":slow_running_local_action_with_content_based_path",
     default_target_platform = ":p_cat",
+)
+
+uses_relative_to(
+    name = "uses_relative_to",
 )
 
 platform(

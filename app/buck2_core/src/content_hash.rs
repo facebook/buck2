@@ -40,6 +40,7 @@ pub enum ContentBasedPathHash {
     /// If we're not using the configuration hash in the scratch path, then just use a
     /// placeholder value.
     Scratch,
+    RelativePathResolution,
 }
 
 impl ContentBasedPathHash {
@@ -73,6 +74,7 @@ impl ContentBasedPathHash {
             ContentBasedPathHash::OutputArtifact => "output_artifact",
             ContentBasedPathHash::AqueryPlaceholder => "aquery_placeholder",
             ContentBasedPathHash::Scratch => "scratch",
+            ContentBasedPathHash::RelativePathResolution => "relative_path_resolution",
         }
     }
 }
@@ -116,5 +118,13 @@ mod tests {
     #[test]
     fn test_hash_for_scratch_path() {
         assert_eq!("scratch", ContentBasedPathHash::Scratch.as_str());
+    }
+
+    #[test]
+    fn test_hash_for_relative_path_resolution() {
+        assert_eq!(
+            "relative_path_resolution",
+            ContentBasedPathHash::RelativePathResolution.as_str()
+        );
     }
 }

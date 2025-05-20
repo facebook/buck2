@@ -330,3 +330,10 @@ async def test_local_actions_do_not_overwrite_each_other(buck: Buck) -> None:
     )
 
     assert path1 != path2
+
+
+@buck_test()
+async def test_uses_relative_to(buck: Buck) -> None:
+    await build_target_with_different_platforms_and_verify_output_paths_are_identical(
+        buck, "root//:uses_relative_to"
+    )

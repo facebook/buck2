@@ -387,3 +387,21 @@ writes_input_to_output = rule(
         "input": attrs.source(),
     },
 )
+
+def _uses_relative_to_impl(ctx):
+    out1 = ctx.actions.declare_output("out1", uses_experimental_content_based_path_hashing = True)
+    ctx.actions.write(out1, "hello world")
+
+    out2 = ctx.actions.declare_output("out2", uses_experimental_content_based_path_hashing = True)
+    ctx.actions.write(out2, "hello world")
+
+    out3 = ctx.actions.declare_output("out3", uses_experimental_content_based_path_hashing = True)
+    ctx.actions.write(out3, cmd_args(out1, relative_to = out2))
+
+    return [DefaultInfo(default_output = out3)]
+
+uses_relative_to = rule(
+    impl = _uses_relative_to_impl,
+    attrs = {
+    },
+)

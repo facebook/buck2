@@ -193,13 +193,19 @@ impl<'v, F: Fields<'v>> FieldsRef<'v, F> {
         }
     }
 
-    fn relative_to_path<C>(&self, ctx: &C) -> buck2_error::Result<Option<RelativePathBuf>>
+    fn relative_to_path<C>(
+        &self,
+        ctx: &C,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
+    ) -> buck2_error::Result<Option<RelativePathBuf>>
     where
         C: CommandLineContext + ?Sized,
     {
         match &self.0.options() {
             None => Ok(None),
-            Some(options) => options.to_command_line_options().relative_to_path(ctx),
+            Some(options) => options
+                .to_command_line_options()
+                .relative_to_path(ctx, artifact_path_mapping),
         }
     }
 }
@@ -226,20 +232,21 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
                 }
                 Ok(())
             }
-            Some(options) => {
-                options
-                    .to_command_line_options()
-                    .wrap_builder(cli, context, |cli, context| {
-                        for item in self.0.items() {
-                            item.as_command_line_arg().add_to_command_line(
-                                cli,
-                                context,
-                                artifact_path_mapping,
-                            )?;
-                        }
-                        Ok(())
-                    })
-            }
+            Some(options) => options.to_command_line_options().wrap_builder(
+                cli,
+                context,
+                |cli, context| {
+                    for item in self.0.items() {
+                        item.as_command_line_arg().add_to_command_line(
+                            cli,
+                            context,
+                            artifact_path_mapping,
+                        )?;
+                    }
+                    Ok(())
+                },
+                artifact_path_mapping,
+            ),
         }
     }
 
@@ -329,7 +336,9 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
         visitor: &mut dyn WriteToFileMacroVisitor,
         artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
-        visitor.set_current_relative_to_path(&|ctx| self.relative_to_path(ctx))?;
+        visitor.set_current_relative_to_path(&|ctx| {
+            self.relative_to_path(ctx, artifact_path_mapping)
+        })?;
 
         for item in self.0.items() {
             item.as_command_line_arg()
