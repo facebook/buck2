@@ -1,0 +1,5 @@
+load(":defs.bzl", "perms_of_copied_file")
+
+perms_of_copied_file(
+    name = "perms_of_copied_file",
+)
