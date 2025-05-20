@@ -1,0 +1,32 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("ios_pika")
+
+source_listing()
+
+cxx_binary(
+    name = "native_dist_lto_planner",
+    srcs = [
+        "dist_lto_planner.cpp",
+    ],
+    linker_flags = [
+        "-lc",
+    ],
+    tests = [
+        "fbsource//xplat/buck2/tests/apple/rules/dist_lto:main-alias-iphonesimulator-arm64-pika-fat-lld-platform-distributed-thin-lto",
+    ],
+    visibility = ["PUBLIC"],
+    deps = [
+        "fbcode//common/files:files",
+        "fbcode//folly:file_util",
+        "fbcode//folly:json",
+        "fbcode//folly:subprocess",
+        "fbcode//folly/coro:blocking_wait",
+        "fbcode//folly/coro:collect",
+        "fbcode//folly/coro:shared_mutex",
+        "fbcode//folly/coro:task",
+        "fbcode//folly/executors:global_executor",
+        "fbcode//folly/executors:io_thread_pool_executor",
+        "fbcode//folly/init:init",
+    ],
+)
