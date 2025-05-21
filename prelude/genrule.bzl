@@ -136,7 +136,8 @@ def process_genrule(
         outs_attr: [dict, None],
         extra_env_vars: dict = {},
         identifier: [str, None] = None,
-        other_outputs: list[Artifact] = []) -> list[Provider]:
+        other_outputs: list[Artifact] = [],
+        genrule_error_handler: [typing.Callable[[ActionErrorCtx], list[ActionSubError]], None] = None) -> list[Provider]:
     if (out_attr != None) and (outs_attr != None):
         fail("Only one of `out` and `outs` should be set. Got out=`%s`, outs=`%s`" % (repr(out_attr), repr(outs_attr)))
 
@@ -376,6 +377,7 @@ def process_genrule(
         identifier = identifier,
         no_outputs_cleanup = ctx.attrs.no_outputs_cleanup,
         always_print_stderr = ctx.attrs.always_print_stderr,
+        error_handler = genrule_error_handler,
         **metadata_args
     )
 
