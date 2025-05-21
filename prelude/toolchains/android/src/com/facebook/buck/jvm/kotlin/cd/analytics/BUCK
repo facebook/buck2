@@ -15,6 +15,7 @@ buck_kotlin_library(
         "PUBLIC",
     ],
     deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/command/kotlin:language-version",
     ],
 )

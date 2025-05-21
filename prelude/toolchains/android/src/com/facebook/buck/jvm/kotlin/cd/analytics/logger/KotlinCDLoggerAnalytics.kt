@@ -13,6 +13,7 @@ import com.facebook.buck.core.util.log.Logger
 import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersionForLogs
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDLoggingContext
+import com.facebook.buck.jvm.kotlin.cd.analytics.KotlincModeParam
 import com.facebook.buck.jvm.kotlin.cd.analytics.logger.model.KotlinCDLogEntry
 import java.time.Clock
 import java.time.Duration
@@ -59,6 +60,17 @@ constructor(
 
   @OptIn(LanguageVersionForLogs::class)
   private fun createKotlinCDLogEntry(context: KotlinCDLoggingContext): KotlinCDLogEntry {
+    val addedAndModifiedFiles: Set<String>? =
+        (context.kotlincMode as? KotlincModeParam.Incremental)
+            ?.addedAndModifiedFiles
+            ?.map { it.toString() }
+            ?.toSet()
+    val removedFiles: Set<String>? =
+        (context.kotlincMode as? KotlincModeParam.Incremental)
+            ?.removedFiles
+            ?.map { it.toString() }
+            ?.toSet()
+
     return KotlinCDLogEntry(
         time = Instant.now(clock).epochSecond,
         eventTime = Instant.now(clock).epochSecond.toDouble(),
@@ -73,7 +85,10 @@ constructor(
         classpathChanges = context.classpathChangesParam?.value,
         step = context.step.value,
         languageVersion = context.languageVersion.valueForLogs,
-        extras = buildJson(context.extras))
+        extras = buildJson(context.extras),
+        addedAndModifiedFiles = addedAndModifiedFiles,
+        removedFiles = removedFiles,
+    )
   }
 
   private fun buildJson(extras: Map<String, List<String>>): String? {

@@ -24,4 +24,6 @@ data class KotlinCDLogEntry(
     val step: String,
     val languageVersion: String?,
     val extras: String?,
+    val addedAndModifiedFiles: Set<String>?,
+    val removedFiles: Set<String>?,
 )

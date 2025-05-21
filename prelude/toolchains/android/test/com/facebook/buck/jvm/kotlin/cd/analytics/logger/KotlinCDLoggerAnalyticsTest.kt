@@ -9,6 +9,7 @@
 
 package com.facebook.buck.jvm.kotlin.cd.analytics.logger
 
+import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion
 import com.facebook.buck.jvm.kotlin.cd.analytics.ClasspathChangesParam
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDLoggingContext
@@ -116,11 +117,45 @@ internal class KotlinCDLoggerAnalyticsTest {
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
   }
 
+  @Test
+  fun `when there are modified files, they are logged`() {
+    val kotlinCDAnalytics = createFakeKotlinCDAnalytics()
+
+    val expectedEntry = createExpectedKotlinCDLogEntry(modifiedFiles = setOf("/A", "/B"))
+
+    kotlinCDAnalytics.log(
+        createKotlinCDLoggingContext(
+            kotlincMode =
+                KotlincModeParam.Incremental(
+                    ClasspathChangesParam.NO_CHANGES,
+                    setOf(AbsPath.get("/B"), AbsPath.get("/A")),
+                    emptySet())))
+
+    verify(kotlinCDLogger, times(1)).log(expectedEntry)
+  }
+
+  @Test
+  fun `when there are removed files, they are logged`() {
+    val kotlinCDAnalytics = createFakeKotlinCDAnalytics()
+
+    val expectedEntry = createExpectedKotlinCDLogEntry(removedFiles = setOf("/A", "/B"))
+
+    kotlinCDAnalytics.log(
+        createKotlinCDLoggingContext(
+            kotlincMode =
+                KotlincModeParam.Incremental(
+                    ClasspathChangesParam.NO_CHANGES,
+                    emptySet(),
+                    setOf(AbsPath.get("/B"), AbsPath.get("/A")))))
+
+    verify(kotlinCDLogger, times(1)).log(expectedEntry)
+  }
+
   private fun createKotlinCDLoggingContext(
       step: StepParam = StepParam.KOTLINC,
       languageVersion: String = DEFAULT_LANGUAGE_VERSION,
       kotlincMode: KotlincModeParam? =
-          KotlincModeParam.Incremental(ClasspathChangesParam.NO_CHANGES),
+          KotlincModeParam.Incremental(ClasspathChangesParam.NO_CHANGES, emptySet(), emptySet()),
       extras: Map<String, List<String>> = mapOf()
   ): KotlinCDLoggingContext {
     val context = KotlinCDLoggingContext(step, LanguageVersion(languageVersion), kotlincMode)
@@ -144,8 +179,10 @@ internal class KotlinCDLoggerAnalyticsTest {
       step: StepParam = StepParam.KOTLINC,
       languageVersion: String? = DEFAULT_LANGUAGE_VERSION,
       kotlincMode: KotlincModeParam? =
-          KotlincModeParam.Incremental(ClasspathChangesParam.NO_CHANGES),
-      extras: String? = null
+          KotlincModeParam.Incremental(ClasspathChangesParam.NO_CHANGES, emptySet(), emptySet()),
+      extras: String? = null,
+      modifiedFiles: Set<String> = emptySet(),
+      removedFiles: Set<String> = emptySet(),
   ) =
       KotlinCDLogEntry(
           time = Instant.now(clock).epochSecond,
@@ -162,7 +199,10 @@ internal class KotlinCDLoggerAnalyticsTest {
               (kotlincMode as? KotlincModeParam.Incremental)?.classpathChangesParam?.value,
           step = step.value,
           languageVersion = languageVersion,
-          extras = extras)
+          extras = extras,
+          addedAndModifiedFiles = modifiedFiles,
+          removedFiles = removedFiles,
+      )
 
   companion object TestParams {
     private const val TARGET = "target"

@@ -9,6 +9,8 @@
 
 package com.facebook.buck.jvm.kotlin.cd.analytics
 
+import com.facebook.buck.core.filesystems.AbsPath
+
 enum class StepParam(val value: String) {
   KOTLINC("kotlinc"),
   KOSABI_STUBGEN("kosabi_stubgen"),
@@ -19,8 +21,13 @@ enum class StepParam(val value: String) {
 
 sealed class KotlincModeParam(val value: String) {
 
-  data class Incremental(val classpathChangesParam: ClasspathChangesParam) :
-      KotlincModeParam("incremental")
+  data class Incremental(
+      val classpathChangesParam: ClasspathChangesParam,
+      // Null set indicates that the files are unknown, while empty set indicates that there are no
+      // files
+      val addedAndModifiedFiles: Set<AbsPath>? = null,
+      val removedFiles: Set<AbsPath>? = null,
+  ) : KotlincModeParam("incremental")
 
   data object NonIncremental : KotlincModeParam("non_incremental")
 }

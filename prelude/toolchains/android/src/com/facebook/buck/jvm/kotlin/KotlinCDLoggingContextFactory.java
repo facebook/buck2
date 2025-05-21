@@ -9,13 +9,17 @@
 
 package com.facebook.buck.jvm.kotlin;
 
+import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion;
 import com.facebook.buck.jvm.kotlin.cd.analytics.ClasspathChangesParam;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDLoggingContext;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlincModeParam;
 import com.facebook.buck.jvm.kotlin.cd.analytics.StepParam;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.ClasspathChanges;
+import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlinSourceChanges;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlincMode;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class KotlinCDLoggingContextFactory {
 
@@ -30,8 +34,21 @@ public class KotlinCDLoggingContextFactory {
     if (kotlincMode instanceof KotlincMode.NonIncremental) {
       return KotlincModeParam.NonIncremental.INSTANCE;
     } else if (kotlincMode instanceof KotlincMode.Incremental) {
+      KotlincMode.Incremental incrementalMode = (KotlincMode.Incremental) kotlincMode;
+      Set<AbsPath> removedFiles = null;
+      Set<AbsPath> modifiedFiles = null;
+
+      if (incrementalMode.getKotlinSourceChanges() instanceof KotlinSourceChanges.Known) {
+        KotlinSourceChanges.Known knownSourceChanges =
+            (KotlinSourceChanges.Known) incrementalMode.getKotlinSourceChanges();
+
+        modifiedFiles =
+            knownSourceChanges.getAddedAndModifiedFiles().stream().collect(Collectors.toSet());
+        removedFiles = knownSourceChanges.getRemovedFiles().stream().collect(Collectors.toSet());
+      }
+
       return new KotlincModeParam.Incremental(
-          create(((KotlincMode.Incremental) kotlincMode).getClasspathChanges()));
+          create(incrementalMode.getClasspathChanges()), modifiedFiles, removedFiles);
     } else {
       throw new IllegalArgumentException("Unsupported kotlinc mode: " + kotlincMode);
     }
