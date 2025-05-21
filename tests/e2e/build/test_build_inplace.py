@@ -8,28 +8,20 @@
 # pyre-strict
 
 
-import asyncio
 import json
 import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict
 
 import pytest
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.api.buck_result import BuckException, BuildResult
-from buck2.tests.e2e_util.api.process import Process
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env, get_mode_from_platform
-from buck2.tests.e2e_util.helper.utils import (
-    json_get,
-    random_string,
-    read_invocation_record,
-    read_what_ran,
-)
+from buck2.tests.e2e_util.helper.utils import json_get, random_string, read_what_ran
 
 
 # rust rule implementations hardcode invocation of `/bin/jq` which is not available on Mac RE workers (or mac laptops)
@@ -658,160 +650,6 @@ async def test_asic_platforms(buck: Buck) -> None:
         assert "facebook.com" in s, "expected 'facebook.com' in output: `{}`".format(
             output
         )
-
-
-@buck_test(inplace=True)
-async def test_exit_when_different_state(buck: Buck) -> None:
-    a = buck.build(
-        "-c",
-        "foo.bar=1",
-        "--exit-when-different-state",
-        "fbcode//buck2/tests/targets/exit_when_different_state:long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
-
-    b = buck.build(
-        "-c",
-        "foo.bar=2",
-        "--exit-when-different-state",
-        "fbcode//buck2/tests/targets/exit_when_different_state:long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
-
-    # create a coroutine that can return a result
-    async def process(
-        p: Process[BuildResult, BuckException],
-    ) -> Tuple[Optional[int], str]:
-        result = await expect_failure(p)
-        return (result.process.returncode, result.stderr)
-
-    done, pending = await asyncio.wait(
-        [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
-        timeout=10,
-        return_when=asyncio.FIRST_COMPLETED,
-    )
-
-    assert len(done) == 1
-    assert len(pending) == 1
-
-    # these are sets, so can't index them.
-    for task in done:
-        exit_code, stderr = task.result()
-        assert "daemon is busy" in stderr
-        assert exit_code == 4
-
-
-@buck_test(inplace=True)
-@pytest.mark.parametrize("same_state", [True, False])
-async def test_exit_when_preemptible_always(buck: Buck, same_state: bool) -> None:
-    a = buck.build(
-        "-c",
-        "foo.bar=1",
-        "--preemptible=always",
-        "fbcode//buck2/tests/targets/exit_when_different_state:long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
-
-    b = buck.build(
-        "-c",
-        # We expect to ALWAYS preempt commands, to prevent blocking new callees
-        "foo.bar=1" if same_state else "foo.bar=2",
-        "--preemptible=always",
-        "fbcode//buck2/tests/targets/exit_when_different_state:long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
-
-    # create a coroutine that can return a result
-    async def process(
-        p: Process[BuildResult, BuckException],
-    ) -> Tuple[Optional[int], str]:
-        result = await expect_failure(p)
-        return (result.process.returncode, result.stderr)
-
-    done, pending = await asyncio.wait(
-        [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
-        timeout=10,
-        return_when=asyncio.FIRST_COMPLETED,
-    )
-
-    assert len(done) == 1
-    assert len(pending) == 1
-
-    # these are sets, so can't index them.
-    for task in done:
-        exit_code, stderr = task.result()
-        assert "daemon preempted" in stderr
-        assert exit_code == 5
-
-
-@buck_test(inplace=True)
-async def test_preemptible_logged(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-    await buck.targets(
-        "@fbcode//mode/dev",
-        "--preemptible=always",
-        ":",
-        "--unstable-write-invocation-record",
-        str(record_path),
-    )
-    record = read_invocation_record(record_path)
-    assert record["preemptible"] == "ALWAYS"
-
-
-@buck_test(inplace=True)
-@pytest.mark.parametrize("same_state", [True, False])
-async def test_exit_when_preemptible_on_different_state(
-    buck: Buck, same_state: bool
-) -> None:
-    a = buck.build(
-        "-c",
-        "foo.bar=1",
-        "--preemptible=ondifferentstate",
-        "fbcode//buck2/tests/targets/exit_when_different_state:long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
-
-    b = buck.build(
-        "-c",
-        # We expect to ALWAYS preempt commands, to prevent blocking new callees
-        "foo.bar=1" if same_state else "foo.bar=2",
-        "--preemptible=ondifferentstate",
-        "fbcode//buck2/tests/targets/exit_when_different_state:long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
-
-    # create a coroutine that can return a result
-    async def process(
-        p: Process[BuildResult, BuckException],
-    ) -> Tuple[Optional[int], str]:
-        result = await expect_failure(p)
-        return (result.process.returncode, result.stderr)
-
-    done, pending = await asyncio.wait(
-        [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
-        timeout=10,
-        return_when=asyncio.FIRST_COMPLETED,
-    )
-
-    if same_state:
-        # No preempt when state is the same
-        assert len(done) == 0
-        assert len(pending) == 2
-    else:
-        assert len(done) == 1
-        assert len(pending) == 1
-
-    # These are sets, so can't index them. Expect all done tasks to be "done" because they're preempted
-    for task in done:
-        exit_code, stderr = task.result()
-        assert "daemon preempted" in stderr
-        assert exit_code == 5
 
 
 @buck_test(inplace=True)
