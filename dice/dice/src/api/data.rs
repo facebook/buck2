@@ -53,7 +53,7 @@ use std::any::Any;
 use std::collections::BTreeSet;
 
 use allocative::Allocative;
-use anymap::Map;
+use anymap3::Map;
 use itertools::Itertools;
 use thiserror::Error;
 
