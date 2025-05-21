@@ -37,27 +37,24 @@ struct CounterError {
 impl Counters {
     fn open() -> Result<Self, CounterError> {
         // NOTE: Kernel is not enabled here: we want to report only userspace cycles.
-        let user_counter = Builder::new()
-            .kind(Hardware::INSTRUCTIONS)
-            .inherit(true)
-            .enable_on_exec()
-            .build()
-            .map_err(|error| CounterError {
-                stage: "open user",
-                error: error.into(),
-            })?;
+        let mut user_counter_builder = Builder::new().kind(Hardware::INSTRUCTIONS);
+        user_counter_builder.inherit(true).enable_on_exec(true);
+        let user_counter = user_counter_builder.build().map_err(|error| CounterError {
+            stage: "open user",
+            error: error.into(),
+        })?;
 
-        let kernel_counter = Builder::new()
-            .kind(Hardware::INSTRUCTIONS)
+        let mut kernel_counter = Builder::new().kind(Hardware::INSTRUCTIONS);
+        kernel_counter
             .include_kernel()
-            .exclude_user()
+            .exclude_user(true)
             .inherit(true)
-            .enable_on_exec()
-            .build()
-            .map_err(|error| CounterError {
-                stage: "open kernel",
-                error: error.into(),
-            })?;
+            .enable_on_exec(true);
+
+        let kernel_counter = kernel_counter.build().map_err(|error| CounterError {
+            stage: "open kernel",
+            error: error.into(),
+        })?;
 
         Ok(Self {
             user_counter,

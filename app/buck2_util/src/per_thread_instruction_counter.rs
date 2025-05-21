@@ -26,12 +26,12 @@ impl PerThreadInstructionCounter {
 
     #[cfg(target_os = "linux")]
     fn init_impl() -> buck2_error::Result<Option<PerThreadInstructionCounter>> {
-        let mut counter = perf_event::Builder::new()
+        let mut builder = perf_event::Builder::new()
             .observe_self()
             .any_cpu()
-            .inherit(false)
-            .kind(perf_event::events::Hardware::INSTRUCTIONS)
-            .build()?;
+            .kind(perf_event::events::Hardware::INSTRUCTIONS);
+        builder.inherit(false);
+        let mut counter = builder.build()?;
         counter.enable()?;
         Ok(Some(PerThreadInstructionCounter { counter }))
     }
