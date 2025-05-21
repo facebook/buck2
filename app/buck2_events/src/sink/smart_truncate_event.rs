@@ -33,6 +33,9 @@ pub(crate) fn smart_truncate_event(d: &mut buck2_data::buck_event::Data) {
                 Some(Data::TestEnd(test_end)) => {
                     truncate_test_end(test_end);
                 }
+                Some(Data::TestDiscovery(test_discovery_end)) => {
+                    truncate_test_discovery_end(test_discovery_end);
+                }
                 _ => {}
             };
         }
@@ -190,6 +193,20 @@ fn truncate_test_end(test_end: &mut buck2_data::TestRunEnd) {
     }
 }
 
+fn truncate_test_discovery_end(test_discovery_end: &mut buck2_data::TestDiscoveryEnd) {
+    // Scribe tailer logs neither stdout nor stderr of test discovery, so don't send these.
+    if let Some(ref mut command_report) = test_discovery_end.command_report {
+        if let Some(ref mut details) = command_report.details {
+            if !details.stdout.is_empty() {
+                details.stdout = "<<omitted>>".to_owned();
+            }
+            if !details.stderr.is_empty() {
+                details.stderr = "<<omitted>>".to_owned();
+            }
+        }
+    }
+}
+
 fn truncate_target_patterns(target_patterns: &mut Vec<buck2_data::TargetPattern>) {
     const MAX_TARGET_PATTERNS_BYTES: usize = 512 * 1024;
     let orig_len = target_patterns.len();
@@ -251,6 +268,13 @@ mod tests {
     fn make_test_end(data: buck2_data::TestRunEnd) -> buck2_data::buck_event::Data {
         buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
             data: Some(buck2_data::span_end_event::Data::TestEnd(data)),
+            ..Default::default()
+        })
+    }
+
+    fn make_test_discovery_end(data: buck2_data::TestDiscoveryEnd) -> buck2_data::buck_event::Data {
+        buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
+            data: Some(buck2_data::span_end_event::Data::TestDiscovery(data)),
             ..Default::default()
         })
     }
@@ -662,6 +686,26 @@ mod tests {
 
         let mut event_data = make_test_end(test_end);
         let event_data_expected = make_test_end(test_end_truncated);
+
+        smart_truncate_event(&mut event_data);
+
+        assert_eq!(event_data, event_data_expected);
+    }
+
+    #[test]
+    fn smart_truncate_test_discovery_end_command_report_stdout_truncated() {
+        let test_discovery_end = buck2_data::TestDiscoveryEnd {
+            command_report: Some(make_command_execution_with_stdout("blah".to_owned())),
+            ..Default::default()
+        };
+
+        let test_discovery_end_truncated = buck2_data::TestDiscoveryEnd {
+            command_report: Some(make_command_execution_with_stdout("<<omitted>>".to_owned())),
+            ..Default::default()
+        };
+
+        let mut event_data = make_test_discovery_end(test_discovery_end);
+        let event_data_expected = make_test_discovery_end(test_discovery_end_truncated);
 
         smart_truncate_event(&mut event_data);
 
