@@ -49,7 +49,7 @@ registration_spec = RuleRegistrationSpec(
             attrs.string(
                 default = select({
                     "DEFAULT": "unix",
-                    "config//os:windows": "windows",
+                    "prelude//os:windows": "windows",
                 }),
             ),
         ),

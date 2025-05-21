@@ -25,16 +25,16 @@ load("@prelude//utils:expect.bzl", "expect")
 # "throw away" the non-native libraries for all other configured sub-graphs.
 
 _REFS = {
-    "arm64": "config//cpu/constraints:arm64",
-    "armv7": "config//cpu/constraints:arm32",
+    "arm64": "prelude//cpu/constraints:arm64",
+    "armv7": "prelude//cpu/constraints:arm32",
     "build_only_native_code": "prelude//android/constraints:build_only_native_code",
     "building_android_binary": "prelude//os:building_android_binary",
-    "cpu": "config//cpu/constraints:cpu",
+    "cpu": "prelude//cpu/constraints:cpu",
     "maybe_build_only_native_code": "prelude//android/constraints:maybe_build_only_native_code",
     "maybe_building_android_binary": "prelude//os:maybe_building_android_binary",
     "min_sdk_version": "prelude//android/constraints:min_sdk_version",
-    "x86": "config//cpu/constraints:x86_32",
-    "x86_64": "config//cpu/constraints:x86_64",
+    "x86": "prelude//cpu/constraints:x86_32",
+    "x86_64": "prelude//cpu/constraints:x86_64",
 }
 
 _DEFAULT_PLATFORM = read_root_config("android", "primary_platform_for_build", None)

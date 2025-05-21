@@ -130,15 +130,6 @@ fn initialize_buckconfig(repo_root: &AbsPath, prelude: bool, git: bool) -> buck2
     if prelude {
         writeln!(buckconfig, "  prelude = prelude")?;
         writeln!(buckconfig, "  toolchains = toolchains")?;
-        writeln!(buckconfig, "  none = none")?;
-        writeln!(buckconfig)?;
-        writeln!(buckconfig, "[cell_aliases]")?;
-        writeln!(buckconfig, "  config = prelude")?;
-        writeln!(buckconfig, "  ovr_config = prelude")?;
-        writeln!(buckconfig, "  fbcode = none")?;
-        writeln!(buckconfig, "  fbsource = none")?;
-        writeln!(buckconfig, "  fbcode_macros = none")?;
-        writeln!(buckconfig, "  buck = none")?;
         writeln!(buckconfig)?;
         writeln!(
             buckconfig,
@@ -332,15 +323,6 @@ mod tests {
   root = .
   prelude = prelude
   toolchains = toolchains
-  none = none
-
-[cell_aliases]
-  config = prelude
-  ovr_config = prelude
-  fbcode = none
-  fbsource = none
-  fbcode_macros = none
-  buck = none
 
 # Uses a copy of the prelude bundled with the buck2 binary. You can alternatively delete this
 # section and vendor a copy of the prelude to the `prelude` directory of your project.

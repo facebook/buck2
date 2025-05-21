@@ -28,8 +28,8 @@ def enable_testing_transition_impl(platform: PlatformInfo, refs: struct) -> Plat
     )
 
 enable_testing_transition_refs = {
-    "enable_testing_setting": "config//features/apple/constraints:swift_enable_testing",
-    "enable_testing_value": "config//features/apple/constraints:swift_enable_testing_enabled",
+    "enable_testing_setting": "prelude//features/apple/constraints:swift_enable_testing",
+    "enable_testing_value": "prelude//features/apple/constraints:swift_enable_testing_enabled",
 }
 
 enable_testing_transition = transition(

@@ -192,12 +192,12 @@ def _meta_apple_library_validation_enabled_default_value():
     return select({
         "DEFAULT": select({
             "DEFAULT": meta_apple_library_validation_enabled_default,
-            "config//features/apple:fb_xplat_suffixing_check_disabled": False,
-            "config//features/apple:fb_xplat_suffixing_check_enabled": True,
+            "prelude//features/apple:fb_xplat_suffixing_check_disabled": False,
+            "prelude//features/apple:fb_xplat_suffixing_check_enabled": True,
         }),
         # arvr targets do not use suffixed targets, as any xplat target deps
         # get rewritten without the Apple-specific suffixes.
-        "config//build_mode/constraints:arvr_mode_enabled": False,
+        "prelude//build_mode/constraints:arvr_mode_enabled": False,
     })
 
 def _meta_apple_library_validation_enabled_arg():
@@ -211,8 +211,8 @@ def _skip_universal_resource_dedupe_default_value():
 
     return select({
         "DEFAULT": False,
-        "config//features/apple:skip_universal_resource_dedupe_disabled": False,
-        "config//features/apple:skip_universal_resource_dedupe_enabled": True,
+        "prelude//features/apple:skip_universal_resource_dedupe_disabled": False,
+        "prelude//features/apple:skip_universal_resource_dedupe_enabled": True,
     })
 
 def _skip_universal_resource_dedupe_arg():
@@ -225,7 +225,7 @@ def _apple_sanitizer_compatibility_arg():
         return {}
 
     return {
-        "_sanitizer_compatibility": attrs.default_only(attrs.dep(default = "fbsource//tools/build_defs/apple/sanitizers:sanitizer_compatibility")),
+        "_sanitizer_compatibility": attrs.default_only(attrs.dep(default = "prelude//tools/build_defs/apple/sanitizers:sanitizer_compatibility")),
     }
 
 def _apple_tools_arg():

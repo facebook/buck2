@@ -9,22 +9,22 @@ os_lookup(
     name = "os_lookup",
     cpu = select({
         "DEFAULT": None,
-        "config//cpu:arm64": "arm64",
-        "config//cpu:x86_64": "x86_64",
+        "prelude//cpu:arm64": "arm64",
+        "prelude//cpu:x86_64": "x86_64",
     }),
     os = select({
         # FIXME(JakobDegen): No default
         "DEFAULT": "linux",
-        "config//os:linux": "linux",
-        "config//os:macos": "macos",
-        "config//os:windows": "windows",
+        "prelude//os:linux": "linux",
+        "prelude//os:macos": "macos",
+        "prelude//os:windows": "windows",
         # FIXME(JakobDegen): We assuem fat means fat mac linux, but that might not be true in the
         # future.
         "prelude//platforms:fat_platform_enabled": "fat_mac_linux",
     }),
     script = select({
         "DEFAULT": "sh",
-        "config//os:windows": "bat",
+        "prelude//os:windows": "bat",
     }),
     visibility = ["PUBLIC"],
 )

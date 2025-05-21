@@ -45,9 +45,9 @@ def _target_sdk_version_and_enable_testing_impl(platform: PlatformInfo, refs: st
     return platform_info
 
 _target_sdk_version_transition_refs = {
-    version: "@config//version:constraint-value-target-sdk-version-" + version
+    version: "prelude//version:constraint-value-target-sdk-version-" + version
     for version in TARGET_SDK_VERSIONS
-} | {"version": "@config//version:constraint-setting-target-sdk-version"}
+} | {"version": "prelude//version:constraint-setting-target-sdk-version"}
 
 _target_sdk_version_attrs = ["propagated_target_sdk_version"]
 

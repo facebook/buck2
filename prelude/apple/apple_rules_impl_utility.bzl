@@ -23,60 +23,56 @@ load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 AppleFrameworkBundleModuleMapType = ["auto"]
 
 def get_apple_toolchain_attr():
-    # FIXME: prelude// should be standalone (not refer to fbcode//)
-    return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-default", providers = [AppleToolchainInfo])
+    return attrs.toolchain_dep(default = "prelude//buck2/platform/toolchain:apple-default", providers = [AppleToolchainInfo])
 
 def get_apple_bundle_toolchain_attr():
-    # FIXME: prelude// should be standalone (not refer to fbcode//)
-    return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-bundle", providers = [AppleToolchainInfo])
+    return attrs.toolchain_dep(default = "prelude//buck2/platform/toolchain:apple-bundle", providers = [AppleToolchainInfo])
 
 def get_apple_xctoolchain_attr():
-    # FIXME: prelude// should be standalone (not refer to fbcode//)
-    return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-xctoolchain")
+    return attrs.toolchain_dep(default = "prelude//buck2/platform/toolchain:apple-xctoolchain")
 
 def get_apple_xctoolchain_bundle_id_attr():
-    # FIXME: prelude// should be standalone (not refer to fbcode//)
-    return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-xctoolchain-bundle-id")
+    return attrs.toolchain_dep(default = "prelude//buck2/platform/toolchain:apple-xctoolchain-bundle-id")
 
 def get_enable_library_evolution():
     return attrs.bool(default = select({
         "DEFAULT": False,
-        "config//features/apple:swift_library_evolution_enabled": True,
+        "prelude//features/apple:swift_library_evolution_enabled": True,
     }))
 
 def _get_enable_dsym_uses_parallel_linker():
     return attrs.bool(default = select({
         "DEFAULT": False,
-        "config//features/apple:dsym_uses_parallel_linker_enabled": True,
+        "prelude//features/apple:dsym_uses_parallel_linker_enabled": True,
     }))
 
 def _strict_provisioning_profile_search_default_attr():
     default_value = (read_root_config("apple", "strict_provisioning_profile_search", "true").lower() == "true")
     return attrs.bool(default = select({
         "DEFAULT": default_value,
-        "config//features/apple:strict_provisioning_profile_search_enabled": True,
+        "prelude//features/apple:strict_provisioning_profile_search_enabled": True,
     }))
 
 def _fast_adhoc_signing_enabled_default_attr():
     return attrs.bool(default = select({
         "DEFAULT": True,
-        "config//features/apple:fast_adhoc_signing_disabled": False,
-        "config//features/apple:fast_adhoc_signing_enabled": True,
+        "prelude//features/apple:fast_adhoc_signing_disabled": False,
+        "prelude//features/apple:fast_adhoc_signing_enabled": True,
     }))
 
 def _skip_adhoc_resigning_scrubbed_frameworks_default_attr():
     default_value = (read_root_config("apple", "skip_adhoc_resigning_scrubbed_frameworks", "").lower() == "true")
     return attrs.bool(default = select({
         "DEFAULT": default_value,
-        "config//features/apple/constraints:skip_adhoc_resigning_scrubbed_frameworks_disabled": False,
-        "config//features/apple/constraints:skip_adhoc_resigning_scrubbed_frameworks_enabled": True,
+        "prelude//features/apple/constraints:skip_adhoc_resigning_scrubbed_frameworks_disabled": False,
+        "prelude//features/apple/constraints:skip_adhoc_resigning_scrubbed_frameworks_enabled": True,
     }))
 
 def _versioned_macos_bundle_default_value():
     return select({
         "DEFAULT": False,
-        "config//features/apple/constraints:versioned_macos_bundle_false": False,
-        "config//features/apple/constraints:versioned_macos_bundle_true": True,
+        "prelude//features/apple/constraints:versioned_macos_bundle_false": False,
+        "prelude//features/apple/constraints:versioned_macos_bundle_true": True,
     })
 
 APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_override"
@@ -125,8 +121,7 @@ def _apple_bundle_like_common_attrs():
         "_fast_provisioning_profile_parsing_enabled": attrs.bool(default = False),
         "_incremental_bundling_enabled": attrs.bool(default = False),
         "_profile_bundling_enabled": attrs.bool(default = False),
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_provisioning_profiles": attrs.dep(default = "fbsource//xplat/buck2/platform/apple:provisioning_profiles"),
+        "_provisioning_profiles": attrs.dep(default = "prelude//xplat/buck2/platform/apple:provisioning_profiles"),
         "_resource_bundle": attrs.option(attrs.dep(providers = [AppleBundleResourceInfo]), default = None),
         "_skip_adhoc_resigning_scrubbed_frameworks_default": _skip_adhoc_resigning_scrubbed_frameworks_default_attr(),
         "_skip_adhoc_resigning_scrubbed_frameworks_override": attrs.option(attrs.bool(), default = None),
@@ -176,8 +171,8 @@ def apple_test_extra_attrs():
         """),
         "_apple_toolchain": get_apple_toolchain_attr(),
         "_enable_library_evolution": get_enable_library_evolution(),
-        "_ios_booted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ios_booted_simulator", providers = [LocalResourceInfo]),
-        "_ios_unbooted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ios_unbooted_simulator", providers = [LocalResourceInfo]),
+        "_ios_booted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "prelude//xplat/buck2/platform/apple:ios_booted_simulator", providers = [LocalResourceInfo]),
+        "_ios_unbooted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "prelude//xplat/buck2/platform/apple:ios_unbooted_simulator", providers = [LocalResourceInfo]),
         "_swift_enable_testing": attrs.default_only(attrs.bool(default = True)),
     } | validation_common.attrs_validators_arg()
     attribs.update(_apple_bundle_like_common_attrs())
@@ -211,7 +206,7 @@ def _embed_xctest_frameworks_default_value():
         "DEFAULT": False,
         # Xcode copies XCTest frameworks to test host apps, required when the
         # selected Xcode version != Xcode version used to build an app under test
-        "config//marker/apple/constraints:embed_xctest_frameworks_enabled": True,
+        "prelude//marker/apple/constraints:embed_xctest_frameworks_enabled": True,
     })
 
 def apple_bundle_extra_attrs():

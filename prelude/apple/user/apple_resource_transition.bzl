@@ -30,9 +30,9 @@ def _apple_resource_transition_impl(platform: PlatformInfo, refs: struct, attrs:
 apple_resource_transition = transition(
     impl = _apple_resource_transition_impl,
     refs = {
-        "cpu": "config//cpu/constraints:cpu",
-        "universal": "config//cpu/constraints:universal",
-        "universal_enabled": "config//cpu/constraints:universal-enabled",
+        "cpu": "prelude//cpu/constraints:cpu",
+        "universal": "prelude//cpu/constraints:universal",
+        "universal_enabled": "prelude//cpu/constraints:universal-enabled",
     },
     attrs = [
         "skip_universal_resource_dedupe",
