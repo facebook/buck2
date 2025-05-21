@@ -248,7 +248,7 @@ def extract_undefined_syms(
         anonymous: bool = False,
         allow_cache_upload: bool = False,
         hash_counter = 0) -> Artifact:
-    name = "extracted_symbol_names/{}.undefined_syms.txt".format(str(hash(output.short_path + str(hash_counter))))
+    name = "extracted_symbol_names/{}-{}.undefined_syms.txt".format(str(hash(output.short_path)), str(hash_counter))
     return extract_symbol_names(
         ctx = ctx,
         cxx_toolchain = cxx_toolchain,
