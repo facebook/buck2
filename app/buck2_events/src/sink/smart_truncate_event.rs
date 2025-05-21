@@ -176,6 +176,18 @@ fn truncate_test_end(test_end: &mut buck2_data::TestRunEnd) {
             }
         }
     }
+
+    // Scribe tailer logs neither stdout nor stderr of tests, so don't send these.
+    if let Some(ref mut command_report) = test_end.command_report {
+        if let Some(ref mut details) = command_report.details {
+            if !details.stdout.is_empty() {
+                details.stdout = "<<omitted>>".to_owned();
+            }
+            if !details.stderr.is_empty() {
+                details.stderr = "<<omitted>>".to_owned();
+            }
+        }
+    }
 }
 
 fn truncate_target_patterns(target_patterns: &mut Vec<buck2_data::TargetPattern>) {
@@ -615,6 +627,36 @@ mod tests {
                 test_names: test_names_truncated,
                 ..Default::default()
             }),
+            ..Default::default()
+        };
+
+        let mut event_data = make_test_end(test_end);
+        let event_data_expected = make_test_end(test_end_truncated);
+
+        smart_truncate_event(&mut event_data);
+
+        assert_eq!(event_data, event_data_expected);
+    }
+
+    fn make_command_execution_with_stdout(stdout: String) -> buck2_data::CommandExecution {
+        buck2_data::CommandExecution {
+            details: Some(buck2_data::CommandExecutionDetails {
+                stdout,
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn smart_truncate_test_end_command_report_stdout_truncated() {
+        let test_end = buck2_data::TestRunEnd {
+            command_report: Some(make_command_execution_with_stdout("blah".to_owned())),
+            ..Default::default()
+        };
+
+        let test_end_truncated = buck2_data::TestRunEnd {
+            command_report: Some(make_command_execution_with_stdout("<<omitted>>".to_owned())),
             ..Default::default()
         };
 
