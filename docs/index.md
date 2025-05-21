@@ -22,8 +22,8 @@ matter how many times an operation is performed, it yields the same result) and
 hermeticity (code is sealed off from the world), giving the right results,
 reliably.
 
-Buck2 multi-language support includes C++, Python, Java, Go, Rust, Erlang,
-OCaml, and more.
+Buck2 multi-language support includes C++, Python, Java, Kotlin, Go, Rust,
+Erlang, OCaml, and more.
 
 The following sub-sections contain a list of links to key points in the Buck2
 Documentation website that explain the advantages of using Buck2 for you and
