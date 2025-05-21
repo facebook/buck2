@@ -663,7 +663,8 @@ async def test_asic_platforms(buck: Buck) -> None:
 @buck_test(inplace=True)
 async def test_exit_when_different_state(buck: Buck) -> None:
     a = buck.build(
-        "@fbcode//mode/dev",
+        "-c",
+        "foo.bar=1",
         "--exit-when-different-state",
         "fbcode//buck2/tests/targets/exit_when_different_state:long_running_target",
         "--local-only",
@@ -671,7 +672,8 @@ async def test_exit_when_different_state(buck: Buck) -> None:
     )
 
     b = buck.build(
-        "@fbcode//mode/opt",
+        "-c",
+        "foo.bar=2",
         "--exit-when-different-state",
         "fbcode//buck2/tests/targets/exit_when_different_state:long_running_target",
         "--local-only",
@@ -705,7 +707,8 @@ async def test_exit_when_different_state(buck: Buck) -> None:
 @pytest.mark.parametrize("same_state", [True, False])
 async def test_exit_when_preemptible_always(buck: Buck, same_state: bool) -> None:
     a = buck.build(
-        "@fbcode//mode/dev",
+        "-c",
+        "foo.bar=1",
         "--preemptible=always",
         "fbcode//buck2/tests/targets/exit_when_different_state:long_running_target",
         "--local-only",
@@ -713,8 +716,9 @@ async def test_exit_when_preemptible_always(buck: Buck, same_state: bool) -> Non
     )
 
     b = buck.build(
+        "-c",
         # We expect to ALWAYS preempt commands, to prevent blocking new callees
-        "@fbcode//mode/dev" if same_state else "@fbcode//mode/opt",
+        "foo.bar=1" if same_state else "foo.bar=2",
         "--preemptible=always",
         "fbcode//buck2/tests/targets/exit_when_different_state:long_running_target",
         "--local-only",
@@ -764,7 +768,8 @@ async def test_exit_when_preemptible_on_different_state(
     buck: Buck, same_state: bool
 ) -> None:
     a = buck.build(
-        "@fbcode//mode/dev",
+        "-c",
+        "foo.bar=1",
         "--preemptible=ondifferentstate",
         "fbcode//buck2/tests/targets/exit_when_different_state:long_running_target",
         "--local-only",
@@ -772,8 +777,9 @@ async def test_exit_when_preemptible_on_different_state(
     )
 
     b = buck.build(
+        "-c",
         # We expect to ALWAYS preempt commands, to prevent blocking new callees
-        "@fbcode//mode/dev" if same_state else "@fbcode//mode/opt",
+        "foo.bar=1" if same_state else "foo.bar=2",
         "--preemptible=ondifferentstate",
         "fbcode//buck2/tests/targets/exit_when_different_state:long_running_target",
         "--local-only",
