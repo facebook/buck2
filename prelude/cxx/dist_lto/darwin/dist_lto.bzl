@@ -63,8 +63,6 @@ _LazyBitcodeLinkData = record(
 _ArchiveLinkData = record(
     name = str,
     manifest = Artifact,
-    # A file containing paths to artifacts that are known to reside in opt_objects_dir.
-    opt_manifest = Artifact,
     objects_dir = Artifact,
     opt_objects_dir = Artifact,
     indexes_dir = Artifact,
@@ -203,9 +201,6 @@ def cxx_darwin_dist_link(
     plan_inputs = []
     plan_outputs = []
 
-    # Information used to construct the opt dynamic outputs:
-    archive_opt_manifests = []
-
     prepare_cat = make_cat("thin_lto_prepare")
 
     for link in link_infos:
@@ -284,7 +279,6 @@ def cxx_darwin_dist_link(
                 archive_opt_objects = ctx.actions.declare_output("%s/%s/opt_objects" % (prepare_cat, name), dir = True)
                 archive_indexes = ctx.actions.declare_output("%s/%s/indexes" % (prepare_cat, name), dir = True)
                 archive_plan = ctx.actions.declare_output("%s/%s/plan.json" % (prepare_cat, name))
-                archive_opt_manifest = ctx.actions.declare_output("%s/%s/opt_objects.manifest" % (prepare_cat, name))
                 archive_merged_bc_files = None
                 if premerger_enabled:
                     archive_merged_bc_files = ctx.actions.declare_output("%s/%s/merged_bc_files" % (prepare_cat, name), dir = True)
@@ -310,7 +304,6 @@ def cxx_darwin_dist_link(
                     link_data = _ArchiveLinkData(
                         name = name,
                         manifest = archive_manifest,
-                        opt_manifest = archive_opt_manifest,
                         objects_dir = archive_objects,
                         opt_objects_dir = archive_opt_objects,
                         indexes_dir = archive_indexes,
@@ -320,7 +313,6 @@ def cxx_darwin_dist_link(
                     ),
                 )
                 unsorted_index_link_data.append(data)
-                archive_opt_manifests.append(archive_opt_manifest)
                 plan_inputs.extend([archive_manifest, archive_objects])
                 plan_outputs.extend([archive_indexes.as_output(), archive_plan.as_output()])
             elif isinstance(linkable, SharedLibLinkable):
@@ -591,11 +583,9 @@ def cxx_darwin_dist_link(
         if lazy.is_all(lambda e: not e.is_bitcode, archive_optimization_plan.object_plans):
             # Nothing in this directory was lto-able; let's just copy the archive.
             ctx.actions.copy_file(outputs[archive.opt_objects_dir], archive.objects_dir)
-            ctx.actions.write(outputs[archive.opt_manifest], "")
             return
 
         output_dir = {}
-        output_manifest = cmd_args()
         for object_optimization_plan in archive_optimization_plan.object_plans:
             if not object_optimization_plan.loaded_by_linker:
                 continue
@@ -607,7 +597,6 @@ def cxx_darwin_dist_link(
             source_path = paths.relativize(object_optimization_plan.path, base_dir)
             if not object_optimization_plan.is_bitcode:
                 opt_object = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_copy"), source_path))
-                output_manifest.add(opt_object)
                 copy_cmd = cmd_args([
                     lto_copy,
                     "--to",
@@ -620,7 +609,6 @@ def cxx_darwin_dist_link(
                 continue
 
             opt_object = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_archive"), source_path))
-            output_manifest.add(opt_object)
             output_dir[source_path] = opt_object
             opt_cmd = cmd_args(lto_opt)
             if premerger_enabled and object_optimization_plan.merge_state == BitcodeMergeState("ROOT").value:
@@ -653,11 +641,10 @@ def cxx_darwin_dist_link(
             )
 
         ctx.actions.symlinked_dir(outputs[archive.opt_objects_dir], output_dir)
-        ctx.actions.write(outputs[archive.opt_manifest], output_manifest, allow_args = True)
 
     def dynamic_optimize_archive(archive: _ArchiveLinkData):
         archive_opt_inputs = [archive.plan]
-        archive_opt_outputs = [archive.opt_objects_dir.as_output(), archive.opt_manifest.as_output()]
+        archive_opt_outputs = [archive.opt_objects_dir.as_output()]
         ctx.actions.dynamic_output(dynamic = archive_opt_inputs, inputs = [], outputs = archive_opt_outputs, f = lambda ctx, artifacts, outputs: optimize_archive(ctx, artifacts, outputs, archive))
 
     for artifact in sorted_index_link_data:
@@ -734,7 +721,7 @@ def cxx_darwin_dist_link(
 
         ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, local_only = _execute_link_actions_locally())
 
-    final_link_inputs = [link_plan_out, final_link_index] + archive_opt_manifests
+    final_link_inputs = [link_plan_out, final_link_index]
     final_link_outputs = [output.as_output(), linker_argsfile_out.as_output()]
     if linker_map:
         final_link_outputs.append(linker_map.as_output())
