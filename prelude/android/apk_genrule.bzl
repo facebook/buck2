@@ -49,7 +49,14 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
             "AAB": cmd_args(input_apk),
         }
 
-    genrule_providers = process_genrule(ctx, ctx.attrs.out, ctx.attrs.outs, env_vars, other_outputs = input_materialized_artifacts)
+    genrule_providers = process_genrule(
+        ctx,
+        ctx.attrs.out,
+        ctx.attrs.outs,
+        env_vars,
+        other_outputs = input_materialized_artifacts,
+        genrule_error_handler = ctx.attrs._android_toolchain[AndroidToolchainInfo].android_error_handler,
+    )
 
     genrule_default_info = filter(lambda x: isinstance(x, DefaultInfo), genrule_providers)
 
