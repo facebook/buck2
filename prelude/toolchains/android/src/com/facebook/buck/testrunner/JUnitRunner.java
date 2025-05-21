@@ -91,6 +91,10 @@ public final class JUnitRunner extends BaseRunner {
       stdErrLogLevel = Level.parse(unparsedStdErrLogLevel);
     }
 
+    // TPX sets the env var that enables the Standard Output format
+    Optional<TestResultsOutputSender> testResultsOutputSender =
+        TestResultsOutputSender.fromDefaultEnvName();
+
     for (String className : testClassNames) {
       Class<?> testClass = Class.forName(className);
       Class<?>[] testClasses;
@@ -109,11 +113,6 @@ public final class JUnitRunner extends BaseRunner {
         request = request.filterWith(filter);
         jUnitCore.addListener(new TestListener(results, stdOutLogLevel, stdErrLogLevel));
 
-        // testResultsOutputSender will only be present if the environment variable is set to use
-        // TPX Standard Output. In that case, we want to add the listener so the test results JSON
-        // file is written.
-        Optional<TestResultsOutputSender> testResultsOutputSender =
-            TestResultsOutputSender.fromDefaultEnvName();
         if (testResultsOutputSender.isPresent()) {
           JUnitTpxStandardOutputListener tpxListener =
               new JUnitTpxStandardOutputListener(testResultsOutputSender.get());
