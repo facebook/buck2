@@ -138,8 +138,7 @@ fn key_to_starlark_type(key: &CoercedSelectorKeyRef) -> SelectDictKey {
 }
 
 /// In bxl, `Select = bxl.SelectDict | bxl.SelectConcat`. `bxl.SelectDict` is a dict-like object that represents a select.
-/// One example of this type is:
-///
+/// One example of this type is
 /// ```python
 /// select({
 //      "root//constraints:a": ["--foo"],
@@ -147,9 +146,7 @@ fn key_to_starlark_type(key: &CoercedSelectorKeyRef) -> SelectDictKey {
 //      "DEFAULT": ["baz"]
 //  })
 /// ```
-/// 
 /// You can:
-///
 /// * Iterate over its keys (e.g., `for key in select_dict.select_keys():`).
 /// * Iterate over key-value pairs using select_dict.select_items() (e.g., `for key, value in select_dict.select_items():`).
 /// * Get the select entry with a string or a ProvidersLabel (e.g., `select_dict.get_select_entry("root//constraints:a")`).
@@ -272,7 +269,6 @@ impl<'v> StarlarkValue<'v> for StarlarkSelectConcat {
 
 /// In bxl, `Select = bxl.SelectDict | bxl.SelectConcat`. `bxl.SelectConcat` is a list-like object that represents a select.
 /// One example of this type is:
-///
 /// ```python
 /// ["--flags"] + select({
 //     "root//constraints:a": ["--foo"],
@@ -280,14 +276,12 @@ impl<'v> StarlarkValue<'v> for StarlarkSelectConcat {
 //     "DEFAULT": ["baz"]
 // })
 /// ```
-/// 
 /// You can:
-///
 /// * Iterate over the values of this object (e.g. `for item in select_concat.select_iter():`)
 /// * Get the length (e.g. `len(select_concat)`)
 /// * Check its type using `isinstance(select_concat, bxl.SelectConcat)`.
 ///
-/// Sample usage:
+/// Simple usage:
 /// ```python
 /// def _impl_select_concat(ctx):
 ///     node = ctx.lazy.unconfigured_target_node("root//:select_concat").resolve()
