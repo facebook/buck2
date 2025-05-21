@@ -37,7 +37,7 @@ def check_for_duplicate_classes_for_pre_dexed_libs(
             ],
     )
 
-def check_for_duplicate_classe_for_non_pre_dexed_jars(
+def check_for_duplicate_classes_for_non_pre_dexed_jars(
         ctx: AnalysisContext,
         jar_to_owning_target_mapping: dict[Artifact, TargetLabel]) -> ValidationInfo:
     validation_output = ctx.actions.declare_output("validation_output.txt")
