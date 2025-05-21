@@ -25,12 +25,19 @@ async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
     let native_certs =
         rustls_native_certs::load_native_certs().tag(buck2_error::ErrorTag::Environment);
     let native_certs = if cfg!(fbcode_build) {
-        native_certs.buck_error_context(
+        let windows_message = if cfg!(target_os = "windows") {
+            " on an admin PowerShell"
+        } else {
+            ""
+        };
+        let context = format!(
             "Error loading system root certificates native frameworks.
             This is usually due to Chef not installed or working properly.
-            Please try `getchef -reason 'chef broken'`, `Fix My <OS>` via the f-menu, then `buck2 killall`.
+            Please try `getchef -reason 'chef broken'`{}, `Fix My <OS>` via the f-menu, then `buck2 killall`.
             If that doesn't resolve it, please visit HelpDesk to get Chef back to a healthy state.",
-        )
+            windows_message
+        );
+        native_certs.buck_error_context(context)
     } else {
         native_certs.buck_error_context("Error loading system root certificates native frameworks.")
     };
