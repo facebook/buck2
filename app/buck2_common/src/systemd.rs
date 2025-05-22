@@ -15,7 +15,7 @@ use std::sync::OnceLock;
 
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_util::process;
-use tracing::warn;
+use tracing::info;
 
 use crate::init::ResourceControlConfig;
 use crate::init::ResourceControlStatus;
@@ -227,7 +227,7 @@ impl SystemdRunner {
         // systemctl returns no error if scope is active
         let is_active = cmd.status().await?.success();
         if is_active {
-            warn!(
+            info!(
                 "Transient scope unit {} is already active. Stopping before start a new one.",
                 scope
             );
