@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
 use std::time::Instant;
 
 use buck2_artifact::actions::key::ActionKey;
@@ -14,6 +15,7 @@ use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::internal_error;
 use dupe::Dupe;
+use fxhash::FxHashSet;
 
 use crate::build::detailed_aggregated_metrics::FxMultiMap;
 use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsEvent;
@@ -40,7 +42,7 @@ use crate::deferred::calculation::DeferredHolder;
 /// and use that later to compute metrics both over the whole graph and just specific to the current build.
 pub struct DetailedAggregatedMetricsStateTracker {
     observed_executions: fxhash::FxHashMap<ActionKey, ActionExecutionMetrics>,
-    analysis_nodes: fxhash::FxHashMap<DeferredHolderKey, DeferredHolder>,
+    analysis_nodes: Arc<fxhash::FxHashMap<DeferredHolderKey, DeferredHolder>>,
 }
 
 impl DetailedAggregatedMetricsStateTracker {
@@ -50,7 +52,8 @@ impl DetailedAggregatedMetricsStateTracker {
         tokio::task::spawn(async move {
             let mut state = Self::new();
             while let Some(v) = event_receiver.recv().await {
-                state.event(v);
+                // TODO(rajneeshl): Change this from per-event handling to use recv_many
+                state.event(v).await;
             }
         });
 
@@ -59,21 +62,23 @@ impl DetailedAggregatedMetricsStateTracker {
 
     fn new() -> Self {
         Self {
-            analysis_nodes: fxhash::FxHashMap::default(),
+            analysis_nodes: Arc::new(fxhash::FxHashMap::default()),
             observed_executions: fxhash::FxHashMap::default(),
         }
     }
 
-    pub(crate) fn event(&mut self, ev: DetailedAggregatedMetricsEvent) {
+    pub(crate) async fn event(&mut self, ev: DetailedAggregatedMetricsEvent) {
+        let analysis_nodes = Arc::get_mut(&mut self.analysis_nodes)
+            .expect("Metrics state should have a single reference");
         match ev {
             DetailedAggregatedMetricsEvent::AnalysisStarted(key) => {
-                self.analysis_nodes.remove(&key);
+                analysis_nodes.remove(&key);
             }
             DetailedAggregatedMetricsEvent::AnalysisComplete(key, data) => {
-                self.analysis_nodes.insert(key, data);
+                analysis_nodes.insert(key, data);
             }
             DetailedAggregatedMetricsEvent::ComputeMetrics(events, sender) => {
-                drop(sender.send(self.compute_metrics(events)))
+                drop(sender.send(self.compute_metrics(events).await))
             }
             DetailedAggregatedMetricsEvent::ActionExecuted(metrics) => {
                 self.observed_executions.insert(metrics.key.dupe(), metrics);
@@ -81,27 +86,46 @@ impl DetailedAggregatedMetricsStateTracker {
         }
     }
 
-    fn compute_metrics(
+    async fn compute_metrics(
         &mut self,
         events: PerBuildEvents,
     ) -> buck2_error::Result<DetailedAggregatedMetrics> {
         let now = Instant::now();
-        let mut agg_data = Vec::new();
+
+        let futures = events
+            .top_level_targets
+            .into_iter()
+            .enumerate()
+            .map(|(idx, spec)| {
+                let analysis_nodes = self.analysis_nodes.dupe();
+                tokio::task::spawn_blocking(move || {
+                    let mut target_graph = FxHashSet::default();
+                    traverse_target_graph(&spec.target, |target| {
+                        target_graph.insert(target.dupe());
+                    });
+                    let action_graph_result = traverse_partial_action_graph(
+                        spec.outputs.iter().map(|(artifact, _)| artifact),
+                        &analysis_nodes,
+                    );
+                    (idx, spec.label, target_graph, action_graph_result)
+                })
+            });
+
+        let results = buck2_util::future::try_join_all(futures).await?;
+
         let mut action_mappings: FxMultiMap<ActionKey, usize> = FxMultiMap::default();
         let mut target_mappings: FxMultiMap<ConfiguredTargetLabel, usize> = FxMultiMap::default();
         let mut all_complete = true;
+        let mut agg_data = Vec::new();
 
-        for (idx, spec) in events.top_level_targets.iter().enumerate() {
-            traverse_target_graph(&spec.target, |target| {
-                target_mappings.insert(target.dupe(), idx)
-            });
-            let (complete, action_graph) = traverse_partial_action_graph(
-                spec.outputs.iter().map(|(artifact, _)| artifact),
-                &self.analysis_nodes,
-            )?;
+        for (idx, label, target_graph, action_graph_result) in results {
+            for target in target_graph {
+                target_mappings.insert(target, idx);
+            }
+            let (action_graph_complete, action_graph) = action_graph_result?;
             agg_data.push(TopLevelTargetAggregatedData::new(
-                spec.label.dupe(),
-                if complete {
+                label,
+                if action_graph_complete {
                     Some(action_graph.len())
                 } else {
                     all_complete = false;
