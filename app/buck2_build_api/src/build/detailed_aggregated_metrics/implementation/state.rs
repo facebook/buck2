@@ -51,8 +51,12 @@ impl DetailedAggregatedMetricsStateTracker {
 
         tokio::task::spawn(async move {
             let mut state = Self::new();
+            // This event loop cannot process events in parallel:
+            //  - There is a ordering dependency between events
+            //    (e.g. AnalysisStarted cannot be run in parallel with AnalysisComplete)
+            //  - The state is mutated by events and would either need to be cloned
+            //    or be protected by a mutex. Cloning is expensive and a mutex would defeat parallelism.
             while let Some(v) = event_receiver.recv().await {
-                // TODO(rajneeshl): Change this from per-event handling to use recv_many
                 state.event(v).await;
             }
         });
