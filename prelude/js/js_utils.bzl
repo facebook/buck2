@@ -6,12 +6,12 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//:worker_tool.bzl", "WorkerToolInfo")
 load("@prelude//apple:apple_resource_types.bzl", "AppleResourceDestination", "AppleResourceSpec")
 load("@prelude//apple:resource_groups.bzl", "ResourceGraphInfo", "create_resource_graph")  # @unused `ResourceGraphInfo` used as a type
 load("@prelude//js:js_providers.bzl", "JsBundleInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:expect.bzl", "expect")
+load(":worker_tool.bzl", "WorkerToolInfo")
 
 RAM_BUNDLE_TYPES = {
     "": "",
