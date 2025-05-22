@@ -214,8 +214,9 @@ def dedupe_by_value(list):
             map[item] = True
     return uniques
 
+# Replace problematic characters when used as filename. https://en.wikipedia.org/wiki/Filename#Problematic_characters
 def sanitize(input):
-    return input.replace("/", "_").replace("-", "_").replace(".", "_")
+    return input.replace("/", "_").replace(".", "_")
 
 # https://en.wikipedia.org/wiki/XML#Escaping
 # TODO: apply escape in more places.
