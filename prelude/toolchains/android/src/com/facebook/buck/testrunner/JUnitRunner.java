@@ -111,12 +111,13 @@ public final class JUnitRunner extends BaseRunner {
         Runner suite = new Computer().getSuite(createRunnerBuilder(), testClasses);
         Request request = Request.runner(suite);
         request = request.filterWith(filter);
-        jUnitCore.addListener(new TestListener(results, stdOutLogLevel, stdErrLogLevel));
 
         if (testResultsOutputSender.isPresent()) {
           JUnitTpxStandardOutputListener tpxListener =
               new JUnitTpxStandardOutputListener(testResultsOutputSender.get());
           jUnitCore.addListener(tpxListener);
+        } else {
+          jUnitCore.addListener(new TestListener(results, stdOutLogLevel, stdErrLogLevel));
         }
         jUnitCore.run(request);
       }
