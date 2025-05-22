@@ -91,7 +91,7 @@ impl DetailedAggregatedMetricsStateTracker {
     }
 
     async fn compute_metrics(
-        &mut self,
+        &self,
         events: PerBuildEvents,
     ) -> buck2_error::Result<DetailedAggregatedMetrics> {
         let now = Instant::now();
