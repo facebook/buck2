@@ -23,20 +23,16 @@ load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 AppleFrameworkBundleModuleMapType = ["auto"]
 
 def get_apple_toolchain_attr():
-    # FIXME: prelude// should be standalone (not refer to fbcode//)
-    return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-default", providers = [AppleToolchainInfo])
+    return attrs.toolchain_dep(default = "toolchains//:apple-default", providers = [AppleToolchainInfo])
 
 def get_apple_bundle_toolchain_attr():
-    # FIXME: prelude// should be standalone (not refer to fbcode//)
-    return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-bundle", providers = [AppleToolchainInfo])
+    return attrs.toolchain_dep(default = "toolchains//:apple-bundle", providers = [AppleToolchainInfo])
 
 def get_apple_xctoolchain_attr():
-    # FIXME: prelude// should be standalone (not refer to fbcode//)
-    return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-xctoolchain")
+    return attrs.toolchain_dep(default = "toolchains//:apple-xctoolchain")
 
 def get_apple_xctoolchain_bundle_id_attr():
-    # FIXME: prelude// should be standalone (not refer to fbcode//)
-    return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-xctoolchain-bundle-id")
+    return attrs.toolchain_dep(default = "toolchains//:apple-xctoolchain-bundle-id")
 
 def get_enable_library_evolution():
     return attrs.bool(default = select({
