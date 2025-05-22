@@ -1,0 +1,13 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
+
+prelude = native
+
+prelude.python_bootstrap_binary(
+    name = "worker_tool_runner",
+    main = "worker_tool_runner.py",
+    visibility = ["PUBLIC"],
+)

@@ -1358,7 +1358,7 @@ worker_tool = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             # FIXME: prelude// should be standalone (not refer to fbsource//)
-            "_worker_tool_runner": attrs.default_only(attrs.dep(default = "fbsource//xplat/buck2/tools/worker:worker_tool_runner")),
+            "_worker_tool_runner": attrs.default_only(attrs.dep(default = "prelude//js/worker_runner:worker_tool_runner")),
         }
     ),
 )
