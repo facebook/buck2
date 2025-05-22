@@ -81,6 +81,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::test_command::TEST_COMMAND;
+use buck2_server_ctx::tpx_experiment_util::get_tpx_experiments;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::data::TestStatus;
 use buck2_test_api::protocol::TestExecutor;
@@ -430,6 +431,8 @@ async fn test(
         .context("Invalid `duration`")
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Input))?;
 
+    let project_root = server_ctx.project_root();
+    let tpx_experiments = get_tpx_experiments(ctx.dupe(), project_root).await?;
     let test_outcome = test_targets(
         ctx.dupe(),
         resolved_pattern,
@@ -449,6 +452,7 @@ async fn test(
         MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
         timeout,
         request.ignore_tests_attribute,
+        tpx_experiments,
     )
     .await
     .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::TestExecutor))?;
@@ -616,6 +620,7 @@ async fn test_targets(
     missing_target_behavior: MissingTargetBehavior,
     timeout: Option<Duration>,
     ignore_tests_attribute: bool,
+    tpx_experiments: HashSet<String>,
 ) -> anyhow::Result<TestOutcome> {
     let session = Arc::new(session);
 
@@ -634,6 +639,12 @@ async fn test_targets(
             "ignored".to_owned(),
         ];
         args.extend(external_runner_args);
+
+        args.extend(
+            tpx_experiments
+                .iter()
+                .flat_map(|experiment| ["--experiment".to_owned(), experiment.to_owned()]),
+        );
 
         args
     };
