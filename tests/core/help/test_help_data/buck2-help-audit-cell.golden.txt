@@ -19,7 +19,7 @@ Options:
           If enabled and no explicit aliases are passed, will query for all aliases in the working
           directory cell.
 
-      --modifier <VALUE>
+  -m, --modifier <VALUE>
           This option is not used
 
   -h, --help

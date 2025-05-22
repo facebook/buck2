@@ -10,7 +10,7 @@ Arguments:
           Target pattern(s) to analyze.
 
 Options:
-      --modifier <VALUE>
+  -m, --modifier <VALUE>
           This option is not used
 
   -h, --help

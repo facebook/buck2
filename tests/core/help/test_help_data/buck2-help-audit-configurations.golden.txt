@@ -10,7 +10,7 @@ Arguments:
           provided, will print information about all known configurations.
 
 Options:
-      --modifier <VALUE>
+  -m, --modifier <VALUE>
           This option is not used
 
   -h, --help

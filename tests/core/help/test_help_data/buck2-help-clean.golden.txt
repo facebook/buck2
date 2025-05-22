@@ -21,7 +21,7 @@ Options:
           actions - State getting deleted (e.g., new buckversion that changes the on-disk state
           format) - Writing to `buck-out` without being expected by Buck
 
-      --modifier <VALUE>
+  -m, --modifier <VALUE>
           This option is not used
 
   -h, --help

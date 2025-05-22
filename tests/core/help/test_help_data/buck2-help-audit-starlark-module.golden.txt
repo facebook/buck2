@@ -9,7 +9,7 @@ Arguments:
           Module import path
 
 Options:
-      --modifier <VALUE>
+  -m, --modifier <VALUE>
           This option is not used
 
   -h, --help

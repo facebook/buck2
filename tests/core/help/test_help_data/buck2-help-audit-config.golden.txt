@@ -31,7 +31,7 @@ Options:
           [default: resolved]
           [possible values: resolved, raw, both]
 
-      --modifier <VALUE>
+  -m, --modifier <VALUE>
           This option is not used
 
   -h, --help

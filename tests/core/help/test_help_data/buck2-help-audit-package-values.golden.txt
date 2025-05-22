@@ -11,7 +11,7 @@ Arguments:
           Package names to inspect (like `//foo/bar`, no trailing colon)
 
 Options:
-      --modifier <VALUE>
+  -m, --modifier <VALUE>
           This option is not used
 
   -h, --help

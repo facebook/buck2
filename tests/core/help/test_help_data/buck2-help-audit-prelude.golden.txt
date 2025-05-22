@@ -5,7 +5,7 @@ print the interpreter prelude to stdout
 Usage: buck2 audit prelude [OPTIONS]
 
 Options:
-      --modifier <VALUE>
+  -m, --modifier <VALUE>
           This option is not used
 
   -h, --help

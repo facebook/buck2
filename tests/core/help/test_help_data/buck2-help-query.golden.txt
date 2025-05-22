@@ -58,7 +58,7 @@ Options:
 
           [possible values: dot, json, dot_compact, starlark, html]
 
-      --modifier <VALUE>
+  -m, --modifier <VALUE>
           This option is not used
 
   -h, --help

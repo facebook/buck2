@@ -44,7 +44,7 @@ pub struct TargetCfgUnusedOptions {
     pub target_platforms: Option<String>,
 
     /// This option is not used.
-    #[clap(value_name = "VALUE", long = "modifier")]
+    #[clap(value_name = "VALUE", long = "modifier", short = 'm')]
     pub cli_modifier: Vec<String>,
 }
 
