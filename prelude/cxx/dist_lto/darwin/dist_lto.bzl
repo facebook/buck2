@@ -10,6 +10,7 @@ load(
     "make_artifact_tset",
 )
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//apple:apple_utility.bzl", "get_apple_architecture")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
@@ -296,6 +297,10 @@ def cxx_darwin_dist_link(
                     linkable.archive.artifact,
                     "--name",
                     name,
+                    "--target-architecture",
+                    get_apple_architecture(ctx),
+                    "--lipo",
+                    cxx_toolchain.lipo,
                 ])
                 ctx.actions.run(prepare_args, category = make_cat("thin_lto_prepare"), identifier = name)
 

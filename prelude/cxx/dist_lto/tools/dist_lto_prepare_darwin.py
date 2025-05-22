@@ -39,6 +39,28 @@ def _gen_filename(filename: str, num_of_instance: int) -> str:
         return filename
 
 
+def is_universal_archive(archive_path: str) -> bool:
+    output = subprocess.check_output(["file", archive_path]).decode()
+    return "Mach-O universal binary" in output
+
+
+def extract_slice_from_universal_archive(
+    lipo_path: str, target_architecture: str, archive_path: str
+) -> str:
+    temp_file_name = os.path.join(tempfile.mkdtemp(), "extracted_archive.a")
+    subprocess.check_call(
+        [
+            lipo_path,
+            "-thin",
+            target_architecture,
+            "-output",
+            temp_file_name,
+            archive_path,
+        ]
+    )
+    return temp_file_name
+
+
 def main(argv: List[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest-out")
@@ -46,19 +68,27 @@ def main(argv: List[str]) -> int:
     parser.add_argument("--ar")
     parser.add_argument("--name")
     parser.add_argument("--archive")
+    parser.add_argument("--target-architecture")
+    parser.add_argument("--lipo")
     args = parser.parse_args(argv[1:])
 
     objects_path = args.objects_out
     os.makedirs(objects_path, exist_ok=True)
 
     known_objects = []
+
+    archive_path = os.path.abspath(args.archive)
+    if is_universal_archive(archive_path):
+        archive_path = extract_slice_from_universal_archive(
+            args.lipo, args.target_architecture, archive_path
+        )
+
     # Unfortunately, we use llvm-ar and, while binutils ar has had --output for
     # a long time, llvm-ar does not support --output and the change in llvm-ar
     # looks like it has stalled for years (https://reviews.llvm.org/D69418)
     # So, we need to invoke ar in the directory that we want it to extract into, and so
     # need absolute paths.
     ar_path = os.path.abspath(args.ar)
-    archive_path = os.path.abspath(args.archive)
     output = subprocess.check_output(
         [ar_path, "t", archive_path], cwd=objects_path
     ).decode()
