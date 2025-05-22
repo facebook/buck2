@@ -60,8 +60,7 @@ public class JUnitTpxStandardOutputListener extends RunListener {
    */
   @Override
   public void testFailure(Failure failure) {
-    listener.testFailed(
-        getFullTestName(failure.getDescription()), failure.getException().toString());
+    listener.testFailed(getFullTestName(failure.getDescription()), failure.getTrace());
   }
 
   /**
@@ -72,8 +71,7 @@ public class JUnitTpxStandardOutputListener extends RunListener {
    */
   @Override
   public void testAssumptionFailure(Failure failure) {
-    listener.testAssumptionFailure(
-        getFullTestName(failure.getDescription()), failure.getException().toString());
+    listener.testAssumptionFailure(getFullTestName(failure.getDescription()), failure.getTrace());
   }
 
   /**

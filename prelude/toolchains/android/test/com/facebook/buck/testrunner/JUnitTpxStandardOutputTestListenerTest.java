@@ -83,6 +83,7 @@ public class JUnitTpxStandardOutputTestListenerTest {
       Assert.assertTrue(endLine.contains("finish"));
       Assert.assertTrue(endLine.contains("testOne (TestClass)"));
       Assert.assertTrue(endLine.contains(testFailureMessage));
+      Assert.assertTrue(endLine.contains("\\n")); // stack trace contains new lines
 
       Assert.assertNull(reader.readLine());
     }
@@ -109,6 +110,7 @@ public class JUnitTpxStandardOutputTestListenerTest {
       Assert.assertTrue(endLine.contains("finish"));
       Assert.assertTrue(endLine.contains("testOne (TestClass)"));
       Assert.assertTrue(endLine.contains(testFailureMessage));
+      Assert.assertTrue(endLine.contains("\\n")); // stack trace contains new lines
 
       Assert.assertNull(reader.readLine());
     }
