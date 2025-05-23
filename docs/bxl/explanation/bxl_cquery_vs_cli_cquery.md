@@ -139,8 +139,8 @@ universe = ctx.target_universe(["root//path/...", "X"])
 2. Lookup args in the universe
 
 ```python
-arg0 = universe.looup("root//path/...")
-arg1 = universe.looup("X")
+arg0 = universe.lookup("root//path/...")
+arg1 = universe.lookup("X")
 ```
 
 3. Run cquery
