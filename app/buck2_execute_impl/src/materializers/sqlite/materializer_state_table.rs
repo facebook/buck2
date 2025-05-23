@@ -40,7 +40,7 @@ const STATE_TABLE_NAME: &str = "materializer_state";
 
 #[derive(buck2_error::Error, Debug, PartialEq, Eq)]
 #[buck2(tag = Tier0)]
-pub(crate) enum ArtifactMetadataSqliteConversionError {
+enum ArtifactMetadataSqliteConversionError {
     #[error("Internal error: expected field `{}` to be not null for artifact type '{}'", .field, .artifact_type)]
     ExpectedNotNull {
         field: String,
@@ -54,23 +54,23 @@ pub(crate) enum ArtifactMetadataSqliteConversionError {
 /// Sqlite representation of sha1. Can be converted directly into BLOB type
 /// in rusqlite. Note we use a Vec and not a fixed length array here because
 /// rusqlite can only convert to Vec.
-pub(crate) type SqliteDigest = Vec<u8>;
+type SqliteDigest = Vec<u8>;
 
 /// Sqlite representation of `ArtifactMetadata`. All datatypes used implement
 /// rusqlite's `FromSql` trait.
 #[derive(Debug)]
-pub(crate) struct ArtifactMetadataSqliteEntry {
-    pub artifact_type: String,
-    pub entry_size: Option<u64>,
-    pub entry_hash: Option<SqliteDigest>,
-    pub entry_hash_kind: Option<u8>,
-    pub file_is_executable: Option<bool>,
-    pub symlink_target: Option<String>,
-    pub directory_size: Option<u64>,
+struct ArtifactMetadataSqliteEntry {
+    artifact_type: String,
+    entry_size: Option<u64>,
+    entry_hash: Option<SqliteDigest>,
+    entry_hash_kind: Option<u8>,
+    file_is_executable: Option<bool>,
+    symlink_target: Option<String>,
+    directory_size: Option<u64>,
 }
 
 impl ArtifactMetadataSqliteEntry {
-    pub(crate) fn new(
+    fn new(
         artifact_type: String,
         entry_size: Option<u64>,
         entry_hash: Option<Vec<u8>>,
