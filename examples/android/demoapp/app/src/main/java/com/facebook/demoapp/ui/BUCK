@@ -1,0 +1,17 @@
+android_library(
+    name = "ui",
+    srcs = glob(["**/*.kt"]),
+    kotlin_compiler_plugins = {
+        "//app/libs/org/jetbrains/kotlin/kotlin-compose-compiler-plugin-embeddable:kotlin-compose-compiler-plugin-embeddable": {},
+    },
+    # We should make default language Kotlin
+    language = "KOTLIN",
+    manifest = "AndroidManifest.xml",
+    visibility = ["PUBLIC"],
+    deps = [
+        "//app:res",
+        "//app/libs/androidx/activity/activity-compose:activity-compose",
+        "//app/libs/androidx/compose/material3/material3:material3",
+        "//app/src/main/java/com/facebook/demoapp/model:model",
+    ],
+)
