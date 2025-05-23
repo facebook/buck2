@@ -69,20 +69,20 @@ DISABLE_STRIPPING = read_root_config("android", "disable_stripping") in ("True",
 #            "pool": "EUREKA_POOL",
 #        },
 #    }
-_RE_CAPS = attrs.option(attrs.dict(key = attrs.string(), value = attrs.dict(key = attrs.string(), value = attrs.string())), default = None)
+RE_CAPS = attrs.option(attrs.dict(key = attrs.string(), value = attrs.dict(key = attrs.string(), value = attrs.string())), default = None)
 
 # Format is {"ovveride_name": "re_use_case"}; for example:
 #     {
 #         "dynamic-listing": "riot",
 #         "test-execution": "riot",
 #     }
-_RE_USE_CASE = attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None)
+RE_USE_CASE = attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None)
 
 # Format is {"ovveride_name": {"param_name": param_value}}; for example:
 #    {
 #        "remote_execution_policy": {"setup_preference_key": "some_json_string"},
 #    }
-_META_INTERNAL_EXTRA_PARAMS = attrs.option(attrs.dict(key = attrs.string(), value = attrs.any()), default = None)
+META_INTERNAL_EXTRA_PARAMS = attrs.option(attrs.dict(key = attrs.string(), value = attrs.any()), default = None)
 
 extra_attributes = {
     "android_aar": {
@@ -190,9 +190,9 @@ extra_attributes = {
         "instrumentation_test_listener": attrs.option(attrs.exec_dep(), default = None),
         "instrumentation_test_listener_class": attrs.option(attrs.string(), default = None),
         "is_self_instrumenting": attrs.bool(default = False),
-        "meta_internal_extra_params": _META_INTERNAL_EXTRA_PARAMS,
-        "re_caps": _RE_CAPS,
-        "re_use_case": _RE_USE_CASE,
+        "meta_internal_extra_params": META_INTERNAL_EXTRA_PARAMS,
+        "re_caps": RE_CAPS,
+        "re_use_case": RE_USE_CASE,
         "_android_toolchain": toolchains_common.android(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_java_test_toolchain": toolchains_common.java_for_host_test(),
