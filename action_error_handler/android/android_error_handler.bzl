@@ -5,7 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def android_error_handler(_ctx: ActionErrorCtx) -> list[ActionSubError]:
+load("@fbsource//tools/build_defs/android/action_error_handler:redex_error_handler.bzl", "redex_error_handler")
+
+def android_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     categories = []
+
+    categories += redex_error_handler(ctx)
 
     return categories
