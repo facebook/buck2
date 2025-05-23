@@ -283,23 +283,22 @@ def _write_test_info_file(
     test_info_file = ctx.actions.declare_output("tests_info")
     return ctx.actions.write_json(test_info_file, tests_info, with_inputs = True)
 
-def _list_code_paths(ctx: AnalysisContext, dependencies: ErlAppDependencies) -> list[[Artifact, cmd_args]]:
+def _list_code_paths(ctx: AnalysisContext, dependencies: ErlAppDependencies) -> cmd_args:
     """lists all ebin/ dirs from the test targets dependencies"""
     primary_toolchain_name = get_primary(ctx)
+    app_folders = []
     folders = []
     for dependency in dependencies.values():
         if ErlangAppInfo in dependency:
             dep_info = dependency[ErlangAppInfo]
             if not dep_info.virtual:
-                folders.append(cmd_args(
-                    dep_info.app_folders[primary_toolchain_name],
-                    format = "{}/ebin",
-                    delimiter = "",
-                ))
+                app_folders.append(dep_info.app_folders[primary_toolchain_name])
         elif ErlangTestInfo in dependency:
             dep_info = dependency[ErlangTestInfo]
             folders.append(dep_info.output_dir)
-    return folders
+    args = cmd_args(folders)
+    args.add(cmd_args(app_folders, format = "{}/ebin"))
+    return args
 
 def _build_resource_dir(ctx: AnalysisContext, resources: list, target_dir: str) -> Artifact:
     """ build mapping for suite data directory
