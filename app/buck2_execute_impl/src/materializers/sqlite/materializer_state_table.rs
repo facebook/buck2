@@ -38,6 +38,11 @@ use crate::materializers::sqlite::MaterializerState;
 
 const STATE_TABLE_NAME: &str = "materializer_state";
 
+const ARTIFACT_TYPE_DIRECTORY: &str = "directory";
+const ARTIFACT_TYPE_FILE: &str = "file";
+const ARTIFACT_TYPE_SYMLINK: &str = "symlink";
+const ARTIFACT_TYPE_EXTERNAL_SYMLINK: &str = "external_symlink";
+
 #[derive(buck2_error::Error, Debug, PartialEq, Eq)]
 #[buck2(tag = Tier0)]
 enum ArtifactMetadataSqliteConversionError {
@@ -113,7 +118,7 @@ impl From<&ArtifactMetadata> for ArtifactMetadataSqliteEntry {
             DirectoryEntry::Dir(meta) => {
                 let (entry_size, entry_hash, entry_hash_kind) = digest_parts(&meta.fingerprint);
                 (
-                    "directory",
+                    ARTIFACT_TYPE_DIRECTORY,
                     Some(entry_size),
                     Some(entry_hash),
                     Some(entry_hash_kind),
@@ -125,7 +130,7 @@ impl From<&ArtifactMetadata> for ArtifactMetadataSqliteEntry {
             DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
                 let (entry_size, entry_hash, entry_hash_kind) = digest_parts(&file_metadata.digest);
                 (
-                    "file",
+                    ARTIFACT_TYPE_FILE,
                     Some(entry_size),
                     Some(entry_hash),
                     Some(entry_hash_kind),
@@ -135,7 +140,7 @@ impl From<&ArtifactMetadata> for ArtifactMetadataSqliteEntry {
                 )
             }
             DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink)) => (
-                "symlink",
+                ARTIFACT_TYPE_SYMLINK,
                 None,
                 None,
                 None,
@@ -144,7 +149,7 @@ impl From<&ArtifactMetadata> for ArtifactMetadataSqliteEntry {
                 None,
             ),
             DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => (
-                "external_symlink",
+                ARTIFACT_TYPE_EXTERNAL_SYMLINK,
                 None,
                 None,
                 None,
@@ -207,7 +212,7 @@ fn convert_artifact_metadata(
     }
 
     let metadata = match sqlite_entry.artifact_type.as_str() {
-        "directory" => DirectoryEntry::Dir(DirectoryMetadata {
+        ARTIFACT_TYPE_DIRECTORY => DirectoryEntry::Dir(DirectoryMetadata {
             fingerprint: digest(
                 sqlite_entry.entry_size,
                 sqlite_entry.entry_hash,
@@ -219,7 +224,7 @@ fn convert_artifact_metadata(
                 .directory_size
                 .buck_error_context("Missing directory size")?,
         }),
-        "file" => DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
+        ARTIFACT_TYPE_FILE => DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
             digest: digest(
                 sqlite_entry.entry_size,
                 sqlite_entry.entry_hash,
@@ -234,7 +239,7 @@ fn convert_artifact_metadata(
                 }
             })?,
         })),
-        "symlink" => {
+        ARTIFACT_TYPE_SYMLINK => {
             let symlink = Symlink::new(
                 sqlite_entry
                     .symlink_target
@@ -246,7 +251,7 @@ fn convert_artifact_metadata(
             );
             DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(symlink)))
         }
-        "external_symlink" => {
+        ARTIFACT_TYPE_EXTERNAL_SYMLINK => {
             let external_symlink = ExternalSymlink::new(
                 sqlite_entry
                     .symlink_target
@@ -283,9 +288,9 @@ impl MaterializerStateSqliteTable {
 
     pub(crate) fn create_table(&self) -> buck2_error::Result<()> {
         let sql = format!(
-            "CREATE TABLE {} (
+            "CREATE TABLE {table_name} (
                 path                    TEXT NOT NULL PRIMARY KEY,
-                artifact_type           TEXT CHECK(artifact_type IN ('directory','file','symlink','external_symlink')) NOT NULL,
+                artifact_type           TEXT CHECK(artifact_type IN ('{artifact_type_directory}','{artifact_type_file}','{artifact_type_symlink}','{artifact_type_external_symlink}')) NOT NULL,
                 digest_size             INTEGER NULL DEFAULT NULL,
                 entry_hash              BLOB NULL DEFAULT NULL,
                 entry_hash_kind         INTEGER NULL DEFAULT NULL,
@@ -294,7 +299,11 @@ impl MaterializerStateSqliteTable {
                 last_access_time        INTEGER NOT NULL,
                 directory_size          INTEGER NULL DEFAULT NULL
             )",
-            STATE_TABLE_NAME,
+            table_name = STATE_TABLE_NAME,
+            artifact_type_directory = ARTIFACT_TYPE_DIRECTORY,
+            artifact_type_file = ARTIFACT_TYPE_FILE,
+            artifact_type_symlink = ARTIFACT_TYPE_SYMLINK,
+            artifact_type_external_symlink = ARTIFACT_TYPE_EXTERNAL_SYMLINK,
         );
         tracing::trace!(sql = %*sql, "creating table");
         self.connection
@@ -467,8 +476,10 @@ mod tests {
     fn test_artifact_metadata_dir_sqlite_entry_conversion_succeeds() {
         let digest_config = DigestConfig::testing_default();
 
-        let digest =
-            TrackedFileDigest::from_content(b"directory", digest_config.cas_digest_config());
+        let digest = TrackedFileDigest::from_content(
+            ARTIFACT_TYPE_DIRECTORY.as_bytes(),
+            digest_config.cas_digest_config(),
+        );
         let metadata = ArtifactMetadata(DirectoryEntry::Dir(DirectoryMetadata {
             fingerprint: digest,
             total_size: 32,
@@ -484,7 +495,10 @@ mod tests {
     fn test_artifact_metadata_file_sqlite_entry_conversion_succeeds() {
         let digest_config = DigestConfig::testing_default();
 
-        let digest = TrackedFileDigest::from_content(b"file", digest_config.cas_digest_config());
+        let digest = TrackedFileDigest::from_content(
+            ARTIFACT_TYPE_FILE.as_bytes(),
+            digest_config.cas_digest_config(),
+        );
         let metadata = ArtifactMetadata(DirectoryEntry::Leaf(ActionDirectoryMember::File(
             FileMetadata {
                 digest,
