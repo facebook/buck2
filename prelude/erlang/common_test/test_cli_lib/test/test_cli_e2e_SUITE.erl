@@ -10,11 +10,14 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common/include/buck_ct_records.hrl").
 
--export([all/0, init_per_suite/1, end_per_suite/1]).
+-export([suite/0, all/0, init_per_suite/1, end_per_suite/1]).
 
 -export([
     test_list/1
 ]).
+
+suite() ->
+    [{appatic, #{enable_autoclean => true}}].
 
 all() ->
     [test_list].
