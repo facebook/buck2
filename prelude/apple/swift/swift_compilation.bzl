@@ -78,6 +78,8 @@ SwiftDependencyInfo = provider(fields = {
     "debug_info_tset": provider_field(ArtifactTSet),
     # Includes modules through exported_deps, used for compilation
     "exported_swiftmodules": provider_field(SwiftCompiledModuleTset),
+    # Macro deps cannot be mixed with apple_library deps
+    "is_macro": provider_field(bool),
 })
 
 SwiftCompilationDatabase = record(
@@ -300,7 +302,8 @@ def compile_swift(
         framework_search_paths_flags: cmd_args,
         extra_search_paths_flags: list[ArgLike] = [],
         compile_category = "swift_compile",
-        compile_swiftmodule_category = "swiftmodule_compile") -> ([SwiftCompilationOutput, None], DefaultInfo):
+        compile_swiftmodule_category = "swiftmodule_compile",
+        is_macro = False) -> ([SwiftCompilationOutput, None], DefaultInfo):
     # If this target imports XCTest we need to pass the search path to its swiftmodule.
     framework_search_paths = cmd_args()
     framework_search_paths.add(_get_xctest_swiftmodule_search_path(ctx))
@@ -349,6 +352,7 @@ def compile_swift(
         public_modulemap_pp_info = exported_objc_modulemap_pp_info,
         extra_search_paths_flags = extra_search_paths_flags,
         inputs_tag = inputs_tag,
+        is_macro = is_macro,
     )
     shared_flags.add(framework_search_paths)
     swift_interface_info = _create_swift_interface(ctx, shared_flags, module_name)
@@ -445,7 +449,7 @@ def compile_swift(
         object_format = toolchain.object_format,
         swiftmodule = output_swiftmodule,
         compiled_underlying_pcm_artifact = exported_compiled_underlying_pcm.output_artifact if exported_compiled_underlying_pcm else None,
-        dependency_info = get_swift_dependency_info(ctx, output_swiftmodule, swiftinterface_output, deps_providers),
+        dependency_info = get_swift_dependency_info(ctx, output_swiftmodule, swiftinterface_output, deps_providers, is_macro),
         pre = pre,
         exported_pre = exported_pp_info,
         exported_swift_header = exported_swift_header.artifact,
@@ -867,7 +871,8 @@ def _get_shared_flags(
         private_modulemap_pp_info: CPreprocessor | None,
         public_modulemap_pp_info: CPreprocessor | None,
         extra_search_paths_flags: list[ArgLike],
-        inputs_tag: ArtifactTag) -> cmd_args:
+        inputs_tag: ArtifactTag,
+        is_macro: bool) -> cmd_args:
     toolchain = get_swift_toolchain_info(ctx)
     cmd = cmd_args()
 
@@ -1014,10 +1019,11 @@ def _get_shared_flags(
             sdk_deps_tset = sdk_clang_deps_tset,
             inputs_tag = inputs_tag,
             cmd = cmd,
+            is_macro = is_macro,
         )
 
     _add_clang_deps_flags(ctx, pcm_deps_tset, cmd, inputs_tag)
-    _add_swift_deps_flags(ctx, cmd)
+    _add_swift_deps_flags(ctx, cmd, is_macro)
 
     # Add flags for importing the ObjC part of this library
     _add_mixed_library_flags_to_cmd(
@@ -1042,12 +1048,13 @@ def _add_swift_module_map_args(
         pcm_deps_tset: SwiftCompiledModuleTset,
         sdk_deps_tset: SwiftCompiledModuleTset,
         inputs_tag: ArtifactTag,
-        cmd: cmd_args):
+        cmd: cmd_args,
+        is_macro: bool):
     module_name = get_module_name(ctx)
     sdk_swiftmodule_deps_tset = [sdk_swiftmodule_deps_tset] if sdk_swiftmodule_deps_tset else []
     all_deps_tset = ctx.actions.tset(
         SwiftCompiledModuleTset,
-        children = _get_swift_paths_tsets(ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])) + [pcm_deps_tset, sdk_deps_tset] + sdk_swiftmodule_deps_tset,
+        children = _get_swift_paths_tsets(is_macro, ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])) + [pcm_deps_tset, sdk_deps_tset] + sdk_swiftmodule_deps_tset,
     )
     swift_module_map_artifact = write_swift_module_map_with_deps(
         ctx,
@@ -1063,7 +1070,8 @@ def _add_swift_module_map_args(
 
 def _add_swift_deps_flags(
         ctx: AnalysisContext,
-        cmd: cmd_args):
+        cmd: cmd_args,
+        is_macro: bool):
     if uses_explicit_modules(ctx):
         cmd.add([
             "-Xcc",
@@ -1074,7 +1082,7 @@ def _add_swift_deps_flags(
             "-disable-implicit-swift-modules",
         ])
     else:
-        depset = ctx.actions.tset(SwiftCompiledModuleTset, children = _get_swift_paths_tsets(ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])))
+        depset = ctx.actions.tset(SwiftCompiledModuleTset, children = _get_swift_paths_tsets(is_macro, ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])))
         cmd.add(depset.project_as_args("module_search_path"))
 
         implicit_search_path_tset = get_implicit_framework_search_path_providers(
@@ -1133,19 +1141,24 @@ def _add_mixed_library_flags_to_cmd(
     if public_modulemap_pp_info:
         cmd.add("-import-underlying-module")
 
-def _get_swift_paths_tsets(deps: list[Dependency]) -> list[SwiftCompiledModuleTset]:
-    return [
-        d[SwiftDependencyInfo].exported_swiftmodules
-        for d in deps
-        if SwiftDependencyInfo in d
-    ]
+def _get_swift_dependency_info(is_macro: bool, deps: list[Dependency]) -> list[SwiftDependencyInfo]:
+    ret = []
+    for d in deps:
+        if SwiftDependencyInfo in d:
+            if d[SwiftDependencyInfo].is_macro != is_macro:
+                fail("Cannot have a {} dep in a {} target".format(
+                    "macro" if d[SwiftDependencyInfo].is_macro else "non-macro",
+                    "macro" if is_macro else "non-macro",
+                ))
+            ret.append(d[SwiftDependencyInfo])
 
-def get_external_debug_info_tsets(deps: list[Dependency]) -> list[ArtifactTSet]:
-    return [
-        d[SwiftDependencyInfo].debug_info_tset
-        for d in deps
-        if SwiftDependencyInfo in d
-    ]
+    return ret
+
+def _get_swift_paths_tsets(is_macro: bool, deps: list[Dependency]) -> list[SwiftCompiledModuleTset]:
+    return [d.exported_swiftmodules for d in _get_swift_dependency_info(is_macro, deps)]
+
+def get_external_debug_info_tsets(is_macro: bool, deps: list[Dependency]) -> list[ArtifactTSet]:
+    return [d.debug_info_tset for d in _get_swift_dependency_info(is_macro, deps)]
 
 def get_swift_pcm_uncompile_info(
         ctx: AnalysisContext,
@@ -1170,11 +1183,12 @@ def create_swift_dependency_info(
         deps,
         deps_providers: list,
         compiled_info: [SwiftCompiledModuleInfo, None],
-        debug_info_tset: ArtifactTSet):
+        debug_info_tset: ArtifactTSet,
+        is_macro: bool):
     # We pass through the SDK swiftmodules here to match Buck 1 behaviour. This is
     # pretty loose, but it matches Buck 1 behavior so cannot be improved until
     # migration is complete.
-    transitive_swiftmodule_deps = _get_swift_paths_tsets(deps) + [get_compiled_sdk_swift_deps_tset(ctx, deps_providers)]
+    transitive_swiftmodule_deps = _get_swift_paths_tsets(is_macro, deps) + [get_compiled_sdk_swift_deps_tset(ctx, deps_providers)]
 
     if compiled_info:
         exported_swiftmodules = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_info, children = transitive_swiftmodule_deps)
@@ -1184,13 +1198,15 @@ def create_swift_dependency_info(
     return SwiftDependencyInfo(
         debug_info_tset = debug_info_tset,
         exported_swiftmodules = exported_swiftmodules,
+        is_macro = is_macro,
     )
 
 def get_swift_dependency_info(
         ctx: AnalysisContext,
         output_module: Artifact | None,
         output_interface: Artifact | None,
-        deps_providers: list) -> SwiftDependencyInfo:
+        deps_providers: list,
+        is_macro: bool) -> SwiftDependencyInfo:
     exported_deps = _exported_deps(ctx)
 
     if output_module:
@@ -1208,7 +1224,7 @@ def get_swift_dependency_info(
     debug_info_tset = make_artifact_tset(
         actions = ctx.actions,
         artifacts = filter(None, [output_module, output_interface]),
-        children = get_external_debug_info_tsets(ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])),
+        children = get_external_debug_info_tsets(is_macro, ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])),
         label = ctx.label,
         tags = [ArtifactInfoTag("swiftmodule")],
     )
@@ -1219,6 +1235,7 @@ def get_swift_dependency_info(
         deps_providers,
         compiled_info,
         debug_info_tset,
+        is_macro,
     )
 
 def uses_explicit_modules(ctx: AnalysisContext) -> bool:
