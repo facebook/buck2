@@ -69,13 +69,9 @@ pub fn log_relative_path_from_cell_root(requested_path: &str) -> buck2_error::Re
         ("WARNING: ", "")
     };
     crate::eprintln!(
-        "{}`@{}` was specified, but not found. Using file at `//{}`.",
+        "{}`@{}` was specified, but not found. Using file at `//{}`.{}",
         prefix,
         requested_path,
-        requested_path
-    )?;
-    crate::eprintln!(
-        "This behavior is being deprecated. Please use `\"@//{}\"` instead{}",
         requested_path,
         reset
     )?;

@@ -281,8 +281,7 @@ async def test_flagfiles_are_located_correctly(buck: Buck) -> None:
     output = build_report.output_for_target("cell//subdir:simple")
     assert output.read_text().rstrip() == "overridden"
     assert (
-        "`@mode/dev` was specified, but not found. Using file at `//mode/dev`.\n"
-        'This behavior is being deprecated. Please use `"@//mode/dev"` instead'
+        "`@mode/dev` was specified, but not found. Using file at `//mode/dev`."
     ) in out.stderr
 
     out = await buck.build("@cell//mode/dev", "cell//subdir:simple")
