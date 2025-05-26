@@ -13,6 +13,7 @@ import com.android.ddmlib.InstallException;
 import com.google.common.collect.ImmutableSortedSet;
 import java.io.File;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,6 +71,10 @@ public interface AndroidDevice {
   boolean uninstallApkFromDevice(String packageName, boolean keepData) throws Exception;
 
   String getInstallerMethodName();
+
+  default List<String> getDiskSpace() {
+    return Arrays.asList("_", "_", "_");
+  }
 
   default void fixRootDir(String rootDir) {}
 

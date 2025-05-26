@@ -322,6 +322,17 @@ class AndroidDeviceImpl(val serial: String, val adbExecutable: String?, val adbS
 
   override fun getInstallerMethodName(): String = "adb_installer"
 
+  override fun getDiskSpace(): List<String> {
+    try {
+      val result: String = executeAdbShellCommand("df -h /data | awk '{print \$2, \$3, \$4}'")
+      val (size, used, available) = result.lines()[1].split(" ", limit = 3)
+      return listOf(size, used, available)
+    } catch (e: Exception) {
+      LOG.warn("Failed to get disk space: $e")
+      return listOf("_", "_", "_")
+    }
+  }
+
   override fun isEmulator(): Boolean {
     return isLocalTransport() || getProperty("ro.kernel.qemu") == "1"
   }
