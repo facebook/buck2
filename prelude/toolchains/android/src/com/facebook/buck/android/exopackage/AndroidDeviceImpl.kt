@@ -179,7 +179,7 @@ class AndroidDeviceImpl(val serial: String, val adbExecutable: String?, val adbS
         tempFile.writeText(
             filesToDelete.joinToString("\n") { Paths.get(dirPath).resolve(it).toString() })
         executeAdbCommand("push -z brotli ${tempFile.absolutePath} /data/local/tmp")
-        executeAdbShellCommand("rm -f @/data/local/tmp/${tempFile.name}")
+        executeAdbShellCommand("cat /data/local/tmp/${tempFile.name} | xargs rm -f")
       } catch (e: AdbCommandFailedException) {
         throw AndroidInstallException.adbCommandFailedException(
             "Failed delete ${filesToDelete.count()} files from $dirPath.", e.message)
