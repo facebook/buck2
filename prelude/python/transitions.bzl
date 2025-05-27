@@ -67,7 +67,6 @@ def _transition_opt_by_default_impl(platform: PlatformInfo, refs: struct, attrs:
         refs._opt_by_default__opt_cxx_enabled[ConstraintValueInfo],
         refs._opt_by_default__no_san[ConstraintValueInfo],
         refs._opt_by_default__opt[ConstraintValueInfo],
-        refs._opt_by_default__enabled[ConstraintValueInfo],
     ]
     for constraint in opt_by_default_constraints:
         constraints[constraint.setting.label] = constraint
@@ -86,7 +85,6 @@ def _refs():
     return {
         "_opt_by_default__dev": "@config//build_mode/constraints:dev",
         "_opt_by_default__dev_san": "@config//build_mode/constraints:asan-ubsan-dev",
-        "_opt_by_default__enabled": "@config//toolchain/python/constraints:python-opt-by-default-enabled",
         "_opt_by_default__fbcode_build_info_mode_full": "@config//build_mode/constraints:fbcode-build-info-mode-full",
         "_opt_by_default__linux": "@config//os/constraints:linux",
         "_opt_by_default__lto_none": "@config//build_mode/constraints:lto-none",
