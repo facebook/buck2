@@ -63,6 +63,7 @@ use crate::build::ConfiguredBuildTargetResult;
 use crate::build::action_error::BuildReportActionError;
 use crate::build::detailed_aggregated_metrics::types::AllTargetsAggregatedData;
 use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
+use crate::build::detailed_aggregated_metrics::types::TopLevelTargetAggregatedData;
 
 #[derive(Debug, Serialize)]
 #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
@@ -279,6 +280,15 @@ impl<'a> BuildReportCollector<'a> {
             this.overall_success = false;
         }
 
+        let mut metrics_by_configured = HashMap::new();
+        if let Some(detailed_metrics) = detailed_metrics.as_ref() {
+            for top_level_metrics in &detailed_metrics.top_level_target_metrics {
+                metrics_by_configured.insert(
+                    &*top_level_metrics.target,
+                    Self::convert_per_target_metrics(top_level_metrics),
+                );
+            }
+        }
         // The `BuildTargetResult` doesn't group errors by their unconfigured target, so we need
         // to do a little iterator munging to achieve that ourselves
         let results_by_unconfigured = configured
@@ -287,6 +297,7 @@ impl<'a> BuildReportCollector<'a> {
         let errors_by_unconfigured = other_errors
             .iter()
             .filter_map(|(l, e)| Some((l.as_ref()?.target().dupe(), e)));
+
         for i in Itertools::merge_join_by(
             IntoIterator::into_iter(&results_by_unconfigured),
             errors_by_unconfigured,
@@ -301,7 +312,12 @@ impl<'a> BuildReportCollector<'a> {
                     (label, Either::Right(std::iter::empty()), &**errors)
                 }
             };
-            let entry = this.collect_results_for_unconfigured(label.dupe(), results, errors);
+            let entry = this.collect_results_for_unconfigured(
+                label.dupe(),
+                results,
+                errors,
+                &mut metrics_by_configured,
+            );
             entries.insert(EntryLabel::Target(label), entry);
         }
 
@@ -327,6 +343,16 @@ impl<'a> BuildReportCollector<'a> {
             action_graph_size: all_target_metrics.action_graph_size,
             metrics: Self::convert_aggregated_build_metrics(&all_target_metrics.metrics),
             compute_time_ms: all_target_metrics.compute_time_ms,
+        }
+    }
+
+    fn convert_per_target_metrics(metrics: &TopLevelTargetAggregatedData) -> TargetBuildMetrics {
+        TargetBuildMetrics {
+            action_graph_size: metrics.action_graph_size,
+            metrics: Self::convert_aggregated_build_metrics(&metrics.metrics),
+            amortized_metrics: Self::convert_aggregated_build_metrics(&metrics.amortized_metrics),
+            remote_max_memory_peak_bytes: metrics.remote_max_memory_peak_bytes,
+            local_max_memory_peak_bytes: metrics.local_max_memory_peak_bytes,
         }
     }
 
@@ -365,6 +391,7 @@ impl<'a> BuildReportCollector<'a> {
             ),
         >,
         errors: &[buck2_error::Error],
+        metrics: &mut HashMap<&'b ConfiguredProvidersLabel, TargetBuildMetrics>,
     ) -> BuildReportEntry {
         // NOTE: if we're actually building a thing, then the package path must exist, but be
         // conservative and don't crash the overall processing if that happens.
@@ -389,7 +416,9 @@ impl<'a> BuildReportCollector<'a> {
             .filter_map(|(label, result)| Some((label, result.as_ref()?)))
             .chunk_by(|x| x.0.target().dupe())
         {
-            let configured_report = self.collect_results_for_configured(target.dupe(), results);
+            let configured_report =
+                self.collect_results_for_configured(target.dupe(), results, metrics);
+
             if let Some(report) = unconfigured_report.as_mut() {
                 if !configured_report.errors.is_empty() {
                     report.success = BuildOutcome::FAIL;
@@ -443,6 +472,7 @@ impl<'a> BuildReportCollector<'a> {
                 &'b ConfiguredBuildTargetResult,
             ),
         >,
+        metrics: &mut HashMap<&'b ConfiguredProvidersLabel, TargetBuildMetrics>,
     ) -> ConfiguredBuildReportEntry {
         let mut configured_report = ConfiguredBuildReportEntry::default();
         let mut errors = Vec::new();
@@ -497,6 +527,8 @@ impl<'a> BuildReportCollector<'a> {
                     .as_ref()
                     .map(|s| s.serialize());
             }
+
+            configured_report.build_metrics = metrics.remove(label);
         }
         configured_report.errors = self.convert_error_list(&errors, target);
         if !configured_report.errors.is_empty() {

@@ -132,3 +132,38 @@ async def test_build_report_contains_metrics(buck: Buck, tmp_path: Path) -> None
         assert report["build_metrics"]
         assert report["build_metrics"]["action_graph_size"] == 1
         assert report["build_metrics"]["metrics"]["declared_actions"] == 2
+
+
+@buck_test()
+async def test_build_report_contains_per_target_build_metrics(
+    buck: Buck, tmp_path: Path
+) -> None:
+    report = tmp_path / "build-report.json"
+
+    await buck.build(
+        "//:rule1",
+        "//:rule2",
+        "-c",
+        "buck2.detailed_aggregated_metrics=true",
+        "--build-report",
+        str(report),
+    )
+
+    with open(report) as file:
+        report = json.load(file)
+        # Cannot create a golden test since the values may change across runs.
+        # Assert that some of the fields are present to ensure that the values are being populated.
+        rule1_metrics = report["results"]["root//:rule1"]["configured"][
+            "<unspecified>"
+        ]["build_metrics"]
+        assert rule1_metrics["action_graph_size"] == 1
+        assert rule1_metrics["metrics"]["declared_actions"] == 2
+        assert rule1_metrics["amortized_metrics"]["declared_actions"] == 1
+
+        rule2_metrics = report["results"]["root//:rule2"]["configured"][
+            "<unspecified>"
+        ]["build_metrics"]
+        assert rule2_metrics["action_graph_size"] == 1
+        assert rule2_metrics["metrics"]["declared_actions"] == 4
+        assert rule2_metrics["amortized_metrics"]["declared_actions"] == 3
+        assert report["build_metrics"]
