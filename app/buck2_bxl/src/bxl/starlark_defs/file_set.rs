@@ -113,17 +113,6 @@ impl<'v> StarlarkValue<'v> for StarlarkFileSet {
         i32::try_from(self.0.len()).map_err(starlark::Error::new_other)
     }
 
-    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<starlark::Result<Value<'v>>> {
-        soft_error!(
-            "bxl_using_file_set_add",
-            buck2_error!(buck2_error::ErrorTag::Input, "We are going to replace file_set with native set, but native set don't have +(add) method"),
-            quiet: true
-        ).ok()?;
-        let other = other.downcast_ref::<Self>()?;
-        let union = self.0.union(&other.0);
-        Some(Ok(heap.alloc(Self(union))))
-    }
-
     fn sub(&self, other: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
         let Some(other) = other.downcast_ref::<Self>() else {
             return ValueError::unsupported_with(self, "-", other);
