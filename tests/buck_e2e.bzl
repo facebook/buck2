@@ -7,7 +7,6 @@
 
 load("@fbcode//buck2/app:modifier.bzl", "buck2_modifiers")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
-load("@fbcode_macros//build_defs:python.bzl", "python")
 load("@fbcode_macros//build_defs:python_pytest.bzl", "python_pytest")
 load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 load("@fbsource//tools/target_determinator/macros:ci_hint.bzl", "ci_hint")
@@ -297,7 +296,6 @@ def buck2_e2e_test(
             executable = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
-            cfg_modifiers = python.get_opt_setup_modifiers(),
             **kwargs
         )
 
@@ -310,7 +308,6 @@ def buck2_e2e_test(
             executable = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
-            cfg_modifiers = python.get_opt_setup_modifiers(),
             **kwargs
         )
 
