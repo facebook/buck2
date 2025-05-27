@@ -134,6 +134,15 @@ def _executable_deps_arg():
         "executable_deps": attrs.list(attrs.dep(), default = []),
     }
 
+def _deps_arg():
+    return {
+        "deps": attrs.list(attrs.dep(), default = [], doc = """
+            A list of `python_library()` rules that specify Python
+                modules to include in the binary — including all transitive
+                dependencies of these rules.
+        """),
+    }
+
 python_common = struct(
     srcs_arg = _srcs_arg,
     platform_srcs_arg = _platform_srcs_arg,
@@ -148,4 +157,5 @@ python_common = struct(
     deduplicate_merged_link_roots = _deduplicate_merged_link_roots,
     version_selections_arg = _version_selections_arg,
     executable_deps_arg = _executable_deps_arg,
+    deps_arg = _deps_arg,
 )

@@ -185,11 +185,8 @@ prebuilt_python_library = prelude_rule(
                  Note: `.egg` files have a very particular naming convention
                  that must be followed - otherwise it will not be found at runtime!
             """),
-            "deps": attrs.list(attrs.dep(), default = [], doc = """
-                Other `prebuilt_python_library()` rules which this library depends on. These may also
-                 be `python_library` rules if you want to depend on a source-based copy of the library.
-            """),
         } |
+        python_common.deps_arg() |
         python_common.exclude_deps_from_merged_linking_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
@@ -265,13 +262,7 @@ python_binary = prelude_rule(
             """),
         } |
         python_common.platform_arg() |
-        {
-            "deps": attrs.list(attrs.dep(), default = [], doc = """
-                A list of `python_library()` rules that specify Python
-                 modules to include in the binary — including all transitive
-                 dependencies of these rules.
-            """),
-        } |
+        python_common.deps_arg() |
         python_common.version_selections_arg() |
         python_common.preload_deps_arg() |
         python_common.package_style_arg() |
@@ -347,12 +338,7 @@ python_library = prelude_rule(
         python_common.resources_arg() |
         python_common.platform_resources_arg() |
         python_common.base_module_arg() |
-        {
-            "deps": attrs.list(attrs.dep(), default = [], doc = """
-                Other `python_library()` rules that list `srcs` from
-                 which this rule imports modules.
-            """),
-        } |
+        python_common.deps_arg() |
         python_common.exclude_deps_from_merged_linking_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
@@ -443,10 +429,8 @@ python_test = prelude_rule(
                  means that you can refer to these without needing to be aware of how
                  Buck is storing data on the disk mid-build.
             """),
-            "deps": attrs.list(attrs.dep(), default = [], doc = """
-                other rules used by the tests in this rule's sources.
-            """),
         } |
+        python_common.deps_arg() |
         python_common.version_selections_arg() |
         buck.test_rule_timeout_ms() |
         python_common.package_style_arg() |
