@@ -185,9 +185,6 @@ impl LoadResolver for InterpreterLoadResolver {
         path: &str,
         location: Option<&FileSpan>,
     ) -> buck2_error::Result<OwnedStarlarkModulePath> {
-        // This is to be removed when we finish migration to Buck2.
-        let path = path.strip_suffix("?v2_only").unwrap_or(path);
-
         let relative_import_option = RelativeImports::Allow {
             current_dir_with_allowed_relative: &self.config.current_dir_with_allowed_relative_dirs,
         };
