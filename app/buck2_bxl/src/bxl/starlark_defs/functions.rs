@@ -13,10 +13,8 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::V
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
-use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use dupe::Dupe;
 use futures::FutureExt;
-use indexmap::IndexSet;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -34,7 +32,6 @@ use super::context::output::get_cmd_line_inputs;
 use super::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
-use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::time::StarlarkInstant;
@@ -82,23 +79,6 @@ pub(crate) fn register_target_function(builder: &mut GlobalsBuilder) {
                 .into_iter()
                 .map(|node| node.0),
         ))
-    }
-}
-
-/// Global methods on the file set.
-#[starlark_module]
-pub(crate) fn register_file_set_function(builder: &mut GlobalsBuilder) {
-    /// Creates an empty file set for configured nodes.
-    ///
-    /// Sample usage:
-    /// ```python
-    /// def _impl_file_set(ctx):
-    ///     files = file_set()
-    ///     ctx.output.print(type(files))
-    ///     ctx.output.print(len(files))
-    /// ```
-    fn file_set() -> starlark::Result<StarlarkFileSet> {
-        Ok(StarlarkFileSet(FileSet::new(IndexSet::new())))
     }
 }
 

@@ -19,7 +19,6 @@ use crate::bxl::starlark_defs::context::anon_target::register_anon_rule;
 use crate::bxl::starlark_defs::context::dynamic::register_dynamic_actions;
 use crate::bxl::starlark_defs::functions::register_artifact_function;
 use crate::bxl::starlark_defs::functions::register_error_handling_function;
-use crate::bxl::starlark_defs::functions::register_file_set_function;
 use crate::bxl::starlark_defs::functions::register_instant_function;
 use crate::bxl::starlark_defs::functions::register_target_function;
 use crate::bxl::starlark_defs::type_names::register_bxl_type_names_in_bxl_namespace;
@@ -30,7 +29,6 @@ fn bxl_namespace(g: &mut GlobalsBuilder) {
     // TODO(nga): add `main` function here.
     register_artifact_function(g);
     register_target_function(g);
-    register_file_set_function(g);
     register_instant_function(g);
     register_error_handling_function(g);
     register_bxl_type_names_in_bxl_namespace(g);
@@ -46,7 +44,6 @@ pub(crate) fn init_bxl_specific_globals() {
         register_bxl_prefixed_main_function(g);
         register_artifact_function(g);
         register_target_function(g);
-        register_file_set_function(g);
         register_instant_function(g);
         register_error_handling_function(g);
     });
