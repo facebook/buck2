@@ -74,16 +74,16 @@ impl GraphPropertiesOptions {
 #[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
 pub struct GraphPropertiesValues {
     pub configured_graph_size: Option<u64>,
-    pub configured_graph_sketch: Option<ConfiguredGraphSketch>,
+    pub configured_graph_sketch: Option<GraphSketch>,
 }
 
 #[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
-pub struct ConfiguredGraphSketch {
+pub struct GraphSketch {
     version: SketchVersion,
     signature: Arc<Vec<u8>>,
 }
 
-impl ConfiguredGraphSketch {
+impl GraphSketch {
     pub fn serialize(&self) -> String {
         let mut res = format!("{}:", self.version);
         base64::engine::general_purpose::STANDARD_NO_PAD.encode_string(&*self.signature, &mut res);
@@ -217,7 +217,7 @@ pub fn debug_compute_configured_graph_properties_uncached(
             configured_graph_sketch: sketch.map(|sketch| {
                 let signature = sketch.sketcher.get_signature();
                 let signature = signature.iter().flat_map(|v| v.to_ne_bytes()).collect();
-                ConfiguredGraphSketch {
+                GraphSketch {
                     version: sketch.version,
                     signature: Arc::new(signature),
                 }
