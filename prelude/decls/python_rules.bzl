@@ -277,6 +277,7 @@ python_binary = prelude_rule(
         python_common.package_style_arg() |
         python_common.linker_flags_arg() |
         python_common.deduplicate_merged_link_roots() |
+        python_common.executable_deps_arg() |
         native_common.link_group_deps() |
         native_common.link_group_public_deps_label() |
         {
@@ -452,6 +453,7 @@ python_test = prelude_rule(
         python_common.preload_deps_arg() |
         python_common.linker_flags_arg() |
         python_common.deduplicate_merged_link_roots() |
+        python_common.executable_deps_arg() |
         native_common.link_group_deps() |
         native_common.link_group_public_deps_label() |
         {

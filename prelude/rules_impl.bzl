@@ -296,7 +296,6 @@ def _python_executable_attrs():
         "cxx_main": attrs.source(default = "prelude//python/tools:embedded_main.cpp"),
         "distributed_thinlto_partial_split_dwarf": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
-        "executable_deps": attrs.list(attrs.dep(), default = []),
         "executable_name": attrs.option(attrs.string(), default = None),
         "inplace_build_args": attrs.list(attrs.arg(), default = []),
         "link_group": attrs.option(attrs.string(), default = None),

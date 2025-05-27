@@ -129,6 +129,11 @@ def _version_selections_arg():
         ),
     }
 
+def _executable_deps_arg():
+    return {
+        "executable_deps": attrs.list(attrs.dep(), default = []),
+    }
+
 python_common = struct(
     srcs_arg = _srcs_arg,
     platform_srcs_arg = _platform_srcs_arg,
@@ -142,4 +147,5 @@ python_common = struct(
     exclude_deps_from_merged_linking_arg = _exclude_deps_from_merged_linking_arg,
     deduplicate_merged_link_roots = _deduplicate_merged_link_roots,
     version_selections_arg = _version_selections_arg,
+    executable_deps_arg = _executable_deps_arg,
 )
