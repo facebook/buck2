@@ -29,6 +29,7 @@ use dupe::Dupe;
 use probminhash::setsketcher::SetSketchParams;
 use probminhash::setsketcher::SetSketcher;
 use ref_cast::RefCast;
+use strong_hash::StrongHash;
 use strong_hash::UseStrongHashing;
 
 #[derive(Copy, Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative, Default)]
@@ -144,7 +145,7 @@ enum SketchVersion {
 }
 
 impl SketchVersion {
-    fn create_sketcher(self) -> VersionedSketcher {
+    fn create_sketcher<T: StrongHash>(self) -> VersionedSketcher<T> {
         let sketcher = match self {
             Self::V1 => SetSketcher::<u16, _, _>::new(
                 // TODO (stansw): Are these params right?
@@ -160,9 +161,27 @@ impl SketchVersion {
     }
 }
 
-struct VersionedSketcher {
+struct VersionedSketcher<T: StrongHash> {
     version: SketchVersion,
-    sketcher: SetSketcher<u16, UseStrongHashing<ConfiguredTargetLabel>, Blake3StrongHasher>,
+    sketcher: SetSketcher<u16, UseStrongHashing<T>, Blake3StrongHasher>,
+}
+
+impl<T: StrongHash> VersionedSketcher<T> {
+    fn sketch(&mut self, t: &T) -> buck2_error::Result<()> {
+        self.sketcher
+            .sketch(UseStrongHashing::ref_cast(t))
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::BuildSketchError))?;
+        Ok(())
+    }
+
+    fn get_sketch(&self) -> GraphSketch {
+        let signature = self.sketcher.get_signature();
+        let signature = signature.iter().flat_map(|v| v.to_ne_bytes()).collect();
+        GraphSketch {
+            version: self.version,
+            signature: Arc::new(signature),
+        }
+    }
 }
 
 /// Returns the total graph size for all dependencies of a target.
@@ -204,24 +223,13 @@ pub fn debug_compute_configured_graph_properties_uncached(
             }
 
             if let Some(sketch) = sketch.as_mut() {
-                let label = UseStrongHashing::ref_cast(item.label());
-                sketch
-                    .sketcher
-                    .sketch(label)
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::BuildSketchError))?;
+                sketch.sketch(item.label())?;
             }
         }
 
         Ok(GraphPropertiesValues {
             configured_graph_size: Some(visited.len() as _),
-            configured_graph_sketch: sketch.map(|sketch| {
-                let signature = sketch.sketcher.get_signature();
-                let signature = signature.iter().flat_map(|v| v.to_ne_bytes()).collect();
-                GraphSketch {
-                    version: sketch.version,
-                    signature: Arc::new(signature),
-                }
-            }),
+            configured_graph_sketch: sketch.map(|sketch| sketch.get_sketch()),
         })
     })
 }
