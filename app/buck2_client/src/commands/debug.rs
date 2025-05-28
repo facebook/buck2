@@ -112,7 +112,7 @@ impl DebugCommand {
             DebugCommand::AllocatorStats(cmd) => ctx.exec(cmd, matches),
             DebugCommand::Replay(cmd) => cmd.exec(matches, ctx),
             DebugCommand::InternalVersion(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::ChromeTrace(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::ChromeTrace(cmd) => ctx.exec(cmd, matches),
             DebugCommand::FlushDepFiles(cmd) => ctx.exec(cmd, matches),
             DebugCommand::WhatRan(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Materialize(cmd) => ctx.exec(cmd, matches),

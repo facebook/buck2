@@ -17,15 +17,16 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
-use buck2_event_log::file_names::retrieve_nth_recent_log;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_log::utils::Invocation;
@@ -39,6 +40,8 @@ use futures::stream::BoxStream;
 use serde::Serialize;
 use serde_json::json;
 
+use crate::commands::log::options::EventLogOptions;
+
 #[derive(Debug, clap::Parser)]
 pub struct ChromeTraceCommand {
     #[clap(
@@ -46,23 +49,19 @@ pub struct ChromeTraceCommand {
         help = "Where to write the chrome trace JSON. If a directory is passed, the filename of the event log will be used as a base filename."
     )]
     pub trace_path: PathArg,
+
     /// The path to read the event log from.
     #[clap(
         long,
         help = "A path to an event-log file to read from. Only works for log files with a single command in them. If no event-log is passed, the most recent one will be used.",
-        group = "event_log",
-        value_name = "PATH"
+        value_name = "PATH",
+        // Hide because `event_log` below subsumes this.
+        hide = true
     )]
     pub path: Option<PathArg>,
 
-    /// Which recent command to read the event log from.
-    #[clap(
-        long,
-        help = "Use the event-log from the Nth most recent command (`--recent 0` is the most recent).",
-        group = "event_log",
-        value_name = "NUMBER"
-    )]
-    pub recent: Option<usize>,
+    #[clap(flatten)]
+    pub(crate) event_log: EventLogOptions,
 }
 
 struct ChromeTraceFirstPass {
@@ -959,6 +958,10 @@ impl ChromeTraceWriter {
 }
 
 impl ChromeTraceCommand {
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+        ctx.exec(self, matches)
+    }
+
     async fn load_events(
         log_path: EventLogPathBuf,
     ) -> buck2_error::Result<(
@@ -994,30 +997,32 @@ impl ChromeTraceCommand {
             }
         }
     }
+}
 
-    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
-        let log = match self.path {
-            Some(path) => path.resolve(&ctx.working_dir),
-            None => retrieve_nth_recent_log(
-                ctx.paths()
-                    .buck_error_context("Error identifying log dir")?,
-                self.recent.unwrap_or(0),
-            )?
-            .path()
-            .to_owned(),
+impl BuckSubcommand for ChromeTraceCommand {
+    const COMMAND_NAME: &'static str = "chrome-trace";
+
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
+        // For backward compatibility, use the path field if it's set
+        let log = if let Some(path) = self.path {
+            EventLogPathBuf::infer(path.resolve(&ctx.working_dir))?
+        } else {
+            self.event_log.get(&ctx).await?
         };
-
         let trace_path = self.trace_path.resolve(&ctx.working_dir);
         let dest_path = if trace_path.is_dir() {
-            Self::trace_path_from_dir(trace_path, &log)
+            Self::trace_path_from_dir(trace_path, log.path())
                 .buck_error_context("Could not determine trace path")?
         } else {
             trace_path
         };
 
-        let log = EventLogPathBuf::infer(log)?;
-
-        let writer = ctx.with_runtime(|_| Self::trace_writer(log))?;
+        let writer = Self::trace_writer(log).await?;
 
         let tracefile = std::fs::OpenOptions::new()
             .create(true)
@@ -1028,7 +1033,9 @@ impl ChromeTraceCommand {
 
         ExitResult::success()
     }
+}
 
+impl ChromeTraceCommand {
     async fn trace_writer(log: EventLogPathBuf) -> buck2_error::Result<ChromeTraceWriter> {
         let (invocation, mut stream) = Self::load_events(log.clone()).await?;
         let mut first_pass = ChromeTraceFirstPass::new();
