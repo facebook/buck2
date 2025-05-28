@@ -44,6 +44,7 @@ class AndroidDeviceImpl(val serial: String, val adbExecutable: String?, val adbS
           executeAdbShellCommand("rm /data/local/tmp/buck-experiment")
         } catch (e: AdbCommandFailedException) {
           // TODO: we should check for specific failure here
+          LOG.error("Failed to write to /data/local/tmp: ${e.message}")
           throw AndroidInstallException.tempFolderNotWritable()
         }
       }
