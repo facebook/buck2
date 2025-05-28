@@ -12,3 +12,15 @@ rust_library(
         "fbsource//third-party/rust:tonic-build",
     ],
 )
+
+rust_library(
+    name = "buck2_protoc_dev-tonic-0-12-3",
+    srcs = glob(["src/**/*.rs"]),
+    crate = "buck2_protoc_dev",
+    rustc_flags = [
+        "--cfg=buck2_build",
+    ],
+    deps = [
+        "fbsource//third-party/rust:tonic-build-0-12-3",
+    ],
+)
