@@ -172,6 +172,8 @@ async fn upload_task(
         return Ok(());
     }
 
+    // FIXME(jadel): thread configuration through
+    #[expect(deprecated)]
     let manifold_client = ManifoldClient::new().await?;
     let manifold_path = format!("flat/{}", manifold_name);
     let mut uploader = Uploader::new(file_mutex, &manifold_path, &manifold_client)?;

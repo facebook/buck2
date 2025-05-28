@@ -6,7 +6,7 @@
  * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
  * of this source tree.
  */
-
+//! Client to Manifold blob storage.
 use std::io;
 use std::time::Duration;
 use std::time::SystemTime;
@@ -17,6 +17,7 @@ use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
 use buck2_http::retries::AsBuck2Error;
 use buck2_http::retries::HttpError;
+use allocative::Allocative;
 use buck2_http::retries::HttpErrorForRetry;
 use buck2_http::retries::http_retry;
 use bytes::Bytes;
@@ -24,10 +25,14 @@ use dupe::Dupe;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use hyper::Response;
+use serde::Deserialize;
+use serde::Serialize;
 use tokio::fs::File;
 use tokio::io::AsyncRead;
 
 use crate::chunk_reader::ChunkReader;
+use crate::legacy_configs::configs::LegacyBuckConfig;
+use crate::legacy_configs::key::BuckconfigKeyRef;
 
 #[derive(Copy, Clone, Dupe)]
 pub struct Ttl {
@@ -160,13 +165,64 @@ impl Bucket {
     };
 }
 
-fn manifold_url(bucket: &Bucket, filename: String) -> String {
-    let full_path = format!("{}/{}", bucket.name, filename);
-    format!("https://www.internalfb.com/manifold/explorer/{}", full_path)
+/// Configuration for accessing a Manifold-like API for logs and other bucket-using features.
+#[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BucketsConfig {
+    /// Base URL for the uploads API. If not set, the uploads API is not used.
+    pub upload_url: String,
+    /// URL at which one can view a file `:bucketname/:filename` in a Web browser.
+    pub explore_url: String,
+}
+
+impl BucketsConfig {
+    pub fn from_config(config: &LegacyBuckConfig) -> buck2_error::Result<Option<BucketsConfig>> {
+        let upload_url = config.parse(BuckconfigKeyRef {
+            section: "buckets",
+            property: "upload_url",
+        })?;
+
+        let explore_url = config.parse(BuckconfigKeyRef {
+            section: "buckets",
+            property: "explore_url",
+        })?;
+
+        if upload_url.is_none() != explore_url.is_none() {
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Only one of buckets.upload_url and buckets.explore_url is set"
+            ));
+        }
+
+        if let Some(upload_url) = upload_url
+            && let Some(explore_url) = explore_url
+        {
+            Ok(Some(BucketsConfig {
+                explore_url,
+                upload_url,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Infers an appropriate configuration at Meta.
+    fn infer_config(supports_vpnless: bool) -> Option<BucketsConfig> {
+        let upload_url = internal_upload_url(supports_vpnless)?;
+
+        Some(BucketsConfig {
+            upload_url: upload_url.to_owned(),
+            explore_url: "https://www.internalfb.com/manifold/explorer/".to_owned(),
+        })
+    }
+
+    fn explore_url_for(&self, bucket: &Bucket, filename: String) -> String {
+        let full_path = format!("{}/{}", bucket.name, filename);
+        format!("{}{}", self.explore_url, full_path)
+    }
 }
 
 /// Return the place to upload logs, or None to not upload logs at all
-fn log_upload_url(use_vpnless: bool) -> Option<&'static str> {
+fn internal_upload_url(use_vpnless: bool) -> Option<&'static str> {
     #[cfg(fbcode_build)]
     if hostcaps::is_prod() {
         Some("https://manifold.facebook.net")
@@ -184,18 +240,28 @@ fn log_upload_url(use_vpnless: bool) -> Option<&'static str> {
 
 pub struct ManifoldClient {
     client: HttpClient,
-    manifold_url: Option<String>,
+    config: Option<BucketsConfig>,
 }
 
 impl ManifoldClient {
-    pub async fn new() -> buck2_error::Result<Self> {
+    pub async fn new_with_config(config: Option<BucketsConfig>) -> buck2_error::Result<Self> {
+        #[cfg(fbcode_build)]
         let client = HttpClientBuilder::internal().await?.build();
-        let manifold_url = log_upload_url(client.supports_vpnless()).map(|s| s.to_owned());
+        #[cfg(not(fbcode_build))]
+        let client = HttpClientBuilder::oss().await?.build();
 
-        Ok(Self {
-            client,
-            manifold_url,
-        })
+        let config = config.or_else(|| BucketsConfig::infer_config(client.supports_vpnless()));
+
+        Ok(Self { client, config })
+    }
+
+    /// Infers an acceptable configuration for the Manifold client.
+    ///
+    /// Should not be used in new code, prefer [`Self::new_with_config`] instead, assuming that the
+    /// config is available.
+    #[deprecated = "Use new_with_config instead"]
+    pub async fn new() -> buck2_error::Result<Self> {
+        Self::new_with_config(None).await
     }
 
     pub async fn write(
@@ -205,10 +271,11 @@ impl ManifoldClient {
         buf: bytes::Bytes,
         ttl: Ttl,
     ) -> buck2_error::Result<()> {
-        let manifold_url = match &self.manifold_url {
-            None => return Ok(()),
-            Some(x) => x,
+        let Some(ref config) = self.config else {
+            return Ok(());
         };
+        let manifold_url = &config.upload_url;
+
         let url = format!(
             "{}/v0/write/{}?bucketName={}&apiKey={}&timeoutMsec=20000",
             manifold_url, manifold_bucket_path, bucket.name, bucket.key
@@ -249,10 +316,11 @@ impl ManifoldClient {
         buf: bytes::Bytes,
         offset: u64,
     ) -> buck2_error::Result<()> {
-        let manifold_url = match &self.manifold_url {
-            None => return Ok(()),
-            Some(x) => x,
+        let Some(ref config) = self.config else {
+            return Ok(());
         };
+        let manifold_url = &config.upload_url;
+
         let url = format!(
             "{}/v0/append/{}?bucketName={}&apiKey={}&timeoutMsec=20000&writeOffset={}",
             manifold_url, manifold_bucket_path, bucket.name, bucket.key, offset
@@ -324,7 +392,11 @@ impl ManifoldClient {
         self.read_and_upload(bucket, &filename, ttl, &mut file)
             .await?;
 
-        Ok(manifold_url(&bucket, filename))
+        Ok(self
+            .config
+            .as_ref()
+            .map(|config| config.explore_url_for(&bucket, filename))
+            .unwrap_or_else(String::new))
     }
 }
 
