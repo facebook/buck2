@@ -8,6 +8,7 @@
 # libsqlite3-sys uses a bindgen binding to libsqlite.
 # We can't easily import bindgen because of its libclang dependency,
 # so in the meantime we need to use pre-generated bindgen files.
+buildscript.run = false
 
 [env]
 OUT_DIR = "$(location //third-party/rust/fixups/libsqlite3-sys:out_dir)"
