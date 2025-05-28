@@ -8,7 +8,6 @@ rust_protobuf_library(
     build_script = "build.rs",
     proto_srcs = ":buck2_downward_api_proto.proto",
     deps = [
-        "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tracing",
         "//buck2/app/buck2_error:buck2_error",
     ],
