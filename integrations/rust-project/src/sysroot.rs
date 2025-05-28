@@ -83,6 +83,7 @@ pub(crate) fn resolve_buckconfig_sysroot(
         },
         true,
         false,
+        None,
         false,
         &[], // sysroot doesn't get any extra cfgs
     )?;
