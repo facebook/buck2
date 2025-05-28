@@ -178,15 +178,27 @@ def get_output_path(target_node: bxl.ConfiguredTargetNode, bxl_ctx) -> str:
 
     return get_path_without_materialization(default_outputs[0], bxl_ctx, abs = True)
 
-def infer_settings_by_modes(settings, mode_files, mode_hashes) -> dict[str, typing.Any]:
+def infer_settings_by_modes(target_label, settings, mode_files, mode_hashes) -> dict[str, typing.Any]:
+    if len(mode_files) == 1:
+        settings_by_modes = {mode_files[0]: settings}
+        return settings_by_modes
+
     mode_hashes = mode_hashes or {}
     default_mode_file = mode_files[0]
-    default_mode_hash = mode_hashes.get(default_mode_file)
+    default_mode_hash = mode_hashes.get(default_mode_file) or {}
+    if target_label in default_mode_hash:
+        default_mode_hash = default_mode_hash[target_label]
+    else:
+        default_mode_hash = default_mode_hash["default"]
     settings_json = json.encode(settings)
 
     settings_by_modes = {default_mode_file: settings}
     for mode_file in mode_files[1:]:
-        mode_hash = mode_hashes.get(mode_file)
+        mode_hash = mode_hashes.get(mode_file) or {}
+        if target_label in mode_hash:
+            mode_hash = mode_hash[target_label]
+        else:
+            mode_hash = mode_hash["default"]
 
         # We're ignoring the suggestion that don't rely on buck-out implementation detail here,
         # as we have no way to get the buck-out under a different mode than current one using to run the BXL script.

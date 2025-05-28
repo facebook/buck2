@@ -17,44 +17,66 @@ import sys
 MODE_CONFIGS_DIR = "mode_configs"
 
 
-def get_mode_hashes(sample_target, mode_files, extra_buck_options, debug):
+def is_explicit_target(target):
+    return "..." not in target and not target.endswith(":")
+
+
+def is_target_alias(target):
+    return all(symbol not in target for symbol in [":", "/", "..."])
+
+
+def get_mode_hashes(
+    sample_target, explicit_targets, mode_files, extra_buck_options, debug
+):
+    # Resolve sample_target to full target label to match the BXL script output.
+    sample_target = subprocess.check_output(
+        ["buck2", "targets", sample_target],
+        text=True,
+    ).strip()
+
     mode_hashes = {}
     default_mode_file = mode_files[0]
     for mode_file in mode_files:
-        build_cmds = [
+        bxl_cmds = [
             "buck2",
         ]
         if mode_file != default_mode_file:
-            build_cmds += ["--isolation-dir", "vsgo-" + mode_file.split("/")[-1]]
-        build_cmds += (
+            bxl_cmds += ["--isolation-dir", "vsgo-" + mode_file.split("/")[-1]]
+        bxl_cmds += (
             [
-                "build",
+                "bxl",
                 "@" + mode_file,
+                "prelude//ide_integrations/visual_studio/get_mode_hashes.bxl:main",
             ]
             + extra_buck_options
-            + [
-                sample_target,
-                "--show-json-output",
-            ]
+            + ["--", "--target", sample_target]
+            + explicit_targets
         )
 
         if debug:
-            print("Running build command:", " ".join(build_cmds))
+            print("Running bxl command:", " ".join(bxl_cmds))
         try:
             output = json.loads(
                 subprocess.check_output(
-                    build_cmds,
+                    bxl_cmds,
                     text=True,
                     stderr=subprocess.PIPE,
                 )
-            )[sample_target]
+            )
+            # Change the key 'sample_target' to 'default' in the output JSON
+            if sample_target not in output:
+                raise Exception(
+                    "BXL script did not return sample_target in the output JSON"
+                )
+            output["default"] = output.pop(sample_target)
+
         except subprocess.CalledProcessError as e:
             print("\nstdout:\n" + e.stdout, file=sys.stderr)
             print("\nstderr:\n" + e.stderr, file=sys.stderr)
             raise
-        parts = output.split("\\")
-        index = parts.index("buck-out")
-        mode_hashes[mode_file] = parts[index + 4]
+
+        mode_hashes[mode_file] = output
+
     return mode_hashes
 
 
@@ -119,11 +141,19 @@ def main(
     mode_configs = gen_mode_configs(bxl_path, mode_files, fbsource, debug)
 
     if len(mode_files) > 1:
+        explicit_targets = [target for target in targets if is_explicit_target(target)]
         mode_hashes = get_mode_hashes(
-            sample_target, mode_files, extra_bxl_options, debug
+            sample_target,
+            explicit_targets,
+            mode_files,
+            extra_bxl_options,
+            debug,
         )
     else:
         mode_hashes = {}
+
+    if debug:
+        print("mode_hashes:", mode_hashes)
 
     default_mode_file = mode_files[0]
     bxl_cmds = (
@@ -224,9 +254,12 @@ Individual specified targets are preferred over target patterns as the latter wi
 could potentially slow down project generation and project loading significantly. Examples:
     1. Single fully-specified target:
         //arvr/projects/pcsdk:OVRServer
+        (Only fully-specified targets are guaranteed to be able to link to the debugger)
     2. target alias:
         ovrserver
-    3. '...' target pattern (CAUTION: might bring in massive targets with recursive dependencies and result in very slow solution generating and loading):
+    3. '...' target pattern (CAUTION: Using '...' in targets is not properly supported and may lead to incorrect behavior. Please consider
+using explicit targets instead. It also might bring in massive targets with recursive dependencies and result in very slow solution
+generating and loading):
         //arvr/projects/mixedreality/...
     4. Combinations of above:
         ovrserver //arvr/projects/pcsdk:OVRServer

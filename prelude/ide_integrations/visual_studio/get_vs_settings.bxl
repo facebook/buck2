@@ -217,7 +217,7 @@ def get_vs_settings(target: bxl.ConfiguredTargetNode, attrs: dict, vs_settings_d
     )
 
     debug_settings = _get_debug_settings(target, attrs, attrs_lazy, vs_settings_dict, cli_args, bxl_ctx)
-    debug_settings_by_modes = infer_settings_by_modes(debug_settings, cli_args.mode_files, cli_args.mode_hashes)
+    debug_settings_by_modes = infer_settings_by_modes(str(target.label.raw_target()), debug_settings, cli_args.mode_files, cli_args.mode_hashes)
     debug_settings_overrides = (cli_args.debug_settings or {}).get(str(target.label.raw_target()), {})
     debug_settings_by_modes_with_overrides = merge(debug_settings_by_modes, debug_settings_overrides)
     vs_settings[BY_MODES] = debug_settings_by_modes_with_overrides
