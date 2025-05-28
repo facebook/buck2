@@ -111,7 +111,6 @@ public class JarBuilderTest {
     builder.addEntry(
         new JarEntrySupplier(
             new CustomZipEntry(name),
-            "owner",
             () -> new ByteArrayInputStream(contents.getBytes(StandardCharsets.UTF_8))));
   }
 
@@ -224,7 +223,6 @@ public class JarBuilderTest {
       suppliers.add(
           new JarEntrySupplier(
               new CustomZipEntry(name),
-              containerName,
               () -> new ByteArrayInputStream(contents.getBytes(StandardCharsets.UTF_8))));
       return this;
     }

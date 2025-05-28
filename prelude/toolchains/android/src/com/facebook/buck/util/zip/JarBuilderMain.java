@@ -111,7 +111,6 @@ public class JarBuilderMain {
                     }
                     return new JarEntrySupplier(
                         new CustomZipEntry(parts[0]),
-                        "unused",
                         () -> Files.newInputStream(Path.of(parts[1])));
                   })
               .collect(Collectors.toList());

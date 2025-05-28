@@ -37,7 +37,6 @@ class FilesystemStubJarWriter implements StubJarWriter {
     jarBuilder.addEntry(
         new JarEntrySupplier(
             new CustomZipEntry(PathFormatter.pathWithUnixSeparators(relativePath)),
-            outputPath.toString(),
             streamSupplier));
   }
 

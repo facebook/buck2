@@ -85,5 +85,5 @@ public abstract class JarFileObject implements JavaFileObject {
     return this.getClass().getName() + "[" + toUri() + "]";
   }
 
-  public abstract void writeToJar(JarBuilder jarBuilder, String owner);
+  public abstract void writeToJar(JarBuilder jarBuilder);
 }

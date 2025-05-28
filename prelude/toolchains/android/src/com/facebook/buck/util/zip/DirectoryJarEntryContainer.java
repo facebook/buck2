@@ -37,7 +37,6 @@ import javax.annotation.Nullable;
 class DirectoryJarEntryContainer implements JarEntryContainer {
 
   private final Path directory;
-  private final String owner;
 
   private Supplier<List<FileJarEntry>> entriesSupplier;
 
@@ -47,7 +46,6 @@ class DirectoryJarEntryContainer implements JarEntryContainer {
 
   DirectoryJarEntryContainer(Path directory) {
     this.directory = directory;
-    this.owner = directory.toString();
   }
 
   @Nullable
@@ -106,7 +104,7 @@ class DirectoryJarEntryContainer implements JarEntryContainer {
     if (relativePath.isEmpty()) {
       return null;
     }
-    return FileJarEntry.of(relativePath, owner, path);
+    return FileJarEntry.of(relativePath, path);
   }
 
   /**
@@ -115,11 +113,11 @@ class DirectoryJarEntryContainer implements JarEntryContainer {
    */
   static class FileJarEntry extends JarEntrySupplier {
 
-    static FileJarEntry of(final String entryName, final String owner, final Path file) {
+    static FileJarEntry of(final String entryName, final Path file) {
       try {
         final boolean directory = Files.isDirectory(file);
         final long fileSize = directory ? 0 : Files.size(file);
-        return new FileJarEntry(entryName, owner, file, fileSize, directory);
+        return new FileJarEntry(entryName, file, fileSize, directory);
       } catch (IOException e) {
         throw new UncheckedIOException(e);
       }
@@ -130,12 +128,8 @@ class DirectoryJarEntryContainer implements JarEntryContainer {
     private final boolean directory;
 
     public FileJarEntry(
-        final String entryName,
-        final String owner,
-        final Path file,
-        final long fileSize,
-        final boolean directory) {
-      super(new CustomZipEntry(directory ? entryName + '/' : entryName), owner, null);
+        final String entryName, final Path file, final long fileSize, final boolean directory) {
+      super(new CustomZipEntry(directory ? entryName + '/' : entryName), null);
       this.file = file;
       this.fileSize = fileSize;
       this.directory = directory;

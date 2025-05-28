@@ -91,12 +91,11 @@ public class JavaInMemoryFileObject extends JarFileObject {
   }
 
   @Override
-  public void writeToJar(JarBuilder jarBuilder, String owner) {
+  public void writeToJar(JarBuilder jarBuilder) {
     if (!isWritten) {
       // Nothing was written to this file, so it doesn't really exist.
       return;
     }
-    jarBuilder.addEntry(
-        new JarEntrySupplier(new CustomZipEntry(getName()), owner, this::openInputStream));
+    jarBuilder.addEntry(new JarEntrySupplier(new CustomZipEntry(getName()), this::openInputStream));
   }
 }

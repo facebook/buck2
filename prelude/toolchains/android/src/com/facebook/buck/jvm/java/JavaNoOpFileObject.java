@@ -59,5 +59,5 @@ public class JavaNoOpFileObject extends JarFileObject {
   }
 
   @Override
-  public void writeToJar(JarBuilder jarBuilder, String owner) {}
+  public void writeToJar(JarBuilder jarBuilder) {}
 }

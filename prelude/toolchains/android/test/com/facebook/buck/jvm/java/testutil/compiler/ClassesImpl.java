@@ -66,7 +66,6 @@ public class ClassesImpl implements Classes {
           new JarEntrySupplier(
               new CustomZipEntry(
                   PathFormatter.pathWithUnixSeparators(root.getRoot().toPath().relativize(file))),
-              "test",
               () -> Files.newInputStream(file)));
     }
   }

@@ -186,7 +186,7 @@ public class JavaInMemoryFileManager extends ForwardingJavaFileManager<StandardJ
 
   public ImmutableSet<String> writeToJar(JarBuilder jarBuilder) {
     for (JarFileObject fileObject : fileForOutputPaths.values()) {
-      fileObject.writeToJar(jarBuilder, jarPath.toString());
+      fileObject.writeToJar(jarBuilder);
     }
 
     return ImmutableSet.copyOf(Sets.union(directoryPaths, fileForOutputPaths.keySet()));

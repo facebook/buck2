@@ -21,7 +21,6 @@ import javax.annotation.Nullable;
 /** Provides all entries of a given zip or jar file, so they can be added to another jar. */
 class ZipFileJarEntryContainer implements JarEntryContainer {
 
-  private final String owner;
   private final Path jarFilePath;
   private final boolean readOnly;
   @Nullable private JarFile jar;
@@ -32,7 +31,6 @@ class ZipFileJarEntryContainer implements JarEntryContainer {
 
   public ZipFileJarEntryContainer(Path jarFilePath, boolean readOnly) {
     this.jarFilePath = jarFilePath;
-    this.owner = jarFilePath.toString();
     this.readOnly = readOnly;
   }
 
@@ -48,10 +46,7 @@ class ZipFileJarEntryContainer implements JarEntryContainer {
         .map(
             entry ->
                 new JarEntrySupplier(
-                    makeCustomEntry(entry),
-                    owner,
-                    readOnly,
-                    () -> getJarFile().getInputStream(entry)));
+                    makeCustomEntry(entry), readOnly, () -> getJarFile().getInputStream(entry)));
   }
 
   @Override
@@ -68,7 +63,7 @@ class ZipFileJarEntryContainer implements JarEntryContainer {
         File jarFile = jarFilePath.toFile();
         jar = new JarFile(jarFile);
       } catch (IOException e) {
-        throw new IOException("Failed to process ZipFile " + owner, e);
+        throw new IOException("Failed to process ZipFile " + jarFilePath, e);
       }
     }
 

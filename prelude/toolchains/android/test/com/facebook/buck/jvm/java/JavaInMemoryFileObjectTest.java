@@ -141,7 +141,7 @@ public class JavaInMemoryFileObjectTest {
     File jarFile = temp.newFile();
     JarBuilder jarBuilder = new JarBuilder();
     for (JavaInMemoryFileObject entry : entries) {
-      entry.writeToJar(jarBuilder, "owner");
+      entry.writeToJar(jarBuilder);
     }
     jarBuilder.createJarFile(jarFile.toPath());
     return new TestJar(jarFile);
