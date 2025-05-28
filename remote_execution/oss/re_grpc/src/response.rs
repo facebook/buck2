@@ -147,11 +147,19 @@ pub struct DigestWithStatus {
 }
 
 #[derive(Clone, Default)]
+pub struct CacheFunnelStats {
+    pub digests_served_from_memory: i64,
+    pub digests_served_from_fs: i64,
+    pub _dot_dot_default: (),
+}
+
+#[derive(Clone, Default)]
 pub struct TLocalCacheStats {
     pub hits_files: i64,
     pub hits_bytes: i64,
     pub misses_files: i64,
     pub misses_bytes: i64,
+    pub cache_funnel_stats: CacheFunnelStats,
     // Compatibility with the Thrift structs
     pub _dot_dot_default: (),
 }

@@ -230,6 +230,8 @@ pub(crate) struct InvocationRecorder {
     health_check_tags_receiver: Option<Receiver<Vec<String>>>,
     health_check_tags: HashSet<String>,
     exec_time_ms: u64,
+    initial_local_cache_hits_files_from_memory_cache: Option<i64>,
+    initial_local_cache_hits_files_from_filesystem_cache: Option<i64>,
 }
 
 impl InvocationRecorder {
@@ -391,6 +393,8 @@ impl InvocationRecorder {
             health_check_tags_receiver,
             health_check_tags: HashSet::new(),
             exec_time_ms: 0,
+            initial_local_cache_hits_files_from_memory_cache: None,
+            initial_local_cache_hits_files_from_filesystem_cache: None,
         }
     }
 
@@ -531,6 +535,9 @@ impl InvocationRecorder {
         let mut local_cache_misses_files = None;
         let mut local_cache_misses_bytes = None;
 
+        let mut local_cache_hits_files_from_memory_cache = None;
+        let mut local_cache_hits_files_from_filesystem_cache = None;
+
         if let Some(snapshot) = &self.last_snapshot {
             sink_success_count =
                 calculate_diff_if_some(&snapshot.sink_successes, &self.initial_sink_success_count);
@@ -633,6 +640,16 @@ impl InvocationRecorder {
             local_cache_misses_bytes = calculate_diff_if_some(
                 &Some(snapshot.local_cache_misses_bytes),
                 &self.initial_local_cache_misses_bytes,
+            );
+
+            local_cache_hits_files_from_memory_cache = calculate_diff_if_some(
+                &Some(snapshot.local_cache_hits_files_from_memory_cache),
+                &self.initial_local_cache_hits_files_from_memory_cache,
+            );
+
+            local_cache_hits_files_from_filesystem_cache = calculate_diff_if_some(
+                &Some(snapshot.local_cache_hits_files_from_filesystem_cache),
+                &self.initial_local_cache_hits_files_from_filesystem_cache,
             );
 
             // We show memory/disk warnings in the console but we can't emit a tag event there due to having no access to dispatcher.
@@ -853,6 +870,8 @@ impl InvocationRecorder {
             exit_result_name: self.exit_result_name.take(),
             outcome: self.outcome.take().map(|out| out.into()),
             preemptible: Some(preemptible.to_owned()),
+            local_cache_hits_files_from_memory_cache,
+            local_cache_hits_files_from_filesystem_cache,
         };
 
         let event = BuckEvent::new(
@@ -1386,6 +1405,20 @@ impl InvocationRecorder {
         }
         if self.initial_local_cache_misses_bytes.is_none() {
             self.initial_local_cache_misses_bytes = Some(update.local_cache_misses_bytes);
+        }
+        if self
+            .initial_local_cache_hits_files_from_memory_cache
+            .is_none()
+        {
+            self.initial_local_cache_hits_files_from_memory_cache =
+                Some(update.local_cache_hits_files_from_memory_cache);
+        }
+        if self
+            .initial_local_cache_hits_files_from_filesystem_cache
+            .is_none()
+        {
+            self.initial_local_cache_hits_files_from_filesystem_cache =
+                Some(update.local_cache_hits_files_from_filesystem_cache);
         }
 
         for s in self.re_max_download_speeds.iter_mut() {

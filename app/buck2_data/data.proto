@@ -872,6 +872,10 @@ message Snapshot {
   int64 local_cache_misses_files = 436;
   int64 local_cache_misses_bytes = 437;
 
+  // Local cache hits per cache layer
+  int64 local_cache_hits_files_from_memory_cache = 438;
+  int64 local_cache_hits_files_from_filesystem_cache = 439;
+
   // Client side metrics.
 
   // Delay between time snapshot is created and time it is received
@@ -2360,6 +2364,10 @@ message InvocationRecord {
 
   // Value of --preemptible.
   optional string preemptible = 252;
+
+  // Distribution of local cache hits by cache type.
+  optional int64 local_cache_hits_files_from_memory_cache = 253;
+  optional int64 local_cache_hits_files_from_filesystem_cache = 254;
 }
 
 enum InvocationOutcome {

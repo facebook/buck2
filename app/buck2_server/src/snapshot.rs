@@ -158,6 +158,9 @@ impl SnapshotCollector {
             snapshot.local_cache_misses_files = stats.local_cache.misses_files;
             snapshot.local_cache_misses_bytes = stats.local_cache.misses_bytes;
 
+            snapshot.local_cache_hits_files_from_memory_cache = stats.local_cache.hits_from_memory;
+            snapshot.local_cache_hits_files_from_filesystem_cache = stats.local_cache.hits_from_fs;
+
             Ok(())
         }
 
