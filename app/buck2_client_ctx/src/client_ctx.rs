@@ -26,6 +26,7 @@ use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_wrapper_common::invocation_id::TraceId;
+use buck2_common::manifold::BucketsConfig;
 use dupe::Dupe;
 use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
@@ -320,6 +321,14 @@ impl<'a> ClientCommandContext<'a> {
             .immediate_config
             .daemon_startup_config()?
             .log_download_method
+            .clone())
+    }
+
+    pub fn buckets_config(&self) -> buck2_error::Result<Option<BucketsConfig>> {
+        Ok(self
+            .immediate_config
+            .daemon_startup_config()?
+            .buckets_config
             .clone())
     }
 }
