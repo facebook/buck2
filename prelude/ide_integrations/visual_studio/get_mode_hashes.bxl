@@ -1,0 +1,28 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _main(bxl_ctx):
+    configured_targets = bxl_ctx.configured_targets(bxl_ctx.cli_args.target)
+    output_json = {}
+    for target in configured_targets:
+        # target = bxl_ctx.configured_targets(ulabel, modifiers = bxl_ctx.modifiers)
+        config = str(target.label.config()).split("#")
+        if len(config) == 2:
+            config_hash = config[1]
+            output_json[str(target.label.raw_target())] = config_hash
+
+    bxl_ctx.output.print(output_json)
+
+main = bxl_main(
+    impl = _main,
+    cli_args = {
+        "target": cli_args.list(
+            cli_args.target_label(),
+            doc = "Buck target(s) to look up the mode hash for the current mode",
+        ),
+    },
+)
