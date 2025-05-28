@@ -13,6 +13,7 @@ use std::time::Instant;
 use buck2_audit::perf::configured_graph_size::ConfiguredGraphSizeCommand;
 use buck2_build_api::build::graph_properties::debug_compute_configured_graph_properties_uncached;
 use buck2_cli_proto::ClientContext;
+use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
@@ -48,11 +49,14 @@ pub(crate) async fn server_execute(
 
             // We intentionally don't do this in parallel so that we can get the computation time for them.
             for target in &targets {
-                let node = ctx.get_configured_target_node(&target).await?;
+                let MaybeCompatible::Compatible(node) =
+                    ctx.get_configured_target_node(&target).await?
+                else {
+                    continue;
+                };
                 let now = Instant::now();
                 let props =
-                    debug_compute_configured_graph_properties_uncached(node, command.sketch)?
-                        .require_compatible()?;
+                    debug_compute_configured_graph_properties_uncached(node, command.sketch)?;
                 let duration = now.elapsed();
                 results.insert(
                     target,

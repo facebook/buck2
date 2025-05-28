@@ -118,10 +118,12 @@ impl Key for GraphPropertiesKey {
         _cancellation: &CancellationContext,
     ) -> Self::Value {
         let configured_node = ctx.get_configured_target_node(&self.label).await?;
-        debug_compute_configured_graph_properties_uncached(
-            configured_node,
-            self.configured_graph_sketch,
-        )
+        configured_node.try_map(|configured_node| {
+            debug_compute_configured_graph_properties_uncached(
+                configured_node,
+                self.configured_graph_sketch,
+            )
+        })
     }
 
     fn equality(a: &Self::Value, b: &Self::Value) -> bool {
@@ -204,35 +206,33 @@ pub async fn get_configured_graph_properties(
 /// The cost of storing this on DICE is extremely low, so there's almost no reason to use this function (we currently
 /// expose it just for performance testing).
 pub fn debug_compute_configured_graph_properties_uncached(
-    node: MaybeCompatible<ConfiguredTargetNode>,
+    node: ConfiguredTargetNode,
     configured_graph_sketch: bool,
-) -> buck2_error::Result<MaybeCompatible<GraphPropertiesValues>> {
-    node.try_map(|node| {
-        let mut queue = vec![&node];
-        let mut visited: HashSet<_, fxhash::FxBuildHasher> = HashSet::default();
-        visited.insert(&node);
+) -> buck2_error::Result<GraphPropertiesValues> {
+    let mut queue = vec![&node];
+    let mut visited: HashSet<_, fxhash::FxBuildHasher> = HashSet::default();
+    visited.insert(&node);
 
-        let mut sketch = if configured_graph_sketch {
-            Some(SketchVersion::V1.create_sketcher())
-        } else {
-            None
-        };
+    let mut sketch = if configured_graph_sketch {
+        Some(SketchVersion::V1.create_sketcher())
+    } else {
+        None
+    };
 
-        while let Some(item) = queue.pop() {
-            for d in item.deps() {
-                if visited.insert(d) {
-                    queue.push(d);
-                }
-            }
-
-            if let Some(sketch) = sketch.as_mut() {
-                sketch.sketch(item.label())?;
+    while let Some(item) = queue.pop() {
+        for d in item.deps() {
+            if visited.insert(d) {
+                queue.push(d);
             }
         }
 
-        Ok(GraphPropertiesValues {
-            configured_graph_size: visited.len() as _,
-            configured_graph_sketch: sketch.map(|sketch| sketch.get_sketch()),
-        })
+        if let Some(sketch) = sketch.as_mut() {
+            sketch.sketch(item.label())?;
+        }
+    }
+
+    Ok(GraphPropertiesValues {
+        configured_graph_size: visited.len() as _,
+        configured_graph_sketch: sketch.map(|sketch| sketch.get_sketch()),
     })
 }
