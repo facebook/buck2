@@ -114,7 +114,7 @@ impl RageCommand {
         let client_ctx = ctx.empty_client_context("rage")?;
 
         // Don't fail the rage if you can't figure out whether to do vpnless.
-        let manifold = ManifoldClient::new().await?;
+        let manifold = ManifoldClient::new_with_config(ctx.buckets_config()?).await?;
 
         let rage_id = TraceId::new();
         let mut manifold_id = format!("{rage_id}");
@@ -528,7 +528,7 @@ async fn upload_re_logs_impl(
     let filename = format!("flat/{}-re_logs.zst", &re_session_id);
     upload_re_logs(manifold, bucket, re_logs_dir, &re_session_id, &filename).await?;
 
-    Ok(manifold_leads(&bucket, filename))
+    Ok(manifold_leads(manifold, &bucket, filename))
 }
 
 async fn dispatch_result_event(

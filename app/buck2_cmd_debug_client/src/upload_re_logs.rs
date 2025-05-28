@@ -34,7 +34,7 @@ impl BuckSubcommand for UploadReLogsCommand {
     ) -> ExitResult {
         buck2_core::facebook_only();
         events_ctx.log_invocation_record = false;
-        let manifold = ManifoldClient::new().await?;
+        let manifold = ManifoldClient::new_with_config(ctx.buckets_config()?).await?;
         // TODO: This should receive the path from the caller.
         let re_logs_dir = ctx.paths()?.re_logs_dir();
         upload_re_logs(
