@@ -12,12 +12,12 @@ use std::time::Duration;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
+use allocative::Allocative;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
 use buck2_http::retries::AsBuck2Error;
 use buck2_http::retries::HttpError;
-use allocative::Allocative;
 use buck2_http::retries::HttpErrorForRetry;
 use buck2_http::retries::http_retry;
 use bytes::Bytes;
@@ -172,6 +172,12 @@ pub struct BucketsConfig {
     pub upload_url: String,
     /// URL at which one can view a file `:bucketname/:filename` in a Web browser.
     pub explore_url: String,
+    /// Like `explore_url` but different in ways that only matter at Facebook.
+    /// Defaults to `explore_url` if not set.
+    pub file_url: String,
+    /// Command that when invoked, will retrieve a file from the given bucket,
+    /// for interactive use.
+    pub file_get_command: Option<String>,
 }
 
 impl BucketsConfig {
@@ -181,9 +187,19 @@ impl BucketsConfig {
             property: "upload_url",
         })?;
 
-        let explore_url = config.parse(BuckconfigKeyRef {
+        let explore_url: Option<String> = config.parse(BuckconfigKeyRef {
             section: "buckets",
             property: "explore_url",
+        })?;
+
+        let file_url = config.parse(BuckconfigKeyRef {
+            section: "buckets",
+            property: "file_url",
+        })?;
+
+        let file_get_command = config.parse(BuckconfigKeyRef {
+            section: "buckets",
+            property: "file_get_command",
         })?;
 
         if upload_url.is_none() != explore_url.is_none() {
@@ -196,9 +212,12 @@ impl BucketsConfig {
         if let Some(upload_url) = upload_url
             && let Some(explore_url) = explore_url
         {
+            let file_url = file_url.unwrap_or_else(|| explore_url.clone());
             Ok(Some(BucketsConfig {
                 explore_url,
                 upload_url,
+                file_url,
+                file_get_command,
             }))
         } else {
             Ok(None)
@@ -211,13 +230,15 @@ impl BucketsConfig {
 
         Some(BucketsConfig {
             upload_url: upload_url.to_owned(),
-            explore_url: "https://www.internalfb.com/manifold/explorer/".to_owned(),
+            explore_url: "https://www.internalfb.com/manifold/explorer".to_owned(),
+            file_url: "https://interncache-all.fbcdn.net/manifold".to_owned(),
+            file_get_command: Some("manifold get".to_owned()),
         })
     }
 
     fn explore_url_for(&self, bucket: &Bucket, filename: String) -> String {
         let full_path = format!("{}/{}", bucket.name, filename);
-        format!("{}{}", self.explore_url, full_path)
+        format!("{}/{}", self.explore_url, full_path)
     }
 }
 
@@ -397,6 +418,26 @@ impl ManifoldClient {
             .as_ref()
             .map(|config| config.explore_url_for(&bucket, filename))
             .unwrap_or_else(String::new))
+    }
+
+    /// Gets the URL for viewing an individual file.
+    pub fn file_view_url(&self, bucket: &Bucket, filename: &str) -> Option<String> {
+        self.config
+            .as_ref()
+            .map(|config| format!("{}/{}/{}", config.file_url, bucket.name, filename))
+    }
+
+    /// Gets the command for getting an individual file, for interactive use.
+    pub fn file_dump_command(&self, bucket: &Bucket, filename: &str) -> Option<String> {
+        // FIXME(jadel): This does overlap LogDownloadMethod::Curl, I am not
+        // sure what to do about that.
+        if let Some(ref config) = self.config
+            && let Some(ref command) = config.file_get_command
+        {
+            Some(format!("{} {}/{}", command, bucket.name, filename))
+        } else {
+            None
+        }
     }
 }
 

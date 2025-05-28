@@ -544,7 +544,7 @@ async fn upload_re_logs_impl(
     upload_re_logs::upload_re_logs(manifold, bucket, re_logs_dir, &re_session_id, &filename)
         .await?;
 
-    Ok(manifold_leads(&bucket, filename))
+    Ok(manifold_leads(manifold, &bucket, filename))
 }
 
 async fn dispatch_result_event(
