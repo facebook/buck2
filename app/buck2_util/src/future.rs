@@ -9,7 +9,6 @@
 
 use std::future::Future;
 use std::iter;
-use std::mem;
 
 use futures::FutureExt;
 use futures::StreamExt;
@@ -64,7 +63,7 @@ where
         while let Some((i, res)) = futs.next().await {
             match res {
                 Ok(v) => {
-                    let prev = mem::replace(&mut outputs[i], Some(v));
+                    let prev = outputs[i].replace(v);
                     assert!(prev.is_none());
                 }
                 Err(e) => return Err(e),

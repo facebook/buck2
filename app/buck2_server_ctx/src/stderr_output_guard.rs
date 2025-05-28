@@ -110,8 +110,7 @@ impl Write for StderrOutputWriter {
         if len > 0 {
             let s = StderrOutputWriter::truncate_str(buf, len)?;
             if s.is_empty() {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
+                return Err(io::Error::other(
                     "Configured chunk size is not enough to hold a single utf-8 character",
                 ));
             }

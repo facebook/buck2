@@ -38,6 +38,7 @@ use syn::spanned::Spanned;
 use syn::token;
 
 /// Did the user provide an explicit value for the option, or a function from which to compute it
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone)]
 pub enum OptionStyle {
     Explicit(syn::Ident),

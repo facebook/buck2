@@ -89,6 +89,7 @@ pub const CUTOFFS: Cutoffs = Cutoffs {
     _notable: Duration::from_millis(200),
 };
 
+#[allow(clippy::large_enum_variant)]
 pub enum StatefulSuperConsole {
     Running(StatefulSuperConsoleImpl),
     /// After receiving the command output, any stdout, or an event stream error, the superconsole

@@ -178,9 +178,7 @@ impl NoProxy {
     fn should_bypass_proxy_for_host<S: AsRef<str>>(&self, host: S) -> bool {
         let host = host.as_ref();
         if let Ok(host_address) = host.parse::<IpAddr>() {
-            self.addresses
-                .iter()
-                .any(|address| host_address == *address)
+            self.addresses.contains(&host_address)
                 || self
                     .networks
                     .iter()

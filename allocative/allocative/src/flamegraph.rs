@@ -451,7 +451,6 @@ impl VisitorImpl for FlameGraphBuilder {
         self.current().current_data().unique = true;
     }
 
-    #[must_use]
     fn enter_shared_impl(
         &mut self,
         name: Key,

@@ -55,6 +55,7 @@ enum BuildContextError {
     BasePathOnlyDefinedForPackageOrBuildFile(StarlarkFileType),
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum PerFileTypeContext {
     /// Context for evaluating `BUCK` files.

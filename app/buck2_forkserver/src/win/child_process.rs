@@ -56,7 +56,7 @@ impl Future for ChildProcess {
             if let Some(ref mut w) = inner.waiting {
                 match Pin::new(&mut w.rx).poll(cx) {
                     Poll::Ready(Ok(())) => {}
-                    Poll::Ready(Err(e)) => Err(io::Error::new(io::ErrorKind::Other, e))?,
+                    Poll::Ready(Err(e)) => Err(io::Error::other(e))?,
                     Poll::Pending => return Poll::Pending,
                 }
                 let status = inner.inner.try_wait()?.ok_or(io::Error::new(

@@ -171,7 +171,7 @@ impl Alloca {
         // If the pointer changed, it means a callback called alloca again,
         // which allocated a new buffer. So we are abandoning the current allocation here,
         // and new allocations will use the new buffer even if the current buffer has space.
-        if likely(self.alloc.get() == stop) {
+        if likely(std::ptr::eq(self.alloc.get(), stop)) {
             self.alloc.set(old);
         }
 

@@ -219,10 +219,7 @@ where
 async fn read_truncated_error_response(
     mut resp: Response<BoxStream<'_, hyper::Result<Bytes>>>,
 ) -> String {
-    let read = StreamReader::new(
-        resp.body_mut()
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)),
-    );
+    let read = StreamReader::new(resp.body_mut().map_err(std::io::Error::other));
     let mut buf = Vec::with_capacity(1024);
     read.take(1024).read_to_end(&mut buf).await.map_or_else(
         |e| format!("Error decoding response: {:?}", e),
@@ -234,8 +231,7 @@ async fn read_truncated_error_response(
 /// Warning: This does no length checking (like hyper::body::to_bytes). Should
 /// only be used for trusted endpoints.
 pub async fn to_bytes(body: BoxStream<'_, hyper::Result<Bytes>>) -> anyhow::Result<Bytes> {
-    let mut reader =
-        StreamReader::new(body.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)));
+    let mut reader = StreamReader::new(body.map_err(std::io::Error::other));
     let mut buf = Vec::new();
     reader
         .read_to_end(&mut buf)

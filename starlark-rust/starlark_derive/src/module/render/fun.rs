@@ -638,6 +638,7 @@ fn render_native_callable_components(
     ))
 }
 
+#[allow(clippy::large_enum_variant)]
 enum SignatureRegularArgMode {
     Required,
     Optional,

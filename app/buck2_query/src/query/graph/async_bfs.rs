@@ -8,7 +8,6 @@
  */
 
 use std::future;
-use std::mem;
 
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
@@ -142,14 +141,12 @@ pub(crate) async fn async_bfs_find_path<'a, N: LabeledNode + 'static>(
                     path.reverse();
                     return Ok(Some(path));
                 }
-                let prev = mem::replace(
-                    &mut visited
-                        .visited
-                        .get_mut(&key)
-                        .with_internal_error(|| format!("missing node {}", key))?
-                        .node,
-                    Some(node),
-                );
+                let prev = visited
+                    .visited
+                    .get_mut(&key)
+                    .with_internal_error(|| format!("missing node {}", key))?
+                    .node
+                    .replace(node);
                 if prev.is_some() {
                     return Err(internal_error!("duplicate node {}", key));
                 }

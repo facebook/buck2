@@ -15,7 +15,6 @@
 #![feature(try_trait_v2)]
 #![feature(used_with_arg)]
 #![feature(round_char_boundary)]
-#![feature(extract_if)]
 
 pub mod argfiles;
 pub mod client_cpu_tracker;

@@ -203,8 +203,8 @@ impl LegacyConfigParser {
             .iter()
             .map(|(k, v)| {
                 v.values.iter().map(|(key, value)| buck2_data::ConfigValue {
-                    section: k.to_string(),
-                    key: key.to_string(),
+                    section: k.to_owned(),
+                    key: key.to_owned(),
                     value: value.raw_value().to_owned(),
                     cell: None,
                     is_cli,

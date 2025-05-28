@@ -993,12 +993,10 @@ impl<'v> Tracer<'v> {
         let old_val = value.0.unpack_ptr().unwrap();
 
         // Case 2: We have already been replaced with a forwarding, or need to freeze
-        let res = match old_val.unpack() {
+        match old_val.unpack() {
             AValueOrForwardUnpack::Forward(x) => unsafe { x.forward_ptr().unpack_unfrozen_value() },
             AValueOrForwardUnpack::Header(v) => unsafe { v.unpack().heap_copy(self) },
-        };
-
-        res
+        }
     }
 }
 

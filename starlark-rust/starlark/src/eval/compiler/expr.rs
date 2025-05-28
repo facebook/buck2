@@ -1025,6 +1025,7 @@ pub(crate) enum EvalError {
 
 /// Try fold expression `cmp(l == r)` into `cmp(type(x) == "y")`.
 /// Return original `l` and `r` arguments if fold was unsuccessful.
+#[allow(clippy::result_large_err)]
 fn try_eval_type_is(
     l: IrSpanned<ExprCompiled>,
     r: IrSpanned<ExprCompiled>,

@@ -144,7 +144,13 @@ mod tests {
         let b = allocator
             .fetch(AlignedSize::new_bytes(3 * AValueHeader::ALIGN))
             .unwrap();
-        assert!(old_a_ptr == a.begin().as_ptr() || old_a_ptr == b.begin().as_ptr());
-        assert!(old_b_ptr == a.begin().as_ptr() || old_b_ptr == b.begin().as_ptr());
+        assert!(
+            std::ptr::eq(old_a_ptr, a.begin().as_ptr())
+                || std::ptr::eq(old_a_ptr, b.begin().as_ptr())
+        );
+        assert!(
+            std::ptr::eq(old_b_ptr, a.begin().as_ptr())
+                || std::ptr::eq(old_b_ptr, b.begin().as_ptr())
+        );
     }
 }

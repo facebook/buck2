@@ -1342,9 +1342,9 @@ impl BuckTestOrchestrator<'_> {
         dice: &mut DiceComputations<'_>,
         test_target: &ConfiguredProvidersLabel,
         test_info: &FrozenExternalRunnerTestInfo,
-        cmd: Cow<'a, Vec<ArgValue>>,
+        cmd: Cow<'a, [ArgValue]>,
         env: Cow<'a, SortedVectorMap<String, ArgValue>>,
-        pre_create_dirs: Cow<'a, Vec<DeclaredOutput>>,
+        pre_create_dirs: Cow<'a, [DeclaredOutput]>,
         executor_fs: &ExecutorFs<'_>,
         prefix: TestExecutionPrefix,
         opts: TestSessionOptions,
@@ -1714,7 +1714,7 @@ struct Execute2RequestExpander<'a> {
     output_root: &'a ForwardRelativePath,
     declared_outputs: &'a mut IndexMap<BuckOutTestPath, OutputCreationBehavior>,
     fs: &'a ExecutorFs<'a>,
-    cmd: Cow<'a, Vec<ArgValue>>,
+    cmd: Cow<'a, [ArgValue]>,
     env: Cow<'a, SortedVectorMap<String, ArgValue>>,
 }
 

@@ -200,6 +200,7 @@ pub struct DocProperty {
 }
 
 /// A named member of an object.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq, Allocative)]
 pub enum DocMember {
     Property(DocProperty),

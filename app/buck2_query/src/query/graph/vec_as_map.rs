@@ -11,7 +11,6 @@
 
 use std::fmt;
 use std::fmt::Debug;
-use std::mem;
 
 /// Map `u32` to `T`.
 pub(crate) struct VecAsMap<T> {
@@ -58,6 +57,6 @@ impl<T> VecAsMap<T> {
         if self.vec.len() <= index as usize {
             self.vec.resize_with(index as usize + 1, || None);
         }
-        mem::replace(&mut self.vec[index as usize], Some(value))
+        self.vec[index as usize].replace(value)
     }
 }

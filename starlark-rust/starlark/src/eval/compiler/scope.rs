@@ -1125,7 +1125,7 @@ impl<'f> Binding<'f> {
 
     /// Initialize the slot during analysis.
     pub(crate) fn init_slot(&mut self, slot: Slot, codemap: &CodeMap) -> Result<(), InternalError> {
-        match mem::replace(&mut self.slot, Some(slot)) {
+        match self.slot.replace(slot) {
             Some(_) => Err(InternalError::msg(
                 "slot is already assigned",
                 self.span(),

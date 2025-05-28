@@ -146,7 +146,7 @@ impl<V: ValueLifetimeless> TransitiveSetOperationsGen<V> {
             .iter()
             .filter_map(|(k, spec)| {
                 if kind == spec.kind {
-                    Some(k.to_string())
+                    Some(k.to_owned())
                 } else {
                     None
                 }

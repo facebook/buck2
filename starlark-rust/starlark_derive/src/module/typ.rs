@@ -194,6 +194,7 @@ pub(crate) struct StarArguments {
 }
 
 /// How we handle `&Arguments`.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub(crate) enum RegularParams {
     /// Pass `&Arguments` as is.

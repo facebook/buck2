@@ -108,7 +108,7 @@ impl CompleteCommand {
         matches: BuckArgMatches<'_>,
         ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
-        let exit_result = match self.partial_target.split(':').collect::<Vec<_>>()[..] {
+        match self.partial_target.split(':').collect::<Vec<_>>()[..] {
             // Package completion is performed locally and called here directly
             [given_partial_package] => {
                 let roots = &ctx.paths()?.roots;
@@ -130,8 +130,7 @@ impl CompleteCommand {
                 "Malformed target string (expected [[cell]//][path/to/package][:target_name])",
             )
             .into(),
-        };
-        exit_result
+        }
     }
 }
 

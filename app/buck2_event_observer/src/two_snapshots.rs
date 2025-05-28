@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::mem;
 use std::time::Duration;
 use std::time::SystemTime;
 
@@ -19,7 +18,7 @@ pub struct TwoSnapshots {
 
 impl TwoSnapshots {
     pub fn update(&mut self, timestamp: SystemTime, snapshot: &buck2_data::Snapshot) {
-        self.penultimate = mem::replace(&mut self.last, Some((timestamp, snapshot.clone())));
+        self.penultimate = self.last.replace((timestamp, snapshot.clone()));
     }
 
     fn non_zero_duration(&self) -> Option<Duration> {

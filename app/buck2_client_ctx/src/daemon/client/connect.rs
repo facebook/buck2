@@ -869,6 +869,7 @@ async fn start_new_buckd_and_connect(
     Ok(client)
 }
 
+#[allow(clippy::large_enum_variant)]
 enum ConnectBeforeRestart {
     Accepted(BootstrapBuckdClient),
     Rejected,

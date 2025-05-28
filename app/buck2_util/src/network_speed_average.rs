@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::mem;
 use std::time::Duration;
 use std::time::SystemTime;
 
@@ -34,7 +33,7 @@ impl NetworkSpeedAverage {
     /// Each update value must be greater than or equal to the previous one.
     /// Equal values are ignored during average calculation.
     pub fn update(&mut self, timestamp: SystemTime, value: u64) {
-        let last = mem::replace(&mut self.last_snapshot, Some(Snapshot { timestamp, value }));
+        let last = self.last_snapshot.replace(Snapshot { timestamp, value });
         if let Some((duration, value)) =
             NetworkSpeedAverage::elapsed_if_value_changed(&last, &Snapshot { timestamp, value })
         {

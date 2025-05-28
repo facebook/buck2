@@ -305,6 +305,7 @@ pub(crate) struct RunAction {
     input_files_bytes: u64,
 }
 
+#[allow(clippy::large_enum_variant)]
 enum ExecuteResult {
     LocalDepFileHit(ActionOutputs, ActionExecutionMetadata),
     ExecutedOrReHit {

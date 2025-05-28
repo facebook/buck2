@@ -560,6 +560,7 @@ impl BuckdServer {
     }
 
     /// Checks if the server is accepting requests.
+    #[allow(clippy::result_large_err)]
     fn check_if_accepting_requests(&self) -> Result<(), Status> {
         if self.0.stop_accepting_requests.load(Ordering::Relaxed) {
             Err(Status::failed_precondition(
@@ -571,6 +572,7 @@ impl BuckdServer {
     }
 }
 
+#[allow(clippy::result_large_err)]
 fn convert_positive_duration(proto_duration: &prost_types::Duration) -> Result<Duration, Status> {
     if proto_duration.seconds < 0 || proto_duration.nanos < 0 {
         return Err(Status::new(
@@ -1494,6 +1496,7 @@ impl DaemonApi for BuckdServer {
 
 /// Options to configure the execution of a oneshot command (i.e. what happens in `oneshot()`).
 trait OneshotCommandOptions: Send + Sync + 'static {
+    #[allow(clippy::result_large_err)]
     fn pre_run(&self, server: &BuckdServer) -> Result<(), Status> {
         server.check_if_accepting_requests()
     }

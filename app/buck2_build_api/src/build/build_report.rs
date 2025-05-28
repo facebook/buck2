@@ -645,7 +645,7 @@ impl<'a> BuildReportCollector<'a> {
                 self.strings
                     .get(&out.last().unwrap().message_content)
                     .unwrap()
-                    .to_string(),
+                    .to_owned(),
             );
         }
 

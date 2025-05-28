@@ -280,7 +280,7 @@ mod tests {
         fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
             self.sender
                 .send(())
-                .map_err(|_| io::Error::new(io::ErrorKind::Other, "not writable"))?;
+                .map_err(|_| io::Error::other("not writable"))?;
 
             Ok(buf.len())
         }
