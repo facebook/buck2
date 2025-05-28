@@ -520,7 +520,7 @@ impl<'a> BuildReportCollector<'a> {
                 &result.graph_properties
             {
                 configured_report.inner.configured_graph_size =
-                    graph_properties.configured_graph_size;
+                    Some(graph_properties.configured_graph_size);
 
                 configured_report.configured_graph_sketch = graph_properties
                     .configured_graph_sketch

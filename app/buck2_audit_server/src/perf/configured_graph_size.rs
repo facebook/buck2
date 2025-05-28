@@ -57,7 +57,7 @@ pub(crate) async fn server_execute(
                 results.insert(
                     target,
                     Res {
-                        configured_graph_size: props.configured_graph_size.unwrap(),
+                        configured_graph_size: props.configured_graph_size,
                         sketch: props.configured_graph_sketch.map(|v| v.serialize()),
                         duration_ms: duration.as_millis() as u64,
                     },

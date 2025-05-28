@@ -74,7 +74,7 @@ impl GraphPropertiesOptions {
 
 #[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
 pub struct GraphPropertiesValues {
-    pub configured_graph_size: Option<u64>,
+    pub configured_graph_size: u64,
     pub configured_graph_sketch: Option<GraphSketch>,
 }
 
@@ -231,7 +231,7 @@ pub fn debug_compute_configured_graph_properties_uncached(
         }
 
         Ok(GraphPropertiesValues {
-            configured_graph_size: Some(visited.len() as _),
+            configured_graph_size: visited.len() as _,
             configured_graph_sketch: sketch.map(|sketch| sketch.get_sketch()),
         })
     })
