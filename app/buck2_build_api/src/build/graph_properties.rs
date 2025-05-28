@@ -102,10 +102,10 @@ impl GraphSketch {
     PartialEq,
     Allocative
 )]
-#[display("GraphPropertiesKey: {} {}", label, properties)]
+#[display("GraphPropertiesKey: {}, sketch={}", label, configured_graph_sketch)]
 struct GraphPropertiesKey {
     label: ConfiguredTargetLabel,
-    properties: GraphPropertiesOptions,
+    configured_graph_sketch: bool,
 }
 
 #[async_trait]
@@ -118,7 +118,10 @@ impl Key for GraphPropertiesKey {
         _cancellation: &CancellationContext,
     ) -> Self::Value {
         let configured_node = ctx.get_configured_target_node(&self.label).await?;
-        debug_compute_configured_graph_properties_uncached(configured_node, self.properties)
+        debug_compute_configured_graph_properties_uncached(
+            configured_node,
+            self.configured_graph_sketch,
+        )
     }
 
     fn equality(a: &Self::Value, b: &Self::Value) -> bool {
@@ -188,11 +191,11 @@ impl<T: StrongHash> VersionedSketcher<T> {
 pub async fn get_configured_graph_properties(
     ctx: &mut DiceComputations<'_>,
     label: &ConfiguredTargetLabel,
-    properties: GraphPropertiesOptions,
+    configured_graph_sketch: bool,
 ) -> buck2_error::Result<MaybeCompatible<GraphPropertiesValues>> {
     ctx.compute(&GraphPropertiesKey {
         label: label.dupe(),
-        properties,
+        configured_graph_sketch,
     })
     .await?
 }
@@ -202,14 +205,14 @@ pub async fn get_configured_graph_properties(
 /// expose it just for performance testing).
 pub fn debug_compute_configured_graph_properties_uncached(
     node: MaybeCompatible<ConfiguredTargetNode>,
-    properties: GraphPropertiesOptions,
+    configured_graph_sketch: bool,
 ) -> buck2_error::Result<MaybeCompatible<GraphPropertiesValues>> {
     node.try_map(|node| {
         let mut queue = vec![&node];
         let mut visited: HashSet<_, fxhash::FxBuildHasher> = HashSet::default();
         visited.insert(&node);
 
-        let mut sketch = if properties.configured_graph_sketch {
+        let mut sketch = if configured_graph_sketch {
             Some(SketchVersion::V1.create_sketcher())
         } else {
             None

@@ -11,7 +11,6 @@ use std::io::Write;
 use std::time::Instant;
 
 use buck2_audit::perf::configured_graph_size::ConfiguredGraphSizeCommand;
-use buck2_build_api::build::graph_properties::GraphPropertiesOptions;
 use buck2_build_api::build::graph_properties::debug_compute_configured_graph_properties_uncached;
 use buck2_cli_proto::ClientContext;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -51,14 +50,9 @@ pub(crate) async fn server_execute(
             for target in &targets {
                 let node = ctx.get_configured_target_node(&target).await?;
                 let now = Instant::now();
-                let props = debug_compute_configured_graph_properties_uncached(
-                    node,
-                    GraphPropertiesOptions {
-                        configured_graph_size: true,
-                        configured_graph_sketch: command.sketch,
-                    },
-                )?
-                .require_compatible()?;
+                let props =
+                    debug_compute_configured_graph_properties_uncached(node, command.sketch)?
+                        .require_compatible()?;
                 let duration = now.elapsed();
                 results.insert(
                     target,
