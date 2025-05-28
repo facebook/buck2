@@ -96,6 +96,7 @@ buck_java_library(
         "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java:remove_classes_patterns_matcher",
         "prelude//toolchains/android/src/com/facebook/buck/util:util",
+        "prelude//toolchains/android/src/com/facebook/buck/util/function:function",
         "prelude//toolchains/android/third-party:args4j",
         "prelude//toolchains/android/third-party:guava",
         ":zip",
@@ -121,7 +122,7 @@ buck_prebuilt_jar(
 # buck build prelude//toolchains/android/src/com/facebook/buck/util/zip:jar_builder_main --show-simple-output | xargs frecli --use-case android_build_infra_tools cas upload-blob
 buck_prebuilt_artifact(
     name = "jar_builder_main.jar",
-    # @oss-disable[end= ]: cas_digest = "8736eacdd6ac915a5e9a11cedd57d737286175c7c91dc974c14a9292b9c0eaa6:22163374",
+    # @oss-disable[end= ]: cas_digest = "2ac1a4e88e80ff570943e64fb5fb623b48890797ec4eb570cd77c04c9cc055ce:22113440",
     oss_sha1 = "773465b2d6bd444c15c04dc4c9bc4e8ff81ed821",
     oss_url = "https://github.com/facebook/buck2/releases/download/androidToolchain%2F2025-04-03/jar_builder_main.jar",
 )

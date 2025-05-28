@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -37,11 +38,14 @@ public class JarBuilderMain {
   @Option(name = "--output", required = true)
   private String output;
 
-  @Option(name = "--entries-to-jar", required = true)
+  @Option(name = "--entries-to-jar")
   private String entriesToJarFilePath;
 
   @Option(name = "--override-entries-to-jar")
   private String overrideEntriesToJarFilePath;
+
+  @Option(name = "--class-files", usage = "Format: <name>:<path>")
+  private List<String> classFiles;
 
   @Option(name = "--blocklist-patterns")
   private String blocklistPatternsFilePath;
@@ -94,6 +98,26 @@ public class JarBuilderMain {
     final List<AbsPath> entriesToJar = readEntriesToJar(root, entriesToJarFilePath);
     final List<AbsPath> overrideEntriesToJar = readEntriesToJar(root, overrideEntriesToJarFilePath);
     final JarBuilder jarBuilder = concatJars ? new ConcatJarBuilder() : new JarBuilder();
+    final List<JarEntrySupplier> classFileEntries;
+    if (classFiles != null) {
+      classFileEntries =
+          classFiles.stream()
+              .map(
+                  (classFile) -> {
+                    String[] parts = classFile.split(":");
+                    if (parts.length != 2) {
+                      throw new IllegalArgumentException(
+                          "Expected --class-file format: <name>:<path>");
+                    }
+                    return new JarEntrySupplier(
+                        new CustomZipEntry(parts[0]),
+                        "unused",
+                        () -> Files.newInputStream(Path.of(parts[1])));
+                  })
+              .collect(Collectors.toList());
+    } else {
+      classFileEntries = new ArrayList<>();
+    }
 
     jarBuilder
         .setMainClass(mainClass)
@@ -104,6 +128,7 @@ public class JarBuilderMain {
         .setRemoveEntryPredicate(getRemoveEntryPredicate())
         .setEntriesToJar(getEntriesToJar(entriesToJar, concatJars))
         .setOverrideEntriesToJar(overrideEntriesToJar)
+        .addEntries(classFileEntries)
         .createJarFile(outputFile);
   }
 

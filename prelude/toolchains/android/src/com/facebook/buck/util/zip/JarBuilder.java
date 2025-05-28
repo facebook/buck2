@@ -154,6 +154,7 @@ public class JarBuilder {
   private final List<JarEntryContainer> overrideSourceContainers = new ArrayList<>();
   private final Set<String> alreadyAddedEntries = new HashSet<>();
   private final Map<String, Set<String>> mergeableResources = new HashMap<>();
+  private final List<JarEntrySupplier> additionalEntries = new ArrayList<>();
 
   protected Path getAppendJar() {
     return appendJar;
@@ -208,6 +209,13 @@ public class JarBuilder {
 
   public JarBuilder addEntry(JarEntrySupplier supplier) {
     sourceContainers.add(new SingletonJarEntryContainer(supplier));
+    return this;
+  }
+
+  public JarBuilder addEntries(List<JarEntrySupplier> suppliers) {
+    for (JarEntrySupplier supplier : suppliers) {
+      addEntry(supplier);
+    }
     return this;
   }
 
@@ -393,7 +401,7 @@ public class JarBuilder {
     return entry;
   }
 
-  protected void addEntriesToJar(Iterable<JarEntrySupplier> entries, CustomJarOutputStream jar)
+  private void addEntriesToJar(Iterable<JarEntrySupplier> entries, CustomJarOutputStream jar)
       throws IOException {
     for (JarEntrySupplier entrySupplier : entries) {
       addEntryToJar(entrySupplier, jar);
