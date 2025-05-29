@@ -161,11 +161,10 @@ fn ensure_source_artifact_staged<'a>(
     source: SourceArtifact,
 ) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a> {
     async move {
-        Ok(EnsureArtifactGroupReady::Single(
-            path_artifact_value(dice, Arc::new(source.get_path().to_cell_path()))
-                .await?
-                .into(),
-        ))
+        Ok(EnsureArtifactGroupReady::Single(ArtifactValue::new(
+            path_artifact_value(dice, Arc::new(source.get_path().to_cell_path())).await?,
+            None,
+        )))
     }
     .boxed()
 }

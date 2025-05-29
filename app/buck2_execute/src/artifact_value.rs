@@ -53,12 +53,6 @@ pub struct ArtifactValue {
     content_based_path_hash: UnderlyingContentBasedPathHash,
 }
 
-impl From<ActionDirectoryEntry<ActionSharedDirectory>> for ArtifactValue {
-    fn from(entry: ActionDirectoryEntry<ActionSharedDirectory>) -> Self {
-        Self::new(entry, None)
-    }
-}
-
 impl ArtifactValue {
     pub fn new(
         entry: ActionDirectoryEntry<ActionSharedDirectory>,

@@ -69,7 +69,7 @@ pub(crate) async fn declare_copy_from_offline_cache(
             dir.fingerprint(ctx.digest_config().as_directory_serializer())
                 .shared(&*INTERNER)
         });
-    let value = ArtifactValue::from(entry);
+    let value = ArtifactValue::new(entry, None);
 
     let build_path = ctx
         .fs()
