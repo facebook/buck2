@@ -17,7 +17,11 @@ from dataclasses_json import dataclass_json
 
 class SimState(str, Enum):
     booted = "Booted"
+    booting = "Booting"
+    creating = "Creating"
     shutdown = "Shutdown"
+    shutting_down = "Shutting Down"
+    unknown = "Unknown"
 
 
 @dataclass_json
