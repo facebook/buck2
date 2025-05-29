@@ -621,7 +621,7 @@ impl DaemonState {
                     section: "buck2",
                     property: "time_to_fix_use_better_error",
                 })?
-                .unwrap_or(false);
+                .unwrap_or(true);
 
             TIME_TO_FIX_USE_BETTER_ERROR.set(use_better_error).unwrap();
 
