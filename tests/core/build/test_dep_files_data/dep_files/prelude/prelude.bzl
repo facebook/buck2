@@ -13,10 +13,11 @@ def _c_binary_impl(ctx):
 
     headers_tag = ctx.actions.artifact_tag()
 
-    headers_dir = ctx.actions.symlinked_dir("headers", headers)
+    headers_dir = ctx.actions.declare_output("headers", uses_experimental_content_based_path_hashing = True, dir = True)
+    headers_dir = ctx.actions.symlinked_dir(headers_dir, headers)
     headers_dir = headers_tag.tag_artifacts(headers_dir)
 
-    dep_file = ctx.actions.declare_output("depfile")
+    dep_file = ctx.actions.declare_output("depfile", uses_experimental_content_based_path_hashing = True)
     app = ctx.actions.declare_output(ctx.attrs.name)
 
     cmd = [
