@@ -276,13 +276,12 @@ async fn dir_artifact_value(
     ctx: &mut DiceComputations<'_>,
     cell_path: Arc<CellPath>,
 ) -> buck2_error::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
-    // We keep running into this performance footgun where a large directory is declared
-    // as a source on a toolchain, and then every BuildKey using that toolchain ends up taking
-    // a DICE edge on PathMetadataKey of every file inside that directory, blowing up Buck2's
-    // memory use. This diff introduces an intermediate DICE key `DirArtifactValueKey` for
-    // getting the artifact value of a source directory. Every BuildKey
-    // using that directory now only depends on one DirArtifactValueKey, and that DirArtifactValueKey
-    // depends on the PathMetadataKey of every member of the directory.
+    // We kept running into this performance footgun where a large directory is declared as a source
+    // on a toolchain, and then every `BuildKey` using that toolchain ends up taking a DICE edge on
+    // `PathMetadataKey` of every file inside that directory, blowing up Buck2's memory use.
+    // `DirArtifactValueKey` is an intermediate DICE key to prevent that -  every `BuildKey` using
+    // that directory now only depends on one `DirArtifactValueKey`, and that `DirArtifactValueKey`
+    // depends on the `PathMetadataKey` of every member of the directory.
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display("dir_artifact_value({})", _0)]
     struct DirArtifactValueKey(Arc<CellPath>);
