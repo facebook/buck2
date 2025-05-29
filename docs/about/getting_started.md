@@ -47,7 +47,7 @@ Some of our rules use symlinks, which are disabled by default for non-admin
 Windows users. You can fix that by
 [enabling Developer Mode](https://pureinfotech.com/enable-developer-mode-windows-11/).
 
-### MacOS File descriptor limits
+### MacOS file descriptor limits
 
 Note that on MacOS, the default file descriptor limit is far too small. If you encounter
 "Too many open files (os error 24)" errors, do this:

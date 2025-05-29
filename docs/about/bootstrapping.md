@@ -31,7 +31,7 @@ Build `buck2` with `buck2`:
 buck2 build //:buck2
 ```
 
-## File descriptor limits
+## MacOS file descriptor limits
 
 Note that on MacOS, the default file descriptor limit is far too small. If you encounter
 "Too many open files (os error 24)" errors, do this:
