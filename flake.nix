@@ -36,7 +36,11 @@
           CoreServices
           IOKit
           Security
-        ]);
+        ]) ++ [
+          # NOTE (aseipp): needed on aarch64-linux, so that the linker can
+          # properly find libatomic.so, but harmless elsewhere
+          pkgs.stdenv.cc.cc
+        ];
         packages = [ pkgs.cargo-bloat my-rust-bin pkgs.mold-wrapped pkgs.reindeer pkgs.lld_16 pkgs.clang_16 ];
         shellHook =
           ''
