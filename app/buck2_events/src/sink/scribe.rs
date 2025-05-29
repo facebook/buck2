@@ -155,25 +155,10 @@ impl RemoteEventSink {
                             continue;
                         };
 
-                        {
-                            let Some(ref command_kind) = details.command_kind else {
-                                continue;
-                            };
-                            let Some(ref command) = command_kind.command else {
-                                continue;
-                            };
-                            let buck2_data::command_execution_kind::Command::RemoteCommand(remote) =
-                                command
-                            else {
-                                continue;
-                            };
-                            if !remote.cache_hit {
-                                continue;
-                            }
+                        if get_is_cache_hit(details) {
+                            is_cache_hit = true;
+                            details.metadata = None;
                         }
-
-                        is_cache_hit = true;
-                        details.metadata = None;
                     }
 
                     if is_cache_hit {
@@ -200,6 +185,21 @@ impl EventSink for RemoteEventSink {
             Event::PartialResult(..) => {}
         }
     }
+}
+
+fn get_is_cache_hit(details: &buck2_data::CommandExecutionDetails) -> bool {
+    use buck2_data::command_execution_kind::Command::RemoteCommand;
+
+    details
+        .command_kind
+        .as_ref()
+        .and_then(|v| {
+            v.command.as_ref().map(|v| match v {
+                RemoteCommand(remote) => remote.cache_hit,
+                _ => false,
+            })
+        })
+        .unwrap_or(false)
 }
 
 impl EventSinkWithStats for RemoteEventSink {
@@ -310,6 +310,11 @@ pub(crate) fn scribe_category() -> buck2_error::Result<String> {
 
 #[cfg(test)]
 mod tests {
+    use buck2_data::CommandExecutionDetails;
+    use buck2_data::CommandExecutionKind;
+    use buck2_data::RemoteCommand;
+    use buck2_data::command_execution_kind::Command;
+
     use super::*;
 
     #[test]
@@ -334,5 +339,32 @@ mod tests {
         let size_approx = res.len() * 8;
         assert!(size_approx > TRUNCATED_SCRIBE_MESSAGE_SIZE);
         assert!(size_approx < SCRIBE_MESSAGE_SIZE_LIMIT);
+    }
+
+    #[test]
+    fn test_get_is_cache_hit() {
+        // Case 1: Remote command with cache hit
+        let details_cache_hit = CommandExecutionDetails {
+            command_kind: Some(CommandExecutionKind {
+                command: Some(Command::RemoteCommand(RemoteCommand {
+                    cache_hit: true,
+                    ..Default::default()
+                })),
+            }),
+            ..Default::default()
+        };
+        assert!(get_is_cache_hit(&details_cache_hit));
+
+        // Case 2: Remote command without cache hit
+        let details_no_cache_hit = CommandExecutionDetails {
+            command_kind: Some(CommandExecutionKind {
+                command: Some(Command::RemoteCommand(RemoteCommand {
+                    cache_hit: false,
+                    ..Default::default()
+                })),
+            }),
+            ..Default::default()
+        };
+        assert!(!get_is_cache_hit(&details_no_cache_hit));
     }
 }
