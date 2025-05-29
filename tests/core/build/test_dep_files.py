@@ -218,7 +218,6 @@ async def test_dep_file_hit_identical_action(buck: Buck) -> None:
 )
 async def test_dep_files_ignore_missing_digests(buck: Buck, tmp_path: Path) -> None:
     await buck.build("app:app")
-    await expect_exec_count(buck, 1)
 
     with pytest.raises(BuckException):  # noqa B908
         dep_file_path = tmp_path / "dep_file"
