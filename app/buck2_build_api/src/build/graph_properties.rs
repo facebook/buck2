@@ -36,6 +36,7 @@ use strong_hash::UseStrongHashing;
 pub struct GraphPropertiesOptions {
     pub configured_graph_size: bool,
     pub configured_graph_sketch: bool,
+    pub total_configured_graph_sketch: bool,
 }
 
 impl fmt::Display for GraphPropertiesOptions {
@@ -43,6 +44,7 @@ impl fmt::Display for GraphPropertiesOptions {
         let Self {
             configured_graph_size,
             configured_graph_sketch,
+            total_configured_graph_sketch,
         } = *self;
 
         let mut comma = commas();
@@ -57,6 +59,11 @@ impl fmt::Display for GraphPropertiesOptions {
             write!(f, "configured_graph_size")?;
         }
 
+        if total_configured_graph_sketch {
+            comma(f)?;
+            write!(f, "total_configured_graph_sketch")?;
+        }
+
         Ok(())
     }
 }
@@ -66,9 +73,14 @@ impl GraphPropertiesOptions {
         let Self {
             configured_graph_size,
             configured_graph_sketch,
+            total_configured_graph_sketch,
         } = self;
 
-        !configured_graph_size && !configured_graph_sketch
+        !configured_graph_size && !configured_graph_sketch && !total_configured_graph_sketch
+    }
+
+    pub(crate) fn should_compute_configured_graph_sketch(self) -> bool {
+        self.configured_graph_sketch || self.total_configured_graph_sketch
     }
 }
 

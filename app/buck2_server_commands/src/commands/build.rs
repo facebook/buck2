@@ -206,6 +206,16 @@ async fn build(
         .await?
         .unwrap_or_default();
 
+    let want_total_configured_graph_sketch = ctx
+        .parse_legacy_config_property(
+            cell_resolver.root_cell(),
+            BuckconfigKeyRef {
+                section: "buck2",
+                property: "log_total_configured_graph_sketch",
+            },
+        )
+        .await?
+        .unwrap_or_default();
     let build_result = ctx
         .with_linear_recompute(|ctx| async move {
             build_targets(
@@ -220,6 +230,7 @@ async fn build(
                 GraphPropertiesOptions {
                     configured_graph_size: want_configured_graph_size,
                     configured_graph_sketch: want_configured_graph_sketch,
+                    total_configured_graph_sketch: want_total_configured_graph_sketch,
                 },
                 timeout_observer.as_ref(),
             )

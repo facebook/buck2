@@ -638,7 +638,8 @@ async fn build_configured_label_inner<'a>(
         let graph_properties = graph_properties::get_configured_graph_properties(
             &mut ctx.get(),
             providers_label.target(),
-            opts.graph_properties.configured_graph_sketch,
+            opts.graph_properties
+                .should_compute_configured_graph_sketch(),
         )
         .await
         .map_err(|e| e.into());
