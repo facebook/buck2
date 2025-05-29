@@ -22,6 +22,7 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_util::commas::commas;
 use buck2_util::strong_hasher::Blake3StrongHasher;
+use derivative::Derivative;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
@@ -87,16 +88,41 @@ impl GraphPropertiesOptions {
 #[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
 pub struct GraphPropertiesValues {
     pub configured_graph_size: u64,
-    pub configured_graph_sketch: Option<GraphSketch>,
+    pub configured_graph_sketch: Option<MergeableGraphSketch<ConfiguredTargetLabel>>,
 }
 
-#[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
-pub struct GraphSketch {
+/// This is a struct representing graph sketches returned from DICE call to compute sketches.
+/// It satisfies 2 properties.
+/// (1) It can be merged with other sketches via VersionedSketcher's `merge` method. It does
+/// so by holding directly onto the `SetSketcher` type.
+/// (2) It implements Dupe, Hash, and Eq. Hash and Eq are implemented by precomputing and holding
+/// onto a signature of the sketch.
+#[derive(Clone, Dupe, Derivative, Allocative)]
+#[derivative(Debug, PartialEq, Eq, Hash)]
+pub struct MergeableGraphSketch<T: StrongHash> {
     version: SketchVersion,
     signature: Arc<Vec<u8>>,
+    #[derivative(Debug = "ignore", PartialEq = "ignore", Hash = "ignore")]
+    #[allocative(skip)] // TODO(scottcao): Figure out how to implement allocative properly
+    sketcher: Arc<SetSketcher<u16, UseStrongHashing<T>, Blake3StrongHasher>>,
 }
 
-impl GraphSketch {
+impl<T: StrongHash> MergeableGraphSketch<T> {
+    fn new(
+        version: SketchVersion,
+        sketcher: SetSketcher<u16, UseStrongHashing<T>, Blake3StrongHasher>,
+    ) -> Self {
+        let signature = sketcher.get_signature();
+        let signature: Vec<_> = signature.iter().flat_map(|v| v.to_ne_bytes()).collect();
+        let signature = Arc::new(signature);
+        let sketcher = Arc::new(sketcher);
+        Self {
+            version,
+            signature,
+            sketcher,
+        }
+    }
+
     pub fn serialize(&self) -> String {
         let mut res = format!("{}:", self.version);
         base64::engine::general_purpose::STANDARD_NO_PAD.encode_string(&*self.signature, &mut res);
@@ -191,13 +217,8 @@ impl<T: StrongHash> VersionedSketcher<T> {
         Ok(())
     }
 
-    fn get_sketch(&self) -> GraphSketch {
-        let signature = self.sketcher.get_signature();
-        let signature = signature.iter().flat_map(|v| v.to_ne_bytes()).collect();
-        GraphSketch {
-            version: self.version,
-            signature: Arc::new(signature),
-        }
+    fn into_mergeable_graph_sketch(self) -> MergeableGraphSketch<T> {
+        MergeableGraphSketch::new(self.version, self.sketcher)
     }
 }
 
@@ -245,6 +266,6 @@ pub fn debug_compute_configured_graph_properties_uncached(
 
     Ok(GraphPropertiesValues {
         configured_graph_size: visited.len() as _,
-        configured_graph_sketch: sketch.map(|sketch| sketch.get_sketch()),
+        configured_graph_sketch: sketch.map(|sketch| sketch.into_mergeable_graph_sketch()),
     })
 }
