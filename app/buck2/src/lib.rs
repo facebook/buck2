@@ -203,7 +203,16 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
         expanded_argv: expanded_args,
     };
 
-    let opt = ParsedArgv::parse(argv)?;
+    let mut opt = ParsedArgv::parse(argv)?;
+
+    let client_metadata = ClientMetadata::from_env()?;
+    if !client_metadata.is_empty() {
+        // insert the `client_metadata` at the beginning of the list, so that the client id metadata from the env var could be overridden by the cli arg
+        opt.opt
+            .common_opts
+            .client_metadata
+            .splice(0..0, client_metadata);
+    }
 
     opt.exec(process, &immediate_config)
 }

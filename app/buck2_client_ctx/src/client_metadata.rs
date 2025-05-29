@@ -9,7 +9,9 @@
 
 use std::str::FromStr;
 
+use buck2_core::buck2_env;
 use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
@@ -26,6 +28,25 @@ impl ClientMetadata {
             key: self.key.clone(),
             value: self.value.clone(),
         }
+    }
+
+    pub fn from_env() -> buck2_error::Result<Vec<Self>> {
+        let client_metadata_str = buck2_env!("BUCK2_CLIENT_METADATA")?.unwrap_or_default();
+        if client_metadata_str.is_empty() {
+            return Ok(vec![]);
+        }
+        let client_metadatas = client_metadata_str
+            .split(',')
+            .map(ClientMetadata::from_str)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e|
+                buck2_error!(
+                    buck2_error::ErrorTag::Environment,
+                    "Invalid environment variable BUCK2_CLIENT_METADATA: `{client_metadata_str}`: {e}",
+                )
+            )?;
+
+        Ok(client_metadatas)
     }
 }
 

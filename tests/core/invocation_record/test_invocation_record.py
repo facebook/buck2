@@ -135,6 +135,31 @@ async def test_client_metadata(buck: Buck, tmp_path: Path) -> None:
 
 
 @buck_test(skip_for_os=["windows"])  # TODO(T154836632)
+async def test_client_metadata_env(buck: Buck, tmp_path: Path) -> None:
+    record = tmp_path / "record.json"
+
+    # Start the daemon
+    await buck.build(
+        "--client-metadata=foo=bar",
+        "--client-metadata=id=baz",
+        "--unstable-write-invocation-record",
+        str(record),
+        env={"BUCK2_CLIENT_METADATA": "env_foo=env_bar,id=foobar"},
+    )
+
+    record = read_invocation_record(record)
+
+    assert record["client_metadata"] == [
+        {"key": "env_foo", "value": "env_bar"},
+        {"key": "id", "value": "foobar"},
+        {"key": "foo", "value": "bar"},
+        {"key": "id", "value": "baz"},
+    ]
+
+    assert record["metadata"]["strings"]["client"] == "baz"
+
+
+@buck_test(skip_for_os=["windows"])  # TODO(T154836632)
 async def test_client_metadata_clean(buck: Buck, tmp_path: Path) -> None:
     record = tmp_path / "record.json"
 

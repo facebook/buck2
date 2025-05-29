@@ -294,9 +294,11 @@ impl<'a> ServerCommandContext<'a> {
             Some(client_context.oncall.clone())
         };
 
+        // Use rev() to get the last "id" entry if there are duplicates.
         let client_id_from_client_metadata = client_context
             .client_metadata
             .iter()
+            .rev()
             .find(|m| m.key == "id")
             .map(|m| m.value.clone());
 
