@@ -195,7 +195,7 @@ public class ConcatenateJars {
         overridePartition.get(Boolean.TRUE).stream().flatMap(RelocatedJar::entries);
 
     if (sortEntries) {
-      // backward compatibility with JarBuilder ordering, which select the first occurency
+      // backward compatibility with JarBuilder ordering, which select the first occurrency
       entries
           .sorted(comparing(EntryAccounting::getName))
           .filter(entry -> !appendStream.hasEntry(entry.getName()))

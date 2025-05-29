@@ -17,7 +17,7 @@ def truncate(x: str, limit: int) -> str:
         return x[: limit // 2] + " <<TRUNCATED>> " + x[-(limit // 2) :]
 
 
-def print_occurences_msg(
+def print_occurrences_msg(
     needle: str, haystack: str, occurrences: int, success: bool
 ) -> None:
     OUTPUT_LIMIT = 10000
@@ -29,13 +29,13 @@ def print_occurences_msg(
 
 
 def assert_occurrences(needle: str, haystack: str, occurrences: int) -> None:
-    print_occurences_msg(
+    print_occurrences_msg(
         needle, haystack, occurrences, haystack.count(needle) == occurrences
     )
 
 
 def assert_occurrences_regex(needle: str, haystack: str, occurrences: int) -> None:
-    print_occurences_msg(
+    print_occurrences_msg(
         needle,
         haystack,
         occurrences,

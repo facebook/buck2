@@ -240,7 +240,7 @@ pub(crate) struct Sysroot {
     /// as `std` and core`.
     ///
     /// Inside Meta, this is necessary on non-Linux platforms since the sources
-    /// are packaged seperately from binaries such as `rust-analyzer-proc-macro-srv`.
+    /// are packaged separately from binaries such as `rust-analyzer-proc-macro-srv`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) sysroot_src: Option<PathBuf>,
     /// A nested rust-project for the sysroot itself. If not provided, rust-analyzer
