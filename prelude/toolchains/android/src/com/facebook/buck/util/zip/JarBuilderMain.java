@@ -104,10 +104,13 @@ public class JarBuilderMain {
           classFiles.stream()
               .map(
                   (classFile) -> {
-                    String[] parts = classFile.split(":");
+                    // Parse and add additional class files. For example:
+                    // --class-files module-info.class:/tmp/foo.class
+                    // will add /tmp/foo.class to the jar with name "module-info.class"
+                    String[] parts = classFile.split(":", 2);
                     if (parts.length != 2) {
                       throw new IllegalArgumentException(
-                          "Expected --class-file format: <name>:<path>");
+                          "Expected --class-files format: <name>:<path>");
                     }
                     return new JarEntrySupplier(
                         new CustomZipEntry(parts[0]),
