@@ -12,17 +12,17 @@ import os
 import shutil
 import sys
 import tempfile
+from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import expect_exec_count
 
 
-@buck_test()
-async def test_symlinks(buck: Buck) -> None:
+def setup_symlink(cwd: Path) -> Path:
     # We want to check in a symlink but given Buck is running this and symlinks
     # do not exist we need to put it back and make it be an actual symlink.
-    symlink_path = os.path.join(buck.cwd, "src", "link")
+    symlink_path = cwd / "src" / "link"
 
     if os.path.isdir(symlink_path):
         shutil.rmtree(symlink_path)
@@ -31,6 +31,12 @@ async def test_symlinks(buck: Buck) -> None:
 
     src = "..\\dir" if sys.platform == "win32" else "../dir"
     os.symlink(src, symlink_path, target_is_directory=True)
+    return symlink_path
+
+
+@buck_test()
+async def test_symlink_target_tracked_for_rebuild(buck: Buck) -> None:
+    setup_symlink(buck.cwd)
 
     await buck.build("//:cp")
     await expect_exec_count(buck, 1)
@@ -50,15 +56,7 @@ async def test_symlinks(buck: Buck) -> None:
 
 @buck_test(setup_eden=True)
 async def test_symlinks_redirection(buck: Buck) -> None:
-    symlink_path = os.path.join(buck.cwd, "src", "link")
-
-    if os.path.isdir(symlink_path):
-        shutil.rmtree(symlink_path)
-    else:
-        os.remove(symlink_path)
-
-    src = "..\\dir" if sys.platform == "win32" else "../dir"
-    os.symlink(src, symlink_path)
+    symlink_path = setup_symlink(buck.cwd)
 
     await buck.build("//:cp")
     await expect_exec_count(buck, 1)
