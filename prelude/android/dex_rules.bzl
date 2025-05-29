@@ -110,7 +110,12 @@ def get_single_primary_dex(
     if not is_optimized:
         d8_cmd.add("--no-optimize")
 
-    ctx.actions.run(d8_cmd, category = "get_single_primary_dex", identifier = "{}:{}".format(ctx.label.package, ctx.label.name))
+    ctx.actions.run(
+        d8_cmd,
+        category = "get_single_primary_dex",
+        identifier = "{}:{}".format(ctx.label.package, ctx.label.name),
+        error_handler = android_toolchain.android_error_handler,
+    )
 
     return DexFilesInfo(
         primary_dex = output_dex_file,
@@ -223,12 +228,22 @@ def get_multi_dex(
                 multi_dex_cmd.add("--proguard-configuration-file", proguard_configuration_output_file)
                 multi_dex_cmd.add("--proguard-mapping-file", proguard_mapping_output_file)
 
-            ctx.actions.run(multi_dex_cmd, category = "multi_dex", identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module))
+            ctx.actions.run(
+                multi_dex_cmd,
+                category = "multi_dex",
+                identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module),
+                error_handler = android_toolchain.android_error_handler,
+            )
 
             secondary_dex_compression_cmd.add("--compression", _get_dex_compression(ctx))
             secondary_dex_compression_cmd.add("--xz-compression-level", str(getattr(ctx.attrs, "xz_compression_level", 4)))
 
-            ctx.actions.run(secondary_dex_compression_cmd, category = "secondary_dex_compression", identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module))
+            ctx.actions.run(
+                secondary_dex_compression_cmd,
+                category = "secondary_dex_compression",
+                identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module),
+                error_handler = android_toolchain.android_error_handler,
+            )
 
         ctx.actions.symlinked_dir(outputs[secondary_dex_dir], secondary_dex_dir_srcs)
 
@@ -274,7 +289,12 @@ def _get_primary_dex_and_secondary_dex_jars(
             jar_splitter_cmd.add("--proguard-configuration-file", proguard_configuration_output_file)
             jar_splitter_cmd.add("--proguard-mapping-file", proguard_mapping_output_file)
 
-        ctx.actions.run(jar_splitter_cmd, category = "jar_splitter", identifier = identifier)
+        ctx.actions.run(
+            jar_splitter_cmd,
+            category = "jar_splitter",
+            identifier = identifier,
+            error_handler = android_toolchain.android_error_handler,
+        )
 
         primary_dex_jars.append(primary_dex_jar)
         secondary_dex_jars.append(secondary_dex_jar)
@@ -398,7 +418,12 @@ def _filter_pre_dexed_libs(
             args = filter_dex_cmd_args,
         ),
     ])
-    actions.run(filter_dex_cmd, category = "filter_dex", identifier = "batch_{}".format(batch_number))
+    actions.run(
+        filter_dex_cmd,
+        category = "filter_dex",
+        identifier = "batch_{}".format(batch_number),
+        error_handler = android_toolchain.android_error_handler,
+    )
 
     return DexInputsWithClassNamesAndWeightEstimatesFile(libs = pre_dexed_libs, weight_estimate_and_filtered_class_names_file = weight_estimate_and_filtered_class_names_file)
 
@@ -588,7 +613,12 @@ def merge_to_split_dex(
                 if not is_root_module(module):
                     multi_dex_cmd.add("--module-deps", ctx.actions.write("module_deps_for_{}".format(module), apk_module_graph_info.module_to_module_deps_function(module)))
 
-                ctx.actions.run(multi_dex_cmd, category = "multi_dex_from_raw_dexes", identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module))
+                ctx.actions.run(
+                    multi_dex_cmd,
+                    category = "multi_dex_from_raw_dexes",
+                    identifier = "{}:{}_module_{}".format(ctx.label.package, ctx.label.name, module),
+                    error_handler = android_toolchain.android_error_handler,
+                )
 
                 secondary_dexes_for_symlinking[_get_secondary_dex_subdir(module)] = secondary_dex_subdir
 
@@ -678,6 +708,7 @@ def _merge_dexes(
         d8_cmd,
         category = "merge_dexes",
         identifier = "{}:{} {}".format(ctx.label.package, ctx.label.name, output_dex_file.short_path),
+        error_handler = android_toolchain.android_error_handler,
     )
 
 def _sort_pre_dexed_files(
