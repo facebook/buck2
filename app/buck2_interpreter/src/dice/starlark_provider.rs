@@ -21,20 +21,16 @@ use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_futures::cancellation::CancellationObserver;
 use buck2_util::arc_str::ThinArcStr;
 use dice::DiceComputations;
 use dupe::Dupe;
-use starlark::environment::Module;
-use starlark::eval::Evaluator;
 
 use crate::dice::starlark_debug::HasStarlarkDebugger;
 use crate::factory::StarlarkEvaluatorProvider;
 use crate::paths::module::OwnedStarlarkModulePath;
-use crate::starlark_debug::StarlarkDebugController;
 use crate::starlark_profiler::data::ProfileTarget;
 use crate::starlark_profiler::profiler::StarlarkProfiler;
 
@@ -169,7 +165,7 @@ pub async fn with_starlark_eval_provider<'a, 'x, D: DerefMut<Target = DiceComput
     profiler_instrumentation: &mut StarlarkProfiler,
     kind: &StarlarkEvalKind,
     cancellation: CancellationPoller<'a>,
-    closure: impl FnOnce(&mut dyn StarlarkEvaluatorProvider<'a>, D) -> buck2_error::Result<R>,
+    closure: impl for<'y> FnOnce(&mut StarlarkEvaluatorProvider<'y, 'a>, D) -> buck2_error::Result<R>,
 ) -> buck2_error::Result<R> {
     let root_buckconfig = ctx.get_legacy_root_config_on_dice().await?;
 
@@ -187,56 +183,13 @@ pub async fn with_starlark_eval_provider<'a, 'x, D: DerefMut<Target = DiceComput
         None => None,
     };
 
-    struct EvalProvider<'x, 'a> {
-        profiler: &'x mut StarlarkProfiler,
-        debugger: Option<Box<dyn StarlarkDebugController>>,
-        starlark_max_callstack_size: Option<usize>,
-        cancellation: CancellationPoller<'a>,
-    }
-
-    impl<'a> StarlarkEvaluatorProvider<'a> for EvalProvider<'_, 'a> {
-        fn make<'v, 'b, 'e>(
-            &mut self,
-            module: &'v Module,
-        ) -> buck2_error::Result<(Evaluator<'v, 'b, 'e>, bool)>
-        where
-            'a: 'b,
-        {
-            let mut eval = Evaluator::new(module);
-            if let Some(stack_size) = self.starlark_max_callstack_size {
-                eval.set_max_callstack_size(stack_size)
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
-            }
-
-            match self.cancellation.dupe() {
-                CancellationPoller::None => {}
-                CancellationPoller::Context(c) => {
-                    eval.set_check_cancelled(Box::new(|| c.is_cancellation_requested()))
-                }
-                CancellationPoller::Observer(o) => {
-                    eval.set_check_cancelled(Box::new(move || o.is_cancellation_requested()))
-                }
-            }
-
-            let is_profiling_enabled = self.profiler.initialize(&mut eval)?;
-            if let Some(v) = &mut self.debugger {
-                v.initialize(&mut eval)?;
-            }
-            Ok((eval, is_profiling_enabled))
-        }
-
-        fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
-            self.profiler.evaluation_complete(eval)
-        }
-    }
-
     {
-        let mut provider = EvalProvider {
-            profiler: profiler_instrumentation,
+        let mut provider = StarlarkEvaluatorProvider::new(
+            profiler_instrumentation,
             debugger,
             starlark_max_callstack_size,
             cancellation,
-        };
+        );
 
         // If we're debugging, we need to move this to a tokio blocking task.
         //

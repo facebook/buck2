@@ -26,7 +26,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
-use buck2_interpreter::factory::StarlarkPassthroughProvider;
+use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::import_paths::ImplicitImportPaths;
@@ -34,6 +34,7 @@ use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::prelude_path::PreludePath;
+use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
 use buck2_node::super_package::SuperPackage;
@@ -248,7 +249,8 @@ impl Tester {
         let interpreter = self.interpreter()?;
         let ParseData(ast, _) =
             interpreter.parse(StarlarkPath::LoadFile(path), content.to_owned())??;
-        let mut provider = StarlarkPassthroughProvider;
+        let mut profiler = StarlarkProfiler::disabled();
+        let mut provider = StarlarkEvaluatorProvider::passthrough(&mut profiler);
         let mut buckconfigs =
             LegacyConfigsViewForStarlark::new(self.root_config.dupe(), self.root_config.dupe());
 
@@ -294,7 +296,8 @@ impl Tester {
         let interpreter = self.interpreter()?;
         let ParseData(ast, _) =
             interpreter.parse(StarlarkPath::BuildFile(path), content.to_owned())??;
-        let mut provider = StarlarkPassthroughProvider;
+        let mut profiler = StarlarkProfiler::disabled();
+        let mut provider = StarlarkEvaluatorProvider::passthrough(&mut profiler);
         let mut buckconfigs =
             LegacyConfigsViewForStarlark::new(self.root_config.dupe(), self.root_config.dupe());
         let eval_result_with_stats = interpreter.eval_build_file(

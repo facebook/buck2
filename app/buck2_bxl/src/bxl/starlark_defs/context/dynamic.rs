@@ -177,7 +177,7 @@ struct BxlDynamicOutputEvaluator<'f> {
 impl BxlDynamicOutputEvaluator<'_> {
     fn do_eval(
         self,
-        provider: &mut dyn StarlarkEvaluatorProvider,
+        provider: &mut StarlarkEvaluatorProvider,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<RecordedAnalysisValues> {
         let env = Module::new();

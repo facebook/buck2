@@ -185,7 +185,7 @@ struct BxlInnerEvaluator {
 impl BxlInnerEvaluator {
     fn do_eval<'a>(
         self,
-        provider: &mut dyn StarlarkEvaluatorProvider,
+        provider: &mut StarlarkEvaluatorProvider,
         dice: &'a mut DiceComputations,
     ) -> Result<(FrozenModule, BxlResult)> {
         let BxlInnerEvaluator {
@@ -347,7 +347,7 @@ fn eval_bxl<'v>(
     eval: &mut Evaluator<'v, '_, '_>,
     frozen_callable: OwnedFrozenValueTyped<FrozenBxlFunction>,
     ctx: ValueTyped<'v, BxlContext<'v>>,
-    provider: &mut dyn StarlarkEvaluatorProvider,
+    provider: &mut StarlarkEvaluatorProvider,
     force_print_stacktrace: bool,
 ) -> buck2_error::Result<()> {
     let bxl_impl = frozen_callable.implementation();

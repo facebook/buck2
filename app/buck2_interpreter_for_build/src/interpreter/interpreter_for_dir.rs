@@ -477,7 +477,7 @@ impl InterpreterForDir {
         buckconfigs: &mut dyn BuckConfigsViewForStarlark,
         loaded_modules: LoadedModules,
         extra_context: PerFileTypeContext,
-        eval_provider: &mut dyn StarlarkEvaluatorProvider,
+        eval_provider: &mut StarlarkEvaluatorProvider,
         unstable_typecheck: bool,
     ) -> buck2_error::Result<EvalResult> {
         let import = extra_context.starlark_path();
@@ -542,7 +542,7 @@ impl InterpreterForDir {
         buckconfigs: &mut dyn BuckConfigsViewForStarlark,
         ast: AstModule,
         loaded_modules: LoadedModules,
-        eval_provider: &mut dyn StarlarkEvaluatorProvider,
+        eval_provider: &mut StarlarkEvaluatorProvider,
     ) -> buck2_error::Result<FrozenModule> {
         let env = self.create_env(starlark_path.into(), &loaded_modules)?;
         let extra_context = match starlark_path {
@@ -579,7 +579,7 @@ impl InterpreterForDir {
         parent: SuperPackage,
         buckconfigs: &mut dyn BuckConfigsViewForStarlark,
         loaded_modules: LoadedModules,
-        eval_provider: &mut dyn StarlarkEvaluatorProvider,
+        eval_provider: &mut StarlarkEvaluatorProvider,
     ) -> buck2_error::Result<SuperPackage> {
         let env = self.create_env(
             StarlarkPath::PackageFile(package_file_path),
@@ -635,7 +635,7 @@ impl InterpreterForDir {
         package_boundary_exception: bool,
         ast: AstModule,
         loaded_modules: LoadedModules,
-        eval_provider: &mut dyn StarlarkEvaluatorProvider,
+        eval_provider: &mut StarlarkEvaluatorProvider,
         unstable_typecheck: bool,
     ) -> buck2_error::Result<EvaluationResultWithStats> {
         let (env, internals) = self.create_build_env(
