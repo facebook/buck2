@@ -10,6 +10,11 @@
 package com.facebook.buck.testrunner;
 
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
+import com.facebook.buck.testrunner.JavaUtilLoggingHelper.LogHandlers;
+import java.io.ByteArrayOutputStream;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Level;
 import org.junit.runner.Description;
 import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
@@ -20,6 +25,42 @@ import org.junit.runner.notification.RunListener;
  */
 public class JUnitTpxStandardOutputListener extends RunListener {
   private final TpxStandardOutputTestListener listener;
+  private final Level stdOutLogLevel = Level.INFO;
+  private final Level stdErrLogLevel = Level.WARNING;
+
+  /**
+   * Class to hold logging state for each test. This allows tests to run in parallel without sharing
+   * logging state.
+   */
+  private static class TestLogState {
+    private ByteArrayOutputStream julLogBytes;
+    private ByteArrayOutputStream julErrLogBytes;
+    private LogHandlers logHandlers;
+
+    public TestLogState() {
+      this.julLogBytes = new ByteArrayOutputStream();
+      this.julErrLogBytes = new ByteArrayOutputStream();
+    }
+
+    public ByteArrayOutputStream getJulLogBytes() {
+      return julLogBytes;
+    }
+
+    public ByteArrayOutputStream getJulErrLogBytes() {
+      return julErrLogBytes;
+    }
+
+    public void setLogHandlers(LogHandlers logHandlers) {
+      this.logHandlers = logHandlers;
+    }
+
+    public LogHandlers getLogHandlers() {
+      return logHandlers;
+    }
+  }
+
+  // Map to store per-test logging state using test description as key
+  private final Map<String, TestLogState> testLogStates = new HashMap<>();
 
   public JUnitTpxStandardOutputListener(TestResultsOutputSender sender) {
     this.listener = new TpxStandardOutputTestListener(sender);
@@ -43,7 +84,25 @@ public class JUnitTpxStandardOutputListener extends RunListener {
    */
   @Override
   public void testStarted(Description description) {
-    listener.testStarted(getFullTestName(description));
+    String testName = getFullTestName(description);
+
+    // Create new test log state for this test
+    TestLogState testLogState = new TestLogState();
+
+    // Set up logging handlers
+    LogHandlers logHandlers =
+        JavaUtilLoggingHelper.setupLogging(
+            testLogState.getJulLogBytes(),
+            testLogState.getJulErrLogBytes(),
+            this.stdOutLogLevel,
+            this.stdErrLogLevel);
+
+    testLogState.setLogHandlers(logHandlers);
+
+    // Store the test log state in the map
+    testLogStates.put(testName, testLogState);
+
+    listener.testStarted(testName);
   }
 
   /**
@@ -92,6 +151,19 @@ public class JUnitTpxStandardOutputListener extends RunListener {
    */
   @Override
   public void testFinished(Description description) {
-    listener.testFinished(getFullTestName(description));
+    String testName = getFullTestName(description);
+
+    // Get the test log state from the map
+    TestLogState testLogState = testLogStates.get(testName);
+
+    if (testLogState != null) {
+      // Clean up logging handlers
+      JavaUtilLoggingHelper.cleanupLogging(testLogState.getLogHandlers());
+
+      // Remove the test log state from the map
+      testLogStates.remove(testName);
+    }
+
+    listener.testFinished(testName);
   }
 }

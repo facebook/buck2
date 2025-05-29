@@ -42,6 +42,7 @@ buck_java_library(
         "JUnitRunner.java",
         "JUnitSupport.java",
         "JUnitTpxStandardOutputListener.java",
+        "JavaUtilLoggingHelper.java",
         "JulLogFormatter.java",
         "JupiterMain.java",
         "JupiterRunner.java",

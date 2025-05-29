@@ -13,12 +13,12 @@ import com.facebook.buck.test.result.type.ResultType;
 import com.facebook.buck.test.selectors.TestDescription;
 import com.facebook.buck.test.selectors.TestSelector;
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
+import com.facebook.buck.testrunner.JavaUtilLoggingHelper.LogHandlers;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -26,11 +26,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.logging.Formatter;
-import java.util.logging.Handler;
 import java.util.logging.Level;
-import java.util.logging.LogManager;
-import java.util.logging.StreamHandler;
 import junit.framework.TestCase;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -346,8 +342,7 @@ public final class JUnitRunner extends BaseRunner {
     /* @Nullable */ private PrintStream originalOut, originalErr, stdOutStream, stdErrStream;
     /* @Nullable */ private ByteArrayOutputStream rawStdOutBytes, rawStdErrBytes;
     /* @Nullable */ private ByteArrayOutputStream julLogBytes, julErrLogBytes;
-    /* @Nullable */ private Handler julLogHandler;
-    /* @Nullable */ private Handler julErrLogHandler;
+    /* @Nullable */ private LogHandlers logHandlers;
     /* @Nullable */ private Result result;
     /* @Nullable */ private RunListener resultListener;
     /* @Nullable */ private Failure assumptionFailure;
@@ -376,17 +371,10 @@ public final class JUnitRunner extends BaseRunner {
       System.setOut(stdOutStream);
       System.setErr(stdErrStream);
 
-      // Listen to any java.util.logging messages reported by the test and write them to
-      // julLogBytes / julErrLogBytes.
-      java.util.logging.Logger rootLogger = LogManager.getLogManager().getLogger("");
-
-      if (rootLogger != null) {
-        rootLogger.setLevel(Level.FINE);
-      }
-
-      JulLogFormatter formatter = new JulLogFormatter();
-      julLogHandler = addStreamHandler(rootLogger, julLogBytes, formatter, stdOutLogLevel);
-      julErrLogHandler = addStreamHandler(rootLogger, julErrLogBytes, formatter, stdErrLogLevel);
+      // Set up logging handlers
+      logHandlers =
+          JavaUtilLoggingHelper.setupLogging(
+              julLogBytes, julErrLogBytes, stdOutLogLevel, stdErrLogLevel);
 
       // Prepare single-test result.
       result = new Result();
@@ -406,14 +394,9 @@ public final class JUnitRunner extends BaseRunner {
       System.setOut(originalOut);
       System.setErr(originalErr);
 
-      // Flush any debug logs and remove the handlers.
-      java.util.logging.Logger rootLogger = LogManager.getLogManager().getLogger("");
-
-      flushAndRemoveLogHandler(rootLogger, julLogHandler);
-      julLogHandler = null;
-
-      flushAndRemoveLogHandler(rootLogger, julErrLogHandler);
-      julErrLogHandler = null;
+      // Clean up logging handlers
+      JavaUtilLoggingHelper.cleanupLogging(logHandlers);
+      logHandlers = null;
 
       // Get the stdout/stderr written during the test as strings.
       stdOutStream.flush();
@@ -542,31 +525,6 @@ public final class JUnitRunner extends BaseRunner {
               failure.getException(),
               null,
               null));
-    }
-
-    private Handler addStreamHandler(
-        java.util.logging.Logger rootLogger,
-        OutputStream stream,
-        Formatter formatter,
-        Level level) {
-      Handler result;
-      if (rootLogger != null) {
-        result = new StreamHandler(stream, formatter);
-        result.setLevel(level);
-        rootLogger.addHandler(result);
-      } else {
-        result = null;
-      }
-      return result;
-    }
-
-    private void flushAndRemoveLogHandler(java.util.logging.Logger rootLogger, Handler handler) {
-      if (handler != null) {
-        handler.flush();
-      }
-      if (rootLogger != null && handler != null) {
-        rootLogger.removeHandler(handler);
-      }
     }
   }
 
