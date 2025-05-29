@@ -57,6 +57,7 @@ use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::output_size::OutputCountAndBytes;
 use buck2_execute::output_size::OutputSize;
+use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_file_watcher::mergebase::GetMergebase;
 use buck2_file_watcher::mergebase::Mergebase;
@@ -66,6 +67,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
+use either::Either;
 use indexmap::IndexMap;
 use indexmap::indexmap;
 use itertools::Itertools;
@@ -213,6 +215,13 @@ impl ActionOutputs {
 
     pub fn get(&self, artifact: &BuildArtifactPath) -> Option<&ArtifactValue> {
         self.0.outputs.get(artifact)
+    }
+
+    pub fn get_from_artifact_path(&self, path: &ArtifactPath) -> Option<&ArtifactValue> {
+        match path.base_path.as_ref() {
+            Either::Left(base) => self.get(base),
+            Either::Right(_) => None,
+        }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&BuildArtifactPath, &ArtifactValue)> {
