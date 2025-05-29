@@ -29,7 +29,7 @@ def rewrite_dep_file(path):
 
 
 def main():
-    subprocess.check_call(["gcc"] + sys.argv[1:])
+    subprocess.check_call(["gcc"] + sys.argv[2:])
 
     for idx in range(len(sys.argv)):
         if sys.argv[idx] == "-MF":

@@ -21,6 +21,7 @@ def _c_binary_impl(ctx):
 
     cmd = [
         ctx.attrs._cc[RunInfo].args,
+        ctx.attrs.unused_command_line_param,
         ctx.attrs.main,
         "-I",
         headers_dir,
@@ -49,6 +50,7 @@ c_binary = rule(
     attrs = {
         "headers": attrs.list(attrs.source()),
         "main": attrs.source(),
+        "unused_command_line_param": attrs.string(),
         "_cc": attrs.dep(default = "root//tools:gcc"),
         "_ignored": attrs.string(default = ""),
     },

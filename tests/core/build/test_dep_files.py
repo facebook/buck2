@@ -136,6 +136,13 @@ async def test_dep_files(buck: Buck) -> None:
         ignored=[ACTION_EXECUTION_KIND_SIMPLE],
     )
 
+    # Changing the command line itself should cause a rebuild.
+    touch(buck, "app/other.h")
+    await buck.build(
+        *args, "-c", "test.unused_command_line_param={}".format(random_string())
+    )
+    await expect_exec_count(buck, 1)
+
 
 async def get_cache_queries(buck: Buck) -> List[Dict[str, Any]]:
     return await filter_events(
