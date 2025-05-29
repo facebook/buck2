@@ -246,7 +246,7 @@ pub struct BuildReportCollector<'a> {
 }
 
 impl<'a> BuildReportCollector<'a> {
-    pub fn convert(
+    pub(crate) fn convert(
         trace_id: &TraceId,
         artifact_fs: &'a ArtifactFs,
         cell_resolver: &'a CellResolver,
