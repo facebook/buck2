@@ -52,12 +52,10 @@ pub(crate) fn to_project_json(
     expanded_and_resolved: ExpandedAndResolved,
     aliases: FxHashMap<Target, AliasedTargetInfo>,
     check_cycles: bool,
-    buck2_command: Option<String>,
     include_all_buildfiles: bool,
     extra_cfgs: &[String],
+    buck: &Buck,
 ) -> Result<ProjectJson, anyhow::Error> {
-    let mode = select_mode(None);
-    let buck = Buck::new(buck2_command, mode);
     let project_root = buck.resolve_project_root()?;
 
     let ExpandedAndResolved {

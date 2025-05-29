@@ -37,7 +37,6 @@ pub(crate) struct Develop {
     pub(crate) buck: buck::Buck,
     pub(crate) check_cycles: bool,
     pub(crate) invoked_by_ra: bool,
-    pub(crate) buck2_command: Option<String>,
     pub(crate) include_all_buildfiles: bool,
 }
 
@@ -91,7 +90,6 @@ impl Develop {
                 buck,
                 check_cycles,
                 invoked_by_ra: false,
-                buck2_command,
                 include_all_buildfiles,
             };
             let out = OutputCfg { out, pretty };
@@ -114,7 +112,6 @@ impl Develop {
         } = command
         {
             let out = Output::Stdout;
-            let mode = select_mode(None);
 
             let sysroot = match sysroot_mode {
                 crate::SysrootMode::BuckConfig => SysrootConfig::BuckConfig,
@@ -129,14 +126,13 @@ impl Develop {
                 }
             };
 
-            let buck = buck::Buck::new(buck2_command.clone(), mode);
+            let buck = buck::Buck::new(buck2_command, None);
 
             let develop = Develop {
                 sysroot,
                 buck,
                 check_cycles: false,
                 invoked_by_ra: true,
-                buck2_command,
                 include_all_buildfiles: false,
             };
             let out = OutputCfg { out, pretty: false };
@@ -237,7 +233,6 @@ impl Develop {
             buck,
             check_cycles,
             include_all_buildfiles,
-            buck2_command,
             ..
         } = self;
 
@@ -270,7 +265,6 @@ impl Develop {
             sysroot,
             exclude_workspaces,
             *check_cycles,
-            buck2_command.clone(),
             *include_all_buildfiles,
             extra_cfgs,
         )
@@ -311,7 +305,6 @@ pub(crate) fn develop_with_sysroot(
     sysroot: Sysroot,
     exclude_workspaces: bool,
     check_cycles: bool,
-    buck2_command: Option<String>,
     include_all_buildfiles: bool,
     extra_cfgs: &[String],
 ) -> Result<ProjectJson, anyhow::Error> {
@@ -331,9 +324,9 @@ pub(crate) fn develop_with_sysroot(
         expanded_and_resolved,
         aliased_libraries,
         check_cycles,
-        buck2_command,
         include_all_buildfiles,
         extra_cfgs,
+        buck,
     )?;
 
     Ok(rust_project)

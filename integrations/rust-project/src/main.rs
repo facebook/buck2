@@ -31,6 +31,7 @@ use tracing_subscriber::Layer;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
 
+use crate::buck::Buck;
 use crate::cli::ProjectKind;
 use crate::project_json::Crate;
 use crate::project_json::Dep;
@@ -305,7 +306,9 @@ fn main() -> Result<(), anyhow::Error> {
             let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
             tracing::subscriber::set_global_default(subscriber)?;
 
-            cli::Check::new(buck2_command, mode, use_clippy, saved_file.clone())
+            let buck = Buck::new(buck2_command, mode);
+
+            cli::Check::new(buck, use_clippy, saved_file.clone())
                 .run()
                 .inspect_err(|e| crate::scuba::log_check_error(&e, &saved_file, use_clippy))
         }
