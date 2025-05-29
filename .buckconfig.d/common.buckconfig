@@ -1,6 +1,9 @@
 [cells]
 prelude = prelude
 none = none
+# NOTE: only used to pick up source files off disk for source_listing(),
+# see <https://github.com/facebook/buck2/issues/971>
+prelude_on_disk = prelude
 
 [cell_aliases]
 config = prelude
