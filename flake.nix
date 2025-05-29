@@ -41,7 +41,7 @@
           # properly find libatomic.so, but harmless elsewhere
           pkgs.stdenv.cc.cc
         ];
-        packages = [ pkgs.cargo-bloat my-rust-bin pkgs.mold-wrapped pkgs.reindeer pkgs.lld_16 pkgs.clang_16 ];
+        packages = [ my-rust-bin pkgs.dotslash pkgs.python3 pkgs.mold-wrapped pkgs.lld_20 pkgs.clang_20 ];
         shellHook =
           ''
             export BUCK2_BUILD_PROTOC=${pkgs.protobuf}/bin/protoc
