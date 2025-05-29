@@ -485,8 +485,7 @@ impl InterpreterForDir {
         let file_loader =
             InterpreterFileLoader::new(loaded_modules, Arc::new(self.load_resolver(import)));
         let host_info = self.global_state.configuror.host_info();
-        let extra = BuildContext::new_for_module(
-            env,
+        let extra = BuildContext::new(
             &self.cell_info,
             buckconfigs,
             host_info,

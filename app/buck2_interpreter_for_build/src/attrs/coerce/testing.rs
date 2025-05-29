@@ -102,8 +102,7 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
     let host_platform = InterpreterHostPlatform::Linux;
     let host_architecture = InterpreterHostArchitecture::X86_64;
     let host_info = HostInfo::new(host_platform, host_architecture, None);
-    let build_ctx = BuildContext::new_for_module(
-        env,
+    let build_ctx = BuildContext::new(
         &cell_info,
         &mut buckconfigs,
         &host_info,

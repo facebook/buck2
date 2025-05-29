@@ -19,7 +19,7 @@ use buck2_core::soft_error;
 use dice::DiceComputations;
 use hashbrown::HashTable;
 use starlark::collections::Hashed;
-use starlark::environment::Module;
+use starlark::eval::Evaluator;
 use starlark::values::FrozenStringValue;
 use starlark::values::StringValue;
 
@@ -52,7 +52,6 @@ struct BuckConfigsInner<'a> {
 
 /// Version of cell buckconfig optimized for fast query from `read_config` Starlark function.
 pub(crate) struct LegacyBuckConfigsForStarlark<'a> {
-    module: &'a Module,
     inner: RefCell<BuckConfigsInner<'a>>,
 }
 
@@ -82,11 +81,9 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
 
     /// Constructor.
     pub(crate) fn new(
-        module: &'a Module,
         configs_view: &'a mut (dyn BuckConfigsViewForStarlark + 'a),
     ) -> LegacyBuckConfigsForStarlark<'a> {
         LegacyBuckConfigsForStarlark {
-            module,
             inner: RefCell::new(BuckConfigsInner {
                 configs_view,
                 current_cell_cache: HashTable::new(),
@@ -100,6 +97,7 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
         section: Hashed<&str>,
         key: Hashed<&str>,
         from_root_cell: bool,
+        eval: &mut Evaluator<'_, '_, '_>,
     ) -> buck2_error::Result<Option<FrozenStringValue>> {
         let hash = Self::mix_hashes(section.hash().get(), key.hash().get());
 
@@ -132,7 +130,7 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
                 property: key.key(),
             })?
         }
-        .map(|v| self.module.frozen_heap().alloc_str(&v));
+        .map(|v| eval.frozen_heap().alloc_str(&v));
 
         cache.insert_unique(
             hash,
@@ -152,22 +150,24 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
         &self,
         section: StringValue,
         key: StringValue,
+        eval: &mut Evaluator<'_, '_, '_>,
     ) -> buck2_error::Result<Option<FrozenStringValue>> {
         // Note here we reuse the hashes of `section` and `key`,
         // if `read_config` is called repeatedly with the same constant arguments:
         // `StringValue` caches the hashes.
-        self.get_impl(section.get_hashed_str(), key.get_hashed_str(), false)
+        self.get_impl(section.get_hashed_str(), key.get_hashed_str(), false, eval)
     }
 
     pub(crate) fn root_cell_get(
         &self,
         section: StringValue,
         key: StringValue,
+        eval: &mut Evaluator<'_, '_, '_>,
     ) -> buck2_error::Result<Option<FrozenStringValue>> {
         // Note here we reuse the hashes of `section` and `key`,
         // if `read_config` is called repeatedly with the same constant arguments:
         // `StringValue` caches the hashes.
-        self.get_impl(section.get_hashed_str(), key.get_hashed_str(), true)
+        self.get_impl(section.get_hashed_str(), key.get_hashed_str(), true, eval)
     }
 }
 

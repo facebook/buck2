@@ -19,7 +19,6 @@ use buck2_interpreter::build_context::STARLARK_PATH_FROM_BUILD_CONTEXT;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::paths::path::StarlarkPath;
 use starlark::any::ProvidesStaticType;
-use starlark::environment::Module;
 use starlark::eval::Evaluator;
 
 use crate::interpreter::buckconfig::BuckConfigsViewForStarlark;
@@ -174,15 +173,14 @@ pub struct BuildContext<'a> {
 
 impl<'a> BuildContext<'a> {
     /// Create a build context for the given module.
-    pub(crate) fn new_for_module(
-        module: &'a Module,
+    pub(crate) fn new(
         cell_info: &'a InterpreterCellInfo,
         buckconfigs: &'a mut dyn BuckConfigsViewForStarlark,
         host_info: &'a HostInfo,
         additional: PerFileTypeContext,
         ignore_attrs_for_profiling: bool,
     ) -> BuildContext<'a> {
-        let buckconfigs = LegacyBuckConfigsForStarlark::new(module, buckconfigs);
+        let buckconfigs = LegacyBuckConfigsForStarlark::new(buckconfigs);
         BuildContext {
             cell_info,
             buckconfigs,
