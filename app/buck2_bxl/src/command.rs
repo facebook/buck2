@@ -461,6 +461,7 @@ impl BxlServerCommand {
                 unstable_include_package_project_relative_paths: false,
                 unstable_include_artifact_hash_information: false,
                 unstable_build_report_filename: bxl_opts.unstable_build_report_filename.clone(),
+                graph_properties_opts: Default::default(),
             };
 
             generate_build_report(

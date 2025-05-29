@@ -216,6 +216,12 @@ async fn build(
         )
         .await?
         .unwrap_or_default();
+    let graph_properties = GraphPropertiesOptions {
+        configured_graph_size: want_configured_graph_size,
+        configured_graph_sketch: want_configured_graph_sketch,
+        total_configured_graph_sketch: want_total_configured_graph_sketch,
+    };
+
     let build_result = ctx
         .with_linear_recompute(|ctx| async move {
             build_targets(
@@ -227,11 +233,7 @@ async fn build(
                 build_opts.fail_fast,
                 MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
                 build_opts.skip_incompatible_targets,
-                GraphPropertiesOptions {
-                    configured_graph_size: want_configured_graph_size,
-                    configured_graph_sketch: want_configured_graph_sketch,
-                    total_configured_graph_sketch: want_total_configured_graph_sketch,
-                },
+                graph_properties.dupe(),
                 timeout_observer.as_ref(),
             )
             .await
@@ -264,7 +266,15 @@ async fn build(
         &request.target_cfg,
     );
 
-    process_build_result(server_ctx, ctx, request, build_result, detailed_metrics).await
+    process_build_result(
+        server_ctx,
+        ctx,
+        request,
+        build_result,
+        detailed_metrics,
+        graph_properties,
+    )
+    .await
 }
 
 async fn process_build_result(
@@ -273,6 +283,7 @@ async fn process_build_result(
     request: &buck2_cli_proto::BuildRequest,
     build_result: BuildTargetResult,
     detailed_metrics: Option<DetailedAggregatedMetrics>,
+    graph_properties_opts: GraphPropertiesOptions,
 ) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
     let fs = server_ctx.project_root();
     let cwd = server_ctx.working_dir();
@@ -295,7 +306,8 @@ async fn process_build_result(
     .await;
 
     let serialized_build_report = if build_opts.unstable_print_build_report {
-        let build_report_opts = build_report_opts(&mut ctx, &cell_resolver, build_opts).await?;
+        let build_report_opts =
+            build_report_opts(&mut ctx, &cell_resolver, build_opts, graph_properties_opts).await?;
 
         generate_build_report(
             build_report_opts,

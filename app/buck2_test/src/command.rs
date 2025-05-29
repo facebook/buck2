@@ -544,7 +544,8 @@ async fn test(
 
     let serialized_build_report = if build_opts.unstable_print_build_report {
         let artifact_fs = ctx.get_artifact_fs().await?;
-        let build_report_opts = build_report_opts(&mut ctx, &cell_resolver, build_opts).await?;
+        let build_report_opts =
+            build_report_opts(&mut ctx, &cell_resolver, build_opts, Default::default()).await?;
 
         generate_build_report(
             build_report_opts,

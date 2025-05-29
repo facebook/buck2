@@ -64,6 +64,7 @@ use crate::build::action_error::BuildReportActionError;
 use crate::build::detailed_aggregated_metrics::types::AllTargetsAggregatedData;
 use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetAggregatedData;
+use crate::build::graph_properties::GraphPropertiesOptions;
 
 #[derive(Debug, Serialize)]
 #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
@@ -229,6 +230,7 @@ pub struct BuildReportOpts {
     pub unstable_include_package_project_relative_paths: bool,
     pub unstable_include_artifact_hash_information: bool,
     pub unstable_build_report_filename: String,
+    pub graph_properties_opts: GraphPropertiesOptions,
 }
 
 pub struct BuildReportCollector<'a> {
@@ -243,6 +245,7 @@ pub struct BuildReportCollector<'a> {
     include_failures: bool,
     include_package_project_relative_paths: bool,
     include_artifact_hash_information: bool,
+    graph_properties_opts: GraphPropertiesOptions,
 }
 
 impl<'a> BuildReportCollector<'a> {
@@ -258,6 +261,7 @@ impl<'a> BuildReportCollector<'a> {
         configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
         other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
         detailed_metrics: Option<DetailedAggregatedMetrics>,
+        graph_properties_opts: GraphPropertiesOptions,
     ) -> BuildReport {
         let mut this: BuildReportCollector<'_> = Self {
             artifact_fs,
@@ -271,6 +275,7 @@ impl<'a> BuildReportCollector<'a> {
             include_failures,
             include_package_project_relative_paths,
             include_artifact_hash_information,
+            graph_properties_opts,
         };
         let mut entries = HashMap::new();
 
@@ -522,10 +527,15 @@ impl<'a> BuildReportCollector<'a> {
                 configured_report.inner.configured_graph_size =
                     Some(graph_properties.configured_graph_size);
 
-                configured_report.configured_graph_sketch = graph_properties
-                    .configured_graph_sketch
-                    .as_ref()
-                    .map(|s| s.serialize());
+                configured_report.configured_graph_sketch =
+                    if self.graph_properties_opts.configured_graph_sketch {
+                        graph_properties
+                            .configured_graph_sketch
+                            .as_ref()
+                            .map(|s| s.serialize())
+                    } else {
+                        None
+                    };
             }
 
             configured_report.build_metrics = metrics.remove(label);
@@ -717,6 +727,7 @@ pub async fn build_report_opts<'a>(
     ctx: &mut DiceComputations<'a>,
     cell_resolver: &CellResolver,
     build_opts: &CommonBuildOptions,
+    graph_properties_opts: GraphPropertiesOptions,
 ) -> buck2_error::Result<BuildReportOpts> {
     let esto = &build_opts.unstable_build_report_filename;
     let build_report_opts = BuildReportOpts {
@@ -736,6 +747,7 @@ pub async fn build_report_opts<'a>(
         unstable_include_artifact_hash_information: build_opts
             .unstable_include_artifact_hash_information,
         unstable_build_report_filename: esto.clone(),
+        graph_properties_opts,
     };
 
     Ok(build_report_opts)
@@ -764,6 +776,7 @@ pub fn generate_build_report(
         configured,
         other_errors,
         detailed_metrics,
+        opts.graph_properties_opts,
     );
 
     let mut serialized_build_report = None;
