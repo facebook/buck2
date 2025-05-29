@@ -99,3 +99,26 @@ async def test_symlinks_external(buck: Buck) -> None:
 
     await buck.build("//:ext")
     await expect_exec_count(buck, 1)
+
+
+@buck_test()
+async def test_no_read_through_symlinks(buck: Buck) -> None:
+    res = await buck.build_without_report(
+        "//:stat_symlink", "--out", "-", "--remote-only"
+    )
+    # Just check that we don't always return `True`
+    assert res.stdout.strip() == "False"
+
+    setup_symlink(buck.cwd)
+
+    res = await buck.build_without_report(
+        "//:stat_symlink", "--out", "-", "--remote-only"
+    )
+    # FIXME(JakobDegen): Bug
+    assert res.stdout.strip() == "False"
+
+    res = await buck.build_without_report(
+        "//:stat_symlink_in_dir", "--out", "-", "--remote-only"
+    )
+    # FIXME(JakobDegen): Bug
+    assert res.stdout.strip() == "False"

@@ -1,5 +1,16 @@
-load(":defs.bzl", "cp")
+load(":defs.bzl", "cp", "stat_path")
 
 cp(name = "cp", src = "src/link/file")
 
 cp(name = "ext", src = "ext/link/file")
+
+stat_path(
+    name = "stat_symlink_in_dir",
+    path = "src",
+    project = "link",
+)
+
+stat_path(
+    name = "stat_symlink",
+    path = "src/link",
+)

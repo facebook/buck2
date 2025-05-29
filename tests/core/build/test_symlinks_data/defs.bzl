@@ -17,3 +17,34 @@ cp = rule(
     impl = _cp_impl,
     attrs = {"src": attrs.source()},
 )
+
+def _stat_path_impl(ctx: AnalysisContext):
+    out = ctx.actions.declare_output("out")
+    if ctx.attrs.project != None:
+        project = " / '" + ctx.attrs.project + "'"
+    else:
+        project = ""
+    ctx.actions.run(cmd_args(
+        "python3",
+        "-c",
+        cmd_args(
+            "import sys;",
+            "from pathlib import Path;",
+            "p = Path(sys.argv[2])" + project + ";",
+            "open(sys.argv[1], 'w').write(str(p.is_symlink()))",
+            delimiter = " ",
+        ),
+        out.as_output(),
+        ctx.attrs.path,
+    ), category = "stat_path")
+    return [
+        DefaultInfo(default_output = out),
+    ]
+
+stat_path = rule(
+    impl = _stat_path_impl,
+    attrs = {
+        "path": attrs.source(allow_directory = True),
+        "project": attrs.option(attrs.string(), default = None),
+    },
+)
