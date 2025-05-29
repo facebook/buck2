@@ -116,8 +116,6 @@ def build_bundle(
         zip_files,
         "--jar-files-that-may-contain-resources-list",
         jar_files_that_may_contain_resources,
-        "--zipalign_tool",
-        android_toolchain.zipalign[RunInfo],
     ])
 
     if packaging_options:

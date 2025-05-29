@@ -20,10 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.CharStreams;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -66,9 +63,6 @@ public class AndroidBundleBuilderExecutableMain {
 
   @Option(name = "--jar-files-that-may-contain-resources-list", required = true)
   private String jarFilesThatMayContainResourcesList;
-
-  @Option(name = "--zipalign_tool", required = true)
-  private String zipalignTool;
 
   @Option(name = "--package-meta-inf-version-files")
   private boolean packageMetaInfVersionFiles;
@@ -253,10 +247,10 @@ public class AndroidBundleBuilderExecutableMain {
       }
     }
 
-    Path unalignedBundle = tempDir.resolve("unalignedBundle.aab");
+    Path outputPath = Paths.get(outputBundle);
     BuildBundleCommand.Builder bundleBuilder =
         BuildBundleCommand.builder()
-            .setOutputPath(unalignedBundle)
+            .setOutputPath(outputPath)
             .setOverwriteOutput(true)
             .setModulesPaths(modulePaths.build());
 
@@ -265,27 +259,7 @@ public class AndroidBundleBuilderExecutableMain {
     }
     bundleBuilder.build().execute();
 
-    ZipScrubber.scrubZip(unalignedBundle);
-    Process zipalignProcess =
-        new ProcessBuilder()
-            .command(
-                zipalignTool,
-                "-f",
-                "4",
-                unalignedBundle.toString(),
-                Paths.get(outputBundle).toString())
-            .start();
-    try {
-      zipalignProcess.waitFor();
-      if (zipalignProcess.exitValue() != 0) {
-        try (Reader reader = new InputStreamReader(zipalignProcess.getErrorStream())) {
-          String errorMessage = CharStreams.toString(reader);
-          throw new RuntimeException("zipalign failed to process apk file:\n" + errorMessage);
-        }
-      }
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
+    ZipScrubber.scrubZip(outputPath);
   }
 
   private static class ThrowingDuplicateFileListener
