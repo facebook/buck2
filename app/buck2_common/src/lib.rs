@@ -55,6 +55,7 @@ pub mod memory_tracker;
 pub mod package_boundary;
 pub mod package_listing;
 pub mod pattern;
+pub mod rlimits;
 pub mod scope;
 pub mod sqlite;
 pub mod starlark_profiler;
