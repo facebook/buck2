@@ -58,7 +58,7 @@ impl ProcessCommandImpl {
 /// Keeps track of the exit status of a child process without worrying about
 /// polling the underlying futures even after they have completed.
 enum FusedChild {
-    Child(ChildProcess),
+    Child(Box<ChildProcess>),
     Done(ExitStatus),
 }
 
@@ -88,7 +88,7 @@ impl ProcessGroupImpl {
         let job = JobObject::new()?;
         job.assign_process(child.as_raw_handle())?;
         let process = ProcessGroupImpl {
-            child: FusedChild::Child(ChildProcess::new(child)),
+            child: FusedChild::Child(Box::new(ChildProcess::new(child))),
             job,
         };
         // We create suspended process to assign it to a job (group)

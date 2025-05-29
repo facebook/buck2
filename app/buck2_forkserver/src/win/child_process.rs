@@ -59,10 +59,10 @@ impl Future for ChildProcess {
                     Poll::Ready(Err(e)) => Err(io::Error::other(e))?,
                     Poll::Pending => return Poll::Pending,
                 }
-                let status = inner.inner.try_wait()?.ok_or(io::Error::new(
-                    io::ErrorKind::Other,
-                    "exit status is not available",
-                ))?;
+                let status = inner
+                    .inner
+                    .try_wait()?
+                    .ok_or(io::Error::other("exit status is not available"))?;
                 return Poll::Ready(Ok(status));
             }
 
@@ -120,7 +120,7 @@ impl Drop for Waiting {
 }
 
 unsafe extern "system" fn callback(ptr: *mut std::ffi::c_void, _timer_fired: winnt::BOOLEAN) {
-    let complete = &mut *(ptr as *mut Option<oneshot::Sender<()>>);
+    let complete = unsafe { &mut *(ptr as *mut Option<oneshot::Sender<()>>) };
     complete.take().unwrap().send(()).unwrap();
 }
 
