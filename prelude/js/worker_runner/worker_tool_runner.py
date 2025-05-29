@@ -113,7 +113,16 @@ def _perform_handshake(worker, message_id):
         worker.stdin, "{}{}".format(START_HANDSHAKE_PREFIX, handshake_data_string)
     )
     handshake_reply = _read_from_stream(worker.stdout)
-    assert len(handshake_reply) > 0
+    if len(handshake_reply) == 0:
+        raise RuntimeError(
+            "Handshake '"
+            + handshake_data_string
+            + "' failed for worker '"
+            + json.dumps(worker.args).rstrip()
+            + "' with stderr: '"
+            + _read_from_stream(worker.stderr)
+            + "'"
+        )
     assert START_HANDSHAKE_PREFIX == handshake_reply[0]
     handshake_reply_data = json.loads(handshake_reply[1:])
     assert handshake_data == handshake_reply_data
