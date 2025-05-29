@@ -17,6 +17,7 @@ load(
     "map_val",
     "value_or",
 )
+load(":compile.bzl", "GoTestInfo")
 load(":link.bzl", "link")
 load(":package_builder.bzl", "build_package")
 load(":packages.bzl", "go_attr_pkg_name")
@@ -78,5 +79,10 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
         RunInfo(args = cmd_args(bin, hidden = other_outputs)),
         DistInfo(nondebug_runtime_files = runtime_files),
+        GoTestInfo(
+            deps = ctx.attrs.deps,
+            srcs = ctx.attrs.srcs,
+            pkg_name = pkg_name,
+        ),
         pkg_info,
     ]

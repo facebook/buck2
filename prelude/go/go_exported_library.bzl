@@ -48,6 +48,7 @@ load(
     "map_val",
     "value_or",
 )
+load(":compile.bzl", "GoTestInfo")
 load(":link.bzl", "GoBuildMode", "link")
 load(":package_builder.bzl", "build_package")
 load(":packages.bzl", "cgo_exported_preprocessor", "go_attr_pkg_name")
@@ -129,6 +130,11 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(
             default_output = c_archive if ctx.attrs.build_mode == "c_archive" else c_shared,
+        ),
+        GoTestInfo(
+            deps = ctx.attrs.deps,
+            srcs = ctx.attrs.srcs,
+            pkg_name = pkg_name,
         ),
         create_merged_link_info(
             ctx,
