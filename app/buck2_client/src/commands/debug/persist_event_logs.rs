@@ -9,12 +9,12 @@
 
 use std::time::SystemTime;
 
-use buck2_common::manifold::BucketsConfig;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_common::chunk_reader::ChunkReader;
 use buck2_common::manifold;
+use buck2_common::manifold::BucketsConfig;
 use buck2_common::manifold::ManifoldChunkedUploader;
 use buck2_common::manifold::ManifoldClient;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
@@ -77,7 +77,8 @@ impl PersistEventLogsCommand {
 
         ctx.with_runtime(|mut ctx| async move {
             let mut stdin = io::BufReader::new(ctx.stdin());
-            let (local_result, remote_result) = self.write_and_upload(buckets_config, &mut stdin).await;
+            let (local_result, remote_result) =
+                self.write_and_upload(buckets_config, &mut stdin).await;
 
             let (local_error_messages, local_error_category, local_success) =
                 status_from_result(local_result);
@@ -117,7 +118,13 @@ impl PersistEventLogsCommand {
             }
         };
         let write = write_task(&file, tx, stdin);
-        let upload = upload_task(&file, rx, buckets_config, self.manifold_name, self.no_upload);
+        let upload = upload_task(
+            &file,
+            rx,
+            buckets_config,
+            self.manifold_name,
+            self.no_upload,
+        );
 
         // Wait for both tasks to finish. If the upload fails we want to keep writing to disk
         let (write_result, upload_result) = tokio::join!(write, upload);
@@ -178,6 +185,11 @@ async fn upload_task(
     }
 
     let manifold_client = ManifoldClient::new_with_config(buckets_config).await?;
+    // No need to do more work if we don't have an endpoint configured (default
+    // in OSS)
+    if !manifold_client.will_upload() {
+        return Ok(());
+    }
     let manifold_path = format!("flat/{}", manifold_name);
     let mut uploader = Uploader::new(file_mutex, &manifold_path, &manifold_client)?;
 

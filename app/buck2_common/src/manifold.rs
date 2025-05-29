@@ -285,6 +285,11 @@ impl ManifoldClient {
         Self::new_with_config(None).await
     }
 
+    /// Whether the Manifold client has an endpoint and can upload.
+    pub fn will_upload(&self) -> bool {
+        self.config.is_some()
+    }
+
     pub async fn write(
         &self,
         bucket: Bucket,
