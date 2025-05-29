@@ -606,7 +606,10 @@ async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
 
     # Build the target again. This will either result in one of
     # 1. A remote dep file cache hit and a subsequent dep file validation
-    # 2. A remote dep file cache miss, fall back to local execution (local dep file cache is flushed)
+    # 2. A remote dep file cache miss, fall back to local execution (local dep file cache is
+    #    flushed) This can occur if the action definition changes, because the new remote dep file
+    #    can only be uploaded by a job with the correct permissions, so it will run locally until
+    #    that takes place.
     await buck.debug("flush-dep-files")
     result = await buck.build(*target_upload_enabled_with_action_definition_change)
     output = result.get_build_report().output_for_target(target).read_text()
@@ -622,14 +625,15 @@ async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
         MatchDepFilesEvent(
             remote_cache=False, checking_filtered_inputs=False
         ),  # Initial local dep file cache lookup for an identical action
-        MatchDepFilesEvent(
-            remote_cache=True, checking_filtered_inputs=True
-        ),  # Remote dep file cache hit verification
     ]
 
     if execution_kind == ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE:
-        # Check the MatchDepFiles events
-        await check_match_dep_files_events(buck, expected_dep_file_match_events)
+        expected_dep_file_match_events.append(
+            MatchDepFilesEvent(remote_cache=True, checking_filtered_inputs=True)
+        )  # Remote dep file cache hit verification
+
+    # Check the MatchDepFiles events
+    await check_match_dep_files_events(buck, expected_dep_file_match_events)
 
     # # Change a file that is tracked by a dep file but shows up as unused, we get a local dep file cache hit
     # # as that is checked first.
@@ -657,9 +661,8 @@ async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
         was_cache_hit and execution_kind == ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE
     ) or (not was_cache_hit and execution_kind == ACTION_EXECUTION_KIND_LOCAL)
 
-    if execution_kind == ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE:
-        # Check the MatchDepFiles events
-        await check_match_dep_files_events(buck, expected_dep_file_match_events)
+    # Check the MatchDepFiles events
+    await check_match_dep_files_events(buck, expected_dep_file_match_events)
 
 
 @buck_test(data_dir="upload_dep_files")
