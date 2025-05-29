@@ -297,7 +297,7 @@ go_test = prelude_rule(
         go_test(
           name='greeting-better-internal-test',
           srcs=['greeting_test.go'],
-          library=':greeting',
+          target_under_test=':greeting',
         )
 
 
@@ -309,8 +309,8 @@ go_test = prelude_rule(
         buck.inject_test_env_arg() |
         go_common.srcs_arg() |
         {
-            "library": attrs.option(attrs.dep(), default = None, doc = """
-                Specify the library that this internal test is testing. This will copy the `srcs`,
+            "target_under_test": attrs.option(attrs.dep(), default = None, doc = """
+                Specify the target_under_test that this internal test is testing. This will copy the `srcs`,
                  `package_name` and `deps` from the target specified so you don't have
                  to duplicate them.
             """),
@@ -318,7 +318,7 @@ go_test = prelude_rule(
                 Sets the full name of the test package being compiled. This defaults to the path from the buck
                  root with "\\_test" appended. (e.g. given a ./.buckconfig, a rule in ./a/b/BUCK defaults to package "a/b\\_test")
 
-                 Note: if you want to test packages internally (i.e. same package name), use the `library`
+                 Note: if you want to test packages internally (i.e. same package name), use the `target_under_test`
                  parameter instead of setting `package_name` to include the tested source files.
             """),
             "coverage_mode": attrs.option(attrs.enum(GoTestCoverStepMode), default = None, doc = """

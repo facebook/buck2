@@ -64,8 +64,8 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Copy the srcs, deps and pkg_name from the target library when set. The
     # library code gets compiled together with the tests.
-    if ctx.attrs.library:
-        lib = ctx.attrs.library[GoTestInfo]
+    if ctx.attrs.target_under_test:
+        lib = ctx.attrs.target_under_test[GoTestInfo]
         srcs += lib.srcs
         deps += lib.deps
 
