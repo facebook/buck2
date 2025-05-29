@@ -98,11 +98,11 @@ message TargetCfg {
 }
 
 message RepresentativeConfigFlag {
-  reserved 4;
   oneof source {
     string config_flag = 1;
     string config_file = 2;
     string mode_file = 3;
+    string modifier = 4;
   }
 }
 
