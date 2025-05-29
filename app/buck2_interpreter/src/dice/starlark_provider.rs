@@ -36,7 +36,7 @@ use crate::factory::StarlarkEvaluatorProvider;
 use crate::paths::module::OwnedStarlarkModulePath;
 use crate::starlark_debug::StarlarkDebugController;
 use crate::starlark_profiler::data::ProfileTarget;
-use crate::starlark_profiler::profiler::StarlarkProfilerOpt;
+use crate::starlark_profiler::profiler::StarlarkProfiler;
 
 pub trait DynEvalKindKey: Display + Send + Sync + Debug + Allocative + 'static {
     fn hash(&self, state: &mut dyn Hasher);
@@ -166,7 +166,7 @@ impl<'a> From<CancellationObserver> for CancellationPoller<'a> {
 /// StarlarkEvaluatorProvider.
 pub async fn with_starlark_eval_provider<'a, 'x, D: DerefMut<Target = DiceComputations<'x>>, R>(
     mut ctx: D,
-    profiler_instrumentation: &mut StarlarkProfilerOpt<'_>,
+    profiler_instrumentation: &mut StarlarkProfiler,
     kind: &StarlarkEvalKind,
     cancellation: CancellationPoller<'a>,
     closure: impl FnOnce(&mut dyn StarlarkEvaluatorProvider<'a>, D) -> buck2_error::Result<R>,
@@ -187,14 +187,14 @@ pub async fn with_starlark_eval_provider<'a, 'x, D: DerefMut<Target = DiceComput
         None => None,
     };
 
-    struct EvalProvider<'x, 'y, 'a> {
-        profiler: &'x mut StarlarkProfilerOpt<'y>,
+    struct EvalProvider<'x, 'a> {
+        profiler: &'x mut StarlarkProfiler,
         debugger: Option<Box<dyn StarlarkDebugController>>,
         starlark_max_callstack_size: Option<usize>,
         cancellation: CancellationPoller<'a>,
     }
 
-    impl<'a> StarlarkEvaluatorProvider<'a> for EvalProvider<'_, '_, 'a> {
+    impl<'a> StarlarkEvaluatorProvider<'a> for EvalProvider<'_, 'a> {
         fn make<'v, 'b, 'e>(
             &mut self,
             module: &'v Module,

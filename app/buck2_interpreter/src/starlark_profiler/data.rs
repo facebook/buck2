@@ -27,6 +27,8 @@ pub enum ProfileTarget {
     Loading(PackageLabel),
     #[display("bxl")]
     Bxl,
+    #[display("unknown")]
+    Unknown,
 }
 
 #[derive(Debug, Clone, Allocative)]

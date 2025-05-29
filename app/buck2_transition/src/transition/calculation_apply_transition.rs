@@ -30,7 +30,7 @@ use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
+use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use derive_more::Display;
@@ -149,7 +149,7 @@ async fn do_apply_transition(
     let print = EventDispatcherPrintHandler(get_dispatcher());
     with_starlark_eval_provider(
         ctx,
-        &mut StarlarkProfilerOpt::disabled(),
+        &mut StarlarkProfiler::disabled(),
         &StarlarkEvalKind::Transition(Arc::new(transition_id.clone())),
         cancellation.into(),
         move |provider, _| {

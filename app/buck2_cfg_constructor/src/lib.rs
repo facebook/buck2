@@ -31,7 +31,7 @@ use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
+use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::metadata::key::MetadataKey;
@@ -89,7 +89,7 @@ async fn eval_pre_constraint_analysis<'v>(
     with_starlark_eval_provider(
         ctx,
         // TODO: pass proper profiler (T163570348)
-        &mut StarlarkProfilerOpt::disabled(),
+        &mut StarlarkProfiler::disabled(),
         &StarlarkEvalKind::Unknown("pre constraint-analysis invocation".into()),
         cancellation.into(),
         |provider, _| {
@@ -200,7 +200,7 @@ async fn eval_post_constraint_analysis<'v>(
     with_starlark_eval_provider(
         ctx,
         // TODO: pass proper profiler (T163570348)
-        &mut StarlarkProfilerOpt::disabled(),
+        &mut StarlarkProfiler::disabled(),
         &StarlarkEvalKind::Unknown("post constraint-analysis invocation for cfg".into()),
         cancellation.into(),
         |_, _| -> buck2_error::Result<ConfigurationData> {

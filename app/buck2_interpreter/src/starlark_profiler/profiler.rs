@@ -30,7 +30,7 @@ enum StarlarkProfilerError {
 }
 
 pub struct StarlarkProfiler {
-    profile_mode: ProfileMode,
+    profile_mode: Option<ProfileMode>,
 
     initialized_at: Option<Instant>,
     finalized_at: Option<Instant>,
@@ -40,7 +40,7 @@ pub struct StarlarkProfiler {
 }
 
 impl StarlarkProfiler {
-    pub fn new(profile_mode: ProfileMode, target: ProfileTarget) -> StarlarkProfiler {
+    pub fn new(profile_mode: Option<ProfileMode>, target: ProfileTarget) -> StarlarkProfiler {
         Self {
             profile_mode,
             initialized_at: None,
@@ -50,13 +50,23 @@ impl StarlarkProfiler {
         }
     }
 
+    pub fn disabled() -> Self {
+        Self::new(None, ProfileTarget::Unknown)
+    }
+
     /// Collect all profiling data.
     pub fn finish(
         mut self,
         frozen_module: Option<&FrozenModule>,
-    ) -> buck2_error::Result<StarlarkProfileDataAndStats> {
-        let total_retained_bytes = match (frozen_module, self.profile_mode.requires_frozen_module())
-        {
+    ) -> buck2_error::Result<Option<StarlarkProfileDataAndStats>> {
+        let mode = match self.profile_mode {
+            None => {
+                return Ok(None);
+            }
+            Some(v) => v,
+        };
+
+        let total_retained_bytes = match (frozen_module, mode.requires_frozen_module()) {
             (None, true) => {
                 return Err(StarlarkProfilerError::RetainedMemoryNotFrozen.into());
             }
@@ -73,10 +83,10 @@ impl StarlarkProfiler {
                     .allocated_summary()
                     .total_allocated_bytes()
             }
-            _ => 0,
+            (None, false) => 0,
         };
 
-        Ok(StarlarkProfileDataAndStats {
+        Ok(Some(StarlarkProfileDataAndStats {
             initialized_at: self.initialized_at.internal_error("did not initialize")?,
             finalized_at: self.finalized_at.internal_error("did not finalize")?,
             total_retained_bytes,
@@ -84,84 +94,30 @@ impl StarlarkProfiler {
                 .profile_data
                 .internal_error("profile_data not initialized")?,
             targets: vec![self.target],
-        })
+        }))
     }
 
     /// Prepare an Evaluator to capture output relevant to this profiler.
-    fn initialize(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
-        eval.enable_profile(&self.profile_mode)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+    pub fn initialize(&mut self, eval: &mut Evaluator) -> buck2_error::Result<bool> {
         self.initialized_at = Some(Instant::now());
-        Ok(())
+        if let Some(mode) = &self.profile_mode {
+            eval.enable_profile(mode)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     /// Post-analysis, produce the output of this profiler.
-    fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
-        self.finalized_at = Some(Instant::now());
-        if !self.profile_mode.requires_frozen_module() {
-            self.profile_data = Some(eval.gen_profile()?);
-        }
-        Ok(())
-    }
-}
-
-enum StarlarkProfilerOptImpl<'p> {
-    None,
-    Profiler(&'p mut StarlarkProfiler),
-}
-
-/// Modules can be evaluated with profiling or with instrumentation for profiling.
-/// This type enapsulates this logic.
-pub struct StarlarkProfilerOpt<'p>(StarlarkProfilerOptImpl<'p>);
-
-impl<'p> StarlarkProfilerOpt<'p> {
-    pub fn for_profiler(profiler: &'p mut StarlarkProfiler) -> Self {
-        StarlarkProfilerOpt(StarlarkProfilerOptImpl::Profiler(profiler))
-    }
-
-    /// No profiling.
-    pub fn disabled() -> StarlarkProfilerOpt<'p> {
-        StarlarkProfilerOpt(StarlarkProfilerOptImpl::None)
-    }
-
-    pub fn initialize(&mut self, eval: &mut Evaluator) -> buck2_error::Result<bool> {
-        match &mut self.0 {
-            StarlarkProfilerOptImpl::None => Ok(false),
-            StarlarkProfilerOptImpl::Profiler(profiler) => profiler.initialize(eval).map(|_| true),
-        }
-    }
-
     pub fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
-        if let StarlarkProfilerOptImpl::Profiler(profiler) = &mut self.0 {
-            profiler.evaluation_complete(eval)
-        } else {
-            Ok(())
-        }
-    }
-}
-
-pub enum StarlarkProfilerOptVal {
-    Disabled,
-    Profiler(StarlarkProfiler),
-}
-
-impl StarlarkProfilerOptVal {
-    pub fn as_mut(&mut self) -> StarlarkProfilerOpt {
-        match self {
-            StarlarkProfilerOptVal::Disabled => StarlarkProfilerOpt::disabled(),
-            StarlarkProfilerOptVal::Profiler(profiler) => {
-                StarlarkProfilerOpt::for_profiler(profiler)
+        self.finalized_at = Some(Instant::now());
+        if let Some(mode) = &self.profile_mode {
+            if !mode.requires_frozen_module() {
+                self.profile_data = Some(eval.gen_profile()?);
             }
         }
-    }
 
-    pub fn finish(
-        self,
-        frozen_module: Option<&FrozenModule>,
-    ) -> buck2_error::Result<Option<StarlarkProfileDataAndStats>> {
-        match self {
-            StarlarkProfilerOptVal::Disabled => Ok(None),
-            StarlarkProfilerOptVal::Profiler(profiler) => profiler.finish(frozen_module).map(Some),
-        }
+        Ok(())
     }
 }

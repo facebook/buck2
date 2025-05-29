@@ -48,7 +48,7 @@ use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
+use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use dice::DiceComputations;
 use dupe::Dupe;
 use indexmap::IndexMap;
@@ -136,7 +136,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                 limited_executor.execute(async move {
                     with_starlark_eval_provider(
                         dice_ctx,
-                        &mut StarlarkProfilerOpt::disabled(),
+                        &mut StarlarkProfiler::disabled(),
                         // TODO(cjhopman): not foo
                         &StarlarkEvalKind::BxlDynamic(Arc::new("foo".to_owned())),
                         eval_ctx.liveness.dupe().into(),

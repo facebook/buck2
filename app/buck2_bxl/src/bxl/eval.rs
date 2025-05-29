@@ -326,7 +326,7 @@ async fn eval_bxl_inner(
     let mut profiler = ctx.get_starlark_profiler(&eval_kind).await?;
     let result = with_starlark_eval_provider(
         ctx,
-        &mut profiler.as_mut(),
+        &mut profiler,
         &eval_kind,
         eval_ctx.liveness.dupe().into(),
         // the closure here need return a buck2_error::Result, so we need to wrap the bxl::eval::Result we get from `do_eval` into a buck2_error::Result

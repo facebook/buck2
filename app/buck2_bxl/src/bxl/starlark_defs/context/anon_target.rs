@@ -36,7 +36,7 @@ use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
+use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use buck2_interpreter_for_build::attrs::StarlarkAttribute;
 use buck2_interpreter_for_build::rule::StarlarkRuleCallable;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
@@ -265,7 +265,7 @@ async fn eval_bxl_for_anon_target_inner(
         fulfilled_artifact_mappings,
     ) = with_starlark_eval_provider(
         dice,
-        &mut StarlarkProfilerOpt::disabled(),
+        &mut StarlarkProfiler::disabled(),
         &eval_kind,
         liveness.dupe().into(),
         |provider, dice| {

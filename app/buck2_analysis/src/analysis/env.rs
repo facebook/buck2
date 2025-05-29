@@ -277,7 +277,7 @@ async fn run_analysis_with_env_underlying(
     let mut profiler = dice.get_starlark_profiler(&eval_kind).await?;
     let (dice, mut eval, ctx, list_res) = with_starlark_eval_provider(
         dice,
-        &mut profiler.as_mut(),
+        &mut profiler,
         &eval_kind,
         analysis_env.cancellation.into(),
         |provider, dice| {

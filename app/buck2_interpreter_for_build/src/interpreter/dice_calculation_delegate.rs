@@ -44,7 +44,7 @@ use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
+use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::super_package::SuperPackage;
 use derive_more::Display;
@@ -247,7 +247,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
         with_starlark_eval_provider(
             ctx,
-            &mut StarlarkProfilerOpt::disabled(),
+            &mut StarlarkProfiler::disabled(),
             &StarlarkEvalKind::Load(Arc::new(starlark_file.to_owned())),
             cancellation.into(),
             move |provider, ctx| {
@@ -402,7 +402,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
         with_starlark_eval_provider(
             ctx,
-            &mut StarlarkProfilerOpt::disabled(),
+            &mut StarlarkProfiler::disabled(),
             &StarlarkEvalKind::LoadPackageFile(path.dupe()),
             cancellation.into(),
             move |provider, ctx| {
@@ -554,7 +554,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             now = Some(Instant::now());
             let mut eval_result = with_starlark_eval_provider(
                 ctx,
-                &mut profiler.as_mut(),
+                &mut profiler,
                 &eval_kind,
                 cancellation.into(),
                 move |provider, ctx| {

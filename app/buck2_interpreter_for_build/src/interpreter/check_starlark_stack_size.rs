@@ -15,7 +15,7 @@ use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::file_type::StarlarkFileType;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
+use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use dice::DiceComputations;
 use dice::Key;
 use indoc::indoc;
@@ -51,7 +51,7 @@ pub(crate) async fn check_starlark_stack_size(
         ) -> Self::Value {
             with_starlark_eval_provider(
                 ctx,
-                &mut StarlarkProfilerOpt::disabled(),
+                &mut StarlarkProfiler::disabled(),
                 &StarlarkEvalKind::Unknown("Check starlark stack size".into()),
                 cancellation.into(),
                 move |provider, _| {
