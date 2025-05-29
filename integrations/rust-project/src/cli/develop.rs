@@ -22,10 +22,10 @@ use crate::Command;
 use crate::buck;
 use crate::buck::Buck;
 use crate::buck::select_mode;
-use crate::buck::to_json_project;
-use crate::json_project::JsonProject;
-use crate::json_project::Sysroot;
+use crate::buck::to_project_json;
 use crate::path::safe_canonicalize;
+use crate::project_json::ProjectJson;
+use crate::project_json::Sysroot;
 use crate::sysroot::SysrootConfig;
 use crate::sysroot::resolve_buckconfig_sysroot;
 use crate::sysroot::resolve_rustup_sysroot;
@@ -152,7 +152,7 @@ const DEFAULT_EXTRA_TARGETS: usize = 50;
 #[derive(Serialize, Deserialize)]
 pub(crate) struct OutputData {
     pub(crate) buildfile: PathBuf,
-    pub(crate) project: JsonProject,
+    pub(crate) project: ProjectJson,
     pub(crate) kind: String,
 }
 
@@ -224,7 +224,7 @@ impl Develop {
         Ok(())
     }
 
-    pub(crate) fn run_inner(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
+    pub(crate) fn run_inner(&self, targets: Vec<Target>) -> Result<ProjectJson, anyhow::Error> {
         let Develop {
             sysroot,
             buck,
@@ -304,7 +304,7 @@ pub(crate) fn develop_with_sysroot(
     check_cycles: bool,
     include_all_buildfiles: bool,
     extra_cfgs: &[String],
-) -> Result<JsonProject, anyhow::Error> {
+) -> Result<ProjectJson, anyhow::Error> {
     info!(kind = "progress", "building generated code");
     let expanded_and_resolved = buck.expand_and_resolve(&targets, exclude_workspaces)?;
 
@@ -316,7 +316,7 @@ pub(crate) fn develop_with_sysroot(
         kind = "progress",
         "converting buck info to rust-project.json"
     );
-    let rust_project = to_json_project(
+    let rust_project = to_project_json(
         sysroot,
         expanded_and_resolved,
         aliased_libraries,

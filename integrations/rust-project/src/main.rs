@@ -10,9 +10,9 @@
 mod buck;
 mod cli;
 mod diagnostics;
-mod json_project;
 mod path;
 mod progress;
+mod project_json;
 mod scuba;
 mod sysroot;
 mod target;
@@ -32,8 +32,8 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
 
 use crate::cli::ProjectKind;
-use crate::json_project::Crate;
-use crate::json_project::Dep;
+use crate::project_json::Crate;
+use crate::project_json::Dep;
 
 #[derive(Parser, Debug, PartialEq)]
 struct Opt {

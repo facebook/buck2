@@ -19,7 +19,7 @@ use crate::buck::Buck;
 use crate::buck::truncate_line_ending;
 use crate::buck::utf8_output;
 use crate::cli::develop_with_sysroot;
-use crate::json_project::Sysroot;
+use crate::project_json::Sysroot;
 use crate::target::Target;
 
 #[derive(Debug)]

@@ -23,8 +23,8 @@ use serde::de::MapAccess;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 
-use crate::json_project::Edition;
 use crate::path::canonicalize_to_vcs_path;
+use crate::project_json::Edition;
 
 #[derive(Serialize, Debug, Default, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub(crate) struct Target(String);

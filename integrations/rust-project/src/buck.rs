@@ -31,13 +31,13 @@ use tracing::warn;
 use crate::Crate;
 use crate::Dep;
 use crate::cli::Input;
-use crate::json_project::Build;
-use crate::json_project::Edition;
-use crate::json_project::JsonProject;
-use crate::json_project::Runnable;
-use crate::json_project::RunnableKind;
-use crate::json_project::Source;
-use crate::json_project::Sysroot;
+use crate::project_json::Build;
+use crate::project_json::Edition;
+use crate::project_json::ProjectJson;
+use crate::project_json::Runnable;
+use crate::project_json::RunnableKind;
+use crate::project_json::Source;
+use crate::project_json::Sysroot;
 use crate::target::AliasedTargetInfo;
 use crate::target::ExpandedAndResolved;
 use crate::target::Kind;
@@ -47,14 +47,14 @@ use crate::target::TargetInfo;
 
 const CLIENT_METADATA_RUST_PROJECT: &str = "--client-metadata=id=rust-project";
 
-pub(crate) fn to_json_project(
+pub(crate) fn to_project_json(
     sysroot: Sysroot,
     expanded_and_resolved: ExpandedAndResolved,
     aliases: FxHashMap<Target, AliasedTargetInfo>,
     check_cycles: bool,
     include_all_buildfiles: bool,
     extra_cfgs: &[String],
-) -> Result<JsonProject, anyhow::Error> {
+) -> Result<ProjectJson, anyhow::Error> {
     let mode = select_mode(None);
     let buck = Buck::new(mode);
     let project_root = buck.resolve_project_root()?;
@@ -193,7 +193,7 @@ pub(crate) fn to_json_project(
         check_cycles_in_crate_graph(&crates);
     }
 
-    let jp = JsonProject {
+    let jp = ProjectJson {
         sysroot: Box::new(sysroot),
         crates,
         runnables: vec![

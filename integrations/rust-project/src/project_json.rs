@@ -25,7 +25,7 @@ use serde::Serialize;
 use crate::target::Target;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub(crate) struct JsonProject {
+pub(crate) struct ProjectJson {
     #[serde(flatten)]
     pub(crate) sysroot: Box<Sysroot>,
 
@@ -249,5 +249,5 @@ pub(crate) struct Sysroot {
     /// Inside Meta, we have a Buck-ified rust toolchain and we can provide the
     /// sysroot layout directly with Buck.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) sysroot_project: Option<JsonProject>,
+    pub(crate) sysroot_project: Option<ProjectJson>,
 }
