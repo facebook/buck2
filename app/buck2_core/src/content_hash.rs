@@ -41,6 +41,12 @@ pub enum ContentBasedPathHash {
     /// placeholder value.
     Scratch,
     RelativePathResolution,
+    /// When comparing actions using dep-files, if an unused input changes, it's
+    /// content-based path will also change, and that can affect (a) the command-line
+    /// digest, and (b) the content-based path of used-inputs (e.g. if they are part
+    /// of the same directory). To avoid this affecting the dep-files, we use a
+    /// non-content-based representation for dep-file comparisons.
+    DepFilesPlaceholder,
 }
 
 impl ContentBasedPathHash {
@@ -75,6 +81,7 @@ impl ContentBasedPathHash {
             ContentBasedPathHash::AqueryPlaceholder => "aquery_placeholder",
             ContentBasedPathHash::Scratch => "scratch",
             ContentBasedPathHash::RelativePathResolution => "relative_path_resolution",
+            ContentBasedPathHash::DepFilesPlaceholder => "dep_files_placeholder",
         }
     }
 }
@@ -125,6 +132,14 @@ mod tests {
         assert_eq!(
             "relative_path_resolution",
             ContentBasedPathHash::RelativePathResolution.as_str()
+        );
+    }
+
+    #[test]
+    fn test_hash_for_dep_files_placeholder() {
+        assert_eq!(
+            "dep_files_placeholder",
+            ContentBasedPathHash::DepFilesPlaceholder.as_str()
         );
     }
 }

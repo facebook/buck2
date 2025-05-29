@@ -10,6 +10,8 @@
 use allocative::Allocative;
 use sorted_vector_map::SortedVectorMap;
 
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+
 /// A command line's expansion, suitable to actually run it.
 pub struct ExpandedCommandLine {
     pub exe: Vec<String>,
@@ -30,39 +32,43 @@ impl ExpandedCommandLineDigest {
     }
 }
 
-impl ExpandedCommandLine {
-    /// Obtain a hash of this command line. Conceptually this is as if we serialized the command
-    /// line to a length-prefixed list then hashed it, except we never actually produce the
-    /// serialized representation.
-    pub fn fingerprint(&self) -> ExpandedCommandLineDigest {
-        let mut digest = blake3::Hasher::new();
+/// Obtain a hash of this command line. Conceptually this is as if we serialized the command
+/// line to a length-suffixed list then hashed it, except we never actually produce the
+/// serialized representation.
+pub struct ExpandedCommandLineFingerprinter {
+    digest: blake3::Hasher,
+    count: u64,
+}
 
-        digest.update(self.exe.len().to_le_bytes().as_slice());
-        for e in self.exe.iter() {
-            let bytes = e.as_bytes();
-            digest.update(bytes.len().to_le_bytes().as_slice());
-            digest.update(bytes);
+impl ExpandedCommandLineFingerprinter {
+    pub fn new() -> Self {
+        Self {
+            digest: blake3::Hasher::new(),
+            count: 0,
+        }
+    }
+
+    pub fn push_count(&mut self) {
+        self.digest.update(self.count.to_le_bytes().as_slice());
+        self.count = 0;
+    }
+
+    pub fn finalize(self) -> ExpandedCommandLineDigest {
+        if self.count > 0 {
+            panic!("Called finalize without adding length of all elements");
         }
 
-        digest.update(self.args.len().to_le_bytes().as_slice());
-        for e in self.args.iter() {
-            let bytes = e.as_bytes();
-            digest.update(bytes.len().to_le_bytes().as_slice());
-            digest.update(bytes);
-        }
+        ExpandedCommandLineDigest(self.digest.finalize())
+    }
+}
 
-        digest.update(self.env.len().to_le_bytes().as_slice());
-        for (k, v) in self.env.iter() {
-            let k_bytes = k.as_bytes();
-            digest.update(k_bytes.len().to_le_bytes().as_slice());
-            digest.update(k_bytes);
+impl CommandLineBuilder for ExpandedCommandLineFingerprinter {
+    fn push_arg(&mut self, s: String) {
+        self.count += 1;
 
-            let v_bytes = v.as_bytes();
-            digest.update(v_bytes.len().to_le_bytes().as_slice());
-            digest.update(v_bytes);
-        }
-
-        ExpandedCommandLineDigest(digest.finalize())
+        let bytes = s.as_bytes();
+        self.digest.update(bytes);
+        self.digest.update(bytes.len().to_le_bytes().as_slice());
     }
 }
 
@@ -71,6 +77,29 @@ mod tests {
     use sorted_vector_map::sorted_vector_map;
 
     use super::*;
+
+    impl ExpandedCommandLine {
+        pub fn fingerprint(&self) -> ExpandedCommandLineDigest {
+            let mut fingerprinter = ExpandedCommandLineFingerprinter::new();
+            for e in self.exe.iter() {
+                fingerprinter.push_arg(e.to_owned());
+            }
+            fingerprinter.push_count();
+
+            for e in self.args.iter() {
+                fingerprinter.push_arg(e.to_owned());
+            }
+            fingerprinter.push_count();
+
+            for (k, v) in self.env.iter() {
+                fingerprinter.push_arg(k.to_owned());
+                fingerprinter.push_arg(v.to_owned());
+            }
+
+            fingerprinter.push_count();
+            fingerprinter.finalize()
+        }
+    }
 
     #[test]
     fn test_cli() {

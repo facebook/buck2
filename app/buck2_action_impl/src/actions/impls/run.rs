@@ -12,6 +12,7 @@ use std::ops::ControlFlow;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::Action;
 use buck2_build_api::actions::ActionExecutionCtx;
@@ -21,6 +22,8 @@ use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::actions::impls::expanded_command_line::ExpandedCommandLine;
+use buck2_build_api::actions::impls::expanded_command_line::ExpandedCommandLineDigest;
+use buck2_build_api::actions::impls::expanded_command_line::ExpandedCommandLineFingerprinter;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ArtifactGroupValues;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
@@ -30,6 +33,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact:
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
@@ -317,6 +321,16 @@ enum ExecuteResult {
     },
 }
 
+pub struct DepFilesPlaceholderArtifactPathMapper {}
+
+impl ArtifactPathMapper for DepFilesPlaceholderArtifactPathMapper {
+    fn get(&self, _artifact: &Artifact) -> Option<&ContentBasedPathHash> {
+        Some(&ContentBasedPathHash::DepFilesPlaceholder)
+    }
+}
+
+type ExpandedCommandLineDigestForDepFiles = ExpandedCommandLineDigest;
+
 impl RunAction {
     fn unpack(
         values: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
@@ -362,17 +376,30 @@ impl RunAction {
         &self,
         action_execution_ctx: &dyn ActionExecutionCtx,
         artifact_visitor: &mut impl CommandLineArtifactVisitor,
-    ) -> buck2_error::Result<(ExpandedCommandLine, Option<WorkerSpec>)> {
+    ) -> buck2_error::Result<(
+        ExpandedCommandLine,
+        ExpandedCommandLineDigestForDepFiles,
+        Option<WorkerSpec>,
+    )> {
         let fs = &action_execution_ctx.executor_fs();
         let mut cli_ctx = DefaultCommandLineContext::new(fs);
         let values = Self::unpack(&self.starlark_values)?;
 
+        let mut command_line_digest_for_dep_files = ExpandedCommandLineFingerprinter::new();
+
         let mut exe_rendered = Vec::<String>::new();
         let artifact_path_mapping = action_execution_ctx.artifact_path_mapping();
+        let artifact_path_mapping_for_dep_files = DepFilesPlaceholderArtifactPathMapper {};
         values
             .exe
             .add_to_command_line(&mut exe_rendered, &mut cli_ctx, &artifact_path_mapping)?;
+        values.exe.add_to_command_line(
+            &mut command_line_digest_for_dep_files,
+            &mut cli_ctx,
+            &artifact_path_mapping_for_dep_files,
+        )?;
         values.exe.visit_artifacts(artifact_visitor)?;
+        command_line_digest_for_dep_files.push_count();
 
         let worker = if let Some(worker) = values.worker {
             let mut worker_rendered = Vec::<String>::new();
@@ -422,8 +449,15 @@ impl RunAction {
             &mut cli_ctx,
             &artifact_path_mapping,
         )?;
+        values.args.add_to_command_line(
+            &mut command_line_digest_for_dep_files,
+            &mut cli_ctx,
+            &artifact_path_mapping_for_dep_files,
+        )?;
         values.args.visit_artifacts(artifact_visitor)?;
+        command_line_digest_for_dep_files.push_count();
 
+        let env_len = values.env.len();
         let cli_env: buck2_error::Result<SortedVectorMap<_, _>> = values
             .env
             .into_iter()
@@ -436,9 +470,20 @@ impl RunAction {
                     &artifact_path_mapping,
                 )?;
                 v.visit_artifacts(artifact_visitor)?;
+
+                command_line_digest_for_dep_files.push_arg(k.to_owned());
+                v.add_to_command_line(
+                    &mut command_line_digest_for_dep_files,
+                    &mut ctx,
+                    &artifact_path_mapping_for_dep_files,
+                )?;
+                command_line_digest_for_dep_files.push_count();
                 Ok((k.to_owned(), env))
             })
             .collect();
+
+        command_line_digest_for_dep_files.push_arg(env_len.to_string());
+        command_line_digest_for_dep_files.push_count();
 
         Ok((
             ExpandedCommandLine {
@@ -446,6 +491,7 @@ impl RunAction {
                 args: args_rendered,
                 env: cli_env?,
             },
+            command_line_digest_for_dep_files.finalize(),
             worker,
         ))
     }
@@ -480,8 +526,13 @@ impl RunAction {
         &self,
         visitor: &mut impl RunActionVisitor,
         ctx: &mut dyn ActionExecutionCtx,
-    ) -> buck2_error::Result<(PreparedRunAction, HostSharingRequirements)> {
-        let (expanded, worker) = self.expand_command_line_and_worker(ctx, visitor)?;
+    ) -> buck2_error::Result<(
+        PreparedRunAction,
+        ExpandedCommandLineDigestForDepFiles,
+        HostSharingRequirements,
+    )> {
+        let (expanded, expanded_command_line_digest_for_dep_files, worker) =
+            self.expand_command_line_and_worker(ctx, visitor)?;
 
         // TODO (@torozco): At this point, might as well just receive the list already. Finding
         // those things in a HashMap is just not very useful.
@@ -558,6 +609,7 @@ impl RunAction {
                 paths,
                 worker,
             },
+            expanded_command_line_digest_for_dep_files,
             host_sharing_requirements,
         ))
     }
@@ -667,9 +719,8 @@ impl RunAction {
         ctx: &mut dyn ActionExecutionCtx,
     ) -> Result<ExecuteResult, ExecuteError> {
         let mut dep_file_visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
-        let (prepared_run_action, host_sharing_requirements) =
+        let (prepared_run_action, cmdline_digest_for_dep_files, host_sharing_requirements) =
             self.prepare(&mut dep_file_visitor, ctx)?;
-        let cmdline_digest = prepared_run_action.expanded.fingerprint();
         let input_files_bytes = prepared_run_action.paths.input_files_bytes();
 
         let outputs_for_error_handler = self
@@ -708,8 +759,12 @@ impl RunAction {
             .with_meta_internal_extra_params(self.inner.meta_internal_extra_params.clone())
             .with_outputs_for_error_handler(outputs_for_error_handler);
 
-        let dep_file_bundle =
-            make_dep_file_bundle(ctx, dep_file_visitor, cmdline_digest, req.paths())?;
+        let dep_file_bundle = make_dep_file_bundle(
+            ctx,
+            dep_file_visitor,
+            cmdline_digest_for_dep_files,
+            req.paths(),
+        )?;
         // Enable remote dep file cache lookup for actions that have remote depfile uploads enabled.
         let req = if self.inner.allow_dep_file_cache_upload {
             req.with_remote_dep_file_key(&dep_file_bundle.remote_dep_file_action.action.coerce())
