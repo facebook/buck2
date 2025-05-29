@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::Symlink;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::RelativePathBuf;
@@ -27,7 +28,6 @@ use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestFromReExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryMember;
-use buck2_execute::directory::Symlink;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::execute::action_digest::TrackedActionDigest;

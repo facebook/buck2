@@ -95,6 +95,7 @@ mod state_machine {
     use std::thread;
 
     use assert_matches::assert_matches;
+    use buck2_common::file_ops::Symlink;
     use buck2_core::fs::fs_util;
     use buck2_core::fs::fs_util::ReadDir;
     use buck2_core::fs::paths::RelativePathBuf;
@@ -107,7 +108,6 @@ mod state_machine {
     use buck2_execute::directory::ActionDirectoryEntry;
     use buck2_execute::directory::ActionSharedDirectory;
     use buck2_execute::directory::INTERNER;
-    use buck2_execute::directory::Symlink;
     use buck2_execute::execute::blocking::IoRequest;
     use buck2_util::threads::ignore_stack_overflow_checks_for_future;
     use buck2_wrapper_common::invocation_id::TraceId;

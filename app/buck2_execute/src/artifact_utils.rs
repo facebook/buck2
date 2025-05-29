@@ -144,10 +144,10 @@ impl<'a> ArtifactValueBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
+    use buck2_common::file_ops::Symlink;
     use buck2_core::fs::project::ProjectRootTemp;
 
     use super::*;
-    use crate::directory::Symlink;
 
     fn path(s: &str) -> &ProjectRelativePath {
         ProjectRelativePath::new(s).unwrap()

@@ -17,6 +17,8 @@ use buck2_core::buck2_env;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
+use buck2_core::fs::paths::RelativePath;
+use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -266,6 +268,35 @@ pub enum RawPathMetadata<T = Arc<CellPath>> {
     Symlink { at: T, to: RawSymlink<T> },
     File(FileMetadata),
     Directory,
+}
+
+/// Represents a relative symlink, and stores the symlink's target path.
+#[derive(Debug, Display, Hash, Eq, PartialEq, Clone, Allocative)]
+pub struct Symlink(RelativePathBuf);
+
+impl Symlink {
+    pub fn new(target: RelativePathBuf) -> Self {
+        Self(target)
+    }
+
+    /// Returns the path the symlink points to.
+    pub fn target(&self) -> &RelativePath {
+        self.0.as_relative_path()
+    }
+
+    /// Creates a new `Symlink` from `self`, such that its target is
+    /// `src_relative_to_dest/self.target()`.
+    ///
+    /// This solves a specific problem: symlink at path `src` points to an
+    /// artifact at path `src/target`. We move the symlink to `dest`, but we
+    /// want to keep linking to the same artifact. How can we adjust the target
+    /// in order to achieve that? We need to know how to get to `src` from
+    /// `dest`, which is what `src_relative_to_dest` tells us.
+    pub fn relativized<P: AsRef<RelativePath>>(&self, src_relative_to_dest: P) -> Self {
+        // FIXME(rafaelc): we don't need to normalize the target anymore!
+        let relativized_t = src_relative_to_dest.as_ref().join_normalized(&self.0);
+        Self(relativized_t)
+    }
 }
 
 #[derive(Debug, Dupe, Hash, PartialEq, Eq, Clone, Allocative, VariantName)]

@@ -21,8 +21,8 @@ use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::Symlink;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -65,10 +65,6 @@ use crate::re::manager::ManagedRemoteExecutionClient;
 #[allocative::root]
 pub static INTERNER: Lazy<DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>> =
     Lazy::new(DashMapDirectoryInterner::new);
-
-/// Represents a relative symlink, and stores the symlink's target path.
-#[derive(Debug, Display, Eq, PartialEq, Allocative)]
-pub struct Symlink(RelativePathBuf);
 
 #[derive(Clone, Debug, Dupe, PartialEq, Eq, Display, Allocative)]
 pub enum ActionDirectoryMember {
@@ -180,31 +176,6 @@ impl DirectoryHasher<ActionDirectoryMember, TrackedFileDigest> for ReDirectorySe
         D: ActionFingerprintedDirectoryRef<'a>,
     {
         TrackedFileDigest::from_content(&Self::serialize_entries(entries), self.cas_digest_config)
-    }
-}
-
-impl Symlink {
-    pub fn new(target: RelativePathBuf) -> Self {
-        Self(target)
-    }
-
-    /// Returns the path the symlink points to.
-    pub fn target(&self) -> &RelativePath {
-        self.0.as_relative_path()
-    }
-
-    /// Creates a new `Symlink` from `self`, such that its target is
-    /// `src_relative_to_dest/self.target()`.
-    ///
-    /// This solves a specific problem: symlink at path `src` points to an
-    /// artifact at path `src/target`. We move the symlink to `dest`, but we
-    /// want to keep linking to the same artifact. How can we adjust the target
-    /// in order to achieve that? We need to know how to get to `src` from
-    /// `dest`, which is what `src_relative_to_dest` tells us.
-    pub fn relativized<P: AsRef<RelativePath>>(&self, src_relative_to_dest: P) -> Self {
-        // FIXME(rafaelc): we don't need to normalize the target anymore!
-        let relativized_t = src_relative_to_dest.as_ref().join_normalized(&self.0);
-        Self(relativized_t)
     }
 }
 
@@ -453,7 +424,7 @@ impl<'a> TryFrom<&'a RE::SymlinkNode> for ActionDirectoryMember {
                 ForwardRelativePathBuf::default(),
             )?))
         } else {
-            ActionDirectoryMember::Symlink(Arc::new(Symlink(RelativePathBuf::from(
+            ActionDirectoryMember::Symlink(Arc::new(Symlink::new(RelativePathBuf::from(
                 node.target.clone(),
             ))))
         };
