@@ -44,6 +44,7 @@ use futures::FutureExt;
 use itertools::Itertools;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
+use sorted_vector_map::SortedVectorMap;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::calculation::ActionCalculation;
@@ -161,10 +162,9 @@ fn ensure_source_artifact_staged<'a>(
     source: SourceArtifact,
 ) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a> {
     async move {
-        Ok(EnsureArtifactGroupReady::Single(ArtifactValue::new(
+        Ok(EnsureArtifactGroupReady::Single(
             path_artifact_value(dice, Arc::new(source.get_path().to_cell_path())).await?,
-            None,
-        )))
+        ))
     }
     .boxed()
 }
@@ -274,7 +274,7 @@ fn _assert_ensure_artifact_group_future_size() {
 async fn dir_artifact_value(
     ctx: &mut DiceComputations<'_>,
     cell_path: Arc<CellPath>,
-) -> buck2_error::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
+) -> buck2_error::Result<ArtifactValue> {
     // We kept running into this performance footgun where a large directory is declared as a source
     // on a toolchain, and then every `BuildKey` using that toolchain ends up taking a DICE edge on
     // `PathMetadataKey` of every file inside that directory, blowing up Buck2's memory use.
@@ -287,7 +287,7 @@ async fn dir_artifact_value(
 
     #[async_trait]
     impl Key for DirArtifactValueKey {
-        type Value = buck2_error::Result<ActionSharedDirectory>;
+        type Value = buck2_error::Result<ArtifactValue>;
 
         async fn compute(
             &self,
@@ -298,7 +298,7 @@ async fn dir_artifact_value(
                 .await?
                 .included;
 
-            let entries = ctx
+            let entry_values = ctx
                 .try_compute_join(files.iter(), |ctx, x| {
                     async move {
                         // TODO(scottcao): This current creates a `DirArtifactValueKey` for each subdir of a source directory.
@@ -312,39 +312,78 @@ async fn dir_artifact_value(
                     .boxed()
                 })
                 .await?;
+
+            enum DepsMerger {
+                None,
+                One(ActionSharedDirectory),
+                Multiple(ActionDirectoryBuilder),
+            }
+
+            let mut entries = SortedVectorMap::new();
+            let mut deps_merger = DepsMerger::None;
+            for (file_name, value) in entry_values {
+                entries.insert(file_name, value.entry().dupe());
+                if let Some(deps) = value.deps() {
+                    deps_merger = match deps_merger {
+                        DepsMerger::None => DepsMerger::One(deps.dupe()),
+                        DepsMerger::One(first_deps) => {
+                            let mut builder = first_deps.into_builder();
+                            builder.merge(deps.dupe().into_builder())?;
+                            DepsMerger::Multiple(builder)
+                        }
+                        DepsMerger::Multiple(mut builder) => {
+                            builder.merge(deps.dupe().into_builder())?;
+                            DepsMerger::Multiple(builder)
+                        }
+                    }
+                }
+            }
             let entries = entries.into_iter().collect();
 
             let digest_config = ctx.global_data().get_digest_config();
             let d: DirectoryData<_, _, _> =
                 DirectoryData::new(entries, digest_config.as_directory_serializer());
-            Ok(INTERNER.intern(d))
+            let d = INTERNER.intern(d);
+
+            let deps = match deps_merger {
+                DepsMerger::None => None,
+                DepsMerger::One(deps) => Some(deps),
+                DepsMerger::Multiple(builder) => Some(
+                    builder
+                        .fingerprint(digest_config.as_directory_serializer())
+                        .shared(&*INTERNER),
+                ),
+            };
+
+            Ok(ArtifactValue::new(ActionDirectoryEntry::Dir(d), deps))
         }
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
             match (x, y) {
-                (Ok(x), Ok(y)) => x.fingerprint() == y.fingerprint(),
+                (Ok(x), Ok(y)) => x == y,
                 _ => false,
             }
         }
     }
 
-    let res = ctx.compute(&DirArtifactValueKey(cell_path)).await??;
-    Ok(ActionDirectoryEntry::Dir(res))
+    ctx.compute(&DirArtifactValueKey(cell_path)).await?
 }
 
 #[async_recursion]
 async fn path_artifact_value(
     ctx: &mut DiceComputations<'_>,
     cell_path: Arc<CellPath>,
-) -> buck2_error::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
+) -> buck2_error::Result<ArtifactValue> {
     let raw = DiceFileComputations::read_path_metadata(ctx, cell_path.as_ref().as_ref()).await?;
     match PathMetadataOrRedirection::from(raw) {
         PathMetadataOrRedirection::PathMetadata(meta) => match meta {
-            PathMetadata::ExternalSymlink(symlink) => Ok(ActionDirectoryEntry::Leaf(
-                ActionDirectoryMember::ExternalSymlink(symlink),
+            PathMetadata::ExternalSymlink(symlink) => Ok(ArtifactValue::new(
+                ActionDirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(symlink)),
+                None,
             )),
-            PathMetadata::File(metadata) => Ok(ActionDirectoryEntry::Leaf(
-                ActionDirectoryMember::File(metadata),
+            PathMetadata::File(metadata) => Ok(ArtifactValue::new(
+                ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)),
+                None,
             )),
             PathMetadata::Directory => dir_artifact_value(ctx, cell_path).await,
         },
