@@ -60,22 +60,26 @@ async def check_execution_kind(
         assert actual == expected
 
 
-async def check_match_dep_files(
+class MatchDepFilesEvent(typing.NamedTuple):
+    remote_cache: bool
+    checking_filtered_inputs: bool
+
+
+async def check_match_dep_files_events(
     buck: Buck,
-    expected: typing.List[
-        typing.Tuple[bool, bool]  # (checking_filtered_inputs, remote_cache)
-    ],
+    expected_events: typing.List[MatchDepFilesEvent],
 ) -> None:
     match_dep_files = await filter_events(
         buck, "Event", "data", "SpanStart", "data", "MatchDepFiles"
     )
-    assert len(match_dep_files) == len(expected)
+    assert len(match_dep_files) == len(expected_events)
 
-    for match, (checking_filtered_inputs, remote_cache) in zip(
-        match_dep_files, expected
-    ):
-        assert bool(match["remote_cache"]) == remote_cache
-        assert bool(match["checking_filtered_inputs"]) == checking_filtered_inputs
+    for match, expected_event in zip(match_dep_files, expected_events):
+        assert bool(match["remote_cache"]) == expected_event.remote_cache
+        assert (
+            bool(match["checking_filtered_inputs"])
+            == expected_event.checking_filtered_inputs
+        )
 
 
 async def _get_execution_kind(buck: Buck) -> int:
@@ -199,7 +203,9 @@ async def test_dep_file_hit_identical_action(buck: Buck) -> None:
         ignored=[ACTION_EXECUTION_KIND_SIMPLE],
     )
     # The MatchDepFilesStart span should indicate we only checked the depfile cache once
-    await check_match_dep_files(buck, [(False, False)])
+    await check_match_dep_files_events(
+        buck, [MatchDepFilesEvent(remote_cache=False, checking_filtered_inputs=False)]
+    )
 
 
 # Flaky because of watchman on mac (and maybe windows)
@@ -612,13 +618,18 @@ async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
     assert (
         was_cache_hit and execution_kind == ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE
     ) or (not was_cache_hit and execution_kind == ACTION_EXECUTION_KIND_LOCAL)
-    expected_dep_file_match = [
-        (False, False),  # Initial local dep file cache lookup for an identical action
-        (True, True),  # Remote dep file cache verification
+    expected_dep_file_match_events = [
+        MatchDepFilesEvent(
+            remote_cache=False, checking_filtered_inputs=False
+        ),  # Initial local dep file cache lookup for an identical action
+        MatchDepFilesEvent(
+            remote_cache=True, checking_filtered_inputs=True
+        ),  # Remote dep file cache hit verification
     ]
+
     if execution_kind == ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE:
         # Check the MatchDepFiles events
-        await check_match_dep_files(buck, expected_dep_file_match)
+        await check_match_dep_files_events(buck, expected_dep_file_match_events)
 
     # # Change a file that is tracked by a dep file but shows up as unused, we get a local dep file cache hit
     # # as that is checked first.
@@ -648,7 +659,7 @@ async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
 
     if execution_kind == ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE:
         # Check the MatchDepFiles events
-        await check_match_dep_files(buck, expected_dep_file_match)
+        await check_match_dep_files_events(buck, expected_dep_file_match_events)
 
 
 @buck_test(data_dir="upload_dep_files")
