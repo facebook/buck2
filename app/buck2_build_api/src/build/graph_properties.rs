@@ -183,9 +183,11 @@ impl Key for GraphPropertiesKey {
     Allocative,
     derive_more::Display
 )]
-enum SketchVersion {
+pub(crate) enum SketchVersion {
     V1,
 }
+
+pub(crate) static DEFAULT_SKETCH_VERSION: SketchVersion = SketchVersion::V1;
 
 impl SketchVersion {
     fn create_sketcher<T: StrongHash>(self) -> VersionedSketcher<T> {
@@ -204,7 +206,7 @@ impl SketchVersion {
     }
 }
 
-struct VersionedSketcher<T: StrongHash> {
+pub struct VersionedSketcher<T: StrongHash> {
     version: SketchVersion,
     sketcher: SetSketcher<u16, UseStrongHashing<T>, Blake3StrongHasher>,
 }
@@ -247,7 +249,7 @@ pub fn debug_compute_configured_graph_properties_uncached(
     visited.insert(&node);
 
     let mut sketch = if configured_graph_sketch {
-        Some(SketchVersion::V1.create_sketcher())
+        Some(DEFAULT_SKETCH_VERSION.create_sketcher())
     } else {
         None
     };
