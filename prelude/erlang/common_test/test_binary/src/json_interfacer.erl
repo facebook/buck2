@@ -1,3 +1,4 @@
+%% % @format
 %% Copyright (c) Meta Platforms, Inc. and affiliates.
 %%
 %% This source code is licensed under both the MIT license found in the

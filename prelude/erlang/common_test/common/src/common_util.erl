@@ -1,3 +1,4 @@
+%% % @format
 -module(common_util).
 
 -export([unicode_characters_to_list/1]).
