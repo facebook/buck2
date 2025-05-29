@@ -384,6 +384,22 @@ async fn test(
             test_executor_args.push("--config-entry".to_owned());
             test_executor_args.push(format!("mode={}", flagfiles));
 
+            let modifiers = client_ctx
+                .representative_config_flags
+                .iter()
+                .filter_map(|s| {
+                    s.source.as_ref().and_then(|source| {
+                        if let representative_config_flag::Source::Modifier(s) = source {
+                            Some(s)
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .join(";");
+            test_executor_args.push("--config-entry".to_owned());
+            test_executor_args.push(format!("modifier={}", modifiers));
+
             (test_executor, test_executor_args)
         }
         None => {
