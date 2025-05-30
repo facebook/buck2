@@ -20,6 +20,16 @@ system_java_tool = rule(
     },
 )
 
+def _system_java_lib_impl(ctx):
+    return [DefaultInfo(default_output = ctx.attrs.jar)]
+
+system_java_lib = rule(
+    impl = _system_java_lib_impl,
+    attrs = {
+        "jar": attrs.string(),
+    },
+)
+
 def system_prebuilt_jar_bootstrap_toolchain(
         name,
         java,
@@ -53,6 +63,9 @@ def javacd_toolchain(
         java,
         javac,
         jar,
+        jlink,
+        jmod,
+        jrt_fs_jar,
         java_for_tests = None,
         visibility = None):
     _java_toolchain(
@@ -69,12 +82,18 @@ def javacd_toolchain(
         javacd = "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:javacd_tool",
         javac_protocol = "javacd",
         javacd_main_class = "com.facebook.buck.jvm.java.stepsbuilder.javacd.main.JavaCDMain",
+        jlink = jlink,
+        jmod = jmod,
+        jrt_fs_jar = jrt_fs_jar,
     )
 
 def system_java_bootstrap_toolchain(
         name,
         java,
         javac,
+        jlink,
+        jmod,
+        jrt_fs_jar,
         visibility = None):
     _java_toolchain(
         name = name,
@@ -83,6 +102,9 @@ def system_java_bootstrap_toolchain(
         is_bootstrap_toolchain = True,
         javac = javac,
         javac_protocol = "classic",
+        jlink = jlink,
+        jmod = jmod,
+        jrt_fs_jar = jrt_fs_jar,
     )
 
 def _java_toolchain_impl(ctx):
@@ -115,6 +137,9 @@ def _java_toolchain_impl(ctx):
             javacd_jvm_args_target = [],
             javacd_main_class = ctx.attrs.javacd_main_class,
             jar_builder = RunInfo(cmd_args([ctx.attrs.java[RunInfo], "-jar", ctx.attrs.jar_builder])),
+            jlink = ctx.attrs.jlink,
+            jmod = ctx.attrs.jmod,
+            jrt_fs_jar = ctx.attrs.jrt_fs_jar,
             src_root_elements = [],
             src_root_prefixes = [],
             track_class_usage = False,
@@ -148,12 +173,15 @@ _java_toolchain = rule(
         "is_bootstrap_toolchain": attrs.bool(default = False),
         "jar": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "jar_builder": attrs.source(default = "prelude//toolchains/android/src/com/facebook/buck/util/zip:jar_builder"),
-        "java": attrs.dep(),
+        "java": attrs.exec_dep(),
         "java_for_tests": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source(), attrs.string()), default = None),
         "javac_protocol": attrs.enum(JavacProtocol.values()),
         "javacd": attrs.option(attrs.source(), default = None),
         "javacd_main_class": attrs.option(attrs.string(), default = None),
+        "jlink": attrs.exec_dep(),
+        "jmod": attrs.exec_dep(),
+        "jrt_fs_jar": attrs.source(),
         "merge_class_to_source_maps": attrs.exec_dep(
             default = "prelude//java/tools:merge_class_to_source_maps",
             providers = [RunInfo],
