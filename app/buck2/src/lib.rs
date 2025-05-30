@@ -462,7 +462,7 @@ impl CommandKind {
             CommandKind::Debug(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Complete(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Completion(cmd) => cmd.exec(Opt::command(), matches, command_ctx),
-            CommandKind::Docs(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Docs(cmd) => cmd.exec(Opt::command(), matches, command_ctx),
             CommandKind::Profile(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Rage(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Init(cmd) => cmd.exec(matches, command_ctx),

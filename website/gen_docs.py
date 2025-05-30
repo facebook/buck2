@@ -169,21 +169,10 @@ def parse_subcommands(output: str) -> List[str]:
 
 
 def generate_help_docs_subcommand(buck: str, args: List[str]) -> str:
-    cmd = buck + " " + " ".join(args) + " --help"
+    cmd = buck + " docs markdown-help-doc " + " ".join(args)
     print("Running " + cmd + " ...")
     res = subprocess.run(cmd, shell=True, check=True, capture_output=True)
-    root = res.stdout.decode()
-    return (
-        "\n\n```text\n"
-        + root
-        + "\n```"
-        + "\n\n".join(
-            [
-                generate_help_docs_subcommand(buck, args + [sub])
-                for sub in parse_subcommands(root)
-            ]
-        )
-    )
+    return res.stdout.decode()
 
 
 def generate_help_docs(buck: str) -> None:
@@ -197,14 +186,7 @@ def generate_help_docs(buck: str) -> None:
         output = generate_help_docs_subcommand(buck, [sub])
         write_file(
             base_dir / (sub + ".generated.md"),
-            "---\nid: "
-            + sub
-            + "\ntitle: "
-            + sub
-            + "\n---\nThese are the flags/commands under `buck2 "
-            + sub
-            + "` and their `--help` output:"
-            + output,
+            "---\nid: " + sub + "\ntitle: " + sub + "\n---\n\n" + output,
         )
 
 

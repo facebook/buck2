@@ -11,12 +11,14 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 
+use crate::help_doc::MarkdownHelpDocCommand;
 use crate::query::DocsAqueryCommand;
 use crate::query::DocsCqueryCommand;
 use crate::query::DocsUqueryCommand;
 use crate::starlark::DocsStarlarkCommand;
 use crate::starlark_builtins::StarlarkBuiltinsCommand;
 
+mod help_doc;
 mod query;
 mod starlark;
 mod starlark_builtins;
@@ -29,6 +31,7 @@ enum DocsKind {
     Uquery(DocsUqueryCommand),
     Cquery(DocsCqueryCommand),
     Aquery(DocsAqueryCommand),
+    MarkdownHelpDoc(MarkdownHelpDocCommand),
 }
 
 #[derive(Debug, clap::Parser)]
@@ -39,7 +42,13 @@ pub struct DocsCommand {
 }
 
 impl DocsCommand {
-    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(
+        self,
+        // The top-level command is used to generate the markdown help doc
+        top_level_cmd: clap::Command,
+        matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+    ) -> ExitResult {
         if let DocsKind::Uquery(_) | DocsKind::Cquery(_) | DocsKind::Aquery(_) = &self.docs_kind {
             // The docs for these are late-bound from the query impls, which is kind of hard to
             // separate from the rest of the query graph
@@ -55,6 +64,7 @@ impl DocsCommand {
             DocsKind::Uquery(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Cquery(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Aquery(cmd) => cmd.exec(submatches, ctx),
+            DocsKind::MarkdownHelpDoc(cmd) => cmd.exec(top_level_cmd),
         }
     }
 }
