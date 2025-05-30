@@ -29,7 +29,11 @@ load(
     "@prelude//java/plugins:java_plugin.bzl",
     "PluginParams",  # @unused Used as a type
 )
-load("@prelude//java/utils:java_utils.bzl", "build_bootclasspath")
+load(
+    "@prelude//java/utils:java_utils.bzl",
+    "CustomJdkInfo",  # @unused Used as a type
+    "build_bootclasspath",
+)
 load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
     "BuildMode",
@@ -71,7 +75,7 @@ def create_jar_artifact_javacd(
         extra_arguments: cmd_args,
         additional_classpath_entries: JavaCompilingDepsTSet | None,
         additional_compiled_srcs: Artifact | None,
-        bootclasspath_entries: list[Artifact],
+        custom_jdk_info: CustomJdkInfo | None,
         is_building_android_binary: bool,
         is_creating_subtarget: bool = False,
         debug_port: [int, None] = None) -> JavaCompileOutputs:
@@ -82,7 +86,8 @@ def create_jar_artifact_javacd(
     actions = ctx.actions
     resources_map = get_resources_map(java_toolchain, label.package, resources, resources_root)
 
-    bootclasspath_entries = build_bootclasspath(bootclasspath_entries, source_level, java_toolchain)
+    custom_bootclasspath = custom_jdk_info.bootclasspath if custom_jdk_info else []
+    bootclasspath_entries = build_bootclasspath(custom_bootclasspath, source_level, java_toolchain)
     abi_generation_mode = get_abi_generation_mode(abi_generation_mode, java_toolchain, srcs, annotation_processor_properties)
 
     should_create_class_abi = (
@@ -128,6 +133,7 @@ def create_jar_artifact_javacd(
         target_level = target_level,
         compiling_deps_tset = compiling_deps_tset,
         bootclasspath_entries = bootclasspath_entries,
+        system_image = custom_jdk_info.system_image if custom_jdk_info else None,
         abi_generation_mode = abi_generation_mode,
         resources_map = resources_map,
         extra_arguments = extra_arguments,
@@ -222,6 +228,7 @@ def _command_builder(
         target_level: int,
         compiling_deps_tset: [JavaCompilingDepsTSet, None],
         bootclasspath_entries: list[Artifact],
+        system_image: Artifact | None,
         abi_generation_mode: AbiGenerationMode,
         resources_map: dict[str, Artifact],
         extra_arguments: cmd_args):
@@ -238,6 +245,7 @@ def _command_builder(
         target_level = target_level,
         compiling_deps_tset = compiling_deps_tset,
         bootclasspath_entries = bootclasspath_entries,
+        system_image = system_image,
         abi_generation_mode = abi_generation_mode,
         resources_map = resources_map,
         extra_arguments = extra_arguments,

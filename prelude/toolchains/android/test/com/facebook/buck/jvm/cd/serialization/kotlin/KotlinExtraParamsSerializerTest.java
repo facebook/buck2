@@ -44,7 +44,8 @@ public class KotlinExtraParamsSerializerTest {
             false,
             JavacPluginParams.EMPTY,
             JavacPluginParams.EMPTY,
-            ImmutableList.of());
+            ImmutableList.of(),
+            null);
 
     com.facebook.buck.cd.model.java.ResolvedJavacOptions serializedJavacOptions =
         ResolvedJavacOptionsSerializer.serialize(resolvedJavacOptions);

@@ -236,7 +236,8 @@ public class JavacStepTest {
         false /* verbose */,
         JavacPluginParams.EMPTY /* javaAnnotationProcessorParams */,
         JavacPluginParams.EMPTY /* standardJavacPluginParams */,
-        ImmutableList.of() /* extraArguments */);
+        ImmutableList.of() /* extraArguments */,
+        null /* systemImage */);
   }
 
   private CompilerOutputPathsValue getCompilerOutputPathsValue() {

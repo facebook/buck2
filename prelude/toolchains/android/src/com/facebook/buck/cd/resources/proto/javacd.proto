@@ -130,6 +130,8 @@ message ResolvedJavacOptions {
   // reserved = 10;
   // reserved = 11;
 
+  string systemImage = 12;
+
   message JavacLanguageLevelOptions {
     string sourceLevel = 1;
     string targetLevel = 2;

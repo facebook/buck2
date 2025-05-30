@@ -244,6 +244,7 @@ def encode_base_jar_command(
         compiling_deps_tset: [JavaCompilingDepsTSet, None],
         classpath_jars_tag: ArtifactTag,
         bootclasspath_entries: list[Artifact],
+        system_image: Artifact | None,
         source_level: int,
         target_level: int,
         abi_generation_mode: [AbiGenerationMode, None],
@@ -296,6 +297,7 @@ def encode_base_jar_command(
         javaAnnotationProcessorParams = encode_ap_params(annotation_processor_properties, target_type),
         standardJavacPluginParams = encode_plugin_params(plugin_params),
         extraArguments = extra_arguments,
+        systemImage = system_image,
     )
 
     return struct(
@@ -503,6 +505,7 @@ def encode_command(
         target_level: int,
         compiling_deps_tset: [JavaCompilingDepsTSet, None],
         bootclasspath_entries: list[Artifact],
+        system_image: Artifact | None,
         abi_generation_mode: AbiGenerationMode,
         resources_map: dict[str, Artifact],
         extra_arguments: cmd_args,
@@ -523,6 +526,7 @@ def encode_command(
         compiling_deps_tset,
         classpath_jars_tag,
         bootclasspath_entries,
+        system_image,
         source_level,
         target_level,
         abi_generation_mode,

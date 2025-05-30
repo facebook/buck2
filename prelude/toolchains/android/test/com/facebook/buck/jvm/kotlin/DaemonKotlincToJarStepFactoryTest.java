@@ -146,6 +146,7 @@ public class DaemonKotlincToJarStepFactoryTest {
         false /* verbose */,
         javaAnnotationProcessorParams,
         JavacPluginParams.EMPTY /* standardJavacPluginParams */,
-        ImmutableList.of() /* extraArguments */);
+        ImmutableList.of() /* extraArguments */,
+        null /* systemImage */);
   }
 }
