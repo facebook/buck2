@@ -602,7 +602,7 @@ public class RealAndroidDevice implements AndroidDevice {
           throw new HumanReadableException(
               errorWithRetry,
               String.format(
-                  "An error occured on install retry %s on device '%s'.", apex.getName(), name));
+                  "An error occurred on install retry %s on device '%s'.", apex.getName(), name));
         }
         throw new HumanReadableException(
             String.format(

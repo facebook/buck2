@@ -1538,13 +1538,13 @@ message ActionError {
   optional ActionErrorDiagnostics error_diagnostics = 7;
 }
 
-// Either the produced `ActionSubError`s, or the error that occured when
+// Either the produced `ActionSubError`s, or the error that occurred when
 // invoking the error handler
 message ActionErrorDiagnostics {
   oneof data {
     // list of action error subcategories and their metadata
     ActionSubErrors sub_errors = 1;
-    // error that may have occured when invoking the handler
+    // error that may have occurred when invoking the handler
     string handler_invocation_error = 2;
   }
 }
@@ -2236,7 +2236,7 @@ message InvocationRecord {
   // Metadata provided by the client. Unlike TypedMetadata, this won't become
   // its own column in Scuba, all those entries will land in a NormVector.
   repeated ClientMetadata client_metadata = 76;
-  // The errors that occured during the command.
+  // The errors that occurred during the command.
   repeated ProcessedErrorReport errors = 79;
   // Cache hit rate as it appears in the console
   float cache_hit_rate = 78;

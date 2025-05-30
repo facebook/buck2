@@ -380,7 +380,7 @@ def compile_swift(
         output_symbols = ctx.actions.declare_output("__tbd__/" + module_name + ".swift_symbols.txt")
 
     # When compiling with WMO (ie, not incrementally), we compile the
-    # swiftmodule seperately. In incremental mode, we generate the swiftmodule
+    # swiftmodule separately. In incremental mode, we generate the swiftmodule
     # as part of the compile action to make use of incrementality.
     if not should_build_swift_incrementally(ctx):
         _compile_swiftmodule(
