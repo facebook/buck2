@@ -13,7 +13,7 @@ rust_library(
 )
 
 # @oss-disable: rust_unittest(
-    # @oss-enable rust_test(
+    rust_test( # @oss-enable
     name = "test",
     srcs = ["tests/test.rs"],
     deps = [
