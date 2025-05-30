@@ -283,7 +283,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// `D.update([pairs][, name=value[, ...])` makes a sequence of key/value
     /// insertions into dictionary D, then returns `None.`
     ///
-    /// If the positional argument `pairs` is present, it must be `None`,
+    /// If the positional argument `pairs` is present, it must be
     /// another `dict`, or some other iterable.
     /// If it is another `dict`, then its key/value pairs are inserted into D.
     /// If it is an iterable, it must provide a sequence of pairs (or other
