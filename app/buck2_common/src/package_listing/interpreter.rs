@@ -24,6 +24,7 @@ use itertools::Itertools;
 use starlark_map::sorted_set::SortedSet;
 use starlark_map::sorted_vec::SortedVec;
 
+use crate::TIME_TO_FIX_USE_BETTER_ERROR;
 use crate::dice::file_ops::DiceFileComputations;
 use crate::find_buildfile::find_buildfile;
 use crate::ignores::file_ignores::FileIgnoreReason;
@@ -259,22 +260,27 @@ impl std::fmt::Display for GatherPackageListingError {
                 suggestion,
             } => {
                 let path_as_str = expected_path.to_string();
-                let suggestion_msg = match suggestion {
-                    DirectoryDoesNotExistSuggestion::Cell(cell_suggestion) => {
-                        format!("Did you mean one of [`{}`]?", cell_suggestion.join("`, `"))
-                    }
-                    DirectoryDoesNotExistSuggestion::Typo(suggestion) => {
-                        format!("Did you mean `{}//{}`?", expected_path.cell(), suggestion)
-                    }
-                    DirectoryDoesNotExistSuggestion::NoSuggestion => "".to_owned(),
-                };
+                let err_message = if *TIME_TO_FIX_USE_BETTER_ERROR.get().unwrap() {
+                    let suggestion_msg = match suggestion {
+                        DirectoryDoesNotExistSuggestion::Cell(cell_suggestion) => {
+                            format!("Did you mean one of [`{}`]?", cell_suggestion.join("`, `"))
+                        }
+                        DirectoryDoesNotExistSuggestion::Typo(suggestion) => {
+                            format!("Did you mean `{}//{}`?", expected_path.cell(), suggestion)
+                        }
+                        DirectoryDoesNotExistSuggestion::NoSuggestion => "".to_owned(),
+                    };
 
-                let err_message = format!(
-                    "{}\n    dir `{}` does not exist. {}",
-                    underlined(&path_as_str),
-                    path_as_str,
-                    suggestion_msg
-                );
+                    format!(
+                        "{}\n    dir `{}` does not exist. {}",
+                        underlined(&path_as_str),
+                        path_as_str,
+                        suggestion_msg
+                    )
+                } else {
+                    // TODO(minglunli): Remove this arm after A/B testing
+                    "".to_owned()
+                };
 
                 (package, err_message)
             }

@@ -35,5 +35,5 @@ async def test_build_skip_missing_fails_on_missing_package(buck: Buck) -> None:
             "//bad-package:existing",
             "--skip-missing-targets",
         ),
-        stderr_regex="`root//bad-package`",
+        stderr_regex="root//bad-package",
     )
