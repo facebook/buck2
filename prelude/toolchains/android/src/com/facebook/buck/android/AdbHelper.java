@@ -334,7 +334,8 @@ public class AdbHelper implements AndroidDevicesHelper {
                 "Device disk size: %s, used: %s, available: %s",
                 diskSpace.get(0), diskSpace.get(1), diskSpace.get(2));
             boolean isEmulator = device.isEmulator();
-            deviceInfos.add(
+
+            AndroidDeviceInfo deviceInfo =
                 new AndroidDeviceInfo(
                     locale,
                     abi,
@@ -344,7 +345,9 @@ public class AdbHelper implements AndroidDevicesHelper {
                     AndroidDeviceInfo.DensityClass.forPhysicalDensity(dpi),
                     sdk,
                     isEmulator,
-                    device.getInstallerMethodName()));
+                    device.getInstallerMethodName());
+            LOG.info("Device info [%s]: %s", device.getSerialNumber(), deviceInfo);
+            deviceInfos.add(deviceInfo);
           } catch (IncompatibleAbiException e) {
             throw e;
           } catch (Exception e) {
