@@ -36,3 +36,16 @@ Build a copy of `buck2` with `buck2`:
 ```sh
 ./bootstrap/buck2 build //:buck2
 ```
+
+## MacOS file descriptor limits
+
+Note that on MacOS, the default file descriptor limit is far too small. If you encounter
+"Too many open files (os error 24)" errors, do this:
+
+```sh
+buck2 kill
+ulimit -n unlimited
+```
+
+And try again. [This PR](https://github.com/facebook/buck2/pull/928) should address the issue
+in Buck2 itself, once completed.
