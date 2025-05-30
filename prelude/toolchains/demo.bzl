@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//android/tools:jdk_system_image.bzl", "jdk_system_image")
 load("@prelude//tests:test_toolchain.bzl", "noop_test_toolchain")
 load("@prelude//toolchains:android.bzl", "android_sdk_tools", "system_android_toolchain")
 load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
@@ -40,9 +41,15 @@ def system_demo_toolchains():
         visibility = ["PUBLIC"],
     )
 
+    jdk_system_image(
+        name = "jdk_system_image",
+        core_for_system_modules_jar = ":android_sdk_tools[core_for_system_modules.jar]",
+    )
+
     system_android_toolchain(
         name = "android",
         android_sdk_tools_target = ":android_sdk_tools",
+        jdk_system_image = ":jdk_system_image",
         visibility = ["PUBLIC"],
     )
 
