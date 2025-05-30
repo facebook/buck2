@@ -519,7 +519,7 @@ impl Buck2OssReConfiguration {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
                     property: "use_fbcode_metadata",
                 })?
-                .unwrap_or(true),
+                .unwrap_or(false),
             max_decoding_message_size: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "max_decoding_message_size",

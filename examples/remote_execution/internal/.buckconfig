@@ -16,6 +16,8 @@ http_headers = foo:bar, baz:qux
 capabilities = false
 # Value doesn't really matter
 instance_name = test
+# For talking to RE
+use_fbcode_metadata = true
 
 [build]
   execution_platforms = root//platforms:platforms
