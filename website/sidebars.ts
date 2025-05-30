@@ -59,6 +59,7 @@ export const sidebars: SidebarsConfig = {
             'getting_started/install',
             'getting_started/tutorial_first_build',
             'getting_started/tutorial_adding_dependencies',
+            'getting_started/tutorial_adding_tests',
         ]
     },
     {
