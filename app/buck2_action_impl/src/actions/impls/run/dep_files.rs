@@ -866,7 +866,7 @@ async fn dep_files_match(
     }
 
     // We didn't get an exact match, and we don't have any dep files, so we're done.
-    if declared_dep_files.tagged.is_empty() {
+    if declared_dep_files.is_empty() {
         return Ok(false);
     }
 
