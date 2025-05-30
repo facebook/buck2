@@ -91,6 +91,7 @@ def system_demo_toolchains():
     javacd_toolchain(
         name = "java",
         java = ":java_tool",
+        javac = ":javac_tool",
         jar = ":jar_tool",
         visibility = ["PUBLIC"],
     )
@@ -112,6 +113,7 @@ def system_demo_toolchains():
     javacd_toolchain(
         name = "java_for_android",
         java = ":java_tool",
+        javac = ":javac_tool",
         jar = ":jar_tool",
         visibility = ["PUBLIC"],
     )
@@ -119,6 +121,7 @@ def system_demo_toolchains():
     javacd_toolchain(
         name = "java_for_host_test",
         java = ":java_tool",
+        javac = ":javac_tool",
         java_for_tests = ":java_tool",
         jar = ":jar_tool",
         visibility = ["PUBLIC"],

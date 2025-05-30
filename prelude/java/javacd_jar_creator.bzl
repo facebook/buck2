@@ -270,9 +270,8 @@ def _define_javacd_action(
         source_only_abi_compiling_deps: list[JavaClasspathEntry] = []):
     proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 
-    # for javacd we expect java_toolchain.javac to be a dependency. Otherwise, it won't work when we try to debug it.
-    expect(isinstance(java_toolchain.javac, Dependency), "java_toolchain.javac must be of type dependency but it is {}".format(type(java_toolchain.javac)))
-    compiler = java_toolchain.javac[DefaultInfo].default_outputs[0]
+    expect(java_toolchain.javacd, "java_toolchain.javacd must be set for javacd protocol")
+    compiler = java_toolchain.javacd
     exe, local_only = prepare_cd_exe(
         qualified_name,
         java = java_toolchain.java[RunInfo],

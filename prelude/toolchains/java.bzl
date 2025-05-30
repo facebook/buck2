@@ -51,6 +51,7 @@ _prebuilt_jar_toolchain_rule = rule(
 def javacd_toolchain(
         name,
         java,
+        javac,
         jar,
         java_for_tests = None,
         visibility = None):
@@ -64,7 +65,8 @@ def javacd_toolchain(
         class_abi_generator = "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi:api-stubber",
         class_loader_bootstrapper = "prelude//toolchains/android/src/com/facebook/buck/cli/bootstrapper:bootstrapper",
         fat_jar_main_class_lib = "prelude//toolchains/android/src/com/facebook/buck/jvm/java/fatjar:fat-jar-main-binary",
-        javac = "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:javacd_tool",
+        javac = javac,
+        javacd = "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:javacd_tool",
         javac_protocol = "javacd",
         javacd_main_class = "com.facebook.buck.jvm.java.stepsbuilder.javacd.main.JavaCDMain",
     )
@@ -107,6 +109,7 @@ def _java_toolchain_impl(ctx):
             java = ctx.attrs.java,
             java_for_tests = ctx.attrs.java_for_tests[RunInfo] if ctx.attrs.java_for_tests else ctx.attrs.java[RunInfo],
             javac = ctx.attrs.javac,
+            javacd = ctx.attrs.javacd,
             javac_protocol = ctx.attrs.javac_protocol,
             javacd_jvm_args = [],
             javacd_jvm_args_target = [],
@@ -149,6 +152,7 @@ _java_toolchain = rule(
         "java_for_tests": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "javac": attrs.option(attrs.one_of(attrs.dep(), attrs.source(), attrs.string()), default = None),
         "javac_protocol": attrs.enum(JavacProtocol.values()),
+        "javacd": attrs.option(attrs.source(), default = None),
         "javacd_main_class": attrs.option(attrs.string(), default = None),
         "merge_class_to_source_maps": attrs.exec_dep(
             default = "prelude//java/tools:merge_class_to_source_maps",

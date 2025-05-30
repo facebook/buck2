@@ -45,6 +45,7 @@ JavaToolchainInfo = provider(
         "java_for_tests": provider_field(typing.Any, default = None),
         "javac": provider_field(typing.Any, default = None),
         "javac_protocol": provider_field(typing.Any, default = None),
+        "javacd": provider_field(typing.Any, default = None),
         "javacd_debug_port": provider_field(typing.Any, default = None),
         "javacd_debug_target": provider_field(typing.Any, default = None),
         "javacd_jvm_args": provider_field(typing.Any, default = None),
