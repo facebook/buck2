@@ -9,7 +9,7 @@ Error evaluating expression:
 Caused by:
     package `root//package_listing/missing/foo/x/y/lmnop:` does not exist
              ^---------------------------^
-        dir `root//package_listing/missing` does not exist.
+        dir `root//package_listing/missing` does not exist. 
 
 
 
@@ -99,4 +99,4 @@ Error evaluating expression:
 Caused by:
     package `root//something:` does not exist
              ^-------------^
-        dir `root//something` does not exist. Did you mean one of `cell//something`?
+        dir `root//something` does not exist. Did you mean one of [`cell//something`]?

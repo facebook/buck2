@@ -40,6 +40,7 @@ use crate::file_ops::FileOpsError;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::ReadDirOutput;
 use crate::ignores::file_ignores::FileIgnoreResult;
+use crate::io::DirectoryDoesNotExistSuggestion;
 use crate::io::ReadDirError;
 
 pub mod delegate;
@@ -537,8 +538,9 @@ fn extended_ignore_error<'a>(
                             if !cell_suggestion.is_empty() {
                                 return Some(ReadDirError::DirectoryDoesNotExist {
                                     path: path.to_owned(),
-                                    cell_suggestion,
-                                    suggestion: None,
+                                    suggestion: DirectoryDoesNotExistSuggestion::Cell(
+                                        cell_suggestion,
+                                    ),
                                 });
                             } else if let Some(suggestion) = did_you_mean(
                                 file_name.as_str(),
@@ -546,15 +548,15 @@ fn extended_ignore_error<'a>(
                             ) {
                                 return Some(ReadDirError::DirectoryDoesNotExist {
                                     path: path.to_owned(),
-                                    cell_suggestion,
-                                    suggestion: Some(suggestion.to_owned()),
+                                    suggestion: DirectoryDoesNotExistSuggestion::Typo(
+                                        suggestion.to_owned(),
+                                    ),
                                 });
                             }
 
                             return Some(ReadDirError::DirectoryDoesNotExist {
                                 path: path.to_owned(),
-                                cell_suggestion,
-                                suggestion: None,
+                                suggestion: DirectoryDoesNotExistSuggestion::NoSuggestion,
                             });
                         }
                         _ => {}

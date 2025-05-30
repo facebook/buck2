@@ -27,6 +27,7 @@ use starlark_map::sorted_vec::SortedVec;
 use crate::dice::file_ops::DiceFileComputations;
 use crate::find_buildfile::find_buildfile;
 use crate::ignores::file_ignores::FileIgnoreReason;
+use crate::io::DirectoryDoesNotExistSuggestion;
 use crate::io::ReadDirError;
 use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;
@@ -115,8 +116,7 @@ pub enum GatherPackageListingError {
     DirectoryDoesNotExist {
         package: CellPath,
         expected_path: CellPath,
-        cell_suggestion: Vec<String>,
-        suggestion: Option<String>,
+        suggestion: DirectoryDoesNotExistSuggestion,
     },
     #[buck2(input)]
     DirectoryIsIgnored {
@@ -153,16 +153,13 @@ impl GatherPackageListingError {
         err: ReadDirError,
     ) -> GatherPackageListingError {
         match err {
-            ReadDirError::DirectoryDoesNotExist {
-                path,
-                cell_suggestion,
-                suggestion,
-            } => GatherPackageListingError::DirectoryDoesNotExist {
-                package: package_path.to_owned(),
-                expected_path: path,
-                cell_suggestion,
-                suggestion,
-            },
+            ReadDirError::DirectoryDoesNotExist { path, suggestion } => {
+                GatherPackageListingError::DirectoryDoesNotExist {
+                    package: package_path.to_owned(),
+                    expected_path: path,
+                    suggestion,
+                }
+            }
             ReadDirError::DirectoryIsIgnored(path, ignore_reason) => {
                 GatherPackageListingError::DirectoryIsIgnored {
                     package: package_path.to_owned(),
@@ -259,32 +256,25 @@ impl std::fmt::Display for GatherPackageListingError {
             GatherPackageListingError::DirectoryDoesNotExist {
                 package,
                 expected_path,
-                cell_suggestion,
                 suggestion,
             } => {
                 let path_as_str = expected_path.to_string();
-                let err_message = if !cell_suggestion.is_empty() {
-                    format!(
-                        "{}\n    dir `{}` does not exist. Did you mean one of `{}`?",
-                        underlined(&path_as_str),
-                        path_as_str,
-                        cell_suggestion.join("`, `")
-                    )
-                } else if let Some(suggestion) = suggestion {
-                    format!(
-                        "{}\n    dir `{}` does not exist. Did you mean `{}//{}`?",
-                        underlined(&path_as_str),
-                        path_as_str,
-                        expected_path.cell(),
-                        suggestion
-                    )
-                } else {
-                    format!(
-                        "{}\n    dir `{}` does not exist.",
-                        underlined(&path_as_str),
-                        path_as_str,
-                    )
+                let suggestion_msg = match suggestion {
+                    DirectoryDoesNotExistSuggestion::Cell(cell_suggestion) => {
+                        format!("Did you mean one of [`{}`]?", cell_suggestion.join("`, `"))
+                    }
+                    DirectoryDoesNotExistSuggestion::Typo(suggestion) => {
+                        format!("Did you mean `{}//{}`?", expected_path.cell(), suggestion)
+                    }
+                    DirectoryDoesNotExistSuggestion::NoSuggestion => "".to_owned(),
                 };
+
+                let err_message = format!(
+                    "{}\n    dir `{}` does not exist. {}",
+                    underlined(&path_as_str),
+                    path_as_str,
+                    suggestion_msg
+                );
 
                 (package, err_message)
             }

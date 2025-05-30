@@ -28,8 +28,7 @@ pub enum ReadDirError {
     #[error("Directory `{path}` does not exist")]
     DirectoryDoesNotExist {
         path: CellPath,
-        cell_suggestion: Vec<String>,
-        suggestion: Option<String>,
+        suggestion: DirectoryDoesNotExistSuggestion,
     },
     #[error("Directory `{0}` is ignored ({})", .1.describe())]
     DirectoryIsIgnored(CellPath, FileIgnoreReason),
@@ -37,6 +36,13 @@ pub enum ReadDirError {
     NotADirectory(CellPath, String),
     #[error(transparent)]
     Error(buck2_error::Error),
+}
+
+#[derive(Debug, Allocative)]
+pub enum DirectoryDoesNotExistSuggestion {
+    Cell(Vec<String>),
+    Typo(String),
+    NoSuggestion,
 }
 
 impl From<buck2_error::Error> for ReadDirError {
