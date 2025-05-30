@@ -28,6 +28,7 @@ pub enum ReadDirError {
     #[error("Directory `{path}` does not exist")]
     DirectoryDoesNotExist {
         path: CellPath,
+        cell_suggestion: Vec<String>,
         suggestion: Option<String>,
     },
     #[error("Directory `{0}` is ignored ({})", .1.describe())]

@@ -115,6 +115,7 @@ pub enum GatherPackageListingError {
     DirectoryDoesNotExist {
         package: CellPath,
         expected_path: CellPath,
+        cell_suggestion: Vec<String>,
         suggestion: Option<String>,
     },
     #[buck2(input)]
@@ -152,13 +153,16 @@ impl GatherPackageListingError {
         err: ReadDirError,
     ) -> GatherPackageListingError {
         match err {
-            ReadDirError::DirectoryDoesNotExist { path, suggestion } => {
-                GatherPackageListingError::DirectoryDoesNotExist {
-                    package: package_path.to_owned(),
-                    expected_path: path,
-                    suggestion,
-                }
-            }
+            ReadDirError::DirectoryDoesNotExist {
+                path,
+                cell_suggestion,
+                suggestion,
+            } => GatherPackageListingError::DirectoryDoesNotExist {
+                package: package_path.to_owned(),
+                expected_path: path,
+                cell_suggestion,
+                suggestion,
+            },
             ReadDirError::DirectoryIsIgnored(path, ignore_reason) => {
                 GatherPackageListingError::DirectoryIsIgnored {
                     package: package_path.to_owned(),
@@ -255,10 +259,18 @@ impl std::fmt::Display for GatherPackageListingError {
             GatherPackageListingError::DirectoryDoesNotExist {
                 package,
                 expected_path,
+                cell_suggestion,
                 suggestion,
             } => {
                 let path_as_str = expected_path.to_string();
-                let err_message = if let Some(suggestion) = suggestion {
+                let err_message = if !cell_suggestion.is_empty() {
+                    format!(
+                        "{}\n    dir `{}` does not exist. Did you mean one of `{}`?",
+                        underlined(&path_as_str),
+                        path_as_str,
+                        cell_suggestion.join("`, `")
+                    )
+                } else if let Some(suggestion) = suggestion {
                     format!(
                         "{}\n    dir `{}` does not exist. Did you mean `{}//{}`?",
                         underlined(&path_as_str),

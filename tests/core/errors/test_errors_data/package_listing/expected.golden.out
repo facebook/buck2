@@ -87,3 +87,16 @@ Caused by:
     package `root//package_listings:` does not exist
              ^--------------------^
         dir `root//package_listings` does not exist. Did you mean `root//package_listing`?
+
+
+
+Command failed: 
+Error evaluating expression:
+    //something:
+    ^----------^
+
+
+Caused by:
+    package `root//something:` does not exist
+             ^-------------^
+        dir `root//something` does not exist. Did you mean one of `cell//something`?

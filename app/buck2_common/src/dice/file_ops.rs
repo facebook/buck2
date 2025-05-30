@@ -32,6 +32,7 @@ use futures::FutureExt;
 use futures::future::BoxFuture;
 
 use crate::buildfiles::HasBuildfiles;
+use crate::dice::cells::HasCellResolver;
 use crate::dice::file_ops::delegate::get_delegated_file_ops;
 use crate::file_ops::DirectorySubListingMatchingOutput;
 use crate::file_ops::FileOps;
@@ -517,18 +518,42 @@ fn extended_ignore_error<'a>(
 
                     match path.path().file_name() {
                         Some(file_name) if !v.contains(file_name) => {
-                            if let Some(suggestion) = did_you_mean(
+                            let mut cell_suggestion = vec![];
+                            if let Ok(cell_resolver) = ctx.get_cell_resolver().await {
+                                for (cell_name, _) in cell_resolver.cells() {
+                                    let cell_path = CellPathRef::new(cell_name, path.path());
+
+                                    if DiceFileComputations::read_path_metadata_if_exists(
+                                        ctx, cell_path,
+                                    )
+                                    .await
+                                    .is_ok_and(|result| result.is_some())
+                                    {
+                                        cell_suggestion.push(cell_path.to_string());
+                                    }
+                                }
+                            }
+
+                            if !cell_suggestion.is_empty() {
+                                return Some(ReadDirError::DirectoryDoesNotExist {
+                                    path: path.to_owned(),
+                                    cell_suggestion,
+                                    suggestion: None,
+                                });
+                            } else if let Some(suggestion) = did_you_mean(
                                 file_name.as_str(),
                                 v.included.iter().map(|x| x.file_name.as_str()),
                             ) {
                                 return Some(ReadDirError::DirectoryDoesNotExist {
                                     path: path.to_owned(),
+                                    cell_suggestion,
                                     suggestion: Some(suggestion.to_owned()),
                                 });
                             }
 
                             return Some(ReadDirError::DirectoryDoesNotExist {
                                 path: path.to_owned(),
+                                cell_suggestion,
                                 suggestion: None,
                             });
                         }

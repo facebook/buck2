@@ -60,6 +60,8 @@ async def test_package_listing_errors(buck: Buck) -> None:
         "//package_listing/data.file/subdir:target",
         # Missing directory due to typo
         "//package_listings:",
+        # Missing directory due to being in the wrong cell
+        "//something:",
     ]:
         out = await expect_failure(buck.uquery(target, "-v=0", "--console=none"))
         stripped_stderr = re.sub(
