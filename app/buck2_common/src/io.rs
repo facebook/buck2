@@ -25,8 +25,11 @@ use crate::ignores::file_ignores::FileIgnoreReason;
 #[derive(Debug, Allocative, buck2_error::Error)]
 #[buck2(tag = Input)]
 pub enum ReadDirError {
-    #[error("Directory `{0}` does not exist")]
-    DirectoryDoesNotExist(CellPath),
+    #[error("Directory `{path}` does not exist")]
+    DirectoryDoesNotExist {
+        path: CellPath,
+        suggestion: Option<String>,
+    },
     #[error("Directory `{0}` is ignored ({})", .1.describe())]
     DirectoryIsIgnored(CellPath, FileIgnoreReason),
     #[error("Path `{0}` is `{1}`, not a directory")]

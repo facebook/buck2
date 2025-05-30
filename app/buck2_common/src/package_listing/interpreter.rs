@@ -115,7 +115,7 @@ pub enum GatherPackageListingError {
     DirectoryDoesNotExist {
         package: CellPath,
         expected_path: CellPath,
-        // TODO(cjhopman): would be nice to get the absolute path here
+        suggestion: Option<String>,
     },
     #[buck2(input)]
     DirectoryIsIgnored {
@@ -152,10 +152,11 @@ impl GatherPackageListingError {
         err: ReadDirError,
     ) -> GatherPackageListingError {
         match err {
-            ReadDirError::DirectoryDoesNotExist(expected_path) => {
+            ReadDirError::DirectoryDoesNotExist { path, suggestion } => {
                 GatherPackageListingError::DirectoryDoesNotExist {
                     package: package_path.to_owned(),
-                    expected_path,
+                    expected_path: path,
+                    suggestion,
                 }
             }
             ReadDirError::DirectoryIsIgnored(path, ignore_reason) => {
@@ -254,16 +255,26 @@ impl std::fmt::Display for GatherPackageListingError {
             GatherPackageListingError::DirectoryDoesNotExist {
                 package,
                 expected_path,
+                suggestion,
             } => {
                 let path_as_str = expected_path.to_string();
-                (
-                    package,
+                let err_message = if let Some(suggestion) = suggestion {
                     format!(
-                        "{}\n    dir `{}` does not exist",
+                        "{}\n    dir `{}` does not exist. Did you mean `{}//{}`?",
                         underlined(&path_as_str),
                         path_as_str,
-                    ),
-                )
+                        expected_path.cell(),
+                        suggestion
+                    )
+                } else {
+                    format!(
+                        "{}\n    dir `{}` does not exist.",
+                        underlined(&path_as_str),
+                        path_as_str,
+                    )
+                };
+
+                (package, err_message)
             }
             GatherPackageListingError::NotADirectory {
                 package,

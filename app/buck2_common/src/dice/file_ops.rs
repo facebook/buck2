@@ -485,6 +485,21 @@ impl FileOps for DiceFileOps<'_, '_> {
     }
 }
 
+fn did_you_mean<'a>(value: &str, variants: impl IntoIterator<Item = &'a str>) -> Option<&'a str> {
+    if value.is_empty() {
+        return None;
+    }
+
+    const MAX_LEVENSHTEIN_DISTANCE: usize = 2;
+
+    variants
+        .into_iter()
+        .map(|v| (v, strsim::levenshtein(value, v)))
+        .filter(|(_, dist)| *dist <= MAX_LEVENSHTEIN_DISTANCE)
+        .min_by_key(|(_v, sim)| *sim)
+        .map(|(v, _)| v)
+}
+
 fn extended_ignore_error<'a>(
     ctx: &'a mut DiceComputations<'_>,
     path: CellPathRef<'a>,
@@ -502,7 +517,20 @@ fn extended_ignore_error<'a>(
 
                     match path.path().file_name() {
                         Some(file_name) if !v.contains(file_name) => {
-                            return Some(ReadDirError::DirectoryDoesNotExist(path.to_owned()));
+                            if let Some(suggestion) = did_you_mean(
+                                file_name.as_str(),
+                                v.included.iter().map(|x| x.file_name.as_str()),
+                            ) {
+                                return Some(ReadDirError::DirectoryDoesNotExist {
+                                    path: path.to_owned(),
+                                    suggestion: Some(suggestion.to_owned()),
+                                });
+                            }
+
+                            return Some(ReadDirError::DirectoryDoesNotExist {
+                                path: path.to_owned(),
+                                suggestion: None,
+                            });
                         }
                         _ => {}
                     }

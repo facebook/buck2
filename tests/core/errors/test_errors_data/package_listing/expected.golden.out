@@ -9,7 +9,7 @@ Error evaluating expression:
 Caused by:
     package `root//package_listing/missing/foo/x/y/lmnop:` does not exist
              ^---------------------------^
-        dir `root//package_listing/missing` does not exist
+        dir `root//package_listing/missing` does not exist.
 
 
 
@@ -74,3 +74,16 @@ Caused by:
     package `root//package_listing/data.file/subdir:` does not exist
              ^-----------------------------^
        path `root//package_listing/data.file` is a file, not a directory
+
+
+
+Command failed: 
+Error evaluating expression:
+    //package_listings:
+    ^-----------------^
+
+
+Caused by:
+    package `root//package_listings:` does not exist
+             ^--------------------^
+        dir `root//package_listings` does not exist. Did you mean `root//package_listing`?
