@@ -162,7 +162,7 @@ def build_junit_test(
         env["JACOCO_CLASSNAME_SOURCE_MAP"] = transitive_class_to_src_map
 
     list_tests = java_test_toolchain.list_tests
-    if list_tests != None and "tpx:supports_static_listing=false" not in ctx.attrs.labels:
+    if list_tests != None and "tpx:supports_static_listing=true" in ctx.attrs.labels and "tpx:supports_static_listing=false" not in ctx.attrs.labels:
         list_tests_command = cmd_args([
             list_tests[RunInfo],
             "list-tests",
