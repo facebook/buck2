@@ -1005,10 +1005,7 @@ def _mk_argsfile(
         is_nasm: bool,
         is_xcode_argsfile: bool) -> Artifact:
     if is_xcode_argsfile:
-        replace_regex = []
-        for re, sub in XCODE_ARG_SUBSTITUTIONS:
-            replace_regex.append((re, sub))
-        file_args = cmd_args(args_list, replace_regex = replace_regex)
+        file_args = cmd_args(args_list, replace_regex = XCODE_ARG_SUBSTITUTIONS)
     else:
         file_args = cmd_args(args_list) if is_nasm else cmd_args(args_list, quote = "shell")
     argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True)
@@ -1078,10 +1075,7 @@ def _mk_argsfiles(
     args_list.append(file_prefix_args)
 
     if is_xcode_argsfile:
-        replace_regex = []
-        for re, sub in XCODE_ARG_SUBSTITUTIONS:
-            replace_regex.append((re, sub))
-        args = cmd_args(args_list, replace_regex = replace_regex)
+        args = cmd_args(args_list, replace_regex = XCODE_ARG_SUBSTITUTIONS)
         file_args = cmd_args(argsfiles, format = "@{}")
     else:
         args = cmd_args(args_list) if is_nasm else cmd_args(args_list, quote = "shell")
