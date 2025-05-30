@@ -52,6 +52,13 @@ export const sidebars: SidebarsConfig = {
       ].flatMap(x => x !== null ? [x] : []),
     },
     {
+        type: 'category',
+        label: 'Getting Started',
+        items: [
+            'getting_started/what_is_buck2'
+        ]
+    },
+    {
       type: 'category',
       label: 'Concepts',
       items: [
