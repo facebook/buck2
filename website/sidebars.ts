@@ -58,6 +58,7 @@ export const sidebars: SidebarsConfig = {
             'getting_started/what_is_buck2',
             'getting_started/install',
             'getting_started/tutorial_first_build',
+            'getting_started/tutorial_adding_dependencies',
         ]
     },
     {
