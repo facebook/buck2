@@ -370,7 +370,8 @@ def _replace_macros_in_script_template(
     replace_cmd = cmd_args(script_template_processor)
     replace_cmd.add(cmd_args(script_template, format = "--script_template={}"))
     for name, path in toolchain_paths.items():
-        replace_cmd.add(cmd_args(path, format = "--{}={{}}".format(name)))
+        if path:
+            replace_cmd.add(cmd_args(path, format = "--{}={{}}".format(name)))
 
     replace_cmd.add(cmd_args(
         final_script.as_output(),
