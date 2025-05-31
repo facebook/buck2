@@ -11,6 +11,12 @@ package com.facebook.buck.jvm.java.version;
 
 /** Enum that represents java version. */
 public enum JavaVersion {
+  VERSION_1_1("1.1"),
+  VERSION_1_2("1.2"),
+  VERSION_1_3("1.3"),
+  VERSION_1_4("1.4"),
+  VERSION_5("5"),
+  VERSION_6("6"),
   VERSION_7("7"),
   VERSION_8("8"),
   VERSION_9("9"),

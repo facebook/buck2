@@ -11,7 +11,6 @@ package com.facebook.buck.jvm.java
 
 import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.core.filesystems.RelPath
-import com.facebook.buck.jvm.java.version.JavaVersion
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableSortedSet
 import java.io.File
@@ -30,8 +29,7 @@ data class ResolvedJavacOptions(
     val verbose: Boolean,
     val javaAnnotationProcessorParams: JavacPluginParams,
     val standardJavacPluginParams: JavacPluginParams,
-    val extraArguments: ImmutableList<String>,
-    val systemImage: String? = null,
+    val extraArguments: ImmutableList<String>
 ) {
   val isJavaAnnotationProcessorParamsPresent: Boolean
     get() = !javaAnnotationProcessorParams.isEmpty
@@ -50,8 +48,7 @@ data class ResolvedJavacOptions(
         verbose,
         javaAnnotationProcessorParams,
         standardJavacPluginParams,
-        extraArguments,
-        systemImage)
+        extraArguments)
   }
 
   /** Validates classpath */
@@ -123,10 +120,8 @@ data class ResolvedJavacOptions(
       }
 
       // Override the bootclasspath if Buck is building Java code for Android.
-      if (languageLevelOptions.targetLevelValue <= JavaVersion.VERSION_8) {
-        bootclasspathString.ifPresent { bootclasspath: String? ->
-          optionsConsumer.addOptionValue("bootclasspath", bootclasspath)
-        }
+      bootclasspathString.ifPresent { bootclasspath: String? ->
+        optionsConsumer.addOptionValue("bootclasspath", bootclasspath)
       }
 
       val allPluginsBuilder = ImmutableList.builder<ResolvedJavacPluginProperties>()
@@ -190,7 +185,7 @@ data class ResolvedJavacOptions(
       optionsConsumer.addExtras(extraArguments)
     }
 
-    fun getBootclasspathString(
+    private fun getBootclasspathString(
         bootclasspathOptional: Optional<String>,
         bootclasspathList: ImmutableList<RelPath>
     ): Optional<String> {

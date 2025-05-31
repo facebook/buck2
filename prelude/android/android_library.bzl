@@ -25,15 +25,7 @@ load(
     "single_library_compiling_deps",
     "to_list",
 )
-load("@prelude//java/utils:java_utils.bzl", "CustomJdkInfo")
 load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
-
-def get_custom_jdk_info(ctx: AnalysisContext) -> CustomJdkInfo:
-    bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath + optional_jars(ctx)
-    return CustomJdkInfo(
-        bootclasspath = bootclasspath_entries,
-        system_image = ctx.attrs._android_toolchain[AndroidToolchainInfo].jdk_system_image,
-    )
 
 def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
     packaging_deps = ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
@@ -76,7 +68,7 @@ def build_android_library(
         extra_sub_targets = {},
         validation_deps_outputs: [list[Artifact], None] = None,
         classpath_entries: JavaCompilingDepsTSet | None = None) -> (JavaProviders, [AndroidLibraryIntellijInfo, None]):
-    custom_jdk_info = get_custom_jdk_info(ctx)
+    bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath + optional_jars(ctx)
     additional_classpath_entries_children = [classpath_entries] if classpath_entries else []
 
     dummy_r_dot_java, android_library_intellij_info = _get_dummy_r_dot_java(ctx)
@@ -97,7 +89,7 @@ def build_android_library(
         return build_kotlin_library(
             ctx,
             additional_classpath_entries = additional_classpath_entries,
-            custom_jdk_info = custom_jdk_info,
+            bootclasspath_entries = bootclasspath_entries,
             extra_sub_targets = extra_sub_targets,
             validation_deps_outputs = validation_deps_outputs,
         ), android_library_intellij_info
@@ -106,7 +98,7 @@ def build_android_library(
             ctx,
             ctx.attrs.srcs,
             additional_classpath_entries = additional_classpath_entries,
-            custom_jdk_info = custom_jdk_info,
+            bootclasspath_entries = bootclasspath_entries,
             extra_sub_targets = extra_sub_targets,
             validation_deps_outputs = validation_deps_outputs,
         ), android_library_intellij_info

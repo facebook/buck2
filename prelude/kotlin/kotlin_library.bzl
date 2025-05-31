@@ -35,15 +35,7 @@ load(
 load("@prelude//java/plugins:java_annotation_processor.bzl", "AnnotationProcessorProperties", "create_annotation_processor_properties", "create_ksp_annotation_processor_properties")
 load("@prelude//java/plugins:java_plugin.bzl", "create_plugin_params")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
-load(
-    "@prelude//java/utils:java_utils.bzl",
-    "CustomJdkInfo",  # @unused Used as a type
-    "derive_javac",
-    "get_abi_generation_mode",
-    "get_class_to_source_map_info",
-    "get_default_info",
-    "get_java_version_attributes",
-)
+load("@prelude//java/utils:java_utils.bzl", "derive_javac", "get_abi_generation_mode", "get_class_to_source_map_info", "get_default_info", "get_java_version_attributes")
 load("@prelude//jvm:nullsafe.bzl", "get_nullsafe_info")
 load(
     "@prelude//kotlin:kotlin_toolchain.bzl",
@@ -351,7 +343,7 @@ def _check_exported_deps(exported_deps: list[Dependency], attr_name: str):
 def build_kotlin_library(
         ctx: AnalysisContext,
         additional_classpath_entries: JavaCompilingDepsTSet | None = None,
-        custom_jdk_info: CustomJdkInfo | None = None,
+        bootclasspath_entries: list[Artifact] = [],
         extra_sub_targets: dict = {},
         validation_deps_outputs: [list[Artifact], None] = None) -> JavaProviders:
     srcs = ctx.attrs.srcs
@@ -361,7 +353,7 @@ def build_kotlin_library(
         return build_java_library(
             ctx,
             ctx.attrs.srcs,
-            custom_jdk_info = custom_jdk_info,
+            bootclasspath_entries = bootclasspath_entries,
             additional_classpath_entries = additional_classpath_entries,
             # Match buck1, which always does class ABI generation for Kotlin targets unless explicitly specified.
             override_abi_generation_mode = get_abi_generation_mode(ctx.attrs.abi_generation_mode) or AbiGenerationMode("class"),
@@ -391,12 +383,6 @@ def build_kotlin_library(
         )
         ksp_annotation_processor_properties = create_ksp_annotation_processor_properties(ctx.attrs.plugins)
 
-        # -bootclasspath is a javac-only, JDK<9 release concept, but we still use this field
-        # to append additional jars to the kotlinc classpath. When we drop Java 8 language
-        # level support someday, we should rework this field and treat it like additional
-        # classpath entries.
-        bootclasspath_for_kotlinc = custom_jdk_info.bootclasspath if custom_jdk_info else []
-
         kotlin_toolchain = ctx.attrs._kotlin_toolchain[KotlinToolchainInfo]
         if kotlin_toolchain.kotlinc_protocol == "classic":
             kotlinc_classes, kapt_generated_sources, ksp_generated_sources = _create_kotlin_sources(
@@ -406,7 +392,7 @@ def build_kotlin_library(
                 annotation_processor_properties,
                 ksp_annotation_processor_properties,
                 additional_classpath_entries,
-                bootclasspath_for_kotlinc,
+                bootclasspath_entries,
             )
             srcs = [src for src in ctx.attrs.srcs if not src.extension == ".kt"]
             if kapt_generated_sources:
@@ -429,7 +415,7 @@ def build_kotlin_library(
                 ctx,
                 srcs,
                 run_annotation_processors = False,
-                custom_jdk_info = custom_jdk_info,
+                bootclasspath_entries = bootclasspath_entries,
                 additional_classpath_entries = all_additional_classpath_entries,
                 additional_compiled_srcs = kotlinc_classes,
                 generated_sources = filter(None, [kapt_generated_sources, ksp_generated_sources]),
@@ -459,8 +445,7 @@ def build_kotlin_library(
                     annotation_processors = annotation_processor_properties.annotation_processors + ksp_annotation_processor_properties.annotation_processors,
                     annotation_processor_params = annotation_processor_properties.annotation_processor_params + ksp_annotation_processor_properties.annotation_processor_params,
                 ),
-                "bootclasspath_entries": bootclasspath_for_kotlinc,
-                "custom_jdk_info": custom_jdk_info,
+                "bootclasspath_entries": bootclasspath_entries,
                 "debug_port": getattr(ctx.attrs, "debug_port", None),
                 "deps": deps + [kotlin_toolchain.kotlin_stdlib],
                 "enable_used_classes": ctx.attrs.enable_used_classes,
