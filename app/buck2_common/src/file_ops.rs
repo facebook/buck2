@@ -39,12 +39,55 @@ use crate::ignores::file_ignores::FileIgnoreResult;
 
 #[derive(Debug, buck2_error::Error)]
 pub(crate) enum FileOpsError {
-    #[error("File not found: `{0}`")]
+    #[error("File not found: {0}")]
     // File not found errors are not inherently always user errors; however, we only use these
     // methods with source files, and in that case this is correct
     #[buck2(input)]
     #[buck2(tag = IoNotFound)]
     FileNotFound(String),
+}
+
+pub enum FileReadError {
+    NotFound(String),
+    Buck(buck2_error::Error),
+}
+
+impl FileReadError {
+    pub fn with_package_context_information(self, package_path: String) -> buck2_error::Error {
+        match self {
+            FileReadError::NotFound(file_path) => {
+                let err_message = format!(
+                    "`{}`.\n     Included in `{}` but does not exist",
+                    file_path, package_path
+                );
+
+                FileOpsError::FileNotFound(err_message).into()
+            }
+            FileReadError::Buck(err) => err.dupe(),
+        }
+    }
+
+    pub fn without_package_context_information(self) -> buck2_error::Error {
+        match self {
+            FileReadError::NotFound(file_path) => FileOpsError::FileNotFound(file_path).into(),
+            FileReadError::Buck(err) => err.dupe(),
+        }
+    }
+}
+
+pub trait FileReadErrorContext<T> {
+    fn with_package_context_information(self, package_path: String) -> buck2_error::Result<T>;
+    fn without_package_context_information(self) -> buck2_error::Result<T>;
+}
+
+impl<T> FileReadErrorContext<T> for std::result::Result<T, FileReadError> {
+    fn with_package_context_information(self, package_path: String) -> buck2_error::Result<T> {
+        self.map_err(|e| e.with_package_context_information(package_path))
+    }
+
+    fn without_package_context_information(self) -> buck2_error::Result<T> {
+        self.map_err(|e| e.without_package_context_information())
+    }
 }
 
 /// std::fs::FileType is an opaque type that isn't constructible. This is

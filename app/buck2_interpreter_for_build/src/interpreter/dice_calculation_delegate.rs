@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleGuard;
 use buck2_common::dice::file_ops::DiceFileComputations;
+use buck2_common::file_ops::FileReadErrorContext;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::dice::OpaqueLegacyBuckConfigOnDice;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
@@ -173,7 +174,8 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     ) -> buck2_error::Result<ParseResult> {
         let content =
             DiceFileComputations::read_file(self.ctx, starlark_path.path().as_ref().as_ref())
-                .await?;
+                .await
+                .without_package_context_information()?;
         self.configs.parse(starlark_path, content)
     }
 

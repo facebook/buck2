@@ -36,7 +36,7 @@ use crate::dice::cells::HasCellResolver;
 use crate::dice::file_ops::delegate::get_delegated_file_ops;
 use crate::file_ops::DirectorySubListingMatchingOutput;
 use crate::file_ops::FileOps;
-use crate::file_ops::FileOpsError;
+use crate::file_ops::FileReadError;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::ReadDirOutput;
 use crate::ignores::file_ignores::FileIgnoreResult;
@@ -125,10 +125,11 @@ impl DiceFileComputations {
     pub async fn read_file(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> buck2_error::Result<String> {
-        Self::read_file_if_exists(ctx, path)
-            .await?
-            .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
+    ) -> Result<String, FileReadError> {
+        match Self::read_file_if_exists(ctx, path).await {
+            Ok(result) => result.ok_or_else(|| FileReadError::NotFound(path.to_string())),
+            Err(e) => Err(FileReadError::Buck(e)),
+        }
     }
 
     /// Does not check if the path is ignored
@@ -143,10 +144,11 @@ impl DiceFileComputations {
     pub async fn read_path_metadata(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> buck2_error::Result<RawPathMetadata> {
-        Self::read_path_metadata_if_exists(ctx, path)
-            .await?
-            .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
+    ) -> Result<RawPathMetadata, FileReadError> {
+        match Self::read_path_metadata_if_exists(ctx, path).await {
+            Ok(result) => result.ok_or_else(|| FileReadError::NotFound(path.to_string())),
+            Err(e) => Err(FileReadError::Buck(e)),
+        }
     }
 
     pub async fn is_ignored(

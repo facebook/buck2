@@ -13,6 +13,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::DiceFileComputations;
+use buck2_common::file_ops::FileReadErrorContext;
 use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
@@ -150,7 +151,9 @@ async fn validate_no_symlinks_between_current_dir_and_allowed_dir(
     let mut current_dir = current_dir.as_ref();
     loop {
         if let RawPathMetadata::Symlink { at, to: _ } =
-            DiceFileComputations::read_path_metadata(ctx, current_dir).await?
+            DiceFileComputations::read_path_metadata(ctx, current_dir)
+                .await
+                .without_package_context_information()?
         {
             return Err(RelativePathParseError::SymlinkFound(
                 current_dir.to_string(),

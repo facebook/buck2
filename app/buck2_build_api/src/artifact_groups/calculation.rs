@@ -19,6 +19,7 @@ use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_common::dice::file_ops::DiceFileComputations;
+use buck2_common::file_ops::FileReadErrorContext;
 use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_core::cells::cell_path::CellPath;
@@ -374,7 +375,9 @@ async fn path_artifact_value(
     ctx: &mut DiceComputations<'_>,
     cell_path: Arc<CellPath>,
 ) -> buck2_error::Result<ArtifactValue> {
-    let raw = DiceFileComputations::read_path_metadata(ctx, cell_path.as_ref().as_ref()).await?;
+    let raw = DiceFileComputations::read_path_metadata(ctx, cell_path.as_ref().as_ref())
+        .await
+        .without_package_context_information()?;
     match PathMetadataOrRedirection::from(raw) {
         PathMetadataOrRedirection::PathMetadata(meta) => match meta {
             PathMetadata::ExternalSymlink(symlink) => Ok(ArtifactValue::new(

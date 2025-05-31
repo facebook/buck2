@@ -17,6 +17,7 @@ use async_recursion::async_recursion;
 use async_trait::async_trait;
 use buck2_build_api::configure_targets::get_compatible_targets;
 use buck2_common::dice::file_ops::DiceFileComputations;
+use buck2_common::file_ops::FileReadErrorContext;
 use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_core::cells::cell_path::CellPath;
@@ -130,7 +131,9 @@ impl FileHasher for PathsAndContentsHasher {
             cell_path: CellPathRef<'async_recursion>,
             res: &mut Vec<u8>,
         ) -> buck2_error::Result<()> {
-            let info = DiceFileComputations::read_path_metadata(ctx, cell_path.dupe()).await?;
+            let info = DiceFileComputations::read_path_metadata(ctx, cell_path.dupe())
+                .await
+                .without_package_context_information()?;
             // Important that the different branches can never clash, so add a prefix byte to them
             match PathMetadataOrRedirection::from(info) {
                 PathMetadataOrRedirection::PathMetadata(meta) => match meta {
