@@ -85,6 +85,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     cwd = ctx.actions.declare_output("cwd", dir = True)
     out_dir = ctx.actions.declare_output("OUT_DIR", dir = True)
     rustc_flags = ctx.actions.declare_output("rustc_flags")
+    env_flags = ctx.actions.declare_output("env_flags")
 
     if ctx.attrs.manifest_dir != None:
         manifest_dir = ctx.attrs.manifest_dir[DefaultInfo].default_outputs[0]
@@ -97,7 +98,8 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
         cmd_args("--rustc-cfg=", ctx.attrs.rustc_cfg[DefaultInfo].default_outputs[0], delimiter = ""),
         cmd_args("--manifest-dir=", manifest_dir, delimiter = ""),
         cmd_args("--create-cwd=", cwd.as_output(), delimiter = ""),
-        cmd_args("--outfile=", rustc_flags.as_output(), delimiter = ""),
+        cmd_args("--rustc-flags-outfile=", rustc_flags.as_output(), delimiter = ""),
+        cmd_args("--env-flags-outfile=", env_flags.as_output(), delimiter = ""),
     ]
 
     # See https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts
@@ -144,6 +146,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
         sub_targets = {
             "out_dir": [DefaultInfo(default_output = out_dir)],
             "rustc_flags": [DefaultInfo(default_output = rustc_flags)],
+            "env_flags": [DefaultInfo(default_output = env_flags)],
         },
     )]
 

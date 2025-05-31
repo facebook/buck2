@@ -112,6 +112,15 @@ def _env_arg():
 """),
     }
 
+def _env_flags_arg():
+    return {
+        "env_flags": attrs.list(attrs.arg(), default = [], doc = """
+    A sequence of "--env=NAME=VAL" flags for additional environment variables for this rule's
+     invocations of rustc. For example `env_flags = ["--env=NAME1=val1", "--env=NAME2=val2"]`.
+     The environment variable values may include macros which are expanded.
+"""),
+    }
+
 def _run_env_arg():
     return {
         "run_env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
@@ -186,6 +195,7 @@ rust_common = struct(
     crate_root = _crate_root,
     default_roots_arg = _default_roots_arg,
     env_arg = _env_arg,
+    env_flags_arg = _env_flags_arg,
     run_env_arg = _run_env_arg,
     build_and_run_env_arg = _build_and_run_env_arg,
     mapped_srcs_arg = _mapped_srcs_arg,
