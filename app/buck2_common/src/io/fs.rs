@@ -15,6 +15,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::fs_util::IoError;
+use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
@@ -36,6 +37,7 @@ use crate::file_ops::FileMetadata;
 use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::RawSymlink;
+use crate::file_ops::Symlink;
 use crate::file_ops::TrackedFileDigest;
 use crate::io::IoProvider;
 
@@ -310,7 +312,11 @@ impl ExactPathMetadata {
                                 format!("Invalid symlink at `{}`: `{}`", curr.path, dest.display())
                             })?;
 
-                        ExactPathSymlinkMetadata::InternalSymlink(link_path)
+                        // FIXME(JakobDegen): Remove the `unwrap` after we fork `relative_path`
+                        ExactPathSymlinkMetadata::InternalSymlink(
+                            link_path,
+                            RelativePathBuf::from_path(dest).unwrap(),
+                        )
                     };
 
                     ExactPathMetadata::Symlink(out)
@@ -324,7 +330,9 @@ impl ExactPathMetadata {
 
 enum ExactPathSymlinkMetadata {
     ExternalSymlink(PathBuf),
-    InternalSymlink(ForwardRelativePathBuf),
+    /// The path of the symlink target resolved to a project relative path, and the symlink target
+    /// verbatim
+    InternalSymlink(ForwardRelativePathBuf, RelativePathBuf),
 }
 
 impl ExactPathSymlinkMetadata {
@@ -338,11 +346,12 @@ impl ExactPathSymlinkMetadata {
                 at: curr.path,
                 to: RawSymlink::External(Arc::new(ExternalSymlink::new(link_path, rest)?)),
             },
-            Self::InternalSymlink(mut link_path) => {
+            Self::InternalSymlink(mut link_path, mut rel_link_path) => {
                 link_path.push(&rest);
+                rel_link_path.push(&rest);
                 RawPathMetadata::Symlink {
                     at: curr.path,
-                    to: RawSymlink::Relative(link_path),
+                    to: RawSymlink::Relative(link_path, Arc::new(Symlink::new(rel_link_path))),
                 }
             }
         })
@@ -431,8 +440,9 @@ mod tests {
 
         assert_matches!(
             read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
-            Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r)})) => {
+            Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r, r_rel)})) => {
                 assert_eq!(r, "y/z");
+                assert_eq!(r_rel.target(), "y/z");
             }
         );
 
@@ -449,8 +459,9 @@ mod tests {
 
         assert_matches!(
             read_path_metadata(AbsPath::new(t)?, ForwardRelativePath::new("x/xx/xxx")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
-            Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r)})) => {
+            Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r, r_rel)})) => {
                 assert_eq!(r, "x/y");
+                assert_eq!(r_rel.target(), "../y");
             }
         );
 
@@ -465,8 +476,9 @@ mod tests {
 
         assert_matches!(
             read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x/z/zz")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
-            Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r)})) => {
+            Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r, r_rel)})) => {
                 assert_eq!(r, "y/z/zz");
+                assert_eq!(r_rel.target(), "y/z/zz");
             }
         );
 

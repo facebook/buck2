@@ -226,9 +226,18 @@ async fn check_file_status(
             )?;
 
             match (fs_to, dice_to) {
-                (RawSymlink::Relative(fs_rel), RawSymlink::Relative(dice_rel)) => {
+                (
+                    RawSymlink::Relative(fs_rel, fs_raw_rel),
+                    RawSymlink::Relative(dice_rel, dice_raw_rel),
+                ) => {
                     let dice_rel = cell_resolver.resolve_path(dice_rel.as_ref().as_ref())?;
                     result.report("relative symlink destination", path, fs_rel, &dice_rel)?;
+                    result.report(
+                        "relative symlink destination raw",
+                        path,
+                        fs_raw_rel,
+                        dice_raw_rel,
+                    )?;
                 }
                 (RawSymlink::External(fs_ext), RawSymlink::External(dice_ext)) => {
                     result.report("external symlink destination", path, fs_ext, dice_ext)?;

@@ -387,7 +387,7 @@ async fn path_artifact_value(
             )),
             PathMetadata::Directory => dir_artifact_value(ctx, cell_path).await,
         },
-        PathMetadataOrRedirection::Redirection(r) => {
+        PathMetadataOrRedirection::Redirection(r, _) => {
             // TODO (T126181780): This should have a limit on recursion.
             path_artifact_value(ctx, r).await
         }

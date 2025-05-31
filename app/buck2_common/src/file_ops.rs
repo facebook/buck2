@@ -301,7 +301,7 @@ impl Symlink {
 
 #[derive(Debug, Dupe, Hash, PartialEq, Eq, Clone, Allocative, VariantName)]
 pub enum RawSymlink<T> {
-    Relative(T),
+    Relative(T, Arc<Symlink>),
     External(Arc<ExternalSymlink>),
 }
 
@@ -309,14 +309,14 @@ pub enum RawSymlink<T> {
 #[derive(Debug, Dupe, PartialEq, Eq, Clone)]
 pub enum PathMetadataOrRedirection<T = Arc<CellPath>> {
     PathMetadata(PathMetadata),
-    Redirection(T),
+    Redirection(T, Arc<Symlink>),
 }
 
 impl<T> PathMetadataOrRedirection<T> {
     pub fn map<O>(self, f: impl Fn(T) -> O) -> PathMetadataOrRedirection<O> {
         match self {
             Self::PathMetadata(meta) => PathMetadataOrRedirection::PathMetadata(meta),
-            Self::Redirection(r) => PathMetadataOrRedirection::Redirection(f(r)),
+            Self::Redirection(r, r2) => PathMetadataOrRedirection::Redirection(f(r), r2),
         }
     }
 }
@@ -332,8 +332,8 @@ impl<T> From<RawPathMetadata<T>> for PathMetadataOrRedirection<T> {
             }
             RawPathMetadata::Symlink {
                 at: _,
-                to: RawSymlink::Relative(r),
-            } => PathMetadataOrRedirection::Redirection(r),
+                to: RawSymlink::Relative(a, b),
+            } => PathMetadataOrRedirection::Redirection(a, b),
             RawPathMetadata::Symlink {
                 at: _,
                 to: RawSymlink::External(e),
@@ -356,10 +356,10 @@ impl<T> RawPathMetadata<T> {
             Self::File(file) => Ok(RawPathMetadata::File(file)),
             Self::Symlink {
                 at,
-                to: RawSymlink::Relative(dest),
+                to: RawSymlink::Relative(dest, dest_rel),
             } => Ok(RawPathMetadata::Symlink {
                 at: f(at)?,
-                to: RawSymlink::Relative(f(dest)?),
+                to: RawSymlink::Relative(f(dest)?, dest_rel),
             }),
             Self::Symlink {
                 at,

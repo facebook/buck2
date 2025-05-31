@@ -140,7 +140,9 @@ async fn try_exists(
     match DiceFileComputations::read_path_metadata_if_exists(ctx, path).await? {
         Some(path) => match PathMetadataOrRedirection::from(path) {
             PathMetadataOrRedirection::PathMetadata(_) => Ok(true),
-            PathMetadataOrRedirection::Redirection(r) => try_exists(ctx, r.as_ref().as_ref()).await,
+            PathMetadataOrRedirection::Redirection(r, _) => {
+                try_exists(ctx, r.as_ref().as_ref()).await
+            }
         },
         None => Ok(false),
     }

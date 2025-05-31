@@ -77,7 +77,7 @@ async fn build_response_with_trace(
     let mut external_symlinks = Vec::new();
     for link in provider.trace().symlinks.iter() {
         match &link.to {
-            RawSymlink::Relative(to) => {
+            RawSymlink::Relative(to, _) => {
                 relative_symlinks.push(trace_io_response::RelativeSymlink {
                     link: link.at.to_string(),
                     target: to.to_string(),
