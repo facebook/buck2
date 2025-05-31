@@ -19,10 +19,12 @@ use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_common::dice::file_ops::DiceFileComputations;
-use buck2_common::file_ops::FileReadErrorContext;
 use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
+use buck2_common::package_listing::dice::DicePackageListingResolver;
+use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::package::PackageLabel;
 use buck2_directory::directory::directory_data::DirectoryData;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
@@ -164,7 +166,12 @@ fn ensure_source_artifact_staged<'a>(
 ) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a> {
     async move {
         Ok(EnsureArtifactGroupReady::Single(
-            path_artifact_value(dice, Arc::new(source.get_path().to_cell_path())).await?,
+            path_artifact_value(
+                dice,
+                Arc::new(source.get_path().to_cell_path()),
+                Some(source.get_path().package()),
+            )
+            .await?,
         ))
     }
     .boxed()
@@ -305,9 +312,12 @@ async fn dir_artifact_value(
                         // TODO(scottcao): This current creates a `DirArtifactValueKey` for each subdir of a source directory.
                         // Instead, this should be 1 key for the entire top-level directory since there's almost
                         // no chance of getting cache hit with a sub-directory.
-                        let value =
-                            path_artifact_value(ctx, Arc::new(self.0.as_ref().join(&x.file_name)))
-                                .await?;
+                        let value = path_artifact_value(
+                            ctx,
+                            Arc::new(self.0.as_ref().join(&x.file_name)),
+                            None,
+                        )
+                        .await?;
                         buck2_error::Ok((x.file_name.clone(), value))
                     }
                     .boxed()
@@ -374,10 +384,31 @@ async fn dir_artifact_value(
 async fn path_artifact_value(
     ctx: &mut DiceComputations<'_>,
     cell_path: Arc<CellPath>,
+    label: Option<PackageLabel>,
 ) -> buck2_error::Result<ArtifactValue> {
-    let raw = DiceFileComputations::read_path_metadata(ctx, cell_path.as_ref().as_ref())
-        .await
-        .without_package_context_information()?;
+    let raw = match DiceFileComputations::read_path_metadata(ctx, cell_path.as_ref().as_ref()).await
+    {
+        Ok(raw) => Ok(raw),
+        Err(e) => {
+            if let Some(label) = label {
+                if let Ok(listing) = DicePackageListingResolver(ctx)
+                    .resolve_package_listing(label.dupe())
+                    .await
+                {
+                    return Err(e.with_package_context_information(
+                        BuildFilePath::new(label, listing.buildfile().to_owned())
+                            .path()
+                            .path()
+                            .to_string(),
+                    ));
+                }
+            }
+
+            // Suggestion is best effort, don't want it to override the actual error
+            Err(e.without_package_context_information())
+        }
+    }?;
+
     match PathMetadataOrRedirection::from(raw) {
         PathMetadataOrRedirection::PathMetadata(meta) => match meta {
             PathMetadata::ExternalSymlink(symlink) => Ok(ArtifactValue::new(
@@ -392,7 +423,7 @@ async fn path_artifact_value(
         },
         PathMetadataOrRedirection::Redirection(r, _) => {
             // TODO (T126181780): This should have a limit on recursion.
-            path_artifact_value(ctx, r).await
+            path_artifact_value(ctx, r, label).await
         }
     }
 }
