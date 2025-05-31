@@ -175,6 +175,38 @@ def generate_help_docs_subcommand(buck: str, args: List[str]) -> str:
     return res.stdout.decode()
 
 
+def generate_subcommand_short_help(buck: str, args: List[str]) -> str:
+    cmd = buck + " " + " ".join(args) + " -h"
+    print("Running " + cmd + " ...")
+    res = subprocess.run(cmd, shell=True, check=True, capture_output=True)
+    output = res.stdout.decode()
+    # get the first line which is the short help
+    return output.splitlines()[0]
+
+
+def generate_help_docs_index_page(buck: str, subcommands: List[str]) -> str:
+    # Table header
+    titile = """\
+---
+id: index
+title: buck2 commands
+---
+"""
+    lines = [
+        "| Command       | Description                  |",
+        "|---------------|------------------------------|",
+    ]
+    for sub in subcommands:
+        full_cmd = f"`buck2 {sub}`"
+        cmd_with_link = f"[{full_cmd}](./{sub})"
+        short_help = generate_subcommand_short_help(buck, [sub])
+        # Escape any pipe characters in the help text
+        safe_help = short_help.replace("|", "\\|")
+        lines.append(f"| {cmd_with_link} | {safe_help} |")
+
+    return titile + "\n".join(lines)
+
+
 def generate_help_docs(buck: str) -> None:
     base_dir = Path("docs") / "users" / "commands"
     setup_gen_dir(base_dir)
@@ -182,12 +214,16 @@ def generate_help_docs(buck: str) -> None:
     cmd = buck + " --help"
     print("Running " + cmd + " ...")
     res = subprocess.run(cmd, shell=True, check=True, capture_output=True)
-    for sub in parse_subcommands(res.stdout.decode()):
+    subcommands = parse_subcommands(res.stdout.decode())
+    for sub in subcommands:
         output = generate_help_docs_subcommand(buck, [sub])
         write_file(
             base_dir / (sub + ".generated.md"),
             "---\nid: " + sub + "\ntitle: " + sub + "\n---\n\n" + output,
         )
+
+    index_page_content = generate_help_docs_index_page(buck, subcommands)
+    write_file(base_dir / "index.md", index_page_content)
 
 
 def generate_query_docs(buck: str) -> None:
