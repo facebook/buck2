@@ -172,10 +172,16 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         &mut self,
         starlark_path: StarlarkPath<'_>,
     ) -> buck2_error::Result<ParseResult> {
-        let content =
-            DiceFileComputations::read_file(self.ctx, starlark_path.path().as_ref().as_ref())
-                .await
-                .without_package_context_information()?;
+        let result =
+            DiceFileComputations::read_file(self.ctx, starlark_path.path().as_ref().as_ref()).await;
+        let content = match starlark_path {
+            StarlarkPath::BuildFile(file) => {
+                result.with_package_context_information(file.path().path().to_string())
+            }
+            // Should potentially add support for other file types as well
+            _ => result.without_package_context_information(),
+        }?;
+
         self.configs.parse(starlark_path, content)
     }
 
