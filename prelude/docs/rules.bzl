@@ -10,4 +10,6 @@
 
 load("@prelude//:rules.bzl", _rules = "rules")
 
-load_symbols({name: namespace(name = r) for name, r in _rules.items()})
+# We don't use namespace(name=r) because that would pass the literal key 'name'.
+# Instead, we use namespace(**{name: r}) to dynamically use the value of the variable `name` as the key.
+load_symbols({name: namespace(**{name: r}) for name, r in _rules.items()})
