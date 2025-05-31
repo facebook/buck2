@@ -8,7 +8,6 @@
  */
 
 use std::hash::Hasher;
-use std::sync::OnceLock;
 
 #[derive(Default)]
 pub struct Blake3StrongHasher(blake3::Hasher);
@@ -31,5 +30,3 @@ impl Hasher for Blake3StrongHasher {
         u64::from_be_bytes(bytes)
     }
 }
-
-pub static USE_CORRECT_ANON_TARGETS_HASH: OnceLock<bool> = OnceLock::new();

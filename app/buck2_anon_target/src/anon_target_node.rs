@@ -9,7 +9,6 @@
 
 use std::any::Any;
 use std::collections::HashMap;
-use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -40,7 +39,6 @@ use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::strong_hasher::Blake3StrongHasher;
-use buck2_util::strong_hasher::USE_CORRECT_ANON_TARGETS_HASH;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
 use fxhash::FxHasher;
@@ -72,16 +70,6 @@ pub(crate) struct AnonTarget {
     exec_cfg: ConfigurationNoExec,
     /// Variant of the anon target, either bxl or bzl.
     variant: AnonTargetVariant,
-    /// The hash of the `rule_type` and `attrs` for bzl anon targets.
-    /// Or
-    /// The hash of the `rule_type`, `attrs` and `global_cfg_options` for bxl anon targets.
-    ///
-    /// FIXME(JakobDegen): We use this to disambiguate artifact paths, so hashing only some of these
-    /// values is super dangerous - if there's anything we forget to include in the path, we get
-    /// what is effectively UB
-    ///
-    /// FIXME(JakobDegen): This needs to use a strong hash
-    partial_hash: String,
     /// The cached strong hash value - we do have to cache this, it's quite perf sensitive
     strong_hash: u64,
     strong_hash_str: String,
@@ -129,14 +117,6 @@ impl AnonTarget {
         exec_cfg: ConfigurationNoExec,
         variant: AnonTargetVariant,
     ) -> Self {
-        let mut hasher = DefaultHasher::new();
-        rule_type.hash(&mut hasher);
-        attrs.hash(&mut hasher);
-        if let AnonTargetVariant::Bxl(global_cfg_options) = &variant {
-            global_cfg_options.hash(&mut hasher);
-        }
-        let partial_hash = format!("{:x}", hasher.finish());
-
         let mut full_hash = FxHasher::default();
         rule_type.hash(&mut full_hash);
         name.hash(&mut full_hash);
@@ -160,7 +140,6 @@ impl AnonTarget {
             attrs,
             exec_cfg,
             variant,
-            partial_hash,
             hash: full_hash,
             strong_hash,
             strong_hash_str,
@@ -177,11 +156,7 @@ impl AnonTarget {
 
     /// The hash that is used in anon target artifact paths
     fn path_hash(&self) -> &str {
-        if *USE_CORRECT_ANON_TARGETS_HASH.get().unwrap() {
-            &self.strong_hash_str
-        } else {
-            &self.partial_hash
-        }
+        &self.strong_hash_str
     }
 
     pub(crate) fn exec_cfg(&self) -> &ConfigurationNoExec {
