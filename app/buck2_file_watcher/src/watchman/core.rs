@@ -208,6 +208,8 @@ async fn with_timeout<R>(
 }
 
 async fn write_to_manifold(buf: &[u8], name: &str) -> Option<String> {
+    // FIXME(jadel): thread configuration through
+    #[expect(deprecated)]
     let manifold = ManifoldClient::new().await.ok()?;
 
     let filename = format!("flat/{}_{}_logs", uuid::Uuid::new_v4(), name);

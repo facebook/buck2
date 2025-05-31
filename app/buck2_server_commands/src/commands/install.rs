@@ -805,6 +805,8 @@ async fn handle_install_request<'a>(
 }
 
 async fn upload_installer_logs(log_path: &AbsNormPathBuf) -> buck2_error::Result<String> {
+    // FIXME(jadel): thread configuration through
+    #[expect(deprecated)]
     let manifold = ManifoldClient::new().await?;
     let trace_id: &str = &get_dispatcher().trace_id().to_string();
     let manifold_filename = format!("flat/{}.log", trace_id);
