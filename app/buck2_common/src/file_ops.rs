@@ -30,6 +30,7 @@ use dice::UserComputationData;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
 
+use crate::TIME_TO_FIX_USE_BETTER_ERROR;
 use crate::cas_digest::CasDigest;
 use crate::cas_digest::CasDigestConfig;
 use crate::cas_digest::CasDigestKind;
@@ -55,11 +56,15 @@ pub enum FileReadError {
 impl FileReadError {
     pub fn with_package_context_information(self, package_path: String) -> buck2_error::Error {
         match self {
-            FileReadError::NotFound(file_path) => {
-                let err_message = format!(
-                    "`{}`.\n     Included in `{}` but does not exist",
-                    file_path, package_path
-                );
+            FileReadError::NotFound(path) => {
+                let err_message = if *TIME_TO_FIX_USE_BETTER_ERROR.get().unwrap() {
+                    format!(
+                        "`{}`.\n     Included in `{}` but does not exist",
+                        path, package_path
+                    )
+                } else {
+                    path
+                };
 
                 FileOpsError::FileNotFound(err_message).into()
             }
@@ -69,7 +74,7 @@ impl FileReadError {
 
     pub fn without_package_context_information(self) -> buck2_error::Error {
         match self {
-            FileReadError::NotFound(file_path) => FileOpsError::FileNotFound(file_path).into(),
+            FileReadError::NotFound(path) => FileOpsError::FileNotFound(path).into(),
             FileReadError::Buck(err) => err.dupe(),
         }
     }
