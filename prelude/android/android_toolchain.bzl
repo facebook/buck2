@@ -43,7 +43,6 @@ AndroidToolchainInfo = provider(
         "instrumentation_test_runner_classpath": provider_field(typing.Any, default = None),
         "instrumentation_test_runner_main_class": provider_field(typing.Any, default = None),
         "jar_splitter_command": provider_field(typing.Any, default = None),
-        "jdk_system_image": provider_field(typing.Any, default = None),
         "manifest_utils": provider_field(typing.Any, default = None),
         "merge_android_resource_sources": provider_field(typing.Any, default = None),
         "merge_android_resources": provider_field(typing.Any, default = None),
