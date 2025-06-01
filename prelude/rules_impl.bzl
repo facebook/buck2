@@ -94,6 +94,7 @@ load("@prelude//python:python_library.bzl", "python_library_impl")
 load("@prelude//python:python_needed_coverage_test.bzl", "python_needed_coverage_test_impl")
 load("@prelude//python:python_runtime_bundle.bzl", "PythonRuntimeBundleInfo", "python_runtime_bundle_impl")
 load("@prelude//python:python_test.bzl", "python_test_impl")
+load("@prelude//python:toolchain.bzl", "NativeLinkStrategy")
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
@@ -331,7 +332,7 @@ def _python_executable_attrs():
             they must be valid Python identifiers). An `entry` can be a list of
             `string`s, or a further `string`-keyed dictionary.""",
         ),
-        "native_link_strategy": attrs.option(attrs.enum(NativeLinkStrategy), default = None),
+        "native_link_strategy": attrs.option(attrs.enum(NativeLinkStrategy.values()), default = None),
         "opt_by_default_enabled": attrs.bool(default = False),
         "package_split_dwarf_dwp": attrs.bool(default = False),
         "par_style": attrs.option(attrs.string(), default = None),
@@ -410,7 +411,6 @@ def _cxx_binary_and_test_attrs():
     ret.update(constraint_overrides.attributes)
     return ret
 
-NativeLinkStrategy = ["separate", "native", "merged"]
 StripLibparStrategy = ["full", "extract", "none"]
 
 def _package_python_binary_remotely():

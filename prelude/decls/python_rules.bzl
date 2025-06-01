@@ -11,8 +11,6 @@ load(":cxx_common.bzl", "cxx_common")
 load(":native_common.bzl", "native_common")
 load(":python_common.bzl", "python_common")
 
-NativeLinkStrategy = ["separate", "merged"]
-
 def _typing_arg():
     return {
         "py_version_for_type_checking": attrs.option(attrs.string(), default = None, doc = """
@@ -279,7 +277,6 @@ python_binary = prelude_rule(
             "dummy_omnibus": attrs.option(attrs.dep(), default = None),
             "extension": attrs.option(attrs.string(), default = None),
             "licenses": attrs.list(attrs.source(), default = []),
-            "native_link_strategy": attrs.option(attrs.enum(NativeLinkStrategy), default = None),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = []),
             "platform_preload_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = False)), default = []),
@@ -449,7 +446,6 @@ python_test = prelude_rule(
             "dummy_omnibus": attrs.option(attrs.dep(), default = None),
             "extension": attrs.option(attrs.string(), default = None),
             "licenses": attrs.list(attrs.source(), default = []),
-            "native_link_strategy": attrs.option(attrs.enum(NativeLinkStrategy), default = None),
             "needed_coverage": attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = []),
