@@ -270,6 +270,11 @@ impl DaemonCommand {
 
         maybe_schedule_termination()?;
 
+        // Raise file descriptor limits. The default on modern macOS is
+        // pathetically low (256!!!), and distros like Fedora Asahi have a limit
+        // as low as 1024, which can easily be exceeded on any modern machine.
+        buck2_common::rlimits::raise_file_descriptor_limits()?;
+
         // Higher performance for jemalloc, recommended (but may not have any effect on Mac)
         // https://github.com/jemalloc/jemalloc/blob/dev/TUNING.md#notable-runtime-options-for-performance-tuning
         memory::enable_background_threads()?;
