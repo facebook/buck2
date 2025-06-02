@@ -1069,7 +1069,7 @@ def _mk_argsfiles(
 
     # Put file_prefix_args in argsfile, make sure they do not appear when evaluating $(cxxppflags)
     # to avoid "argument too long" errors
-    file_prefix_args = headers_tag.tag_artifacts(cmd_args(preprocessor.set.project_as_args("file_prefix_args")))
+    file_prefix_args = headers_tag.tag_artifacts(preprocessor.set.project_as_args("file_prefix_args"))
     file_prefix_args_filename = ext.value + ".{}file_prefix_cxx_args".format(filename_prefix)
     argsfiles.append(_mk_argsfile(ctx, file_prefix_args_filename, [file_prefix_args], is_nasm, is_xcode_argsfile))
     args_list.append(file_prefix_args)
