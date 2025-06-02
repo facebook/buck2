@@ -167,7 +167,7 @@ def build_junit_test(
             list_tests[RunInfo],
             "list-tests",
             "--sources-file",
-            ctx.actions.write("source_files.txt", ctx.attrs.srcs),
+            ctx.actions.write("source_files.txt", ctx.attrs.srcs, with_inputs = True),
         ])
         env["TPX_LIST_TESTS_COMMAND"] = list_tests_command
 
