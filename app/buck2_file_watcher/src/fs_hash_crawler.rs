@@ -153,14 +153,30 @@ impl FsSnapshot {
         for (cell_path, prev_info) in self.0.iter() {
             if let Some(current_info) = new_snapshot.0.get(cell_path) {
                 match (current_info, prev_info) {
-                    (EntryInfo::File(cur), EntryInfo::File(prev)) if cur != prev => {
+                    (EntryInfo::File(cur), EntryInfo::File(prev)) => {
+                        if cur != prev {
+                            events.push(FsEvent {
+                                cell_path: cell_path.to_owned(),
+                                event: FileWatcherEventType::Modify,
+                                kind: prev_info.to_file_watcher_kind(),
+                            });
+                        }
+                    }
+                    (EntryInfo::Directory, EntryInfo::Directory) => (),
+                    // FIXME(JakobDegen): Track symlink targets
+                    (EntryInfo::Symlink, EntryInfo::Symlink) => (),
+                    (current_info, prev_info) => {
                         events.push(FsEvent {
                             cell_path: cell_path.to_owned(),
-                            event: FileWatcherEventType::Modify,
+                            event: FileWatcherEventType::Delete,
                             kind: prev_info.to_file_watcher_kind(),
                         });
+                        events.push(FsEvent {
+                            cell_path: cell_path.to_owned(),
+                            event: FileWatcherEventType::Create,
+                            kind: current_info.to_file_watcher_kind(),
+                        });
                     }
-                    _ => (),
                 }
             } else {
                 events.push(FsEvent {

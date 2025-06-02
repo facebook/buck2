@@ -33,6 +33,11 @@ from buck2.tests.core.common.io.file_watcher_scm_tests import (
     run_restack_with_mergebase_test,
     setup_file_watcher_scm_test,
 )
+from buck2.tests.core.common.io.file_watcher_symlink_tests import (
+    run_change_symlink_target_test,
+    run_create_symlink_test,
+    run_replace_file_with_symlink_test,
+)
 from buck2.tests.core.common.io.file_watcher_tests import (
     FileSystemType,
     setup_file_watcher_test,
@@ -235,3 +240,45 @@ async def test_watchman_files_report_on_fresh_instance(buck: Buck) -> None:
     is_fresh_instance, results = await get_file_watcher_events(buck)
     assert is_fresh_instance
     verify_results(results, required)
+
+
+@buck_test(setup_eden=True)
+async def test_watchman_create_symlink_test_eden(buck: Buck) -> None:
+    await run_create_symlink_test(
+        buck, FileSystemType.EDEN_FS, FileWatcherProvider.WATCHMAN
+    )
+
+
+@buck_test(setup_eden=False)
+async def test_watchman_create_symlink_test_no_eden(buck: Buck) -> None:
+    await run_create_symlink_test(
+        buck, FileSystemType.NATIVE, FileWatcherProvider.WATCHMAN
+    )
+
+
+@buck_test(setup_eden=True)
+async def test_watchman_replace_file_with_symlink_eden(buck: Buck) -> None:
+    await run_replace_file_with_symlink_test(
+        buck, FileSystemType.EDEN_FS, FileWatcherProvider.WATCHMAN
+    )
+
+
+@buck_test(setup_eden=False)
+async def test_watchman_replace_file_with_symlink_no_eden(buck: Buck) -> None:
+    await run_replace_file_with_symlink_test(
+        buck, FileSystemType.NATIVE, FileWatcherProvider.WATCHMAN
+    )
+
+
+@buck_test(setup_eden=True)
+async def test_watchman_change_symlink_target_test_eden(buck: Buck) -> None:
+    await run_change_symlink_target_test(
+        buck, FileSystemType.EDEN_FS, FileWatcherProvider.WATCHMAN
+    )
+
+
+@buck_test(setup_eden=False)
+async def test_watchman_change_symlink_target_test_no_eden(buck: Buck) -> None:
+    await run_change_symlink_target_test(
+        buck, FileSystemType.NATIVE, FileWatcherProvider.WATCHMAN
+    )

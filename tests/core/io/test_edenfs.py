@@ -38,6 +38,11 @@ from buck2.tests.core.common.io.file_watcher_scm_tests import (
     run_restack_with_mergebase_test,
     setup_file_watcher_scm_test,
 )
+from buck2.tests.core.common.io.file_watcher_symlink_tests import (
+    run_change_symlink_target_test,
+    run_create_symlink_test,
+    run_replace_file_with_symlink_test,
+)
 from buck2.tests.core.common.io.file_watcher_tests import (
     FileSystemType,
     setup_file_watcher_test,
@@ -131,6 +136,27 @@ async def test_edenfs_rebase_with_mergebase(buck: Buck) -> None:
 @buck_test(setup_eden=True)
 async def test_edenfs_restack_with_mergebase(buck: Buck) -> None:
     await run_restack_with_mergebase_test(
+        buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
+    )
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_create_symlink_test(buck: Buck) -> None:
+    await run_create_symlink_test(
+        buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
+    )
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_replace_file_with_symlink_test(buck: Buck) -> None:
+    await run_replace_file_with_symlink_test(
+        buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
+    )
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_change_symlink_target_test(buck: Buck) -> None:
+    await run_change_symlink_target_test(
         buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
     )
 
