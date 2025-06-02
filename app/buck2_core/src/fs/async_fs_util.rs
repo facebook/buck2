@@ -8,9 +8,9 @@
  */
 
 use std::fs::Metadata;
+use std::io::Read;
 
 use buck2_error::BuckErrorContext;
-use tokio::io::AsyncReadExt;
 
 use crate::fs::fs_util;
 use crate::fs::paths::abs_path::AbsPath;
@@ -24,15 +24,20 @@ pub async fn open<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<tokio::fs::
 }
 
 pub async fn read<P: AsRef<AbsPath>>(path: P, buf: &mut [u8]) -> buck2_error::Result<usize> {
-    match open(path.as_ref()).await {
-        Ok(mut file) => {
-            let _guard = IoCounterKey::Read.guard();
-            file.read(buf)
-                .await
-                .with_buck_error_context(|| format!("read({})", path.as_ref().display()))
-        }
-        Err(e) => Err(e),
-    }
+    let path = path.as_ref().to_owned();
+    let mut buffer = buf.to_vec();
+
+    let (n, buffer) = tokio::task::spawn_blocking(move || {
+        let mut read_guard = fs_util::open_file(path)?;
+        let n = read_guard
+            .read(&mut buffer)
+            .map_err(buck2_error::Error::from)?;
+        buck2_error::Ok((n, buffer))
+    })
+    .await??;
+
+    buf.copy_from_slice(&buffer);
+    Ok(n)
 }
 
 pub async fn write<P: AsRef<AbsPath>>(
