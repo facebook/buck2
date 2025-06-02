@@ -33,6 +33,7 @@ pub trait IntoRemoteDepFile: Send {
         digest_config: DigestConfig,
         fs: &ArtifactFs,
         materializer: &dyn Materializer,
+        result: &CommandExecutionResult,
     ) -> buck2_error::Result<RemoteDepFile>;
 }
 

@@ -206,6 +206,7 @@ impl CacheUploader {
     async fn upload_dep_file(
         &self,
         info: &CacheUploadInfo<'_>,
+        result: &CommandExecutionResult,
         action_result: Option<TActionResult2>,
         dep_file_bundle: &mut dyn IntoRemoteDepFile,
         error_on_cache_upload: bool,
@@ -232,6 +233,7 @@ impl CacheUploader {
                             info.digest_config,
                             &self.artifact_fs,
                             self.materializer.as_ref(),
+                            result,
                         )
                         .await?;
                     let digest = remote_dep_file_action.action;
@@ -600,9 +602,15 @@ impl UploadCache for CacheUploader {
         let did_dep_file_cache_upload = if let Some(dep_file_bundle) = dep_file_bundle
             && should_upload_dep_file
         {
-            self.upload_dep_file(info, action_result, dep_file_bundle, error_on_cache_upload)
-                .await?
-                .uploaded()
+            self.upload_dep_file(
+                info,
+                res,
+                action_result,
+                dep_file_bundle,
+                error_on_cache_upload,
+            )
+            .await?
+            .uploaded()
         } else {
             tracing::info!(
                 "Dep file cache upload for `{}` not attempted",

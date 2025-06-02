@@ -19,14 +19,14 @@ def _with_two_dep_files_impl(ctx):
     allow_dep_file_cache_upload = read_config("test", "allow_dep_file_cache_upload") in ["true", "True"]
     allow_cache_upload = read_config("test", "allow_cache_upload") in ["true", "True"]
 
-    out = ctx.actions.declare_output(ctx.attrs.out_name)
+    out = ctx.actions.declare_output(ctx.attrs.out_name, uses_experimental_content_based_path_hashing = True)
 
     (dep_file_name0, used_files0, unused_files0) = ctx.attrs.dep_file_contents[0]
-    dep_file0 = ctx.actions.declare_output(dep_file_name0)
+    dep_file0 = ctx.actions.declare_output(dep_file_name0, uses_experimental_content_based_path_hashing = True)
     (tag0, tagged_used_files0, tagged_unused_files0, tagged_dep_file0) = _get_tagged_artifacts(ctx, dep_file0, used_files0, unused_files0)
 
     (dep_file_name1, used_files1, unused_files1) = ctx.attrs.dep_file_contents[1]
-    dep_file1 = ctx.actions.declare_output(dep_file_name1)
+    dep_file1 = ctx.actions.declare_output(dep_file_name1, uses_experimental_content_based_path_hashing = True)
     (tag1, tagged_used_files1, tagged_unused_files1, tagged_dep_file1) = _get_tagged_artifacts(ctx, dep_file1, used_files1, unused_files1)
 
     cmd = [

@@ -42,7 +42,6 @@ use buck2_core::soft_error;
 use buck2_directory::directory::directory_selector::DirectorySelector;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
 use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -59,6 +58,7 @@ use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
 use buck2_execute::execute::dep_file_digest::DepFileDigest;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::OutputType;
+use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_file_watcher::dep_files::FLUSH_DEP_FILES;
@@ -430,18 +430,20 @@ impl IntoRemoteDepFile for DepFileBundle {
         digest_config: DigestConfig,
         fs: &ArtifactFs,
         materializer: &dyn Materializer,
+        result: &CommandExecutionResult,
     ) -> buck2_error::Result<RemoteDepFile> {
-        for declared_dep_file in self.declared_dep_files.tagged.values() {
-            if declared_dep_file.output.has_content_based_path() {
-                // TODO(ianc) proper error
-                return Err(internal_error!(
-                    "Cannot use content based paths with remote dep files!"
-                ));
-            }
-        }
-
         // Compute the input fingerprint digest if it hasn't been computed already.
         if self.filtered_input_fingerprints.is_none() {
+            let action_outputs = ActionOutputs::new(
+                result
+                    .outputs
+                    .iter()
+                    .filter_map(|(o, v)| {
+                        Some((o.as_ref().into_build_artifact()?.0.dupe(), v.dupe()))
+                    })
+                    .collect(),
+            );
+
             self.filtered_input_fingerprints = Some(
                 eagerly_compute_fingerprints(
                     digest_config,
@@ -449,8 +451,7 @@ impl IntoRemoteDepFile for DepFileBundle {
                     materializer,
                     &self.shared_declared_inputs,
                     &self.declared_dep_files,
-                    // TODO(T219919866) Add content-based path support for remote dep-files
-                    None,
+                    &action_outputs,
                 )
                 .await?,
             );
@@ -541,6 +542,7 @@ impl DepFileBundle {
         fs: &ArtifactFs,
         materializer: &dyn Materializer,
         found: &RemoteDepFile,
+        result: &CommandExecutionResult,
     ) -> buck2_error::Result<bool> {
         // Everything in the common digest structure is included in the remote dep file key,
         // so they should be the same but it's good to double check.
@@ -582,6 +584,14 @@ impl DepFileBundle {
             return Ok(false);
         }
 
+        let action_outputs = ActionOutputs::new(
+            result
+                .outputs
+                .iter()
+                .filter_map(|(o, v)| Some((o.as_ref().into_build_artifact()?.0.dupe(), v.dupe())))
+                .collect(),
+        );
+
         // Now we compare the filtered input digests.
         // To do this,
         // 1. Read the dep file contents, this should have been downloaded as part of the action cache lookup
@@ -591,8 +601,7 @@ impl DepFileBundle {
             false,
             // The declared dep files of this and the found action are the same
             &self.declared_dep_files,
-            // TODO(T219919866) Add content-based path support for remote dep-files
-            None,
+            &action_outputs,
             fs,
             materializer,
         )
@@ -873,7 +882,7 @@ async fn dep_files_match(
     let dep_files = read_dep_files(
         previous_state.has_signatures(),
         previous_state.declared_dep_files(),
-        Some(previous_state.result()),
+        previous_state.result(),
         ctx.fs(),
         ctx.materializer(),
     )
@@ -938,7 +947,7 @@ fn outputs_are_reusable(declared_outputs: &[BuildArtifact], outputs: &ActionOutp
 pub(crate) async fn read_dep_files(
     has_signatures: bool,
     declared_dep_files: &DeclaredDepFiles,
-    result: Option<&ActionOutputs>,
+    result: &ActionOutputs,
     fs: &ArtifactFs,
     materializer: &dyn Materializer,
 ) -> buck2_error::Result<Option<ConcreteDepFiles>> {
@@ -984,7 +993,7 @@ async fn eagerly_compute_fingerprints(
     materializer: &dyn Materializer,
     shared_declared_inputs: &PartitionedInputs<ActionSharedDirectory>,
     declared_dep_files: &DeclaredDepFiles,
-    result: Option<&ActionOutputs>,
+    result: &ActionOutputs,
 ) -> buck2_error::Result<StoredFingerprints> {
     let dep_files = read_dep_files(false, declared_dep_files, result, artifact_fs, materializer)
         .await?
@@ -1035,7 +1044,7 @@ pub(crate) async fn populate_dep_files(
                 ctx.materializer(),
                 &shared_declared_inputs,
                 &declared_dep_files,
-                Some(result),
+                result,
             )
             .await?;
             fingerprints.to_dep_file_state(
@@ -1256,19 +1265,19 @@ impl DeclaredDepFiles {
         &self,
         fs: &ArtifactFs,
         materializer: &dyn Materializer,
-        result: Option<&ActionOutputs>,
+        result: &ActionOutputs,
     ) -> Result<(), MaterializeDepFilesError> {
         let mut paths = Vec::with_capacity(self.tagged.len());
 
         for declared_dep_file in self.tagged.values() {
             let dep_file = &declared_dep_file.output;
             let content_hash = if declared_dep_file.output.has_content_based_path() {
-                result.map(|result| {
+                Some(
                     result
                         .get_from_artifact_path(&declared_dep_file.output.get_path())
                         .expect("declared dep file must be one of the ActionOutputs!")
-                        .content_based_path_hash()
-                })
+                        .content_based_path_hash(),
+                )
             } else {
                 None
             };
@@ -1316,7 +1325,7 @@ impl DeclaredDepFiles {
     fn read(
         &self,
         fs: &ArtifactFs,
-        result: Option<&ActionOutputs>,
+        result: &ActionOutputs,
     ) -> buck2_error::Result<Option<ConcreteDepFiles>> {
         let mut contents = HashMap::with_capacity(self.tagged.len());
 
@@ -1324,12 +1333,12 @@ impl DeclaredDepFiles {
             let mut selector = DirectorySelector::empty();
 
             let content_hash = if declared_dep_file.output.has_content_based_path() {
-                result.map(|result| {
+                Some(
                     result
                         .get_from_artifact_path(&declared_dep_file.output.get_path())
                         .expect("declared dep file must be one of the ActionOutputs!")
-                        .content_based_path_hash()
-                })
+                        .content_based_path_hash(),
+                )
             } else {
                 None
             };

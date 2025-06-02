@@ -695,6 +695,7 @@ impl RunAction {
                     ctx.fs(),
                     ctx.materializer(),
                     found_dep_file_entry,
+                    &result,
                 ),
                 buck2_data::MatchDepFilesEnd {},
             )
