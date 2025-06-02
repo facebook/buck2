@@ -235,7 +235,7 @@ Hello world!
 
 There it is! Our program ran successfully and printed the message.
 
-Step 6: Inspecting Your Target (Optional)
+## Step 6: Inspecting Your Target (Optional)
 
 This step is optional, but it's good to know how you can ask Buck2 about the
 targets you've defined.
