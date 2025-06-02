@@ -14,10 +14,14 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.anyBoolean;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.when;
 
 import com.android.ddmlib.IDevice;
 import com.facebook.buck.android.AdbHelper.AndroidDebugBridgeFacade;
 import com.facebook.buck.android.device.TargetDeviceOptions;
+import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.RealAndroidDevice;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.exceptions.HumanReadableException;
@@ -40,7 +44,12 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.MockitoJUnitRunner;
 
+@RunWith(MockitoJUnitRunner.class)
 public class AdbHelperTest {
 
   private static final Logger LOGGER = Logger.getLogger(AdbHelperTest.class.getName());
@@ -52,6 +61,8 @@ public class AdbHelperTest {
   private TestConsole testConsole;
   private TestAdbExecutionContext adbExecutionContext;
   private AdbHelper basicAdbHelper;
+
+  @Mock private AdbUtils adbUtils;
 
   @Before
   public void setUp() {
@@ -87,6 +98,7 @@ public class AdbHelperTest {
       AdbOptions adbOptions,
       TargetDeviceOptions targetDeviceOptions) {
     return new AdbHelper(
+        adbUtils,
         adbOptions,
         targetDeviceOptions,
         adbExecutionContext,
@@ -189,6 +201,10 @@ public class AdbHelperTest {
   /** Verify that when emulator-only mode is enabled only emulators appear in result. */
   @Test
   public void testDeviceFilterEmulator() {
+    when(adbUtils.executeAdbShellCommand(eq("getprop ro.kernel.qemu"), eq("1"), anyBoolean()))
+        .thenReturn("1");
+    when(adbUtils.executeAdbShellCommand(eq("getprop ro.kernel.qemu"), eq("2"), anyBoolean()))
+        .thenReturn("0");
     AdbHelper myAdbHelper =
         createAdbHelper(createAdbOptions(), new TargetDeviceOptions(true, false, Optional.empty()));
 
@@ -207,6 +223,10 @@ public class AdbHelperTest {
   /** Verify that when real-device-only mode is enabled only real devices appear in result. */
   @Test
   public void testDeviceFilterRealDevices() {
+    when(adbUtils.executeAdbShellCommand(eq("getprop ro.kernel.qemu"), eq("1"), anyBoolean()))
+        .thenReturn("0");
+    when(adbUtils.executeAdbShellCommand(eq("getprop ro.kernel.qemu"), eq("2"), anyBoolean()))
+        .thenReturn("1");
     AdbHelper myAdbHelper =
         createAdbHelper(createAdbOptions(), new TargetDeviceOptions(false, true, Optional.empty()));
 
@@ -274,6 +294,9 @@ public class AdbHelperTest {
   /** Verify that if no devices match filters null is returned. */
   @Test
   public void testDeviceFilterNoMatchingDevices() {
+    when(adbUtils.executeAdbShellCommand(
+            eq("getprop ro.kernel.qemu"), Mockito.anyString(), anyBoolean()))
+        .thenReturn("1");
     IDevice[] devices =
         new IDevice[] {
           createRealDevice("1", IDevice.DeviceState.ONLINE),
@@ -293,6 +316,15 @@ public class AdbHelperTest {
   /** Verify that different combinations of arguments work correctly. */
   @Test
   public void testDeviceFilterCombos() {
+    when(adbUtils.executeAdbShellCommand(eq("getprop ro.kernel.qemu"), eq("1"), anyBoolean()))
+        .thenReturn("0");
+    when(adbUtils.executeAdbShellCommand(eq("getprop ro.kernel.qemu"), eq("2"), anyBoolean()))
+        .thenReturn("0");
+    when(adbUtils.executeAdbShellCommand(eq("getprop ro.kernel.qemu"), eq("3"), anyBoolean()))
+        .thenReturn("1");
+    when(adbUtils.executeAdbShellCommand(eq("getprop ro.kernel.qemu"), eq("4"), anyBoolean()))
+        .thenReturn("1");
+
     TestDevice realDevice1 = createRealDevice("1", IDevice.DeviceState.ONLINE);
     TestDevice realDevice2 = createRealDevice("2", IDevice.DeviceState.ONLINE);
     TestDevice emulator1 = createEmulator("3", IDevice.DeviceState.ONLINE);
@@ -560,6 +592,7 @@ public class AdbHelperTest {
 
   private AdbHelper createAdbHelper(AdbOptions options, AndroidDebugBridgeFacade facade) {
     return new AdbHelper(
+        adbUtils,
         options,
         new TargetDeviceOptions(),
         adbExecutionContext,
@@ -592,6 +625,7 @@ public class AdbHelperTest {
                     .collect(ImmutableList.toImmutableList())));
 
     return new AdbHelper(
+        adbUtils,
         createAdbOptions(),
         new TargetDeviceOptions(),
         adbExecutionContext,

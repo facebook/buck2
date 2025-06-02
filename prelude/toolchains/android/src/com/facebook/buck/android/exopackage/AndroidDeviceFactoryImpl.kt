@@ -26,10 +26,11 @@ class AndroidDeviceFactoryImpl : AndroidDeviceFactory {
       maxRetries: Int,
       retryDelayMs: Long,
       adbExecutable: String?,
-      adbServerPort: Int
+      adbServerPort: Int,
+      adbUtils: AdbUtils,
   ): AndroidDevice? {
     LOG.info("Creating AndroidDeviceImpl for %s", device.serialNumber)
-    return AndroidDeviceImpl(device.serialNumber, adbExecutable, adbServerPort)
+    return AndroidDeviceImpl(device.serialNumber, adbUtils)
   }
 
   companion object {

@@ -25,10 +25,7 @@ import java.util.Optional
 import java.util.regex.Pattern
 import kotlin.system.measureTimeMillis
 
-class AndroidDeviceImpl(val serial: String, val adbExecutable: String?, val adbServerPort: Int) :
-    AndroidDevice {
-  val adbUtils: AdbUtils =
-      AdbUtils(adbExecutable ?: throw AndroidInstallException.adbPathNotFound(), adbServerPort)
+class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDevice {
 
   override fun installApkOnDevice(
       apk: File,

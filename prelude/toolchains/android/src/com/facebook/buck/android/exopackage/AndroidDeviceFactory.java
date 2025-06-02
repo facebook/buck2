@@ -27,5 +27,6 @@ public interface AndroidDeviceFactory {
       int maxRetries,
       long retryDelayMs,
       String adbExecutable,
-      int adbServerPort);
+      int adbServerPort,
+      AdbUtils adbUtils);
 }

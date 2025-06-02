@@ -16,6 +16,7 @@ import com.facebook.buck.android.AdbHelper;
 import com.facebook.buck.android.AdbOptions;
 import com.facebook.buck.android.IsolatedApkInfo;
 import com.facebook.buck.android.device.TargetDeviceOptions;
+import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDeviceInfo;
 import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
@@ -99,8 +100,14 @@ class AndroidInstall {
     if (cliOptions.skipSetDebugApp) {
       setDebugAppMode = SetDebugAppMode.SKIP;
     }
+    AdbUtils adbUtils =
+        new AdbUtils(
+            Optional.of(apkOptions.adbExecutable)
+                .orElseThrow(AndroidInstallException.Companion::adbPathNotFound),
+            adbOptions.getAdbServerPort());
     this.adbHelper =
         new AdbHelper(
+            adbUtils,
             adbOptions,
             targetDeviceOptions,
             new AdbExecutionContext(console),

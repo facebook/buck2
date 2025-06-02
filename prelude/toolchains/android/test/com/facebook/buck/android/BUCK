@@ -87,5 +87,6 @@ buck_java_test(
         "prelude//toolchains/android/test/com/facebook/buck/util:testutil",
         "prelude//toolchains/android/third-party:ddmlib",
         "prelude//toolchains/android/third-party:junit",
+        "prelude//toolchains/android/third-party:mockito",
     ],
 )

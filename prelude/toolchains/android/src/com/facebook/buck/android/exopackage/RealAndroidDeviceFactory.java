@@ -30,7 +30,8 @@ public class RealAndroidDeviceFactory implements AndroidDeviceFactory {
       int maxRetries,
       long retryDelayMs,
       String adbExecutable,
-      int adbServerPort) {
+      int adbServerPort,
+      AdbUtils adbUtils) {
     {
       LOG.info("Creating RealAndroidDevice for %s", device.getSerialNumber());
       return new RealAndroidDevice(

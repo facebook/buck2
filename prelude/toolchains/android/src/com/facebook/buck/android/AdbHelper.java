@@ -16,6 +16,7 @@ import com.android.ddmlib.AndroidDebugBridge;
 import com.android.ddmlib.DdmPreferences;
 import com.android.ddmlib.IDevice;
 import com.facebook.buck.android.device.TargetDeviceOptions;
+import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDevice;
 import com.facebook.buck.android.exopackage.AndroidDeviceFactory;
 import com.facebook.buck.android.exopackage.AndroidDeviceInfo;
@@ -123,7 +124,10 @@ public class AdbHelper implements AndroidDevicesHelper {
   private final int maxRetries;
   private final long retryDelayMs;
 
+  private final AdbUtils adbUtils;
+
   public AdbHelper(
+      AdbUtils adbUtils,
       AdbOptions adbOptions,
       TargetDeviceOptions deviceOptions,
       AdbExecutionContext adbExecutionContext,
@@ -137,6 +141,7 @@ public class AdbHelper implements AndroidDevicesHelper {
       int maxRetries,
       long retryDelayMs,
       SetDebugAppMode setDebugAppMode) {
+    this.adbUtils = adbUtils;
     this.options = adbOptions;
     this.deviceOptions = deviceOptions;
     this.adbExecutionContext = adbExecutionContext;
@@ -711,7 +716,8 @@ public class AdbHelper implements AndroidDevicesHelper {
             maxRetries,
             retryDelayMs,
             adbExecutable.orElse(null),
-            options.getAdbServerPort());
+            options.getAdbServerPort(),
+            adbUtils);
   }
 
   @VisibleForTesting
