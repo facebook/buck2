@@ -1015,8 +1015,7 @@ pub(crate) async fn populate_dep_files(
         common_digests,
         ..
     } = dep_file_bundle;
-    let should_compute_fingerprints =
-        declared_dep_files.is_empty() || ctx.run_action_knobs().eager_dep_files;
+    let should_compute_fingerprints = ctx.run_action_knobs().eager_dep_files;
     let digests = CommandDigests {
         cli: common_digests.commandline_cli_digest,
         directory: input_directory_digest,
