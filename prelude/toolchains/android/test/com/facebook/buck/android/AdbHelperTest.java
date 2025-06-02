@@ -22,7 +22,7 @@ import com.android.ddmlib.IDevice;
 import com.facebook.buck.android.AdbHelper.AndroidDebugBridgeFacade;
 import com.facebook.buck.android.device.TargetDeviceOptions;
 import com.facebook.buck.android.exopackage.AdbUtils;
-import com.facebook.buck.android.exopackage.RealAndroidDevice;
+import com.facebook.buck.android.exopackage.AndroidDeviceImpl;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.installer.android.IsolatedAndroidInstallerPrinter;
@@ -31,11 +31,8 @@ import com.facebook.buck.testutil.TestConsole;
 import com.facebook.buck.testutil.TestLogSink;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-import java.io.File;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -387,57 +384,6 @@ public class AdbHelperTest {
   }
 
   @Test
-  public void testQuietDeviceInstall() throws InterruptedException {
-    File apk = new File("/some/file.apk");
-    AtomicReference<String> apkPath = new AtomicReference<>();
-
-    TestDevice device =
-        new TestDevice() {
-          @Override
-          public void installPackage(String s, boolean b, String... strings) {
-            apkPath.set(s);
-          }
-        };
-    device.setSerialNumber("serial#1");
-    device.setName("testDevice");
-
-    List<IDevice> deviceList = Lists.newArrayList(device);
-
-    AdbHelper adbHelper = createAdbHelper(deviceList);
-    adbHelper.adbCall(
-        "install apk", (d) -> d.installApkOnDevice(apk, false, true, false, false), true);
-
-    assertEquals(apk.getAbsolutePath(), apkPath.get());
-    assertTrue(testLogSink.getRecords().isEmpty());
-  }
-
-  @Test
-  public void testNonQuietShowsOutput() throws InterruptedException {
-    File apk = new File("/some/file.apk");
-    AtomicReference<String> apkPath = new AtomicReference<>();
-
-    TestDevice device =
-        new TestDevice() {
-          @Override
-          public void installPackage(String s, boolean b, String... strings) {
-            apkPath.set(s);
-          }
-        };
-    device.setSerialNumber("serial#1");
-    device.setName("testDevice");
-
-    List<IDevice> deviceList = Lists.newArrayList(device);
-
-    AdbHelper adbHelper = createAdbHelper(deviceList);
-    adbHelper.adbCall(
-        "install apk", (d) -> d.installApkOnDevice(apk, false, false, false, false), false);
-
-    assertEquals(apk.getAbsolutePath(), apkPath.get());
-    assertLoggedToConsole(
-        "Installing apk on serial#1.", "Successfully ran install apk on 1 device(s)");
-  }
-
-  @Test
   public void testGetDevicesShouldLogWhenMultipleDevices() {
     AdbHelper adbHelper =
         createAdbHelper(
@@ -618,10 +564,7 @@ public class AdbHelperTest {
         Optional.of(
             () ->
                 deviceList.stream()
-                    .map(
-                        id ->
-                            new RealAndroidDevice(
-                                new IsolatedAndroidInstallerPrinter(LOGGER), id, testConsole))
+                    .map(id -> new AndroidDeviceImpl(id.getSerialNumber(), adbUtils))
                     .collect(ImmutableList.toImmutableList())));
 
     return new AdbHelper(

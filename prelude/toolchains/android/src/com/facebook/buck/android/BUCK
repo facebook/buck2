@@ -24,8 +24,6 @@ HELPERS_SRCS = [
     "exopackage/ExopackageMode.java",
     "exopackage/ExopackageUtil.java",
     "exopackage/NativeExoHelper.java",
-    "exopackage/RealAndroidDevice.java",
-    "exopackage/RealAndroidDeviceFactory.java",
     "exopackage/AdbUtils.kt",
     "exopackage/AndroidDeviceImpl.kt",
     "exopackage/AndroidDeviceFactoryImpl.kt",
