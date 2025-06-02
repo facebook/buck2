@@ -232,6 +232,8 @@ pub(crate) struct InvocationRecorder {
     exec_time_ms: u64,
     initial_local_cache_hits_files_from_memory_cache: Option<i64>,
     initial_local_cache_hits_files_from_filesystem_cache: Option<i64>,
+    initial_local_cache_lookups: Option<i64>,
+    initial_local_cache_lookup_latency_microseconds: Option<i64>,
 }
 
 impl InvocationRecorder {
@@ -395,6 +397,8 @@ impl InvocationRecorder {
             exec_time_ms: 0,
             initial_local_cache_hits_files_from_memory_cache: None,
             initial_local_cache_hits_files_from_filesystem_cache: None,
+            initial_local_cache_lookups: None,
+            initial_local_cache_lookup_latency_microseconds: None,
         }
     }
 
@@ -537,6 +541,8 @@ impl InvocationRecorder {
 
         let mut local_cache_hits_files_from_memory_cache = None;
         let mut local_cache_hits_files_from_filesystem_cache = None;
+        let mut local_cache_lookups = None;
+        let mut local_cache_lookup_latency_microseconds = None;
 
         if let Some(snapshot) = &self.last_snapshot {
             sink_success_count =
@@ -650,6 +656,16 @@ impl InvocationRecorder {
             local_cache_hits_files_from_filesystem_cache = calculate_diff_if_some(
                 &Some(snapshot.local_cache_hits_files_from_filesystem_cache),
                 &self.initial_local_cache_hits_files_from_filesystem_cache,
+            );
+
+            local_cache_lookups = calculate_diff_if_some(
+                &Some(snapshot.local_cache_lookups),
+                &self.initial_local_cache_lookups,
+            );
+
+            local_cache_lookup_latency_microseconds = calculate_diff_if_some(
+                &Some(snapshot.local_cache_lookup_latency_microseconds),
+                &self.initial_local_cache_lookup_latency_microseconds,
             );
 
             // We show memory/disk warnings in the console but we can't emit a tag event there due to having no access to dispatcher.
@@ -872,6 +888,13 @@ impl InvocationRecorder {
             preemptible: Some(preemptible.to_owned()),
             local_cache_hits_files_from_memory_cache,
             local_cache_hits_files_from_filesystem_cache,
+            local_cache_lookups,
+            re_average_local_cache_lookup_microseconds: local_cache_lookups
+                .map(|c| {
+                    local_cache_lookup_latency_microseconds
+                        .map(|duration| duration as f64 / c as f64)
+                })
+                .flatten(),
         };
 
         let event = BuckEvent::new(
@@ -1419,6 +1442,18 @@ impl InvocationRecorder {
         {
             self.initial_local_cache_hits_files_from_filesystem_cache =
                 Some(update.local_cache_hits_files_from_filesystem_cache);
+        }
+
+        if self.initial_local_cache_lookups.is_none() {
+            self.initial_local_cache_lookups = Some(update.local_cache_lookups);
+        }
+
+        if self
+            .initial_local_cache_lookup_latency_microseconds
+            .is_none()
+        {
+            self.initial_local_cache_lookup_latency_microseconds =
+                Some(update.local_cache_lookup_latency_microseconds);
         }
 
         for s in self.re_max_download_speeds.iter_mut() {

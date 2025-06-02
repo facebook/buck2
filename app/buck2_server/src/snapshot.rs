@@ -161,6 +161,10 @@ impl SnapshotCollector {
             snapshot.local_cache_hits_files_from_memory_cache = stats.local_cache.hits_from_memory;
             snapshot.local_cache_hits_files_from_filesystem_cache = stats.local_cache.hits_from_fs;
 
+            snapshot.local_cache_lookups = stats.local_cache.cache_lookups;
+            snapshot.local_cache_lookup_latency_microseconds =
+                stats.local_cache.cache_lookup_latency_microseconds;
+
             Ok(())
         }
 

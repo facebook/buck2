@@ -876,7 +876,8 @@ message Snapshot {
   int64 local_cache_hits_files_from_memory_cache = 438;
   int64 local_cache_hits_files_from_filesystem_cache = 439;
 
-  // Client side metrics.
+  int64 local_cache_lookups = 440;
+  int64 local_cache_lookup_latency_microseconds = 441; // Client side metrics.
 
   // Delay between time snapshot is created and time it is received
   // by the client.
@@ -2368,6 +2369,10 @@ message InvocationRecord {
   // Distribution of local cache hits by cache type.
   optional int64 local_cache_hits_files_from_memory_cache = 253;
   optional int64 local_cache_hits_files_from_filesystem_cache = 254;
+
+  // Overall cache lookup attempts and total latency of cache lookups
+  optional int64 local_cache_lookups = 255;
+  optional double re_average_local_cache_lookup_microseconds = 256;
 }
 
 enum InvocationOutcome {

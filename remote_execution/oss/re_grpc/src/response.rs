@@ -155,10 +155,12 @@ pub struct CacheFunnelStats {
 
 #[derive(Clone, Default)]
 pub struct TLocalCacheStats {
+    pub total_cache_lookup_attempts: i64,
     pub hits_files: i64,
     pub hits_bytes: i64,
     pub misses_files: i64,
     pub misses_bytes: i64,
+    pub cache_lookup_latency_microseconds: i64,
     pub cache_funnel_stats: CacheFunnelStats,
     // Compatibility with the Thrift structs
     pub _dot_dot_default: (),

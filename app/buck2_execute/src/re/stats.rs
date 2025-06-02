@@ -128,6 +128,8 @@ pub(super) struct LocalCacheStats {
     misses_bytes: AtomicI64,
     hits_from_memory: AtomicI64,
     hits_from_fs: AtomicI64,
+    cache_lookups: AtomicI64,
+    cache_lookup_latency_microseconds: AtomicI64,
 }
 
 impl LocalCacheStats {
@@ -148,6 +150,10 @@ impl LocalCacheStats {
             stat.cache_funnel_stats.digests_served_from_fs,
             Ordering::Relaxed,
         );
+        self.cache_lookups
+            .fetch_add(stat.total_cache_lookup_attempts, Ordering::Relaxed);
+        self.cache_lookup_latency_microseconds
+            .fetch_add(stat.cache_lookup_latency_microseconds, Ordering::Relaxed);
     }
 }
 
@@ -159,6 +165,8 @@ pub struct LocalCacheRemoteExecutionClientStats {
     pub misses_bytes: i64,
     pub hits_from_memory: i64,
     pub hits_from_fs: i64,
+    pub cache_lookups: i64,
+    pub cache_lookup_latency_microseconds: i64,
 }
 
 impl From<&'_ LocalCacheStats> for LocalCacheRemoteExecutionClientStats {
@@ -170,6 +178,10 @@ impl From<&'_ LocalCacheStats> for LocalCacheRemoteExecutionClientStats {
             misses_bytes: stats.misses_bytes.load(Ordering::Relaxed),
             hits_from_memory: stats.hits_from_memory.load(Ordering::Relaxed),
             hits_from_fs: stats.hits_from_fs.load(Ordering::Relaxed),
+            cache_lookups: stats.cache_lookups.load(Ordering::Relaxed),
+            cache_lookup_latency_microseconds: stats
+                .cache_lookup_latency_microseconds
+                .load(Ordering::Relaxed),
         }
     }
 }
