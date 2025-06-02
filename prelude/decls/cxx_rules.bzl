@@ -11,14 +11,61 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//apple:apple_common.bzl", "apple_common")
+load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
+load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:test_common.bzl", "test_common")
-load("@prelude//linking:link_info.bzl", "ArchiveContentsType", "LinkStyle")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
+load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
+load("@prelude//linking:link_info.bzl", "ArchiveContentsType", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:types.bzl", "Linkage")
+load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":genrule_common.bzl", "genrule_common")
 load(":native_common.bzl", "native_common")
+
+BUILD_INFO_ATTR = attrs.dict(
+    key = attrs.string(),
+    value = attrs.option(attrs.any()),
+    sorted = False,
+    default = {},
+    doc = "Build info that is passed along here will be late-stamped into a fb_build_info section on the output binary",
+)
+
+def _cxx_binary_and_test_attrs():
+    ret = {
+        "anonymous_link_groups": attrs.bool(default = False),
+        "auto_link_groups": attrs.bool(default = False),
+        # Linker flags that only apply to the executable link, used for link
+        # strategies (e.g. link groups) which may link shared libraries from
+        # top-level binary context.
+        "binary_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
+        "bolt_flags": attrs.list(attrs.arg(), default = []),
+        "bolt_profile": attrs.option(attrs.source(), default = None),
+        # These flags will only be used to instrument a target
+        # when coverage for that target is enabled by a header
+        # selected for coverage either in the target or in one
+        # of the target's dependencies.
+        "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
+        "cuda_compile_style": attrs.enum(CudaCompileStyle.values(), default = "mono"),
+        "distributed_thinlto_partial_split_dwarf": attrs.bool(default = False),
+        "enable_distributed_thinlto": attrs.bool(default = False),
+        "exported_needs_coverage_instrumentation": attrs.bool(default = False),
+        "link_execution_preference": link_execution_preference_attr(),
+        "link_group_map": LINK_GROUP_MAP_ATTR,
+        "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
+        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
+        "link_whole": attrs.default_only(attrs.bool(default = False)),
+        "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
+        "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
+        "separate_debug_info": attrs.bool(default = False),
+        "_build_info": BUILD_INFO_ATTR,
+        "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
+        "_cxx_toolchain": toolchains_common.cxx(),
+    }
+    ret.update(constraint_overrides.attributes)
+    return ret
 
 ArchiverProviderType = ["bsd", "gnu", "llvm", "windows", "windows_clang"]
 
@@ -133,7 +180,8 @@ cxx_binary = prelude_rule(
             "weak_framework_names": attrs.list(attrs.string(), default = []),
             "use_header_units": attrs.bool(default = False),
         } |
-        buck.allow_cache_upload_arg()
+        buck.allow_cache_upload_arg() |
+        _cxx_binary_and_test_attrs()
     ),
 )
 
@@ -949,7 +997,8 @@ cxx_test = prelude_rule(
             """),
         } |
         buck.allow_cache_upload_arg() |
-        test_common.attributes()
+        test_common.attributes() |
+        _cxx_binary_and_test_attrs()
     ),
 )
 

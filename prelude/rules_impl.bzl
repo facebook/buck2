@@ -35,7 +35,7 @@ load("@prelude//decls:android_rules.bzl", "android_rules")
 load("@prelude//decls:apple_rules.bzl", "ios_rules")
 load("@prelude//decls:common.bzl", "IncludeType", "LinkableDepType", "buck")
 load("@prelude//decls:core_rules.bzl", "core_rules")
-load("@prelude//decls:cxx_rules.bzl", "cxx_rules")
+load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR", "cxx_rules")
 load("@prelude//decls:d_rules.bzl", "d_rules")
 load("@prelude//decls:dotnet_rules.bzl", "dotnet_rules")
 load("@prelude//decls:erlang_rules.bzl", "erlang_rules")
@@ -98,14 +98,6 @@ load("@prelude//python:toolchain.bzl", "NativeLinkStrategy")
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
-
-BUILD_INFO_ATTR = attrs.dict(
-    key = attrs.string(),
-    value = attrs.option(attrs.any()),
-    sorted = False,
-    default = {},
-    doc = "Build info that is passed along here will be late-stamped into a fb_build_info section on the output binary",
-)
 
 rule_decl_records = [
     android_rules,
@@ -275,7 +267,6 @@ def _cxx_python_extension_attrs():
 # Attrs common between python binary/test
 def _python_executable_attrs():
     cxx_binary_attrs = {k: v for k, v in cxx_rules.cxx_binary.attrs.items()}
-    cxx_binary_attrs.update(_cxx_binary_and_test_attrs())
     python_executable_attrs = {}
     python_executable_attrs["srcs"] = None
     python_executable_attrs.update(python_rules.python_binary.attrs)
@@ -377,40 +368,6 @@ def _python_test_attrs():
     test_attrs.update(re_test_common.test_args())
     return test_attrs
 
-def _cxx_binary_and_test_attrs():
-    ret = {
-        "anonymous_link_groups": attrs.bool(default = False),
-        "auto_link_groups": attrs.bool(default = False),
-        # Linker flags that only apply to the executable link, used for link
-        # strategies (e.g. link groups) which may link shared libraries from
-        # top-level binary context.
-        "binary_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
-        "bolt_flags": attrs.list(attrs.arg(), default = []),
-        "bolt_profile": attrs.option(attrs.source(), default = None),
-        # These flags will only be used to instrument a target
-        # when coverage for that target is enabled by a header
-        # selected for coverage either in the target or in one
-        # of the target's dependencies.
-        "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
-        "cuda_compile_style": attrs.enum(CudaCompileStyle.values(), default = "mono"),
-        "distributed_thinlto_partial_split_dwarf": attrs.bool(default = False),
-        "enable_distributed_thinlto": attrs.bool(default = False),
-        "exported_needs_coverage_instrumentation": attrs.bool(default = False),
-        "link_execution_preference": link_execution_preference_attr(),
-        "link_group_map": LINK_GROUP_MAP_ATTR,
-        "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
-        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
-        "link_whole": attrs.default_only(attrs.bool(default = False)),
-        "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
-        "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
-        "separate_debug_info": attrs.bool(default = False),
-        "_build_info": BUILD_INFO_ATTR,
-        "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
-        "_cxx_toolchain": toolchains_common.cxx(),
-    }
-    ret.update(constraint_overrides.attributes)
-    return ret
-
 StripLibparStrategy = ["full", "extract", "none"]
 
 def _package_python_binary_remotely():
@@ -437,7 +394,6 @@ inlined_extra_attributes = {
     "csharp_library": {
         "_csharp_toolchain": toolchains_common.csharp(),
     },
-    "cxx_binary": _cxx_binary_and_test_attrs(),
 
     #c++
     "cxx_genrule": genrule_attributes() | {
@@ -481,7 +437,7 @@ inlined_extra_attributes = {
         "_is_building_android_binary": is_building_android_binary_attr(),
     },
     "cxx_python_extension": _cxx_python_extension_attrs(),
-    "cxx_test": re_test_common.test_args() | _cxx_binary_and_test_attrs(),
+    "cxx_test": re_test_common.test_args(),
     "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
 
     # Generic rule to build from a command
