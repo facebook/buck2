@@ -19,8 +19,8 @@ use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_common::dice::file_ops::DiceFileComputations;
-use buck2_common::file_ops::PathMetadata;
-use buck2_common::file_ops::PathMetadataOrRedirection;
+use buck2_common::file_ops::RawPathMetadata;
+use buck2_common::file_ops::RawSymlink;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
@@ -409,19 +409,23 @@ async fn path_artifact_value(
         }
     }?;
 
-    match PathMetadataOrRedirection::from(raw) {
-        PathMetadataOrRedirection::PathMetadata(meta) => match meta {
-            PathMetadata::ExternalSymlink(symlink) => Ok(ArtifactValue::new(
-                ActionDirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(symlink)),
-                None,
-            )),
-            PathMetadata::File(metadata) => Ok(ArtifactValue::new(
-                ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)),
-                None,
-            )),
-            PathMetadata::Directory => dir_artifact_value(ctx, cell_path).await,
-        },
-        PathMetadataOrRedirection::Redirection(r, _) => {
+    match raw {
+        RawPathMetadata::Symlink {
+            at: _,
+            to: RawSymlink::External(external_symlink),
+        } => Ok(ArtifactValue::new(
+            ActionDirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)),
+            None,
+        )),
+        RawPathMetadata::File(metadata) => Ok(ArtifactValue::new(
+            ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)),
+            None,
+        )),
+        RawPathMetadata::Directory => dir_artifact_value(ctx, cell_path).await,
+        RawPathMetadata::Symlink {
+            at: _,
+            to: RawSymlink::Relative(r, _),
+        } => {
             // TODO (T126181780): This should have a limit on recursion.
             path_artifact_value(ctx, r, label).await
         }
