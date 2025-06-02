@@ -482,8 +482,7 @@ def _make_py_package_impl(
     if standalone or make_py_package_cmd != None:
         # We support building _standalone_ packages locally to e.g. support fbcode's
         # current style of build info stamping (e.g. T10696178).
-        # Inplace par should be built locally to avoid materialization cost
-        prefer_local = (standalone and package_python_locally(ctx, python_toolchain)) or not standalone
+        prefer_local = (standalone and package_python_locally(ctx, python_toolchain))
 
         cmd = cmd_args(
             make_py_package_cmd if make_py_package_cmd != None else python_toolchain.make_py_package_standalone,
