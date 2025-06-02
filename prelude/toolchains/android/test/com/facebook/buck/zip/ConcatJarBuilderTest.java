@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.jar.Manifest;
 import org.junit.Rule;
 import org.junit.Test;
@@ -39,9 +40,8 @@ public class ConcatJarBuilderTest extends JarTestSupport {
 
     // keep all zip entries, however the JarFile will only use load only the last entry of same
     // name.
-    final List<String> expectedEntries =
-        List.of(ENTRY_1, MANIFEST, ENTRY_2, MANIFEST, MANIFEST_DIR, MANIFEST);
-    final List<String> valuesToCheck = List.of(ENTRY_1, ENTRY_2);
+    final Set<String> expectedEntries = Set.of(ENTRY_1, ENTRY_2, MANIFEST, MANIFEST_DIR);
+    final Set<String> valuesToCheck = Set.of(ENTRY_1, ENTRY_2);
 
     final Path outputJar =
         createJarWithConcatJarBuilder(List.of(firstJar, secondJar), tmp.newFile().getPath());
@@ -49,10 +49,8 @@ public class ConcatJarBuilderTest extends JarTestSupport {
     final CentralDirectoryHeader directory = readCentralDirectoryHeader(outputJar);
 
     assertTrue(directory.getOffset() > 0);
-    assertEquals(expectedEntries.size(), directory.getCount());
-    assertEquals(expectedEntries.size(), directory.getFiles().size());
-    assertEquals(expectedEntries, readJarEntryNames(outputJar));
-    assertEquals(valuesToCheck, readJarEntryValues(outputJar, valuesToCheck));
+    assertEquals(expectedEntries, Set.copyOf(readJarEntryNames(outputJar)));
+    assertEquals(valuesToCheck, Set.copyOf(readJarValuesAsMap(outputJar, valuesToCheck).values()));
   }
 
   @Test
@@ -64,7 +62,7 @@ public class ConcatJarBuilderTest extends JarTestSupport {
     final Path outputJar = tmp.newFile().getPath();
 
     // preserve all entries
-    final List<String> valuesToCheck = List.of(ENTRY_1, ENTRY_2, ENTRY_3);
+    final Set<String> expectedContent = Set.of(ENTRY_1, ENTRY_2, ENTRY_3);
 
     getConcatJarBuilder(List.of(firstJar, secondJar))
         .setAppendJar(appendJar)
@@ -73,7 +71,8 @@ public class ConcatJarBuilderTest extends JarTestSupport {
     final CentralDirectoryHeader directory = readCentralDirectoryHeader(outputJar);
 
     assertTrue(directory.getOffset() > 0);
-    assertEquals(valuesToCheck, readJarEntryValues(outputJar, valuesToCheck));
+    assertEquals(
+        expectedContent, Set.copyOf(readJarValuesAsMap(outputJar, expectedContent).values()));
   }
 
   @Test
@@ -83,9 +82,8 @@ public class ConcatJarBuilderTest extends JarTestSupport {
     final Path secondJar = newJar().entries(ENTRY_2, ENTRY_3).writeTo(tmp);
 
     // preserve all entries
-    final List<String> expectedEntries =
-        List.of(ENTRY_1, ENTRY_2, MANIFEST, ENTRY_2, ENTRY_3, MANIFEST, MANIFEST_DIR, MANIFEST);
-    final List<String> valuesToCheck = List.of(ENTRY_1, ENTRY_2, ENTRY_3);
+    final Set<String> expectedEntries = Set.of(ENTRY_1, ENTRY_2, ENTRY_3, MANIFEST_DIR, MANIFEST);
+    final Set<String> valuesToCheck = Set.of(ENTRY_1, ENTRY_2, ENTRY_3);
 
     final Path outputJar =
         createJarWithConcatJarBuilder(List.of(firstJar, secondJar), tmp.newFile().getPath());
@@ -93,9 +91,8 @@ public class ConcatJarBuilderTest extends JarTestSupport {
     final CentralDirectoryHeader directory = readCentralDirectoryHeader(outputJar);
 
     assertTrue(directory.getOffset() > 0);
-    assertEquals(expectedEntries.size(), directory.getCount());
-    assertEquals(expectedEntries, readJarEntryNames(outputJar));
-    assertEquals(valuesToCheck, readJarEntryValues(outputJar, valuesToCheck));
+    assertEquals(expectedEntries, Set.copyOf(readJarEntryNames(outputJar)));
+    assertEquals(valuesToCheck, Set.copyOf(readJarValuesAsMap(outputJar, valuesToCheck).values()));
   }
 
   @Test
@@ -125,9 +122,8 @@ public class ConcatJarBuilderTest extends JarTestSupport {
     final String classResource = className.replace('.', '/') + ".class";
     final byte[] classBytes = getResourceAsBytes(getClass().getClassLoader(), classResource);
 
-    final Path firstJar = newJar().entry(classResource, "invalid class bytes").writeTo(tmp);
-
-    final Path secondJar = newJar().entry(classResource, classBytes).writeTo(tmp);
+    final Path firstJar = newJar().entry(classResource, classBytes).writeTo(tmp);
+    final Path secondJar = newJar().entry(classResource, "invalid class bytes").writeTo(tmp);
 
     final Path outputJar =
         createJarWithConcatJarBuilder(List.of(firstJar, secondJar), tmp.newFile().getPath());

@@ -13,7 +13,9 @@ import static com.facebook.buck.util.zip.ZipOutputStreams.newJarOutputStream;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.newOutputStream;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 import com.facebook.buck.testutil.TemporaryPaths;
 import com.facebook.buck.util.zip.CentralDirectoryHeader;
@@ -152,6 +154,13 @@ abstract class JarTestSupport {
       throws IOException {
     try (final JarFile jar = new JarFile(jarFile.toFile())) {
       return entries.stream().map(entry -> readEntryValue(jar, entry)).collect(toList());
+    }
+  }
+
+  Map<String, String> readJarValuesAsMap(final Path jarFile, final Collection<String> entries)
+      throws IOException {
+    try (final JarFile jar = new JarFile(jarFile.toFile())) {
+      return entries.stream().collect(toMap(identity(), entry -> readEntryValue(jar, entry)));
     }
   }
 
