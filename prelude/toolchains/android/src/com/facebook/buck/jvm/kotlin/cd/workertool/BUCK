@@ -1,5 +1,5 @@
+load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library")
-load("@prelude//toolchains/android/tools/build_rules:oss_utils.bzl", "is_oss_build")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
 oncall("android_devxx")
@@ -11,9 +11,11 @@ buck_java_library(
     srcs = [
         "KotlinCDCommand.java",
     ],
-    runtime_deps = (
-        ["prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics/logger/noop:noop"] if is_oss_build() else ["fbsource//xplat/toolchains/android/sdk/src/com/facebook/buck/jvm/kotlin/cd/logger/scribe:scribe"]
-    ),
+    runtime_deps = [
+        "fbsource//xplat/toolchains/android/sdk/src/com/facebook/buck/jvm/kotlin/cd/logger/scribe:scribe",
+    ] if is_full_meta_repo() else [
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics/logger/noop:noop",
+    ],
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:kotlincd-model",
         "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",

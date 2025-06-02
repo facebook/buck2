@@ -5,8 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//:native.bzl", "native")
-load("@prelude//toolchains/android/tools/build_rules:oss_utils.bzl", "is_oss_build")
 
 def add_os_labels(**kwargs):
     if "labels" not in kwargs:
@@ -19,7 +19,7 @@ def add_os_labels(**kwargs):
     if native.host_info().os.is_windows:
         kwargs["labels"] += ["tpx:platform:windows"]
 
-    if is_oss_build():
+    if not is_full_meta_repo():
         kwargs["labels"] += ["tpx:is_oss_build"]
 
     return kwargs
