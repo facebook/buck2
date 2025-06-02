@@ -464,7 +464,7 @@ impl DaemonState {
                     section: "buck2",
                     property: "use_eden_thrift_read",
                 })?
-                .unwrap_or(false);
+                .unwrap_or(cfg!(target_os = "macos"));
 
             let (io, _, (materializer_db, materializer_state)) = futures::future::try_join3(
                 create_io_provider(
