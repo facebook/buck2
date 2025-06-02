@@ -7,7 +7,13 @@
 
 def _cp_impl(ctx: AnalysisContext):
     out = ctx.actions.declare_output("out")
-    ctx.actions.run(["python3", "-c", "import shutil, sys; from pathlib import Path; shutil.copyfile(Path(sys.argv[1]), Path(sys.argv[2]))", ctx.attrs.src, out.as_output()], category = "cp", local_only = True)
+    ctx.actions.run(cmd_args(
+        "python3",
+        "-c",
+        "import shutil, sys; from pathlib import Path; shutil.copyfile(Path(sys.argv[1]), Path(sys.argv[2]))",
+        ctx.attrs.src,
+        out.as_output(),
+    ), category = "cp", local_only = ctx.attrs.local_only)
 
     return [
         DefaultInfo(default_output = out),
@@ -15,7 +21,10 @@ def _cp_impl(ctx: AnalysisContext):
 
 cp = rule(
     impl = _cp_impl,
-    attrs = {"src": attrs.source()},
+    attrs = {
+        "local_only": attrs.bool(default = False),
+        "src": attrs.source(),
+    },
 )
 
 def _stat_path_impl(ctx: AnalysisContext):

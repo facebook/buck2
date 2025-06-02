@@ -2,7 +2,7 @@ load(":defs.bzl", "cp", "stat_path")
 
 cp(name = "cp", src = "src/link/file")
 
-cp(name = "ext", src = "ext/link/file")
+cp(name = "ext", src = "ext/link/file", local_only = True)
 
 stat_path(
     name = "stat_symlink_in_dir",
