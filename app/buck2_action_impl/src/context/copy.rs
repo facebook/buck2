@@ -20,6 +20,7 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::ValueTyped;
 use starlark::values::dict::UnpackDictEntries;
+use starlark::values::none::NoneOr;
 
 use crate::actions::impls::copy::CopyMode;
 use crate::actions::impls::copy::UnregisteredCopyAction;
@@ -31,6 +32,7 @@ fn create_dir_tree<'v>(
     output: OutputArtifactArg<'v>,
     srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
     copy: bool,
+    uses_experimental_content_based_path_hashing: Option<bool>,
 ) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
     // validate that the moves are valid, and move them into inputs
     let action = UnregisteredSymlinkedDirAction::new(copy, srcs)?;
@@ -38,8 +40,12 @@ fn create_dir_tree<'v>(
     let unioned_associated_artifacts = action.unioned_associated_artifacts();
 
     let mut this = this.state()?;
-    let (declaration, output_artifact) =
-        this.get_or_declare_output(eval, output, OutputType::Directory)?;
+    let (declaration, output_artifact) = this.get_or_declare_output(
+        eval,
+        output,
+        OutputType::Directory,
+        uses_experimental_content_based_path_hashing,
+    )?;
     this.register_action(inputs, indexset![output_artifact], action, None, None)?;
 
     Ok(declaration.into_declared_artifact(unioned_associated_artifacts))
@@ -52,13 +58,19 @@ fn copy_file_impl<'v>(
     src: ValueAsArtifactLike<'v>,
     copy: CopyMode,
     output_type: OutputType,
+    uses_experimental_content_based_path_hashing: Option<bool>,
 ) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
     let src = src.0;
 
     let artifact = src.get_artifact_group()?;
     let associated_artifacts = src.get_associated_artifacts();
     let mut this = this.state()?;
-    let (declaration, output_artifact) = this.get_or_declare_output(eval, dest, output_type)?;
+    let (declaration, output_artifact) = this.get_or_declare_output(
+        eval,
+        dest,
+        output_type,
+        uses_experimental_content_based_path_hashing,
+    )?;
 
     this.register_action(
         indexset![artifact],
@@ -84,6 +96,8 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
+        #[starlark(require = named, default = NoneOr::None)]
+        uses_experimental_content_based_path_hashing: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         // `copy_file` can copy either a file or a directory, even though its name has the word
@@ -95,6 +109,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
             src,
             CopyMode::Copy,
             OutputType::FileOrDirectory,
+            uses_experimental_content_based_path_hashing.into_option(),
         )?)
     }
 
@@ -105,6 +120,8 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
+        #[starlark(require = named, default = NoneOr::None)]
+        uses_experimental_content_based_path_hashing: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         // `copy_file` can copy either a file or a directory, even though its name has the word
@@ -116,6 +133,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
             src,
             CopyMode::Symlink,
             OutputType::FileOrDirectory,
+            uses_experimental_content_based_path_hashing.into_option(),
         )?)
     }
 
@@ -124,6 +142,8 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
+        #[starlark(require = named, default = NoneOr::None)]
+        uses_experimental_content_based_path_hashing: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         Ok(copy_file_impl(
@@ -133,6 +153,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
             src,
             CopyMode::Copy,
             OutputType::Directory,
+            uses_experimental_content_based_path_hashing.into_option(),
         )?)
     }
 
@@ -142,9 +163,18 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos)] srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
+        #[starlark(require = named, default = NoneOr::None)]
+        uses_experimental_content_based_path_hashing: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
-        Ok(create_dir_tree(eval, this, output, srcs, false)?)
+        Ok(create_dir_tree(
+            eval,
+            this,
+            output,
+            srcs,
+            false,
+            uses_experimental_content_based_path_hashing.into_option(),
+        )?)
     }
 
     /// Returns an `artifact` which is a directory containing copied files.
@@ -153,8 +183,17 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos)] srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
+        #[starlark(require = named, default = NoneOr::None)]
+        uses_experimental_content_based_path_hashing: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
-        Ok(create_dir_tree(eval, this, output, srcs, true)?)
+        Ok(create_dir_tree(
+            eval,
+            this,
+            output,
+            srcs,
+            true,
+            uses_experimental_content_based_path_hashing.into_option(),
+        )?)
     }
 }

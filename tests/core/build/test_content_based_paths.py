@@ -337,3 +337,16 @@ async def test_uses_relative_to(buck: Buck) -> None:
     await build_target_with_different_platforms_and_verify_output_paths_are_identical(
         buck, "root//:uses_relative_to"
     )
+
+
+@buck_test()
+async def test_sets_inconsistent_params(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "root//:sets_inconsistent_params",
+            "--target-platforms",
+            "root//:p_default",
+            "--show-output",
+        ),
+        stderr_regex="Artifact `out` was declared with `uses_experimental_content_based_path_hashing = true`, but is now being used with `uses_experimental_content_based_path_hashing = false`",
+    )

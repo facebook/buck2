@@ -40,6 +40,7 @@ use starlark::values::AllocValue;
 use starlark::values::UnpackValue;
 use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
+use starlark::values::none::NoneOr;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark_map::small_set::SmallSet;
 
@@ -139,11 +140,17 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] with_inputs: bool,
         #[starlark(require = named, default = false)] pretty: bool,
         #[starlark(require = named, default = false)] absolute: bool,
+        #[starlark(require = named, default = NoneOr::None)]
+        uses_experimental_content_based_path_hashing: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<impl AllocValue<'v> + use<'v>> {
         let mut this = this.state()?;
-        let (declaration, output_artifact) =
-            this.get_or_declare_output(eval, output, OutputType::File)?;
+        let (declaration, output_artifact) = this.get_or_declare_output(
+            eval,
+            output,
+            OutputType::File,
+            uses_experimental_content_based_path_hashing.into_option(),
+        )?;
 
         let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
         let cli = UnregisteredWriteJsonAction::cli(value.to_value(), content.value)?;
@@ -200,6 +207,8 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         // If set, add artifacts in content as associated artifacts of the output. This will only work for bound artifacts.
         #[starlark(require = named, default = false)] with_inputs: bool,
         #[starlark(require = named, default = false)] absolute: bool,
+        #[starlark(require = named, default = NoneOr::None)]
+        uses_experimental_content_based_path_hashing: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<
         Either<
@@ -259,8 +268,12 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         }
 
         let mut this = this.state()?;
-        let (declaration, output_artifact) =
-            this.get_or_declare_output(eval, output, OutputType::File)?;
+        let (declaration, output_artifact) = this.get_or_declare_output(
+            eval,
+            output,
+            OutputType::File,
+            uses_experimental_content_based_path_hashing.into_option(),
+        )?;
 
         let (content_cli, written_macro_count, mut associated_artifacts, mut content_based_inputs) =
             match content {

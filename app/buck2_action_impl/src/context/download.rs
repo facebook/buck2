@@ -58,11 +58,17 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] sha256: NoneOr<&str>,
         #[starlark(require = named, default = NoneOr::None)] size_bytes: NoneOr<u64>,
         #[starlark(require = named, default = false)] is_executable: bool,
+        #[starlark(require = named, default = NoneOr::None)]
+        uses_experimental_content_based_path_hashing: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         let mut this = this.state()?;
-        let (declaration, output_artifact) =
-            this.get_or_declare_output(eval, output, OutputType::File)?;
+        let (declaration, output_artifact) = this.get_or_declare_output(
+            eval,
+            output,
+            OutputType::File,
+            uses_experimental_content_based_path_hashing.into_option(),
+        )?;
 
         let checksum = Checksum::new(sha1.into_option(), sha256.into_option())?;
 
@@ -105,6 +111,8 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] is_executable: bool,
         #[starlark(require = named, default = false)] is_tree: bool,
         #[starlark(require = named, default = false)] is_directory: bool,
+        #[starlark(require = named, default = NoneOr::None)]
+        uses_experimental_content_based_path_hashing: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         let mut registry = this.state()?;
@@ -130,8 +138,12 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
             ArtifactKind::Directory(_) => OutputType::Directory,
             ArtifactKind::File => OutputType::File,
         };
-        let (output_value, output_artifact) =
-            registry.get_or_declare_output(eval, output, output_type)?;
+        let (output_value, output_artifact) = registry.get_or_declare_output(
+            eval,
+            output,
+            output_type,
+            uses_experimental_content_based_path_hashing.into_option(),
+        )?;
 
         registry.register_action(
             IndexSet::new(),

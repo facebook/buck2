@@ -13,8 +13,7 @@ NameSet = transitive_set(args_projections = {
 })
 
 def _write_with_content_based_path_impl(ctx):
-    artifact_input = ctx.actions.declare_output("artifact_input", uses_experimental_content_based_path_hashing = True)
-    artifact_input = ctx.actions.write(artifact_input, "artifact_input")
+    artifact_input = ctx.actions.write("artifact_input", "artifact_input", uses_experimental_content_based_path_hashing = True)
 
     tset_item1 = ctx.actions.declare_output("tset_item1", uses_experimental_content_based_path_hashing = True)
     tset1 = ctx.actions.tset(NameSet, value = ctx.actions.write(tset_item1, "tset_item1"))
@@ -50,14 +49,14 @@ write_macro_with_content_based_path = rule(
 )
 
 def _write_json_with_content_based_path_impl(ctx):
-    out = ctx.actions.declare_output("out.json", uses_experimental_content_based_path_hashing = True)
     out = ctx.actions.write_json(
-        out,
+        "out.json",
         {
             "baz": 42,
             "foo": "bar",
             "source": ctx.attrs.source,
         },
+        uses_experimental_content_based_path_hashing = True,
     )
     return [DefaultInfo(default_output = out)]
 
@@ -106,8 +105,7 @@ run_with_content_based_path = rule(
 )
 
 def _copy_impl(ctx):
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
-    ctx.actions.copy_file(out, ctx.attrs.to_copy)
+    out = ctx.actions.copy_file("out", ctx.attrs.to_copy, uses_experimental_content_based_path_hashing = True)
 
     return [DefaultInfo(default_output = out)]
 
@@ -119,8 +117,7 @@ copy = rule(
 )
 
 def _symlink_impl(ctx):
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
-    ctx.actions.symlink_file(out, ctx.attrs.to_symlink)
+    out = ctx.actions.symlink_file("out", ctx.attrs.to_symlink, uses_experimental_content_based_path_hashing = True)
 
     return [DefaultInfo(default_output = out)]
 
@@ -134,11 +131,14 @@ symlink = rule(
 def _copied_dir_impl(ctx):
     another_to_copy = ctx.actions.declare_output("another_to_copy", uses_experimental_content_based_path_hashing = True)
     ctx.actions.write(another_to_copy, "another_to_copy")
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True, dir = True)
-    ctx.actions.copied_dir(out, {
-        "another_to_copy": another_to_copy,
-        "to_copy": ctx.attrs.to_copy,
-    })
+    out = ctx.actions.copied_dir(
+        "out",
+        {
+            "another_to_copy": another_to_copy,
+            "to_copy": ctx.attrs.to_copy,
+        },
+        uses_experimental_content_based_path_hashing = True,
+    )
 
     return [DefaultInfo(default_output = out)]
 
@@ -152,11 +152,14 @@ copied_dir = rule(
 def _symlinked_dir_impl(ctx):
     another_to_symlink = ctx.actions.declare_output("another_to_symlink", uses_experimental_content_based_path_hashing = True)
     ctx.actions.write(another_to_symlink, "another_to_symlink")
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True, dir = True)
-    ctx.actions.symlinked_dir(out, {
-        "another_to_symlink": another_to_symlink,
-        "to_symlink": ctx.attrs.to_symlink,
-    })
+    out = ctx.actions.symlinked_dir(
+        "out",
+        {
+            "another_to_symlink": another_to_symlink,
+            "to_symlink": ctx.attrs.to_symlink,
+        },
+        uses_experimental_content_based_path_hashing = True,
+    )
 
     return [DefaultInfo(default_output = out)]
 
@@ -168,14 +171,14 @@ symlinked_dir = rule(
 )
 
 def _cas_artifact_with_content_based_path_impl(ctx: AnalysisContext):
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
     out = ctx.actions.cas_artifact(
-        out,
+        "out",
         ctx.attrs.digest,
         ctx.attrs.use_case,
         expires_after_timestamp = ctx.attrs.expires_after_timestamp,
         is_tree = ctx.attrs.is_tree,
         is_directory = ctx.attrs.is_directory,
+        uses_experimental_content_based_path_hashing = True,
     )
     return [DefaultInfo(default_output = out)]
 
@@ -202,8 +205,7 @@ def _download_with_content_based_path_impl(ctx: AnalysisContext):
         sha1 = None
         dummy_sha_256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
-    download = ctx.actions.declare_output("download", uses_experimental_content_based_path_hashing = True)
-    download = ctx.actions.download_file(download, url, sha1 = sha1, sha256 = dummy_sha_256)
+    download = ctx.actions.download_file("download", url, sha1 = sha1, sha256 = dummy_sha_256, uses_experimental_content_based_path_hashing = True)
     return [
         DefaultInfo(default_output = download),
     ]
@@ -404,4 +406,15 @@ uses_relative_to = rule(
     impl = _uses_relative_to_impl,
     attrs = {
     },
+)
+
+def _sets_inconsistent_params_impl(ctx):
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    ctx.actions.write(out, "hello world", uses_experimental_content_based_path_hashing = False)
+
+    return [DefaultInfo(default_output = out)]
+
+sets_inconsistent_params = rule(
+    impl = _sets_inconsistent_params_impl,
+    attrs = {},
 )

@@ -9,6 +9,7 @@ load(
     "failing_validation_with_content_based_path",
     "ignores_content_based_artifact",
     "run_with_content_based_path",
+    "sets_inconsistent_params",
     "slow_running_local_action_with_content_based_path",
     "symlink",
     "symlinked_dir",
@@ -133,6 +134,10 @@ writes_input_to_output(
 
 uses_relative_to(
     name = "uses_relative_to",
+)
+
+sets_inconsistent_params(
+    name = "sets_inconsistent_params",
 )
 
 platform(

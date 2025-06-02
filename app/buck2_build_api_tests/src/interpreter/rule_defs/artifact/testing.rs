@@ -210,7 +210,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
                 .map(|a| ArtifactGroup::Artifact(a.artifact().unwrap())),
         );
         let (declaration, output_artifact) =
-            analysis_registry.get_or_declare_output(eval, artifact, OutputType::File)?;
+            analysis_registry.get_or_declare_output(eval, artifact, OutputType::File, None)?;
 
         actions_registry.register(
             &DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label.dupe())),
