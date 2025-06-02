@@ -13,10 +13,6 @@ config = ovr_config
 [not_buildfile] # @oss-enable
 name_v2 = TARGETS,BUCK
 
-[not_build]
-[build] # @oss-enable
-  is_oss = true
-
 # Some sort of defaults to make ovrsource macros stop complaining.
 [ovrsource]
 
