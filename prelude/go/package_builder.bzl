@@ -66,14 +66,20 @@ def build_package(
         cgo_go_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(ctx, go_list.cgo_files, go_list.h_files, go_list.c_files + go_list.cxx_files, go_list.cgo_cflags, go_list.cgo_cppflags)
         ctx.actions.copy_dir(outputs[cgo_gen_dir], cgo_gen_tmp_dir)
 
+        all_test_go_files = go_list.test_go_files + go_list.x_test_go_files
+
         is_x_test_pkg = len(go_list.x_test_go_files) > 0
-        if is_x_test_pkg:
-            fail("External tests are not supported, remove suffix '_test' from package declaration '{}': {}", go_list.name, ctx.label)
-
-        ctx.actions.write(outputs[test_go_files_argsfile], cmd_args((go_list.test_go_files if with_tests else []), ""))
-
         go_list_pkg_name = go_list.name
-        go_files_to_cover = go_list.go_files + cgo_go_files + (go_list.test_go_files if with_tests else [])
+
+        # For external test packages, 'go list' will report the name of the package
+        # being tested, but not the external test package: https://fburl.com/qorledne
+        # So for XTest packages - we must use Buck pkg_name override.
+        if is_x_test_pkg:
+            go_list_pkg_name = go_list.name + "_test"
+
+        ctx.actions.write(outputs[test_go_files_argsfile], cmd_args((all_test_go_files if with_tests else []), ""))
+
+        go_files_to_cover = go_list.go_files + cgo_go_files + (all_test_go_files if with_tests else [])
         covered_go_files, coverage_vars_out, coveragecfg = cover_srcs(ctx, go_list_pkg_name, pkg_name, go_files_to_cover, coverage_mode)
         ctx.actions.write(outputs[coverage_vars_argsfile], coverage_vars_out)
 
