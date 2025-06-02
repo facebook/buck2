@@ -17,6 +17,7 @@ use buck2_error::buck2_error;
 use buck2_wrapper_common::kill;
 use buck2_wrapper_common::pid::Pid;
 use sysinfo::ProcessRefreshKind;
+use sysinfo::ProcessesToUpdate;
 use sysinfo::System;
 use tonic::Request;
 use tonic::codegen::InterceptedService;
@@ -222,11 +223,15 @@ fn get_callers_for_kill() -> Vec<String> {
     ) -> Option<(sysinfo::Pid, Duration)> {
         // Specifics about this process need to be refreshed by this time.
         let proc = system.process(pid)?;
-        let title =
-            shlex::try_join(proc.cmd().iter().map(|s| s.as_str())).expect("Null byte unexpected");
+        let title = shlex::try_join(proc.cmd().iter().filter_map(|s| s.to_str()))
+            .expect("Null byte unexpected");
         process_tree.push(title);
         let parent_pid = proc.parent()?;
-        system.refresh_process_specifics(parent_pid, ProcessRefreshKind::new());
+        system.refresh_processes_specifics(
+            ProcessesToUpdate::Some(&[parent_pid]),
+            true,
+            ProcessRefreshKind::nothing(),
+        );
         let parent_proc = system.process(parent_pid)?;
         let parent_creation_time = kill::process_creation_time(parent_proc)?;
         if parent_creation_time <= creation_time {
@@ -240,7 +245,11 @@ fn get_callers_for_kill() -> Vec<String> {
     let mut process_tree = Vec::new();
 
     let pid = sysinfo::Pid::from_u32(std::process::id());
-    system.refresh_process_specifics(pid, ProcessRefreshKind::new());
+    system.refresh_processes_specifics(
+        ProcessesToUpdate::Some(&[pid]),
+        true,
+        ProcessRefreshKind::nothing(),
+    );
     let mut curr = system
         .process(pid)
         .and_then(|proc| Some((pid, kill::process_creation_time(proc)?)));

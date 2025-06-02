@@ -40,7 +40,7 @@ pub fn system_memory_stats() -> u64 {
     use sysinfo::System;
 
     let system = System::new_with_specifics(
-        RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()),
+        RefreshKind::nothing().with_memory(MemoryRefreshKind::nothing().with_ram()),
     );
     system.total_memory()
 }

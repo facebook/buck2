@@ -22,6 +22,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use is_buck2::WhoIsAsking;
+use sysinfo::ProcessesToUpdate;
 use sysinfo::System;
 
 use crate::is_buck2::is_buck2_exe;
@@ -88,7 +89,7 @@ fn get_all_tgids_linux() -> Option<HashSet<sysinfo::Pid>> {
 /// Find all buck2 processes in the system.
 fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
     let mut system = System::new();
-    system.refresh_processes();
+    system.refresh_processes(ProcessesToUpdate::All, true);
 
     let mut current_parents = HashSet::new();
     let mut parent = Some(sysinfo::Pid::from_u32(std::process::id()));
@@ -120,8 +121,12 @@ fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
             };
             buck2_processes.push(ProcessInfo {
                 pid,
-                name: process.name().to_owned(),
-                cmd: process.cmd().to_vec(),
+                name: process.name().to_string_lossy().into_owned(),
+                cmd: process
+                    .cmd()
+                    .iter()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .collect(),
             });
         }
     }

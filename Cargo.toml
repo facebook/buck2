@@ -276,7 +276,7 @@ strum = { version = "0.26.2", features = ["derive", "strum_macros"] }
 syn = { version = "2", features = ["extra-traits", "full", "visit"] }
 sync_wrapper = "0.1.0"
 sys-info = "0.9.1"
-sysinfo = "0.30.11"
+sysinfo = "0.35.1"
 take_mut = "0.2.2"
 tar = "0.4.38"
 tempfile = "3.1.0"

@@ -12,6 +12,7 @@
 use std::time::Duration;
 
 use sysinfo::Process;
+use sysinfo::ProcessesToUpdate;
 
 use crate::pid::Pid;
 #[cfg(unix)]
@@ -57,7 +58,7 @@ pub fn get_sysinfo_status(pid: Pid) -> Option<sysinfo::ProcessStatus> {
     let mut system = System::new();
     // There is some bug in `sysinfo` so we have to use `refresh_processes_specifics`
     // instead of `refresh_process_specifics`, otherwise we not always get process info.
-    system.refresh_processes_specifics(ProcessRefreshKind::new());
+    system.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
 
     let proc = system.process(pid)?;
     Some(proc.status())
