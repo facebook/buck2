@@ -18,7 +18,7 @@ import com.android.ddmlib.IDevice;
 import com.facebook.buck.android.device.TargetDeviceOptions;
 import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDevice;
-import com.facebook.buck.android.exopackage.AndroidDeviceFactory;
+import com.facebook.buck.android.exopackage.AndroidDeviceFactoryImpl;
 import com.facebook.buck.android.exopackage.AndroidDeviceInfo;
 import com.facebook.buck.android.exopackage.AndroidDevicesHelper;
 import com.facebook.buck.android.exopackage.AndroidIntent;
@@ -57,7 +57,6 @@ import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -701,11 +700,7 @@ public class AdbHelper implements AndroidDevicesHelper {
   }
 
   private AndroidDevice createDevice(IDevice device) {
-    return ServiceLoader.load(AndroidDeviceFactory.class)
-        .findFirst()
-        .orElseThrow(
-            () ->
-                new RuntimeException("No implementation found for AndroidDeviceFactory interface."))
+    return new AndroidDeviceFactoryImpl()
         .createAndroidDevice(
             androidPrinter,
             device,

@@ -4,7 +4,6 @@ load(
     "buck_java_library",
     "buck_kotlin_library",
 )
-load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
 oncall("android_devxx")
@@ -33,24 +32,9 @@ HELPERS_SRCS = [
     "exopackage/ResourcesExoHelper.java",
 ]
 
-fb_native.config_setting(
-    name = "use_adb_installer",
-    values = {
-        "android.use_adb_installer": "true",
-    },
-)
-
 buck_kotlin_library(
     name = "helpers",
     srcs = HELPERS_SRCS,
-    resources = select({
-        ":use_adb_installer": ["exopackage/resources-adb/META-INF/services/com.facebook.buck.android.exopackage.AndroidDeviceFactory"],
-        "DEFAULT": ["exopackage/resources/META-INF/services/com.facebook.buck.android.exopackage.AndroidDeviceFactory"],
-    }),
-    resources_root = select({
-        ":use_adb_installer": "exopackage/resources-adb",
-        "DEFAULT": "exopackage/resources",
-    }),
     tests = [
         "prelude//toolchains/android/test/com/facebook/buck/android:unit",
     ],
