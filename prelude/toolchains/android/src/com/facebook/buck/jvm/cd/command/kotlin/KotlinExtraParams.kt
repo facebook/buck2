@@ -34,7 +34,6 @@ data class KotlinExtraParams(
     val jvmAbiGenPlugin: Optional<AbsPath>,
     val shouldVerifySourceOnlyAbiConstraints: Boolean,
     val depTrackerPlugin: Optional<AbsPath>,
-    val shouldKotlincRunViaBuildToolsApi: Boolean,
     val shouldKotlincRunIncrementally: Boolean,
     val shouldIncrementalKotlicRunQe: Boolean,
     val shouldUseStandaloneKosabi: Boolean,

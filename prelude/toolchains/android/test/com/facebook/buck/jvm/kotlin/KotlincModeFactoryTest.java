@@ -65,7 +65,6 @@ public class KotlincModeFactoryTest {
 
   @Test
   public void when_sourceOnly_then_nonIncremental() {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
 
@@ -73,27 +72,6 @@ public class KotlincModeFactoryTest {
         new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
             .create(
                 true,
-                absPath,
-                absPath,
-                true,
-                relPath,
-                mockKotlinExtraParams,
-                Optional.empty(),
-                ImmutableList.of());
-
-    assertTrue(kotlincMode instanceof KotlincMode.NonIncremental);
-  }
-
-  @Test
-  public void when_not_shouldKotlincRunViaBuildToolsApi_then_nonIncremental() {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(false);
-    when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
-    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
-
-    KotlincMode kotlincMode =
-        new KotlincModeFactory(incrementalCompilationValidator, experimentConfigService)
-            .create(
-                false,
                 absPath,
                 absPath,
                 true,
@@ -107,7 +85,6 @@ public class KotlincModeFactoryTest {
 
   @Test
   public void when_not_shouldKotlincRunIncrementally_then_nonIncremental() {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(false);
     when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
 
@@ -128,7 +105,6 @@ public class KotlincModeFactoryTest {
 
   @Test(expected = IllegalStateException.class)
   public void when_incrementalStateDir_empty_then_error() {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
     when(mockKotlinExtraParams.getIncrementalStateDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.empty());
@@ -150,7 +126,6 @@ public class KotlincModeFactoryTest {
 
   @Test(expected = IllegalStateException.class)
   public void when_metadata_null_then_error() {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
     when(mockKotlinExtraParams.getIncrementalStateDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.empty());
@@ -173,7 +148,6 @@ public class KotlincModeFactoryTest {
   @Test
   public void
       when_shouldKotlincRunIncrementally_and_incrementalStateDir_isPresent_then_incremental() {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
     when(mockKotlinExtraParams.getIncrementalStateDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
@@ -199,7 +173,6 @@ public class KotlincModeFactoryTest {
 
   @Test
   public void when_qe2_enabled_and_control_group_then_nonIncremental() throws IOException {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
     when(mockKotlinExtraParams.getIncrementalStateDir())
         .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
@@ -225,7 +198,6 @@ public class KotlincModeFactoryTest {
 
   @Test
   public void when_qe2_disabled_and_control_group_then_incremental() throws IOException {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
     when(mockKotlinExtraParams.getIncrementalStateDir())
         .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
@@ -251,7 +223,6 @@ public class KotlincModeFactoryTest {
 
   @Test
   public void when_qe2_enabled_and_test_group_then_incremental() throws IOException {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
     when(mockKotlinExtraParams.getIncrementalStateDir())
         .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
@@ -277,7 +248,6 @@ public class KotlincModeFactoryTest {
 
   @Test
   public void when_qe2_disabled_and_test_group_then_incremental() throws IOException {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
     when(mockKotlinExtraParams.getIncrementalStateDir())
         .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
@@ -303,7 +273,6 @@ public class KotlincModeFactoryTest {
 
   @Test
   public void when_control_group_then_incrementalStateDir_is_cleared() throws IOException {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(true);
     when(mockKotlinExtraParams.getIncrementalStateDir())
@@ -342,7 +311,6 @@ public class KotlincModeFactoryTest {
   @Test
   public void when_is_track_class_usage_disabled_then_does_not_require_rebuild()
       throws IOException {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
     when(mockKotlinExtraParams.getIncrementalStateDir())
         .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));

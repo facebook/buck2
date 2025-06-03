@@ -88,8 +88,6 @@ public class KotlinExtraParamsSerializer {
         .getJvmAbiGenPlugin()
         .map(AbsPathSerializer::serialize)
         .ifPresent(builder::setJvmAbiGenPlugin);
-    builder.setShouldKotlincRunViaBuildToolsApi(
-        kotlinExtraParams.getShouldKotlincRunViaBuildToolsApi());
     builder.setShouldKotlincRunIncrementally(kotlinExtraParams.getShouldKotlincRunIncrementally());
     builder.setShouldIncrementalKotlicRunQe(kotlinExtraParams.getShouldIncrementalKotlicRunQe());
     kotlinExtraParams
@@ -146,7 +144,6 @@ public class KotlinExtraParamsSerializer {
         Optional.of(kotlinExtraParams.getDepTrackerPlugin())
             .filter(s -> !s.isEmpty())
             .map(AbsPathSerializer::deserialize),
-        kotlinExtraParams.getShouldKotlincRunViaBuildToolsApi(),
         kotlinExtraParams.getShouldKotlincRunIncrementally(),
         kotlinExtraParams.getShouldIncrementalKotlicRunQe(),
         kotlinExtraParams.getShouldUseStandaloneKosabi(),

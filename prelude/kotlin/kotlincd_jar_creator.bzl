@@ -313,7 +313,6 @@ def _encode_kotlin_extra_params(
         shouldGenerateAnnotationProcessingStats = True,
         extraKotlincArguments = extra_kotlinc_arguments,
         depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
-        shouldKotlincRunViaBuildToolsApi = kotlin_toolchain.kotlinc_run_via_build_tools_api,
         shouldKotlincRunIncrementally = should_kotlinc_run_incrementally,
         incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
         shouldIncrementalKotlicRunQe = should_incremental_kotlinc_run_qe,
