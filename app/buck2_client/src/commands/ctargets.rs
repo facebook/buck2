@@ -28,6 +28,10 @@ use buck2_client_ctx::streaming::StreamingCommand;
 #[derive(Debug, clap::Parser)]
 #[clap(name = "ctargets")]
 pub struct ConfiguredTargetsCommand {
+    /// Print targets as JSON
+    #[clap(long)]
+    json: bool,
+
     /// Skip missing targets from `BUCK` files when non-glob pattern is specified.
     /// This option does not skip missing packages
     /// and does not ignore errors of `BUCK` file evaluation.

@@ -9,6 +9,9 @@ Arguments:
           Patterns to interpret
 
 Options:
+      --json
+          Print targets as JSON
+
       --skip-missing-targets
           Skip missing targets from `BUCK` files when non-glob pattern is specified. This option
           does not skip missing packages and does not ignore errors of `BUCK` file evaluation
