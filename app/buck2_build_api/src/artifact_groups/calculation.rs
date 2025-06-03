@@ -18,9 +18,12 @@ use buck2_artifact::artifact::artifact_type::ArtifactKind;
 use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
+use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::DiceFileComputations;
 use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::file_ops::RawSymlink;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
@@ -423,11 +426,46 @@ async fn path_artifact_value(
         )),
         RawPathMetadata::Directory => dir_artifact_value(ctx, cell_path).await,
         RawPathMetadata::Symlink {
-            at: _,
-            to: RawSymlink::Relative(r, _),
+            at,
+            to: RawSymlink::Relative(target, target_rel),
         } => {
             // TODO (T126181780): This should have a limit on recursion.
-            path_artifact_value(ctx, r, label).await
+            let target_artifact_value = path_artifact_value(ctx, target.dupe(), label).await?;
+            let root_cell = ctx.get_cell_resolver().await?.root_cell();
+            let use_correct_source_symlink_reading = ctx
+                .parse_legacy_config_property(
+                    root_cell,
+                    BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "use_correct_source_symlink_reading",
+                    },
+                )
+                .await?
+                .unwrap_or(false);
+            // In the case where this is a source artifact like `dir/link/foo`, where the symlink is
+            // actually at `link`, `ArtifactValue` doesn't have a representation for the kind of
+            // thing that'd require, so we read through the symlink instead. We could enhance
+            // `ArtifactValue` to make that possible, but Jakob isn't sure that's a good idea
+            let dont_read_through_symlink = use_correct_source_symlink_reading && at == cell_path;
+            if dont_read_through_symlink {
+                let artifact_fs = ctx.get_artifact_fs().await?;
+                let target_path = artifact_fs.resolve_cell_path((*target).as_ref())?;
+                let mut builder = ActionDirectoryBuilder::empty();
+                insert_artifact(&mut builder, &target_path, &target_artifact_value)?;
+                let deps = builder
+                    .fingerprint(
+                        ctx.global_data()
+                            .get_digest_config()
+                            .as_directory_serializer(),
+                    )
+                    .shared(&*INTERNER);
+                Ok(ArtifactValue::new(
+                    ActionDirectoryEntry::Leaf(ActionDirectoryMember::Symlink(target_rel.dupe())),
+                    Some(deps),
+                ))
+            } else {
+                Ok(target_artifact_value)
+            }
         }
     }
 }

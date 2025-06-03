@@ -34,7 +34,7 @@ def setup_symlink(cwd: Path) -> Path:
     return symlink_path
 
 
-@buck_test()
+@buck_test(extra_buck_config={"buck2": {"use_correct_source_symlink_reading": "true"}})
 async def test_symlink_target_tracked_for_rebuild(buck: Buck) -> None:
     setup_symlink(buck.cwd)
 
@@ -54,7 +54,10 @@ async def test_symlink_target_tracked_for_rebuild(buck: Buck) -> None:
     await expect_exec_count(buck, 1)
 
 
-@buck_test(setup_eden=True)
+@buck_test(
+    setup_eden=True,
+    extra_buck_config={"buck2": {"use_correct_source_symlink_reading": "true"}},
+)
 async def test_symlinks_redirection(buck: Buck) -> None:
     symlink_path = setup_symlink(buck.cwd)
 
@@ -73,7 +76,10 @@ async def test_symlinks_redirection(buck: Buck) -> None:
     await expect_exec_count(buck, 1)
 
 
-@buck_test(setup_eden=True)
+@buck_test(
+    setup_eden=True,
+    extra_buck_config={"buck2": {"use_correct_source_symlink_reading": "true"}},
+)
 async def test_symlinks_external(buck: Buck) -> None:
     symlink_path = os.path.join(buck.cwd, "ext", "link")
     shutil.rmtree(symlink_path)
@@ -101,10 +107,13 @@ async def test_symlinks_external(buck: Buck) -> None:
     await expect_exec_count(buck, 1)
 
 
-@buck_test()
+@buck_test(extra_buck_config={"buck2": {"use_correct_source_symlink_reading": "true"}})
 async def test_no_read_through_symlinks(buck: Buck) -> None:
     res = await buck.build_without_report(
-        "//:stat_symlink", "--out", "-", "--remote-only"
+        "//:stat_symlink",
+        "--out",
+        "-",
+        "--remote-only",
     )
     # Just check that we don't always return `True`
     assert res.stdout.strip() == "False"
@@ -112,13 +121,17 @@ async def test_no_read_through_symlinks(buck: Buck) -> None:
     setup_symlink(buck.cwd)
 
     res = await buck.build_without_report(
-        "//:stat_symlink", "--out", "-", "--remote-only"
+        "//:stat_symlink",
+        "--out",
+        "-",
+        "--remote-only",
     )
-    # FIXME(JakobDegen): Bug
-    assert res.stdout.strip() == "False"
+    assert res.stdout.strip() == "True"
 
     res = await buck.build_without_report(
-        "//:stat_symlink_in_dir", "--out", "-", "--remote-only"
+        "//:stat_symlink_in_dir",
+        "--out",
+        "-",
+        "--remote-only",
     )
-    # FIXME(JakobDegen): Bug
-    assert res.stdout.strip() == "False"
+    assert res.stdout.strip() == "True"
