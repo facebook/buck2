@@ -66,18 +66,26 @@ def _replace_template_values(
             string=script_template,
         )
 
-    # user_ghci_path has to be handled separately because it needs to be passed
-    # with the ghci_lib_path as the `-B` argument.
-    ghci_lib_canonical_path = os.path.realpath(
-        rel_toolchain_paths["ghci_lib_path"],
-    )
     if user_ghci_path is not None:
-        script_template = re.sub(
-            pattern="<user_ghci_path>",
-            repl="${{DIR}}/{user_ghci_path} -B{ghci_lib_path}".format(
+        # user_ghci_path has to be handled separately because it needs to be passed
+        # with the ghci_lib_path as the `-B` argument.
+        ghci_lib_path = rel_toolchain_paths["ghci_lib_path"]
+
+        if ghci_lib_path:
+            ghci_lib_canonical_path = os.path.realpath(ghci_lib_path)
+
+            replacement = "${{DIR}}/{user_ghci_path} -B{ghci_lib_path}".format(
                 user_ghci_path=user_ghci_path,
                 ghci_lib_path=ghci_lib_canonical_path,
-            ),
+            )
+        else:
+            replacement = "${{DIR}}/{user_ghci_path}".format(
+                user_ghci_path=user_ghci_path,
+            )
+
+        script_template = re.sub(
+            pattern="<user_ghci_path>",
+            repl=replacement,
             string=script_template,
         )
 

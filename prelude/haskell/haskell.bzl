@@ -579,6 +579,7 @@ def _build_haskell_lib(
             [ctx.attrs.linker_flags] +
             ["-o", lib.as_output()] +
             [
+                "-package-env=-",
                 get_shared_library_flags(linker_info.type),
                 "-dynamic",
                 cmd_args(
@@ -956,7 +957,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         hidden = compiled.stubs,
     )
 
-    link_args = cmd_args()
+    link_args = cmd_args("-package-env=-")
 
     osuf, _hisuf = output_extensions(link_style, enable_profiling)
 
