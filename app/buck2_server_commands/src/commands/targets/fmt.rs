@@ -172,6 +172,23 @@ struct JsonFormat {
     writer: JsonWriter,
 }
 
+impl JsonFormat {
+    fn print_attr(
+        &self,
+        buffer: &mut String,
+        is_first_entry: &mut bool,
+        k: &str,
+        v: impl FnOnce() -> QuotedJson,
+    ) {
+        if let Some(filter) = &self.attributes {
+            if !filter.is_match(k) {
+                return;
+            }
+        }
+        self.writer.entry_item(buffer, is_first_entry, k, v());
+    }
+}
+
 impl TargetFormatter for JsonFormat {
     fn begin(&self, buffer: &mut String) {
         self.writer.begin(buffer)
@@ -189,43 +206,28 @@ impl TargetFormatter for JsonFormat {
         self.writer.entry_start(buffer);
         let mut first = true;
 
-        fn print_attr(
-            this: &JsonFormat,
-            buffer: &mut String,
-            first: &mut bool,
-            k: &str,
-            v: impl FnOnce() -> QuotedJson,
-        ) {
-            if let Some(filter) = &this.attributes {
-                if !filter.is_match(k) {
-                    return;
-                }
-            }
-            this.writer.entry_item(buffer, first, k, v());
-        }
-
-        print_attr(self, buffer, &mut first, TYPE, || {
+        self.print_attr(buffer, &mut first, TYPE, || {
             QuotedJson::quote_str(&target_info.node.rule_type().to_string())
         });
-        print_attr(self, buffer, &mut first, DEPS, || {
+        self.print_attr(buffer, &mut first, DEPS, || {
             QuotedJson::list(target_info.node.deps().map(QuotedJson::quote_display))
         });
 
-        print_attr(self, buffer, &mut first, INPUTS, || {
+        self.print_attr(buffer, &mut first, INPUTS, || {
             QuotedJson::list(target_info.node.inputs().map(QuotedJson::quote_display))
         });
 
         if let Some(hash) = target_info.target_hash {
-            print_attr(self, buffer, &mut first, TARGET_HASH, || {
+            self.print_attr(buffer, &mut first, TARGET_HASH, || {
                 QuotedJson::quote_display(hash)
             });
         }
-        print_attr(self, buffer, &mut first, PACKAGE, || {
+        self.print_attr(buffer, &mut first, PACKAGE, || {
             QuotedJson::quote_display(target_info.node.label().pkg())
         });
 
         if let Some(filter) = &self.package_values {
-            print_attr(self, buffer, &mut first, PACKAGE_VALUES, || {
+            self.print_attr(buffer, &mut first, PACKAGE_VALUES, || {
                 let package_values = serde_json::Value::Object(
                     target_info
                         .super_package
@@ -243,13 +245,13 @@ impl TargetFormatter for JsonFormat {
         }
 
         if let Some(oncall) = target_info.node.oncall() {
-            print_attr(self, buffer, &mut first, ONCALL, || {
+            self.print_attr(buffer, &mut first, ONCALL, || {
                 QuotedJson::quote_display(oncall)
             });
         }
 
         for a in target_info.node.attrs(self.attr_inspect_opts) {
-            print_attr(self, buffer, &mut first, a.name, || {
+            self.print_attr(buffer, &mut first, a.name, || {
                 QuotedJson::from_serde_json_value(
                     value_to_json(a.value, target_info.node.label().pkg()).unwrap(),
                 )
@@ -259,7 +261,7 @@ impl TargetFormatter for JsonFormat {
         if self.target_call_stacks {
             match target_info.node.call_stack() {
                 Some(call_stack) => {
-                    print_attr(self, buffer, &mut first, TARGET_CALL_STACK, || {
+                    self.print_attr(buffer, &mut first, TARGET_CALL_STACK, || {
                         QuotedJson::quote_str(&call_stack)
                     });
                 }
@@ -354,67 +356,46 @@ impl ConfiguredTargetFormatter for JsonFormat {
         self.writer.entry_start(buffer);
         let mut is_first_entry = true;
 
-        self.writer.entry_item(
-            buffer,
-            &mut is_first_entry,
-            TYPE,
-            QuotedJson::quote_str(&target_node.rule_type().to_string()),
-        );
+        self.print_attr(buffer, &mut is_first_entry, TYPE, || {
+            QuotedJson::quote_str(&target_node.rule_type().to_string())
+        });
 
-        self.writer.entry_item(
-            buffer,
-            &mut is_first_entry,
-            DEPS,
+        self.print_attr(buffer, &mut is_first_entry, DEPS, || {
             QuotedJson::list(
                 target_node
                     .deps()
                     .map(|n| QuotedJson::quote_display(n.label())),
-            ),
-        );
+            )
+        });
 
-        self.writer.entry_item(
-            buffer,
-            &mut is_first_entry,
-            INPUTS,
-            QuotedJson::list(target_node.inputs().map(QuotedJson::quote_display)),
-        );
+        self.print_attr(buffer, &mut is_first_entry, INPUTS, || {
+            QuotedJson::list(target_node.inputs().map(QuotedJson::quote_display))
+        });
 
-        self.writer.entry_item(
-            buffer,
-            &mut is_first_entry,
-            PACKAGE,
-            QuotedJson::quote_display(target_node.label().pkg()),
-        );
+        self.print_attr(buffer, &mut is_first_entry, PACKAGE, || {
+            QuotedJson::quote_display(target_node.label().pkg())
+        });
 
         if let Some(oncall) = target_node.oncall() {
-            self.writer.entry_item(
-                buffer,
-                &mut is_first_entry,
-                ONCALL,
-                QuotedJson::quote_display(oncall),
-            );
+            self.print_attr(buffer, &mut is_first_entry, ONCALL, || {
+                QuotedJson::quote_display(oncall)
+            });
         }
 
         for a in target_node.attrs(self.attr_inspect_opts) {
-            self.writer.entry_item(
-                buffer,
-                &mut is_first_entry,
-                a.name,
-                QuotedJson::from_serde_json_value(configured_value_to_json(
-                    &a.value,
-                    target_node.label().pkg(),
-                )?),
-            );
+            let json_value = configured_value_to_json(&a.value, target_node.label().pkg())?;
+            self.print_attr(buffer, &mut is_first_entry, a.name, || {
+                QuotedJson::from_serde_json_value(json_value)
+            });
         }
 
         if self.target_call_stacks {
             match target_node.call_stack() {
-                Some(call_stack) => self.writer.entry_item(
-                    buffer,
-                    &mut is_first_entry,
-                    TARGET_CALL_STACK,
-                    QuotedJson::quote_str(&call_stack),
-                ),
+                Some(call_stack) => {
+                    self.print_attr(buffer, &mut is_first_entry, TARGET_CALL_STACK, || {
+                        QuotedJson::quote_str(&call_stack)
+                    });
+                }
                 None => {}
             }
         }
@@ -586,7 +567,11 @@ pub(crate) fn create_configured_formatter(
             target_hash_graph_type: TargetHashGraphType::None,
         })),
         ConfiguredOutputFormat::Json => Ok(Arc::new(JsonFormat {
-            attributes: None,
+            attributes: if request.output_attributes.is_empty() {
+                None
+            } else {
+                Some(RegexSet::new(&request.output_attributes)?)
+            },
             attr_inspect_opts: AttrInspectOptions::DefinedOnly,
             target_call_stacks,
             package_values: None,
