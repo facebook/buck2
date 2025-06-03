@@ -9,6 +9,11 @@
 
 load("@prelude//:paths.bzl", "paths")
 
+BuildResults = record(
+    result = field(dict[Label, bxl.BuildResult]),
+    artifacts = field(dict[Label, list[bxl.EnsuredArtifact]]),
+)
+
 # ------------------ IMPL ------------------
 
 def _add_includes_to_map(includes_map, includes):
@@ -30,26 +35,25 @@ def _clean_up_includes(includes):
 
     return include_paths + builds
 
-def _get_includes(ctx, includes_target):
+def _get_includes(ctx, includes_target, build_results):
     includes = []
     for inc in includes_target.value():
-        includes += _get_absolute_path(ctx, inc)
+        includes += _get_absolute_path(ctx, inc, build_results)
     return _clean_up_includes(includes)
 
-def _get_absolute_path(ctx, src, allow_multiple = True) -> list[dict[str, str | bxl.EnsuredArtifact]]:
+def _get_absolute_path(ctx, src, build_results, allow_multiple = True) -> list[dict[str, str | bxl.EnsuredArtifact]]:
     """
     Get the absolute path of the thing passed in, which is either an artifact or a target label.
     """
-    if isinstance(src, ConfiguredProvidersLabel) and ctx.cli_args.build_generated_code:
+    if isinstance(src, ConfiguredProvidersLabel) and build_results:
         target = src.configured_target()
-        build_results = ctx.build(src)
-        build_result = build_results[src]
+        build_result = build_results.result[src]
         failed_targets = []
         for _ in build_result.failures():
             failed_targets.append(str(target))
         if failed_targets != []:
             return [_as_error("target {} failed to build due to failures on the following targets [{}]".format(target, ", ".join(failed_targets)))]
-        paths = ctx.output.ensure_multiple(build_result.artifacts())
+        paths = build_results.artifacts[src]
         if not allow_multiple and len(paths) != 1:
             return [_as_error("target {} has multiple outputs: {}".format(target, ", ".join([str(p) for p in paths])))]
         return [_as_build(path.abs_path()) for path in paths]
@@ -71,8 +75,9 @@ def _elp_config(ctx):
     all = {tgt.label.raw_target(): ("app", tgt) for tgt in ctx.cquery().kind("^(erlang_app|erlang_test)$", included_targets)}
     all.update({tgt.label.raw_target(): ("dep", tgt) for tgt in ctx.cquery().kind("^erlang_app$", deps_targets)})
 
+    build_results = None
     if ctx.cli_args.build_generated_code:
-        prebuild(ctx, all)
+        build_results = prebuild(ctx, all)
 
     result = {}
     for label_name, (typ, target) in all.items():
@@ -81,7 +86,7 @@ def _elp_config(ctx):
         if not includes:
             includes = []
         else:
-            includes = _get_includes(ctx, includes)
+            includes = _get_includes(ctx, includes, build_results)
         includes_map = _add_includes_to_map(includes_map, includes)
 
         deps_list = []
@@ -103,7 +108,7 @@ def _elp_config(ctx):
         srcs = []
         if srcs_attr:
             for src in srcs_attr.value():
-                srcs += _get_absolute_path(ctx, src)
+                srcs += _get_absolute_path(ctx, src, build_results)
 
         suite = target.attrs_lazy().get("suite")
         if not suite:
@@ -111,7 +116,7 @@ def _elp_config(ctx):
         elif suite.value() == None:
             suite = None
         else:
-            [suite_info] = _get_absolute_path(ctx, suite.value(), allow_multiple = False)
+            [suite_info] = _get_absolute_path(ctx, suite.value(), build_results, allow_multiple = False)
             if suite_info["type"] == "path" or suite_info["type"] == "build":
                 suite = suite_info["value"]
             else:
@@ -138,21 +143,24 @@ def prebuild(ctx, all):
     labels = []
     for _label_name, (_typ, target) in all.items():
         includes = target.attrs_lazy().get("includes")
-        if not includes:
-            includes = []
-        else:
-            includes = [include for include in includes.value() if isinstance(include, ConfiguredProvidersLabel)]
+        if includes:
+            for includes in includes.value():
+                if isinstance(includes, ConfiguredProvidersLabel):
+                    labels.append(includes)
         srcs = target.attrs_lazy().get("srcs")
-        if not srcs:
-            srcs = []
-        else:
-            srcs = [src for src in srcs.value() if isinstance(src, ConfiguredProvidersLabel)]
-
-        labels += includes
-        labels += srcs
+        if srcs:
+            for src in srcs.value():
+                if isinstance(src, ConfiguredProvidersLabel):
+                    labels.append(src)
+        suite = target.attrs_lazy().get("suite")
+        if suite:
+            suite = suite.value()
+            if isinstance(suite, ConfiguredProvidersLabel):
+                labels.append(suite)
 
     build_results = ctx.build(labels)
-    ctx.output.ensure_multiple(build_results)
+    artifacts = ctx.output.ensure_multiple(build_results)
+    return BuildResults(result = build_results, artifacts = artifacts)
 
 def _construct_output(items: list[dict[str, str | bxl.EnsuredArtifact]]) -> list[str | bxl.EnsuredArtifact]:
     # we completely ignore targets, since we don't have support for generated files in ELP
