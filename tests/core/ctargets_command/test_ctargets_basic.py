@@ -77,3 +77,17 @@ async def test_ctargets_multi_json(buck: Buck) -> None:
 
         output["visibility"]
         output["within_view"]
+
+
+@buck_test()
+async def test_ctargets_output_attribute(buck: Buck) -> None:
+    result = await buck.ctargets(
+        "root//:chocolate", "--output-attribute=default_*", "--output-attribute=name"
+    )
+
+    [output] = json.loads(_replace_hash(result.stdout))
+
+    assert {
+        "name": "chocolate",
+        "default_target_platform": "root//:p (root//:p#<HASH>)",
+    } == output
