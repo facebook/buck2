@@ -7,18 +7,15 @@
  * of this source tree.
  */
 
-use std::fmt::Write;
 use std::iter;
 
 use async_trait::async_trait;
 use buck2_build_api::configure_targets::load_compatible_patterns;
 use buck2_cli_proto::ConfiguredTargetsRequest;
 use buck2_cli_proto::ConfiguredTargetsResponse;
-use buck2_cli_proto::HasClientContext;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_error::BuckErrorContext;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
@@ -28,7 +25,7 @@ use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::template::run_server_command;
 use dice::DiceTransaction;
 
-use crate::commands::targets::fmt::print_target_call_stack_after_target;
+use crate::commands::targets::fmt::create_configured_formatter;
 
 pub(crate) async fn configured_targets_command(
     server_ctx: &dyn ServerCommandContextTrait,
@@ -76,9 +73,7 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
         )
         .await?;
 
-        let client_ctx = self.req.client_context()?;
-
-        let target_call_stacks = client_ctx.target_call_stacks;
+        let formatter = create_configured_formatter(&self.req)?;
 
         let global_cfg_options = global_cfg_options_from_client_context(
             self.req
@@ -101,21 +96,22 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
         .await?;
 
         let mut serialized_targets_output = String::new();
+        let mut needs_separator = false;
+
+        formatter.begin(&mut serialized_targets_output);
         for node in compatible_targets.into_iter() {
             // TODO(nga): we should probably get rid of forward nodes.
             let nodes = iter::once(&node).chain(node.forward_target());
 
             for node in nodes {
-                writeln!(serialized_targets_output, "{}", node.label())
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
-                if target_call_stacks {
-                    print_target_call_stack_after_target(
-                        &mut serialized_targets_output,
-                        node.call_stack().as_deref(),
-                    );
+                if needs_separator {
+                    formatter.separator(&mut serialized_targets_output);
                 }
+                needs_separator = true;
+                formatter.target(node, &mut serialized_targets_output)?;
             }
         }
+        formatter.end(&mut serialized_targets_output);
 
         Ok(ConfiguredTargetsResponse {
             serialized_targets_output,

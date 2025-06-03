@@ -11,8 +11,10 @@ use std::collections::BTreeSet;
 use std::fmt::Write;
 use std::sync::Arc;
 
+use buck2_cli_proto::ConfiguredTargetsRequest;
 use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TargetsRequest;
+use buck2_cli_proto::configured_targets_request::OutputFormat as ConfiguredOutputFormat;
 use buck2_cli_proto::targets_request;
 use buck2_cli_proto::targets_request::OutputFormat;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
@@ -20,7 +22,9 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
 use buck2_error::BuckErrorContext;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
+use buck2_node::attrs::hacks::configured_value_to_json;
 use buck2_node::attrs::hacks::value_to_json;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::attributes::DEPS;
@@ -31,6 +35,7 @@ use buck2_node::nodes::attributes::PACKAGE_VALUES;
 use buck2_node::nodes::attributes::TARGET_CALL_STACK;
 use buck2_node::nodes::attributes::TARGET_HASH;
 use buck2_node::nodes::attributes::TYPE;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use buck2_node::super_package::SuperPackage;
 use buck2_util::indent::indent;
@@ -76,6 +81,20 @@ pub(crate) trait TargetFormatter: Send + Sync {
     }
 }
 
+#[allow(unused_variables)]
+pub(crate) trait ConfiguredTargetFormatter: Send + Sync {
+    fn begin(&self, buffer: &mut String) {}
+    fn end(&self, buffer: &mut String) {}
+    fn separator(&self, buffer: &mut String) {}
+    fn target(
+        &self,
+        target_node: &ConfiguredTargetNode,
+        buffer: &mut String,
+    ) -> buck2_error::Result<()> {
+        Ok(())
+    }
+}
+
 pub(crate) struct JsonWriter {
     pub(crate) json_lines: bool,
 }
@@ -107,11 +126,11 @@ impl JsonWriter {
         }
     }
 
-    pub(crate) fn entry_end(&self, buffer: &mut String, first: bool) {
+    pub(crate) fn entry_end(&self, buffer: &mut String, is_first_entry: bool) {
         if self.json_lines {
             buffer.push_str("}\n");
         } else {
-            if !first {
+            if !is_first_entry {
                 buffer.push('\n');
             }
             buffer.push_str("  }");
@@ -121,12 +140,12 @@ impl JsonWriter {
     pub(crate) fn entry_item(
         &self,
         buffer: &mut String,
-        first: &mut bool,
+        is_first_entry: &mut bool,
         key: &str,
         value: QuotedJson,
     ) {
-        if *first {
-            *first = false;
+        if *is_first_entry {
+            *is_first_entry = false;
         } else if self.json_lines {
             buffer.push(',');
         } else {
@@ -314,6 +333,98 @@ impl TargetFormatter for JsonFormat {
     }
 }
 
+impl ConfiguredTargetFormatter for JsonFormat {
+    fn begin(&self, buffer: &mut String) {
+        self.writer.begin(buffer)
+    }
+
+    fn end(&self, buffer: &mut String) {
+        self.writer.end(buffer)
+    }
+
+    fn separator(&self, buffer: &mut String) {
+        self.writer.separator(buffer)
+    }
+
+    fn target(
+        &self,
+        target_node: &ConfiguredTargetNode,
+        buffer: &mut String,
+    ) -> buck2_error::Result<()> {
+        self.writer.entry_start(buffer);
+        let mut is_first_entry = true;
+
+        self.writer.entry_item(
+            buffer,
+            &mut is_first_entry,
+            TYPE,
+            QuotedJson::quote_str(&target_node.rule_type().to_string()),
+        );
+
+        self.writer.entry_item(
+            buffer,
+            &mut is_first_entry,
+            DEPS,
+            QuotedJson::list(
+                target_node
+                    .deps()
+                    .map(|n| QuotedJson::quote_display(n.label())),
+            ),
+        );
+
+        self.writer.entry_item(
+            buffer,
+            &mut is_first_entry,
+            INPUTS,
+            QuotedJson::list(target_node.inputs().map(QuotedJson::quote_display)),
+        );
+
+        self.writer.entry_item(
+            buffer,
+            &mut is_first_entry,
+            PACKAGE,
+            QuotedJson::quote_display(target_node.label().pkg()),
+        );
+
+        if let Some(oncall) = target_node.oncall() {
+            self.writer.entry_item(
+                buffer,
+                &mut is_first_entry,
+                ONCALL,
+                QuotedJson::quote_display(oncall),
+            );
+        }
+
+        for a in target_node.attrs(self.attr_inspect_opts) {
+            self.writer.entry_item(
+                buffer,
+                &mut is_first_entry,
+                a.name,
+                QuotedJson::from_serde_json_value(configured_value_to_json(
+                    &a.value,
+                    target_node.label().pkg(),
+                )?),
+            );
+        }
+
+        if self.target_call_stacks {
+            match target_node.call_stack() {
+                Some(call_stack) => self.writer.entry_item(
+                    buffer,
+                    &mut is_first_entry,
+                    TARGET_CALL_STACK,
+                    QuotedJson::quote_str(&call_stack),
+                ),
+                None => {}
+            }
+        }
+
+        self.writer.entry_end(buffer, is_first_entry);
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct Stats {
     pub(crate) errors: u64,
@@ -388,6 +499,22 @@ impl TargetFormatter for TargetNameFormat {
     }
 }
 
+impl ConfiguredTargetFormatter for TargetNameFormat {
+    fn target(
+        &self,
+        target_node: &ConfiguredTargetNode,
+        buffer: &mut String,
+    ) -> buck2_error::Result<()> {
+        writeln!(buffer, "{}", target_node.label())
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        if self.target_call_stacks {
+            print_target_call_stack_after_target(buffer, target_node.call_stack().as_deref());
+        };
+
+        Ok(())
+    }
+}
+
 pub(crate) fn print_target_call_stack_after_target(out: &mut String, call_stack: Option<&str>) {
     if let Some(call_stack) = call_stack {
         write!(out, "{}", indent("  ", call_stack)).unwrap();
@@ -443,6 +570,27 @@ pub(crate) fn create_formatter(
             writer: JsonWriter {
                 json_lines: output_format == OutputFormat::JsonLines,
             },
+        })),
+    }
+}
+
+pub(crate) fn create_configured_formatter(
+    request: &ConfiguredTargetsRequest,
+) -> buck2_error::Result<Arc<dyn ConfiguredTargetFormatter>> {
+    let output_format = ConfiguredOutputFormat::try_from(request.output_format)?;
+    let target_call_stacks = request.client_context()?.target_call_stacks;
+
+    match output_format {
+        ConfiguredOutputFormat::Text => Ok(Arc::new(TargetNameFormat {
+            target_call_stacks,
+            target_hash_graph_type: TargetHashGraphType::None,
+        })),
+        ConfiguredOutputFormat::Json => Ok(Arc::new(JsonFormat {
+            attributes: None,
+            attr_inspect_opts: AttrInspectOptions::DefinedOnly,
+            target_call_stacks,
+            package_values: None,
+            writer: JsonWriter { json_lines: false },
         })),
     }
 }

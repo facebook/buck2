@@ -14,10 +14,22 @@
 use buck2_core::package::PackageLabel;
 
 use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::fmt_context::AttrFmtContext;
+use crate::attrs::json::ToJsonWithContext;
 
 pub fn value_to_json(
     value: &CoercedAttr,
+    pkg: PackageLabel,
+) -> buck2_error::Result<serde_json::Value> {
+    value.to_json(&AttrFmtContext {
+        package: Some(pkg),
+        options: Default::default(),
+    })
+}
+
+pub fn configured_value_to_json(
+    value: &ConfiguredAttr,
     pkg: PackageLabel,
 ) -> buck2_error::Result<serde_json::Value> {
     value.to_json(&AttrFmtContext {
