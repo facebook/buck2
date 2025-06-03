@@ -10,6 +10,7 @@
 use async_trait::async_trait;
 use buck2_cli_proto::ConfiguredTargetsRequest;
 use buck2_cli_proto::ConfiguredTargetsResponse;
+use buck2_cli_proto::configured_targets_request::OutputFormat;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
@@ -49,6 +50,16 @@ pub struct ConfiguredTargetsCommand {
     common_opts: CommonCommandOptions,
 }
 
+impl ConfiguredTargetsCommand {
+    fn output_format(&self) -> OutputFormat {
+        if self.json {
+            OutputFormat::Json
+        } else {
+            OutputFormat::Text
+        }
+    }
+}
+
 #[async_trait(?Send)]
 impl StreamingCommand for ConfiguredTargetsCommand {
     const COMMAND_NAME: &'static str = "ctargets";
@@ -61,6 +72,7 @@ impl StreamingCommand for ConfiguredTargetsCommand {
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = Some(ctx.client_context(matches, &self)?);
+        let output_format = self.output_format();
         let ConfiguredTargetsResponse {
             serialized_targets_output,
         } = buckd
@@ -71,6 +83,7 @@ impl StreamingCommand for ConfiguredTargetsCommand {
                     target_patterns: self.patterns,
                     target_cfg: Some(self.target_cfg.target_cfg()),
                     skip_missing_targets: self.skip_missing_targets,
+                    output_format: output_format as i32,
                 },
                 events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),

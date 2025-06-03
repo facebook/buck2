@@ -242,10 +242,17 @@ message TargetsShowOutputsResponse {
 // `buck2 ctargets` command
 message ConfiguredTargetsRequest {
   reserved 2, 10;
+
+  enum OutputFormat {
+    TEXT = 0;
+    JSON = 1;
+  }
+
   ClientContext context = 1;
   repeated string target_patterns = 12;
   TargetCfg target_cfg = 201;
   bool skip_missing_targets = 11;
+  OutputFormat output_format = 13;
 }
 
 message ConfiguredTargetsResponse {
