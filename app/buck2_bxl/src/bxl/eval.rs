@@ -426,7 +426,7 @@ pub(crate) async fn resolve_cli_args<'a>(
     frozen_callable: &'a FrozenBxlFunction,
 ) -> buck2_error::Result<BxlResolvedCliArgs> {
     match frozen_callable
-        .to_clap(clap::Command::new(&spec.name).no_binary_name(true))
+        .to_clap(clap::Command::new(&spec.name).no_binary_name(true)) // patternlint-disable-line buck2-no-command-new
         .try_get_matches_from(bxl_args)
     {
         Ok(args) => Ok(BxlResolvedCliArgs::Resolved(
@@ -437,7 +437,7 @@ pub(crate) async fn resolve_cli_args<'a>(
                 let mut help_out = Vec::new();
 
                 frozen_callable
-                    .to_clap(clap::Command::new(&spec.name).no_binary_name(true))
+                    .to_clap(clap::Command::new(&spec.name).no_binary_name(true)) // patternlint-disable-line buck2-no-command-new
                     .write_long_help(&mut help_out)
                     .unwrap();
                 let help_msg = String::from_utf8(help_out)?;
