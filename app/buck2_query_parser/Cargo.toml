@@ -10,6 +10,7 @@ version = "0.1.0"
 derive_more = { workspace = true }
 enum-map = { workspace = true }
 nom = { workspace = true }
+nom-language = { workspace = true }
 
 dupe = { workspace = true }
 gazebo = { workspace = true }

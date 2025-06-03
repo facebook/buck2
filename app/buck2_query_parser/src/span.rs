@@ -8,21 +8,15 @@
  */
 
 use std::ops::Deref;
-use std::ops::RangeFrom;
-use std::ops::RangeTo;
 use std::str::CharIndices;
 use std::str::Chars;
 
 use dupe::Dupe;
 use nom::Compare;
 use nom::CompareResult;
-use nom::InputIter;
-use nom::InputLength;
-use nom::InputTake;
+use nom::Input;
 use nom::Needed;
 use nom::Offset;
-use nom::Slice;
-use nom::UnspecializedInput;
 
 /// Similar to `LocatedSpan` from `nom_locate`, but without line number.
 #[derive(Clone, Debug, PartialEq, Copy, Dupe)]
@@ -56,77 +50,60 @@ impl<'a> Span<'a> {
     }
 }
 
-impl UnspecializedInput for Span<'_> {}
+impl<'a> Input for Span<'a> {
+    type Item = char;
+    type Iter = Chars<'a>;
+    type IterIndices = CharIndices<'a>;
 
-impl InputLength for Span<'_> {
     fn input_len(&self) -> usize {
-        self.fragment.input_len()
+        self.fragment.len()
     }
-}
 
-impl Slice<RangeFrom<usize>> for Span<'_> {
-    fn slice(&self, range: RangeFrom<usize>) -> Self {
-        Span {
-            offset: self.offset + range.start,
-            fragment: &self.fragment[range.start..],
-        }
-    }
-}
-
-impl Slice<RangeTo<usize>> for Span<'_> {
-    fn slice(&self, range: RangeTo<usize>) -> Self {
+    fn take(&self, index: usize) -> Self {
         Span {
             offset: self.offset,
-            fragment: &self.fragment[..range.end],
+            fragment: &self.fragment[..index],
         }
     }
-}
 
-impl InputTake for Span<'_> {
-    fn take(&self, count: usize) -> Self {
+    fn take_from(&self, index: usize) -> Self {
         Span {
-            offset: self.offset,
-            fragment: &self.fragment[..count],
+            offset: self.offset + index,
+            fragment: &self.fragment[index..],
         }
     }
 
-    fn take_split(&self, count: usize) -> (Self, Self) {
-        let (a, b) = self.fragment.split_at(count);
+    fn take_split(&self, index: usize) -> (Self, Self) {
+        let (front, back) = self.fragment.split_at(index);
         (
             Span {
-                offset: self.offset + count,
-                fragment: b,
+                offset: self.offset + index,
+                fragment: back,
             },
             Span {
                 offset: self.offset,
-                fragment: a,
+                fragment: front,
             },
         )
-    }
-}
-
-impl<'a> InputIter for Span<'a> {
-    type Item = char;
-    type Iter = CharIndices<'a>;
-    type IterElem = Chars<'a>;
-
-    fn iter_indices(&self) -> Self::Iter {
-        self.fragment.char_indices()
-    }
-
-    fn iter_elements(&self) -> Self::IterElem {
-        self.fragment.chars()
     }
 
     fn position<P>(&self, predicate: P) -> Option<usize>
     where
         P: Fn(Self::Item) -> bool,
     {
-        self.fragment.position(predicate)
+        self.fragment.find(predicate)
+    }
+
+    fn iter_elements(&self) -> Self::Iter {
+        self.fragment.chars()
+    }
+
+    fn iter_indices(&self) -> Self::IterIndices {
+        self.fragment.char_indices()
     }
 
     fn slice_index(&self, count: usize) -> Result<usize, Needed> {
-        self.fragment.slice_index(count)
+        Input::slice_index(&self.fragment, count)
     }
 }
 
