@@ -112,6 +112,9 @@ async def test_cpp_test_fdb_message(buck: Buck) -> None:
         buck.test(
             "fbcode//buck2/tests/targets/rules/cxx:cpp_test_fail",
             get_mode_from_platform(),
+            "--",
+            "--color",
+            "off",
         ),
         stderr_regex=r"Run \$ fdb buck test \<args\> to debug",
     )
