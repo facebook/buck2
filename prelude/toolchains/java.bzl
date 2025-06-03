@@ -21,7 +21,9 @@ system_java_tool = rule(
 )
 
 def _system_java_lib_impl(ctx):
-    return [DefaultInfo(default_output = ctx.attrs.jar)]
+    output = ctx.actions.declare_output(ctx.attrs.name)
+    ctx.actions.run(cmd_args(["ln", "-s", ctx.attrs.jar, output.as_output()]), category = "{}_symlink".format(ctx.attrs.name))
+    return [DefaultInfo(default_output = output)]
 
 system_java_lib = rule(
     impl = _system_java_lib_impl,
