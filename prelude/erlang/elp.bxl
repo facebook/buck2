@@ -72,17 +72,17 @@ def _elp_config(ctx):
     all_targets = ctx.cquery().deps(ctx.configured_targets(included_targets, None))
     deps_targets = all_targets - included_targets
 
-    all = {tgt.label.raw_target(): ("app", tgt) for tgt in ctx.cquery().kind("^(erlang_app|erlang_test)$", included_targets)}
-    all.update({tgt.label.raw_target(): ("dep", tgt) for tgt in ctx.cquery().kind("^erlang_app$", deps_targets)})
+    all = {tgt.label.raw_target(): ("app", tgt.attrs_lazy()) for tgt in ctx.cquery().kind("^(erlang_app|erlang_test)$", included_targets)}
+    all.update({tgt.label.raw_target(): ("dep", tgt.attrs_lazy()) for tgt in ctx.cquery().kind("^erlang_app$", deps_targets)})
 
     build_results = None
     if ctx.cli_args.build_generated_code:
         build_results = prebuild(ctx, all)
 
     result = {}
-    for label_name, (typ, target) in all.items():
+    for label_name, (typ, attrs) in all.items():
         includes_map = {}
-        includes = target.attrs_lazy().get("includes")
+        includes = attrs.get("includes")
         if not includes:
             includes = []
         else:
@@ -92,25 +92,25 @@ def _elp_config(ctx):
         deps_list = []
         apps_list = []
         included_apps_list = []
-        deps = target.attrs_lazy().get("deps")
+        deps = attrs.get("deps")
         if deps:
             deps_list = [tgt.raw_target() for tgt in deps.value()]
 
-        apps = target.attrs_lazy().get("applications")
+        apps = attrs.get("applications")
         if apps:
             apps_list = [tgt.raw_target() for tgt in apps.value()]
 
-        included_apps = target.attrs_lazy().get("included_applications")
+        included_apps = attrs.get("included_applications")
         if included_apps:
             included_apps_list = [tgt.raw_target() for tgt in included_apps.value()]
 
-        srcs_attr = target.attrs_lazy().get("srcs")
+        srcs_attr = attrs.get("srcs")
         srcs = []
         if srcs_attr:
             for src in srcs_attr.value():
                 srcs += _get_absolute_path(ctx, src, build_results)
 
-        suite = target.attrs_lazy().get("suite")
+        suite = attrs.get("suite")
         if not suite:
             suite = None
         elif suite.value() == None:
@@ -125,12 +125,12 @@ def _elp_config(ctx):
         includes = [t for t in includes_map.keys() if includes_map[t] == "path" or includes_map[t] == "build"]
         srcs = _construct_output(srcs)
         result[label_name] = dict(
-            name = target.attrs_lazy().get("name"),
-            app_name = target.attrs_lazy().get("app_name"),
+            name = attrs.get("name"),
+            app_name = attrs.get("app_name"),
             suite = suite,
             srcs = srcs,
             includes = includes,
-            labels = target.attrs_lazy().get("labels"),
+            labels = attrs.get("labels"),
             deps = deps_list,
             apps = apps_list,
             included_apps = included_apps_list,
@@ -141,18 +141,18 @@ def _elp_config(ctx):
 
 def prebuild(ctx, all):
     labels = []
-    for _label_name, (_typ, target) in all.items():
-        includes = target.attrs_lazy().get("includes")
+    for _label_name, (_typ, attrs) in all.items():
+        includes = attrs.get("includes")
         if includes:
             for includes in includes.value():
                 if isinstance(includes, ConfiguredProvidersLabel):
                     labels.append(includes)
-        srcs = target.attrs_lazy().get("srcs")
+        srcs = attrs.get("srcs")
         if srcs:
             for src in srcs.value():
                 if isinstance(src, ConfiguredProvidersLabel):
                     labels.append(src)
-        suite = target.attrs_lazy().get("suite")
+        suite = attrs.get("suite")
         if suite:
             suite = suite.value()
             if isinstance(suite, ConfiguredProvidersLabel):
