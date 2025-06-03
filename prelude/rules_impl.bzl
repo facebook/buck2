@@ -439,6 +439,8 @@ inlined_extra_attributes = {
     "cxx_python_extension": _cxx_python_extension_attrs(),
     "cxx_test": re_test_common.test_args(),
     "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
+    "export_file": constraint_overrides.attributes,
+    "filegroup": constraint_overrides.attributes,
 
     # Generic rule to build from a command
     "genrule": genrule_attributes() | constraint_overrides.attributes,
@@ -651,6 +653,8 @@ transitions = {
     "apple_test": apple_test_target_sdk_version_transition,
     "cxx_binary": constraint_overrides.transition,
     "cxx_test": constraint_overrides.transition,
+    "export_file": constraint_overrides.transition,
+    "filegroup": constraint_overrides.transition,
     "genrule": constraint_overrides.transition,
     "go_binary": go_binary_transition,
     "go_exported_library": go_exported_library_transition,
