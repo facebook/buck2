@@ -23,6 +23,7 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::query_args::CommonAttributeArgs;
 use buck2_client_ctx::streaming::StreamingCommand;
 
 /// Resolve target patterns to configured targets.
@@ -38,6 +39,9 @@ pub struct ConfiguredTargetsCommand {
     /// and does not ignore errors of `BUCK` file evaluation.
     #[clap(long)]
     skip_missing_targets: bool,
+
+    #[clap(flatten)]
+    attributes: CommonAttributeArgs,
 
     /// Patterns to interpret.
     #[clap(name = "TARGET_PATTERNS", value_hint = clap::ValueHint::Other)]

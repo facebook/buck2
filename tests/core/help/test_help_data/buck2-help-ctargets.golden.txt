@@ -16,6 +16,28 @@ Options:
           Skip missing targets from `BUCK` files when non-glob pattern is specified. This option
           does not skip missing packages and does not ignore errors of `BUCK` file evaluation
 
+  -A, --output-all-attributes
+          Output all attributes, equivalent of --output-attribute ''.
+
+          Avoid using this flag in automation because it may be expensive to produce certain
+          attributes, and because it makes harder to track which special attributes are used.
+
+  -B, --output-basic-attributes
+          Output basic attributes, namely those the user can supply, plus rule type and package name
+
+  -a, --output-attribute <ATTRIBUTE>
+          Regular expressions to match attributes. Regular expressions are used in "search" mode, so
+          for example empty string matches all attributes including special attributes.
+
+          When using in automation, please specify the regular expression to match the attribute
+          precisely, for example `--output-attribute '^headers$'` to make it easier to track which
+          special attributes are used.
+
+      --output-attributes <ATTRIBUTE>...
+          Deprecated: Use `--output-attribute` instead.
+
+          List of space-separated attributes to output, --output-attributes attr1 attr2.
+
   -h, --help
           Print help (see a summary with '-h')
 
