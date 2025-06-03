@@ -148,6 +148,19 @@ impl Span {
         }
     }
 
+    /// Create a Span that allows all whitespace characters, specially for emit/emit_aux scenarios.
+    ///
+    /// **Note:** This method bypass whitespace validation, and should not be used for layout
+    /// components. It's specially designed for emit/emit_aux where content is displayed above the
+    /// canvas and doesn't require percise characters alignment.
+    pub fn new_styled_raw(span: StyledContent<String>) -> Self {
+        Self {
+            content: Cow::Owned(span.content().clone()),
+            style: *span.style(),
+            hyperlink: None,
+        }
+    }
+
     pub fn new_colored(text: &str, color: Color) -> Result<Self, SpanError> {
         Self::new_styled(StyledContent::new(
             ContentStyle {

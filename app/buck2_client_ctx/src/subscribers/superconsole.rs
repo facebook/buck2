@@ -363,7 +363,7 @@ impl StatefulSuperConsole {
             };
             lines
                 .0
-                .extend(Lines::from_multiline_string(&e.message, style).0);
+                .extend(Lines::from_multiline_string_raw(&e.message, style).0);
         }
         lines
     }
@@ -554,7 +554,7 @@ impl StatefulSuperConsoleImpl {
     ) -> buck2_error::Result<()> {
         // TODO(nmj): Maybe better handling of messages that have color data in them. Right now
         //            they're just stripped
-        self.super_console.emit(Lines::from_multiline_string(
+        self.super_console.emit(Lines::from_multiline_string_raw(
             &message.message,
             ContentStyle::default(),
         ));
@@ -565,10 +565,11 @@ impl StatefulSuperConsoleImpl {
         &mut self,
         message: &buck2_data::StdoutStreamingOutput,
     ) -> buck2_error::Result<()> {
-        self.super_console.emit_aux(Lines::from_multiline_string(
-            &message.message,
-            ContentStyle::default(),
-        ));
+        self.super_console
+            .emit_aux(Lines::from_multiline_string_raw(
+                &message.message,
+                ContentStyle::default(),
+            ));
         Ok(())
     }
 
@@ -581,7 +582,7 @@ impl StatefulSuperConsoleImpl {
             ..Default::default()
         };
         self.super_console
-            .emit(Lines::from_multiline_string(&message.message, style));
+            .emit(Lines::from_multiline_string_raw(&message.message, style));
         Ok(())
     }
 

@@ -141,6 +141,18 @@ impl Lines {
             .collect()
     }
 
+    /// Same as `from_multiline_string`, but does not use lossy conversion, it allows all whitespace characters
+    /// It's specially designed for emit/emit_aux
+    pub fn from_multiline_string_raw(multiline_string: &str, style: ContentStyle) -> Lines {
+        multiline_string
+            .lines()
+            .map(|line| {
+                let styled = StyledContent::new(style, line.to_owned());
+                Line::from_iter([Span::new_styled_raw(styled)])
+            })
+            .collect()
+    }
+
     /// Takes a multiline string that might contain ANSI color codes, and returns a set of lines
     /// that include spans representing those color codes.
     ///
