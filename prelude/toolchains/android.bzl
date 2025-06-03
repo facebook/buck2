@@ -20,6 +20,10 @@ def _android_sdk_tools_impl(ctx):
     ctx.actions.run(cmd_args(["ln", "-s", "{}/platforms/{}/android.jar".format(ctx.attrs.android_sdk_path, ctx.attrs.compile_sdk_version), android_jar.as_output()]), category = "android_jar_symlink")
     sub_targets["android.jar"] = [DefaultInfo(default_output = android_jar)]
 
+    core_for_system_modules_jar = ctx.actions.declare_output("core_for_system_modules.jar")
+    ctx.actions.run(cmd_args(["ln", "-s", "{}/platforms/{}/core_for_system_modules.jar".format(ctx.attrs.android_sdk_path, ctx.attrs.compile_sdk_version), core_for_system_modules_jar.as_output()]), category = "core_for_system_modules_jar_symlink")
+    sub_targets["core_for_system_modules.jar"] = [DefaultInfo(default_output = core_for_system_modules_jar)]
+
     framework_aidl_file = ctx.actions.declare_output("framework.aidl")
     ctx.actions.run(cmd_args(["ln", "-s", "{}/platforms/{}/framework.aidl".format(ctx.attrs.android_sdk_path, ctx.attrs.compile_sdk_version), framework_aidl_file.as_output()]), category = "framework_aidl_symlink")
     sub_targets["framework.aidl"] = [DefaultInfo(default_output = framework_aidl_file)]
@@ -162,6 +166,7 @@ def system_android_toolchain_rule_impl(ctx):
             instrumentation_test_runner_classpath = ctx.attrs.instrumentation_test_runner_classpath,
             instrumentation_test_runner_main_class = ctx.attrs.instrumentation_test_runner_main_class,
             jar_splitter_command = ctx.attrs.jar_splitter_command,
+            jdk_system_image = ctx.attrs.jdk_system_image,
             manifest_utils = ctx.attrs.manifest_utils,
             merge_android_resource_sources = ctx.attrs.merge_android_resource_sources,
             merge_android_resources = ctx.attrs.merge_android_resources,
@@ -219,6 +224,7 @@ system_android_toolchain_rule = rule(
         "instrumentation_test_runner_classpath": attrs.list(attrs.source()),
         "instrumentation_test_runner_main_class": attrs.string(),
         "jar_splitter_command": attrs.dep(providers = [RunInfo]),
+        "jdk_system_image": attrs.source(),
         "manifest_utils": attrs.dep(providers = [RunInfo]),
         "merge_android_resource_sources": attrs.dep(providers = [RunInfo]),
         "merge_android_resources": attrs.dep(providers = [RunInfo]),
