@@ -8,6 +8,7 @@
 # pyre-strict
 
 
+import json
 import re
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -27,3 +28,52 @@ async def test_ctargets_basic(buck: Buck) -> None:
     [line] = result.stdout.splitlines()
     line = _replace_hash(line)
     assert line == "root//:gum (root//:p#<HASH>)"
+
+
+@buck_test()
+async def test_ctargets_json(buck: Buck) -> None:
+    result = await buck.ctargets(
+        "root//:chocolate",
+        "--json",
+    )
+
+    [output] = json.loads(result.stdout)
+
+    output["buck.type"]
+    output["buck.deps"]
+    output["buck.inputs"]
+    output["buck.package"]
+    output["name"]
+    assert (
+        _replace_hash(output["default_target_platform"]) == "root//:p (root//:p#<HASH>)"
+    )
+    output["visibility"]
+    output["within_view"]
+
+
+@buck_test()
+async def test_ctargets_multi_json(buck: Buck) -> None:
+    result = await buck.ctargets(
+        "root//:",
+        "--json",
+    )
+
+    outputs = json.loads(result.stdout)
+
+    assert len(outputs) == 3
+
+    for output in outputs:
+        output["buck.type"]
+        output["buck.deps"]
+        output["buck.inputs"]
+        output["buck.package"]
+
+        name = output["name"]
+        if name == "chocolate":
+            assert (
+                _replace_hash(output["default_target_platform"])
+                == "root//:p (root//:p#<HASH>)"
+            )
+
+        output["visibility"]
+        output["within_view"]

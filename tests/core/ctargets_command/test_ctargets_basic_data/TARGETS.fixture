@@ -7,3 +7,8 @@ platform(
 trivial_build(
     name = "gum",
 )
+
+trivial_build(
+    name = "chocolate",
+    default_target_platform = ":p",
+)
