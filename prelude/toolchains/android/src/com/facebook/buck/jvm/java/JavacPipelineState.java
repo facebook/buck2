@@ -14,6 +14,7 @@ import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.jvm.core.BuildTargetValue;
+import com.facebook.buck.jvm.java.version.JavaVersion;
 import com.facebook.buck.util.CapturingPrintStream;
 import com.facebook.buck.util.ProcessExecutor;
 import com.facebook.buck.util.Verbosity;
@@ -230,6 +231,9 @@ public class JavacPipelineState implements AutoCloseable {
         },
         resolvedJavacOptions,
         ruleCellRoot);
+    Optional<String> bootclasspath =
+        ResolvedJavacOptions.Companion.getBootclasspathString(
+            resolvedJavacOptions.getBootclasspath(), resolvedJavacOptions.getBootclasspathList());
 
     // verbose flag, if appropriate.
     if (context.getVerbosity().shouldUseVerbosityFlagIfAvailable()) {
@@ -243,15 +247,30 @@ public class JavacPipelineState implements AutoCloseable {
       builder.add("-s").add(ruleCellRoot.resolve(generatedCodeDirectory).toString());
     }
 
+    List<String> classpathEntries = new ArrayList<>();
+    JavaVersion targetRelease =
+        resolvedJavacOptions.getLanguageLevelOptions().getTargetLevelValue();
+    if (targetRelease.compareTo(JavaVersion.VERSION_9) >= 0) {
+      String systemImage = resolvedJavacOptions.getSystemImage();
+      if (systemImage != null) {
+        classpathEntries.add(bootclasspath.get());
+
+        builder.add("--system");
+        builder.add(systemImage);
+      }
+    }
+    // else, bootclasspath is already handled by the OptionsConsumer above
+
+    classpathEntries.addAll(
+        buildClasspathEntries.stream()
+            .map(ruleCellRoot::resolve)
+            .map(AbsPath::normalize)
+            .map(AbsPath::toString)
+            .toList());
+
     // Build up and set the classpath.
-    if (!buildClasspathEntries.isEmpty()) {
-      String classpath =
-          Joiner.on(File.pathSeparator)
-              .join(
-                  buildClasspathEntries.stream()
-                      .map(ruleCellRoot::resolve)
-                      .map(AbsPath::normalize)
-                      .iterator());
+    if (!classpathEntries.isEmpty()) {
+      String classpath = Joiner.on(File.pathSeparator).join(classpathEntries);
       builder.add("-classpath", classpath);
     } else {
       builder.add("-classpath", "''");

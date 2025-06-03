@@ -21,6 +21,14 @@ load(
 load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
 load("@prelude//utils:expect.bzl", "expect")
 
+CustomJdkInfo = record(
+    # Used with -bootclasspath flag for JDK 8 and older release targets
+    # This is also added to the normal classpath when used with kotlinc or javac with JDK9+ release
+    bootclasspath = list[Artifact],
+    # Used with --system flag for JDK 9+ release targets
+    system_image = Artifact,
+)
+
 def derive_javac(javac_attribute: [str, Dependency, Artifact]) -> [str, RunInfo, Artifact]:
     javac_attr_type = type(javac_attribute)
     if isinstance(javac_attribute, Dependency):
@@ -162,13 +170,11 @@ def get_classpath_subtarget(actions: AnalysisActions, packaging_info: JavaPackag
 def build_bootclasspath(bootclasspath_entries: list[Artifact], source_level: int, java_toolchain: JavaToolchainInfo) -> list[Artifact]:
     bootclasspath_list = []
 
-    if source_level in [7, 8]:
-        # bootclasspath_7 is deprecated.
-        if bootclasspath_entries:
-            bootclasspath_list = bootclasspath_entries
-        elif source_level == 8:
-            if not is_full_meta_repo():
-                return bootclasspath_list
-            expect(java_toolchain.bootclasspath_8, "Must specify bootclasspath for source level 8")
-            bootclasspath_list = java_toolchain.bootclasspath_8
+    if bootclasspath_entries:
+        bootclasspath_list = bootclasspath_entries
+    elif source_level == 8:
+        if not is_full_meta_repo():
+            return bootclasspath_list
+        expect(java_toolchain.bootclasspath_8, "Must specify bootclasspath for source level 8")
+        bootclasspath_list = java_toolchain.bootclasspath_8
     return bootclasspath_list

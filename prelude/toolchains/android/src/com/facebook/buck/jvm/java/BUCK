@@ -180,6 +180,7 @@ buck_kotlin_library(
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi:abi",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/source/api:api",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/runner:runner",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/java/version:version",
         "prelude//toolchains/android/src/com/facebook/buck/step:step",
         "prelude//toolchains/android/src/com/facebook/buck/step/isolatedsteps:isolatedsteps",
         "prelude//toolchains/android/src/com/facebook/buck/step/isolatedsteps/java:java",

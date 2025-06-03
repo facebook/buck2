@@ -73,7 +73,8 @@ public class ResolvedJavacOptionsSerializer {
         options.getVerbose(),
         JavacPluginParamsSerializer.deserialize(options.getJavaAnnotationProcessorParams()),
         JavacPluginParamsSerializer.deserialize(options.getStandardJavacPluginParams()),
-        ImmutableList.copyOf(options.getExtraArgumentsList()));
+        ImmutableList.copyOf(options.getExtraArgumentsList()),
+        options.getSystemImage().isEmpty() ? null : options.getSystemImage());
   }
 
   private static Optional<String> toOptionalString(String value) {
