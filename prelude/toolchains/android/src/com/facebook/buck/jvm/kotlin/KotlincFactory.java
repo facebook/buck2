@@ -10,20 +10,14 @@
 package com.facebook.buck.jvm.kotlin;
 
 import com.facebook.buck.core.util.log.Logger;
-import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.kotlin.buildtools.BuildToolsKotlinc;
 import com.facebook.buck.jvm.kotlin.kotlinc.Kotlinc;
 
-public class InMemoryKotlincFactory {
+public class KotlincFactory {
 
-  private static final Logger LOG = Logger.get(InMemoryKotlincFactory.class);
+  private static final Logger LOG = Logger.get(KotlincFactory.class);
 
-  public static Kotlinc create(KotlinExtraParams extraParams) {
-    if (!extraParams.getShouldKotlincRunViaBuildToolsApi()) {
-      LOG.info("Kotlinc implementation used: " + JarBackedReflectedKotlinc.class.getSimpleName());
-      return new JarBackedReflectedKotlinc();
-    }
-
+  public static Kotlinc create() {
     LOG.info("Kotlinc implementation used: " + BuildToolsKotlinc.class.getSimpleName());
     return new BuildToolsKotlinc();
   }

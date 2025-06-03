@@ -19,7 +19,7 @@ import com.facebook.buck.jvm.kotlin.kotlinc.Kotlinc;
 import org.junit.Before;
 import org.junit.Test;
 
-public class InMemoryKotlincFactoryTest {
+public class KotlincFactoryTest {
 
   private KotlinExtraParams mockKotlinExtraParams;
 
@@ -32,17 +32,8 @@ public class InMemoryKotlincFactoryTest {
   public void when_shouldKotlincRunViaBuildToolsApi_then_BuildToolsKotlinc() {
     when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
 
-    Kotlinc kotlinc = InMemoryKotlincFactory.create(mockKotlinExtraParams);
+    Kotlinc kotlinc = KotlincFactory.create();
 
     assertTrue(kotlinc instanceof BuildToolsKotlinc);
-  }
-
-  @Test
-  public void when_not_shouldKotlincRunViaBuildToolsApi_then_JarBackedReflectedKotlinc() {
-    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(false);
-
-    Kotlinc kotlinc = InMemoryKotlincFactory.create(mockKotlinExtraParams);
-
-    assertTrue(kotlinc instanceof JarBackedReflectedKotlinc);
   }
 }

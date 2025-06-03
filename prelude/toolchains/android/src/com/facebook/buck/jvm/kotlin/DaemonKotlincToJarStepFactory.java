@@ -80,7 +80,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
       KotlinExtraParams extraParams,
       @Nullable RelPath kotlinClassesDir) {
 
-    Kotlinc kotlinc = InMemoryKotlincFactory.create(extraParams);
+    Kotlinc kotlinc = KotlincFactory.create();
 
     CompilerOutputPaths compilerOutputPaths = parameters.getOutputPaths();
     BuildTargetValueExtraParams buildTargetValueExtraParams =

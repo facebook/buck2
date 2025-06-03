@@ -63,7 +63,6 @@ class BuildToolsKotlinc : Kotlinc {
         "[KotlinC Toolchain Build Step from for target:${invokingRule.fullyQualifiedName} type:${invokingRule.type}] " +
             "Running ${CompilationService::class.java.name} ${getIncrementalInfoMessage(mode)} " +
             "with arguments:[${compilerArgs.joinToString()}] ")
-    context.stdOut.println("KotlinC: ${this::class.java.simpleName}")
 
     val kotlinCompilationService =
         KotlinCompilationService(
