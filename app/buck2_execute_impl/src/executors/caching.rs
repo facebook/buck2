@@ -209,9 +209,9 @@ impl CacheUploader {
         result: &CommandExecutionResult,
         action_result: Option<TActionResult2>,
         dep_file_bundle: &mut dyn IntoRemoteDepFile,
+        remote_dep_file_action: &ActionDigestAndBlobs,
         error_on_cache_upload: bool,
     ) -> buck2_error::Result<CacheUploadOutcome> {
-        let remote_dep_file_action = dep_file_bundle.remote_dep_file_action().clone();
         let remote_dep_file_key = remote_dep_file_action.action.to_string();
         span_async(
             buck2_data::DepFileUploadStart {
@@ -599,29 +599,36 @@ impl UploadCache for CacheUploader {
         let should_upload_dep_file =
             res.was_locally_executed() || res.was_remotely_executed() || res.was_action_cache_hit();
 
-        let did_dep_file_cache_upload = if let Some(dep_file_bundle) = dep_file_bundle
+        let (did_dep_file_cache_upload, dep_file_cache_upload_key) = if let Some(dep_file_bundle) =
+            dep_file_bundle
             && should_upload_dep_file
         {
-            self.upload_dep_file(
-                info,
-                res,
-                action_result,
-                dep_file_bundle,
-                error_on_cache_upload,
+            let remote_dep_file_action = dep_file_bundle.remote_dep_file_action().clone();
+            (
+                self.upload_dep_file(
+                    info,
+                    res,
+                    action_result,
+                    dep_file_bundle,
+                    &remote_dep_file_action,
+                    error_on_cache_upload,
+                )
+                .await?
+                .uploaded(),
+                Some(remote_dep_file_action.action.coerce()),
             )
-            .await?
-            .uploaded()
         } else {
             tracing::info!(
                 "Dep file cache upload for `{}` not attempted",
                 action_digest_and_blobs.action
             );
-            false
+            (false, None)
         };
 
         Ok(CacheUploadResult {
             did_cache_upload,
             did_dep_file_cache_upload,
+            dep_file_cache_upload_key,
         })
     }
 }

@@ -15,6 +15,7 @@ use remote_execution::TActionResult2;
 
 use crate::digest_config::DigestConfig;
 use crate::execute::action_digest_and_blobs::ActionDigestAndBlobs;
+use crate::execute::dep_file_digest::DepFileDigest;
 use crate::execute::result::CommandExecutionResult;
 use crate::execute::target::CommandExecutionTarget;
 use crate::materialize::materializer::Materializer;
@@ -40,6 +41,7 @@ pub trait IntoRemoteDepFile: Send {
 pub struct CacheUploadResult {
     pub did_cache_upload: bool,
     pub did_dep_file_cache_upload: bool,
+    pub dep_file_cache_upload_key: Option<DepFileDigest>,
 }
 
 // This is for quick testing of cache upload without configuring executors.
@@ -83,6 +85,7 @@ impl UploadCache for NoOpCacheUploader {
         Ok(CacheUploadResult {
             did_cache_upload: false,
             did_dep_file_cache_upload: false,
+            dep_file_cache_upload_key: None,
         })
     }
 }

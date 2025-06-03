@@ -824,13 +824,10 @@ impl RunAction {
         };
 
         // If the cache queries did not yield to a result, then we need to execute the action.
-        let mut result = match result {
+        let result = match result {
             ControlFlow::Break(res) => res,
             ControlFlow::Continue(manager) => ctx.exec_cmd(manager, &req, &prepared_action).await,
         };
-
-        // If the action has a dep file, log the remote dep file key so we can look out for collisions
-        result.dep_file_key = Some(dep_file_bundle.remote_dep_file_action.action.coerce());
 
         Ok(ExecuteResult::ExecutedOrReHit {
             result,
@@ -1074,6 +1071,7 @@ impl Action for RunAction {
 
             result.did_cache_upload = upload_result.did_cache_upload;
             result.did_dep_file_cache_upload = upload_result.did_dep_file_cache_upload;
+            result.dep_file_key = upload_result.dep_file_cache_upload_key;
         }
 
         let was_locally_executed = result.was_locally_executed();
