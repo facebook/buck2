@@ -124,6 +124,9 @@ def _elp_config(ctx):
     all = {tgt.label.raw_target(): ("app", tgt) for tgt in ctx.cquery().kind("^(erlang_app|erlang_test)$", included_targets)}
     all.update({tgt.label.raw_target(): ("dep", tgt) for tgt in ctx.cquery().kind("^erlang_app$", deps_targets)})
 
+    if ctx.cli_args.build_generated_code:
+        prebuild(ctx, all)
+
     result = {}
     for label_name, (typ, target) in all.items():
         includes_map = {}
@@ -181,7 +184,28 @@ def _elp_config(ctx):
             included_apps = included_apps_list,
             origin = typ,
         )
+
     ctx.output.print_json(result)
+
+def prebuild(ctx, all):
+    labels = []
+    for _label_name, (_typ, target) in all.items():
+        includes = target.attrs_lazy().get("includes")
+        if not includes:
+            includes = []
+        else:
+            includes = [include for include in includes.value() if isinstance(include, ConfiguredProvidersLabel)]
+        srcs = target.attrs_lazy().get("srcs")
+        if not srcs:
+            srcs = []
+        else:
+            srcs = [src for src in srcs.value() if isinstance(src, ConfiguredProvidersLabel)]
+
+        labels += includes
+        labels += srcs
+
+    build_results = ctx.build(labels)
+    ctx.output.ensure_multiple(build_results)
 
 def _file_node_to_path(cells: dict[str, str], file_node) -> str:
     cell, path = str(file_node).split("//", 1)
