@@ -818,7 +818,19 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         return;
                     }
                 }
-                _ => {}
+                ArtifactMaterializationStage::Declared { entry, .. } => {
+                    if path_iter.next().is_none() && entry == value.entry() {
+                        // In this case, the entry declared matches the already declared entry.
+                        tracing::trace!(
+                            path = %path,
+                            "already declared, updating deps only",
+                        );
+                        let deps = value.deps().duped();
+                        data.deps = deps;
+
+                        return;
+                    }
+                }
             }
         }
 

@@ -550,6 +550,10 @@ mod state_machine {
             dm.testing_declare(&path, value.dupe());
             assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
 
+            // When redeclaring the same artifact nothing happens.
+            dm.testing_declare(&path, value.dupe());
+            assert_eq!(dm.io.take_log(), &[]);
+
             let res = dm
                 .materialize_artifact(&path, EventDispatcher::null())
                 .buck_error_context("Expected a future")?
