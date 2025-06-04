@@ -1049,7 +1049,10 @@ def _add_dep_metadata_to_manifest_module(
     """
     Updates manifest_module_entries with link metadata if they exist.
     """
-    if python_toolchain.manifest_module_entries == None:
+
+    # FIXME(JakobDegen): Hack: Outside of the fbcode macros, we don't pass `--no-manifest` to the
+    # par builder which means that we can't generate any manifest data in the prelude
+    if python_toolchain.manifest_module_entries == None or "fbcode_macros" not in ctx.attrs.labels:
         if ctx.attrs.manifest_module_entries == None:
             return None
         manifest_module_entries = dict(ctx.attrs.manifest_module_entries)
