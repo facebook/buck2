@@ -31,6 +31,11 @@ def main(argv: List[str]) -> int:
         "--args", help="The argsfile containing unfiltered and unprocessed flags."
     )
     parser.add_argument("--compiler", help="The path to the Clang compiler binary.")
+    parser.add_argument(
+        "--print-command",
+        action="store_true",
+        help="Print the clang invocation and exit.",
+    )
     args = parser.parse_args(argv[1:])
 
     clang_invocation = [args.compiler, f"@{args.args}"]
@@ -49,6 +54,10 @@ def main(argv: List[str]) -> int:
             "-Werror=unused-command-line-argument",
         ]
     )
+
+    if args.print_command:
+        print(" ".join(clang_invocation))
+        return EXIT_SUCCESS
 
     subprocess.check_call(clang_invocation)
     # Work around Clang bug where it fails silently: T187767815
