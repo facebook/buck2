@@ -56,7 +56,7 @@ use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellation::CancellationContext;
-use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
@@ -422,61 +422,52 @@ impl AnonTargetKey {
         let print = EventDispatcherPrintHandler(get_dispatcher());
 
         let eval_kind = self.0.dupe().eval_kind();
-        let (dice, mut eval, ctx, list_res) = with_starlark_eval_provider(
-            dice,
-            &mut StarlarkProfiler::disabled(),
-            &eval_kind,
-            cancellation.into(),
-            |provider, dice| {
-                let (mut eval, _) = provider.make(&env)?;
-                eval.set_print_handler(&print);
-                eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
+        let mut profiler = StarlarkProfiler::disabled();
+        let mut provider = StarlarkEvaluatorProvider::new(dice, &eval_kind, &mut profiler).await?;
+        let mut reentrant_eval = provider.make_reentrant_evaluator(&env, cancellation.into())?;
+        let (ctx, list_res) = reentrant_eval.with_evaluator(|eval| {
+            eval.set_print_handler(&print);
+            eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
 
-                let attributes =
-                    self.0
-                        .resolve_attrs(&env, dependents_analyses, exec_resolution.clone())?;
+            let attributes =
+                self.0
+                    .resolve_attrs(&env, dependents_analyses, exec_resolution.clone())?;
 
-                let registry = AnalysisRegistry::new_from_owner(
-                    BaseDeferredKey::AnonTarget(self.0.dupe()),
-                    exec_resolution,
-                )?;
+            let registry = AnalysisRegistry::new_from_owner(
+                BaseDeferredKey::AnonTarget(self.0.dupe()),
+                exec_resolution,
+            )?;
 
-                let ctx = AnalysisContext::prepare(
-                    eval.heap(),
-                    Some(attributes),
-                    Some(self.0.configured_label()),
-                    // FIXME(JakobDegen): There should probably be a way to pass plugins
-                    // into anon targets
-                    Some(
-                        eval.heap()
-                            .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
-                            .into(),
-                    ),
-                    registry,
-                    dice.global_data().get_digest_config(),
-                );
+            let ctx = AnalysisContext::prepare(
+                eval.heap(),
+                Some(attributes),
+                Some(self.0.configured_label()),
+                // FIXME(JakobDegen): There should probably be a way to pass plugins
+                // into anon targets
+                Some(
+                    eval.heap()
+                        .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
+                        .into(),
+                ),
+                registry,
+                dice.global_data().get_digest_config(),
+            );
 
-                let list_res = rule_impl.invoke(&mut eval, ctx)?;
-                Ok((dice, eval, ctx, list_res))
-            },
-        )
-        .await?;
+            let list_res = rule_impl.invoke(eval, ctx)?;
+            Ok((ctx, list_res))
+        })?;
 
-        ctx.actions
-            .run_promises(dice, &mut eval, &eval_kind)
-            .await?;
+        ctx.actions.run_promises(dice, &mut reentrant_eval).await?;
         let res_typed = ProviderCollection::try_from_value(list_res)?;
         let res = env.heap().alloc(res_typed);
 
-        let fulfilled_artifact_mappings = {
-            let promise_artifact_mappings = rule_impl.promise_artifact_mappings(&mut eval)?;
+        let fulfilled_artifact_mappings = reentrant_eval.with_evaluator(|eval| {
+            let promise_artifact_mappings = rule_impl.promise_artifact_mappings(eval)?;
 
-            self.0.dupe().get_fulfilled_promise_artifacts(
-                promise_artifact_mappings,
-                res,
-                &mut eval,
-            )?
-        };
+            self.0
+                .dupe()
+                .get_fulfilled_promise_artifacts(promise_artifact_mappings, res, eval)
+        })?;
 
         let res =
             ValueTypedComplex::new(res).internal_error("Just allocated the provider collection")?;
@@ -486,7 +477,7 @@ impl AnonTargetKey {
         analysis_registry
             .analysis_value_storage
             .set_result_value(res)?;
-        std::mem::drop(eval);
+        std::mem::drop(reentrant_eval);
         let num_declared_actions = analysis_registry.num_declared_actions();
         let num_declared_artifacts = analysis_registry.num_declared_artifacts();
         let registry_finalizer = analysis_registry.finalize(&env)?;

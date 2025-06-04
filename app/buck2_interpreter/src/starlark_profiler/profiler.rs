@@ -11,6 +11,7 @@ use std::time::Instant;
 
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
 use starlark::eval::ProfileData;
@@ -30,22 +31,19 @@ enum StarlarkProfilerError {
 }
 
 pub struct StarlarkProfiler {
-    profile_mode: Option<ProfileMode>,
-
-    initialized_at: Option<Instant>,
-    finalized_at: Option<Instant>,
-    profile_data: Option<ProfileData>,
-
+    pub(crate) profiler_data: ProfilerData,
     target: ProfileTarget,
 }
 
 impl StarlarkProfiler {
     pub fn new(profile_mode: Option<ProfileMode>, target: ProfileTarget) -> StarlarkProfiler {
         Self {
-            profile_mode,
-            initialized_at: None,
-            finalized_at: None,
-            profile_data: None,
+            profiler_data: ProfilerData {
+                profile_mode,
+                initialized_at: None,
+                finalized_at: None,
+                profile_data: None,
+            },
             target,
         }
     }
@@ -56,8 +54,50 @@ impl StarlarkProfiler {
 
     /// Collect all profiling data.
     pub fn finish(
+        self,
+        frozen_module: Option<&FrozenModule>,
+    ) -> buck2_error::Result<Option<StarlarkProfileDataAndStats>> {
+        self.profiler_data.finish(frozen_module, self.target)
+    }
+}
+
+pub struct ProfilerData {
+    profile_mode: Option<ProfileMode>,
+
+    initialized_at: Option<Instant>,
+    finalized_at: Option<Instant>,
+    profile_data: Option<ProfileData>,
+}
+
+impl ProfilerData {
+    /// Prepare an Evaluator to capture output relevant to this profiler.
+    pub(crate) fn initialize(&mut self, eval: &mut Evaluator) -> buck2_error::Result<bool> {
+        self.initialized_at = Some(Instant::now());
+        if let Some(mode) = &self.profile_mode {
+            eval.enable_profile(mode)
+                .map_err(|e| internal_error!("{}", e))?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// Post-analysis, produce the output of this profiler.
+    pub(crate) fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
+        self.finalized_at = Some(Instant::now());
+        if let Some(mode) = &self.profile_mode {
+            if !mode.requires_frozen_module() {
+                self.profile_data = Some(eval.gen_profile()?);
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn finish(
         mut self,
         frozen_module: Option<&FrozenModule>,
+        target: ProfileTarget,
     ) -> buck2_error::Result<Option<StarlarkProfileDataAndStats>> {
         let mode = match self.profile_mode {
             None => {
@@ -93,31 +133,7 @@ impl StarlarkProfiler {
             profile_data: self
                 .profile_data
                 .internal_error("profile_data not initialized")?,
-            targets: vec![self.target],
+            targets: vec![target],
         }))
-    }
-
-    /// Prepare an Evaluator to capture output relevant to this profiler.
-    pub fn initialize(&mut self, eval: &mut Evaluator) -> buck2_error::Result<bool> {
-        self.initialized_at = Some(Instant::now());
-        if let Some(mode) = &self.profile_mode {
-            eval.enable_profile(mode)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    /// Post-analysis, produce the output of this profiler.
-    pub fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
-        self.finalized_at = Some(Instant::now());
-        if let Some(mode) = &self.profile_mode {
-            if !mode.requires_frozen_module() {
-                self.profile_data = Some(eval.gen_profile()?);
-            }
-        }
-
-        Ok(())
     }
 }

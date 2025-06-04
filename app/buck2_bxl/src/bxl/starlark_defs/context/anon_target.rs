@@ -29,10 +29,9 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellation::CancellationObserver;
-use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
@@ -258,106 +257,86 @@ async fn eval_bxl_for_anon_target_inner(
     let anon_impl = AnonImpl::new(dice, anon_target.dupe()).await?;
 
     let eval_kind = anon_target.dupe().eval_kind();
-    let (
-        num_declared_actions,
-        num_declared_artifacts,
-        recorded_values,
-        fulfilled_artifact_mappings,
-    ) = with_starlark_eval_provider(
+    let mut profiler = StarlarkProfiler::disabled();
+    let mut provider = StarlarkEvaluatorProvider::new(dice, &eval_kind, &mut profiler).await?;
+    let env = Module::new();
+    let bxl_dice = Rc::new(RefCell::new(BxlSafeDiceComputations::new(
         dice,
-        &mut StarlarkProfiler::disabled(),
-        &eval_kind,
-        liveness.dupe().into(),
-        |provider, dice| {
-            let env = Module::new();
+        liveness.dupe(),
+    )));
+    let bxl_ctx_core_data = Rc::new(bxl_ctx_core_data);
+    let extra = BxlEvalExtra::new_anon(bxl_dice.dupe(), bxl_ctx_core_data.dupe());
 
-            let (analysis_registry, fulfilled_artifact_mappings) = {
-                let bxl_dice = Rc::new(RefCell::new(BxlSafeDiceComputations::new(dice, liveness)));
+    let mut reentrant_eval = provider.make_reentrant_evaluator(&env, liveness.into())?;
+    let (bxl_ctx, list_res) = reentrant_eval.with_evaluator(|eval| {
+        eval.set_print_handler(&print);
+        eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
+        eval.extra = Some(&extra);
 
-                let bxl_ctx_core_data = Rc::new(bxl_ctx_core_data);
+        let analysis_registry = AnalysisRegistry::new_from_owner(
+            anon_target.dupe().base_deferred_key(),
+            execution_platform.clone(),
+        )?;
 
-                let extra = BxlEvalExtra::new_anon(bxl_dice.dupe(), bxl_ctx_core_data.dupe());
-                let (mut eval, _) = provider.make(&env)?;
+        let attributes =
+            anon_target.resolve_attrs(&env, dependents_analyses, execution_platform.clone())?;
 
-                eval.set_print_handler(&print);
-                eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-                eval.extra = Some(&extra);
+        let bxl_anon_ctx = BxlContext::new_anon(
+            env.heap(),
+            bxl_ctx_core_data,
+            bxl_dice,
+            digest_config,
+            analysis_registry,
+            attributes,
+        )?;
+        let bxl_ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_anon_ctx))?;
 
-                let analysis_registry = AnalysisRegistry::new_from_owner(
-                    anon_target.dupe().base_deferred_key(),
-                    execution_platform.clone(),
-                )?;
+        let list_res = tokio::task::block_in_place(|| -> buck2_error::Result<Value<'_>> {
+            anon_impl.invoke(eval, bxl_ctx, attributes)
+        })?;
 
-                let attributes = anon_target.resolve_attrs(
-                    &env,
-                    dependents_analyses,
-                    execution_platform.clone(),
-                )?;
+        Ok((bxl_ctx, list_res))
+    })?;
 
-                let bxl_anon_ctx = BxlContext::new_anon(
-                    env.heap(),
-                    bxl_ctx_core_data,
-                    bxl_dice,
-                    digest_config,
-                    analysis_registry,
-                    attributes,
-                )?;
-                let bxl_ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_anon_ctx))?;
+    let action_factory = bxl_ctx.state;
 
-                let action_factory = bxl_ctx.state;
+    tokio::task::block_in_place(|| -> buck2_error::Result<()> {
+        bxl_ctx.via_dice(|dice, _| {
+            dice.via(|dice| {
+                action_factory
+                    .run_promises(dice, &mut reentrant_eval)
+                    .boxed_local()
+            })
+        })
+    })?;
 
-                let list_res = tokio::task::block_in_place(|| -> anyhow::Result<Value<'_>> {
-                    let invoke_res = anon_impl.invoke(&mut eval, bxl_ctx, attributes)?;
-                    bxl_ctx.via_dice(|dice, _| {
-                        dice.via(|dice| {
-                            action_factory
-                                .run_promises(dice, &mut eval, &eval_kind)
-                                .boxed_local()
-                        })
-                    })?;
-                    Ok(invoke_res)
-                })
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+    let res_typed = ProviderCollection::try_from_value(list_res)?;
+    let res = env.heap().alloc(res_typed);
 
-                let res_typed = ProviderCollection::try_from_value(list_res)?;
-                let res = env.heap().alloc(res_typed);
+    let fulfilled_artifact_mappings = reentrant_eval.with_evaluator(|eval| {
+        let promise_artifact_mappings = anon_impl.promise_artifact_mappings(eval)?;
 
-                let fulfilled_artifact_mappings = {
-                    let promise_artifact_mappings =
-                        anon_impl.promise_artifact_mappings(&mut eval)?;
+        anon_target
+            .dupe()
+            .get_fulfilled_promise_artifacts(promise_artifact_mappings, res, eval)
+    })?;
 
-                    anon_target.dupe().get_fulfilled_promise_artifacts(
-                        promise_artifact_mappings,
-                        res,
-                        &mut eval,
-                    )?
-                };
+    let res =
+        ValueTypedComplex::new(res).internal_error("Just allocated the provider collection")?;
 
-                let res = ValueTypedComplex::new(res)
-                    .internal_error("Just allocated the provider collection")?;
+    let analysis_registry = bxl_ctx.take_state_anon()?;
+    analysis_registry
+        .analysis_value_storage
+        .set_result_value(res)?;
 
-                let analysis_registry = bxl_ctx.take_state_anon()?;
-                analysis_registry
-                    .analysis_value_storage
-                    .set_result_value(res)?;
+    std::mem::drop(reentrant_eval);
+    std::mem::drop(extra);
 
-                (analysis_registry, fulfilled_artifact_mappings)
-            };
-
-            let num_declared_actions = analysis_registry.num_declared_actions();
-            let num_declared_artifacts = analysis_registry.num_declared_artifacts();
-            let registry_finalizer = analysis_registry.finalize(&env)?;
-            let frozen_env = env.freeze().map_err(from_freeze_error)?;
-            let recorded_values = registry_finalizer(&frozen_env)?;
-            Ok((
-                num_declared_actions,
-                num_declared_artifacts,
-                recorded_values,
-                fulfilled_artifact_mappings,
-            ))
-        },
-    )
-    .await?;
+    let num_declared_actions = analysis_registry.num_declared_actions();
+    let num_declared_artifacts = analysis_registry.num_declared_artifacts();
+    let registry_finalizer = analysis_registry.finalize(&env)?;
+    let frozen_env = env.freeze().map_err(from_freeze_error)?;
+    let recorded_values = registry_finalizer(&frozen_env)?;
 
     let validations = transitive_validations(
         validations_from_deps,

@@ -12,27 +12,19 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::ops::DerefMut;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::internal_error;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_futures::cancellation::CancellationObserver;
 use buck2_util::arc_str::ThinArcStr;
-use dice::DiceComputations;
 use dupe::Dupe;
 
-use crate::dice::starlark_debug::HasStarlarkDebugger;
-use crate::factory::StarlarkEvaluatorProvider;
 use crate::paths::module::OwnedStarlarkModulePath;
 use crate::starlark_profiler::data::ProfileTarget;
-use crate::starlark_profiler::profiler::StarlarkProfiler;
 
 pub trait DynEvalKindKey: Display + Send + Sync + Debug + Allocative + 'static {
     fn hash(&self, state: &mut dyn Hasher);
@@ -97,7 +89,7 @@ impl StarlarkEvalKind {
             StarlarkEvalKind::LoadBuildFile(package) => Ok(ProfileTarget::Loading(package.dupe())),
             StarlarkEvalKind::Bxl(_) => Ok(ProfileTarget::Bxl),
             StarlarkEvalKind::BxlDynamic(_) => Ok(ProfileTarget::Bxl),
-            v => Err(internal_error!("no profiletarget type for {}", v)),
+            _ => Ok(ProfileTarget::Unknown),
         }
     }
 }
@@ -146,73 +138,5 @@ impl<'a> From<Option<()>> for CancellationPoller<'a> {
 impl<'a> From<CancellationObserver> for CancellationPoller<'a> {
     fn from(v: CancellationObserver) -> Self {
         Self::Observer(v)
-    }
-}
-
-/// This constructs an appropriate StarlarkEvaluatorProvider to set up
-/// profiling/instrumentation/debugging in a starlark Evaluator for buck.
-///
-/// Taking this via a closure ensures that the Evaluator isn't used in an
-/// async context and allows us to do things like the block_in_place required
-/// when debugging.
-///
-/// The kind is used for the thread name when debugging.
-///
-/// The provided closure will be invoked and passed an appropriate
-/// StarlarkEvaluatorProvider.
-pub async fn with_starlark_eval_provider<'a, 'x, D: DerefMut<Target = DiceComputations<'x>>, R>(
-    mut ctx: D,
-    profiler_instrumentation: &mut StarlarkProfiler,
-    kind: &StarlarkEvalKind,
-    cancellation: CancellationPoller<'a>,
-    closure: impl for<'y> FnOnce(&mut StarlarkEvaluatorProvider<'y, 'a>, D) -> buck2_error::Result<R>,
-) -> buck2_error::Result<R> {
-    let root_buckconfig = ctx.get_legacy_root_config_on_dice().await?;
-
-    let starlark_max_callstack_size =
-        root_buckconfig
-            .view(&mut ctx)
-            .parse::<usize>(BuckconfigKeyRef {
-                section: "buck2",
-                property: "starlark_max_callstack_size",
-            })?;
-
-    let debugger_handle = ctx.get_starlark_debugger_handle();
-    let debugger = match debugger_handle {
-        Some(v) => Some(v.start_eval(&kind.to_string()).await?),
-        None => None,
-    };
-
-    {
-        let mut provider = StarlarkEvaluatorProvider::new(
-            profiler_instrumentation,
-            debugger,
-            starlark_max_callstack_size,
-            cancellation,
-        );
-
-        // If we're debugging, we need to move this to a tokio blocking task.
-        //
-        // This is required because the debugger itself is running on the
-        // tokio worker tasks, and if we have a starlark breakpoint in common
-        // code we could get a lot of evaluators all blocked waiting on the debugger
-        // and those could block all the tokio worker tasks and the debugger wouldn't
-        // even get a chance to resume them.
-        //
-        // It's the debuggers responsibility to ensure that we don't run too many
-        // evaluations concurrently (in the non-debugger case they are limited by the
-        // tokio worker tasks, but once in a blocking task that limit is greatly
-        // increased).
-
-        // TODO(cjhopman): It would be nicer if we could have this functionality be
-        // provided by the debugger handle, but I couldn't figure out a nice clean
-        // way to do that. Potentially the thing would be to invert the dependencies
-        // so we could operate against a concrete type rather than injecting a trait
-        // implementation.
-        if debugger_handle.is_some() {
-            tokio::task::block_in_place(move || closure(&mut provider, ctx))
-        } else {
-            closure(&mut provider, ctx)
-        }
     }
 }

@@ -51,6 +51,7 @@ use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::eval_result::EvaluationResultWithStats;
 use buck2_node::super_package::SuperPackage;
 use buck2_util::per_thread_instruction_counter::PerThreadInstructionCounter;
+use dice::CancellationContext;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use starlark::codemap::FileSpan;
@@ -479,6 +480,7 @@ impl InterpreterForDir {
         extra_context: PerFileTypeContext,
         eval_provider: &mut StarlarkEvaluatorProvider,
         unstable_typecheck: bool,
+        cancellation: &CancellationContext,
     ) -> buck2_error::Result<EvalResult> {
         let import = extra_context.starlark_path();
         let globals = self.global_state.globals();
@@ -492,39 +494,35 @@ impl InterpreterForDir {
             extra_context,
             self.ignore_attrs_for_profiling,
         );
-        let is_profiling_enabled;
+
         let print = EventDispatcherPrintHandler(get_dispatcher());
-        let cpu_instruction_count = {
-            let (mut eval, is_profiling_enabled_by_provider) = eval_provider.make(env)?;
-            is_profiling_enabled = is_profiling_enabled_by_provider;
-            eval.enable_static_typechecking(unstable_typecheck);
-            eval.set_print_handler(&print);
-            eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-            eval.set_loader(&file_loader);
-            eval.extra = Some(&extra);
-            if self.verbose_gc {
-                eval.verbose_gc();
-            }
-
-            // Ignore error if failed to initialize instruction counter.
-            let instruction_counter: Option<PerThreadInstructionCounter> =
-                PerThreadInstructionCounter::init().ok().unwrap_or_default();
-
-            match eval.eval_module(ast, globals) {
-                Ok(_) => {
-                    let cpu_instruction_count = instruction_counter.and_then(|c| c.collect().ok());
-
-                    eval_provider
-                        .evaluation_complete(&mut eval)
-                        .buck_error_context("Profiler finalization failed")?;
-
-                    cpu_instruction_count
+        let (cpu_instruction_count, is_profiling_enabled) = eval_provider.with_evaluator(
+            env,
+            cancellation.into(),
+            |eval, is_profiling_enabled_by_provider| {
+                eval.enable_static_typechecking(unstable_typecheck);
+                eval.set_print_handler(&print);
+                eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
+                eval.set_loader(&file_loader);
+                eval.extra = Some(&extra);
+                if self.verbose_gc {
+                    eval.verbose_gc();
                 }
-                Err(p) => {
-                    return Err(p.into());
+
+                // Ignore error if failed to initialize instruction counter.
+                let instruction_counter: Option<PerThreadInstructionCounter> =
+                    PerThreadInstructionCounter::init().ok().unwrap_or_default();
+
+                match eval.eval_module(ast, globals) {
+                    Ok(_) => {
+                        let cpu_instruction_count =
+                            instruction_counter.and_then(|c| c.collect().ok());
+                        Ok((cpu_instruction_count, is_profiling_enabled_by_provider))
+                    }
+                    Err(p) => Err(p.into()),
                 }
-            }
-        };
+            },
+        )?;
         Ok(EvalResult {
             additional: extra.additional,
             is_profiling_enabled,
@@ -543,6 +541,7 @@ impl InterpreterForDir {
         ast: AstModule,
         loaded_modules: LoadedModules,
         eval_provider: &mut StarlarkEvaluatorProvider,
+        cancellation: &CancellationContext,
     ) -> buck2_error::Result<FrozenModule> {
         let env = self.create_env(starlark_path.into(), &loaded_modules)?;
         let extra_context = match starlark_path {
@@ -568,6 +567,7 @@ impl InterpreterForDir {
             extra_context,
             eval_provider,
             typecheck,
+            cancellation,
         )?;
         env.freeze().map_err(from_freeze_error)
     }
@@ -580,6 +580,7 @@ impl InterpreterForDir {
         buckconfigs: &mut dyn BuckConfigsViewForStarlark,
         loaded_modules: LoadedModules,
         eval_provider: &mut StarlarkEvaluatorProvider,
+        cancellation: &CancellationContext,
     ) -> buck2_error::Result<SuperPackage> {
         let env = self.create_env(
             StarlarkPath::PackageFile(package_file_path),
@@ -601,6 +602,7 @@ impl InterpreterForDir {
                 extra_context,
                 eval_provider,
                 false,
+                cancellation,
             )?
             .additional;
 
@@ -637,6 +639,7 @@ impl InterpreterForDir {
         loaded_modules: LoadedModules,
         eval_provider: &mut StarlarkEvaluatorProvider,
         unstable_typecheck: bool,
+        cancellation: &CancellationContext,
     ) -> buck2_error::Result<EvaluationResultWithStats> {
         let (env, internals) = self.create_build_env(
             build_file,
@@ -645,6 +648,18 @@ impl InterpreterForDir {
             package_boundary_exception,
             &loaded_modules,
         )?;
+        let buckconfig_key = BuckconfigKeyRef {
+            section: "buck2",
+            property: "check_starlark_peak_memory",
+        };
+        let starlark_peak_mem_config_enabled = LegacyBuckConfig::parse_value(
+            buckconfig_key,
+            buckconfigs
+                .read_root_cell_config(buckconfig_key)?
+                .as_deref(),
+        )?
+        .unwrap_or(false);
+
         let eval_result = self.eval(
             &env,
             ast,
@@ -653,22 +668,13 @@ impl InterpreterForDir {
             PerFileTypeContext::Build(internals),
             eval_provider,
             unstable_typecheck,
+            cancellation,
         )?;
 
         let internals = eval_result.additional.into_build()?;
         let starlark_peak_allocated_bytes = env.heap().peak_allocated_bytes() as u64;
-        let buckconfig_key = BuckconfigKeyRef {
-            section: "buck2",
-            property: "check_starlark_peak_memory",
-        };
-        let starlark_peak_mem_check_enabled = !eval_result.is_profiling_enabled
-            && LegacyBuckConfig::parse_value(
-                buckconfig_key,
-                buckconfigs
-                    .read_root_cell_config(buckconfig_key)?
-                    .as_deref(),
-            )?
-            .unwrap_or(false);
+        let starlark_peak_mem_check_enabled =
+            !eval_result.is_profiling_enabled && starlark_peak_mem_config_enabled;
         let starlark_mem_limit = eval_result
             .starlark_peak_allocated_byte_limit
             .get()

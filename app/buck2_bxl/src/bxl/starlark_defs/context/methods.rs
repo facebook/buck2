@@ -26,6 +26,7 @@ use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_interpreter::factory::ReentrantStarlarkEvaluator;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
@@ -757,11 +758,19 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneOr<Value<'v>>> {
-        let eval_kind = this.current_bxl().as_starlark_eval_kind();
+        // TODO(cjhopman): The approach here is pretty against the general model that we want. We should remove this function or we should split this into two steps:
+        // (1) get values needed for running promises from dice
+        // (2) run promise mappings on this evaluator (not via_dice or with the ReentrantStarlarkEvaluator)
         this.via_dice(|dice, _this| {
+            let mut reentrant_eval = dice.via(|dice| {
+                std::future::ready(Ok(
+                    ReentrantStarlarkEvaluator::wrap_evaluator_without_profiling(dice, eval),
+                ))
+                .boxed_local()
+            })?;
             dice.via(|dice| {
                 action_factory
-                    .run_promises(dice, eval, &eval_kind)
+                    .run_promises(dice, &mut reentrant_eval)
                     .boxed_local()
             })
         })?;

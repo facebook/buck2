@@ -20,7 +20,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
+use buck2_interpreter::factory::ReentrantStarlarkEvaluator;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_util::late_binding::LateBinding;
@@ -31,7 +31,6 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::eval::Evaluator;
 use starlark::typing::Ty;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -85,15 +84,14 @@ impl<'v> AnalysisActions<'v> {
     pub async fn run_promises(
         &self,
         dice: &mut DiceComputations<'_>,
-        eval: &mut Evaluator<'v, '_, '_>,
-        eval_kind: &StarlarkEvalKind,
+        eval: &mut ReentrantStarlarkEvaluator<'_, 'v, '_, '_>,
     ) -> buck2_error::Result<()> {
         // We need to loop here because running the promises evaluates promise.map, which might produce more promises.
         // We keep going until there are no promises left.
         loop {
             let promises = self.state()?.take_promises();
             if let Some(promises) = promises {
-                promises.run_promises(dice, eval, eval_kind).await?;
+                promises.run_promises(dice, eval).await?;
             } else {
                 break;
             }

@@ -32,7 +32,7 @@ use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
-use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
@@ -275,45 +275,29 @@ async fn run_analysis_with_env_underlying(
 
     let eval_kind = StarlarkEvalKind::Analysis(node.label().dupe());
     let mut profiler = dice.get_starlark_profiler(&eval_kind).await?;
-    let (dice, mut eval, ctx, list_res) = with_starlark_eval_provider(
-        dice,
-        &mut profiler,
-        &eval_kind,
-        analysis_env.cancellation.into(),
-        |provider, dice| {
-            let (mut eval, _) = provider.make(&env)?;
-            eval.set_print_handler(&print);
-            eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
+    let mut eval_provider = StarlarkEvaluatorProvider::new(dice, &eval_kind, &mut profiler).await?;
+    let mut reentrant_eval =
+        eval_provider.make_reentrant_evaluator(&env, analysis_env.cancellation.into())?;
 
-            let ctx = AnalysisContext::prepare(
-                eval.heap(),
-                Some(attributes),
-                Some(analysis_env.label),
-                Some(plugins.into()),
-                registry,
-                dice.global_data().get_digest_config(),
-            );
+    let (ctx, list_res) = reentrant_eval.with_evaluator(|mut eval| {
+        eval.set_print_handler(&print);
+        eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
 
-            let list_res = analysis_env.rule_spec.invoke(&mut eval, ctx)?;
+        let ctx = AnalysisContext::prepare(
+            eval.heap(),
+            Some(attributes),
+            Some(analysis_env.label),
+            Some(plugins.into()),
+            registry,
+            dice.global_data().get_digest_config(),
+        );
 
-            // TODO(cjhopman): This seems quite wrong. This should be happening after run_promises.
-            provider
-                .evaluation_complete(&mut eval)
-                .buck_error_context("Profiler finalization failed")?;
-            // TODO(cjhopman): This is gross, but we can't await on running the promises within
-            // the with_starlark_eval_provider scoped thing (as we may be holding a debugger
-            // permit, running the promises may require doing more starlark evaluation which in
-            // turn requires those permits). We will actually re-enter a provider scope in the
-            // run_promises call when we get back to resolving the promises (and running the starlark
-            // Promise::map() lambdas).
-            Ok((dice, eval, ctx, list_res))
-        },
-    )
-    .await?;
+        let list_res = analysis_env.rule_spec.invoke(&mut eval, ctx)?;
 
-    ctx.actions
-        .run_promises(dice, &mut eval, &eval_kind)
-        .await?;
+        Ok((ctx, list_res))
+    })?;
+
+    ctx.actions.run_promises(dice, &mut reentrant_eval).await?;
 
     // Pull the ctx object back out, and steal ctx.action's state back
     let analysis_registry = ctx.take_state();
@@ -328,7 +312,7 @@ async fn run_analysis_with_env_underlying(
             .set_result_value(provider_collection)?;
     }
 
-    drop(eval);
+    drop(reentrant_eval);
 
     let declared_actions = analysis_registry.num_declared_actions();
     let declared_artifacts = analysis_registry.num_declared_artifacts();

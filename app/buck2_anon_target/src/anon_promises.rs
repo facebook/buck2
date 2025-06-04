@@ -10,14 +10,11 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
-use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
-use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
+use buck2_interpreter::factory::ReentrantStarlarkEvaluator;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dice::DiceComputations;
 use either::Either;
 use futures::FutureExt;
-use starlark::eval::Evaluator;
 use starlark::values::Trace;
 use starlark::values::ValueTyped;
 use starlark::values::list::AllocList;
@@ -53,8 +50,7 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
     async fn run_promises(
         self: Box<Self>,
         dice: &mut DiceComputations,
-        eval: &mut Evaluator<'v, '_, '_>,
-        eval_kind: &StarlarkEvalKind,
+        eval: &mut ReentrantStarlarkEvaluator<'_, 'v, '_, '_>,
     ) -> buck2_error::Result<()> {
         // Resolve all the targets in parallel
         // We have vectors of vectors, so we create a "shape" which has the same shape but with indices
@@ -79,33 +75,24 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
             })
             .await?;
 
-        Ok(with_starlark_eval_provider(
-            dice,
-            &mut StarlarkProfiler::disabled(),
-            &eval_kind,
-            None::<()>.into(),
-            |_provider, _| {
-                // But must bind the promises sequentially
-                for (promise, xs) in shape {
-                    match xs {
-                        Either::Left(i) => {
-                            let val = values[i].providers()?.add_heap_ref(eval.frozen_heap());
-                            promise.resolve(val.to_value(), eval)?
-                        }
-                        Either::Right(is) => {
-                            let xs: Vec<_> = is
-                                .map(|i| {
-                                    Ok(values[i].providers()?.add_heap_ref(eval.frozen_heap()))
-                                })
-                                .collect::<buck2_error::Result<_>>()?;
-                            let list = eval.heap().alloc(AllocList(xs));
-                            promise.resolve(list, eval)?
-                        }
+        eval.with_evaluator(|eval| {
+            // But must bind the promises sequentially
+            for (promise, xs) in shape {
+                match xs {
+                    Either::Left(i) => {
+                        let val = values[i].providers()?.add_heap_ref(eval.frozen_heap());
+                        promise.resolve(val.to_value(), eval)?
+                    }
+                    Either::Right(is) => {
+                        let xs: Vec<_> = is
+                            .map(|i| Ok(values[i].providers()?.add_heap_ref(eval.frozen_heap())))
+                            .collect::<buck2_error::Result<_>>()?;
+                        let list = eval.heap().alloc(AllocList(xs));
+                        promise.resolve(list, eval)?
                     }
                 }
-                Ok(())
-            },
-        )
-        .await?)
+            }
+            Ok(())
+        })
     }
 }

@@ -27,7 +27,7 @@ use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
-use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
@@ -147,14 +147,16 @@ async fn do_apply_transition(
         refs_refs.push(provider_collection_value);
     }
     let print = EventDispatcherPrintHandler(get_dispatcher());
-    with_starlark_eval_provider(
+    let mut profiler = StarlarkProfiler::disabled();
+    let mut provider = StarlarkEvaluatorProvider::new(
         ctx,
-        &mut StarlarkProfiler::disabled(),
         &StarlarkEvalKind::Transition(Arc::new(transition_id.clone())),
-        cancellation.into(),
-        move |provider, _| {
-            let module = Module::new();
-            let (mut eval, _) = provider.make(&module)?;
+        &mut profiler,
+    )
+    .await?;
+    let module = Module::new();
+    provider
+        .with_evaluator(&module, cancellation.into(), |eval, _| {
             eval.set_print_handler(&print);
             eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
             let refs = module.heap().alloc(AllocStruct(refs));
@@ -186,19 +188,18 @@ async fn do_apply_transition(
                     return Err(ApplyTransitionError::InconsistentTransitionAndComputation.into());
                 }
             };
-            match call_transition_function(&transition, conf, refs, attrs, &mut eval)? {
+            match call_transition_function(&transition, conf, refs, attrs, eval)? {
                 TransitionApplied::Single(new) => {
-                    let new_2 =
-                        match call_transition_function(&transition, &new, refs, attrs, &mut eval)
-                            .buck_error_context("applying transition again on transition output")?
-                        {
-                            TransitionApplied::Single(new_2) => new_2,
-                            TransitionApplied::Split(_) => {
-                                unreachable!(
-                                    "split transition filtered out in call_transition_function"
-                                )
-                            }
-                        };
+                    let new_2 = match call_transition_function(&transition, &new, refs, attrs, eval)
+                        .buck_error_context("applying transition again on transition output")?
+                    {
+                        TransitionApplied::Single(new_2) => new_2,
+                        TransitionApplied::Split(_) => {
+                            unreachable!(
+                                "split transition filtered out in call_transition_function"
+                            )
+                        }
+                    };
                     if let Err(diff) = cfg_diff(&new, &new_2) {
                         return Err(
                             ApplyTransitionError::SplitTransitionAgainDifferentPlatformInfo(diff)
@@ -214,10 +215,8 @@ async fn do_apply_transition(
                     Ok(TransitionApplied::Split(split))
                 }
             }
-        },
-    )
-    .await
-    .map_err(buck2_error::Error::from)
+        })
+        .map_err(buck2_error::Error::from)
 }
 
 #[async_trait]

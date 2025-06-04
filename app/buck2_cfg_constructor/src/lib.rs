@@ -28,7 +28,8 @@ use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
-use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::factory::ReentrantStarlarkEvaluator;
+use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
@@ -45,7 +46,6 @@ use dice::DiceComputations;
 use futures::FutureExt;
 use starlark::collections::SmallMap;
 use starlark::environment::Module;
-use starlark::eval::Evaluator;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -72,9 +72,9 @@ pub(crate) struct CfgConstructor {
     pub(crate) extra_data: Option<OwnedFrozenValue>,
 }
 
-async fn eval_pre_constraint_analysis<'v>(
+async fn eval_pre_constraint_analysis<'v, 'a>(
     cfg_constructor_pre_constraint_analysis: Value<'v>,
-    ctx: &mut DiceComputations<'_>,
+    reentrant_eval: &mut ReentrantStarlarkEvaluator<'_, 'v, 'a, '_>,
     cfg: &ConfigurationData,
     package_cfg_modifiers: Option<&MetadataValue>,
     target_cfg_modifiers: Option<&MetadataValue>,
@@ -82,71 +82,60 @@ async fn eval_pre_constraint_analysis<'v>(
     rule_type: &RuleType,
     aliases: Option<&'v OwnedFrozenValue>,
     extra_data: Option<&'v OwnedFrozenValue>,
-    module: &'v Module,
-    print: &'v EventDispatcherPrintHandler,
-    cancellation: &'v CancellationContext,
-) -> buck2_error::Result<(Vec<String>, Value<'v>, Evaluator<'v, 'v, 'v>)> {
-    with_starlark_eval_provider(
-        ctx,
-        // TODO: pass proper profiler (T163570348)
-        &mut StarlarkProfiler::disabled(),
-        &StarlarkEvalKind::Unknown("pre constraint-analysis invocation".into()),
-        cancellation.into(),
-        |provider, _| {
-            let (mut eval, _) = provider.make(module)?;
-            eval.set_print_handler(print);
-            eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
+    print: &'a EventDispatcherPrintHandler,
+) -> buck2_error::Result<(Vec<String>, Value<'v>)> {
+    reentrant_eval.with_evaluator(|eval| {
+        eval.set_print_handler(print);
+        eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
 
-            let legacy_platform = if cfg.is_bound() {
-                eval.heap()
-                    .alloc_complex(PlatformInfo::from_configuration(cfg, eval.heap())?)
-            } else {
-                Value::new_none()
-            };
+        let legacy_platform = if cfg.is_bound() {
+            eval.heap()
+                .alloc_complex(PlatformInfo::from_configuration(cfg, eval.heap())?)
+        } else {
+            Value::new_none()
+        };
 
-            let package_cfg_modifiers = eval.heap().alloc(match package_cfg_modifiers {
-                Some(v) => NoneOr::Other(v.as_json()),
-                None => NoneOr::None,
-            });
-            let target_cfg_modifiers = eval.heap().alloc(match target_cfg_modifiers {
-                Some(v) => NoneOr::Other(v.as_json()),
-                None => NoneOr::None,
-            });
-            let cli_modifiers = eval.heap().alloc(cli_modifiers);
-            let rule_name = eval.heap().alloc(rule_type.name());
-            let aliases = match aliases {
-                Some(v) => v.value(),
-                None => Value::new_none(),
-            };
-            let extra_data = match extra_data {
-                Some(v) => v.value(),
-                None => Value::new_none(),
-            };
+        let package_cfg_modifiers = eval.heap().alloc(match package_cfg_modifiers {
+            Some(v) => NoneOr::Other(v.as_json()),
+            None => NoneOr::None,
+        });
+        let target_cfg_modifiers = eval.heap().alloc(match target_cfg_modifiers {
+            Some(v) => NoneOr::Other(v.as_json()),
+            None => NoneOr::None,
+        });
+        let cli_modifiers = eval.heap().alloc(cli_modifiers);
+        let rule_name = eval.heap().alloc(rule_type.name());
+        let aliases = match aliases {
+            Some(v) => v.value(),
+            None => Value::new_none(),
+        };
+        let extra_data = match extra_data {
+            Some(v) => v.value(),
+            None => Value::new_none(),
+        };
 
-            // TODO: should eventually accept cli modifiers and target modifiers (T163570597)
-            let pre_constraint_analysis_args = vec![
-                ("legacy_platform", legacy_platform),
-                ("package_modifiers", package_cfg_modifiers),
-                ("target_modifiers", target_cfg_modifiers),
-                ("cli_modifiers", cli_modifiers),
-                ("rule_name", rule_name),
-                ("aliases", aliases),
-                ("extra_data", extra_data),
-            ];
+        // TODO: should eventually accept cli modifiers and target modifiers (T163570597)
+        let pre_constraint_analysis_args = vec![
+            ("legacy_platform", legacy_platform),
+            ("package_modifiers", package_cfg_modifiers),
+            ("target_modifiers", target_cfg_modifiers),
+            ("cli_modifiers", cli_modifiers),
+            ("rule_name", rule_name),
+            ("aliases", aliases),
+            ("extra_data", extra_data),
+        ];
 
-            // Type check + unpack
-            let (refs, params) =
-                <(UnpackListOrTuple<String>, Value)>::unpack_value_err(eval.eval_function(
-                    cfg_constructor_pre_constraint_analysis,
-                    &[],
-                    &pre_constraint_analysis_args,
-                )?)?;
+        // Type check + unpack
+        let (refs, params) =
+            <(UnpackListOrTuple<String>, Value)>::unpack_value_err(eval.eval_function(
+                cfg_constructor_pre_constraint_analysis,
+                &[],
+                &pre_constraint_analysis_args,
+            )?)?;
 
-            // `params` Value lives on eval.heap() so we need to move eval out of the closure to keep it alive
-            Ok((refs.items, params, eval))
-        },
-    )
-    .await
+        // `params` Value lives on eval.heap() so we need to move eval out of the closure to keep it alive
+        Ok((refs.items, params))
+    })
 }
 
 async fn analyze_constraints(
@@ -189,47 +178,37 @@ async fn analyze_constraints(
     Ok(res.into_iter().collect())
 }
 
-async fn eval_post_constraint_analysis<'v>(
+fn eval_post_constraint_analysis<'v>(
     cfg_constructor_post_constraint_analysis: Value<'v>,
-    ctx: &mut DiceComputations<'_>,
     params: Value<'v>,
-    mut eval: Evaluator<'v, '_, '_>,
+    eval: &mut ReentrantStarlarkEvaluator<'_, 'v, '_, '_>,
     refs_providers_map: SmallMap<String, FrozenProviderCollectionValue>,
-    cancellation: &CancellationContext,
 ) -> buck2_error::Result<ConfigurationData> {
-    with_starlark_eval_provider(
-        ctx,
-        // TODO: pass proper profiler (T163570348)
-        &mut StarlarkProfiler::disabled(),
-        &StarlarkEvalKind::Unknown("post constraint-analysis invocation for cfg".into()),
-        cancellation.into(),
-        |_, _| -> buck2_error::Result<ConfigurationData> {
-            let post_constraint_analysis_args = vec![
-                (
-                    "refs",
-                    eval.heap().alloc(
-                        refs_providers_map
-                            .into_iter()
-                            .map(|(label, providers)| {
-                                (label, providers.value().owned_value(eval.frozen_heap()))
-                            })
-                            .collect::<SmallMap<String, Value<'_>>>(),
-                    ),
+    eval.with_evaluator(|eval| -> buck2_error::Result<ConfigurationData> {
+        let post_constraint_analysis_args = vec![
+            (
+                "refs",
+                eval.heap().alloc(
+                    refs_providers_map
+                        .into_iter()
+                        .map(|(label, providers)| {
+                            (label, providers.value().owned_value(eval.frozen_heap()))
+                        })
+                        .collect::<SmallMap<String, Value<'_>>>(),
                 ),
-                ("params", params),
-            ];
+            ),
+            ("params", params),
+        ];
 
-            let post_constraint_analysis_result = eval.eval_function(
-                cfg_constructor_post_constraint_analysis,
-                &[],
-                &post_constraint_analysis_args,
-            )?;
+        let post_constraint_analysis_result = eval.eval_function(
+            cfg_constructor_post_constraint_analysis,
+            &[],
+            &post_constraint_analysis_args,
+        )?;
 
-            // Type check + unpack
-            <&PlatformInfo>::unpack_value_err(post_constraint_analysis_result)?.to_configuration()
-        },
-    )
-    .await
+        // Type check + unpack
+        <&PlatformInfo>::unpack_value_err(post_constraint_analysis_result)?.to_configuration()
+    })
 }
 
 async fn eval_underlying(
@@ -245,12 +224,22 @@ async fn eval_underlying(
     let module = Module::new();
     let print = EventDispatcherPrintHandler(get_dispatcher());
 
+    // TODO: pass proper profiler (T163570348)
+    let mut profiler = StarlarkProfiler::disabled();
+    let mut provider = StarlarkEvaluatorProvider::new(
+        ctx,
+        &StarlarkEvalKind::Unknown("constraint-analysis invocation".into()),
+        &mut profiler,
+    )
+    .await?;
+    let mut reentrant_eval = provider.make_reentrant_evaluator(&module, cancellation.into())?;
+
     // Pre constraint-analysis
-    let (refs, params, eval) = eval_pre_constraint_analysis(
+    let (refs, params) = eval_pre_constraint_analysis(
         cfg_constructor
             .cfg_constructor_pre_constraint_analysis
             .value(),
-        ctx,
+        &mut reentrant_eval,
         cfg,
         package_cfg_modifiers,
         target_cfg_modifiers,
@@ -258,9 +247,7 @@ async fn eval_underlying(
         rule_type,
         cfg_constructor.aliases.as_ref(),
         cfg_constructor.extra_data.as_ref(),
-        &module,
         &print,
-        cancellation,
     )
     .await?;
 
@@ -272,13 +259,10 @@ async fn eval_underlying(
         cfg_constructor
             .cfg_constructor_post_constraint_analysis
             .value(),
-        ctx,
         params,
-        eval,
+        &mut reentrant_eval,
         refs_providers_map,
-        cancellation,
     )
-    .await
 }
 
 #[async_trait]

@@ -38,6 +38,7 @@ use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
 use buck2_node::super_package::SuperPackage;
+use dice::CancellationContext;
 use dupe::Dupe;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
@@ -260,6 +261,7 @@ impl Tester {
             ast,
             loaded_modules.clone(),
             &mut provider,
+            &CancellationContext::testing(),
         )?;
         Ok(LoadedModule::new(
             OwnedStarlarkModulePath::LoadFile(path.clone()),
@@ -310,6 +312,7 @@ impl Tester {
             loaded_modules,
             &mut provider,
             true,
+            &CancellationContext::testing(),
         )?;
         Ok(eval_result_with_stats.result)
     }

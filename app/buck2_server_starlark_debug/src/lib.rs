@@ -23,7 +23,7 @@
 //! will be created for each buck2 command and put in the dice per-transaction data. Code
 //! that needs to do starlark evaluation can then use this to setup their Evaluator
 //! appropriately (though this is really just an implementation detail hidden in the
-//! helper [buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider]).
+//! helper [buck2_interpreter::factory::StarlarkEvaluatorProvider]).
 //!
 //! [CURRENT_DEBUGGER] holds a global reference for the currently attached debugger and
 //! vends out handles (through [create_debugger_handle]).
