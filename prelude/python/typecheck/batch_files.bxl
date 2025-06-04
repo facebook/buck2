@@ -15,6 +15,10 @@ run = bxl_main(
     doc = "Run [typecheck] on the owning targets of given files.",
     impl = _run_entry_point,
     cli_args = {
+        "keep_going": cli_args.bool(
+            default = False,
+            doc = "Keep going on unconfigured target failures",
+        ),
         "source": cli_args.list(
             cli_args.string(
                 doc = "Files whose owning targets need to be checked",

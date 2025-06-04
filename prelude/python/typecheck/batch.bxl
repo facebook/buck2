@@ -45,6 +45,27 @@ def filter_and_get_typecheck_subtargets(ctx: bxl.Context, targets: bxl.Unconfigu
     unconfigured_targets = _filter_unconfigured_targets(targets)
     configured_targets = ctx.configured_targets(unconfigured_targets)
     analysis_results = ctx.analysis(configured_targets)
+
+    return [
+        configured_target.label.with_sub_target("typecheck")
+        for configured_target in configured_targets
+        if _should_type_check_configured(configured_target, analysis_results[configured_target.label.with_sub_target()])
+    ]
+
+def filter_and_get_typecheck_subtargets_keep_going(ctx: bxl.Context, targets: bxl.UnconfiguredTargetSet) -> list[Label]:
+    unconfigured_targets = _filter_unconfigured_targets(targets)
+
+    configured_targets = []
+    errors = []  # TODO: collect the errors and print them at the end
+    for t in unconfigured_targets:
+        result = ctx.lazy.configured_target_node(t).catch().resolve()
+        if result.is_ok():
+            configured_targets.append(result.unwrap())
+        else:
+            errors.append(result.unwrap_err())
+
+    analysis_results = ctx.analysis(configured_targets)
+
     return [
         configured_target.label.with_sub_target("typecheck")
         for configured_target in configured_targets
@@ -52,7 +73,10 @@ def filter_and_get_typecheck_subtargets(ctx: bxl.Context, targets: bxl.Unconfigu
     ]
 
 def check_targets(ctx: bxl.Context, targets: bxl.UnconfiguredTargetSet) -> None:
-    checked_targets = filter_and_get_typecheck_subtargets(ctx, targets)
+    if ctx.cli_args.keep_going:
+        checked_targets = filter_and_get_typecheck_subtargets_keep_going(ctx, targets)
+    else:
+        checked_targets = filter_and_get_typecheck_subtargets(ctx, targets)
     artifacts = _check_targets_batched(ctx, checked_targets)
 
     ctx.output.print_json(
@@ -73,6 +97,10 @@ run = bxl_main(
         "enable-sharding": cli_args.bool(
             default = False,
             doc = "Shard type checking within each target",
+        ),
+        "keep-going": cli_args.bool(
+            default = False,
+            doc = "Keep going on unconfigured target failures",
         ),
         "target": cli_args.list(
             cli_args.target_expr(
