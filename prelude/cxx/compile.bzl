@@ -1108,8 +1108,11 @@ def _mk_argsfiles(
 
     input_args = [args, file_args]
 
-    format = "-@{}" if is_nasm else "@{}"
-    cmd_form = cmd_args(argsfile, format = format, hidden = input_args)
+    cmd_form = cmd_args(
+        argsfile,
+        format = "-@{}" if is_nasm else "@{}",
+        hidden = input_args,
+    )
 
     return CompileArgsfile(
         file = argsfile,
