@@ -16,6 +16,7 @@ use std::time::SystemTime;
 
 use allocative::Allocative;
 use buck2_action_metadata_proto::RemoteDepFile;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use derivative::Derivative;
 use dupe::Dupe;
@@ -275,6 +276,8 @@ impl CommandExecutionResult {
         }
     }
 
+    /// For content-based outputs, resolve the outputs to the "constant" (non-content-based) paths
+    /// that are used during execution.
     pub fn resolve_outputs<'a>(
         &'a self,
         fs: &'a ArtifactFs,
@@ -286,7 +289,7 @@ impl CommandExecutionResult {
                 output.as_ref().resolve(
                     fs,
                     if output.has_content_based_path() {
-                        Some(value.content_based_path_hash())
+                        Some(ContentBasedPathHash::OutputArtifact)
                     } else {
                         None
                     }
