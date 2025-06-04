@@ -491,6 +491,7 @@ android_bundle = prelude_rule(
             "native_library_merge_non_asset_libs": attrs.bool(default = False),
             "native_library_merge_sequence": attrs.option(attrs.list(attrs.any()), default = None),
             "native_library_merge_sequence_blocklist": attrs.option(attrs.list(attrs.regex()), default = None),
+            "native_library_pick_first": attrs.list(attrs.string(), default = []),
             "no_auto_add_overlay_resources": attrs.bool(default = False),
             "no_auto_version_resources": attrs.bool(default = False),
             "no_dx": attrs.list(attrs.dep(), default = []),
