@@ -264,15 +264,14 @@ pub async fn http_download(
 
     Ok(http_retry(
         || async {
-            let file = fs_util::create_file(&abs_path)
-                .map_err(|e| HttpDownloadError::IoError(buck2_error::Error::from(e)))?;
-
             let response = client
                 .get(url)
                 .await
                 .map_err(|e| HttpDownloadError::Client(HttpError::Client(e)))?;
 
             let (head, stream) = response.into_parts();
+            let file = fs_util::create_file(&abs_path)
+                .map_err(|e| HttpDownloadError::IoError(buck2_error::Error::from(e)))?;
             let buf_writer = std::io::BufWriter::new(file);
 
             let digest = copy_and_hash(
