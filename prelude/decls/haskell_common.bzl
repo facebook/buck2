@@ -28,7 +28,7 @@ def _deps_arg():
 
 def _compiler_flags_arg():
     return {
-        "compiler_flags": attrs.list(attrs.arg(), default = [], doc = """
+        "compiler_flags": attrs.list(attrs.string(), default = [], doc = """
     Flags to pass to the Haskell compiler when compiling this rule's sources.
 """),
     }

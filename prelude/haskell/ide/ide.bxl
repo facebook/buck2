@@ -237,10 +237,9 @@ def merge(results):
 
     for result in results:
         for flag in result["flags"]:
-            sflag = str(flag)
-            if not (sflag in seen_flags):
-                flags.append(sflag)
-                seen_flags.add(sflag)
+            if not (flag in seen_flags):
+                flags.append(flag)
+                seen_flags.add(flag)
         for source in result["sources"]:
             sources[source] = ()
         for p, v in result["haskell_deps"].items():
