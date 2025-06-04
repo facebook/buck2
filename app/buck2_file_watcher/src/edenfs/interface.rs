@@ -8,6 +8,7 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::str;
 use std::sync::Arc;
@@ -74,6 +75,13 @@ pub(crate) enum EdenFsWatcherError {
 enum ProcessChangeStatus {
     Processed,
     LargeOrUnknown,
+}
+
+#[derive(Eq, PartialEq, Hash)]
+struct EdenFsEvent {
+    event_type: Type,
+    event_kind: Kind,
+    path: String,
 }
 
 #[derive(Allocative)]
@@ -159,6 +167,11 @@ impl EdenFsFileWatcher {
         let base_stats = self.base_file_watcher_stats().await?;
         let mut stats = FileWatcherStats::new(base_stats, result.changes.len());
         let mut large_or_unknown_change = false;
+        // EdenFS Sometimes emits duplicated notifications
+        // This can happen as we receive file changes from a commit transitions and from an explicit notification.
+        // Also eden will report duplicates if there were another changes between changes on the same file.
+        // We want to ignore duplicates, so we store unique changes in the set
+        let mut processed_changes: HashSet<EdenFsEvent> = HashSet::new();
         for change in result.changes {
             // Once a large or unknown change is detected, we need to invalidate DICE. Therefore,
             // skip processing the rest of the changes and continue to propagate true.
@@ -166,7 +179,12 @@ impl EdenFsFileWatcher {
                 self.skip_change(&change).await?;
             } else {
                 large_or_unknown_change = self
-                    .process_change(&change, &mut file_change_tracker, &mut stats)
+                    .process_change(
+                        &change,
+                        &mut file_change_tracker,
+                        &mut stats,
+                        &mut processed_changes,
+                    )
                     .await?
                     == ProcessChangeStatus::LargeOrUnknown;
             }
@@ -189,6 +207,7 @@ impl EdenFsFileWatcher {
         change: &ChangeNotification,
         tracker: &mut FileChangeTracker,
         stats: &mut FileWatcherStats,
+        processed_changes: &mut HashSet<EdenFsEvent>,
     ) -> buck2_error::Result<ProcessChangeStatus> {
         let large_or_unknown_change = match change {
             ChangeNotification::smallChange(small_change) => match small_change {
@@ -199,6 +218,7 @@ impl EdenFsFileWatcher {
                         dtype_into_file_watcher_kind(added.fileType),
                         Type::Create,
                         &added.path,
+                        processed_changes,
                     )?;
                     ProcessChangeStatus::Processed
                 }
@@ -209,6 +229,7 @@ impl EdenFsFileWatcher {
                         dtype_into_file_watcher_kind(modified.fileType),
                         Type::Modify,
                         &modified.path,
+                        processed_changes,
                     )?;
                     ProcessChangeStatus::Processed
                 }
@@ -234,6 +255,7 @@ impl EdenFsFileWatcher {
                             kind,
                             Type::Create,
                             &renamed.to,
+                            processed_changes,
                         )?;
                         self.process_file_watcher_event(
                             tracker,
@@ -241,6 +263,7 @@ impl EdenFsFileWatcher {
                             kind,
                             Type::Delete,
                             &renamed.from,
+                            processed_changes,
                         )?;
                     }
                     ProcessChangeStatus::Processed
@@ -255,6 +278,7 @@ impl EdenFsFileWatcher {
                             Kind::Directory,
                             Type::Create,
                             &replaced.to,
+                            processed_changes,
                         )?;
                         self.process_file_watcher_event(
                             tracker,
@@ -262,6 +286,7 @@ impl EdenFsFileWatcher {
                             Kind::Directory,
                             Type::Delete,
                             &replaced.from,
+                            processed_changes,
                         )?;
                     } else {
                         let kind = dtype_into_file_watcher_kind(replaced.fileType);
@@ -271,6 +296,7 @@ impl EdenFsFileWatcher {
                             kind,
                             Type::Create,
                             &replaced.to,
+                            processed_changes,
                         )?;
                         self.process_file_watcher_event(
                             tracker,
@@ -278,6 +304,7 @@ impl EdenFsFileWatcher {
                             kind,
                             Type::Delete,
                             &replaced.from,
+                            processed_changes,
                         )?;
                     }
                     ProcessChangeStatus::Processed
@@ -289,6 +316,7 @@ impl EdenFsFileWatcher {
                         dtype_into_file_watcher_kind(removed.fileType),
                         Type::Delete,
                         &removed.path,
+                        processed_changes,
                     )?;
                     ProcessChangeStatus::Processed
                 }
@@ -314,6 +342,7 @@ impl EdenFsFileWatcher {
                         Kind::Directory,
                         Type::Create,
                         &directory_renamed.to,
+                        processed_changes,
                     )?;
                     self.process_file_watcher_event(
                         tracker,
@@ -321,6 +350,7 @@ impl EdenFsFileWatcher {
                         Kind::Directory,
                         Type::Delete,
                         &directory_renamed.from,
+                        processed_changes,
                     )?;
                     // NOTE: even though a directory rename is a large change,
                     // we handle by reporting two small changes to DICE.
@@ -330,7 +360,7 @@ impl EdenFsFileWatcher {
                 LargeChangeNotification::commitTransition(commit_transition) => {
                     let from = hex::encode(&commit_transition.from);
                     let to = hex::encode(&commit_transition.to);
-                    self.process_commit_transition(tracker, stats, &from, &to)
+                    self.process_commit_transition(tracker, stats, &from, &to, processed_changes)
                         .await
                         .buck_error_context("Failed to process commit transition.")?
                 }
@@ -397,6 +427,7 @@ impl EdenFsFileWatcher {
         kind: Kind,
         event: Type,
         path: &[u8],
+        processed_changes: &mut HashSet<EdenFsEvent>,
     ) -> buck2_error::Result<()> {
         let eden_rel_path = PathBuf::from(str::from_utf8(path)?);
 
@@ -445,7 +476,11 @@ impl EdenFsFileWatcher {
 
         if ignore {
             stats.add_ignored(1);
-        } else {
+        } else if processed_changes.insert(EdenFsEvent {
+            event_type: event,
+            event_kind: kind,
+            path: cell_path.to_string(),
+        }) {
             stats.add(cell_path.to_string(), event, kind);
 
             match (event, kind) {
@@ -475,11 +510,12 @@ impl EdenFsFileWatcher {
         stats: &mut FileWatcherStats,
         from: &str,
         to: Option<&str>,
+        processed_changes: &mut HashSet<EdenFsEvent>,
     ) -> buck2_error::Result<ProcessChangeStatus> {
         // `sl status` only reports added/removed/modified files, not directories.
         // we use `sl debugdiffdirs` to get changes for directories
         if self
-            .process_sapling_status(tracker, stats, from, to)
+            .process_sapling_status(tracker, stats, from, to, processed_changes)
             .await?
             == ProcessChangeStatus::LargeOrUnknown
         {
@@ -487,7 +523,7 @@ impl EdenFsFileWatcher {
         }
 
         if self
-            .process_sapling_diffdirs(tracker, stats, from, to)
+            .process_sapling_diffdirs(tracker, stats, from, to, processed_changes)
             .await?
             == ProcessChangeStatus::LargeOrUnknown
         {
@@ -503,6 +539,7 @@ impl EdenFsFileWatcher {
         stats: &mut FileWatcherStats,
         from: &str,
         to: Option<&str>,
+        processed_changes: &mut HashSet<EdenFsEvent>,
     ) -> buck2_error::Result<ProcessChangeStatus> {
         // limit results to MAX_SAPLING_STATUS_CHANGES
         match get_status(&self.eden_root, &from, to, MAX_SAPLING_STATUS_CHANGES)
@@ -524,6 +561,7 @@ impl EdenFsFileWatcher {
                             Kind::File,
                             Type::Create,
                             path.as_bytes(),
+                            processed_changes,
                         ),
                         SaplingStatus::Modified => self.process_file_watcher_event(
                             tracker,
@@ -531,6 +569,7 @@ impl EdenFsFileWatcher {
                             Kind::File,
                             Type::Modify,
                             path.as_bytes(),
+                            processed_changes,
                         ),
                         SaplingStatus::Removed | SaplingStatus::Missing | SaplingStatus::Clean => {
                             self.process_file_watcher_event(
@@ -539,6 +578,7 @@ impl EdenFsFileWatcher {
                                 Kind::File,
                                 Type::Delete,
                                 path.as_bytes(),
+                                processed_changes,
                             )
                         }
                     })
@@ -558,6 +598,7 @@ impl EdenFsFileWatcher {
         stats: &mut FileWatcherStats,
         from: &str,
         to: Option<&str>,
+        processed_changes: &mut HashSet<EdenFsEvent>,
     ) -> buck2_error::Result<ProcessChangeStatus> {
         // limit results to MAX_SAPLING_STATUS_CHANGES
         match get_dir_diff(&self.eden_root, &from, to, MAX_SAPLING_STATUS_CHANGES)
@@ -579,6 +620,7 @@ impl EdenFsFileWatcher {
                             Kind::Directory,
                             Type::Create,
                             path.as_bytes(),
+                            processed_changes,
                         ),
                         SaplingStatus::Modified => self.process_file_watcher_event(
                             tracker,
@@ -586,6 +628,7 @@ impl EdenFsFileWatcher {
                             Kind::Directory,
                             Type::Modify,
                             path.as_bytes(),
+                            processed_changes,
                         ),
                         SaplingStatus::Removed | SaplingStatus::Missing | SaplingStatus::Clean => {
                             self.process_file_watcher_event(
@@ -594,6 +637,7 @@ impl EdenFsFileWatcher {
                                 Kind::Directory,
                                 Type::Delete,
                                 path.as_bytes(),
+                                processed_changes,
                             )
                         }
                     })
@@ -617,6 +661,7 @@ impl EdenFsFileWatcher {
         stats: &mut FileWatcherStats,
         from: &str,
         to: &str,
+        processed_changes: &mut HashSet<EdenFsEvent>,
     ) -> buck2_error::Result<ProcessChangeStatus> {
         if self
             .update_mergebase(&to)
@@ -627,7 +672,7 @@ impl EdenFsFileWatcher {
             Ok(ProcessChangeStatus::LargeOrUnknown)
         } else {
             // Mergebase has not changed - compute changes form source control
-            self.process_source_control_changes(tracker, stats, &from, Some(to))
+            self.process_source_control_changes(tracker, stats, &from, Some(to), processed_changes)
                 .await
         }
     }
@@ -680,8 +725,15 @@ impl EdenFsFileWatcher {
         if let Some(mergebase) = mergebase_info.map(|m| m.mergebase) {
             let mut tracker = FileChangeTracker::new();
             let mut stats = FileWatcherStats::new(base_stats, 0);
-            self.process_source_control_changes(&mut tracker, &mut stats, &mergebase, None)
-                .await?;
+            let mut processed_changes: HashSet<EdenFsEvent> = HashSet::new();
+            self.process_source_control_changes(
+                &mut tracker,
+                &mut stats,
+                &mergebase,
+                None,
+                &mut processed_changes,
+            )
+            .await?;
             Ok((stats, dice))
         } else {
             base_stats.incomplete_events_reason = Some("Large or Unknown change".to_owned());

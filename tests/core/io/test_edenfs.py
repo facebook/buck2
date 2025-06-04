@@ -369,15 +369,12 @@ async def test_edenfs_duplicated_notifications(buck: Buck) -> None:
         f.write("test1")
 
     _, results = await get_file_watcher_events(buck)
-    # eden reports duplicates
+    # eden watcher doesn't report duplicates
     assert results == [
         FileWatcherEvent(
             FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/abc"
         ),
         FileWatcherEvent(
             FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/bcd"
-        ),
-        FileWatcherEvent(
-            FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/abc"
         ),
     ]
