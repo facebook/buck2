@@ -336,16 +336,17 @@ impl CommonDigests {
     // which is the key to an action result with dep file metadata.
     // The action itself is unused but we need to upload some action to avoid permission
     // errors when uploading the action result, and the digest needs to match that action.
-    fn make_remote_dep_file_action(
+    pub(crate) fn make_remote_dep_file_action(
         &self,
-        ctx: &mut dyn ActionExecutionCtx,
+        digest_config: DigestConfig,
+        mergebase: &Option<String>,
+        re_platform: &remote_execution::Platform,
     ) -> ActionDigestAndBlobs {
-        let digest_config = ctx.digest_config();
         let mut digester = DepFileDigest::digester(digest_config.cas_digest_config());
         digester.update(self.fingerprint(digest_config).raw_digest().as_bytes());
 
         // Take the digest of the mergebase to get the closest hit.
-        match ctx.mergebase().0.as_ref() {
+        match mergebase {
             Some(m) => digester.update(m.as_bytes()),
             None => (),
         };
@@ -356,7 +357,7 @@ impl CommonDigests {
             // Instead of using the digest directly, we could use the constituent digests, or constituent paths
             // which might be useful for debugging.
             arguments: vec![inner_remote_dep_file_key],
-            platform: Some(ctx.re_platform().clone()),
+            platform: Some(re_platform.clone()),
             ..Default::default()
         });
 
@@ -411,7 +412,6 @@ impl CommonDigests {
 
 pub(crate) struct DepFileBundle {
     dep_files_key: DepFilesKey,
-    pub(crate) remote_dep_file_action: ActionDigestAndBlobs,
     input_directory_digest: FileDigest,
     shared_declared_inputs: PartitionedInputs<ActionSharedDirectory>,
     declared_dep_files: DeclaredDepFiles,
@@ -421,8 +421,14 @@ pub(crate) struct DepFileBundle {
 
 #[async_trait]
 impl IntoRemoteDepFile for DepFileBundle {
-    fn remote_dep_file_action(&self) -> &ActionDigestAndBlobs {
-        &self.remote_dep_file_action
+    fn remote_dep_file_action(
+        &self,
+        digest_config: DigestConfig,
+        mergebase: &Option<String>,
+        re_platform: &remote_execution::Platform,
+    ) -> ActionDigestAndBlobs {
+        self.common_digests
+            .make_remote_dep_file_action(digest_config, mergebase, re_platform)
     }
 
     async fn make_remote_dep_file(
@@ -688,11 +694,9 @@ pub(crate) fn make_dep_file_bundle<'a>(
             execution_paths.output_paths(),
         ),
     };
-    let remote_dep_file_action = common_digests.make_remote_dep_file_action(ctx);
 
     Ok(DepFileBundle {
         dep_files_key,
-        remote_dep_file_action,
         input_directory_digest,
         shared_declared_inputs,
         declared_dep_files,
@@ -1022,7 +1026,6 @@ pub(crate) async fn populate_dep_files(
         shared_declared_inputs,
         filtered_input_fingerprints,
         common_digests,
-        ..
     } = dep_file_bundle;
     let should_compute_fingerprints = ctx.run_action_knobs().eager_dep_files;
     let digests = CommandDigests {

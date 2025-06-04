@@ -565,6 +565,8 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 &CacheUploadInfo {
                     target: &action as _,
                     digest_config: self.digest_config(),
+                    mergebase: self.mergebase().0.as_ref(),
+                    re_platform: self.re_platform(),
                 },
                 execution_result,
                 re_result,

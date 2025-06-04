@@ -58,7 +58,9 @@ use buck2_error::buck2_error;
 use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::action_digest::ActionDigest;
+use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
 use buck2_execute::execute::cache_uploader::force_cache_upload;
+use buck2_execute::execute::dep_file_digest::DepFileDigest;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::PreparedAction;
@@ -678,6 +680,7 @@ impl RunAction {
         action_digest: &ActionDigest,
         result: CommandExecutionResult,
         dep_file_bundle: &DepFileBundle,
+        remote_dep_file_key: &DepFileDigest,
     ) -> buck2_error::Result<ControlFlow<CommandExecutionResult, CommandExecutionManager>> {
         // If it's served by the regular action cache no need to verify anything here.
         if !result.was_served_by_remote_dep_file_cache() {
@@ -706,7 +709,7 @@ impl RunAction {
                     "Action result is cached via remote dep file cache, skipping execution of :\n```\n$ {}\n```\n for action `{}` with remote dep file key `{}`",
                     request.all_args_str(),
                     action_digest,
-                    dep_file_bundle.remote_dep_file_action.action,
+                    &remote_dep_file_key,
                 );
                 return Ok(ControlFlow::Break(result));
             }
@@ -766,12 +769,6 @@ impl RunAction {
             cmdline_digest_for_dep_files,
             req.paths(),
         )?;
-        // Enable remote dep file cache lookup for actions that have remote depfile uploads enabled.
-        let req = if self.inner.allow_dep_file_cache_upload {
-            req.with_remote_dep_file_key(&dep_file_bundle.remote_dep_file_action.action.coerce())
-        } else {
-            req
-        };
 
         // First, check in the local dep file cache if an identical action can be found there.
         // Do this before checking the action cache as we can avoid a potentially large download.
@@ -789,8 +786,8 @@ impl RunAction {
 
         let action_cache_result = ctx.action_cache(manager, &req, &prepared_action).await;
 
-        let result = match action_cache_result {
-            ControlFlow::Break(_) => action_cache_result,
+        let (req, result) = match action_cache_result {
+            ControlFlow::Break(_) => (req, action_cache_result),
             ControlFlow::Continue(manager) => {
                 // If we didn't find anything in the action cache, first do a local dep file cache lookup, and if that fails,
                 // try to find a remote dep file cache hit.
@@ -803,22 +800,40 @@ impl RunAction {
                     }
                 }
 
-                let remote_dep_file_result = ctx
-                    .remote_dep_file_cache(manager, &req, &prepared_action)
-                    .await;
-                if let ControlFlow::Break(res) = remote_dep_file_result {
-                    // If the result was served by the remote dep file cache, we can't use the result just yet. We need to verify that
-                    // the inputs tracked by a depfile that was actually used in the cache hit are identical to the inputs we have for this action.
-                    self.check_cache_result_is_useable(
-                        ctx,
-                        &req,
-                        &prepared_action.action_and_blobs.action,
-                        res,
-                        &dep_file_bundle,
-                    )
-                    .await?
+                // Enable remote dep file cache lookup for actions that have remote depfile uploads enabled.
+                let should_check_remote_cache = self.inner.allow_dep_file_cache_upload;
+                if should_check_remote_cache {
+                    let remote_dep_file_key = dep_file_bundle
+                        .remote_dep_file_action(
+                            ctx.digest_config(),
+                            ctx.mergebase().0.as_ref(),
+                            ctx.re_platform(),
+                        )
+                        .action
+                        .coerce();
+                    let req = req.with_remote_dep_file_key(&remote_dep_file_key);
+                    let remote_dep_file_result = ctx
+                        .remote_dep_file_cache(manager, &req, &prepared_action)
+                        .await;
+                    if let ControlFlow::Break(res) = remote_dep_file_result {
+                        // If the result was served by the remote dep file cache, we can't use the result just yet. We need to verify that
+                        // the inputs tracked by a depfile that was actually used in the cache hit are identical to the inputs we have for this action.
+                        let res = self
+                            .check_cache_result_is_useable(
+                                ctx,
+                                &req,
+                                &prepared_action.action_and_blobs.action,
+                                res,
+                                &dep_file_bundle,
+                                &remote_dep_file_key,
+                            )
+                            .await?;
+                        (req, res)
+                    } else {
+                        (req, remote_dep_file_result)
+                    }
                 } else {
-                    remote_dep_file_result
+                    (req, ControlFlow::Continue(manager))
                 }
             }
         };

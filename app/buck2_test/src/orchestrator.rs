@@ -1036,6 +1036,8 @@ impl BuckTestOrchestrator<'_> {
                     let info = CacheUploadInfo {
                         target: &test_target as _,
                         digest_config,
+                        mergebase: &None,
+                        re_platform: executor.re_platform(),
                     };
                     let _result = match executor
                         .cache_upload(

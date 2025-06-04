@@ -23,11 +23,18 @@ use crate::materialize::materializer::Materializer;
 pub struct CacheUploadInfo<'a> {
     pub target: &'a dyn CommandExecutionTarget,
     pub digest_config: DigestConfig,
+    pub mergebase: &'a Option<String>,
+    pub re_platform: &'a remote_execution::Platform,
 }
 
 #[async_trait]
 pub trait IntoRemoteDepFile: Send {
-    fn remote_dep_file_action(&self) -> &ActionDigestAndBlobs;
+    fn remote_dep_file_action(
+        &self,
+        digest_config: DigestConfig,
+        mergebase: &Option<String>,
+        re_platform: &remote_execution::Platform,
+    ) -> ActionDigestAndBlobs;
 
     async fn make_remote_dep_file(
         &mut self,

@@ -603,7 +603,11 @@ impl UploadCache for CacheUploader {
             dep_file_bundle
             && should_upload_dep_file
         {
-            let remote_dep_file_action = dep_file_bundle.remote_dep_file_action().clone();
+            let remote_dep_file_action = dep_file_bundle.remote_dep_file_action(
+                info.digest_config,
+                info.mergebase,
+                info.re_platform,
+            );
             (
                 self.upload_dep_file(
                     info,
