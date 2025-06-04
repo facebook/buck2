@@ -175,6 +175,27 @@ pub struct Evaluator<'v, 'a, 'e> {
     pub(crate) infrequent_instr_check_counter: u32,
 }
 
+// We use this to validate that the Evaluator lifetimes have the expected variance.
+#[allow(clippy::ref_option_ref, clippy::borrowed_box)]
+fn _check_variance() {
+    // 'v: invariant
+    // 'e: invariant
+
+    fn check_covariant_a<'v, 'a, 'e: 'a, 'a2>(a: Evaluator<'v, 'a, 'e>)
+    where
+        'a: 'a2,
+    {
+        // For debugging this, we check each field individually so that the error message points to the specific problematic field.
+        let _: &Option<&'a2 dyn FileLoader> = &a.loader;
+        let _: &EvaluationInstrumentation<'a2, '_> = &a.eval_instrumentation;
+        let _: &Option<&'a2 dyn AnyLifetime<'_>> = &a.extra;
+        let _: &&'a2 (dyn PrintHandler + 'a2) = &a.print_handler;
+        let _: &&'a2 (dyn SoftErrorHandler + 'a2) = &a.soft_error_handler;
+        let _: &Box<dyn Fn() -> bool + 'a2> = &a.is_cancelled;
+        let _: &Evaluator<'v, 'a2, 'e> = &a;
+    }
+}
+
 /// Just holds things that require using EvaluationCallbacksEnabled so that we can cache whether that needs to be enabled or not.
 struct EvaluationInstrumentation<'a, 'e: 'a> {
     // Bytecode profile.
@@ -433,9 +454,9 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
 
     pub(crate) fn before_stmt_fn(
         &mut self,
-        f: &'a dyn for<'v1> Fn(FileSpanRef, bool, &mut Evaluator<'v1, 'a, 'e>),
+        f: &'a dyn for<'v1, 'a2> Fn(FileSpanRef, bool, &mut Evaluator<'v1, 'a2, 'e>),
     ) {
-        self.before_stmt(f.into())
+        self.before_stmt(BeforeStmtFunc::from_fn(f))
     }
 
     pub(crate) fn before_stmt(&mut self, f: BeforeStmtFunc<'a, 'e>) {
