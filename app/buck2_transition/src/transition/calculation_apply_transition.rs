@@ -147,15 +147,15 @@ async fn do_apply_transition(
         refs_refs.push(provider_collection_value);
     }
     let print = EventDispatcherPrintHandler(get_dispatcher());
-    let mut profiler = StarlarkProfiler::disabled();
-    let mut provider = StarlarkEvaluatorProvider::new(
+    let profiler = StarlarkProfiler::disabled();
+    let provider = StarlarkEvaluatorProvider::new(
         ctx,
         &StarlarkEvalKind::Transition(Arc::new(transition_id.clone())),
-        &mut profiler,
+        profiler,
     )
     .await?;
     let module = Module::new();
-    provider
+    let (_finished_eval, res) = provider
         .with_evaluator(&module, cancellation.into(), |eval, _| {
             eval.set_print_handler(&print);
             eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
@@ -216,7 +216,8 @@ async fn do_apply_transition(
                 }
             }
         })
-        .map_err(buck2_error::Error::from)
+        .map_err(buck2_error::Error::from)?;
+    Ok(res)
 }
 
 #[async_trait]

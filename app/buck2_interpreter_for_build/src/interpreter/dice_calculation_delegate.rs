@@ -253,21 +253,21 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let configs = &self.configs;
         let ctx = &mut *self.ctx;
 
-        let mut profiler = StarlarkProfiler::disabled();
-        let mut provider = StarlarkEvaluatorProvider::new(
+        let profiler = StarlarkProfiler::disabled();
+        let provider = StarlarkEvaluatorProvider::new(
             ctx,
             &StarlarkEvalKind::Load(Arc::new(starlark_file.to_owned())),
-            &mut profiler,
+            profiler,
         )
         .await?;
         let mut buckconfigs = ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
-        let evaluation = configs
+        let (_finished_eval, evaluation) = configs
             .eval_module(
                 starlark_file,
                 &mut buckconfigs,
                 ast,
                 loaded_modules.clone(),
-                &mut provider,
+                provider,
                 cancellation,
             )
             .with_buck_error_context(|| {
@@ -406,11 +406,10 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let configs = &self.configs;
         let ctx = &mut *self.ctx;
 
-        let mut profiler = StarlarkProfiler::disabled();
-        let mut provider = StarlarkEvaluatorProvider::new(
+        let provider = StarlarkEvaluatorProvider::new(
             ctx,
             &StarlarkEvalKind::LoadPackageFile(path.dupe()),
-            &mut profiler,
+            StarlarkProfiler::disabled(),
         )
         .await?;
 
@@ -423,7 +422,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 parent,
                 &mut buckconfigs,
                 deps.get_loaded_modules(),
-                &mut provider,
+                provider,
                 cancellation,
             )
             .with_buck_error_context(|| format!("evaluating Starlark PACKAGE file `{}`", path))
@@ -519,7 +518,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let mut now = None;
         let eval_kind = StarlarkEvalKind::LoadBuildFile(package.dupe());
         let eval_result: buck2_error::Result<_> = try {
-            let ((), listing, mut profiler) = self
+            let ((), listing, profiler) = self
                 .ctx
                 .try_compute3(
                     |ctx| check_starlark_stack_size(ctx).boxed(),
@@ -555,12 +554,11 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             let ctx = &mut *self.ctx;
 
             now = Some(Instant::now());
-            let mut provider =
-                StarlarkEvaluatorProvider::new(ctx, &eval_kind, &mut profiler).await?;
+            let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind, profiler).await?;
             let mut buckconfigs =
                 ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 
-            let mut eval_result = span(start_event, move || {
+            let (finished_eval, eval_result) = span(start_event, move || {
                 let result_with_stats = configs
                     .eval_build_file(
                         &build_file_path,
@@ -570,7 +568,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                         package_boundary_exception,
                         ast,
                         deps.get_loaded_modules(),
-                        &mut provider,
+                        provider,
                         false,
                         cancellation,
                     )
@@ -578,19 +576,18 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                         DiceCalculationDelegateError::EvalBuildFileError(build_file_path)
                     });
                 let error = result_with_stats.as_ref().err().map(|e| format!("{:#}", e));
-                let starlark_peak_allocated_bytes = result_with_stats
-                    .as_ref()
-                    .ok()
-                    .map(|rs| rs.starlark_peak_allocated_bytes);
-                let cpu_instruction_count = result_with_stats
-                    .as_ref()
-                    .ok()
-                    .and_then(|rs| rs.cpu_instruction_count);
-                let result = result_with_stats.map(|rs| rs.result);
-                let target_count = result.as_ref().ok().map(|rs| rs.targets().len() as u64);
+                let (starlark_peak_allocated_bytes, cpu_instruction_count, target_count) =
+                    match &result_with_stats {
+                        Ok((_, rs)) => (
+                            Some(rs.starlark_peak_allocated_bytes),
+                            rs.cpu_instruction_count,
+                            Some(rs.result.targets().len() as u64),
+                        ),
+                        Err(_) => (None, None, None),
+                    };
 
                 (
-                    result,
+                    result_with_stats,
                     buck2_data::LoadBuildFileEnd {
                         module_id,
                         cell: cell_str,
@@ -602,7 +599,8 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 )
             })?;
 
-            let profile_data = profiler.finish(None)?;
+            let mut eval_result = eval_result.result;
+            let profile_data = finished_eval.finish(None)?;
             if eval_result.starlark_profile.is_some() {
                 return (
                     now.unwrap().elapsed(),

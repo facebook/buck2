@@ -225,11 +225,11 @@ async fn eval_underlying(
     let print = EventDispatcherPrintHandler(get_dispatcher());
 
     // TODO: pass proper profiler (T163570348)
-    let mut profiler = StarlarkProfiler::disabled();
-    let mut provider = StarlarkEvaluatorProvider::new(
+    let profiler = StarlarkProfiler::disabled();
+    let provider = StarlarkEvaluatorProvider::new(
         ctx,
         &StarlarkEvalKind::Unknown("constraint-analysis invocation".into()),
-        &mut profiler,
+        profiler,
     )
     .await?;
     let mut reentrant_eval = provider.make_reentrant_evaluator(&module, cancellation.into())?;
@@ -255,14 +255,18 @@ async fn eval_underlying(
     let refs_providers_map = analyze_constraints(ctx, refs).await?;
 
     // Post constraint-analysis
-    eval_post_constraint_analysis(
+    let res = eval_post_constraint_analysis(
         cfg_constructor
             .cfg_constructor_post_constraint_analysis
             .value(),
         params,
         &mut reentrant_eval,
         refs_providers_map,
-    )
+    );
+
+    let _finished_eval = reentrant_eval.finish_evaluation();
+
+    res
 }
 
 #[async_trait]

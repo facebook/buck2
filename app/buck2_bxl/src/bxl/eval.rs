@@ -34,6 +34,7 @@ use buck2_events::dispatch::with_dispatcher;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellation::CancellationObserver;
+use buck2_interpreter::factory::FinishedStarlarkEvaluation;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::from_freeze::from_freeze_error;
@@ -181,9 +182,9 @@ struct BxlInnerEvaluator {
 impl BxlInnerEvaluator {
     fn do_eval<'a>(
         self,
-        provider: &mut StarlarkEvaluatorProvider,
+        provider: StarlarkEvaluatorProvider,
         dice: &'a mut DiceComputations,
-    ) -> Result<(FrozenModule, BxlResult)> {
+    ) -> Result<(FinishedStarlarkEvaluation, (FrozenModule, BxlResult))> {
         let BxlInnerEvaluator {
             data,
             module,
@@ -198,7 +199,7 @@ impl BxlInnerEvaluator {
         let env = Module::new();
         let key = data.key().dupe();
 
-        let (actions, output_stream_outcome) = {
+        let (finished_eval, (actions, output_stream_outcome)) = {
             let stream_state = OutputStreamState::new();
 
             let resolved_args = ValueOfUnchecked::<StructRef>::unpack_value_err(
@@ -287,7 +288,7 @@ impl BxlInnerEvaluator {
             recorded_values,
         );
 
-        Ok((frozen_module, bxl_result))
+        Ok((finished_eval, (frozen_module, bxl_result)))
     }
 }
 
@@ -320,13 +321,13 @@ async fn eval_bxl_inner(
     };
 
     let eval_kind = key.as_starlark_eval_kind();
-    let mut profiler = ctx.get_starlark_profiler(&eval_kind).await?;
-    let mut eval_provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind, &mut profiler).await?;
-    let result = eval_ctx.do_eval(&mut eval_provider, ctx);
+    let profiler = ctx.get_starlark_profiler(&eval_kind).await?;
+    let eval_provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind, profiler).await?;
+    let result = eval_ctx.do_eval(eval_provider, ctx);
     match result {
-        Ok(eval_result) => {
+        Ok((finished_eval, eval_result)) => {
             let (frozen_module, bxl_result) = eval_result;
-            let profile_data = profiler.finish(Some(&frozen_module))?;
+            let profile_data = finished_eval.finish(Some(&frozen_module))?;
             Ok((bxl_result, profile_data))
         }
         Err(e) => Err(e.into()),

@@ -49,46 +49,49 @@ pub(crate) async fn check_starlark_stack_size(
             ctx: &mut DiceComputations,
             cancellation: &CancellationContext,
         ) -> Self::Value {
-            let mut profiler = StarlarkProfiler::disabled();
-            let mut provider = StarlarkEvaluatorProvider::new(
+            let profiler = StarlarkProfiler::disabled();
+            let provider = StarlarkEvaluatorProvider::new(
                 ctx,
                 &StarlarkEvalKind::Unknown("Check starlark stack size".into()),
-                &mut profiler,
+                profiler,
             )
             .await?;
             let env = Module::new();
-            provider.with_evaluator(&env, cancellation.into(), move |eval, _| {
-                let content = indoc!(
-                    r#"
+            let _finished_eval =
+                provider.with_evaluator(&env, cancellation.into(), move |eval, _| {
+                    let content = indoc!(
+                        r#"
                                 def f():
                                     f()
                                 f()
                         "#
-                );
-                let ast = AstModule::parse(
-                    "x.star",
-                    content.to_owned(),
-                    &StarlarkFileType::Bzl.dialect(false),
-                )
-                .map_err(|e| {
-                    from_starlark_with_options(
-                        e,
-                        buck2_error::starlark_error::NativeErrorHandling::Unknown,
-                        false,
+                    );
+                    let ast = AstModule::parse(
+                        "x.star",
+                        content.to_owned(),
+                        &StarlarkFileType::Bzl.dialect(false),
                     )
-                })
-                .internal_error("Failed to parse check module")?;
-                match eval.eval_module(ast, &Globals::standard()) {
-                    Err(e) if e.to_string().contains("Starlark call stack overflow") => Ok(()),
-                    Err(p) => Err(from_starlark_with_options(
-                        p,
-                        buck2_error::starlark_error::NativeErrorHandling::Unknown,
-                        false,
-                    )
-                    .into()),
-                    Ok(_) => Err(CheckStarlarkStackSizeError::CheckStarlarkStackSizeError.into()),
-                }
-            })?;
+                    .map_err(|e| {
+                        from_starlark_with_options(
+                            e,
+                            buck2_error::starlark_error::NativeErrorHandling::Unknown,
+                            false,
+                        )
+                    })
+                    .internal_error("Failed to parse check module")?;
+                    match eval.eval_module(ast, &Globals::standard()) {
+                        Err(e) if e.to_string().contains("Starlark call stack overflow") => Ok(()),
+                        Err(p) => Err(from_starlark_with_options(
+                            p,
+                            buck2_error::starlark_error::NativeErrorHandling::Unknown,
+                            false,
+                        )
+                        .into()),
+                        Ok(_) => {
+                            Err(CheckStarlarkStackSizeError::CheckStarlarkStackSizeError.into())
+                        }
+                    }
+                })?;
             Ok(())
         }
 

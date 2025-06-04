@@ -134,10 +134,10 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
             s.spawn_cancellable(
                 limited_executor.execute(async move {
                     let eval_kind = StarlarkEvalKind::BxlDynamic(Arc::new("foo".to_owned()));
-                    let mut profiler = dice_ctx.get_starlark_profiler(&eval_kind).await?;
-                    let mut eval_provider =
-                        StarlarkEvaluatorProvider::new(dice_ctx, &eval_kind, &mut profiler).await?;
-                    tokio::task::block_in_place(|| eval_ctx.do_eval(&mut eval_provider, dice_ctx))
+                    let profiler = dice_ctx.get_starlark_profiler(&eval_kind).await?;
+                    let eval_provider =
+                        StarlarkEvaluatorProvider::new(dice_ctx, &eval_kind, profiler).await?;
+                    tokio::task::block_in_place(|| eval_ctx.do_eval(eval_provider, dice_ctx))
                 }),
                 || Err(buck2_error!(buck2_error::ErrorTag::Tier0, "cancelled")),
             )
@@ -168,7 +168,7 @@ struct BxlDynamicOutputEvaluator<'f> {
 impl BxlDynamicOutputEvaluator<'_> {
     fn do_eval(
         self,
-        provider: &mut StarlarkEvaluatorProvider,
+        provider: StarlarkEvaluatorProvider,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<RecordedAnalysisValues> {
         let env = Module::new();
@@ -178,7 +178,7 @@ impl BxlDynamicOutputEvaluator<'_> {
             self.liveness.dupe(),
         )));
 
-        let analysis_registry = {
+        let (_finished_eval, analysis_registry) = {
             let data = Rc::new(self.data);
             let extra = BxlEvalExtra::new_dynamic(bxl_dice.dupe(), data.dupe());
             provider.with_evaluator(&env, self.liveness.into(), |eval, _| {

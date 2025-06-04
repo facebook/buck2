@@ -422,8 +422,8 @@ impl AnonTargetKey {
         let print = EventDispatcherPrintHandler(get_dispatcher());
 
         let eval_kind = self.0.dupe().eval_kind();
-        let mut profiler = StarlarkProfiler::disabled();
-        let mut provider = StarlarkEvaluatorProvider::new(dice, &eval_kind, &mut profiler).await?;
+        let profiler = StarlarkProfiler::disabled();
+        let provider = StarlarkEvaluatorProvider::new(dice, &eval_kind, profiler).await?;
         let mut reentrant_eval = provider.make_reentrant_evaluator(&env, cancellation.into())?;
         let (ctx, list_res) = reentrant_eval.with_evaluator(|eval| {
             eval.set_print_handler(&print);
@@ -477,7 +477,7 @@ impl AnonTargetKey {
         analysis_registry
             .analysis_value_storage
             .set_result_value(res)?;
-        std::mem::drop(reentrant_eval);
+        let _finished_eval = reentrant_eval.finish_evaluation()?;
         let num_declared_actions = analysis_registry.num_declared_actions();
         let num_declared_artifacts = analysis_registry.num_declared_artifacts();
         let registry_finalizer = analysis_registry.finalize(&env)?;

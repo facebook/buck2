@@ -274,8 +274,8 @@ async fn run_analysis_with_env_underlying(
     )?;
 
     let eval_kind = StarlarkEvalKind::Analysis(node.label().dupe());
-    let mut profiler = dice.get_starlark_profiler(&eval_kind).await?;
-    let mut eval_provider = StarlarkEvaluatorProvider::new(dice, &eval_kind, &mut profiler).await?;
+    let profiler = dice.get_starlark_profiler(&eval_kind).await?;
+    let eval_provider = StarlarkEvaluatorProvider::new(dice, &eval_kind, profiler).await?;
     let mut reentrant_eval =
         eval_provider.make_reentrant_evaluator(&env, analysis_env.cancellation.into())?;
 
@@ -312,7 +312,7 @@ async fn run_analysis_with_env_underlying(
             .set_result_value(provider_collection)?;
     }
 
-    drop(reentrant_eval);
+    let finished_eval = reentrant_eval.finish_evaluation()?;
 
     let declared_actions = analysis_registry.num_declared_actions();
     let declared_artifacts = analysis_registry.num_declared_artifacts();
@@ -320,7 +320,7 @@ async fn run_analysis_with_env_underlying(
     let frozen_env = env.freeze().map_err(from_freeze_error)?;
     let recorded_values = registry_finalizer(&frozen_env)?;
 
-    let profile_data = profiler.finish(Some(&frozen_env))?.map(Arc::new);
+    let profile_data = finished_eval.finish(Some(&frozen_env))?.map(Arc::new);
 
     let validations = transitive_validations(
         validations_from_deps,

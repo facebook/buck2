@@ -257,8 +257,8 @@ async fn eval_bxl_for_anon_target_inner(
     let anon_impl = AnonImpl::new(dice, anon_target.dupe()).await?;
 
     let eval_kind = anon_target.dupe().eval_kind();
-    let mut profiler = StarlarkProfiler::disabled();
-    let mut provider = StarlarkEvaluatorProvider::new(dice, &eval_kind, &mut profiler).await?;
+    let profiler = StarlarkProfiler::disabled();
+    let provider = StarlarkEvaluatorProvider::new(dice, &eval_kind, profiler).await?;
     let env = Module::new();
     let bxl_dice = Rc::new(RefCell::new(BxlSafeDiceComputations::new(
         dice,
@@ -329,7 +329,7 @@ async fn eval_bxl_for_anon_target_inner(
         .analysis_value_storage
         .set_result_value(res)?;
 
-    std::mem::drop(reentrant_eval);
+    let _finished_eval = reentrant_eval.finish_evaluation();
     std::mem::drop(extra);
 
     let num_declared_actions = analysis_registry.num_declared_actions();

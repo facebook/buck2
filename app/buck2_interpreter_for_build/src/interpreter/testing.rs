@@ -34,7 +34,6 @@ use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::prelude_path::PreludePath;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
 use buck2_node::super_package::SuperPackage;
@@ -250,17 +249,16 @@ impl Tester {
         let interpreter = self.interpreter()?;
         let ParseData(ast, _) =
             interpreter.parse(StarlarkPath::LoadFile(path), content.to_owned())??;
-        let mut profiler = StarlarkProfiler::disabled();
-        let mut provider = StarlarkEvaluatorProvider::passthrough(&mut profiler);
+        let provider = StarlarkEvaluatorProvider::passthrough();
         let mut buckconfigs =
             LegacyConfigsViewForStarlark::new(self.root_config.dupe(), self.root_config.dupe());
 
-        let env = interpreter.eval_module(
+        let (_finished_eval, env) = interpreter.eval_module(
             StarlarkModulePath::LoadFile(path),
             &mut buckconfigs,
             ast,
             loaded_modules.clone(),
-            &mut provider,
+            provider,
             &CancellationContext::testing(),
         )?;
         Ok(LoadedModule::new(
@@ -298,11 +296,10 @@ impl Tester {
         let interpreter = self.interpreter()?;
         let ParseData(ast, _) =
             interpreter.parse(StarlarkPath::BuildFile(path), content.to_owned())??;
-        let mut profiler = StarlarkProfiler::disabled();
-        let mut provider = StarlarkEvaluatorProvider::passthrough(&mut profiler);
+        let provider = StarlarkEvaluatorProvider::passthrough();
         let mut buckconfigs =
             LegacyConfigsViewForStarlark::new(self.root_config.dupe(), self.root_config.dupe());
-        let eval_result_with_stats = interpreter.eval_build_file(
+        let (_finished_eval, eval_result_with_stats) = interpreter.eval_build_file(
             path,
             &mut buckconfigs,
             package_listing,
@@ -310,7 +307,7 @@ impl Tester {
             false,
             ast,
             loaded_modules,
-            &mut provider,
+            provider,
             true,
             &CancellationContext::testing(),
         )?;

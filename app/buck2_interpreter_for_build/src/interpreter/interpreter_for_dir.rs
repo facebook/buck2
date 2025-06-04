@@ -29,6 +29,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_interpreter::factory::FinishedStarlarkEvaluation;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::InterpreterFileLoader;
 use buck2_interpreter::file_loader::LoadResolver;
@@ -478,10 +479,10 @@ impl InterpreterForDir {
         buckconfigs: &mut dyn BuckConfigsViewForStarlark,
         loaded_modules: LoadedModules,
         extra_context: PerFileTypeContext,
-        eval_provider: &mut StarlarkEvaluatorProvider,
+        eval_provider: StarlarkEvaluatorProvider,
         unstable_typecheck: bool,
         cancellation: &CancellationContext,
-    ) -> buck2_error::Result<EvalResult> {
+    ) -> buck2_error::Result<(FinishedStarlarkEvaluation, EvalResult)> {
         let import = extra_context.starlark_path();
         let globals = self.global_state.globals();
         let file_loader =
@@ -496,39 +497,43 @@ impl InterpreterForDir {
         );
 
         let print = EventDispatcherPrintHandler(get_dispatcher());
-        let (cpu_instruction_count, is_profiling_enabled) = eval_provider.with_evaluator(
-            env,
-            cancellation.into(),
-            |eval, is_profiling_enabled_by_provider| {
-                eval.enable_static_typechecking(unstable_typecheck);
-                eval.set_print_handler(&print);
-                eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-                eval.set_loader(&file_loader);
-                eval.extra = Some(&extra);
-                if self.verbose_gc {
-                    eval.verbose_gc();
-                }
-
-                // Ignore error if failed to initialize instruction counter.
-                let instruction_counter: Option<PerThreadInstructionCounter> =
-                    PerThreadInstructionCounter::init().ok().unwrap_or_default();
-
-                match eval.eval_module(ast, globals) {
-                    Ok(_) => {
-                        let cpu_instruction_count =
-                            instruction_counter.and_then(|c| c.collect().ok());
-                        Ok((cpu_instruction_count, is_profiling_enabled_by_provider))
+        let (finished_eval, (cpu_instruction_count, is_profiling_enabled)) = eval_provider
+            .with_evaluator(
+                env,
+                cancellation.into(),
+                |eval, is_profiling_enabled_by_provider| {
+                    eval.enable_static_typechecking(unstable_typecheck);
+                    eval.set_print_handler(&print);
+                    eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
+                    eval.set_loader(&file_loader);
+                    eval.extra = Some(&extra);
+                    if self.verbose_gc {
+                        eval.verbose_gc();
                     }
-                    Err(p) => Err(p.into()),
-                }
+
+                    // Ignore error if failed to initialize instruction counter.
+                    let instruction_counter: Option<PerThreadInstructionCounter> =
+                        PerThreadInstructionCounter::init().ok().unwrap_or_default();
+
+                    match eval.eval_module(ast, globals) {
+                        Ok(_) => {
+                            let cpu_instruction_count =
+                                instruction_counter.and_then(|c| c.collect().ok());
+                            Ok((cpu_instruction_count, is_profiling_enabled_by_provider))
+                        }
+                        Err(p) => Err(p.into()),
+                    }
+                },
+            )?;
+        Ok((
+            finished_eval,
+            EvalResult {
+                additional: extra.additional,
+                is_profiling_enabled,
+                starlark_peak_allocated_byte_limit: extra.starlark_peak_allocated_byte_limit,
+                cpu_instruction_count,
             },
-        )?;
-        Ok(EvalResult {
-            additional: extra.additional,
-            is_profiling_enabled,
-            starlark_peak_allocated_byte_limit: extra.starlark_peak_allocated_byte_limit,
-            cpu_instruction_count,
-        })
+        ))
     }
 
     /// Evaluates the AST for a parsed module. Loaded modules must contain the loaded
@@ -540,9 +545,9 @@ impl InterpreterForDir {
         buckconfigs: &mut dyn BuckConfigsViewForStarlark,
         ast: AstModule,
         loaded_modules: LoadedModules,
-        eval_provider: &mut StarlarkEvaluatorProvider,
+        eval_provider: StarlarkEvaluatorProvider,
         cancellation: &CancellationContext,
-    ) -> buck2_error::Result<FrozenModule> {
+    ) -> buck2_error::Result<(FinishedStarlarkEvaluation, FrozenModule)> {
         let env = self.create_env(starlark_path.into(), &loaded_modules)?;
         let extra_context = match starlark_path {
             StarlarkModulePath::LoadFile(bzl) => PerFileTypeContext::Bzl(BzlEvalCtx {
@@ -559,7 +564,7 @@ impl InterpreterForDir {
                 }
                 None => false,
             };
-        self.eval(
+        let (finished_eval, _) = self.eval(
             &env,
             ast,
             buckconfigs,
@@ -569,7 +574,7 @@ impl InterpreterForDir {
             typecheck,
             cancellation,
         )?;
-        env.freeze().map_err(from_freeze_error)
+        Ok((finished_eval, env.freeze().map_err(from_freeze_error)?))
     }
 
     pub(crate) fn eval_package_file(
@@ -579,7 +584,7 @@ impl InterpreterForDir {
         parent: SuperPackage,
         buckconfigs: &mut dyn BuckConfigsViewForStarlark,
         loaded_modules: LoadedModules,
-        eval_provider: &mut StarlarkEvaluatorProvider,
+        eval_provider: StarlarkEvaluatorProvider,
         cancellation: &CancellationContext,
     ) -> buck2_error::Result<SuperPackage> {
         let env = self.create_env(
@@ -593,18 +598,18 @@ impl InterpreterForDir {
             visibility: RefCell::new(None),
         });
 
-        let per_file_context = self
-            .eval(
-                &env,
-                ast,
-                buckconfigs,
-                loaded_modules,
-                extra_context,
-                eval_provider,
-                false,
-                cancellation,
-            )?
-            .additional;
+        let (_finished_eval, eval_result) = self.eval(
+            &env,
+            ast,
+            buckconfigs,
+            loaded_modules,
+            extra_context,
+            eval_provider,
+            false,
+            cancellation,
+        )?;
+
+        let per_file_context = eval_result.additional;
 
         let extra: Option<OwnedFrozenRef<FrozenPackageFileExtra>> =
             if InterpreterExtraValue::get(&env)?
@@ -637,10 +642,10 @@ impl InterpreterForDir {
         package_boundary_exception: bool,
         ast: AstModule,
         loaded_modules: LoadedModules,
-        eval_provider: &mut StarlarkEvaluatorProvider,
+        eval_provider: StarlarkEvaluatorProvider,
         unstable_typecheck: bool,
         cancellation: &CancellationContext,
-    ) -> buck2_error::Result<EvaluationResultWithStats> {
+    ) -> buck2_error::Result<(FinishedStarlarkEvaluation, EvaluationResultWithStats)> {
         let (env, internals) = self.create_build_env(
             build_file,
             &listing,
@@ -660,7 +665,7 @@ impl InterpreterForDir {
         )?
         .unwrap_or(false);
 
-        let eval_result = self.eval(
+        let (finished_eval, eval_result) = self.eval(
             &env,
             ast,
             buckconfigs,
@@ -690,11 +695,14 @@ impl InterpreterForDir {
             )
             .into())
         } else {
-            Ok(EvaluationResultWithStats {
-                result: EvaluationResult::from(internals),
-                starlark_peak_allocated_bytes,
-                cpu_instruction_count: eval_result.cpu_instruction_count,
-            })
+            Ok((
+                finished_eval,
+                EvaluationResultWithStats {
+                    result: EvaluationResult::from(internals),
+                    starlark_peak_allocated_bytes,
+                    cpu_instruction_count: eval_result.cpu_instruction_count,
+                },
+            ))
         }
     }
 }
