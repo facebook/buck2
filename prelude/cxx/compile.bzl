@@ -1006,8 +1006,11 @@ def _mk_argsfile(
         is_xcode_argsfile: bool) -> Artifact:
     if is_xcode_argsfile:
         file_args = cmd_args(args_list, replace_regex = XCODE_ARG_SUBSTITUTIONS)
+    elif is_nasm:
+        file_args = cmd_args(args_list)
     else:
-        file_args = cmd_args(args_list) if is_nasm else cmd_args(args_list, quote = "shell")
+        file_args = cmd_args(args_list, quote = "shell")
+
     argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True)
     return argsfile
 
@@ -1090,9 +1093,12 @@ def _mk_argsfiles(
     if is_xcode_argsfile:
         args = cmd_args(args_list, replace_regex = XCODE_ARG_SUBSTITUTIONS)
         file_args = cmd_args(argsfiles, format = "@{}")
+    elif is_nasm:
+        args = cmd_args(args_list)
+        file_args = cmd_args(argsfiles, format = "-@{}")
     else:
-        args = cmd_args(args_list) if is_nasm else cmd_args(args_list, quote = "shell")
-        file_args = cmd_args(argsfiles, format = "-@{}") if is_nasm else cmd_args(argsfiles, format = "@{}", quote = "shell")
+        args = cmd_args(args_list, quote = "shell")
+        file_args = cmd_args(argsfiles, format = "@{}", quote = "shell")
 
     # filename example: .cpp.cxx_compile_argsfile
     file_name = filename_prefix + "cxx_compile_argsfile"
