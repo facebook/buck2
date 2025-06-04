@@ -223,7 +223,7 @@ def make_py_package(
     )
 
     # Add link metadata to manifest_module_entries if requested.
-    manifest_module_entries = _add_dep_metadata_to_manifest_module(ctx, shared_libraries, link_args)
+    manifest_module_entries = _add_dep_metadata_to_manifest_module(ctx, shared_libraries, link_args, python_toolchain)
     generated_files = []
 
     startup_functions_loader = generate_startup_function_loader(ctx, manifest_module_entries)
@@ -1044,13 +1044,28 @@ def _get_shared_library_dep_metadata(
 def _add_dep_metadata_to_manifest_module(
         ctx: AnalysisContext,
         shared_libraries: list[(SharedLibrary, str)],
-        link_args: list[LinkArgs]) -> dict[str, typing.Any] | None:
+        link_args: list[LinkArgs],
+        python_toolchain: PythonToolchainInfo) -> dict[str, typing.Any] | None:
     """
     Updates manifest_module_entries with link metadata if they exist.
     """
-    manifest_module_entries = ctx.attrs.manifest_module_entries
-    if manifest_module_entries == None:
-        return None
+    if python_toolchain.manifest_module_entries == None:
+        if ctx.attrs.manifest_module_entries == None:
+            return None
+        manifest_module_entries = dict(ctx.attrs.manifest_module_entries)
+    else:
+        manifest_module_entries = dict(python_toolchain.manifest_module_entries)
+        if ctx.attrs.manifest_module_entries != None:
+            for k, v in ctx.attrs.manifest_module_entries.items():
+                if k not in manifest_module_entries:
+                    manifest_module_entries[k] = v
+                    continue
+                if isinstance(manifest_module_entries[k], dict) and isinstance(v, dict):
+                    d = dict(manifest_module_entries[k])
+                    d.update(v)
+                    manifest_module_entries[k] = d
+                else:
+                    fail("Cannot merge manifest_module_entries entry {}: {} and {}".format(k, manifest_module_entries[k], v))
 
     metadatas = _get_shared_library_dep_metadata(ctx, shared_libraries, link_args)
     manifest_module_entries["library_versions"] = [
