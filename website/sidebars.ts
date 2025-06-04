@@ -38,6 +38,7 @@ export const sidebars: SidebarsConfig = {
       label: 'About Buck2',
       items: [
         'about/why',
+        'about/language_support',
         // The getting_started page is for OSS only.
         isInternal() ? null : 'about/getting_started',
         {
