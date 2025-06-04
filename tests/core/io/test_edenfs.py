@@ -378,3 +378,28 @@ async def test_edenfs_duplicated_notifications(buck: Buck) -> None:
             FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/bcd"
         ),
     ]
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_hg_clean_update(buck: Buck) -> None:
+    await setup_file_watcher_test(buck)
+
+    with open(buck.cwd / "files" / "abc", "a") as f:
+        f.write("test")
+
+    _, results = await get_file_watcher_events(buck)
+    required = [
+        FileWatcherEvent(
+            FileWatcherEventType.MODIFY,
+            FileWatcherKind.FILE,
+            "root//files/abc",
+        ),
+    ]
+    verify_results(results, required)
+
+    subprocess.run(["hg", "up", "-C", "."], cwd=buck.cwd)
+
+    _, results = await get_file_watcher_events(buck)
+    # hg up -C . deletes all the changes and eden should report modification in `root//files/abc`
+    # this is a bug
+    assert results == []
