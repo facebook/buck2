@@ -45,7 +45,7 @@ def _get_absolute_path(ctx, src, build_results, allow_multiple = True) -> list[d
     """
     Get the absolute path of the thing passed in, which is either an artifact or a target label.
     """
-    if isinstance(src, ConfiguredProvidersLabel) and build_results:
+    if isinstance(src, ConfiguredProvidersLabel) and build_results and src in build_results.result:
         target = src.configured_target()
         build_result = build_results.result[src]
         failed_targets = []
@@ -142,6 +142,11 @@ def _elp_config(ctx):
 def prebuild(ctx, all):
     labels = []
     for _label_name, (_typ, attrs) in all.items():
+        target_labels = attrs.get("labels")
+        if target_labels:
+            if "elp_skip_generation" in target_labels.value():
+                continue
+
         includes = attrs.get("includes")
         if includes:
             for includes in includes.value():
