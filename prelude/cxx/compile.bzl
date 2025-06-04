@@ -1035,11 +1035,13 @@ def _mk_argsfiles(
     argsfiles = []
     args_list = []
 
+    mk_argsfile_lambda = lambda filename, args: _mk_argsfile(ctx, filename, args, is_nasm, is_xcode_argsfile)
+
     compiler_info_flags = _add_compiler_info_flags(ctx, compiler_info, ext)
 
     # filename example: .cpp.toolchain_cxx_args
     compiler_info_filename = filename_prefix + "toolchain_cxx_args"
-    argsfiles.append(_mk_argsfile(ctx, compiler_info_filename, compiler_info_flags, is_nasm, is_xcode_argsfile))
+    argsfiles.append(mk_argsfile_lambda(compiler_info_filename, compiler_info_flags))
     args_list.append(compiler_info_flags)
 
     deps_args = []
@@ -1052,7 +1054,7 @@ def _mk_argsfiles(
 
     # filename example: .cpp.deps_cxx_args
     deps_argsfile_filename = filename_prefix + "deps_cxx_args"
-    argsfiles.append(_mk_argsfile(ctx, deps_argsfile_filename, deps_args, is_nasm, is_xcode_argsfile))
+    argsfiles.append(mk_argsfile_lambda(deps_argsfile_filename, deps_args))
     args_list.extend(deps_args)
 
     target_args = []
@@ -1070,7 +1072,7 @@ def _mk_argsfiles(
 
     # filename example: .cpp.target_cxx_args
     target_argsfile_filename = filename_prefix + "target_cxx_args"
-    argsfiles.append(_mk_argsfile(ctx, target_argsfile_filename, target_args, is_nasm, is_xcode_argsfile))
+    argsfiles.append(mk_argsfile_lambda(target_argsfile_filename, target_args))
     args_list.extend(target_args)
 
     # Create a copy of the args so that we can continue to modify it later.
@@ -1082,7 +1084,7 @@ def _mk_argsfiles(
 
     # filename example: .cpp.file_prefix_cxx_args
     file_prefix_args_filename = filename_prefix + "file_prefix_cxx_args"
-    argsfiles.append(_mk_argsfile(ctx, file_prefix_args_filename, [file_prefix_args], is_nasm, is_xcode_argsfile))
+    argsfiles.append(mk_argsfile_lambda(file_prefix_args_filename, [file_prefix_args]))
     args_list.append(file_prefix_args)
 
     if is_xcode_argsfile:
