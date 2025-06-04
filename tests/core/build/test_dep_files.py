@@ -606,7 +606,7 @@ async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
     ]
 
     # Build it once with cache upload (cache upload will fail locally)
-    result = await buck.build(*target_upload_enabled)
+    result = await buck.build(*target_upload_enabled, "--no-remote-cache")
     output = result.get_build_report().output_for_target(target).read_text()
     assert output == "used1\nused2\nused3\n"
 
@@ -695,7 +695,7 @@ async def test_re_dep_file_query_change_tagged_used_file(buck: Buck) -> None:
     ]
 
     # Build it once with cache upload (cache upload will fail locally)
-    result = await buck.build(*target_upload_enabled)
+    result = await buck.build(*target_upload_enabled, "--no-remote-cache")
     output = result.get_build_report().output_for_target(target).read_text()
     assert output == "used1\nused2\nused3\n"
 
