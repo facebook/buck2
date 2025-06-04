@@ -226,7 +226,8 @@ def externalSourcesForTarget(ctx, target):
     return paths
 
 def merge(results):
-    flags = {}
+    seen_flags = set()
+    flags = []
     sources = {}
     haskellDeps = {}
     import_dirs = {}
@@ -235,9 +236,11 @@ def merge(results):
     exclude_packages = {}
 
     for result in results:
-        # TODO flags are order sensitive, so avoid the dedup dictionary trick
         for flag in result["flags"]:
-            flags[flag] = ()
+            sflag = str(flag)
+            if not (sflag in seen_flags):
+                flags.append(sflag)
+                seen_flags.add(sflag)
         for source in result["sources"]:
             sources[source] = ()
         for p, v in result["haskell_deps"].items():
@@ -253,7 +256,7 @@ def merge(results):
 
     return {
         "exclude_packages": exclude_packages,
-        "flags": flags.keys(),
+        "flags": flags,
         "generated_dependencies": generated_dependencies.keys(),
         "haskell_deps": haskellDeps,
         "import_dirs": import_dirs.keys(),
