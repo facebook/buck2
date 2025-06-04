@@ -17,6 +17,7 @@ use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalc
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
+use dice::CancellationContext;
 use indoc::indoc;
 
 use crate::tests::calculation;
@@ -63,7 +64,7 @@ async fn test_package_value_same_dir_package_file() {
         .unwrap();
 
     let result = interpreter
-        .eval_build_file(package_label, None)
+        .eval_build_file(package_label, &CancellationContext::testing())
         .await
         .1
         .unwrap();
@@ -113,7 +114,7 @@ async fn test_package_value_parent_dir_package_file() {
         .unwrap();
 
     let result = interpreter
-        .eval_build_file(package_label, None)
+        .eval_build_file(package_label, &CancellationContext::testing())
         .await
         .1
         .unwrap();
@@ -150,7 +151,10 @@ async fn test_overwrite_package_value_not_allowed_without_overwrite_flag() {
         ))
         .await
         .unwrap();
-    let err = interpreter.eval_build_file(package_label, None).await.1;
+    let err = interpreter
+        .eval_build_file(package_label, &CancellationContext::testing())
+        .await
+        .1;
     assert!(
         format!("{:?}", err)
             .contains("key set in parent `PACKAGE` file, and overwrite flag is not set"),
@@ -237,7 +241,7 @@ async fn test_read_parent_package_value() {
         .unwrap();
 
     let result = interpreter
-        .eval_build_file(package_label, None)
+        .eval_build_file(package_label, &CancellationContext::testing())
         .await
         .1
         .unwrap();
@@ -305,7 +309,7 @@ async fn test_read_parent_package_value_from_bzl() {
         .unwrap();
 
     let result = interpreter
-        .eval_build_file(package_label, None)
+        .eval_build_file(package_label, &CancellationContext::testing())
         .await
         .1
         .unwrap();
@@ -342,7 +346,10 @@ async fn test_read_parent_package_value_is_suggested_in_package_file() {
         ))
         .await
         .unwrap();
-    let err = interpreter.eval_build_file(package_label, None).await.1;
+    let err = interpreter
+        .eval_build_file(package_label, &CancellationContext::testing())
+        .await
+        .1;
     assert!(
         format!("{:?}", err)
             .contains("In a Package context, consider using `read_parent_package_value`"),
@@ -385,7 +392,9 @@ async fn test_read_parent_package_value_is_suggested_in_bzl_file() {
         ))
         .await
         .unwrap();
-    let err = interpreter.eval_build_file(package_label, None).await;
+    let err = interpreter
+        .eval_build_file(package_label, &CancellationContext::testing())
+        .await;
     assert!(
         format!("{:?}", err)
             .contains("In a Package context, consider using `read_parent_package_value`"),

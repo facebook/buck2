@@ -519,7 +519,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     pub async fn eval_build_file(
         &mut self,
         package: PackageLabel,
-        cancellation: Option<&CancellationContext>,
+        cancellation: &CancellationContext,
     ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>) {
         let mut now = None;
         let eval_kind = StarlarkEvalKind::LoadBuildFile(package.dupe());

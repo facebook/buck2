@@ -32,7 +32,7 @@ pub trait TargetGraphCalculationImpl: Send + Sync + 'static {
         &self,
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
-        cancellation: Option<&CancellationContext>,
+        cancellation: &CancellationContext,
     ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>);
 
     /// Returns the full interpreter evaluation result for a Package. This consists of the full set
@@ -53,7 +53,7 @@ pub trait TargetGraphCalculation {
     async fn get_interpreter_results_uncached(
         &mut self,
         package: PackageLabel,
-        cancellation: Option<&CancellationContext>,
+        cancellation: &CancellationContext,
     ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>);
 
     /// Returns the full interpreter evaluation result for a Package. This consists of the full set
@@ -83,7 +83,7 @@ impl TargetGraphCalculation for DiceComputations<'_> {
     async fn get_interpreter_results_uncached(
         &mut self,
         package: PackageLabel,
-        cancellation: Option<&CancellationContext>,
+        cancellation: &CancellationContext,
     ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>) {
         match TARGET_GRAPH_CALCULATION_IMPL.get() {
             Ok(calc) => {

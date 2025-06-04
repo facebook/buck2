@@ -32,6 +32,7 @@ use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -365,9 +366,12 @@ async fn load_targets(
     let result = if cached {
         dice.get_interpreter_results(package.dupe()).await?
     } else {
-        dice.get_interpreter_results_uncached(package.dupe(), None)
-            .await
-            .1?
+        dice.get_interpreter_results_uncached(
+            package.dupe(),
+            CancellationContext::never_cancelled(),
+        )
+        .await
+        .1?
     };
 
     match spec {
