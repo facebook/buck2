@@ -1,10 +1,16 @@
+platform(
+    name = "platform",
+)
+
 export_file(
     name = "gen",
     src = "src.txt",
     mode = "copy",
+    default_target_platform = ":platform",
 )
 
 alias(
     name = "gen_alias",
     actual = ":gen",
+    default_target_platform = ":platform",
 )
