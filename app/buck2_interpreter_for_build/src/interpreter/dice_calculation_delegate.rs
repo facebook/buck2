@@ -45,7 +45,6 @@ use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::super_package::SuperPackage;
 use derive_more::Display;
@@ -253,13 +252,10 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let configs = &self.configs;
         let ctx = &mut *self.ctx;
 
-        let profiler = StarlarkProfiler::disabled();
-        let provider = StarlarkEvaluatorProvider::new(
-            ctx,
-            &StarlarkEvalKind::Load(Arc::new(starlark_file.to_owned())),
-            profiler,
-        )
-        .await?;
+        let eval_kind = StarlarkEvalKind::Load(Arc::new(starlark_file.to_owned()));
+        let profiler = ctx.get_starlark_profiler(&eval_kind).await?;
+        let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind, profiler).await?;
+
         let mut buckconfigs = ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
         let (_finished_eval, evaluation) = configs
             .eval_module(
@@ -406,12 +402,9 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let configs = &self.configs;
         let ctx = &mut *self.ctx;
 
-        let provider = StarlarkEvaluatorProvider::new(
-            ctx,
-            &StarlarkEvalKind::LoadPackageFile(path.dupe()),
-            StarlarkProfiler::disabled(),
-        )
-        .await?;
+        let eval_kind = StarlarkEvalKind::LoadPackageFile(path.dupe());
+        let profiler = ctx.get_starlark_profiler(&eval_kind).await?;
+        let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind, profiler).await?;
 
         let mut buckconfigs = ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 
@@ -518,12 +511,11 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let mut now = None;
         let eval_kind = StarlarkEvalKind::LoadBuildFile(package.dupe());
         let eval_result: buck2_error::Result<_> = try {
-            let ((), listing, profiler) = self
+            let ((), listing) = self
                 .ctx
-                .try_compute3(
+                .try_compute2(
                     |ctx| check_starlark_stack_size(ctx).boxed(),
                     |ctx| Self::resolve_package_listing(ctx, package.dupe()).boxed(),
-                    |ctx| ctx.get_starlark_profiler(&eval_kind),
                 )
                 .await?;
 
@@ -554,6 +546,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             let ctx = &mut *self.ctx;
 
             now = Some(Instant::now());
+            let profiler = ctx.get_starlark_profiler(&eval_kind).await?;
             let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind, profiler).await?;
             let mut buckconfigs =
                 ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);

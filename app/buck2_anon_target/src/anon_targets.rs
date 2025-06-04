@@ -60,7 +60,7 @@ use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
+use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter_for_build::rule::FrozenStarlarkRuleCallable;
@@ -422,7 +422,7 @@ impl AnonTargetKey {
         let print = EventDispatcherPrintHandler(get_dispatcher());
 
         let eval_kind = self.0.dupe().eval_kind();
-        let profiler = StarlarkProfiler::disabled();
+        let profiler = dice.get_starlark_profiler(&eval_kind).await?;
         let provider = StarlarkEvaluatorProvider::new(dice, &eval_kind, profiler).await?;
         let mut reentrant_eval = provider.make_reentrant_evaluator(&env, cancellation.into())?;
         let (ctx, list_res) = reentrant_eval.with_evaluator(|eval| {

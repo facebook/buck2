@@ -30,7 +30,7 @@ use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
+use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use derive_more::Display;
@@ -147,13 +147,9 @@ async fn do_apply_transition(
         refs_refs.push(provider_collection_value);
     }
     let print = EventDispatcherPrintHandler(get_dispatcher());
-    let profiler = StarlarkProfiler::disabled();
-    let provider = StarlarkEvaluatorProvider::new(
-        ctx,
-        &StarlarkEvalKind::Transition(Arc::new(transition_id.clone())),
-        profiler,
-    )
-    .await?;
+    let eval_kind = StarlarkEvalKind::Transition(Arc::new(transition_id.clone()));
+    let profiler = ctx.get_starlark_profiler(&eval_kind).await?;
+    let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind, profiler).await?;
     let module = Module::new();
     let (_finished_eval, res) = provider
         .with_evaluator(&module, cancellation.into(), |eval, _| {
