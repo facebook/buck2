@@ -21,6 +21,7 @@ use crate::dice::starlark_debug::HasStarlarkDebugger;
 use crate::dice::starlark_provider::CancellationPoller;
 use crate::dice::starlark_provider::StarlarkEvalKind;
 use crate::starlark_debug::StarlarkDebugController;
+use crate::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use crate::starlark_profiler::data::ProfileTarget;
 use crate::starlark_profiler::data::StarlarkProfileDataAndStats;
 use crate::starlark_profiler::profiler::StarlarkProfiler;
@@ -68,8 +69,8 @@ impl StarlarkEvaluatorProvider {
     pub async fn new(
         ctx: &mut DiceComputations<'_>,
         kind: &StarlarkEvalKind,
-        profiler: StarlarkProfiler,
     ) -> buck2_error::Result<StarlarkEvaluatorProvider> {
+        let profiler = ctx.get_starlark_profiler(kind).await?;
         let root_buckconfig = ctx.get_legacy_root_config_on_dice().await?;
 
         let starlark_max_callstack_size =

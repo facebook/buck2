@@ -42,7 +42,6 @@ use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use clap::error::ErrorKind;
 use dice::DiceComputations;
@@ -321,8 +320,7 @@ async fn eval_bxl_inner(
     };
 
     let eval_kind = key.as_starlark_eval_kind();
-    let profiler = ctx.get_starlark_profiler(&eval_kind).await?;
-    let eval_provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind, profiler).await?;
+    let eval_provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
     let result = eval_ctx.do_eval(eval_provider, ctx);
     match result {
         Ok((finished_eval, eval_result)) => {

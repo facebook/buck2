@@ -35,7 +35,6 @@ use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter_for_build::attrs::StarlarkAttribute;
 use buck2_interpreter_for_build::rule::StarlarkRuleCallable;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
@@ -257,8 +256,7 @@ async fn eval_bxl_for_anon_target_inner(
     let anon_impl = AnonImpl::new(dice, anon_target.dupe()).await?;
 
     let eval_kind = anon_target.dupe().eval_kind();
-    let profiler = dice.get_starlark_profiler(&eval_kind).await?;
-    let provider = StarlarkEvaluatorProvider::new(dice, &eval_kind, profiler).await?;
+    let provider = StarlarkEvaluatorProvider::new(dice, &eval_kind).await?;
     let env = Module::new();
     let bxl_dice = Rc::new(RefCell::new(BxlSafeDiceComputations::new(
         dice,

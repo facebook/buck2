@@ -44,7 +44,6 @@ use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_interpreter::paths::path::StarlarkPath;
-use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::super_package::SuperPackage;
 use derive_more::Display;
@@ -253,8 +252,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let ctx = &mut *self.ctx;
 
         let eval_kind = StarlarkEvalKind::Load(Arc::new(starlark_file.to_owned()));
-        let profiler = ctx.get_starlark_profiler(&eval_kind).await?;
-        let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind, profiler).await?;
+        let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
 
         let mut buckconfigs = ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
         let (_finished_eval, evaluation) = configs
@@ -403,8 +401,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let ctx = &mut *self.ctx;
 
         let eval_kind = StarlarkEvalKind::LoadPackageFile(path.dupe());
-        let profiler = ctx.get_starlark_profiler(&eval_kind).await?;
-        let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind, profiler).await?;
+        let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
 
         let mut buckconfigs = ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 
@@ -546,8 +543,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             let ctx = &mut *self.ctx;
 
             now = Some(Instant::now());
-            let profiler = ctx.get_starlark_profiler(&eval_kind).await?;
-            let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind, profiler).await?;
+            let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
             let mut buckconfigs =
                 ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 

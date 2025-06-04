@@ -36,7 +36,6 @@ use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::types::rule::FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_node::nodes::configured::ConfiguredTargetNodeRef;
@@ -274,8 +273,7 @@ async fn run_analysis_with_env_underlying(
     )?;
 
     let eval_kind = StarlarkEvalKind::Analysis(node.label().dupe());
-    let profiler = dice.get_starlark_profiler(&eval_kind).await?;
-    let eval_provider = StarlarkEvaluatorProvider::new(dice, &eval_kind, profiler).await?;
+    let eval_provider = StarlarkEvaluatorProvider::new(dice, &eval_kind).await?;
     let mut reentrant_eval =
         eval_provider.make_reentrant_evaluator(&env, analysis_env.cancellation.into())?;
 

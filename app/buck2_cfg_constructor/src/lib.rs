@@ -32,7 +32,6 @@ use buck2_interpreter::factory::ReentrantStarlarkEvaluator;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::metadata::key::MetadataKey;
@@ -225,8 +224,7 @@ async fn eval_underlying(
     let print = EventDispatcherPrintHandler(get_dispatcher());
 
     let eval_kind = StarlarkEvalKind::Unknown("constraint-analysis invocation".into());
-    let profiler = ctx.get_starlark_profiler(&eval_kind).await?;
-    let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind, profiler).await?;
+    let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
     let mut reentrant_eval = provider.make_reentrant_evaluator(&module, cancellation.into())?;
 
     // Pre constraint-analysis
