@@ -55,6 +55,7 @@ load(
     ":manifest.bzl",
     "ManifestInfo",  # @unused Used as a type
     "create_manifest_for_source_map",
+    "enumerate_dirs_for_manifest",
 )
 load(":needed_coverage.bzl", "PythonNeededCoverageInfo")
 load(":python.bzl", "NativeDepsInfoTSet", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibraryManifestsTSet")
@@ -276,7 +277,8 @@ def py_resources(
             else:
                 hidden.append(o)
     manifest = create_manifest_for_source_map(ctx, "resources{}".format(suffix), d)
-    return manifest, dedupe(hidden)
+    enumerated_manifest = enumerate_dirs_for_manifest(ctx, "resources{}".format(suffix), manifest)
+    return enumerated_manifest, dedupe(hidden)
 
 def _src_types(srcs: dict[str, Artifact], type_stubs: dict[str, Artifact]) -> dict[str, Artifact]:
     src_types = {}
