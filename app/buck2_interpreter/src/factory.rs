@@ -105,7 +105,6 @@ impl<'x> StarlarkEvaluatorProvider<'x> {
             profiler_data: &mut self.profiler_data,
             is_profiling_enabled,
             is_debugging_enabled: self.debugger.is_some(),
-            has_finished_first_eval: false,
         })
     }
 
@@ -133,9 +132,6 @@ pub enum ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e: 'a> {
         profiler_data: &'x mut ProfilerData,
         is_profiling_enabled: bool,
         is_debugging_enabled: bool,
-
-        // TODO(cjhopman): remove this. we currently don't support collecting profiling data correctly during anon target's run_promises (i.e. the reentrant eval).
-        has_finished_first_eval: bool,
     },
     // This is awkward. It's used by bxl when doing a blocking resolve of anon target promises.
     Wrapped {
@@ -178,26 +174,11 @@ impl<'x, 'v, 'a, 'e: 'a> ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e> {
         // way to do that. Potentially the thing would be to invert the dependencies
         // so we could operate against a concrete type rather than injecting a trait
         // implementation.
-        let res = if self.is_debugging_enabled() {
+        if self.is_debugging_enabled() {
             tokio::task::block_in_place(|| closure(self.eval()))
         } else {
             closure(self.eval())
-        };
-
-        if let Self::Normal {
-            eval,
-            profiler_data,
-            has_finished_first_eval,
-            ..
-        } = self
-        {
-            if !*has_finished_first_eval {
-                profiler_data.evaluation_complete(eval)?;
-                *has_finished_first_eval = true;
-            }
         }
-
-        res
     }
 
     fn eval(&mut self) -> &mut Evaluator<'v, 'a, 'e> {
@@ -227,6 +208,19 @@ impl<'x, 'v, 'a, 'e: 'a> ReentrantStarlarkEvaluator<'x, 'v, 'a, 'e> {
                 ..
             } => *is_profiling_enabled,
             ReentrantStarlarkEvaluator::Wrapped { .. } => false,
+        }
+    }
+}
+
+impl Drop for ReentrantStarlarkEvaluator<'_, '_, '_, '_> {
+    fn drop(&mut self) {
+        if let Self::Normal {
+            eval,
+            profiler_data,
+            ..
+        } = self
+        {
+            profiler_data.evaluation_complete(eval);
         }
     }
 }

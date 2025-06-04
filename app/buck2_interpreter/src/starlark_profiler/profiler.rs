@@ -66,7 +66,7 @@ pub struct ProfilerData {
 
     initialized_at: Option<Instant>,
     finalized_at: Option<Instant>,
-    profile_data: Option<ProfileData>,
+    profile_data: Option<buck2_error::Result<ProfileData>>,
 }
 
 impl ProfilerData {
@@ -83,15 +83,16 @@ impl ProfilerData {
     }
 
     /// Post-analysis, produce the output of this profiler.
-    pub(crate) fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
+    pub(crate) fn evaluation_complete(&mut self, eval: &mut Evaluator) {
         self.finalized_at = Some(Instant::now());
         if let Some(mode) = &self.profile_mode {
             if !mode.requires_frozen_module() {
-                self.profile_data = Some(eval.gen_profile()?);
+                self.profile_data = Some(
+                    eval.gen_profile()
+                        .internal_error("error during profile generation"),
+                );
             }
         }
-
-        Ok(())
     }
 
     pub fn finish(
@@ -115,7 +116,7 @@ impl ProfilerData {
                     let profile = module
                         .heap_profile()
                         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
-                    self.profile_data = Some(profile);
+                    self.profile_data = Some(Ok(profile));
                 }
 
                 module
@@ -132,7 +133,7 @@ impl ProfilerData {
             total_retained_bytes,
             profile_data: self
                 .profile_data
-                .internal_error("profile_data not initialized")?,
+                .internal_error("profile_data not initialized")??,
             targets: vec![target],
         }))
     }
