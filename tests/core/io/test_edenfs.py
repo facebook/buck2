@@ -353,3 +353,31 @@ async def test_edenfs_directory_replace(buck: Buck) -> None:
 
     _, results = await get_file_watcher_events(buck)
     verify_results(results, required)
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_duplicated_notifications(buck: Buck) -> None:
+    await setup_file_watcher_test(buck)
+
+    with open(buck.cwd / "files" / "abc", "a") as f:
+        f.write("test")
+
+    with open(buck.cwd / "files" / "bcd", "a"):
+        pass
+
+    with open(buck.cwd / "files" / "abc", "a") as f:
+        f.write("test1")
+
+    _, results = await get_file_watcher_events(buck)
+    # eden reports duplicates
+    assert results == [
+        FileWatcherEvent(
+            FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/abc"
+        ),
+        FileWatcherEvent(
+            FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/bcd"
+        ),
+        FileWatcherEvent(
+            FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/abc"
+        ),
+    ]
