@@ -34,7 +34,9 @@ impl BxlCalculationDyn for BxlCalculationImpl {
         ctx: &mut DiceComputations<'_>,
         bxl: BaseDeferredKeyBxl,
     ) -> buck2_error::Result<BxlComputeResult> {
-        Ok(eval_bxl(ctx, BxlKey::from_base_deferred_key_dyn_impl_err(bxl)?).await?)
+        eval_bxl(ctx, BxlKey::from_base_deferred_key_dyn_impl_err(bxl)?)
+            .await
+            .map_err(|e| e.error)
     }
 }
 

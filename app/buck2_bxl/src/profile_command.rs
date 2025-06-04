@@ -127,7 +127,8 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                 async move {
                     buck2_error::Ok(
                         eval(&mut ctx, bxl_key, observer)
-                            .await?
+                            .await
+                            .map_err(|e| e.error)?
                             .1
                             .map(Arc::new)
                             .expect("No bxl profile data found"),

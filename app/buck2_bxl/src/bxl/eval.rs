@@ -99,9 +99,7 @@ impl LimitedExecutor {
     }
 }
 
-#[derive(Debug, buck2_error::Error, Allocative, Clone, Dupe)]
-#[error("{error}")]
-#[buck2(tag = Input)]
+#[derive(Debug, Allocative, Clone, Dupe)]
 pub(crate) struct BxlEvalError {
     pub(crate) ouput_stream_state: Option<Arc<OutputStreamOutcome>>,
     pub(crate) error: buck2_error::Error,
