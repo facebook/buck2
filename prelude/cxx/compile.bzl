@@ -1040,55 +1040,67 @@ def _mk_argsfiles(
 
     mk_argsfile_lambda = lambda filename, args: _mk_argsfile(ctx, filename, args, is_nasm, is_xcode_argsfile)
 
-    compiler_info_flags = _add_compiler_info_flags(ctx, compiler_info, ext)
+    def make_toolchain_argsfile():
+        compiler_info_flags = _add_compiler_info_flags(ctx, compiler_info, ext)
 
-    # filename example: .cpp.toolchain_cxx_args
-    compiler_info_filename = filename_prefix + "toolchain_cxx_args"
-    argsfiles.append(mk_argsfile_lambda(compiler_info_filename, compiler_info_flags))
-    args_list.append(compiler_info_flags)
+        # filename example: .cpp.toolchain_cxx_args
+        compiler_info_filename = filename_prefix + "toolchain_cxx_args"
+        argsfiles.append(mk_argsfile_lambda(compiler_info_filename, compiler_info_flags))
+        args_list.append(compiler_info_flags)
 
-    deps_args = []
-    deps_args.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
+    make_toolchain_argsfile()
 
-    # Different preprocessors will contain whether to use modules,
-    # and the modulemap to use, so we need to get the final outcome.
-    if preprocessor.set.reduce("uses_modules"):
-        deps_args.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("modular_args")))
+    def make_deps_argsfile():
+        deps_args = []
+        deps_args.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
 
-    # filename example: .cpp.deps_cxx_args
-    deps_argsfile_filename = filename_prefix + "deps_cxx_args"
-    argsfiles.append(mk_argsfile_lambda(deps_argsfile_filename, deps_args))
-    args_list.extend(deps_args)
+        # Different preprocessors will contain whether to use modules,
+        # and the modulemap to use, so we need to get the final outcome.
+        if preprocessor.set.reduce("uses_modules"):
+            deps_args.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("modular_args")))
 
-    target_args = []
-    target_args.append(_preprocessor_flags(ctx, impl_params, ext.value))
-    target_args.append(get_flags_for_compiler_type(compiler_info.compiler_type))
-    target_args.append(_compiler_flags(ctx, impl_params, ext.value))
-    target_args.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("include_dirs")))
+        # filename example: .cpp.deps_cxx_args
+        deps_argsfile_filename = filename_prefix + "deps_cxx_args"
+        argsfiles.append(mk_argsfile_lambda(deps_argsfile_filename, deps_args))
+        args_list.extend(deps_args)
 
-    # Workaround as that's not precompiled, but working just as prefix header.
-    # Another thing is that it's clang specific, should be generalized.
-    if hasattr(ctx.attrs, "precompiled_header") and ctx.attrs.precompiled_header != None:
-        target_args.append(["-include", headers_tag.tag_artifacts(ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].header)])
-    if hasattr(ctx.attrs, "prefix_header") and ctx.attrs.prefix_header != None:
-        target_args.append(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
+    make_deps_argsfile()
 
-    # filename example: .cpp.target_cxx_args
-    target_argsfile_filename = filename_prefix + "target_cxx_args"
-    argsfiles.append(mk_argsfile_lambda(target_argsfile_filename, target_args))
-    args_list.extend(target_args)
+    def make_target_argsfile():
+        target_args = []
+        target_args.append(_preprocessor_flags(ctx, impl_params, ext.value))
+        target_args.append(get_flags_for_compiler_type(compiler_info.compiler_type))
+        target_args.append(_compiler_flags(ctx, impl_params, ext.value))
+        target_args.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("include_dirs")))
+
+        # Workaround as that's not precompiled, but working just as prefix header.
+        # Another thing is that it's clang specific, should be generalized.
+        if hasattr(ctx.attrs, "precompiled_header") and ctx.attrs.precompiled_header != None:
+            target_args.append(["-include", headers_tag.tag_artifacts(ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].header)])
+        if hasattr(ctx.attrs, "prefix_header") and ctx.attrs.prefix_header != None:
+            target_args.append(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
+
+        # filename example: .cpp.target_cxx_args
+        target_argsfile_filename = filename_prefix + "target_cxx_args"
+        argsfiles.append(mk_argsfile_lambda(target_argsfile_filename, target_args))
+        args_list.extend(target_args)
+
+    make_target_argsfile()
 
     # Create a copy of the args so that we can continue to modify it later.
     args_without_file_prefix_args = cmd_args(args_list)
 
-    # Put file_prefix_args in argsfile, make sure they do not appear when evaluating $(cxxppflags)
-    # to avoid "argument too long" errors
-    file_prefix_args = headers_tag.tag_artifacts(preprocessor.set.project_as_args("file_prefix_args"))
+    def make_file_prefix_argsfile():
+        # Put file_prefix_args in argsfile, make sure they do not appear when evaluating $(cxxppflags)
+        # to avoid "argument too long" errors
+        file_prefix_args = headers_tag.tag_artifacts(preprocessor.set.project_as_args("file_prefix_args"))
 
-    # filename example: .cpp.file_prefix_cxx_args
-    file_prefix_args_filename = filename_prefix + "file_prefix_cxx_args"
-    argsfiles.append(mk_argsfile_lambda(file_prefix_args_filename, [file_prefix_args]))
-    args_list.append(file_prefix_args)
+        # filename example: .cpp.file_prefix_cxx_args
+        file_prefix_args_filename = filename_prefix + "file_prefix_cxx_args"
+        argsfiles.append(mk_argsfile_lambda(file_prefix_args_filename, [file_prefix_args]))
+        args_list.append(file_prefix_args)
+
+    make_file_prefix_argsfile()
 
     if is_xcode_argsfile:
         args = cmd_args(args_list, replace_regex = XCODE_ARG_SUBSTITUTIONS)
