@@ -83,7 +83,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             ctx,
             AppleLibraryAdditionalParams(
                 rule_type = "apple_test",
-                extra_exported_link_flags = _get_xctest_framework_linker_flags(ctx) + _get_bundle_loader_flags(test_host_app_binary),
+                extra_exported_link_flags = get_xctest_framework_linker_flags(ctx) + _get_bundle_loader_flags(test_host_app_binary),
                 extra_swift_compiler_flags = _get_xctest_framework_search_paths_flags(ctx) + objc_bridging_header_flags,
                 shared_library_flags = SharedLibraryFlagOverrides(
                     # When `-bundle` is used we can't use the `-install_name` args, thus we keep this field empty.
@@ -350,7 +350,7 @@ def _get_xctest_framework_search_paths_flags(ctx: AnalysisContext) -> list[[cmd_
         xctest_framework_search_path,
     ]
 
-def _get_xctest_framework_linker_flags(ctx: AnalysisContext) -> list[[cmd_args, str]]:
+def get_xctest_framework_linker_flags(ctx: AnalysisContext) -> list[[cmd_args, str]]:
     xctest_swiftmodule_search_path, xctest_framework_search_path = _get_xctest_framework_search_paths(ctx)
     return [
         "-L",
