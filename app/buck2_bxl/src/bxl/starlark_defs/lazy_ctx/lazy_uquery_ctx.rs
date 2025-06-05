@@ -28,6 +28,7 @@ use crate::bxl::starlark_defs::lazy_ctx::operation::StarlarkLazy;
 use crate::bxl::starlark_defs::lazy_ctx::operation::uquery::LazyUqueryOperation;
 use crate::bxl::starlark_defs::target_list_expr::OwnedTargetNodeArg;
 use crate::bxl::starlark_defs::target_list_expr::TargetNodeOrTargetLabelOrStr;
+use crate::bxl::starlark_defs::uquery::UnpackUnconfiguredQueryArgs;
 
 #[derive(
     ProvidesStaticType,
@@ -310,6 +311,29 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
             value,
             targets,
         };
+        Ok(StarlarkLazy::new_uquery(op))
+    }
+
+    /// Evaluates a general query string with optional query arguments.
+    ///
+    /// Example:
+    /// ```python
+    /// res = ctx.lazy.uquery().eval("inputs(cell//path/to/file:target)").catch().resolve()
+    /// res = ctx.lazy.uquery().eval("inputs(%s)", query_args = ["cell//path/to/file:target"]).catch().resolve()
+    /// ```
+    fn eval<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
+        #[starlark(require = pos)] query: &'v str,
+        #[starlark(require = named, default = NoneOr::None)] query_args: NoneOr<
+            UnpackUnconfiguredQueryArgs<'v>,
+        >,
+    ) -> anyhow::Result<StarlarkLazy> {
+        let query = query.to_owned();
+        let query_args = match query_args {
+            NoneOr::None => Vec::new(),
+            NoneOr::Other(query_args) => query_args.into_strings(),
+        };
+        let op = LazyUqueryOperation::Eval { query, query_args };
         Ok(StarlarkLazy::new_uquery(op))
     }
 }

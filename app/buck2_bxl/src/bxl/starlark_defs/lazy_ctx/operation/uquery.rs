@@ -8,7 +8,9 @@
  */
 
 use allocative::Allocative;
+use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use dice::DiceComputations;
 use gazebo::prelude::OptionExt;
@@ -18,6 +20,7 @@ use starlark::values::Value;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::file_set::OwnedFileSetExpr;
 use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
+use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
 use crate::bxl::starlark_defs::target_list_expr::OwnedTargetNodeArg;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::get_uquery_env;
@@ -72,6 +75,10 @@ pub(crate) enum LazyUqueryOperation {
     TargetsInBuildfile {
         files: OwnedFileSetExpr,
     },
+    Eval {
+        query: String,
+        query_args: Vec<String>,
+    },
 }
 
 pub(crate) enum LazyUqueryResult {
@@ -88,6 +95,7 @@ pub(crate) enum LazyUqueryResult {
     Buildfile(StarlarkFileSet),
     Owner(StarlarkTargetSet<TargetNode>),
     TargetsInBuildfile(StarlarkTargetSet<TargetNode>),
+    Eval(QueryEvaluationResult<TargetNode>),
 }
 
 impl LazyUqueryResult {
@@ -106,6 +114,7 @@ impl LazyUqueryResult {
             LazyUqueryResult::Buildfile(file_set) => Ok(heap.alloc(file_set)),
             LazyUqueryResult::Owner(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::TargetsInBuildfile(target_set) => Ok(heap.alloc(target_set)),
+            LazyUqueryResult::Eval(result) => parse_query_evaluation_result(result, heap),
         }
     }
 }
@@ -268,6 +277,14 @@ impl LazyUqueryOperation {
                 Ok(LazyUqueryResult::TargetsInBuildfile(
                     StarlarkTargetSet::from(res),
                 ))
+            }
+            LazyUqueryOperation::Eval { query, query_args } => {
+                let res = QUERY_FRONTEND
+                    .get()?
+                    .eval_uquery(dice, &core_data.working_dir()?, query, query_args)
+                    .await?;
+
+                Ok(LazyUqueryResult::Eval(res))
             }
         }
     }

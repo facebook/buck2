@@ -6,6 +6,7 @@
 ## LazyUqueryContext.attrregexfilter
 ## LazyUqueryContext.buildfile
 ## LazyUqueryContext.deps
+## LazyUqueryContext.eval
 ## LazyUqueryContext.filter
 ## LazyUqueryContext.inputs
 ## LazyUqueryContext.kind

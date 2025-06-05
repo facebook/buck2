@@ -525,6 +525,18 @@ async def test_uquery_eval(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")
+async def test_uquery_lazy_eval(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl/uquery.bxl:lazy_eval_query_test",
+    )
+    assert result.stdout == "[root//bin/TARGETS.fixture]\n"
+
+    result = await buck.bxl(
+        "//bxl/uquery.bxl:lazy_eval_query_with_query_args",
+    )
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_aquery_incompatible_targets(buck: Buck) -> None:
     # incompatible target should be skipped and the aquery should not fail
     result = await buck.bxl("//bxl/aquery.bxl:incompatible_targets")
