@@ -59,6 +59,7 @@ pub(crate) enum LazyUqueryOperation {
         regex: String,
         targets: OwnedTargetNodeArg,
     },
+    Buildfile(OwnedTargetNodeArg),
 }
 
 pub(crate) enum LazyUqueryResult {
@@ -71,6 +72,7 @@ pub(crate) enum LazyUqueryResult {
     Deps(StarlarkTargetSet<TargetNode>),
     Rdeps(StarlarkTargetSet<TargetNode>),
     Filter(StarlarkTargetSet<TargetNode>),
+    Buildfile(StarlarkFileSet),
 }
 
 impl LazyUqueryResult {
@@ -85,6 +87,7 @@ impl LazyUqueryResult {
             LazyUqueryResult::Deps(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::Rdeps(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::Filter(target_set) => Ok(heap.alloc(target_set)),
+            LazyUqueryResult::Buildfile(file_set) => Ok(heap.alloc(file_set)),
         }
     }
 }
@@ -205,6 +208,13 @@ impl LazyUqueryOperation {
                 let res = target_set.filter_name(regex)?;
 
                 Ok(LazyUqueryResult::Filter(StarlarkTargetSet::from(res)))
+            }
+            LazyUqueryOperation::Buildfile(expr) => {
+                let target_set = expr.to_unconfigured_target_set(core_data, dice).await?;
+
+                let res = target_set.buildfile();
+
+                Ok(LazyUqueryResult::Buildfile(StarlarkFileSet::from(res)))
             }
         }
     }

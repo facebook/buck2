@@ -240,4 +240,19 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
         let op = LazyUqueryOperation::TestsOf(expr);
         Ok(StarlarkLazy::new_uquery(op))
     }
+
+    /// Finds the build file(s) that define the given targets.
+    ///
+    /// Example:
+    /// ```python
+    /// res = ctx.lazy.uquery().buildfile("//:foo").catch().resolve()
+    /// ```
+    fn buildfile<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
+        #[starlark(require = pos)] targets: TargetNodeOrTargetLabelOrStr<'v>,
+    ) -> anyhow::Result<StarlarkLazy> {
+        let targets = OwnedTargetNodeArg::from_ref(&targets);
+        let op = LazyUqueryOperation::Buildfile(targets);
+        Ok(StarlarkLazy::new_uquery(op))
+    }
 }

@@ -415,6 +415,11 @@ async def test_uquery_buildfile(buck: Buck) -> None:
     await buck.bxl("//bxl/uquery.bxl:buildfile_test")
 
 
+@buck_test(inplace=False, data_dir="bxl/simple", allow_soft_errors=True)
+async def test_uquery_lazy_buildfile(buck: Buck) -> None:
+    await buck.bxl("//bxl/uquery.bxl:lazy_buildfile_test")
+
+
 @buck_test(inplace=False, data_dir="bxl/simple")
 async def test_uquery_rdeps(buck: Buck) -> None:
     result = await buck.bxl(
