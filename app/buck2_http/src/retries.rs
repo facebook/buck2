@@ -44,7 +44,7 @@ impl HttpErrorForRetry for HttpError {
                 crate::HttpError::SendRequest { .. } => true,
                 _ => false,
             },
-            Self::Transfer { source, .. } => !source.is_connect(),
+            Self::Transfer { .. } => true,
         }
     }
 }
