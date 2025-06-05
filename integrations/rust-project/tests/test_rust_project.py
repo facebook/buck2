@@ -131,6 +131,25 @@ async def test_exclude_workspaces(buck: Buck) -> None:
     ]
 
 
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_fallback_compatible_with(buck: Buck) -> None:
+    result = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/foo:g_with_compatibility",
+    )
+    result = json.load(open(result.stdout.rstrip()))
+
+    assert len(result["expanded_targets"]) > 0
+    assert len(result["resolved_deps"]) > 0
+
+    dep = list(result["resolved_deps"].values())[0]
+
+    assert dep["kind"] == "prelude//rules.bzl:rust_library"
+    assert dep["source_folder"] is not None
+
+
 # FIXME: Remove once actual tests work on mac and windows
 @buck_test(inplace=True)
 async def test_noop(buck: Buck) -> None:

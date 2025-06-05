@@ -26,3 +26,10 @@ rust_library(
     srcs = ["lib_f.rs"],
     crate_root = "lib_f.rs",
 )
+
+rust_library(
+    name = "g_with_compatibility",
+    srcs = ["lib_g.rs"],
+    crate_root = "lib_g.rs",
+    target_compatible_with = ["ovr_config//cpu/constraints:riscv64"],
+)
