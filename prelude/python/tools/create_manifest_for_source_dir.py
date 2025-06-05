@@ -16,6 +16,8 @@ import sys
 from typing import List
 
 
+# pyre-fixme[3]: Return type must be annotated.
+# pyre-fixme[2]: Parameter must be annotated.
 def enumerate_manifest(args):
     entries = []
     with open(args.manifest, "r") as manifest:
