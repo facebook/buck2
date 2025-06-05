@@ -158,13 +158,13 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
 
     /// Gets the configured target node for the `expr`.
     /// If given a string target pattern, it will resolve to a target set of configured target nodes.
-    /// it also accepts an optional `target_platform` and an optional modifers list which is used
+    /// it also accepts an optional `target_platform` and an optional modifiers list which is used
     /// to resolve configurations of any unconfigured target nodes.
     /// The `target_platform` is either a string that can be parsed as a target label, or a
     /// target label.
     ///
     /// The given `expr` is either:
-    ///     - a single string that is a target ot a target pattern.
+    ///     - a single string that is a target or a target pattern.
     ///     - a single target node or label, configured or unconfigured
     ///
     /// Note that this function does not accept `ConfiguredProviderLabel` (which is a configured provider label), since this
@@ -206,7 +206,7 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     /// Gets the unconfigured target node(s) for the `expr`
     ///
     /// The given `expr` is either:
-    ///     - a single string that is a target ot a target pattern.
+    ///     - a single string that is a target or a target pattern.
     ///     - a single unconfigured target node or label
     ///
     /// This returns either a target set of `UnconfiguredTargetNode`s if the given `expr` is a target pattern string,

@@ -436,7 +436,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                 async {
                     let (exec_deps, toolchains) = match &this.context_type {
                         BxlContextType::Root { .. } => {
-                            let target_platform = this.resolve_target_platfrom(target_platform)?;
+                            let target_platform = this.resolve_target_platform(target_platform)?;
                             let exec_deps = match exec_deps {
                                 NoneOr::None => Vec::new(),
                                 NoneOr::Other(exec_deps) => {
@@ -663,7 +663,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     /// These command lines are resolved per the users input on the cli when invoking the bxl script.
     ///
     /// If you wish to pass in a kebab-cased arg, the arg accessed from the BXL context's `cli_args`
-    /// attrbute will always be in snakecase. For example, if you passed in `my-arg`, accessing it
+    /// attribute will always be in snakecase. For example, if you passed in `my-arg`, accessing it
     /// within BXL would look like `ctx.cli_args.my_arg`.
     ///
     /// This attribute is not available on the bxl context within the a dynamic lambda.
@@ -825,7 +825,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         ))
     }
 
-    /// The modfiers from the bxl invocation. It is from the `--modifier` flag.
+    /// The modifiers from the bxl invocation. It is from the `--modifier` flag.
     #[starlark(attribute)]
     fn modifiers<'v>(this: &'v BxlContext<'v>) -> starlark::Result<Vec<String>> {
         Ok((*this.global_cfg_options().cli_modifiers).clone())

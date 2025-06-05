@@ -277,7 +277,7 @@ async fn analysis(
 #[starlark_module]
 fn lazy_operation_methods(builder: &mut MethodsBuilder) {
     /// Resolve the operation to the final result.
-    /// When called via `.catch().resolve()`, the error will be catched and returned as a [`bxl.Result`](../Result).
+    /// When called via `.catch().resolve()`, the error will be caught and returned as a [`bxl.Result`](../Result).
     /// Otherwise, it will return the raw type without catching the error.
     ///
     /// Example:

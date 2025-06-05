@@ -158,7 +158,7 @@ impl BxlServerCommand {
                 bxl_result
             }
             Err(e) => {
-                if let Some(output) = &e.ouput_stream_state {
+                if let Some(output) = &e.output_stream_state {
                     self.emit_streaming_output(
                         &mut dice_ctx,
                         &output.streaming,

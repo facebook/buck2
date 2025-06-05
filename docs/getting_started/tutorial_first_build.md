@@ -224,7 +224,7 @@ buck2 run :main
 ```
 
 This command tells Buck2 to run the `main` target. Buck2 will build it if it
-hasn't been built already, and then execute it. (i.e. We can do this whithout
+hasn't been built already, and then execute it. (i.e. We can do this without
 step 4)
 
 2. Expected Output: You will see:
@@ -265,7 +265,7 @@ fbcode//scripts/<unixname>/buck2_lab/greeter_bin:main
 ```
 
 You would see other targets as well, but for now we can just ignore them and
-just foucs on the `main` target.
+just focus on the `main` target.
 
 </FbInternalOnly>
 

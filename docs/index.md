@@ -110,7 +110,7 @@ your team.
   dependency features.
 - [Building Erlang with Buck2](https://www.youtube.com/watch?v=4ALgsBqNBhQ)
   Andreas talks about building WhatsApp with Buck2.
-- [antlir2: Deterministic image bulids with Buck2](https://www.youtube.com/watch?v=Wv-ilbckSx4)
+- [antlir2: Deterministic image builds with Buck2](https://www.youtube.com/watch?v=Wv-ilbckSx4)
   talks about layering a packaging system over Buck2.
 
 ### External projects using Buck2

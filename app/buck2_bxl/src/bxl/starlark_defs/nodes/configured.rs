@@ -157,7 +157,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         Ok(NodeAttributeGetter::get_attr(this, key, heap)?)
     }
 
-    /// Gets the all attributes (not include speical attributes) from the configured target node.
+    /// Gets all the attributes (excluding special attributes) from the configured target node.
     /// For attributes that are not explicitly set, the default value is returned.
     ///
     /// Sample usage:

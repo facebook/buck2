@@ -57,7 +57,7 @@ Dynamic outputs are meant for
 type is a `bxl_ctx`. Dynamic outputs are ran asynchronously outside of the BXL
 execution.
 
-Anon targets are meant for sharing work betwen multiple BXLs. The context type
+Anon targets are meant for sharing work between multiple BXLs. The context type
 is a normal rule analysis `context`. Anon targets are `await`-ed inline with
 your BXL function.
 

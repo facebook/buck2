@@ -53,7 +53,7 @@ described in this document.
 #### Tools using BEP
 
 The biggest advantage in adopting this protocol is the number of already
-existing tools already able to process it. Anectodally there are various
+existing tools already able to process it. Anecdotally there are various
 internal users, especially large corporations, using BEP to create integrations
 and tools of all kinds (eg:
 [Salesforce's talk during 'Build Meetup 2021'](https://youtu.be/qboJOW1vZLA?si=w7uC-ZxhGtHHM_m6)).
@@ -129,11 +129,10 @@ completely based on a subset of events Bazel uses that apply to Buck2:
 - [Aborted](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L309)
 - [BuildStarted](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L361)
 - [BuildFinished](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L852C9-L852C22)
-- Phase 2: Add informations about the command line and what targets it expands
-  to
+- Phase 2: Add information about the command line and what targets it expands to
 - [UnstructuredCommandLine](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L406)
 - [PatternExpanded](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L462)
-- Phase 3: Add target level status and informations
+- Phase 3: Add target level status and information
 - [NamedSetOfFiles](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L539C9-L539C24)
 - [TargetComplete](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L623C9-L623C23)
 - [TargetConfigured](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L494C9-L494C25)
@@ -170,7 +169,7 @@ my second favourite option is 3.
 
 ## Links
 
-- [BEP explaination](https://bazel.build/remote/bep)
+- [BEP explanation](https://bazel.build/remote/bep)
 - [Bazel's BEP events and glossary](https://bazel.build/remote/bep-glossary)
 - [BES proto definition](https://github.com/googleapis/googleapis/blob/master/google/devtools/build/v1/publish_build_event.proto)
 - [Bazel's events proto definition](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto)

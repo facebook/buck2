@@ -99,7 +99,7 @@ impl LimitedExecutor {
 
 #[derive(Debug, Allocative, Clone, Dupe)]
 pub(crate) struct BxlEvalError {
-    pub(crate) ouput_stream_state: Option<Arc<OutputStreamOutcome>>,
+    pub(crate) output_stream_state: Option<Arc<OutputStreamOutcome>>,
     pub(crate) error: buck2_error::Error,
 }
 
@@ -108,7 +108,7 @@ pub(crate) type Result<T> = std::result::Result<T, BxlEvalError>;
 impl From<buck2_error::Error> for BxlEvalError {
     fn from(value: buck2_error::Error) -> Self {
         Self {
-            ouput_stream_state: None,
+            output_stream_state: None,
             error: value,
         }
     }
@@ -117,7 +117,7 @@ impl From<buck2_error::Error> for BxlEvalError {
 impl From<starlark::Error> for BxlEvalError {
     fn from(value: starlark::Error) -> Self {
         Self {
-            ouput_stream_state: None,
+            output_stream_state: None,
             error: value.into(),
         }
     }
@@ -126,7 +126,7 @@ impl From<starlark::Error> for BxlEvalError {
 impl From<tokio::task::JoinError> for BxlEvalError {
     fn from(value: tokio::task::JoinError) -> Self {
         Self {
-            ouput_stream_state: None,
+            output_stream_state: None,
             error: value.into(),
         }
     }
@@ -260,11 +260,11 @@ impl BxlInnerEvaluator {
                 // that we can still print out the streaming content even if the bxl is cached.
                 .map_err(|e| match stream_state.take_state() {
                     Ok(stream_outcome) => BxlEvalError {
-                        ouput_stream_state: Some(Arc::new(stream_outcome)),
+                        output_stream_state: Some(Arc::new(stream_outcome)),
                         error: e,
                     },
                     Err(_) => BxlEvalError {
-                        ouput_stream_state: None,
+                        output_stream_state: None,
                         error: e,
                     },
                 })?

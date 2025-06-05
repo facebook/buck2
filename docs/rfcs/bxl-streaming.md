@@ -38,7 +38,7 @@ We introduce new apis `ctx.output.stream/stream_json` that would have
 def ctx.output.stream(
     *args,
     sep: str = " ",
-    additonal_waits: List[bxl.EnsuredArtifact] = []
+    additional_waits: List[bxl.EnsuredArtifact] = []
 ) -> None:
     """
     Print arguments either immediately (phase 1) or in a streaming manner (phase 2).

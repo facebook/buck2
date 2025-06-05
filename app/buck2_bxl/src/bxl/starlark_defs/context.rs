@@ -319,7 +319,7 @@ impl BxlContextCoreData {
         )
     }
 
-    pub(crate) fn resolve_target_platfrom(
+    pub(crate) fn resolve_target_platform(
         &self,
         target_platform: ValueAsStarlarkTargetLabel<'_>,
     ) -> buck2_error::Result<Option<TargetLabel>> {
@@ -337,7 +337,7 @@ impl BxlContextCoreData {
         target_platform: ValueAsStarlarkTargetLabel<'_>,
         modifiers: Vec<String>,
     ) -> buck2_error::Result<GlobalCfgOptions> {
-        let target_platform = self.resolve_target_platfrom(target_platform);
+        let target_platform = self.resolve_target_platform(target_platform);
         let global_cfg_options = target_platform.map(|target_platform| GlobalCfgOptions {
             target_platform,
             cli_modifiers: Arc::new(modifiers),

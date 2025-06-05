@@ -341,7 +341,7 @@ computations, that would also result in errors.
 However, if you are not making any assumptions about the existence of these
 artifacts, you can use use
 [`get_path_without_materialization()`](../../../api/bxl#get_path_without_materialization),
-which accepts source, declared, or build aritfacts. It does _not_ accept ensured
+which accepts source, declared, or build artifacts. It does _not_ accept ensured
 artifacts (also see
 [What do I need to know about ensured artifacts](../../faq#what-do-i-need-to-know-about-ensured-artifacts)).
 

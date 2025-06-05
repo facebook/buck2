@@ -226,7 +226,7 @@ full target name of the library.
   ["fbcode//scripts/&lt;unixname&gt;/buck2_lab/greeter_lib:library"]</code> :
   <code>deps = ["root//buck2_lab/greeter_lib:library"]</code> }: This is the
   crucial new part!
-  - `deps` declares dependencies for this target. It accpets a list of targets.
+  - `deps` declares dependencies for this target. It accepts a list of targets.
 
 ## Step 5: Run the Binary
 
@@ -344,7 +344,7 @@ fn main() {
 
 ## Step 7: The Expected Failure - Understanding Direct vs. Transitive Dependencies
 
-Our dependencies realationship is now like this:
+Our dependencies relationship is now like this:
 
 ```mermaid
 graph TD
@@ -357,7 +357,7 @@ graph TD
 
 Let's try to run `main`:
 
-1. Attemp to run the binary:
+1. Attempt to run the binary:
 
 <FbInternalOnly>
 

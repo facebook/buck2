@@ -66,8 +66,8 @@ BXL scripts can query the [action graph](#action-graph),
 
 ## Cell
 
-Originally intented to allow for migration of repositories with different setups
-into one monorepo.The cell root always contains a [.buckconfig](#buckconfig),
+Originally intended to allow for migration of repositories with different setups
+into one monorepo. The cell root always contains a [.buckconfig](#buckconfig),
 although the presence of a .buckconfig file doesn't in itself define a cell.
 Cells are specified in the .buckconfig for the Buck [project](#project).
 
@@ -231,9 +231,9 @@ The Buck2 project maintains and uses an open source
 
 ## Subtarget
 
-Collection of [providers](#provider) that can be accesed by name. The subtargets
-can have their own subtargets as well, which can be accessed by chaining them,
-e.g.: `buck2 build cell//foo:bar[baz][qux]`.
+Collection of [providers](#provider) that can be accessed by name. The
+subtargets can have their own subtargets as well, which can be accessed by
+chaining them, e.g.: `buck2 build cell//foo:bar[baz][qux]`.
 
 ## Target
 

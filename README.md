@@ -74,7 +74,7 @@ If you're familiar with systems like Buck1, [Bazel](https://bazel.build/), or
 and these ideas will be familiar. But then why create Buck2 if those already
 exist? Because that isn't all &mdash; the page
 _["Why Buck2?"](https://buck2.build/docs/about/why/)_ on our website goes into
-more detail on several other important design critera that separate Buck2 from
+more detail on several other important design criteria that separate Buck2 from
 the rest of the pack, including:
 
 - Support for ultra-large repositories, through filesystem virtualization and

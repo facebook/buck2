@@ -231,7 +231,7 @@ ActionSubError {
 }
 
 ActionErrorLocation {
-    # File path where the error appeared, preferrably either project-relative or absolute.
+    # File path where the error appeared, preferably either project-relative or absolute.
     file: str,
 
     # Optional line number
@@ -277,7 +277,7 @@ parsing to fail.
 A number of fields above are marked as being for buck1 backwards compatibility
 only. These fields all have superior alternatives available in the build report
 already. We would strongly prefer that new code neither use nor parse them, as
-this increases the likelyhood that they can be removed one day.
+this increases the likelihood that they can be removed one day.
 
 The build report additionally outputs a few fields that are intentionally not
 documented here. Those fields are even less useful than ones documented as being
@@ -291,7 +291,7 @@ The build report currently has at least the following limitations:
 1.  It includes only one action error per failed target. This is the expected
     behavior when `--keep-going` is not passed, but when `--keep-going` is
     passed, this is a bug.
-1.  It is currently not generated when a non-existant package is specified on
+1.  It is currently not generated when a non-existent package is specified on
     the command line. This is also a bug.
 1.  It cannot be requested for any buck2 command other than `build`
 1.  Errors do not contain any additional metadata outside of the error message.
@@ -300,7 +300,7 @@ The build report currently has at least the following limitations:
     backcompat opt-in flag in the future.
 
 Finally, it's worth raising that the concept of error deduplication has some
-fundamental limitations; if two targets both refer to the same non-existant
+fundamental limitations; if two targets both refer to the same non-existent
 dependency, do those errors have the same cause (the dependency doesn't exist)
 or different causes (each target is individually broken)? As a result, the exact
 details of when two errors are considered to have the same cause are not

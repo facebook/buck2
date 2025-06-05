@@ -98,7 +98,7 @@ For this, function `_main` must be defined to accept the argument `ctx` with
 type [`bxl.Context`](../../api/bxl/Context/)
 
 We can also use [`cli_args`](../../api/bxl/cli_args/) to pass cli args to bxl.
-These args can be accesed in the main function via
+These args can be accessed in the main function via
 [`ctx.cli_args`](../../api/bxl/Context/#contextcli_args).
 
 Here is an example
