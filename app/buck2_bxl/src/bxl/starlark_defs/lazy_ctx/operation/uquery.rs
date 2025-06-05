@@ -49,6 +49,12 @@ pub(crate) enum LazyUqueryOperation {
         depth: Option<i32>,
         filter: Option<String>,
     },
+    Rdeps {
+        universe: OwnedTargetNodeArg,
+        from: OwnedTargetNodeArg,
+        depth: Option<i32>,
+        filter: Option<String>,
+    },
 }
 
 pub(crate) enum LazyUqueryResult {
@@ -59,6 +65,7 @@ pub(crate) enum LazyUqueryResult {
     Inputs(StarlarkFileSet),
     Kind(StarlarkTargetSet<TargetNode>),
     Deps(StarlarkTargetSet<TargetNode>),
+    Rdeps(StarlarkTargetSet<TargetNode>),
 }
 
 impl LazyUqueryResult {
@@ -71,6 +78,7 @@ impl LazyUqueryResult {
             LazyUqueryResult::Inputs(file_set) => Ok(heap.alloc(file_set)),
             LazyUqueryResult::Kind(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::Deps(target_set) => Ok(heap.alloc(target_set)),
+            LazyUqueryResult::Rdeps(target_set) => Ok(heap.alloc(target_set)),
         }
     }
 }
@@ -164,6 +172,26 @@ impl LazyUqueryOperation {
                     .await?;
 
                 Ok(LazyUqueryResult::Deps(StarlarkTargetSet::from(res)))
+            }
+            LazyUqueryOperation::Rdeps {
+                universe,
+                from,
+                depth,
+                filter,
+            } => {
+                let target_set = universe.to_unconfigured_target_set(core_data, dice).await?;
+                let from_set = from.to_unconfigured_target_set(core_data, dice).await?;
+                let filter = filter
+                    .as_ref()
+                    .try_map(|s| buck2_query_parser::parse_expr(s.as_str()))?;
+                let expr = filter.as_ref().map(|expr| CapturedExpr { expr });
+
+                let res = get_uquery_env(core_data)
+                    .await?
+                    .rdeps(dice, &target_set, &from_set, *depth, expr.as_ref())
+                    .await?;
+
+                Ok(LazyUqueryResult::Rdeps(StarlarkTargetSet::from(res)))
             }
         }
     }

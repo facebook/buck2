@@ -6,5 +6,6 @@
 ## LazyUqueryContext.deps
 ## LazyUqueryContext.inputs
 ## LazyUqueryContext.kind
+## LazyUqueryContext.rdeps
 ## LazyUqueryContext.somepath
 ## LazyUqueryContext.testsof

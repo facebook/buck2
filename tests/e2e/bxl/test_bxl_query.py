@@ -415,6 +415,14 @@ async def test_uquery_rdeps(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")
+async def test_uquery_lazy_rdeps(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl/uquery.bxl:lazy_rdeps_test",
+    )
+    assert result.stdout == "[root//bin:the_binary, root//lib:lib1, root//lib:file1]\n"
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_query_deps(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/uquery.bxl:deps_test",
