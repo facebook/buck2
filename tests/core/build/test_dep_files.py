@@ -316,7 +316,7 @@ async def _check_uploaded_dep_file_key(buck: Buck, dep_file_key: str) -> None:
 @env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
 async def test_re_dep_file_uploads_same_key(buck: Buck) -> None:
     # Test all the cases where the remote dep file key should stay the same
-    target = "root//:dep_files1"
+    target = "root//:dep_files"
     tagged_used_file1 = buck.cwd / "used.1"  # Used for depfile 0
     tagged_used_file3 = buck.cwd / "used.3"  # Used for depfile 1
     assert tagged_used_file1.exists()
@@ -356,7 +356,7 @@ async def test_re_dep_file_uploads_different_key(buck: Buck) -> None:
     # Include it so we can test for the case where the mergebase differs
 
     keys_seen = []
-    target = "root//:dep_files1"
+    target = "root//:dep_files"
     untagged_file1 = buck.cwd / "untagged.1"
     assert untagged_file1.exists()
     targets_file = buck.cwd / "TARGETS.fixture"
@@ -416,7 +416,7 @@ async def test_dep_file_does_not_upload_when_allow_cache_upload_is_true(
     buck: Buck,
 ) -> None:
     target = [
-        "root//:dep_files1",
+        "root//:dep_files",
         "-c",
         "test.allow_dep_file_cache_upload=false",
         "-c",
@@ -441,7 +441,7 @@ async def test_only_do_cache_lookup_when_dep_file_upload_is_enabled(
     buck: Buck,
 ) -> None:
     target = [
-        "root//:dep_files1",
+        "root//:dep_files",
         "-c",
         "test.allow_dep_file_cache_upload=false",
         "-c",
@@ -456,7 +456,7 @@ async def test_only_do_cache_lookup_when_dep_file_upload_is_enabled(
     await check_no_cache_query(buck)
 
     target = [
-        "root//:dep_files1",
+        "root//:dep_files",
         "-c",
         "test.allow_dep_file_cache_upload=true",
         "-c",
@@ -476,7 +476,7 @@ async def test_only_do_cache_lookup_when_dep_file_upload_is_enabled(
 @env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
 async def test_re_dep_file_remote_upload(buck: Buck) -> None:
     target = [
-        "root//:dep_files1",
+        "root//:dep_files",
         "-c",
         "test.allow_dep_file_cache_upload=true",
         "-c",
@@ -495,7 +495,7 @@ async def test_re_dep_file_remote_upload(buck: Buck) -> None:
 @env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
 async def test_re_dep_file_cache_hit_upload(buck: Buck, tmpdir: Path) -> None:
     target = [
-        "root//:dep_files1",
+        "root//:dep_files",
         "--remote-only",
         "-c",
         # Ensure we don't get a dep file cache hit
@@ -532,7 +532,7 @@ async def test_re_dep_file_cache_hit_upload(buck: Buck, tmpdir: Path) -> None:
     # Simulate 'user' build, with action cache hit from previous build and dep file cache checking enabled.
     await buck.clean()
     await buck.build(
-        "root//:dep_files1",
+        "root//:dep_files",
         "--remote-only",
         "-c",
         "test.remote_dep_file_cache_enabled=true",
@@ -581,7 +581,7 @@ async def check_remote_dep_file_cache_query_took_place(buck: Buck) -> str:
 # Disable the regular action cache query so that we actually hit the remote dep file cache query.
 @env("BUCK2_TEST_ONLY_REMOTE_DEP_FILE_CACHE", "true")
 async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
-    target = "root//:dep_files1"
+    target = "root//:dep_files"
     # Tagged for depfile0, and exists in depfile0
     tagged_used_file1 = buck.cwd / "used.1"
     # Tagged for depfile0, but does NOT exist in depfile0
@@ -679,7 +679,7 @@ async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
 # Disable the regular action cache query so that we actually hit the remote dep file cache query.
 @env("BUCK2_TEST_ONLY_REMOTE_DEP_FILE_CACHE", "true")
 async def test_re_dep_file_query_change_tagged_used_file(buck: Buck) -> None:
-    target = "root//:dep_files2"
+    target = "root//:dep_files"
     # Tagged for depfile0, and exists in depfile0
     tagged_used_file1 = buck.cwd / "used.1"
     # Tagged for depfile0, but does NOT exist in depfile0
