@@ -334,6 +334,15 @@ async def test_uquery_filter(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")
+async def test_uquery_lazy_filter(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl:uquery.bxl:lazy_filter_test",
+    )
+
+    assert "root//bin:the_binary" in result.stdout
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_uquery_attrregex_filter(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/uquery.bxl:attrregexfilter_test",

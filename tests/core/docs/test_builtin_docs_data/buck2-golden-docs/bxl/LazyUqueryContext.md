@@ -4,6 +4,7 @@
 ## LazyUqueryContext.allpaths
 ## LazyUqueryContext.attrfilter
 ## LazyUqueryContext.deps
+## LazyUqueryContext.filter
 ## LazyUqueryContext.inputs
 ## LazyUqueryContext.kind
 ## LazyUqueryContext.rdeps
