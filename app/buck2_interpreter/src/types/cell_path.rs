@@ -62,8 +62,17 @@ impl<'v> StarlarkValue<'v> for StarlarkCellPath {
     }
 }
 
+/// A [cell](../../../concepts/key_concepts/#cells) and path relative to the cell.
+///
+/// `CellPath`s are seen in labels like [`TargetLabel`](../TargetLabel) and
+/// [`ProvidersLabel`](../ProvidersLabel).
 #[starlark_module]
 fn cell_path_methods(builder: &mut MethodsBuilder) {
+    /// Create a new `CellPath` by joining a path to this path.
+    ///
+    /// The path components are
+    /// [normalized](https://docs.rs/relative-path/1.9.3/relative_path/struct.RelativePath.html#method.normalize),
+    /// e.g. `puppy/../doggy` will become `doggy`.
     fn add(this: &StarlarkCellPath, arg: &str) -> starlark::Result<StarlarkCellPath> {
         Ok(StarlarkCellPath((this).0.join_normalized(arg)?))
     }
