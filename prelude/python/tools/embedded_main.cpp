@@ -63,8 +63,7 @@ int main(int argc, char* argv[]) {
       return *exit_code;
     }
   }
-
-#if PY_MINOR_VERSION >= 10
+#if PY_VERSION_HEX >= 0x030a0000 // 3.10
   status = PyConfig_SetBytesArgv(&config, argc, argv);
 #else
   // Read all configuration at once.
@@ -76,7 +75,7 @@ int main(int argc, char* argv[]) {
     }
   }
 
-#if PY_MINOR_VERSION >= 10
+#if PY_VERSION_HEX >= 0x030a0000 // 3.10
   // Read all configuration at once.
   status = PyConfig_Read(&config);
 #else
