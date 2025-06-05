@@ -238,6 +238,9 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (10, 4, 0),
         "watchos": (2, 0, 0),
     },
+    "CoreDisplay": {
+        "macosx": (10, 8, 0),
+    },
     "CoreFoundation": {
         "appletvos": (9, 0, 0),
         "iphoneos": (2, 0, 0),

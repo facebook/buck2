@@ -26,6 +26,7 @@ load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 _IMPLICIT_SDKROOT_FRAMEWORK_SEARCH_PATHS = [
     "$SDKROOT/Library/Frameworks",
     "$SDKROOT/System/Library/Frameworks",
+    "$SDKROOT/System/Library/PrivateFrameworks",
 ]
 
 def apple_create_frameworks_linkable(ctx: AnalysisContext) -> [FrameworksLinkable, None]:
