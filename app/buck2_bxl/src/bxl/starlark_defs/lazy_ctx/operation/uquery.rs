@@ -64,6 +64,9 @@ pub(crate) enum LazyUqueryOperation {
     Owner {
         files: OwnedFileSetExpr,
     },
+    TargetsInBuildfile {
+        files: OwnedFileSetExpr,
+    },
 }
 
 pub(crate) enum LazyUqueryResult {
@@ -78,6 +81,7 @@ pub(crate) enum LazyUqueryResult {
     Filter(StarlarkTargetSet<TargetNode>),
     Buildfile(StarlarkFileSet),
     Owner(StarlarkTargetSet<TargetNode>),
+    TargetsInBuildfile(StarlarkTargetSet<TargetNode>),
 }
 
 impl LazyUqueryResult {
@@ -94,6 +98,7 @@ impl LazyUqueryResult {
             LazyUqueryResult::Filter(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::Buildfile(file_set) => Ok(heap.alloc(file_set)),
             LazyUqueryResult::Owner(target_set) => Ok(heap.alloc(target_set)),
+            LazyUqueryResult::TargetsInBuildfile(target_set) => Ok(heap.alloc(target_set)),
         }
     }
 }
@@ -231,6 +236,18 @@ impl LazyUqueryOperation {
                     .await?;
 
                 Ok(LazyUqueryResult::Owner(StarlarkTargetSet::from(res)))
+            }
+            LazyUqueryOperation::TargetsInBuildfile { files } => {
+                let file_set = files.get(core_data)?;
+
+                let res = get_uquery_env(core_data)
+                    .await?
+                    .targets_in_buildfile(dice, &file_set)
+                    .await?;
+
+                Ok(LazyUqueryResult::TargetsInBuildfile(
+                    StarlarkTargetSet::from(res),
+                ))
             }
         }
     }

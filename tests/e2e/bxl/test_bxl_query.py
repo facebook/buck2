@@ -434,6 +434,17 @@ async def test_uquery_targets_in_buildfile(buck: Buck) -> None:
     )
 
 
+@buck_test(inplace=False, data_dir="bxl/simple")
+async def test_uquery_lazy_targets_in_buildfile(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl/uquery.bxl:lazy_targets_in_buildfile_test",
+    )
+    assert (
+        result.stdout
+        == "[root//bin:the_binary, root//bin:the_binary_with_dir_srcs, root//bin:platform]\n"
+    )
+
+
 @buck_test(inplace=False, data_dir="bxl/simple", allow_soft_errors=True)
 async def test_uquery_buildfile(buck: Buck) -> None:
     await buck.bxl("//bxl/uquery.bxl:buildfile_test")

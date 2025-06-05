@@ -11,4 +11,5 @@
 ## LazyUqueryContext.owner
 ## LazyUqueryContext.rdeps
 ## LazyUqueryContext.somepath
+## LazyUqueryContext.targets\_in\_buildfile
 ## LazyUqueryContext.testsof

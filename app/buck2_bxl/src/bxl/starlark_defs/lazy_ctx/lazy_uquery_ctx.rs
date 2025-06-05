@@ -273,4 +273,20 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
         let op = LazyUqueryOperation::Owner { files };
         Ok(StarlarkLazy::new_uquery(op))
     }
+
+    /// Finds targets defined in the specified build files.
+    ///
+    /// Example:
+    /// ```python
+    /// res = ctx.lazy.uquery().targets_in_buildfile("bin/TARGETS.fixture").catch().resolve()
+    /// res = ctx.lazy.uquery().targets_in_buildfile(["bin/TARGETS", "lib/TARGETS"]).catch().resolve()
+    /// ```
+    fn targets_in_buildfile<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
+        #[starlark(require = pos)] files: FileSetExpr<'v>,
+    ) -> anyhow::Result<StarlarkLazy> {
+        let files = OwnedFileSetExpr::from_ref(&files);
+        let op = LazyUqueryOperation::TargetsInBuildfile { files };
+        Ok(StarlarkLazy::new_uquery(op))
+    }
 }
