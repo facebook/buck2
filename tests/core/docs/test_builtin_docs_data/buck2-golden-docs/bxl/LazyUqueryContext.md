@@ -2,4 +2,5 @@
 
 # LazyUqueryContext
 ## LazyUqueryContext.allpaths
+## LazyUqueryContext.somepath
 ## LazyUqueryContext.testsof

@@ -78,6 +78,25 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
         Ok(StarlarkLazy::new_uquery(op))
     }
 
+    /// Computes some dependency path from `from` to `to`, with optional filter.
+    ///
+    /// Example:
+    /// ```python
+    /// res = ctx.lazy.uquery().somepath("//:foo", "//:bar", filter = "attrfilter('name', 'some_name', target_deps()")).catch().resolve()
+    /// ```
+    fn somepath<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
+        #[starlark(require = pos)] from: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = pos)] to: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = named, default = NoneOr::None)] filter: NoneOr<&'v str>,
+    ) -> anyhow::Result<StarlarkLazy> {
+        let from = OwnedTargetNodeArg::from_ref(&from);
+        let to = OwnedTargetNodeArg::from_ref(&to);
+        let filter = filter.into_option().map(|s| s.to_owned());
+        let op = LazyUqueryOperation::SomePath { from, to, filter };
+        Ok(StarlarkLazy::new_uquery(op))
+    }
+
     /// Querying the test targets of the given target.
     /// It returns `UnconfiguredTargetSet`
     ///

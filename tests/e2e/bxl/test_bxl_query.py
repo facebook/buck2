@@ -265,6 +265,28 @@ async def test_uquery_somepath_filtered(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")
+async def test_uquery_lazy_somepath(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl:uquery.bxl:lazy_somepath_test",
+    )
+
+    assert "[root//graph:one, root//graph:two, root//graph:three]\n" == result.stdout
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
+async def test_uquery_lazy_somepath_filtered(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl:uquery.bxl:lazy_somepath_filtered_test",
+    )
+
+    assert (
+        "[root//graph:one, root//graph:ten, root//graph:twenty]\n"
+        + "[root//graph:one, root//graph:five, root//graph:six, root//graph:twenty]\n"
+        == result.stdout
+    )
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_uquery_kind(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:uquery.bxl:kind_test",

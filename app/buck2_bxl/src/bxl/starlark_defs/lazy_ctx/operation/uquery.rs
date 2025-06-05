@@ -28,11 +28,17 @@ pub(crate) enum LazyUqueryOperation {
         to: OwnedTargetNodeArg,
         filter: Option<String>,
     },
+    SomePath {
+        from: OwnedTargetNodeArg,
+        to: OwnedTargetNodeArg,
+        filter: Option<String>,
+    },
 }
 
 pub(crate) enum LazyUqueryResult {
     TestsOf(StarlarkTargetSet<TargetNode>),
     AllPaths(StarlarkTargetSet<TargetNode>),
+    SomePath(StarlarkTargetSet<TargetNode>),
 }
 
 impl LazyUqueryResult {
@@ -40,6 +46,7 @@ impl LazyUqueryResult {
         match self {
             LazyUqueryResult::TestsOf(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::AllPaths(target_set) => Ok(heap.alloc(target_set)),
+            LazyUqueryResult::SomePath(target_set) => Ok(heap.alloc(target_set)),
         }
     }
 }
@@ -75,6 +82,21 @@ impl LazyUqueryOperation {
                     .await?;
 
                 Ok(LazyUqueryResult::AllPaths(StarlarkTargetSet::from(res)))
+            }
+            LazyUqueryOperation::SomePath { from, to, filter } => {
+                let from = from.to_unconfigured_target_set(core_data, dice).await?;
+                let to = to.to_unconfigured_target_set(core_data, dice).await?;
+                let filter = filter
+                    .as_ref()
+                    .try_map(|s| buck2_query_parser::parse_expr(s.as_str()))?;
+                let expr = filter.as_ref().map(|expr| CapturedExpr { expr });
+
+                let res = get_uquery_env(core_data)
+                    .await?
+                    .somepath(dice, &from, &to, expr.as_ref())
+                    .await?;
+
+                Ok(LazyUqueryResult::SomePath(StarlarkTargetSet::from(res)))
             }
         }
     }
