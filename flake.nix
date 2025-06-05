@@ -31,17 +31,14 @@
 
     in {
       devShells.default = pkgs.mkShell {
-        buildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
-          CoreFoundation
-          CoreServices
-          IOKit
-          Security
+        buildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux ([
+          pkgs.mold-wrapped
         ]) ++ [
           # NOTE (aseipp): needed on aarch64-linux, so that the linker can
           # properly find libatomic.so, but harmless elsewhere
           pkgs.stdenv.cc.cc
         ];
-        packages = [ pkgs.cargo-bloat my-rust-bin pkgs.mold-wrapped pkgs.reindeer pkgs.lld_16 pkgs.clang_16 ];
+        packages = [ my-rust-bin pkgs.dotslash pkgs.python3 pkgs.lld_20 pkgs.clang_20 ];
         shellHook =
           ''
             export BUCK2_BUILD_PROTOC=${pkgs.protobuf}/bin/protoc
