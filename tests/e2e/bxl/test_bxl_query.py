@@ -400,6 +400,30 @@ async def test_uquery_owner_list(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")
+async def test_uquery_lazy_owner(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl/uquery.bxl:lazy_owner_test",
+    )
+    assert result.stdout == "[root//bin:the_binary]\n"
+
+    result = await buck.bxl(
+        "//bxl/uquery.bxl:lazy_owner_with_cell_path_test",
+    )
+    assert _replace_hash(result.stdout) == "[root//bin:the_binary]\n"
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
+async def test_uquery_lazy_owner_list(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl/uquery.bxl:lazy_owner_list_test",
+    )
+    assert (
+        _replace_hash(result.stdout)
+        == "[root//bin:the_binary, root//bin:the_binary_with_dir_srcs]\n"
+    )
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_uquery_targets_in_buildfile(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/uquery.bxl:targets_in_buildfile_test",

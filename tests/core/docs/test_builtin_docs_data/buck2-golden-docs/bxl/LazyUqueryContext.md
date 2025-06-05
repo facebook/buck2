@@ -8,6 +8,7 @@
 ## LazyUqueryContext.filter
 ## LazyUqueryContext.inputs
 ## LazyUqueryContext.kind
+## LazyUqueryContext.owner
 ## LazyUqueryContext.rdeps
 ## LazyUqueryContext.somepath
 ## LazyUqueryContext.testsof

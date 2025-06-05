@@ -22,6 +22,8 @@ use starlark::values::Trace;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 
+use crate::bxl::starlark_defs::file_set::FileSetExpr;
+use crate::bxl::starlark_defs::file_set::OwnedFileSetExpr;
 use crate::bxl::starlark_defs::lazy_ctx::operation::StarlarkLazy;
 use crate::bxl::starlark_defs::lazy_ctx::operation::uquery::LazyUqueryOperation;
 use crate::bxl::starlark_defs::target_list_expr::OwnedTargetNodeArg;
@@ -253,6 +255,22 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkLazy> {
         let targets = OwnedTargetNodeArg::from_ref(&targets);
         let op = LazyUqueryOperation::Buildfile(targets);
+        Ok(StarlarkLazy::new_uquery(op))
+    }
+
+    /// Finds targets that own the specified files.
+    ///
+    /// Example:
+    /// ```python
+    /// res = ctx.lazy.uquery().owner("bin/TARGETS.fixture").catch().resolve()
+    /// res = ctx.lazy.uquery().owner(["bin/TARGET", "bin/kind"]).catch().resolve()
+    /// ```
+    fn owner<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
+        #[starlark(require = pos)] files: FileSetExpr<'v>,
+    ) -> anyhow::Result<StarlarkLazy> {
+        let files = OwnedFileSetExpr::from_ref(&files);
+        let op = LazyUqueryOperation::Owner { files };
         Ok(StarlarkLazy::new_uquery(op))
     }
 }

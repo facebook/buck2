@@ -38,6 +38,7 @@ use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
+use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 
 /// FileSetExpr is just a simple type that can be used in starlark_module
@@ -68,6 +69,45 @@ impl<'a> FileSetExpr<'a> {
                 Cow::Owned(file_set)
             }
             FileSetExpr::FileSet(val) => Cow::Borrowed(&val.0),
+        };
+        Ok(set)
+    }
+}
+
+#[derive(Debug, Clone, Allocative)]
+pub(crate) enum OwnedFileSetExpr {
+    Literal(String),
+    Literals(Vec<String>),
+    FileSet(FileSet),
+}
+
+impl OwnedFileSetExpr {
+    pub(crate) fn from_ref(expr: &FileSetExpr) -> Self {
+        match expr {
+            FileSetExpr::Literal(val) => Self::Literal(val.to_string()),
+            FileSetExpr::Literals(val) => {
+                Self::Literals(val.items.iter().map(|s| s.to_string()).collect())
+            }
+            FileSetExpr::FileSet(val) => Self::FileSet(val.0.clone()),
+        }
+    }
+
+    pub(crate) fn get<'a>(
+        &'a self,
+        core_data: &BxlContextCoreData,
+    ) -> buck2_error::Result<Cow<'a, FileSet>> {
+        let set = match self {
+            OwnedFileSetExpr::Literal(val) => Cow::Owned(FileSet::from_iter([FileNode(
+                core_data.parse_query_file_literal(val)?,
+            )])),
+            OwnedFileSetExpr::Literals(val) => {
+                let mut file_set = FileSet::new(IndexSet::new());
+                for arg in val {
+                    file_set.insert(FileNode(core_data.parse_query_file_literal(arg)?));
+                }
+                Cow::Owned(file_set)
+            }
+            OwnedFileSetExpr::FileSet(val) => Cow::Borrowed(val),
         };
         Ok(set)
     }
