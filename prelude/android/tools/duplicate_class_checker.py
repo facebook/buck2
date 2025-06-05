@@ -135,14 +135,16 @@ def build_validation_message(
     messages = []
     for class_name, targets in duplicate_classes.items():
         targets_str = ", ".join(sorted(targets))
-        messages.extend(
-            [f"* {class_name} exists in the following targets: {targets_str}", "\n"]
+        messages.append(
+            f"* {class_name} exists in the following targets: {targets_str}\n",
         )
     return f"""
 Duplicate class name(s) found:
-{''.join(messages)}
+
 This means multiple copies of the same class is being included in the final apk.
-Check the class names and the target names listed above and make sure to only include one copy of each class.
+Check the class names and the target names listed below and make sure to only include one copy of each class.
+
+{''.join(messages)}
         """
 
 
