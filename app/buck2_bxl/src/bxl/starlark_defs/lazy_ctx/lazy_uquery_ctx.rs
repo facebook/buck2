@@ -152,6 +152,29 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
         Ok(StarlarkLazy::new_uquery(op))
     }
 
+    /// Finds the [transitive closure](https://en.wikipedia.org/wiki/Transitive_closure) of dependencies.
+    ///
+    /// Example:
+    /// ```python
+    /// res = ctx.lazy.uquery().deps("//:foo", 1, filter = "attrfilter('name', 'some_name', target_deps())").catch().resolve()
+    /// ```
+    fn deps<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
+        #[starlark(require = pos)] universe: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = pos, default = NoneOr::None)] depth: NoneOr<i32>,
+        #[starlark(require = named, default = NoneOr::None)] filter: NoneOr<&'v str>,
+    ) -> anyhow::Result<StarlarkLazy> {
+        let universe = OwnedTargetNodeArg::from_ref(&universe);
+        let depth = depth.into_option();
+        let filter = filter.into_option().map(|s| s.to_owned());
+        let op = LazyUqueryOperation::Deps {
+            universe,
+            depth,
+            filter,
+        };
+        Ok(StarlarkLazy::new_uquery(op))
+    }
+
     /// Querying the test targets of the given target.
     /// It returns `UnconfiguredTargetSet`
     ///

@@ -3,6 +3,7 @@
 # LazyUqueryContext
 ## LazyUqueryContext.allpaths
 ## LazyUqueryContext.attrfilter
+## LazyUqueryContext.deps
 ## LazyUqueryContext.inputs
 ## LazyUqueryContext.kind
 ## LazyUqueryContext.somepath

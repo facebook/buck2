@@ -425,6 +425,17 @@ async def test_query_deps(buck: Buck) -> None:
     )
 
 
+@buck_test(inplace=False, data_dir="bxl/simple")
+async def test_uquery_lazy_deps(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl/uquery.bxl:lazy_deps_test",
+    )
+    assert (
+        result.stdout
+        == "[root//bin:the_binary, root//:data, root//lib:lib1, root//lib:lib2, root//lib:lib3, root//:foo_toolchain, root//:bin]\n"
+    )
+
+
 @buck_test(inplace=False, data_dir="testsof")
 async def test_uquery_testsof(buck: Buck) -> None:
     result = await buck.bxl(
