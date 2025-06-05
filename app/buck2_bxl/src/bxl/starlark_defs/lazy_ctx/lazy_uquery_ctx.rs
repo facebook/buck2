@@ -26,8 +26,8 @@ use crate::bxl::starlark_defs::file_set::FileSetExpr;
 use crate::bxl::starlark_defs::file_set::OwnedFileSetExpr;
 use crate::bxl::starlark_defs::lazy_ctx::operation::StarlarkLazy;
 use crate::bxl::starlark_defs::lazy_ctx::operation::uquery::LazyUqueryOperation;
-use crate::bxl::starlark_defs::target_list_expr::OwnedTargetNodeArg;
-use crate::bxl::starlark_defs::target_list_expr::TargetNodeOrTargetLabelOrStr;
+use crate::bxl::starlark_defs::target_list_expr::OwnedTargetListExprArg;
+use crate::bxl::starlark_defs::target_list_expr::TargetListExprArg;
 use crate::bxl::starlark_defs::uquery::UnpackUnconfiguredQueryArgs;
 
 #[derive(
@@ -70,12 +70,12 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn allpaths<'v>(
         #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
-        #[starlark(require = pos)] from: TargetNodeOrTargetLabelOrStr<'v>,
-        #[starlark(require = pos)] to: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = pos)] from: TargetListExprArg<'v>,
+        #[starlark(require = pos)] to: TargetListExprArg<'v>,
         #[starlark(require = named, default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkLazy> {
-        let from = OwnedTargetNodeArg::from_ref(&from);
-        let to = OwnedTargetNodeArg::from_ref(&to);
+        let from = OwnedTargetListExprArg::from_ref(&from);
+        let to = OwnedTargetListExprArg::from_ref(&to);
         let filter = filter.into_option().map(|s| s.to_owned());
         let op = LazyUqueryOperation::AllPaths { from, to, filter };
         Ok(StarlarkLazy::new_uquery(op))
@@ -89,12 +89,12 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn somepath<'v>(
         #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
-        #[starlark(require = pos)] from: TargetNodeOrTargetLabelOrStr<'v>,
-        #[starlark(require = pos)] to: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = pos)] from: TargetListExprArg<'v>,
+        #[starlark(require = pos)] to: TargetListExprArg<'v>,
         #[starlark(require = named, default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkLazy> {
-        let from = OwnedTargetNodeArg::from_ref(&from);
-        let to = OwnedTargetNodeArg::from_ref(&to);
+        let from = OwnedTargetListExprArg::from_ref(&from);
+        let to = OwnedTargetListExprArg::from_ref(&to);
         let filter = filter.into_option().map(|s| s.to_owned());
         let op = LazyUqueryOperation::SomePath { from, to, filter };
         Ok(StarlarkLazy::new_uquery(op))
@@ -110,11 +110,11 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
         #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
         #[starlark(require = pos)] attr: &'v str,
         #[starlark(require = pos)] value: &'v str,
-        #[starlark(require = pos)] targets: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = pos)] targets: TargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkLazy> {
         let attr = attr.to_owned();
         let value = value.to_owned();
-        let targets = OwnedTargetNodeArg::from_ref(&targets);
+        let targets = OwnedTargetListExprArg::from_ref(&targets);
         let op = LazyUqueryOperation::AttrFilter {
             attr,
             value,
@@ -131,9 +131,9 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn inputs<'v>(
         #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
-        #[starlark(require = pos)] targets: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = pos)] targets: TargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkLazy> {
-        let targets = OwnedTargetNodeArg::from_ref(&targets);
+        let targets = OwnedTargetListExprArg::from_ref(&targets);
         let op = LazyUqueryOperation::Inputs(targets);
         Ok(StarlarkLazy::new_uquery(op))
     }
@@ -147,10 +147,10 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
     fn kind<'v>(
         #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
         #[starlark(require = pos)] regex: &'v str,
-        #[starlark(require = pos)] targets: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = pos)] targets: TargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkLazy> {
         let regex = regex.to_owned();
-        let targets = OwnedTargetNodeArg::from_ref(&targets);
+        let targets = OwnedTargetListExprArg::from_ref(&targets);
         let op = LazyUqueryOperation::Kind { regex, targets };
         Ok(StarlarkLazy::new_uquery(op))
     }
@@ -163,11 +163,11 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn deps<'v>(
         #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
-        #[starlark(require = pos)] universe: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = pos)] universe: TargetListExprArg<'v>,
         #[starlark(require = pos, default = NoneOr::None)] depth: NoneOr<i32>,
         #[starlark(require = named, default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkLazy> {
-        let universe = OwnedTargetNodeArg::from_ref(&universe);
+        let universe = OwnedTargetListExprArg::from_ref(&universe);
         let depth = depth.into_option();
         let filter = filter.into_option().map(|s| s.to_owned());
         let op = LazyUqueryOperation::Deps {
@@ -186,13 +186,13 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn rdeps<'v>(
         #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
-        #[starlark(require = pos)] universe: TargetNodeOrTargetLabelOrStr<'v>,
-        #[starlark(require = pos)] from: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = pos)] universe: TargetListExprArg<'v>,
+        #[starlark(require = pos)] from: TargetListExprArg<'v>,
         #[starlark(require = pos, default = NoneOr::None)] depth: NoneOr<i32>,
         #[starlark(require = named, default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkLazy> {
-        let universe = OwnedTargetNodeArg::from_ref(&universe);
-        let from = OwnedTargetNodeArg::from_ref(&from);
+        let universe = OwnedTargetListExprArg::from_ref(&universe);
+        let from = OwnedTargetListExprArg::from_ref(&from);
         let depth = depth.into_option();
         let filter = filter.into_option().map(|s| s.to_owned());
         let op = LazyUqueryOperation::Rdeps {
@@ -213,10 +213,10 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
     fn filter<'v>(
         #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
         #[starlark(require = pos)] regex: &'v str,
-        #[starlark(require = pos)] targets: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = pos)] targets: TargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkLazy> {
         let regex = regex.to_owned();
-        let targets = OwnedTargetNodeArg::from_ref(&targets);
+        let targets = OwnedTargetListExprArg::from_ref(&targets);
         let op = LazyUqueryOperation::Filter { regex, targets };
         Ok(StarlarkLazy::new_uquery(op))
     }
@@ -237,9 +237,9 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn testsof<'v>(
         #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
-        #[starlark(require = pos)] expr: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = pos)] expr: TargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkLazy> {
-        let expr = OwnedTargetNodeArg::from_ref(&expr);
+        let expr = OwnedTargetListExprArg::from_ref(&expr);
         let op = LazyUqueryOperation::TestsOf(expr);
         Ok(StarlarkLazy::new_uquery(op))
     }
@@ -252,9 +252,9 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn buildfile<'v>(
         #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
-        #[starlark(require = pos)] targets: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = pos)] targets: TargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkLazy> {
-        let targets = OwnedTargetNodeArg::from_ref(&targets);
+        let targets = OwnedTargetListExprArg::from_ref(&targets);
         let op = LazyUqueryOperation::Buildfile(targets);
         Ok(StarlarkLazy::new_uquery(op))
     }
@@ -301,11 +301,11 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
         #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
         #[starlark(require = pos)] attr: &'v str,
         #[starlark(require = pos)] value: &'v str,
-        #[starlark(require = pos)] targets: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = pos)] targets: TargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkLazy> {
         let attr = attr.to_owned();
         let value = value.to_owned();
-        let targets = OwnedTargetNodeArg::from_ref(&targets);
+        let targets = OwnedTargetListExprArg::from_ref(&targets);
         let op = LazyUqueryOperation::AttrRegexFilter {
             attr,
             value,

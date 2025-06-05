@@ -21,54 +21,54 @@ use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::file_set::OwnedFileSetExpr;
 use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
-use crate::bxl::starlark_defs::target_list_expr::OwnedTargetNodeArg;
+use crate::bxl::starlark_defs::target_list_expr::OwnedTargetListExprArg;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::get_uquery_env;
 
 #[derive(Debug, Allocative)]
 pub(crate) enum LazyUqueryOperation {
-    TestsOf(OwnedTargetNodeArg),
+    TestsOf(OwnedTargetListExprArg),
     AllPaths {
-        from: OwnedTargetNodeArg,
-        to: OwnedTargetNodeArg,
+        from: OwnedTargetListExprArg,
+        to: OwnedTargetListExprArg,
         filter: Option<String>,
     },
     SomePath {
-        from: OwnedTargetNodeArg,
-        to: OwnedTargetNodeArg,
+        from: OwnedTargetListExprArg,
+        to: OwnedTargetListExprArg,
         filter: Option<String>,
     },
     AttrFilter {
         attr: String,
         value: String,
-        targets: OwnedTargetNodeArg,
+        targets: OwnedTargetListExprArg,
     },
     AttrRegexFilter {
         attr: String,
         value: String,
-        targets: OwnedTargetNodeArg,
+        targets: OwnedTargetListExprArg,
     },
-    Inputs(OwnedTargetNodeArg),
+    Inputs(OwnedTargetListExprArg),
     Kind {
         regex: String,
-        targets: OwnedTargetNodeArg,
+        targets: OwnedTargetListExprArg,
     },
     Deps {
-        universe: OwnedTargetNodeArg,
+        universe: OwnedTargetListExprArg,
         depth: Option<i32>,
         filter: Option<String>,
     },
     Rdeps {
-        universe: OwnedTargetNodeArg,
-        from: OwnedTargetNodeArg,
+        universe: OwnedTargetListExprArg,
+        from: OwnedTargetListExprArg,
         depth: Option<i32>,
         filter: Option<String>,
     },
     Filter {
         regex: String,
-        targets: OwnedTargetNodeArg,
+        targets: OwnedTargetListExprArg,
     },
-    Buildfile(OwnedTargetNodeArg),
+    Buildfile(OwnedTargetListExprArg),
     Owner {
         files: OwnedFileSetExpr,
     },

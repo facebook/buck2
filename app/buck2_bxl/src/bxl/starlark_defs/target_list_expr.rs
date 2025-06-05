@@ -823,3 +823,56 @@ impl OwnedTargetNodeArg {
         }
     }
 }
+
+#[derive(Debug, Clone, Allocative)]
+pub(crate) enum OwnedTargetListExprArg {
+    Target(OwnedTargetNodeArg),
+    TargetSet(TargetSet<TargetNode>),
+    TargetList(Vec<OwnedTargetNodeArg>),
+}
+
+impl OwnedTargetListExprArg {
+    pub(crate) fn from_ref(expr: &TargetListExprArg<'_>) -> Self {
+        match expr {
+            TargetListExprArg::Target(target) => {
+                OwnedTargetListExprArg::Target(OwnedTargetNodeArg::from_ref(target))
+            }
+            TargetListExprArg::List(list) => match list {
+                TargetSetOrTargetList::TargetSet(set) => {
+                    OwnedTargetListExprArg::TargetSet(set.0.clone())
+                }
+                TargetSetOrTargetList::TargetList(list) => {
+                    let owned_targets = list
+                        .items
+                        .iter()
+                        .map(|item| OwnedTargetNodeArg::from_ref(&item.typed))
+                        .collect();
+                    OwnedTargetListExprArg::TargetList(owned_targets)
+                }
+            },
+        }
+    }
+
+    pub(crate) async fn to_unconfigured_target_set(
+        &self,
+        ctx: &BxlContextCoreData,
+        dice: &mut DiceComputations<'_>,
+    ) -> buck2_error::Result<StarlarkTargetSet<TargetNode>> {
+        match self {
+            OwnedTargetListExprArg::Target(target) => {
+                target.to_unconfigured_target_set(ctx, dice).await
+            }
+            OwnedTargetListExprArg::TargetSet(target_set) => {
+                Ok(StarlarkTargetSet(target_set.clone()))
+            }
+            OwnedTargetListExprArg::TargetList(targets) => {
+                let mut result = TargetSet::new();
+                for target in targets {
+                    let target_set = target.to_unconfigured_target_set(ctx, dice).await?;
+                    result.extend(&target_set.0);
+                }
+                Ok(StarlarkTargetSet(result))
+            }
+        }
+    }
+}
