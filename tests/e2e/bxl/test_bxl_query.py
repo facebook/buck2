@@ -306,6 +306,15 @@ async def test_uquery_inputs(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")
+async def test_uquery_lazy_inputs(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl:uquery.bxl:lazy_inputs_test",
+    )
+
+    assert "TARGETS.fixture" in result.stdout
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_uquery_filter(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:uquery.bxl:filter_test",

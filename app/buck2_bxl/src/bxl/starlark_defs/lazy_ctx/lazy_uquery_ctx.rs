@@ -120,6 +120,21 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
         Ok(StarlarkLazy::new_uquery(op))
     }
 
+    /// Finds input files for the given targets.
+    ///
+    /// Example:
+    /// ```python
+    /// res = ctx.lazy.uquery().inputs("//:foo").catch().resolve()
+    /// ```
+    fn inputs<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
+        #[starlark(require = pos)] targets: TargetNodeOrTargetLabelOrStr<'v>,
+    ) -> anyhow::Result<StarlarkLazy> {
+        let targets = OwnedTargetNodeArg::from_ref(&targets);
+        let op = LazyUqueryOperation::Inputs(targets);
+        Ok(StarlarkLazy::new_uquery(op))
+    }
+
     /// Querying the test targets of the given target.
     /// It returns `UnconfiguredTargetSet`
     ///

@@ -16,6 +16,7 @@ use starlark::values::Heap;
 use starlark::values::Value;
 
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
+use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
 use crate::bxl::starlark_defs::target_list_expr::OwnedTargetNodeArg;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::get_uquery_env;
@@ -38,6 +39,7 @@ pub(crate) enum LazyUqueryOperation {
         value: String,
         targets: OwnedTargetNodeArg,
     },
+    Inputs(OwnedTargetNodeArg),
 }
 
 pub(crate) enum LazyUqueryResult {
@@ -45,6 +47,7 @@ pub(crate) enum LazyUqueryResult {
     AllPaths(StarlarkTargetSet<TargetNode>),
     SomePath(StarlarkTargetSet<TargetNode>),
     AttrFilter(StarlarkTargetSet<TargetNode>),
+    Inputs(StarlarkFileSet),
 }
 
 impl LazyUqueryResult {
@@ -54,6 +57,7 @@ impl LazyUqueryResult {
             LazyUqueryResult::AllPaths(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::SomePath(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::AttrFilter(target_set) => Ok(heap.alloc(target_set)),
+            LazyUqueryResult::Inputs(file_set) => Ok(heap.alloc(file_set)),
         }
     }
 }
@@ -115,6 +119,13 @@ impl LazyUqueryOperation {
                 let res = target_set.attrfilter(attr, &|v| Ok(v == value))?;
 
                 Ok(LazyUqueryResult::AttrFilter(StarlarkTargetSet::from(res)))
+            }
+            LazyUqueryOperation::Inputs(expr) => {
+                let target_set = expr.to_unconfigured_target_set(core_data, dice).await?;
+
+                let res = target_set.inputs()?;
+
+                Ok(LazyUqueryResult::Inputs(StarlarkFileSet::from(res)))
             }
         }
     }
