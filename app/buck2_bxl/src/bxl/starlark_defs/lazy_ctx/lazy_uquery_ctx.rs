@@ -19,6 +19,7 @@ use starlark::starlark_simple_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 
 use crate::bxl::starlark_defs::lazy_ctx::operation::StarlarkLazy;
@@ -58,6 +59,25 @@ impl<'v> StarlarkValue<'v> for StarlarkLazyUqueryCtx {
 /// the same behaviour as the query functions available within uquery command.
 #[starlark_module]
 fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
+    /// Computes all dependency paths from `from` to `to`, with optional filter.
+    ///
+    /// Example:
+    /// ```python
+    /// res = ctx.lazy.uquery().allpaths("//:foo", "//:bar", filter = "attrfilter('name', 'some_name', target_deps()")).catch().resolve()
+    /// ```
+    fn allpaths<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
+        #[starlark(require = pos)] from: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = pos)] to: TargetNodeOrTargetLabelOrStr<'v>,
+        #[starlark(require = named, default = NoneOr::None)] filter: NoneOr<&'v str>,
+    ) -> anyhow::Result<StarlarkLazy> {
+        let from = OwnedTargetNodeArg::from_ref(&from);
+        let to = OwnedTargetNodeArg::from_ref(&to);
+        let filter = filter.into_option().map(|s| s.to_owned());
+        let op = LazyUqueryOperation::AllPaths { from, to, filter };
+        Ok(StarlarkLazy::new_uquery(op))
+    }
+
     /// Querying the test targets of the given target.
     /// It returns `UnconfiguredTargetSet`
     ///
