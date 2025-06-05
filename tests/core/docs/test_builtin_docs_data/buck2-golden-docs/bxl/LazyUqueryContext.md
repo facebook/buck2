@@ -4,5 +4,6 @@
 ## LazyUqueryContext.allpaths
 ## LazyUqueryContext.attrfilter
 ## LazyUqueryContext.inputs
+## LazyUqueryContext.kind
 ## LazyUqueryContext.somepath
 ## LazyUqueryContext.testsof

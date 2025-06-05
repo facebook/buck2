@@ -40,6 +40,10 @@ pub(crate) enum LazyUqueryOperation {
         targets: OwnedTargetNodeArg,
     },
     Inputs(OwnedTargetNodeArg),
+    Kind {
+        regex: String,
+        targets: OwnedTargetNodeArg,
+    },
 }
 
 pub(crate) enum LazyUqueryResult {
@@ -48,6 +52,7 @@ pub(crate) enum LazyUqueryResult {
     SomePath(StarlarkTargetSet<TargetNode>),
     AttrFilter(StarlarkTargetSet<TargetNode>),
     Inputs(StarlarkFileSet),
+    Kind(StarlarkTargetSet<TargetNode>),
 }
 
 impl LazyUqueryResult {
@@ -58,6 +63,7 @@ impl LazyUqueryResult {
             LazyUqueryResult::SomePath(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::AttrFilter(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::Inputs(file_set) => Ok(heap.alloc(file_set)),
+            LazyUqueryResult::Kind(target_set) => Ok(heap.alloc(target_set)),
         }
     }
 }
@@ -126,6 +132,13 @@ impl LazyUqueryOperation {
                 let res = target_set.inputs()?;
 
                 Ok(LazyUqueryResult::Inputs(StarlarkFileSet::from(res)))
+            }
+            LazyUqueryOperation::Kind { regex, targets } => {
+                let target_set = targets.to_unconfigured_target_set(core_data, dice).await?;
+
+                let res = target_set.kind(regex)?;
+
+                Ok(LazyUqueryResult::Kind(StarlarkTargetSet::from(res)))
             }
         }
     }

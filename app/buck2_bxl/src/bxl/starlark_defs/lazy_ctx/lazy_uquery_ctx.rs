@@ -135,6 +135,23 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
         Ok(StarlarkLazy::new_uquery(op))
     }
 
+    /// Filters targets by rule type using a regex pattern.
+    ///
+    /// Example:
+    /// ```python
+    /// res = ctx.lazy.uquery().kind("cpp.*", "//:foo").catch().resolve()
+    /// ```
+    fn kind<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
+        #[starlark(require = pos)] regex: &'v str,
+        #[starlark(require = pos)] targets: TargetNodeOrTargetLabelOrStr<'v>,
+    ) -> anyhow::Result<StarlarkLazy> {
+        let regex = regex.to_owned();
+        let targets = OwnedTargetNodeArg::from_ref(&targets);
+        let op = LazyUqueryOperation::Kind { regex, targets };
+        Ok(StarlarkLazy::new_uquery(op))
+    }
+
     /// Querying the test targets of the given target.
     /// It returns `UnconfiguredTargetSet`
     ///

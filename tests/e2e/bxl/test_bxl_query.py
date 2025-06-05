@@ -297,6 +297,16 @@ async def test_uquery_kind(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")
+async def test_uquery_lazy_kind(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl:uquery.bxl:lazy_kind_test",
+    )
+
+    assert "foo" in result.stdout
+    assert "bar" not in result.stdout
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_uquery_inputs(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl:uquery.bxl:inputs_test",
