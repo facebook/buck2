@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -104,8 +105,8 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
   // Use our custom Python 3.12 C-API to call the statically linked module init
   // function
   mod = _Ci_PyImport_CallInitFuncWithContext(namestr.c_str(), initfunc);
-#else
-  // In Python 3.10 (and earlier) we need to handle package context swapping
+#elif PY_VERSION_HEX >= 0x030A0000
+  // In Python 3.10 we need to handle package context swapping
   // ourselves
   const char* oldcontext = _Py_PackageContext;
   _Py_PackageContext = namestr.c_str();
@@ -116,6 +117,10 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
   }
   mod = initfunc();
   _Py_PackageContext = oldcontext;
+#else
+  // _Py_PackageContext undefined in 3.9 and earlier
+  throw std::runtime_error(
+      "Native python does not support Python 3.9 and earlier.");
 #endif
   if (mod == nullptr) {
     Py_DECREF(name);
