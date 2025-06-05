@@ -392,10 +392,6 @@ const CONFIGS_INVISIBLE_TO_DICE: &[BuckconfigKeyRef<'static>] = &[
         section: "scuba",
         property: "defaults",
     },
-    BuckconfigKeyRef {
-        section: "modefile",
-        property: "generated",
-    },
 ];
 
 #[cfg(test)]
