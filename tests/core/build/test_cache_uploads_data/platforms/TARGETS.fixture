@@ -1,0 +1,17 @@
+load("@root//platforms:rules.bzl", "cache_upload_platform", "config_setting", "platforms", "target_platform")
+
+config_setting(name = "setting")
+
+target_platform(name = "target")
+
+cache_upload_platform(
+    name = "cache_uploads",
+    setting = ":setting",
+)
+
+platforms(
+    name = "platforms",
+    platforms = [
+        ":cache_uploads",
+    ],
+)

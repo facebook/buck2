@@ -634,65 +634,6 @@ async def test_remote_only(buck: Buck) -> None:
     )
 
 
-async def _assert_locally_executed_upload_attempted(buck: Buck, count: int = 1) -> None:
-    await _assert_upload_attempted(buck, count)
-
-
-async def _assert_upload_attempted(buck: Buck, count: int) -> None:
-    log = (await buck.log("show")).stdout.strip().splitlines()
-    uploads = []
-    excluded_uploads = []
-
-    for line in log:
-        e = json_get(
-            line,
-            "Event",
-            "data",
-            "SpanEnd",
-            "data",
-            "CacheUpload",
-        )
-        if e is None:
-            continue
-        if e["success"] or e["re_error_code"] == "PERMISSION_DENIED":
-            # Tolerate permission denied errors because we don't have a choice on CI :(
-            uploads.append(e)
-        else:
-            excluded_uploads.append(e)
-
-    if len(uploads) == count:
-        return
-    else:
-        print(f"Expected {count} uploads", file=sys.stderr)
-        print(f"Actual uploads: {uploads}", file=sys.stderr)
-        print(f"Excluded uploads: {excluded_uploads}", file=sys.stderr)
-        raise AssertionError("Wrong number of uploads, see above")
-
-
-@buck_test(inplace=False, data_dir="execution_platforms")
-@env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
-async def test_re_uploads(buck: Buck) -> None:
-    args = ["-c", f"write.text={random_string()}"]
-    await buck.build("root//upload_tests:write", *args)
-    await _assert_locally_executed_upload_attempted(buck, 1)
-
-
-@buck_test(inplace=False, data_dir="execution_platforms")
-@env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
-async def test_re_uploads_dir(buck: Buck) -> None:
-    args = ["-c", f"write.text={random_string()}"]
-    await buck.build("root//upload_tests:write_in_dir", *args)
-    await _assert_locally_executed_upload_attempted(buck, 1)
-
-
-@buck_test(inplace=False, data_dir="execution_platforms")
-@env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
-async def test_re_uploads_limit(buck: Buck) -> None:
-    args = ["-c", f"write.text={random_string()}"]
-    await buck.build("root//upload_tests:write_xxl", *args)
-    await _assert_locally_executed_upload_attempted(buck, 0)
-
-
 @buck_test(inplace=False, data_dir="toolchain_deps")
 async def test_toolchain_deps(buck: Buck) -> None:
     # This test builds two targets, both with the same `default_target_platform` platform
