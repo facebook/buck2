@@ -289,4 +289,27 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
         let op = LazyUqueryOperation::TargetsInBuildfile { files };
         Ok(StarlarkLazy::new_uquery(op))
     }
+
+    /// Filters targets by attribute value using regex matching.
+    ///
+    /// Example:
+    /// ```python
+    /// res = ctx.lazy.uquery().attrregexfilter("name", "he.*lo", "//:foo").catch().resolve()
+    /// ```
+    fn attrregexfilter<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
+        #[starlark(require = pos)] attr: &'v str,
+        #[starlark(require = pos)] value: &'v str,
+        #[starlark(require = pos)] targets: TargetNodeOrTargetLabelOrStr<'v>,
+    ) -> anyhow::Result<StarlarkLazy> {
+        let attr = attr.to_owned();
+        let value = value.to_owned();
+        let targets = OwnedTargetNodeArg::from_ref(&targets);
+        let op = LazyUqueryOperation::AttrRegexFilter {
+            attr,
+            value,
+            targets,
+        };
+        Ok(StarlarkLazy::new_uquery(op))
+    }
 }

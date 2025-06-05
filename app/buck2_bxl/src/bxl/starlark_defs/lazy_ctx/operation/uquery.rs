@@ -40,6 +40,11 @@ pub(crate) enum LazyUqueryOperation {
         value: String,
         targets: OwnedTargetNodeArg,
     },
+    AttrRegexFilter {
+        attr: String,
+        value: String,
+        targets: OwnedTargetNodeArg,
+    },
     Inputs(OwnedTargetNodeArg),
     Kind {
         regex: String,
@@ -74,6 +79,7 @@ pub(crate) enum LazyUqueryResult {
     AllPaths(StarlarkTargetSet<TargetNode>),
     SomePath(StarlarkTargetSet<TargetNode>),
     AttrFilter(StarlarkTargetSet<TargetNode>),
+    AttrRegexFilter(StarlarkTargetSet<TargetNode>),
     Inputs(StarlarkFileSet),
     Kind(StarlarkTargetSet<TargetNode>),
     Deps(StarlarkTargetSet<TargetNode>),
@@ -91,6 +97,7 @@ impl LazyUqueryResult {
             LazyUqueryResult::AllPaths(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::SomePath(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::AttrFilter(target_set) => Ok(heap.alloc(target_set)),
+            LazyUqueryResult::AttrRegexFilter(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::Inputs(file_set) => Ok(heap.alloc(file_set)),
             LazyUqueryResult::Kind(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::Deps(target_set) => Ok(heap.alloc(target_set)),
@@ -160,6 +167,19 @@ impl LazyUqueryOperation {
                 let res = target_set.attrfilter(attr, &|v| Ok(v == value))?;
 
                 Ok(LazyUqueryResult::AttrFilter(StarlarkTargetSet::from(res)))
+            }
+            LazyUqueryOperation::AttrRegexFilter {
+                attr,
+                value,
+                targets,
+            } => {
+                let target_set = targets.to_unconfigured_target_set(core_data, dice).await?;
+
+                let res = target_set.attrregexfilter(attr, value)?;
+
+                Ok(LazyUqueryResult::AttrRegexFilter(StarlarkTargetSet::from(
+                    res,
+                )))
             }
             LazyUqueryOperation::Inputs(expr) => {
                 let target_set = expr.to_unconfigured_target_set(core_data, dice).await?;

@@ -3,6 +3,7 @@
 # LazyUqueryContext
 ## LazyUqueryContext.allpaths
 ## LazyUqueryContext.attrfilter
+## LazyUqueryContext.attrregexfilter
 ## LazyUqueryContext.buildfile
 ## LazyUqueryContext.deps
 ## LazyUqueryContext.filter
