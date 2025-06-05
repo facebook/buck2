@@ -32,6 +32,8 @@ const presetOptions: ClassicPresetOptions = ({
   theme: {
     customCss: require.resolve('./src/css/custom.css'),
   },
+  internSearch: true,
+  staticDocsProject: 'buck2',
 });
 
 const themeConfig: ClassicPresetConfig = ({
