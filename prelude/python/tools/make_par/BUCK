@@ -24,40 +24,6 @@ prelude.export_file(
     visibility = ["PUBLIC"],
 )
 
-prelude.rust_library(
-    name = "rust_make_par_lib",
-    srcs = ["rust_make_par/src/lib.rs"],
-    crate = "rust_make_par",
-    deps = [
-        "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:serde_json",
-        "fbsource//third-party/rust:walkdir",
-    ],
-)
-
-prelude.rust_test(
-    name = "rust_make_par_lib_test",
-    srcs = ["rust_make_par/src/lib.rs"],
-    deps = [
-        "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:serde_json",
-        "fbsource//third-party/rust:tempfile",
-        "fbsource//third-party/rust:walkdir",
-    ],
-)
-
-prelude.rust_binary(
-    name = "rust_make_par",
-    srcs = ["rust_make_par/src/main.rs"],
-    visibility = ["PUBLIC"],
-    deps = [
-        "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:clap",
-        "fbsource//third-party/rust:serde",
-        ":rust_make_par_lib",
-    ],
-)
-
 prelude.export_file(
     name = "live_builder.py",
     src = "live_builder.py",
