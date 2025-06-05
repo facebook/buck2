@@ -937,6 +937,8 @@ async fn http_client_from_startup_config(
     };
     builder.with_max_redirects(config.http.max_redirects.unwrap_or(DEFAULT_MAX_REDIRECTS));
     builder.with_http2(config.http.http2);
+    builder.with_max_concurrent_requests(config.http.max_concurrent_requests);
+
     match config.http.connect_timeout() {
         Timeout::Value(d) => {
             builder.with_connect_timeout(Some(d));

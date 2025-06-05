@@ -26,6 +26,7 @@ use hyper::Response;
 use hyper::client::ResponseFuture;
 use hyper::client::connect::Connect;
 use tokio::io::AsyncReadExt;
+use tokio::sync::Semaphore;
 use tokio_util::io::StreamReader;
 
 use crate::HttpError;
@@ -49,6 +50,9 @@ pub struct HttpClient {
     supports_vpnless: bool,
     http2: bool,
     stats: HttpNetworkStats,
+    // tokio::sync::Semaphore doesn't impl Allocative
+    #[allocative(skip)]
+    concurrent_requests_budget: Option<Arc<Semaphore>>,
 }
 
 impl HttpClient {
@@ -124,6 +128,15 @@ impl HttpClient {
             );
             change_scheme_to_http(&mut request)?;
         }
+        let semaphore_guard = match self.concurrent_requests_budget.as_ref() {
+            Some(sem) => Some(
+                sem.acquire()
+                    .await
+                    .expect("Semaphore should never be closed"),
+            ),
+            None => None,
+        };
+
         let resp = self.inner.request(request).await.map_err(|e| {
             if is_hyper_error_due_to_timeout(&e) {
                 HttpError::Timeout {
@@ -134,11 +147,14 @@ impl HttpClient {
                 HttpError::SendRequest { uri, source: e }
             }
         })?;
-        Ok(
-            resp.map(|body| {
-                CountingStream::new(body, self.stats.downloaded_bytes().dupe()).boxed()
-            }),
-        )
+        Ok(resp.map(move |body| {
+            CountingStream::new(body, self.stats.downloaded_bytes().dupe())
+                .inspect(move |_| {
+                    // Ensure we keep a concurrent request permit alive until the stream is consumed
+                    let _guard = &semaphore_guard;
+                })
+                .boxed()
+        }))
     }
 
     /// Send a generic request.
@@ -761,6 +777,61 @@ mod tests {
                 ..
             }),
         ));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_concurrency_limit() -> buck2_error::Result<()> {
+        let test_server = httptest::Server::run();
+        test_server.expect(
+            Expectation::matching(request::method_path("GET", "/foo"))
+                .times(3)
+                .respond_with(responders::status_code(200)),
+        );
+
+        let client = HttpClientBuilder::https_with_system_roots()
+            .await?
+            .with_max_concurrent_requests(Some(2))
+            .build();
+        let url = test_server.url_str("/foo");
+        let req1 = client.get(&url).await?;
+        let req2 = client.get(&url).await?;
+        assert_eq!(
+            client
+                .concurrent_requests_budget
+                .as_ref()
+                .unwrap()
+                .available_permits(),
+            0
+        );
+        let mut req3 = std::pin::pin!(client.get(&url));
+        // TODO: Use `tokio::time::pause` to make this faster and deterministic. Blocked by
+        // https://github.com/ggriffiniii/httptest/issues/29.
+        assert!(
+            tokio::time::timeout(tokio::time::Duration::from_millis(100), &mut req3)
+                .await
+                .is_err()
+        );
+        drop(req1);
+        req3.await?;
+        assert_eq!(
+            client
+                .concurrent_requests_budget
+                .as_ref()
+                .unwrap()
+                .available_permits(),
+            1
+        );
+        drop(req2);
+        assert_eq!(
+            client
+                .concurrent_requests_budget
+                .as_ref()
+                .unwrap()
+                .available_permits(),
+            2
+        );
 
         Ok(())
     }

@@ -58,6 +58,7 @@ pub struct HttpConfig {
     write_timeout_ms: Option<u64>,
     pub http2: bool,
     pub max_redirects: Option<usize>,
+    pub max_concurrent_requests: Option<usize>,
 }
 
 impl HttpConfig {
@@ -84,6 +85,10 @@ impl HttpConfig {
                 property: "http2",
             })?
             .unwrap_or(true);
+        let max_concurrent_requests = config.parse(BuckconfigKeyRef {
+            section: "http",
+            property: "max_concurrent_requests",
+        })?;
 
         Ok(Self {
             connect_timeout_ms,
@@ -91,6 +96,7 @@ impl HttpConfig {
             write_timeout_ms,
             max_redirects,
             http2,
+            max_concurrent_requests,
         })
     }
 

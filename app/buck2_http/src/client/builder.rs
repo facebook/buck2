@@ -28,6 +28,7 @@ use hyper_timeout::TimeoutConnector;
 use rustls::ClientConfig;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
+use tokio::sync::Semaphore;
 use tokio_rustls::TlsConnector;
 
 use super::HttpClient;
@@ -66,6 +67,7 @@ pub struct HttpClientBuilder {
     supports_vpnless: bool,
     http2: bool,
     timeout_config: Option<TimeoutConfig>,
+    max_concurrent_requests: Option<usize>,
 }
 
 impl HttpClientBuilder {
@@ -104,6 +106,7 @@ impl HttpClientBuilder {
             supports_vpnless: false,
             http2: true,
             timeout_config: None,
+            max_concurrent_requests: None,
         })
     }
 
@@ -214,6 +217,14 @@ impl HttpClientBuilder {
         self.supports_vpnless
     }
 
+    pub fn with_max_concurrent_requests(
+        &mut self,
+        max_concurrent_requests: Option<usize>,
+    ) -> &mut Self {
+        self.max_concurrent_requests = max_concurrent_requests;
+        self
+    }
+
     fn build_inner(&self) -> Arc<dyn RequestClient> {
         match (self.proxies.as_slice(), &self.timeout_config) {
             // Construct x2p unix socket client.
@@ -294,6 +305,9 @@ impl HttpClientBuilder {
             supports_vpnless: self.supports_vpnless,
             http2: self.http2,
             stats: HttpNetworkStats::new(),
+            concurrent_requests_budget: self
+                .max_concurrent_requests
+                .map(|v| Arc::new(Semaphore::new(v))),
         }
     }
 }
