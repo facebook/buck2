@@ -337,6 +337,17 @@ async def test_uquery_attrfilter(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")
+async def test_uquery_lazy_attrfilter(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl/uquery.bxl:lazy_attrfilter_test",
+    )
+
+    assert "foo" in result.stdout
+    assert "bzzt" not in result.stdout
+    assert "bar" not in result.stdout
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_uquery_owner(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/uquery.bxl:owner_test",

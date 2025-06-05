@@ -33,12 +33,18 @@ pub(crate) enum LazyUqueryOperation {
         to: OwnedTargetNodeArg,
         filter: Option<String>,
     },
+    AttrFilter {
+        attr: String,
+        value: String,
+        targets: OwnedTargetNodeArg,
+    },
 }
 
 pub(crate) enum LazyUqueryResult {
     TestsOf(StarlarkTargetSet<TargetNode>),
     AllPaths(StarlarkTargetSet<TargetNode>),
     SomePath(StarlarkTargetSet<TargetNode>),
+    AttrFilter(StarlarkTargetSet<TargetNode>),
 }
 
 impl LazyUqueryResult {
@@ -47,6 +53,7 @@ impl LazyUqueryResult {
             LazyUqueryResult::TestsOf(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::AllPaths(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::SomePath(target_set) => Ok(heap.alloc(target_set)),
+            LazyUqueryResult::AttrFilter(target_set) => Ok(heap.alloc(target_set)),
         }
     }
 }
@@ -97,6 +104,17 @@ impl LazyUqueryOperation {
                     .await?;
 
                 Ok(LazyUqueryResult::SomePath(StarlarkTargetSet::from(res)))
+            }
+            LazyUqueryOperation::AttrFilter {
+                attr,
+                value,
+                targets,
+            } => {
+                let target_set = targets.to_unconfigured_target_set(core_data, dice).await?;
+
+                let res = target_set.attrfilter(attr, &|v| Ok(v == value))?;
+
+                Ok(LazyUqueryResult::AttrFilter(StarlarkTargetSet::from(res)))
             }
         }
     }
