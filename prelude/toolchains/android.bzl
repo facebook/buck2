@@ -20,9 +20,9 @@ def _android_sdk_tools_impl(ctx):
     ctx.actions.run(cmd_args(["ln", "-s", "{}/platforms/{}/android.jar".format(ctx.attrs.android_sdk_path, ctx.attrs.compile_sdk_version), android_jar.as_output()]), category = "android_jar_symlink")
     sub_targets["android.jar"] = [DefaultInfo(default_output = android_jar)]
 
-    core_for_system_modules_jar = ctx.actions.declare_output("core_for_system_modules.jar")
-    ctx.actions.run(cmd_args(["ln", "-s", "{}/platforms/{}/core_for_system_modules.jar".format(ctx.attrs.android_sdk_path, ctx.attrs.compile_sdk_version), core_for_system_modules_jar.as_output()]), category = "core_for_system_modules_jar_symlink")
-    sub_targets["core_for_system_modules.jar"] = [DefaultInfo(default_output = core_for_system_modules_jar)]
+    core_for_system_modules_jar = ctx.actions.declare_output("core-for-system-modules.jar")
+    ctx.actions.run(cmd_args(["ln", "-s", "{}/platforms/{}/core-for-system-modules.jar".format(ctx.attrs.android_sdk_path, ctx.attrs.compile_sdk_version), core_for_system_modules_jar.as_output()]), category = "core_for_system_modules_jar_symlink")
+    sub_targets["core-for-system-modules.jar"] = [DefaultInfo(default_output = core_for_system_modules_jar)]
 
     framework_aidl_file = ctx.actions.declare_output("framework.aidl")
     ctx.actions.run(cmd_args(["ln", "-s", "{}/platforms/{}/framework.aidl".format(ctx.attrs.android_sdk_path, ctx.attrs.compile_sdk_version), framework_aidl_file.as_output()]), category = "framework_aidl_symlink")
@@ -56,6 +56,7 @@ android_sdk_tools = rule(
 def system_android_toolchain(
         name,
         android_sdk_tools_target,
+        jdk_system_image,
         **kwargs):
     kwargs["aapt2_filter_resources"] = "prelude//android/tools:filter_extra_resources"
     kwargs["aapt2"] = "{}[aapt2]".format(android_sdk_tools_target)
@@ -101,7 +102,7 @@ def system_android_toolchain(
     ]
     kwargs["instrumentation_test_runner_main_class"] = "com.facebook.buck.testrunner.InstrumentationMain"
     kwargs["jar_splitter_command"] = "prelude//toolchains/android/src/com/facebook/buck/android/dex:jar_splitter_binary"
-    kwargs["jdk_system_image"] = "prelude//android/tools:jdk_system_image"
+    kwargs["jdk_system_image"] = jdk_system_image
     kwargs["manifest_utils"] = "prelude//toolchains/android/src/com/facebook/buck/android:manifest_utils_binary"
     kwargs["merge_android_resource_sources"] = "prelude//toolchains/android/src/com/facebook/buck/android/aapt:merge_android_resource_sources_binary"
     kwargs["merge_android_resources"] = "prelude//toolchains/android/src/com/facebook/buck/android/resources:merge_android_resources_binary"

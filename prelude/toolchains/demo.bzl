@@ -43,7 +43,7 @@ def system_demo_toolchains():
 
     jdk_system_image(
         name = "jdk_system_image",
-        core_for_system_modules_jar = ":android_sdk_tools[core_for_system_modules.jar]",
+        core_for_system_modules_jar = ":android_sdk_tools[core-for-system-modules.jar]",
     )
 
     system_android_toolchain(
