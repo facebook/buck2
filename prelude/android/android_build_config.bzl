@@ -90,12 +90,16 @@ def _generate_build_config_dot_java(
     default_values_file = ctx.actions.write(
         _get_output_name(java_package, "default_values"),
         ["{} {} = {}".format(x.type, x.name, x.value) for x in default_values],
+        uses_experimental_content_based_path_hashing = True,
     )
     generate_build_config_cmd.add(["--default-values-file", default_values_file])
     if values_file:
         generate_build_config_cmd.add(["--values-file", values_file])
 
-    build_config_dot_java = ctx.actions.declare_output(_get_output_name(java_package, "BuildConfig.java"))
+    build_config_dot_java = ctx.actions.declare_output(
+        _get_output_name(java_package, "BuildConfig.java"),
+        uses_experimental_content_based_path_hashing = True,
+    )
     generate_build_config_cmd.add(["--output", build_config_dot_java.as_output()])
 
     ctx.actions.run(
