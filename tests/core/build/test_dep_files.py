@@ -643,7 +643,7 @@ async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
 
     # # Change a file that is tracked by a dep file but shows up as unused, we get a local dep file cache hit
     # # as that is checked first.
-    tagged_unused.write_text("CHANGE")
+    tagged_unused.write_text(random_string())
     result = await buck.build(*target_upload_enabled)
     output = result.get_build_report().output_for_target(target).read_text()
     assert output == "used1\nused2\nused3\n"
@@ -655,7 +655,7 @@ async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
     # 1. A remote dep file cache hit and a subsequent dep file validation
     # 2. A remote dep file cache miss, fall back to local execution (local dep file cache is flushed)
     await buck.debug("flush-dep-files")
-    tagged_unused.write_text("CHANGE_AGAIN")
+    tagged_unused.write_text(random_string())
     result = await buck.build(*target_upload_enabled)
     output = result.get_build_report().output_for_target(target).read_text()
     assert output == "used1\nused2\nused3\n"
@@ -705,12 +705,13 @@ async def test_re_dep_file_query_change_tagged_used_file(buck: Buck) -> None:
     # 2. A remote dep file cache miss, fall back to local execution (local dep file cache is flushed)
     # Either way, it should be executed locally
     await buck.debug("flush-dep-files")
-    tagged_used_file1.write_text("used1(MODIFIED)\n")
+    used1_modified_str = f"used1({random_string()})"
+    tagged_used_file1.write_text(f"{used1_modified_str}\n")
     result = await buck.build(*target_upload_enabled)
     await check_remote_dep_file_cache_query_took_place(buck)
     await check_execution_kind(buck, [ACTION_EXECUTION_KIND_LOCAL])
     output = result.get_build_report().output_for_target(target).read_text()
-    assert output == "used1(MODIFIED)\nused2\nused3\n"
+    assert output == f"{used1_modified_str}\nused2\nused3\n"
 
 
 # Flaky because of watchman on mac (and maybe windows)
