@@ -513,7 +513,14 @@ def cxx_darwin_dist_link(
     opt_argsfile = ctx.actions.declare_output(output.basename + ".lto_opt_argsfile")
     ctx.actions.write(opt_argsfile.as_output(), common_opt_cmd, allow_args = True)
 
-    def optimize_object(ctx: AnalysisContext, artifacts, outputs, name, initial_object, bc_file, plan, opt_object, merged_bc):
+    def optimize_object(ctx: AnalysisContext, artifacts, outputs, bitcode_link_data):
+        bc_file = bitcode_link_data.bc_file
+        initial_object = bitcode_link_data.initial_object
+        merged_bc = bitcode_link_data.merged_bc
+        name = bitcode_link_data.name
+        opt_object = bitcode_link_data.opt_object
+        plan = bitcode_link_data.plan
+
         optimization_plan = ObjectFileOptimizationPlan(**artifacts[plan].read_json())
 
         # If the object was not compiled with thinlto flags, then there
@@ -562,8 +569,8 @@ def cxx_darwin_dist_link(
     # opt actions, but an action needs to re-run whenever the analysis that
     # produced it re-runs. And so, with a single dynamic_output, we'd need to
     # re-run all actions when any of the plans changed.
-    def dynamic_optimize(name: str, initial_object: Artifact, bc_file: Artifact, plan: Artifact, opt_object: Artifact, merged_bc: Artifact | None):
-        ctx.actions.dynamic_output(dynamic = [plan], inputs = [], outputs = [opt_object.as_output()], f = lambda ctx, artifacts, outputs: optimize_object(ctx, artifacts, outputs, name, initial_object, bc_file, plan, opt_object, merged_bc))
+    def dynamic_optimize(bitcode_link_data):
+        ctx.actions.dynamic_output(dynamic = [bitcode_link_data.plan], inputs = [], outputs = [bitcode_link_data.opt_object.as_output()], f = lambda ctx, artifacts, outputs: optimize_object(ctx, artifacts, outputs, bitcode_link_data))
 
     def optimize_archive(ctx: AnalysisContext, artifacts, outputs, archive):
         plan_json = artifacts[archive.plan].read_json()
@@ -644,14 +651,7 @@ def cxx_darwin_dist_link(
     for artifact in sorted_index_link_data:
         link_data = artifact.link_data
         if artifact.data_type == _DataType("eager_bitcode") or artifact.data_type == _DataType("lazy_bitcode"):
-            dynamic_optimize(
-                name = link_data.name,
-                initial_object = link_data.initial_object,
-                bc_file = link_data.bc_file,
-                plan = link_data.plan,
-                opt_object = link_data.opt_object,
-                merged_bc = link_data.merged_bc,
-            )
+            dynamic_optimize(link_data)
         elif artifact.data_type == _DataType("archive"):
             dynamic_optimize_archive(link_data)
 
