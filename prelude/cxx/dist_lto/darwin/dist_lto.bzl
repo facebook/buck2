@@ -57,6 +57,27 @@ def identity_projection(value: cmd_args):
 # testing that is a worth while tradeoff.
 IdentityTSet = transitive_set(args_projections = {"identity": identity_projection})
 
+def _sort_index_link_data(input_list: list[DThinLTOLinkData]) -> list[DThinLTOLinkData]:
+    # Sort link datas to reduce binary size. The idea is to encourage the linker to load the minimal number of object files possible. We load force loaded archives first (since they will be loaded no matter what), then non lazy object files (which will also be loaded no matter what), then shared libraries (to share as many symbols as possible), then finally regular archives
+    force_loaded_archives = []
+    regular_archives = []
+    object_files = []
+    dynamic_libraries = []
+    for link_data in input_list:
+        if link_data.data_type == LinkDataType("eager_bitcode"):
+            object_files.append(link_data)
+        elif link_data.data_type == LinkDataType("lazy_bitcode"):
+            regular_archives.append(link_data)
+        elif link_data.data_type == LinkDataType("archive"):
+            if link_data.link_data.link_whole:
+                force_loaded_archives.append(link_data)
+            else:
+                regular_archives.append(link_data)
+        elif link_data.data_type == LinkDataType("dynamic_library"):
+            dynamic_libraries.append(link_data)
+
+    return force_loaded_archives + object_files + dynamic_libraries + regular_archives
+
 def cxx_darwin_dist_link(
         ctx: AnalysisContext,
         # The destination for the link output.
@@ -288,28 +309,7 @@ def cxx_darwin_dist_link(
     common_link_flags.add(deps_linker_flags)
     extra_codegen_flags = get_target_sdk_version_flags(ctx)
 
-    def sort_index_link_data(input_list: list[DThinLTOLinkData]) -> list[DThinLTOLinkData]:
-        # Sort link datas to reduce binary size. The idea is to encourage the linker to load the minimal number of object files possible. We load force loaded archives first (since they will be loaded no matter what), then non lazy object files (which will also be loaded no matter what), then shared libraries (to share as many symbols as possible), then finally regular archives
-        force_loaded_archives = []
-        regular_archives = []
-        object_files = []
-        dynamic_libraries = []
-        for link_data in input_list:
-            if link_data.data_type == LinkDataType("eager_bitcode"):
-                object_files.append(link_data)
-            elif link_data.data_type == LinkDataType("lazy_bitcode"):
-                regular_archives.append(link_data)
-            elif link_data.data_type == LinkDataType("archive"):
-                if link_data.link_data.link_whole:
-                    force_loaded_archives.append(link_data)
-                else:
-                    regular_archives.append(link_data)
-            elif link_data.data_type == LinkDataType("dynamic_library"):
-                dynamic_libraries.append(link_data)
-
-        return force_loaded_archives + object_files + dynamic_libraries + regular_archives
-
-    sorted_index_link_data = sort_index_link_data(unsorted_index_link_data)
+    sorted_index_link_data = _sort_index_link_data(unsorted_index_link_data)
 
     index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_index_argsfile")
     final_link_index = ctx.actions.declare_output(output.basename + ".final_link_index")
