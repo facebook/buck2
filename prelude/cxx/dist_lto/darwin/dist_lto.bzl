@@ -320,7 +320,22 @@ def cxx_darwin_dist_link(
         # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
         index_meta_records = []
 
+        index_cat = make_cat("thin_lto_index")
+        index_file_out = ctx.actions.declare_output(make_id(index_cat) + "/index")
+        index_out_dir = cmd_args(index_file_out.as_output(), parent = 1)
+
+        index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
+        index_args.add(index_cmd_parts.linker_flags)
+        index_args.add(common_link_flags)
         index_args.add(deps_linker_flags)
+        index_args.add(cmd_args(index_file_out.as_output(), format = "-Wl,--thinlto-index-only={}"))
+        index_args.add("-Wl,--thinlto-emit-imports-files")
+        index_args.add("-Wl,--thinlto-full-index")
+
+        # By default the linker will write artifacts (import files and sharded indices) next to input bitcode files with
+        # a different suffix. This can be problematic if you are running two distributed links on the same machine at the # same time consuming the same input bitcode files. That is the links would overwrite each other's artifacts. This
+        # flag allows you to write all these artifacts into a unique directory per link to avoid this problem.
+        index_args.add(cmd_args(index_out_dir, format = "-Wl,--thinlto-prefix-replace=;{}/"))
 
         # buildifier: disable=uninitialized
         for idx, artifact in enumerate(sorted_index_link_data):
@@ -391,32 +406,14 @@ def cxx_darwin_dist_link(
 
         output_as_string = cmd_args(output, ignore_artifacts = True)
         index_args.add("-o", output_as_string)
-
+        index_args.add(index_cmd_parts.post_linker_flags)
+        index_cmd = cmd_args(index_cmd_parts.linker)
         index_argfile, _ = ctx.actions.write(
             outputs[index_argsfile_out].as_output(),
             index_args,
             allow_args = True,
         )
-
-        index_cat = make_cat("thin_lto_index")
-        index_file_out = ctx.actions.declare_output(make_id(index_cat) + "/index")
-        index_out_dir = cmd_args(index_file_out.as_output(), parent = 1)
-
-        index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
-
-        index_cmd = index_cmd_parts.link_cmd
-        index_cmd.add(common_link_flags)
         index_cmd.add(cmd_args(index_argfile, format = "@{}"))
-
-        index_cmd.add(cmd_args(index_file_out.as_output(), format = "-Wl,--thinlto-index-only={}"))
-        index_cmd.add("-Wl,--thinlto-emit-imports-files")
-        index_cmd.add("-Wl,--thinlto-full-index")
-
-        # By default the linker will write artifacts (import files and sharded indices) next to input bitcode files with
-        # a different suffix. This can be problematic if you are running two distributed links on the same machine at the # same time consuming the same input bitcode files. That is the links would overwrite each other's artifacts. This
-        # flag allows you to write all these artifacts into a unique directory per link to avoid this problem.
-        index_cmd.add(cmd_args(index_out_dir, format = "-Wl,--thinlto-prefix-replace=;{}/"))
-        index_cmd.add(index_cmd_parts.post_linker_flags)
 
         index_meta_file = ctx.actions.write_json(
             output.basename + ".thinlto.meta.json",
