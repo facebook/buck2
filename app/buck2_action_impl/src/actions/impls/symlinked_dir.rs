@@ -41,6 +41,8 @@ use starlark::values::ValueError;
 use starlark::values::dict::UnpackDictEntries;
 use starlark_map::small_set::SmallSet;
 
+use crate::actions::impls::copy::CopyMode;
+
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
 enum SymlinkedDirError {
@@ -54,7 +56,7 @@ enum SymlinkedDirError {
 
 #[derive(Allocative)]
 pub(crate) struct UnregisteredSymlinkedDirAction {
-    copy: bool,
+    copy: CopyMode,
     args: Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,
     // All associated artifacts of inputs unioned together
     unioned_associated_artifacts: AssociatedArtifacts,
@@ -130,7 +132,7 @@ impl UnregisteredSymlinkedDirAction {
     }
 
     pub(crate) fn new<'v>(
-        copy: bool,
+        copy: CopyMode,
         srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
     ) -> buck2_error::Result<Self> {
         let (mut args, unioned_associated_artifacts) = Self::unpack_args(srcs)
@@ -141,9 +143,10 @@ impl UnregisteredSymlinkedDirAction {
             )?;
         // Overlapping check make sense for non-copy mode only.
         // When directories are copied into the same destination, the ordering defines how files are overwritten.
-        if !copy {
-            Self::validate_args(&mut args)?;
-        }
+        match copy {
+            CopyMode::Symlink => Self::validate_args(&mut args)?,
+            CopyMode::Copy => (),
+        };
         Ok(Self {
             copy,
             args,
@@ -179,7 +182,7 @@ impl UnregisteredAction for UnregisteredSymlinkedDirAction {
 
 #[derive(Debug, Allocative)]
 struct SymlinkedDirAction {
-    copy: bool,
+    copy: CopyMode,
     args: Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,
     inputs: BoxSliceSet<ArtifactGroup>,
     outputs: BoxSliceSet<BuildArtifact>,
@@ -250,12 +253,15 @@ impl Action for SymlinkedDirAction {
             )?;
             let temp_dest = temp_output.join(relative_dest);
 
-            if self.copy {
-                let dest_entry = builder.add_copied(value, src.as_ref(), temp_dest.as_ref())?;
-                srcs.push((src, relative_dest, dest_entry.map_dir(|d| d.as_immutable())));
-            } else {
-                builder.add_symlinked(value, src.as_ref(), temp_dest.as_ref())?;
-            }
+            match self.copy {
+                CopyMode::Copy => {
+                    let dest_entry = builder.add_copied(value, src.as_ref(), temp_dest.as_ref())?;
+                    srcs.push((src, relative_dest, dest_entry.map_dir(|d| d.as_immutable())));
+                }
+                CopyMode::Symlink => {
+                    builder.add_symlinked(value, src.as_ref(), temp_dest.as_ref())?;
+                }
+            };
         }
 
         let value = builder.build(&temp_output.as_ref())?;

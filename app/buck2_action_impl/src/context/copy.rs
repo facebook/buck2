@@ -31,7 +31,7 @@ fn create_dir_tree<'v>(
     this: &AnalysisActions<'v>,
     output: OutputArtifactArg<'v>,
     srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
-    copy: bool,
+    copy: CopyMode,
     uses_experimental_content_based_path_hashing: Option<bool>,
 ) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
     // validate that the moves are valid, and move them into inputs
@@ -172,7 +172,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
             this,
             output,
             srcs,
-            false,
+            CopyMode::Symlink,
             uses_experimental_content_based_path_hashing.into_option(),
         )?)
     }
@@ -192,7 +192,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
             this,
             output,
             srcs,
-            true,
+            CopyMode::Copy,
             uses_experimental_content_based_path_hashing.into_option(),
         )?)
     }
