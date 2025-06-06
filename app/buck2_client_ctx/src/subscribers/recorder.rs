@@ -59,6 +59,7 @@ use buck2_util::network_speed_average::NetworkSpeedAverage;
 use buck2_util::sliding_window::SlidingWindow;
 use buck2_wrapper_common::BUCK_WRAPPER_START_TIME_ENV_VAR;
 use buck2_wrapper_common::invocation_id::TraceId;
+use console::strip_ansi_codes;
 use dupe::Dupe;
 use fbinit::FacebookInit;
 use gazebo::prelude::VecExt;
@@ -1802,8 +1803,10 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
 
     buck2_data::ProcessedErrorReport {
         tier: None,
-        message: error.message,
-        telemetry_message: error.telemetry_message,
+        message: strip_ansi_codes(&error.message).to_string(),
+        telemetry_message: error
+            .telemetry_message
+            .map(|m| strip_ansi_codes(&m).to_string()),
         source_location: error
             .source_location
             .map(|s| SourceLocation::from(s).to_string()),

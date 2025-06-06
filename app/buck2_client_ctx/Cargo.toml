@@ -15,6 +15,7 @@ blake3 = { workspace = true }
 bytes = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
+console = { workspace = true }
 crossterm = { workspace = true }
 csv = { workspace = true }
 derivative = { workspace = true }
