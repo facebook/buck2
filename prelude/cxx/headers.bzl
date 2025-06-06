@@ -392,9 +392,7 @@ def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)
     header_args = cmd_args()
     for n, (path, fmt) in headers.items():
         header_args.add(n)
-
-        # We don't care about the header contents -- just their names.
-        header_args.add(cmd_args(path, format = fmt, ignore_artifacts = True))
+        header_args.add(cmd_args(path, format = fmt))
 
     hmap_args_file = ctx.actions.write(output.basename + ".cxx_hmap_argsfile", cmd_args(header_args, quote = "shell"))
 
@@ -402,7 +400,6 @@ def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)
         [get_cxx_toolchain_info(ctx).internal_tools.hmap_wrapper] +
         ["--output", output.as_output()] +
         ["--mappings-file", hmap_args_file],
-        hidden = header_args,
     )
     ctx.actions.run(cmd, category = "generate_hmap", identifier = name, allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs))
     return output
