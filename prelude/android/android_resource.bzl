@@ -92,7 +92,10 @@ def aapt2_compile(
     if skip_crunch_pngs:
         aapt2_command.append("--no-crunch")
     aapt2_command.extend(["--dir", resources_dir])
-    aapt2_output = ctx.actions.declare_output("{}_resources.flata".format(identifier) if identifier else "resources.flata")
+    aapt2_output = ctx.actions.declare_output(
+        "{}_resources.flata".format(identifier) if identifier else "resources.flata",
+        uses_experimental_content_based_path_hashing = True,
+    )
     aapt2_command.extend(["-o", aapt2_output.as_output()])
 
     ctx.actions.run(cmd_args(aapt2_command), category = "aapt2_compile", identifier = identifier)
