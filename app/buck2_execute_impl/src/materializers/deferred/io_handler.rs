@@ -298,6 +298,7 @@ impl DefaultIoHandler {
                                 a.dest_entry.as_ref(),
                                 &self.fs.root().join(&a.src),
                                 &self.fs.root().join(&a.dest),
+                                a.executable_bit_override,
                             )?;
                         }
                         Ok(())

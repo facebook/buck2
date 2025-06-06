@@ -381,6 +381,8 @@ pub struct CopiedArtifact {
     pub dest: ProjectRelativePathBuf,
     /// Entry of the artifact at `dest`.
     pub dest_entry: ActionDirectoryEntry<ActionImmutableDirectory>,
+    // Override the destination executable bit to +x (true) or -x (false)
+    pub executable_bit_override: Option<bool>,
 }
 
 impl CopiedArtifact {
@@ -388,11 +390,13 @@ impl CopiedArtifact {
         src: ProjectRelativePathBuf,
         dest: ProjectRelativePathBuf,
         dest_entry: ActionDirectoryEntry<ActionImmutableDirectory>,
+        executable_bit_override: Option<bool>,
     ) -> Self {
         Self {
             src,
             dest,
             dest_entry,
+            executable_bit_override,
         }
     }
 }

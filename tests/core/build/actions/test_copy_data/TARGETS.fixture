@@ -1,5 +1,3 @@
-load(":defs.bzl", "perms_of_copied_file")
+load(":defs.bzl", "gen_test_cases")
 
-perms_of_copied_file(
-    name = "perms_of_copied_file",
-)
+gen_test_cases()

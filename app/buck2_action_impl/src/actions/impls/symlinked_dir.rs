@@ -145,7 +145,7 @@ impl UnregisteredSymlinkedDirAction {
         // When directories are copied into the same destination, the ordering defines how files are overwritten.
         match copy {
             CopyMode::Symlink => Self::validate_args(&mut args)?,
-            CopyMode::Copy => (),
+            CopyMode::Copy { .. } => (),
         };
         Ok(Self {
             copy,
@@ -254,8 +254,15 @@ impl Action for SymlinkedDirAction {
             let temp_dest = temp_output.join(relative_dest);
 
             match self.copy {
-                CopyMode::Copy => {
-                    let dest_entry = builder.add_copied(value, src.as_ref(), temp_dest.as_ref())?;
+                CopyMode::Copy {
+                    executable_bit_override,
+                } => {
+                    let dest_entry = builder.add_copied(
+                        value,
+                        src.as_ref(),
+                        temp_dest.as_ref(),
+                        executable_bit_override,
+                    )?;
                     srcs.push((src, relative_dest, dest_entry.map_dir(|d| d.as_immutable())));
                 }
                 CopyMode::Symlink => {
@@ -277,7 +284,17 @@ impl Action for SymlinkedDirAction {
         let srcs = srcs
             .into_iter()
             .map(|(src, relative_dest, dest_entry)| {
-                CopiedArtifact::new(src, actual_output.join(relative_dest), dest_entry)
+                CopiedArtifact::new(
+                    src,
+                    actual_output.join(relative_dest),
+                    dest_entry,
+                    match self.copy {
+                        CopyMode::Copy {
+                            executable_bit_override,
+                        } => executable_bit_override,
+                        CopyMode::Symlink => None,
+                    },
+                )
             })
             .collect_vec();
 

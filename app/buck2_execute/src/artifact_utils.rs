@@ -27,6 +27,7 @@ use crate::directory::extract_artifact_value;
 use crate::directory::insert_artifact;
 use crate::directory::insert_entry;
 use crate::directory::new_symlink;
+use crate::directory::override_executable_bit;
 use crate::directory::relativize_directory;
 
 pub struct ArtifactValueBuilder<'a> {
@@ -87,6 +88,7 @@ impl<'a> ArtifactValueBuilder<'a> {
         src_value: &ArtifactValue,
         src: &ProjectRelativePath,
         dest: &ProjectRelativePath,
+        executable_bit_override: Option<bool>,
     ) -> buck2_error::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
         insert_artifact(&mut self.builder, src, src_value)?;
 
@@ -94,6 +96,9 @@ impl<'a> ArtifactValueBuilder<'a> {
             DirectoryEntry::Dir(directory) => {
                 let mut builder = directory.dupe().into_builder();
                 relativize_directory(&mut builder, src, dest)?;
+                if let Some(executable_bit_override) = executable_bit_override {
+                    override_executable_bit(&mut builder, executable_bit_override)?;
+                }
                 DirectoryEntry::Dir(
                     builder.fingerprint(self.digest_config.as_directory_serializer()),
                 )
@@ -116,7 +121,12 @@ impl<'a> ArtifactValueBuilder<'a> {
                 ))
             }
             DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
-                DirectoryEntry::Leaf(ActionDirectoryMember::File(f.dupe()))
+                let file_metadata = if let Some(executable_bit_override) = executable_bit_override {
+                    f.dupe().with_executable(executable_bit_override)
+                } else {
+                    f.dupe()
+                };
+                DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata))
             }
         };
 
@@ -182,6 +192,7 @@ mod tests {
                 &get_symlink_artifact_value("../../../d6/target"),
                 path("d1/d2/d3/d4/link"),
                 path("d1/d5/new_link"),
+                None,
             )?
         };
 

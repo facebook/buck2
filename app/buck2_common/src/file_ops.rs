@@ -301,6 +301,11 @@ impl FileMetadata {
             is_executable: false,
         }
     }
+
+    pub fn with_executable(mut self, executable: bool) -> Self {
+        self.is_executable = executable;
+        self
+    }
 }
 
 /// Stores the relevant metadata for a path.

@@ -98,6 +98,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
+        #[starlark(require = named, default = NoneOr::None)] executable_bit_override: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         // `copy_file` can copy either a file or a directory, even though its name has the word
@@ -107,7 +108,9 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
             this,
             dest,
             src,
-            CopyMode::Copy,
+            CopyMode::Copy {
+                executable_bit_override: executable_bit_override.into_option(),
+            },
             OutputType::FileOrDirectory,
             uses_experimental_content_based_path_hashing.into_option(),
         )?)
@@ -144,6 +147,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
+        #[starlark(require = named, default = NoneOr::None)] executable_bit_override: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         Ok(copy_file_impl(
@@ -151,7 +155,9 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
             this,
             dest,
             src,
-            CopyMode::Copy,
+            CopyMode::Copy {
+                executable_bit_override: executable_bit_override.into_option(),
+            },
             OutputType::Directory,
             uses_experimental_content_based_path_hashing.into_option(),
         )?)
@@ -185,6 +191,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         #[starlark(require = pos)] srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
+        #[starlark(require = named, default = NoneOr::None)] executable_bit_override: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         Ok(create_dir_tree(
@@ -192,7 +199,9 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
             this,
             output,
             srcs,
-            CopyMode::Copy,
+            CopyMode::Copy {
+                executable_bit_override: executable_bit_override.into_option(),
+            },
             uses_experimental_content_based_path_hashing.into_option(),
         )?)
     }

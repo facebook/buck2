@@ -6,13 +6,22 @@
 # of this source tree.
 
 def _impl(ctx):
-    empty_exec = ctx.actions.write("empty.txt", "", is_executable = True)
-    copied = ctx.actions.copy_file("copied.txt", empty_exec)
-    perms = ctx.actions.declare_output("perms.txt")
+    if ctx.attrs.src != None and ctx.attrs.write_executable_bit != None:
+        fail("Cannot specify both src and write_executable_bit")
+    elif ctx.attrs.src != None:
+        src = ctx.attrs.src
+    elif ctx.attrs.write_executable_bit != None:
+        src = ctx.actions.write("empty.txt", "", is_executable = bool(ctx.attrs.write_executable_bit))
+    else:
+        fail("Must specify either src or write_executable_bit")
+
+    copied = ctx.actions.copy_file(ctx.label.name, src, executable_bit_override = ctx.attrs.executable_bit_override)
+    perms = ctx.actions.declare_output("{}_perms.txt".format(ctx.label.name))
     script = cmd_args(
-        "ls -l",
+        "ls -lR",
         copied,
-        "| cut -d ' ' -f 1 >",
+        "| cut -d ' ' -f 1",
+        "| grep '^-' >",
         perms.as_output(),
         delimiter = " ",
     )
@@ -23,5 +32,31 @@ def _impl(ctx):
 
 perms_of_copied_file = rule(
     impl = _impl,
-    attrs = {},
+    attrs = {
+        "executable_bit_override": attrs.option(attrs.bool(), default = None),
+        "src": attrs.option(attrs.source(allow_directory = True), default = None),
+        "write_executable_bit": attrs.option(attrs.bool(), default = None),
+    },
 )
+
+def gen_test_cases():
+    for executable_bit_override in [None, True, False]:
+        for write_executable_bit in [None, True, False]:
+            for src, _ in [
+                (None, None),
+                ("files/is_executable.sh", True),
+                ("files/not_executable.sh", False),
+                ("files/executable_scripts", True),
+                ("files/not_executable_scripts", False),
+            ]:
+                if src == None and write_executable_bit == None:
+                    continue
+                if src != None and write_executable_bit != None:
+                    continue
+                name = "perms_{}_{}_{}".format(executable_bit_override, write_executable_bit, src)
+                perms_of_copied_file(
+                    name = name,
+                    executable_bit_override = executable_bit_override,
+                    src = src,
+                    write_executable_bit = write_executable_bit,
+                )

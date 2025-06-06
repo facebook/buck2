@@ -45,7 +45,10 @@ enum CopyActionValidationError {
 
 #[derive(Debug, Allocative)]
 pub(crate) enum CopyMode {
-    Copy,
+    Copy {
+        // Override the destination executable bit to +x (true) or -x (false)
+        executable_bit_override: Option<bool>,
+    },
     Symlink,
 }
 
@@ -171,8 +174,15 @@ impl Action for CopyAction {
             let fs = artifact_fs.fs();
             let mut builder = ArtifactValueBuilder::new(fs, ctx.digest_config());
             match self.copy {
-                CopyMode::Copy => {
-                    builder.add_copied(src_value, src.as_ref(), dest.as_ref())?;
+                CopyMode::Copy {
+                    executable_bit_override,
+                } => {
+                    builder.add_copied(
+                        src_value,
+                        src.as_ref(),
+                        dest.as_ref(),
+                        executable_bit_override,
+                    )?;
                 }
                 CopyMode::Symlink => {
                     builder.add_symlinked(src_value, src.as_ref(), dest.as_ref())?;
@@ -193,6 +203,12 @@ impl Action for CopyAction {
                     src,
                     dest,
                     value.entry().dupe().map_dir(|d| d.as_immutable()),
+                    match self.copy {
+                        CopyMode::Copy {
+                            executable_bit_override,
+                        } => executable_bit_override,
+                        CopyMode::Symlink => None,
+                    },
                 )],
                 ctx.cancellation_context(),
             )

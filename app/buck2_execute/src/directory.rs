@@ -477,6 +477,36 @@ pub fn relativize_directory(
     Ok(())
 }
 
+pub fn override_executable_bit(
+    builder: &mut ActionDirectoryBuilder,
+    executable_bit_override: bool,
+) -> buck2_error::Result<()> {
+    let mut replacements = ActionDirectoryBuilder::empty();
+
+    {
+        let mut walk = builder.unordered_walk_leaves();
+        while let Some((path, entry)) = walk.next() {
+            let file = match entry {
+                ActionDirectoryMember::File(file) => {
+                    file.dupe().with_executable(executable_bit_override)
+                }
+                _ => continue,
+            };
+
+            let path = path.get();
+
+            replacements.insert(
+                &path,
+                DirectoryEntry::Leaf(ActionDirectoryMember::File(file)),
+            )?;
+        }
+    }
+
+    builder.merge(replacements)?;
+
+    Ok(())
+}
+
 pub fn insert_entry(
     builder: &mut ActionDirectoryBuilder,
     path: &ProjectRelativePath,
