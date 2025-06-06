@@ -109,7 +109,7 @@ def main(argv: List[str]) -> int:
         counter[member] += 1
         # Insert all objects at most once into the list of known objects
         if counter[member] == 1:
-            known_objects.append(_gen_path(objects_path, member))
+            known_objects.append(member)
 
     with tempfile.TemporaryDirectory() as temp_dir:
         # For each duplicate member, rename and extract duplicates 1 through N
@@ -137,7 +137,7 @@ def main(argv: List[str]) -> int:
                     os.path.join(os.path.abspath(objects_path), unique_name),
                 )
                 if current > 1:
-                    known_objects.append(_gen_path(objects_path, unique_name))
+                    known_objects.append(unique_name)
 
     manifest = {
         "objects": known_objects,

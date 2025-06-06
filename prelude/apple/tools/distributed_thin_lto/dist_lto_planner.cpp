@@ -44,58 +44,20 @@ struct ObjectFileRecord {
   const std::string inputObjectFilePath;
   const int starlarkArrayIndex;
   const std::string outputPlanFilePath;
-  ObjectFileRecord(
-      const std::string& inputObjectFilePath,
-      const int starlarkArrayIndex,
-      const std::string& outputPlanFilePath)
-      : inputObjectFilePath(inputObjectFilePath),
-        starlarkArrayIndex(starlarkArrayIndex),
-        outputPlanFilePath(outputPlanFilePath) {}
-  virtual ~ObjectFileRecord() = default;
-};
-
-struct StandaloneObjectFile : ObjectFileRecord {
   const std::string outputIndexShardFilePath;
   const std::optional<std::string> outputPremergedBitcodeFilePath;
 
-  StandaloneObjectFile(
+  ObjectFileRecord(
       const std::string& inputObjectFilePath,
       const std::string& outputIndexShardFilePath,
       const std::string& outputPremergedBitcodeFilePath,
       const std::string& outputPlanFilePath,
       const int starlarkArrayIndex)
-      : ObjectFileRecord(
-            inputObjectFilePath,
-            starlarkArrayIndex,
-            outputPlanFilePath),
+      : inputObjectFilePath(inputObjectFilePath),
+        starlarkArrayIndex(starlarkArrayIndex),
+        outputPlanFilePath(outputPlanFilePath),
         outputIndexShardFilePath(outputIndexShardFilePath),
         outputPremergedBitcodeFilePath(outputPremergedBitcodeFilePath) {}
-};
-
-struct ExtractedObjectFile : ObjectFileRecord {
-  const std::string outputIndexShardsDirectoryPath;
-  const std::optional<std::string> outputPreMergedBitcodeDirectoryPath;
-
-  ExtractedObjectFile(
-      const std::string& inputObjectFilePath,
-      const std::string& outputIndexShardsDirectoryPath,
-      const std::string& outputPremergedBitcodeDirectoryPath,
-      const std::string& outputPlanFilePath,
-      const int starlarkArrayIndex)
-      : ObjectFileRecord(
-            inputObjectFilePath,
-            starlarkArrayIndex,
-            outputPlanFilePath),
-        outputIndexShardsDirectoryPath(outputIndexShardsDirectoryPath),
-        outputPreMergedBitcodeDirectoryPath(
-            outputPremergedBitcodeDirectoryPath) {}
-};
-
-struct Archive {
-  std::vector<std::shared_ptr<const ExtractedObjectFile>> objects;
-  const std::string outputIndexShardsDirectoryPath;
-  const std::optional<std::string> outputPremergedBitcodeDirectoryPath;
-  const std::string outputPlanFilePath;
 };
 
 enum class BitcodeMergeState {
@@ -103,17 +65,6 @@ enum class BitcodeMergeState {
   Absorbed,
   Root,
   NotLoaded,
-};
-
-struct ExtractedObjectFileOptimizationPlan {
-  std::vector<int> objectFileImports;
-  std::vector<int> archiveImports;
-  bool isBitcode;
-  std::string path;
-  std::optional<std::string> indexShardFilePath;
-  bool loadedByLinker;
-  std::optional<BitcodeMergeState> bitcodeMergeState;
-  std::optional<std::string> mergedBitcodePath;
 };
 
 static const folly::json::serialization_opts jsonSerializationOptions = []() {
@@ -168,9 +119,6 @@ enum class MetaFileRecordType {
   ObjectFile,
 };
 
-constexpr std::string_view EXTRACTED_OBJECT_FILE_RECORD_TYPE_SPELLING =
-    "ARCHIVE_MEMBER";
-constexpr std::string_view OBJECT_FILE_RECORD_TYPE_SPELLING = "OBJECT_FILE";
 constexpr std::string_view MERGED_BITCODE_SUFFIX = ".merged.bc";
 constexpr std::string_view SUMMARY_SHARD_SUFFIX = ".thinlto.bc";
 constexpr std::string_view IMPORTS_FILE_SUFFIX = ".imports";
@@ -179,9 +127,7 @@ constexpr std::string_view OPTIMIZED_BITCODE_SUFFIX = ".opt.o";
 using ObjectFileRecordsMapTy =
     std::unordered_map<std::string, std::shared_ptr<const ObjectFileRecord>>;
 
-static void parseMetaFileRecords(
-    ObjectFileRecordsMapTy& objectFileRecordsMap,
-    std::unordered_map<int, std::unique_ptr<Archive>>& archiveMap) {
+static void parseMetaFileRecords(ObjectFileRecordsMapTy& objectFileRecordsMap) {
   std::ifstream metaFile(metaFileInputPath);
   if (!metaFile.is_open()) {
     std::cerr << "Failed to open file: " << metaFileInputPath << std::endl;
@@ -192,60 +138,19 @@ static void parseMetaFileRecords(
   try {
     auto jsonData = folly::parseJson(buffer.str());
     for (const auto& record : jsonData) {
-      if (record["record_type"].getString() ==
-          EXTRACTED_OBJECT_FILE_RECORD_TYPE_SPELLING) {
-        const std::string emptyString;
-        const std::string outputPremergedBitcodeDirectoryPath = enablePreMerger
-            ? record["output_premerged_bitcode_directory_path"].getString()
-            : emptyString;
-        std::shared_ptr<const ExtractedObjectFile>
-            parsedExtractedObjectFileRecord =
-                std::make_shared<ExtractedObjectFile>(
-                    record["input_object_file_path"].getString(),
-                    record["output_index_shards_directory_path"].getString(),
-                    outputPremergedBitcodeDirectoryPath,
-                    record["output_plan_file_path"].getString(),
-                    record["starlark_array_index"].getInt());
-
-        if (!archiveMap.contains(
-                parsedExtractedObjectFileRecord->starlarkArrayIndex)) {
-          archiveMap[parsedExtractedObjectFileRecord->starlarkArrayIndex] =
-              std::make_unique<Archive>(
-                  std::vector<std::shared_ptr<const ExtractedObjectFile>>(),
-                  parsedExtractedObjectFileRecord
-                      ->outputIndexShardsDirectoryPath,
-                  parsedExtractedObjectFileRecord
-                      ->outputPreMergedBitcodeDirectoryPath,
-                  parsedExtractedObjectFileRecord->outputPlanFilePath);
-        }
-
-        archiveMap[parsedExtractedObjectFileRecord->starlarkArrayIndex]
-            ->objects.push_back(parsedExtractedObjectFileRecord);
-
-        objectFileRecordsMap[parsedExtractedObjectFileRecord
-                                 ->inputObjectFilePath] =
-            parsedExtractedObjectFileRecord;
-      } else if (
-          record["record_type"].getString() ==
-          OBJECT_FILE_RECORD_TYPE_SPELLING) {
-        const std::string emptyString;
-        const std::string outputPremergedBitcodeFilePath = enablePreMerger
-            ? record["output_premerged_bitcode_file_path"].getString()
-            : emptyString;
-        std::shared_ptr<const StandaloneObjectFile> parsedObjectFileRecord =
-            std::make_shared<StandaloneObjectFile>(
-                record["input_object_file_path"].getString(),
-                record["output_index_shard_file_path"].getString(),
-                outputPremergedBitcodeFilePath,
-                record["output_plan_file_path"].getString(),
-                record["starlark_array_index"].getInt());
-        objectFileRecordsMap[parsedObjectFileRecord->inputObjectFilePath] =
-            parsedObjectFileRecord;
-      } else {
-        std::cerr << "Unknown record type: " << record["type"].getString()
-                  << std::endl;
-        std::abort();
-      }
+      const std::string emptyString;
+      const std::string outputPremergedBitcodeFilePath = enablePreMerger
+          ? record["output_premerged_bitcode_file_path"].getString()
+          : emptyString;
+      std::shared_ptr<const ObjectFileRecord> parsedObjectFileRecord =
+          std::make_shared<ObjectFileRecord>(
+              record["input_object_file_path"].getString(),
+              record["output_index_shard_file_path"].getString(),
+              outputPremergedBitcodeFilePath,
+              record["output_plan_file_path"].getString(),
+              record["starlark_array_index"].getInt());
+      objectFileRecordsMap[parsedObjectFileRecord->inputObjectFilePath] =
+          parsedObjectFileRecord;
     }
   } catch (const folly::json::parse_error& e) {
     std::cerr << "Error parsing JSON: " << e.what() << std::endl;
@@ -259,22 +164,7 @@ static void populatePreMergerPathConversionMaps(
     std::unordered_map<std::string, std::string>& postMergeToPreMerge) {
   for (const auto& [preMergePath, objectFileRecord] : objectFileRecordsMap) {
     std::string postMergePath;
-    if (const auto* objectFile =
-            dynamic_cast<const StandaloneObjectFile*>(objectFileRecord.get())) {
-      postMergePath = objectFile->outputPremergedBitcodeFilePath.value();
-    } else if (
-        const auto* extractedObjectFile =
-            dynamic_cast<const ExtractedObjectFile*>(objectFileRecord.get())) {
-      postMergePath +=
-          extractedObjectFile->outputPreMergedBitcodeDirectoryPath.value();
-      postMergePath += "/";
-      postMergePath += preMergePath;
-      postMergePath += MERGED_BITCODE_SUFFIX;
-    } else {
-      std::cerr << "Unrecognized object file record" << std::endl;
-      std::abort();
-    }
-
+    postMergePath = objectFileRecord->outputPremergedBitcodeFilePath.value();
     preMergeToPostMerge[preMergePath] = postMergePath;
     postMergeToPreMerge[postMergePath] = preMergePath;
   }
@@ -407,9 +297,8 @@ static BitcodeMergeState readMergedBitcodeFile(
   std::abort();
 }
 
-static void writeStandaloneObjectFileOptimizationPlanToJSONFile(
+static void writeObjectFileOptimizationPlanToJSONFile(
     const std::vector<int>& objectFileImports,
-    const std::vector<int>& archiveImports,
     const bool isBitcode,
     const std::optional<BitcodeMergeState> bitcodeMergeState,
     const bool loadedByLinker,
@@ -417,50 +306,12 @@ static void writeStandaloneObjectFileOptimizationPlanToJSONFile(
   std::ofstream stream(outputPath);
   folly::dynamic json = folly::dynamic::object();
   json["imports"] = folly::toDynamic(objectFileImports);
-  json["archive_imports"] = folly::toDynamic(archiveImports);
   json["is_bitcode"] = isBitcode;
   if (bitcodeMergeState) {
     json["merge_state"] =
         getBitcodeMergeStateSpelling(bitcodeMergeState.value());
   }
   json["loaded_by_linker"] = loadedByLinker;
-  stream << folly::json::serialize(json, jsonSerializationOptions);
-}
-
-static void writeArchiveOptimizationPlanTOJSONFile(
-    const std::vector<ExtractedObjectFileOptimizationPlan>& objectPlans,
-    const std::string& baseDir,
-    const std::string& outputPath) {
-  std::ofstream stream(outputPath);
-  folly::dynamic json = folly::dynamic::object();
-  folly::dynamic objectPlansJsonArray = folly::dynamic::array();
-  for (const auto& extractedObjectFileOptimizationPlan : objectPlans) {
-    folly::dynamic objectPlanJson = folly::dynamic::object();
-    objectPlanJson["imports"] =
-        folly::toDynamic(extractedObjectFileOptimizationPlan.objectFileImports);
-    objectPlanJson["archive_imports"] =
-        folly::toDynamic(extractedObjectFileOptimizationPlan.archiveImports);
-    objectPlanJson["is_bitcode"] =
-        extractedObjectFileOptimizationPlan.isBitcode;
-    objectPlanJson["path"] = extractedObjectFileOptimizationPlan.path;
-    objectPlanJson["loaded_by_linker"] =
-        extractedObjectFileOptimizationPlan.loadedByLinker;
-    if (extractedObjectFileOptimizationPlan.indexShardFilePath) {
-      objectPlanJson["index_shard_file_path"] =
-          extractedObjectFileOptimizationPlan.indexShardFilePath.value();
-    }
-    if (extractedObjectFileOptimizationPlan.bitcodeMergeState) {
-      objectPlanJson["bitcode_merge_state"] = getBitcodeMergeStateSpelling(
-          extractedObjectFileOptimizationPlan.bitcodeMergeState.value());
-    }
-    if (extractedObjectFileOptimizationPlan.mergedBitcodePath) {
-      objectPlanJson["merged_bitcode_path"] =
-          extractedObjectFileOptimizationPlan.mergedBitcodePath.value();
-    }
-    objectPlansJsonArray.push_back(objectPlanJson);
-  }
-  json["object_plans"] = objectPlansJsonArray;
-  json["base_dir"] = baseDir;
   stream << folly::json::serialize(json, jsonSerializationOptions);
 }
 
@@ -518,31 +369,20 @@ static void writeFinalLinkIndex(
         continue;
       }
 
-      if (const auto* standaloneObjectFile =
-              dynamic_cast<const StandaloneObjectFile*>(
-                  objectFileRecordsMap.at(normalizedPath).get())) {
-        // For each standalone object file passed to the linker, in bzl logic
-        // we declare a few outputs side by side (.thinlto.bc index shard,
-        // .opt.plan optimization plan, .opt.o optimized bitcode file). We
-        // will eventually take the input bitcode .o file, and write a native
-        // object file to the declared .opt.o output location. We need to
-        // convert between the two paths. We start with the output inded shard
-        // file path, because the two are the same file with different
-        // extensions, then we remove the .thinlto.bc and add the .opt.o. We
-        // could include the optimized bitcode output location in the metafile
-        // instead.
-        std::string outputPath = standaloneObjectFile->outputIndexShardFilePath;
-        replace(outputPath, SUMMARY_SHARD_SUFFIX, OPTIMIZED_BITCODE_SUFFIX);
-        writeStream << outputPath << "\n";
-      } else {
-        // For object files extracted from archives via dynamic output, we
-        // have a declare two output directories, one for extracted bitcode
-        // files, and another for their native counterparts. We translate
-        // between the two directories here.
-        std::string outputPath = normalizedPath;
-        replace(outputPath, "/objects/", "/opt_objects/objects/");
-        writeStream << outputPath << "\n";
-      }
+      // For each standalone object file passed to the linker, in bzl logic
+      // we declare a few outputs side by side (.thinlto.bc index shard,
+      // .opt.plan optimization plan, .opt.o optimized bitcode file). We
+      // will eventually take the input bitcode .o file, and write a native
+      // object file to the declared .opt.o output location. We need to
+      // convert between the two paths. We start with the output inded shard
+      // file path, because the two are the same file with different
+      // extensions, then we remove the .thinlto.bc and add the .opt.o. We
+      // could include the optimized bitcode output location in the metafile
+      // instead.
+      std::string outputPath =
+          objectFileRecordsMap.at(normalizedPath)->outputIndexShardFilePath;
+      replace(outputPath, SUMMARY_SHARD_SUFFIX, OPTIMIZED_BITCODE_SUFFIX);
+      writeStream << outputPath << "\n";
     } else {
       // Non bitcode files should be included verbatim.
       writeStream << line << "\n";
@@ -550,9 +390,9 @@ static void writeFinalLinkIndex(
   }
 }
 
-static folly::coro::Task<void> writeOptimizationPlanForStandaloneObjectFile(
+static folly::coro::Task<void> writeOptimizationPlanForObjectFile(
     const std::string& inputBitcodeFilePath,
-    const StandaloneObjectFile* standaloneObjectFile,
+    const ObjectFileRecord* objectFile,
     const ObjectFileRecordsMapTy& objectFileRecordsMap,
     const std::unordered_map<std::string, std::string>& postMergeToPreMerge,
     const std::unordered_set<std::string>& loadedInputBitcodeFiles,
@@ -561,78 +401,62 @@ static folly::coro::Task<void> writeOptimizationPlanForStandaloneObjectFile(
   co_await folly::coro::co_reschedule_on_current_executor;
 
   std::filesystem::create_directories(
-      std::filesystem::path(standaloneObjectFile->outputIndexShardFilePath)
+      std::filesystem::path(objectFile->outputIndexShardFilePath)
           .parent_path());
 
   const std::string temporaryIndexShardFilePath =
-      thinLTOPrefixReplacedPath(standaloneObjectFile->inputObjectFilePath)
+      thinLTOPrefixReplacedPath(objectFile->inputObjectFilePath)
           .concat(SUMMARY_SHARD_SUFFIX);
 
   const std::string importsFilePath =
-      thinLTOPrefixReplacedPath(standaloneObjectFile->inputObjectFilePath)
+      thinLTOPrefixReplacedPath(objectFile->inputObjectFilePath)
           .concat(IMPORTS_FILE_SUFFIX);
 
   if (std::filesystem::exists(importsFilePath)) {
     std::filesystem::rename(
-        temporaryIndexShardFilePath,
-        standaloneObjectFile->outputIndexShardFilePath);
+        temporaryIndexShardFilePath, objectFile->outputIndexShardFilePath);
 
     const auto imports = readImportsFile(importsFilePath, postMergeToPreMerge);
 
     std::vector<int> objectFileImports;
-    std::vector<int> archiveImports;
     for (const auto& importPath : imports) {
       const auto& objectFileRecord = objectFileRecordsMap.at(importPath);
-      if (const auto* importedStandaloneObjectFile =
-              dynamic_cast<const StandaloneObjectFile*>(
-                  objectFileRecord.get())) {
-        objectFileImports.push_back(
-            importedStandaloneObjectFile->starlarkArrayIndex);
-      } else if (
-          const auto* extractedObjectFile =
-              dynamic_cast<const ExtractedObjectFile*>(
-                  objectFileRecord.get())) {
-        archiveImports.push_back(extractedObjectFile->starlarkArrayIndex);
-      }
+      objectFileImports.push_back(objectFileRecord->starlarkArrayIndex);
     }
 
     std::optional<BitcodeMergeState> bitcodeMergeState;
     if (enablePreMerger) {
       bitcodeMergeState = readMergedBitcodeFile(
-          standaloneObjectFile->outputPremergedBitcodeFilePath.value());
+          objectFile->outputPremergedBitcodeFilePath.value());
       if (bitcodeMergeState == BitcodeMergeState::Absorbed) {
         co_await absorbedBitcodeFilesMutex.co_lock();
-        absorbedBitcodeFiles.insert(standaloneObjectFile->inputObjectFilePath);
+        absorbedBitcodeFiles.insert(objectFile->inputObjectFilePath);
         absorbedBitcodeFilesMutex.unlock();
       }
     }
 
-    writeStandaloneObjectFileOptimizationPlanToJSONFile(
+    writeObjectFileOptimizationPlanToJSONFile(
         objectFileImports,
-        archiveImports,
         /* isBitcode */ true,
         bitcodeMergeState,
         /* loadedByLinker */
         loadedInputBitcodeFiles.contains(inputBitcodeFilePath),
-        standaloneObjectFile->outputPlanFilePath);
+        objectFile->outputPlanFilePath);
   } else {
     co_await nonLTOObjectFilesMutex.co_lock();
-    nonLTOObjectFiles.push_back(standaloneObjectFile->starlarkArrayIndex);
+    nonLTOObjectFiles.push_back(objectFile->starlarkArrayIndex);
     nonLTOObjectFilesMutex.unlock();
     // The linker will not generate an index shard, or a merged bitcode file if
     // the input is not bitcode. Buck still expects the output, so write empty
     // files.
-    std::ofstream(standaloneObjectFile->outputIndexShardFilePath).close();
+    std::ofstream(objectFile->outputIndexShardFilePath).close();
 
     if (enablePreMerger) {
-      std::ofstream(
-          standaloneObjectFile->outputPremergedBitcodeFilePath.value())
-          .close();
+      std::ofstream(objectFile->outputPremergedBitcodeFilePath.value()).close();
     }
 
-    writeStandaloneObjectFileOptimizationPlanToJSONFile(
+    writeObjectFileOptimizationPlanToJSONFile(
         /* objectFileImports */ {},
-        /* archiveImports */ {},
         /* isBitcode */ false,
         // Native object files do no participate in bitcode merging
         /* bitcodeMergeState */ std::nullopt,
@@ -641,7 +465,7 @@ static folly::coro::Task<void> writeOptimizationPlanForStandaloneObjectFile(
         // + codegening a bitcode file that won't be loaded anyways, but this is
         // already a native object file, there is no work to avoid doing.
         /* loadedByLinker */ true,
-        standaloneObjectFile->outputPlanFilePath);
+        objectFile->outputPlanFilePath);
   }
   co_return;
 }
@@ -653,8 +477,7 @@ int main(int argc, char** argv) {
   folly::Init init(&fakeArgc, &argv);
   parseArgs(argc, argv);
   ObjectFileRecordsMapTy objectFileRecordsMap;
-  std::unordered_map<int, std::unique_ptr<Archive>> archiveMap;
-  parseMetaFileRecords(objectFileRecordsMap, archiveMap);
+  parseMetaFileRecords(objectFileRecordsMap);
   std::unordered_map<std::string, std::string> preMergeToPostMerge;
   std::unordered_map<std::string, std::string> postMergeToPreMerge;
   if (enablePreMerger) {
@@ -671,15 +494,9 @@ int main(int argc, char** argv) {
   std::vector<folly::coro::Task<void>> tasks;
   for (const auto& [inputBitcodeFilePath, objectFileRecord] :
        objectFileRecordsMap) {
-    const auto* standaloneObjectFile =
-        dynamic_cast<const StandaloneObjectFile*>(objectFileRecord.get());
-    if (!standaloneObjectFile) {
-      continue;
-    }
-
-    tasks.push_back(writeOptimizationPlanForStandaloneObjectFile(
+    tasks.push_back(writeOptimizationPlanForObjectFile(
         inputBitcodeFilePath,
-        standaloneObjectFile,
+        objectFileRecord.get(),
         objectFileRecordsMap,
         postMergeToPreMerge,
         loadedInputBitcodeFiles,
@@ -691,96 +508,6 @@ int main(int argc, char** argv) {
       folly::getGlobalCPUExecutor(),
       folly::coro::collectAllRange(std::move(tasks))));
 
-  // We don't bother multithreading this part, since there are far fewer
-  // pre-built static archives and they usually don't contain bitcode (so there
-  // is less work to do reading and writing artifacts)
-  for (const auto& [starlarkIndex, archive] : archiveMap) {
-    std::filesystem::create_directories(
-        archive->outputIndexShardsDirectoryPath);
-    if (enablePreMerger) {
-      std::filesystem::create_directories(
-          archive->outputPremergedBitcodeDirectoryPath.value());
-    }
-
-    std::vector<ExtractedObjectFileOptimizationPlan> objectPlans;
-    for (const auto& extractedObjectFile : archive->objects) {
-      const std::string importsFilePath =
-          thinLTOPrefixReplacedPath(extractedObjectFile->inputObjectFilePath)
-              .concat(IMPORTS_FILE_SUFFIX);
-      if (std::filesystem::exists(importsFilePath)) {
-        const std::filesystem::path temporaryIndexShardFilePath =
-            thinLTOPrefixReplacedPath(extractedObjectFile->inputObjectFilePath)
-                .concat(SUMMARY_SHARD_SUFFIX);
-        const std::string finalIndexShardFilePath =
-            std::filesystem::path(
-                extractedObjectFile->outputIndexShardsDirectoryPath) /
-            temporaryIndexShardFilePath.filename();
-        std::filesystem::rename(
-            temporaryIndexShardFilePath, finalIndexShardFilePath);
-
-        const auto imports =
-            readImportsFile(importsFilePath, postMergeToPreMerge);
-        std::vector<int> objectFileImports;
-        std::vector<int> archiveImports;
-        for (const auto& importPath : imports) {
-          const auto objectFileRecord = objectFileRecordsMap.at(importPath);
-          if (const auto* standaloneObjectFile =
-                  dynamic_cast<const StandaloneObjectFile*>(
-                      objectFileRecord.get())) {
-            objectFileImports.push_back(
-                standaloneObjectFile->starlarkArrayIndex);
-          } else if (
-              const auto* importedExtractedObjectFile =
-                  dynamic_cast<const ExtractedObjectFile*>(
-                      objectFileRecord.get())) {
-            archiveImports.push_back(
-                importedExtractedObjectFile->starlarkArrayIndex);
-          }
-        }
-
-        std::optional<BitcodeMergeState> bitcodeMergeState;
-        std::optional<std::string> mergedBitcodeFilePath;
-        if (enablePreMerger) {
-          mergedBitcodeFilePath =
-              preMergeToPostMerge.at(extractedObjectFile->inputObjectFilePath);
-          bitcodeMergeState =
-              readMergedBitcodeFile(mergedBitcodeFilePath.value());
-          if (bitcodeMergeState == BitcodeMergeState::Absorbed) {
-            absorbedBitcodeFiles.insert(
-                extractedObjectFile->inputObjectFilePath);
-          }
-        }
-
-        objectPlans.push_back(ExtractedObjectFileOptimizationPlan(
-            objectFileImports,
-            archiveImports,
-            /* isBitcode */ true,
-            /* path */ extractedObjectFile->inputObjectFilePath,
-            /* indexShardFilePath */ finalIndexShardFilePath,
-            /* loadedByLinker */
-            loadedInputBitcodeFiles.contains(
-                extractedObjectFile->inputObjectFilePath),
-            bitcodeMergeState,
-            mergedBitcodeFilePath));
-      } else {
-        objectPlans.push_back(ExtractedObjectFileOptimizationPlan(
-            /* objectFileImports*/ {},
-            /* archiveImports */ {},
-            /* isBitcode */ false,
-            /* path */ extractedObjectFile->inputObjectFilePath,
-            /* indexShardFilePath */ std::nullopt,
-            /* loadedByLinker */ true,
-            /* bitcodeMergeState */ std::nullopt,
-            /* mergedBitcodeFilePath */ std::nullopt));
-      }
-    }
-
-    writeArchiveOptimizationPlanTOJSONFile(
-        objectPlans,
-        /* baseDir */
-        std::filesystem::path(archive->outputPlanFilePath).parent_path(),
-        archive->outputPlanFilePath);
-  }
   writeLinkPlan(nonLTOObjectFiles);
   writeFinalLinkIndex(absorbedBitcodeFiles, objectFileRecordsMap);
 }

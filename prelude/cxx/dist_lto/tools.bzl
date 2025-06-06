@@ -24,12 +24,14 @@ def _impl(ctx):
                 for linker_type, prepare in ctx.attrs.prepare.items()
             },
             copy = ctx.attrs.copy[RunInfo],
+            archive_mapper = ctx.attrs.archive_mapper[RunInfo],
         ),
     ]
 
 dist_lto_tools = rule(
     impl = _impl,
     attrs = {
+        "archive_mapper": attrs.dep(providers = [RunInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_archive_mapper"),
         "copy": attrs.dep(providers = [RunInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_copy"),
         "opt": attrs.dict(
             key = attrs.enum(LinkerType.values()),

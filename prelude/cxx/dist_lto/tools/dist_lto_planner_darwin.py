@@ -64,46 +64,10 @@ def read_merged_bitcode_file(merged_bitcode_path) -> BitcodeMergeState:
     raise Exception(f"unexpected merged bitcode file contents: {merged_bitcode_path}")
 
 
-class MetafileRecordType(str, Enum):
-    ARCHIVE_MEMBER = "ARCHIVE_MEMBER"
-    OBJECT_FILE = "OBJECT_FILE"
-
-
-@dataclass
-class ArchiveMember:
-    """An object file extracted from an archive passed to the distributed link."""
-
-    record_type: MetafileRecordType
-    input_object_file_path: str
-    output_index_shards_directory_path: str
-    output_premerged_bitcode_directory_path: Optional[str]
-    output_plan_file_path: str
-    starlark_array_index: int
-
-    def __init__(
-        self,
-        record_type: str,
-        input_object_file_path: str,
-        output_index_shards_directory_path: str,
-        output_plan_file_path: str,
-        starlark_array_index: int,
-        output_premerged_bitcode_directory_path: Optional[str] = None,
-    ):
-        self.record_type = MetafileRecordType(record_type)
-        self.input_object_file_path = input_object_file_path
-        self.output_index_shards_directory_path = output_index_shards_directory_path
-        self.output_premerged_bitcode_directory_path = (
-            output_premerged_bitcode_directory_path
-        )
-        self.output_plan_file_path = output_plan_file_path
-        self.starlark_array_index = int(starlark_array_index)
-
-
 @dataclass
 class ObjectFile:
     """An object files passed directly to the distributed link. The object file may or may not be lazy."""
 
-    record_type: MetafileRecordType
     input_object_file_path: str
     output_index_shard_file_path: str
     output_premerged_bitcode_file_path: Optional[str]
@@ -112,29 +76,17 @@ class ObjectFile:
 
     def __init__(
         self,
-        record_type: str,
         input_object_file_path: str,
         output_index_shard_file_path: str,
         output_plan_file_path: str,
         starlark_array_index: int,
         output_premerged_bitcode_file_path: Optional[str] = None,
     ):
-        self.record_type = MetafileRecordType(record_type)
         self.input_object_file_path = input_object_file_path
         self.output_index_shard_file_path = output_index_shard_file_path
         self.output_premerged_bitcode_file_path = output_premerged_bitcode_file_path
         self.output_plan_file_path = output_plan_file_path
         self.starlark_array_index = int(starlark_array_index)
-
-
-@dataclass
-class Archive:
-    """An archive is a collection of lazy object files that are passed to the link as a single unit."""
-
-    objects: list[ArchiveMember]
-    output_index_shards_directory_path: str
-    output_premerged_bitcode_directory_path: Optional[str]
-    output_plan_file_path: str
 
 
 @dataclass
@@ -146,38 +98,9 @@ class ObjectFileOptimizationPlan:
     # that identify other bitcode files this bitcode file imports from,
     # and thus should be optimized along side
     imports: list[int]
-    # The same as the imports list above, but for when a bitcode file imports
-    # from another bitcode file passed to the link within a static archive.
-    # dynamic_output restrictions prevent Buck from acting upon individual
-    # members of the archive, so the entire archive contents must be acted upon.
-    archive_imports: list[int]
     is_bitcode: bool
     merge_state: Optional[BitcodeMergeState]
     loaded_by_linker: bool
-
-
-@dataclass
-class ArchiveMemberOptimizationPlan:
-    """A structure holding the information required to optimize and codegen a single bitcode file passed to the link as part of a static archive"""
-
-    is_bitcode: bool
-    path: str  # The buck-out relative path to the extracted archive member
-    imports: list[int]  # Described above in the ObjectFileOptimizationPlan definition
-    archive_imports: list[
-        int
-    ]  # Described above in the ObjectFileOptimizationPlan definition
-    index_shard_file_path: Optional[str]
-    loaded_by_linker: bool
-    merge_state: Optional[BitcodeMergeState]
-    merged_bitcode_path: Optional[str]
-
-
-@dataclass
-class ArchiveOptimizationPlan:
-    """A structure holding the information required to optimize and codegen bitcode object files in static archive"""
-
-    object_plans: list[ArchiveMemberOptimizationPlan]
-    base_dir: str
 
 
 BITCODE_SUFFIX = ".thinlto.bc"
@@ -188,44 +111,22 @@ MERGED_BITCODE_SUFFIX = ".merged.bc"
 
 def _parse_meta_file_records(
     meta_file_path: str,
-) -> tuple[dict[str, ObjectFile | ArchiveMember], dict[int, Archive]]:
-    object_file_records_map: dict[str, ObjectFile | ArchiveMember] = {}
-    archive_records_map: dict[int, Archive] = {}
+) -> tuple[dict[str, ObjectFile]]:
+    object_file_records_map: dict[str, ObjectFile] = {}
 
     with open(meta_file_path) as meta:
         object_file_records_json = json.load(meta)
         for record in object_file_records_json:
-            if record["record_type"] == MetafileRecordType.ARCHIVE_MEMBER.value:
-                lazy_object_file_record = ArchiveMember(**record)
-                object_file_records_map[
-                    lazy_object_file_record.input_object_file_path
-                ] = lazy_object_file_record
-                if lazy_object_file_record.starlark_array_index in archive_records_map:
-                    archive_records_map[
-                        lazy_object_file_record.starlark_array_index
-                    ].objects.append(lazy_object_file_record)
-                else:
-                    archive_records_map[
-                        lazy_object_file_record.starlark_array_index
-                    ] = Archive(
-                        objects=[lazy_object_file_record],
-                        output_index_shards_directory_path=lazy_object_file_record.output_index_shards_directory_path,
-                        output_premerged_bitcode_directory_path=lazy_object_file_record.output_premerged_bitcode_directory_path,
-                        output_plan_file_path=lazy_object_file_record.output_plan_file_path,
-                    )
-            elif record["record_type"] == MetafileRecordType.OBJECT_FILE.value:
-                object_file_record = ObjectFile(**record)
-                object_file_records_map[object_file_record.input_object_file_path] = (
-                    object_file_record
-                )
-            else:
-                raise Exception(f"Unknown record type: {record['record_type']}")
+            object_file_record = ObjectFile(**record)
+            object_file_records_map[object_file_record.input_object_file_path] = (
+                object_file_record
+            )
 
-    return object_file_records_map, archive_records_map
+    return object_file_records_map
 
 
 def _populate_premerger_path_conversion_maps(
-    object_file_records_map: dict[str, ObjectFile | ArchiveMember],
+    object_file_records_map: dict[str, ObjectFile],
 ) -> tuple[dict[str, str], dict[str, str]]:
     original_bitcode_to_merged_bitcode_path_mapping = {}
     merged_bitcode_to_original_bitcode_path_mapping = {}
@@ -234,19 +135,10 @@ def _populate_premerger_path_conversion_maps(
         object_file_record,
     ) in object_file_records_map.items():
         output_merged_bitcode_file_path = None
-        if isinstance(object_file_record, ArchiveMember):
-            assert (
-                object_file_record.output_premerged_bitcode_directory_path is not None
-            )
-            output_merged_bitcode_file_path = os.path.join(
-                object_file_record.output_premerged_bitcode_directory_path,
-                input_object_file_path + MERGED_BITCODE_SUFFIX,
-            )
-        elif isinstance(object_file_record, ObjectFile):
-            assert object_file_record.output_premerged_bitcode_file_path is not None
-            output_merged_bitcode_file_path = (
-                object_file_record.output_premerged_bitcode_file_path
-            )
+        assert object_file_record.output_premerged_bitcode_file_path is not None
+        output_merged_bitcode_file_path = (
+            object_file_record.output_premerged_bitcode_file_path
+        )
 
         original_bitcode_to_merged_bitcode_path_mapping[input_object_file_path] = (
             output_merged_bitcode_file_path
@@ -318,7 +210,7 @@ def main(argv):
     def index_path(path):
         return os.path.join(args.index, path)
 
-    object_file_records_map, archive_records_map = _parse_meta_file_records(args.meta)
+    object_file_records_map = _parse_meta_file_records(args.meta)
 
     original_bitcode_to_merged_bitcode_path_mapping = {}
     if premerger_enabled:
@@ -352,9 +244,6 @@ def main(argv):
 
     # Generate plans for object files
     for path, data in sorted(object_file_records_map.items(), key=lambda v: v[0]):
-        if isinstance(data, ArchiveMember):
-            continue
-
         # The linker will not write the sharded index to the location buck expects it to be by default, we need
         # to move it there.
         final_sharded_index_output_path = data.output_index_shard_file_path
@@ -377,17 +266,9 @@ def main(argv):
 
             imports = read_imports(imports_file_path)
             imports_list = []
-            archives_list = []
             for import_path in imports:
                 imported_object_file_record = object_file_records_map[import_path]
-                if isinstance(imported_object_file_record, ArchiveMember):
-                    archives_list.append(
-                        int(imported_object_file_record.starlark_array_index)
-                    )
-                else:
-                    imports_list.append(
-                        imported_object_file_record.starlark_array_index
-                    )
+                imports_list.append(imported_object_file_record.starlark_array_index)
 
             merge_state = None
             if premerger_enabled:
@@ -400,7 +281,6 @@ def main(argv):
 
             plan = ObjectFileOptimizationPlan(
                 imports=imports_list,
-                archive_imports=archives_list,
                 merge_state=merge_state,
                 is_bitcode=True,
                 loaded_by_linker=_input_bitcode_file_path_is_loaded_by_linker(path),
@@ -417,7 +297,6 @@ def main(argv):
                     pass
             plan = ObjectFileOptimizationPlan(
                 imports=[],
-                archive_imports=[],
                 merge_state=None,
                 is_bitcode=False,
                 loaded_by_linker=True,
@@ -425,86 +304,6 @@ def main(argv):
 
         with open(data.output_plan_file_path, "w") as planout:
             json.dump(dataclasses.asdict(plan), planout, sort_keys=True)
-
-    # Generate plans for each achive
-    for archive in archive_records_map.values():
-        object_plans: list[ArchiveMemberOptimizationPlan] = []
-        output_path = archive.output_index_shards_directory_path
-        os.makedirs(output_path, exist_ok=True)
-        if premerger_enabled:
-            merged_bitcode_output_path = archive.output_premerged_bitcode_directory_path
-            os.makedirs(merged_bitcode_output_path, exist_ok=True)
-        for archive_member_object_file_record in archive.objects:
-            obj = archive_member_object_file_record.input_object_file_path
-            imports_path = index_path(obj) + IMPORTS_SUFFIX
-            if os.path.exists(imports_path):
-                bc_file = index_path(obj) + BITCODE_SUFFIX
-                index_path(obj) + MERGED_BITCODE_SUFFIX
-                os.rename(bc_file, os.path.join(output_path, os.path.basename(bc_file)))
-
-                imports = read_imports(imports_path)
-                imports_list = []
-                archives_list = []
-                for import_path in imports:
-                    object_file_record = object_file_records_map[import_path]
-                    if isinstance(object_file_record, ArchiveMember):
-                        archives_list.append(
-                            int(object_file_record.starlark_array_index)
-                        )
-                    else:
-                        imports_list.append(object_file_record.starlark_array_index)
-
-                loaded_by_linker = _input_bitcode_file_path_is_loaded_by_linker(obj)
-
-                merge_state = None
-                merged_bitcode_path = None
-                if premerger_enabled:
-                    merged_bc_file = original_bitcode_to_merged_bitcode_path_mapping[
-                        obj
-                    ]
-                    merge_state = read_merged_bitcode_file(merged_bc_file)
-                    if merge_state == BitcodeMergeState.ABSORBED:
-                        absorbed_source_files.add(obj)
-                    merged_bitcode_path = merged_bc_file
-
-                object_plans.append(
-                    ArchiveMemberOptimizationPlan(
-                        is_bitcode=True,
-                        path=obj,
-                        imports=imports_list,
-                        archive_imports=archives_list,
-                        index_shard_file_path=os.path.join(
-                            output_path, os.path.basename(bc_file)
-                        ),
-                        loaded_by_linker=loaded_by_linker,
-                        merge_state=merge_state,
-                        merged_bitcode_path=merged_bitcode_path,
-                    )
-                )
-            else:
-                object_plans.append(
-                    ArchiveMemberOptimizationPlan(
-                        is_bitcode=False,
-                        path=obj,
-                        imports=[],
-                        archive_imports=[],
-                        index_shard_file_path=None,
-                        # The native object file might not actually be loaded by the linker,
-                        # but it doesn't matter. The point of this field is to avoid optimizing + codegening
-                        # a bitcode file that won't be loaded anyways, but this is already a native
-                        # object file, there is no work to avoid doing.
-                        loaded_by_linker=True,
-                        merge_state=None,  # Native object files don't participate in merging
-                        merged_bitcode_path=None,
-                    )
-                )
-
-        archive_plan = ArchiveOptimizationPlan(
-            object_plans=object_plans,
-            base_dir=os.path.dirname(archive.output_plan_file_path),
-        )
-        with open(archive.output_plan_file_path, "w") as planout:
-            json.dump(dataclasses.asdict(archive_plan), planout, sort_keys=True)
 
     # Dump the set of input object files that were already native object files instead of bitcode
     with open(args.link_plan, "w") as outfile:
@@ -531,23 +330,13 @@ def main(argv):
                 continue
 
             if path in loaded_input_bitcode_files:
-                if isinstance(object_file_records_map[path], ObjectFile):
-                    # This is a roundabout method of getting the location opt actions will write the produced native object file for a bitcode file. This only works because the sharded index and the output native object file are written side by side with a different suffix.
-                    output = object_file_records_map[
-                        path
-                    ].output_index_shard_file_path.replace(
-                        BITCODE_SUFFIX, OPT_OBJECTS_SUFFIX
-                    )
-                    final_link_index_output.write(output + "\n")
-                elif isinstance(object_file_records_map[path], ArchiveMember):
-                    opt_objects_path = path.replace(
-                        "/objects/", "/opt_objects/objects/"
-                    )
-                    final_link_index_output.write(opt_objects_path + "\n")
-                else:
-                    raise Exception(
-                        f"unexpected object file record type: {object_file_records_map[path]}"
-                    )
+                # This is a roundabout method of getting the location opt actions will write the produced native object file for a bitcode file. This only works because the sharded index and the output native object file are written side by side with a different suffix.
+                output = object_file_records_map[
+                    path
+                ].output_index_shard_file_path.replace(
+                    BITCODE_SUFFIX, OPT_OBJECTS_SUFFIX
+                )
+                final_link_index_output.write(output + "\n")
             else:
                 # handle input files that did not come from linker input, e.g. linkerscirpts
                 final_link_index_output.write(line + "\n")

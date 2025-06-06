@@ -30,17 +30,6 @@ LazyBitcodeLinkData = record(
     archive_end = bool,
 )
 
-ArchiveLinkData = record(
-    name = str,
-    manifest = Artifact,
-    input_object_files_dir = Artifact,
-    output_final_native_object_files_dir = Artifact,
-    output_index_shard_files_dir = Artifact,
-    plan = Artifact,
-    link_whole = bool,
-    merged_bc_dir = field([Artifact, None]),
-)
-
 DynamicLibraryLinkData = record(
     linkable = SharedLibLinkable,
 )
@@ -48,13 +37,12 @@ DynamicLibraryLinkData = record(
 LinkDataType = enum(
     "eager_bitcode",
     "lazy_bitcode",
-    "archive",
     "dynamic_library",
 )
 
 DThinLTOLinkData = record(
     data_type = LinkDataType,
-    link_data = field([LazyBitcodeLinkData, EagerBitcodeLinkData, ArchiveLinkData, DynamicLibraryLinkData]),
+    link_data = field([LazyBitcodeLinkData, EagerBitcodeLinkData, DynamicLibraryLinkData]),
 )
 
 # TODO(nuriamari) Delete once link actions over RE measured

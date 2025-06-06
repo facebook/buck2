@@ -16,24 +16,7 @@ BitcodeMergeState = enum(
 
 ObjectFileOptimizationPlan = record(
     imports = field(list[int]),
-    archive_imports = field(list[int]),
     is_bitcode = field(bool),
     merge_state = field(str | None, None),  # BitcodeMergeState
     loaded_by_linker = field(bool),
-)
-
-ArchiveMemberOptimizationPlan = record(
-    is_bitcode = field(bool),
-    path = field(str),
-    imports = field(list[int]),
-    archive_imports = field(list[int]),
-    index_shard_file_path = field(str | None, None),
-    loaded_by_linker = field(bool),
-    merge_state = field(str | None, None),  # BitcodeMergeState
-    merged_bitcode_path = field(str | None, None),
-)
-
-ArchiveOptimizationPlan = record(
-    object_plans = field(list[ArchiveMemberOptimizationPlan]),
-    base_dir = field(str),
 )

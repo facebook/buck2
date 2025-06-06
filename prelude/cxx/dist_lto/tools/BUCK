@@ -49,6 +49,12 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
+prelude.python_bootstrap_binary(
+    name = "dist_lto_archive_mapper",
+    main = "dist_lto_archive_mapper.py",
+    visibility = ["PUBLIC"],
+)
+
 dist_lto_tools(
     name = "dist_lto_tools",
     visibility = ["PUBLIC"],
