@@ -681,6 +681,4 @@ def cxx_gnu_dist_link(
         linker_argsfile = linker_argsfile_out,
         linker_command = None,  # There is no notion of a single linker command for DistLTO
         index_argsfile = index_argsfile_out,
-        dist_thin_lto_codegen_argsfile = None,  # Only Darwin builds provide is argsfile
-        dist_thin_lto_index_argsfile = None,  # Only Darwin builds provide this argsfile
     )

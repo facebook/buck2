@@ -359,90 +359,79 @@ def cxx_darwin_dist_link(
     index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_index_argsfile")
     final_link_index = ctx.actions.declare_output(output.basename + ".final_link_index")
 
-    def prepare_index_flags(include_inputs: bool, index_args_out: cmd_args, index_meta_records_out: list, ctx: AnalysisContext, artifacts, outputs):
+    def prepare_index_flags(index_args_out: cmd_args, index_meta_records_out: list, ctx: AnalysisContext, artifacts, outputs):
         for flag in linker_flags:
             index_args_out.add(flag)
 
-        if include_inputs:
-            # buildifier: disable=uninitialized
-            for idx, artifact in enumerate(sorted_index_link_data):
-                link_data = artifact.link_data
+        # buildifier: disable=uninitialized
+        for idx, artifact in enumerate(sorted_index_link_data):
+            link_data = artifact.link_data
 
-                if artifact.data_type == _DataType("eager_bitcode") or artifact.data_type == _DataType("lazy_bitcode"):
-                    if artifact.data_type == _DataType("lazy_bitcode") and link_data.archive_start:
-                        index_args_out.add("-Wl,--start-lib")
+            if artifact.data_type == _DataType("eager_bitcode") or artifact.data_type == _DataType("lazy_bitcode"):
+                if artifact.data_type == _DataType("lazy_bitcode") and link_data.archive_start:
+                    index_args_out.add("-Wl,--start-lib")
 
-                    index_args_out.add(link_data.initial_object)
+                index_args_out.add(link_data.initial_object)
 
-                    if artifact.data_type == _DataType("lazy_bitcode") and link_data.archive_end:
-                        index_args_out.add("-Wl,--end-lib")
+                if artifact.data_type == _DataType("lazy_bitcode") and link_data.archive_end:
+                    index_args_out.add("-Wl,--end-lib")
 
-                    object_file_record = {
-                        "input_object_file_path": link_data.initial_object,
-                        "output_index_shard_file_path": outputs[link_data.bc_file].as_output(),
+                object_file_record = {
+                    "input_object_file_path": link_data.initial_object,
+                    "output_index_shard_file_path": outputs[link_data.bc_file].as_output(),
+                    "output_plan_file_path": outputs[link_data.plan].as_output(),
+                    "record_type": "OBJECT_FILE",
+                    "starlark_array_index": idx,
+                }
+                if premerger_enabled:
+                    object_file_record["output_premerged_bitcode_file_path"] = outputs[link_data.merged_bc].as_output()
+
+                index_meta_records_out.append(object_file_record)
+
+            elif artifact.data_type == _DataType("archive"):
+                manifest = artifacts[link_data.manifest].read_json()
+
+                if not manifest["objects"]:
+                    # Despite not having any objects (and thus not needing a plan), we still need to bind the plan output.
+                    ctx.actions.write(outputs[link_data.plan].as_output(), "{}")
+                    make_indexes_dir_cmd = cmd_args(["/bin/sh", "-c", "mkdir", "-p", outputs[link_data.indexes_dir].as_output()])
+                    ctx.actions.run(make_indexes_dir_cmd, category = make_cat("thin_lto_mkdir"), identifier = link_data.name + "_indexes_dir")
+                    if premerger_enabled:
+                        make_merged_bc_dir_cmd = cmd_args(["/bin/sh", "-c", "mkdir", "-p", outputs[link_data.merged_bc_dir].as_output()])
+                        ctx.actions.run(make_merged_bc_dir_cmd, category = make_cat("thin_lto_mkdir"), identifier = link_data.name + "_merged_bc_dir")
+                    continue
+
+                index_args_out.add(cmd_args(hidden = link_data.objects_dir))
+
+                if not link_data.link_whole:
+                    index_args_out.add("-Wl,--start-lib")
+
+                for obj in manifest["objects"]:
+                    lazy_object_file_record = {
+                        "input_object_file_path": obj,
+                        "output_index_shards_directory_path": outputs[link_data.indexes_dir].as_output(),
                         "output_plan_file_path": outputs[link_data.plan].as_output(),
-                        "record_type": "OBJECT_FILE",
-                        "starlark_array_index": idx,
+                        "record_type": "ARCHIVE_MEMBER",
+                        "starlark_array_index": idx,  # Each object shares the same index in the stalark array pointing to the archive link data
                     }
                     if premerger_enabled:
-                        object_file_record["output_premerged_bitcode_file_path"] = outputs[link_data.merged_bc].as_output()
+                        lazy_object_file_record["output_premerged_bitcode_directory_path"] = outputs[link_data.merged_bc_dir].as_output()
 
-                    index_meta_records_out.append(object_file_record)
+                    index_meta_records_out.append(lazy_object_file_record)
 
-                elif artifact.data_type == _DataType("archive"):
-                    manifest = artifacts[link_data.manifest].read_json()
+                    index_args_out.add(obj)
 
-                    if not manifest["objects"]:
-                        # Despite not having any objects (and thus not needing a plan), we still need to bind the plan output.
-                        ctx.actions.write(outputs[link_data.plan].as_output(), "{}")
-                        make_indexes_dir_cmd = cmd_args(["/bin/sh", "-c", "mkdir", "-p", outputs[link_data.indexes_dir].as_output()])
-                        ctx.actions.run(make_indexes_dir_cmd, category = make_cat("thin_lto_mkdir"), identifier = link_data.name + "_indexes_dir")
-                        if premerger_enabled:
-                            make_merged_bc_dir_cmd = cmd_args(["/bin/sh", "-c", "mkdir", "-p", outputs[link_data.merged_bc_dir].as_output()])
-                            ctx.actions.run(make_merged_bc_dir_cmd, category = make_cat("thin_lto_mkdir"), identifier = link_data.name + "_merged_bc_dir")
-                        continue
+                if not link_data.link_whole:
+                    index_args_out.add("-Wl,--end-lib")
 
-                    index_args_out.add(cmd_args(hidden = link_data.objects_dir))
+            elif artifact.data_type == _DataType("dynamic_library"):
+                append_linkable_args(index_args_out, link_data.linkable)
 
-                    if not link_data.link_whole:
-                        index_args_out.add("-Wl,--start-lib")
-
-                    for obj in manifest["objects"]:
-                        lazy_object_file_record = {
-                            "input_object_file_path": obj,
-                            "output_index_shards_directory_path": outputs[link_data.indexes_dir].as_output(),
-                            "output_plan_file_path": outputs[link_data.plan].as_output(),
-                            "record_type": "ARCHIVE_MEMBER",
-                            "starlark_array_index": idx,  # Each object shares the same index in the stalark array pointing to the archive link data
-                        }
-                        if premerger_enabled:
-                            lazy_object_file_record["output_premerged_bitcode_directory_path"] = outputs[link_data.merged_bc_dir].as_output()
-
-                        index_meta_records_out.append(lazy_object_file_record)
-
-                        index_args_out.add(obj)
-
-                    if not link_data.link_whole:
-                        index_args_out.add("-Wl,--end-lib")
-
-                elif artifact.data_type == _DataType("dynamic_library"):
-                    append_linkable_args(index_args_out, link_data.linkable)
-
-                else:
-                    fail("Unhandled data type: {}".format(str(artifact.data_type)))
+            else:
+                fail("Unhandled data type: {}".format(str(artifact.data_type)))
 
         output_as_string = cmd_args(output, ignore_artifacts = True)
         index_args_out.add("-o", output_as_string)
-
-    # The flags used for the thin-link action. Unlike index_args, this does not include input files, and
-    # is only used for debugging and testing, and can be determined without dynamic output.
-    index_flags_for_debugging = cmd_args()
-    index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
-    index_flags_for_debugging.add(index_cmd_parts.linker_flags)
-    index_flags_for_debugging.add(common_link_flags)
-    index_flags_for_debugging.add(index_cmd_parts.post_linker_flags)
-    prepare_index_flags(include_inputs = False, index_args_out = index_flags_for_debugging, index_meta_records_out = [], ctx = ctx, artifacts = None, outputs = None)
-    index_flags_for_debugging_argsfile, _ = ctx.actions.write(output.basename + ".thinlto_index_debugging_argsfile", index_flags_for_debugging, allow_args = True)
 
     def plan(ctx: AnalysisContext, artifacts, outputs, link_plan):
         # index link command args
@@ -451,7 +440,7 @@ def cxx_darwin_dist_link(
         # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
         index_meta_records = []
 
-        prepare_index_flags(include_inputs = True, index_args_out = index_args, index_meta_records_out = index_meta_records, ctx = ctx, artifacts = artifacts, outputs = outputs)
+        prepare_index_flags(index_args_out = index_args, index_meta_records_out = index_meta_records, ctx = ctx, artifacts = artifacts, outputs = outputs)
 
         index_argfile, _ = ctx.actions.write(
             outputs[index_argsfile_out].as_output(),
@@ -778,6 +767,4 @@ def cxx_darwin_dist_link(
         linker_argsfile = linker_argsfile_out,
         linker_command = None,  # There is no notion of a single linker command for DistLTO
         index_argsfile = index_argsfile_out,
-        dist_thin_lto_codegen_argsfile = opt_argsfile,
-        dist_thin_lto_index_argsfile = index_flags_for_debugging_argsfile,
     ), extra_outputs.providers
