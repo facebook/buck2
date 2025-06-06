@@ -44,7 +44,7 @@ load(":thin_link_record_defs.bzl", "ArchiveMemberOptimizationPlan", "ArchiveOpti
 _EagerBitcodeLinkData = record(
     name = str,
     input_object_file = Artifact,  # This may be a native object file or a bitcode file, we can't tell at this point
-    bc_file = Artifact,
+    output_index_shard_file = Artifact,
     plan = Artifact,
     opt_object = Artifact,
     merged_bc = field([Artifact, None]),
@@ -53,7 +53,7 @@ _EagerBitcodeLinkData = record(
 _LazyBitcodeLinkData = record(
     name = str,
     input_object_file = Artifact,  # This may be a native object file or a bitcode file, we can't tell at this point
-    bc_file = Artifact,
+    output_index_shard_file = Artifact,
     plan = Artifact,
     opt_object = Artifact,
     merged_bc = field([Artifact, None]),
@@ -66,7 +66,7 @@ _ArchiveLinkData = record(
     manifest = Artifact,
     input_object_files_dir = Artifact,
     opt_objects_dir = Artifact,
-    indexes_dir = Artifact,
+    output_index_shard_files_dir = Artifact,
     plan = Artifact,
     link_whole = bool,
     merged_bc_dir = field([Artifact, None]),
@@ -214,7 +214,7 @@ def cxx_darwin_dist_link(
             if isinstance(linkable, ObjectsLinkable):
                 for obj in linkable.objects:
                     name = name_for_obj(link_name, obj)
-                    bc_output = ctx.actions.declare_output(name + ".thinlto.bc")
+                    index_shard_output = ctx.actions.declare_output(name + ".thinlto.bc")
                     plan_output = ctx.actions.declare_output(name + ".opt.plan")
                     opt_output = ctx.actions.declare_output(name + ".opt.o")
                     merged_bc_output = None
@@ -227,19 +227,19 @@ def cxx_darwin_dist_link(
                         link_data = _EagerBitcodeLinkData(
                             name = name,
                             input_object_file = obj,
-                            bc_file = bc_output,
+                            output_index_shard_file = index_shard_output,
                             plan = plan_output,
                             opt_object = opt_output,
                             merged_bc = merged_bc_output,
                         ),
                     )
                     unsorted_index_link_data.append(data)
-                    plan_outputs.extend([bc_output.as_output(), plan_output.as_output()])
+                    plan_outputs.extend([index_shard_output.as_output(), plan_output.as_output()])
 
             elif isinstance(linkable, ArchiveLinkable) and linkable.archive.external_objects:
                 for virtual_archive_index, obj in enumerate(linkable.archive.external_objects):
                     name = name_for_obj(link_name, obj)
-                    bc_output = ctx.actions.declare_output(name + ".thinlto.bc")
+                    index_shard_output = ctx.actions.declare_output(name + ".thinlto.bc")
                     plan_output = ctx.actions.declare_output(name + ".opt.plan")
                     opt_output = ctx.actions.declare_output(name + ".opt.o")
                     merged_bc_output = None
@@ -255,7 +255,7 @@ def cxx_darwin_dist_link(
                         link_data = _LazyBitcodeLinkData(
                             name = name,
                             input_object_file = obj,
-                            bc_file = bc_output,
+                            output_index_shard_file = index_shard_output,
                             plan = plan_output,
                             opt_object = opt_output,
                             merged_bc = merged_bc_output,
@@ -264,7 +264,7 @@ def cxx_darwin_dist_link(
                         ),
                     )
                     unsorted_index_link_data.append(data)
-                    plan_outputs.extend([bc_output.as_output(), plan_output.as_output()])
+                    plan_outputs.extend([index_shard_output.as_output(), plan_output.as_output()])
 
             elif isinstance(linkable, ArchiveLinkable):
                 # Our implementation of Distributed ThinLTO operates on individual objects, not archives. Since these
@@ -311,7 +311,7 @@ def cxx_darwin_dist_link(
                         manifest = archive_manifest,
                         input_object_files_dir = archive_objects,
                         opt_objects_dir = archive_opt_objects,
-                        indexes_dir = archive_indexes,
+                        output_index_shard_files_dir = archive_indexes,
                         plan = archive_plan,
                         link_whole = linkable.link_whole,
                         merged_bc_dir = archive_merged_bc_files,
@@ -378,7 +378,7 @@ def cxx_darwin_dist_link(
 
                 object_file_record = {
                     "input_object_file_path": link_data.input_object_file,
-                    "output_index_shard_file_path": outputs[link_data.bc_file].as_output(),
+                    "output_index_shard_file_path": outputs[link_data.output_index_shard_file].as_output(),
                     "output_plan_file_path": outputs[link_data.plan].as_output(),
                     "record_type": "OBJECT_FILE",
                     "starlark_array_index": idx,
@@ -394,7 +394,7 @@ def cxx_darwin_dist_link(
                 if not manifest["objects"]:
                     # Despite not having any objects (and thus not needing a plan), we still need to bind the plan output.
                     ctx.actions.write(outputs[link_data.plan].as_output(), "{}")
-                    make_indexes_dir_cmd = cmd_args(["/bin/sh", "-c", "mkdir", "-p", outputs[link_data.indexes_dir].as_output()])
+                    make_indexes_dir_cmd = cmd_args(["/bin/sh", "-c", "mkdir", "-p", outputs[link_data.output_index_shard_files_dir].as_output()])
                     ctx.actions.run(make_indexes_dir_cmd, category = make_cat("thin_lto_mkdir"), identifier = link_data.name + "_indexes_dir")
                     if premerger_enabled:
                         make_merged_bc_dir_cmd = cmd_args(["/bin/sh", "-c", "mkdir", "-p", outputs[link_data.merged_bc_dir].as_output()])
@@ -409,7 +409,7 @@ def cxx_darwin_dist_link(
                 for obj in manifest["objects"]:
                     lazy_object_file_record = {
                         "input_object_file_path": obj,
-                        "output_index_shards_directory_path": outputs[link_data.indexes_dir].as_output(),
+                        "output_index_shards_directory_path": outputs[link_data.output_index_shard_files_dir].as_output(),
                         "output_plan_file_path": outputs[link_data.plan].as_output(),
                         "record_type": "ARCHIVE_MEMBER",
                         "starlark_array_index": idx,  # Each object shares the same index in the stalark array pointing to the archive link data
@@ -514,7 +514,7 @@ def cxx_darwin_dist_link(
     ctx.actions.write(opt_argsfile.as_output(), common_opt_cmd, allow_args = True)
 
     def optimize_object(ctx: AnalysisContext, artifacts, outputs, bitcode_link_data):
-        bc_file = bitcode_link_data.bc_file
+        output_index_shard_file = bitcode_link_data.output_index_shard_file
         input_object_file = bitcode_link_data.input_object_file
         merged_bc = bitcode_link_data.merged_bc
         name = bitcode_link_data.name
@@ -539,11 +539,11 @@ def cxx_darwin_dist_link(
             elif optimization_plan.merge_state == BitcodeMergeState("ROOT").value:
                 opt_cmd.add("--input", merged_bc)
             else:
-                fail("Invalid merge state {} for bitcode file: {}".format(optimization_plan.merge_state, bc_file))
+                fail("Invalid merge state {} for bitcode file: {}".format(optimization_plan.merge_state, output_index_shard_file))
         else:
             opt_cmd.add("--input", input_object_file)
 
-        opt_cmd.add("--index", bc_file)
+        opt_cmd.add("--index", output_index_shard_file)
 
         opt_cmd.add(cmd_args(hidden = common_opt_cmd))
         opt_cmd.add("--args", opt_argsfile)
@@ -630,7 +630,7 @@ def cxx_darwin_dist_link(
                 opt_cmd.add(cmd_args(hidden = imported_merged_input_bitcode_files + imported_archives_merged_bitcode_files_directory + [archive.merged_bc_dir]))
 
             opt_cmd.add(cmd_args(
-                hidden = imported_input_bitcode_files + imported_archives_input_bitcode_files_directory + [archive.indexes_dir, archive.input_object_files_dir],
+                hidden = imported_input_bitcode_files + imported_archives_input_bitcode_files_directory + [archive.output_index_shard_files_dir, archive.input_object_files_dir],
             ))
 
             projected_opt_cmd = cmd_args(ctx.actions.tset(IdentityTSet, value = opt_cmd).project_as_args("identity"))
