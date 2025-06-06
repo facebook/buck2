@@ -12,6 +12,7 @@ use buck2_data::ActionErrorLocation;
 use buck2_data::ActionErrorLocations;
 use buck2_data::ActionSubError;
 use buck2_data::CommandExecution;
+use console::strip_ansi_codes;
 use derive_more::Display;
 use display_container::fmt_container;
 use gazebo::prelude::SliceClonedExt;
@@ -68,14 +69,14 @@ impl<'v> StarlarkActionErrorContext<'v> {
         output_artifacts: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
     ) -> Self {
         let stderr = command.map_or(String::default(), |c| {
-            c.details
-                .as_ref()
-                .map_or(String::default(), |c| c.stderr.clone())
+            c.details.as_ref().map_or(String::default(), |c| {
+                strip_ansi_codes(&c.stderr).to_string()
+            })
         });
         let stdout = command.map_or(String::default(), |c| {
-            c.details
-                .as_ref()
-                .map_or(String::default(), |c| c.stdout.clone())
+            c.details.as_ref().map_or(String::default(), |c| {
+                strip_ansi_codes(&c.stdout).to_string()
+            })
         });
 
         StarlarkActionErrorContext {

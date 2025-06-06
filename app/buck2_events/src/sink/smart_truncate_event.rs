@@ -107,7 +107,10 @@ fn truncate_action_execution_end(action_execution_end: &mut buck2_data::ActionEx
             details.stderr = if truncate_all {
                 "<<omitted>>".to_owned()
             } else {
-                truncate(&details.stderr, per_command_size_budget)
+                truncate(
+                    &console::strip_ansi_codes(&details.stderr),
+                    per_command_size_budget,
+                )
             };
         }
     };
