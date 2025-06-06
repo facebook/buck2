@@ -43,7 +43,7 @@ load(":thin_link_record_defs.bzl", "ArchiveMemberOptimizationPlan", "ArchiveOpti
 
 _EagerBitcodeLinkData = record(
     name = str,
-    initial_object = Artifact,
+    input_object_file = Artifact,  # This may be a native object file or a bitcode file, we can't tell at this point
     bc_file = Artifact,
     plan = Artifact,
     opt_object = Artifact,
@@ -52,7 +52,7 @@ _EagerBitcodeLinkData = record(
 
 _LazyBitcodeLinkData = record(
     name = str,
-    initial_object = Artifact,
+    input_object_file = Artifact,  # This may be a native object file or a bitcode file, we can't tell at this point
     bc_file = Artifact,
     plan = Artifact,
     opt_object = Artifact,
@@ -64,7 +64,7 @@ _LazyBitcodeLinkData = record(
 _ArchiveLinkData = record(
     name = str,
     manifest = Artifact,
-    objects_dir = Artifact,
+    input_object_files_dir = Artifact,
     opt_objects_dir = Artifact,
     indexes_dir = Artifact,
     plan = Artifact,
@@ -226,7 +226,7 @@ def cxx_darwin_dist_link(
                         data_type = _DataType("eager_bitcode"),
                         link_data = _EagerBitcodeLinkData(
                             name = name,
-                            initial_object = obj,
+                            input_object_file = obj,
                             bc_file = bc_output,
                             plan = plan_output,
                             opt_object = opt_output,
@@ -254,7 +254,7 @@ def cxx_darwin_dist_link(
                         data_type = _DataType("lazy_bitcode"),
                         link_data = _LazyBitcodeLinkData(
                             name = name,
-                            initial_object = obj,
+                            input_object_file = obj,
                             bc_file = bc_output,
                             plan = plan_output,
                             opt_object = opt_output,
@@ -309,7 +309,7 @@ def cxx_darwin_dist_link(
                     link_data = _ArchiveLinkData(
                         name = name,
                         manifest = archive_manifest,
-                        objects_dir = archive_objects,
+                        input_object_files_dir = archive_objects,
                         opt_objects_dir = archive_opt_objects,
                         indexes_dir = archive_indexes,
                         plan = archive_plan,
@@ -371,13 +371,13 @@ def cxx_darwin_dist_link(
                 if artifact.data_type == _DataType("lazy_bitcode") and link_data.archive_start:
                     index_args_out.add("-Wl,--start-lib")
 
-                index_args_out.add(link_data.initial_object)
+                index_args_out.add(link_data.input_object_file)
 
                 if artifact.data_type == _DataType("lazy_bitcode") and link_data.archive_end:
                     index_args_out.add("-Wl,--end-lib")
 
                 object_file_record = {
-                    "input_object_file_path": link_data.initial_object,
+                    "input_object_file_path": link_data.input_object_file,
                     "output_index_shard_file_path": outputs[link_data.bc_file].as_output(),
                     "output_plan_file_path": outputs[link_data.plan].as_output(),
                     "record_type": "OBJECT_FILE",
@@ -401,7 +401,7 @@ def cxx_darwin_dist_link(
                         ctx.actions.run(make_merged_bc_dir_cmd, category = make_cat("thin_lto_mkdir"), identifier = link_data.name + "_merged_bc_dir")
                     continue
 
-                index_args_out.add(cmd_args(hidden = link_data.objects_dir))
+                index_args_out.add(cmd_args(hidden = link_data.input_object_files_dir))
 
                 if not link_data.link_whole:
                     index_args_out.add("-Wl,--start-lib")
@@ -515,7 +515,7 @@ def cxx_darwin_dist_link(
 
     def optimize_object(ctx: AnalysisContext, artifacts, outputs, bitcode_link_data):
         bc_file = bitcode_link_data.bc_file
-        initial_object = bitcode_link_data.initial_object
+        input_object_file = bitcode_link_data.input_object_file
         merged_bc = bitcode_link_data.merged_bc
         name = bitcode_link_data.name
         opt_object = bitcode_link_data.opt_object
@@ -535,13 +535,13 @@ def cxx_darwin_dist_link(
         opt_cmd = cmd_args(lto_opt)
         if premerger_enabled:
             if optimization_plan.merge_state == BitcodeMergeState("STANDALONE").value:
-                opt_cmd.add("--input", initial_object)
+                opt_cmd.add("--input", input_object_file)
             elif optimization_plan.merge_state == BitcodeMergeState("ROOT").value:
                 opt_cmd.add("--input", merged_bc)
             else:
                 fail("Invalid merge state {} for bitcode file: {}".format(optimization_plan.merge_state, bc_file))
         else:
-            opt_cmd.add("--input", initial_object)
+            opt_cmd.add("--input", input_object_file)
 
         opt_cmd.add("--index", bc_file)
 
@@ -549,8 +549,8 @@ def cxx_darwin_dist_link(
         opt_cmd.add("--args", opt_argsfile)
         opt_cmd.add("--compiler", cxx_toolchain.cxx_compiler_info.compiler)
 
-        imported_input_bitcode_files = [sorted_index_link_data[idx].link_data.initial_object for idx in optimization_plan.imports]
-        imported_archives_input_bitcode_files_directory = [sorted_index_link_data[idx].link_data.objects_dir for idx in optimization_plan.archive_imports]
+        imported_input_bitcode_files = [sorted_index_link_data[idx].link_data.input_object_file for idx in optimization_plan.imports]
+        imported_archives_input_bitcode_files_directory = [sorted_index_link_data[idx].link_data.input_object_files_dir for idx in optimization_plan.archive_imports]
 
         if premerger_enabled:
             imported_merged_input_bitcode_files = [sorted_index_link_data[idx].link_data.merged_bc for idx in optimization_plan.imports]
@@ -583,7 +583,7 @@ def cxx_darwin_dist_link(
         )
         if lazy.is_all(lambda e: not e.is_bitcode, archive_optimization_plan.object_plans):
             # Nothing in this directory was lto-able; let's just copy the archive.
-            ctx.actions.copy_file(outputs[archive.opt_objects_dir], archive.objects_dir)
+            ctx.actions.copy_file(outputs[archive.opt_objects_dir], archive.input_object_files_dir)
             return
 
         output_dir = {}
@@ -604,7 +604,7 @@ def cxx_darwin_dist_link(
                     opt_object.as_output(),
                     "--from",
                     object_optimization_plan.path,
-                ], hidden = archive.objects_dir)
+                ], hidden = archive.input_object_files_dir)
                 ctx.actions.run(copy_cmd, category = make_cat("thin_lto_opt_copy"), identifier = source_path)
                 output_dir[source_path] = opt_object
                 continue
@@ -622,15 +622,15 @@ def cxx_darwin_dist_link(
             opt_cmd.add("--args", opt_argsfile)
             opt_cmd.add("--compiler", cxx_toolchain.cxx_compiler_info.compiler)
 
-            imported_input_bitcode_files = [sorted_index_link_data[idx].link_data.initial_object for idx in object_optimization_plan.imports]
-            imported_archives_input_bitcode_files_directory = [sorted_index_link_data[idx].link_data.objects_dir for idx in object_optimization_plan.archive_imports]
+            imported_input_bitcode_files = [sorted_index_link_data[idx].link_data.input_object_file for idx in object_optimization_plan.imports]
+            imported_archives_input_bitcode_files_directory = [sorted_index_link_data[idx].link_data.input_object_files_dir for idx in object_optimization_plan.archive_imports]
             if premerger_enabled:
                 imported_merged_input_bitcode_files = [sorted_index_link_data[idx].link_data.merged_bc for idx in object_optimization_plan.imports]
                 imported_archives_merged_bitcode_files_directory = [sorted_index_link_data[idx].link_data.merged_bc_dir for idx in object_optimization_plan.archive_imports]
                 opt_cmd.add(cmd_args(hidden = imported_merged_input_bitcode_files + imported_archives_merged_bitcode_files_directory + [archive.merged_bc_dir]))
 
             opt_cmd.add(cmd_args(
-                hidden = imported_input_bitcode_files + imported_archives_input_bitcode_files_directory + [archive.indexes_dir, archive.objects_dir],
+                hidden = imported_input_bitcode_files + imported_archives_input_bitcode_files_directory + [archive.indexes_dir, archive.input_object_files_dir],
             ))
 
             projected_opt_cmd = cmd_args(ctx.actions.tset(IdentityTSet, value = opt_cmd).project_as_args("identity"))
@@ -676,7 +676,7 @@ def cxx_darwin_dist_link(
                 append_linkable_args(link_args, artifact.link_data.linkable)
             elif artifact.data_type == _DataType("eager_bitcode") or artifact.data_type == _DataType("lazy_bitcode"):
                 if idx in non_lto_objects:
-                    opt_objects.append(artifact.link_data.initial_object)
+                    opt_objects.append(artifact.link_data.input_object_file)
                 else:
                     opt_objects.append(artifact.link_data.opt_object)
 
@@ -694,7 +694,7 @@ def cxx_darwin_dist_link(
         for artifact in sorted_index_link_data:
             if artifact.data_type == _DataType("archive"):
                 link_cmd_hidden.append(artifact.link_data.opt_objects_dir)
-                link_cmd_hidden.append(artifact.link_data.objects_dir)
+                link_cmd_hidden.append(artifact.link_data.input_object_files_dir)
 
         link_cmd.add(at_argfile(
             actions = ctx.actions,
@@ -742,10 +742,10 @@ def cxx_darwin_dist_link(
     for artifact in sorted_index_link_data:
         # Without reading dynamic output, we cannot know if a given artifact represents bitcode to be included in LTO, or a native object file already (some inputs to a dthin-lto link are still native object files). We just include both the initial object (that may or may not be bitcode) and the produced bitcode file. dsym-util will only ever need one or the other, we just need to matieralize both.
         if artifact.data_type == _DataType("eager_bitcode") or artifact.data_type == _DataType("lazy_bitcode"):
-            native_object_files_required_for_dsym_creation.append(artifact.link_data.initial_object)
+            native_object_files_required_for_dsym_creation.append(artifact.link_data.input_object_file)
             native_object_files_required_for_dsym_creation.append(artifact.link_data.opt_object)
         elif artifact.data_type == _DataType("archive"):
-            native_object_files_required_for_dsym_creation.append(artifact.link_data.objects_dir)
+            native_object_files_required_for_dsym_creation.append(artifact.link_data.input_object_files_dir)
             native_object_files_required_for_dsym_creation.append(artifact.link_data.opt_objects_dir)
 
     external_debug_info = make_artifact_tset(
