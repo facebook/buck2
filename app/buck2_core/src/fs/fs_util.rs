@@ -470,7 +470,7 @@ pub fn set_permissions<P: AsRef<AbsPath>>(path: P, perm: fs::Permissions) -> Res
         })
 }
 
-pub fn set_executable<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
+pub fn set_executable<P: AsRef<AbsPath>>(path: P, executable: bool) -> buck2_error::Result<()> {
     let path = path.as_ref();
 
     #[cfg(unix)]
@@ -479,8 +479,13 @@ pub fn set_executable<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
 
         // Unix permission bits
         let mut perms = metadata(path)?.permissions();
-        // Add ugo+x
-        perms.set_mode(perms.mode() | 0o111);
+        if executable {
+            // Add ugo+x
+            perms.set_mode(perms.mode() | 0o111);
+        } else {
+            // Remove ugo+x
+            perms.set_mode(perms.mode() & !0o111);
+        }
         set_permissions(path, perms)?;
     }
     #[cfg(not(unix))]
@@ -1276,18 +1281,36 @@ mod tests {
 
     #[test]
     fn test_set_executable() {
+        #[cfg(unix)]
+        use std::os::unix::fs::PermissionsExt;
+
         let tempdir = tempfile::tempdir().unwrap();
         let root = AbsPath::new(tempdir.path()).unwrap();
         let path = root.join("file");
         fs_util::write(&path, b"rrr").unwrap();
-        fs_util::set_executable(&path).unwrap();
 
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
-
             let mode = fs_util::metadata(&path).unwrap().permissions().mode();
+            // Default behavior: executable bits are not set
+            assert_eq!(0, mode & 0o111);
+        }
+
+        fs_util::set_executable(&path, true).unwrap();
+
+        #[cfg(unix)]
+        {
+            let mode = fs_util::metadata(&path).unwrap().permissions().mode();
+            // executable bits should now be set
             assert_eq!(0o111, mode & 0o111);
+        }
+
+        fs_util::set_executable(&path, false).unwrap();
+        #[cfg(unix)]
+        {
+            let mode = fs_util::metadata(&path).unwrap().permissions().mode();
+            // executable bits should now be unset
+            assert_eq!(0, mode & 0o111);
         }
     }
 

@@ -313,7 +313,7 @@ impl ProjectRoot {
         fs_util::write(&abs_path, contents)
             .with_buck_error_context(|| format!("`write_file` writing `{}`", abs_path))?;
         if executable {
-            fs_util::set_executable(&abs_path).with_buck_error_context(|| {
+            fs_util::set_executable(&abs_path, true).with_buck_error_context(|| {
                 format!("`write_file` setting executable `{}`", abs_path)
             })?;
         }
@@ -338,7 +338,7 @@ impl ProjectRoot {
         let file = File::create(&abs_path)
             .with_buck_error_context(|| format!("`create_file` creating `{}`", abs_path))?;
         if executable {
-            fs_util::set_executable(&abs_path).with_buck_error_context(|| {
+            fs_util::set_executable(&abs_path, true).with_buck_error_context(|| {
                 format!("`create_file` setting executable `{}`", abs_path)
             })?;
         }
@@ -348,7 +348,7 @@ impl ProjectRoot {
     // TODO(nga): refactor this to global function.
     pub fn set_executable(&self, path: impl AsRef<ProjectRelativePath>) -> buck2_error::Result<()> {
         let path = self.root().join(path.as_ref());
-        fs_util::set_executable(path)
+        fs_util::set_executable(path, true)
     }
 
     /// Create a soft link from one location to another.
