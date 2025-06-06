@@ -492,6 +492,7 @@ pub fn set_executable<P: AsRef<AbsPath>>(path: P, executable: bool) -> buck2_err
     {
         // Nothing to do
         let _ignore = path;
+        let _ignore_executable = executable;
     }
 
     Ok(())
