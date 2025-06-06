@@ -148,9 +148,6 @@ def cxx_darwin_dist_link(
     # Thin link idenitifies these depended upon bitcode files by their index in the sorted version of this array.
     unsorted_index_link_data = []
     deps_linker_flags = cmd_args()
-    common_link_flags = cmd_args(get_target_sdk_version_flags(ctx), get_extra_darwin_linker_flags())
-    common_link_flags.add(sanitizer_runtime_args.extra_link_args)
-    extra_codegen_flags = get_target_sdk_version_flags(ctx)
 
     # Information used to construct the dynamic plan:
     plan_inputs = []
@@ -287,6 +284,12 @@ def cxx_darwin_dist_link(
             else:
                 fail("Unhandled linkable type: {}".format(str(linkable)))
 
+    # linker flags that are common to both thin-link and native-link
+    common_link_flags = cmd_args(get_target_sdk_version_flags(ctx), get_extra_darwin_linker_flags())
+    common_link_flags.add(sanitizer_runtime_args.extra_link_args)
+    common_link_flags.add(deps_linker_flags)
+    extra_codegen_flags = get_target_sdk_version_flags(ctx)
+
     def sort_index_link_data(input_list: list[DThinLTOLinkData]) -> list[DThinLTOLinkData]:
         # Sort link datas to reduce binary size. The idea is to encourage the linker to load the minimal number of object files possible. We load force loaded archives first (since they will be loaded no matter what), then non lazy object files (which will also be loaded no matter what), then shared libraries (to share as many symbols as possible), then finally regular archives
         force_loaded_archives = []
@@ -327,7 +330,6 @@ def cxx_darwin_dist_link(
         index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
         index_args.add(index_cmd_parts.linker_flags)
         index_args.add(common_link_flags)
-        index_args.add(deps_linker_flags)
         index_args.add(cmd_args(index_file_out.as_output(), format = "-Wl,--thinlto-index-only={}"))
         index_args.add("-Wl,--thinlto-emit-imports-files")
         index_args.add("-Wl,--thinlto-full-index")
@@ -629,7 +631,6 @@ def cxx_darwin_dist_link(
         link_cmd = cmd_args(link_cmd_parts.linker)
         link_args.add(link_cmd_parts.linker_flags)
         link_args.add(common_link_flags)
-        link_args.add(deps_linker_flags)
         link_cmd_hidden = []
 
         if opts.extra_linker_outputs_flags_factory != None:
