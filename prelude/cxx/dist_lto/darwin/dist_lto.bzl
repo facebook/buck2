@@ -285,7 +285,8 @@ def cxx_darwin_dist_link(
                 fail("Unhandled linkable type: {}".format(str(linkable)))
 
     # linker flags that are common to both thin-link and native-link
-    common_link_flags = cmd_args(get_target_sdk_version_flags(ctx), get_extra_darwin_linker_flags())
+    common_link_flags = cmd_args(cxx_link_cmd_parts(cxx_toolchain, executable_link).linker_flags)
+    common_link_flags.add(get_target_sdk_version_flags(ctx), get_extra_darwin_linker_flags())
     common_link_flags.add(sanitizer_runtime_args.extra_link_args)
     common_link_flags.add(deps_linker_flags)
     extra_codegen_flags = get_target_sdk_version_flags(ctx)
@@ -317,9 +318,6 @@ def cxx_darwin_dist_link(
     final_link_index = ctx.actions.declare_output(output.basename + ".final_link_index")
 
     def plan(ctx: AnalysisContext, artifacts, outputs, link_plan):
-        # index link command args
-        index_args = cmd_args()
-
         # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
         index_meta_records = []
 
@@ -328,8 +326,7 @@ def cxx_darwin_dist_link(
         index_out_dir = cmd_args(index_file_out.as_output(), parent = 1)
 
         index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
-        index_args.add(index_cmd_parts.linker_flags)
-        index_args.add(common_link_flags)
+        index_args = cmd_args(common_link_flags)
         index_args.add(cmd_args(index_file_out.as_output(), format = "-Wl,--thinlto-index-only={}"))
         index_args.add("-Wl,--thinlto-emit-imports-files")
         index_args.add("-Wl,--thinlto-full-index")
@@ -629,7 +626,6 @@ def cxx_darwin_dist_link(
 
         link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
         link_cmd = cmd_args(link_cmd_parts.linker)
-        link_args.add(link_cmd_parts.linker_flags)
         link_args.add(common_link_flags)
         link_cmd_hidden = []
 
