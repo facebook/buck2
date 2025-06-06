@@ -618,7 +618,6 @@ def cxx_darwin_dist_link(
         # flags. In that case, we need to link against the original object.
         non_lto_objects = {int(k): 1 for k in plan["non_lto_objects"]}
         opt_objects = []
-        link_args.add(deps_linker_flags)
 
         for idx, artifact in enumerate(sorted_index_link_data):
             if artifact.data_type == LinkDataType("dynamic_library"):
@@ -630,14 +629,16 @@ def cxx_darwin_dist_link(
                     opt_objects.append(artifact.link_data.output_final_native_object_file)
 
         link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
-        link_cmd = link_cmd_parts.link_cmd
-        link_cmd.add(common_link_flags)
+        link_cmd = cmd_args(link_cmd_parts.linker)
+        link_args.add(link_cmd_parts.linker_flags)
+        link_args.add(common_link_flags)
+        link_args.add(deps_linker_flags)
         link_cmd_hidden = []
 
         if opts.extra_linker_outputs_flags_factory != None:
             # We need the inner artifacts here
             mapped_outputs = {output_type: outputs[artifact] for output_type, artifact in extra_outputs.artifacts.items()}
-            link_cmd.add(opts.extra_linker_outputs_flags_factory(ctx, mapped_outputs))
+            link_args.add(opts.extra_linker_outputs_flags_factory(ctx, mapped_outputs))
 
         # buildifier: disable=uninitialized
         for artifact in sorted_index_link_data:
@@ -645,6 +646,13 @@ def cxx_darwin_dist_link(
                 link_cmd_hidden.append(artifact.link_data.output_final_native_object_files_dir)
                 link_cmd_hidden.append(artifact.link_data.input_object_files_dir)
 
+        link_args.add("-o", outputs[output].as_output())
+        if linker_map:
+            link_args.add(linker_map_args(cxx_toolchain, outputs[linker_map].as_output()).flags)
+        link_cmd_hidden.extend([
+            link_args,
+            opt_objects,
+        ])
         link_cmd.add(at_argfile(
             actions = ctx.actions,
             name = outputs[linker_argsfile_out],
@@ -652,13 +660,6 @@ def cxx_darwin_dist_link(
             allow_args = True,
         ))
         link_cmd.add(cmd_args(final_link_index, format = "@{}"))
-        link_cmd.add("-o", outputs[output].as_output())
-        if linker_map:
-            link_cmd.add(linker_map_args(cxx_toolchain, outputs[linker_map].as_output()).flags)
-        link_cmd_hidden.extend([
-            link_args,
-            opt_objects,
-        ])
         link_cmd.add(link_cmd_parts.post_linker_flags)
         link_cmd.add(cmd_args(hidden = link_cmd_hidden))
 
