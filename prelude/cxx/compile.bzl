@@ -1129,7 +1129,6 @@ def _mk_argsfiles(
     return CompileArgsfile(
         file = argsfile,
         cmd_form = cmd_form,
-        input_args = input_args,
         args = args,
         args_without_file_prefix_args = args_without_file_prefix_args,
     )
@@ -1186,15 +1185,13 @@ def _mk_header_units_argsfile(
     # TODO(nml): Tag args with headers_tag.tag_artifacts() once -MD -MF reports correct
     # usage of PCMs.
     args.add(preprocessor.set.project_as_args("header_units_args"))
-    input_args = [args]
     file_args = cmd_args(args, quote = "shell")
     argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True)
-    cmd_form = cmd_args(argsfile, format = "@{}", hidden = input_args)
+    cmd_form = cmd_args(argsfile, format = "@{}", hidden = file_args)
 
     return CompileArgsfile(
         file = argsfile,
         cmd_form = cmd_form,
-        input_args = input_args,
         args = file_args,
         args_without_file_prefix_args = args,
     )

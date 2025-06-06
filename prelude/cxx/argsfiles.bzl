@@ -13,8 +13,6 @@ CompileArgsfile = record(
     file = field(Artifact),
     # This argsfile as a command form that would use the argsfile (includes dependent inputs).
     cmd_form = field(cmd_args),
-    # Input args necessary for the argsfile to reference.
-    input_args = field(list[cmd_args]),
     # Args as written to the argsfile (with shell quoting applied).
     args = field(cmd_args),
     # Args aggregated for the argsfile excluding file prefix args (excludes shell quoting).
@@ -35,7 +33,11 @@ def get_argsfiles_output(ctx: AnalysisContext, argsfile_by_ext: dict[str, Compil
     for _, argsfile in argsfile_by_ext.items():
         argsfiles.append(argsfile.file)
         argsfile_names.append(cmd_args(argsfile.file, ignore_artifacts = True))
-        dependent_outputs.extend(argsfile.input_args)
+
+        # To materialize the dependent `Artifact`s of `CompileArgsfile#file`,
+        # `CompileArgsfile#cmd_form` is returned in `DefaultInfo#other_outputs`,
+        # because it tracks the dependents through the `cmd_args` API.
+        dependent_outputs.append(argsfile.cmd_form)
 
     argsfiles_summary = ctx.actions.write(summary_name, cmd_args(argsfile_names))
 
