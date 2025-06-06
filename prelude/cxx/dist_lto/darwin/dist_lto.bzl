@@ -313,8 +313,14 @@ def cxx_darwin_dist_link(
     index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_index_argsfile")
     final_link_index = ctx.actions.declare_output(output.basename + ".final_link_index")
 
-    def prepare_index_flags(index_args_out: cmd_args, index_meta_records_out: list, ctx: AnalysisContext, artifacts, outputs):
-        index_args_out.add(deps_linker_flags)
+    def plan(ctx: AnalysisContext, artifacts, outputs, link_plan):
+        # index link command args
+        index_args = cmd_args()
+
+        # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
+        index_meta_records = []
+
+        index_args.add(deps_linker_flags)
 
         # buildifier: disable=uninitialized
         for idx, artifact in enumerate(sorted_index_link_data):
@@ -322,12 +328,12 @@ def cxx_darwin_dist_link(
 
             if artifact.data_type == LinkDataType("eager_bitcode") or artifact.data_type == LinkDataType("lazy_bitcode"):
                 if artifact.data_type == LinkDataType("lazy_bitcode") and link_data.archive_start:
-                    index_args_out.add("-Wl,--start-lib")
+                    index_args.add("-Wl,--start-lib")
 
-                index_args_out.add(link_data.input_object_file)
+                index_args.add(link_data.input_object_file)
 
                 if artifact.data_type == LinkDataType("lazy_bitcode") and link_data.archive_end:
-                    index_args_out.add("-Wl,--end-lib")
+                    index_args.add("-Wl,--end-lib")
 
                 object_file_record = {
                     "input_object_file_path": link_data.input_object_file,
@@ -339,7 +345,7 @@ def cxx_darwin_dist_link(
                 if premerger_enabled:
                     object_file_record["output_premerged_bitcode_file_path"] = outputs[link_data.merged_bc].as_output()
 
-                index_meta_records_out.append(object_file_record)
+                index_meta_records.append(object_file_record)
 
             elif artifact.data_type == LinkDataType("archive"):
                 manifest = artifacts[link_data.manifest].read_json()
@@ -354,10 +360,10 @@ def cxx_darwin_dist_link(
                         ctx.actions.run(make_merged_bc_dir_cmd, category = make_cat("thin_lto_mkdir"), identifier = link_data.name + "_merged_bc_dir")
                     continue
 
-                index_args_out.add(cmd_args(hidden = link_data.input_object_files_dir))
+                index_args.add(cmd_args(hidden = link_data.input_object_files_dir))
 
                 if not link_data.link_whole:
-                    index_args_out.add("-Wl,--start-lib")
+                    index_args.add("-Wl,--start-lib")
 
                 for obj in manifest["objects"]:
                     lazy_object_file_record = {
@@ -370,30 +376,21 @@ def cxx_darwin_dist_link(
                     if premerger_enabled:
                         lazy_object_file_record["output_premerged_bitcode_directory_path"] = outputs[link_data.merged_bc_dir].as_output()
 
-                    index_meta_records_out.append(lazy_object_file_record)
+                    index_meta_records.append(lazy_object_file_record)
 
-                    index_args_out.add(obj)
+                    index_args.add(obj)
 
                 if not link_data.link_whole:
-                    index_args_out.add("-Wl,--end-lib")
+                    index_args.add("-Wl,--end-lib")
 
             elif artifact.data_type == LinkDataType("dynamic_library"):
-                append_linkable_args(index_args_out, link_data.linkable)
+                append_linkable_args(index_args, link_data.linkable)
 
             else:
                 fail("Unhandled data type: {}".format(str(artifact.data_type)))
 
         output_as_string = cmd_args(output, ignore_artifacts = True)
-        index_args_out.add("-o", output_as_string)
-
-    def plan(ctx: AnalysisContext, artifacts, outputs, link_plan):
-        # index link command args
-        index_args = cmd_args()
-
-        # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
-        index_meta_records = []
-
-        prepare_index_flags(index_args_out = index_args, index_meta_records_out = index_meta_records, ctx = ctx, artifacts = artifacts, outputs = outputs)
+        index_args.add("-o", output_as_string)
 
         index_argfile, _ = ctx.actions.write(
             outputs[index_argsfile_out].as_output(),
