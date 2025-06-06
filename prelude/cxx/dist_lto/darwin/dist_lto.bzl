@@ -147,7 +147,7 @@ def cxx_darwin_dist_link(
     # which other bitcode files (or archive of bitcode files) it should be optimized along side.
     # Thin link idenitifies these depended upon bitcode files by their index in the sorted version of this array.
     unsorted_index_link_data = []
-    linker_flags = []
+    linker_flags = cmd_args()
     common_link_flags = cmd_args(get_target_sdk_version_flags(ctx), get_extra_darwin_linker_flags())
     common_link_flags.add(sanitizer_runtime_args.extra_link_args)
     extra_codegen_flags = get_target_sdk_version_flags(ctx)
@@ -161,8 +161,8 @@ def cxx_darwin_dist_link(
     for link in link_infos:
         link_name = name_for_link(link)
 
-        linker_flags.append(link.pre_flags)
-        linker_flags.append(link.post_flags)
+        linker_flags.add(link.pre_flags)
+        linker_flags.add(link.post_flags)
 
         for linkable in link.linkables:
             if isinstance(linkable, ObjectsLinkable):
@@ -314,8 +314,7 @@ def cxx_darwin_dist_link(
     final_link_index = ctx.actions.declare_output(output.basename + ".final_link_index")
 
     def prepare_index_flags(index_args_out: cmd_args, index_meta_records_out: list, ctx: AnalysisContext, artifacts, outputs):
-        for flag in linker_flags:
-            index_args_out.add(flag)
+        index_args_out.add(linker_flags)
 
         # buildifier: disable=uninitialized
         for idx, artifact in enumerate(sorted_index_link_data):
@@ -622,8 +621,7 @@ def cxx_darwin_dist_link(
         # flags. In that case, we need to link against the original object.
         non_lto_objects = {int(k): 1 for k in plan["non_lto_objects"]}
         opt_objects = []
-        for flag in linker_flags:
-            link_args.add(flag)
+        link_args.add(linker_flags)
 
         for idx, artifact in enumerate(sorted_index_link_data):
             if artifact.data_type == LinkDataType("dynamic_library"):
