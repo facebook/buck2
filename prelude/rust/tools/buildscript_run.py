@@ -19,6 +19,7 @@ from typing import Any, Dict, IO, NamedTuple, Optional
 
 
 IS_WINDOWS: bool = os.name == "nt"
+TOOL_CWD: str = os.path.join(os.getcwd(), "")
 
 
 def eprint(*args: Any, **kwargs: Any) -> None:
@@ -227,13 +228,25 @@ def main() -> None:  # noqa: C901
     script_output = run_buildscript(args.buildscript, env=env, cwd=cwd)
 
     cargo_rustc_cfg_pattern = re.compile("^cargo:rustc-cfg=(.*)")
+    cargo_rustc_env_pattern = re.compile("^cargo:rustc-env=(.+?)=(.*)")
     flags = ""
     for line in script_output.split("\n"):
         cargo_rustc_cfg_match = cargo_rustc_cfg_pattern.match(line)
         if cargo_rustc_cfg_match:
-            flags += "--cfg={}\n".format(cargo_rustc_cfg_match.group(1))
-        else:
-            print(line, end="\n")
+            value = cargo_rustc_cfg_match.group(1)
+            flags += f"--cfg={value}\n"
+            continue
+        cargo_rustc_env_match = cargo_rustc_env_pattern.match(line)
+        if cargo_rustc_env_match:
+            key = cargo_rustc_env_match.group(1)
+            value = cargo_rustc_env_match.group(2)
+            if value.startswith(TOOL_CWD):
+                relative_path = value[len(TOOL_CWD) :]
+                flags += f"--env-set={key}=$(abspath {relative_path})\n"
+            else:
+                flags += f"--env-set={key}={value}\n"
+            continue
+        print(line, end="\n")
     args.outfile.write(flags)
 
 
