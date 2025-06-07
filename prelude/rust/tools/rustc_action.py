@@ -193,20 +193,31 @@ def arg_parse() -> Args:
 
 def arg_eval(arg: str) -> str:
     """
-    Expand an argument such as --extern=$(cat buck-out/v2/gen/foo.txt)=buck-out/dev/gen/libfoo.rlib
+    Expand the following two special cases:
+        --extern=$(cat buck-out/v2/gen/foo.txt)=buck-out/dev/gen/libfoo.rlib
+        --env-set=FOO=$(abspath buck-out/v2/gen/foo.txt)
     """
     expanded = ""
 
     while True:
-        begin = arg.find("$(cat ")
+        begin = arg.find("$(")
         if begin == -1:
             return expanded + arg
         expanded += arg[:begin]
-        begin += len("$(cat ")
-        path, rest = arg[begin:].split(")", maxsplit=1)
-        with open(path, encoding="utf-8") as f:
-            expanded += f.read().strip()
-        arg = rest
+        if arg[begin:].startswith("$(cat "):
+            begin += len("$(cat ")
+            path, rest = arg[begin:].split(")", maxsplit=1)
+            with open(path, encoding="utf-8") as f:
+                expanded += f.read().strip()
+            arg = rest
+        elif arg[begin:].startswith("$(abspath "):
+            begin += len("$(abspath ")
+            path, rest = arg[begin:].split(")", maxsplit=1)
+            expanded += os.path.abspath(path)
+            arg = rest
+        else:
+            expanded += "$("
+            arg = arg[begin + len("$(") :]
 
 
 def inherited_env() -> Dict[str, str]:
