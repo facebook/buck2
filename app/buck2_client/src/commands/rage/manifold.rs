@@ -22,11 +22,23 @@ enum ManifoldError {
     OpenFileError(String),
 }
 
-pub(crate) fn manifold_leads(bucket: &Bucket, filename: String) -> String {
-    let full_path = format!("{}/{}", bucket.name, filename);
-    let command = format!("manifold get {}", full_path);
-    let url = format!("https://interncache-all.fbcdn.net/manifold/{}", full_path);
-    format!("{}\n{}", command, url)
+pub(crate) fn manifold_leads(
+    manifold: &ManifoldClient,
+    bucket: &Bucket,
+    filename: String,
+) -> String {
+    let url = manifold.file_view_url(bucket, &filename);
+    let command = manifold.file_dump_command(bucket, &filename);
+    let mut out = String::new();
+    if let Some(url) = url {
+        out.push_str(&url);
+    }
+    if let Some(command) = command {
+        out.push('\n');
+        out.push_str(&command);
+    }
+
+    out
 }
 
 pub(crate) async fn file_to_manifold(
@@ -45,7 +57,7 @@ pub(crate) async fn file_to_manifold(
         .read_and_upload(bucket, &filename, Default::default(), &mut file)
         .await?;
 
-    Ok(manifold_leads(&bucket, filename))
+    Ok(manifold_leads(manifold, &bucket, filename))
 }
 
 pub(crate) async fn buf_to_manifold(
@@ -60,5 +72,5 @@ pub(crate) async fn buf_to_manifold(
         .read_and_upload(bucket, &filename, Default::default(), &mut cursor)
         .await?;
 
-    Ok(manifold_leads(&bucket, filename))
+    Ok(manifold_leads(manifold, &bucket, filename))
 }
