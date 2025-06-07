@@ -326,22 +326,35 @@ async def main() -> int:  # noqa: C901
         print(f"args {repr(args)} env {env} crate_map {crate_map}", end="\n")
 
     separator = args.rustc.index("--rustc-action-separator")
-    rustc_cmd, rustc_args = args.rustc[:separator], args.rustc[separator + 1 :]
+    rustc_cmd, rustc_args_orig = args.rustc[:separator], args.rustc[separator + 1 :]
 
-    # Build.bzl uses the following expression to generate remap flags:
-    #   cmd_args("--remap-path-prefix=", ... "=", ctx.label.path, path_sep, delimiter = "")
-    # The ctx.label.path (which is of type StarlarkCellPath) has the
-    # inconvenient behavior that if the label's package has fewer than two
-    # components, it gets an extra "./" prepended. So for targets //:repro and
-    # //one:repro and //one/two:repro we would get remap flags with the
-    # right-hand side as "./" and "./one/" and "one/two/". In compiler
-    # diagnostics we would never want this leading "./" so strip it off.
-    for i, arg in enumerate(rustc_args):
+    rustc_args = []
+    for arg in rustc_args_orig:
+        # Build.bzl uses the following expression to generate remap flags:
+        #   cmd_args("--remap-path-prefix=", ... "=", ctx.label.path, path_sep, delimiter = "")
+        # The ctx.label.path (which is of type StarlarkCellPath) has the
+        # inconvenient behavior that if the label's package has fewer than two
+        # components, it gets an extra "./" prepended. So for targets //:repro
+        # and //one:repro and //one/two:repro we would get remap flags with the
+        # right-hand side as "./" and "./one/" and "one/two/". In compiler
+        # diagnostics we would never want this leading "./" so strip it off.
         if arg.startswith("--remap-path-prefix="):
             flag, buck_out, mapped = arg.split("=", 2)
             if mapped.startswith("./"):
                 mapped = mapped[2:]
-            rustc_args[i] = "{}={}={}".format(flag, buck_out, mapped)
+            arg = "{}={}={}".format(flag, buck_out, mapped)
+
+        # While the env-set feature is unstable, allow it to be used with stable
+        # rustc by translating from a rustc flag to environment variables set
+        # during the execution of the rustc subprocess. Our handling of Cargo
+        # build scripts relies on `--env-set` as the implementation of "cargo:rustc-env".
+        # Tracking issue: https://github.com/rust-lang/rust/issues/118372
+        if arg.startswith("--env-set="):
+            flag, key, value = arg.split("=", 3)
+            env[key] = value
+            continue
+
+        rustc_args.append(arg)
 
     if args.remap_cwd_prefix is not None:
         rustc_args.append(
