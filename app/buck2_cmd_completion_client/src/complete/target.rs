@@ -34,8 +34,7 @@ use futures::future::BoxFuture;
 
 use super::path_sanitizer::PathSanitizer;
 use super::results::CompletionResults;
-
-type CompleteCallback = fn(CommandOutcome<Vec<String>>) -> ExitResult;
+use crate::complete::print_completions;
 
 pub(crate) trait TargetResolver: Send {
     fn resolve(&mut self, partial_target: String) -> BoxFuture<CommandOutcome<Vec<String>>>;
@@ -47,24 +46,16 @@ pub(crate) struct CompleteTargetCommand {
     cwd: AbsWorkingDir,
     package: String,
     partial_target: String,
-
-    callback: CompleteCallback,
 }
 
 impl CompleteTargetCommand {
-    pub(crate) fn new(
-        cwd: &AbsWorkingDir,
-        package: String,
-        partial_target: String,
-        callback: CompleteCallback,
-    ) -> Self {
+    pub(crate) fn new(cwd: &AbsWorkingDir, package: String, partial_target: String) -> Self {
         let target_cfg = TargetCfgOptions::default();
         Self {
             target_cfg,
             cwd: cwd.to_owned(),
             package,
             partial_target,
-            callback,
         }
     }
 }
@@ -96,7 +87,7 @@ impl StreamingCommand for CompleteTargetCommand {
 
         match task.await {
             CommandOutcome::Success(completions) => {
-                (self.callback)(CommandOutcome::Success(completions))
+                print_completions(CommandOutcome::Success(completions))
             }
             CommandOutcome::Failure(err) => err,
         }

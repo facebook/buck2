@@ -121,7 +121,6 @@ impl CompleteCommand {
                     &ctx.working_dir,
                     given_package.to_owned(),
                     given_partial_target.to_owned(),
-                    print_completions,
                 );
                 ctx.exec_async(completer, matches).await
             }
