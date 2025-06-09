@@ -350,71 +350,55 @@ async fn test(
             test_executor_args.push("--config-entry".to_owned());
             test_executor_args.push(format!("host={}", platform));
 
-            let config_flags = client_ctx
-                .representative_config_flags
-                .iter()
-                .filter_map(|s| {
-                    s.source.as_ref().and_then(|source| {
-                        if let representative_config_flag::Source::ConfigFlag(s) = source {
-                            Some(s)
-                        } else {
-                            None
-                        }
-                    })
-                })
-                .sorted()
-                .join(";");
+            let mut config_flags = String::new();
+            let mut flagfiles = String::new();
+            let mut modifiers = String::new();
+            let mut target_platforms = String::new();
 
-            test_executor_args.push("--config-entry".to_owned());
-            test_executor_args.push(format!("config={}", config_flags));
-
-            let flagfiles = client_ctx
-                .representative_config_flags
-                .iter()
-                .filter_map(|s| {
-                    s.source.as_ref().and_then(|source| {
-                        if let representative_config_flag::Source::ModeFile(s) = source {
-                            Some(s)
-                        } else {
-                            None
+            for s in &client_ctx.representative_config_flags {
+                if let Some(source) = &s.source {
+                    match source {
+                        representative_config_flag::Source::ConfigFlag(s) => {
+                            if config_flags.is_empty() {
+                                config_flags.push_str(s);
+                            }
                         }
-                    })
-                })
-                .join(";");
-            test_executor_args.push("--config-entry".to_owned());
-            test_executor_args.push(format!("mode={}", flagfiles));
-
-            let modifiers = client_ctx
-                .representative_config_flags
-                .iter()
-                .filter_map(|s| {
-                    s.source.as_ref().and_then(|source| {
-                        if let representative_config_flag::Source::Modifier(s) = source {
-                            Some(s)
-                        } else {
-                            None
+                        representative_config_flag::Source::ModeFile(s) => {
+                            if flagfiles.is_empty() {
+                                flagfiles.push_str(s);
+                            }
                         }
-                    })
-                })
-                .join(";");
-            test_executor_args.push("--config-entry".to_owned());
-            test_executor_args.push(format!("modifier={}", modifiers));
-
-            let target_platforms = client_ctx
-                .representative_config_flags
-                .iter()
-                .filter_map(|s| {
-                    s.source.as_ref().and_then(|source| {
-                        if let representative_config_flag::Source::TargetPlatforms(s) = source {
-                            Some(s)
-                        } else {
-                            None
+                        representative_config_flag::Source::Modifier(s) => {
+                            if modifiers.is_empty() {
+                                modifiers.push_str(s);
+                            }
                         }
-                    })
-                })
-                .join(";");
-            test_executor_args.push("--config-entry".to_owned());
-            test_executor_args.push(format!("target_platforms={}", target_platforms));
+                        representative_config_flag::Source::TargetPlatforms(s) => {
+                            if target_platforms.is_empty() {
+                                target_platforms.push_str(s);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            if !config_flags.is_empty() {
+                test_executor_args.push("--config-entry".to_owned());
+                test_executor_args.push(format!("config={}", config_flags));
+            }
+            if !flagfiles.is_empty() {
+                test_executor_args.push("--config-entry".to_owned());
+                test_executor_args.push(format!("mode={}", flagfiles));
+            }
+            if !modifiers.is_empty() {
+                test_executor_args.push("--config-entry".to_owned());
+                test_executor_args.push(format!("modifier={}", modifiers));
+            }
+            if !target_platforms.is_empty() {
+                test_executor_args.push("--config-entry".to_owned());
+                test_executor_args.push(format!("target_platforms={}", target_platforms));
+            }
 
             (test_executor, test_executor_args)
         }
