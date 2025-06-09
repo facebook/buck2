@@ -360,17 +360,15 @@ impl FrozenProviderCollection {
     }
 }
 
-/// Holds a collection of `UserProvider`s. These can be accessed in Starlark by indexing on
-/// a `ProviderCallable` object.
+/// Holds a set of providers.
 ///
-/// e.g.
+/// Accessed by indexing with a provider type, e.g.
+///
 /// ```ignore
 /// FooInfo = provider(fields=["bar"])
 /// ....
 /// collection.get(FooInfo) # None if absent, a FooInfo instance if present
 /// ```
-///
-/// This is the result of all UDR implementation functions
 #[starlark_module]
 fn provider_collection_methods(builder: &mut MethodsBuilder) {
     fn get<'v>(
