@@ -61,7 +61,16 @@ def _package_ipa_contents(
         make_dir_recursively_writable(str(processed_package_dir_path))
 
         with open(ipa_output_path, "wb") as ipa_file:
-            zip_cmd = ["zip", "-X", "-r", f"-{compression_level}", "-", "."]
+            zip_cmd = [
+                "zip",
+                "-X",
+                "-n",
+                "zst",  # avoid deflating already compressed files
+                "-r",
+                f"-{compression_level}",
+                "-",
+                ".",
+            ]
             subprocess.run(
                 zip_cmd,
                 # .ipa zip file requires to be created relative to the package dir,
