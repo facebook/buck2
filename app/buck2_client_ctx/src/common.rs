@@ -334,7 +334,7 @@ impl CommonBuildConfigurationOptions {
         &DEFAULT
     }
 
-    pub fn reuse_current_config_ref() -> &'static Self {
+    pub fn reuse_current_config_and_preemptible_ref() -> &'static Self {
         static OPTS: CommonBuildConfigurationOptions = CommonBuildConfigurationOptions {
             config_values: vec![],
             config_files: vec![],
@@ -343,7 +343,7 @@ impl CommonBuildConfigurationOptions {
             fake_xcode_version: None,
             reuse_current_config: true,
             exit_when_different_state: false,
-            preemptible: Some(PreemptibleWhen::Never),
+            preemptible: Some(PreemptibleWhen::OnDifferentState),
         };
         &OPTS
     }

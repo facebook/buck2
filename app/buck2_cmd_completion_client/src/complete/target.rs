@@ -111,7 +111,7 @@ impl StreamingCommand for CompleteTargetCommand {
     }
 
     fn build_config_opts(&self) -> &CommonBuildConfigurationOptions {
-        CommonBuildConfigurationOptions::reuse_current_config_ref()
+        CommonBuildConfigurationOptions::reuse_current_config_and_preemptible_ref()
     }
 
     fn starlark_opts(&self) -> &CommonStarlarkOptions {
