@@ -6,6 +6,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+import argparse
 import json
 import os
 import re
@@ -123,6 +124,43 @@ def _rewrite_dependency_file(command):
         f.write("\n")
 
 
+def _parse_wrapper_args(
+    allargs: list[str],
+) -> tuple[list[str], argparse.ArgumentParser]:
+    driver_args = []
+    wrapper_args = []
+    i = 0
+    while i < len(allargs):
+        arg = allargs[i]
+        if arg == "-Xwrapper":
+            if i == len(allargs) - 1:
+                raise RuntimeError("Missing argument to -Xwrapper")
+
+            wrapper_args.append(allargs[i + 1])
+            i += 2
+        else:
+            driver_args.append(arg)
+            i += 1
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-ignore-errors",
+        action="store_true",
+        help="Used to ignore errors during index store generation",
+    )
+    parser.add_argument(
+        "-remove-module-prefixes",
+        action="store_true",
+        help="Hack to remove module prefixes from swiftinterface output",
+    )
+    parser.add_argument(
+        "-skip-incremental-outputs",
+        action="store_true",
+        help="Hack to skip writing incremental outputs to avoid cache invalidation",
+    )
+    return driver_args, parser.parse_args(wrapper_args)
+
+
 def main():
     env = os.environ.copy()
     if "INSIDE_RE_WORKER" in env and _RE_TMPDIR_ENV_VAR in env:
@@ -142,16 +180,8 @@ def main():
         # compilation actions.
         env["CLANG_MODULE_CACHE_PATH"] = "/tmp/buck-module-cache"
 
-    command = sys.argv[1:]
-
-    # Check if we need to strip module prefixes from types in swiftinterface output.
-    should_remove_module_prefixes = "-remove-module-prefixes" in command
-    if should_remove_module_prefixes:
-        command.remove("-remove-module-prefixes")
-
-    should_ignore_errors = "-ignore-errors" in command
-    if should_ignore_errors:
-        command.remove("-ignore-errors")
+    # Separate the driver args from the wrapper args
+    command, wrapper_args = _parse_wrapper_args(sys.argv[1:])
 
     # Use relative paths for debug information and index information,
     # so we generate relocatable files.
@@ -175,7 +205,8 @@ def main():
         f"{os.getcwd()}=.",
     ]
 
-    command = _process_skip_incremental_outputs(command)
+    if wrapper_args.skip_incremental_outputs:
+        command = _process_skip_incremental_outputs(command)
 
     result = subprocess.run(
         command,
@@ -206,25 +237,19 @@ def main():
             _rewrite_dependency_file(command)
 
     # https://github.com/swiftlang/swift/issues/56573
-    if should_remove_module_prefixes:
+    if wrapper_args.remove_module_prefixes:
         _remove_swiftinterface_module_prefixes(command)
 
-    if should_ignore_errors:
+    if wrapper_args.ignore_errors:
         sys.exit(0)
     else:
         sys.exit(result.returncode)
 
 
-_SKIP_INCREMENTAL_OUTPUTS_ARG = "-skip-incremental-outputs"
 _SWIFT_FILES_ARGSFILE = ".swift_files"
 
 
 def _process_skip_incremental_outputs(command):
-    if _SKIP_INCREMENTAL_OUTPUTS_ARG not in command:
-        return command
-
-    command.remove(_SKIP_INCREMENTAL_OUTPUTS_ARG)
-
     output_file_map = command[command.index("-output-file-map") + 1]
     output_dir = os.path.dirname(os.path.dirname(output_file_map))
 

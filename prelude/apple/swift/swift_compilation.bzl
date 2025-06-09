@@ -513,6 +513,7 @@ def _compile_swiftmodule(
             "-emit-module-interface",
             "-emit-module-interface-path",
             output_swiftinterface.as_output(),
+            "-Xwrapper",
             "-remove-module-prefixes",
         ])
         _compile_with_argsfile(ctx, "emit_swiftinterface", ".swiftinterface", swiftinterface_argsfile, srcs, swiftinterface_cmd, toolchain, num_threads = 1)
@@ -751,6 +752,7 @@ def _compile_index_store(
         "-c",
         "-disable-batch-mode",
         "-disallow-use-new-driver",
+        "-Xwrapper",
         "-ignore-errors",
     ])
 

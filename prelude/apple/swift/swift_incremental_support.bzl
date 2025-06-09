@@ -103,7 +103,7 @@ def _get_incremental_compilation_flags_and_objects(
     )
 
     if _SKIP_INCREMENTAL_OUTPUTS:
-        cmd.add("-skip-incremental-outputs")
+        cmd.add("-Xwrapper", "-skip-incremental-outputs")
 
     return IncrementalCompilationOutput(
         incremental_flags_cmd = cmd,
