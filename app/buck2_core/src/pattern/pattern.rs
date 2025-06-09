@@ -396,7 +396,7 @@ impl ParsedPatternPredicate<TargetPatternExtra> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct PatternParts<'a, T: PatternType> {
     /// Is there a `foo//` or `//` part.
     pub cell_alias: Option<&'a str>,
@@ -419,7 +419,7 @@ impl<'a, T: PatternType> PatternParts<'a, T> {
     }
 }
 
-#[derive(Debug, derive_more::From)]
+#[derive(Debug, derive_more::From, Eq, PartialEq)]
 pub enum PatternDataOrAmbiguous<'a, T: PatternType> {
     /// We successfully extracted PatternData.
     PatternData(PatternData<'a, T>),
@@ -521,7 +521,7 @@ where
 }
 
 /// The pattern data we extracted.
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum PatternData<'a, T: PatternType> {
     /// A pattern like `foo/bar/...`.
     Recursive {
@@ -1144,8 +1144,13 @@ mod tests {
     use crate::configuration::hash::ConfigurationHash;
     use crate::package::PackageLabel;
     use crate::pattern::pattern::ParsedPattern;
+    use crate::pattern::pattern::PatternData;
+    use crate::pattern::pattern::PatternDataOrAmbiguous;
+    use crate::pattern::pattern::PatternParts;
     use crate::pattern::pattern::TargetParsingRel;
     use crate::pattern::pattern::TargetPatternParseError;
+    use crate::pattern::pattern::lex_configured_providers_pattern;
+    use crate::pattern::pattern::lex_provider_pattern;
     use crate::pattern::pattern_type::ConfigurationPredicate;
     use crate::pattern::pattern_type::ConfiguredProvidersPatternExtra;
     use crate::pattern::pattern_type::ConfiguredTargetPatternExtra;
@@ -2210,6 +2215,100 @@ mod tests {
                 &alias_resolver(),
             ),
             &["Invalid target pattern `../../not_allowed:target` is not allowed"],
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parsing_modifiers() -> buck2_error::Result<()> {
+        fails(
+            lex_provider_pattern("root//directory?/target?modifiers", true),
+            &[
+                "Expected at most one ? in pattern, question marks in file, target, modifier, or cell names are not supported",
+            ],
+        );
+
+        assert_eq!(
+            lex_provider_pattern("root//directory/target/:?modifier", true)?,
+            PatternParts {
+                cell_alias: Some("root"),
+                pattern: PatternDataOrAmbiguous::PatternData(PatternData::AllTargetsInPackage {
+                    package: relative_path::RelativePath::new("directory/target"),
+                    modifiers: Some(vec!["modifier".to_owned()]),
+                })
+            }
+        );
+
+        assert_eq!(
+            lex_provider_pattern("root//directory/target:target?modifier1,modifier2", true)?,
+            PatternParts {
+                cell_alias: Some("root"),
+                pattern: PatternDataOrAmbiguous::PatternData(PatternData::TargetInPackage {
+                    package: relative_path::RelativePath::new("directory/target"),
+                    target_name: TargetName::new("target")?,
+                    extra: ProvidersPatternExtra {
+                        providers: ProvidersName::Default
+                    },
+                    modifiers: Some(vec!["modifier1".to_owned(), "modifier2".to_owned()]),
+                })
+            }
+        );
+
+        assert_eq!(
+            lex_provider_pattern("root//directory/...?modifier1,modifier2", true)?,
+            PatternParts {
+                cell_alias: Some("root"),
+                pattern: PatternDataOrAmbiguous::PatternData(PatternData::Recursive {
+                    package: relative_path::RelativePath::new("directory"),
+                    modifiers: Some(vec!["modifier1".to_owned(), "modifier2".to_owned()]),
+                })
+            }
+        );
+
+        assert_eq!(
+            lex_provider_pattern("root//...?modifier1,modifier2", true)?,
+            PatternParts {
+                cell_alias: Some("root"),
+                pattern: PatternDataOrAmbiguous::PatternData(PatternData::Recursive {
+                    package: relative_path::RelativePath::new(""),
+                    modifiers: Some(vec!["modifier1".to_owned(), "modifier2".to_owned()]),
+                })
+            }
+        );
+
+        assert_eq!(
+            lex_provider_pattern("root//directory/target?modifier1,modifier2", true)?,
+            PatternParts {
+                cell_alias: Some("root"),
+                pattern: PatternDataOrAmbiguous::Ambiguous {
+                    pattern: "directory/target",
+                    strip_package_trailing_slash: true,
+                    extra: ProvidersPatternExtra {
+                        providers: ProvidersName::Default
+                    },
+                    modifiers: Some(vec!["modifier1".to_owned(), "modifier2".to_owned()]),
+                }
+            }
+        );
+
+        fails(
+            lex_configured_providers_pattern(
+                "root//directory/target:target?modifier (Bound)",
+                true,
+            ),
+            &["Modifiers incompatible with explicit configuration"],
+        );
+
+        assert_eq!(
+            lex_configured_providers_pattern("root//directory/...?modifier (<unbound>)", true)?,
+            PatternParts {
+                cell_alias: Some("root"),
+                pattern: PatternDataOrAmbiguous::PatternData(PatternData::Recursive {
+                    package: relative_path::RelativePath::new("directory"),
+                    modifiers: Some(vec!["modifier".to_owned()]),
+                })
+            }
         );
 
         Ok(())
