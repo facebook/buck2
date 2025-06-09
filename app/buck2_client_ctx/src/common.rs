@@ -455,6 +455,9 @@ impl<'a> BuckArgMatches<'a> {
                 }
                 Some(RepresentativeConfigFlagSource::ModeFile(v)) => v.clone(),
                 Some(RepresentativeConfigFlagSource::Modifier(v)) => format!("-m {}", v),
+                Some(RepresentativeConfigFlagSource::TargetPlatforms(v)) => {
+                    format!("--target-platforms {}", v)
+                }
                 None => unreachable!("impossible flag"),
             })
     }
@@ -506,6 +509,10 @@ impl<'a> BuckArgMatches<'a> {
                             state = State::Matched("-m");
                             None
                         }
+                        "--target-platforms" => {
+                            state = State::Matched("--target-platforms");
+                            None
+                        }
                         v if v.starts_with("--config=") || v.starts_with("-c=") => {
                             Some(RepresentativeConfigFlagSource::ConfigFlag(
                                 v.split_once("=").unwrap().1.to_owned(),
@@ -518,6 +525,11 @@ impl<'a> BuckArgMatches<'a> {
                         }
                         v if v.starts_with("--modifier=") || v.starts_with("-m=") => {
                             Some(RepresentativeConfigFlagSource::Modifier(
+                                v.split_once("=").unwrap().1.to_owned(),
+                            ))
+                        }
+                        v if v.starts_with("--target-platforms=") => {
+                            Some(RepresentativeConfigFlagSource::TargetPlatforms(
                                 v.split_once("=").unwrap().1.to_owned(),
                             ))
                         }
@@ -535,6 +547,9 @@ impl<'a> BuckArgMatches<'a> {
                             "-m" => {
                                 Some(RepresentativeConfigFlagSource::Modifier(value.to_owned()))
                             }
+                            "--target-platforms" => Some(
+                                RepresentativeConfigFlagSource::TargetPlatforms(value.to_owned()),
+                            ),
                             _ => unreachable!("impossible flag"),
                         }
                     }
@@ -611,6 +626,8 @@ mod tests {
         argv.push("--modifier".to_owned());
         argv.push("//bar:foo".to_owned());
 
+        argv.push("--target-platforms=ovr_config//platforms/linux:some_linux_platform".to_owned());
+
         let argv = argv.build();
 
         let clap = clap::ArgMatches::default(); // we don't actually inspect this right now so just use an empty one.
@@ -629,7 +646,8 @@ mod tests {
                 "--config-file //2.bcfg",
                 "-m //bar:baz",
                 "-m //foo:bar",
-                "-m //bar:foo"
+                "-m //bar:foo",
+                "--target-platforms ovr_config//platforms/linux:some_linux_platform"
             ]
         );
 

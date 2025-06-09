@@ -400,6 +400,22 @@ async fn test(
             test_executor_args.push("--config-entry".to_owned());
             test_executor_args.push(format!("modifier={}", modifiers));
 
+            let target_platforms = client_ctx
+                .representative_config_flags
+                .iter()
+                .filter_map(|s| {
+                    s.source.as_ref().and_then(|source| {
+                        if let representative_config_flag::Source::TargetPlatforms(s) = source {
+                            Some(s)
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .join(";");
+            test_executor_args.push("--config-entry".to_owned());
+            test_executor_args.push(format!("target_platforms={}", target_platforms));
+
             (test_executor, test_executor_args)
         }
         None => {

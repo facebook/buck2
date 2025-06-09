@@ -103,6 +103,7 @@ message RepresentativeConfigFlag {
     string config_file = 2;
     string mode_file = 3;
     string modifier = 4;
+    string target_platforms = 5;
   }
 }
 
