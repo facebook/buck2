@@ -57,6 +57,7 @@ load(
     "should_build_swift_incrementally",
 )
 load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
+load(":swift_output_file_map.bzl", "add_dependencies_output", "add_output_file_map_flags")
 load(":swift_pcm_compilation.bzl", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
 load(
     ":swift_pcm_compilation_types.bzl",
@@ -590,26 +591,9 @@ def _compile_swiftmodule(
         ])
 
     dep_files = {}
+    output_file_map = {}
     if toolchain.use_depsfiles and not output_swiftinterface:
-        # Dependency file output paths are only specifiable via output file maps.
-        dep_file = ctx.actions.declare_output("__depfiles__/" + ctx.attrs.name + "-swiftmodule.d").as_output()
-        tagged_dep_file = inputs_tag.tag_artifacts(dep_file)
-        output_file_map = {
-            "": {
-                "dependencies": cmd_args(tagged_dep_file, delimiter = ""),
-                "emit-module-dependencies": cmd_args(tagged_dep_file, delimiter = ""),
-            },
-        }
-        output_file_map_json = ctx.actions.write_json(
-            ctx.attrs.name + "_swiftmodule_output_file_map.json",
-            output_file_map,
-            pretty = True,
-        )
-        cmd.add([
-            "-emit-dependencies",
-            "-output-file-map",
-            cmd_args(output_file_map_json, hidden = [tagged_dep_file]),
-        ])
+        add_dependencies_output(ctx, output_file_map, cmd, "swiftmodule", inputs_tag)
         dep_files["swiftmodule"] = inputs_tag
 
     ret = _compile_with_argsfile(
@@ -622,6 +606,7 @@ def _compile_swiftmodule(
         toolchain = toolchain,
         num_threads = 1,
         dep_files = dep_files,
+        output_file_map = output_file_map,
     )
 
     if output_tbd != None:
@@ -648,6 +633,7 @@ def _compile_object(
         inputs_tag: ArtifactTag,
         category: str) -> SwiftObjectOutput:
     dep_files = {}
+    output_file_map = {}
     if should_build_swift_incrementally(ctx):
         incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs, output_swiftmodule, output_header)
         num_threads = incremental_compilation_output.num_threads
@@ -682,24 +668,7 @@ def _compile_object(
             cmd.add("--embed-bitcode")
 
         if toolchain.use_depsfiles:
-            dep_file = ctx.actions.declare_output("__depfiles__/" + ctx.attrs.name + "-object.d").as_output()
-            tagged_dep_file = inputs_tag.tag_artifacts(dep_file)
-            output_file_map = {
-                "": {
-                    "dependencies": cmd_args(tagged_dep_file, delimiter = ""),
-                    "emit-module-dependencies": cmd_args(tagged_dep_file, delimiter = ""),
-                },
-            }
-            output_file_map_json = ctx.actions.write_json(
-                ctx.attrs.name + "_swift_output_file_map.json",
-                output_file_map,
-                pretty = True,
-            )
-            cmd.add([
-                "-emit-dependencies",
-                "-output-file-map",
-                cmd_args(output_file_map_json, hidden = [tagged_dep_file]),
-            ])
+            add_dependencies_output(ctx, output_file_map, cmd, "object", inputs_tag)
             dep_files["object"] = inputs_tag
 
     if _should_compile_with_evolution(ctx):
@@ -715,6 +684,7 @@ def _compile_object(
         toolchain = toolchain,
         num_threads = num_threads,
         dep_files = dep_files,
+        output_file_map = output_file_map,
     )
 
     return SwiftObjectOutput(
@@ -781,7 +751,8 @@ def _compile_with_argsfile(
         identifier: str | None = None,
         num_threads: int = 1,
         cacheable: bool = True,
-        dep_files: dict[str, ArtifactTag] = {}) -> CompileArgsfiles:
+        dep_files: dict[str, ArtifactTag] = {},
+        output_file_map: dict = {}) -> CompileArgsfiles:
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
 
@@ -798,6 +769,10 @@ def _compile_with_argsfile(
     swift_files, _ = ctx.actions.write(extension + "_files", swift_quoted_files, allow_args = True)
     swift_files_cmd_form = cmd_args(swift_files, format = "@{}", delimiter = "", hidden = swift_quoted_files)
     cmd.add(swift_files_cmd_form)
+
+    # If an output file map is provided, serialize it and add to the command.
+    if output_file_map:
+        add_output_file_map_flags(ctx, output_file_map, cmd, category_prefix)
 
     build_swift_incrementally = should_build_swift_incrementally(ctx)
     explicit_modules_enabled = uses_explicit_modules(ctx)
