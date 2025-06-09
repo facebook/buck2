@@ -115,6 +115,20 @@ fn run(
     tempdir: &Option<String>,
     shell: Shell,
 ) -> io::Result<Vec<String>> {
+    #[cfg(unix)]
+    {
+        use nix::sys::resource;
+        use nix::sys::resource::Resource;
+
+        let (_, hard_limit) = resource::getrlimit(Resource::RLIMIT_NOFILE)?;
+        if hard_limit >= 100_000 {
+            // `ptyprocess`, which we depend on, does a fairly clowny thing of attempting to close
+            // *all* file descriptors. When there's too many of them, that takes forever, so limit
+            // the number to something more sensible
+            resource::setrlimit(Resource::RLIMIT_NOFILE, 100_000, 100_000)?;
+        }
+    }
+
     let real_tempdir;
     let tempdir = match tempdir {
         Some(tempdir) => tempdir.as_ref(),

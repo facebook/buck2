@@ -23,5 +23,9 @@ rust_binary(
         "fbsource//third-party/rust:ptyprocess",
         "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:vt100",
-    ],
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": ["fbsource//third-party/rust:nix"],
+        "ovr_config//os:macos": ["fbsource//third-party/rust:nix"],
+    }),
 )
