@@ -33,6 +33,8 @@ load(
     "zip_shlibs",
 )
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
+load("@prelude//python:manifest.bzl", "create_manifest_for_entries")
+load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":compile.bzl", "PycInvalidationMode")
 load(":interface.bzl", "EntryPoint", "EntryPointKind", "PythonLibraryManifestsInterface")
@@ -70,11 +72,34 @@ ManifestModule = record(
 )
 
 def make_py_package_providers(
+        ctx: AnalysisContext,
+        manifest_identifier: str,
         pex: PexProviders) -> list[Provider]:
     providers = [
         make_default_info(pex),
         make_run_info(pex),
     ]
+
+    # UnixEnv is used by other rules like conda_package that
+    # copies python libraries/binaries to the output directory.
+    # Only standalone works here since inplace uses link tree.
+    if manifest_identifier == "standalone":
+        providers.append(create_unix_env_info(
+            actions = ctx.actions,
+            env = UnixEnv(
+                label = ctx.label,
+                binaries = [
+                    create_manifest_for_entries(
+                        ctx = ctx,
+                        name = "unix_env_for_{}".format(manifest_identifier),
+                        entries = [
+                            (ctx.label.name, pex.default_output, ""),
+                        ],
+                    ),
+                ],
+            ),
+        ))
+
     return providers
 
 def live_par_generated_files(
@@ -291,6 +316,8 @@ def make_py_package(
         )
 
         default.sub_targets["repl"] = make_py_package_providers(
+            ctx,
+            "repl",
             _make_py_package_wrapper(
                 ctx,
                 python_toolchain,
@@ -330,7 +357,11 @@ def make_py_package(
             output_suffix = "-{}".format(style),
             allow_cache_upload = allow_cache_upload,
         )
-        default.sub_targets[style] = make_py_package_providers(pex_providers)
+        default.sub_targets[style] = make_py_package_providers(
+            ctx,
+            style,
+            pex_providers,
+        )
 
     # cpp binaries already emit a `debuginfo` subtarget with a different format,
     # so we opt to use a more specific subtarget
