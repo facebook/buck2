@@ -433,6 +433,7 @@ pub enum PatternDataOrAmbiguous<'a, T: PatternType> {
         /// (rather than throwing an error).
         strip_package_trailing_slash: bool,
         extra: T,
+        modifiers: Option<Vec<String>>,
     },
 }
 
@@ -449,11 +450,20 @@ impl<'a, T: PatternType> PatternDataOrAmbiguous<'a, T> {
                 pattern,
                 strip_package_trailing_slash,
                 extra,
+                modifiers,
             } => Ok(PatternDataOrAmbiguous::Ambiguous {
                 pattern,
                 strip_package_trailing_slash,
                 extra: f(extra)?,
+                modifiers,
             }),
+        }
+    }
+
+    pub fn modifiers(&self) -> &Option<Vec<String>> {
+        match self {
+            PatternDataOrAmbiguous::PatternData(d) => d.modifiers(),
+            PatternDataOrAmbiguous::Ambiguous { modifiers, .. } => modifiers,
         }
     }
 }
@@ -471,6 +481,7 @@ where
                 pattern,
                 strip_package_trailing_slash,
                 extra,
+                modifiers,
             } => {
                 let package = normalize_package(pattern, strip_package_trailing_slash)?;
 
@@ -484,6 +495,7 @@ where
                     package,
                     target_name,
                     extra,
+                    modifiers,
                 })
             }
         }
@@ -512,16 +524,23 @@ where
 #[derive(Debug)]
 pub enum PatternData<'a, T: PatternType> {
     /// A pattern like `foo/bar/...`.
-    Recursive { package: &'a RelativePath },
+    Recursive {
+        package: &'a RelativePath,
+        modifiers: Option<Vec<String>>,
+    },
 
     /// A pattern like `foo/bar:`, or `:`
-    AllTargetsInPackage { package: &'a RelativePath },
+    AllTargetsInPackage {
+        package: &'a RelativePath,
+        modifiers: Option<Vec<String>>,
+    },
 
     /// A pattern like `foo/bar:qux`, or `:qux`. The target will never be empty.
     TargetInPackage {
         package: &'a RelativePath,
         target_name: TargetName,
         extra: T,
+        modifiers: Option<Vec<String>>,
     },
 }
 
@@ -531,26 +550,30 @@ impl<'a, T: PatternType> PatternData<'a, T> {
         f: impl FnOnce(T) -> buck2_error::Result<U>,
     ) -> buck2_error::Result<PatternData<'a, U>> {
         match self {
-            PatternData::Recursive { package } => Ok(PatternData::Recursive { package }),
-            PatternData::AllTargetsInPackage { package } => {
-                Ok(PatternData::AllTargetsInPackage { package })
+            PatternData::Recursive { package, modifiers } => {
+                Ok(PatternData::Recursive { package, modifiers })
+            }
+            PatternData::AllTargetsInPackage { package, modifiers } => {
+                Ok(PatternData::AllTargetsInPackage { package, modifiers })
             }
             PatternData::TargetInPackage {
                 package,
                 target_name,
                 extra,
+                modifiers,
             } => Ok(PatternData::TargetInPackage {
                 package,
                 target_name,
                 extra: f(extra)?,
+                modifiers,
             }),
         }
     }
 
     pub fn package_path(&self) -> &'a RelativePath {
         match self {
-            Self::Recursive { package } => package,
-            Self::AllTargetsInPackage { package } => package,
+            Self::Recursive { package, .. } => package,
+            Self::AllTargetsInPackage { package, .. } => package,
             Self::TargetInPackage { package, .. } => package,
         }
     }
@@ -562,6 +585,14 @@ impl<'a, T: PatternType> PatternData<'a, T> {
             Self::TargetInPackage {
                 target_name, extra, ..
             } => Some((target_name, extra)),
+        }
+    }
+
+    pub fn modifiers(&self) -> &Option<Vec<String>> {
+        match self {
+            Self::Recursive { modifiers, .. } => modifiers,
+            Self::AllTargetsInPackage { modifiers, .. } => modifiers,
+            Self::TargetInPackage { modifiers, .. } => modifiers,
         }
     }
 
@@ -596,6 +627,7 @@ fn lex_provider_pattern(
     let pattern = match split1_opt_ascii(pattern, AsciiChar::new(':')) {
         Some((package, "")) => PatternData::AllTargetsInPackage {
             package: normalize_package(package, strip_package_trailing_slash)?,
+            modifiers: None,
         }
         .into(),
         Some((package, target)) => {
@@ -606,6 +638,7 @@ fn lex_provider_pattern(
                 package: normalize_package(package, strip_package_trailing_slash)?,
                 target_name,
                 extra,
+                modifiers: None,
             }
             .into()
         }
@@ -613,11 +646,13 @@ fn lex_provider_pattern(
             if let Some(package) = strip_suffix_ascii(pattern, AsciiStr::new("/...")) {
                 PatternData::Recursive {
                     package: RelativePath::new(package),
+                    modifiers: None,
                 }
                 .into()
             } else if pattern == "..." {
                 PatternData::Recursive {
                     package: RelativePath::new(""),
+                    modifiers: None,
                 }
                 .into()
             } else if !pattern.is_empty() {
@@ -626,6 +661,7 @@ fn lex_provider_pattern(
                     pattern,
                     strip_package_trailing_slash,
                     extra: ProvidersPatternExtra { providers },
+                    modifiers: None,
                 }
             } else {
                 return Err(TargetPatternParseError::UnexpectedFormat.into());

@@ -271,6 +271,7 @@ impl AnonTargetKey {
                 package,
                 target_name,
                 extra: TargetPatternExtra,
+                modifiers: _,
             } => Ok(TargetLabel::new(
                 PackageLabel::new(
                     cell,
