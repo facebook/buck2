@@ -111,7 +111,7 @@ async def test_bxl_cli(buck: Buck) -> None:
             "--list_type",
             "1",
             "--target",
-            "illegal?target",
+            "illegal;target",
             "--sub_target",
             "cell/pkg:bar",
         )

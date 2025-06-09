@@ -624,10 +624,30 @@ fn lex_provider_pattern(
         None => (None, pattern),
     };
 
+    if pattern.chars().filter(|&c| c == '?').count() > 1 {
+        return Err(buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "Expected at most one ? in pattern, question marks in file, target, modifier, or cell names are not supported",
+        ));
+    }
+
+    let (pattern, modifiers) = match split1_opt_ascii(pattern, AsciiChar::new('?')) {
+        Some((pattern, modifiers)) => (
+            pattern,
+            Some(
+                modifiers
+                    .split(",")
+                    .map(|s| s.to_owned())
+                    .collect::<Vec<String>>(),
+            ),
+        ),
+        None => (pattern, None),
+    };
+
     let pattern = match split1_opt_ascii(pattern, AsciiChar::new(':')) {
         Some((package, "")) => PatternData::AllTargetsInPackage {
             package: normalize_package(package, strip_package_trailing_slash)?,
-            modifiers: None,
+            modifiers,
         }
         .into(),
         Some((package, target)) => {
@@ -638,7 +658,7 @@ fn lex_provider_pattern(
                 package: normalize_package(package, strip_package_trailing_slash)?,
                 target_name,
                 extra,
-                modifiers: None,
+                modifiers,
             }
             .into()
         }
@@ -646,13 +666,13 @@ fn lex_provider_pattern(
             if let Some(package) = strip_suffix_ascii(pattern, AsciiStr::new("/...")) {
                 PatternData::Recursive {
                     package: RelativePath::new(package),
-                    modifiers: None,
+                    modifiers,
                 }
                 .into()
             } else if pattern == "..." {
                 PatternData::Recursive {
                     package: RelativePath::new(""),
-                    modifiers: None,
+                    modifiers,
                 }
                 .into()
             } else if !pattern.is_empty() {
@@ -661,7 +681,7 @@ fn lex_provider_pattern(
                     pattern,
                     strip_package_trailing_slash,
                     extra: ProvidersPatternExtra { providers },
-                    modifiers: None,
+                    modifiers,
                 }
             } else {
                 return Err(TargetPatternParseError::UnexpectedFormat.into());
@@ -741,6 +761,26 @@ pub fn lex_configured_providers_pattern(
             ConfigurationPredicate::Any,
         ),
     };
+
+    let has_modifiers = match &provider_pattern.pattern {
+        PatternDataOrAmbiguous::PatternData(d) => d.modifiers().is_some(),
+        PatternDataOrAmbiguous::Ambiguous { modifiers, .. } => modifiers.is_some(),
+    };
+
+    if has_modifiers {
+        match &cfg {
+            ConfigurationPredicate::Bound(_, _) => {
+                return Err(buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "Modifiers incompatible with explicit configuration",
+                ));
+            }
+            _ => {
+                // Allow modifiers with Any or Builtin configuration predicates
+            }
+        }
+    }
+
     provider_pattern.try_map(|ProvidersPatternExtra { providers }| {
         Ok(ConfiguredProvidersPatternExtra { providers, cfg })
     })
