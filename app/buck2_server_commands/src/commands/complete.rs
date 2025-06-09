@@ -52,44 +52,55 @@ impl ServerCommandTemplate for CompleteServerCommand {
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         mut dice: DiceTransaction,
     ) -> buck2_error::Result<Self::Response> {
-        let cwd = server_ctx.working_dir();
-        let parsed_target_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
-            &mut dice,
-            &[self.req.partial_target.clone()],
-            cwd,
-        )
-        .await?;
+        let cwd = server_ctx.working_dir().to_buf();
+        let partial_target = self.req.partial_target.clone();
 
-        let results = &load_patterns(
-            &mut dice,
-            parsed_target_patterns,
-            MissingTargetBehavior::Fail,
-        )
-        .await?;
+        // Put the actual work behind a spawned task - we do this so that if the client hits the
+        // timeout and cancels the request, the actual load itself will not be cancelled and will
+        // continue to run in the background. This way we give the load a chance to complete and
+        // the next time the user hits tab, completions might be available. Otherwise, it would
+        // never be possible to get completions for a buildfile that takes more than 500ms to load.
+        tokio::spawn(async move {
+            let parsed_target_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
+                &mut dice,
+                &[partial_target],
+                &cwd,
+            )
+            .await?;
 
-        let mut output: Vec<String> = vec![];
-        for node in results.iter_loaded_targets() {
-            let node = node?;
+            let results = &load_patterns(
+                &mut dice,
+                parsed_target_patterns,
+                MissingTargetBehavior::Fail,
+            )
+            .await?;
 
-            // FIXME(JakobDegen): This is kind of a hack, we shouldn't really be inspecting
-            // attribute we know nothing about. It's also pretty difficult to fix this right now
-            // though.
-            if let Some(labels) = node.attr_or_none("labels", AttrInspectOptions::All) {
-                if let CoercedAttr::List(labels) = labels.value {
-                    if labels.iter().any(|label| match label {
-                        CoercedAttr::String(label) => ***label == *"generated",
-                        _ => false,
-                    }) {
-                        // Skip generated targets
-                        continue;
+            let mut output: Vec<String> = vec![];
+            for node in results.iter_loaded_targets() {
+                let node = node?;
+
+                // FIXME(JakobDegen): This is kind of a hack, we shouldn't really be inspecting
+                // attribute we know nothing about. It's also pretty difficult to fix this right now
+                // though.
+                if let Some(labels) = node.attr_or_none("labels", AttrInspectOptions::All) {
+                    if let CoercedAttr::List(labels) = labels.value {
+                        if labels.iter().any(|label| match label {
+                            CoercedAttr::String(label) => ***label == *"generated",
+                            _ => false,
+                        }) {
+                            // Skip generated targets
+                            continue;
+                        }
                     }
                 }
+                output.push(format!("{}", node.label()));
             }
-            output.push(format!("{}", node.label()));
-        }
-        Ok(CompleteResponse {
-            completions: output,
+            Ok(CompleteResponse {
+                completions: output,
+            })
         })
+        .await
+        .unwrap()
     }
 
     fn is_success(&self, _response: &Self::Response) -> bool {
