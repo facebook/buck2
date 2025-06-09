@@ -351,6 +351,7 @@ async fn test(
             test_executor_args.push(format!("host={}", platform));
 
             let mut config_flags = String::new();
+            let mut config_files = String::new();
             let mut flagfiles = String::new();
             let mut modifiers = String::new();
             let mut target_platforms = String::new();
@@ -361,6 +362,11 @@ async fn test(
                         representative_config_flag::Source::ConfigFlag(s) => {
                             if config_flags.is_empty() {
                                 config_flags.push_str(s);
+                            }
+                        }
+                        representative_config_flag::Source::ConfigFile(s) => {
+                            if config_files.is_empty() {
+                                config_files.push_str(s);
                             }
                         }
                         representative_config_flag::Source::ModeFile(s) => {
@@ -378,7 +384,6 @@ async fn test(
                                 target_platforms.push_str(s);
                             }
                         }
-                        _ => {}
                     }
                 }
             }
@@ -386,6 +391,10 @@ async fn test(
             if !config_flags.is_empty() {
                 test_executor_args.push("--config-entry".to_owned());
                 test_executor_args.push(format!("config={}", config_flags));
+            }
+            if !config_files.is_empty() {
+                test_executor_args.push("--config-entry".to_owned());
+                test_executor_args.push(format!("config_file={}", config_flags));
             }
             if !flagfiles.is_empty() {
                 test_executor_args.push("--config-entry".to_owned());
