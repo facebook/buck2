@@ -69,8 +69,13 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use crate::backend::backend::BuildListenerBackend;
 use crate::backend::logging::LoggingBackend;
 use crate::backend::longest_path_graph::LongestPathGraphBackend;
+use crate::test_signals::TestExecutionBuildSignalKey;
+use crate::test_signals::TestExecutionSignal;
+use crate::test_signals::TestListingBuildSignalKey;
+use crate::test_signals::TestListingSignal;
 
 mod backend;
+mod test_signals;
 
 /// A node in our critical path graph.
 #[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug)]
@@ -85,6 +90,10 @@ enum NodeKey {
 
     // This one is not a DICE key.
     FinalMaterialization(BuildArtifact),
+
+    // Keys for test not on DICE.
+    TestExecution(TestExecutionBuildSignalKey),
+    TestListing(TestListingBuildSignalKey),
 
     // Dynamically-typed.
     Dyn(&'static str, BuildSignalsNodeKey),
@@ -138,6 +147,8 @@ impl fmt::Display for NodeKey {
             Self::InterpreterResultsKey(k) => write!(f, "InterpreterResultsKey({})", k),
             Self::PackageListingKey(k) => write!(f, "PackageListingKey({})", k),
             Self::FinalMaterialization(k) => write!(f, "FinalMaterialization({})", k),
+            Self::TestExecution(k) => write!(f, "TestExecution({:?})", k),
+            Self::TestListing(k) => write!(f, "TestListing({:?})", k),
             Self::Dyn(name, k) => write!(f, "{name}({k})"),
         }
     }
@@ -163,6 +174,8 @@ enum BuildSignal {
     Evaluation(Evaluation),
     TopLevelTarget(TopLevelTargetSignal),
     FinalMaterialization(FinalMaterializationSignal),
+    TestExecution(TestExecutionSignal),
+    TestListing(TestListingSignal),
     BuildFinished,
 }
 
@@ -224,24 +237,40 @@ impl BuildSignals for BuildSignalSender {
 
     fn test_listing(
         &self,
-        _target: ConfiguredTargetLabel,
-        _suite: String,
-        _duration: NodeDuration,
-        _deps: &[ActionKey],
+        target: ConfiguredTargetLabel,
+        suite: String,
+        duration: NodeDuration,
+        deps: &[ActionKey],
     ) {
-        // TODO(rajneeshl): Send signal for test listing
+        let _ignored = self
+            .sender
+            .send(BuildSignal::TestListing(TestListingSignal {
+                target,
+                suite,
+                deps: deps.to_vec(),
+                duration,
+            }));
     }
 
     fn test_execution(
         &self,
-        _target: ConfiguredTargetLabel,
-        _suite: String,
-        _testcases: &[String],
-        _variant: Option<String>,
-        _duration: NodeDuration,
-        _deps: &[ActionKey],
+        target: ConfiguredTargetLabel,
+        suite: String,
+        testcases: &[String],
+        variant: Option<String>,
+        duration: NodeDuration,
+        deps: &[ActionKey],
     ) {
-        // TODO(rajneeshl): Send signal for test execution
+        let _ignored = self
+            .sender
+            .send(BuildSignal::TestExecution(TestExecutionSignal {
+                target,
+                suite,
+                testcases: testcases.to_vec(),
+                variant,
+                deps: deps.to_vec(),
+                duration,
+            }));
     }
 }
 
@@ -396,6 +425,10 @@ struct BuildSignalReceiver<T> {
     // is how we discovered its existence.
     first_edge_to_load: HashMap<PackageLabel, PackageLabel>,
     backend: T,
+
+    // TODO(rajneeshl): When Test listing and execution are on DICE, we can remove this and use
+    // DICE keys instead.
+    test_listing_keys: HashMap<String, NodeKey>,
 }
 
 impl<T> BuildSignalReceiver<T>
@@ -407,6 +440,7 @@ where
             receiver: UnboundedReceiverStream::new(receiver),
             backend,
             first_edge_to_load: HashMap::new(),
+            test_listing_keys: HashMap::new(),
         }
     }
 
@@ -419,6 +453,12 @@ where
                 }
                 BuildSignal::FinalMaterialization(final_materialization) => {
                     self.process_final_materialization(final_materialization)?
+                }
+                BuildSignal::TestExecution(test_execution) => {
+                    self.process_test_execution(test_execution)?
+                }
+                BuildSignal::TestListing(test_listing) => {
+                    self.process_test_listing(test_listing)?
                 }
                 BuildSignal::BuildFinished => break,
             }
@@ -531,6 +571,20 @@ where
                         NodeKey::EnsureProjectedArtifactKey(..) => return None,
                         NodeKey::EnsureTransitiveSetProjectionKey(..) => return None,
                         NodeKey::Dyn(_, d) => d.critical_path_entry_proto()?,
+                        NodeKey::TestExecution(t) => {
+                            buck2_data::critical_path_entry2::TestExecution {
+                                target_label: Some(t.target.as_proto()),
+                                suite: t.suite.to_string(),
+                                testcases: t.testcases.to_vec(),
+                                variant: t.variant.map(|v| v.to_string()),
+                            }
+                            .into()
+                        }
+                        NodeKey::TestListing(t) => buck2_data::critical_path_entry2::TestListing {
+                            target_label: Some(t.target.as_proto()),
+                            suite: t.suite.to_string(),
+                        }
+                        .into(),
                     };
 
                     Some((entry, data, potential_improvement))
@@ -662,6 +716,64 @@ where
             materialization.duration,
             std::iter::once(dep),
             materialization.span_id.into_iter().collect(),
+        );
+
+        Ok(())
+    }
+
+    fn process_test_execution(&mut self, signal: TestExecutionSignal) -> buck2_error::Result<()> {
+        let key = TestExecutionBuildSignalKey {
+            target: signal.target.dupe(),
+            suite: Arc::new(signal.suite.to_owned()),
+            testcases: Arc::new(signal.testcases),
+            variant: signal.variant.map(Arc::new),
+        };
+
+        let deps = signal
+            .deps
+            .into_iter()
+            .map(|d| NodeKey::BuildKey(BuildKey(d)));
+
+        let listing_key = self
+            .test_listing_keys
+            .get(&signal.suite)
+            .map(|k| k.dupe())
+            .into_iter();
+
+        self.backend.process_node(
+            NodeKey::TestExecution(key),
+            None,
+            signal.duration,
+            deps.chain(listing_key),
+            Default::default(),
+        );
+
+        Ok(())
+    }
+
+    fn process_test_listing(&mut self, signal: TestListingSignal) -> buck2_error::Result<()> {
+        let key = TestListingBuildSignalKey {
+            target: signal.target,
+            suite: Arc::new(signal.suite.to_owned()),
+        };
+
+        let node_key = NodeKey::TestListing(key);
+
+        // Since the TestListing and TestExecution keys are only created here, use this hashmap to
+        // create dependencies between them.
+        self.test_listing_keys.insert(signal.suite, node_key.dupe());
+
+        let deps = signal
+            .deps
+            .into_iter()
+            .map(|d| NodeKey::BuildKey(BuildKey(d)));
+
+        self.backend.process_node(
+            node_key,
+            None,
+            signal.duration,
+            deps.into_iter(),
+            Default::default(),
         );
 
         Ok(())

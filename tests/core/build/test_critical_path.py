@@ -348,10 +348,21 @@ async def test_critical_path_test_entries(buck: Buck) -> None:
 
     critical_path_actions = await critical_path_helper(buck)
 
-    # Filter actions to get only those with an entry of TestExecution
+    # Should have exactly 1 TestListing.
+    test_listing_actions = [
+        action for action in critical_path_actions if "TestListing" in action["entry"]
+    ]
+    assert len(test_listing_actions) == 1
+
+    # Assert there is 1 TestExecution with the correct data.
     test_execution_actions = [
         action for action in critical_path_actions if "TestExecution" in action["entry"]
     ]
 
-    # TODO(rajneeshl): When the critical path contains test execution, this should have 1 entry
-    assert len(test_execution_actions) == 0
+    assert len(test_execution_actions) == 1
+    test_execution_action = test_execution_actions[0]
+    assert (
+        test_execution_action["entry"]["TestExecution"]["suite"]
+        == "root//:long_running_test"
+    )
+    assert test_execution_action["duration_us"] > 100000  # 100ms
