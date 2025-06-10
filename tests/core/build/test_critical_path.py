@@ -338,3 +338,20 @@ async def test_critical_path_top_level_targets(buck: Buck) -> None:
         == 0
     )
     assert total_duration == d2
+
+
+@buck_test()
+async def test_critical_path_test_entries(buck: Buck) -> None:
+    await buck.test(
+        "//:long_running_test",
+    )
+
+    critical_path_actions = await critical_path_helper(buck)
+
+    # Filter actions to get only those with an entry of TestExecution
+    test_execution_actions = [
+        action for action in critical_path_actions if "TestExecution" in action["entry"]
+    ]
+
+    # TODO(rajneeshl): When the critical path contains test execution, this should have 1 entry
+    assert len(test_execution_actions) == 0

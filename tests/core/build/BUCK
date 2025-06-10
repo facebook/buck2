@@ -9,6 +9,9 @@ buck2_core_tests(
                 "windows",
             ],
         },
+        "test_critical_path": {
+            "use_compiled_buck2_client_and_tpx": True,
+        },
         "test_hash_all_commands": {
             # These tests heavily depend on watchman, which is flakey on
             # non-Linux systems

@@ -11,3 +11,6 @@ dynamic_cp(name = "step_2", dep = ":step_1")
 cp(name = "step_3", dep = ":step_2", sleep = 5)
 
 dynamic_cp2(name = "check_dynamic_input", dep = ":step_1")
+
+seed_val = read_config("test", "seed", "42")
+simple_test(name = "long_running_test", seed = seed_val)

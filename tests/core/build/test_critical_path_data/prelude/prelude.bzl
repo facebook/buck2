@@ -68,3 +68,28 @@ def _dynamic_cp2(ctx: AnalysisContext) -> list[Provider]:
 dynamic_cp2 = rule(impl = _dynamic_cp2, attrs = {
     "dep": attrs.dep(),
 })
+
+script = """
+import sys;
+import time;
+if '--list' in sys.argv:
+    print('test1\\n')
+else:
+    time.sleep(0.1) # Sleep for 100ms
+sys.exit(0)
+"""
+
+def _simple_test_impl(ctx):
+    return [
+        DefaultInfo(),
+        ExternalRunnerTestInfo(
+            command = ["python3", "-c", script],
+            type = "lionhead",
+            env = {"seed": ctx.attrs.seed},
+        ),
+    ]
+
+simple_test = rule(
+    impl = _simple_test_impl,
+    attrs = {"seed": attrs.string()},
+)
