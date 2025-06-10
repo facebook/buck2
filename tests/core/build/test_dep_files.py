@@ -392,7 +392,9 @@ async def test_re_dep_file_uploads_different_key(buck: Buck) -> None:
 
     # Modify the output name and check the new key is different
     targets_file.write_text(
-        targets_file.read_text().replace('out_name = "out"', 'out_name = "out_changed"')
+        targets_file.read_text().replace(
+            'out_name = "dep_files_out"', 'out_name = "dep_files_out_changed"'
+        )
     )
     await buck.build(*target)
     key_different_out_name = await _dep_file_key_from_executions(buck)

@@ -1,6 +1,6 @@
 with_two_dep_files(
     name = "dep_files",
-    out_name = "out",
+    out_name = "dep_files_out",
     dep_file_contents = [
         (
             "dep_file_name0",
