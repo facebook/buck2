@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use base64::Engine;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -94,12 +95,17 @@ impl GraphPropertiesOptions {
     pub(crate) fn should_compute_configured_graph_sketch(self) -> bool {
         self.configured_graph_sketch || self.total_configured_graph_sketch
     }
+
+    pub(crate) fn should_compute_configured_graph_unconfigured_sketch(self) -> bool {
+        self.total_configured_graph_unconfigured_sketch
+    }
 }
 
 #[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
 pub struct GraphPropertiesValues {
     pub configured_graph_size: u64,
     pub configured_graph_sketch: Option<MergeableGraphSketch<ConfiguredTargetLabel>>,
+    pub configured_graph_unconfigured_sketch: Option<MergeableGraphSketch<TargetLabel>>,
 }
 
 /// This is a struct representing graph sketches returned from DICE call to compute sketches.
@@ -155,6 +161,7 @@ impl<T: StrongHash> MergeableGraphSketch<T> {
 struct GraphPropertiesKey {
     label: ConfiguredTargetLabel,
     configured_graph_sketch: bool,
+    configured_graph_unconfigured_sketch: bool,
 }
 
 #[async_trait]
@@ -171,6 +178,7 @@ impl Key for GraphPropertiesKey {
             debug_compute_configured_graph_properties_uncached(
                 configured_node,
                 self.configured_graph_sketch,
+                self.configured_graph_unconfigured_sketch,
             )
         })
     }
@@ -256,10 +264,12 @@ pub async fn get_configured_graph_properties(
     ctx: &mut DiceComputations<'_>,
     label: &ConfiguredTargetLabel,
     configured_graph_sketch: bool,
+    configured_graph_unconfigured_sketch: bool,
 ) -> buck2_error::Result<MaybeCompatible<GraphPropertiesValues>> {
     ctx.compute(&GraphPropertiesKey {
         label: label.dupe(),
         configured_graph_sketch,
+        configured_graph_unconfigured_sketch,
     })
     .await?
 }
@@ -270,12 +280,18 @@ pub async fn get_configured_graph_properties(
 pub fn debug_compute_configured_graph_properties_uncached(
     node: ConfiguredTargetNode,
     configured_graph_sketch: bool,
+    configured_graph_unconfigured_sketch: bool,
 ) -> buck2_error::Result<GraphPropertiesValues> {
     let mut queue = vec![&node];
     let mut visited: HashSet<_, fxhash::FxBuildHasher> = HashSet::default();
     visited.insert(&node);
 
-    let mut sketch = if configured_graph_sketch {
+    let mut configured_graph_sketch = if configured_graph_sketch {
+        Some(DEFAULT_SKETCH_VERSION.create_sketcher())
+    } else {
+        None
+    };
+    let mut configured_graph_unconfigured_sketch = if configured_graph_unconfigured_sketch {
         Some(DEFAULT_SKETCH_VERSION.create_sketcher())
     } else {
         None
@@ -288,13 +304,22 @@ pub fn debug_compute_configured_graph_properties_uncached(
             }
         }
 
-        if let Some(sketch) = sketch.as_mut() {
+        if let Some(sketch) = configured_graph_sketch.as_mut() {
             sketch.sketch(item.label())?;
+        }
+        if let Some(sketch) = configured_graph_unconfigured_sketch.as_mut() {
+            // Note this may sketch same unconfigured target label multiple times.
+            // This is fine because merge(sketch(A), sketch(B)) = sketch(A+B), and it's probably cheaper memory-wise
+            // than keeping a set of unconfigured target labels.
+            sketch.sketch(item.label().unconfigured())?;
         }
     }
 
     Ok(GraphPropertiesValues {
         configured_graph_size: visited.len() as _,
-        configured_graph_sketch: sketch.map(|sketch| sketch.into_mergeable_graph_sketch()),
+        configured_graph_sketch: configured_graph_sketch
+            .map(|sketch| sketch.into_mergeable_graph_sketch()),
+        configured_graph_unconfigured_sketch: configured_graph_unconfigured_sketch
+            .map(|sketch| sketch.into_mergeable_graph_sketch()),
     })
 }
