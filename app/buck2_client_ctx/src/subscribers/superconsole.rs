@@ -675,9 +675,8 @@ impl StatefulSuperConsoleImpl {
                     }
                 }
                 buck2_data::action_error_diagnostics::Data::HandlerInvocationError(error) => {
-                    lines.push(Line::from_iter([Span::new_styled_lossy(
-                        error.to_owned().with(Color::DarkRed),
-                    )]));
+                    let colored_error = error.clone().with(Color::DarkRed).to_string();
+                    lines.extend(Lines::from_colored_multiline_string(&colored_error));
                 }
             };
         }
