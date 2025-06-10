@@ -1004,7 +1004,7 @@ def _add_compiler_type_flags(ctx: AnalysisContext, compiler_type: str, ext: CxxE
     return cmd
 
 def _compiler_type_flags_anon_impl(ctx: AnalysisContext):
-    argsfile_artifact = _mk_argsfile(
+    argsfile_artifact = mk_argsfile(
         ctx,
         file_name = "compiler_type_args",
         args_list = _add_compiler_type_flags(ctx, ctx.attrs.compiler_type, CxxExtension(ctx.attrs.src_extension)),
@@ -1028,7 +1028,7 @@ _compiler_type_flags_anon_rule = anon_rule(
           "The argsfile is shared between targets, thus reducing resource usage.",
 )
 
-def _mk_argsfile(
+def mk_argsfile(
         ctx: AnalysisContext,
         file_name: str,
         args_list: list,
@@ -1068,14 +1068,22 @@ def _mk_argsfiles(
     argsfiles = []
     args_list = []
 
-    mk_argsfile_lambda = lambda filename, args: _mk_argsfile(ctx, filename, args, is_nasm, is_xcode_argsfile)
+    mk_argsfile_lambda = lambda filename, args: mk_argsfile(ctx, filename, args, is_nasm, is_xcode_argsfile)
 
     def make_toolchain_argsfile():
         compiler_info_flags = _add_compiler_info_flags(compiler_info)
 
-        # filename example: .cpp.toolchain_cxx_args
-        compiler_info_filename = filename_prefix + "toolchain_cxx_args"
-        argsfiles.append(mk_argsfile_lambda(compiler_info_filename, compiler_info_flags))
+        # Use the argsfile from the compiler info if it exists.
+        if compiler_info.argsfile and not is_xcode_argsfile:
+            compiler_info_argsfile = compiler_info.argsfile
+        elif compiler_info.argsfile_xcode and is_xcode_argsfile:
+            compiler_info_argsfile = compiler_info.argsfile_xcode
+        else:
+            # filename example: .cpp.toolchain_cxx_args
+            compiler_info_filename = filename_prefix + "toolchain_cxx_args"
+            compiler_info_argsfile = mk_argsfile_lambda(compiler_info_filename, compiler_info_flags)
+
+        argsfiles.append(compiler_info_argsfile)
         args_list.append(compiler_info_flags)
 
     make_toolchain_argsfile()
@@ -1090,7 +1098,7 @@ def _mk_argsfiles(
             compiler_type_argsfile_artifact = compiler_type_flags_anon_target.artifact("argsfile")
         else:
             compiler_type_flags = _add_compiler_type_flags(ctx, compiler_info.compiler_type, ext)
-            compiler_type_argsfile_artifact = _mk_argsfile(
+            compiler_type_argsfile_artifact = mk_argsfile(
                 ctx,
                 filename_prefix + "compiler_type_args",
                 compiler_type_flags,
