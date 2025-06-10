@@ -518,6 +518,19 @@ message CriticalPathEntry2 {
     optional CommandInvalidationInfo invalidation_info = 8;
   }
 
+  message TestExecution {
+    ConfiguredTargetLabel target_label = 1;
+    string suite = 2;
+    repeated string testcases = 3;
+    // Variation of running the same test e.g. with higher memory
+    optional string variant = 4;
+  }
+
+  message TestListing {
+    ConfiguredTargetLabel target_label = 1;
+    string suite = 2;
+  }
+
   // This is for materializing the final outputs at the end of the build
   message FinalMaterialization {
     string path = 1;
@@ -577,6 +590,8 @@ message CriticalPathEntry2 {
     Load load = 104;
     Listing listing = 105;
     GenericEntry generic_entry = 106;
+    TestExecution test_execution = 107;
+    TestListing test_listing = 108;
   }
 }
 

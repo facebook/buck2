@@ -231,6 +231,26 @@ async fn log_critical_path(
                     critical_path.kind = &generic_entry.kind;
                     critical_path.name = None;
                 }
+                Some(Entry::TestExecution(test_execution)) => {
+                    critical_path.kind = "test-execution";
+                    critical_path.name = match &test_execution.target_label {
+                        Some(t) => Some(display::display_configured_target_label(
+                            t,
+                            target_display_options,
+                        )?),
+                        None => continue,
+                    };
+                }
+                Some(Entry::TestListing(test_listing)) => {
+                    critical_path.kind = "test-listing";
+                    critical_path.name = match &test_listing.target_label {
+                        Some(t) => Some(display::display_configured_target_label(
+                            t,
+                            target_display_options,
+                        )?),
+                        None => continue,
+                    };
+                }
 
                 None => continue,
             }
