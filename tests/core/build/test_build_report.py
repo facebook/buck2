@@ -108,9 +108,19 @@ build_report_test(
     ],
 )
 
+build_report_test(
+    "test_build_report_format_total_configured_graph_unconfigured_sketch",
+    [
+        "//:rule1",
+        "//:dir1",
+        "//subdir:rule",
+        "-c",
+        "buck2.log_total_configured_graph_unconfigured_sketch=true",
+    ],
+)
 
 build_report_test(
-    "test_build_report_format_configured_graph_sketch_and_total_configured_graph_sketch",
+    "test_build_report_format_all_sketches",
     [
         "//:rule1",
         "//:dir1",
@@ -119,6 +129,8 @@ build_report_test(
         "buck2.log_configured_graph_sketch=true",
         "-c",
         "buck2.log_total_configured_graph_sketch=true",
+        "-c",
+        "buck2.log_total_configured_graph_unconfigured_sketch=true",
     ],
 )
 

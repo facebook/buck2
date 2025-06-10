@@ -100,6 +100,8 @@ pub struct BuildReport {
     build_metrics: Option<AllTargetsBuildMetrics>,
     #[serde(skip_serializing_if = "Option::is_none")]
     total_configured_graph_sketch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    total_configured_graph_unconfigured_sketch: Option<String>,
 }
 
 /// The fields that stored in the unconfigured `BuildReportEntry` for buck1 backcompat.
@@ -252,6 +254,7 @@ pub struct BuildReportCollector<'a> {
     include_artifact_hash_information: bool,
     graph_properties_opts: GraphPropertiesOptions,
     total_configured_graph_sketch: Option<VersionedSketcher<ConfiguredTargetLabel>>,
+    total_configured_graph_unconfigured_sketch: Option<VersionedSketcher<TargetLabel>>,
 }
 
 impl<'a> BuildReportCollector<'a> {
@@ -283,6 +286,13 @@ impl<'a> BuildReportCollector<'a> {
             include_artifact_hash_information,
             graph_properties_opts,
             total_configured_graph_sketch: if graph_properties_opts.total_configured_graph_sketch {
+                Some(DEFAULT_SKETCH_VERSION.create_sketcher())
+            } else {
+                None
+            },
+            total_configured_graph_unconfigured_sketch: if graph_properties_opts
+                .total_configured_graph_unconfigured_sketch
+            {
                 Some(DEFAULT_SKETCH_VERSION.create_sketcher())
             } else {
                 None
@@ -339,6 +349,9 @@ impl<'a> BuildReportCollector<'a> {
         let total_configured_graph_sketch = this
             .total_configured_graph_sketch
             .map(|sketcher| sketcher.into_mergeable_graph_sketch().serialize());
+        let total_configured_graph_unconfigured_sketch = this
+            .total_configured_graph_unconfigured_sketch
+            .map(|sketcher| sketcher.into_mergeable_graph_sketch().serialize());
 
         Ok(BuildReport {
             trace_id: trace_id.dupe(),
@@ -353,6 +366,7 @@ impl<'a> BuildReportCollector<'a> {
             build_metrics: detailed_metrics
                 .map(|m| Self::convert_all_target_build_metrics(&m.all_targets_build_metrics)),
             total_configured_graph_sketch,
+            total_configured_graph_unconfigured_sketch,
         })
     }
 
@@ -552,6 +566,15 @@ impl<'a> BuildReportCollector<'a> {
 
                     if let Some(sketcher) = self.total_configured_graph_sketch.as_mut() {
                         sketcher.merge(configured_graph_sketch)?;
+                    }
+                }
+                if let Some(configured_graph_unconfigured_sketch) = graph_properties
+                    .configured_graph_unconfigured_sketch
+                    .as_ref()
+                {
+                    if let Some(sketcher) = self.total_configured_graph_unconfigured_sketch.as_mut()
+                    {
+                        sketcher.merge(configured_graph_unconfigured_sketch)?;
                     }
                 }
             }
