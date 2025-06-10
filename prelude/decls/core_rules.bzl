@@ -961,6 +961,10 @@ remote_file = prelude_rule(
                  Buck verifies this is correct and fails the fetch command if it doesn't match in order to
                  guarantee repeatable builds.
             """),
+            "size_bytes": attrs.option(attrs.int(), default = None, doc = """
+                Size in bytes of the downloaded artifact. Buck verifies this is correct and fails the fetch
+                 command if it doesn't match (only when a SHA-1 hash is used).
+            """),
             "out": attrs.option(attrs.string(), default = None, doc = """
                 An optional name to call the downloaded artifact. Buck will generate a default name if one is not
                  provided that uses the `name` of the rule.
