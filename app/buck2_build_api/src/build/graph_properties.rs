@@ -62,7 +62,7 @@ impl fmt::Display for GraphPropertiesOptions {
 
         if configured_graph_sketch {
             comma(f)?;
-            write!(f, "configured_graph_size")?;
+            write!(f, "configured_graph_sketch")?;
         }
 
         if configured_graph_unconfigured_sketch {
