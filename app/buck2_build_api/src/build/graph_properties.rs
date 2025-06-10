@@ -38,6 +38,7 @@ use strong_hash::UseStrongHashing;
 pub struct GraphPropertiesOptions {
     pub configured_graph_size: bool,
     pub configured_graph_sketch: bool,
+    pub configured_graph_unconfigured_sketch: bool,
     pub total_configured_graph_sketch: bool,
     pub total_configured_graph_unconfigured_sketch: bool,
 }
@@ -47,6 +48,7 @@ impl fmt::Display for GraphPropertiesOptions {
         let Self {
             configured_graph_size,
             configured_graph_sketch,
+            configured_graph_unconfigured_sketch,
             total_configured_graph_sketch,
             total_configured_graph_unconfigured_sketch,
         } = *self;
@@ -61,6 +63,11 @@ impl fmt::Display for GraphPropertiesOptions {
         if configured_graph_sketch {
             comma(f)?;
             write!(f, "configured_graph_size")?;
+        }
+
+        if configured_graph_unconfigured_sketch {
+            comma(f)?;
+            write!(f, "configured_graph_unconfigured_sketch")?;
         }
 
         if total_configured_graph_sketch {
@@ -82,12 +89,14 @@ impl GraphPropertiesOptions {
         let Self {
             configured_graph_size,
             configured_graph_sketch,
+            configured_graph_unconfigured_sketch,
             total_configured_graph_sketch,
             total_configured_graph_unconfigured_sketch,
         } = self;
 
         !configured_graph_size
             && !configured_graph_sketch
+            && !configured_graph_unconfigured_sketch
             && !total_configured_graph_sketch
             && !total_configured_graph_unconfigured_sketch
     }
@@ -97,7 +106,7 @@ impl GraphPropertiesOptions {
     }
 
     pub(crate) fn should_compute_configured_graph_unconfigured_sketch(self) -> bool {
-        self.total_configured_graph_unconfigured_sketch
+        self.configured_graph_unconfigured_sketch || self.total_configured_graph_unconfigured_sketch
     }
 }
 
