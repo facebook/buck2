@@ -54,7 +54,7 @@ dynamic_cp = rule(impl = _dynamic_cp, attrs = {
 })
 
 def _dynamic_cp2(ctx: AnalysisContext) -> list[Provider]:
-    dummy = ctx.actions.write("dummy", "")
+    ctx.actions.write("dummy", "")
 
     inp = ctx.attrs.dep[DefaultInfo].default_outputs[0]
     out = ctx.actions.declare_output("out")
