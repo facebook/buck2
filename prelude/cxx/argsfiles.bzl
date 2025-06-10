@@ -28,17 +28,15 @@ CompileArgsfiles = record(
 
 def get_argsfiles_output(ctx: AnalysisContext, argsfile_by_ext: dict[str, CompileArgsfile], summary_name: str) -> DefaultInfo:
     argsfiles = []
-    argsfile_names = []
     dependent_outputs = []
     for _, argsfile in argsfile_by_ext.items():
         argsfiles.append(argsfile.file)
-        argsfile_names.append(cmd_args(argsfile.file, ignore_artifacts = True))
 
         # To materialize the dependent `Artifact`s of `CompileArgsfile#file`,
         # `CompileArgsfile#cmd_form` is returned in `DefaultInfo#other_outputs`,
         # because it tracks the dependents through the `cmd_args` API.
         dependent_outputs.append(argsfile.cmd_form)
 
-    argsfiles_summary = ctx.actions.write(summary_name, cmd_args(argsfile_names))
+    argsfiles_summary = ctx.actions.write(summary_name, argsfiles)
 
     return DefaultInfo(default_outputs = [argsfiles_summary] + argsfiles, other_outputs = dependent_outputs)
