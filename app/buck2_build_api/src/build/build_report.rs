@@ -39,6 +39,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_data::ErrorReport;
 use buck2_directory::directory::entry::DirectoryEntry;
@@ -64,7 +65,9 @@ use crate::build::action_error::BuildReportActionError;
 use crate::build::detailed_aggregated_metrics::types::AllTargetsAggregatedData;
 use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetAggregatedData;
+use crate::build::graph_properties::DEFAULT_SKETCH_VERSION;
 use crate::build::graph_properties::GraphPropertiesOptions;
+use crate::build::graph_properties::VersionedSketcher;
 
 #[derive(Debug, Serialize)]
 #[allow(clippy::upper_case_acronyms)] // We care about how they serialise
@@ -95,6 +98,8 @@ pub struct BuildReport {
     #[serde(skip_serializing_if = "Option::is_none")]
     /// Build metrics aggregated across all targets.
     build_metrics: Option<AllTargetsBuildMetrics>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    total_configured_graph_sketch: Option<String>,
 }
 
 /// The fields that stored in the unconfigured `BuildReportEntry` for buck1 backcompat.
@@ -246,6 +251,7 @@ pub struct BuildReportCollector<'a> {
     include_package_project_relative_paths: bool,
     include_artifact_hash_information: bool,
     graph_properties_opts: GraphPropertiesOptions,
+    total_configured_graph_sketch: Option<VersionedSketcher<ConfiguredTargetLabel>>,
 }
 
 impl<'a> BuildReportCollector<'a> {
@@ -262,7 +268,7 @@ impl<'a> BuildReportCollector<'a> {
         other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
         detailed_metrics: Option<DetailedAggregatedMetrics>,
         graph_properties_opts: GraphPropertiesOptions,
-    ) -> BuildReport {
+    ) -> buck2_error::Result<BuildReport> {
         let mut this: BuildReportCollector<'_> = Self {
             artifact_fs,
             cell_resolver,
@@ -276,6 +282,11 @@ impl<'a> BuildReportCollector<'a> {
             include_package_project_relative_paths,
             include_artifact_hash_information,
             graph_properties_opts,
+            total_configured_graph_sketch: if graph_properties_opts.total_configured_graph_sketch {
+                Some(DEFAULT_SKETCH_VERSION.create_sketcher())
+            } else {
+                None
+            },
         };
         let mut entries = HashMap::new();
 
@@ -322,11 +333,14 @@ impl<'a> BuildReportCollector<'a> {
                 results,
                 errors,
                 &mut metrics_by_configured,
-            );
+            )?;
             entries.insert(EntryLabel::Target(label), entry);
         }
+        let total_configured_graph_sketch = this
+            .total_configured_graph_sketch
+            .map(|sketcher| sketcher.into_mergeable_graph_sketch().serialize());
 
-        BuildReport {
+        Ok(BuildReport {
             trace_id: trace_id.dupe(),
             success: this.overall_success,
             results: entries,
@@ -338,7 +352,8 @@ impl<'a> BuildReportCollector<'a> {
             strings: this.strings,
             build_metrics: detailed_metrics
                 .map(|m| Self::convert_all_target_build_metrics(&m.all_targets_build_metrics)),
-        }
+            total_configured_graph_sketch,
+        })
     }
 
     fn convert_all_target_build_metrics(
@@ -397,7 +412,7 @@ impl<'a> BuildReportCollector<'a> {
         >,
         errors: &[buck2_error::Error],
         metrics: &mut HashMap<&'b ConfiguredProvidersLabel, TargetBuildMetrics>,
-    ) -> BuildReportEntry {
+    ) -> buck2_error::Result<BuildReportEntry> {
         // NOTE: if we're actually building a thing, then the package path must exist, but be
         // conservative and don't crash the overall processing if that happens.
         let package_project_relative_path = if self.include_package_project_relative_paths {
@@ -422,7 +437,7 @@ impl<'a> BuildReportCollector<'a> {
             .chunk_by(|x| x.0.target().dupe())
         {
             let configured_report =
-                self.collect_results_for_configured(target.dupe(), results, metrics);
+                self.collect_results_for_configured(target.dupe(), results, metrics)?;
 
             if let Some(report) = unconfigured_report.as_mut() {
                 if !configured_report.errors.is_empty() {
@@ -460,12 +475,12 @@ impl<'a> BuildReportCollector<'a> {
             }
         }
 
-        BuildReportEntry {
+        Ok(BuildReportEntry {
             compatible: unconfigured_report,
             configured: configured_reports,
             errors,
             package_project_relative_path,
-        }
+        })
     }
 
     fn collect_results_for_configured<'b>(
@@ -478,7 +493,7 @@ impl<'a> BuildReportCollector<'a> {
             ),
         >,
         metrics: &mut HashMap<&'b ConfiguredProvidersLabel, TargetBuildMetrics>,
-    ) -> ConfiguredBuildReportEntry {
+    ) -> buck2_error::Result<ConfiguredBuildReportEntry> {
         let mut configured_report = ConfiguredBuildReportEntry::default();
         let mut errors = Vec::new();
         for (label, result) in results {
@@ -527,15 +542,18 @@ impl<'a> BuildReportCollector<'a> {
                 configured_report.inner.configured_graph_size =
                     Some(graph_properties.configured_graph_size);
 
-                configured_report.configured_graph_sketch =
+                if let Some(configured_graph_sketch) =
+                    graph_properties.configured_graph_sketch.as_ref()
+                {
                     if self.graph_properties_opts.configured_graph_sketch {
-                        graph_properties
-                            .configured_graph_sketch
-                            .as_ref()
-                            .map(|s| s.serialize())
-                    } else {
-                        None
-                    };
+                        configured_report.configured_graph_sketch =
+                            Some(configured_graph_sketch.serialize());
+                    }
+
+                    if let Some(sketcher) = self.total_configured_graph_sketch.as_mut() {
+                        sketcher.merge(configured_graph_sketch)?;
+                    }
+                }
             }
 
             configured_report.build_metrics = metrics.remove(label);
@@ -544,7 +562,7 @@ impl<'a> BuildReportCollector<'a> {
         if !configured_report.errors.is_empty() {
             configured_report.inner.success = BuildOutcome::FAIL;
         }
-        configured_report
+        Ok(configured_report)
     }
 
     /// Note: In order for production of the build report to be deterministic, the order in
@@ -777,7 +795,7 @@ pub fn generate_build_report(
         other_errors,
         detailed_metrics,
         opts.graph_properties_opts,
-    );
+    )?;
 
     let mut serialized_build_report = None;
 

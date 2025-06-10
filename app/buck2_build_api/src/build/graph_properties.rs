@@ -190,7 +190,7 @@ pub(crate) enum SketchVersion {
 pub(crate) static DEFAULT_SKETCH_VERSION: SketchVersion = SketchVersion::V1;
 
 impl SketchVersion {
-    fn create_sketcher<T: StrongHash>(self) -> VersionedSketcher<T> {
+    pub(crate) fn create_sketcher<T: StrongHash>(self) -> VersionedSketcher<T> {
         let sketcher = match self {
             Self::V1 => SetSketcher::<u16, _, _>::new(
                 // TODO (stansw): Are these params right?
@@ -206,7 +206,7 @@ impl SketchVersion {
     }
 }
 
-pub struct VersionedSketcher<T: StrongHash> {
+pub(crate) struct VersionedSketcher<T: StrongHash> {
     version: SketchVersion,
     sketcher: SetSketcher<u16, UseStrongHashing<T>, Blake3StrongHasher>,
 }
@@ -219,8 +219,24 @@ impl<T: StrongHash> VersionedSketcher<T> {
         Ok(())
     }
 
-    fn into_mergeable_graph_sketch(self) -> MergeableGraphSketch<T> {
+    pub(crate) fn into_mergeable_graph_sketch(self) -> MergeableGraphSketch<T> {
         MergeableGraphSketch::new(self.version, self.sketcher)
+    }
+
+    pub(crate) fn merge(&mut self, other: &MergeableGraphSketch<T>) -> buck2_error::Result<()> {
+        if self.version == other.version {
+            self.sketcher
+                .merge(&other.sketcher)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::BuildSketchError))?;
+            Ok(())
+        } else {
+            Err(buck2_error::internal_error!(
+                // This is curently an internal error because users cannot specify sketch version to use.
+                "Set sketch version mismatch between {} and {}. Cannot merge.",
+                self.version,
+                other.version
+            ))
+        }
     }
 }
 

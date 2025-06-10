@@ -51,6 +51,10 @@ BuildReport {
 
     # Build metrics aggregated across all targets.
     build_metrics: AllTargetsBuildMetrics,
+
+    # Set sketch of configured target graph stored in a hex string.
+    # Enabeld by setting `-c buck2.log_total_configured_graph_sketch=true`.
+    total_configured_graph_sketch: Optional[str],
 }
 
 BuildReportEntry {

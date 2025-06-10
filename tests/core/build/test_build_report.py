@@ -97,6 +97,31 @@ build_report_test(
     ],
 )
 
+build_report_test(
+    "test_build_report_format_total_configured_graph_sketch",
+    [
+        "//:rule1",
+        "//:dir1",
+        "//subdir:rule",
+        "-c",
+        "buck2.log_total_configured_graph_sketch=true",
+    ],
+)
+
+
+build_report_test(
+    "test_build_report_format_configured_graph_sketch_and_total_configured_graph_sketch",
+    [
+        "//:rule1",
+        "//:dir1",
+        "//subdir:rule",
+        "-c",
+        "buck2.log_configured_graph_sketch=true",
+        "-c",
+        "buck2.log_total_configured_graph_sketch=true",
+    ],
+)
+
 
 @buck_test()
 async def test_build_report_non_existent_directory(buck: Buck) -> None:
