@@ -142,6 +142,9 @@ pub(crate) struct ConfiguredBuildReportEntry {
     /// Build metrics for this target.
     #[serde(skip_serializing_if = "Option::is_none")]
     build_metrics: Option<TargetBuildMetrics>,
+    // The serialized graph sketch based on unconfigured target labels, if it was produced.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    configured_graph_unconfigured_sketch: Option<String>,
 }
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
@@ -572,6 +575,14 @@ impl<'a> BuildReportCollector<'a> {
                     .configured_graph_unconfigured_sketch
                     .as_ref()
                 {
+                    if self
+                        .graph_properties_opts
+                        .configured_graph_unconfigured_sketch
+                    {
+                        configured_report.configured_graph_unconfigured_sketch =
+                            Some(configured_graph_unconfigured_sketch.serialize());
+                    }
+
                     if let Some(sketcher) = self.total_configured_graph_unconfigured_sketch.as_mut()
                     {
                         sketcher.merge(configured_graph_unconfigured_sketch)?;
