@@ -6,7 +6,8 @@ title: From Tutorial to Concepts
 import { FbInternalOnly, OssOnly, isInternal } from
 'docusaurus-plugin-internaldocs-fb/internal';
 
-import TargetDiagram from '@site/src/components/TargetDiagram';
+import TargetDiagram from '@site/src/components/TargetDiagram'; import
+TutorialMermaidDiagram from '@site/src/components/TutorialMermaidDiagram';
 
 In the previous tutorials, we’ve created buck files, defined a couple of buck
 targets and successfully built and ran the “Hello World” rust binary and even
@@ -158,7 +159,8 @@ Here's the complete project structure you built through the tutorials:
 <FbInternalOnly> For simplicity, we show `logging_lib` as a subdirectory of
 `buck2_lab` in the diagram below. </FbInternalOnly>
 
-```mermaid
+<TutorialMermaidDiagram>
+{`
 graph TD
     A[buck2_lab] --> B[greeter_bin/]
     A --> C[greeter_lib/]
@@ -185,14 +187,16 @@ graph TD
     style B1 fill:#ffcdd2
     style C1 fill:#ffcdd2
     style D1 fill:#ffcdd2
-```
+
+`} </TutorialMermaidDiagram>
 
 ### From Files to Targets
 
 Now that we understand packages and target concepts, let's see how your BUCK
 files define targets and their relationships:
 
-```mermaid
+<TutorialMermaidDiagram>
+{`
 graph TD
     A["greeter_bin/BUCK"] --> A1@{ shape: circle, label: "**🎯 :main**</br> (rust_binary)"}
     B["greeter_lib/BUCK"] --> B1@{ shape: circle, label: "**🎯 :library** </br> (rust_library)"}
@@ -219,7 +223,8 @@ graph TD
     style B1 fill:#c8e6c9
     style B2 fill:#c8e6c9
     style C1 fill:#ffe0b2
-```
+
+`} </TutorialMermaidDiagram>
 
 ### The Complete Picture
 
@@ -227,7 +232,8 @@ Finally, let's put it all together. This comprehensive diagram shows how your
 file structure, Buck2 packages, targets, and dependencies all interconnect to
 form a cohesive build system:
 
-```mermaid
+<TutorialMermaidDiagram>
+{`
 graph TD
     A["📁 buck2_lab"] --> B["📁 greeter_bin/<br/>(Package)"]
     A --> C["📁 greeter_lib/<br/>(Package)"]
@@ -319,7 +325,8 @@ graph TD
     style SG2 fill:#f1f8e9,stroke:#a5d6a7,stroke-width:1px
     style SG3 fill:#f9fbe7,stroke:#c5e1a5,stroke-width:1px
     style SG4 fill:#fff8e1,stroke:#ffcc80,stroke-width:1px
-```
+
+`} </TutorialMermaidDiagram>
 
 **Diagram Legend:**
 
@@ -379,19 +386,20 @@ ones such as `name`, `srcs`, `deps` and
 
 ## Dependencies and Dependency Graph
 
-```mermaid
+<TutorialMermaidDiagram>
+{`
 graph TD
     A(("🎯 **:main**<br/>(rust_binary)")) --> B(("🎯 **:library**<br/>(rust_library)"))
     A --> C(("🎯 **:logging_lib**<br/>(rust_library)"))
     B --> C
     D(("🎯 **:test**<br/>(rust_test)")) --> B
 
-
     style A fill:#e3f2fd,stroke:#1976d2,stroke-width:1px
     style B fill:#e8f5e8,stroke:#388e3c,stroke-width:1px
     style C fill:#fff3e0,stroke:#f57c00,stroke-width:1px
     style D fill:#fce4ec,stroke:#c2185b,stroke-width:1px
-```
+
+`} </TutorialMermaidDiagram>
 
 As you craft your program, you may need to rely on other targets, known as
 [dependencies](../../concepts/glossary/#dependency). In the "Hello World"
@@ -480,7 +488,8 @@ As you become more adept, you can explore other powerful buck commands, such as:
 
 Here's how Buck2 commands work in your tutorial workflow:
 
-```mermaid
+<TutorialMermaidDiagram>
+{`
 graph TD
     A[User runs buck2 command] --> B{Command Type}
 
@@ -506,7 +515,8 @@ graph TD
     style G fill:#e8f5e8
     style H fill:#fff3e0
     style I fill:#fce4ec
-```
+
+`} </TutorialMermaidDiagram>
 
 ## Console and Output
 
