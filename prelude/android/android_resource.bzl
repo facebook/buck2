@@ -19,7 +19,7 @@ def _convert_to_artifact_dir(ctx: AnalysisContext, attr: [Dependency, dict, Arti
         expect(len(attr[DefaultInfo].default_outputs) == 1, "Expect one default output from build dep of attr {}!".format(attr_name))
         return attr[DefaultInfo].default_outputs[0]
     elif type(attr) == "dict":
-        return None if len(attr) == 0 else ctx.actions.symlinked_dir(attr_name, attr)
+        return None if len(attr) == 0 else ctx.actions.symlinked_dir(attr_name, attr, uses_experimental_content_based_path_hashing = True)
     else:
         return attr
 
