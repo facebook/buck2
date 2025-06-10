@@ -986,17 +986,47 @@ def _dep_file_type(ext: CxxExtension) -> [DepFileType, None]:
         # This should be unreachable as long as we handle all enum values
         fail("Unknown C++ extension: " + ext.value)
 
-def _add_compiler_info_flags(ctx: AnalysisContext, compiler_info: typing.Any, ext: CxxExtension) -> list:
+def _add_compiler_info_flags(compiler_info: typing.Any) -> list:
     cmd = []
     cmd.append(compiler_info.preprocessor_flags or [])
     cmd.append(compiler_info.compiler_flags or [])
-    cmd.append(get_flags_for_reproducible_build(ctx, compiler_info.compiler_type))
+
+    return cmd
+
+def _add_compiler_type_flags(ctx: AnalysisContext, compiler_type: str, ext: CxxExtension) -> list:
+    cmd = []
+    cmd.append(get_flags_for_reproducible_build(ctx, compiler_type))
 
     if ext.value not in (".asm", ".asmpp"):
         # Clang's asm compiler doesn't support colorful output, so we skip this there.
-        cmd.append(get_flags_for_colorful_output(compiler_info.compiler_type))
+        cmd.append(get_flags_for_colorful_output(compiler_type))
 
     return cmd
+
+def _compiler_type_flags_anon_impl(ctx: AnalysisContext):
+    argsfile_artifact = _mk_argsfile(
+        ctx,
+        file_name = "compiler_type_args",
+        args_list = _add_compiler_type_flags(ctx, ctx.attrs.compiler_type, CxxExtension(ctx.attrs.src_extension)),
+        is_nasm = ctx.attrs.compiler_type == "nasm",
+        is_xcode_argsfile = ctx.attrs.is_xcode_argsfile,
+    )
+
+    return [DefaultInfo(default_outputs = [argsfile_artifact])]
+
+_compiler_type_flags_anon_rule = anon_rule(
+    impl = _compiler_type_flags_anon_impl,
+    attrs = {
+        "compiler_type": attrs.string(doc = "The compiler type. Examples: clang, gcc, nasm"),
+        "is_xcode_argsfile": attrs.bool(doc = "Apply xcode specific formatting to the argsfile."),
+        "src_extension": attrs.string(doc = "The extension of the source file being compiled. See `CxxExtension` enum."),
+    },
+    artifact_promise_mappings = {
+        "argsfile": lambda x: x[DefaultInfo].default_outputs[0],
+    },
+    doc = "Creates compiler flags argsfile for a given compiler type. " +
+          "The argsfile is shared between targets, thus reducing resource usage.",
+)
 
 def _mk_argsfile(
         ctx: AnalysisContext,
@@ -1041,7 +1071,7 @@ def _mk_argsfiles(
     mk_argsfile_lambda = lambda filename, args: _mk_argsfile(ctx, filename, args, is_nasm, is_xcode_argsfile)
 
     def make_toolchain_argsfile():
-        compiler_info_flags = _add_compiler_info_flags(ctx, compiler_info, ext)
+        compiler_info_flags = _add_compiler_info_flags(compiler_info)
 
         # filename example: .cpp.toolchain_cxx_args
         compiler_info_filename = filename_prefix + "toolchain_cxx_args"
@@ -1049,6 +1079,27 @@ def _mk_argsfiles(
         args_list.append(compiler_info_flags)
 
     make_toolchain_argsfile()
+
+    def make_compiler_type_argsfile():
+        if impl_params.anon_targets_allowed:
+            compiler_type_flags_anon_target = ctx.actions.anon_target(_compiler_type_flags_anon_rule, {
+                "compiler_type": compiler_info.compiler_type,
+                "is_xcode_argsfile": is_xcode_argsfile,
+                "src_extension": ext.value,
+            })
+            compiler_type_argsfile_artifact = compiler_type_flags_anon_target.artifact("argsfile")
+        else:
+            compiler_type_flags = _add_compiler_type_flags(ctx, compiler_info.compiler_type, ext)
+            compiler_type_argsfile_artifact = _mk_argsfile(
+                ctx,
+                filename_prefix + "compiler_type_args",
+                compiler_type_flags,
+                is_nasm,
+                is_xcode_argsfile,
+            )
+        argsfiles.append(compiler_type_argsfile_artifact)
+
+    make_compiler_type_argsfile()
 
     def make_deps_argsfile():
         deps_args = []

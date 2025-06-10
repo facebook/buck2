@@ -132,7 +132,12 @@ def _own_pre(ctx: AnalysisContext, h_files: list[Artifact]) -> CPreprocessor:
         args = CPreprocessorArgs(args = ["-I", header_root.include_path] if header_root != None else []),
     )
 
-def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Artifact], c_files: list[Artifact], c_flags: list[str], cpp_flags: list[str]) -> (list[Artifact], list[Artifact], Artifact):
+def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Artifact], c_files: list[Artifact], c_flags: list[str], cpp_flags: list[str], anon_targets_allowed: bool = True) -> (list[Artifact], list[Artifact], Artifact):
+    """
+    Arguments:
+        anon_targets_allowed: Set to `True` if the execution context allows calls to the `AnalysisActions#anon_target` API.
+                              For example, this API is NOT allowed in the context of the `AnalaysisActions#dynamic_outputs` callback.
+    """
     if len(cgo_files) == 0:
         return [], [], ctx.actions.copied_dir("cgo_gen_tmp", {})
 
@@ -172,6 +177,7 @@ def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Art
             srcs = [CxxSrcWithFlags(file = src) for src in c_files + c_gen_srcs],
             compiler_flags = go_toolchain.c_compiler_flags + c_flags + ctx.attrs.cxx_compiler_flags + get_target_sdk_version_flags(ctx),
             preprocessor_flags = cpp_flags + ctx.attrs.cxx_preprocessor_flags,
+            anon_targets_allowed = anon_targets_allowed,
         ),
         # Create private header tree and propagate via args.
         [own_pre, cgo_headers_pre],

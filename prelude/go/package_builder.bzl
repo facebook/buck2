@@ -63,7 +63,7 @@ def build_package(
         go_list = parse_go_list_out(srcs, package_root, artifacts[go_list_out])
 
         # Generate CGO and C sources.
-        cgo_go_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(ctx, go_list.cgo_files, go_list.h_files, go_list.c_files + go_list.cxx_files, go_list.cgo_cflags, go_list.cgo_cppflags)
+        cgo_go_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(ctx, go_list.cgo_files, go_list.h_files, go_list.c_files + go_list.cxx_files, go_list.cgo_cflags, go_list.cgo_cppflags, anon_targets_allowed = False)
         ctx.actions.copy_dir(outputs[cgo_gen_dir], cgo_gen_tmp_dir)
 
         is_x_test_pkg = len(go_list.x_test_go_files) > 0

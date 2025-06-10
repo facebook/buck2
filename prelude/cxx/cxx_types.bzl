@@ -250,4 +250,7 @@ CxxRuleConstructorParams = record(
     runtime_dependency_handling = field([RuntimeDependencyHandling, None], None),
     # Should this library only be used for build time linkage
     stub = field(bool, False),
+    # The calling context is allowed to use `AnalysisActions#anon_target` API.
+    # This is not allowed in the context of the `dynamic_outputs` callback.
+    anon_targets_allowed = field(bool, True),
 )
