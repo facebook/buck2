@@ -83,10 +83,12 @@ def _extract_versions(constraints):
     # some initial work to de-duplicate them here, by extracting just the
     # project and version and verify we get just a single reduced result.
     for target, version in constraints.items():
-        expect(target.startswith("fbcode//") or target.startswith("//"), target)
-        base, name = target.split(":")
-        expect(name == "__project__", name)
-        project = paths.basename(base)
+        if target.startswith("fbcode//") or target.startswith("//"):
+            base, name = target.split(":")
+            expect(name == "__project__", name)
+            project = paths.basename(base)
+        else:
+            project = target
         expect(project not in versions or version == versions[project])
         versions[project] = version
 
