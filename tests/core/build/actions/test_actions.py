@@ -362,7 +362,12 @@ async def test_artifact_cycle(buck: Buck) -> None:
 
 @buck_test(data_dir="actions")
 async def test_associated_artifacts(buck: Buck) -> None:
-    await buck.build("//associated_artifacts:check")
+    await buck.build("//associated_artifacts:check_artifacts")
+
+
+@buck_test(data_dir="actions")
+async def test_associated_artifacts_transitive_dep(buck: Buck) -> None:
+    await buck.build("//associated_artifacts:check_dropped_artifacts")
 
 
 @buck_test(data_dir="actions")

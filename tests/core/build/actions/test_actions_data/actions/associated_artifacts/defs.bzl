@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# Basic test-level provider for passing both the raw artifacts
+# and an artifact with its own associated artifact
 Artifacts = provider(fields = ["associated", "artifacts"])
 
 def _artifacts(ctx: AnalysisContext) -> list[Provider]:
@@ -18,9 +20,11 @@ def _artifacts(ctx: AnalysisContext) -> list[Provider]:
         ),
     ]
 
+# Builds two artifacts which have a dependency relationship
+# Such that out1 -> out2
 artifacts = rule(impl = _artifacts, attrs = {})
 
-def _check(ctx: AnalysisContext) -> list[Provider]:
+def _check_all_exists(ctx: AnalysisContext) -> list[Provider]:
     dep1 = ctx.attrs.dep1[Artifacts]
     dep2 = ctx.attrs.dep2[Artifacts]
 
@@ -48,9 +52,9 @@ def _check(ctx: AnalysisContext) -> list[Provider]:
                 "assert all(os.path.exists(f) for f in sys.argv[1:])",
                 "open(os.environ['OUT'], 'w')",
             ]),
-            # Look for all the artifacts but don't add a dependency here.
+            # Include all artifacts for the purpose of testing but don't add a dependency here.
             cmd_args(all_artifacts, ignore_artifacts = True),
-            # Actually make those artifacts only available
+            # Include the command args similar to how a user would
             cmd_args(hidden = inputs),
         ],
         env = {"OUT": check.as_output()},
@@ -59,9 +63,54 @@ def _check(ctx: AnalysisContext) -> list[Provider]:
 
     return [DefaultInfo(check)]
 
-check = rule(impl = _check, attrs = {"dep1": attrs.dep(), "dep2": attrs.dep()})
+check_all_exists = rule(impl = _check_all_exists, attrs = {"dep1": attrs.dep(), "dep2": attrs.dep()})
+
+def _check_dropped_artifacts(ctx: AnalysisContext) -> list[Provider]:
+    # Describe a transitive chain of artifacts such that
+    # third -> second -> first
+    first = ctx.actions.write("first", "")
+    second = ctx.actions.write("second", "").with_associated_artifacts([first])
+    third = ctx.actions.write("third", "").with_associated_artifacts([second])
+
+    check = ctx.actions.declare_output("check")
+    ctx.actions.run(
+        [
+            "python3",
+            "-c",
+            ";".join([
+                # Verify the existing behavior where the named file exists,
+                # and the declared artifact of the named file exists, but
+                # the artifact of the artifact does NOT exist
+                # TODO(T227006457) - revisit this behavior to be more intuitive
+                "import os, sys",
+                "third, second, first = sys.argv[1:]",
+                "assert os.path.exists(third)",
+                "assert os.path.exists(second)",
+                "assert not os.path.exists(first)",
+                "open(os.environ['OUT'], 'w')",
+            ]),
+            # Include all artifacts for the purpose of testing but don't add a dependency here.
+            cmd_args([third, second, first], ignore_artifacts = True),
+            # Only specify 'third' as a dependency so as to see what artifacts get pulled in
+            cmd_args(hidden = [third]),
+        ],
+        env = {"OUT": check.as_output()},
+        category = "check",
+    )
+
+    return [DefaultInfo(check)]
+
+check_dropped_artifacts = rule(impl = _check_dropped_artifacts, attrs = {})
 
 def defs():
+    # Generates :dep1 with output out1 and associated artifact out2
     artifacts(name = "dep1")
+
+    # Generates :dep2 with output out1 and associated artifact out2
     artifacts(name = "dep2")
-    check(name = "check", dep1 = ":dep1", dep2 = ":dep2")
+
+    # Checks that all of [dep1/out1, dep1/out2, dep2/out1, dep2,out2]
+    # are actually present in the rule's cmd_args as requested
+    check_all_exists(name = "check_artifacts", dep1 = ":dep1", dep2 = ":dep2")
+
+    check_dropped_artifacts(name = "check_dropped_artifacts")
