@@ -55,6 +55,12 @@ BuildReport {
     # Set sketch of configured target graph stored in a hex string.
     # Enabeld by setting `-c buck2.log_total_configured_graph_sketch=true`.
     total_configured_graph_sketch: Optional[str],
+
+    # Set sketch of unconfigured target labels in configured target graph
+    # stored in a hex string.
+    # Enabeld by setting
+    # `-c buck2.log_total_configured_graph_unconfigured_sketch=true`.
+    total_configured_graph_unconfigured_sketch: Optional[str],
 }
 
 BuildReportEntry {
@@ -105,8 +111,18 @@ ConfiguredBuildReportEntry {
     # executable, etc.
     artifact_info: dict[str, ArtifactInfoFile | ArtifactInfoSymlink | ArtifactInfoExternalSymlink],
 
+    # Set sketch of configured target graph stored in a hex string.
+    # Enabeld by setting `-c buck2.log_configured_graph_sketch=true`.
+    configured_graph_sketch: Optional[str],
+
     # Metrics for this target. Represents the aggregated metrics for top level targets.
     metrics: TargetBuildMetrics,
+
+    # Set sketch of unconfigured taret labels in configured target graph
+    # stored in a hex string.
+    # Enabeld by setting
+    # `-c buck2.log_configured_graph_unconfigured_sketch=true`.
+    configured_graph_unconfigured_sketch: Optional[str],
 }
 
 AllTargetsBuildMetrics {
