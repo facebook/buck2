@@ -17,11 +17,12 @@ def at_argfile(
         # the arguments to write to the argument file
         args,
         # pass to `ctx.actions.write`
-        allow_args: bool = False) -> cmd_args:
+        allow_args: bool = False,
+        uses_experimental_content_based_path_hashing: bool = False) -> cmd_args:
     if allow_args:
-        args_file, _ = actions.write(name, args, allow_args = True, with_inputs = True)
+        args_file, _ = actions.write(name, args, allow_args = True, with_inputs = True, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
     else:
-        args_file = actions.write(name, args, with_inputs = True)
+        args_file = actions.write(name, args, with_inputs = True, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
     return cmd_args(args_file, format = "@{}", hidden = args)
 
 # Write arguments to a file, and return the file path as `cmd_args`
