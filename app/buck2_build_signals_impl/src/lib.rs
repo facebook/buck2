@@ -20,6 +20,7 @@ use std::time::Instant;
 use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_analysis::analysis::calculation::AnalysisKeyActivationData;
+use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::RegisteredAction;
 use buck2_build_api::actions::calculation::ActionExtraData;
@@ -219,6 +220,28 @@ impl BuildSignals for BuildSignalSender {
                 span_id,
             },
         ));
+    }
+
+    fn test_listing(
+        &self,
+        _target: ConfiguredTargetLabel,
+        _suite: String,
+        _duration: NodeDuration,
+        _deps: &[ActionKey],
+    ) {
+        // TODO(rajneeshl): Send signal for test listing
+    }
+
+    fn test_execution(
+        &self,
+        _target: ConfiguredTargetLabel,
+        _suite: String,
+        _testcases: &[String],
+        _variant: Option<String>,
+        _duration: NodeDuration,
+        _deps: &[ActionKey],
+    ) {
+        // TODO(rajneeshl): Send signal for test execution
     }
 }
 

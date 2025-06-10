@@ -32,6 +32,7 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ArtifactGroupValues;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
+use buck2_build_api::build_signals::HasBuildSignals;
 use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapperImpl;
@@ -46,6 +47,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
 use buck2_build_api::keep_going::KeepGoing;
+use buck2_build_signals::env::NodeDuration;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::events::HasEvents;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -414,6 +416,15 @@ impl<'a> BuckTestOrchestrator<'a> {
             declared_outputs,
             worker,
         } = test_executable_expanded;
+
+        let input_deps_action_keys: Vec<_> = ensured_inputs
+            .iter()
+            .flat_map(|(_, agv)| {
+                agv.iter()
+                    .filter_map(|(artifact, _)| artifact.action_key().map(|k| k.dupe()))
+            })
+            .collect();
+
         let executor_preference = Self::executor_preference(options, supports_re)?;
         let required_resources = if test_executor
             .executor()
@@ -469,6 +480,40 @@ impl<'a> BuckTestOrchestrator<'a> {
         )
         .boxed()
         .await?;
+
+        if let Some(signals) = dice.per_transaction_data().get_build_signals() {
+            let duration = NodeDuration {
+                user: result.timing.execution_time,
+                total: result.timing.wall_time,
+                queue: result.timing.queue_duration,
+            };
+
+            match stage.as_ref() {
+                TestStage::Listing { suite, .. } => {
+                    signals.test_listing(
+                        test_target.target().dupe(),
+                        suite.to_owned(),
+                        duration.to_owned(),
+                        &input_deps_action_keys,
+                    );
+                }
+                TestStage::Testing {
+                    suite,
+                    testcases,
+                    variant,
+                } => {
+                    signals.test_execution(
+                        test_target.target().dupe(),
+                        suite.to_owned(),
+                        &testcases,
+                        variant.to_owned(),
+                        duration,
+                        &input_deps_action_keys,
+                    );
+                }
+            }
+        }
+
         Ok(result)
     }
 }

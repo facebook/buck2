@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::env::DeferredBuildSignals;
 use buck2_build_signals::env::NodeDuration;
@@ -49,6 +50,24 @@ pub trait BuildSignals: Send + Sync + 'static {
         artifact: BuildArtifact,
         duration: NodeDuration,
         span_id: Option<SpanId>,
+    );
+
+    fn test_listing(
+        &self,
+        target: ConfiguredTargetLabel,
+        suite: String,
+        duration: NodeDuration,
+        deps: &[ActionKey],
+    );
+
+    fn test_execution(
+        &self,
+        target: ConfiguredTargetLabel,
+        suite: String,
+        testcases: &[String],
+        variant: Option<String>,
+        duration: NodeDuration,
+        deps: &[ActionKey],
     );
 }
 

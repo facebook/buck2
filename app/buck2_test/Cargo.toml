@@ -32,6 +32,7 @@ sorted_vector_map = { workspace = true }
 starlark = { workspace = true }
 
 buck2_build_api = { workspace = true }
+buck2_build_signals = { workspace = true }
 buck2_cli_proto = { workspace = true }
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
