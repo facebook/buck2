@@ -596,7 +596,7 @@ def _compile_swiftmodule(
         add_dependencies_output(ctx, output_file_map, cmd, "swiftmodule", inputs_tag)
         dep_files["swiftmodule"] = inputs_tag
 
-    ret = _compile_with_argsfile(
+    ret, _ = _compile_with_argsfile(
         ctx = ctx,
         category_prefix = category,
         extension = SWIFTMODULE_EXTENSION,
@@ -634,20 +634,21 @@ def _compile_object(
         category: str) -> SwiftObjectOutput:
     dep_files = {}
     output_file_map = {}
+    emit_depsfiles = toolchain.use_depsfiles
+
     if should_build_swift_incrementally(ctx):
         incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs, output_swiftmodule, output_header)
-        num_threads = incremental_compilation_output.num_threads
-        output_map_artifact = incremental_compilation_output.output_map_artifact
-        objects = incremental_compilation_output.artifacts
         cmd = incremental_compilation_output.incremental_flags_cmd
+
+        # With -skip-incremental-output the output_file_map is an output, so
+        # we cannot support depsfiles.
+        emit_depsfiles = emit_depsfiles and not incremental_compilation_output.skip_incremental_outputs
+        num_threads = incremental_compilation_output.num_threads
+        objects = incremental_compilation_output.artifacts
+        output_file_map = incremental_compilation_output.output_file_map
         swiftdeps = incremental_compilation_output.swiftdeps
-
-        # TODO: add .d file support for incremental compilation, at a minimum
-        # for the swiftmodule output.
-
     else:
         num_threads = 1
-        output_map_artifact = None
         swiftdeps = []
         output_object = ctx.actions.declare_output(get_module_name(ctx) + ".o")
         objects = [output_object]
@@ -667,14 +668,14 @@ def _compile_object(
         if embed_bitcode:
             cmd.add("--embed-bitcode")
 
-        if toolchain.use_depsfiles:
-            add_dependencies_output(ctx, output_file_map, cmd, "object", inputs_tag)
-            dep_files["object"] = inputs_tag
+    if emit_depsfiles:
+        add_dependencies_output(ctx, output_file_map, cmd, "object", inputs_tag)
+        dep_files["object"] = inputs_tag
 
     if _should_compile_with_evolution(ctx):
         cmd.add(["-enable-library-evolution"])
 
-    argsfiles = _compile_with_argsfile(
+    argsfiles, output_map_artifact = _compile_with_argsfile(
         ctx = ctx,
         category_prefix = category,
         extension = SWIFT_EXTENSION,
@@ -752,7 +753,7 @@ def _compile_with_argsfile(
         num_threads: int = 1,
         cacheable: bool = True,
         dep_files: dict[str, ArtifactTag] = {},
-        output_file_map: dict = {}) -> CompileArgsfiles:
+        output_file_map: dict = {}) -> (CompileArgsfiles, Artifact | None):
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
 
@@ -772,7 +773,9 @@ def _compile_with_argsfile(
 
     # If an output file map is provided, serialize it and add to the command.
     if output_file_map:
-        add_output_file_map_flags(ctx, output_file_map, cmd, category_prefix)
+        output_file_map_artifact = add_output_file_map_flags(ctx, output_file_map, cmd, category_prefix)
+    else:
+        output_file_map_artifact = None
 
     build_swift_incrementally = should_build_swift_incrementally(ctx)
     explicit_modules_enabled = uses_explicit_modules(ctx)
@@ -824,7 +827,7 @@ def _compile_with_argsfile(
     )
 
     # Swift correctly handles relative paths and we can utilize the relative argsfile for Xcode.
-    return CompileArgsfiles(relative = {extension: argsfile}, xcode = {extension: argsfile})
+    return CompileArgsfiles(relative = {extension: argsfile}, xcode = {extension: argsfile}), output_file_map_artifact
 
 def _get_serialize_debugging_options(ctx: AnalysisContext, uses_explicit_modules: bool):
     if ctx.attrs.serialize_debugging_options == False:

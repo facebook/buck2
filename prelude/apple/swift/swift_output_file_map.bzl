@@ -14,7 +14,7 @@ def add_dependencies_output(ctx: AnalysisContext, output_file_map: dict, cmd: cm
     map["emit-module-dependencies"] = cmd_args(tagged_dep_file, delimiter = "")
     cmd.add(cmd_args("-emit-dependencies", hidden = [tagged_dep_file]))
 
-def add_output_file_map_flags(ctx: AnalysisContext, output_file_map: dict, cmd: cmd_args, category: str) -> None:
+def add_output_file_map_flags(ctx: AnalysisContext, output_file_map: dict, cmd: cmd_args, category: str) -> Artifact:
     output_file_map_path = "{}_swift_{}_output_file_map.json".format(ctx.attrs.name, category)
     output_file_map_json = ctx.actions.write_json(
         output_file_map_path,
@@ -22,3 +22,4 @@ def add_output_file_map_flags(ctx: AnalysisContext, output_file_map: dict, cmd: 
         pretty = True,
     )
     cmd.add("-output-file-map", output_file_map_json)
+    return output_file_map_json
