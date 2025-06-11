@@ -271,7 +271,7 @@ impl<T: PatternType> ParsedPattern<T> {
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
     ) -> buck2_error::Result<Self> {
-        parse_target_pattern(
+        let pattern_with_modifiers = parse_target_pattern(
             cell_resolver,
             cell_alias_resolver,
             TargetParsingOptions {
@@ -286,7 +286,9 @@ impl<T: PatternType> ParsedPattern<T> {
                 "Invalid absolute target pattern `{}` is not allowed",
                 pattern
             )
-        })
+        })?;
+
+        Self::from_parsed_pattern_with_modifiers(pattern_with_modifiers)
     }
 
     pub fn parse_not_relaxed(
@@ -295,7 +297,7 @@ impl<T: PatternType> ParsedPattern<T> {
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
     ) -> buck2_error::Result<Self> {
-        parse_target_pattern(
+        let pattern_with_modifiers = parse_target_pattern(
             cell_resolver,
             cell_alias_resolver,
             TargetParsingOptions {
@@ -305,7 +307,11 @@ impl<T: PatternType> ParsedPattern<T> {
             },
             pattern,
         )
-        .with_buck_error_context(|| format!("Invalid target pattern `{}` is not allowed", pattern))
+        .with_buck_error_context(|| {
+            format!("Invalid target pattern `{}` is not allowed", pattern)
+        })?;
+
+        Self::from_parsed_pattern_with_modifiers(pattern_with_modifiers)
     }
 
     /// Parse a TargetPattern out, resolving aliases via `cell_resolver`, resolving relative
@@ -322,7 +328,7 @@ impl<T: PatternType> ParsedPattern<T> {
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
     ) -> buck2_error::Result<Self> {
-        parse_target_pattern(
+        let pattern_with_modifiers = parse_target_pattern(
             cell_resolver,
             cell_alias_resolver,
             TargetParsingOptions {
@@ -337,7 +343,26 @@ impl<T: PatternType> ParsedPattern<T> {
             },
             pattern,
         )
-        .with_buck_error_context(|| format!("Parsing target pattern `{}`", pattern))
+        .with_buck_error_context(|| format!("Parsing target pattern `{}`", pattern))?;
+
+        Self::from_parsed_pattern_with_modifiers(pattern_with_modifiers)
+    }
+
+    fn from_parsed_pattern_with_modifiers(
+        pattern_with_modifiers: ParsedPatternWithModifiers<T>,
+    ) -> buck2_error::Result<Self> {
+        let ParsedPatternWithModifiers {
+            parsed_pattern,
+            modifiers,
+        } = pattern_with_modifiers;
+
+        match modifiers {
+            None => Ok(parsed_pattern),
+            Some(_) => Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "The ?modifier syntax is unsupported for this command"
+            )),
+        }
     }
 
     pub fn testing_parse(pattern: &str) -> Self {
@@ -902,22 +927,23 @@ fn parse_target_pattern<T>(
     cell_alias_resolver: &CellAliasResolver,
     opts: TargetParsingOptions,
     pattern: &str,
-) -> buck2_error::Result<ParsedPattern<T>>
+) -> buck2_error::Result<ParsedPatternWithModifiers<T>>
 where
     T: PatternType,
 {
     let res: buck2_error::Result<_> = try {
-        let parsed_pattern = parse_target_pattern_no_validate::<T>(
+        let parsed_pattern_with_modifiers = parse_target_pattern_no_validate::<T>(
             cell_resolver,
             cell_alias_resolver,
             opts,
             pattern,
         )?;
 
+        let parsed_pattern = &parsed_pattern_with_modifiers.parsed_pattern;
         let crossed_path =
             cell_resolver.resolve_path_crossing_cell_boundaries(parsed_pattern.cell_path())?;
         if crossed_path != parsed_pattern.cell_path() {
-            let new_pattern = match &parsed_pattern {
+            let new_pattern = match parsed_pattern {
                 ParsedPattern::Target(_, target_name, extra) => ParsedPattern::Target(
                     PackageLabel::from_cell_path(crossed_path),
                     target_name.dupe(),
@@ -940,7 +966,7 @@ where
             )?;
         }
 
-        parsed_pattern
+        parsed_pattern_with_modifiers
     };
 
     res.tag(buck2_error::ErrorTag::Input)
@@ -951,7 +977,7 @@ fn parse_target_pattern_no_validate<T>(
     cell_alias_resolver: &CellAliasResolver,
     opts: TargetParsingOptions,
     pattern: &str,
-) -> buck2_error::Result<ParsedPattern<T>>
+) -> buck2_error::Result<ParsedPatternWithModifiers<T>>
 where
     T: PatternType,
 {
@@ -1014,19 +1040,26 @@ where
         )),
     };
 
-    match pattern {
-        PatternData::Recursive { .. } => Ok(ParsedPattern::Recursive(path.into_owned())),
-        PatternData::AllTargetsInPackage { .. } => Ok(ParsedPattern::Package(
-            PackageLabel::from_cell_path(path.as_ref()),
-        )),
+    let modifiers = pattern.modifiers().clone();
+
+    let parsed_pattern = match pattern {
+        PatternData::Recursive { .. } => ParsedPattern::Recursive(path.into_owned()),
+        PatternData::AllTargetsInPackage { .. } => {
+            ParsedPattern::Package(PackageLabel::from_cell_path(path.as_ref()))
+        }
         PatternData::TargetInPackage {
             target_name, extra, ..
-        } => Ok(ParsedPattern::Target(
+        } => ParsedPattern::Target(
             PackageLabel::from_cell_path(path.as_ref()),
             target_name,
             extra,
-        )),
-    }
+        ),
+    };
+
+    Ok(ParsedPatternWithModifiers {
+        parsed_pattern,
+        modifiers,
+    })
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -1048,7 +1081,7 @@ fn resolve_target_alias<T>(
     cell_alias_resolver: &CellAliasResolver,
     target_alias_resolver: &dyn TargetAliasResolver,
     lex: &PatternParts<T>,
-) -> buck2_error::Result<Option<ParsedPattern<T>>>
+) -> buck2_error::Result<Option<ParsedPatternWithModifiers<T>>>
 where
     T: PatternType,
 {
@@ -1062,8 +1095,13 @@ where
     }
 
     // Unless the input is a standalone bit of ambiguous text then it cannot be an alias.
-    let (target, extra) = match &lex.pattern {
-        PatternDataOrAmbiguous::Ambiguous { pattern, extra, .. } => (*pattern, extra),
+    let (target, extra, modifiers) = match &lex.pattern {
+        PatternDataOrAmbiguous::Ambiguous {
+            pattern,
+            extra,
+            modifiers,
+            ..
+        } => (*pattern, extra, modifiers.clone()),
         _ => return Ok(None),
     };
 
@@ -1100,7 +1138,7 @@ where
     })?;
 
     // And finally, put the `T` we were looking for back together.
-    let res = match res {
+    let parsed_pattern = match res.parsed_pattern {
         ParsedPattern::Target(package, target_name, TargetPatternExtra) => {
             ParsedPattern::Target(package, target_name, extra.clone())
         }
@@ -1113,7 +1151,10 @@ where
         }
     };
 
-    Ok(Some(res))
+    Ok(Some(ParsedPatternWithModifiers {
+        parsed_pattern,
+        modifiers,
+    }))
 }
 
 #[derive(Debug, Eq, PartialEq)]
