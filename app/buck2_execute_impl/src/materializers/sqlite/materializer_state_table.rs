@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use buck2_common::directory_metadata::DirectoryMetadata;
@@ -61,17 +62,17 @@ type SqliteDigest = Vec<u8>;
 /// Sqlite representation of `ArtifactMetadata`. All datatypes used implement
 /// rusqlite's `FromSql` trait.
 #[derive(Debug)]
-struct ArtifactMetadataSqliteEntry {
+struct ArtifactMetadataSqliteEntry<'a> {
     artifact_type: ArtifactType,
     entry_size: Option<u64>,
     entry_hash: Option<SqliteDigest>,
     entry_hash_kind: Option<u8>,
     file_is_executable: Option<bool>,
-    symlink_target: Option<String>,
+    symlink_target: Option<Cow<'a, str>>,
     directory_size: Option<u64>,
 }
 
-impl ArtifactMetadataSqliteEntry {
+impl<'a> ArtifactMetadataSqliteEntry<'a> {
     fn new(
         artifact_type: ArtifactType,
         entry_size: Option<u64>,
@@ -87,14 +88,14 @@ impl ArtifactMetadataSqliteEntry {
             entry_hash,
             entry_hash_kind,
             file_is_executable,
-            symlink_target,
+            symlink_target: symlink_target.map(Cow::Owned),
             directory_size,
         }
     }
 }
 
-impl From<&ArtifactMetadata> for ArtifactMetadataSqliteEntry {
-    fn from(metadata: &ArtifactMetadata) -> Self {
+impl<'a> From<&'a ArtifactMetadata> for ArtifactMetadataSqliteEntry<'a> {
+    fn from(metadata: &'a ArtifactMetadata) -> Self {
         fn digest_parts(digest: &TrackedFileDigest) -> (u64, Vec<u8>, u8) {
             (
                 digest.size(),
@@ -142,7 +143,7 @@ impl From<&ArtifactMetadata> for ArtifactMetadataSqliteEntry {
                 None,
                 None,
                 None,
-                Some(symlink.target().as_str().to_owned()),
+                Some(Cow::Borrowed(symlink.target().as_str())),
                 None,
             ),
             DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => (
@@ -151,7 +152,7 @@ impl From<&ArtifactMetadata> for ArtifactMetadataSqliteEntry {
                 None,
                 None,
                 None,
-                Some(external_symlink.target_str().to_owned()),
+                Some(Cow::Borrowed(external_symlink.target_str())),
                 None,
             ),
         };
@@ -244,6 +245,7 @@ fn convert_artifact_metadata(
                         field: "symlink_target".to_owned(),
                         artifact_type: sqlite_entry.artifact_type,
                     })?
+                    .into_owned()
                     .into(),
             );
             DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(symlink)))
@@ -256,6 +258,7 @@ fn convert_artifact_metadata(
                         field: "symlink_target".to_owned(),
                         artifact_type: sqlite_entry.artifact_type,
                     })?
+                    .into_owned()
                     .into(),
                 ForwardRelativePathBuf::default(),
             )?;
