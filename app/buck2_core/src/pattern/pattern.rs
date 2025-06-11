@@ -409,6 +409,33 @@ pub struct ParsedPatternWithModifiers<T: PatternType> {
     pub modifiers: Option<Vec<String>>,
 }
 
+impl<T: PatternType> ParsedPatternWithModifiers<T> {
+    pub fn parse_relaxed(
+        target_alias_resolver: &dyn TargetAliasResolver,
+        relative_dir: CellPathRef,
+        pattern: &str,
+        cell_resolver: &CellResolver,
+        cell_alias_resolver: &CellAliasResolver,
+    ) -> buck2_error::Result<Self> {
+        parse_target_pattern(
+            cell_resolver,
+            cell_alias_resolver,
+            TargetParsingOptions {
+                relative: TargetParsingRel::AllowRelative(
+                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
+                        relative_dir.to_owned(),
+                    ),
+                    Some(target_alias_resolver),
+                ),
+                infer_target: true,
+                strip_package_trailing_slash: true,
+            },
+            pattern,
+        )
+        .with_buck_error_context(|| format!("Parsing target pattern `{}`", pattern))
+    }
+}
+
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Allocative)]
 pub enum ParsedPatternPredicate<T: PatternType> {
     Any,
