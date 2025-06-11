@@ -595,16 +595,14 @@ async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
         target,
         "-c",
         "test.allow_dep_file_cache_upload=true",
+        "-c",
+        "test.cache_buster=tagged_unused_file_test",
         "--local-only",
     ]
 
-    target_upload_enabled_with_action_definition_change = [
-        target,
-        "-c",
-        "test.allow_dep_file_cache_upload=true",
+    target_upload_enabled_with_action_definition_change = target_upload_enabled + [
         "-c",
         "test.allow_cache_upload=true",
-        "--local-only",
     ]
 
     # Build it once with cache upload (cache upload will fail locally)
