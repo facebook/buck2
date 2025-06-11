@@ -71,24 +71,24 @@ fn format_result_stats(stats: buck2_data::CleanStaleStats) -> String {
     output += &format!(
         "Found {} stale artifacts ({})\n",
         stats.stale_artifact_count,
-        bytesize::to_string(stats.stale_bytes, true),
+        bytesize::ByteSize::b(stats.stale_bytes).display().iec(),
     );
     output += &format!(
         "Found {} recent artifacts ({})\n",
         stats.retained_artifact_count,
-        bytesize::to_string(stats.retained_bytes, true),
+        bytesize::ByteSize::b(stats.retained_bytes).display().iec(),
     );
     output += &format!(
         "Found {} untracked artifacts ({})\n",
         stats.untracked_artifact_count,
-        bytesize::to_string(stats.untracked_bytes, true),
+        bytesize::ByteSize::b(stats.untracked_bytes).display().iec(),
     );
     if stats.cleaned_artifact_count > 0 || stats.cleaned_bytes > 0 {
         output += &format!("Cleaned {} paths\n", stats.cleaned_artifact_count,);
         output += &format!(
             "{} bytes cleaned ({})\n",
             stats.cleaned_bytes,
-            bytesize::to_string(stats.cleaned_bytes, true),
+            bytesize::ByteSize::b(stats.cleaned_bytes).display().iec(),
         );
     }
     output
