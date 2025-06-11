@@ -33,6 +33,7 @@ use rusqlite::Connection;
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
 use crate::materializers::sqlite::materializer_state_table::MaterializerStateSqliteTable;
 
+pub(crate) mod artifact_type;
 pub(crate) mod materializer_state_table;
 
 #[derive(Display, Allocative, Clone, From, PartialEq, Eq, Debug)]
