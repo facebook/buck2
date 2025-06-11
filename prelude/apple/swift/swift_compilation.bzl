@@ -736,7 +736,7 @@ def _compile_index_store(
         additional_flags,
         toolchain,
         module_name,
-        cacheable = False,
+        cacheable = True,
     )
 
     return index_store_output
