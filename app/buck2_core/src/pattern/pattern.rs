@@ -453,7 +453,7 @@ impl ParsedPatternPredicate<TargetPatternExtra> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct PatternParts<'a, T: PatternType> {
     /// Is there a `foo//` or `//` part.
     pub cell_alias: Option<&'a str>,
@@ -476,7 +476,7 @@ impl<'a, T: PatternType> PatternParts<'a, T> {
     }
 }
 
-#[derive(Debug, derive_more::From, Eq, PartialEq)]
+#[derive(Debug, derive_more::From)]
 pub enum PatternDataOrAmbiguous<'a, T: PatternType> {
     /// We successfully extracted PatternData.
     PatternData(PatternData<'a, T>),
@@ -578,7 +578,7 @@ where
 }
 
 /// The pattern data we extracted.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub enum PatternData<'a, T: PatternType> {
     /// A pattern like `foo/bar/...`.
     Recursive {
@@ -1217,13 +1217,9 @@ mod tests {
     use crate::configuration::hash::ConfigurationHash;
     use crate::package::PackageLabel;
     use crate::pattern::pattern::ParsedPattern;
-    use crate::pattern::pattern::PatternData;
-    use crate::pattern::pattern::PatternDataOrAmbiguous;
-    use crate::pattern::pattern::PatternParts;
+    use crate::pattern::pattern::ParsedPatternWithModifiers;
     use crate::pattern::pattern::TargetParsingRel;
     use crate::pattern::pattern::TargetPatternParseError;
-    use crate::pattern::pattern::lex_configured_providers_pattern;
-    use crate::pattern::pattern::lex_provider_pattern;
     use crate::pattern::pattern_type::ConfigurationPredicate;
     use crate::pattern::pattern_type::ConfiguredProvidersPatternExtra;
     use crate::pattern::pattern_type::ConfiguredTargetPatternExtra;
@@ -2294,95 +2290,232 @@ mod tests {
     }
 
     #[test]
-    fn test_parsing_modifiers() -> buck2_error::Result<()> {
+    fn test_parsed_pattern_with_modifiers_relaxed() -> buck2_error::Result<()> {
+        let resolver = resolver();
+        let alias_resolver = alias_resolver();
+        let package = CellPath::new(
+            CellName::testing_new("root"),
+            CellRelativePath::unchecked_new("package").to_owned(),
+        );
+
         fails(
-            lex_provider_pattern("root//directory?/target?modifiers", true),
+            ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+                &NoAliases,
+                package.as_ref(),
+                "root//package?/target?modifier",
+                &resolver,
+                &alias_resolver,
+            ),
             &[
                 "Expected at most one ? in pattern, question marks in file, target, modifier, or cell names are not supported",
             ],
         );
 
-        assert_eq!(
-            lex_provider_pattern("root//directory/target/:?modifier", true)?,
-            PatternParts {
-                cell_alias: Some("root"),
-                pattern: PatternDataOrAmbiguous::PatternData(PatternData::AllTargetsInPackage {
-                    package: relative_path::RelativePath::new("directory/target"),
-                    modifiers: Some(vec!["modifier".to_owned()]),
-                })
-            }
-        );
+        // Test target pattern with modifiers
+        let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+            &NoAliases,
+            package.as_ref(),
+            "root//package/path:target?modifier1,modifier2",
+            &resolver,
+            &alias_resolver,
+        )?;
 
         assert_eq!(
-            lex_provider_pattern("root//directory/target:target?modifier1,modifier2", true)?,
-            PatternParts {
-                cell_alias: Some("root"),
-                pattern: PatternDataOrAmbiguous::PatternData(PatternData::TargetInPackage {
-                    package: relative_path::RelativePath::new("directory/target"),
-                    target_name: TargetName::new("target")?,
-                    extra: ProvidersPatternExtra {
-                        providers: ProvidersName::Default
-                    },
-                    modifiers: Some(vec!["modifier1".to_owned(), "modifier2".to_owned()]),
-                })
-            }
+            pattern_parts.parsed_pattern,
+            mk_target("root", "package/path", "target")
+        );
+        assert_eq!(
+            pattern_parts.modifiers,
+            Some(vec!["modifier1".to_owned(), "modifier2".to_owned()])
         );
 
-        assert_eq!(
-            lex_provider_pattern("root//directory/...?modifier1,modifier2", true)?,
-            PatternParts {
-                cell_alias: Some("root"),
-                pattern: PatternDataOrAmbiguous::PatternData(PatternData::Recursive {
-                    package: relative_path::RelativePath::new("directory"),
-                    modifiers: Some(vec!["modifier1".to_owned(), "modifier2".to_owned()]),
-                })
-            }
-        );
+        // Test package pattern with modifiers
+        let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+            &NoAliases,
+            package.as_ref(),
+            "root//package/path:?modifier",
+            &resolver,
+            &alias_resolver,
+        )?;
 
         assert_eq!(
-            lex_provider_pattern("root//...?modifier1,modifier2", true)?,
-            PatternParts {
-                cell_alias: Some("root"),
-                pattern: PatternDataOrAmbiguous::PatternData(PatternData::Recursive {
-                    package: relative_path::RelativePath::new(""),
-                    modifiers: Some(vec!["modifier1".to_owned(), "modifier2".to_owned()]),
-                })
-            }
+            pattern_parts.parsed_pattern,
+            mk_package("root", "package/path")
         );
+        assert_eq!(pattern_parts.modifiers, Some(vec!["modifier".to_owned()]));
+
+        // Test recursive pattern with modifiers
+        let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+            &NoAliases,
+            package.as_ref(),
+            "root//package/path/...?modifier1,modifier2,modifier3",
+            &resolver,
+            &alias_resolver,
+        )?;
 
         assert_eq!(
-            lex_provider_pattern("root//directory/target?modifier1,modifier2", true)?,
-            PatternParts {
-                cell_alias: Some("root"),
-                pattern: PatternDataOrAmbiguous::Ambiguous {
-                    pattern: "directory/target",
-                    strip_package_trailing_slash: true,
-                    extra: ProvidersPatternExtra {
-                        providers: ProvidersName::Default
-                    },
-                    modifiers: Some(vec!["modifier1".to_owned(), "modifier2".to_owned()]),
-                }
-            }
+            pattern_parts.parsed_pattern,
+            mk_recursive("root", "package/path")
+        );
+        assert_eq!(
+            pattern_parts.modifiers,
+            Some(vec![
+                "modifier1".to_owned(),
+                "modifier2".to_owned(),
+                "modifier3".to_owned()
+            ])
+        );
+
+        // Test relative pattern with modifiers
+        let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+            &NoAliases,
+            package.as_ref(),
+            "path:target?modifier",
+            &resolver,
+            &alias_resolver,
+        )?;
+
+        assert_eq!(
+            pattern_parts.parsed_pattern,
+            mk_target("root", "package/path", "target")
+        );
+        assert_eq!(pattern_parts.modifiers, Some(vec!["modifier".to_owned()]));
+
+        // Test ambiguous pattern with modifiers
+        let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+            &NoAliases,
+            package.as_ref(),
+            "root//package/path?modifier",
+            &resolver,
+            &alias_resolver,
+        )?;
+
+        assert_eq!(
+            pattern_parts.parsed_pattern,
+            mk_target("root", "package/path", "path")
+        );
+        assert_eq!(pattern_parts.modifiers, Some(vec!["modifier".to_owned()]));
+
+        // Test pattern with trailing slash and modifiers
+        let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+            &NoAliases,
+            package.as_ref(),
+            "root//package/path/?modifier",
+            &resolver,
+            &alias_resolver,
+        )?;
+
+        assert_eq!(
+            pattern_parts.parsed_pattern,
+            mk_target("root", "package/path", "path")
+        );
+        assert_eq!(pattern_parts.modifiers, Some(vec!["modifier".to_owned()]));
+
+        // Test alias
+        let alias_config = aliases(&[("foo_target", "cell1//foo/bar:target")]);
+
+        let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+            &alias_config,
+            package.as_ref(),
+            "foo_target?modifier1,modifier2",
+            &resolver,
+            &alias_resolver,
+        )?;
+
+        assert_eq!(
+            pattern_parts.parsed_pattern,
+            mk_target("cell1", "foo/bar", "target")
+        );
+        assert_eq!(
+            pattern_parts.modifiers,
+            Some(vec!["modifier1".to_owned(), "modifier2".to_owned()])
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parsed_pattern_fails_with_modifiers() {
+        fails(
+            ParsedPattern::<TargetPatternExtra>::parse_precise(
+                "root//package/path:target?modifier",
+                CellName::testing_new("root"),
+                &resolver(),
+                &alias_resolver(),
+            ),
+            &["The ?modifier syntax is unsupported for this command"],
         );
 
         fails(
-            lex_configured_providers_pattern(
-                "root//directory/target:target?modifier (Bound)",
-                true,
+            ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
+                "root//package/path:target?modifier",
+                TargetParsingRel::RequireAbsolute(CellName::testing_new("root")),
+                &resolver(),
+                &alias_resolver(),
+            ),
+            &["The ?modifier syntax is unsupported for this command"],
+        );
+
+        fails(
+            ParsedPattern::<TargetPatternExtra>::parse_relaxed(
+                &NoAliases,
+                CellPath::new(
+                    CellName::testing_new("root"),
+                    CellRelativePath::unchecked_new("package").to_owned(),
+                )
+                .as_ref(),
+                "root//package/path:target?modifier",
+                &resolver(),
+                &alias_resolver(),
+            ),
+            &["The ?modifier syntax is unsupported for this command"],
+        );
+    }
+
+    #[test]
+    fn test_configured_parsed_pattern_with_modifiers() -> buck2_error::Result<()> {
+        let resolver = resolver();
+        let alias_resolver = alias_resolver();
+        let package = CellPath::new(
+            CellName::testing_new("root"),
+            CellRelativePath::unchecked_new("package").to_owned(),
+        );
+
+        // Test that it fails when there are modifiers and configuration predicate is not Any or Builtin
+        fails(
+            ParsedPatternWithModifiers::<ConfiguredProvidersPatternExtra>::parse_relaxed(
+                &NoAliases,
+                package.as_ref(),
+                "//package/path:target?modifier (<foo>)",
+                &resolver,
+                &alias_resolver,
             ),
             &["Modifiers incompatible with explicit configuration"],
         );
 
-        assert_eq!(
-            lex_configured_providers_pattern("root//directory/...?modifier (<unbound>)", true)?,
-            PatternParts {
-                cell_alias: Some("root"),
-                pattern: PatternDataOrAmbiguous::PatternData(PatternData::Recursive {
-                    package: relative_path::RelativePath::new("directory"),
-                    modifiers: Some(vec!["modifier".to_owned()]),
-                })
-            }
-        );
+        // Test that it works with Any configuration predicate
+        let pattern_parts =
+            ParsedPatternWithModifiers::<ConfiguredProvidersPatternExtra>::parse_relaxed(
+                &NoAliases,
+                package.as_ref(),
+                "//package/path:target?modifier",
+                &resolver,
+                &alias_resolver,
+            )?;
+
+        assert_eq!(pattern_parts.modifiers, Some(vec!["modifier".to_owned()]));
+
+        // Test that it works with Builtin configuration predicate
+        let pattern_parts =
+            ParsedPatternWithModifiers::<ConfiguredProvidersPatternExtra>::parse_relaxed(
+                &NoAliases,
+                package.as_ref(),
+                "//package/path:target?modifier (<unbound>)",
+                &resolver,
+                &alias_resolver,
+            )?;
+
+        assert_eq!(pattern_parts.modifiers, Some(vec!["modifier".to_owned()]));
 
         Ok(())
     }
