@@ -36,6 +36,7 @@ use crate::materializers::deferred::SharedMaterializingError;
 use crate::materializers::deferred::WriteFile;
 use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::sqlite::MaterializerState;
+use crate::materializers::sqlite::MaterializerStateEntry;
 use crate::materializers::sqlite::MaterializerStateSqliteDb;
 
 /// A future that is materializing on a separate task spawned by the materializer
@@ -239,7 +240,12 @@ impl ArtifactTree {
     pub fn initialize(sqlite_state: Option<MaterializerState>) -> Self {
         let mut tree = ArtifactTree::new();
         if let Some(sqlite_state) = sqlite_state {
-            for (path, (metadata, last_access_time)) in sqlite_state.into_iter() {
+            for entry in sqlite_state.into_iter() {
+                let MaterializerStateEntry {
+                    path,
+                    metadata,
+                    last_access_time,
+                } = entry;
                 tree.insert(
                     path.iter().map(|f| f.to_owned()),
                     Box::new(ArtifactMaterializationData {

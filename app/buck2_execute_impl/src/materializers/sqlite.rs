@@ -48,7 +48,14 @@ pub const DB_SCHEMA_VERSION: u64 = 6;
 
 const IDENTITY_KEY: &str = "timestamp_on_initialization";
 
-pub type MaterializerState = Vec<(ProjectRelativePathBuf, (ArtifactMetadata, DateTime<Utc>))>;
+#[derive(Debug)]
+pub struct MaterializerStateEntry {
+    pub path: ProjectRelativePathBuf,
+    pub metadata: ArtifactMetadata,
+    pub last_access_time: DateTime<Utc>,
+}
+
+pub type MaterializerState = Vec<MaterializerStateEntry>;
 
 #[derive(buck2_error::Error, Debug, PartialEq, Eq)]
 #[buck2(tag = Input)]
@@ -364,40 +371,39 @@ mod tests {
         assert_matches!(symlink, ActionDirectoryMember::Symlink(..));
         assert_matches!(external_symlink, ActionDirectoryMember::ExternalSymlink(..));
 
-        let mut artifacts = HashMap::from([
-            (
-                ProjectRelativePath::unchecked_new("a").to_owned(),
-                (
-                    ArtifactMetadata(DirectoryEntry::Dir(dir_metadata)),
-                    now_seconds(),
-                ),
-            ),
-            (
-                ProjectRelativePath::unchecked_new("b/c").to_owned(),
-                (ArtifactMetadata(DirectoryEntry::Leaf(file)), now_seconds()),
-            ),
-            (
-                ProjectRelativePath::unchecked_new("d").to_owned(),
-                (
-                    ArtifactMetadata(DirectoryEntry::Leaf(symlink)),
-                    now_seconds(),
-                ),
-            ),
-            (
-                ProjectRelativePath::unchecked_new("e").to_owned(),
-                (
-                    ArtifactMetadata(DirectoryEntry::Leaf(external_symlink)),
-                    now_seconds(),
-                ),
-            ),
-        ]);
+        let artifacts = vec![
+            MaterializerStateEntry {
+                path: ProjectRelativePath::unchecked_new("a").to_owned(),
+                metadata: ArtifactMetadata(DirectoryEntry::Dir(dir_metadata)),
+                last_access_time: now_seconds(),
+            },
+            MaterializerStateEntry {
+                path: ProjectRelativePath::unchecked_new("b/c").to_owned(),
+                metadata: ArtifactMetadata(DirectoryEntry::Leaf(file)),
+                last_access_time: now_seconds(),
+            },
+            MaterializerStateEntry {
+                path: ProjectRelativePath::unchecked_new("d").to_owned(),
+                metadata: ArtifactMetadata(DirectoryEntry::Leaf(symlink)),
+                last_access_time: now_seconds(),
+            },
+            MaterializerStateEntry {
+                path: ProjectRelativePath::unchecked_new("e").to_owned(),
+                metadata: ArtifactMetadata(DirectoryEntry::Leaf(external_symlink)),
+                last_access_time: now_seconds(),
+            },
+        ];
+        let mut artifacts: HashMap<_, _> =
+            artifacts.into_iter().map(|x| (x.path.clone(), x)).collect();
 
-        for (path, metadata) in artifacts.iter() {
-            table.insert(path, &metadata.0, metadata.1).unwrap();
+        for (path, entry) in artifacts.iter() {
+            table
+                .insert(path, &entry.metadata, entry.last_access_time)
+                .unwrap();
         }
 
         let state = table.read_all(digest_config).unwrap();
-        assert_eq!(artifacts, state.into_iter().collect::<HashMap<_, _>>());
+        assert!(artifacts.values().eq(state.iter()));
 
         let paths_to_remove = vec![
             ProjectRelativePath::unchecked_new("d").to_owned(),
@@ -410,7 +416,7 @@ mod tests {
             artifacts.remove(path);
         }
         let state = table.read_all(digest_config).unwrap();
-        assert_eq!(artifacts, state.into_iter().collect::<HashMap<_, _>>());
+        assert!(artifacts.values().eq(state.iter()));
     }
 
     impl PartialEq for ArtifactMetadata {
@@ -422,6 +428,14 @@ mod tests {
                 (DirectoryEntry::Leaf(l1), DirectoryEntry::Leaf(l2)) => l1 == l2,
                 (_, _) => false,
             }
+        }
+    }
+
+    impl PartialEq for MaterializerStateEntry {
+        fn eq(&self, other: &Self) -> bool {
+            self.path == other.path
+                && self.last_access_time == other.last_access_time
+                && self.metadata == other.metadata
         }
     }
 
@@ -490,7 +504,7 @@ mod tests {
             assert_matches!(
                 loaded_state,
                 Ok(v) => {
-                    assert_eq!(v, vec![(path.clone(), (artifact_metadata.clone(), timestamp))]);
+                    assert_eq!(v, vec![MaterializerStateEntry {path: path.clone(), metadata: artifact_metadata.clone(), last_access_time: timestamp}]);
                 }
             );
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[0]);
@@ -528,7 +542,7 @@ mod tests {
             assert_matches!(
                 loaded_state,
                 Ok(v) => {
-                    assert_eq!(v, vec![(path, (artifact_metadata, timestamp))]);
+                    assert_eq!(v, vec![MaterializerStateEntry { path, metadata: artifact_metadata, last_access_time: timestamp }]);
                 }
             );
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[2]);

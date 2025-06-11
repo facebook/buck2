@@ -36,6 +36,7 @@ use rusqlite::Connection;
 
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
 use crate::materializers::sqlite::MaterializerState;
+use crate::materializers::sqlite::MaterializerStateEntry;
 use crate::materializers::sqlite::artifact_type::ARTIFACT_TYPE_DIRECTORY;
 use crate::materializers::sqlite::artifact_type::ARTIFACT_TYPE_EXTERNAL_SYMLINK;
 use crate::materializers::sqlite::artifact_type::ARTIFACT_TYPE_FILE;
@@ -407,17 +408,18 @@ impl MaterializerStateSqliteTable {
 
         result
             .into_try_map(
-                |(path, entry, last_access_time)| -> buck2_error::Result<(
-                    ProjectRelativePathBuf,
-                    (ArtifactMetadata, DateTime<Utc>),
-                )> {
+                |(path, entry, last_access_time)| -> buck2_error::Result<MaterializerStateEntry> {
                     let path = ProjectRelativePathBuf::unchecked_new(path);
                     let metadata = convert_artifact_metadata(entry, digest_config)?;
                     let timestamp = Utc
                         .timestamp_opt(last_access_time, 0)
                         .single()
                         .with_buck_error_context(|| "invalid timestamp")?;
-                    Ok((path, (metadata, timestamp)))
+                    Ok(MaterializerStateEntry {
+                        path,
+                        metadata,
+                        last_access_time: timestamp,
+                    })
                 },
             )
             .with_buck_error_context(|| {
