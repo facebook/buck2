@@ -65,7 +65,7 @@ type SqliteDigest = Vec<u8>;
 struct ArtifactMetadataSqliteEntry<'a> {
     artifact_type: ArtifactType,
     entry_size: Option<u64>,
-    entry_hash: Option<SqliteDigest>,
+    entry_hash: Option<Cow<'a, [u8]>>,
     entry_hash_kind: Option<u8>,
     file_is_executable: Option<bool>,
     symlink_target: Option<Cow<'a, str>>,
@@ -76,7 +76,7 @@ impl<'a> ArtifactMetadataSqliteEntry<'a> {
     fn new(
         artifact_type: ArtifactType,
         entry_size: Option<u64>,
-        entry_hash: Option<Vec<u8>>,
+        entry_hash: Option<SqliteDigest>,
         entry_hash_kind: Option<u8>,
         file_is_executable: Option<bool>,
         symlink_target: Option<String>,
@@ -85,7 +85,7 @@ impl<'a> ArtifactMetadataSqliteEntry<'a> {
         Self {
             artifact_type,
             entry_size,
-            entry_hash,
+            entry_hash: entry_hash.map(Cow::Owned),
             entry_hash_kind,
             file_is_executable,
             symlink_target: symlink_target.map(Cow::Owned),
@@ -96,10 +96,10 @@ impl<'a> ArtifactMetadataSqliteEntry<'a> {
 
 impl<'a> From<&'a ArtifactMetadata> for ArtifactMetadataSqliteEntry<'a> {
     fn from(metadata: &'a ArtifactMetadata) -> Self {
-        fn digest_parts(digest: &TrackedFileDigest) -> (u64, Vec<u8>, u8) {
+        fn digest_parts(digest: &TrackedFileDigest) -> (u64, &[u8], u8) {
             (
                 digest.size(),
-                digest.raw_digest().as_bytes().to_vec(),
+                digest.raw_digest().as_bytes(),
                 digest.raw_digest().algorithm() as _,
             )
         }
@@ -118,7 +118,7 @@ impl<'a> From<&'a ArtifactMetadata> for ArtifactMetadataSqliteEntry<'a> {
                 (
                     ArtifactType::Directory,
                     Some(entry_size),
-                    Some(entry_hash),
+                    Some(Cow::Borrowed(entry_hash)),
                     Some(entry_hash_kind),
                     None,
                     None,
@@ -130,7 +130,7 @@ impl<'a> From<&'a ArtifactMetadata> for ArtifactMetadataSqliteEntry<'a> {
                 (
                     ArtifactType::File,
                     Some(entry_size),
-                    Some(entry_hash),
+                    Some(Cow::Borrowed(entry_hash)),
                     Some(entry_hash_kind),
                     Some(file_metadata.is_executable),
                     None,
@@ -156,7 +156,6 @@ impl<'a> From<&'a ArtifactMetadata> for ArtifactMetadataSqliteEntry<'a> {
                 None,
             ),
         };
-
         Self {
             artifact_type,
             entry_size,
@@ -175,7 +174,7 @@ fn convert_artifact_metadata(
 ) -> buck2_error::Result<ArtifactMetadata> {
     fn digest(
         size: Option<u64>,
-        entry_hash: Option<Vec<u8>>,
+        entry_hash: Option<&[u8]>,
         entry_hash_kind: Option<u8>,
         artifact_type: ArtifactType,
         digest_config: DigestConfig,
@@ -213,7 +212,7 @@ fn convert_artifact_metadata(
         ArtifactType::Directory => DirectoryEntry::Dir(DirectoryMetadata {
             fingerprint: digest(
                 sqlite_entry.entry_size,
-                sqlite_entry.entry_hash,
+                sqlite_entry.entry_hash.as_deref(),
                 sqlite_entry.entry_hash_kind,
                 sqlite_entry.artifact_type,
                 digest_config,
@@ -225,7 +224,7 @@ fn convert_artifact_metadata(
         ArtifactType::File => DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
             digest: digest(
                 sqlite_entry.entry_size,
-                sqlite_entry.entry_hash,
+                sqlite_entry.entry_hash.as_deref(),
                 sqlite_entry.entry_hash_kind,
                 sqlite_entry.artifact_type,
                 digest_config,
