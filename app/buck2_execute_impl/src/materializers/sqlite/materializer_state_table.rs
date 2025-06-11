@@ -49,7 +49,7 @@ const STATE_TABLE_NAME: &str = "materializer_state";
 enum ArtifactMetadataSqliteConversionError {
     #[error("Internal error: expected field `{}` to be not null for artifact type '{}'", .field, .artifact_type)]
     ExpectedNotNull {
-        field: String,
+        field: &'static str,
         artifact_type: ArtifactType,
     },
 }
@@ -179,18 +179,18 @@ fn convert_artifact_metadata(
         artifact_type: ArtifactType,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<TrackedFileDigest> {
-        let size = size.ok_or_else(|| ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-            field: "size".to_owned(),
+        let size = size.ok_or(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+            field: "size",
             artifact_type,
         })?;
         let entry_hash =
-            entry_hash.ok_or_else(|| ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                field: "entry_hash".to_owned(),
+            entry_hash.ok_or(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+                field: "entry_hash",
                 artifact_type,
             })?;
-        let entry_hash_kind = entry_hash_kind.ok_or_else(|| {
+        let entry_hash_kind = entry_hash_kind.ok_or({
             ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                field: "entry_hash_kind".to_owned(),
+                field: "entry_hash_kind",
                 artifact_type,
             }
         })?;
@@ -229,9 +229,9 @@ fn convert_artifact_metadata(
                 sqlite_entry.artifact_type,
                 digest_config,
             )?,
-            is_executable: sqlite_entry.file_is_executable.ok_or_else(|| {
+            is_executable: sqlite_entry.file_is_executable.ok_or({
                 ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                    field: "file_is_executable".to_owned(),
+                    field: "file_is_executable",
                     artifact_type: sqlite_entry.artifact_type,
                 }
             })?,
@@ -240,8 +240,8 @@ fn convert_artifact_metadata(
             let symlink = Symlink::new(
                 sqlite_entry
                     .symlink_target
-                    .ok_or_else(|| ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                        field: "symlink_target".to_owned(),
+                    .ok_or(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+                        field: "symlink_target",
                         artifact_type: sqlite_entry.artifact_type,
                     })?
                     .into_owned()
@@ -253,8 +253,8 @@ fn convert_artifact_metadata(
             let external_symlink = ExternalSymlink::new(
                 sqlite_entry
                     .symlink_target
-                    .ok_or_else(|| ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                        field: "symlink_target".to_owned(),
+                    .ok_or(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+                        field: "symlink_target",
                         artifact_type: sqlite_entry.artifact_type,
                     })?
                     .into_owned()
