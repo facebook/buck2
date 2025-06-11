@@ -1089,6 +1089,8 @@ def _mk_argsfiles(
     make_toolchain_argsfile()
 
     def make_compiler_type_argsfile():
+        compiler_type_flags = _add_compiler_type_flags(ctx, compiler_info.compiler_type, ext)
+
         if impl_params.anon_targets_allowed:
             compiler_type_flags_anon_target = ctx.actions.anon_target(_compiler_type_flags_anon_rule, {
                 "compiler_type": compiler_info.compiler_type,
@@ -1097,7 +1099,6 @@ def _mk_argsfiles(
             })
             compiler_type_argsfile_artifact = compiler_type_flags_anon_target.artifact("argsfile")
         else:
-            compiler_type_flags = _add_compiler_type_flags(ctx, compiler_info.compiler_type, ext)
             compiler_type_argsfile_artifact = mk_argsfile(
                 ctx,
                 filename_prefix + "compiler_type_args",
@@ -1106,6 +1107,7 @@ def _mk_argsfiles(
                 is_xcode_argsfile,
             )
         argsfiles.append(compiler_type_argsfile_artifact)
+        args_list.append(compiler_type_flags)
 
     make_compiler_type_argsfile()
 
