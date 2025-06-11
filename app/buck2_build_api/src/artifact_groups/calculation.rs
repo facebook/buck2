@@ -441,7 +441,7 @@ async fn path_artifact_value(
                     },
                 )
                 .await?
-                .unwrap_or(false);
+                .unwrap_or(true);
             // In the case where this is a source artifact like `dir/link/foo`, where the symlink is
             // actually at `link`, `ArtifactValue` doesn't have a representation for the kind of
             // thing that'd require, so we read through the symlink instead. We could enhance
