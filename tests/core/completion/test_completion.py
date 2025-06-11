@@ -138,12 +138,30 @@ completion_test(
     name="test_completes_simple_partial_directory",
     input="build d",
     expected=["dir1/", "dir1:", "dir2/"],
+    shells=["zsh", "fish"],
+)
+
+completion_test(
+    name="test_completes_simple_partial_directory",
+    input="build d",
+    # On bash & mac, there's no way to disable sorting
+    expected=["dir1/", "dir1:", "dir2/"] if IS_LINUX else ["dir1:", "dir1/", "dir2/"],
+    shells=["bash"],
 )
 
 completion_test(
     name="test_completes_simple_directory",
     input="build dir",
     expected=["dir1/", "dir1:", "dir2/"],
+    shells=["zsh", "fish"],
+)
+
+completion_test(
+    name="test_completes_simple_directory",
+    input="build dir",
+    # On bash & mac, there's no way to disable sorting
+    expected=["dir1/", "dir1:", "dir2/"] if IS_LINUX else ["dir1:", "dir1/", "dir2/"],
+    shells=["bash"],
 )
 
 completion_test(
