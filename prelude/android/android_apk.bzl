@@ -74,6 +74,9 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
 
     install_info = get_install_info(ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info, definitely_has_native_libs = definitely_has_native_libs)
 
+    classpath = [dep.jar for dep in java_packaging_deps if dep.jar]
+    sub_targets["classpath"] = [DefaultInfo(default_output = ctx.actions.write("classpath.txt", classpath), other_outputs = classpath)]
+
     return [
         AndroidApkInfo(
             apk = output_apk,
@@ -98,7 +101,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         install_info,
         TemplatePlaceholderInfo(
             keyed_variables = {
-                "classpath": cmd_args([dep.jar for dep in java_packaging_deps if dep.jar], delimiter = get_path_separator_for_exec_os(ctx)),
+                "classpath": cmd_args(classpath, delimiter = get_path_separator_for_exec_os(ctx)),
                 "classpath_including_targets_with_no_output": cmd_args([dep.output_for_classpath_macro for dep in java_packaging_deps], delimiter = get_path_separator_for_exec_os(ctx)),
             },
         ),
