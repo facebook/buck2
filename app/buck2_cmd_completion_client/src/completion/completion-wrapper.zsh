@@ -54,7 +54,8 @@ __buck2_add_target_completions()
         completions+="$REPLY"
     done < <("${_BUCK_COMPLETE_BIN[@]}" complete --target="$1" 2>/dev/null)
 
-    compadd -S '' -- "${completions[@]}"
+    # Note: `-J targets` is needed as otherwise `-o nosort` is silently ignored
+    compadd -S '' -J targets -o nosort -- "${completions[@]}"
 }
 
 __buck2_completions_queued()
