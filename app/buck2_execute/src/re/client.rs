@@ -596,6 +596,13 @@ impl RemoteExecutionClientImpl {
                                     as i64,
                                 ..Default::default()
                             }),
+                            destination_path_hint: Some(
+                                re_config
+                                    .buck_out_path
+                                    .to_str()
+                                    .buck_error_context("invalid destination path")?
+                                    .to_owned(),
+                            ),
                             sync_copy_policy: match static_metadata
                                 .shared_casd_copy_policy
                                 .clone()
