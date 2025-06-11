@@ -74,7 +74,7 @@ def _extract_versions(constraints):
     Convert v1-style version constraints to a v2-compatible config settings.
 
     The constraints are normally of the form:
-    `{"//third-party-buck/platform*/build/python:__project__": "3.8"}`.
+    `{"python": "3.8"}`.
     """
 
     versions = {}
@@ -82,13 +82,7 @@ def _extract_versions(constraints):
     # Since the constraints will be duplicated for each fbcode "platform", do
     # some initial work to de-duplicate them here, by extracting just the
     # project and version and verify we get just a single reduced result.
-    for target, version in constraints.items():
-        if target.startswith("fbcode//") or target.startswith("//"):
-            base, name = target.split(":")
-            expect(name == "__project__", name)
-            project = paths.basename(base)
-        else:
-            project = target
+    for project, version in constraints.items():
         expect(project not in versions or version == versions[project])
         versions[project] = version
 
