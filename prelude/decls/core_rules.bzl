@@ -398,6 +398,9 @@ export_file = prelude_rule(
                 The name which the file will be called if another rule depends on it instead of the name it
                  already has.
             """),
+            "executable_bit_override": attrs.option(attrs.bool(), default = None, doc = """
+                Override the executable bit of the file. If not set, the executable bit is preserved.
+            """),
             "mode": attrs.option(attrs.enum(ExportFileDescriptionMode), default = None, doc = """
                 How files are referenced internally in buck.
                  If set to 'copy', then a full copy will be made into the new location in buck-out.

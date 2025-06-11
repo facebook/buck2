@@ -13,9 +13,11 @@ def export_file_impl(ctx: AnalysisContext) -> list[DefaultInfo]:
 
     if copy:
         dest = ctx.label.name if ctx.attrs.out == None else ctx.attrs.out
-        output = ctx.actions.copy_file(dest, ctx.attrs.src)
+        output = ctx.actions.copy_file(dest, ctx.attrs.src, executable_bit_override = ctx.attrs.executable_bit_override)
     elif ctx.attrs.out != None:
         fail("export_file does not allow specifying `out` without also specifying `mode = 'copy'`")
+    elif ctx.attrs.executable_bit_override != None:
+        fail("export_file does not allow specifying `executable_bit_override` without also specifying `mode = 'copy'`")
     else:
         output = ctx.attrs.src
     return [DefaultInfo(default_output = output)]
