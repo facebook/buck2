@@ -179,6 +179,7 @@ rustc-hash = "2.1.0"
 rustls = "0.21.0"
 rustls-native-certs = { package = "rustls-native-certs", version = "0.6.2" }
 rustls-pemfile = { package = "rustls-pemfile", version = "1.0.0" }
+rustls-pki-types = { version = "1.0", features = ["alloc", "std"] }
 rustyline = "11.0"
 scopeguard = "1.0.0"
 sequence_trie = "0.3.6"
