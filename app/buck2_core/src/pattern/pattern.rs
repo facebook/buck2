@@ -379,6 +379,11 @@ impl<T: PatternType> Display for ParsedPattern<T> {
     }
 }
 
+pub struct ParsedPatternWithModifiers<T: PatternType> {
+    pub parsed_pattern: ParsedPattern<T>,
+    pub modifiers: Option<Vec<String>>,
+}
+
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Allocative)]
 pub enum ParsedPatternPredicate<T: PatternType> {
     Any,
