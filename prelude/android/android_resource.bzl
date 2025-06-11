@@ -14,12 +14,16 @@ load(":android_toolchain.bzl", "AndroidToolchainInfo")
 
 JAVA_PACKAGE_FILENAME = "java_package.txt"
 
-def _convert_to_artifact_dir(ctx: AnalysisContext, attr: [Dependency, dict, Artifact, None], attr_name: str) -> Artifact | None:
+def _convert_to_artifact_dir(
+        ctx: AnalysisContext,
+        attr: [Dependency, dict, Artifact, None],
+        attr_name: str,
+        uses_experimental_content_based_path_hashing: bool) -> Artifact | None:
     if isinstance(attr, Dependency):
         expect(len(attr[DefaultInfo].default_outputs) == 1, "Expect one default output from build dep of attr {}!".format(attr_name))
         return attr[DefaultInfo].default_outputs[0]
     elif type(attr) == "dict":
-        return None if len(attr) == 0 else ctx.actions.symlinked_dir(attr_name, attr, uses_experimental_content_based_path_hashing = True)
+        return None if len(attr) == 0 else ctx.actions.symlinked_dir(attr_name, attr, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
     else:
         return attr
 
@@ -32,8 +36,8 @@ def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
     default_output = None
 
-    res = _convert_to_artifact_dir(ctx, ctx.attrs.res, "res")
-    assets = _convert_to_artifact_dir(ctx, ctx.attrs.assets, "assets")
+    res = _convert_to_artifact_dir(ctx, ctx.attrs.res, "res", uses_experimental_content_based_path_hashing = True)
+    assets = _convert_to_artifact_dir(ctx, ctx.attrs.assets, "assets", uses_experimental_content_based_path_hashing = False)
 
     if res:
         aapt2_compile_output = aapt2_compile(ctx, res, ctx.attrs._android_toolchain[AndroidToolchainInfo])
