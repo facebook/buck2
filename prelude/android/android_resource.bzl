@@ -36,7 +36,7 @@ def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
     default_output = None
 
-    res = _convert_to_artifact_dir(ctx, ctx.attrs.res, "res", uses_experimental_content_based_path_hashing = True)
+    res = _convert_to_artifact_dir(ctx, ctx.attrs.res, "res", uses_experimental_content_based_path_hashing = False)
     assets = _convert_to_artifact_dir(ctx, ctx.attrs.assets, "assets", uses_experimental_content_based_path_hashing = False)
 
     if res:
