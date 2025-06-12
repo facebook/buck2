@@ -66,6 +66,7 @@ PythonToolchainInfo = provider(
         "strip_libpar": provider_field(typing.Any, default = None),
         "make_source_db": provider_field(typing.Any, default = None),
         "native_library_runtime_paths": provider_field(list[str], default = []),
+        "native_library_env_var": provider_field(str | None, default = None),
         "make_source_db_no_deps": provider_field(typing.Any, default = None),
         "make_py_package_inplace": provider_field(typing.Any, default = None),
         "make_py_package_live": provider_field(typing.Any, default = None),

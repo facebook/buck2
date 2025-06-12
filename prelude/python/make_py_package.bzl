@@ -541,6 +541,9 @@ def _make_py_package_impl(
 
         bootstrap = cmd_args(python_toolchain.make_py_package_inplace)
         bootstrap.add(bootstrap_args)
+        if python_toolchain.native_library_env_var != None:
+            bootstrap.add(cmd_args(python_toolchain.native_library_env_var, format = "--native-libs-env-var={}"))
+
         if ctx.attrs.runtime_env:
             for k, v in ctx.attrs.runtime_env.items():
                 bootstrap.add(cmd_args(["--runtime_env", "{}={}".format(k, v)]))
