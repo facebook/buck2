@@ -124,6 +124,26 @@ def _rewrite_dependency_file(command):
         f.write("\n")
 
 
+def _get_output_file_map(args):
+    try:
+        i = args.index("-output-file-map")
+        filename = args[i + 1]
+    except (ValueError, IndexError):
+        raise RuntimeError("Failed to find -output-file-map in args")
+
+    with open(filename) as f:
+        return json.load(f)
+
+
+def _get_serialized_diagnostics_path(args):
+    output_file_map = _get_output_file_map(args)
+    module_entries = output_file_map.get("", {})
+    if "diagnostics" in module_entries:
+        return module_entries["diagnostics"]
+    else:
+        raise RuntimeError("Failed to find diagnostics in output file map")
+
+
 def _parse_wrapper_args(
     allargs: list[str],
 ) -> tuple[list[str], argparse.ArgumentParser]:
@@ -149,16 +169,34 @@ def _parse_wrapper_args(
         help="Used to ignore errors during index store generation",
     )
     parser.add_argument(
+        "-json-error-output-path",
+        help="Path to write error output in JSON format",
+    )
+    parser.add_argument(
         "-remove-module-prefixes",
         action="store_true",
         help="Hack to remove module prefixes from swiftinterface output",
+    )
+    parser.add_argument(
+        "-serialized-diagnostics-to-json",
+        help="Path to serialized diagnostics to JSON transformer",
     )
     parser.add_argument(
         "-skip-incremental-outputs",
         action="store_true",
         help="Hack to skip writing incremental outputs to avoid cache invalidation",
     )
-    return driver_args, parser.parse_args(wrapper_args)
+    parsed_args = parser.parse_args(wrapper_args)
+
+    if (
+        parsed_args.json_error_output_path
+        and not parsed_args.serialized_diagnostics_to_json
+    ):
+        raise RuntimeError(
+            "-json-error-output-path requires -serialized-diagnostics-to-json to transform the serialized diagnostics."
+        )
+
+    return driver_args, parsed_args
 
 
 def main():
@@ -219,9 +257,27 @@ def main():
     print(result.stdout, file=sys.stdout, end="")
     print(result.stderr, file=sys.stderr, end="")
 
+    if wrapper_args.json_error_output_path:
+        with open(wrapper_args.json_error_output_path, "w") as json_out:
+            # Don't bother running the diagnostics deserializer if compilation
+            # succeeded as the output will never be used.
+            if result.returncode == 0:
+                json_out.write("[]")
+            else:
+                # Get the serialized diagnostics output from the output file map.
+                serialized_diags = _get_serialized_diagnostics_path(command)
+
+                # Convert the diagnostics to JSON for the Buck error handler.
+                subprocess.run(
+                    [wrapper_args.serialized_diagnostics_to_json, serialized_diags],
+                    stdout=json_out,
+                    check=True,
+                )
+
     if result.returncode == 0:
-        # The Swift compiler will return an exit code of 0 and warn when it cannot write auxiliary files.
-        # Detect and error so that the action is not cached.
+        # The Swift compiler will return an exit code of 0 and warn when it
+        # cannot write auxiliary files. Detect and error so that the action
+        # is not cached.
         failed_write = (
             _FILE_WRITE_FAILURE_MARKER in result.stdout
             or _FILE_WRITE_FAILURE_MARKER in result.stderr
@@ -236,9 +292,9 @@ def main():
         if "-emit-dependencies" in command:
             _rewrite_dependency_file(command)
 
-    # https://github.com/swiftlang/swift/issues/56573
-    if wrapper_args.remove_module_prefixes:
-        _remove_swiftinterface_module_prefixes(command)
+        # https://github.com/swiftlang/swift/issues/56573
+        if wrapper_args.remove_module_prefixes:
+            _remove_swiftinterface_module_prefixes(command)
 
     if wrapper_args.ignore_errors:
         sys.exit(0)

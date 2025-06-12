@@ -14,6 +14,11 @@ def add_dependencies_output(ctx: AnalysisContext, output_file_map: dict, cmd: cm
     map["emit-module-dependencies"] = cmd_args(tagged_dep_file, delimiter = "")
     cmd.add(cmd_args("-emit-dependencies", hidden = [tagged_dep_file]))
 
+def add_serialized_diagnostics_output(output_file_map: dict, cmd: cmd_args, diagnostics_output: OutputArtifact) -> None:
+    map = output_file_map.setdefault("", {})
+    map["diagnostics"] = cmd_args(diagnostics_output, delimiter = "", format = "{}.dia")
+    cmd.add(cmd_args("-serialize-diagnostics", hidden = [diagnostics_output]))
+
 def add_output_file_map_flags(ctx: AnalysisContext, output_file_map: dict, cmd: cmd_args, category: str) -> Artifact:
     output_file_map_path = "{}_swift_{}_output_file_map.json".format(ctx.attrs.name, category)
     output_file_map_json = ctx.actions.write_json(

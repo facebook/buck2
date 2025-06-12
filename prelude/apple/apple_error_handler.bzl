@@ -7,6 +7,7 @@
 
 load("@prelude//apple:apple_error_handler_types.bzl", "AppleErrorCategory")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_META_STDERR_ERROR_CATEGORIES")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 
 _APPLE_STDERR_ERROR_CATEGORIES = [
 
@@ -70,3 +71,6 @@ def apple_build_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     # @oss-disable[end= ]: _add_category_strings(ctx, lowercase_stderr, errors, APPLE_META_STDERR_ERROR_CATEGORIES)
 
     return errors
+
+def apple_error_deserializer(ctx: AnalysisContext) -> RunInfo | None:
+    return get_cxx_toolchain_info(ctx).binary_utilities_info.custom_tools.get("serialized-diags-to-json", None)

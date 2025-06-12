@@ -12,7 +12,7 @@ load(
     "make_artifact_tset",
     "project_artifacts",
 )
-load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
+load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler", "apple_error_deserializer")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name")
 load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
@@ -57,7 +57,7 @@ load(
     "should_build_swift_incrementally",
 )
 load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
-load(":swift_output_file_map.bzl", "add_dependencies_output", "add_output_file_map_flags")
+load(":swift_output_file_map.bzl", "add_dependencies_output", "add_output_file_map_flags", "add_serialized_diagnostics_output")
 load(":swift_pcm_compilation.bzl", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
 load(
     ":swift_pcm_compilation_types.bzl",
@@ -757,6 +757,9 @@ def _compile_with_argsfile(
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
 
+    # Hack to make output_file_map mutable when the default is used.
+    output_file_map = output_file_map or {}
+
     # Assemble argsfile with compiler flags. We don't use `with_inputs` in the
     # write action as this strips tagged values and breaks dependency file
     # input tracking.
@@ -770,6 +773,21 @@ def _compile_with_argsfile(
     swift_files, _ = ctx.actions.write(extension + "_files", swift_quoted_files, allow_args = True)
     swift_files_cmd_form = cmd_args(swift_files, format = "@{}", delimiter = "", hidden = swift_quoted_files)
     cmd.add(swift_files_cmd_form)
+
+    # If the toolchain supports serialized error output, add the output files
+    # to the output file map so we can deserialize the errors.
+    error_deserializer = apple_error_deserializer(ctx)
+    error_outputs = []
+    if error_deserializer:
+        json_error_output = ctx.actions.declare_output("__diagnostics__/{}_{}.json".format(ctx.attrs.name, category_prefix)).as_output()
+        error_outputs.append(json_error_output)
+        add_serialized_diagnostics_output(output_file_map, cmd, json_error_output)
+        cmd.add(
+            "-Xwrapper",
+            cmd_args(error_deserializer, format = "-serialized-diagnostics-to-json={}"),
+            "-Xwrapper",
+            cmd_args(json_error_output, format = "-json-error-output-path={}"),
+        )
 
     # If an output file map is provided, serialize it and add to the command.
     if output_file_map:
@@ -809,6 +827,7 @@ def _compile_with_argsfile(
         # When building incrementally, we need to preserve local state between invocations.
         no_outputs_cleanup = build_swift_incrementally,
         error_handler = apple_build_error_handler,
+        outputs_for_error_handler = error_outputs,
         weight = num_threads,
         allow_cache_upload = allow_cache_upload,
         local_only = local_only,
