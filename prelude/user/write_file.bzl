@@ -26,6 +26,7 @@ def _impl(ctx: AnalysisContext):
         ctx.attrs.out,
         content,
         is_executable = ctx.attrs.is_executable,
+        uses_experimental_content_based_path_hashing = ctx.attrs.uses_experimental_content_based_path_hashing,
     )
 
     providers = [DefaultInfo(default_output = output)]
@@ -45,6 +46,7 @@ registration_spec = RuleRegistrationSpec(
         "labels": attrs.list(attrs.string(), default = []),
         "newline": attrs.enum(["auto", "unix", "windows"], default = "auto"),
         "out": attrs.string(),
+        "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
         "_auto_newline": attrs.default_only(
             attrs.string(
                 default = select({

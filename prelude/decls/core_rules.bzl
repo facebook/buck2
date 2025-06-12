@@ -408,6 +408,7 @@ export_file = prelude_rule(
                  However, this mode does not work across repositories or if the 'out' property is set.
                  For read-only operations, 'reference' can be more performant.
             """),
+            "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
