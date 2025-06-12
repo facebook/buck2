@@ -15,10 +15,6 @@ const baseRedirects = [
       from: '/docs/why',
     },
     {
-      to: '/docs/about/getting_started',
-      from: '/docs/getting_started',
-    },
-    {
       to: '/docs/about/benefits/compared_to_buck1',
       from: '/docs/benefits',
     },

@@ -55,6 +55,10 @@ export const sidebars: SidebarsConfig = {
     {
         type: 'category',
         label: 'Getting Started',
+        link: {
+          type: 'doc',
+          id: 'getting_started/index',
+        },
         items: [
             'getting_started/what_is_buck2',
             'getting_started/install',
