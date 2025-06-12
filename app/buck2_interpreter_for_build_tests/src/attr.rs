@@ -114,7 +114,7 @@ fn attr_coercer_coerces() -> buck2_error::Result<()> {
     let package = PackageLabel::new(
         CellName::testing_new("root"),
         CellRelativePath::unchecked_new("foo"),
-    );
+    )?;
     let enclosing_package = (package.dupe(), PackageListing::testing_empty());
     let coercer_ctx = BuildAttrCoercionContext::new_with_package(
         cell_resolver,
@@ -290,7 +290,7 @@ fn coercing_src_to_path_works() -> buck2_error::Result<()> {
     let package = PackageLabel::new(
         CellName::testing_new("root"),
         CellRelativePath::unchecked_new("foo/bar"),
-    );
+    )?;
     let package_ctx = BuildAttrCoercionContext::new_with_package(
         cell_resolver.dupe(),
         cell_alias_resolver.dupe(),

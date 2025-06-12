@@ -606,13 +606,13 @@ async fn top_level_imports_by_build_file<'c>(
         .iter()
         .map(|file| async move {
             if let Some(parent) = file.parent() {
-                (
-                    file.dupe(),
-                    delegate
-                        .ctx()
-                        .get_interpreter_results(PackageLabel::from_cell_path(parent))
-                        .await,
-                )
+                match PackageLabel::from_cell_path(parent) {
+                    Ok(label) => (
+                        file.dupe(),
+                        delegate.ctx().get_interpreter_results(label).await,
+                    ),
+                    Err(e) => (file.dupe(), Err(e)),
+                }
             } else {
                 (
                     file.dupe(),

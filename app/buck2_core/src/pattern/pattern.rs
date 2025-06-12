@@ -972,12 +972,12 @@ where
         if crossed_path != parsed_pattern.cell_path() {
             let new_pattern = match parsed_pattern {
                 ParsedPattern::Target(_, target_name, extra) => ParsedPattern::Target(
-                    PackageLabel::from_cell_path(crossed_path),
+                    PackageLabel::from_cell_path(crossed_path)?,
                     target_name.dupe(),
                     extra.clone(),
                 ),
                 ParsedPattern::Package(_) => {
-                    ParsedPattern::Package(PackageLabel::from_cell_path(crossed_path))
+                    ParsedPattern::Package(PackageLabel::from_cell_path(crossed_path)?)
                 }
                 ParsedPattern::Recursive(_) => ParsedPattern::Recursive(crossed_path.to_owned()),
             };
@@ -1072,12 +1072,12 @@ where
     let parsed_pattern = match pattern {
         PatternData::Recursive { .. } => ParsedPattern::Recursive(path.into_owned()),
         PatternData::AllTargetsInPackage { .. } => {
-            ParsedPattern::Package(PackageLabel::from_cell_path(path.as_ref()))
+            ParsedPattern::Package(PackageLabel::from_cell_path(path.as_ref())?)
         }
         PatternData::TargetInPackage {
             target_name, extra, ..
         } => ParsedPattern::Target(
-            PackageLabel::from_cell_path(path.as_ref()),
+            PackageLabel::from_cell_path(path.as_ref())?,
             target_name,
             extra,
         ),
@@ -2063,19 +2063,23 @@ mod tests {
         let pkg1 = PackageLabel::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package/path"),
-        );
+        )
+        .unwrap();
         let pkg2 = PackageLabel::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package"),
-        );
+        )
+        .unwrap();
         let pkg3 = PackageLabel::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package2"),
-        );
+        )
+        .unwrap();
         let pkg_in_different_cell = PackageLabel::new(
             CellName::testing_new("cell1"),
             CellRelativePath::unchecked_new("package/path"),
-        );
+        )
+        .unwrap();
 
         let target_in_pkg1 = TargetLabel::new(pkg1.dupe(), TargetNameRef::new("target")?);
         let another_target_in_pkg1 = TargetLabel::new(pkg1, TargetNameRef::new("target2")?);

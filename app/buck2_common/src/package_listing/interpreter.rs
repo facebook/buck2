@@ -58,7 +58,7 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
                     .await?
                     .included;
                 if find_buildfile(&buildfile_candidates, &listing).is_some() {
-                    return Ok(PackageLabel::from_cell_path(path));
+                    return PackageLabel::from_cell_path(path);
                 }
             }
         }
@@ -87,7 +87,7 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
                     .await?
                     .included;
                 if find_buildfile(&buildfile_candidates, &listing).is_some() {
-                    packages.push(PackageLabel::from_cell_path(path));
+                    packages.push(PackageLabel::from_cell_path(path)?);
                 }
             }
             Ok(packages)

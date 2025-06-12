@@ -167,7 +167,7 @@ pub(crate) async fn targets_streaming(
                 // TODO(nga): we should cross cell boundary:
                 //   This is what we do when we evaluate `PACKAGE` files.
                 //   https://fburl.com/code/qxl59b64
-                path = x.parent();
+                path = x.parent()?;
             }
         }
     }

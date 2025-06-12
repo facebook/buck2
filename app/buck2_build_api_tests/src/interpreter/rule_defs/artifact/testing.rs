@@ -87,7 +87,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         let package = PackageLabel::new(
             ctx.build_file_cell().name(),
             CellRelativePath::from_path(package).unwrap(),
-        );
+        )?;
         let path = SourcePath::new(package, ArcS::from(PackageRelativePath::new(path)?));
         Ok(StarlarkArtifact::new(SourceArtifact::new(path).into()))
     }

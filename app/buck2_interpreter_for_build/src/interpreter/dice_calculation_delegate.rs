@@ -289,7 +289,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             }
             Some(parent) => {
                 let parent_cell = cell_resolver.get_cell_path(parent)?;
-                self.eval_package_file(PackageLabel::from_cell_path(parent_cell.as_ref()))
+                self.eval_package_file(PackageLabel::from_cell_path(parent_cell.as_ref())?)
                     .await
             }
         }

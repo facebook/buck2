@@ -46,7 +46,7 @@ async fn get_cfg_constructor_uncached(
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<Option<Arc<dyn CfgConstructorImpl>>> {
     let root_cell = ctx.get_cell_resolver().await?.root_cell();
-    let package_label = PackageLabel::new(root_cell, CellRelativePath::empty());
+    let package_label = PackageLabel::new(root_cell, CellRelativePath::empty())?;
     // This returns empty super package if `PACKAGE` file does not exist.
     let super_package = ctx.eval_package_file(package_label).await?;
     Ok(super_package.cfg_constructor().duped())

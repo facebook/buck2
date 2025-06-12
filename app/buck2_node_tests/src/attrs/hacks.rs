@@ -26,7 +26,7 @@ fn stringifies_correctly() -> buck2_error::Result<()> {
     let package = PackageLabel::new(
         CellName::testing_new("root"),
         CellRelativePath::new(ForwardRelativePath::new("foo/bar").unwrap()),
-    );
+    )?;
 
     assert_eq!(
         "Hello, world!".to_owned(),

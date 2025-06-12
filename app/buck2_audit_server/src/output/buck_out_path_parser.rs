@@ -258,7 +258,7 @@ fn get_target_label<'v>(
     path: CellPath,
 ) -> buck2_error::Result<TargetLabel> {
     let target_name = get_target_name(iter)?;
-    let package = PackageLabel::from_cell_path(path.as_ref());
+    let package = PackageLabel::from_cell_path(path.as_ref())?;
     let target = TargetNameRef::new(target_name.as_str())?;
     let target_label = TargetLabel::new(package.dupe(), target);
     Ok(target_label)
@@ -455,7 +455,8 @@ mod tests {
         let pkg = PackageLabel::new(
             CellName::testing_new("bar"),
             CellRelativePath::unchecked_new("path/to/target"),
-        );
+        )
+        .unwrap();
         let expected_target_label =
             TargetLabel::new(pkg, TargetNameRef::new("target_name").unwrap());
         let expected_cell_path = CellPath::new(

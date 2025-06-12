@@ -227,7 +227,8 @@ impl TargetLabel {
                     <&ForwardRelativePath>::try_from(pattern_data.package_path())
                         .expect("must be valid path"),
                 ),
-            ),
+            )
+            .unwrap(),
             target_name,
         )
     }

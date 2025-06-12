@@ -507,7 +507,7 @@ mod tests {
         let pkg = PackageLabel::new(
             CellName::testing_new("foo"),
             CellRelativePath::unchecked_new("baz-package"),
-        );
+        )?;
         let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
         let cfg_target = target.configure(ConfigurationData::testing_new());
         let owner = BaseDeferredKey::TargetLabel(cfg_target);
@@ -580,7 +580,7 @@ mod tests {
         let pkg = PackageLabel::new(
             CellName::testing_new("foo"),
             CellRelativePath::unchecked_new("baz-package"),
-        );
+        )?;
         let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
         let cfg_target = target.configure(ConfigurationData::testing_new());
         let owner = BaseDeferredKey::TargetLabel(cfg_target);
@@ -679,7 +679,8 @@ mod tests {
         let pkg = PackageLabel::new(
             CellName::testing_new("foo"),
             CellRelativePath::unchecked_new("baz-package"),
-        );
+        )
+        .unwrap();
         let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
         let cfg_target = target.configure(ConfigurationData::testing_new());
         let category = CategoryRef::new("category").unwrap();
@@ -732,7 +733,8 @@ mod tests {
         let pkg = PackageLabel::new(
             CellName::testing_new("foo"),
             CellRelativePath::unchecked_new("baz-package"),
-        );
+        )
+        .unwrap();
         let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
         let cfg_target = target.configure(ConfigurationData::testing_new());
 
@@ -778,7 +780,7 @@ mod tests {
         let pkg = PackageLabel::new(
             CellName::testing_new("foo"),
             CellRelativePath::unchecked_new("baz-package"),
-        );
+        )?;
         let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
         let cfg_target = target.configure(ConfigurationData::testing_new());
         let providers = ProvidersName::Default.push(ProviderName::new_unchecked("bar/baz".into()));

@@ -251,7 +251,7 @@ impl CqueryUniverse {
             })
     }
 
-    pub fn owners(&self, path: &CellPath) -> Vec<ConfiguredTargetNode> {
+    pub fn owners(&self, path: &CellPath) -> buck2_error::Result<Vec<ConfiguredTargetNode>> {
         let mut nodes = Vec::new();
 
         // We lookup in all ancestors because we still have package boundary violations.
@@ -264,7 +264,7 @@ impl CqueryUniverse {
             // This does not leave this function, so we are probably fine.
             // We do it because the map is by `Package`,
             // and `BTreeMap` does not allow lookup by equivalent key.
-            let package = PackageLabel::from_cell_path(package);
+            let package = PackageLabel::from_cell_path(package)?;
             let package_data = match self.data.data().targets.get(&package) {
                 None => continue,
                 Some(package_data) => package_data,
@@ -275,7 +275,7 @@ impl CqueryUniverse {
                 }
             }
         }
-        nodes
+        Ok(nodes)
     }
 }
 

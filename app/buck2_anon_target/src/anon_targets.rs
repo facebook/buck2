@@ -276,7 +276,7 @@ impl AnonTargetKey {
                 PackageLabel::new(
                     cell,
                     CellRelativePath::new(<&ForwardRelativePath>::try_from(package)?),
-                ),
+                )?,
                 target_name.as_ref(),
             )),
             _ => Err(err().into()),
@@ -286,7 +286,7 @@ impl AnonTargetKey {
     fn create_name(rule_name: &str) -> buck2_error::Result<TargetLabel> {
         // TODO(nga): this creates non-existing cell reference.
         let cell_name = CellName::unchecked_new("anon")?;
-        let pkg = PackageLabel::new(cell_name, CellRelativePath::empty());
+        let pkg = PackageLabel::new(cell_name, CellRelativePath::empty())?;
         Ok(TargetLabel::new(pkg, TargetNameRef::new(rule_name)?))
     }
 

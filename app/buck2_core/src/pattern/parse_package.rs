@@ -36,7 +36,7 @@ pub fn parse_package(
         ForwardRelativePath::new(cell_relative).buck_error_context("Parsing package argument")?;
     let cell_relative = CellRelativePath::new(cell_relative);
 
-    Ok(PackageLabel::new(cell, cell_relative))
+    PackageLabel::new(cell, cell_relative)
 }
 
 #[cfg(test)]
