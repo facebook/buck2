@@ -64,9 +64,9 @@ def _add_category_strings(ctx: ActionErrorCtx, lowercase_stderr: str, errors: li
             errors.append(ctx.new_sub_error(category = "apple_" + error_category.category, message = error_category.message))
 
 def apple_build_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
-    lowercase_stderr = ctx.stderr.lower()
-
     errors = []
+
+    lowercase_stderr = ctx.stderr.lower()
     _add_category_strings(ctx, lowercase_stderr, errors, _APPLE_STDERR_ERROR_CATEGORIES)
     # @oss-disable[end= ]: _add_category_strings(ctx, lowercase_stderr, errors, APPLE_META_STDERR_ERROR_CATEGORIES)
 
@@ -74,3 +74,38 @@ def apple_build_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
 
 def apple_error_deserializer(ctx: AnalysisContext) -> RunInfo | None:
     return get_cxx_toolchain_info(ctx).binary_utilities_info.custom_tools.get("serialized-diags-to-json", None)
+
+def _valid_error(error: dict) -> bool:
+    return "path" in error and "line" in error and "message" in error and "severity" in error
+
+def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
+    errors = []
+    for val in ctx.output_artifacts.values():
+        for error_json in val.read_json():
+            if not _valid_error(error_json):
+                continue
+
+            location = ctx.new_error_location(
+                file = error_json["path"],
+                line = error_json["line"],
+            )
+            category = "swift_compiler_" + error_json["severity"]
+
+            # Swift serializes the category in the form:
+            # SendableClosureCaptures@https://docs.swift.org/compiler/documentation/diagnostics/sendable-closure-captures
+            if "@" in error_json.get("category", ""):
+                # Convert to markdown links for phabricator
+                components = error_json["category"].split("@")
+                postfix = " [{}]({})".format(components[0], components[1])
+            else:
+                postfix = ""
+
+            errors.append(
+                ctx.new_sub_error(
+                    category = category,
+                    message = error_json["message"] + postfix,
+                    locations = [location],
+                ),
+            )
+
+    return errors

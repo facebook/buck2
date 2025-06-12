@@ -12,7 +12,7 @@ load(
     "make_artifact_tset",
     "project_artifacts",
 )
-load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler", "apple_error_deserializer")
+load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler", "apple_error_deserializer", "swift_error_handler")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name")
 load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
@@ -826,7 +826,7 @@ def _compile_with_argsfile(
         identifier = identifier,
         # When building incrementally, we need to preserve local state between invocations.
         no_outputs_cleanup = build_swift_incrementally,
-        error_handler = apple_build_error_handler,
+        error_handler = swift_error_handler if error_deserializer else apple_build_error_handler,
         outputs_for_error_handler = error_outputs,
         weight = num_threads,
         allow_cache_upload = allow_cache_upload,
