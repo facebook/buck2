@@ -48,7 +48,7 @@ buck-resources = "1"
 bumpalo = { version = "3.14.0", features = ["allocator_api", "collections"] }
 byteorder = "1.4.3"
 bytes = "1.0"
-bytesize = "1.1.0"
+bytesize = "2.0"
 chrono = "0.4.28"
 clap = { package = "clap", version = "4.5.4", features = ["derive", "env", "string"] }
 clap-3 = { package = "clap", version = "3.2.24", features = ["derive", "env", "regex", "unicode", "wrap_help"] }
