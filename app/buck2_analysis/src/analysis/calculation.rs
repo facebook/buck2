@@ -103,6 +103,12 @@ impl Key for AnalysisKey {
         Ok(res)
     }
 
+    fn validity(x: &Self::Value) -> bool {
+        // Evaluation may have been cancelled at the starlark-eval level...
+        // TODO: "synchronous" starlark cancellations should cause "proper" cancellations at the dice layer
+        x.is_ok()
+    }
+
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
         // analysis result is not comparable
         // TODO consider if we want analysis result to be eq
