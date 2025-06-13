@@ -113,11 +113,13 @@ impl StarlarkEvaluatorProvider {
         }
         match cancellation.dupe() {
             CancellationPoller::None => {}
-            CancellationPoller::Context(c) => {
-                eval.set_check_cancelled(Box::new(|| c.is_cancellation_requested()))
+            CancellationPoller::Context(_c) => {
+                // TODO(S530607): disabled due to sev
+                // eval.set_check_cancelled(Box::new(|| c.is_cancellation_requested()))
             }
-            CancellationPoller::Observer(o) => {
-                eval.set_check_cancelled(Box::new(move || o.is_cancellation_requested()))
+            CancellationPoller::Observer(_o) => {
+                // TODO(S530607): disabled due to sev
+                // eval.set_check_cancelled(Box::new(move || o.is_cancellation_requested()))
             }
         }
 
