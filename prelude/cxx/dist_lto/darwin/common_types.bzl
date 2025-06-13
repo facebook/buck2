@@ -15,6 +15,7 @@ EagerBitcodeLinkData = record(
     input_object_file = Artifact,  # This may be a native object file or a bitcode file, we can't tell at this point
     output_index_shard_file = Artifact,
     plan = Artifact,
+    output_first_codegen_round_native_object_file = field([Artifact, None]),
     output_final_native_object_file = Artifact,
     merged_bc = field([Artifact, None]),
 )
@@ -25,6 +26,7 @@ LazyBitcodeLinkData = record(
     output_index_shard_file = Artifact,
     plan = Artifact,
     output_final_native_object_file = Artifact,
+    output_first_codegen_round_native_object_file = field([Artifact, None]),
     merged_bc = field([Artifact, None]),
     archive_start = bool,
     archive_end = bool,

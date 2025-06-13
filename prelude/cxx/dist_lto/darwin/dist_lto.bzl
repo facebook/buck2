@@ -71,11 +71,23 @@ def _sort_index_link_data(input_list: list[DThinLTOLinkData]) -> list[DThinLTOLi
 
     return force_loaded_archives + object_files + dynamic_libraries + regular_archives
 
+DoubleCodegenState = enum(
+    "disabled",
+    "first_round",
+    "second_round",
+)
+
+def create_output_first_codegen_round_native_object_file(ctx, name, double_codegen_enabled):
+    if double_codegen_enabled:
+        return ctx.actions.declare_output(name + ".opt.first_codegen_round.o")
+    return None
+
 def complete_distributed_link_with_expanded_archive_link_data(
         ctx: AnalysisContext,
         artifacts,
         outputs,
         common_opt_cmd: cmd_args,
+        double_codegen_enabled: bool,
         executable_link: bool,
         external_debug_info_container_directory: Artifact,
         extra_outputs,
@@ -154,6 +166,8 @@ def complete_distributed_link_with_expanded_archive_link_data(
                     if premerger_enabled:
                         merged_bc_output = ctx.actions.declare_output(name + ".merged.bc")
 
+                    output_first_codegen_round_native_object_file = create_output_first_codegen_round_native_object_file(ctx, name, double_codegen_enabled)
+
                     data = DThinLTOLinkData(
                         data_type = LinkDataType("eager_bitcode"),
                         link_data = EagerBitcodeLinkData(
@@ -162,6 +176,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
                             output_index_shard_file = index_shard_output,
                             plan = plan_output,
                             output_final_native_object_file = final_native_object_file_output,
+                            output_first_codegen_round_native_object_file = output_first_codegen_round_native_object_file,
                             merged_bc = merged_bc_output,
                         ),
                     )
@@ -177,6 +192,8 @@ def complete_distributed_link_with_expanded_archive_link_data(
                     if premerger_enabled:
                         merged_bc_output = ctx.actions.declare_output(name + ".merged.bc")
 
+                    output_first_codegen_round_native_object_file = create_output_first_codegen_round_native_object_file(ctx, name, double_codegen_enabled)
+
                     # The first member in a non force loaded virtual archive gets --start-lib prended on the command line
                     archive_start = (not linkable.link_whole) and virtual_archive_index == 0
                     archive_end = (not linkable.link_whole) and virtual_archive_index == len(linkable.archive.external_objects) - 1
@@ -188,6 +205,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
                             output_index_shard_file = index_shard_output,
                             plan = plan_output,
                             output_final_native_object_file = final_native_object_file_output,
+                            output_first_codegen_round_native_object_file = output_first_codegen_round_native_object_file,
                             merged_bc = merged_bc_output,
                             archive_start = archive_start,
                             archive_end = archive_end,
@@ -214,6 +232,8 @@ def complete_distributed_link_with_expanded_archive_link_data(
                     merged_bc_output = None
                     if premerger_enabled:
                         merged_bc_output = ctx.actions.declare_output(name + ".merged.bc")
+                    output_first_codegen_round_native_object_file = create_output_first_codegen_round_native_object_file(ctx, name, double_codegen_enabled)
+
                     raw_link_data.append(DThinLTOLinkData(
                         data_type = LinkDataType("lazy_bitcode"),
                         link_data = LazyBitcodeLinkData(
@@ -222,6 +242,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
                             output_index_shard_file = index_shard_output,
                             plan = plan_output,
                             output_final_native_object_file = final_native_object_file_output,
+                            output_first_codegen_round_native_object_file = output_first_codegen_round_native_object_file,
                             merged_bc = merged_bc_output,
                             archive_start = archive_start,
                             archive_end = archive_end,
@@ -278,12 +299,16 @@ def complete_distributed_link_with_expanded_archive_link_data(
     opt_argsfile = ctx.actions.declare_output(final_binary_out.basename + ".lto_opt_argsfile")
     ctx.actions.write(opt_argsfile.as_output(), common_opt_cmd, allow_args = True)
 
-    def optimize_object(ctx: AnalysisContext, artifacts, outputs, bitcode_link_data):
+    def optimize_object(ctx: AnalysisContext, artifacts, outputs, bitcode_link_data, double_codegen_state: DoubleCodegenState, merged_cgdata: Artifact | None):
         output_index_shard_file = bitcode_link_data.output_index_shard_file
         input_object_file = bitcode_link_data.input_object_file
         merged_bc = bitcode_link_data.merged_bc
         name = bitcode_link_data.name
-        output_final_native_object_file = bitcode_link_data.output_final_native_object_file
+        if double_codegen_state == DoubleCodegenState("first_round"):
+            output_native_object_file = bitcode_link_data.output_first_codegen_round_native_object_file
+        else:
+            output_native_object_file = bitcode_link_data.output_final_native_object_file
+
         plan = bitcode_link_data.plan
 
         optimization_plan = ObjectFileOptimizationPlan(**artifacts[plan].read_json())
@@ -294,7 +319,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
         # loaded by the indexing phase, or is absorbed by another module,
         # there is no point optimizing it.
         if not optimization_plan.loaded_by_linker or not optimization_plan.is_bitcode or optimization_plan.merge_state == BitcodeMergeState("ABSORBED").value:
-            ctx.actions.write(outputs[output_final_native_object_file].as_output(), "")
+            ctx.actions.write(outputs[output_native_object_file].as_output(), "")
             return
 
         opt_cmd = cmd_args(lto_opt)
@@ -313,6 +338,10 @@ def complete_distributed_link_with_expanded_archive_link_data(
         opt_cmd.add(cmd_args(hidden = common_opt_cmd))
         opt_cmd.add("--args", opt_argsfile)
         opt_cmd.add("--compiler", cxx_toolchain.cxx_compiler_info.compiler)
+        if double_codegen_state == DoubleCodegenState("first_round"):
+            opt_cmd.add("--generate-cgdata")
+        elif double_codegen_state == DoubleCodegenState("second_round"):
+            opt_cmd.add("--read-cgdata", merged_cgdata)
 
         imported_input_bitcode_files = [sorted_index_link_data[idx].link_data.input_object_file for idx in optimization_plan.imports]
 
@@ -323,22 +352,80 @@ def complete_distributed_link_with_expanded_archive_link_data(
         opt_cmd.add(cmd_args(hidden = imported_input_bitcode_files))
         projected_opt_cmd = cmd_args(ctx.actions.tset(IdentityTSet, value = opt_cmd).project_as_args("identity"))
 
-        # We have to add outputs after wrapping the cmd_args in a projection
-        projected_opt_cmd.add("--out", outputs[output_final_native_object_file].as_output())
-        ctx.actions.run(projected_opt_cmd, category = make_cat("thin_lto_opt_object"), identifier = name)
+        if double_codegen_state == DoubleCodegenState("first_round"):
+            category_string = "thin_lto_opt_object_first_round"
+        elif double_codegen_state == DoubleCodegenState("second_round"):
+            category_string = "thin_lto_opt_object_second_round"
+        else:
+            category_string = "thin_lto_opt_object"
 
-    # We declare a separate dynamic_output for every object file. It would
-    # maybe be simpler to have a single dynamic_output that produced all the
-    # opt actions, but an action needs to re-run whenever the analysis that
-    # produced it re-runs. And so, with a single dynamic_output, we'd need to
-    # re-run all actions when any of the plans changed.
-    def dynamic_optimize(bitcode_link_data):
-        ctx.actions.dynamic_output(dynamic = [bitcode_link_data.plan], inputs = [], outputs = [bitcode_link_data.output_final_native_object_file.as_output()], f = lambda ctx, artifacts, outputs: optimize_object(ctx, artifacts, outputs, bitcode_link_data))
+        # We have to add outputs after wrapping the cmd_args in a projection
+        projected_opt_cmd.add("--out", outputs[output_native_object_file].as_output())
+        ctx.actions.run(projected_opt_cmd, category = make_cat(category_string), identifier = name)
+
+    def dynamic_optimize(bitcode_link_data, double_codegen_state: DoubleCodegenState, merged_cgdata: Artifact | None = None):
+        if double_codegen_state == DoubleCodegenState("first_round"):
+            optimize_object_outputs = [
+                bitcode_link_data.output_first_codegen_round_native_object_file.as_output(),
+            ]
+        else:
+            optimize_object_outputs = [bitcode_link_data.output_final_native_object_file.as_output()]
+        ctx.actions.dynamic_output(
+            dynamic = [bitcode_link_data.plan],
+            inputs = [],
+            outputs = optimize_object_outputs,
+            f = lambda ctx, artifacts, outputs: optimize_object(
+                ctx,
+                artifacts,
+                outputs,
+                bitcode_link_data,
+                double_codegen_state = double_codegen_state,
+                merged_cgdata = merged_cgdata,
+            ),
+        )
 
     for artifact in sorted_index_link_data:
-        link_data = artifact.link_data
         if artifact.data_type == LinkDataType("eager_bitcode") or artifact.data_type == LinkDataType("lazy_bitcode"):
-            dynamic_optimize(link_data)
+            double_codegen_state = DoubleCodegenState("first_round") if double_codegen_enabled else DoubleCodegenState("disabled")
+            dynamic_optimize(artifact.link_data, double_codegen_state = double_codegen_state, merged_cgdata = None)
+
+    def merge_cgdata(ctx: AnalysisContext, artifacts, outputs, output_merged_cgdata_file):
+        merge_cmd = cmd_args(cxx_toolchain.llvm_cgdata)
+        merge_args = cmd_args("--merge")
+        for artifact in sorted_index_link_data:
+            if artifact.data_type == LinkDataType("eager_bitcode") or artifact.data_type == LinkDataType("lazy_bitcode"):
+                optimization_plan = ObjectFileOptimizationPlan(**artifacts[artifact.link_data.plan].read_json())
+                if not optimization_plan.loaded_by_linker or not optimization_plan.is_bitcode or optimization_plan.merge_state == BitcodeMergeState("ABSORBED").value:
+                    continue
+
+                # Some targets have spaces in them, we wrap in single quotes to make sure they are treated as single files
+                merge_args.add(cmd_args(artifact.link_data.output_first_codegen_round_native_object_file, quote = "shell"))
+        merge_args.add("--output", outputs[output_merged_cgdata_file].as_output())
+        merge_cmd.add(at_argfile(
+            actions = ctx.actions,
+            name = final_binary_out.basename + ".llvm-cgdata-argsfile",
+            args = merge_args,
+        ))
+        ctx.actions.run(merge_cmd, category = make_cat("thin_lto_merge_cgdata"), identifier = link_options.identifier)
+
+    if double_codegen_enabled:
+        merged_cgdata_file = ctx.actions.declare_output(final_binary_out.basename + ".cgdata")
+        ctx.actions.dynamic_output(
+            dynamic = [artifact.link_data.plan for artifact in sorted_index_link_data if artifact.data_type == LinkDataType("lazy_bitcode") or artifact.data_type == LinkDataType("eager_bitcode")],
+            inputs = [],
+            outputs = [merged_cgdata_file.as_output()],
+            f = lambda ctx, artifacts, outputs: merge_cgdata(
+                ctx,
+                artifacts,
+                outputs,
+                merged_cgdata_file,
+            ),
+        )
+
+        for artifact in sorted_index_link_data:
+            link_data = artifact.link_data
+            if artifact.data_type == LinkDataType("eager_bitcode") or artifact.data_type == LinkDataType("lazy_bitcode"):
+                dynamic_optimize(link_data, merged_cgdata = merged_cgdata_file, double_codegen_state = DoubleCodegenState("second_round"))
 
     ctx.actions.symlinked_dir(outputs[external_debug_info_container_directory], debug_info_symlink_map)
 
@@ -416,7 +503,6 @@ def cxx_darwin_dist_link(
         executable_link: bool,
         sanitizer_runtime_args: CxxSanitizerRuntimeArguments,
         linker_map: Artifact | None = None) -> (LinkedObject, dict[str, list[DefaultInfo]]):
-    _unused = double_codegen_enabled
     """
     Perform a distributed thin-lto link into the supplied output
 
@@ -540,6 +626,7 @@ def cxx_darwin_dist_link(
             linker_map_out = linker_map,
             make_cat = make_cat,
             premerger_enabled = premerger_enabled,
+            double_codegen_enabled = double_codegen_enabled,
             prepared_archive_artifacts = prepared_archive_artifacts,
             sanitizer_runtime_args = sanitizer_runtime_args,
         ),

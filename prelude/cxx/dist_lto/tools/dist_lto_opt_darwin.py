@@ -36,6 +36,12 @@ def main(argv: List[str]) -> int:
         action="store_true",
         help="Print the clang invocation and exit.",
     )
+    parser.add_argument(
+        "--generate-cgdata",
+        help="Save cgdata to special section in produced object file",
+        action="store_true",
+    )
+    parser.add_argument("--read-cgdata", help="Read cgdata from the provided file")
     args = parser.parse_args(argv[1:])
 
     clang_invocation = [args.compiler, f"@{args.args}"]
@@ -54,6 +60,12 @@ def main(argv: List[str]) -> int:
             "-Werror=unused-command-line-argument",
         ]
     )
+
+    if args.generate_cgdata:
+        clang_invocation.extend(["-mllvm", "-codegen-data-generate"])
+
+    if args.read_cgdata:
+        clang_invocation.append(f"-fcodegen-data-use={args.read_cgdata}")
 
     if args.print_command:
         print(" ".join(clang_invocation))
