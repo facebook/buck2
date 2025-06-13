@@ -18,16 +18,6 @@ config_backed_java_toolchain(
     ],
 )
 
-config_backed_java_toolchain(
-    name = "java_graalvm_bootstrap",
-    is_bootstrap_toolchain = True,
-    # This causes us to always use the classic protocol instead of javacd as the bootstrap toolchain needs to build javacd itself.
-    java = "fbsource//third-party/toolchains/graalvm:java",
-    visibility = [
-        "PUBLIC",
-    ],
-)
-
 config_backed_kotlin_toolchain(
     name = "kotlin_bootstrap",
     is_bootstrap_toolchain = True,

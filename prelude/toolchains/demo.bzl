@@ -116,16 +116,6 @@ def system_demo_toolchains():
         visibility = ["PUBLIC"],
     )
 
-    system_java_bootstrap_toolchain(
-        name = "java_graalvm_bootstrap",
-        java = ":java_tool",
-        javac = ":javac_tool",
-        jlink = ":jlink_tool",
-        jmod = ":jmod_tool",
-        jrt_fs_jar = ":jrt_fs_jar",
-        visibility = ["PUBLIC"],
-    )
-
     javacd_toolchain(
         name = "java_for_android",
         java = ":java_tool",
