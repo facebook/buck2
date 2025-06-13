@@ -97,30 +97,58 @@ load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources"
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
 
-rule_decl_records = [
-    android_rules,
-    core_rules,
-    cxx_rules,
-    d_rules,
-    dotnet_rules,
-    erlang_rules,
-    git_rules,
-    go_rules,
-    groovy_rules,
-    halide_rules,
-    haskell_rules,
-    ios_rules,
-    java_rules,
-    kotlin_rules,
-    lua_rules,
-    ocaml_rules,
-    python_rules,
-    rust_rules,
-    shell_rules,
-    js_rules,
-    scala_rules,
-    uncategorized_rules,
-]
+_ANDROID_RULES_KEY = "android"
+_CORE_RULES_KEY = "core"
+_CXX_RULES_KEY = "cxx"
+_D_RULES_KEY = "d"
+_DOTNET_RULES_KEY = ".NET"
+_ERLANG_RULES_KEY = "erlang"
+_GIT_RULES_KEY = "git"
+_GO_RULES_KEY = "go"
+_GROOVY_RULES_KEY = "groovy"
+_HALIDE_RULES_KEY = "halide"
+_HASKELL_RULES_KEY = "haskell"
+_IOS_RULES_KEY = "ios"
+_JAVA_RULES_KEY = "java"
+_JS_RULES_KEY = "js"
+_KOTLIN_RULES_KEY = "kotlin"
+_LUA_RULES_KEY = "lua"
+_OCAML_RULES_KEY = "ocaml"
+_PYTHON_RULES_KEY = "python"
+_RUST_RULES_KEY = "rust"
+_SCALA_RULES_KEY = "scala"
+_SHELL_RULES_KEY = "shell"
+_UNCATEGORIZED_RULES_KEY = "uncategorized"
+
+_JULIA_RULES_KEY = "julia"
+_MATLAB_RULES_KEY = "matlab"
+
+categorized_rule_decl_records = {
+    _ANDROID_RULES_KEY: android_rules,
+    _CORE_RULES_KEY: core_rules,
+    _CXX_RULES_KEY: cxx_rules,
+    _D_RULES_KEY: d_rules,
+    _DOTNET_RULES_KEY: dotnet_rules,
+    _ERLANG_RULES_KEY: erlang_rules,
+    _GIT_RULES_KEY: git_rules,
+    _GO_RULES_KEY: go_rules,
+    _GROOVY_RULES_KEY: groovy_rules,
+    _HALIDE_RULES_KEY: halide_rules,
+    _HASKELL_RULES_KEY: haskell_rules,
+    _IOS_RULES_KEY: ios_rules,
+    _JAVA_RULES_KEY: java_rules,
+    _JS_RULES_KEY: js_rules,
+    _KOTLIN_RULES_KEY: kotlin_rules,
+    _LUA_RULES_KEY: lua_rules,
+    _OCAML_RULES_KEY: ocaml_rules,
+    _PYTHON_RULES_KEY: python_rules,
+    _RUST_RULES_KEY: rust_rules,
+    _SCALA_RULES_KEY: scala_rules,
+    _SHELL_RULES_KEY: shell_rules,
+    _UNCATEGORIZED_RULES_KEY: uncategorized_rules,
+}
+
+rule_decl_records = categorized_rule_decl_records.values()
 
 def _merge_dictionaries(dicts):
     result = {}
@@ -486,28 +514,30 @@ _uncategorized_extra_attributes = {
     },
 }
 
-all_extra_attributes = _merge_dictionaries([
-    _dotnet_extra_attributes,
-    _core_extra_attributes,
-    cxx_extra_attributes,
-    _go_extra_attributes,
-    _groovy_extra_attributes,
-    _haskell_extra_attributes,
-    _python_extra_attributes,
-    _rust_extra_attributes,
-    _shell_extra_attributes,
-    _uncategorized_extra_attributes,
-    _android_extra_attributes,
-    _apple_extra_attributes,
-    _java_extra_attributes,
-    _js_extra_attributes,
-    _julia_extra_attributes,
-    _kotlin_extra_attributes,
-    _matlab_extra_attributes,
-    _ocaml_extra_attributes,
-])
+categorized_extra_attributes = {
+    _ANDROID_RULES_KEY: _android_extra_attributes,
+    _CORE_RULES_KEY: _core_extra_attributes,
+    _CXX_RULES_KEY: cxx_extra_attributes,
+    _DOTNET_RULES_KEY: _dotnet_extra_attributes,
+    _GO_RULES_KEY: _go_extra_attributes,
+    _GROOVY_RULES_KEY: _groovy_extra_attributes,
+    _HASKELL_RULES_KEY: _haskell_extra_attributes,
+    _IOS_RULES_KEY: _apple_extra_attributes,
+    _JAVA_RULES_KEY: _java_extra_attributes,
+    _JS_RULES_KEY: _js_extra_attributes,
+    _JULIA_RULES_KEY: _julia_extra_attributes,
+    _KOTLIN_RULES_KEY: _kotlin_extra_attributes,
+    _MATLAB_RULES_KEY: _matlab_extra_attributes,
+    _OCAML_RULES_KEY: _ocaml_extra_attributes,
+    _PYTHON_RULES_KEY: _python_extra_attributes,
+    _RUST_RULES_KEY: _rust_extra_attributes,
+    _SHELL_RULES_KEY: _shell_extra_attributes,
+    _UNCATEGORIZED_RULES_KEY: _uncategorized_extra_attributes,
+}
 
-extra_attributes = struct(**all_extra_attributes)
+_all_extra_attributes = _merge_dictionaries(categorized_extra_attributes.values())
+
+extra_attributes = struct(**_all_extra_attributes)
 
 # Configuration transitions to pass `cfg` for builtin rules.
 transitions = {
