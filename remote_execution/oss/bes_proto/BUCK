@@ -1,0 +1,15 @@
+load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
+
+oncall("build_infra")
+
+rust_protobuf_library(
+    name = "bes_proto",
+    srcs = glob(["src/**/*.rs"]),
+    build_script = "build.rs",
+    protos = glob(["proto/**/*.proto"]),
+    deps = [
+        "fbsource//third-party/rust:prost-types",
+        "fbsource//third-party/rust:serde",
+        "//buck2/remote_execution/oss/google_api_proto:google_api_proto",
+    ],
+)

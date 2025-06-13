@@ -1,0 +1,19 @@
+[package]
+name = "bes_proto"
+version = "0.1.0"
+edition = "2024"
+license = { workspace = true }
+repository = { workspace = true }
+description = "Protobuf definitions for Build Event Service"
+
+[dependencies]
+prost = { workspace = true }
+prost-types = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+tonic = { workspace = true }
+google_api_proto = { path = "../google_api_proto" }
+
+buck2_data = { workspace = true }
+
+[build-dependencies]
+buck2_protoc_dev = { workspace = true }

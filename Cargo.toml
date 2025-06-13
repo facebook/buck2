@@ -105,6 +105,7 @@ members = [
     "remote_execution/oss/re_grpc",
     "remote_execution/oss/re_grpc_proto",
     "remote_execution/oss/google_api_proto",
+    "remote_execution/oss/bes_proto",
     "starlark-rust/starlark",
     "starlark-rust/starlark_bin",
     "starlark-rust/starlark_derive",
@@ -340,6 +341,7 @@ lock_free_vec = { path = "shed/lock_free_vec" }
 provider = { path = "shed/provider" }
 remote_execution = { path = "remote_execution/oss/re_grpc" }
 google_api_proto = { path = "remote_execution/oss/google_api_proto" }
+bes_proto = { path = "remote_execution/oss/bes_proto" }
 starlark = { version = "0.13.0", path = "starlark-rust/starlark" }
 starlark_lsp = { version = "0.13.0", path = "starlark-rust/starlark_lsp" }
 starlark_map = { version = "0.13.0", path = "starlark-rust/starlark_map" }
