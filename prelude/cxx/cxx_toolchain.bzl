@@ -211,6 +211,7 @@ def cxx_toolchain_impl(ctx):
         internal_tools = ctx.attrs.internal_tools[CxxInternalTools],
         linker_info = linker_info,
         lipo = ctx.attrs.lipo[RunInfo] if ctx.attrs.lipo else None,
+        llvm_cgdata = ctx.attrs.llvm_cgdata[RunInfo] if ctx.attrs.llvm_cgdata else None,
         llvm_link = ctx.attrs.llvm_link[RunInfo] if ctx.attrs.llvm_link else None,
         objc_compiler_info = objc_info,
         objcxx_compiler_info = objcxx_info,
@@ -260,6 +261,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "link_weight": attrs.int(default = 1),
         "linker": dep_type(providers = [RunInfo]),
         "lipo": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "llvm_cgdata": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "llvm_link": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "lto_mode": attrs.enum(LtoMode.values(), default = "none"),
         # Darwin only: the minimum deployment target supported
