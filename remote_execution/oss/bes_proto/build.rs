@@ -43,6 +43,10 @@ fn main() -> io::Result<()> {
             "#[serde(with = \"google_api_proto::serialize_any\")]",
         )
         .field_attribute(
+            "google.devtools.build.v1.BuildEvent.event.build_tool_event",
+            "#[serde(with = \"google_api_proto::serialize_any\")]",
+        )
+        .field_attribute(
             "google.devtools.build.v1.BuildStatus.details",
             "#[serde(with = \"google_api_proto::serialize_option_any\")]",
         )
