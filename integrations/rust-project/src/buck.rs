@@ -195,31 +195,19 @@ pub(crate) fn to_project_json(
     let jp = ProjectJson {
         sysroot: Box::new(sysroot),
         crates,
-        runnables: vec![
-            Runnable {
-                program: "buck".to_owned(),
-                args: vec![
-                    "build".to_owned(),
-                    CLIENT_METADATA_RUST_PROJECT.to_owned(),
-                    "{label}".to_owned(),
-                ],
-                cwd: project_root.to_owned(),
-                kind: RunnableKind::Check,
-            },
-            Runnable {
-                program: "buck".to_owned(),
-                args: vec![
-                    "test".to_owned(),
-                    CLIENT_METADATA_RUST_PROJECT.to_owned(),
-                    "{label}".to_owned(),
-                    "--".to_owned(),
-                    "{test_id}".to_owned(),
-                    "--print-passing-details".to_owned(),
-                ],
-                cwd: project_root.to_owned(),
-                kind: RunnableKind::TestOne,
-            },
-        ],
+        runnables: vec![Runnable {
+            program: "buck".to_owned(),
+            args: vec![
+                "test".to_owned(),
+                CLIENT_METADATA_RUST_PROJECT.to_owned(),
+                "{label}".to_owned(),
+                "--".to_owned(),
+                "{test_id}".to_owned(),
+                "--print-passing-details".to_owned(),
+            ],
+            cwd: project_root.to_owned(),
+            kind: RunnableKind::TestOne,
+        }],
         // needed to ignore the generated `rust-project.json` in diffs, but including the actual
         // string will mark this file as generated
         generated: String::from("\x40generated"),
