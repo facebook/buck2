@@ -157,6 +157,7 @@ def cxx_link_into(
                 output,
                 opts,
                 linker_info.thin_lto_premerger_enabled,
+                linker_info.thin_lto_double_codegen_enabled,
                 is_result_executable,
                 sanitizer_runtime_args,
                 linker_map,
@@ -226,6 +227,11 @@ def cxx_link_into(
     # Swift runtime.
     sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
     all_link_args.add(sanitizer_runtime_args.extra_link_args)
+
+    if linker_info.thin_lto_double_codegen_enabled:
+        # This flag should only be passed to the toolchain when using local thin-lto,
+        # for distributed thin-lto the double codegen is handled differently.
+        all_link_args.add("-Wl,-mllvm,-codegen-data-thinlto-two-rounds")
 
     bitcode_linkables = []
     for link_item in opts.links:

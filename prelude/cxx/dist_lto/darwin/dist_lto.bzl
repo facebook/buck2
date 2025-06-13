@@ -412,9 +412,11 @@ def cxx_darwin_dist_link(
         output: Artifact,
         opts: LinkOptions,
         premerger_enabled: bool,
+        double_codegen_enabled: bool,
         executable_link: bool,
         sanitizer_runtime_args: CxxSanitizerRuntimeArguments,
         linker_map: Artifact | None = None) -> (LinkedObject, dict[str, list[DefaultInfo]]):
+    _unused = double_codegen_enabled
     """
     Perform a distributed thin-lto link into the supplied output
 
