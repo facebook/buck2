@@ -8,8 +8,12 @@
 # We only want to document the rules in the prelude, so have a module that
 # only reexports those.
 
-load("@prelude//:rules.bzl", _rules = "rules")
+load("@prelude//:rules.bzl", _categorized_rules = "categorized_rules")
 
-# We don't use namespace(name=r) because that would pass the literal key 'name'.
-# Instead, we use namespace(**{name: r}) to dynamically use the value of the variable `name` as the key.
-load_symbols({name: namespace(**{name: r}) for name, r in _rules.items()})
+load_symbols({
+    group_name: namespace(**{
+        rule_name: namespace(**{rule_name: rule_obj})
+        for rule_name, rule_obj in group_rules.items()
+    })
+    for group_name, group_rules in _categorized_rules.items()
+})

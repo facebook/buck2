@@ -119,10 +119,10 @@ In these BUCK files, you’ve written a couple of
 `:logging_lib` and `:test`. Buck targets are instances of
 [build rules](../../concepts/build_rule/), which defines how the target should
 be built. For example, target :main is of rule type
-[rust_binary](../../prelude/rules/rust_binary/), the output artifact will be a
-binary that’s runnable, while `:library`, `:logging_lib` are of rule type
-[rust_library](../../prelude/rules/rust_library/), the output of which will be a
-library that can be linked to the binary.
+[rust_binary](../../prelude/rules/rust/rust_binary/), the output artifact will
+be a binary that’s runnable, while `:library`, `:logging_lib` are of rule type
+[rust_library](../../prelude/rules/rust/rust_library/), the output of which will
+be a library that can be linked to the binary.
 
 Referring to buck targets in BUCK files and CLI commands need to follow a
 special [target pattern](../../concepts/target_pattern/), which looks like:
@@ -364,10 +364,10 @@ syntax: <code>load("@cell//path/to/bzl:some_bzl.bzl", "some_macro")</code>
 
 Each buck target has a set of attributes, which provide powerful ways to define
 and customize how the build should be done, you can inspect the
-[rule definition](../../prelude/rules/rust_binary/) to see what these attributes
-are and the syntax to define them. Some attributes are mandatory and some are
-optional with defaults. Most attributes are rule-specific but there are common
-ones such as `name`, `srcs`, `deps` and
+[rule definition](../../prelude/rules/rust/rust_binary/) to see what these
+attributes are and the syntax to define them. Some attributes are mandatory and
+some are optional with defaults. Most attributes are rule-specific but there are
+common ones such as `name`, `srcs`, `deps` and
 [visibility](../../concepts/visibility/).
 
 #### Tips:

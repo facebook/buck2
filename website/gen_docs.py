@@ -81,7 +81,7 @@ def generate_prelude_rules_docs(buck: str) -> None:
 
         # Copy the files under Path(tmp) / prelude / docs / rules to base_dir
         folder = Path(tmp) / "prelude" / "docs" / "rules.bzl"
-        for orig in folder.glob("*.md"):
+        for orig in folder.rglob("*.md"):
             path = orig.relative_to(folder)
             dest = base_dir.joinpath(path)
             dest.parent.mkdir(parents=True, exist_ok=True)
