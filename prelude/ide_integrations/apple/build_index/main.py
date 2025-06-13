@@ -20,12 +20,13 @@ BXL = "prelude//ide_integrations/apple/build_index/swift_index_store.bxl:main"
 def parse_arguments() -> Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--dest", type=str, required=True)
-    parser.add_argument("-t", "--target", type=str, required=True)
+    parser.add_argument("-t", "--target", type=str, required=True, nargs="+")
     return parser.parse_args()
 
 
-def run_bxl_and_merge_index(target: str, dest: str) -> None:
-    command = f"buck2 bxl {BXL} -- --target {target}"
+def run_bxl_and_merge_index(targets: list[str], dest: str) -> None:
+    targets_str = " ".join(targets)
+    command = f"buck2 bxl {BXL} -- --target {targets_str}"
     process = subprocess.Popen(
         command,
         shell=True,

@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//bxl:lazy.bxl", "batch_apply_lazy")
 load("@prelude//cxx:index_store.bzl", "IndexStoreInfo", "merge_index_store")
 
 MERGE_TOOL_TARGET = "prelude//apple/tools/index:merge_index_store"
@@ -25,10 +26,14 @@ def _hash_bucket_index_stores(index_stores: list[Artifact]) -> dict[int, list[Ar
     return buckets_to_artifacts
 
 def _main(ctx: bxl.Context):
-    target = ctx.cli_args.target
-    node = ctx.lazy.configured_target_node(target).resolve()
-    analysis_res = ctx.lazy.analysis(node).resolve()
-    index_store_info = analysis_res.providers()[IndexStoreInfo]
+    targets = ctx.cli_args.target
+    configured_nodes = batch_apply_lazy(ctx, ctx.lazy.configured_target_node, targets)
+    analysis_results = batch_apply_lazy(ctx, ctx.lazy.analysis, configured_nodes)
+
+    index_stores = []
+    for analysis_res in analysis_results:
+        index_store_info = analysis_res.providers()[IndexStoreInfo]
+        index_stores.extend(list(index_store_info.swift_tset.traverse()))
 
     merge_tool_target = ctx.unconfigured_sub_targets(MERGE_TOOL_TARGET)
     bxl_actions = ctx.bxl_actions(
@@ -36,8 +41,6 @@ def _main(ctx: bxl.Context):
     )
 
     merge_tool = bxl_actions.exec_deps[merge_tool_target][RunInfo]
-
-    index_stores = list(index_store_info.swift_tset.traverse())
 
     buckets_to_artifacts = _hash_bucket_index_stores(index_stores)
 
@@ -52,6 +55,6 @@ def _main(ctx: bxl.Context):
 main = bxl_main(
     impl = _main,
     cli_args = {
-        "target": cli_args.string(),
+        "target": cli_args.list(cli_args.string()),
     },
 )
