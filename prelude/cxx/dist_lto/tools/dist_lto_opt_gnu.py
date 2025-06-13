@@ -158,7 +158,9 @@ def _cleanup_flags(clang_opt_flags: List[str]) -> List[str]:
         if arg.startswith("--cc="):
             # Find the clang binary path.
             clang_opt_flags[i] = arg.replace("--cc=", "")
-            break
+        if arg.startswith("--log-fbcc"):
+            # Remove the log-fbcc flag since the compiler is called directly below.
+            clang_opt_flags.pop(i)
 
     # Get the cc1 flag dump with '-###'
     try:
@@ -241,16 +243,18 @@ def main(argv: List[str]) -> int:
     else:
         clang_opt_flags.append(f"-gsplit-dwarf={args.split_dwarf}")
 
-    # The following args slices manipulating may be confusing. The first 3 element of opt_args are:
+    # The following args slices manipulating may be confusing. The first 4 element of opt_args are:
     #   1. a spliter "--", it's not used anywhere;
     #   2. the fbcc wrapper script path
     #   3. the "-cc" arg pointing to the compiler we use
-    # EXAMPLE: ['--', 'buck-out/v2/gen/fbcode/8e3db19fe005003a/tools/build/buck/wrappers/__fbcc__/fbcc', '--cc=fbcode/third-party-buck/platform010/build/llvm-fb/<ver>/bin/clang++', '--target=x86_64-redhat-linux-gnu', ...]
+    #   4. the "-log-fbcc" arg indicating whether we want to log the compiler invocation
+    # EXAMPLE: ['--', 'buck-out/v2/gen/fbcode/8e3db19fe005003a/tools/build/buck/wrappers/__fbcc__/fbcc', '--cc=fbcode/third-party-buck/platform010/build/llvm-fb/<ver>/bin/clang++', '--log-fbcc=False', '--target=x86_64-redhat-linux-gnu', ...]
     clang_cc1_flags = _cleanup_flags(args.opt_args[2:] + clang_opt_flags)
     if clang_cc1_flags is None:
         return EXIT_FAILURE
 
-    fbcc_cmd = args.opt_args[1:3] + clang_cc1_flags
+    fbcc_cmd = args.opt_args[1:4] + clang_cc1_flags
+
     if args.debug:
         # Print fbcc commandline and exit.
         print(" ".join(fbcc_cmd))
