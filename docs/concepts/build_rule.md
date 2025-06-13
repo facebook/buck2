@@ -121,7 +121,7 @@ Buck2 guarantees that any dependencies that a rule lists that are required to
 build that rule are built successfully _before_ Buck2 builds the rule itself.
 
 Note that there can be special cases—such as
-[`apple_bundle`](../../prelude/rules/ios/apple_bundle)—where a rule's listed
+[`apple_bundle`](../../prelude/rules/apple/apple_bundle)—where a rule's listed
 dependencies do not actually need to be built before the rule.
 
 ### Visibility

@@ -108,7 +108,7 @@ _GO_RULES_KEY = "go"
 _GROOVY_RULES_KEY = "groovy"
 _HALIDE_RULES_KEY = "halide"
 _HASKELL_RULES_KEY = "haskell"
-_IOS_RULES_KEY = "ios"
+_APPLE_RULES_KEY = "apple"
 _JAVA_RULES_KEY = "java"
 _JS_RULES_KEY = "js"
 _KOTLIN_RULES_KEY = "kotlin"
@@ -135,7 +135,7 @@ categorized_rule_decl_records = {
     _GROOVY_RULES_KEY: groovy_rules,
     _HALIDE_RULES_KEY: halide_rules,
     _HASKELL_RULES_KEY: haskell_rules,
-    _IOS_RULES_KEY: ios_rules,
+    _APPLE_RULES_KEY: ios_rules,
     _JAVA_RULES_KEY: java_rules,
     _JS_RULES_KEY: js_rules,
     _KOTLIN_RULES_KEY: kotlin_rules,
@@ -522,7 +522,7 @@ categorized_extra_attributes = {
     _GO_RULES_KEY: _go_extra_attributes,
     _GROOVY_RULES_KEY: _groovy_extra_attributes,
     _HASKELL_RULES_KEY: _haskell_extra_attributes,
-    _IOS_RULES_KEY: _apple_extra_attributes,
+    _APPLE_RULES_KEY: _apple_extra_attributes,
     _JAVA_RULES_KEY: _java_extra_attributes,
     _JS_RULES_KEY: _js_extra_attributes,
     _JULIA_RULES_KEY: _julia_extra_attributes,
