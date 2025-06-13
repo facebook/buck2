@@ -237,14 +237,13 @@ def _python_runtime_bundle_attrs():
         "stdlib": attrs.string(doc = "The python standard library"),
     }
 
-inlined_extra_attributes = {
-
-    # csharp
+_dotnet_extra_attributes = {
     "csharp_library": {
         "_csharp_toolchain": toolchains_common.csharp(),
     },
+}
 
-    #c++
+cxx_extra_attributes = {
     "cxx_genrule": genrule_attributes() | {
         "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
@@ -287,13 +286,43 @@ inlined_extra_attributes = {
     },
     "cxx_test": re_test_common.test_args(),
     "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
-    "export_file": constraint_overrides.attributes,
-    "filegroup": constraint_overrides.attributes,
+    "llvm_link_bitcode": {
+        "_cxx_toolchain": toolchains_common.cxx(),
+    },
+    "prebuilt_cxx_library": {
+        "exported_header_style": attrs.enum(IncludeType, default = "system"),
+        "header_dirs": attrs.option(attrs.list(attrs.source(allow_directory = True)), default = None),
+        "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
+        "platform_header_dirs": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.source(allow_directory = True)))), default = None),
+        "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
+        "preferred_linkage": attrs.enum(
+            Linkage.values(),
+            default = "any",
+            doc = """
+            Determines what linkage is used when the library is depended on by another target. To
+            control how the dependencies of this library are linked, use `link_style` instead.
+            """,
+        ),
+        "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
+        "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
+        "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
+        "stub": attrs.bool(default = False),
+        "supports_lto": attrs.bool(default = False),
+        "supports_python_dlopen": attrs.bool(default = True),
+        "versioned_header_dirs": attrs.option(attrs.versioned(attrs.list(attrs.source(allow_directory = True))), default = None),
+        "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
+        "_cxx_toolchain": toolchains_common.cxx(),
+        "_target_os_type": buck.target_os_type_arg(),
+    },
+    "prebuilt_cxx_library_group": {
+        "_cxx_toolchain": toolchains_common.cxx(),
+    },
+    "windows_resource": {
+        "_cxx_toolchain": toolchains_common.cxx(),
+    },
+}
 
-    # Generic rule to build from a command
-    "genrule": genrule_attributes() | constraint_overrides.attributes,
-
-    # Go
+_go_extra_attributes = {
     "go_binary": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "resources": attrs.list(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), default = []),
@@ -357,14 +386,18 @@ inlined_extra_attributes = {
         "_race": race_attr,
         "_testmaingen": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//go_bootstrap/tools:go_testmaingen")),
     },
+}
 
-    # groovy
+_groovy_extra_attributes = {
     "groovy_library": {
         "resources_root": attrs.option(attrs.string(), default = None),
     },
     "groovy_test": {
         "resources_root": attrs.option(attrs.string(), default = None),
     },
+}
+
+_haskell_extra_attributes = {
     "haskell_binary": {
         "auto_link_groups": attrs.bool(default = False),
         "link_group_map": LINK_GROUP_MAP_ATTR,
@@ -391,41 +424,9 @@ inlined_extra_attributes = {
         "_cxx_toolchain": toolchains_common.cxx(),
         "_haskell_toolchain": toolchains_common.haskell(),
     },
-    "llvm_link_bitcode": {
-        "_cxx_toolchain": toolchains_common.cxx(),
-    },
-    "ndk_toolchain": {
-        "cxx_toolchain": attrs.toolchain_dep(providers = [CxxToolchainInfo, CxxPlatformInfo]),
-    },
-    "prebuilt_cxx_library": {
-        "exported_header_style": attrs.enum(IncludeType, default = "system"),
-        "header_dirs": attrs.option(attrs.list(attrs.source(allow_directory = True)), default = None),
-        "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
-        "platform_header_dirs": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.source(allow_directory = True)))), default = None),
-        "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
-        "preferred_linkage": attrs.enum(
-            Linkage.values(),
-            default = "any",
-            doc = """
-            Determines what linkage is used when the library is depended on by another target. To
-            control how the dependencies of this library are linked, use `link_style` instead.
-            """,
-        ),
-        "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
-        "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
-        "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
-        "stub": attrs.bool(default = False),
-        "supports_lto": attrs.bool(default = False),
-        "supports_python_dlopen": attrs.bool(default = True),
-        "versioned_header_dirs": attrs.option(attrs.versioned(attrs.list(attrs.source(allow_directory = True))), default = None),
-        "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_target_os_type": buck.target_os_type_arg(),
-    },
-    "prebuilt_cxx_library_group": {
-        "_cxx_toolchain": toolchains_common.cxx(),
-    },
+}
 
+_python_extra_attributes = {
     #python
     "prebuilt_python_library": {
         "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
@@ -458,30 +459,52 @@ inlined_extra_attributes = {
         **(re_test_common.test_args() | buck.inject_test_env_arg())
     ),
     "python_runtime_bundle": _python_runtime_bundle_attrs(),
+}
+
+_rust_extra_attributes = {
+    "rust_test": {},
+}
+
+_core_extra_attributes = {
+    "export_file": constraint_overrides.attributes,
+    "filegroup": constraint_overrides.attributes,
+    "genrule": genrule_attributes() | constraint_overrides.attributes,
     "remote_file": {
         "sha1": attrs.option(attrs.string(), default = None),
         "sha256": attrs.option(attrs.string(), default = None),
         "_unzip_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//zip_file/tools:unzip")),
     },
-    "rust_test": {},
+} | _zip_file_extra_attributes | _config_extra_attributes
+
+_shell_extra_attributes = {
     "sh_test": constraint_overrides.attributes,
-    "windows_resource": {
-        "_cxx_toolchain": toolchains_common.cxx(),
+}
+
+_uncategorized_extra_attributes = {
+    "ndk_toolchain": {
+        "cxx_toolchain": attrs.toolchain_dep(providers = [CxxToolchainInfo, CxxPlatformInfo]),
     },
 }
 
 all_extra_attributes = _merge_dictionaries([
-    inlined_extra_attributes,
+    _dotnet_extra_attributes,
+    _core_extra_attributes,
+    cxx_extra_attributes,
+    _go_extra_attributes,
+    _groovy_extra_attributes,
+    _haskell_extra_attributes,
+    _python_extra_attributes,
+    _rust_extra_attributes,
+    _shell_extra_attributes,
+    _uncategorized_extra_attributes,
     _android_extra_attributes,
     _apple_extra_attributes,
-    _config_extra_attributes,
     _java_extra_attributes,
     _js_extra_attributes,
     _julia_extra_attributes,
     _kotlin_extra_attributes,
     _matlab_extra_attributes,
     _ocaml_extra_attributes,
-    _zip_file_extra_attributes,
 ])
 
 extra_attributes = struct(**all_extra_attributes)
