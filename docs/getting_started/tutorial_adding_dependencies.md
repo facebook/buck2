@@ -431,7 +431,7 @@ rust_binary(
     name = "main",
     srcs = ["src/main.rs"],
     deps = [
-        "fbcode//scripts/nero/buck2_lab/greeter_lib:library",
+        "fbcode//scripts/<unixname>/buck2_lab/greeter_lib:library",
         "fbcode//buck2/docs/buck2_lab/logging_lib:logging_lib",  # Add this line
     ],
 )
