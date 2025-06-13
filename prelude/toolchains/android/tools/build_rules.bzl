@@ -49,10 +49,6 @@ def _set_buck2_java_toolchain(**kwargs):
     kwargs["_java_toolchain"] = "toolchains//:java_bootstrap"
     return kwargs
 
-def _set_buck2_java_graalvm_toolchain(**kwargs):
-    kwargs["_java_toolchain"] = "toolchains//:java_graalvm_bootstrap"
-    return kwargs
-
 def _set_buck2_kotlin_toolchain(**kwargs):
     kwargs["_kotlin_toolchain"] = "toolchains//:kotlin_bootstrap"
     return kwargs
@@ -106,20 +102,6 @@ def buck_java_library(name, **kwargs):
 def buck_java_binary(name, **kwargs):
     kwargs = _add_labels(**kwargs)
     kwargs = _set_buck2_java_toolchain(**kwargs)
-    java_args = kwargs["java_args_for_run_info"] if "java_args_for_run_info" in kwargs else []
-
-    # Directs the VM to refrain from setting the file descriptor limit to the default maximum.
-    # https://stackoverflow.com/a/16535804/5208808
-    java_args += ["-XX:-MaxFDLimit", "-Xss2m"]
-    kwargs["java_args_for_run_info"] = java_args
-    return fb_native.java_binary(
-        name = name,
-        **kwargs
-    )
-
-def buck_java_graalvm_binary(name, **kwargs):
-    kwargs = _add_labels(**kwargs)
-    kwargs = _set_buck2_java_graalvm_toolchain(**kwargs)
     java_args = kwargs["java_args_for_run_info"] if "java_args_for_run_info" in kwargs else []
 
     # Directs the VM to refrain from setting the file descriptor limit to the default maximum.
