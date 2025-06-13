@@ -148,8 +148,6 @@ categorized_rule_decl_records = {
     _UNCATEGORIZED_RULES_KEY: uncategorized_rules,
 }
 
-rule_decl_records = categorized_rule_decl_records.values()
-
 def _merge_dictionaries(dicts):
     result = {}
     for d in dicts:
@@ -534,10 +532,6 @@ categorized_extra_attributes = {
     _SHELL_RULES_KEY: _shell_extra_attributes,
     _UNCATEGORIZED_RULES_KEY: _uncategorized_extra_attributes,
 }
-
-_all_extra_attributes = _merge_dictionaries(categorized_extra_attributes.values())
-
-extra_attributes = struct(**_all_extra_attributes)
 
 # Configuration transitions to pass `cfg` for builtin rules.
 transitions = {
