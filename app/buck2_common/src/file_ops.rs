@@ -22,7 +22,6 @@ use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use cmp_any::PartialEqAny;
 use compact_str::CompactString;
 use dashmap::DashMap;
 use derive_more::Display;
@@ -452,8 +451,6 @@ pub trait FileOps: Send + Sync {
         path: CellPathRef<'async_trait>,
     ) -> buck2_error::Result<Option<RawPathMetadata>>;
 
-    fn eq_token(&self) -> PartialEqAny;
-
     async fn buildfiles<'a>(&self, cell: CellName) -> buck2_error::Result<Arc<[FileNameBuf]>>;
 }
 
@@ -471,12 +468,6 @@ impl dyn FileOps + '_ {
         self.read_path_metadata_if_exists(path)
             .await?
             .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
-    }
-}
-
-impl PartialEq for dyn FileOps {
-    fn eq(&self, other: &dyn FileOps) -> bool {
-        self.eq_token() == other.eq_token()
     }
 }
 
@@ -739,10 +730,6 @@ pub mod testing {
             _path: CellPathRef<'async_trait>,
         ) -> buck2_error::Result<FileIgnoreResult> {
             Ok(FileIgnoreResult::Ok)
-        }
-
-        fn eq_token(&self) -> PartialEqAny {
-            PartialEqAny::always_false()
         }
 
         async fn buildfiles<'a>(&self, _cell: CellName) -> buck2_error::Result<Arc<[FileNameBuf]>> {

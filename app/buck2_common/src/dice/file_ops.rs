@@ -20,7 +20,6 @@ use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_futures::cancellation::CancellationContext;
-use cmp_any::PartialEqAny;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
@@ -476,12 +475,6 @@ impl FileOps for DiceFileOps<'_, '_> {
         path: CellPathRef<'async_trait>,
     ) -> buck2_error::Result<FileIgnoreResult> {
         DiceFileComputations::is_ignored(&mut self.0.get(), path).await
-    }
-
-    fn eq_token(&self) -> PartialEqAny {
-        // We do not store this on DICE, so we don't care about equality.
-        // Also we cannot do `PartialEqAny` here because `Self` is not `'static`.
-        PartialEqAny::always_false()
     }
 
     async fn buildfiles<'a>(&self, cell: CellName) -> buck2_error::Result<Arc<[FileNameBuf]>> {
