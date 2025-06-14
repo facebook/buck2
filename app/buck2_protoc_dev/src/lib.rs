@@ -147,6 +147,7 @@ impl Builder {
             println!("cargo:rerun-if-changed={}", proto_file.as_ref().display());
         }
 
+        #[allow(deprecated)] // The recommended replacement is not available yet
         tonic.compile(protos, includes)
     }
 }
