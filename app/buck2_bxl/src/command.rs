@@ -233,7 +233,7 @@ impl BxlServerCommand {
     ) -> buck2_error::Result<BxlResolvedCliArgs> {
         let cur_package =
             PackageLabel::from_cell_path(ctx.cell_resolver.get_cell_path(ctx.cwd)?.as_ref())?;
-        let cell_name = ctx.cell_resolver.find(ctx.cwd)?;
+        let cell_name = ctx.cell_resolver.find(ctx.cwd);
         let cell_alias_resolver = dice_ctx.get_cell_alias_resolver(cell_name).await?;
 
         let target_alias_resolver = dice_ctx.target_alias_resolver().await?;
@@ -500,7 +500,7 @@ pub(crate) async fn get_bxl_cli_args(
     cell_resolver: &CellResolver,
 ) -> buck2_error::Result<BxlResolvedCliArgs> {
     let cur_package = PackageLabel::from_cell_path(cell_resolver.get_cell_path(&cwd)?.as_ref())?;
-    let cell_name = cell_resolver.find(&cwd)?;
+    let cell_name = cell_resolver.find(&cwd);
     let cell_alias_resolver = ctx.get_cell_alias_resolver(cell_name).await?;
 
     let target_alias_resolver = ctx.target_alias_resolver().await?;

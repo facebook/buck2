@@ -303,7 +303,7 @@ async fn test(
 
     let cwd = server_ctx.working_dir();
     let cell_resolver = ctx.get_cell_resolver().await?;
-    let working_dir_cell = cell_resolver.find(cwd)?;
+    let working_dir_cell = cell_resolver.find(cwd);
 
     let client_ctx = request.client_context()?;
     let global_cfg_options = global_cfg_options_from_client_context(

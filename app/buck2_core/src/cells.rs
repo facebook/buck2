@@ -123,8 +123,6 @@ enum CellError {
     DuplicateNames(CellName, CellRootPathBuf, CellRootPathBuf),
     #[error("Two cells, `{0}` and `{1}`, share the same path `{2}`")]
     DuplicatePaths(CellName, CellName, CellRootPathBuf),
-    #[error("cannot find the cell at current path `{0}`. Known roots are `<{}>`", .1.join(", "))]
-    UnknownCellPath(ProjectRelativePathBuf, Vec<String>),
     #[error("unknown cell alias: `{0}`. In cell `{1}`, known aliases are: `{}`", .2.iter().join(", "))]
     UnknownCellAlias(CellAlias, CellName, Vec<NonEmptyCellAlias>),
     #[error("unknown cell name: `{0}`. known cell names are `{}`", .1.iter().join(", "))]
@@ -299,24 +297,13 @@ impl CellResolver {
     /// Get a `CellName` from a path by finding the best matching cell path that
     /// is a prefix of the current path relative to the project root. e.g. `fbcode/foo/bar` matches
     /// cell path `fbcode`.
-    pub fn find<P: AsRef<ProjectRelativePath> + ?Sized>(
-        &self,
-        path: &P,
-    ) -> buck2_error::Result<CellName> {
-        self.0
+    pub fn find<P: AsRef<ProjectRelativePath> + ?Sized>(&self, path: &P) -> CellName {
+        *self
+            .0
             .path_mappings
             .get_ancestor(path.as_ref().iter())
-            .copied()
-            .ok_or_else(|| {
-                buck2_error::Error::from(CellError::UnknownCellPath(
-                    path.as_ref().to_buf(),
-                    self.0
-                        .path_mappings
-                        .keys()
-                        .map(|p| p.iter().join("/"))
-                        .collect(),
-                ))
-            })
+            // Note: Must have a root cell
+            .unwrap()
     }
 
     pub fn get_cell_path<P: AsRef<ProjectRelativePath> + ?Sized>(
@@ -324,7 +311,7 @@ impl CellResolver {
         path: &P,
     ) -> buck2_error::Result<CellPath> {
         let path = path.as_ref();
-        let cell = self.find(path)?;
+        let cell = self.find(path);
         let instance = self.get(cell)?;
         let relative = path.strip_prefix(instance.path().as_project_relative_path())?;
         Ok(CellPath::new(cell, relative.to_owned().into()))
@@ -531,15 +518,15 @@ mod tests {
             (CellName::testing_new("cell3"), cell3_path.to_buf()),
         ]);
 
-        assert_eq!(cells.find(cell1_path)?, CellName::testing_new("cell1"));
-        assert_eq!(cells.find(cell2_path)?, CellName::testing_new("cell2"));
-        assert_eq!(cells.find(cell3_path)?, CellName::testing_new("cell3"));
+        assert_eq!(cells.find(cell1_path), CellName::testing_new("cell1"));
+        assert_eq!(cells.find(cell2_path), CellName::testing_new("cell2"));
+        assert_eq!(cells.find(cell3_path), CellName::testing_new("cell3"));
         assert_eq!(
             cells.find(
                 &cell2_path
                     .as_project_relative_path()
                     .join(ForwardRelativePath::new("fake/cell3")?)
-            )?,
+            ),
             CellName::testing_new("cell2")
         );
         assert_eq!(
@@ -547,7 +534,7 @@ mod tests {
                 &cell3_path
                     .as_project_relative_path()
                     .join(ForwardRelativePath::new("more/foo")?)
-            )?,
+            ),
             CellName::testing_new("cell3")
         );
 

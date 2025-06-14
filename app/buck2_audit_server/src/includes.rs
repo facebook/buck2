@@ -203,7 +203,7 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
             .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let cells = ctx.get_cell_resolver().await?;
                 let cwd = server_ctx.working_dir();
-                let current_cell = cells.get(cells.find(cwd)?)?;
+                let current_cell = cells.get(cells.find(cwd))?;
                 let fs = server_ctx.project_root();
                 let current_cell_abs_path =
                     fs.resolve(current_cell.path().as_project_relative_path());

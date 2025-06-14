@@ -93,7 +93,7 @@ impl HasCellResolver for DiceComputations<'_> {
         &mut self,
         dir: &ProjectRelativePath,
     ) -> buck2_error::Result<CellAliasResolver> {
-        let cell = self.get_cell_resolver().await?.find(dir)?;
+        let cell = self.get_cell_resolver().await?.find(dir);
         self.get_cell_alias_resolver(cell).await
     }
 }

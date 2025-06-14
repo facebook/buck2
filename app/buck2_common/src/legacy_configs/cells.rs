@@ -219,7 +219,7 @@ impl BuckConfigBasedCells {
         file_ops: &mut dyn ConfigParserFileOps,
         cwd: &ProjectRelativePath,
     ) -> buck2_error::Result<CellAliasResolver> {
-        let cell_name = self.cell_resolver.find(cwd)?;
+        let cell_name = self.cell_resolver.find(cwd);
         let cell_path = self.cell_resolver.get(cell_name)?.path();
 
         let follow_includes = false;

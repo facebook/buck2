@@ -119,7 +119,7 @@ impl PathSanitizer {
             self.cwd.path().join_normalized(path_str)?
         };
 
-        let cwd_cell_name = self.cell_resovler.find(&self.cwd_roots.cwd)?;
+        let cwd_cell_name = self.cell_resovler.find(&self.cwd_roots.cwd);
 
         let cell_name = self.resolve_cell(&abs_path)?;
         let cell_path = self.relative_to_cell(&abs_path)?;
@@ -153,7 +153,7 @@ impl PathSanitizer {
         cell_path: &str,
     ) -> Result<SanitizedPath, buck2_error::Error> {
         let given_cell = if given_cell_str == "" {
-            self.cell_resovler.find(&self.cwd_roots.cwd)?
+            self.cell_resovler.find(&self.cwd_roots.cwd)
         } else {
             self.resolve_alias(given_cell_str)?
         };
@@ -225,8 +225,9 @@ impl PathSanitizer {
 
     fn resolve_cell(&self, path: &AbsNormPath) -> buck2_error::Result<CellName> {
         let project_relative = &self.relative_to_project(path)?;
-        self.cell_resovler
-            .find::<ProjectRelativePath>(project_relative)
+        Ok(self
+            .cell_resovler
+            .find::<ProjectRelativePath>(project_relative))
     }
 
     fn relative_to_cell(&self, dir: &AbsNormPath) -> buck2_error::Result<CellRelativePathBuf> {
