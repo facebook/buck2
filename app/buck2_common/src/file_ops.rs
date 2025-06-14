@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::fs::File;
 use std::hash::Hash;
 use std::sync::Arc;
 
@@ -17,6 +16,7 @@ use buck2_core::buck2_env;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
@@ -277,8 +277,8 @@ impl FileDigest {
 
     /// Get the digest from disk. You should usually prefer `from_file`
     /// which also uses faster methods of getting the SHA1 if it can.
-    pub fn from_file_disk(file: &AbsPath, config: FileDigestConfig) -> buck2_error::Result<Self> {
-        let f = File::open(file.as_maybe_relativized())?;
+    fn from_file_disk(file: &AbsPath, config: FileDigestConfig) -> buck2_error::Result<Self> {
+        let f = fs_util::open_file(file)?;
         FileDigest::from_reader(f, config.as_cas_digest_config())
     }
 }
