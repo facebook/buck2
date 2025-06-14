@@ -15,11 +15,11 @@ use std::sync::OnceLock;
 
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_common::dice::file_ops::delegate::FileOpsDelegate;
-use buck2_common::file_ops::FileMetadata;
-use buck2_common::file_ops::FileType;
-use buck2_common::file_ops::RawDirEntry;
-use buck2_common::file_ops::RawPathMetadata;
-use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::file_ops::metadata::FileMetadata;
+use buck2_common::file_ops::metadata::FileType;
+use buck2_common::file_ops::metadata::RawDirEntry;
+use buck2_common::file_ops::metadata::RawPathMetadata;
+use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::io::fs::is_executable;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::name::CellName;

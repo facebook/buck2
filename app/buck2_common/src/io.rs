@@ -18,8 +18,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 
-use crate::file_ops::RawDirEntry;
-use crate::file_ops::RawPathMetadata;
+use crate::file_ops::metadata::RawDirEntry;
+use crate::file_ops::metadata::RawPathMetadata;
 use crate::ignores::file_ignores::FileIgnoreReason;
 
 #[derive(Debug, Allocative, buck2_error::Error)]

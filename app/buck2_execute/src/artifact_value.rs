@@ -13,8 +13,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_common::external_symlink::ExternalSymlink;
-use buck2_common::file_ops::FileDigest;
-use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::metadata::FileDigest;
+use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use dupe::Dupe;

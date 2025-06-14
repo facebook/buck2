@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::metadata::FileDigest;
 use buck2_core::buck2_env;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::fs_util::IoError;

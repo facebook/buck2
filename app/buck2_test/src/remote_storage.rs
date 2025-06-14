@@ -58,8 +58,8 @@ fn collect_digests(directory_entry: &ActionDirectoryEntry<ActionSharedDirectory>
 
 #[cfg(test)]
 mod tests {
-    use buck2_common::file_ops::FileMetadata;
-    use buck2_common::file_ops::TrackedFileDigest;
+    use buck2_common::file_ops::metadata::FileMetadata;
+    use buck2_common::file_ops::metadata::TrackedFileDigest;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::directory::ActionDirectoryBuilder;

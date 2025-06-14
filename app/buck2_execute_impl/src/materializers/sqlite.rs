@@ -317,8 +317,8 @@ mod tests {
 
     use assert_matches::assert_matches;
     use buck2_common::directory_metadata::DirectoryMetadata;
-    use buck2_common::file_ops::FileMetadata;
-    use buck2_common::file_ops::TrackedFileDigest;
+    use buck2_common::file_ops::metadata::FileMetadata;
+    use buck2_common::file_ops::metadata::TrackedFileDigest;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_directory::directory::entry::DirectoryEntry;
     use buck2_execute::directory::ActionDirectoryMember;

@@ -10,7 +10,7 @@
 use std::fmt;
 use std::fmt::Debug;
 
-use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::metadata::FileDigest;
 use buck2_error::BuckErrorContext;
 use futures::future;
 use remote_execution::InlinedBlobWithDigest;

@@ -154,7 +154,7 @@ impl<'a> ArtifactValueBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use buck2_common::file_ops::Symlink;
+    use buck2_common::file_ops::metadata::Symlink;
     use buck2_core::fs::project::ProjectRootTemp;
 
     use super::*;

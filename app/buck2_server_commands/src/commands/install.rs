@@ -38,7 +38,7 @@ use buck2_cli_proto::InstallRequest;
 use buck2_cli_proto::InstallResponse;
 use buck2_common::client_utils::get_channel_tcp;
 use buck2_common::client_utils::retrying;
-use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
 use buck2_common::manifold::Ttl;

@@ -9,7 +9,7 @@
 
 use std::collections::HashMap;
 
-use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_core::fs::fs_util::IoError;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -95,7 +95,7 @@ mod state_machine {
     use std::thread;
 
     use assert_matches::assert_matches;
-    use buck2_common::file_ops::Symlink;
+    use buck2_common::file_ops::metadata::Symlink;
     use buck2_core::fs::fs_util;
     use buck2_core::fs::fs_util::ReadDir;
     use buck2_core::fs::paths::RelativePathBuf;

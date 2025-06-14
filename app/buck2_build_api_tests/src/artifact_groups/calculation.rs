@@ -26,8 +26,8 @@ use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrderi
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
-use buck2_common::file_ops::FileMetadata;
-use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::file_ops::metadata::FileMetadata;
+use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::file_ops::testing::TestFileOps;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::inject_legacy_config_for_test;

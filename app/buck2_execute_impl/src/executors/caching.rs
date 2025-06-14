@@ -13,7 +13,7 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use buck2_action_metadata_proto::REMOTE_DEP_FILE_KEY;
-use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;

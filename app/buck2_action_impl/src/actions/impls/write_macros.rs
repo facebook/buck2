@@ -29,7 +29,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
-use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::paths::RelativePathBuf;

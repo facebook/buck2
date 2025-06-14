@@ -10,7 +10,7 @@
 use derive_more::Display;
 use dupe::Dupe;
 
-use crate::file_ops::TrackedFileDigest;
+use crate::file_ops::metadata::TrackedFileDigest;
 
 /// Fingerprint used to identify `ActionSharedDirectory`. We give it an explicit
 /// alias because `TrackedFileDigest` can look confusing.

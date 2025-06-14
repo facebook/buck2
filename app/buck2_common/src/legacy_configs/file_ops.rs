@@ -26,8 +26,8 @@ use futures::FutureExt;
 use futures::future::BoxFuture;
 
 use crate::dice::file_ops::DiceFileComputations;
-use crate::file_ops::FileType;
-use crate::file_ops::RawPathMetadata;
+use crate::file_ops::metadata::FileType;
+use crate::file_ops::metadata::RawPathMetadata;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, derive_more::Display)]
 pub enum ConfigPath {

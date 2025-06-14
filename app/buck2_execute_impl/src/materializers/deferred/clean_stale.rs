@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-use buck2_common::file_ops::FileType;
+use buck2_common::file_ops::metadata::FileType;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::liveliness_observer::LivelinessGuard;

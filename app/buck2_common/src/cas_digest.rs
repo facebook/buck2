@@ -210,7 +210,7 @@ impl CasDigestConfig {
 
     /// Allow optimizing the empty file digest path, we do that by having the CasDigestConfig hold
     /// a cell for it (later in this stack).
-    pub fn empty_file_digest(self) -> crate::file_ops::TrackedFileDigest {
+    pub fn empty_file_digest(self) -> crate::file_ops::metadata::TrackedFileDigest {
         self.inner.empty_file_digest.dupe()
     }
 
@@ -272,7 +272,7 @@ struct CasDigestConfigInner {
     preferred_algorithm: DigestAlgorithm,
     digest160: Option<DigestAlgorithm>,
     digest256: Option<DigestAlgorithm>,
-    empty_file_digest: crate::file_ops::TrackedFileDigest,
+    empty_file_digest: crate::file_ops::metadata::TrackedFileDigest,
     /// A potentially different configuration to use when digesting source files.
     source: SourceFilesConfig,
 }
@@ -931,7 +931,7 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::file_ops::FileDigestKind;
+    use crate::file_ops::metadata::FileDigestKind;
 
     #[test]
     fn test_digest_from_str() {

@@ -17,7 +17,7 @@ use std::time::Instant;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
-use buck2_common::file_ops::FileDigestConfig;
+use buck2_common::file_ops::metadata::FileDigestConfig;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
 use buck2_common::local_resource_state::LocalResourceHolder;

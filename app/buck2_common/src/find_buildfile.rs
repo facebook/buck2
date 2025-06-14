@@ -10,7 +10,7 @@
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 
-use crate::file_ops::SimpleDirEntry;
+use crate::file_ops::metadata::SimpleDirEntry;
 
 pub fn find_buildfile<'a>(
     buildfile_candidates: &'a [FileNameBuf],

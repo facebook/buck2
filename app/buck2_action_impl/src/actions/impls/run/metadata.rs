@@ -8,7 +8,7 @@
  */
 
 use buck2_build_api::artifact_groups::ArtifactGroupValues;
-use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;

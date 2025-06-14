@@ -13,7 +13,7 @@ use allocative::Allocative;
 use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::CasDigestConfigError;
 use buck2_common::cas_digest::DigestAlgorithm;
-use buck2_common::file_ops::FileMetadata;
+use buck2_common::file_ops::metadata::FileMetadata;
 use derivative::Derivative;
 use dice::DiceData;
 use dice::DiceDataBuilder;

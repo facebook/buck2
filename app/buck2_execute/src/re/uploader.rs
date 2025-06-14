@@ -14,9 +14,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use buck2_common::cas_digest::TrackedCasDigest;
-use buck2_common::file_ops::FileDigest;
-use buck2_common::file_ops::FileDigestKind;
-use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::file_ops::metadata::FileDigest;
+use buck2_common::file_ops::metadata::FileDigestKind;
+use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;

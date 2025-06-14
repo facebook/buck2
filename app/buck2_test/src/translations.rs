@@ -10,7 +10,7 @@
 //! Translation between buck core data and the test spec data types
 
 use anyhow::Context;
-use buck2_common::file_ops::FileDigest;
+use buck2_common::file_ops::metadata::FileDigest;
 use buck2_core::cells::CellResolver;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_data::ToProtoMessage;

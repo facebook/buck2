@@ -31,14 +31,14 @@ use tokio::sync::Semaphore;
 
 use crate::cas_digest::CasDigestConfig;
 use crate::external_symlink::ExternalSymlink;
-use crate::file_ops::FileDigest;
-use crate::file_ops::FileDigestConfig;
-use crate::file_ops::FileMetadata;
-use crate::file_ops::RawDirEntry;
-use crate::file_ops::RawPathMetadata;
-use crate::file_ops::RawSymlink;
-use crate::file_ops::Symlink;
-use crate::file_ops::TrackedFileDigest;
+use crate::file_ops::metadata::FileDigest;
+use crate::file_ops::metadata::FileDigestConfig;
+use crate::file_ops::metadata::FileMetadata;
+use crate::file_ops::metadata::RawDirEntry;
+use crate::file_ops::metadata::RawPathMetadata;
+use crate::file_ops::metadata::RawSymlink;
+use crate::file_ops::metadata::Symlink;
+use crate::file_ops::metadata::TrackedFileDigest;
 use crate::io::IoProvider;
 
 #[derive(Clone, Dupe, Allocative)]

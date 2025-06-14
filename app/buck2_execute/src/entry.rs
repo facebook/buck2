@@ -11,11 +11,11 @@ use std::time::Duration;
 use std::time::Instant;
 
 use async_recursion::async_recursion;
-use buck2_common::file_ops::FileDigest;
-use buck2_common::file_ops::FileDigestConfig;
-use buck2_common::file_ops::FileMetadata;
-use buck2_common::file_ops::FileType;
-use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::file_ops::metadata::FileDigest;
+use buck2_common::file_ops::metadata::FileDigestConfig;
+use buck2_common::file_ops::metadata::FileMetadata;
+use buck2_common::file_ops::metadata::FileType;
+use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;

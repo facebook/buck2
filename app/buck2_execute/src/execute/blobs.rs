@@ -9,7 +9,7 @@
 
 use std::collections::HashMap;
 
-use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::file_ops::metadata::TrackedFileDigest;
 use dupe::Dupe;
 use remote_execution::InlinedBlobWithDigest;
 

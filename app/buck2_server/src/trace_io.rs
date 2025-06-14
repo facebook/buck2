@@ -9,7 +9,7 @@
 
 use buck2_cli_proto::trace_io_request;
 use buck2_cli_proto::trace_io_response;
-use buck2_common::file_ops::RawSymlink;
+use buck2_common::file_ops::metadata::RawSymlink;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;

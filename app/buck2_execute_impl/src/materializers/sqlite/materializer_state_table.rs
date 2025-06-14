@@ -12,10 +12,10 @@ use std::sync::Arc;
 
 use buck2_common::directory_metadata::DirectoryMetadata;
 use buck2_common::external_symlink::ExternalSymlink;
-use buck2_common::file_ops::FileDigest;
-use buck2_common::file_ops::FileMetadata;
-use buck2_common::file_ops::Symlink;
-use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::file_ops::metadata::FileDigest;
+use buck2_common::file_ops::metadata::FileMetadata;
+use buck2_common::file_ops::metadata::Symlink;
+use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;

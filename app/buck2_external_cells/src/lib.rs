@@ -16,7 +16,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::dice::file_ops::delegate::FileOpsDelegate;
-use buck2_common::file_ops::RawPathMetadata;
+use buck2_common::file_ops::metadata::RawPathMetadata;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::name::CellName;

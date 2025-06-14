@@ -14,7 +14,7 @@ use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::file_ops::DiceFileComputations;
 use buck2_common::file_ops::FileReadErrorContext;
-use buck2_common::file_ops::RawPathMetadata;
+use buck2_common::file_ops::metadata::RawPathMetadata;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
