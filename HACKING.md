@@ -122,7 +122,7 @@ effort. FIXME: It may be possible to use Sapling on OSS Buck2 to get a working
 Starlark linter, but the instructions to do so would need to be written.
 
 [Git gremlins]:
-  https://github.com/facebook/buck2/commit/54f986c0329f4f60e9057d7e86f3d361f1b5e1bf)
+  https://github.com/facebook/buck2/commit/54f986c0329f4f60e9057d7e86f3d361f1b5e1bf
 
 ## Coding conventions
 
