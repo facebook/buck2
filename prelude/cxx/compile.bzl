@@ -1004,13 +1004,10 @@ def _add_compiler_type_flags(ctx: AnalysisContext, compiler_type: str, ext: CxxE
     return cmd
 
 def _compiler_type_flags_anon_impl(ctx: AnalysisContext):
-    argsfile_artifact = mk_argsfile(
-        ctx,
-        file_name = "compiler_type_args",
-        args_list = _add_compiler_type_flags(ctx, ctx.attrs.compiler_type, CxxExtension(ctx.attrs.src_extension)),
-        is_nasm = ctx.attrs.compiler_type == "nasm",
-        is_xcode_argsfile = ctx.attrs.is_xcode_argsfile,
-    )
+    is_nasm = ctx.attrs.compiler_type == "nasm"
+    args = _add_compiler_type_flags(ctx, ctx.attrs.compiler_type, CxxExtension(ctx.attrs.src_extension))
+    content = create_cmd_args(is_nasm, ctx.attrs.is_xcode_argsfile, *args)
+    argsfile_artifact, _ = ctx.actions.write("compiler_type_args", content, allow_args = True)
 
     return [DefaultInfo(default_outputs = [argsfile_artifact])]
 
@@ -1028,21 +1025,13 @@ _compiler_type_flags_anon_rule = anon_rule(
           "The argsfile is shared between targets, thus reducing resource usage.",
 )
 
-def mk_argsfile(
-        ctx: AnalysisContext,
-        file_name: str,
-        args_list: list,
-        is_nasm: bool,
-        is_xcode_argsfile: bool) -> Artifact:
+def create_cmd_args(is_nasm: bool, is_xcode_argsfile: bool, *args) -> cmd_args:
     if is_xcode_argsfile:
-        file_args = cmd_args(args_list, replace_regex = XCODE_ARG_SUBSTITUTIONS)
+        return cmd_args(replace_regex = XCODE_ARG_SUBSTITUTIONS, *args)
     elif is_nasm:
-        file_args = cmd_args(args_list)
+        return cmd_args(*args)
     else:
-        file_args = cmd_args(args_list, quote = "shell")
-
-    argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True)
-    return argsfile
+        return cmd_args(quote = "shell", *args)
 
 def _mk_argsfiles(
         ctx: AnalysisContext,
@@ -1068,7 +1057,10 @@ def _mk_argsfiles(
     argsfiles = []
     args_list = []
 
-    mk_argsfile_lambda = lambda filename, args: mk_argsfile(ctx, filename, args, is_nasm, is_xcode_argsfile)
+    def mk_argsfile(filename: str, args) -> Artifact:
+        content = create_cmd_args(is_nasm, is_xcode_argsfile, args)
+        argsfile, _ = ctx.actions.write(filename, content, allow_args = True)
+        return argsfile
 
     def make_toolchain_argsfile():
         compiler_info_flags = _add_compiler_info_flags(compiler_info)
@@ -1081,7 +1073,7 @@ def _mk_argsfiles(
         else:
             # filename example: .cpp.toolchain_cxx_args
             compiler_info_filename = filename_prefix + "toolchain_cxx_args"
-            compiler_info_argsfile = mk_argsfile_lambda(compiler_info_filename, compiler_info_flags)
+            compiler_info_argsfile = mk_argsfile(compiler_info_filename, compiler_info_flags)
 
         argsfiles.append(compiler_info_argsfile)
         args_list.append(compiler_info_flags)
@@ -1100,11 +1092,8 @@ def _mk_argsfiles(
             compiler_type_argsfile_artifact = compiler_type_flags_anon_target.artifact("argsfile")
         else:
             compiler_type_argsfile_artifact = mk_argsfile(
-                ctx,
                 filename_prefix + "compiler_type_args",
                 compiler_type_flags,
-                is_nasm,
-                is_xcode_argsfile,
             )
         argsfiles.append(compiler_type_argsfile_artifact)
         args_list.append(compiler_type_flags)
@@ -1122,7 +1111,7 @@ def _mk_argsfiles(
 
         # filename example: .cpp.deps_cxx_args
         deps_argsfile_filename = filename_prefix + "deps_cxx_args"
-        argsfiles.append(mk_argsfile_lambda(deps_argsfile_filename, deps_args))
+        argsfiles.append(mk_argsfile(deps_argsfile_filename, deps_args))
         args_list.extend(deps_args)
 
     make_deps_argsfile()
@@ -1143,7 +1132,7 @@ def _mk_argsfiles(
 
         # filename example: .cpp.target_cxx_args
         target_argsfile_filename = filename_prefix + "target_cxx_args"
-        argsfiles.append(mk_argsfile_lambda(target_argsfile_filename, target_args))
+        argsfiles.append(mk_argsfile(target_argsfile_filename, target_args))
         args_list.extend(target_args)
 
     make_target_argsfile()
@@ -1158,19 +1147,16 @@ def _mk_argsfiles(
 
         # filename example: .cpp.file_prefix_cxx_args
         file_prefix_args_filename = filename_prefix + "file_prefix_cxx_args"
-        argsfiles.append(mk_argsfile_lambda(file_prefix_args_filename, [file_prefix_args]))
+        argsfiles.append(mk_argsfile(file_prefix_args_filename, file_prefix_args))
         args_list.append(file_prefix_args)
 
     make_file_prefix_argsfile()
 
     if is_xcode_argsfile:
-        args = cmd_args(args_list, replace_regex = XCODE_ARG_SUBSTITUTIONS)
         file_args = cmd_args(argsfiles, format = "@{}")
     elif is_nasm:
-        args = cmd_args(args_list)
         file_args = cmd_args(argsfiles, format = "-@{}")
     else:
-        args = cmd_args(args_list, quote = "shell")
         file_args = cmd_args(argsfiles, format = "@{}", quote = "shell")
 
     # filename example: .cpp.cxx_compile_argsfile
@@ -1179,6 +1165,7 @@ def _mk_argsfiles(
     # For Xcode to parse argsfiles of argsfiles, the paths in the former must be absolute.
     argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True, absolute = is_xcode_argsfile)
 
+    args = create_cmd_args(is_nasm, is_xcode_argsfile, args_list)
     input_args = [args, file_args]
 
     cmd_form = cmd_args(
