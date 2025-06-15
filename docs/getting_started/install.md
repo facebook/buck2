@@ -34,7 +34,7 @@ To get started, first install [rustup](https://rustup.rs/), then compile the
 `buck2` executable:
 
 ```bash
-rustup install nightly-2025-03-29-x86_64-unknown-linux-gnu
+rustup toolchain install nightly-2025-03-29
 cargo +nightly-2025-03-29 install --git https://github.com/facebook/buck2.git buck2
 ```
 
