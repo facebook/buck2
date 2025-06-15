@@ -97,8 +97,9 @@ async def test_explain_only_builds(buck: Buck) -> None:
 @env("BUCK2_TEST_MANIFOLD_TTL_S", str(84_000))  # 1 day
 async def test_explain_upload(buck: Buck) -> None:
     uuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-    await buck.build("//:simple")
-    await buck.explain(env={"BUCK_WRAPPER_UUID": uuid})
+    env = {"BUCK_WRAPPER_UUID": uuid}
+    await buck.build("//:simple", env=env)
+    await buck.explain(env=env)
 
     assert await manifold_exists(path=f"flat/{uuid}-explain.html") is True
 
