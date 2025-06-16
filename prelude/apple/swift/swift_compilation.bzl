@@ -740,7 +740,6 @@ def _compile_index_store(
         srcs = srcs,
         additional_flags = additional_flags,
         toolchain = toolchain,
-        identifier = module_name,
         cacheable = True,
         output_file_map = output_file_map,
     )
@@ -755,7 +754,6 @@ def _compile_with_argsfile(
         srcs: list[CxxSrcWithFlags],
         additional_flags: cmd_args,
         toolchain: SwiftToolchainInfo,
-        identifier: str | None = None,
         num_threads: int = 1,
         dep_files: dict[str, ArtifactTag] = {},
         output_file_map: dict = {},
@@ -795,7 +793,6 @@ def _compile_with_argsfile(
         srcs = srcs,
         additional_flags = additional_flags,
         toolchain = toolchain,
-        identifier = identifier,
         num_threads = num_threads,
         dep_files = dep_files,
         output_file_map = output_file_map,
