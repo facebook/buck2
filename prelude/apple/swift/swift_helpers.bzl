@@ -9,7 +9,6 @@ load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler", "ap
 load("@prelude//apple/swift:apple_sdk_modules_utility.bzl", "is_sdk_modules_provided")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags")
-load(":swift_incremental_support.bzl", "should_build_swift_incrementally")
 load(":swift_output_file_map.bzl", "add_output_file_map_flags", "add_serialized_diagnostics_output")
 load(":swift_toolchain.bzl", "get_swift_toolchain_info")
 load(":swift_toolchain_types.bzl", "SwiftToolchainInfo")
@@ -24,9 +23,12 @@ def compile_with_argsfile(
         toolchain: SwiftToolchainInfo,
         identifier: str | None = None,
         num_threads: int = 1,
-        cacheable: bool = True,
         dep_files: dict[str, ArtifactTag] = {},
-        output_file_map: dict = {}) -> (CompileArgsfiles, Artifact | None):
+        output_file_map: dict = {},
+        allow_cache_upload = False,
+        local_only = False,
+        prefer_local = False,
+        no_outputs_cleanup = False) -> (CompileArgsfiles, Artifact | None):
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
 
@@ -69,45 +71,20 @@ def compile_with_argsfile(
     else:
         output_file_map_artifact = None
 
-    build_swift_incrementally = should_build_swift_incrementally(ctx)
-    explicit_modules_enabled = uses_explicit_modules(ctx)
-
-    # If we prefer to execute locally (e.g., for perf reasons), ensure we upload to the cache,
-    # so that CI builds populate caches used by developer machines.
-    allow_cache_upload = True
-    local_only = False
-
-    # Swift compilation on RE without explicit modules is impractically expensive
-    # because there's no shared module cache across different libraries.
-    prefer_local = not explicit_modules_enabled
-
-    if (not cacheable) or (build_swift_incrementally and not toolchain.supports_relative_resource_dir):
-        # When Swift code is built incrementally, the swift-driver embeds absolute paths into
-        # the artifacts without relative resource dir support. In this case we can only build locally.
-        allow_cache_upload = False
-        local_only = True
-        prefer_local = False
-    elif build_swift_incrementally:
-        # Swift incremental compilation requires the swiftdep files which are only present when
-        # compiling locally. Prefer local unless otherwise overridden.
-        prefer_local = True
-
     ctx.actions.run(
         cmd,
-        category = category,
-        identifier = identifier,
-        # When building incrementally, we need to preserve local state between invocations.
-        no_outputs_cleanup = build_swift_incrementally,
-        error_handler = swift_error_handler if error_deserializer else apple_build_error_handler,
-        outputs_for_error_handler = error_outputs,
-        weight = num_threads,
         allow_cache_upload = allow_cache_upload,
-        local_only = local_only,
-        prefer_local = prefer_local,
-        dep_files = dep_files,
         allow_dep_file_cache_upload = True,
-        # Swift compiler requires unique inodes for all input files.
+        category = category,
+        dep_files = dep_files,
+        error_handler = swift_error_handler if error_deserializer else apple_build_error_handler,
+        identifier = identifier,
+        local_only = local_only,
+        no_outputs_cleanup = no_outputs_cleanup,
+        outputs_for_error_handler = error_outputs,
+        prefer_local = prefer_local,
         unique_input_inodes = True,
+        weight = num_threads,
     )
 
     argsfile = CompileArgsfile(

@@ -518,8 +518,15 @@ def _compile_swiftmodule(
             "-Xwrapper",
             "-remove-module-prefixes",
         ])
-        compile_with_argsfile(ctx, "emit_swiftinterface", ".swiftinterface", swiftinterface_argsfile, srcs, swiftinterface_cmd, toolchain, num_threads = 1)
-
+        _compile_with_argsfile(
+            ctx = ctx,
+            category = "emit_swiftinterface",
+            extension = ".swiftinterface",
+            shared_flags = swiftinterface_argsfile,
+            srcs = srcs,
+            additional_flags = swiftinterface_cmd,
+            toolchain = toolchain,
+        )
         argfile_cmd = cmd_args(shared_flags)
         argfile_cmd.add([
             "-disable-cmo",
@@ -597,7 +604,7 @@ def _compile_swiftmodule(
         add_dependencies_output(ctx, output_file_map, cmd, "swiftmodule", inputs_tag)
         dep_files["swiftmodule"] = inputs_tag
 
-    ret, _ = compile_with_argsfile(
+    ret, _ = _compile_with_argsfile(
         ctx = ctx,
         category = category + ("_with_explicit_mods" if uses_explicit_modules(ctx) else ""),
         extension = SWIFTMODULE_EXTENSION,
@@ -676,7 +683,7 @@ def _compile_object(
     if _should_compile_with_evolution(ctx):
         cmd.add(["-enable-library-evolution"])
 
-    argsfiles, output_map_artifact = compile_with_argsfile(
+    argsfiles, output_map_artifact = _compile_with_argsfile(
         ctx = ctx,
         category = category + ("_with_explicit_mods" if uses_explicit_modules(ctx) else ""),
         extension = SWIFT_EXTENSION,
@@ -725,20 +732,79 @@ def _compile_index_store(
         "-ignore-errors",
     ])
 
-    compile_with_argsfile(
-        ctx,
-        "swift_index_compile",
-        module_name,
-        shared_flags,
-        srcs,
-        additional_flags,
-        toolchain,
-        module_name,
+    _compile_with_argsfile(
+        ctx = ctx,
+        category = "swift_index_compile",
+        extension = module_name,
+        shared_flags = shared_flags,
+        srcs = srcs,
+        additional_flags = additional_flags,
+        toolchain = toolchain,
+        identifier = module_name,
         cacheable = True,
         output_file_map = output_file_map,
     )
 
     return index_store_output
+
+def _compile_with_argsfile(
+        ctx: AnalysisContext,
+        category: str,
+        extension: str,
+        shared_flags: cmd_args,
+        srcs: list[CxxSrcWithFlags],
+        additional_flags: cmd_args,
+        toolchain: SwiftToolchainInfo,
+        identifier: str | None = None,
+        num_threads: int = 1,
+        dep_files: dict[str, ArtifactTag] = {},
+        output_file_map: dict = {},
+        cacheable = True) -> (CompileArgsfiles, Artifact | None):
+    build_swift_incrementally = should_build_swift_incrementally(ctx)
+    explicit_modules_enabled = uses_explicit_modules(ctx)
+
+    # If we prefer to execute locally (e.g., for perf reasons), ensure we
+    # upload to the cache so that CI builds populate caches used by developer
+    # machines.
+    allow_cache_upload = True
+    local_only = False
+
+    # Swift compilation on RE without explicit modules is impractically
+    # expensive because there's no shared module cache across different
+    # libraries.
+    prefer_local = not explicit_modules_enabled
+
+    if (not cacheable) or (build_swift_incrementally and not toolchain.supports_relative_resource_dir):
+        # When Swift code is built incrementally, the swift-driver embeds
+        # absolute paths into the artifacts without relative resource dir
+        # support. In this case we can only build locally.
+        allow_cache_upload = False
+        local_only = True
+        prefer_local = False
+    elif build_swift_incrementally:
+        # Swift incremental compilation requires the swiftdep files which are
+        # only present when compiling locally. Prefer local unless otherwise
+        # overridden.
+        prefer_local = True
+
+    return compile_with_argsfile(
+        ctx = ctx,
+        category = category,
+        extension = extension,
+        shared_flags = shared_flags,
+        srcs = srcs,
+        additional_flags = additional_flags,
+        toolchain = toolchain,
+        identifier = identifier,
+        num_threads = num_threads,
+        dep_files = dep_files,
+        output_file_map = output_file_map,
+        allow_cache_upload = allow_cache_upload,
+        local_only = local_only,
+        prefer_local = prefer_local,
+        # We need to preserve the action outputs for incremental compilation.
+        no_outputs_cleanup = build_swift_incrementally,
+    )
 
 def _get_serialize_debugging_options(ctx: AnalysisContext, uses_explicit_modules: bool):
     if ctx.attrs.serialize_debugging_options == False:
