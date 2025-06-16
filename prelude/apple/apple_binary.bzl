@@ -18,8 +18,8 @@ load(
     "get_swift_debug_infos",
     "get_swift_dependency_info",
     "get_swiftmodule_linkable",
-    "uses_explicit_modules",
 )
+load("@prelude//apple/swift:swift_helpers.bzl", "uses_explicit_modules")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
 load(
     "@prelude//cxx:argsfiles.bzl",

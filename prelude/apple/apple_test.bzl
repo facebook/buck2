@@ -14,7 +14,8 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_xctest_frameworks_utility.bzl", "get_xctest_frameworks_bundle_parts")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "ios_test_re_capabilities", "macos_test_re_capabilities")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_use_case.bzl", "apple_test_re_use_case")
-load("@prelude//apple/swift:swift_compilation.bzl", "get_swift_anonymous_targets", "uses_explicit_modules")
+load("@prelude//apple/swift:swift_compilation.bzl", "get_swift_anonymous_targets")
+load("@prelude//apple/swift:swift_helpers.bzl", "uses_explicit_modules")
 load(
     "@prelude//cxx:argsfiles.bzl",
     "CompileArgsfile",  # @unused Used as a type

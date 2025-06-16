@@ -28,8 +28,8 @@ load(
     "get_swift_dependency_info",
     "get_swift_pcm_uncompile_info",
     "get_swiftmodule_linkable",
-    "uses_explicit_modules",
 )
+load("@prelude//apple/swift:swift_helpers.bzl", "uses_explicit_modules")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
 load(
