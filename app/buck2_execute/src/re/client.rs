@@ -780,6 +780,12 @@ impl RemoteExecutionClientImpl {
                     )
                     .to_owned();
 
+                re_client_config.client_config_path = static_metadata
+                    .client_config_path
+                    .as_deref()
+                    .unwrap_or("remote_execution/client/configs/buck")
+                    .to_owned();
+
                 re_client_config.disable_fallocate = static_metadata.disable_fallocate;
 
                 re_client_config

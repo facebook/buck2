@@ -128,6 +128,7 @@ mod fbcode {
         pub force_enable_deduplicate_find_missing: Option<bool>,
 
         pub features_config_path: Option<String>,
+        pub client_config_path: Option<String>,
 
         // curl reactor
         pub curl_reactor_max_number_of_retries: Option<i32>,
@@ -299,6 +300,10 @@ mod fbcode {
                 features_config_path: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
                     property: "features_config_path",
+                })?,
+                client_config_path: legacy_config.parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "client_config_path",
                 })?,
                 curl_reactor_max_number_of_retries: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
