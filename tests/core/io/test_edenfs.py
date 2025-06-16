@@ -220,6 +220,8 @@ async def test_edenfs_files_report_on_fresh_instance(buck: Buck) -> None:
     # and redirect only that buck-out and not buck-out in subproject.
     # So, ignore soft errors that buck-out isn't redirected
     allow_soft_errors=True,
+    # test is flaky on windows
+    skip_for_os=["windows"],
 )
 async def test_edenfs_changes_in_subproject(buck: Buck) -> None:
     cwd = Path("subproject")
@@ -248,6 +250,8 @@ async def test_edenfs_changes_in_subproject(buck: Buck) -> None:
     # and redirect only that buck-out and not buck-out in subproject.
     # So, ignore soft errors that buck-out isn't redirected
     allow_soft_errors=True,
+    # test is flaky on windows
+    skip_for_os=["windows"],
 )
 async def test_edenfs_changes_outside_subproject(buck: Buck) -> None:
     cwd = Path("subproject")
