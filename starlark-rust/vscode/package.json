@@ -138,6 +138,6 @@
     },
     "dependencies": {
         "@vscode/vsce": "^3.5.0",
-        "vscode-languageclient": "^8.1.0"
+        "vscode-languageclient": "^9.0.1"
     }
 }

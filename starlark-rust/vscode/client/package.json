@@ -15,7 +15,7 @@
 	"dependencies": {
 		"cd": "^0.3.3",
 		"starlark": "file:..",
-		"vscode-languageclient": "^6.1.3"
+		"vscode-languageclient": "^9.0.1"
 	},
 	"devDependencies": {
 		"@types/vscode": "1.43.0",
