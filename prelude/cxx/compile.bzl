@@ -1117,23 +1117,36 @@ def _mk_argsfiles(
     make_deps_argsfile()
 
     def make_target_argsfile():
-        target_args = []
-        target_args.append(_preprocessor_flags(ctx, impl_params, ext.value))
-        target_args.append(get_flags_for_compiler_type(compiler_info.compiler_type))
-        target_args.append(_compiler_flags(ctx, impl_params, ext.value))
-        target_args.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("include_dirs")))
+        target_args = cmd_args(
+            # preprocessor
+            impl_params.preprocessor_flags,
+            cxx_by_language_ext(impl_params.lang_preprocessor_flags, ext.value),
+            cxx_by_platform(ctx, impl_params.platform_preprocessor_flags),
+            cxx_by_platform(ctx, cxx_by_language_ext(impl_params.lang_platform_preprocessor_flags, ext.value)),
+            get_flags_for_compiler_type(compiler_info.compiler_type),
+
+            # compiler
+            cxx_by_language_ext(impl_params.lang_compiler_flags, ext.value),
+            cxx_by_platform(ctx, impl_params.platform_compiler_flags),
+            cxx_by_platform(ctx, cxx_by_language_ext(impl_params.lang_platform_compiler_flags, ext.value)),
+
+            # ctx.attrs.compiler_flags need to come last to preserve buck1 ordering, this prevents compiler
+            # flags ordering-dependent build errors
+            impl_params.compiler_flags,
+            headers_tag.tag_artifacts(preprocessor.set.project_as_args("include_dirs")),
+        )
 
         # Workaround as that's not precompiled, but working just as prefix header.
         # Another thing is that it's clang specific, should be generalized.
         if hasattr(ctx.attrs, "precompiled_header") and ctx.attrs.precompiled_header != None:
-            target_args.append(["-include", headers_tag.tag_artifacts(ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].header)])
+            target_args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].header)])
         if hasattr(ctx.attrs, "prefix_header") and ctx.attrs.prefix_header != None:
-            target_args.append(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
+            target_args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
 
         # filename example: .cpp.target_cxx_args
         target_argsfile_filename = filename_prefix + "target_cxx_args"
         argsfiles.append(mk_argsfile(target_argsfile_filename, target_args))
-        args_list.extend(target_args)
+        args_list.append(target_args)
 
     make_target_argsfile()
 
@@ -1179,24 +1192,6 @@ def _mk_argsfiles(
         cmd_form = cmd_form,
         args = args,
         args_without_file_prefix_args = args_without_file_prefix_args,
-    )
-
-def _compiler_flags(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, ext: str) -> cmd_args:
-    return cmd_args(
-        cxx_by_language_ext(impl_params.lang_compiler_flags, ext),
-        cxx_by_platform(ctx, impl_params.platform_compiler_flags),
-        cxx_by_platform(ctx, cxx_by_language_ext(impl_params.lang_platform_compiler_flags, ext)),
-        # ctx.attrs.compiler_flags need to come last to preserve buck1 ordering, this prevents compiler
-        # flags ordering-dependent build errors
-        impl_params.compiler_flags,
-    )
-
-def _preprocessor_flags(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, ext: str) -> cmd_args:
-    return cmd_args(
-        impl_params.preprocessor_flags,
-        cxx_by_language_ext(impl_params.lang_preprocessor_flags, ext),
-        cxx_by_platform(ctx, impl_params.platform_preprocessor_flags),
-        cxx_by_platform(ctx, cxx_by_language_ext(impl_params.lang_platform_preprocessor_flags, ext)),
     )
 
 def _mk_header_units_argsfile(
