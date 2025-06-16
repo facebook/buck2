@@ -4,6 +4,7 @@
 # * Update the `rustc_version` directive (read by `app/buck2_core/build.rs`).
 # * Update `HACKING.md` (two instances).
 # * Update `docs/about/getting_started.md` (two instances).
+# * Update `docs/getting_started/install.md` (two instances).
 # * Update `../common/rust/tools/reindeer/rust-toolchain` (one instance)
 # * Update `../target_determinator/oss/rust-toolchain` (one instance)
 # * Update `../common/ocaml/interop/rust-toolchain` (one instance)
