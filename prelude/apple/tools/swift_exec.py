@@ -83,7 +83,10 @@ def _remove_swiftinterface_module_prefixes(command):
         f.truncate()
 
 
-def _rewrite_dependency_file(command):
+def _rewrite_dependency_file(command, out_path):
+    if not out_path:
+        raise RuntimeError("-emit-dependencies requires -dependencies-file-output")
+
     # The compiler will output d files in Makefile format with abolute paths,
     # Buck expects line separated relative paths with no input prefix.
     output_file_map_path = command[command.index("-output-file-map") + 1]
@@ -119,7 +122,7 @@ def _rewrite_dependency_file(command):
         else:
             relative_paths.append(path)
 
-    with open(deps_file_path, "w") as f:
+    with open(out_path, "w") as f:
         f.write("\n".join(sorted(relative_paths)))
         f.write("\n")
 
@@ -163,6 +166,10 @@ def _parse_wrapper_args(
             i += 1
 
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-dependencies-file-output",
+        help="Path to write Buck format dependencies file to",
+    )
     parser.add_argument(
         "-ignore-errors",
         action="store_true",
@@ -290,7 +297,7 @@ def main():
 
         # Rewrite .d files for the format that Buck requires.
         if "-emit-dependencies" in command:
-            _rewrite_dependency_file(command)
+            _rewrite_dependency_file(command, wrapper_args.dependencies_file_output)
 
         # https://github.com/swiftlang/swift/issues/56573
         if wrapper_args.remove_module_prefixes:

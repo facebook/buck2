@@ -6,13 +6,19 @@
 # of this source tree.
 
 def add_dependencies_output(ctx: AnalysisContext, output_file_map: dict, cmd: cmd_args, category: str, inputs_tag: ArtifactTag) -> None:
-    dep_file_path = "__depfiles__/{}-{}.d".format(ctx.attrs.name, category)
-    dep_file = ctx.actions.declare_output(dep_file_path).as_output()
-    tagged_dep_file = inputs_tag.tag_artifacts(dep_file)
+    # Add a Makefile style dependency file output.
+    dep_file = ctx.actions.declare_output("__depfiles__/{}-{}.d".format(ctx.attrs.name, category)).as_output()
     map = output_file_map.setdefault("", {})
-    map["dependencies"] = cmd_args(tagged_dep_file, delimiter = "")
-    map["emit-module-dependencies"] = cmd_args(tagged_dep_file, delimiter = "")
-    cmd.add(cmd_args("-emit-dependencies", hidden = [tagged_dep_file]))
+    map["dependencies"] = cmd_args(dep_file, delimiter = "")
+    map["emit-module-dependencies"] = cmd_args(dep_file, delimiter = "")
+    cmd.add(cmd_args("-emit-dependencies", hidden = [dep_file]))
+
+    # Add the flags for the wrapper to process the dependency file to Buck format.
+    buck_dep_file = ctx.actions.declare_output("__depfiles__/{}-{}.d.buck".format(ctx.attrs.name, category)).as_output()
+    cmd.add(
+        "-Xwrapper",
+        cmd_args(inputs_tag.tag_artifacts(buck_dep_file), format = "-dependencies-file-output={}"),
+    )
 
 def add_serialized_diagnostics_output(output_file_map: dict, cmd: cmd_args, diagnostics_output: OutputArtifact) -> None:
     map = output_file_map.setdefault("", {})
