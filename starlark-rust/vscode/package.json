@@ -137,6 +137,7 @@
         "typescript": "^4.4.3"
     },
     "dependencies": {
-        "vsce": "^2.9.2"
+        "@vscode/vsce": "^3.5.0",
+        "vscode-languageclient": "^8.1.0"
     }
 }

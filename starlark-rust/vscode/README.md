@@ -35,8 +35,8 @@ and in `client`.
 ## Installing
 
 - Follow steps in Pre-requisites section.
-- Run `npm install vsce`
-- Run `npm exec vsce package`
+- Run `npm install @vscode/vsce vscode-languageclient`
+- Run `npm exec @vscode/vsce package`
 - In VS Code, go to Extensions, click on the "..." button in the Extensions bar,
   select "Install from VSIX" and then select the `starlark-1.0.0.vsix` file that
   was produced.
