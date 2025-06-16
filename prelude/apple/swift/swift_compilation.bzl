@@ -712,11 +712,8 @@ def _compile_index_store(
             "object": "/dev/null",
         }
 
-    output_file_map_json = ctx.actions.write_json("__indexstore__/{}_output_file_map.json".format(module_name), output_file_map)
     index_store_output = ctx.actions.declare_output("__indexstore__/swift_{}".format(module_name), dir = True)
     additional_flags = cmd_args([
-        "-output-file-map",
-        output_file_map_json,
         "-index-ignore-system-modules",
         "-index-store-path",
         index_store_output.as_output(),
@@ -737,6 +734,7 @@ def _compile_index_store(
         toolchain,
         module_name,
         cacheable = True,
+        output_file_map = output_file_map,
     )
 
     return index_store_output
