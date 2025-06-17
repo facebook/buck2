@@ -489,6 +489,59 @@ impl<V> ParametersSpec<V> {
     pub(crate) fn has_args_or_kwargs(&self) -> bool {
         self.indices.args.is_some() || self.indices.kwargs.is_some()
     }
+
+    /// Generate documentation for each of the parameters, using a custom formatter for default values.
+    pub fn documentation_with_default_value_formatter<F>(
+        &self,
+        parameter_types: Vec<Ty>,
+        mut parameter_docs: HashMap<String, Option<DocString>>,
+        formatter: F,
+    ) -> DocParams
+    where
+        F: Fn(&V) -> String,
+    {
+        assert_eq!(
+            self.param_kinds.len(),
+            parameter_types.len(),
+            "function: `{}`",
+            self.function_name,
+        );
+
+        let mut dp = |i: usize| -> DocParam {
+            let name = self.param_names[i].as_str();
+            let name = name.strip_prefix("**").unwrap_or(name);
+            let name = name.strip_prefix("*").unwrap_or(name);
+
+            let docs = parameter_docs.remove(name).flatten();
+
+            let name = name.to_owned();
+
+            DocParam {
+                name,
+                docs,
+                typ: parameter_types[i].dupe(),
+                default_value: match &self.param_kinds[i] {
+                    ParameterKind::Required => None,
+                    ParameterKind::Optional => Some(PARAM_FMT_OPTIONAL.to_owned()),
+                    ParameterKind::Defaulted(v) => Some(formatter(v)),
+                    ParameterKind::Args => None,
+                    ParameterKind::KWargs => None,
+                },
+            }
+        };
+
+        DocParams {
+            pos_only: self.indices.pos_only().map(&mut dp).collect(),
+            pos_or_named: self.indices.pos_or_named().map(&mut dp).collect(),
+            args: self.indices.args.map(|a| a as usize).map(&mut dp),
+            named_only: self
+                .indices
+                .named_only(self.param_kinds.len())
+                .map(&mut dp)
+                .collect(),
+            kwargs: self.indices.kwargs.map(|a| a as usize).map(&mut dp),
+        }
+    }
 }
 
 impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
@@ -832,55 +885,6 @@ impl<'v> ParametersSpec<Value<'v>> {
         true
     }
 
-    /// Generate documentation for each of the parameters.
-    fn documentation_impl(
-        &self,
-        parameter_types: Vec<Ty>,
-        mut parameter_docs: HashMap<String, Option<DocString>>,
-    ) -> DocParams {
-        assert_eq!(
-            self.param_kinds.len(),
-            parameter_types.len(),
-            "function: `{}`",
-            self.function_name,
-        );
-
-        let mut dp = |i: usize| -> DocParam {
-            let name = self.param_names[i].as_str();
-            let name = name.strip_prefix("**").unwrap_or(name);
-            let name = name.strip_prefix("*").unwrap_or(name);
-
-            let docs = parameter_docs.remove(name).flatten();
-
-            let name = name.to_owned();
-
-            DocParam {
-                name,
-                docs,
-                typ: parameter_types[i].dupe(),
-                default_value: match self.param_kinds[i] {
-                    ParameterKind::Required => None,
-                    ParameterKind::Optional => Some(PARAM_FMT_OPTIONAL.to_owned()),
-                    ParameterKind::Defaulted(v) => Some(v.to_value().to_repr()),
-                    ParameterKind::Args => None,
-                    ParameterKind::KWargs => None,
-                },
-            }
-        };
-
-        DocParams {
-            pos_only: self.indices.pos_only().map(&mut dp).collect(),
-            pos_or_named: self.indices.pos_or_named().map(&mut dp).collect(),
-            args: self.indices.args.map(|a| a as usize).map(&mut dp),
-            named_only: self
-                .indices
-                .named_only(self.param_kinds.len())
-                .map(&mut dp)
-                .collect(),
-            kwargs: self.indices.kwargs.map(|a| a as usize).map(&mut dp),
-        }
-    }
-
     /// Create a [`ParametersParser`] for given arguments.
     #[inline]
     fn parser_impl<R, F>(
@@ -948,8 +952,11 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         parameter_types: Vec<Ty>,
         parameter_docs: HashMap<String, Option<DocString>>,
     ) -> DocParams {
-        self.as_value()
-            .documentation_impl(parameter_types, parameter_docs)
+        self.as_value().documentation_with_default_value_formatter(
+            parameter_types,
+            parameter_docs,
+            |v| v.to_value().to_repr(),
+        )
     }
 
     /// Create a [`ParametersParser`] for given arguments.

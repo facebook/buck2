@@ -350,20 +350,44 @@ fn returns_documentation() -> buck2_error::Result<()> {
     let mut params = empty_spec
         .signature("foo_binary".to_owned())
         .documentation(empty_spec.starlark_types(), empty_spec.docstrings());
+
+    for param in &mut params.named_only {
+        match param.name.as_str() {
+            "default_target_platform" => param.default_value = Some("None".to_owned()),
+            "target_compatible_with" => param.default_value = Some("[]".to_owned()),
+            "compatible_with" => param.default_value = Some("[]".to_owned()),
+            "exec_compatible_with" => param.default_value = Some("[]".to_owned()),
+            "visibility" => param.default_value = Some("[]".to_owned()),
+            "within_view" => param.default_value = Some("[\"PUBLIC\"]".to_owned()),
+            "metadata" => param.default_value = Some("{}".to_owned()),
+            "tests" => param.default_value = Some("[]".to_owned()),
+            "modifiers" => param.default_value = Some("[]".to_owned()),
+            _ => {}
+        }
+    }
+
     params.named_only.extend(vec![
         arg("any", Ty::any(), None),
-        arg("arg", Ty::string(), Some("...")),
-        arg("bool", Ty::bool(), Some("...")),
-        arg("default_only", Ty::string(), Some("...")),
-        arg("dep", Ty::string(), Some("...")),
-        arg("dict", Ty::dict(Ty::string(), Ty::bool()), Some("...")),
-        arg("list", Ty::list(Ty::string()), Some("...")),
-        arg("one_of", Ty::union2(Ty::bool(), Ty::string()), Some("...")),
-        arg("option", Ty::union2(Ty::none(), Ty::string()), Some("...")),
+        arg("arg", Ty::string(), Some("\"arg\"")),
+        arg("bool", Ty::bool(), Some("True")),
+        arg("default_only", Ty::string(), Some("\"default_only\"")),
+        arg("dep", Ty::string(), Some("\"root//:dep\"")),
+        arg(
+            "dict",
+            Ty::dict(Ty::string(), Ty::bool()),
+            Some("{\"dict\": True}"),
+        ),
+        arg("list", Ty::list(Ty::string()), Some("[\"list\"]")),
+        arg("one_of", Ty::union2(Ty::bool(), Ty::string()), Some("\"\"")),
+        arg("option", Ty::union2(Ty::none(), Ty::string()), Some("None")),
         arg("query", Ty::string(), None),
-        arg("source", Ty::string(), Some("...")),
-        arg("string", Ty::string(), Some("...")),
-        arg("tuple", Ty::tuple2(Ty::bool(), Ty::string()), Some("...")),
+        arg("source", Ty::string(), Some("\"root//:src\"")),
+        arg("string", Ty::string(), Some("\"string\"")),
+        arg(
+            "tuple",
+            Ty::tuple2(Ty::bool(), Ty::string()),
+            Some("(True, \"some string\")"),
+        ),
     ]);
 
     let expected_docs = DocItem::Member(DocMember::Function(DocFunction {

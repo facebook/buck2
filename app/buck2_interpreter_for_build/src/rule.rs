@@ -22,6 +22,7 @@ use buck2_interpreter::types::rule::FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
+use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::nodes::unconfigured::RuleKind;
@@ -338,15 +339,18 @@ impl<'v> StarlarkRuleCallable<'v> {
             .borrow()
             .as_ref()
             .map_or_else(|| "unbound_rule".to_owned(), |rt| rt.name.clone());
-        // TODO(nmj): These return 'None' for default values right now. It's going to take some
-        //            refactoring to get that pulled out of the attributespec
-        let parameters_spec = self.attributes.signature(name);
-
+        let parameters_spec = self.attributes.signature_with_default_value(name);
         let parameter_types = self.attributes.starlark_types();
         let parameter_docs = self.attributes.docstrings();
+        let params = parameters_spec.documentation_with_default_value_formatter(
+            parameter_types,
+            parameter_docs,
+            |v| v.as_display_no_ctx().to_string(),
+        );
+
         let function_docs = DocFunction::from_docstring(
             DocStringKind::Starlark,
-            parameters_spec.documentation(parameter_types, parameter_docs),
+            params,
             Ty::none(),
             self.docs.as_deref(),
         );
@@ -434,6 +438,10 @@ impl<'v> Freeze for StarlarkRuleCallable<'v> {
         };
         let rule_type = Arc::new(id);
         let rule_name = rule_type.name.to_owned();
+
+        // For StarlarkRuleCallable, it doesn't rely on `signature` to get the default value, instead we get the default value from `Rule.attributes`,
+        // so use `signature(rule_name)` method here.
+        // TODO(nero): It need to some refactor to make it more clear, e.g. add a new type `ParametersSpec<NoDefaults>` here.
         let signature = self.attributes.signature(rule_name).freeze(freezer)?;
 
         let artifact_promise_mappings = match self.artifact_promise_mappings {
@@ -473,6 +481,8 @@ pub struct FrozenStarlarkRuleCallable {
     /// Identical to `rule.rule_type` but more specific type.
     rule_type: Arc<StarlarkRuleType>,
     implementation: FrozenRuleImpl,
+    /// We don't need rely on `signature` to get the default value here, instead we get the default
+    /// value from `Rule.attributes`. So use in the ParametersSpecNoDefaults for more clarity
     signature: ParametersSpec<FrozenValue>,
     rule_docs: DocItem,
     ty: Ty,
