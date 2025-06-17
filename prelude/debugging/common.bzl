@@ -9,7 +9,7 @@
 
 load("@prelude//debugging:types.bzl", "TargetInfo")
 
-def target_name(node: bxl.ConfiguredTargetNode) -> str:
+def target_name(node: bxl.ConfiguredTargetNode | bxl.UnconfiguredTargetNode) -> str:
     return "{}:{}".format(str(node.label.path), node.label.name)
 
 def rule_type(node: bxl.ConfiguredTargetNode) -> str:
