@@ -58,10 +58,12 @@ GroupAttrs = record(
     # from the build graph.
     discard_group = field(bool, False),
     # Adds additional linker flags used to link the link group shared object.
-    linker_flags = field(list, []),
+    linker_flags = field(list[typing.Any], []),
+    # Passes a linker script to the link group shared library's link command.
+    linker_script = field([Artifact, None], None),
     # Adds additional linker flags to apply to dependents that link against the
     # link group's shared object.
-    exported_linker_flags = field(list, []),
+    exported_linker_flags = field(list[typing.Any], []),
     # Wraps the link group shared library with `--no-as-needed/--as-needed`,
     # used for link groups that are required at runtime but not statically referenced.
     # Only applicable to gnu.

@@ -77,7 +77,7 @@ def link_group_inlined_map_attr(root_attr):
             ),
             # attributes
             attrs.option(
-                attrs.dict(key = attrs.string(), value = attrs.any(), sorted = False),
+                attrs.dict(key = attrs.string(), value = attrs.one_of(attrs.source(), attrs.any()), sorted = False),
             ),
         ),
     )
