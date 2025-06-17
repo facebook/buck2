@@ -26,7 +26,8 @@ def compile_with_argsfile(
         allow_cache_upload = False,
         local_only = False,
         prefer_local = False,
-        no_outputs_cleanup = False) -> (CompileArgsfile, Artifact | None):
+        no_outputs_cleanup = False,
+        supports_output_file_map = True) -> (CompileArgsfile, Artifact | None):
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
 
@@ -55,13 +56,18 @@ def compile_with_argsfile(
         cmd.add(swift_files_cmd_form)
 
     # If the toolchain supports serialized error output, add the output files
-    # to the output file map so we can deserialize the errors.
+    # to deserialize the errors. This uses the output file map if supported,
+    # otherwise will pass frontend flags.
     error_deserializer = apple_error_deserializer(ctx)
     error_outputs = []
     if error_deserializer:
-        json_error_output = ctx.actions.declare_output("__diagnostics__/{}_{}.json".format(ctx.attrs.name, category)).as_output()
+        json_error_output = ctx.actions.declare_output("__diagnostics__/{}.json".format(category)).as_output()
         error_outputs.append(json_error_output)
-        add_serialized_diagnostics_output(output_file_map, cmd, json_error_output)
+        add_serialized_diagnostics_output(
+            output_file_map = output_file_map if supports_output_file_map else None,
+            cmd = cmd,
+            diagnostics_output = json_error_output,
+        )
         cmd.add(
             "-Xwrapper",
             cmd_args(error_deserializer, format = "-serialized-diagnostics-to-json={}"),
@@ -71,6 +77,8 @@ def compile_with_argsfile(
 
     # If an output file map is provided, serialize it and add to the command.
     if output_file_map:
+        if not supports_output_file_map:
+            fail("Output file maps are not supported for {}".format(category))
         output_file_map_artifact = add_output_file_map_flags(ctx, output_file_map, cmd, category)
     else:
         output_file_map_artifact = None

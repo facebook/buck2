@@ -20,15 +20,22 @@ def add_dependencies_output(ctx: AnalysisContext, output_file_map: dict, cmd: cm
         cmd_args(inputs_tag.tag_artifacts(buck_dep_file), format = "-dependencies-file-output={}"),
     )
 
-def add_serialized_diagnostics_output(output_file_map: dict, cmd: cmd_args, diagnostics_output: OutputArtifact) -> None:
-    map = output_file_map.setdefault("", {})
-    map["diagnostics"] = cmd_args(diagnostics_output, delimiter = "", format = "{}.dia")
-    cmd.add(cmd_args("-serialize-diagnostics", hidden = [diagnostics_output]))
+def add_serialized_diagnostics_output(output_file_map: dict | None, cmd: cmd_args, diagnostics_output: OutputArtifact) -> None:
+    if output_file_map == None:
+        # Some actions, eg -emit-pcm, do not support output file maps. In this
+        # case we need to pass the frontend flags directly.
+        cmd.add(
+            "-Xfrontend",
+            cmd_args(diagnostics_output, format = "-serialize-diagnostics-path={}.dia"),
+        )
+    else:
+        map = output_file_map.setdefault("", {})
+        map["diagnostics"] = cmd_args(diagnostics_output, delimiter = "", format = "{}.dia")
+        cmd.add(cmd_args("-serialize-diagnostics", hidden = [diagnostics_output]))
 
 def add_output_file_map_flags(ctx: AnalysisContext, output_file_map: dict, cmd: cmd_args, category: str) -> Artifact:
-    output_file_map_path = "{}_swift_{}_output_file_map.json".format(ctx.attrs.name, category)
     output_file_map_json = ctx.actions.write_json(
-        output_file_map_path,
+        "{}_output_file_map.json".format(category),
         output_file_map,
         pretty = True,
     )

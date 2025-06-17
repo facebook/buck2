@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple/swift:swift_helpers.bzl", "compile_with_argsfile")
 load("@prelude//cxx:preprocessor.bzl", "cxx_inherited_preprocessor_infos", "cxx_merge_cpreprocessors")
 load(
     ":apple_sdk_modules_utility.bzl",
@@ -59,31 +60,6 @@ def get_swift_pcm_anon_targets(
         }))
 
     return deps
-
-def _compile_with_argsfile(
-        ctx: AnalysisContext,
-        category: str,
-        module_name: str,
-        swift_toolchain_info: SwiftToolchainInfo,
-        args: cmd_args,
-        additional_cmd: cmd_args):
-    shell_quoted_cmd = cmd_args(args, quote = "shell")
-    argfile, _ = ctx.actions.write(module_name + ".swift_pcm_argsfile", shell_quoted_cmd, allow_args = True)
-    cmd = cmd_args(
-        swift_toolchain_info.compiler,
-        cmd_args(["@", argfile], delimiter = ""),
-        additional_cmd,
-        # Action should also depend on all artifacts from the argsfile, otherwise they won't be materialised.
-        hidden = args,
-    )
-
-    ctx.actions.run(
-        cmd,
-        category = category,
-        identifier = module_name,
-        # Swift compiler requires unique inodes for all input files.
-        unique_input_inodes = True,
-    )
 
 def _compiled_module_info(
         module_name: str,
@@ -180,13 +156,14 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
         if uncompiled_pcm_info.propagated_preprocessor_args_cmd:
             cmd.add(uncompiled_pcm_info.propagated_preprocessor_args_cmd)
 
-        _compile_with_argsfile(
+        compile_with_argsfile(
             ctx,
-            "swift_pcm_compile",
-            module_name,
-            swift_toolchain_info,
-            cmd,
-            additional_cmd,
+            category = "swift_pcm_compile",
+            shared_flags = cmd,
+            srcs = [],
+            additional_flags = additional_cmd,
+            toolchain = swift_toolchain_info,
+            supports_output_file_map = False,
         )
         pcm_info = _compiled_module_info(module_name, pcm_output, uncompiled_pcm_info)
 
@@ -262,14 +239,14 @@ def _compile_pcm(
         swift_cxx_args,
     )
     cmd.add(additional_args)
-
-    _compile_with_argsfile(
+    compile_with_argsfile(
         ctx,
-        action_name,
-        module_name,
-        swift_toolchain_info,
-        cmd,
-        additional_cmd,
+        category = action_name,
+        shared_flags = cmd,
+        srcs = [],
+        additional_flags = additional_cmd,
+        toolchain = swift_toolchain_info,
+        supports_output_file_map = False,
     )
     return _compiled_module_info(module_name, pcm_output, uncompiled_pcm_info)
 

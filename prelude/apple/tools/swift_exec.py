@@ -138,7 +138,20 @@ def _get_output_file_map(args):
         return json.load(f)
 
 
+def _get_serialized_diagnostics_frontend_flag(args):
+    for a in args:
+        if a.startswith("-serialize-diagnostics-path="):
+            return a
+    return None
+
+
 def _get_serialized_diagnostics_path(args):
+    # The diagnostics can be specified via frontend args or in the output file
+    # map.
+    frontend_arg = _get_serialized_diagnostics_frontend_flag(args)
+    if frontend_arg:
+        return frontend_arg.split("=")[1]
+
     output_file_map = _get_output_file_map(args)
     module_entries = output_file_map.get("", {})
     if "diagnostics" in module_entries:
