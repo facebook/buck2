@@ -309,7 +309,7 @@ def main():
         sys.exit(result.returncode)
 
 
-_SWIFT_FILES_ARGSFILE = ".swift_files"
+_SWIFT_FILES_ARGSFILE = "_swift_srcs"
 
 
 def _process_skip_incremental_outputs(command):

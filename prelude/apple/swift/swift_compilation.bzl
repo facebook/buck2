@@ -521,7 +521,6 @@ def _compile_swiftmodule(
         _compile_with_argsfile(
             ctx = ctx,
             category = "emit_swiftinterface",
-            extension = ".swiftinterface",
             shared_flags = swiftinterface_argsfile,
             srcs = srcs,
             additional_flags = swiftinterface_cmd,
@@ -606,7 +605,7 @@ def _compile_swiftmodule(
 
     ret, _ = _compile_with_argsfile(
         ctx = ctx,
-        category = category + ("_with_explicit_mods" if uses_explicit_modules(ctx) else ""),
+        category = category,
         extension = SWIFTMODULE_EXTENSION,
         shared_flags = argfile_cmd,
         srcs = srcs,
@@ -685,7 +684,7 @@ def _compile_object(
 
     argsfiles, output_map_artifact = _compile_with_argsfile(
         ctx = ctx,
-        category = category + ("_with_explicit_mods" if uses_explicit_modules(ctx) else ""),
+        category = category,
         extension = SWIFT_EXTENSION,
         shared_flags = shared_flags,
         srcs = srcs,
@@ -735,7 +734,6 @@ def _compile_index_store(
     _compile_with_argsfile(
         ctx = ctx,
         category = "swift_index_compile",
-        extension = module_name,
         shared_flags = shared_flags,
         srcs = srcs,
         additional_flags = additional_flags,
@@ -749,17 +747,22 @@ def _compile_index_store(
 def _compile_with_argsfile(
         ctx: AnalysisContext,
         category: str,
-        extension: str,
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags],
         additional_flags: cmd_args,
         toolchain: SwiftToolchainInfo,
+        extension: str | None = None,
         num_threads: int = 1,
         dep_files: dict[str, ArtifactTag] = {},
         output_file_map: dict = {},
-        cacheable = True) -> (CompileArgsfiles, Artifact | None):
+        cacheable = True) -> (CompileArgsfiles | None, Artifact | None):
     build_swift_incrementally = should_build_swift_incrementally(ctx)
     explicit_modules_enabled = uses_explicit_modules(ctx)
+
+    # The main compilation actions add a category suffix when explicit modules
+    # are enabled for historical reasons. This could be removed.
+    if extension and explicit_modules_enabled:
+        category += "_with_explicit_mods"
 
     # If we prefer to execute locally (e.g., for perf reasons), ensure we
     # upload to the cache so that CI builds populate caches used by developer
@@ -785,10 +788,9 @@ def _compile_with_argsfile(
         # overridden.
         prefer_local = True
 
-    return compile_with_argsfile(
+    argsfile, output_file_map = compile_with_argsfile(
         ctx = ctx,
         category = category,
-        extension = extension,
         shared_flags = shared_flags,
         srcs = srcs,
         additional_flags = additional_flags,
@@ -802,6 +804,12 @@ def _compile_with_argsfile(
         # We need to preserve the action outputs for incremental compilation.
         no_outputs_cleanup = build_swift_incrementally,
     )
+
+    if extension:
+        # Swift correctly handles relative paths and we can utilize the relative argsfile for Xcode.
+        return CompileArgsfiles(relative = {extension: argsfile}, xcode = {extension: argsfile}), output_file_map
+    else:
+        return None, output_file_map
 
 def _get_serialize_debugging_options(ctx: AnalysisContext, uses_explicit_modules: bool):
     if ctx.attrs.serialize_debugging_options == False:

@@ -7,7 +7,7 @@
 
 load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler", "apple_error_deserializer", "swift_error_handler")
 load("@prelude//apple/swift:apple_sdk_modules_utility.bzl", "is_sdk_modules_provided")
-load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
+load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile")
 load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags")
 load(":swift_output_file_map.bzl", "add_output_file_map_flags", "add_serialized_diagnostics_output")
 load(":swift_toolchain.bzl", "get_swift_toolchain_info")
@@ -16,7 +16,6 @@ load(":swift_toolchain_types.bzl", "SwiftToolchainInfo")
 def compile_with_argsfile(
         ctx: AnalysisContext,
         category: str,
-        extension: str,
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags],
         additional_flags: cmd_args,
@@ -27,7 +26,7 @@ def compile_with_argsfile(
         allow_cache_upload = False,
         local_only = False,
         prefer_local = False,
-        no_outputs_cleanup = False) -> (CompileArgsfiles, Artifact | None):
+        no_outputs_cleanup = False) -> (CompileArgsfile, Artifact | None):
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
 
@@ -38,14 +37,20 @@ def compile_with_argsfile(
     # write action as this strips tagged values and breaks dependency file
     # input tracking.
     shell_quoted_args = cmd_args(shared_flags, quote = "shell")
-    argsfile, _ = ctx.actions.write(extension + "_compile_argsfile", shell_quoted_args, allow_args = True)
+
+    # Many tests rely on the path of the argsfile, so you probably don't
+    # want to change this.
+    argsfile, _ = ctx.actions.write(".{}_argsfile".format(category), shell_quoted_args, allow_args = True)
     argsfile_cmd_form = cmd_args(argsfile, format = "@{}", delimiter = "", hidden = shared_flags)
     cmd.add(argsfile_cmd_form)
 
     # Assemble argsfile with Swift source files.
     if srcs:
         swift_quoted_files = cmd_args([s.file for s in srcs], quote = "shell")
-        swift_files, _ = ctx.actions.write(extension + "_files", swift_quoted_files, allow_args = True)
+
+        # This path needs to be kept in sync with the _SWIFT_FILES_ARGSFILE
+        # variable in swift_exec.py.
+        swift_files, _ = ctx.actions.write(".{}_swift_srcs".format(category), swift_quoted_files, allow_args = True)
         swift_files_cmd_form = cmd_args(swift_files, format = "@{}", delimiter = "", hidden = swift_quoted_files)
         cmd.add(swift_files_cmd_form)
 
@@ -92,8 +97,7 @@ def compile_with_argsfile(
         args_without_file_prefix_args = shared_flags,
     )
 
-    # Swift correctly handles relative paths and we can utilize the relative argsfile for Xcode.
-    return CompileArgsfiles(relative = {extension: argsfile}, xcode = {extension: argsfile}), output_file_map_artifact
+    return argsfile, output_file_map_artifact
 
 def uses_explicit_modules(ctx: AnalysisContext) -> bool:
     swift_toolchain = get_swift_toolchain_info(ctx)
