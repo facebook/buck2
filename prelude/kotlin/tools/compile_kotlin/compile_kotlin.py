@@ -9,7 +9,11 @@
 import argparse
 import os
 import pathlib
+import re
+import shlex
 import shutil
+import subprocess
+import sys
 import zipfile
 from tempfile import TemporaryDirectory
 from typing import List
@@ -218,6 +222,133 @@ def _parse_args():
     return parser.parse_args()
 
 
+def pretty_exception_k(e) -> str:
+    if "NO_COLOR" in os.environ or "NO_KOTLINC_COLOR" in os.environ:
+        return e
+
+    RED = "\033[91m"
+    YELLOW = "\033[93m"
+    GREEN = "\033[92m"
+    MAGENTA = "\033[95m"
+    BLUE = "\033[94m"
+    BOLD = "\033[1m"
+    RESET = "\033[0m"
+
+    # Source: https://kotlinlang.org/docs/keyword-reference.html
+    kotlin_keywords = [
+        "as",
+        "as?",
+        "break",
+        "class",
+        "continue",
+        "do",
+        "else",
+        "false",
+        "for",
+        "fun",
+        "if",
+        "in",
+        "!in",
+        "interface",
+        "is",
+        "!is",
+        "null",
+        "object",
+        "package",
+        "return",
+        "super",
+        "this",
+        "throw",
+        "true",
+        "try",
+        "typealias",
+        "val",
+        "var",
+        "when",
+        "while",
+        "by",
+        "catch",
+        "constructor",
+        "delegate",
+        "dynamic",
+        "field",
+        "file",
+        "finally",
+        "get",
+        "import",
+        "init",
+        "param",
+        "property",
+        "receiver",
+        "set",
+        "setparam",
+        "where",
+        "actual",
+        "abstract",
+        "annotation",
+        "companion",
+        "const",
+        "crossinline",
+        "data",
+        "enum",
+        "expect",
+        "external",
+        "final",
+        "infix",
+        "inline",
+        "inner",
+        "internal",
+        "lateinit",
+        "noinline",
+        "open",
+        "operator",
+        "out",
+        "override",
+        "private",
+        "protected",
+        "public",
+        "reified",
+        "sealed",
+        "suspend",
+        "tailrec",
+        "vararg",
+        "field",
+        "it",
+    ]
+
+    def highlight_kotlin_code(s):
+        return re.sub(
+            rf"\b({'|'.join(kotlin_keywords)})\b",
+            lambda match: f"{BLUE}{match.group(1)}{RESET}",
+            s,
+        )
+
+    # Process error messages
+    e = re.sub(
+        r"\berror\b(:.*?\n)((?:.*?\n)+?\s*)(\^+)\n",
+        lambda match: f"{RED}error{RESET}{BOLD}{match.group(1)}{RESET}{highlight_kotlin_code(match.group(2))}{RED}{match.group(3)}{RESET}\n",
+        e,
+        flags=re.IGNORECASE,
+    )
+
+    # Process warning messages
+    e = re.sub(
+        r"\bwarning\b(:.*?)\n",
+        lambda match: f"{YELLOW}warning{RESET}{BOLD}{match.group(1)}{RESET}\n",
+        e,
+        flags=re.IGNORECASE,
+    )
+
+    # Process code pointers
+    e = re.sub(
+        r"\b(/?(?:\w+/)*\w+\.\w{2,})\b:(\d+):(\d+):",
+        lambda match: f"{GREEN}{match.group(1)}{RESET}:{MAGENTA}{match.group(2)}{RESET}:{MAGENTA}{match.group(3)}{RESET}:",
+        e,
+    )
+
+    return e
+
+
 def _run_kotlinc(
     kotlinc_output: pathlib.Path,
     kotlinc_cmd_file: pathlib.Path,
@@ -247,7 +378,17 @@ def _run_kotlinc(
         if kotlinc_output:
             kotlinc_cmd += ["-d", kotlinc_output]
 
-        utils.execute_command(kotlinc_cmd)
+        utils.log_message(
+            "executing command = '{}'".format(
+                " ".join([shlex.quote(str(s)) for s in kotlinc_cmd])
+            )
+        )
+
+        p = subprocess.run(kotlinc_cmd, stderr=subprocess.PIPE, text=True)
+        if p.returncode != 0:
+            print(pretty_exception_k(p.stderr), file=sys.stderr)
+            sys.exit(p.returncode)
+
     else:
         os.mkdir(kotlinc_output)
 
