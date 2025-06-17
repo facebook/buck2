@@ -24,6 +24,7 @@ buck_java_library(
     ],
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/android:helpers",
+        "prelude//toolchains/android/src/com/facebook/buck/android:utils_api",
         "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
         "prelude//toolchains/android/src/com/facebook/buck/io/filesystem:filesystem",
         "prelude//toolchains/android/src/com/facebook/buck/io/filesystem/impl:utils",

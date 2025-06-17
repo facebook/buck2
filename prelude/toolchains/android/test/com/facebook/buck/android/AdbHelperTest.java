@@ -11,17 +11,15 @@ package com.facebook.buck.android;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.when;
 
-import com.android.ddmlib.IDevice;
-import com.facebook.buck.android.AdbHelper.AndroidDebugBridgeFacade;
 import com.facebook.buck.android.device.TargetDeviceOptions;
 import com.facebook.buck.android.exopackage.AdbUtils;
+import com.facebook.buck.android.exopackage.AndroidDevice;
 import com.facebook.buck.android.exopackage.AndroidDeviceImpl;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.exceptions.HumanReadableException;
@@ -31,6 +29,9 @@ import com.facebook.buck.testutil.TestConsole;
 import com.facebook.buck.testutil.TestLogSink;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.logging.LogRecord;
@@ -50,7 +51,6 @@ import org.mockito.junit.MockitoJUnitRunner;
 public class AdbHelperTest {
 
   private static final Logger LOGGER = Logger.getLogger(AdbHelperTest.class.getName());
-  private static final int AGENT_PORT_BASE = 2828;
 
   @Rule public ExpectedException exceptionRule = ExpectedException.none();
   @Rule public TestLogSink testLogSink = new TestLogSink(AdbHelperTest.class);
@@ -73,15 +73,20 @@ public class AdbHelperTest {
     AdbHelper.setDevicesSupplierForTests(Optional.empty());
   }
 
-  private TestDevice createRealDevice(String serial, IDevice.DeviceState state) {
-    TestDevice device = TestDevice.createRealDevice(serial);
-    device.setState(state);
+  private static AndroidDeviceImpl createRealDevice(String serial, String state) {
+
+    AndroidDeviceImpl device = Mockito.mock(AndroidDeviceImpl.class);
+    when(device.getSerialNumber()).thenReturn(serial);
+    when(device.isEmulator()).thenReturn(false);
+    when(device.isOnline()).thenReturn("device".equals(state));
     return device;
   }
 
-  private TestDevice createEmulator(String serial, IDevice.DeviceState state) {
-    TestDevice device = TestDevice.createEmulator(serial);
-    device.setState(state);
+  private static AndroidDeviceImpl createEmulator(String serial, String state) {
+    AndroidDeviceImpl device = Mockito.mock(AndroidDeviceImpl.class);
+    when(device.getSerialNumber()).thenReturn(serial);
+    when(device.isEmulator()).thenReturn(true);
+    when(device.isOnline()).thenReturn("device".equals(state));
     return device;
   }
 
@@ -100,74 +105,31 @@ public class AdbHelperTest {
         targetDeviceOptions,
         adbExecutionContext,
         new IsolatedAndroidInstallerPrinter(LOGGER),
-        Optional.of("adb"),
-        /* agentApk */ Optional.empty(),
-        true,
-        /* skipMetadataIfNoInstalls= */ false,
-        /* isZstdCompressionEnabled */ true,
-        AGENT_PORT_BASE,
-        0,
-        0,
+        /* restartAdbOnFailure */ true,
+        /* skipMetadataIfNoInstalls */ false,
         SetDebugAppMode.SET);
   }
 
   /** Verify that null is returned when no devices are present. */
   @Test
   public void testDeviceFilterNoDevices() {
-    IDevice[] devices = new IDevice[] {};
-
-    assertNull(basicAdbHelper.filterDevices(devices));
+    List<AndroidDevice> devices = new ArrayList<>();
+    assertTrue(basicAdbHelper.filterDevices(devices).isEmpty());
   }
 
   /** Verify that non-online devices will not appear in result list. */
   @Test
   public void testDeviceFilterOnlineOnly() {
-    IDevice[] devices =
-        new IDevice[] {
-          createEmulator("1", IDevice.DeviceState.OFFLINE),
-          createEmulator("2", IDevice.DeviceState.BOOTLOADER),
-          createEmulator("3", IDevice.DeviceState.RECOVERY),
-          createRealDevice("4", IDevice.DeviceState.OFFLINE),
-          createRealDevice("5", IDevice.DeviceState.BOOTLOADER),
-          createRealDevice("6", IDevice.DeviceState.RECOVERY),
-        };
+    List<AndroidDevice> devices =
+        Arrays.asList(
+            createEmulator("1", "offline"),
+            createEmulator("2", "bootloader"),
+            createEmulator("3", "recovery"),
+            createRealDevice("4", "offline"),
+            createRealDevice("5", "bootloader"),
+            createRealDevice("6", "recovery"));
 
-    assertNull(basicAdbHelper.filterDevices(devices));
-  }
-
-  @Test
-  public void testEmulatorAddsGenymotionDevices() {
-    AdbHelper adbHelper =
-        createAdbHelper(createAdbOptions(), new TargetDeviceOptions(true, false, Optional.empty()));
-
-    IDevice[] devices =
-        new IDevice[] {
-          TestDevice.createRealDevice("foobarblahblah"),
-          TestDevice.createRealDevice("192.168.57.101:5555")
-        };
-
-    List<IDevice> filtered = adbHelper.filterDevices(devices);
-
-    assertNotNull(filtered);
-    assertEquals(1, filtered.size());
-    assertEquals("192.168.57.101:5555", filtered.get(0).getSerialNumber());
-  }
-
-  @Test
-  public void testGenymotionIsntARealDevice() {
-    AdbHelper adbHelper =
-        createAdbHelper(createAdbOptions(), new TargetDeviceOptions(false, true, Optional.empty()));
-
-    IDevice[] devices =
-        new IDevice[] {
-          TestDevice.createRealDevice("foobar"), TestDevice.createRealDevice("192.168.57.101:5555")
-        };
-
-    List<IDevice> filtered = adbHelper.filterDevices(devices);
-
-    assertNotNull(filtered);
-    assertEquals(1, filtered.size());
-    assertEquals("foobar", filtered.get(0).getSerialNumber());
+    assertTrue(basicAdbHelper.filterDevices(devices).isEmpty());
   }
 
   /**
@@ -177,22 +139,21 @@ public class AdbHelperTest {
    */
   @Test
   public void testDeviceFilterMultipleDevices() {
-    IDevice[] devices =
-        new IDevice[] {
-          createEmulator("1", IDevice.DeviceState.ONLINE),
-          createEmulator("2", IDevice.DeviceState.ONLINE),
-          createRealDevice("4", IDevice.DeviceState.ONLINE),
-          createRealDevice("5", IDevice.DeviceState.ONLINE)
-        };
+    List<AndroidDevice> devices =
+        Arrays.asList(
+            createEmulator("1", "device"),
+            createEmulator("2", "device"),
+            createRealDevice("4", "device"),
+            createRealDevice("5", "device"));
 
-    List<IDevice> filteredDevicesNoMultiInstall = basicAdbHelper.filterDevices(devices);
+    List<AndroidDevice> filteredDevicesNoMultiInstall = basicAdbHelper.filterDevices(devices);
     assertNotNull(filteredDevicesNoMultiInstall);
-    assertEquals(devices.length, filteredDevicesNoMultiInstall.size());
+    assertEquals(devices.size(), filteredDevicesNoMultiInstall.size());
 
     AdbHelper myAdbHelper = createAdbHelper(createAdbOptions(true), new TargetDeviceOptions());
-    List<IDevice> filteredDevices = myAdbHelper.filterDevices(devices);
+    List<AndroidDevice> filteredDevices = myAdbHelper.filterDevices(devices);
     assertNotNull(filteredDevices);
-    assertEquals(devices.length, filteredDevices.size());
+    assertEquals(devices.size(), filteredDevices.size());
   }
 
   /** Verify that when emulator-only mode is enabled only emulators appear in result. */
@@ -205,16 +166,13 @@ public class AdbHelperTest {
     AdbHelper myAdbHelper =
         createAdbHelper(createAdbOptions(), new TargetDeviceOptions(true, false, Optional.empty()));
 
-    IDevice[] devices =
-        new IDevice[] {
-          createEmulator("1", IDevice.DeviceState.ONLINE),
-          createRealDevice("2", IDevice.DeviceState.ONLINE),
-        };
+    List<AndroidDevice> devices =
+        Arrays.asList(createEmulator("1", "device"), createRealDevice("2", "device"));
 
-    List<IDevice> filteredDevices = myAdbHelper.filterDevices(devices);
+    List<AndroidDevice> filteredDevices = myAdbHelper.filterDevices(devices);
     assertNotNull(filteredDevices);
     assertEquals(1, filteredDevices.size());
-    assertSame(devices[0], filteredDevices.get(0));
+    assertSame(devices.get(0), filteredDevices.get(0));
   }
 
   /** Verify that when real-device-only mode is enabled only real devices appear in result. */
@@ -227,35 +185,31 @@ public class AdbHelperTest {
     AdbHelper myAdbHelper =
         createAdbHelper(createAdbOptions(), new TargetDeviceOptions(false, true, Optional.empty()));
 
-    IDevice[] devices =
-        new IDevice[] {
-          createRealDevice("1", IDevice.DeviceState.ONLINE),
-          createEmulator("2", IDevice.DeviceState.ONLINE)
-        };
+    List<AndroidDevice> devices =
+        Arrays.asList(createRealDevice("1", "device"), createEmulator("2", "device"));
 
-    List<IDevice> filteredDevices = myAdbHelper.filterDevices(devices);
+    List<AndroidDevice> filteredDevices = myAdbHelper.filterDevices(devices);
     assertNotNull(filteredDevices);
     assertEquals(1, filteredDevices.size());
-    assertSame(devices[0], filteredDevices.get(0));
+    assertSame(devices.get(0), filteredDevices.get(0));
   }
 
   /** Verify that filtering by serial number works. */
   @Test
   public void testDeviceFilterBySerial() {
-    IDevice[] devices =
-        new IDevice[] {
-          createRealDevice("1", IDevice.DeviceState.ONLINE),
-          createEmulator("2", IDevice.DeviceState.ONLINE),
-          createRealDevice("3", IDevice.DeviceState.ONLINE),
-          createEmulator("4", IDevice.DeviceState.ONLINE)
-        };
+    List<AndroidDevice> devices =
+        Arrays.asList(
+            createRealDevice("1", "device"),
+            createEmulator("2", "device"),
+            createRealDevice("3", "device"),
+            createEmulator("4", "device"));
 
-    for (IDevice device : devices) {
+    for (AndroidDevice device : devices) {
       AdbHelper myAdbHelper =
           createAdbHelper(
               createAdbOptions(),
               new TargetDeviceOptions(false, false, Optional.of(device.getSerialNumber())));
-      List<IDevice> filteredDevices = myAdbHelper.filterDevices(devices);
+      List<AndroidDevice> filteredDevices = myAdbHelper.filterDevices(devices);
       assertNotNull(filteredDevices);
       assertEquals(1, filteredDevices.size());
       assertSame(device, filteredDevices.get(0));
@@ -265,15 +219,14 @@ public class AdbHelperTest {
   /** Verify that filtering by environment variable works. */
   @Test
   public void whenSerialNumberSetInEnvironmentThenCorrectDeviceFound() {
-    IDevice[] devices =
-        new IDevice[] {
-          createRealDevice("1", IDevice.DeviceState.ONLINE),
-          createEmulator("2", IDevice.DeviceState.ONLINE),
-          createRealDevice("3", IDevice.DeviceState.ONLINE),
-          createEmulator("4", IDevice.DeviceState.ONLINE)
-        };
+    List<AndroidDevice> devices =
+        Arrays.asList(
+            createRealDevice("1", "device"),
+            createEmulator("2", "device"),
+            createRealDevice("3", "device"),
+            createEmulator("4", "device"));
 
-    for (IDevice device : devices) {
+    for (AndroidDevice device : devices) {
       AdbHelper myAdbHelper =
           createAdbHelper(
               new TestAdbExecutionContext(
@@ -281,33 +234,32 @@ public class AdbHelperTest {
                   ImmutableMap.of(AdbHelper.SERIAL_NUMBER_ENV, device.getSerialNumber())),
               createAdbOptions(),
               new TargetDeviceOptions());
-      List<IDevice> filteredDevices = myAdbHelper.filterDevices(devices);
+      List<AndroidDevice> filteredDevices = myAdbHelper.filterDevices(devices);
       assertNotNull(filteredDevices);
       assertEquals(1, filteredDevices.size());
       assertSame(device, filteredDevices.get(0));
     }
   }
 
-  /** Verify that if no devices match filters null is returned. */
+  /** Verify that if no devices match filters empty list is returned. */
   @Test
   public void testDeviceFilterNoMatchingDevices() {
     when(adbUtils.executeAdbShellCommand(
             eq("getprop ro.kernel.qemu"), Mockito.anyString(), anyBoolean()))
         .thenReturn("1");
-    IDevice[] devices =
-        new IDevice[] {
-          createRealDevice("1", IDevice.DeviceState.ONLINE),
-          createEmulator("2", IDevice.DeviceState.ONLINE),
-          createRealDevice("3", IDevice.DeviceState.ONLINE),
-          createEmulator("4", IDevice.DeviceState.ONLINE)
-        };
+    List<AndroidDevice> devices =
+        Arrays.asList(
+            createRealDevice("1", "device"),
+            createEmulator("2", "device"),
+            createRealDevice("3", "device"),
+            createEmulator("4", "device"));
 
     AdbHelper myAdbHelper =
         createAdbHelper(
             createAdbOptions(),
             new TargetDeviceOptions(false, false, Optional.of("invalid-serial")));
-    List<IDevice> filteredDevices = myAdbHelper.filterDevices(devices);
-    assertNull(filteredDevices);
+    List<AndroidDevice> filteredDevices = myAdbHelper.filterDevices(devices);
+    assertTrue(filteredDevices.isEmpty());
   }
 
   /** Verify that different combinations of arguments work correctly. */
@@ -322,11 +274,11 @@ public class AdbHelperTest {
     when(adbUtils.executeAdbShellCommand(eq("getprop ro.kernel.qemu"), eq("4"), anyBoolean()))
         .thenReturn("1");
 
-    TestDevice realDevice1 = createRealDevice("1", IDevice.DeviceState.ONLINE);
-    TestDevice realDevice2 = createRealDevice("2", IDevice.DeviceState.ONLINE);
-    TestDevice emulator1 = createEmulator("3", IDevice.DeviceState.ONLINE);
-    TestDevice emulator2 = createEmulator("4", IDevice.DeviceState.ONLINE);
-    IDevice[] devices = new IDevice[] {realDevice1, emulator1, realDevice2, emulator2};
+    AndroidDeviceImpl realDevice1 = createRealDevice("1", "device");
+    AndroidDeviceImpl realDevice2 = createRealDevice("2", "device");
+    AndroidDeviceImpl emulator1 = createEmulator("3", "device");
+    AndroidDeviceImpl emulator2 = createEmulator("4", "device");
+    List<AndroidDevice> devices = Arrays.asList(realDevice1, emulator1, realDevice2, emulator2);
 
     AdbHelper myAdbHelper;
     // Filter by serial in "real device" mode with serial number for real device.
@@ -334,7 +286,7 @@ public class AdbHelperTest {
         createAdbHelper(
             createAdbOptions(),
             new TargetDeviceOptions(false, true, Optional.of(realDevice1.getSerialNumber())));
-    List<IDevice> filteredDevices = myAdbHelper.filterDevices(devices);
+    List<AndroidDevice> filteredDevices = myAdbHelper.filterDevices(devices);
     assertNotNull(filteredDevices);
     assertEquals(1, filteredDevices.size());
     assertSame(realDevice1, filteredDevices.get(0));
@@ -345,7 +297,7 @@ public class AdbHelperTest {
             createAdbOptions(),
             new TargetDeviceOptions(false, true, Optional.of(emulator1.getSerialNumber())));
     filteredDevices = myAdbHelper.filterDevices(devices);
-    assertNull(filteredDevices);
+    assertTrue(filteredDevices.isEmpty());
 
     // Filter by serial in "emulator" mode with serial number for real device.
     myAdbHelper =
@@ -353,7 +305,7 @@ public class AdbHelperTest {
             createAdbOptions(),
             new TargetDeviceOptions(true, false, Optional.of(realDevice1.getSerialNumber())));
     filteredDevices = myAdbHelper.filterDevices(devices);
-    assertNull(filteredDevices);
+    assertTrue(filteredDevices.isEmpty());
 
     // Filter by serial in "real device" mode with serial number for emulator.
     myAdbHelper =
@@ -371,8 +323,8 @@ public class AdbHelperTest {
             createAdbOptions(true), new TargetDeviceOptions(true, true, Optional.empty()));
     filteredDevices = myAdbHelper.filterDevices(devices);
     assertNotNull(filteredDevices);
-    assertEquals(devices.length, filteredDevices.size());
-    for (IDevice device : devices) {
+    assertEquals(devices.size(), filteredDevices.size());
+    for (AndroidDevice device : devices) {
       assertTrue(filteredDevices.contains(device));
     }
   }
@@ -388,9 +340,9 @@ public class AdbHelperTest {
     AdbHelper adbHelper =
         createAdbHelper(
             ImmutableList.of(
-                TestDevice.createRealDevice("first"), TestDevice.createRealDevice("second")));
+                createRealDevice("first", "device"), createRealDevice("second", "device")));
 
-    assertEquals(adbHelper.getDevices(false).size(), 2);
+    assertEquals(2, adbHelper.getDevices(false).size());
     assertLoggedToConsole("Found 2 matching devices.\n");
   }
 
@@ -399,9 +351,9 @@ public class AdbHelperTest {
     AdbHelper adbHelper =
         createAdbHelper(
             ImmutableList.of(
-                TestDevice.createRealDevice("first"), TestDevice.createRealDevice("second")));
+                createRealDevice("first", "device"), createRealDevice("second", "device")));
 
-    assertEquals(adbHelper.getDevices(true).size(), 2);
+    assertEquals(2, adbHelper.getDevices(true).size());
     assertTrue(testLogSink.getRecords().isEmpty());
   }
 
@@ -415,25 +367,11 @@ public class AdbHelperTest {
   }
 
   @Test
-  public void testGetDevicesShouldReconnectIfFirstConnectionFails() {
-    AndroidDebugBridgeFacade adb =
-        createFlakyAdb(
-            /* connectOnAttempt= */ 2,
-            /* returnDevicesOnAttempt= */ 0,
-            TestDevice.createRealDevice("device"));
-    AdbHelper helper = createAdbHelper(adb);
-
-    assertEquals(1, helper.getDevices(true).size());
-  }
-
-  @Test
   public void testGetDevicesShouldRetryIfNoDevicesFound() {
-    AndroidDebugBridgeFacade adb =
-        createFlakyAdb(
-            /* connectOnAttempt= */ 1,
-            /* returnDevicesOnAttempt= */ 3,
-            TestDevice.createRealDevice("device"));
-    AdbHelper helper = createAdbHelper(adb);
+    when(adbUtils.getDevices())
+        .thenReturn(Collections.emptyList())
+        .thenReturn(Collections.singletonList(createEmulator("some_devices", "device")));
+    AdbHelper helper = createAdbHelper();
 
     assertEquals(1, helper.getDevices(true).size());
   }
@@ -443,9 +381,10 @@ public class AdbHelperTest {
     exceptionRule.expect(HumanReadableException.class);
     exceptionRule.expectMessage("2 devices match specified device filter");
 
-    AndroidDebugBridgeFacade adb =
-        createAdbForDevices(TestDevice.createRealDevice("one"), TestDevice.createRealDevice("two"));
-    AdbHelper helper = createAdbHelper(adb);
+    List<AndroidDevice> devices =
+        Arrays.asList(createRealDevice("one", "device"), createRealDevice("two", "device"));
+    when(adbUtils.getDevices()).thenReturn(devices);
+    AdbHelper helper = createAdbHelper();
     helper.adbCall("test", d -> true, /* quiet= */ true);
   }
 
@@ -454,112 +393,45 @@ public class AdbHelperTest {
     exceptionRule.expect(HumanReadableException.class);
     exceptionRule.expectMessage("Didn't find any attached Android devices/emulators.");
 
-    AndroidDebugBridgeFacade adb = createAdbForDevices();
-    AdbHelper helper = createAdbHelper(adb);
+    when(adbUtils.getDevices()).thenReturn(Collections.emptyList());
+    AdbHelper helper = createAdbHelper();
     helper.adbCall("test", d -> true, /* quiet= */ true);
   }
 
   @Test
   public void testAdbCallShouldSucceedForNoDevicesWithIgnoreMissingDeviceFlag() throws Exception {
     AdbOptions options = createAdbOptions(false, true);
-    AndroidDebugBridgeFacade adb = createAdbForDevices();
-    AdbHelper helper = createAdbHelper(options, adb);
+    when(adbUtils.getDevices()).thenReturn(Collections.emptyList());
+    AdbHelper helper = createAdbHelper(options);
     helper.adbCall("test", d -> true, true);
   }
 
   @Test
   public void testAdbCallShouldSucceedForDevicesWithIgnoreMissingDeviceFlag() throws Exception {
     AdbOptions options = createAdbOptions(false, true);
-    AndroidDebugBridgeFacade adb = createAdbForDevices(TestDevice.createRealDevice("one"));
-    AdbHelper helper = createAdbHelper(options, adb);
+    List<AndroidDevice> devices = Collections.singletonList(createRealDevice("one", "device"));
+    when(adbUtils.getDevices()).thenReturn(devices);
+    AdbHelper helper = createAdbHelper(options);
     helper.adbCall("test", d -> true, true);
   }
 
-  private AndroidDebugBridgeFacade createAdbForDevices(IDevice... devices) {
-    return new AndroidDebugBridgeFacade() {
-      @Override
-      boolean connect() {
-        return true;
-      }
-
-      @Override
-      boolean isConnected() {
-        return true;
-      }
-
-      @Override
-      boolean hasInitialDeviceList() {
-        return true;
-      }
-
-      @Override
-      IDevice[] getDevices() {
-        return devices;
-      }
-    };
+  private AdbHelper createAdbHelper() {
+    return createAdbHelper(createAdbOptions());
   }
 
-  private AndroidDebugBridgeFacade createFlakyAdb(
-      int connectOnAttempt, int returnDevicesOnAttempt, IDevice... devices) {
-    return new AndroidDebugBridgeFacade() {
-      int connectCount = 0;
-      int getDevicesCount = 0;
-
-      @Override
-      boolean connect() {
-        connectCount++;
-        return isConnected();
-      }
-
-      @Override
-      boolean isConnected() {
-        return connectCount >= connectOnAttempt;
-      }
-
-      @Override
-      boolean hasInitialDeviceList() {
-        return true;
-      }
-
-      @Override
-      IDevice[] getDevices() {
-        getDevicesCount++;
-        if (getDevicesCount >= returnDevicesOnAttempt) {
-          return devices;
-        }
-        return new IDevice[0];
-      }
-    };
-  }
-
-  private AdbHelper createAdbHelper(AndroidDebugBridgeFacade facade) {
-    return createAdbHelper(createAdbOptions(), facade);
-  }
-
-  private AdbHelper createAdbHelper(AdbOptions options, AndroidDebugBridgeFacade facade) {
+  private AdbHelper createAdbHelper(AdbOptions options) {
     return new AdbHelper(
         adbUtils,
         options,
         new TargetDeviceOptions(),
         adbExecutionContext,
         new IsolatedAndroidInstallerPrinter(LOGGER),
-        Optional.of("adb"),
-        /* agentApk */ Optional.empty(),
-        true,
+        /* restartAdbOnFailure */ true,
         /* skipMetadataIfNoInstalls= */ false,
-        /* isZstdCompressionEnabled */ true,
-        AGENT_PORT_BASE,
-        0,
-        0,
-        SetDebugAppMode.SET) {
-      @Override
-      AndroidDebugBridgeFacade createAdb() {
-        return facade;
-      }
-    };
+        SetDebugAppMode.SET) {};
   }
 
-  private AdbHelper createAdbHelper(List<IDevice> deviceList) {
+  private AdbHelper createAdbHelper(List<AndroidDevice> deviceList) {
     AdbHelper.setDevicesSupplierForTests(
         Optional.of(
             () ->
@@ -573,14 +445,8 @@ public class AdbHelperTest {
         new TargetDeviceOptions(),
         adbExecutionContext,
         new IsolatedAndroidInstallerPrinter(LOGGER),
-        Optional.of("adb"),
-        /* agentApk */ Optional.empty(),
-        true,
+        /* restartAdbOnFailure */ true,
         /* skipMetadataIfNoInstalls= */ false,
-        /* isZstdCompressionEnabled */ true,
-        AGENT_PORT_BASE,
-        0,
-        0,
         SetDebugAppMode.SET);
   }
 
@@ -600,6 +466,13 @@ public class AdbHelperTest {
   private static AdbOptions createAdbOptions(
       boolean multiInstallMode, boolean stagedInstallMode, boolean ignoreMissingDevices) {
     return new AdbOptions(
-        null, 0, 0, multiInstallMode, stagedInstallMode, 5000, ignoreMissingDevices, false);
+        "path_to_adb",
+        0,
+        0,
+        multiInstallMode,
+        stagedInstallMode,
+        5000,
+        ignoreMissingDevices,
+        false);
   }
 }

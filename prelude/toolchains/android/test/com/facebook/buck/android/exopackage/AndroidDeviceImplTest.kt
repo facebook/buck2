@@ -125,13 +125,18 @@ class AndroidDeviceImplTest {
     whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.kernel.qemu", serialNumber))
         .thenReturn("0")
 
-    assertFalse(androidDevice.isEmulator())
+    assertFalse(androidDevice.isEmulator)
 
     // Setup for emulator
     whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.kernel.qemu", serialNumber))
         .thenReturn("1")
 
-    assertTrue(androidDevice.isEmulator())
+    assertTrue(androidDevice.isEmulator)
+
+    // Setup for Genymotion device
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.kernel.qemu", serialNumber))
+        .thenReturn("0")
+    assertTrue(AndroidDeviceImpl("192.168.57.101:5555", mockAdbUtils).isEmulator)
   }
 
   @Test

@@ -12,13 +12,9 @@ package com.facebook.buck.android;
 import static com.facebook.buck.util.concurrent.MostExecutors.newMultiThreadExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
-import com.android.ddmlib.AndroidDebugBridge;
-import com.android.ddmlib.DdmPreferences;
-import com.android.ddmlib.IDevice;
 import com.facebook.buck.android.device.TargetDeviceOptions;
 import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDevice;
-import com.facebook.buck.android.exopackage.AndroidDeviceFactoryImpl;
 import com.facebook.buck.android.exopackage.AndroidDeviceInfo;
 import com.facebook.buck.android.exopackage.AndroidDevicesHelper;
 import com.facebook.buck.android.exopackage.AndroidIntent;
@@ -53,6 +49,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
@@ -62,7 +59,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -76,8 +72,6 @@ import javax.annotation.Nullable;
 public class AdbHelper implements AndroidDevicesHelper {
 
   private static final Logger LOG = Logger.get(AdbHelper.class);
-  private static final long ADB_CONNECT_TIMEOUT_MS = 5000;
-  private static final long ADB_CONNECT_TIME_STEP_MS = ADB_CONNECT_TIMEOUT_MS / 10;
 
   /** Pattern that matches safe package names. (Must be a full string match). */
   public static final Pattern PACKAGE_NAME_PATTERN = Pattern.compile("[\\w.-]+");
@@ -104,24 +98,18 @@ public class AdbHelper implements AndroidDevicesHelper {
    * The next port number to use for communicating with the agent on a device. This resets for every
    * instance of AdbHelper, but is incremented for every device on every call to adbCall().
    */
-  private final AtomicInteger nextAgentPort;
-
   private final AdbOptions options;
+
   private final TargetDeviceOptions deviceOptions;
-  private final Optional<String> adbExecutable;
-  private final Optional<Path> agentApk;
   private final AdbExecutionContext adbExecutionContext;
   private final boolean restartAdbOnFailure;
   // Caches the list of android devices for this execution
   private final Supplier<GetDevicesResult> devicesSupplier;
   private final boolean skipMetadataIfNoInstalls;
-  private final boolean isZstdCompressionEnabled;
   private final AndroidInstallPrinter androidPrinter;
   private final SetDebugAppMode setDebugAppMode;
 
   @Nullable private ListeningExecutorService executorService = null;
-  private final int maxRetries;
-  private final long retryDelayMs;
 
   private final AdbUtils adbUtils;
 
@@ -131,29 +119,17 @@ public class AdbHelper implements AndroidDevicesHelper {
       TargetDeviceOptions deviceOptions,
       AdbExecutionContext adbExecutionContext,
       AndroidInstallPrinter androidPrinter,
-      Optional<String> adbExecutable,
-      Optional<Path> agentApk,
       boolean restartAdbOnFailure,
       boolean skipMetadataIfNoInstalls,
-      boolean isZstdCompressionEnabled,
-      int agentPortBase,
-      int maxRetries,
-      long retryDelayMs,
       SetDebugAppMode setDebugAppMode) {
     this.adbUtils = adbUtils;
     this.options = adbOptions;
     this.deviceOptions = deviceOptions;
     this.adbExecutionContext = adbExecutionContext;
     this.restartAdbOnFailure = restartAdbOnFailure;
-    this.maxRetries = maxRetries;
-    this.retryDelayMs = retryDelayMs;
     this.devicesSupplier = MoreSuppliers.memoize(this::getDevicesImpl);
     this.androidPrinter = androidPrinter;
-    this.adbExecutable = adbExecutable;
-    this.agentApk = agentApk;
     this.skipMetadataIfNoInstalls = skipMetadataIfNoInstalls;
-    this.isZstdCompressionEnabled = isZstdCompressionEnabled;
-    this.nextAgentPort = new AtomicInteger(agentPortBase);
     this.setDebugAppMode = setDebugAppMode;
   }
 
@@ -609,15 +585,14 @@ public class AdbHelper implements AndroidDevicesHelper {
    * Returns list of devices that pass the filter. If there is an invalid combination or no devices
    * are left after filtering this function prints an error and returns null.
    */
-  @Nullable
   @VisibleForTesting
-  List<IDevice> filterDevices(IDevice[] allDevices) {
-    if (allDevices.length == 0) {
+  List<AndroidDevice> filterDevices(List<AndroidDevice> allDevices) {
+    if (allDevices.isEmpty()) {
       androidPrinter.printError("No devices are found.");
-      return null;
+      return Collections.emptyList();
     }
 
-    List<IDevice> devices = new ArrayList<>();
+    List<AndroidDevice> devices = new ArrayList<>();
     Optional<Boolean> emulatorsOnly = Optional.empty();
     if (deviceOptions.isEmulatorsOnlyModeEnabled() && options.isMultiInstallModeEnabled()) {
       emulatorsOnly = Optional.empty();
@@ -628,7 +603,7 @@ public class AdbHelper implements AndroidDevicesHelper {
     }
 
     int onlineDevices = 0;
-    for (IDevice device : allDevices) {
+    for (AndroidDevice device : allDevices) {
       boolean passed = false;
       if (device.isOnline()) {
         LOG.info("Found online device: %s", device.getSerialNumber());
@@ -656,7 +631,7 @@ public class AdbHelper implements AndroidDevicesHelper {
         // Only devices of specific type are accepted:
         // either real devices only or emulators only.
         // All online devices match.
-        boolean isDeviceEmulator = createDevice(device).isEmulator();
+        boolean isDeviceEmulator = device.isEmulator();
         boolean deviceTypeMatches =
             emulatorsOnly.map(isEmulatorOnly -> (isEmulatorOnly == isDeviceEmulator)).orElse(true);
         LOG.info(
@@ -681,7 +656,7 @@ public class AdbHelper implements AndroidDevicesHelper {
     // Filtered out all devices.
     if (onlineDevices == 0) {
       androidPrinter.printError("No devices are found.");
-      return null;
+      return Collections.emptyList();
     }
 
     if (devices.isEmpty()) {
@@ -689,7 +664,7 @@ public class AdbHelper implements AndroidDevicesHelper {
           String.format(
               "Found %d connected device(s), but none of them matches specified filter.",
               onlineDevices));
-      return null;
+      return Collections.emptyList();
     }
 
     return devices;
@@ -697,62 +672,6 @@ public class AdbHelper implements AndroidDevicesHelper {
 
   private ImmutableMap<String, String> getEnvironment() {
     return adbExecutionContext.getEnvironment();
-  }
-
-  private AndroidDevice createDevice(IDevice device) {
-    return new AndroidDeviceFactoryImpl()
-        .createAndroidDevice(
-            androidPrinter,
-            device,
-            getConsole(),
-            agentApk.orElse(getApkFilePathFromProperties().orElse(null)),
-            nextAgentPort.getAndIncrement(),
-            isZstdCompressionEnabled,
-            maxRetries,
-            retryDelayMs,
-            adbExecutable.orElse(null),
-            options.getAdbServerPort(),
-            adbUtils);
-  }
-
-  @VisibleForTesting
-  AndroidDebugBridgeFacade createAdb() {
-    return new AndroidDebugBridgeFacadeImpl(getAdbExecutable());
-  }
-
-  /**
-   * Creates connection to adb and waits for this connection to be initialized and receive initial
-   * list of devices.
-   *
-   * <p>The returned bridge is not guaranteed to be connected.
-   */
-  private boolean waitForConnection(AndroidDebugBridgeFacade adb) {
-    if (!adb.connect()) {
-      return false;
-    }
-
-    waitUntil(adb::isInitialized, ADB_CONNECT_TIMEOUT_MS, ADB_CONNECT_TIME_STEP_MS);
-    return adb.isInitialized();
-  }
-
-  private static void waitUntil(Supplier<Boolean> condition, long timeoutMs, long stepTimeMs) {
-    long start = System.currentTimeMillis();
-    while (!condition.get()) {
-      long timeLeft = start + timeoutMs - System.currentTimeMillis();
-      if (timeLeft <= 0) {
-        break;
-      }
-      try {
-        Thread.sleep(stepTimeMs);
-      } catch (InterruptedException e) {
-        throw new RuntimeException(e);
-      }
-    }
-  }
-
-  private String getAdbExecutable() {
-    return this.adbExecutable.orElseThrow(
-        () -> new HumanReadableException("No Adb executable set"));
   }
 
   private static class GetDevicesResult {
@@ -779,23 +698,10 @@ public class AdbHelper implements AndroidDevicesHelper {
       return GetDevicesResult.createSuccess(devicesSupplierForTests.get().get());
     }
 
-    // Initialize adb connection.
-    AndroidDebugBridgeFacade adb = createAdb();
-    waitForConnection(adb);
-    if (!adb.isConnected()) {
-      // Try resetting state and reconnecting
-      androidPrinter.printError("Unable to reconnect to existing server, starting a new one");
-      adb.terminate();
-      waitForConnection(adb);
-    }
-    if (!adb.isConnected()) {
-      return GetDevicesResult.createFailure("Failed to create adb connection.");
-    }
-
     // Build list of matching devices.
-    List<IDevice> devices = filterDevices(adb.getDevices());
+    List<AndroidDevice> devices = filterDevices(adbUtils.getDevices());
     // Found multiple devices but multi-install mode is not enabled.
-    if (devices != null && devices.size() > 1 && !options.isMultiInstallModeEnabled()) {
+    if (devices.size() > 1 && !options.isMultiInstallModeEnabled()) {
       return GetDevicesResult.createFailure(
           String.format(
               "%d devices match specified device filter (1 expected).\n"
@@ -803,34 +709,18 @@ public class AdbHelper implements AndroidDevicesHelper {
               devices.size(), AdbOptions.MULTI_INSTALL_MODE_SHORT_ARG));
     }
 
-    if (devices == null && restartAdbOnFailure) {
+    if (devices.isEmpty() && restartAdbOnFailure) {
       androidPrinter.printError("No devices found with adb, restarting adb-server.");
-      adb.restart();
-      devices = filterDevices(adb.getDevices());
+      adbUtils.restart();
+      devices = filterDevices(adbUtils.getDevices());
     }
-    if (devices == null && restartAdbOnFailure) {
-      androidPrinter.printError(
-          "No devices found with adb after restart, terminating and restarting adb-server.");
-      adb.terminate();
-      if (!waitForConnection(adb)) {
-        return GetDevicesResult.createFailure("Failed to re-create adb connection.");
-      }
-      devices = filterDevices(adb.getDevices());
-    }
-    if (devices == null) {
-      return GetDevicesResult.createSuccess(ImmutableList.of());
-    }
+
     return GetDevicesResult.createSuccess(
-        devices.stream().map(this::createDevice).collect(ImmutableList.toImmutableList()));
+        devices.stream().collect(ImmutableList.toImmutableList()));
   }
 
   private Console getConsole() {
     return adbExecutionContext.getConsole();
-  }
-
-  private static Optional<Path> getApkFilePathFromProperties() {
-    String apkFileName = System.getProperty("buck.android_agent_path");
-    return Optional.ofNullable(apkFileName).map(Paths::get);
   }
 
   @Override
@@ -844,21 +734,6 @@ public class AdbHelper implements AndroidDevicesHelper {
           TimeUnit.MINUTES,
           new RuntimeException("Failed to shutdown ExecutorService."));
       executorService = null;
-    }
-  }
-
-  /** An exception that indicates that an executed command returned an unsuccessful exit code. */
-  public static class CommandFailedException extends IOException {
-
-    public final String command;
-    public final int exitCode;
-    public final String output;
-
-    public CommandFailedException(String command, int exitCode, String output) {
-      super("Command '" + command + "' failed with code " + exitCode + ".  Output:\n" + output);
-      this.command = command;
-      this.exitCode = exitCode;
-      this.output = output;
     }
   }
 
@@ -951,111 +826,6 @@ public class AdbHelper implements AndroidDevicesHelper {
               device.installBuildUuidFile(
                   BUILD_METADATA_INSTALL_ROOT, packageName, buck2BuildUuid.get()),
           true);
-    }
-  }
-
-  /**
-   * A facade for the AndroidDebugBridge which makes it easier to test logic in AdbHelper without
-   * talking to a real adb.
-   */
-  @VisibleForTesting
-  abstract static class AndroidDebugBridgeFacade {
-
-    /** Initializes and connects the debug bridge. */
-    boolean connect() {
-      return false;
-    }
-
-    /** Returns true if the bridge is connected. */
-    boolean isConnected() {
-      return false;
-    }
-
-    /** Returns true if the bridge has an initial device list. */
-    boolean hasInitialDeviceList() {
-      return false;
-    }
-
-    /** Returns connected devices. */
-    IDevice[] getDevices() {
-      return new IDevice[0];
-    }
-
-    /** Restarts the adb server. */
-    boolean restart() {
-      return false;
-    }
-
-    /** Terminates adb and disconnects the bridge. */
-    void terminate() {}
-
-    /** Returns true if the bridge is initialized. */
-    final boolean isInitialized() {
-      return isConnected() && hasInitialDeviceList();
-    }
-  }
-
-  private class AndroidDebugBridgeFacadeImpl extends AndroidDebugBridgeFacade {
-
-    private final String adbExecutablePath;
-    private @Nullable AndroidDebugBridge bridge;
-
-    AndroidDebugBridgeFacadeImpl(String adbExecutable) {
-      this.adbExecutablePath = adbExecutable;
-    }
-
-    @Override
-    public boolean connect() {
-      DdmPreferences.setTimeOut(options.getAdbTimeout());
-
-      int adbServerPort = options.getAdbServerPort();
-      if (adbServerPort > 0 && adbServerPort <= 0xffff) {
-        // AndroidDebugBridge.java gets this key as integer.
-        LOG.debug("Using ADB server on tcp:%d", adbServerPort);
-        System.setProperty("ANDROID_ADB_SERVER_PORT", String.valueOf(adbServerPort));
-      }
-
-      try {
-        AndroidDebugBridge.init(/* clientSupport */ false);
-      } catch (IllegalStateException ex) {
-        // ADB was already initialized, we're fine, so just ignore.
-      }
-
-      LOG.debug("Using %s to create AndroidDebugBridge", adbExecutablePath);
-      this.bridge = AndroidDebugBridge.createBridge(adbExecutablePath, false);
-      return this.bridge != null;
-    }
-
-    @Override
-    public boolean isConnected() {
-      return bridge != null && bridge.isConnected();
-    }
-
-    @Override
-    public boolean hasInitialDeviceList() {
-      return bridge != null && bridge.hasInitialDeviceList();
-    }
-
-    @Override
-    public IDevice[] getDevices() {
-      if (bridge == null) {
-        throw new IllegalStateException("Not connected");
-      }
-      return bridge.getDevices();
-    }
-
-    @Override
-    public boolean restart() {
-      if (bridge == null) {
-        throw new IllegalStateException("Not connected");
-      }
-      return bridge.restart();
-    }
-
-    @Override
-    public void terminate() {
-      AndroidDebugBridge.disconnectBridge();
-      AndroidDebugBridge.terminate();
     }
   }
 

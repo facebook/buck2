@@ -32,10 +32,14 @@ class AdbUtils(val adb: String, val adbServerPort: Int) {
     return executeAdbCommand("shell $command", deviceId, ignoreFailure)
   }
 
-  fun executeAdbCommand(command: String, deviceId: String, ignoreFailure: Boolean = false): String {
+  fun executeAdbCommand(
+      command: String,
+      deviceId: String?,
+      ignoreFailure: Boolean = false
+  ): String {
     val adbCommandResult: AdbCommandResult =
         try {
-          runAdbCommand("-s $deviceId $command")
+          runAdbCommand((deviceId?.let { "-s $deviceId " } ?: "") + command)
         } catch (e: Exception) {
           error("Failed to execute adb command 'adb $command' on device $deviceId.\n${e.message}")
         }
@@ -81,6 +85,21 @@ class AdbUtils(val adb: String, val adbServerPort: Int) {
         exitCode,
         output = output.toString().trim(),
         error = if (errorOutput.isNotEmpty()) errorOutput.toString() else null)
+  }
+
+  fun getDevices(): List<AndroidDevice> {
+    val devicesOutput: String = executeAdbCommand("devices", null)
+    val devices: List<String> = devicesOutput.split("\n").drop(1).filter { it.isNotBlank() }
+    return if (devices.isEmpty()) {
+      emptyList()
+    } else {
+      devices.map { AndroidDeviceImpl(it.split("\\s+".toRegex())[0], this) }
+    }
+  }
+
+  fun restart() {
+    executeAdbCommand("kill-server", null)
+    executeAdbCommand("start-server", null)
   }
 
   /**

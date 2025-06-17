@@ -202,7 +202,6 @@ class AndroidInstallerManager implements InstallCommand {
               IsolatedApkInfo.of(
                   androidArtifacts.getAndroidManifestPath(), androidArtifacts.getApk()),
               isolatedExopackageInfo,
-              androidArtifacts.getAgentApk(),
               installId);
       return androidInstaller.installApk();
 

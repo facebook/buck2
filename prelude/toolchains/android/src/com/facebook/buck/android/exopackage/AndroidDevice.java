@@ -63,6 +63,8 @@ public interface AndroidDevice {
 
   boolean isEmulator();
 
+  boolean isOnline();
+
   boolean installBuildUuidFile(Path dataRoot, String packageName, String buildUuid)
       throws Exception;
 

@@ -335,6 +335,14 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     return isLocalTransport() || getProperty("ro.kernel.qemu") == "1"
   }
 
+  override fun isOnline(): Boolean {
+    return getState() == "device"
+  }
+
+  private fun getState(): String {
+    return adbUtils.executeAdbCommand("get-state", serialNumber)
+  }
+
   /**
    * To be consistent with adb, we treat all local transports (as opposed to USB transports) as
    * emulators instead of devices.
