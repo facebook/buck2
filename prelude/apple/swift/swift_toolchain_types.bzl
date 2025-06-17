@@ -32,6 +32,7 @@ SwiftToolchainInfo = provider(
         "resource_dir": provider_field([Artifact, None]),
         "sdk_module_path_prefixes": provider_field(dict[str, Artifact]),
         "sdk_path": provider_field([Artifact, str, None]),
+        "serialized_diags_to_json": provider_field([RunInfo, None], default = None),
         "supports_explicit_module_debug_serialization": provider_field(bool, default = False),
         "supports_relative_resource_dir": provider_field(bool),
         "swift_experimental_features": provider_field(dict[str, list[str]]),  # { "5": [], "6", [] }

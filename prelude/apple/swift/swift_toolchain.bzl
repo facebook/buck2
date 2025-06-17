@@ -83,6 +83,7 @@ def swift_toolchain_impl(ctx):
             resource_dir = ctx.attrs.resource_dir,
             sdk_module_path_prefixes = ctx.attrs.sdk_module_path_prefixes,
             sdk_path = ctx.attrs._internal_sdk_path or ctx.attrs.sdk_path,
+            serialized_diags_to_json = ctx.attrs.serialized_diags_to_json[RunInfo] if ctx.attrs.serialized_diags_to_json else None,
             supports_explicit_module_debug_serialization = ctx.attrs.supports_explicit_module_debug_serialization,
             supports_relative_resource_dir = ctx.attrs.supports_relative_resource_dir,
             swift_ide_test_tool = ctx.attrs.swift_ide_test_tool[RunInfo] if ctx.attrs.swift_ide_test_tool else None,
