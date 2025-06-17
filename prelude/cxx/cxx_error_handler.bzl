@@ -141,6 +141,16 @@ CXX_GENERIC_ERROR_TYPES = [
         category_suffix = "too_many_template_arguments",
     ),
     make_error_type(
+        matcher = "possible misuse of comma operator",
+        category_suffix = "comma_operator_misuse",
+    ),
+    make_error_type(
+        matcher = "no such file or directory",
+        category_suffix = "no_such_file_or_directory",
+    ),
+
+    # compiler errors matched by regex
+    make_error_type(
         matcher = regex("no member named '.+' in"),
         category_suffix = "missing_member",
     ),
