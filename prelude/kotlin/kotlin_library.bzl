@@ -214,6 +214,7 @@ def _create_kotlin_sources(
         ctx.actions.run(
             cmd_args(ksp_cmd, hidden = ksp_kotlinc_cmd_args),
             category = "ksp_kotlinc",
+            error_handler = kotlin_toolchain.kotlin_error_handler,
         )
 
         zipped_sources = (zipped_sources or []) + [ksp_zipped_sources_output]
@@ -243,6 +244,7 @@ def _create_kotlin_sources(
     ctx.actions.run(
         cmd_args(compile_kotlin_cmd_args, hidden = compile_kotlin_cmd_hidden),
         category = "kotlinc",
+        error_handler = kotlin_toolchain.kotlin_error_handler,
     )
 
     return kotlinc_output, kapt_generated_sources_output, ksp_zipped_sources_output
