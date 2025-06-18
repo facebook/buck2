@@ -20,6 +20,7 @@ load(
 )
 load(":erlang_info.bzl", "ErlangAppInfo", "ErlangTestInfo")
 load(":erlang_otp_application.bzl", "normalize_application")
+load(":erlang_paths.bzl", "basename_without_extension")
 load(":erlang_shell.bzl", "erlang_shell")
 load(
     ":erlang_toolchain.bzl",
@@ -58,8 +59,8 @@ def erlang_tests_macro(
     if srcs:
         # There is no "good name" for the application
         # We create one using the first suite from the list
-        (suite_name, _ext) = paths.split_extension(paths.basename(suites[0]))
-        srcs_app = suite_name + "_app"
+        suite_name = basename_without_extension(suites[0])
+        srcs_app = "{}_app".format(suite_name)
         app_deps = [dep for dep in deps if not dep.endswith("_SUITE")]
         erlang_app_rule(
             name = srcs_app,
@@ -67,7 +68,7 @@ def erlang_tests_macro(
             labels = generated_app_labels,
             applications = app_deps,
         )
-        deps.append(":" + srcs_app)
+        deps.append(":{}".format(srcs_app))
 
     if not property_tests:
         first_suite = suites[0]
@@ -81,8 +82,7 @@ def erlang_tests_macro(
 
     for suite in suites:
         # forward resources and deps fields and generate erlang_test target
-        (suite_name, _ext) = paths.split_extension(paths.basename(suite))
-        suite_name = normalize_suite_name(suite_name)
+        suite_name = normalize_suite_name(basename_without_extension(suite))
         if not suite_name.endswith("_SUITE"):
             fail("erlang_tests target only accept suite as input, found " + suite_name)
 
@@ -335,10 +335,11 @@ def link_output(
 def generate_file_map_target(suite: str, prefix: str | None, dir_name: str) -> str:
     suite_dir = paths.dirname(suite)
     suite_name = paths.basename(suite)
+    suite_path = paths.join(suite_dir, dir_name)
     if is_target(suite):
         files = []
     else:
-        files = glob([paths.join(suite_dir, dir_name, "**")])
+        files = glob([paths.join(suite_path, "**")])
     if prefix != None:
         target_suffix = "{}_{}".format(prefix, suite_name)
     else:
@@ -348,7 +349,7 @@ def generate_file_map_target(suite: str, prefix: str | None, dir_name: str) -> s
         file_mapping(
             name = "{}-{}".format(dir_name, target_suffix),
             mapping = preserve_structure(
-                path = paths.join(suite_dir, dir_name),
+                path = suite_path,
             ),
         )
         return ":{}-{}".format(dir_name, suite_name)

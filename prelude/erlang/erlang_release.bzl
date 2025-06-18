@@ -172,7 +172,8 @@ def _build_boot_script(
             root_apps_spec[spec.name] = app_spec
         else:
             release_applications.append(app_spec)
-    release_applications = [root_apps_spec[app_name] for app_name in root_apps_names] + release_applications
+    for app_name in root_apps_names:
+        release_applications.append(root_apps_spec[app_name])
 
     data = {
         "apps": release_applications,
@@ -215,15 +216,16 @@ def _build_overlays(ctx: AnalysisContext) -> dict[str, Artifact]:
 
 def _build_release_variables(ctx: AnalysisContext, toolchain: Toolchain) -> dict[str, Artifact]:
     release_name = _relname(ctx)
+    build_dir = erlang_build.utils.build_dir(toolchain)
 
-    short_path = paths.join("bin", "release_variables")
+    short_path = "bin/release_variables"
     release_variables = ctx.actions.declare_output(
-        erlang_build.utils.build_dir(toolchain),
+        build_dir,
         "release_variables",
     )
 
     spec_file = ctx.actions.write_json(
-        paths.join(erlang_build.utils.build_dir(toolchain), "relvars.json"),
+        paths.join(build_dir, "relvars.json"),
         {
             "REL_NAME": release_name,
             "REL_VSN": ctx.attrs.version,
@@ -269,9 +271,8 @@ def _symlink_multi_toolchain_output(ctx: AnalysisContext, toolchain_artifacts: d
     relname = _relname(ctx)
 
     for toolchain_name, artifacts in toolchain_artifacts.items():
-        prefix = paths.join(toolchain_name, relname)
         link_spec.update({
-            paths.join(prefix, path): artifact
+            paths.join(toolchain_name, relname, path): artifact
             for path, artifact in artifacts.items()
         })
 

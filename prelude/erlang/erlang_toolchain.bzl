@@ -18,6 +18,11 @@ load(
     "Tool",
     "Tools",
 )
+load(
+    ":erlang_paths.bzl",
+    "basename_without_extension",
+    "strip_extension",
+)
 
 Toolchain = ErlangToolchainInfo
 
@@ -179,7 +184,7 @@ def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, parse_transforms: li
     for dep in parse_transforms:
         src = dep[ErlangParseTransformInfo].source
         extra = dep[ErlangParseTransformInfo].extra_files
-        module_name, _ = paths.split_extension(src.basename)
+        module_name = basename_without_extension(src.basename)
         if module_name in transforms:
             fail("ambiguous global parse_transforms defined: %s", (module_name,))
         transforms[module_name] = _gen_parse_transform_beam(ctx, src, extra, erlc)
@@ -190,7 +195,7 @@ def _gen_parse_transform_beam(
         src: Artifact,
         extra: list[Artifact],
         erlc: Tool) -> (Artifact, Artifact):
-    name, _ext = paths.split_extension(src.basename)
+    name = strip_extension(src.basename)
 
     # install resources
     resource_dir = ctx.actions.symlinked_dir(
@@ -221,7 +226,7 @@ default_toolchain_script_args_pre = cmd_args(
 default_toolchain_script_args_post = cmd_args("-s", "erlang", "halt", "--")
 
 def _gen_toolchain_script(ctx: AnalysisContext, script: Artifact, tools: Tools) -> Tool:
-    name, _ext = paths.split_extension(script.basename)
+    name = strip_extension(script.basename)
     out = ctx.actions.declare_output(name, name + ".beam")
     _compile_toolchain_module(ctx, script, out.as_output(), tools.erlc)
     eval = cmd_args(name, ":main(init:get_plain_arguments())", delimiter = "")

@@ -96,7 +96,7 @@ def erlang_application(
 # convenience macro to specify the includes-only target based on the base-application
 # target name
 def _extra_include_name(name: str) -> str:
-    return name + "_includes_only"
+    return "{}_includes_only".format(name)
 
 def erlang_tests(
         erlang_app_rule,

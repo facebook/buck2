@@ -30,7 +30,7 @@ def _clean_up_includes(includes):
     #       For generated include files we cannot perform this optimisation, instead we list them
     #       individually.
     include_paths = [paths.dirname(p["value"]) for p in includes if p["type"] == "path"]
-    include_paths = [_as_path(p) for p in _list_dedupe(include_paths)]
+    include_paths = [_as_path(p) for p in _uniq(include_paths)]
     builds = [b for b in includes if b["type"] == "build"]
 
     return include_paths + builds
@@ -169,11 +169,11 @@ def prebuild(ctx, all):
 
 def _construct_output(items: list[dict[str, str | bxl.EnsuredArtifact]]) -> list[str | bxl.EnsuredArtifact]:
     # we completely ignore targets, since we don't have support for generated files in ELP
-    paths = _list_dedupe([p.get("value") for p in items if p.get("type") in ["path", "build"]])
+    paths = _uniq([p.get("value") for p in items if p.get("type") in ["path", "build"]])
     return paths
 
-def _list_dedupe(xs):
-    return {x: True for x in xs}.keys()
+def _uniq(xs):
+    return list(set(xs))
 
 def _as_path(src):
     return {"type": "path", "value": src}

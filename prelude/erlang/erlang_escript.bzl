@@ -9,6 +9,7 @@ load("@prelude//:paths.bzl", "paths")
 load(":erlang_build.bzl", "erlang_build")
 load(":erlang_dependencies.bzl", "flatten_dependencies")
 load(":erlang_info.bzl", "ErlangAppInfo")
+load(":erlang_paths.bzl", "has_extension")
 load(
     ":erlang_toolchain.bzl",
     "Toolchain",  # @unused Used as type
@@ -42,7 +43,11 @@ def erlang_escript_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # additional resources
     for res in ctx.attrs.resources:
-        for artifact in res[DefaultInfo].default_outputs + res[DefaultInfo].other_outputs:
+        for artifact in res[DefaultInfo].default_outputs:
+            if artifact.short_path in artifacts:
+                fail("multiple artifacts defined for path %s", (artifact.short_path))
+            artifacts[artifact.short_path] = artifact
+        for artifact in res[DefaultInfo].other_outputs:
             if artifact.short_path in artifacts:
                 fail("multiple artifacts defined for path %s", (artifact.short_path))
             artifacts[artifact.short_path] = artifact
@@ -142,10 +147,12 @@ def build_escript_unbundled_trampoline(ctx: AnalysisContext, toolchain, config_f
 def build_escript_bundled_trampoline(ctx: AnalysisContext, toolchain, config_files: list[Artifact]) -> Artifact:
     data = cmd_args()
 
-    data.add("-module('erlang_escript_trampoline').")
-    data.add("-export([main/1]).")
-    data.add("main(Args) ->")
-    data.add("EscriptDir = escript:script_name(),")
+    data.add(
+        """-module('erlang_escript_trampoline').
+-export([main/1]).
+main(Args) ->
+EscriptDir = escript:script_name(),""",
+    )
     data.add(_config_files_code_to_erl(config_files))
     data.add("    {}:main(Args).".format(_main_module(ctx)))
     data.add(_parse_bin())
@@ -176,9 +183,11 @@ def _priv_path(app_name: str) -> str:
 def _escript_config_files(ctx: AnalysisContext) -> list[Artifact]:
     config_files = []
     for config_dep in ctx.attrs.configs:
-        for artifact in config_dep[DefaultInfo].default_outputs + config_dep[DefaultInfo].other_outputs:
-            (_, ext) = paths.split_extension(artifact.short_path)
-            if ext == ".config":
+        for artifact in config_dep[DefaultInfo].default_outputs:
+            if has_extension(artifact.short_path, ".config"):
+                config_files.append(artifact)
+        for artifact in config_dep[DefaultInfo].other_outputs:
+            if has_extension(artifact.short_path, ".config"):
                 config_files.append(artifact)
     return config_files
 
@@ -189,12 +198,14 @@ def _config_files_code_to_erl(config_files: list[Artifact]) -> list[str]:
         cmd.append('"{}"'.format(config_files[i].short_path))
         if i < len(config_files) - 1:
             cmd.append(",")
-    cmd.append("],")
-    cmd.append("[begin ")
-    cmd.append("{ok, AppConfigBin, _FullName} = erl_prim_loader:get_file(filename:join(EscriptDir, ConfigFile)),")
-    cmd.append("{ok, AppConfig} = parse_bin(AppConfigBin), ")
-    cmd.append(" ok = application:set_env(AppConfig, [{persistent, true}])")
-    cmd.append("end || ConfigFile <- ConfigFiles],")
+    cmd.append(
+        """],
+[begin 
+{ok, AppConfigBin, _FullName} = erl_prim_loader:get_file(filename:join(EscriptDir, ConfigFile)),
+{ok, AppConfig} = parse_bin(AppConfigBin), 
+ok = application:set_env(AppConfig, [{persistent, true}])
+end || ConfigFile <- ConfigFiles],""",
+    )
     return cmd
 
 def _parse_bin() -> str:

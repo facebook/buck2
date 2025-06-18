@@ -13,6 +13,7 @@ load(
     "ErlangAppInfo",
     "ErlangTestInfo",
 )
+load(":erlang_paths.bzl", "strip_extension")
 load(
     ":erlang_toolchain.bzl",
     "Toolchain",  # @unused Used as type
@@ -127,13 +128,15 @@ def _fail_dep_conflict(artifact_name: str, dep1: Artifact, dep2: Artifact) -> No
 def _generated_source_artifacts(ctx: AnalysisContext, toolchain: Toolchain, name: str) -> PathArtifactMapping:
     """Generate source output artifacts and build actions for generated erl files."""
 
+    build_dir = _build_dir(toolchain)
+
     def build(src, custom_include_opt):
         return _build_xyrl(
             ctx,
             toolchain,
             src,
             custom_include_opt,
-            ctx.actions.declare_output(generated_erl_path(toolchain, name, src)),
+            ctx.actions.declare_output(generated_erl_path(build_dir, name, src)),
         )
 
     yrl_outputs = {module_name(src): build(src, "yrl_includefile") for src in ctx.attrs.srcs if _is_yrl(src)}
@@ -148,12 +151,13 @@ def _generate_include_artifacts(
         name: str,
         header_artifacts: list[Artifact],
         is_private: bool = False):
+    build_dir = _build_dir(toolchain)
     include_files = {hrl.basename: hrl for hrl in header_artifacts}
-    dir_name = name + "_private" if is_private else name
-    include_dir = ctx.actions.symlinked_dir(paths.join(_build_dir(toolchain), dir_name, "include"), include_files)
+    dir_name = "{}_private".format(name) if is_private else name
+    include_dir = ctx.actions.symlinked_dir(paths.join(build_dir, dir_name, "include"), include_files)
 
     # dep files
-    _get_deps_files(ctx, toolchain, name, header_artifacts, build_environment)
+    _get_deps_files(ctx, toolchain, build_dir, name, header_artifacts, build_environment)
 
     # construct updates build environment
     if not is_private:
@@ -172,27 +176,29 @@ def _generate_beam_artifacts(
         build_environment: BuildEnvironment,
         name: str,
         src_artifacts: list[Artifact]):
-    ebin = paths.join(_build_dir(toolchain), "ebin")
+    build_dir = _build_dir(toolchain)
+    ebin = paths.join(build_dir, "ebin")
 
     beam_mapping = {}
     for erl in src_artifacts:
         module = module_name(erl)
-        beam_mapping[module] = ctx.actions.declare_output(ebin, module + ".beam")
+        beam_mapping[module] = ctx.actions.declare_output(ebin, "{}.beam".format(module))
 
     # dep files
-    _get_deps_files(ctx, toolchain, name, src_artifacts, build_environment)
+    _get_deps_files(ctx, toolchain, build_dir, name, src_artifacts, build_environment)
 
     build_environment.beams[name] = beam_mapping
 
-    dep_info_file = ctx.actions.write_json(_dep_info_name(toolchain), build_environment.deps_files, with_inputs = True)
+    dep_info_file = ctx.actions.write_json(_dep_info_name(build_dir), build_environment.deps_files, with_inputs = True)
 
     for erl in src_artifacts:
-        _build_erl(ctx, toolchain, build_environment, dep_info_file, erl, beam_mapping[module_name(erl)])
+        _build_erl(ctx, toolchain, build_dir, build_environment, dep_info_file, erl, beam_mapping[module_name(erl)])
 
 # updates deps_deps in place
 def _get_deps_files(
         ctx: AnalysisContext,
         toolchain: Toolchain,
+        build_dir: str,
         name: str,
         srcs: list[Artifact],
         build_environment: BuildEnvironment):
@@ -204,7 +210,7 @@ def _get_deps_files(
     deps = build_environment.deps_files[name]
     for src in srcs:
         key = _deps_key(src)
-        file = _get_deps_file(ctx, toolchain, src)
+        file = _get_deps_file(ctx, toolchain, build_dir, src)
         for app in build_environment.deps_files:
             if key in build_environment.deps_files[app]:
                 _fail_dep_conflict(key, file, build_environment.deps_files[app][key])
@@ -212,12 +218,12 @@ def _get_deps_files(
 
 def _deps_key(src: Artifact) -> str:
     if _is_erl(src):
-        return module_name(src) + ".beam"
+        return "{}.beam".format(module_name(src))
     else:
         return src.basename
 
-def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, src: Artifact) -> Artifact:
-    dependency_json = ctx.actions.declare_output(_dep_file_name(toolchain, src))
+def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, build_dir: str, src: Artifact) -> Artifact:
+    dependency_json = ctx.actions.declare_output(_dep_file_name(build_dir, src))
 
     _run_with_env(
         ctx,
@@ -253,13 +259,14 @@ def _build_xyrl(
 def _build_erl(
         ctx: AnalysisContext,
         toolchain: Toolchain,
+        build_dir: str,
         build_environment: BuildEnvironment,
         dep_info_file: WriteJsonCliArgs,
         src: Artifact,
         output: Artifact) -> None:
     """Compile erl files into beams."""
 
-    final_dep_file = ctx.actions.declare_output(_dep_final_name(toolchain, src))
+    final_dep_file = ctx.actions.declare_output(_dep_final_name(build_dir, src))
     _run_with_env(
         ctx,
         toolchain,
@@ -282,7 +289,7 @@ def _build_erl(
             cmd_args(outputs[output].as_output(), parent = 1),
             src,
         )
-        mapping_file = ctx.actions.write_json(_dep_mapping_name(toolchain, src), mapping)
+        mapping_file = ctx.actions.write_json(_dep_mapping_name(build_dir, src), mapping)
         _run_with_env(
             ctx,
             toolchain,
@@ -353,12 +360,13 @@ def _dependencies_to_args(
         elif (dep["type"] == "behaviour" or
               dep["type"] == "parse_transform" or
               dep["type"] == "manual_dependency"):
-            module, _ = paths.split_extension(file)
+            module = strip_extension(file)
 
             # we made sure earlier there are no conflicts, we'll find at most one
             for app in build_environment.beams:
-                if module in build_environment.beams[app]:
-                    beams.add(build_environment.beams[app][module])
+                beam = build_environment.beams[app].get(module, None)
+                if beam != None:
+                    beams.add(beam)
                     break
 
         else:
@@ -422,18 +430,20 @@ def _get_erl_opts(
 
     return args
 
+def is_preservable_opt(opt: str) -> bool:
+    return opt in ["+beam_debug_info", "+debug_info", "+inline", "+line_coverage"]
+
 def _preserved_opts(opts: list[str]) -> cmd_args:
     """Options that should be preserved in the beam file despite +determinstic"""
-    preservable = set(["+beam_debug_info", "+debug_info", "+inline", "+line_coverage"])
-    preserved = [opt.lstrip("+") for opt in preservable.intersection(opts)]
+    preserved = [opt.lstrip("+") for opt in opts if is_preservable_opt(opt)]
 
     joined = cmd_args(preserved, delimiter = ", ")
     return cmd_args(joined, format = "{options, [{}]}")
 
-def generated_erl_path(toolchain: Toolchain, appname: str, src: Artifact) -> str:
+def generated_erl_path(build_dir: str, appname: str, src: Artifact) -> str:
     """The output path for generated erl files."""
     return paths.join(
-        _build_dir(toolchain),
+        build_dir,
         "__generated_%s" % (appname,),
         "%s.erl" % (module_name(src),),
     )
@@ -467,46 +477,33 @@ def _is_ext(in_file: Artifact, extension: str) -> bool:
     """ Returns True if the artifact has an extension listed in extensions """
     return in_file.basename.endswith(extension)
 
-def _dep_file_name(toolchain: Toolchain, src: Artifact) -> str:
+def _dep_file_name(build_dir: str, src: Artifact) -> str:
     return paths.join(
-        _build_dir(toolchain),
+        build_dir,
         "__dep_files",
-        src.short_path + ".dep",
+        "{}.dep".format(src.short_path),
     )
 
-def _dep_final_name(toolchain: Toolchain, src: Artifact) -> str:
+def _dep_final_name(build_dir: str, src: Artifact) -> str:
     return paths.join(
-        _build_dir(toolchain),
+        build_dir,
         "__dep_files",
-        src.short_path + ".final.dep",
+        "{}.final.dep".format(src.short_path),
     )
 
-def _dep_mapping_name(toolchain: Toolchain, src: Artifact) -> str:
+def _dep_mapping_name(build_dir: str, src: Artifact) -> str:
     return paths.join(
-        _build_dir(toolchain),
+        build_dir,
         "__dep_files",
-        src.short_path + ".mapping",
+        "{}.mapping".format(src.short_path),
     )
 
-def _dep_info_name(toolchain: Toolchain) -> str:
+def _dep_info_name(build_dir: str) -> str:
     return paths.join(
-        _build_dir(toolchain),
+        build_dir,
         "__dep_files",
         "app.info.dep",
     )
-
-def _merge(a: dict, b: dict) -> dict:
-    """ sefely merge two dict """
-
-    # avoid copy, if not mutating
-    if not a:
-        return b
-    if not b:
-        return a
-
-    r = dict(a)
-    r.update(b)
-    return r
 
 def _build_dir(toolchain: Toolchain) -> str:
     return paths.join("__build", toolchain.name)
@@ -521,10 +518,10 @@ def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, args: cmd_args, **
         env = ctx.attrs.os_env
 
     if "env" in kwargs:
-        env = _merge(kwargs["env"], env)
+        kwargs["env"].update(env)
     else:
-        env = env
-    kwargs["env"] = env
+        kwargs["env"] = env
+
     ctx.actions.run(args, **kwargs)
 
 # mutates build_environment in place

@@ -59,23 +59,24 @@ def erlang_application_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchains = select_toolchains(ctx)
 
     # collect all dependencies
-    all_direct_dependencies = ctx.attrs.applications + ctx.attrs.included_applications + ctx.attrs.extra_includes
+    all_direct_dependencies = []
+    all_direct_dependencies += ctx.attrs.applications
+    all_direct_dependencies += ctx.attrs.included_applications
+    all_direct_dependencies += ctx.attrs.extra_includes
     dependencies = flatten_dependencies(ctx, all_direct_dependencies)
 
     name = app_name(ctx)
     if name in dependencies and ErlangAppInfo in dependencies[name]:
         fail("cannot depend on an application with the same name: %s" % (dependencies[name].label,))
 
-    return build_application(ctx, toolchains, dependencies)
+    return build_application(ctx, name, toolchains, dependencies)
 
-def build_application(ctx, toolchains, dependencies) -> list[Provider]:
-    name = app_name(ctx)
-
+def build_application(ctx, name, toolchains, dependencies) -> list[Provider]:
     build_environments = {}
     app_folders = {}
     start_dependencies = {}
     for toolchain in toolchains.values():
-        result = _build_erlang_application(ctx, toolchain, dependencies)
+        result = _build_erlang_application(ctx, name, toolchain, dependencies)
         build_environments[toolchain.name] = result.build_environment
 
         # link final output
@@ -116,9 +117,7 @@ def build_application(ctx, toolchains, dependencies) -> list[Provider]:
         app_info,
     ]
 
-def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, dependencies: ErlAppDependencies) -> BuiltApplication:
-    name = app_name(ctx)
-
+def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolchain, dependencies: ErlAppDependencies) -> BuiltApplication:
     include_info = None
     if ctx.attrs._includes_target:
         include_info = ctx.attrs._includes_target[ErlangAppIncludeInfo]
