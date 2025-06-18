@@ -27,7 +27,8 @@ def compile_with_argsfile(
         local_only = False,
         prefer_local = False,
         no_outputs_cleanup = False,
-        supports_output_file_map = True) -> (CompileArgsfile, Artifact | None):
+        supports_output_file_map = True,
+        supports_serialized_errors = True) -> (CompileArgsfile, Artifact | None):
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
 
@@ -60,7 +61,7 @@ def compile_with_argsfile(
     # otherwise will pass frontend flags.
     error_deserializer = apple_error_deserializer(ctx)
     error_outputs = []
-    if error_deserializer:
+    if supports_serialized_errors and error_deserializer:
         json_error_output = ctx.actions.declare_output("__diagnostics__/{}.json".format(category)).as_output()
         error_outputs.append(json_error_output)
         add_serialized_diagnostics_output(

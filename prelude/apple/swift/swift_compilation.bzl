@@ -642,6 +642,7 @@ def _compile_object(
     dep_files = {}
     output_file_map = {}
     emit_depsfiles = toolchain.use_depsfiles
+    skip_incremental_outputs = False
 
     if should_build_swift_incrementally(ctx):
         incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs, output_swiftmodule, output_header)
@@ -653,6 +654,7 @@ def _compile_object(
         num_threads = incremental_compilation_output.num_threads
         objects = incremental_compilation_output.artifacts
         output_file_map = incremental_compilation_output.output_file_map
+        skip_incremental_outputs = incremental_compilation_output.skip_incremental_outputs
         swiftdeps = incremental_compilation_output.swiftdeps
     else:
         num_threads = 1
@@ -693,6 +695,7 @@ def _compile_object(
         num_threads = num_threads,
         dep_files = dep_files,
         output_file_map = output_file_map,
+        skip_incremental_outputs = skip_incremental_outputs,
     )
 
     return SwiftObjectOutput(
@@ -755,7 +758,8 @@ def _compile_with_argsfile(
         num_threads: int = 1,
         dep_files: dict[str, ArtifactTag] = {},
         output_file_map: dict = {},
-        cacheable = True) -> (CompileArgsfiles | None, Artifact | None):
+        cacheable = True,
+        skip_incremental_outputs = False) -> (CompileArgsfiles | None, Artifact | None):
     build_swift_incrementally = should_build_swift_incrementally(ctx)
     explicit_modules_enabled = uses_explicit_modules(ctx)
 
@@ -803,6 +807,9 @@ def _compile_with_argsfile(
         prefer_local = prefer_local,
         # We need to preserve the action outputs for incremental compilation.
         no_outputs_cleanup = build_swift_incrementally,
+        # Skip incremental outputs requires an empty output file map, so is not
+        # compatible with serialized diagnostics.
+        supports_serialized_errors = not skip_incremental_outputs,
     )
 
     if extension:
