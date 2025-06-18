@@ -83,7 +83,7 @@ do(AppInfoFile, Output) ->
         sources := [file:filename()]
     }.
 do_parse_app_info_file(AppInfoFile) ->
-    case file:read_file(AppInfoFile) of
+    case file:read_file(AppInfoFile, [raw]) of
         {ok, Content} ->
             case json:decode(Content) of
                 #{
