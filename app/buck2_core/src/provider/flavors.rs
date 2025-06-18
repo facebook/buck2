@@ -124,9 +124,6 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> buck2_error::Result<Prov
                 ["android", "source_map"] | ["android", "release", "source_map"] => {
                     "source_map".to_owned()
                 }
-                ["android", "misc", "rambundle-indexed", "release"] => {
-                    "rambundle-indexed-misc".to_owned()
-                }
 
                 // This allows us to pass parsing for this thing.
                 _ => {

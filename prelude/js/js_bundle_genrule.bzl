@@ -8,7 +8,7 @@
 load("@prelude//:genrule.bzl", "process_genrule")
 load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "merge_android_packageable_info")
 load("@prelude//js:js_providers.bzl", "JsBundleInfo")
-load("@prelude//js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "get_apple_resource_providers_for_js_bundle", "get_bundle_name")
+load("@prelude//js:js_utils.bzl", "TRANSFORM_PROFILES", "get_apple_resource_providers_for_js_bundle", "get_bundle_name")
 load("@prelude//utils:expect.bzl", "expect")
 
 def _build_js_bundle(
@@ -101,23 +101,20 @@ def _get_extra_providers(
 def js_bundle_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets = {}
     for transform_profile in TRANSFORM_PROFILES:
-        for ram_bundle_name in RAM_BUNDLE_TYPES.keys():
-            simple_named_output = transform_profile if not ram_bundle_name else "{}-{}".format(ram_bundle_name, transform_profile)
+        js_bundle = ctx.attrs.js_bundle[DefaultInfo].sub_targets[transform_profile]
+        js_bundle_info = js_bundle[JsBundleInfo]
+        bundle_name_out = get_bundle_name(ctx, js_bundle_info.bundle_name)
 
-            js_bundle = ctx.attrs.js_bundle[DefaultInfo].sub_targets[simple_named_output]
-            js_bundle_info = js_bundle[JsBundleInfo]
-            bundle_name_out = get_bundle_name(ctx, js_bundle_info.bundle_name)
+        js_bundle_out = _build_js_bundle(ctx, bundle_name_out, js_bundle_info, transform_profile)
 
-            js_bundle_out = _build_js_bundle(ctx, bundle_name_out, js_bundle_info, simple_named_output)
-
-            sub_targets[simple_named_output] = [
-                DefaultInfo(default_output = js_bundle_out.built_js),
-                js_bundle_out,
-            ] + _get_extra_providers(ctx, ctx.attrs.skip_resources, js_bundle, js_bundle_out)
-            sub_targets["{}-misc".format(simple_named_output)] = [DefaultInfo(default_output = js_bundle_out.misc)]
-            sub_targets["{}-source_map".format(simple_named_output)] = [DefaultInfo(default_output = js_bundle_out.source_map)]
-            sub_targets["{}-dependencies".format(simple_named_output)] = [DefaultInfo(default_output = js_bundle_out.dependencies_file)]
-            sub_targets["{}-res".format(simple_named_output)] = [DefaultInfo(default_output = js_bundle_out.res)]
+        sub_targets[transform_profile] = [
+            DefaultInfo(default_output = js_bundle_out.built_js),
+            js_bundle_out,
+        ] + _get_extra_providers(ctx, ctx.attrs.skip_resources, js_bundle, js_bundle_out)
+        sub_targets["{}-misc".format(transform_profile)] = [DefaultInfo(default_output = js_bundle_out.misc)]
+        sub_targets["{}-source_map".format(transform_profile)] = [DefaultInfo(default_output = js_bundle_out.source_map)]
+        sub_targets["{}-dependencies".format(transform_profile)] = [DefaultInfo(default_output = js_bundle_out.dependencies_file)]
+        sub_targets["{}-res".format(transform_profile)] = [DefaultInfo(default_output = js_bundle_out.res)]
 
     js_bundle_info = ctx.attrs.js_bundle[JsBundleInfo]
     bundle_name_out = get_bundle_name(ctx, js_bundle_info.bundle_name)

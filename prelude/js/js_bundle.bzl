@@ -9,7 +9,7 @@ load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "RESOURCE
 load("@prelude//android:android_resource.bzl", "JAVA_PACKAGE_FILENAME", "aapt2_compile", "get_text_symbols")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//js:js_providers.bzl", "JsBundleInfo", "JsLibraryInfo", "get_transitive_outputs")
-load("@prelude//js:js_utils.bzl", "RAM_BUNDLE_TYPES", "TRANSFORM_PROFILES", "get_apple_resource_providers_for_js_bundle", "get_bundle_name", "get_flavors", "run_worker_commands")
+load("@prelude//js:js_utils.bzl", "TRANSFORM_PROFILES", "get_apple_resource_providers_for_js_bundle", "get_bundle_name", "get_flavors", "run_worker_commands")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "map_idx")
 
@@ -60,13 +60,11 @@ def _build_dependencies_file(
 def _build_js_bundle(
         ctx: AnalysisContext,
         bundle_name: str,
-        ram_bundle_name: str,
-        ram_bundle_command: str,
         transform_profile: str,
         flavors: list[str],
         transitive_js_library_outputs: TransitiveSetArgsProjection,
         dependencies_file: Artifact) -> JsBundleInfo:
-    base_dir = "{}_{}".format(ram_bundle_name, transform_profile) if ram_bundle_name else transform_profile
+    base_dir = transform_profile
     assets_dir = ctx.actions.declare_output("{}/assets_dir".format(base_dir))
     bundle_dir_output = ctx.actions.declare_output("{}/js".format(base_dir), dir = True)
     misc_dir_path = ctx.actions.declare_output("{}/misc_dir_path".format(base_dir))
@@ -96,9 +94,6 @@ def _build_js_bundle(
         "release": ctx.attrs._is_release,
         "sourceMapPath": source_map,
     }
-
-    if ram_bundle_command:
-        job_args["ramBundle"] = ram_bundle_command
 
     command_args_file = ctx.actions.write_json(
         "{}_bundle_command_args".format(base_dir),
@@ -187,38 +182,29 @@ def js_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         transitive_js_library_outputs = transitive_js_library_tset.project_as_args("artifacts")
         dependencies_file = _build_dependencies_file(ctx, transform_profile, flavors, transitive_js_library_outputs)
 
-        for ram_bundle_name, ram_bundle_command in RAM_BUNDLE_TYPES.items():
-            js_bundle_info = _build_js_bundle(ctx, bundle_name, ram_bundle_name, ram_bundle_command, transform_profile, flavors, transitive_js_library_outputs, dependencies_file)
+        js_bundle_info = _build_js_bundle(ctx, bundle_name, transform_profile, flavors, transitive_js_library_outputs, dependencies_file)
 
-            simple_name = transform_profile if not ram_bundle_name else "{}-{}".format(ram_bundle_name, transform_profile)
-            built_js_providers = _get_default_providers(js_bundle_info)
-            extra_providers = _get_extra_providers(ctx, js_bundle_info, simple_name)
-            misc_providers = [DefaultInfo(default_output = js_bundle_info.misc)]
-            source_map_providers = [DefaultInfo(default_output = js_bundle_info.source_map)]
-            dependencies_providers = [DefaultInfo(default_output = js_bundle_info.dependencies_file)]
-            res_providers = [DefaultInfo(default_output = js_bundle_info.res)]
+        built_js_providers = _get_default_providers(js_bundle_info)
+        extra_providers = _get_extra_providers(ctx, js_bundle_info, transform_profile)
+        misc_providers = [DefaultInfo(default_output = js_bundle_info.misc)]
+        source_map_providers = [DefaultInfo(default_output = js_bundle_info.source_map)]
+        dependencies_providers = [DefaultInfo(default_output = js_bundle_info.dependencies_file)]
+        res_providers = [DefaultInfo(default_output = js_bundle_info.res)]
 
-            sub_targets[simple_name] = built_js_providers + extra_providers
-            sub_targets["{}-misc".format(simple_name)] = misc_providers
-            sub_targets["{}-source_map".format(simple_name)] = source_map_providers
-            sub_targets["{}-dependencies".format(simple_name)] = dependencies_providers
+        sub_targets[transform_profile] = built_js_providers + extra_providers
+        sub_targets["{}-misc".format(transform_profile)] = misc_providers
+        sub_targets["{}-source_map".format(transform_profile)] = source_map_providers
+        sub_targets["{}-dependencies".format(transform_profile)] = dependencies_providers
 
-            fallback_transform_profile = _get_fallback_transform_profile(ctx)
-            if transform_profile == fallback_transform_profile:
-                if not ram_bundle_name:
-                    default_outputs.append(js_bundle_info.built_js)
-                    expect(extra_unnamed_output_providers == None, "Extra unnamed output providers should only be set once!")
-                    extra_unnamed_output_providers = extra_providers
-                    sub_targets["misc"] = misc_providers
-                    sub_targets["source_map"] = source_map_providers
-                    sub_targets["dependencies"] = dependencies_providers
-                    sub_targets["res"] = res_providers
-                else:
-                    sub_targets[ram_bundle_name] = built_js_providers + extra_providers
-                    sub_targets["{}-misc".format(ram_bundle_name)] = misc_providers
-                    sub_targets["{}-source_map".format(ram_bundle_name)] = source_map_providers
-                    sub_targets["{}-dependencies".format(ram_bundle_name)] = dependencies_providers
-                    sub_targets["{}-res".format(ram_bundle_name)] = res_providers
+        fallback_transform_profile = _get_fallback_transform_profile(ctx)
+        if transform_profile == fallback_transform_profile:
+            default_outputs.append(js_bundle_info.built_js)
+            expect(extra_unnamed_output_providers == None, "Extra unnamed output providers should only be set once!")
+            extra_unnamed_output_providers = extra_providers
+            sub_targets["misc"] = misc_providers
+            sub_targets["source_map"] = source_map_providers
+            sub_targets["dependencies"] = dependencies_providers
+            sub_targets["res"] = res_providers
 
     expect(len(default_outputs) == 1, "Should get exactly one default output!")
     expect(extra_unnamed_output_providers != None, "Should set extra unnamed output providers once!")

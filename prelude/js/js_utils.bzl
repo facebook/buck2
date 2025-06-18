@@ -13,11 +13,6 @@ load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:expect.bzl", "expect")
 load(":worker_tool.bzl", "WorkerToolInfo")
 
-RAM_BUNDLE_TYPES = {
-    "": "",
-    "rambundle-indexed": "indexed",
-}
-
 TRANSFORM_PROFILES = ["transform-profile-default", "hermes-stable", "hermes-canary"]
 
 # Matches the default value for resolver.assetExts in metro-config
