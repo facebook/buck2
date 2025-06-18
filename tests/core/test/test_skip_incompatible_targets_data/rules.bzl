@@ -5,9 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def _impl(ctx):
-    test = ctx.actions.write("test.sh", "echo hello", is_executable = True)
-    return [DefaultInfo(), ExternalRunnerTestInfo(type = "custom", command = [test])]
+def _impl(_ctx):
+    return [DefaultInfo(), ExternalRunnerTestInfo(type = "custom", command = ["python3", "-c", "import sys; sys.exit(0)"])]
 
 test_rule = rule(
     impl = _impl,
