@@ -8,7 +8,9 @@
 # pyre-strict
 
 import os
+import re
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 from buck2.tests.core.common.io.file_watcher import (
@@ -403,7 +405,21 @@ async def test_edenfs_hg_clean_update(buck: Buck) -> None:
 
     subprocess.run(["hg", "up", "-C", "."], cwd=buck.cwd)
 
+    eden_out = subprocess.check_output(["eden", "-v"], cwd=buck.cwd).decode()
+    version_pattern = r"Running:\s*([^-]+)"
+    match = re.search(version_pattern, eden_out)
+    expected_result = []
+    if match:
+        eden_date = datetime.strptime(match.group(1).strip(), "%Y%m%d")
+        # the bug was fixed in eden newer than this version
+        if eden_date >= datetime(2025, 6, 12, 0, 0, 0):
+            # hg up -C . deletes all the changes and eden should report modification in `root//files/abc`
+            expected_result.append(
+                FileWatcherEvent(
+                    FileWatcherEventType.MODIFY,
+                    FileWatcherKind.FILE,
+                    "root//files/abc",
+                )
+            )
     _, results = await get_file_watcher_events(buck)
-    # hg up -C . deletes all the changes and eden should report modification in `root//files/abc`
-    # this is a bug
-    assert results == []
+    assert results == expected_result
