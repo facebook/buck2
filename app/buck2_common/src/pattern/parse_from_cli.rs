@@ -12,6 +12,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::unparsed::UnparsedPatterns;
 use dice::DiceComputations;
@@ -63,6 +64,19 @@ impl PatternParser {
             &self.cell_alias_resolver,
         )
     }
+
+    fn parse_pattern_with_modifiers<T: PatternType>(
+        &self,
+        pattern: &str,
+    ) -> buck2_error::Result<ParsedPatternWithModifiers<T>> {
+        ParsedPatternWithModifiers::parse_relaxed(
+            &self.target_alias_resolver,
+            self.cwd.as_ref(),
+            pattern,
+            &self.cell_resolver,
+            &self.cell_alias_resolver,
+        )
+    }
 }
 
 /// Parse target patterns out of command line arguments.
@@ -78,6 +92,16 @@ pub async fn parse_patterns_from_cli_args<T: PatternType>(
     let parser = PatternParser::new(ctx, cwd).await?;
 
     target_patterns.try_map(|value| parser.parse_pattern(&value))
+}
+
+pub async fn parse_patterns_with_modifiers_from_cli_args<T: PatternType>(
+    ctx: &mut DiceComputations<'_>,
+    target_patterns: &[String],
+    cwd: &ProjectRelativePath,
+) -> buck2_error::Result<Vec<ParsedPatternWithModifiers<T>>> {
+    let parser = PatternParser::new(ctx, cwd).await?;
+
+    target_patterns.try_map(|value| parser.parse_pattern_with_modifiers(&value))
 }
 
 pub async fn parse_patterns_from_cli_args_typed<T: PatternType>(
