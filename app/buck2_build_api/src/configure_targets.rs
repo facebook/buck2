@@ -12,6 +12,7 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_events::dispatch::console_message;
@@ -22,6 +23,7 @@ use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_util::future::try_join_all;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
@@ -131,4 +133,64 @@ pub async fn load_compatible_patterns(
         global_cfg_options,
     )
     .await
+}
+
+pub async fn load_compatible_patterns_with_modifiers(
+    ctx: &mut DiceComputations<'_>,
+    parsed_patterns_with_modifiers: Vec<ParsedPatternWithModifiers<TargetPatternExtra>>,
+    global_cfg_options: &GlobalCfgOptions,
+    skip_missing_targets: MissingTargetBehavior,
+) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
+    if !global_cfg_options.cli_modifiers.is_empty() {
+        if parsed_patterns_with_modifiers
+            .iter()
+            .any(|p| p.modifiers.is_some())
+        {
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Cannot specify modifiers with ?modifier syntax when global CLI modifiers are set with --modifier flag"
+            ));
+        }
+    }
+
+    let futures = parsed_patterns_with_modifiers
+        .into_iter()
+        .map(|pattern_with_modifiers| {
+            let ParsedPatternWithModifiers {
+                parsed_pattern,
+                modifiers,
+            } = pattern_with_modifiers;
+
+            let local_cfg_options = match modifiers {
+                Some(modifiers) => GlobalCfgOptions {
+                    target_platform: global_cfg_options.target_platform.clone(),
+                    cli_modifiers: modifiers.into(),
+                },
+                None => global_cfg_options.clone(),
+            };
+
+            let pattern = vec![parsed_pattern];
+
+            DiceComputations::declare_closure(move |ctx| {
+                async move {
+                    // TODO(azhang2542): Make this more memory efficient as load_patterns should ideally be called just once
+                    let loaded_pattern = load_patterns(ctx, pattern, skip_missing_targets).await?;
+
+                    get_compatible_targets(
+                        ctx,
+                        loaded_pattern.iter_loaded_targets_by_package(),
+                        &local_cfg_options,
+                    )
+                    .await
+                }
+                .boxed()
+            })
+        });
+
+    let compatible_patterns = try_join_all(ctx.compute_many(futures)).await?;
+    let mut final_target_set = TargetSet::new();
+
+    final_target_set.extend(compatible_patterns.iter().flatten());
+
+    Ok(final_target_set)
 }
