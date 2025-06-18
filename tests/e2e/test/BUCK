@@ -1,6 +1,6 @@
 load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
 
-oncall("build_infra")
+oncall("tcc")
 
 buck2_e2e_test(
     name = "test_test_inplace",
@@ -59,6 +59,7 @@ buck2_e2e_test(
         "//buck2/tests/e2e_util:utils",
         "//remote_execution/client_lib/wrappers/python:py_re_client_lib",
         "//remote_execution/lib/if:common-py3-types",
+        "//remote_execution/lib/if:common-python-types",
         "//remote_execution/lib/if/client_lib:re-client-lib-if-py3-types",
         "//tae/testx:py",
     ],
