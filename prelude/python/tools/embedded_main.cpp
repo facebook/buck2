@@ -17,26 +17,6 @@
 
 namespace {
 
-// Scopeguard helper.
-class ScopeGuard {
- public:
-  ScopeGuard(std::function<void(void)>&& func) : func(std::move(func)) {}
-  ScopeGuard& operator=(ScopeGuard&& other) = default;
-
-  ~ScopeGuard() {
-    if (func)
-      func();
-  }
-
-  template <typename Func>
-  static ScopeGuard create(Func&& func) {
-    return ScopeGuard(std::move(func));
-  }
-
- private:
-  std::function<void(void)> func;
-};
-
 std::optional<int> MaybeGetExitCode(PyStatus* status, PyConfig* config) {
   if (PyStatus_IsExit(*status)) {
     return status->exitcode;
@@ -137,33 +117,6 @@ int main(int argc, char* argv[]) {
     if (auto exit_code = MaybeGetExitCode(&status, &config)) {
       return *exit_code;
     }
-  }
-
-  {
-    auto sysPathGuard = ScopeGuard::create([=]() {});
-
-    // For fastzip, the `static_extensions_finder` module is found in the PAR,
-    // and we're too early in the process to have the fastzip PAR auto-added to
-    // the path (I think this happens in `Py_RunMain` below), so we need to get
-    // it added for this block.
-    const auto par = std::getenv("FB_PAR_FILENAME");
-    if (par != nullptr) {
-      PyObject* sysPath = PySys_GetObject((char*)"path");
-      auto result = PyList_Insert(sysPath, 0, PyUnicode_FromString((char*)par));
-      if (result == -1) {
-        PyErr_Print();
-        abort();
-      }
-      sysPathGuard = ScopeGuard::create([=]() {
-        auto result =
-            PyObject_CallMethod(sysPath, "pop", "O", PyLong_FromLong(0));
-        if (result == nullptr) {
-          PyErr_Print();
-          abort();
-        }
-        Py_DECREF(result);
-      });
-    };
   }
 
   PyConfig_Clear(&config);
