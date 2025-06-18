@@ -10,10 +10,10 @@
 use std::iter;
 
 use async_trait::async_trait;
-use buck2_build_api::configure_targets::load_compatible_patterns;
+use buck2_build_api::configure_targets::load_compatible_patterns_with_modifiers;
 use buck2_cli_proto::ConfiguredTargetsRequest;
 use buck2_cli_proto::ConfiguredTargetsResponse;
-use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
+use buck2_common::pattern::parse_from_cli::parse_patterns_with_modifiers_from_cli_args;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_error::BuckErrorContext;
 use buck2_node::load_patterns::MissingTargetBehavior;
@@ -66,12 +66,13 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
         mut ctx: DiceTransaction,
     ) -> buck2_error::Result<ConfiguredTargetsResponse> {
         // TODO(nga): this should accept `ConfiguredTargetPatternExtra`. And handle the universe.
-        let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
-            &mut ctx,
-            &self.req.target_patterns,
-            server_ctx.working_dir(),
-        )
-        .await?;
+        let parsed_patterns_with_modifiers =
+            parse_patterns_with_modifiers_from_cli_args::<TargetPatternExtra>(
+                &mut ctx,
+                &self.req.target_patterns,
+                server_ctx.working_dir(),
+            )
+            .await?;
 
         let formatter = create_configured_formatter(&self.req)?;
 
@@ -87,9 +88,9 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
 
         let skip_missing_targets = MissingTargetBehavior::from_skip(self.req.skip_missing_targets);
 
-        let compatible_targets = load_compatible_patterns(
+        let compatible_targets = load_compatible_patterns_with_modifiers(
             &mut ctx,
-            parsed_patterns,
+            parsed_patterns_with_modifiers,
             &global_cfg_options,
             skip_missing_targets,
         )
