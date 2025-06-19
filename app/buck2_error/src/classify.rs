@@ -264,7 +264,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::Bail => rank!(tier0),
 
         ErrorTag::EventLogUpload => rank!(tier0),
-        ErrorTag::EventLog => rank!(tier0),
+        ErrorTag::EventLogEof => rank!(tier0),
+        ErrorTag::EventLogNotOpen => rank!(tier0),
 
         ErrorTag::MallocStats => rank!(tier0),
         ErrorTag::Mallctl => rank!(tier0),
@@ -351,6 +352,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::Unimplemented => rank!(input),
         ErrorTag::InstallerInput => rank!(input).hidden(),
         ErrorTag::BuildDeadlineExpired => rank!(input),
+        ErrorTag::EventLogIndexOutOfBounds => rank!(input),
 
         ErrorTag::Input => rank!(input).hidden(),
 

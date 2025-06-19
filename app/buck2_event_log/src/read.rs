@@ -345,13 +345,7 @@ impl EventLogPathBuf {
             })
             .try_next()
             .await?
-            .ok_or_else(|| {
-                buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::EventLog,
-                    "{}",
-                    EventLogErrors::EndOfFile(self.path.to_str().unwrap().to_owned())
-                )
-            })?
+            .ok_or_else(|| EventLogErrors::EndOfFile(self.path.to_str().unwrap().to_owned()))?
             .try_into()?;
         Ok(EventLogSummary {
             trace_id: buck_event.trace_id()?,

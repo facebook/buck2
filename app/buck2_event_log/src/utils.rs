@@ -16,16 +16,17 @@ use serde::Deserialize;
 use serde::Serialize;
 
 #[derive(Debug, buck2_error::Error)]
-#[buck2(tag = EventLog)]
 pub(crate) enum EventLogErrors {
     #[error(
         "Trying to write to logfile that hasn't been opened yet - this is an internal error, please report. Unwritten event: {serialized_event}"
     )]
+    #[buck2(tag = EventLogNotOpen)]
     LogNotOpen { serialized_event: String },
-
     #[error("Reached End of File before reading BuckEvent in log `{0}`")]
+    #[buck2(tag = EventLogEof)]
     EndOfFile(String),
     #[error("No event log available for {idx}th last command (have latest {num_logfiles})")]
+    #[buck2(tag = EventLogIndexOutOfBounds)]
     RecentIndexOutOfBounds { idx: usize, num_logfiles: usize },
 }
 
