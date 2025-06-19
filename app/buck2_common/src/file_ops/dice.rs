@@ -189,8 +189,7 @@ impl FileChangeTracker {
         for p in self.paths_to_dirty.clone() {
             if let Some(dir) = p.0.parent() {
                 if self.maybe_modified_dirs.contains(&dir.to_owned()) {
-                    self.insert_dir_keys(dir.to_owned());
-                    self.insert_sublisting_matching_any_case(p.0.to_owned());
+                    self.entry_added_or_removed(p.0.clone());
                 }
             }
         }
