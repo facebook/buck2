@@ -74,7 +74,7 @@ impl CGroupInfo {
 
     // Returns the path to the closest slice in a cgroup path,
     // or None if there is no slice in the path
-    fn get_slice(&self) -> Option<&str> {
+    pub fn get_slice(&self) -> Option<&str> {
         self.path
             .rfind(SLICE_EXT)
             .map(|i| &self.path[..i + SLICE_EXT.len()])

@@ -106,12 +106,27 @@ pub(crate) mod memory_tracker {
         sender: Sender<TrackedMemoryState>,
     }
 
+    #[derive(buck2_error::Error, Debug)]
+    #[buck2(tag = Tier0)]
+    enum MemoryTrackerError {
+        #[error("Expected cgroup scope `{0}` to be placed inside a parent slice.")]
+        ParentSliceExpected(String),
+    }
+
     impl MemoryTracker {
         pub async fn start_tracking() -> buck2_error::Result<Arc<MemoryTracker>> {
             const MAX_RETRIES: u32 = 5;
             const TICK_DURATION: Duration = Duration::from_millis(300);
+            // This contains daemon cgroup scope path
+            // (e.g. "/sys/fs/cgroup/user.slice/.../buck2.slice/buck2-daemon.project.isolation_dir.slice/buck2-daemon.project.isolation_dir.scope").
             let info = CGroupInfo::read_async().await?;
-            let memory_current_path = AbsPathBuf::new(info.path)?.join("memory.current");
+            // To track both daemon and forkserver memory usage combined, we need a slice which contains this scope
+            // (e.g. "/sys/fs/cgroup/user.slice/.../buck2.slice/buck2-daemon.project.isolation_dir.slice").
+            let Some(daemon_and_forkserver_slice) = info.get_slice() else {
+                return Err(MemoryTrackerError::ParentSliceExpected(info.path).into());
+            };
+            let memory_current_path =
+                AbsPathBuf::new(daemon_and_forkserver_slice)?.join("memory.current");
             let timer = IntervalTimer::new(TICK_DURATION);
             Self::start_tracking_parametrized(memory_current_path, MAX_RETRIES, timer).await
         }
