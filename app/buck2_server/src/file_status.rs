@@ -14,8 +14,7 @@ use std::path::Path;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::DiceFileOps;
-use buck2_common::file_ops::FileOps;
+use buck2_common::dice::file_ops::DiceFileComputations;
 use buck2_common::file_ops::metadata::RawPathMetadata;
 use buck2_common::file_ops::metadata::RawSymlink;
 use buck2_common::io::IoProvider;
@@ -32,6 +31,7 @@ use buck2_server_ctx::stdout_partial_output::StdoutPartialOutput;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::template::run_server_command;
 use buck2_util::commas::commas;
+use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
@@ -140,11 +140,7 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         for path in &self.req.paths {
             let path = project_root.relativize_any(AbsPath::new(Path::new(path))?)?;
             writeln!(&mut stderr, "Check file status: {}", path)?;
-            let result = &mut result;
-            ctx.with_linear_recompute(|ctx| async move {
-                check_file_status(&DiceFileOps(&ctx), cell_resolver, io, &path, result).await
-            })
-            .await?;
+            check_file_status(&mut ctx, cell_resolver, io, &path, &mut result).await?;
         }
         if result.bad != 0 {
             Err(buck2_error::buck2_error!(
@@ -170,7 +166,7 @@ impl ServerCommandTemplate for FileStatusServerCommand {
 
 #[async_recursion]
 async fn check_file_status(
-    file_ops: &dyn FileOps,
+    ctx: &mut DiceComputations,
     cell_resolver: &CellResolver,
     io: &dyn IoProvider,
     path: &ProjectRelativePath,
@@ -179,15 +175,17 @@ async fn check_file_status(
     result.checking();
 
     let cell_path = cell_resolver.get_cell_path(path)?;
-    if file_ops.is_ignored(cell_path.as_ref()).await?.is_ignored() {
+    if DiceFileComputations::is_ignored(ctx, cell_path.as_ref())
+        .await?
+        .is_ignored()
+    {
         return Ok(());
     }
 
     let fs_metadata = io.read_path_metadata_if_exists(path.to_owned()).await?;
 
-    let dice_metadata = file_ops
-        .read_path_metadata_if_exists(cell_path.as_ref())
-        .await?;
+    let dice_metadata =
+        DiceFileComputations::read_path_metadata_if_exists(ctx, cell_path.as_ref()).await?;
 
     let (fs_metadata, dice_metadata) = match (&fs_metadata, &dice_metadata) {
         (Some(fs), Some(dice)) => (fs, dice),
@@ -252,7 +250,7 @@ async fn check_file_status(
         }
         (RawPathMetadata::Directory, RawPathMetadata::Directory) => {
             let fs_read_dir = io.read_dir(path.to_owned()).await?;
-            let dice_read_dir = file_ops.read_dir(cell_path.as_ref()).await?;
+            let dice_read_dir = DiceFileComputations::read_dir(ctx, cell_path.as_ref()).await?;
 
             // No point checking file types here, we'll do that when we inspect them.
             let mut fs_names = fs_read_dir
@@ -275,8 +273,7 @@ async fn check_file_status(
             result.report("directory contents", path, &fs_names, &dice_names)?;
 
             for file_name in &fs_names.0 {
-                check_file_status(file_ops, cell_resolver, io, &path.join(file_name), result)
-                    .await?;
+                check_file_status(ctx, cell_resolver, io, &path.join(file_name), result).await?;
             }
         }
         (_, _) => {
