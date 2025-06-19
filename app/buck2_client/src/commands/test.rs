@@ -297,7 +297,10 @@ impl StreamingCommand for TestCommand {
         let exit_result = if let Some(exit_code) = response.exit_code {
             // If exit code is set in response, it should be used and not derived from command errors.
             let exit_code = if let Ok(code) = exit_code.try_into() {
-                ExitCode::TestRunner(code)
+                match code {
+                    0 => ExitCode::Success,
+                    _ => ExitCode::TestRunner(code),
+                }
             } else {
                 // The exit code isn't an allowable value, so just switch to generic failure
                 ExitCode::UnknownFailure
