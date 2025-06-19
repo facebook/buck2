@@ -274,14 +274,6 @@ impl FileChangeTracker {
         self.file_contents_modify(path)
     }
 
-    pub fn file_removed(&mut self, path: CellPath) {
-        self.file_added_or_removed(path)
-    }
-
-    pub fn file_added(&mut self, path: CellPath) {
-        self.file_added_or_removed(path)
-    }
-
     pub fn dir_changed(&mut self, path: CellPath) {
         self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
         self.insert_dir_keys(path);
@@ -289,14 +281,6 @@ impl FileChangeTracker {
 
     pub fn dir_maybe_changed(&mut self, path: CellPath) {
         self.maybe_modified_dirs.insert(path);
-    }
-
-    pub fn dir_added(&mut self, path: CellPath) {
-        self.dir_added_or_removed(path)
-    }
-
-    pub fn dir_removed(&mut self, path: CellPath) {
-        self.dir_added_or_removed(path)
     }
 }
 

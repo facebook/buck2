@@ -125,7 +125,7 @@ impl NotifyFileData {
             match event_kind {
                 EventKind::Create(create_kind) => match create_kind {
                     CreateKind::File => {
-                        changed.file_added(cell_path);
+                        changed.file_added_or_removed(cell_path);
                         stats.add(
                             cell_path_str,
                             FileWatcherEventType::Create,
@@ -133,7 +133,7 @@ impl NotifyFileData {
                         );
                     }
                     CreateKind::Folder => {
-                        changed.dir_added(cell_path);
+                        changed.dir_added_or_removed(cell_path);
                         stats.add(
                             cell_path_str,
                             FileWatcherEventType::Create,
@@ -141,13 +141,13 @@ impl NotifyFileData {
                         );
                     }
                     CreateKind::Any | CreateKind::Other => {
-                        changed.file_added(cell_path.clone());
+                        changed.file_added_or_removed(cell_path.clone());
                         stats.add(
                             cell_path_str.clone(),
                             FileWatcherEventType::Create,
                             FileWatcherKind::File,
                         );
-                        changed.dir_added(cell_path);
+                        changed.dir_added_or_removed(cell_path);
                         stats.add(
                             cell_path_str,
                             FileWatcherEventType::Create,
@@ -191,7 +191,7 @@ impl NotifyFileData {
                 },
                 EventKind::Remove(remove_kind) => match remove_kind {
                     RemoveKind::File => {
-                        changed.file_removed(cell_path);
+                        changed.file_added_or_removed(cell_path);
                         stats.add(
                             cell_path_str,
                             FileWatcherEventType::Delete,
@@ -199,7 +199,7 @@ impl NotifyFileData {
                         );
                     }
                     RemoveKind::Folder => {
-                        changed.dir_removed(cell_path);
+                        changed.dir_added_or_removed(cell_path);
                         stats.add(
                             cell_path_str,
                             FileWatcherEventType::Delete,
@@ -207,13 +207,13 @@ impl NotifyFileData {
                         );
                     }
                     RemoveKind::Any | RemoveKind::Other => {
-                        changed.file_removed(cell_path.clone());
+                        changed.file_added_or_removed(cell_path.clone());
                         stats.add(
                             cell_path_str.clone(),
                             FileWatcherEventType::Delete,
                             FileWatcherKind::File,
                         );
-                        changed.dir_removed(cell_path);
+                        changed.dir_added_or_removed(cell_path);
                         stats.add(
                             cell_path_str,
                             FileWatcherEventType::Delete,

@@ -484,7 +484,7 @@ impl EdenFsFileWatcher {
             stats.add(cell_path.to_string(), event, kind);
 
             match (event, kind) {
-                (Type::Create, Kind::Directory) => tracker.dir_added(cell_path),
+                (Type::Create, Kind::Directory) => tracker.dir_added_or_removed(cell_path),
                 (Type::Create, _) => {
                     if kind == Kind::Symlink {
                         debug!(
@@ -492,12 +492,12 @@ impl EdenFsFileWatcher {
                             cell_path
                         );
                     }
-                    tracker.file_added(cell_path)
+                    tracker.file_added_or_removed(cell_path)
                 }
                 (Type::Modify, Kind::Directory) => tracker.dir_changed(cell_path),
                 (Type::Modify, _) => tracker.file_changed(cell_path),
-                (Type::Delete, Kind::Directory) => tracker.dir_removed(cell_path),
-                (Type::Delete, _) => tracker.file_removed(cell_path),
+                (Type::Delete, Kind::Directory) => tracker.dir_added_or_removed(cell_path),
+                (Type::Delete, _) => tracker.file_added_or_removed(cell_path),
             };
         }
 

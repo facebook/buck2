@@ -225,10 +225,10 @@ impl FsSnapshot {
                     FileWatcherEventType::Create,
                     FileWatcherKind::File | FileWatcherKind::Symlink,
                 ) => {
-                    changed.file_added(event.cell_path);
+                    changed.file_added_or_removed(event.cell_path);
                 }
                 (FileWatcherEventType::Create, FileWatcherKind::Directory) => {
-                    changed.dir_added(event.cell_path);
+                    changed.dir_added_or_removed(event.cell_path);
                 }
                 (
                     FileWatcherEventType::Modify,
@@ -243,10 +243,10 @@ impl FsSnapshot {
                     FileWatcherEventType::Delete,
                     FileWatcherKind::File | FileWatcherKind::Symlink,
                 ) => {
-                    changed.file_removed(event.cell_path);
+                    changed.file_added_or_removed(event.cell_path);
                 }
                 (FileWatcherEventType::Delete, FileWatcherKind::Directory) => {
-                    changed.dir_removed(event.cell_path);
+                    changed.dir_added_or_removed(event.cell_path);
                 }
             }
         }
