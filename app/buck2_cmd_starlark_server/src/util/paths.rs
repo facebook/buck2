@@ -11,7 +11,7 @@ use std::ops::Deref;
 
 use async_recursion::async_recursion;
 use buck2_client_ctx::path_arg::PathArg;
-use buck2_common::dice::file_ops::DiceFileComputations;
+use buck2_common::file_ops::dice::DiceFileComputations;
 use buck2_common::file_ops::metadata::FileType;
 use buck2_common::file_ops::metadata::RawPathMetadata;
 use buck2_common::io::IoProvider;

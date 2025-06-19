@@ -16,7 +16,7 @@ use std::thread;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_cli_proto::*;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::DiceFileComputations;
+use buck2_common::file_ops::dice::DiceFileComputations;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;

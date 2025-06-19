@@ -19,7 +19,7 @@ use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::DiceFileComputations;
+use buck2_common::file_ops::dice::DiceFileComputations;
 use buck2_common::file_ops::metadata::RawPathMetadata;
 use buck2_common::file_ops::metadata::RawSymlink;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;

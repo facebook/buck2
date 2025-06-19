@@ -15,7 +15,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use dice::LinearRecomputeDiceComputations;
 
-use crate::dice::file_ops::DiceFileComputations;
+use crate::file_ops::dice::DiceFileComputations;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::file_ops::metadata::ReadDirOutput;
 use crate::ignores::file_ignores::FileIgnoreResult;

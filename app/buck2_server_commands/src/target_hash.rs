@@ -16,7 +16,7 @@ use std::sync::Arc;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use buck2_build_api::configure_targets::get_compatible_targets;
-use buck2_common::dice::file_ops::DiceFileComputations;
+use buck2_common::file_ops::dice::DiceFileComputations;
 use buck2_common::file_ops::error::FileReadErrorContext;
 use buck2_common::file_ops::metadata::PathMetadata;
 use buck2_common::file_ops::metadata::PathMetadataOrRedirection;

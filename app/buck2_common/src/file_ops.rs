@@ -7,13 +7,14 @@
  * of this source tree.
  */
 
+use ::dice::UserComputationData;
 use buck2_core::cells::cell_path::CellPath;
 use dashmap::DashMap;
-use dice::UserComputationData;
 
 use crate::file_ops::metadata::ReadDirOutput;
 
 pub mod delegate;
+pub mod dice;
 pub mod error;
 pub mod metadata;
 pub mod testing;

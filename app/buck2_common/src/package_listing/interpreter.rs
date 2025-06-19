@@ -25,7 +25,7 @@ use starlark_map::sorted_set::SortedSet;
 use starlark_map::sorted_vec::SortedVec;
 
 use crate::TIME_TO_FIX_USE_BETTER_ERROR;
-use crate::dice::file_ops::DiceFileComputations;
+use crate::file_ops::dice::DiceFileComputations;
 use crate::find_buildfile::find_buildfile;
 use crate::ignores::file_ignores::FileIgnoreReason;
 use crate::io::DirectoryDoesNotExistSuggestion;

@@ -14,7 +14,7 @@ use async_trait::async_trait;
 use buck2_build_api::configure_targets::load_compatible_patterns;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
-use buck2_common::dice::file_ops::DiceFileComputations;
+use buck2_common::file_ops::dice::DiceFileComputations;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;

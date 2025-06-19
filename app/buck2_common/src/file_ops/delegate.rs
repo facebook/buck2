@@ -31,11 +31,11 @@ use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
-use crate::dice::file_ops::CheckIgnores;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::file_ops::HasReadDirCache;
 use crate::file_ops::delegate::keys::FileOpsKey;
 use crate::file_ops::delegate::keys::FileOpsValue;
+use crate::file_ops::dice::CheckIgnores;
 use crate::file_ops::metadata::DirectorySubListingMatchingOutput;
 use crate::file_ops::metadata::RawDirEntry;
 use crate::file_ops::metadata::RawPathMetadata;
@@ -54,8 +54,8 @@ mod keys {
     use derive_more::Display;
     use dupe::Dupe;
 
-    use crate::dice::file_ops::CheckIgnores;
     use crate::file_ops::delegate::FileOpsDelegateWithIgnores;
+    use crate::file_ops::dice::CheckIgnores;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display("{:?}", self)]

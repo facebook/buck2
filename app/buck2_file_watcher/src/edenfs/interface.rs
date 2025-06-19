@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_common::dice::file_ops::FileChangeTracker;
+use buck2_common::file_ops::dice::FileChangeTracker;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;

@@ -25,7 +25,7 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 
-use crate::dice::file_ops::DiceFileComputations;
+use crate::file_ops::dice::DiceFileComputations;
 use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawPathMetadata;
 

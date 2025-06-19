@@ -14,7 +14,7 @@ use std::path::Path;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::file_ops::DiceFileComputations;
+use buck2_common::file_ops::dice::DiceFileComputations;
 use buck2_common::file_ops::metadata::RawPathMetadata;
 use buck2_common::file_ops::metadata::RawSymlink;
 use buck2_common::io::IoProvider;
