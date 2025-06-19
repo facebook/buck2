@@ -25,7 +25,6 @@ use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::InvalidationSourcePriority;
 use dice::Key;
-use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
@@ -33,7 +32,6 @@ use futures::future::BoxFuture;
 use crate::buildfiles::HasBuildfiles;
 use crate::dice::cells::HasCellResolver;
 use crate::dice::file_ops::delegate::get_delegated_file_ops;
-use crate::file_ops::FileOps;
 use crate::file_ops::error::FileReadError;
 use crate::file_ops::metadata::DirectorySubListingMatchingOutput;
 use crate::file_ops::metadata::RawPathMetadata;
@@ -43,11 +41,6 @@ use crate::io::DirectoryDoesNotExistSuggestion;
 use crate::io::ReadDirError;
 
 pub mod delegate;
-
-/// A wrapper around DiceComputations for places that want to interact with a dyn FileOps.
-///
-/// In general, it's better to use DiceFileComputations directly.
-pub struct DiceFileOps<'c, 'd>(pub &'c LinearRecomputeDiceComputations<'d>);
 
 pub struct DiceFileComputations;
 
@@ -444,41 +437,6 @@ impl Key for PathMetadataKey {
 
     fn invalidation_source_priority() -> InvalidationSourcePriority {
         InvalidationSourcePriority::High
-    }
-}
-
-#[async_trait]
-impl FileOps for DiceFileOps<'_, '_> {
-    async fn read_file_if_exists(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<Option<String>> {
-        DiceFileComputations::read_file_if_exists(&mut self.0.get(), path).await
-    }
-
-    async fn read_dir(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<ReadDirOutput> {
-        DiceFileComputations::read_dir(&mut self.0.get(), path).await
-    }
-
-    async fn read_path_metadata_if_exists(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        DiceFileComputations::read_path_metadata_if_exists(&mut self.0.get(), path).await
-    }
-
-    async fn is_ignored(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<FileIgnoreResult> {
-        DiceFileComputations::is_ignored(&mut self.0.get(), path).await
-    }
-
-    async fn buildfiles<'a>(&self, cell: CellName) -> buck2_error::Result<Arc<[FileNameBuf]>> {
-        DiceFileComputations::buildfiles(&mut self.0.get(), cell).await
     }
 }
 

@@ -20,8 +20,8 @@ use dupe::Dupe;
 use gazebo::prelude::VecExt;
 use indexmap::IndexMap;
 
-use crate::dice::file_ops::DiceFileOps;
-use crate::file_ops::FileOps;
+use crate::file_ops::trait_::DiceFileOps;
+use crate::file_ops::trait_::FileOps;
 use crate::pattern::package_roots::find_package_roots;
 
 #[derive(Debug, buck2_error::Error)]
@@ -155,8 +155,8 @@ mod tests {
     use gazebo::prelude::*;
     use test_case::test_case;
 
-    use crate::file_ops::FileOps;
     use crate::file_ops::testing::TestFileOps;
+    use crate::file_ops::trait_::FileOps;
     use crate::pattern::resolve::ResolvedPattern;
     use crate::pattern::resolve::resolve_target_patterns_impl;
 

@@ -30,7 +30,6 @@ use crate::dice::file_ops::delegate::FileOpsDelegateWithIgnores;
 use crate::dice::file_ops::delegate::testing::FileOpsKey;
 use crate::dice::file_ops::delegate::testing::FileOpsValue;
 use crate::external_symlink::ExternalSymlink;
-use crate::file_ops::FileOps;
 use crate::file_ops::metadata::FileMetadata;
 use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawDirEntry;
@@ -39,6 +38,7 @@ use crate::file_ops::metadata::RawSymlink;
 use crate::file_ops::metadata::ReadDirOutput;
 use crate::file_ops::metadata::SimpleDirEntry;
 use crate::file_ops::metadata::TrackedFileDigest;
+use crate::file_ops::trait_::FileOps;
 use crate::ignores::file_ignores::FileIgnoreResult;
 
 enum TestFileOpsEntry {

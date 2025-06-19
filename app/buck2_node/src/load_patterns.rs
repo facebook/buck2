@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use buck2_common::dice::file_ops::DiceFileOps;
+use buck2_common::file_ops::trait_::DiceFileOps;
 use buck2_common::pattern::package_roots::collect_package_roots;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::package::PackageLabel;

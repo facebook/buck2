@@ -24,8 +24,8 @@ use gazebo::prelude::*;
 use once_cell::sync::Lazy;
 use tokio::sync::Semaphore;
 
-use crate::dice::file_ops::DiceFileOps;
-use crate::file_ops::FileOps;
+use crate::file_ops::trait_::DiceFileOps;
+use crate::file_ops::trait_::FileOps;
 use crate::find_buildfile::find_buildfile;
 
 /// Resolves a list of CellPath to a stream of Package representing all the
