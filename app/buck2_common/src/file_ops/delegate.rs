@@ -9,21 +9,15 @@
 
 use std::sync::Arc;
 
-use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_futures::cancellation::CancellationContext;
 use cmp_any::PartialEqAny;
-use derivative::Derivative;
 use dice::DiceComputations;
 use dice::Key;
 use dice::UserComputationData;
@@ -32,10 +26,11 @@ use dupe::Dupe;
 use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
-use crate::file_ops::HasReadDirCache;
 use crate::file_ops::delegate::keys::FileOpsKey;
 use crate::file_ops::delegate::keys::FileOpsValue;
 use crate::file_ops::dice::CheckIgnores;
+use crate::file_ops::io::HasReadDirCache;
+use crate::file_ops::io::IoFileOpsDelegate;
 use crate::file_ops::metadata::DirectorySubListingMatchingOutput;
 use crate::file_ops::metadata::RawDirEntry;
 use crate::file_ops::metadata::RawPathMetadata;
@@ -44,7 +39,6 @@ use crate::file_ops::metadata::SimpleDirEntry;
 use crate::ignores::all_cells::HasCellFileIgnores;
 use crate::ignores::file_ignores::CellFileIgnores;
 use crate::ignores::file_ignores::FileIgnoreResult;
-use crate::io::IoProvider;
 
 /// Note: Everything in this mini-module exists only so that it can be replaced by a `TestFileOps`
 /// in unittests
@@ -87,81 +81,6 @@ pub trait FileOpsDelegate: Send + Sync {
     ) -> buck2_error::Result<Option<RawPathMetadata>>;
 
     fn eq_token(&self) -> PartialEqAny;
-}
-
-/// A `FileOpsDelegate` implementation that calls out to the `IoProvider` to read files.
-///
-/// This is used for everything except 1) tests, and 2) external cells.
-#[derive(Clone, Dupe, Derivative, Allocative)]
-#[derivative(PartialEq)]
-struct IoFileOpsDelegate {
-    // Safe to ignore because `io` does not change during the lifetime of the daemon.
-    #[derivative(PartialEq = "ignore")]
-    io: Arc<dyn IoProvider>,
-    cells: CellResolver,
-    cell: CellName,
-}
-
-impl IoFileOpsDelegate {
-    fn resolve(&self, path: &CellRelativePath) -> ProjectRelativePathBuf {
-        let cell_root = self.cells.get(self.cell).unwrap().path();
-        cell_root.as_project_relative_path().join(path)
-    }
-
-    fn get_cell_path(&self, path: &ProjectRelativePath) -> buck2_error::Result<CellPath> {
-        self.cells.get_cell_path(path)
-    }
-
-    fn io_provider(&self) -> &dyn IoProvider {
-        self.io.as_ref()
-    }
-}
-
-#[async_trait]
-impl FileOpsDelegate for IoFileOpsDelegate {
-    async fn read_file_if_exists(
-        &self,
-        path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Option<String>> {
-        let project_path = self.resolve(path);
-        self.io_provider().read_file_if_exists(project_path).await
-    }
-
-    async fn read_dir(
-        &self,
-        path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Vec<RawDirEntry>> {
-        let project_path = self.resolve(path);
-        let mut entries = self
-            .io_provider()
-            .read_dir(project_path)
-            .await
-            .with_buck_error_context(|| format!("Error listing dir `{}`", path))?;
-
-        // Make sure entries are deterministic, since read_dir isn't.
-        entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
-
-        Ok(entries)
-    }
-
-    async fn read_path_metadata_if_exists(
-        &self,
-        path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        let project_path = self.resolve(path);
-
-        let res = self
-            .io_provider()
-            .read_path_metadata_if_exists(project_path)
-            .await
-            .with_buck_error_context(|| format!("Error accessing metadata for path `{}`", path))?;
-        res.map(|meta| meta.try_map(|path| Ok(Arc::new(self.get_cell_path(&path)?))))
-            .transpose()
-    }
-
-    fn eq_token(&self) -> PartialEqAny {
-        PartialEqAny::new(self)
-    }
 }
 
 #[async_trait]

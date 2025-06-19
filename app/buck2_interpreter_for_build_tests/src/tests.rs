@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
-use buck2_common::file_ops::HasReadDirCache;
+use buck2_common::file_ops::io::HasReadDirCache;
 use buck2_common::legacy_configs::cells::ExternalBuckconfigData;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_core::bzl::ImportPath;

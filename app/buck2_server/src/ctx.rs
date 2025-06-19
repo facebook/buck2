@@ -42,7 +42,7 @@ use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_common::dice::cycles::CycleDetectorAdapter;
 use buck2_common::dice::cycles::PairDiceCycleDetector;
-use buck2_common::file_ops::HasReadDirCache;
+use buck2_common::file_ops::io::HasReadDirCache;
 use buck2_common::http::SetHttpClient;
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::invocation_paths::InvocationPaths;
