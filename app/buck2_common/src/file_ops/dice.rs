@@ -168,15 +168,6 @@ pub struct FileChangeTracker {
     dirs_to_dirty: HashSet<ReadDirKey>,
     paths_to_dirty: HashSet<PathMetadataKey>,
 
-    /// Normally, we ignore directory modification events from file watchers and instead compute
-    /// them ourselves when a file in the directory is reported as having been added or removed.
-    /// However, watchman has a bug in which it sometimes incorrectly doesn't report files as having
-    /// been added/removed. We work around this by implementing some logic that marks a directory
-    /// listing as being invalid if both the directory and at least one of its entries is reported
-    /// as having been modified.
-    ///
-    /// We cannot unconditionally respect directory modification events from the file watcher, as it
-    /// is not aware of our ignore rules.
     maybe_modified_dirs: HashSet<CellPath>,
 
     directory_sublisting_matching_any_case: HashSet<DirectorySubListingMatchingInAnyCaseKey>,
@@ -194,7 +185,7 @@ impl FileChangeTracker {
     }
 
     pub fn write_to_dice(mut self, ctx: &mut DiceTransactionUpdater) -> buck2_error::Result<()> {
-        // See comment on `maybe_modified_dirs`
+        // See comment on `dir_entries_changed_for_watchman_bug`
         for p in self.paths_to_dirty.clone() {
             if let Some(dir) = p.0.parent() {
                 if self.maybe_modified_dirs.contains(&dir.to_owned()) {
@@ -270,16 +261,28 @@ impl FileChangeTracker {
         }
     }
 
-    pub fn file_changed(&mut self, path: CellPath) {
+    pub fn file_contents_changed(&mut self, path: CellPath) {
         self.file_contents_modify(path)
     }
 
-    pub fn dir_changed(&mut self, path: CellPath) {
+    /// Normally, buck does not need the file watcher to tell it that a directory's entries have
+    /// changed. However, in some cases file watcher want to force-invalidate directory listings,
+    /// and so this exists. It should not normally be used.
+    pub fn dir_entries_changed_force_invalidate(&mut self, path: CellPath) {
         self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
         self.insert_dir_keys(path);
     }
 
-    pub fn dir_maybe_changed(&mut self, path: CellPath) {
+    /// Normally, we ignore directory modification events from file watchers and instead compute
+    /// them ourselves when a file in the directory is reported as having been added or removed.
+    /// However, watchman has a bug in which it sometimes incorrectly doesn't report files as having
+    /// been added/removed. We work around this by implementing some logic that marks a directory
+    /// listing as being invalid if both the directory and at least one of its entries is reported
+    /// as having been modified.
+    ///
+    /// We cannot unconditionally respect directory modification events from the file watcher, as it
+    /// is not aware of our ignore rules.
+    pub fn dir_entries_changed_for_watchman_bug(&mut self, path: CellPath) {
         self.maybe_modified_dirs.insert(path);
     }
 }

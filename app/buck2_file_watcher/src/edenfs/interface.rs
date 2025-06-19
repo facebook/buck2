@@ -494,8 +494,11 @@ impl EdenFsFileWatcher {
                     }
                     tracker.file_added_or_removed(cell_path)
                 }
-                (Type::Modify, Kind::Directory) => tracker.dir_changed(cell_path),
-                (Type::Modify, _) => tracker.file_changed(cell_path),
+                (Type::Modify, Kind::Directory) => {
+                    // FIXME(JakobDegen): This should not be needed
+                    tracker.dir_entries_changed_force_invalidate(cell_path)
+                }
+                (Type::Modify, _) => tracker.file_contents_changed(cell_path),
                 (Type::Delete, Kind::Directory) => tracker.dir_added_or_removed(cell_path),
                 (Type::Delete, _) => tracker.file_added_or_removed(cell_path),
             };

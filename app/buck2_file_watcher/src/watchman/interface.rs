@@ -133,7 +133,7 @@ impl WatchmanQueryProcessor {
                         log_kind = buck2_data::FileWatcherKind::File;
                         match typ {
                             WatchmanEventType::Modify => {
-                                handler.file_changed(cell_path);
+                                handler.file_contents_changed(cell_path);
                                 log_event = buck2_data::FileWatcherEventType::Modify;
                             }
                             WatchmanEventType::Create => {
@@ -150,7 +150,7 @@ impl WatchmanQueryProcessor {
                         log_kind = buck2_data::FileWatcherKind::Directory;
                         match typ {
                             WatchmanEventType::Modify => {
-                                handler.dir_maybe_changed(cell_path);
+                                handler.dir_entries_changed_for_watchman_bug(cell_path);
                                 log_event = buck2_data::FileWatcherEventType::Modify;
                             }
                             WatchmanEventType::Create => {
@@ -167,7 +167,7 @@ impl WatchmanQueryProcessor {
                         log_kind = buck2_data::FileWatcherKind::Symlink;
                         match typ {
                             WatchmanEventType::Modify => {
-                                handler.file_changed(cell_path);
+                                handler.file_contents_changed(cell_path);
                                 log_event = buck2_data::FileWatcherEventType::Modify;
                             }
                             WatchmanEventType::Create => {
@@ -188,7 +188,8 @@ impl WatchmanQueryProcessor {
                 ChangeEvent::SyntheticDirectoryChange => {
                     log_kind = buck2_data::FileWatcherKind::Directory;
                     log_event = buck2_data::FileWatcherEventType::Modify;
-                    handler.dir_changed(cell_path);
+                    // FIXME(JakobDegen): Add comment explaining why this is needed.
+                    handler.dir_entries_changed_force_invalidate(cell_path);
                 }
             };
 

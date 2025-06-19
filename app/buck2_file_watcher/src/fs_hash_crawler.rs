@@ -234,10 +234,11 @@ impl FsSnapshot {
                     FileWatcherEventType::Modify,
                     FileWatcherKind::File | FileWatcherKind::Symlink,
                 ) => {
-                    changed.file_changed(event.cell_path);
+                    changed.file_contents_changed(event.cell_path);
                 }
                 (FileWatcherEventType::Modify, FileWatcherKind::Directory) => {
-                    changed.dir_changed(event.cell_path);
+                    // FIXME(JakobDegen): This should not be needed
+                    changed.dir_entries_changed_force_invalidate(event.cell_path);
                 }
                 (
                     FileWatcherEventType::Delete,

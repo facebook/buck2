@@ -157,7 +157,7 @@ impl NotifyFileData {
                 },
                 EventKind::Modify(modify_kind) => match modify_kind {
                     ModifyKind::Data(_) | ModifyKind::Metadata(_) => {
-                        changed.file_changed(cell_path);
+                        changed.file_contents_changed(cell_path);
                         stats.add(
                             cell_path_str,
                             FileWatcherEventType::Modify,
