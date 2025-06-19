@@ -203,12 +203,6 @@ impl FileChangeTracker {
         Ok(())
     }
 
-    fn file_contents_modify(&mut self, path: CellPath) {
-        self.files_to_dirty
-            .insert(ReadFileKey(Arc::new(path.clone())));
-        self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
-    }
-
     fn insert_sublisting_matching_any_case(&mut self, path: CellPath) {
         if let Some(parent) = &path.parent() {
             if let Some(file_name) = path.path().file_name() {
@@ -223,6 +217,19 @@ impl FileChangeTracker {
         }
     }
 
+    fn entry_added_or_removed(&mut self, path: CellPath) {
+        self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
+        let parent = path.parent();
+        if let Some(parent) = parent {
+            // The above can be None (validly!) if we have a cell we either create or delete.
+            // That never happens in established repos, but if you are setting one up, it's not uncommon.
+            // Since we don't include paths in different cells, the fact we don't dirty the parent
+            // (which is in an enclosing cell) doesn't matter.
+            self.insert_dir_keys(parent.to_owned());
+        }
+        self.insert_sublisting_matching_any_case(path);
+    }
+
     fn insert_dir_keys(&mut self, path: CellPath) {
         self.dirs_to_dirty.insert(ReadDirKey {
             path: path.clone(),
@@ -235,34 +242,18 @@ impl FileChangeTracker {
     }
 
     pub fn file_added_or_removed(&mut self, path: CellPath) {
-        let parent = path.parent();
-
-        self.file_contents_modify(path.clone());
-        self.insert_sublisting_matching_any_case(path.clone());
-        if let Some(parent) = parent {
-            // The above can be None (validly!) if we have a cell we either create or delete.
-            // That never happens in established repos, but if you are setting one up, it's not uncommon.
-            // Since we don't include paths in different cells, the fact we don't dirty the parent
-            // (which is in an enclosing cell) doesn't matter.
-            self.insert_dir_keys(parent.to_owned());
-        }
+        self.file_contents_changed(path.clone());
+        self.entry_added_or_removed(path);
     }
 
     pub fn dir_added_or_removed(&mut self, path: CellPath) {
-        self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
-        self.insert_sublisting_matching_any_case(path.clone());
-        if let Some(parent) = path.parent() {
-            let parent = parent.to_owned();
-            // The above can be None (validly!) if we have a cell we either create or delete.
-            // That never happens in established repos, but if you are setting one up, it's not uncommon.
-            // Since we don't include paths in different cells, the fact we don't dirty the parent
-            // (which is in an enclosing cell) doesn't matter.
-            self.insert_dir_keys(parent);
-        }
+        self.entry_added_or_removed(path);
     }
 
     pub fn file_contents_changed(&mut self, path: CellPath) {
-        self.file_contents_modify(path)
+        self.files_to_dirty
+            .insert(ReadFileKey(Arc::new(path.clone())));
+        self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
     }
 
     /// Normally, buck does not need the file watcher to tell it that a directory's entries have
