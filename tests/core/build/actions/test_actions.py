@@ -67,6 +67,11 @@ async def test_copies_files(buck: Buck) -> None:
     )
 
 
+# In Windows, we convert all symlinks to be absolute and mostly canonical
+def get_canonicalized_for_windows(dest: Path, relative_link: str) -> str:
+    return "\\\\?\\" + os.path.realpath(dest.parent / relative_link)
+
+
 @buck_test(
     data_dir="actions",
     # Because we use eden symlink redirection on MacOS
@@ -91,10 +96,6 @@ async def test_symlink_dir(buck: Buck) -> None:
     expected_link4 = "../../../__dep__/dep.txt"
 
     if platform.system() == "Windows":
-        # In Windows, we convert all symlinks to be absolute and mostly canonical
-        def get_canonicalized_for_windows(dest: Path, relative_link: str) -> str:
-            return "\\\\?\\" + os.path.realpath(dest.parent / relative_link)
-
         expected_link1 = get_canonicalized_for_windows(dest1, expected_link1)
         expected_link2 = get_canonicalized_for_windows(dest2, expected_link2)
         expected_link3 = get_canonicalized_for_windows(dest3, expected_link3)
@@ -114,6 +115,28 @@ async def test_symlink_dir(buck: Buck) -> None:
     assert dest2.read_text().strip() == "dep contents"
     assert dest3.read_text().strip() == "dir1_1 out contents"
     assert dest4.read_text().strip() == "dep contents"
+
+
+@buck_test(
+    data_dir="actions",
+    # See note on test_symlink_dir
+    setup_eden=False,
+)
+async def test_symlink_dir_associated_artifacts(buck: Buck) -> None:
+    result = await buck.build("//symlinked_dir:symlinked_transitive_files_target")
+    build_report = result.get_build_report()
+    output = build_report.output_for_target(
+        "//symlinked_dir:symlinked_transitive_files_target"
+    )
+
+    # This is set up in symlinked_dir:target_with_tdep
+    dest = output / "out_file"
+
+    # The direct src of the symlink is handled properly
+    assert dest.is_symlink()
+
+    # The transitive dependency of the symlink is not handled properly
+    assert not (output / "tdep1").exists()
 
 
 @buck_test(data_dir="actions")
