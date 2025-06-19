@@ -634,9 +634,9 @@ mod tests {
     use dice::DiceComputations;
     use indoc::indoc;
 
-    use crate::dice::file_ops::delegate::FileOpsDelegate;
     use crate::external_cells::EXTERNAL_CELLS_IMPL;
     use crate::external_cells::ExternalCellsImpl;
+    use crate::file_ops::delegate::FileOpsDelegate;
     use crate::legacy_configs::cells::BuckConfigBasedCells;
     use crate::legacy_configs::configs::testing::TestConfigParserFileOps;
     use crate::legacy_configs::configs::tests::assert_config_value;

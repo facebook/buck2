@@ -16,7 +16,7 @@ use buck2_core::cells::name::CellName;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 
-use crate::dice::file_ops::delegate::FileOpsDelegate;
+use crate::file_ops::delegate::FileOpsDelegate;
 
 #[async_trait]
 pub trait ExternalCellsImpl: Send + Sync + 'static {

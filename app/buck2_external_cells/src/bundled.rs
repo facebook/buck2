@@ -14,7 +14,7 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
-use buck2_common::dice::file_ops::delegate::FileOpsDelegate;
+use buck2_common::file_ops::delegate::FileOpsDelegate;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::FileType;
 use buck2_common::file_ops::metadata::RawDirEntry;

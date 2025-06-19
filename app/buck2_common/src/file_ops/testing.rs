@@ -25,11 +25,11 @@ use itertools::Itertools;
 
 use crate::cas_digest::CasDigestConfig;
 use crate::dice::file_ops::CheckIgnores;
-use crate::dice::file_ops::delegate::FileOpsDelegate;
-use crate::dice::file_ops::delegate::FileOpsDelegateWithIgnores;
-use crate::dice::file_ops::delegate::testing::FileOpsKey;
-use crate::dice::file_ops::delegate::testing::FileOpsValue;
 use crate::external_symlink::ExternalSymlink;
+use crate::file_ops::delegate::FileOpsDelegate;
+use crate::file_ops::delegate::FileOpsDelegateWithIgnores;
+use crate::file_ops::delegate::testing::FileOpsKey;
+use crate::file_ops::delegate::testing::FileOpsValue;
 use crate::file_ops::metadata::FileMetadata;
 use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawDirEntry;

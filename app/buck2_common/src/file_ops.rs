@@ -13,6 +13,7 @@ use dice::UserComputationData;
 
 use crate::file_ops::metadata::ReadDirOutput;
 
+pub mod delegate;
 pub mod error;
 pub mod metadata;
 pub mod testing;

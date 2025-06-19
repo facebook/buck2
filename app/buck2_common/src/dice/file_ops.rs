@@ -31,7 +31,7 @@ use futures::future::BoxFuture;
 
 use crate::buildfiles::HasBuildfiles;
 use crate::dice::cells::HasCellResolver;
-use crate::dice::file_ops::delegate::get_delegated_file_ops;
+use crate::file_ops::delegate::get_delegated_file_ops;
 use crate::file_ops::error::FileReadError;
 use crate::file_ops::metadata::DirectorySubListingMatchingOutput;
 use crate::file_ops::metadata::RawPathMetadata;
@@ -39,8 +39,6 @@ use crate::file_ops::metadata::ReadDirOutput;
 use crate::ignores::file_ignores::FileIgnoreResult;
 use crate::io::DirectoryDoesNotExistSuggestion;
 use crate::io::ReadDirError;
-
-pub mod delegate;
 
 pub struct DiceFileComputations;
 
