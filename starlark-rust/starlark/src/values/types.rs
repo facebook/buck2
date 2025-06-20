@@ -24,7 +24,6 @@ pub mod bool;
 pub mod dict;
 pub(crate) mod ellipsis;
 pub mod enumeration;
-pub mod exported_name;
 pub mod float;
 pub mod function;
 pub mod int;

@@ -26,7 +26,6 @@ mod for_loop;
 mod freeze_access_value;
 mod fstring;
 mod go;
-mod interop;
 mod opt;
 mod replace_binary;
 mod runtime;
