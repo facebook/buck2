@@ -165,6 +165,7 @@ CxxInternalTools = provider(fields = dict(
     hmap_wrapper = RunInfo,
     make_comp_db = RunInfo,
     remap_cwd = RunInfo,
+    serialized_diagnostics_to_json_wrapper = RunInfo,
     stderr_to_file = RunInfo,
 ))
 

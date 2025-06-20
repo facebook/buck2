@@ -17,6 +17,7 @@ def _cxx_internal_tools_impl(ctx: AnalysisContext) -> list[Provider]:
             hmap_wrapper = ctx.attrs.hmap_wrapper[RunInfo],
             make_comp_db = ctx.attrs.make_comp_db[RunInfo],
             remap_cwd = ctx.attrs.remap_cwd[RunInfo],
+            serialized_diagnostics_to_json_wrapper = ctx.attrs.serialized_diagnostics_to_json_wrapper[RunInfo],
             stderr_to_file = ctx.attrs.stderr_to_file[RunInfo],
         ),
     ]
@@ -30,6 +31,7 @@ cxx_internal_tools = rule(
         "hmap_wrapper": attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:hmap_wrapper"),
         "make_comp_db": attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db"),
         "remap_cwd": attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:remap_cwd"),
+        "serialized_diagnostics_to_json_wrapper": attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:serialized_diagnostics_to_json_wrapper"),
         "stderr_to_file": attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:stderr_to_file"),
     },
 )
