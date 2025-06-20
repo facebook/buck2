@@ -6,10 +6,11 @@
 # of this source tree.
 
 load("@prelude//apple:apple_error_handler_types.bzl", "AppleErrorCategory")
-# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_CXX_STDERR_CATEGORIES", "APPLE_META_STDERR_ERROR_CATEGORIES")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_CXX_FLAG_MESSAGES", "APPLE_CXX_STDERR_CATEGORIES", "APPLE_META_STDERR_ERROR_CATEGORIES")
 load("@prelude//apple/swift:swift_toolchain.bzl", "get_swift_toolchain_info")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 
+APPLE_CXX_FLAG_MESSAGES = {} # @oss-enable
 APPLE_CXX_STDERR_CATEGORIES = [] # @oss-enable
 APPLE_META_STDERR_ERROR_CATEGORIES = [] # @oss-enable
 
@@ -97,7 +98,11 @@ def cxx_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
             category = "apple_cxx_" + error_json["severity"]
             if "flag" in error_json:
                 category += "_" + error_json["flag"].replace("-", "_")
-                postfix = " [-W{}]".format(error_json["flag"])
+                additional_message = APPLE_CXX_FLAG_MESSAGES.get(error_json["flag"], None)
+                if additional_message:
+                    postfix = " [-W{}]. {}".format(error_json["flag"], additional_message)
+                else:
+                    postfix = " [-W{}]".format(error_json["flag"])
             else:
                 postfix = ""
 
