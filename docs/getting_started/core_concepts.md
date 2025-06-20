@@ -73,7 +73,7 @@ is the buck cell root.
 
 </FbInternalOnly>
 
-You can run `buck2 aduit cell` to inspect the abs path of each cell root.
+You can run `buck2 audit cell` to inspect the abs path of each cell root.
 
 ## Package
 
