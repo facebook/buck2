@@ -10,6 +10,7 @@
 use proc_macro2::Ident;
 use proc_macro2::Span;
 use quote::ToTokens;
+use quote::quote;
 use quote::quote_spanned;
 use syn::Attribute;
 use syn::Data;
@@ -66,7 +67,7 @@ fn impl_generics(
             GenericParam::Type(tp) => {
                 let mut tp = tp.clone();
                 if attrs.bound.is_none() && !attrs.skip {
-                    tp.bounds.push(syn::parse2(quote_spanned! { tp.span() =>
+                    tp.bounds.push(syn::parse2(quote! {
                         allocative::Allocative
                     })?);
                 }
@@ -78,9 +79,9 @@ fn impl_generics(
         });
     }
     if impl_generics.is_empty() {
-        Ok(quote_spanned! { generics.span() => })
+        Ok(quote! {})
     } else {
-        Ok(quote_spanned! { generics.span() => <#(#impl_generics),*> })
+        Ok(quote! { <#(#impl_generics),*> })
     }
 }
 
@@ -95,13 +96,12 @@ fn derive_allocative_impl(
     let impl_generics = impl_generics(&input.generics, &attrs)?;
 
     let body = if attrs.skip {
-        quote_spanned! { input.span() =>
-        }
+        quote! {}
     } else {
         gen_visit_body(&input)?
     };
 
-    Ok(quote_spanned! {input.span()=>
+    Ok(quote! {
         impl #impl_generics allocative::Allocative for #name #type_generics #where_clause {
             #[allow(unused, warnings)]
             fn visit<'allocative_a, 'allocative_b: 'allocative_a>(
@@ -137,10 +137,9 @@ fn gen_visit_enum(input: &DataEnum) -> syn::Result<proc_macro2::TokenStream> {
         // }
         // ```
         // for enums with no variants where `self` is `&Self`.
-        Ok(quote_spanned! {input.variants.span()=>
-        })
+        Ok(quote! {})
     } else {
-        Ok(quote_spanned! {input.variants.span()=>
+        Ok(quote! {
         match self {
                 #cases
             }
@@ -151,7 +150,7 @@ fn gen_visit_enum(input: &DataEnum) -> syn::Result<proc_macro2::TokenStream> {
 fn allocative_key(s: &str) -> proc_macro2::TokenStream {
     // Compile hash at proc macro time, otherwise it will have to be computed by MIRI.
     let hash = hash(s);
-    quote_spanned! {proc_macro2::Span::call_site()=>
+    quote! {
         allocative::Key::new_unchecked(#hash, #s)
     }
 }
@@ -166,7 +165,7 @@ fn gen_visit_enum_variant(input: &Variant) -> syn::Result<proc_macro2::TokenStre
 
     // TODO: enter variant.
     match &input.fields {
-        Fields::Unit => Ok(quote_spanned! {input.span()=>
+        Fields::Unit => Ok(quote! {
             Self::#name => {},
         }),
         Fields::Unnamed(unnamed) => {
@@ -178,14 +177,13 @@ fn gen_visit_enum_variant(input: &Variant) -> syn::Result<proc_macro2::TokenStre
                 .zip(field_names.iter())
                 .map(|((i, f), n)| {
                     if variant_attrs.skip {
-                        Ok(quote_spanned! {f.span()=>
-                        })
+                        Ok(quote! {})
                     } else {
                         gen_visit_field(&i.to_string(), n, f)
                     }
                 })
                 .collect::<syn::Result<proc_macro2::TokenStream>>()?;
-            Ok(quote_spanned! {input.span()=>
+            Ok(quote! {
                 Self::#name(#(#field_names),*) => {
                     let mut visitor = visitor.enter(#variant_key, std::mem::size_of::<Self>());
                     #visit_fields
@@ -200,14 +198,13 @@ fn gen_visit_enum_variant(input: &Variant) -> syn::Result<proc_macro2::TokenStre
                 .zip(named.named.iter())
                 .map(|(ident, f)| {
                     if variant_attrs.skip {
-                        Ok(quote_spanned! {f.span()=>
-                        })
+                        Ok(quote! {})
                     } else {
                         gen_visit_field(&ident.to_string(), ident, f)
                     }
                 })
                 .collect::<syn::Result<proc_macro2::TokenStream>>()?;
-            Ok(quote_spanned! {input.span()=>
+            Ok(quote! {
                 Self::#name { #(#field_names),* } => {
                     let mut visitor = visitor.enter(#variant_key, std::mem::size_of::<Self>());
                     #visit_fields
@@ -248,7 +245,7 @@ fn gen_visit_struct(input: &DataStruct) -> syn::Result<proc_macro2::TokenStream>
                 .zip(named.named.iter())
                 .map(|(ident, f)| gen_visit_field(&ident.to_string(), ident, f))
                 .collect::<syn::Result<proc_macro2::TokenStream>>()?;
-            Ok(quote_spanned! {input.fields.span()=>
+            Ok(quote! {
                 let Self { #(#names),* } = self;
                 #visit_fields
             })
@@ -261,12 +258,12 @@ fn gen_visit_struct(input: &DataStruct) -> syn::Result<proc_macro2::TokenStream>
                 .zip(unnamed.unnamed.iter())
                 .map(|((i, ident), field)| gen_visit_field(&i.to_string(), ident, field))
                 .collect::<syn::Result<proc_macro2::TokenStream>>()?;
-            Ok(quote_spanned! {input.fields.span()=>
+            Ok(quote! {
                 let Self(#(#names),*) = self;
                 #visit_fields
             })
         }
-        Fields::Unit => Ok(quote_spanned! {input.fields.span()=>}),
+        Fields::Unit => Ok(quote! {}),
     }
 }
 
@@ -278,10 +275,10 @@ fn gen_visit_field(
     let attrs = extract_attrs(&field.attrs)?;
     let field_key = allocative_key(label);
     if attrs.skip {
-        Ok(quote_spanned! {field.span()=>})
+        Ok(quote! {})
     } else if let Some(visit) = attrs.visit {
         let ty = &field.ty;
-        Ok(quote_spanned! {field.span()=>
+        Ok(quote! {
             // TODO(nga): figure out how to put this snippet in a member function of the visitor.
             {
                 let mut visitor = visitor.enter(#field_key, std::mem::size_of::<#ty>());
@@ -292,7 +289,7 @@ fn gen_visit_field(
     } else {
         // Specify type parameter explicitly to prevent implicit conversion.
         let ty = &field.ty;
-        Ok(quote_spanned! {ident.span()=>
+        Ok(quote! {
             visitor.visit_field::<#ty>(#field_key, #ident);
         })
     }
