@@ -11,7 +11,6 @@ use std::iter;
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use quote::quote_spanned;
 use syn::Data;
 use syn::DataEnum;
 use syn::DataStruct;
@@ -41,7 +40,7 @@ fn duplicate_struct(data: &DataStruct, duplicate: &TokenStream) -> TokenStream {
             // Self {x: clone(self.x), y: clone(self.y)}
             let xs = fields.named.iter().map(|f| {
                 let name = &f.ident;
-                quote_spanned! {f.span() =>
+                quote! {
                     #name: #duplicate(&self.#name)
                 }
             });
@@ -51,9 +50,9 @@ fn duplicate_struct(data: &DataStruct, duplicate: &TokenStream) -> TokenStream {
         }
         Fields::Unnamed(ref fields) => {
             // Self(clone(self.0), clone(self.1))
-            let xs = fields.unnamed.iter().enumerate().map(|(i, f)| {
+            let xs = fields.unnamed.iter().enumerate().map(|(i, _)| {
                 let index = Index::from(i);
-                quote_spanned! {f.span()=>
+                quote! {
                     #duplicate(&self.#index)
                 }
             });
@@ -79,10 +78,10 @@ fn duplicate_variant(data: &Variant, duplicate: &TokenStream) -> TokenStream {
                 .map(|f| {
                     let name = &f.ident;
                     (
-                        quote_spanned! {f.span() =>
+                        quote! {
                             #name
                         },
-                        quote_spanned! {f.span() =>
+                        quote! {
                             #name: #duplicate(#name)
                         },
                     )
@@ -100,10 +99,7 @@ fn duplicate_variant(data: &Variant, duplicate: &TokenStream) -> TokenStream {
                 .enumerate()
                 .map(|(i, f)| {
                     let var = Ident::new(&format!("v{}", i), f.span());
-                    (
-                        quote_spanned! {f.span() => #var},
-                        quote_spanned! {f.span() => #duplicate(#var)},
-                    )
+                    (quote! {#var}, quote! {#duplicate(#var)})
                 })
                 .unzip();
             quote! {
