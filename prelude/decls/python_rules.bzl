@@ -348,6 +348,9 @@ prebuilt_python_library = prelude_rule(
                     native extension is imported.
                 """,
             ),
+            "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
+            "_extract": attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:extract")),
+            "_python_toolchain": toolchains_common.python(),
             "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         }
     ),
@@ -492,11 +495,15 @@ python_library = prelude_rule(
             "ignore_compile_errors": attrs.bool(default = False),
             "licenses": attrs.list(attrs.source(), default = []),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
+            "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
             "type_stubs": attrs.named_set(attrs.source(), sorted = True, default = []),
             "versioned_resources": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "versioned_srcs": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "zip_safe": attrs.option(attrs.bool(), default = None),
             "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
+            "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
+            "_cxx_toolchain": toolchains_common.cxx(),
+            "_python_toolchain": toolchains_common.python(),
         } |
         _typing_arg()
     ),

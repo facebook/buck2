@@ -453,12 +453,6 @@ _haskell_extra_attributes = {
 }
 
 _python_extra_attributes = {
-    #python
-    "prebuilt_python_library": {
-        "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
-        "_extract": attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:extract")),
-        "_python_toolchain": toolchains_common.python(),
-    },
     #python bootstrap
     "python_bootstrap_binary": {
         "copy_deps": attrs.bool(default = True),
@@ -469,12 +463,6 @@ _python_extra_attributes = {
     "python_bootstrap_library": {
         "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
         "srcs": attrs.list(attrs.source()),
-    },
-    "python_library": {
-        "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
-        "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_python_toolchain": toolchains_common.python(),
     },
     "python_needed_coverage_test": dict(
         contacts = attrs.list(attrs.string(), default = []),
