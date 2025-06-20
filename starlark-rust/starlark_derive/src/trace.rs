@@ -20,7 +20,6 @@ use std::collections::HashSet;
 use proc_macro2::Span;
 use quote::ToTokens;
 use quote::quote;
-use quote::quote_spanned;
 use syn::Attribute;
 use syn::DeriveInput;
 use syn::GenericArgument;
@@ -37,7 +36,6 @@ use syn::parse::ParseStream;
 use syn::parse_macro_input;
 use syn::parse_quote;
 use syn::punctuated::Punctuated;
-use syn::spanned::Spanned;
 
 use crate::util::DeriveInputUtil;
 
@@ -227,13 +225,11 @@ fn trace_impl(derive_input: &DeriveInput, generics: &Generics) -> syn::Result<sy
         if unsafe_ignore.is_some() {
             Ok(quote! {})
         } else if trace_static.is_some() || is_static(&field.ty, &generic_types) {
-            Ok(quote_spanned! {
-                field.span()=>
+            Ok(quote! {
                 starlark::values::Tracer::trace_static(tracer, #name);
             })
         } else {
-            Ok(quote_spanned! {
-                field.span()=>
+            Ok(quote! {
                 starlark::values::Trace::trace(#name, tracer);
             })
         }
