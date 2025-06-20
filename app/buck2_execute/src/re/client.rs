@@ -673,7 +673,7 @@ impl RemoteExecutionClientImpl {
 
                 // Will either choose the SOFT_COPY (on some linux fs like btrfs/extfs etc, on Mac if using APFS) or FULL_COPY otherwise
                 embedded_cas_daemon_config.copy_policy = CopyPolicy::BEST_AVAILABLE;
-                embedded_cas_daemon_config.meterialization_mount_path = Some(
+                embedded_cas_daemon_config.materialization_mount_path = Some(
                     re_config
                         .buck_out_path
                         .to_str()
