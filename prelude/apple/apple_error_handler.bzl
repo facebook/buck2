@@ -6,13 +6,14 @@
 # of this source tree.
 
 load("@prelude//apple:apple_error_handler_types.bzl", "AppleErrorCategory")
-# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_CXX_FLAG_MESSAGES", "APPLE_CXX_STDERR_CATEGORIES", "APPLE_META_STDERR_ERROR_CATEGORIES")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_CXX_FLAG_MESSAGES", "APPLE_CXX_STDERR_CATEGORIES", "APPLE_META_STDERR_ERROR_CATEGORIES", "SWIFT_STDERR_CATEGORIES")
 load("@prelude//apple/swift:swift_toolchain.bzl", "get_swift_toolchain_info")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 
 APPLE_CXX_FLAG_MESSAGES = {} # @oss-enable
 APPLE_CXX_STDERR_CATEGORIES = [] # @oss-enable
 APPLE_META_STDERR_ERROR_CATEGORIES = [] # @oss-enable
+SWIFT_STDERR_CATEGORIES = [] # @oss-enable
 
 _APPLE_STDERR_ERROR_CATEGORIES = [
 
@@ -61,6 +62,13 @@ def _add_category_strings(ctx: ActionErrorCtx, lowercase_stderr: str, errors: li
     for error_category in source:
         if _match(error_category.matcher, lowercase_stderr):
             errors.append(ctx.new_sub_error(category = "apple_" + error_category.category, message = error_category.message))
+
+def _category_match(message: str, categories: list[AppleErrorCategory]) -> AppleErrorCategory | None:
+    for error_category in categories:
+        if _match(error_category.matcher, message):
+            return error_category
+
+    return None
 
 def apple_build_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     errors = []
@@ -132,7 +140,7 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
                 file = error_json["path"],
                 line = error_json["line"],
             )
-            category = "swift_compiler_" + error_json["severity"]
+            category = "swift_" + error_json["severity"]
 
             # Swift serializes the category in the form:
             # SendableClosureCaptures@https://docs.swift.org/compiler/documentation/diagnostics/sendable-closure-captures
@@ -140,8 +148,16 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
                 # Convert to markdown links for phabricator
                 components = error_json["category"].split("@")
                 postfix = " [{}]({})".format(components[0], components[1])
+                category += "_" + components[0].lower()
             else:
+                # With no category in the error itself we categorise based on
+                # the message content.
                 postfix = ""
+                custom_category = _category_match(error_json["message"], SWIFT_STDERR_CATEGORIES)
+                if custom_category:
+                    category += "_" + custom_category.category
+                    if custom_category.message:
+                        postfix = ". " + custom_category.message
 
             errors.append(
                 ctx.new_sub_error(
