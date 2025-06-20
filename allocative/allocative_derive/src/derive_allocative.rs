@@ -52,11 +52,11 @@ fn impl_generics(
     generics: &Generics,
     attrs: &AllocativeAttrs,
 ) -> syn::Result<proc_macro2::TokenStream> {
-    if let Some(bound) = &attrs.bound {
+    if let Some((bound, bound_span)) = &attrs.bound {
         if !bound.is_empty() {
-            let span = attrs.span.unwrap_or_else(Span::call_site);
             let bound = bound.parse::<proc_macro2::TokenStream>()?;
-            return Ok(quote_spanned! { span => < #bound > });
+            let sp = *bound_span;
+            return Ok(quote_spanned! {sp => < #bound > });
         }
     }
 
@@ -300,9 +300,8 @@ fn gen_visit_field(
 
 #[derive(Default)]
 struct AllocativeAttrs {
-    span: Option<Span>,
     skip: bool,
-    bound: Option<String>,
+    bound: Option<(String, Span)>,
     visit: Option<Path>,
 }
 
@@ -319,8 +318,6 @@ fn extract_attrs(attrs: &[Attribute]) -> syn::Result<AllocativeAttrs> {
             continue;
         }
 
-        opts.span = Some(attr.span());
-
         attr.parse_args_with(|input: ParseStream| {
             loop {
                 if input.parse::<skip>().is_ok() {
@@ -334,7 +331,7 @@ fn extract_attrs(attrs: &[Attribute]) -> syn::Result<AllocativeAttrs> {
                     if opts.bound.is_some() {
                         return Err(input.error("`bound` was set twice"));
                     }
-                    opts.bound = Some(bound.value());
+                    opts.bound = Some((bound.value(), bound.span()));
                 } else if input.parse::<visit>().is_ok() {
                     input.parse::<Token![=]>()?;
                     let visit = input.parse::<Path>()?;
