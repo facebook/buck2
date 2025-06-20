@@ -14,7 +14,6 @@ load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
-load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_library_meta_validation.bzl", "apple_library_validate_for_meta_restrictions")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "get_extra_linker_output_flags", "get_extra_linker_outputs")
@@ -90,6 +89,7 @@ load(
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
+load(":apple_error_handler.bzl", "apple_build_error_handler", "cxx_error_deserializer", "cxx_error_handler")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_library_types.bzl", "AppleLibraryInfo")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
@@ -540,7 +540,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         swift_objc_header = swift_objc_header,
-        error_handler = apple_build_error_handler,
+        error_handler = cxx_error_handler if cxx_error_deserializer(ctx) else apple_build_error_handler,
         index_store_factory = _compile_index_store,
         index_stores = [swift_compile.index_store] if swift_compile else None,
     )

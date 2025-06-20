@@ -67,7 +67,7 @@ load(":apple_bundle_utility.bzl", "get_bundle_infos_from_graph", "merge_bundle_l
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
 load(":apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load(":apple_entitlements.bzl", "entitlements_link_flags")
-load(":apple_error_handler.bzl", "apple_build_error_handler")
+load(":apple_error_handler.bzl", "apple_build_error_handler", "cxx_error_deserializer", "cxx_error_handler")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_rpaths.bzl", "get_rpath_flags_for_apple_binary")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
@@ -172,7 +172,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
             platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
             lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
-            error_handler = apple_build_error_handler,
+            error_handler = cxx_error_handler if cxx_error_deserializer(ctx) else apple_build_error_handler,
             index_stores = [swift_compile.index_store] if swift_compile else None,
             executable_name = ctx.attrs.executable_name,
             extra_linker_outputs_factory = _get_extra_linker_outputs,

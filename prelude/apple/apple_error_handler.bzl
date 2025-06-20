@@ -6,8 +6,12 @@
 # of this source tree.
 
 load("@prelude//apple:apple_error_handler_types.bzl", "AppleErrorCategory")
-# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_META_STDERR_ERROR_CATEGORIES")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_CXX_STDERR_CATEGORIES", "APPLE_META_STDERR_ERROR_CATEGORIES")
 load("@prelude//apple/swift:swift_toolchain.bzl", "get_swift_toolchain_info")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+
+APPLE_CXX_STDERR_CATEGORIES = [] # @oss-enable
+APPLE_META_STDERR_ERROR_CATEGORIES = [] # @oss-enable
 
 _APPLE_STDERR_ERROR_CATEGORIES = [
 
@@ -40,12 +44,6 @@ _APPLE_STDERR_ERROR_CATEGORIES = [
     #user errors
     AppleErrorCategory(matcher = "unknown target", category = "unknown_buck_target_failure"),
 
-    #linker issues
-    AppleErrorCategory(matcher = "linker command failed", category = "linker_failure"),
-    AppleErrorCategory(matcher = "duplicate symbol", category = "duplicate_symbol_failure"),
-    AppleErrorCategory(matcher = "undefined symbol", category = "undefined_symbol_failure"),
-    AppleErrorCategory(matcher = "framework not found", category = "framework_not_found_failure"),
-
     #buck configuration issues
     AppleErrorCategory(matcher = "unknown cell alias", category = "unknown_cell_alias_failure"),
 ]
@@ -68,15 +66,55 @@ def apple_build_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
 
     lowercase_stderr = ctx.stderr.lower()
     _add_category_strings(ctx, lowercase_stderr, errors, _APPLE_STDERR_ERROR_CATEGORIES)
-    # @oss-disable[end= ]: _add_category_strings(ctx, lowercase_stderr, errors, APPLE_META_STDERR_ERROR_CATEGORIES)
+    _add_category_strings(ctx, lowercase_stderr, errors, APPLE_META_STDERR_ERROR_CATEGORIES)
 
     return errors
 
-def apple_error_deserializer(ctx: AnalysisContext) -> RunInfo | None:
+def cxx_error_deserializer(ctx: AnalysisContext) -> RunInfo | None:
+    return get_cxx_toolchain_info(ctx).binary_utilities_info.custom_tools.get("serialized-diags-to-json", None)
+
+def swift_error_deserializer(ctx: AnalysisContext) -> RunInfo | None:
     return get_swift_toolchain_info(ctx).serialized_diags_to_json
 
 def _valid_error(error: dict) -> bool:
     return "path" in error and "line" in error and "message" in error and "severity" in error
+
+def cxx_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
+    errors = []
+    for val in ctx.output_artifacts.values():
+        for error_json in val.read_json():
+            if not _valid_error(error_json):
+                continue
+
+            location = ctx.new_error_location(
+                file = error_json["path"],
+                line = error_json["line"],
+            )
+
+            # Clang optionally populates a category and flag field. We are only
+            # interested in the flag for now, which helps to know which flag to
+            # disable to bypass an error.
+            category = "apple_cxx_" + error_json["severity"]
+            if "flag" in error_json:
+                category += "_" + error_json["flag"].replace("-", "_")
+                postfix = " [-W{}]".format(error_json["flag"])
+            else:
+                postfix = ""
+
+            errors.append(
+                ctx.new_sub_error(
+                    category = category,
+                    message = error_json["message"] + postfix,
+                    locations = [location],
+                ),
+            )
+
+    # The cxx error handler is also used for linking, which will not have any
+    # serialzed diagnostics, so go through the stderr matcher here.
+    if not ctx.output_artifacts.values():
+        _add_category_strings(ctx, ctx.stderr.lower(), errors, APPLE_CXX_STDERR_CATEGORIES)
+
+    return errors
 
 def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     errors = []

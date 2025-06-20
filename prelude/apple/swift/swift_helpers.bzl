@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler", "apple_error_deserializer", "swift_error_handler")
+load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler", "swift_error_deserializer", "swift_error_handler")
 load("@prelude//apple/swift:apple_sdk_modules_utility.bzl", "is_sdk_modules_provided")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile")
 load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags")
@@ -59,7 +59,7 @@ def compile_with_argsfile(
     # If the toolchain supports serialized error output, add the output files
     # to deserialize the errors. This uses the output file map if supported,
     # otherwise will pass frontend flags.
-    error_deserializer = apple_error_deserializer(ctx)
+    error_deserializer = swift_error_deserializer(ctx)
     error_outputs = []
     if supports_serialized_errors and error_deserializer:
         json_error_output = ctx.actions.declare_output("__diagnostics__/{}.json".format(category)).as_output()
