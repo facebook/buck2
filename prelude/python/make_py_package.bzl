@@ -648,12 +648,16 @@ def _make_py_package_live(
     # Gather inplace binary resources
     resources = pex_modules.manifests.resource_manifests(False)
     if resources:
+        resource_artifacts = pex_modules.manifests.resource_artifacts(False)
         resource_manifests_path = ctx.actions.write(
             "__resource_manifests{}.txt".format(output_suffix),
             resources,
         )
-        cmd.add(cmd_args(resource_manifests_path, format = "--resources={}", hidden = resources))
-        resource_artifacts = pex_modules.manifests.resource_artifacts(False)
+
+        # Since we allow including directories for resources we have to enumerate the directory at build time, so we pass the resource artifacts as a hidden arg so that it will be materialized on disk when we build the par.
+        # cmd.add(cmd_args(resource_manifests_path, format = "--resources={}", hidden = [resources, resource_artifacts]))
+        # This was previously broken and the fix incurs a non-trivial build speed regression
+        cmd.add(cmd_args(resource_manifests_path, format = "--resources={}", hidden = [resources]))
         runtime_files.extend(resource_artifacts)
 
     if pex_modules.compile:
