@@ -29,6 +29,8 @@ async def test_no_quotes(buck: Buck) -> None:
         ),
         "--os",
         platform.system().lower(),
+        "--exec_mode",
+        "local",
     )
     outputs = json.loads(result.stdout)
     compdb_path = Path(outputs["compilationDatabasePath"]) / ".." / "compdb.json"
