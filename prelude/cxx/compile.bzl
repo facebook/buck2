@@ -383,6 +383,20 @@ def _compile_single_cxx(
         )
         cmd.add(cmd_args(external_debug_info.as_output(), format = "--fbcc-create-external-debug-info={}"))
 
+    outputs_for_error_handler = []
+    serialized_diags_to_json = toolchain.binary_utilities_info.custom_tools.get("serialized-diags-to-json", None)
+    if serialized_diags_to_json and src_compile_cmd.error_handler and compiler_type == "clang" and src_compile_cmd.src.extension != ".cu":
+        # We need to wrap the entire compile to provide serialized diagnostics
+        # output and on error convert it to JSON.
+        json_error_output = ctx.actions.declare_output("__diagnostics__/{}.json".format(filename_base)).as_output()
+        outputs_for_error_handler.append(json_error_output)
+        cmd = cmd_args(
+            toolchain.internal_tools.serialized_diagnostics_to_json_wrapper,
+            serialized_diags_to_json,
+            json_error_output,
+            cmd,
+        )
+
     dist_nvcc_dag = None
     dist_nvcc_env = None
     if src_compile_cmd.src.extension == ".cu":
@@ -407,6 +421,7 @@ def _compile_single_cxx(
             allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
             allow_dep_file_cache_upload = False,
             error_handler = src_compile_cmd.error_handler,
+            outputs_for_error_handler = outputs_for_error_handler,
         )
 
     # If we're building with split debugging, where the debug info is in the
