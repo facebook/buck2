@@ -446,7 +446,8 @@ mod tests {
         heap.alloc_str("rrtt");
         heap.record_call_exit();
 
-        let freezer = Freezer::new(FrozenHeap::new());
+        let frozen_heap = FrozenHeap::new();
+        let freezer = Freezer::new(&frozen_heap);
         freezer.freeze(s0.to_value()).unwrap();
         freezer.freeze(s1.to_value()).unwrap();
 
@@ -478,7 +479,8 @@ mod tests {
             heap.record_call_enter(const_frozen_string!("xx").to_value());
             let s = heap.alloc_str("abc");
             heap.record_call_exit();
-            let freezer = Freezer::new(FrozenHeap::new());
+            let frozen_heap = FrozenHeap::new();
+            let freezer = Freezer::new(&frozen_heap);
             freezer.freeze(s.to_value()).unwrap();
 
             AggregateHeapProfileInfo::collect(&heap, Some(HeapKind::Frozen))

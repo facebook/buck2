@@ -435,7 +435,7 @@ impl Module {
         // Note that we even freeze anonymous slots, since they are accessed by
         // slot-index in the code, and we don't walk into them, so don't know if
         // they are used.
-        let freezer = Freezer::new(frozen_heap);
+        let freezer = Freezer::new(&frozen_heap);
         let slots = slots.freeze(&freezer)?;
         let extra_value = extra_value.into_inner().freeze(&freezer)?;
         let stacks = if let Some(mode) = heap_profile_on_freeze.get() {
@@ -464,7 +464,7 @@ impl Module {
         mem::drop(heap);
 
         Ok(FrozenModule {
-            heap: freezer.into_ref(),
+            heap: frozen_heap.into_ref(),
             module: frozen_module_ref,
             extra_value,
             eval_duration: start.elapsed() + eval_duration.get(),

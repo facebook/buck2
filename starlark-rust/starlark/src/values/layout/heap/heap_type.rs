@@ -504,28 +504,24 @@ impl FrozenHeap {
 // A freezer is a pair of the FrozenHeap and a "magic" value,
 // which we happen to use for the slots (see `FrozenSlotsRef`)
 // but could be used for anything.
-pub struct Freezer {
+pub struct Freezer<'fv> {
     /// Freezing into this heap.
-    pub(crate) heap: FrozenHeap,
+    pub(crate) heap: &'fv FrozenHeap,
     /// Defs frozen by this freezer.
     pub(crate) frozen_defs: RefCell<Vec<FrozenRef<'static, FrozenDef>>>,
 }
 
-impl Freezer {
-    pub(crate) fn new(heap: FrozenHeap) -> Self {
+impl<'fv> Freezer<'fv> {
+    pub(crate) fn new(heap: &'fv FrozenHeap) -> Self {
         Freezer {
             heap,
             frozen_defs: RefCell::new(Vec::new()),
         }
     }
 
-    pub(crate) fn into_ref(self) -> FrozenHeapRef {
-        self.heap.into_ref()
-    }
-
     /// Allocate a new value while freezing. Usually not a great idea.
     pub fn alloc<'v, T: AllocFrozenValue>(&'v self, val: T) -> FrozenValue {
-        val.alloc_frozen_value(&self.heap)
+        val.alloc_frozen_value(self.heap)
     }
 
     pub(crate) fn reserve<'v, 'v2, T: AValue<'v2, ExtraElem = ()>>(
@@ -570,8 +566,8 @@ impl Freezer {
     /// Frozen heap where the values are frozen to.
     ///
     /// Can be used to allocate additional values while freezing.
-    pub fn frozen_heap(&self) -> &FrozenHeap {
-        &self.heap
+    pub fn frozen_heap(&self) -> &'fv FrozenHeap {
+        self.heap
     }
 }
 

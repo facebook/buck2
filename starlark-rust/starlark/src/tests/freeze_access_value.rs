@@ -49,7 +49,8 @@ fn test() -> anyhow::Result<()> {
 
     let t = Test { field: list };
 
-    let freezer = Freezer::new(FrozenHeap::new());
+    let frozen_heap = FrozenHeap::new();
+    let freezer = Freezer::new(&frozen_heap);
     list.freeze(&freezer)?;
     t.freeze(&freezer)?;
 

@@ -53,7 +53,8 @@ fn test() -> anyhow::Result<()> {
     let t = Test {
         sentinel: FreezeSentinel { frozen: false },
     };
-    let freezer = Freezer::new(FrozenHeap::new());
+    let frozen_heap = FrozenHeap::new();
+    let freezer = Freezer::new(&frozen_heap);
     t.freeze(&freezer)?;
     Ok(())
 }
