@@ -44,34 +44,34 @@ use crate::values::Tracer;
 /// reference, allowing manipulation of the actual typed data.
 #[derive(Clone_, Dupe_, Copy_, Debug, Allocative)]
 #[allocative(skip)] // Data is owned by heap.
-pub struct FrozenRef<'f, T: 'f + ?Sized> {
-    pub(crate) value: &'f T,
+pub struct FrozenRef<'fv, T: 'fv + ?Sized> {
+    pub(crate) value: &'fv T,
 }
 
-impl<'f, T> Default for FrozenRef<'f, [T]> {
-    fn default() -> FrozenRef<'f, [T]> {
+impl<'fv, T> Default for FrozenRef<'fv, [T]> {
+    fn default() -> FrozenRef<'fv, [T]> {
         FrozenRef { value: &[] }
     }
 }
 
-unsafe impl<'v, 'f, T: 'f + ?Sized> Trace<'v> for FrozenRef<'f, T> {
+unsafe impl<'v, 'fv, T: 'fv + ?Sized> Trace<'v> for FrozenRef<'fv, T> {
     fn trace(&mut self, _: &Tracer<'v>) {
         // Do nothing, because `FrozenRef` can only point to frozen value.
     }
 }
 
-impl<'f, T: 'f + ?Sized> FrozenRef<'f, T> {
-    pub(crate) const fn new(value: &'f T) -> FrozenRef<'f, T> {
+impl<'fv, T: 'fv + ?Sized> FrozenRef<'fv, T> {
+    pub(crate) const fn new(value: &'fv T) -> FrozenRef<'fv, T> {
         FrozenRef { value }
     }
 
     /// Returns a reference to the underlying value.
-    pub fn as_ref(self) -> &'f T {
+    pub fn as_ref(self) -> &'fv T {
         self.value
     }
 
     /// Converts `self` into a new reference that points at something reachable from the previous.
-    pub fn map<F, U: 'f + ?Sized>(self, f: F) -> FrozenRef<'f, U>
+    pub fn map<F, U: 'fv + ?Sized>(self, f: F) -> FrozenRef<'fv, U>
     where
         for<'v> F: FnOnce(&'v T) -> &'v U,
     {
@@ -81,7 +81,7 @@ impl<'f, T: 'f + ?Sized> FrozenRef<'f, T> {
     }
 
     /// Fallible map the reference to another one.
-    pub fn try_map_result<F, U: 'f + ?Sized, E>(self, f: F) -> Result<FrozenRef<'f, U>, E>
+    pub fn try_map_result<F, U: 'fv + ?Sized, E>(self, f: F) -> Result<FrozenRef<'fv, U>, E>
     where
         for<'v> F: FnOnce(&'v T) -> Result<&'v U, E>,
     {
@@ -91,7 +91,7 @@ impl<'f, T: 'f + ?Sized> FrozenRef<'f, T> {
     }
 
     /// Optionally map the reference to another one.
-    pub fn try_map_option<F, U: 'f + ?Sized>(self, f: F) -> Option<FrozenRef<'f, U>>
+    pub fn try_map_option<F, U: 'fv + ?Sized>(self, f: F) -> Option<FrozenRef<'fv, U>>
     where
         for<'v> F: FnOnce(&'v T) -> Option<&'v U>,
     {
@@ -101,13 +101,13 @@ impl<'f, T: 'f + ?Sized> FrozenRef<'f, T> {
     }
 }
 
-impl<'f, T: ?Sized + Display> Display for FrozenRef<'f, T> {
+impl<'fv, T: ?Sized + Display> Display for FrozenRef<'fv, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.value.fmt(f)
     }
 }
 
-impl<'f, T: ?Sized> Deref for FrozenRef<'f, T> {
+impl<'fv, T: ?Sized> Deref for FrozenRef<'fv, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -115,19 +115,19 @@ impl<'f, T: ?Sized> Deref for FrozenRef<'f, T> {
     }
 }
 
-impl<'f, T: 'f + ?Sized> Borrow<T> for FrozenRef<'f, T> {
+impl<'fv, T: 'fv + ?Sized> Borrow<T> for FrozenRef<'fv, T> {
     fn borrow(&self) -> &T {
         self
     }
 }
 
-impl<'f, T: 'f + ?Sized> Borrow<T> for FrozenRef<'f, Box<T>> {
+impl<'fv, T: 'fv + ?Sized> Borrow<T> for FrozenRef<'fv, Box<T>> {
     fn borrow(&self) -> &T {
         self
     }
 }
 
-impl<'f, T: 'f + ?Sized> PartialEq for FrozenRef<'f, T>
+impl<'fv, T: 'fv + ?Sized> PartialEq for FrozenRef<'fv, T>
 where
     T: PartialEq,
 {
@@ -136,9 +136,9 @@ where
     }
 }
 
-impl<'f, T: 'f + ?Sized> Eq for FrozenRef<'f, T> where T: Eq {}
+impl<'fv, T: 'fv + ?Sized> Eq for FrozenRef<'fv, T> where T: Eq {}
 
-impl<'f, T: 'f + ?Sized> PartialOrd for FrozenRef<'f, T>
+impl<'fv, T: 'fv + ?Sized> PartialOrd for FrozenRef<'fv, T>
 where
     T: PartialOrd,
 {
@@ -147,7 +147,7 @@ where
     }
 }
 
-impl<'f, T: 'f + ?Sized> Ord for FrozenRef<'f, T>
+impl<'fv, T: 'fv + ?Sized> Ord for FrozenRef<'fv, T>
 where
     T: Ord,
 {
@@ -156,7 +156,7 @@ where
     }
 }
 
-impl<'f, T: 'f + ?Sized> Hash for FrozenRef<'f, T>
+impl<'fv, T: 'fv + ?Sized> Hash for FrozenRef<'fv, T>
 where
     T: Hash,
 {
@@ -165,7 +165,7 @@ where
     }
 }
 
-impl<'f, T: 'f + ?Sized> Freeze for FrozenRef<'f, T> {
+impl<'fv, T: 'fv + ?Sized> Freeze for FrozenRef<'fv, T> {
     type Frozen = Self;
 
     fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
