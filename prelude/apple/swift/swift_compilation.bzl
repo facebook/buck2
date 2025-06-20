@@ -717,6 +717,7 @@ def _compile_index_store(
     output_file_map = {}
     for src in srcs:
         output_file_map[src.file] = {
+            "diagnostics": "/dev/null",
             # The output here is only used for the identifier of the index unit file
             "index-unit-output-path": src.file,
             "object": "/dev/null",
