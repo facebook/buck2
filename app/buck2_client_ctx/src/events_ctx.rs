@@ -104,7 +104,7 @@ pub struct PartialResultCtx<'a> {
 impl PartialResultCtx<'_> {
     pub async fn stdout(&mut self, bytes: &[u8]) -> buck2_error::Result<()> {
         self.inner
-            .for_each_subscriber(|subscriber| subscriber.handle_output(bytes))
+            .try_for_each_subscriber(|subscriber| subscriber.handle_output(bytes))
             .await
     }
 }
@@ -325,7 +325,7 @@ impl EventsCtx {
     async fn handle_error_owned(&mut self, error: buck2_error::Error) -> buck2_error::Error {
         let error: buck2_error::Error = error.into();
         let result = self
-            .for_each_subscriber(|subscriber| subscriber.handle_error(&error))
+            .try_for_each_subscriber(|subscriber| subscriber.handle_error(&error))
             .await;
         match result {
             Ok(()) => error.into(),
@@ -386,7 +386,7 @@ impl EventsCtx {
     async fn handle_tailer_stderr(&mut self, stderr: &[u8]) -> buck2_error::Result<()> {
         let stderr = String::from_utf8_lossy(stderr);
         let stderr = stderr.trim_end();
-        self.for_each_subscriber(|subscriber| subscriber.handle_tailer_stderr(stderr))
+        self.try_for_each_subscriber(|subscriber| subscriber.handle_tailer_stderr(stderr))
             .await
     }
 
@@ -394,7 +394,7 @@ impl EventsCtx {
         &mut self,
         toggle: &Option<SuperConsoleToggle>,
     ) -> buck2_error::Result<()> {
-        self.for_each_subscriber(|subscriber| subscriber.handle_console_interaction(toggle))
+        self.try_for_each_subscriber(|subscriber| subscriber.handle_console_interaction(toggle))
             .await
     }
 
@@ -429,7 +429,7 @@ impl EventsCtx {
             }
             Arc::new(event)
         });
-        self.for_each_subscriber(|subscriber| subscriber.handle_events(&events))
+        self.try_for_each_subscriber(|subscriber| subscriber.handle_events(&events))
             .await
     }
 
@@ -437,7 +437,7 @@ impl EventsCtx {
         &mut self,
         result: &buck2_cli_proto::CommandResult,
     ) -> buck2_error::Result<()> {
-        self.for_each_subscriber(|subscriber| subscriber.handle_command_result(result))
+        self.try_for_each_subscriber(|subscriber| subscriber.handle_command_result(result))
             .await
     }
 
@@ -445,60 +445,61 @@ impl EventsCtx {
     /// A subscriber will have the opportunity to do an arbitrary process at a reliable interval.
     /// In particular, this is crucial for superconsole so that it can draw itself consistently.
     async fn tick(&mut self, tick: &Tick) -> buck2_error::Result<()> {
-        self.for_each_subscriber(|subscriber| subscriber.tick(tick))
+        self.try_for_each_subscriber(|subscriber| subscriber.tick(tick))
             .await
     }
 
     /// Helper method to abstract the process of applying an `EventSubscriber` method to all of the subscribers.
     /// Quits on the first error encountered.
-    pub(crate) async fn for_each_subscriber<'b, Fut>(
+    pub(crate) async fn try_for_each_subscriber<'b, Fut>(
         &'b mut self,
-        f: impl FnMut(&'b mut Box<dyn EventSubscriber>) -> Fut,
+        mut f: impl FnMut(&'b mut dyn EventSubscriber) -> Fut,
     ) -> buck2_error::Result<()>
     where
         Fut: Future<Output = buck2_error::Result<()>> + 'b,
     {
-        let mut futures: FuturesUnordered<_> = self.subscribers.iter_mut().map(f).collect();
+        let mut futures: FuturesUnordered<_> =
+            self.subscribers.iter_mut().map(|s| f(s.as_mut())).collect();
         while let Some(res) = futures.next().await {
             res?;
         }
         Ok(())
     }
 
-    pub(crate) fn handle_stream_end(&mut self) {
+    /// Helper method to abstract the process of applying an `EventSubscriber` method to all of the subscribers.
+    pub(crate) fn for_each_subscriber<'b>(
+        &'b mut self,
+        mut f: impl FnMut(&'b mut dyn EventSubscriber),
+    ) {
         for subscriber in &mut self.subscribers {
-            subscriber.handle_stream_end();
+            f(subscriber.as_mut());
         }
+    }
+
+    pub(crate) fn handle_stream_end(&mut self) {
+        self.for_each_subscriber(|subscriber| subscriber.handle_stream_end());
     }
 
     pub(crate) fn handle_daemon_connection_failure(&mut self) {
-        for subscriber in &mut self.subscribers {
-            subscriber.handle_daemon_connection_failure();
-        }
+        self.for_each_subscriber(|subscriber| subscriber.handle_daemon_connection_failure());
     }
 
     pub(crate) fn handle_daemon_started(&mut self, reason: buck2_data::DaemonWasStartedReason) {
-        for subscriber in &mut self.subscribers {
-            subscriber.handle_daemon_started(reason);
-        }
+        self.for_each_subscriber(|subscriber| subscriber.handle_daemon_started(reason));
     }
 
     pub(crate) fn handle_should_restart(&mut self) {
-        for subscriber in &mut self.subscribers {
-            subscriber.handle_should_restart();
-        }
+        self.for_each_subscriber(|subscriber| subscriber.handle_should_restart());
     }
 
     pub(crate) fn handle_instant_command_outcome(&mut self, is_success: bool) {
-        for subscriber in &mut self.subscribers {
-            subscriber.handle_instant_command_outcome(is_success);
-        }
+        self.for_each_subscriber(|subscriber| {
+            subscriber.handle_instant_command_outcome(is_success)
+        });
     }
 
     pub(crate) fn handle_exit_result(&mut self, exit_result: &ExitResult) {
-        for subscriber in &mut self.subscribers {
-            subscriber.handle_exit_result(exit_result);
-        }
+        self.for_each_subscriber(|subscriber| subscriber.handle_exit_result(exit_result));
     }
 
     pub(crate) fn error_observers(&self) -> impl Iterator<Item = &dyn ErrorObserver> {
@@ -508,7 +509,7 @@ impl EventsCtx {
     }
 
     pub(crate) async fn eprintln(&mut self, message: &str) -> buck2_error::Result<()> {
-        self.for_each_subscriber(|s| {
+        self.try_for_each_subscriber(|s| {
             // TODO(nga): this is not a tailer.
             s.handle_tailer_stderr(message)
         })
