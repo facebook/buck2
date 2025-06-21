@@ -44,7 +44,7 @@ use crate::immediate_config::ImmediateConfigContext;
 use crate::restarter::Restarter;
 use crate::stdin::Stdin;
 use crate::streaming::StreamingCommand;
-use crate::subscribers::recorder::get_invocation_recorder;
+use crate::subscribers::recorder::InvocationRecorder;
 use crate::subscribers::subscribers::EventSubscribers;
 
 pub struct ClientCommandContext<'a> {
@@ -156,7 +156,15 @@ impl<'a> ClientCommandContext<'a> {
             .map(|path| path.resolve(&self.working_dir));
         let trace_id = self.trace_id.clone();
 
-        let events_ctx = Arc::new(Mutex::new(EventsCtx::new(cmd.subscribers(matches, &self))));
+        let recorder = InvocationRecorder::new(
+            self.fbinit(),
+            self.trace_id.dupe(),
+            self.restarted_trace_id.dupe(),
+            self.start_time,
+        );
+        let events_ctx = Arc::new(Mutex::new(EventsCtx::new(
+            cmd.subscribers(matches, &self, recorder),
+        )));
         let exec_events_ctx = events_ctx.dupe();
 
         let result = async {
@@ -342,23 +350,21 @@ pub trait BuckSubcommand {
         &self,
         _matches: BuckArgMatches<'_>,
         ctx: &ClientCommandContext,
+        mut recorder: InvocationRecorder,
     ) -> EventSubscribers {
         let paths = ctx.paths().ok();
-        let mut recorder = get_invocation_recorder(
+        recorder.update_for_client_ctx(
             ctx,
             self.event_log_opts(),
-            None,
             self.logging_name(),
-            std::env::args().collect(),
+            ctx.argv.argv.clone(),
+            None,
             Vec::new(),
             None,
             None,
             paths,
         );
-
-        recorder.update_metadata_from_client_metadata(&ctx.client_metadata);
-
-        EventSubscribers::new(vec![recorder])
+        EventSubscribers::new(vec![Box::new(recorder)])
     }
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {

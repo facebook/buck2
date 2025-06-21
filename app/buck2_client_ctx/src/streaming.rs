@@ -39,7 +39,7 @@ use crate::subscribers::build_id_writer::BuildIdWriter;
 use crate::subscribers::event_log::EventLog;
 use crate::subscribers::health_check_subscriber::HealthCheckSubscriber;
 use crate::subscribers::re_log::ReLog;
-use crate::subscribers::recorder::get_invocation_recorder;
+use crate::subscribers::recorder::InvocationRecorder;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscribers::EventSubscribers;
 
@@ -49,6 +49,7 @@ fn default_subscribers<T: StreamingCommand>(
     cmd: &T,
     matches: BuckArgMatches<'_>,
     ctx: &ClientCommandContext,
+    mut recorder: InvocationRecorder,
 ) -> EventSubscribers {
     let console_opts = cmd.console_opts();
     let event_log_opts = cmd.event_log_opts();
@@ -116,19 +117,19 @@ fn default_subscribers<T: StreamingCommand>(
     } else {
         Vec::new()
     };
-    let mut recorder = get_invocation_recorder(
+
+    recorder.update_for_client_ctx(
         ctx,
         cmd.event_log_opts(),
-        Some(cmd.build_config_opts()),
         cmd.logging_name(),
         cmd.sanitize_argv(ctx.argv.clone()).argv,
+        Some(cmd.build_config_opts()),
         representative_config_flags,
         log_size_counter_bytes,
         health_check_tags_receiver,
         paths,
     );
-    recorder.update_metadata_from_client_metadata(&ctx.client_metadata);
-    subscribers.push(recorder);
+    subscribers.push(Box::new(recorder));
 
     if let Some(subscriber) = health_check_subscriber {
         subscribers.push(subscriber);
@@ -256,8 +257,9 @@ impl<T: StreamingCommand> BuckSubcommand for T {
         &self,
         matches: BuckArgMatches<'_>,
         ctx: &ClientCommandContext,
+        recorder: InvocationRecorder,
     ) -> EventSubscribers {
-        default_subscribers(self, matches, ctx)
+        default_subscribers(self, matches, ctx, recorder)
     }
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {

@@ -96,13 +96,13 @@ pub fn process_memory(snapshot: &buck2_data::Snapshot) -> Option<u64> {
 
 const MEMORY_PRESSURE_TAG: &str = "memory_pressure_warning";
 
-pub(crate) struct InvocationRecorder {
+pub struct InvocationRecorder {
     fb: FacebookInit,
     write_to_path: Option<AbsPathBuf>,
-    command_name: &'static str,
+    command_name: Option<&'static str>,
     cli_args: Vec<String>,
     representative_config_flags: Vec<String>,
-    isolation_dir: String,
+    isolation_dir: Option<String>,
     start_time: u64,
     build_count_manager: Option<BuildCountManager>,
     trace_id: TraceId,
@@ -129,7 +129,7 @@ pub(crate) struct InvocationRecorder {
     dep_file_upload_count: u64,
     dep_file_upload_attempt_count: u64,
     parsed_target_patterns: Option<buck2_data::ParsedTargetPatterns>,
-    filesystem: String,
+    filesystem: Option<String>,
     watchman_version: Option<String>,
     eden_version: Option<String>,
     test_info: Option<String>,
@@ -240,30 +240,19 @@ pub(crate) struct InvocationRecorder {
 impl InvocationRecorder {
     pub fn new(
         fb: FacebookInit,
-        write_to_path: Option<AbsPathBuf>,
-        command_name: &'static str,
-        sanitized_argv: Vec<String>,
-        representative_config_flags: Vec<String>,
         trace_id: TraceId,
-        isolation_dir: String,
-        build_count_manager: Option<BuildCountManager>,
-        filesystem: String,
         restarted_trace_id: Option<TraceId>,
-        preemptible: Option<PreemptibleWhen>,
-        log_size_counter_bytes: Option<Arc<AtomicU64>>,
-        client_metadata: Vec<buck2_data::ClientMetadata>,
-        health_check_tags_receiver: Option<Receiver<Vec<String>>>,
         start_time: u64,
     ) -> Self {
         Self {
             fb,
-            write_to_path,
-            command_name,
-            cli_args: sanitized_argv,
-            representative_config_flags,
-            isolation_dir,
+            write_to_path: None,
+            command_name: None,
+            cli_args: Vec::new(),
+            representative_config_flags: Vec::new(),
+            isolation_dir: None,
             start_time,
-            build_count_manager,
+            build_count_manager: None,
             trace_id,
             command_end: None,
             command_duration: None,
@@ -288,7 +277,7 @@ impl InvocationRecorder {
             dep_file_upload_count: 0,
             dep_file_upload_attempt_count: 0,
             parsed_target_patterns: None,
-            filesystem,
+            filesystem: None,
             watchman_version: None,
             eden_version: None,
             test_info: None,
@@ -326,10 +315,10 @@ impl InvocationRecorder {
             daemon_materializer_state_is_corrupted: false,
             enable_restarter: false,
             restarted_trace_id,
-            preemptible,
+            preemptible: None,
             has_command_result: false,
             has_end_of_stream: false,
-            compressed_event_log_size_bytes: log_size_counter_bytes,
+            compressed_event_log_size_bytes: None,
             critical_path_backend: None,
             instant_command_is_success: None,
             bxl_ensure_artifacts_duration: None,
@@ -358,7 +347,7 @@ impl InvocationRecorder {
             daemon_connection_failure: false,
             daemon_was_started: None,
             should_restart: false,
-            client_metadata,
+            client_metadata: Vec::new(),
             command_errors: Vec::new(),
             exit_code: None,
             exit_result_name: None,
@@ -393,13 +382,84 @@ impl InvocationRecorder {
             materialization_files: 0,
             previous_uuid_with_mismatched_config: None,
             file_watcher: None,
-            health_check_tags_receiver,
+            health_check_tags_receiver: None,
             health_check_tags: HashSet::new(),
             exec_time_ms: 0,
             initial_local_cache_hits_files_from_memory_cache: None,
             initial_local_cache_hits_files_from_filesystem_cache: None,
             initial_local_cache_lookups: None,
             initial_local_cache_lookup_latency_microseconds: None,
+        }
+    }
+
+    pub(crate) fn update_for_client_ctx(
+        &mut self,
+        ctx: &ClientCommandContext<'_>,
+        event_log_opts: &CommonEventLogOptions,
+        command_name: &'static str,
+        sanitized_argv: Vec<String>,
+        build_config_opts: Option<&CommonBuildConfigurationOptions>,
+        representative_config_flags: Vec<String>,
+        log_size_counter_bytes: Option<Arc<AtomicU64>>,
+        health_check_tags_receiver: Option<Receiver<Vec<String>>>,
+        paths: Option<&InvocationPaths>,
+    ) {
+        let write_to_path = event_log_opts
+            .unstable_write_invocation_record
+            .as_ref()
+            .map(|path| path.resolve(&ctx.working_dir));
+
+        let filesystem;
+        #[cfg(fbcode_build)]
+        {
+            let is_eden = paths.is_some_and(|paths| {
+                let root = std::path::Path::to_owned(paths.project_root().root().to_buf().as_ref());
+                detect_eden::is_eden(root).unwrap_or(false)
+            });
+            if is_eden {
+                filesystem = "eden".to_owned();
+            } else {
+                filesystem = "default".to_owned();
+            }
+        }
+        #[cfg(not(fbcode_build))]
+        {
+            filesystem = "default".to_owned();
+        }
+        let build_count = paths.and_then(|p| match BuildCountManager::new(p.build_count_dir()) {
+            Ok(manager) => Some(manager),
+            Err(e) => {
+                let _unused = soft_error!("build_count_init_failed", e);
+                None
+            }
+        });
+
+        self.command_name = Some(command_name);
+        self.cli_args = sanitized_argv;
+        self.representative_config_flags = representative_config_flags;
+        self.write_to_path = write_to_path;
+        self.isolation_dir = Some(ctx.isolation.to_string());
+        self.build_count_manager = build_count;
+        self.filesystem = Some(filesystem);
+        self.compressed_event_log_size_bytes = log_size_counter_bytes;
+        self.health_check_tags_receiver = health_check_tags_receiver;
+        self.client_metadata = ctx
+            .client_metadata
+            .iter()
+            .map(ClientMetadata::to_proto)
+            .collect();
+        self.preemptible = build_config_opts.and_then(|opts| opts.preemptible);
+
+        if let Some(client_id_from_client_metadata) = ctx
+            .client_metadata
+            .iter()
+            .find(|m| m.key == "id")
+            .map(|m| m.value.clone())
+        {
+            self.metadata.insert(
+                "client".to_owned(),
+                client_id_from_client_metadata.to_owned(),
+            );
         }
     }
 
@@ -711,7 +771,7 @@ impl InvocationRecorder {
         let errors = self.finalize_errors();
 
         let record = buck2_data::InvocationRecord {
-            command_name: Some(self.command_name.to_owned()),
+            command_name: Some(self.command_name.unwrap_or("unknown").to_owned()),
             command_end: self.command_end.take(),
             command_duration: self.command_duration.take(),
             client_walltime: elapsed_since(self.start_time).try_into().ok(),
@@ -747,7 +807,7 @@ impl InvocationRecorder {
             dep_file_upload_count: self.dep_file_upload_count,
             dep_file_upload_attempt_count: self.dep_file_upload_attempt_count,
             parsed_target_patterns: self.parsed_target_patterns.take(),
-            filesystem: std::mem::take(&mut self.filesystem),
+            filesystem: self.filesystem.take().unwrap_or("default".to_owned()),
             watchman_version: self.watchman_version.take(),
             eden_version: self.eden_version.take(),
             test_info: self.test_info.take(),
@@ -793,7 +853,7 @@ impl InvocationRecorder {
             time_to_last_action_execution_end_ms: self
                 .time_to_last_action_execution_end
                 .and_then(|d| u64::try_from(d.as_millis()).ok()),
-            isolation_dir: Some(self.isolation_dir.clone()),
+            isolation_dir: self.isolation_dir.take(),
             sink_success_count,
             sink_failure_count,
             sink_dropped_count,
@@ -952,20 +1012,6 @@ impl InvocationRecorder {
         buck2_data::TypedMetadata {
             ints,
             strings: HashMap::new(),
-        }
-    }
-
-    // Store the "client" field in the metadata for telemetry
-    pub fn update_metadata_from_client_metadata(&mut self, client_metadata: &[ClientMetadata]) {
-        if let Some(client_id_from_client_metadata) = client_metadata
-            .iter()
-            .find(|m| m.key == "id")
-            .map(|m| m.value.clone())
-        {
-            self.metadata.insert(
-                "client".to_owned(),
-                client_id_from_client_metadata.to_owned(),
-            );
         }
     }
 
@@ -1994,71 +2040,6 @@ fn merge_file_watcher_stats(
     a.watchman_version = a.watchman_version.or(b.watchman_version);
     a.eden_version = a.eden_version.or(b.eden_version);
     Some(a)
-}
-
-pub(crate) fn get_invocation_recorder(
-    ctx: &ClientCommandContext<'_>,
-    event_log_opts: &CommonEventLogOptions,
-    build_config_opts: Option<&CommonBuildConfigurationOptions>,
-    command_name: &'static str,
-    sanitized_argv: Vec<String>,
-    representative_config_flags: Vec<String>,
-    log_size_counter_bytes: Option<Arc<AtomicU64>>,
-    health_check_tags_receiver: Option<Receiver<Vec<String>>>,
-    paths: Option<&InvocationPaths>,
-) -> Box<InvocationRecorder> {
-    let write_to_path = event_log_opts
-        .unstable_write_invocation_record
-        .as_ref()
-        .map(|path| path.resolve(&ctx.working_dir));
-
-    let filesystem;
-    #[cfg(fbcode_build)]
-    {
-        let is_eden = paths.is_some_and(|paths| {
-            let root = std::path::Path::to_owned(paths.project_root().root().to_buf().as_ref());
-            detect_eden::is_eden(root).unwrap_or(false)
-        });
-        if is_eden {
-            filesystem = "eden".to_owned();
-        } else {
-            filesystem = "default".to_owned();
-        }
-    }
-    #[cfg(not(fbcode_build))]
-    {
-        filesystem = "default".to_owned();
-    }
-
-    let build_count = paths.and_then(|p| match BuildCountManager::new(p.build_count_dir()) {
-        Ok(manager) => Some(manager),
-        Err(e) => {
-            let _unused = soft_error!("build_count_init_failed", e);
-            None
-        }
-    });
-
-    let recorder = InvocationRecorder::new(
-        ctx.fbinit(),
-        write_to_path,
-        command_name,
-        sanitized_argv,
-        representative_config_flags,
-        ctx.trace_id.dupe(),
-        ctx.isolation.to_string(),
-        build_count,
-        filesystem,
-        ctx.restarted_trace_id.dupe(),
-        build_config_opts.and_then(|opts| opts.preemptible),
-        log_size_counter_bytes,
-        ctx.client_metadata
-            .iter()
-            .map(ClientMetadata::to_proto)
-            .collect(),
-        health_check_tags_receiver,
-        ctx.start_time,
-    );
-    Box::new(recorder)
 }
 
 fn truncate_stderr(stderr: &str) -> &str {
