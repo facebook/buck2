@@ -1950,9 +1950,8 @@ impl EventSubscriber for InvocationRecorder {
         Ok(())
     }
 
-    async fn exit(&mut self) -> buck2_error::Result<()> {
+    fn handle_stream_end(&mut self) {
         self.has_end_of_stream = true;
-        Ok(())
     }
 
     async fn finalize(&mut self) -> buck2_error::Result<()> {

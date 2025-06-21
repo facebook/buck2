@@ -256,7 +256,7 @@ impl EventsCtx {
         };
 
         let flush_result = self.flush(Some(tailers)).await;
-        let exit_result = self.handle_exit().await;
+        self.handle_stream_end();
 
         let command_result = match (command_result, shutdown) {
             (Ok(r), _) => r,
@@ -275,7 +275,6 @@ impl EventsCtx {
         };
 
         flush_result?;
-        exit_result?;
         Ok(command_result)
     }
 
@@ -466,17 +465,10 @@ impl EventsCtx {
         Ok(())
     }
 
-    pub(crate) async fn handle_exit(&mut self) -> buck2_error::Result<()> {
-        let mut r = Ok(());
+    pub(crate) fn handle_stream_end(&mut self) {
         for subscriber in &mut self.subscribers {
-            // Exit all subscribers, do not stop on first one.
-            let subscriber_err = subscriber.exit().await;
-            if r.is_ok() {
-                // Keep first error.
-                r = subscriber_err;
-            }
+            subscriber.handle_stream_end();
         }
-        r
     }
 
     pub(crate) fn handle_daemon_connection_failure(&mut self) {

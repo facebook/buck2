@@ -58,10 +58,6 @@ impl EventSubscriber for ReLog {
         "RE log"
     }
 
-    async fn exit(&mut self) -> buck2_error::Result<()> {
-        self.log_upload().await
-    }
-
     async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> buck2_error::Result<()> {
         for event in events {
             match unpack_event(event)? {

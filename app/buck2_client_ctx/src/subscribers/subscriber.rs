@@ -82,15 +82,10 @@ pub trait EventSubscriber: Send {
         Ok(())
     }
 
-    /// No more events. Close files, flush buffers etc.
-    async fn exit(&mut self) -> buck2_error::Result<()> {
-        Ok(())
-    }
-
     fn as_error_observer(&self) -> Option<&dyn ErrorObserver> {
         None
     }
-
+    fn handle_stream_end(&mut self) {}
     fn handle_daemon_connection_failure(&mut self) {}
     fn handle_daemon_started(&mut self, _reason: buck2_data::DaemonWasStartedReason) {}
     fn handle_should_restart(&mut self) {}
