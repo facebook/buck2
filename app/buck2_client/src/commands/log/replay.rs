@@ -78,7 +78,7 @@ impl BuckSubcommand for ReplayCommand {
                 None,
             );
 
-            let res = EventsCtx::new(vec![console])
+            let res = EventsCtx::new(None, vec![console])
                 .unpack_stream::<_, ReplayResult, _>(
                     &mut NoPartialResultHandler,
                     Box::pin(replayer),

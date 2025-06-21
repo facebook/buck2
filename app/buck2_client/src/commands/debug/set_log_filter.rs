@@ -36,7 +36,7 @@ pub struct SetLogFilterCommand {
 impl SetLogFilterCommand {
     pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         ctx.with_runtime(|ctx| async move {
-            let mut events_ctx = EventsCtx::new(vec![Box::new(StdoutStderrForwarder)]);
+            let mut events_ctx = EventsCtx::new(None, vec![Box::new(StdoutStderrForwarder)]);
 
             let mut buckd = connect_buckd(
                 BuckdConnectConstraints::ExistingOnly,

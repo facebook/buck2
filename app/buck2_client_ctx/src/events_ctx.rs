@@ -39,6 +39,7 @@ use crate::daemon::client::tonic_status_to_error;
 use crate::exit_result::ExitResult;
 use crate::file_tailers::tailers::FileTailers;
 use crate::subscribers::observer::ErrorObserver;
+use crate::subscribers::recorder::InvocationRecorder;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
 use crate::ticker::Ticker;
@@ -112,7 +113,8 @@ impl PartialResultCtx<'_> {
 /// Manages incoming event streams from the daemon for the buck2 client and
 /// forwards them to the appropriate subscribers registered on this struct
 pub struct EventsCtx {
-    subscribers: Vec<Box<dyn EventSubscriber>>,
+    pub(crate) recorder: Option<Box<InvocationRecorder>>,
+    pub(crate) subscribers: Vec<Box<dyn EventSubscriber>>,
     ticker: Ticker,
     client_cpu_tracker: ClientCpuTracker,
 }
@@ -124,8 +126,12 @@ pub enum FileTailerEvent {
 }
 
 impl EventsCtx {
-    pub fn new(subscribers: Vec<Box<dyn EventSubscriber>>) -> Self {
+    pub fn new(
+        recorder: Option<InvocationRecorder>,
+        subscribers: Vec<Box<dyn EventSubscriber>>,
+    ) -> Self {
         Self {
+            recorder: recorder.map(Box::new),
             subscribers,
             ticker: Ticker::new(TICKS_PER_SECOND),
             client_cpu_tracker: ClientCpuTracker::new(),
@@ -458,6 +464,10 @@ impl EventsCtx {
     where
         Fut: Future<Output = buck2_error::Result<()>> + 'b,
     {
+        if let Some(recorder) = self.recorder.as_mut() {
+            f(recorder.as_mut()).await?;
+        }
+
         let mut futures: FuturesUnordered<_> =
             self.subscribers.iter_mut().map(|s| f(s.as_mut())).collect();
         while let Some(res) = futures.next().await {
@@ -471,6 +481,10 @@ impl EventsCtx {
         &'b mut self,
         mut f: impl FnMut(&'b mut dyn EventSubscriber),
     ) {
+        if let Some(recorder) = self.recorder.as_mut() {
+            f(recorder.as_mut());
+        }
+
         for subscriber in &mut self.subscribers {
             f(subscriber.as_mut());
         }
@@ -503,9 +517,7 @@ impl EventsCtx {
     }
 
     pub(crate) fn error_observers(&self) -> impl Iterator<Item = &dyn ErrorObserver> {
-        self.subscribers
-            .iter()
-            .filter_map(|s| s.as_error_observer())
+        self.recorder.iter().filter_map(|r| r.as_error_observer())
     }
 
     pub(crate) async fn eprintln(&mut self, message: &str) -> buck2_error::Result<()> {
@@ -518,7 +530,8 @@ impl EventsCtx {
 
     pub(crate) async fn finalize(&mut self) -> Vec<String> {
         let mut errors = Vec::new();
-        for subscriber in &mut self.subscribers {
+
+        async fn finalize(subscriber: &mut dyn EventSubscriber, errors: &mut Vec<String>) {
             let start = Instant::now();
             let res = subscriber.finalize().await;
             let elapsed = start.elapsed();
@@ -534,6 +547,14 @@ impl EventsCtx {
                     e.context(format!("\'{}\' failed to finalize", subscriber.name()))
                 ));
             }
+        }
+
+        for subscriber in &mut self.subscribers {
+            finalize(subscriber.as_mut(), &mut errors).await;
+        }
+
+        if let Some(recorder) = self.recorder.as_mut() {
+            finalize(recorder.as_mut(), &mut errors).await;
         }
         errors
     }

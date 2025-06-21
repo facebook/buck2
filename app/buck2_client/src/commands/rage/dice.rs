@@ -32,7 +32,7 @@ pub async fn upload_dice_dump(
     manifold_id: &String,
 ) -> buck2_error::Result<String> {
     let buckd = buckd.to_connector();
-    let mut events_ctx = EventsCtx::new(Default::default());
+    let mut events_ctx = EventsCtx::new(None, Default::default());
     let manifold_bucket = Bucket::RAGE_DUMPS;
     let manifold_filename = format!("flat/{}_dice-dump.tar", manifold_id);
     let this_dump_folder_name = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();

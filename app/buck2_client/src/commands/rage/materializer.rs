@@ -35,7 +35,7 @@ pub async fn upload_materializer_data(
 ) -> buck2_error::Result<String> {
     let mut buckd = buckd.await?.to_connector();
 
-    let mut events_ctx = EventsCtx::new(vec![Box::new(TracingSubscriber) as _]);
+    let mut events_ctx = EventsCtx::new(None, vec![Box::new(TracingSubscriber) as _]);
 
     let mut capture = CaptureStdout::new();
 

@@ -39,17 +39,16 @@ use crate::subscribers::build_id_writer::BuildIdWriter;
 use crate::subscribers::event_log::EventLog;
 use crate::subscribers::health_check_subscriber::HealthCheckSubscriber;
 use crate::subscribers::re_log::ReLog;
-use crate::subscribers::recorder::InvocationRecorder;
 use crate::subscribers::subscriber::EventSubscriber;
 
 const HEALTH_CHECK_CHANNEL_SIZE: usize = 100;
 
-fn default_subscribers<T: StreamingCommand>(
+fn update_events_ctx<T: StreamingCommand>(
     cmd: &T,
     matches: BuckArgMatches<'_>,
     ctx: &ClientCommandContext,
-    mut recorder: InvocationRecorder,
-) -> Vec<Box<dyn EventSubscriber>> {
+    events_ctx: &mut EventsCtx,
+) {
     let console_opts = cmd.console_opts();
     let event_log_opts = cmd.event_log_opts();
     let mut subscribers = vec![];
@@ -117,25 +116,26 @@ fn default_subscribers<T: StreamingCommand>(
         Vec::new()
     };
 
-    recorder.update_for_client_ctx(
-        ctx,
-        cmd.event_log_opts(),
-        cmd.logging_name(),
-        cmd.sanitize_argv(ctx.argv.clone()).argv,
-        Some(cmd.build_config_opts()),
-        representative_config_flags,
-        log_size_counter_bytes,
-        health_check_tags_receiver,
-        paths,
-    );
-    subscribers.push(Box::new(recorder));
+    if let Some(recorder) = events_ctx.recorder.as_mut() {
+        recorder.update_for_client_ctx(
+            ctx,
+            cmd.event_log_opts(),
+            cmd.logging_name(),
+            cmd.sanitize_argv(ctx.argv.clone()).argv,
+            Some(cmd.build_config_opts()),
+            representative_config_flags,
+            log_size_counter_bytes,
+            health_check_tags_receiver,
+            paths,
+        );
+    }
 
     if let Some(subscriber) = health_check_subscriber {
         subscribers.push(subscriber);
     }
 
     subscribers.extend(cmd.extra_subscribers());
-    subscribers
+    events_ctx.subscribers = subscribers;
 }
 
 /// Trait to generalize the behavior of executable buck2 commands that rely on a server.
@@ -252,13 +252,13 @@ impl<T: StreamingCommand> BuckSubcommand for T {
             .unwrap_or_else(|| ExitResult::status(ExitCode::SignalInterrupt))
     }
 
-    fn subscribers(
+    fn update_events_ctx(
         &self,
         matches: BuckArgMatches<'_>,
         ctx: &ClientCommandContext,
-        recorder: InvocationRecorder,
-    ) -> Vec<Box<dyn EventSubscriber>> {
-        default_subscribers(self, matches, ctx, recorder)
+        events_ctx: &mut EventsCtx,
+    ) {
+        update_events_ctx(self, matches, ctx, events_ctx);
     }
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {

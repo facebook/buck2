@@ -49,7 +49,7 @@ impl StatusCommand {
         ctx: ClientCommandContext<'_>,
     ) -> buck2_error::Result<()> {
         ctx.with_runtime(|ctx| async move {
-            let mut events_ctx = EventsCtx::new(vec![Box::new(StdoutStderrForwarder)]);
+            let mut events_ctx = EventsCtx::new(None, vec![Box::new(StdoutStderrForwarder)]);
             if self.all {
                 let mut daemon_dirs = Vec::new();
                 let root = ctx.paths()?.roots.common_buckd_dir()?;

@@ -45,7 +45,6 @@ use crate::restarter::Restarter;
 use crate::stdin::Stdin;
 use crate::streaming::StreamingCommand;
 use crate::subscribers::recorder::InvocationRecorder;
-use crate::subscribers::subscriber::EventSubscriber;
 
 pub struct ClientCommandContext<'a> {
     init: fbinit::FacebookInit,
@@ -162,13 +161,12 @@ impl<'a> ClientCommandContext<'a> {
             self.restarted_trace_id.dupe(),
             self.start_time,
         );
-        let events_ctx = Arc::new(Mutex::new(EventsCtx::new(
-            cmd.subscribers(matches, &self, recorder),
-        )));
+        let events_ctx = Arc::new(Mutex::new(EventsCtx::new(Some(recorder), vec![])));
         let exec_events_ctx = events_ctx.dupe();
 
         let result = async {
             let mut events_ctx = exec_events_ctx.lock().await;
+            cmd.update_events_ctx(matches, &self, &mut events_ctx);
             let is_streaming_command = cmd.is_streaming_command();
             let result = cmd.exec_impl(matches, self, &mut events_ctx).await;
             events_ctx.handle_exit_result(&result);
@@ -344,25 +342,26 @@ pub trait BuckSubcommand {
     }
 
     // Don't return an error, all logging will break if this fails.
-    fn subscribers(
+    fn update_events_ctx(
         &self,
         _matches: BuckArgMatches<'_>,
         ctx: &ClientCommandContext,
-        mut recorder: InvocationRecorder,
-    ) -> Vec<Box<dyn EventSubscriber>> {
+        events_ctx: &mut EventsCtx,
+    ) {
         let paths = ctx.paths().ok();
-        recorder.update_for_client_ctx(
-            ctx,
-            self.event_log_opts(),
-            self.logging_name(),
-            ctx.argv.argv.clone(),
-            None,
-            Vec::new(),
-            None,
-            None,
-            paths,
-        );
-        vec![Box::new(recorder)]
+        if let Some(recorder) = events_ctx.recorder.as_mut() {
+            recorder.update_for_client_ctx(
+                ctx,
+                self.event_log_opts(),
+                self.logging_name(),
+                ctx.argv.argv.clone(),
+                None,
+                Vec::new(),
+                None,
+                None,
+                paths,
+            );
+        }
     }
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {

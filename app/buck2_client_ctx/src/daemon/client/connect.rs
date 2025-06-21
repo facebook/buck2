@@ -1007,7 +1007,7 @@ async fn get_constraints(
 ) -> buck2_error::Result<buck2_cli_proto::DaemonConstraints> {
     // NOTE: No tailers in bootstrap client, we capture logs if we fail to connect, but
     // otherwise we leave them alone.
-    let status = EventsCtx::new(vec![Box::new(StdoutStderrForwarder)])
+    let status = EventsCtx::new(None, vec![Box::new(StdoutStderrForwarder)])
         .unpack_oneshot(None, {
             client.status(tonic::Request::new(buck2_cli_proto::StatusRequest {
                 snapshot: false,
