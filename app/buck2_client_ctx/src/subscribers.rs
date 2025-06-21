@@ -20,6 +20,5 @@ pub mod recorder;
 pub(crate) mod simpleconsole;
 pub mod stdout_stderr_forwarder;
 pub mod subscriber;
-pub mod subscribers;
 pub mod superconsole;
 pub(crate) mod system_warning;

@@ -18,7 +18,6 @@ use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
-use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
 
 use crate::commands::log::options::EventLogOptions;
 
@@ -79,7 +78,7 @@ impl BuckSubcommand for ReplayCommand {
                 None,
             );
 
-            let res = EventsCtx::new(EventSubscribers::new(vec![console]))
+            let res = EventsCtx::new(vec![console])
                 .unpack_stream::<_, ReplayResult, _>(
                     &mut NoPartialResultHandler,
                     Box::pin(replayer),

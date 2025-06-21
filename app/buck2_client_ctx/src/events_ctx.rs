@@ -10,6 +10,8 @@
 use std::ops::ControlFlow;
 use std::pin::pin;
 use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
@@ -23,6 +25,7 @@ use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
 use futures::stream;
+use futures::stream::FuturesUnordered;
 use gazebo::prelude::VecExt;
 
 use crate::client_cpu_tracker::ClientCpuTracker;
@@ -35,8 +38,9 @@ use crate::daemon::client::NoPartialResultHandler;
 use crate::daemon::client::tonic_status_to_error;
 use crate::exit_result::ExitResult;
 use crate::file_tailers::tailers::FileTailers;
+use crate::subscribers::observer::ErrorObserver;
+use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
-use crate::subscribers::subscribers::EventSubscribers;
 use crate::ticker::Ticker;
 
 /// Target number of self.tick() calls per second. These can be used by implementations for regular updates, for example
@@ -100,7 +104,6 @@ pub struct PartialResultCtx<'a> {
 impl PartialResultCtx<'_> {
     pub async fn stdout(&mut self, bytes: &[u8]) -> buck2_error::Result<()> {
         self.inner
-            .subscribers
             .for_each_subscriber(|subscriber| subscriber.handle_output(bytes))
             .await
     }
@@ -109,7 +112,7 @@ impl PartialResultCtx<'_> {
 /// Manages incoming event streams from the daemon for the buck2 client and
 /// forwards them to the appropriate subscribers registered on this struct
 pub struct EventsCtx {
-    pub(crate) subscribers: EventSubscribers,
+    subscribers: Vec<Box<dyn EventSubscriber>>,
     ticker: Ticker,
     client_cpu_tracker: ClientCpuTracker,
 }
@@ -121,7 +124,7 @@ pub enum FileTailerEvent {
 }
 
 impl EventsCtx {
-    pub fn new(subscribers: EventSubscribers) -> Self {
+    pub fn new(subscribers: Vec<Box<dyn EventSubscriber>>) -> Self {
         Self {
             subscribers,
             ticker: Ticker::new(TICKS_PER_SECOND),
@@ -253,7 +256,7 @@ impl EventsCtx {
         };
 
         let flush_result = self.flush(Some(tailers)).await;
-        let exit_result = self.subscribers.handle_exit().await;
+        let exit_result = self.handle_exit().await;
 
         let command_result = match (command_result, shutdown) {
             (Ok(r), _) => r,
@@ -323,7 +326,6 @@ impl EventsCtx {
     async fn handle_error_owned(&mut self, error: buck2_error::Error) -> buck2_error::Error {
         let error: buck2_error::Error = error.into();
         let result = self
-            .subscribers
             .for_each_subscriber(|subscriber| subscriber.handle_error(&error))
             .await;
         match result {
@@ -363,10 +365,6 @@ impl EventsCtx {
 
         Ok(())
     }
-
-    pub async fn finalize(&mut self) -> Vec<String> {
-        self.subscribers.finalize().await
-    }
 }
 
 /// Convert a CommandResult into a CommandOutcome after the CommandResult has been printed by `handle_command_result`.
@@ -389,8 +387,7 @@ impl EventsCtx {
     async fn handle_tailer_stderr(&mut self, stderr: &[u8]) -> buck2_error::Result<()> {
         let stderr = String::from_utf8_lossy(stderr);
         let stderr = stderr.trim_end();
-        self.subscribers
-            .for_each_subscriber(|subscriber| subscriber.handle_tailer_stderr(stderr))
+        self.for_each_subscriber(|subscriber| subscriber.handle_tailer_stderr(stderr))
             .await
     }
 
@@ -398,8 +395,7 @@ impl EventsCtx {
         &mut self,
         toggle: &Option<SuperConsoleToggle>,
     ) -> buck2_error::Result<()> {
-        self.subscribers
-            .for_each_subscriber(|subscriber| subscriber.handle_console_interaction(toggle))
+        self.for_each_subscriber(|subscriber| subscriber.handle_console_interaction(toggle))
             .await
     }
 
@@ -434,8 +430,7 @@ impl EventsCtx {
             }
             Arc::new(event)
         });
-        self.subscribers
-            .for_each_subscriber(|subscriber| subscriber.handle_events(&events))
+        self.for_each_subscriber(|subscriber| subscriber.handle_events(&events))
             .await
     }
 
@@ -443,8 +438,7 @@ impl EventsCtx {
         &mut self,
         result: &buck2_cli_proto::CommandResult,
     ) -> buck2_error::Result<()> {
-        self.subscribers
-            .for_each_subscriber(|subscriber| subscriber.handle_command_result(result))
+        self.for_each_subscriber(|subscriber| subscriber.handle_command_result(result))
             .await
     }
 
@@ -452,9 +446,103 @@ impl EventsCtx {
     /// A subscriber will have the opportunity to do an arbitrary process at a reliable interval.
     /// In particular, this is crucial for superconsole so that it can draw itself consistently.
     async fn tick(&mut self, tick: &Tick) -> buck2_error::Result<()> {
-        self.subscribers
-            .for_each_subscriber(|subscriber| subscriber.tick(tick))
+        self.for_each_subscriber(|subscriber| subscriber.tick(tick))
             .await
+    }
+
+    /// Helper method to abstract the process of applying an `EventSubscriber` method to all of the subscribers.
+    /// Quits on the first error encountered.
+    pub(crate) async fn for_each_subscriber<'b, Fut>(
+        &'b mut self,
+        f: impl FnMut(&'b mut Box<dyn EventSubscriber>) -> Fut,
+    ) -> buck2_error::Result<()>
+    where
+        Fut: Future<Output = buck2_error::Result<()>> + 'b,
+    {
+        let mut futures: FuturesUnordered<_> = self.subscribers.iter_mut().map(f).collect();
+        while let Some(res) = futures.next().await {
+            res?;
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn handle_exit(&mut self) -> buck2_error::Result<()> {
+        let mut r = Ok(());
+        for subscriber in &mut self.subscribers {
+            // Exit all subscribers, do not stop on first one.
+            let subscriber_err = subscriber.exit().await;
+            if r.is_ok() {
+                // Keep first error.
+                r = subscriber_err;
+            }
+        }
+        r
+    }
+
+    pub(crate) fn handle_daemon_connection_failure(&mut self) {
+        for subscriber in &mut self.subscribers {
+            subscriber.handle_daemon_connection_failure();
+        }
+    }
+
+    pub(crate) fn handle_daemon_started(&mut self, reason: buck2_data::DaemonWasStartedReason) {
+        for subscriber in &mut self.subscribers {
+            subscriber.handle_daemon_started(reason);
+        }
+    }
+
+    pub(crate) fn handle_should_restart(&mut self) {
+        for subscriber in &mut self.subscribers {
+            subscriber.handle_should_restart();
+        }
+    }
+
+    pub(crate) fn handle_instant_command_outcome(&mut self, is_success: bool) {
+        for subscriber in &mut self.subscribers {
+            subscriber.handle_instant_command_outcome(is_success);
+        }
+    }
+
+    pub(crate) fn handle_exit_result(&mut self, exit_result: &ExitResult) {
+        for subscriber in &mut self.subscribers {
+            subscriber.handle_exit_result(exit_result);
+        }
+    }
+
+    pub(crate) fn error_observers(&self) -> impl Iterator<Item = &dyn ErrorObserver> {
+        self.subscribers
+            .iter()
+            .filter_map(|s| s.as_error_observer())
+    }
+
+    pub(crate) async fn eprintln(&mut self, message: &str) -> buck2_error::Result<()> {
+        self.for_each_subscriber(|s| {
+            // TODO(nga): this is not a tailer.
+            s.handle_tailer_stderr(message)
+        })
+        .await
+    }
+
+    pub(crate) async fn finalize(&mut self) -> Vec<String> {
+        let mut errors = Vec::new();
+        for subscriber in &mut self.subscribers {
+            let start = Instant::now();
+            let res = subscriber.finalize().await;
+            let elapsed = start.elapsed();
+            if elapsed > Duration::from_millis(1000) {
+                tracing::warn!("Finalizing \'{}\' took {:?}", subscriber.name(), elapsed);
+            } else {
+                tracing::info!("Finalizing \'{}\' took {:?}", subscriber.name(), elapsed);
+            };
+
+            if let Err(e) = res {
+                errors.push(format!(
+                    "{:?}",
+                    e.context(format!("\'{}\' failed to finalize", subscriber.name()))
+                ));
+            }
+        }
+        errors
     }
 }
 

@@ -41,7 +41,6 @@ use crate::subscribers::health_check_subscriber::HealthCheckSubscriber;
 use crate::subscribers::re_log::ReLog;
 use crate::subscribers::recorder::InvocationRecorder;
 use crate::subscribers::subscriber::EventSubscriber;
-use crate::subscribers::subscribers::EventSubscribers;
 
 const HEALTH_CHECK_CHANNEL_SIZE: usize = 100;
 
@@ -50,7 +49,7 @@ fn default_subscribers<T: StreamingCommand>(
     matches: BuckArgMatches<'_>,
     ctx: &ClientCommandContext,
     mut recorder: InvocationRecorder,
-) -> EventSubscribers {
+) -> Vec<Box<dyn EventSubscriber>> {
     let console_opts = cmd.console_opts();
     let event_log_opts = cmd.event_log_opts();
     let mut subscribers = vec![];
@@ -136,7 +135,7 @@ fn default_subscribers<T: StreamingCommand>(
     }
 
     subscribers.extend(cmd.extra_subscribers());
-    EventSubscribers::new(subscribers)
+    subscribers
 }
 
 /// Trait to generalize the behavior of executable buck2 commands that rely on a server.
@@ -258,7 +257,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
         matches: BuckArgMatches<'_>,
         ctx: &ClientCommandContext,
         recorder: InvocationRecorder,
-    ) -> EventSubscribers {
+    ) -> Vec<Box<dyn EventSubscriber>> {
         default_subscribers(self, matches, ctx, recorder)
     }
 

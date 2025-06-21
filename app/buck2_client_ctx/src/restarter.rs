@@ -31,7 +31,7 @@ impl Restarter {
     /// Observe our BuckdClientConnector after execution to decide whether we should be
     /// restarting.
     pub fn observe(&mut self, client: &BuckdClientConnector, events_ctx: &mut EventsCtx) {
-        for obs in events_ctx.subscribers.error_observers() {
+        for obs in events_ctx.error_observers() {
             if obs.daemon_in_memory_state_is_corrupted() {
                 self.reject_daemon = Some(client.daemon_constraints().daemon_id.clone());
             }
@@ -50,7 +50,7 @@ impl Restarter {
         }
 
         if self.should_restart() {
-            events_ctx.subscribers.handle_should_restart();
+            events_ctx.handle_should_restart();
         }
     }
 

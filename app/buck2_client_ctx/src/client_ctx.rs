@@ -45,7 +45,7 @@ use crate::restarter::Restarter;
 use crate::stdin::Stdin;
 use crate::streaming::StreamingCommand;
 use crate::subscribers::recorder::InvocationRecorder;
-use crate::subscribers::subscribers::EventSubscribers;
+use crate::subscribers::subscriber::EventSubscriber;
 
 pub struct ClientCommandContext<'a> {
     init: fbinit::FacebookInit,
@@ -171,13 +171,11 @@ impl<'a> ClientCommandContext<'a> {
             let mut events_ctx = exec_events_ctx.lock().await;
             let is_streaming_command = cmd.is_streaming_command();
             let result = cmd.exec_impl(matches, self, &mut events_ctx).await;
-            events_ctx.subscribers.handle_exit_result(&result);
+            events_ctx.handle_exit_result(&result);
 
             // TODO(ctolliday) always send ExitResult to recorder and remove this check.
             if !is_streaming_command {
-                events_ctx
-                    .subscribers
-                    .handle_instant_command_outcome(result.is_success());
+                events_ctx.handle_instant_command_outcome(result.is_success());
             }
             result
         }
@@ -351,7 +349,7 @@ pub trait BuckSubcommand {
         _matches: BuckArgMatches<'_>,
         ctx: &ClientCommandContext,
         mut recorder: InvocationRecorder,
-    ) -> EventSubscribers {
+    ) -> Vec<Box<dyn EventSubscriber>> {
         let paths = ctx.paths().ok();
         recorder.update_for_client_ctx(
             ctx,
@@ -364,7 +362,7 @@ pub trait BuckSubcommand {
             None,
             paths,
         );
-        EventSubscribers::new(vec![Box::new(recorder)])
+        vec![Box::new(recorder)]
     }
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {

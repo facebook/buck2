@@ -67,7 +67,6 @@ use crate::immediate_config::ImmediateConfigContext;
 use crate::startup_deadline::StartupDeadline;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
-use crate::subscribers::subscribers::EventSubscribers;
 
 /// The client side matcher for DaemonConstraints.
 #[derive(Clone, Debug)]
@@ -555,7 +554,7 @@ impl BootstrapBuckdClient {
     pub async fn connect(
         paths: &InvocationPaths,
         constraints: BuckdConnectConstraints,
-        event_subscribers: &mut EventSubscribers,
+        events_ctx: &mut EventsCtx,
     ) -> buck2_error::Result<Self> {
         let daemon_dir = paths.daemon_dir()?;
 
@@ -567,7 +566,7 @@ impl BootstrapBuckdClient {
                 establish_connection_existing(&daemon_dir).await
             }
             BuckdConnectConstraints::Constraints(constraints) => {
-                establish_connection(paths, constraints, event_subscribers).await
+                establish_connection(paths, constraints, events_ctx).await
             }
         };
 
@@ -616,13 +615,13 @@ pub async fn connect_buckd(
     events_ctx: &mut EventsCtx,
     paths: &InvocationPaths,
 ) -> buck2_error::Result<BuckdClientConnector> {
-    match BootstrapBuckdClient::connect(paths, constraints, &mut events_ctx.subscribers)
+    match BootstrapBuckdClient::connect(paths, constraints, events_ctx)
         .await
         .map_err(buck2_error::Error::from)
     {
         Ok(client) => Ok(client.to_connector()),
         Err(e) => {
-            events_ctx.subscribers.handle_daemon_connection_failure();
+            events_ctx.handle_daemon_connection_failure();
             Err(e.into())
         }
     }
@@ -650,7 +649,7 @@ pub async fn establish_connection_existing(
 async fn establish_connection(
     paths: &InvocationPaths,
     constraints: DaemonConstraintsRequest,
-    event_subscribers: &mut EventSubscribers,
+    events_ctx: &mut EventsCtx,
 ) -> buck2_error::Result<BootstrapBuckdClient> {
     // There are many places where `establish_connection_inner` may hang.
     // If it does, better print something to the user instead of hanging quietly forever.
@@ -659,7 +658,7 @@ async fn establish_connection(
     deadline
         .down(
             "establishing connection to Buck daemon or start a daemon",
-            |timeout| establish_connection_inner(paths, constraints, timeout, event_subscribers),
+            |timeout| establish_connection_inner(paths, constraints, timeout, events_ctx),
         )
         .await
         .map_err(buck2_error::Error::from)
@@ -693,7 +692,7 @@ async fn establish_connection_inner(
     paths: &InvocationPaths,
     constraints: DaemonConstraintsRequest,
     deadline: StartupDeadline,
-    event_subscribers: &mut EventSubscribers,
+    events_ctx: &mut EventsCtx,
 ) -> buck2_error::Result<BootstrapBuckdClient> {
     let daemon_dir = paths.daemon_dir()?;
 
@@ -747,7 +746,7 @@ async fn establish_connection_inner(
                             }
                         }
 
-                        event_subscribers
+                        events_ctx
                             .eprintln(&format!(
                                 "buck2 daemon constraint mismatch: {reason}; killing daemon..."
                             ))
@@ -760,9 +759,7 @@ async fn establish_connection_inner(
                             )
                             .await?;
 
-                        event_subscribers
-                            .eprintln("Starting new buck2 daemon...")
-                            .await?;
+                        events_ctx.eprintln("Starting new buck2 daemon...").await?;
 
                         reason.to_daemon_was_started_reason()
                     }
@@ -771,7 +768,7 @@ async fn establish_connection_inner(
                         hard_kill_until(&buckd_info.info, deadline.down_deadline()?.deadline())
                             .await?;
 
-                        event_subscribers
+                        events_ctx
                             .eprintln(&format!(
                                 "Could not connect to buck2 daemon ({}), starting a new one...",
                                 explain_failed_to_connect_reason(reason)
@@ -783,14 +780,12 @@ async fn establish_connection_inner(
                 }
             }
             Ok(None) => {
-                event_subscribers
-                    .eprintln("Starting new buck2 daemon...")
-                    .await?;
+                events_ctx.eprintln("Starting new buck2 daemon...").await?;
 
                 buck2_data::DaemonWasStartedReason::NoBuckdInfo
             }
             Err(e) => {
-                event_subscribers
+                events_ctx
                     .eprintln(&format!(
                         "Could not load buckd.info: {}, starting new buck2 daemon...",
                         e
@@ -814,7 +809,7 @@ async fn establish_connection_inner(
                     &lifecycle_lock,
                     paths,
                     &constraints,
-                    event_subscribers,
+                    events_ctx,
                     daemon_was_started_reason,
                 )
             },
@@ -827,7 +822,7 @@ async fn start_new_buckd_and_connect(
     lifecycle_lock: &BuckdLifecycle<'_>,
     paths: &InvocationPaths,
     constraints: &DaemonConstraintsRequest,
-    event_subscribers: &mut EventSubscribers,
+    events_ctx: &mut EventsCtx,
     daemon_was_started_reason: buck2_data::DaemonWasStartedReason,
 ) -> buck2_error::Result<BootstrapBuckdClient> {
     // Daemon dir may be corrupted. Safer to delete it.
@@ -860,9 +855,9 @@ async fn start_new_buckd_and_connect(
         .into());
     }
 
-    event_subscribers.handle_daemon_started(daemon_was_started_reason);
+    events_ctx.handle_daemon_started(daemon_was_started_reason);
 
-    event_subscribers
+    events_ctx
         .eprintln("Connected to new buck2 daemon.")
         .await?;
 
@@ -1012,7 +1007,7 @@ async fn get_constraints(
 ) -> buck2_error::Result<buck2_cli_proto::DaemonConstraints> {
     // NOTE: No tailers in bootstrap client, we capture logs if we fail to connect, but
     // otherwise we leave them alone.
-    let status = EventsCtx::new(EventSubscribers::new(vec![Box::new(StdoutStderrForwarder)]))
+    let status = EventsCtx::new(vec![Box::new(StdoutStderrForwarder)])
         .unpack_oneshot(None, {
             client.status(tonic::Request::new(buck2_cli_proto::StatusRequest {
                 snapshot: false,
