@@ -50,6 +50,7 @@ load(
     "EntryPoint",
     "EntryPointKind",
 )
+load(":internal_tools.bzl", "PythonInternalToolsInfo")
 load(":make_py_package.bzl", "PexModules", "PexProviders", "make_py_package")
 load(
     ":manifest.bzl",
@@ -280,6 +281,7 @@ def _compute_pex_providers(
     link_strategy = compute_link_strategy(ctx)
     build_args = ctx.attrs.build_args
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
+    python_internal_tools = ctx.attrs._python_internal_tools[PythonInternalToolsInfo]
 
     if link_strategy == NativeLinkStrategy("native"):
         entry_point = "runtime/bin/{}".format(ctx.attrs.executable_name)
@@ -288,8 +290,7 @@ def _compute_pex_providers(
     if dbg_source_db_output:
         extra_artifacts["dbg-db.json"] = dbg_source_db_output
 
-    if python_toolchain.default_sitecustomize != None:
-        extra_artifacts["sitecustomize.py"] = python_toolchain.default_sitecustomize
+    extra_artifacts["sitecustomize.py"] = python_internal_tools.default_sitecustomize
 
     # Add bundled runtime
     if ctx.attrs.runtime_bundle:

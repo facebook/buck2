@@ -1,8 +1,14 @@
+load("@prelude//python:internal_tools.bzl", "python_internal_tools")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
 oncall("build_infra")
 
 source_listing()
+
+python_internal_tools(
+    name = "python_internal_tools",
+    visibility = ["PUBLIC"],
+)
 
 prelude = native
 

@@ -100,6 +100,7 @@ def _python_executable_attrs():
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
+        "_python_internal_tools": python_common.internal_tools_arg(),
         "_python_toolchain": toolchains_common.python(),
         "_target_os_type": buck.target_os_type_arg(),
     })
@@ -124,6 +125,7 @@ def _python_binary_attrs():
     binary_attrs.update({
         "link_style": attrs.enum(LinkableDepType, default = "static"),
         "_package_remotely": attrs.bool(default = _package_python_binary_remotely()),
+        "_python_internal_tools": python_common.internal_tools_arg(),
         "_python_toolchain": toolchains_common.python(),
     })
     return binary_attrs
@@ -263,6 +265,7 @@ cxx_python_extension = prelude_rule(
             "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
             "_cxx_toolchain": toolchains_common.cxx(),
             # Copied from python_library.
+            "_python_internal_tools": python_common.internal_tools_arg(),
             "_python_toolchain": toolchains_common.python(),
             "_target_os_type": buck.target_os_type_arg(),
         }
@@ -350,6 +353,7 @@ prebuilt_python_library = prelude_rule(
             ),
             "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
             "_extract": attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:extract")),
+            "_python_internal_tools": python_common.internal_tools_arg(),
             "_python_toolchain": toolchains_common.python(),
             "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         }
@@ -503,6 +507,7 @@ python_library = prelude_rule(
             "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
             "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
             "_cxx_toolchain": toolchains_common.cxx(),
+            "_python_internal_tools": python_common.internal_tools_arg(),
             "_python_toolchain": toolchains_common.python(),
         } |
         _typing_arg()
