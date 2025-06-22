@@ -7,6 +7,7 @@
 
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
+load(":internal_tools.bzl", "PythonInternalToolsInfo")
 load(
     ":manifest.bzl",
     "ManifestInfo",  # @unused Used as a type
@@ -30,7 +31,8 @@ def create_dbg_source_db(
     artifacts = []
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
-    cmd = cmd_args(python_toolchain.make_source_db)
+    python_internal_tools = ctx.attrs._python_internal_tools[PythonInternalToolsInfo]
+    cmd = cmd_args(python_internal_tools.make_source_db)
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
 
     # Pass manifests for rule's sources.
@@ -64,7 +66,7 @@ def create_source_db_no_deps_from_manifest(
         ctx: AnalysisContext,
         srcs: ManifestInfo) -> DefaultInfo:
     output = ctx.actions.declare_output("db_no_deps.json")
-    cmd = cmd_args(ctx.attrs._python_toolchain[PythonToolchainInfo].make_source_db_no_deps)
+    cmd = cmd_args(ctx.attrs._python_internal_tools[PythonInternalToolsInfo].make_source_db_no_deps)
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
     cmd.add(srcs.manifest)
     ctx.actions.run(cmd, category = "py_source_db")

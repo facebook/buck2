@@ -9,6 +9,7 @@ load(
     "@prelude//cxx:link_groups_types.bzl",
     "LINK_GROUP_MAP_ATTR",
 )
+load("@prelude//python:internal_tools.bzl", "PythonInternalToolsInfo")
 load("@prelude//python:toolchain.bzl", "PythonToolchainInfo")
 load("@prelude//python/linking:native.bzl", "process_native_linking")
 
@@ -67,11 +68,13 @@ python_implicit_attrs = {
 
 def _process_native_linking_rule_impl(ctx):
     python_toolchain = ctx.attrs.python_toolchain[PythonToolchainInfo]
+    python_internal_tools = ctx.attrs._python_internal_tools[PythonInternalToolsInfo]
     raw_deps = ctx.attrs.deps
     shared_libs, extensions, link_args, extra, extra_artifacts = process_native_linking(
         ctx,
         raw_deps,
         python_toolchain,
+        python_internal_tools,
         ctx.attrs.package_style,
         ctx.attrs.allow_cache_upload,
     )
@@ -93,5 +96,6 @@ process_native_linking_rule = rule(
         "static_extension_utils": attrs.source(),
         "use_anon_target_for_analysis": attrs.bool(default = True),
         "_cxx_toolchain": attrs.dep(),
+        "_python_internal_tools": attrs.dep(),
     } | cxx_implicit_attrs | python_implicit_attrs,
 )

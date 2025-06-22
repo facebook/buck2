@@ -61,6 +61,7 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//linking:types.bzl", "Linkage")
+load("@prelude//python:internal_tools.bzl", "PythonInternalToolsInfo")
 load("@prelude//python:toolchain.bzl", "PackageStyle")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load(":native_python_util.bzl", "CxxExtensionLinkInfo", "CxxExtensionLinkInfoReduced", "merge_cxx_extension_info", "reduce_cxx_extension_info")  # @unused Used as a type
@@ -332,7 +333,13 @@ def _compute_cxx_executable_info(
 
     return cxx_executable(ctx, impl_params)
 
-def process_native_linking(ctx, deps, python_toolchain, package_style, allow_cache_upload) -> (
+def process_native_linking(
+        ctx,
+        deps,
+        python_toolchain,
+        python_internal_tools: PythonInternalToolsInfo,
+        package_style,
+        allow_cache_upload) -> (
     list[(SharedLibrary, str)],
     dict[str, (LinkedObject, Label)],
     list[LinkArgs],
@@ -359,7 +366,7 @@ def process_native_linking(ctx, deps, python_toolchain, package_style, allow_cac
         ),
     )
     cmd = cmd_args()
-    cmd.add(cmd_args(python_toolchain.generate_static_extension_info[RunInfo]))
+    cmd.add(cmd_args(python_internal_tools.generate_static_extension_info[RunInfo]))
     cmd.add(cmd_args(argfile))
     cmd.add(cmd_args(static_extension_info_out.as_output(), format = "--output={}"))
 

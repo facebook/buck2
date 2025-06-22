@@ -38,6 +38,7 @@ load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":compile.bzl", "PycInvalidationMode")
 load(":interface.bzl", "EntryPoint", "EntryPointKind", "PythonLibraryManifestsInterface")
+load(":internal_tools.bzl", "PythonInternalToolsInfo")
 load(":manifest.bzl", "ManifestInfo")  # @unused Used as a type
 load(":python.bzl", "manifests_to_interface")
 load(":python_library.bzl", "gather_dep_libraries")
@@ -102,16 +103,17 @@ def make_py_package_providers(
 
     return providers
 
-def live_par_generated_files(
+def _live_par_generated_files(
         ctx: AnalysisContext,
         output: Artifact,
         python_toolchain: PythonToolchainInfo,
+        python_internal_tools: PythonInternalToolsInfo,
         build_args: list[ArgLike],
         main: EntryPoint,
         preload_libraries: ArgLike,
         output_suffix: str) -> list[(Artifact, str)]:
     artifacts = []
-    artifacts.append((python_toolchain.run_lpar_main, "__run_lpar_main__.py"))
+    artifacts.append((python_internal_tools.run_lpar_main, "__run_lpar_main__.py"))
 
     lpar_bootstrap = ctx.actions.declare_output("_bootstrap.sh{}".format(output_suffix))
     gen_bootstrap = cmd_args(python_toolchain.gen_lpar_bootstrap[RunInfo])
@@ -168,12 +170,12 @@ def _srcs(srcs: list[typing.Any], format = "{}") -> cmd_args:
 
 def _fail_at_build_time(
         ctx: AnalysisContext,
-        python_toolchain: PythonToolchainInfo,
+        python_internal_tools: PythonInternalToolsInfo,
         msg: str) -> PexProviders:
     error_message = ctx.actions.write("__error_message", msg)
     dummy_output = ctx.actions.declare_output("__dummy_output")
     cmd = cmd_args([
-        python_toolchain.fail_with_message,
+        python_internal_tools.fail_with_message,
         error_message,
         dummy_output.as_output(),
     ])
@@ -189,11 +191,11 @@ def _fail_at_build_time(
 
 def _fail(
         ctx: AnalysisContext,
-        python_toolchain: PythonToolchainInfo,
+        python_internal_tools: PythonInternalToolsInfo,
         suffix: str,
         msg: str) -> PexProviders:
     if suffix:
-        return _fail_at_build_time(ctx, python_toolchain, msg)
+        return _fail_at_build_time(ctx, python_internal_tools, msg)
 
     # suffix is empty, which means this is the default subtarget. All failures must
     # occur at analysis time
@@ -206,6 +208,7 @@ def _fail(
 def make_py_package(
         ctx: AnalysisContext,
         python_toolchain: PythonToolchainInfo,
+        python_internal_tools: PythonInternalToolsInfo,
         # A rule-provided tool to use to build the PEX.
         make_py_package_cmd: RunInfo | None,
         package_style: PackageStyle,
@@ -261,7 +264,7 @@ def make_py_package(
     )
     generated_files.append((startup_functions_loader, "__par__/__startup_function_loader__.py"))
 
-    manifest_module = generate_manifest_module(ctx, manifest_module_entries, python_toolchain, srcs)
+    manifest_module = _generate_manifest_module(ctx, manifest_module_entries, python_internal_tools, srcs)
     if manifest_module:
         generated_files.append((manifest_module.artifacts[1], "__manifest__.py"))
         generated_files.append((manifest_module.artifacts[0], "__manifest__.json"))
@@ -277,6 +280,7 @@ def make_py_package(
     default = _make_py_package_wrapper(
         ctx,
         python_toolchain,
+        python_internal_tools,
         make_py_package_cmd,
         package_style,
         build_args,
@@ -321,6 +325,7 @@ def make_py_package(
             _make_py_package_wrapper(
                 ctx,
                 python_toolchain,
+                python_internal_tools,
                 make_py_package_cmd,
                 PackageStyle("inplace"),
                 build_args,
@@ -342,6 +347,7 @@ def make_py_package(
         pex_providers = default if style == package_style.value else _make_py_package_wrapper(
             ctx,
             python_toolchain,
+            python_internal_tools,
             make_py_package_cmd,
             PackageStyle(style),
             build_args,
@@ -371,6 +377,7 @@ def make_py_package(
 def _make_py_package_wrapper(
         ctx: AnalysisContext,
         python_toolchain: PythonToolchainInfo,
+        python_internal_tools: PythonInternalToolsInfo,
         make_py_package_cmd: RunInfo | None,
         package_style: PackageStyle,
         build_args: list[ArgLike],
@@ -396,11 +403,13 @@ def _make_py_package_wrapper(
             shared_libraries,
             generated_files,
             python_toolchain,
+            python_internal_tools,
             output_suffix,
         )
     return _make_py_package_impl(
         ctx,
         python_toolchain,
+        python_internal_tools,
         make_py_package_cmd,
         package_style,
         build_args,
@@ -419,6 +428,7 @@ def _make_py_package_wrapper(
 def _make_py_package_impl(
         ctx: AnalysisContext,
         python_toolchain: PythonToolchainInfo,
+        python_internal_tools: PythonInternalToolsInfo,
         make_py_package_cmd: RunInfo | None,
         package_style: PackageStyle,
         build_args: list[ArgLike],
@@ -443,7 +453,7 @@ def _make_py_package_impl(
             # constructing this error message is expensive, only do it when we abort analysis
             error_msg = "standalone builds don't support hidden resources" if output_suffix else _hidden_resources_error_message(ctx.label, pex_modules.manifests.hidden_resources(standalone))
 
-            return _fail(ctx, python_toolchain, output_suffix, error_msg)
+            return _fail(ctx, python_internal_tools, output_suffix, error_msg)
         else:
             hidden_resources = pex_modules.manifests.hidden_resources(standalone)
 
@@ -457,7 +467,7 @@ def _make_py_package_impl(
         if python_toolchain.make_py_package_standalone == None:
             return _fail(
                 ctx,
-                python_toolchain,
+                python_internal_tools,
                 output_suffix,
                 "Python toolchain does not provide make_py_package_standalone",
             )
@@ -535,11 +545,11 @@ def _make_py_package_impl(
         )
 
     else:
-        modules = cmd_args(python_toolchain.make_py_package_modules)
+        modules = cmd_args(python_internal_tools.make_py_package_modules)
         modules.add(modules_args)
         ctx.actions.run(modules, category = "par", identifier = "modules{}".format(output_suffix))
 
-        bootstrap = cmd_args(python_toolchain.make_py_package_inplace)
+        bootstrap = cmd_args(python_internal_tools.make_py_package_inplace)
         bootstrap.add(bootstrap_args)
         if python_toolchain.native_library_env_var != None:
             bootstrap.add(cmd_args(python_toolchain.native_library_env_var, format = "--native-libs-env-var={}"))
@@ -586,6 +596,7 @@ def _make_py_package_live(
         shared_libraries: list[(SharedLibrary, str)],
         common_generated_files: list[(Artifact, str)],
         python_toolchain: PythonToolchainInfo,
+        python_internal_tools: PythonInternalToolsInfo,
         output_suffix: str) -> PexProviders:
     """
     Bundle contents of par into symlink dir
@@ -628,7 +639,16 @@ def _make_py_package_live(
 
     generated_files = []
     generated_files.extend(common_generated_files)
-    generated_files.extend(live_par_generated_files(ctx, output, python_toolchain, build_args, main, preload_libraries, output_suffix))
+    generated_files.extend(_live_par_generated_files(
+        ctx,
+        output,
+        python_toolchain,
+        python_internal_tools,
+        build_args,
+        main,
+        preload_libraries,
+        output_suffix,
+    ))
 
     cmd = cmd_args(make_py_package_live)
     cmd.add(cmd_args(symlink_tree_path.as_output(), format = "--output-path={}"))
@@ -1177,10 +1197,10 @@ def load_startup_functions():
     )
     return src_startup_functions_path
 
-def generate_manifest_module(
+def _generate_manifest_module(
         ctx: AnalysisContext,
         manifest_module_entries: dict[str, typing.Any] | None,
-        python_toolchain: PythonToolchainInfo,
+        python_internal_tools: PythonInternalToolsInfo,
         src_manifests: list[ArgLike]) -> ManifestModule | None:
     """
     Generates a __manifest__.py module, and an extra entry to add to source manifests.
@@ -1198,7 +1218,7 @@ def generate_manifest_module(
         _srcs(src_manifests, format = "--module-manifest={}"),
     )
     cmd = cmd_args(
-        python_toolchain.make_py_package_manifest_module,
+        python_internal_tools.make_py_package_manifest_module,
         ["--manifest-entries", entries_json],
         cmd_args(src_manifests_path, format = "@{}"),
         ["--output", module.as_output()],

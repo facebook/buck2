@@ -155,10 +155,9 @@ def python_executable(
     src_manifest = None
     bytecode_manifest = None
 
-    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
-    if python_toolchain.runtime_library and ArtifactGroupInfo in python_toolchain.runtime_library:
-        for artifact in python_toolchain.runtime_library[ArtifactGroupInfo].artifacts:
-            srcs[artifact.short_path] = artifact
+    python_internal_tools = ctx.attrs._python_internal_tools[PythonInternalToolsInfo]
+    for artifact in python_internal_tools.runtime_library[ArtifactGroupInfo].artifacts:
+        srcs[artifact.short_path] = artifact
 
     if srcs:
         src_manifest = create_manifest_for_source_map(ctx, "srcs", srcs)
@@ -381,6 +380,7 @@ def _compute_pex_providers(
     pex = make_py_package(
         ctx = ctx,
         python_toolchain = python_toolchain,
+        python_internal_tools = python_internal_tools,
         make_py_package_cmd = ctx.attrs.make_py_package[RunInfo] if ctx.attrs.make_py_package != None else None,
         package_style = package_style,
         build_args = build_args,
@@ -413,6 +413,7 @@ def _convert_python_library_to_executable(
     extra = {}
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
+    python_internal_tools = ctx.attrs._python_internal_tools[PythonInternalToolsInfo]
     package_style = get_package_style(ctx)
 
     extra_artifacts = {}
@@ -436,6 +437,7 @@ def _convert_python_library_to_executable(
                 "rpath": ctx.attrs.name,
                 "static_extension_utils": ctx.attrs.static_extension_utils,
                 "_cxx_toolchain": ctx.attrs._cxx_toolchain,
+                "_python_internal_tools": ctx.attrs._python_internal_tools,
             }
             implicit_attrs = {
                 a: getattr(ctx.attrs, a)
@@ -465,6 +467,7 @@ def _convert_python_library_to_executable(
                 ctx,
                 deps,
                 python_toolchain,
+                python_internal_tools,
                 package_style,
                 allow_cache_upload,
             )
