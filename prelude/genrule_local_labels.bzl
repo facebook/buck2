@@ -225,6 +225,10 @@ _GENRULE_LOCAL_LABELS = set([
     # Need to build sgw containers on devserver and not on RE
     # We pull base image from internet
     "sgw_build_containers",
+
+    # Needs to pull docker image from a docker
+    # registry hosted on our internal network
+    "uses_docker_registry",
 ])
 
 def genrule_labels_require_local(labels):
