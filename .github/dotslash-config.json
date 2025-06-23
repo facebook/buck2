@@ -11,6 +11,10 @@
             "regex": "^buck2-aarch64-unknown-linux-musl.zst$",
             "path": "buck2-aarch64-unknown-linux-musl"
           },
+          "linux-riscv64": {
+            "regex": "^buck2-riscv64gc-unknown-linux-gnu.zst$",
+            "path": "buck2-riscv64gc-unknown-linux-gnu"
+          },
           "macos-x86_64": {
             "regex": "^buck2-x86_64-apple-darwin.zst$",
             "path": "buck2-x86_64-apple-darwin"
@@ -34,6 +38,10 @@
           "linux-aarch64": {
             "regex": "^rust-project-aarch64-unknown-linux-musl.zst$",
             "path": "rust-project-aarch64-unknown-linux-musl"
+          },
+          "linux-riscv64": {
+            "regex": "^rust-project-riscv64gc-unknown-linux-gnu.zst$",
+            "path": "rust-project-riscv64gc-unknown-linux-gnu"
           },
           "macos-x86_64": {
             "regex": "^rust-project-x86_64-apple-darwin.zst$",
