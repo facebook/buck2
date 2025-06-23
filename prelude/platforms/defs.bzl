@@ -47,6 +47,8 @@ def _host_cpu_configuration() -> str:
         return "prelude//cpu:arm32"
     elif arch.is_i386:
         return "prelude//cpu:x86_32"
+    elif arch.is_riscv64:
+        return "prelude//cpu:riscv64"
     else:
         return "prelude//cpu:x86_64"
 

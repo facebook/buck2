@@ -11,6 +11,7 @@ os_lookup(
         "DEFAULT": None,
         "config//cpu:arm64": "arm64",
         "config//cpu:x86_64": "x86_64",
+        "config//cpu:riscv64": "riscv64",
     }),
     os = select({
         # FIXME(JakobDegen): No default
