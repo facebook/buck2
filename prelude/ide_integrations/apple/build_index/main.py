@@ -21,12 +21,22 @@ def parse_arguments() -> Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--dest", type=str, required=True)
     parser.add_argument("-t", "--target", type=str, required=True, nargs="+")
+    parser.add_argument(
+        "-c", "--config", action="append", help="Buck configuration flags"
+    )
     return parser.parse_args()
 
 
-def run_bxl_and_merge_index(targets: list[str], dest: str) -> None:
+def run_bxl_and_merge_index(
+    targets: list[str], dest: str, configs: list[str] = None
+) -> None:
     targets_str = " ".join(targets)
-    command = f"buck2 bxl {BXL} -- --target {targets_str}"
+    config_flags = ""
+    if configs:
+        config_flags = " ".join([f"-c {config}" for config in configs])
+        command = f"buck2 bxl {config_flags} {BXL} -- --target {targets_str}"
+    else:
+        command = f"buck2 bxl {BXL} -- --target {targets_str}"
     process = subprocess.Popen(
         command,
         shell=True,
@@ -63,7 +73,7 @@ def run_bxl_and_merge_index(targets: list[str], dest: str) -> None:
 def main() -> None:
     args = parse_arguments()
     Path(args.dest).mkdir(parents=True, exist_ok=True)
-    run_bxl_and_merge_index(args.target, args.dest)
+    run_bxl_and_merge_index(args.target, args.dest, args.config)
 
 
 if __name__ == "__main__":
