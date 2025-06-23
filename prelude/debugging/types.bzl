@@ -31,6 +31,14 @@ TargetInfo = record(
     labels = field(list[str], default = []),
 )
 
+# TODO(toyang): opting for a separate struct since ExecInfo grabs target info as well, and the recommended build configs aren't relevant. We also want to avoid querying for them again.
+# if the target recommends a certain build configuration (e.g. build mode, buck config flags).
+TargetPreExecInfo = record(
+    target_info = field(TargetInfo),
+    recommended_build_mode = field(str | None),
+    recommended_build_config = field(list[str]),
+)
+
 # This type mostly represent internal quirks of how python binary debugging is done.
 PythonInfo = record(
     # TODO: probably unused keeping for safety
