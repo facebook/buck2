@@ -12,6 +12,7 @@ import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from buck2.tests.core.common.io.file_watcher import (
     FileWatcherEvent,
@@ -386,6 +387,19 @@ async def test_edenfs_duplicated_notifications(buck: Buck) -> None:
     ]
 
 
+def get_eden_version(buck: Buck) -> Optional[datetime]:
+    eden_out = subprocess.check_output(["eden", "-v"], cwd=buck.cwd).decode()
+    match = re.search(r"Running:\s*(\d+)", eden_out)
+    if match:
+        return datetime.strptime(match.group(1).strip(), "%Y%m%d")
+    else:
+        # if eden is not running, take installed version
+        match = re.search(r"Installed:\s*(\d+)", eden_out)
+        if match:
+            return datetime.strptime(match.group(1).strip(), "%Y%m%d")
+    return None
+
+
 @buck_test(setup_eden=True)
 async def test_edenfs_hg_clean_update(buck: Buck) -> None:
     await setup_file_watcher_test(buck)
@@ -405,21 +419,19 @@ async def test_edenfs_hg_clean_update(buck: Buck) -> None:
 
     subprocess.run(["hg", "up", "-C", "."], cwd=buck.cwd)
 
-    eden_out = subprocess.check_output(["eden", "-v"], cwd=buck.cwd).decode()
-    version_pattern = r"Running:\s*([^-]+)"
-    match = re.search(version_pattern, eden_out)
+    eden_version = get_eden_version(buck)
+    assert eden_version is not None, "Failed to get eden version"
+
     expected_result = []
-    if match:
-        eden_date = datetime.strptime(match.group(1).strip(), "%Y%m%d")
-        # the bug was fixed in eden newer than this version
-        if eden_date >= datetime(2025, 6, 12, 0, 0, 0):
-            # hg up -C . deletes all the changes and eden should report modification in `root//files/abc`
-            expected_result.append(
-                FileWatcherEvent(
-                    FileWatcherEventType.MODIFY,
-                    FileWatcherKind.FILE,
-                    "root//files/abc",
-                )
+    if eden_version >= datetime(2025, 6, 12, 0, 0, 0):
+        # hg up -C . deletes all the changes and eden should report modification in `root//files/abc`
+        expected_result.append(
+            FileWatcherEvent(
+                FileWatcherEventType.MODIFY,
+                FileWatcherKind.FILE,
+                "root//files/abc",
             )
+        )
+
     _, results = await get_file_watcher_events(buck)
     assert results == expected_result
