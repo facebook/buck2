@@ -12,7 +12,6 @@ package com.facebook.buck.android.exopackage;
 import com.facebook.buck.android.AdbHelper;
 import com.facebook.buck.android.AndroidInstallPrinter;
 import com.facebook.buck.android.IsolatedApkInfo;
-import com.facebook.buck.android.agent.util.AgentUtil;
 import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.util.log.Logger;
@@ -237,7 +236,7 @@ public class ExopackageInstaller {
 
     LOG.debug("App path: %s", appPackageInfo.get().apkPath);
     String installedAppSignature = getInstalledAppSignature(appPackageInfo.get().apkPath);
-    String localAppSignature = AgentUtil.getJarSignature(apkInfo.getApkPath().toString());
+    String localAppSignature = ExopackageUtil.getJarSignature(apkInfo.getApkPath().toString());
     LOG.info("Local app signature: %s", localAppSignature);
     LOG.info("Remote app signature: %s", installedAppSignature);
 
