@@ -15,6 +15,7 @@ run = bxl_main(
     doc = "Run [typecheck] on the owning targets of given files.",
     impl = _run_entry_point,
     cli_args = {
+        "client-metadata": cli_args.option(cli_args.string(doc = "Passed through to buck as --client-metadata")),
         "keep-going": cli_args.bool(
             default = False,
             doc = "Keep going on unconfigured target failures",
