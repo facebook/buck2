@@ -15,7 +15,6 @@ use std::sync::atomic::Ordering;
 use allocative::Allocative;
 use dupe::Dupe;
 use either::Either;
-use starlark::StarlarkResultExt;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
@@ -108,16 +107,11 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
     ) -> starlark::Result<Either<StarlarkTaggedValue<'v>, StarlarkTaggedCommandLine<'v>>> {
         let value = StarlarkTaggedValue::new(inner, this.dupe());
 
-        Ok(
-            if ValueAsCommandLineLike::unpack_value(inner)
-                .into_anyhow_result()?
-                .is_some()
-            {
-                Either::Right(StarlarkTaggedCommandLine::new(value))
-            } else {
-                Either::Left(value)
-            },
-        )
+        Ok(if ValueAsCommandLineLike::unpack_value(inner)?.is_some() {
+            Either::Right(StarlarkTaggedCommandLine::new(value))
+        } else {
+            Either::Left(value)
+        })
     }
 
     fn tag_inputs<'v>(
@@ -126,16 +120,11 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
     ) -> starlark::Result<Either<StarlarkTaggedValue<'v>, StarlarkTaggedCommandLine<'v>>> {
         let value = StarlarkTaggedValue::inputs_only(inner, this.dupe());
 
-        Ok(
-            if ValueAsCommandLineLike::unpack_value(inner)
-                .into_anyhow_result()?
-                .is_some()
-            {
-                Either::Right(StarlarkTaggedCommandLine::new(value))
-            } else {
-                Either::Left(value)
-            },
-        )
+        Ok(if ValueAsCommandLineLike::unpack_value(inner)?.is_some() {
+            Either::Right(StarlarkTaggedCommandLine::new(value))
+        } else {
+            Either::Left(value)
+        })
     }
 }
 
