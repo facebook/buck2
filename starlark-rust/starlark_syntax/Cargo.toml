@@ -22,7 +22,7 @@ anyhow = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
 lalrpop-util = "0.19.7"
-logos = "0.12"
+logos = "0.15"
 lsp-types = "0.94.1"
 memchr = { workspace = true }
 num-bigint = "0.4.3"
