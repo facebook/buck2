@@ -9,7 +9,6 @@
 
 package com.facebook.buck.android.exopackage
 
-import com.android.ddmlib.InstallException
 import com.facebook.buck.core.util.log.Logger
 import com.facebook.buck.installer.android.AndroidInstallException
 import com.google.common.base.Splitter
@@ -134,7 +133,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     }
   }
 
-  @Throws(InstallException::class)
+  @Throws(Exception::class)
   override fun uninstallPackage(packageName: String) {
     executeAdbCommandCatching("uninstall $packageName", "Failed to uninstall $packageName.")
   }

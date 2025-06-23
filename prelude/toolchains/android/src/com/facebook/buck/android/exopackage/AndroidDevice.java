@@ -9,7 +9,6 @@
 
 package com.facebook.buck.android.exopackage;
 
-import com.android.ddmlib.InstallException;
 import com.google.common.collect.ImmutableSortedSet;
 import java.io.File;
 import java.nio.file.Path;
@@ -37,7 +36,7 @@ public interface AndroidDevice {
 
   Optional<PackageInfo> getPackageInfo(String packageName) throws Exception;
 
-  void uninstallPackage(String packageName) throws InstallException;
+  void uninstallPackage(String packageName) throws Exception;
 
   String getSignature(String packagePath) throws Exception;
 
