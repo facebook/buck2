@@ -33,6 +33,7 @@ public class KotlinCDMain {
       KotlinCDCommand command = new KotlinCDCommand(args, ImmutableMap.copyOf(System.getenv()));
       Logger logger = Logger.get(KotlinCDMain.class.getName());
       logger.info(String.format("Starting KotlinCDWorkerTool %s", command));
+      System.setErr(new KotlinStdErrInterceptor());
       CompilerDaemonRunner.run(command);
       command.postExecute();
     } catch (CmdLineException e) {

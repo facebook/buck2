@@ -12,6 +12,7 @@ package com.facebook.buck.jvm.cd.workertool.grpc;
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.jvm.cd.CompilerDaemonRunner;
 import com.facebook.buck.jvm.cd.JvmCDCommand;
+import com.facebook.buck.jvm.kotlin.cd.workertool.KotlinStdErrInterceptor;
 import com.facebook.buck.step.StepExecutionResult;
 import com.facebook.buck.worker.model.ExecuteCommand;
 import com.facebook.buck.worker.model.ExecuteResponse;
@@ -88,7 +89,7 @@ public class WorkerGrpcService extends WorkerGrpc.WorkerImplBase {
       LOG.error(error);
       return ExecuteResponse.newBuilder()
           .setExitCode(result.getExitCode())
-          .setStderr(error)
+          .setStderr(KotlinStdErrInterceptor.prettyPrint(error))
           .build();
     }
     command.postExecute();
