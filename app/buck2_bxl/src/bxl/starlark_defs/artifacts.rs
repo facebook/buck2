@@ -189,16 +189,25 @@ pub(crate) enum ArtifactArg<'v> {
 }
 
 impl<'v> ArtifactArg<'v> {
-    pub(crate) fn into_ensured_artifact(self) -> EnsuredArtifact {
+    pub(crate) fn into_ensured_artifact(self) -> buck2_error::Result<EnsuredArtifact> {
         match self {
-            ArtifactArg::Artifact(artifact) => EnsuredArtifact::Artifact {
+            ArtifactArg::Artifact(artifact) => Ok(EnsuredArtifact::Artifact {
                 artifact: artifact.dupe(),
                 abs: false,
-            },
-            ArtifactArg::DeclaredArtifact(artifact) => EnsuredArtifact::DeclaredArtifact {
-                artifact: artifact.dupe(),
-                abs: false,
-            },
+            }),
+            ArtifactArg::DeclaredArtifact(artifact) => {
+                if let Err(e) = artifact.get_bound_artifact() {
+                    buck2_core::soft_error!(
+                        "bxl_ensured_artifact_not_bound",
+                        e,
+                        quiet: true
+                    )?;
+                }
+                Ok(EnsuredArtifact::DeclaredArtifact {
+                    artifact: artifact.dupe(),
+                    abs: false,
+                })
+            }
         }
     }
 }

@@ -794,7 +794,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         this: &OutputStream,
         artifact: ArtifactArg<'v>,
     ) -> starlark::Result<EnsuredArtifact> {
-        let artifact = artifact.into_ensured_artifact();
+        let artifact = artifact.into_ensured_artifact()?;
         this.populate_ensured_artifacts(EnsuredArtifactOrGroup::Artifact(artifact.clone()))?;
 
         Ok(artifact)
@@ -826,7 +826,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
             EnsureMultipleArtifactsArg::None(_) => Ok(heap.alloc(Vec::<EnsuredArtifact>::new())),
             EnsureMultipleArtifactsArg::EnsuredArtifactArgs(list) => {
                 let artifacts: Vec<EnsuredArtifact> = list.items.into_try_map(|artifact| {
-                    let artifact = artifact.into_ensured_artifact();
+                    let artifact = artifact.into_ensured_artifact()?;
                     this.populate_ensured_artifacts(EnsuredArtifactOrGroup::Artifact(
                         artifact.clone(),
                     ))?;
