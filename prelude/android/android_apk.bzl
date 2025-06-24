@@ -216,9 +216,6 @@ def get_install_info(
         files["resources_exopackage_res"] = resources_info.res
         files["resources_exopackage_res_hash"] = resources_info.res_hash
 
-    if secondary_dex_exopackage_info or native_library_exopackage_info or resources_info:
-        files["exopackage_agent_apk"] = ctx.attrs._android_toolchain[AndroidToolchainInfo].exopackage_agent_apk
-
     if definitely_has_native_libs and hasattr(ctx.attrs, "cpu_filters"):
         files["cpu_filters"] = ctx.actions.write("cpu_filters.txt", ctx.attrs.cpu_filters)
 

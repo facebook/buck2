@@ -15,18 +15,14 @@ HELPERS_SRCS = [
     "AdbOptions.java",
     "AdbExecutionContext.java",
     "AndroidInstallPrinter.java",
-    "RetryingAndroidDevice.kt",
-    "exopackage/AndroidDeviceFactory.java",
     "exopackage/ExoHelper.java",
     "exopackage/DexExoHelper.java",
-    "exopackage/ExopackageAgent.java",
     "exopackage/ExopackageInstaller.java",
     "exopackage/ExopackageMode.java",
     "exopackage/ExopackageUtil.java",
     "exopackage/NativeExoHelper.java",
     "exopackage/AdbUtils.kt",
     "exopackage/AndroidDeviceImpl.kt",
-    "exopackage/AndroidDeviceFactoryImpl.kt",
     "exopackage/ResourcesExoHelper.java",
 ]
 
@@ -40,7 +36,6 @@ buck_kotlin_library(
         "PUBLIC",
     ],
     deps = [
-        "prelude//toolchains/android/src/com/facebook/buck/android/agent/util:util",
         "prelude//toolchains/android/src/com/facebook/buck/android/device:device",
         "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
@@ -51,7 +46,7 @@ buck_kotlin_library(
         "prelude//toolchains/android/src/com/facebook/buck/util:util",
         "prelude//toolchains/android/src/com/facebook/buck/util/concurrent:concurrent",
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:environment",
-        "prelude//toolchains/android/third-party:ddmlib",
+        "prelude//toolchains/android/third-party:guava",
         "prelude//toolchains/android/third-party:kotlinx-coroutines-core-jvm",
         "prelude//toolchains/android/third-party:zstd-jni",
         ":manifest_utils",
@@ -115,7 +110,6 @@ buck_kotlin_library(
         "prelude//toolchains/android/src/com/facebook/buck/util:util",
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
         "prelude//toolchains/android/src/com/facebook/buck/util/xml:xml",
-        "prelude//toolchains/android/third-party:ddmlib",
         "prelude//toolchains/android/third-party:guava",
     ],
 )

@@ -76,9 +76,6 @@ def system_android_toolchain(
     kwargs["d8_command"] = "prelude//toolchains/android/src/com/facebook/buck/android/dex:run_d8_binary"
     kwargs["duplicate_class_checker"] = "prelude//android/tools:duplicate_class_checker"
     kwargs["exo_resources_rewriter"] = "prelude//toolchains/android/src/com/facebook/buck/android/resources:exo_resources_rewriter_binary"
-
-    # TODO: We should support exopackage in OSS builds.
-    kwargs["exopackage_agent_apk"] = None
     kwargs["filter_dex_class_names"] = "prelude//android/tools:filter_dex"
     kwargs["filter_prebuilt_native_library_dir"] = "prelude//android/tools:filter_prebuilt_native_library_dir"
     kwargs["filter_resources"] = "prelude//toolchains/android/src/com/facebook/buck/android/resources/filter:filter_resources_binary"
@@ -156,7 +153,6 @@ def system_android_toolchain_rule_impl(ctx):
             d8_command = ctx.attrs.d8_command,
             duplicate_class_checker = ctx.attrs.duplicate_class_checker,
             exo_resources_rewriter = ctx.attrs.exo_resources_rewriter,
-            exopackage_agent_apk = ctx.attrs.exopackage_agent_apk,
             filter_dex_class_names = ctx.attrs.filter_dex_class_names,
             filter_prebuilt_native_library_dir = ctx.attrs.filter_prebuilt_native_library_dir,
             filter_resources = ctx.attrs.filter_resources,
@@ -214,7 +210,6 @@ system_android_toolchain_rule = rule(
         "d8_command": attrs.dep(providers = [RunInfo]),
         "duplicate_class_checker": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "exo_resources_rewriter": attrs.dep(providers = [RunInfo]),
-        "exopackage_agent_apk": attrs.option(attrs.source(), default = None),
         "filter_dex_class_names": attrs.dep(providers = [RunInfo]),
         "filter_prebuilt_native_library_dir": attrs.dep(providers = [RunInfo]),
         "filter_resources": attrs.dep(providers = [RunInfo]),

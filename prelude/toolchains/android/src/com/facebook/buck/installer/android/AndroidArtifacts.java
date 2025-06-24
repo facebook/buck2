@@ -17,7 +17,6 @@ class AndroidArtifacts {
   private AbsPath androidManifestPath;
   private AndroidInstallApkOptions apkOptions;
   private AbsPath apk;
-  private Optional<AbsPath> agentApk = Optional.empty();
   private Optional<AbsPath> secondaryDexExopackageInfoDirectory = Optional.empty();
   private Optional<AbsPath> secondaryDexExopackageInfoMetadata = Optional.empty();
   private Optional<AbsPath> nativeLibraryExopackageInfoDirectory = Optional.empty();
@@ -49,14 +48,6 @@ class AndroidArtifacts {
 
   public void setApk(AbsPath apk) {
     this.apk = apk;
-  }
-
-  public Optional<AbsPath> getAgentApk() {
-    return agentApk;
-  }
-
-  public void setAgentApk(Optional<AbsPath> agentApk) {
-    this.agentApk = agentApk;
   }
 
   public Optional<AbsPath> getSecondaryDexExopackageInfoDirectory() {

@@ -98,8 +98,6 @@ class AndroidInstallerManager implements InstallCommand {
         androidArtifacts.setResourcesExopackageInfoRes(Optional.of(AbsPath.of(artifactPath)));
       } else if (artifactName.equals("resources_exopackage_res_hash")) {
         androidArtifacts.setResourcesExopackageInfoResHash(Optional.of(AbsPath.of(artifactPath)));
-      } else if (artifactName.equals("exopackage_agent_apk")) {
-        androidArtifacts.setAgentApk(Optional.of(AbsPath.of(artifactPath)));
       } else {
         androidArtifacts.setApk(AbsPath.of(artifactPath));
       }
