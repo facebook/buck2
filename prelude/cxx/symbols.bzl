@@ -109,6 +109,14 @@ def _extract_symbol_names(
             # of grep -v here to avoid an error exit code when there's no input
             # symbols, which is not an error for us.
             ' | sed "/__odr_asan_gen_.*/d"' +
+            # These symbols are meant to be weak locals in the binary, with
+            # definitions found on the platform. When using open source
+            # toolchain and declaring these symbols as weak, the symbols
+            # get promoted to global weak and thus failed to link due to
+            # undefined symbols.
+            ' | sed "/__gmon_start__/d"' +
+            ' | sed "/_ITM_deregisterTMCloneTable/d"' +
+            ' | sed "/_ITM_registerTMCloneTable/d"' +
             # Sort and dedup symbols.  Use the `C` locale and do it in-memory to
             # make it significantly faster. CAUTION: if ten of these processes
             # run in parallel, they'll have cumulative allocations larger than RAM.
