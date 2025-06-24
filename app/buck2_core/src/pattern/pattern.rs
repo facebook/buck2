@@ -434,6 +434,25 @@ impl<T: PatternType> ParsedPatternWithModifiers<T> {
         )
         .with_buck_error_context(|| format!("Parsing target pattern `{}`", pattern))
     }
+
+    pub fn parse_not_relaxed(
+        pattern: &str,
+        relative: TargetParsingRel<'_>,
+        cell_resolver: &CellResolver,
+        cell_alias_resolver: &CellAliasResolver,
+    ) -> buck2_error::Result<Self> {
+        parse_target_pattern(
+            cell_resolver,
+            cell_alias_resolver,
+            TargetParsingOptions {
+                relative,
+                infer_target: false,
+                strip_package_trailing_slash: false,
+            },
+            pattern,
+        )
+        .with_buck_error_context(|| format!("Invalid target pattern `{}` is not allowed", pattern))
+    }
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Allocative)]
