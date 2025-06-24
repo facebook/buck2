@@ -31,7 +31,7 @@ echo "$@"
 
 
 # No windows since mocking pastry command didn't work D41623200
-@buck_test(skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows", "darwin"])
 async def test_rage(buck: Buck) -> None:
     # Build a trivial action
     await buck.build("//:simple")
@@ -48,7 +48,7 @@ async def test_rage(buck: Buck) -> None:
         await buck.rage(input=b"0", env={"PATH": cmd_path})
 
 
-@buck_test()
+@buck_test(skip_for_os=["darwin"])
 async def test_rage_no_paste(buck: Buck) -> None:
     # Build a trivial action
     await buck.build("//:simple")
@@ -56,7 +56,12 @@ async def test_rage_no_paste(buck: Buck) -> None:
     await buck.rage("--no-paste", "--invocation-offset", "0")
 
 
-@buck_test()
+@buck_test(skip_for_os=["darwin"])
 async def test_rage_no_logs(buck: Buck) -> None:
     # Rage doesn't crash even with no invocation logs
     await buck.rage("--no-paste")
+
+
+@buck_test()  # pytest blows up if there's zero mac tests in the file
+async def test_nop(buck: Buck) -> None:
+    pass
