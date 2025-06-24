@@ -46,7 +46,7 @@ async def test_ctargets_modifier_multiple_patterns(buck: Buck) -> None:
 
 @buck_test()
 async def test_ctargets_modifier_multiple_modifiers(buck: Buck) -> None:
-    result = await buck.ctargets("root//:target?root//:macos,root//:arm")
+    result = await buck.ctargets("root//:target?root//:macos+root//:arm")
 
     [configuration] = _extract_configuration(result.stdout)
 
@@ -60,7 +60,7 @@ async def test_ctargets_modifier_multiple_modifiers(buck: Buck) -> None:
 async def test_ctargets_modifier_order_of_modifiers(buck: Buck) -> None:
     # if passing in modifiers of the same constraint setting,
     # the last one should be the one that applies
-    result = await buck.ctargets("root//:target?root//:macos,root//:linux")
+    result = await buck.ctargets("root//:target?root//:macos+root//:linux")
 
     [configuration] = _extract_configuration(result.stdout)
 

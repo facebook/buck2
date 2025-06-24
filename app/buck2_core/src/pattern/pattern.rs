@@ -693,7 +693,7 @@ fn lex_provider_pattern(
             pattern,
             Some(
                 modifiers
-                    .split(",")
+                    .split("+")
                     .map(|s| s.to_owned())
                     .collect::<Vec<String>>(),
             ),
@@ -2319,7 +2319,7 @@ mod tests {
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
             &NoAliases,
             package.as_ref(),
-            "root//package/path:target?modifier1,modifier2",
+            "root//package/path:target?modifier1+modifier2",
             &resolver,
             &alias_resolver,
         )?;
@@ -2352,7 +2352,7 @@ mod tests {
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
             &NoAliases,
             package.as_ref(),
-            "root//package/path/...?modifier1,modifier2,modifier3",
+            "root//package/path/...?modifier1+modifier2+modifier3",
             &resolver,
             &alias_resolver,
         )?;
@@ -2421,7 +2421,7 @@ mod tests {
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
             &alias_config,
             package.as_ref(),
-            "foo_target?modifier1,modifier2",
+            "foo_target?modifier1+modifier2",
             &resolver,
             &alias_resolver,
         )?;
