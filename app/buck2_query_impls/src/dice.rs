@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_build_api::configure_targets::load_compatible_patterns;
+use buck2_build_api::configure_targets::load_compatible_patterns_with_modifiers;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::file_ops::dice::DiceFileComputations;
@@ -35,6 +35,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern::TargetParsingRel;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -82,12 +83,11 @@ pub(crate) struct LiteralParser {
 }
 
 impl LiteralParser {
-    // We allow provider names and flavors in the value and it gets stripped out for the result as queries operate on the target graphs.
-    fn parse_target_pattern(
+    fn convert_parsed_pattern(
         &self,
         value: &str,
+        providers_pattern: ParsedPattern<ProvidersPatternExtra>,
     ) -> buck2_error::Result<ParsedPattern<TargetPatternExtra>> {
-        let providers_pattern = self.parse_providers_pattern(value)?;
         let target_pattern = match providers_pattern {
             ParsedPattern::Target(package, target_name, ProvidersPatternExtra { providers }) => {
                 if providers != ProvidersName::Default {
@@ -107,7 +107,33 @@ impl LiteralParser {
             ParsedPattern::Package(package) => ParsedPattern::Package(package),
             ParsedPattern::Recursive(path) => ParsedPattern::Recursive(path),
         };
+
         Ok(target_pattern)
+    }
+
+    fn parse_target_pattern(
+        &self,
+        value: &str,
+    ) -> buck2_error::Result<ParsedPattern<TargetPatternExtra>> {
+        let providers_pattern = self.parse_providers_pattern(value)?;
+        self.convert_parsed_pattern(value, providers_pattern)
+    }
+
+    fn parse_target_pattern_with_modifiers(
+        &self,
+        value: &str,
+    ) -> buck2_error::Result<ParsedPatternWithModifiers<TargetPatternExtra>> {
+        let ParsedPatternWithModifiers {
+            parsed_pattern,
+            modifiers,
+        } = self.parse_providers_pattern_with_modifiers(value)?;
+
+        let target_pattern = self.convert_parsed_pattern(value, parsed_pattern)?;
+
+        Ok(ParsedPatternWithModifiers {
+            parsed_pattern: target_pattern,
+            modifiers,
+        })
     }
 
     pub(crate) fn parse_providers_pattern(
@@ -115,6 +141,23 @@ impl LiteralParser {
         value: &str,
     ) -> buck2_error::Result<ParsedPattern<ProvidersPatternExtra>> {
         ParsedPattern::parse_not_relaxed(
+            value,
+            TargetParsingRel::AllowRelative(
+                &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
+                    self.working_dir.clone(),
+                ),
+                Some(&self.target_alias_resolver),
+            ),
+            &self.cell_resolver,
+            &self.cell_alias_resolver,
+        )
+    }
+
+    pub(crate) fn parse_providers_pattern_with_modifiers(
+        &self,
+        value: &str,
+    ) -> buck2_error::Result<ParsedPatternWithModifiers<ProvidersPatternExtra>> {
+        ParsedPatternWithModifiers::parse_not_relaxed(
             value,
             TargetParsingRel::AllowRelative(
                 &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
@@ -311,8 +354,10 @@ impl QueryLiterals<ConfiguredTargetNode> for DiceQueryData {
         literals: &[&str],
         ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
-        let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
-        Ok(load_compatible_patterns(
+        let parsed_patterns =
+            literals.try_map(|p| self.literal_parser.parse_target_pattern_with_modifiers(p))?;
+
+        Ok(load_compatible_patterns_with_modifiers(
             ctx,
             parsed_patterns,
             &self.global_cfg_options,

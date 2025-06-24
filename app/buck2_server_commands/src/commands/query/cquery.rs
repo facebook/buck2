@@ -161,6 +161,14 @@ async fn cquery(
         target_cfg,
         ..
     } = request;
+
+    if query.contains('?') {
+        return Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "cquery does not support ?modifier syntax in the query expression"
+        ));
+    }
+
     // The request will always have a universe value, an empty one indicates the user didn't provide a universe.
     let target_universe: Option<&[String]> = if target_universe.is_empty() {
         None
