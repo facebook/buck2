@@ -396,10 +396,20 @@ impl MaterializerStateSqliteTable {
         Ok(())
     }
 
-    pub(crate) fn read_all(
+    pub(crate) fn read_materializer_state(
         &self,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<MaterializerState> {
+        self.read_all_entries()?
+            .into_try_map(|entry| -> buck2_error::Result<MaterializerStateEntry> {
+                convert_sqlite_entry_to_materializer_state_entry(entry, digest_config)
+            })
+            .with_buck_error_context(|| {
+                format!("error reading row of sqlite table {}", STATE_TABLE_NAME)
+            })
+    }
+
+    fn read_all_entries(&self) -> buck2_error::Result<Vec<SqliteEntry>> {
         static SQL: Lazy<String> = Lazy::new(|| {
             format!(
                 "SELECT path, artifact_type, digest_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, directory_size, last_access_time FROM {}",
@@ -409,32 +419,21 @@ impl MaterializerStateSqliteTable {
         tracing::trace!(sql = %*SQL, "reading all from table");
         let connection = self.connection.lock();
         let mut stmt = connection.prepare(&SQL)?;
-        let result = stmt
-            .query_map([], |row| -> rusqlite::Result<SqliteEntry> {
-                Ok(SqliteEntry::new(
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                    row.get(5)?,
-                    row.get(6)?,
-                    row.get(7)?,
-                    row.get(8)?,
-                ))
-            })?
-            .collect::<Result<Vec<_>, _>>()
-            .with_buck_error_context(|| {
-                format!("reading from sqlite table {}", STATE_TABLE_NAME)
-            })?;
-
-        result
-            .into_try_map(|entry| -> buck2_error::Result<MaterializerStateEntry> {
-                convert_sqlite_entry_to_materializer_state_entry(entry, digest_config)
-            })
-            .with_buck_error_context(|| {
-                format!("error reading row of sqlite table {}", STATE_TABLE_NAME)
-            })
+        stmt.query_map([], |row| -> rusqlite::Result<SqliteEntry> {
+            Ok(SqliteEntry::new(
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+                row.get(7)?,
+                row.get(8)?,
+            ))
+        })?
+        .collect::<Result<Vec<_>, _>>()
+        .with_buck_error_context(|| format!("reading from sqlite table {}", STATE_TABLE_NAME))
     }
 
     pub(crate) fn delete(&self, paths: Vec<ProjectRelativePathBuf>) -> buck2_error::Result<usize> {

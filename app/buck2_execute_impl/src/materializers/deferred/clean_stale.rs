@@ -277,7 +277,7 @@ impl CleanStaleArtifactsCommand {
             // Checking the db directly in case tree is somehow not in sync.
             let materializer_state = sqlite_db
                 .materializer_state_table()
-                .read_all(io.digest_config())?;
+                .read_materializer_state(io.digest_config())?;
 
             // Entries in the db should have been found in buck-out, return error and skip cleaning untracked artifacts.
             if !materializer_state.is_empty() {

@@ -180,7 +180,9 @@ impl MaterializerStateSqliteDb {
                 }
             }
 
-            let state = db.materializer_state_table().read_all(digest_config)?;
+            let state = db
+                .materializer_state_table()
+                .read_materializer_state(digest_config)?;
 
             (db, state)
         };
@@ -402,7 +404,7 @@ mod tests {
                 .unwrap();
         }
 
-        let state = table.read_all(digest_config).unwrap();
+        let state = table.read_materializer_state(digest_config).unwrap();
         assert!(artifacts.values().eq(state.iter()));
 
         let paths_to_remove = vec![
@@ -415,7 +417,7 @@ mod tests {
         for path in paths_to_remove.iter() {
             artifacts.remove(path);
         }
-        let state = table.read_all(digest_config).unwrap();
+        let state = table.read_materializer_state(digest_config).unwrap();
         assert!(artifacts.values().eq(state.iter()));
     }
 
