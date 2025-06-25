@@ -31,7 +31,6 @@ use crate::file_ops::delegate::keys::FileOpsValue;
 use crate::file_ops::dice::CheckIgnores;
 use crate::file_ops::io::HasReadDirCache;
 use crate::file_ops::io::IoFileOpsDelegate;
-use crate::file_ops::metadata::DirectorySubListingMatchingOutput;
 use crate::file_ops::metadata::RawDirEntry;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::file_ops::metadata::ReadDirOutput;
@@ -255,24 +254,21 @@ impl FileOpsDelegateWithIgnores {
         Ok(read_dir_output)
     }
 
-    pub(crate) async fn read_matching_files_from_dir(
+    pub(crate) async fn exists_matching_exact_case(
         &self,
-        directory: &CellRelativePath,
-        file_name: &FileNameBuf,
+        path: &CellRelativePath,
         dice: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<DirectorySubListingMatchingOutput> {
-        let dir = self
-            .read_dir(dice.per_transaction_data(), directory)
-            .await?;
-        let mut sublisting = Vec::new();
-        for entry in dir.included.iter() {
-            if entry.file_name.as_str().to_lowercase() == file_name.as_str() {
-                sublisting.push(entry.to_owned());
-            }
-        }
-        Ok(DirectorySubListingMatchingOutput {
-            included: sublisting.into(),
-        })
+    ) -> buck2_error::Result<bool> {
+        let Some(dir) = path.parent() else {
+            // FIXME(JakobDegen): Blindly assuming that cell roots exist isn't quite right, I'll fix
+            // this later in the stack
+            return Ok(true);
+        };
+        // FIXME(JakobDegen): Unwrap is ok because a parent exists, but there should be a better API
+        // for this
+        let entry = path.file_name().unwrap();
+        let dir = self.read_dir(dice.per_transaction_data(), dir).await?;
+        Ok(dir.included.iter().any(|f| &*f.file_name == entry))
     }
 
     pub async fn read_path_metadata_if_exists(

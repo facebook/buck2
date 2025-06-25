@@ -17,7 +17,6 @@ use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
-use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
@@ -31,7 +30,6 @@ use crate::buildfiles::HasBuildfiles;
 use crate::file_ops::delegate::get_delegated_file_ops;
 use crate::file_ops::error::FileReadError;
 use crate::file_ops::error::extended_ignore_error;
-use crate::file_ops::metadata::DirectorySubListingMatchingOutput;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::file_ops::metadata::ReadDirOutput;
 use crate::ignores::file_ignores::FileIgnoreResult;
@@ -53,25 +51,17 @@ impl DiceFileComputations {
         .await?
     }
 
-    /// Returns the entries in the given directory with the provided filename, matching up to case.
+    /// Returns if a directory or file exists at the given path, but checks for an exact,
+    /// case-sensitive match.
     ///
-    /// This is intended to make it possible to reason about not-fully-case-sensitive file
-    /// systems without picking up a dependency on the whole `ReadDirKey` which depends on the entire
-    /// computation graph causing invalidation to the entire graph when any file changes in a directory.
-    /// Instead we introduce this injected key which depends on the outside state (i.e. directory listing).
-    ///
-    /// A key use case for this function is finding PACKAGE files in a directory, regardless of their
-    /// actual casing (e.g., "package", "Package", "PACKAGE", etc.).
-    pub async fn directory_sublisting_matching_any_case(
+    /// Note that case-sensitive match is only done on the last element of the path, not any of the
+    /// elements before.
+    pub async fn exists_matching_exact_case(
         ctx: &mut DiceComputations<'_>,
-        directory_path: CellPathRef<'_>,
-        filename: &FileName,
-    ) -> buck2_error::Result<DirectorySubListingMatchingOutput> {
-        ctx.compute(&DirectorySubListingMatchingInAnyCaseKey {
-            directory_path: directory_path.to_owned(),
-            filename: filename.to_owned(),
-        })
-        .await?
+        path: CellPathRef<'_>,
+    ) -> buck2_error::Result<bool> {
+        ctx.compute(&ExistsMatchingExactCaseKey(path.to_owned()))
+            .await?
     }
 
     pub async fn read_dir_include_ignores(
@@ -167,10 +157,9 @@ pub struct FileChangeTracker {
     files_to_dirty: HashSet<ReadFileKey>,
     dirs_to_dirty: HashSet<ReadDirKey>,
     paths_to_dirty: HashSet<PathMetadataKey>,
+    exists_matching_exact_case_to_dirty: HashSet<ExistsMatchingExactCaseKey>,
 
     maybe_modified_dirs: HashSet<CellPath>,
-
-    directory_sublisting_matching_any_case: HashSet<DirectorySubListingMatchingInAnyCaseKey>,
 }
 
 impl FileChangeTracker {
@@ -180,7 +169,7 @@ impl FileChangeTracker {
             dirs_to_dirty: Default::default(),
             paths_to_dirty: Default::default(),
             maybe_modified_dirs: Default::default(),
-            directory_sublisting_matching_any_case: Default::default(),
+            exists_matching_exact_case_to_dirty: Default::default(),
         }
     }
 
@@ -197,27 +186,15 @@ impl FileChangeTracker {
         ctx.changed(self.files_to_dirty)?;
         ctx.changed(self.dirs_to_dirty)?;
         ctx.changed(self.paths_to_dirty)?;
-        ctx.changed(self.directory_sublisting_matching_any_case)?;
+        ctx.changed(self.exists_matching_exact_case_to_dirty)?;
 
         Ok(())
     }
 
-    fn insert_sublisting_matching_any_case(&mut self, path: CellPath) {
-        if let Some(parent) = &path.parent() {
-            if let Some(file_name) = path.path().file_name() {
-                let lower_case_file_name = file_name.to_string().to_lowercase();
-                self.directory_sublisting_matching_any_case.insert(
-                    DirectorySubListingMatchingInAnyCaseKey {
-                        directory_path: parent.to_owned(),
-                        filename: FileName::unchecked_new(&lower_case_file_name).to_owned(),
-                    },
-                );
-            }
-        }
-    }
-
     fn entry_added_or_removed(&mut self, path: CellPath) {
         self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
+        self.exists_matching_exact_case_to_dirty
+            .insert(ExistsMatchingExactCaseKey(path.clone()));
         let parent = path.parent();
         if let Some(parent) = parent {
             // The above can be None (validly!) if we have a cell we either create or delete.
@@ -226,7 +203,6 @@ impl FileChangeTracker {
             // (which is in an enclosing cell) doesn't matter.
             self.insert_dir_keys(parent.to_owned());
         }
-        self.insert_sublisting_matching_any_case(path);
     }
 
     fn insert_dir_keys(&mut self, path: CellPath) {
@@ -334,23 +310,20 @@ impl Key for ReadDirKey {
 }
 
 #[derive(Clone, Display, Allocative, Debug, Eq, Hash, PartialEq)]
-#[display("{}, {}", directory_path, filename)]
-struct DirectorySubListingMatchingInAnyCaseKey {
-    directory_path: CellPath,
-    filename: FileNameBuf,
-}
+#[display("{}", _0)]
+struct ExistsMatchingExactCaseKey(CellPath);
 
 #[async_trait]
-impl Key for DirectorySubListingMatchingInAnyCaseKey {
-    type Value = buck2_error::Result<DirectorySubListingMatchingOutput>;
+impl Key for ExistsMatchingExactCaseKey {
+    type Value = buck2_error::Result<bool>;
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        get_delegated_file_ops(ctx, self.directory_path.cell(), CheckIgnores::Yes)
+        get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::Yes)
             .await?
-            .read_matching_files_from_dir(self.directory_path.path(), &self.filename, ctx)
+            .exists_matching_exact_case(self.0.path(), ctx)
             .await
     }
 

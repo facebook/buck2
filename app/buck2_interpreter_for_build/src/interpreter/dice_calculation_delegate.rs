@@ -25,7 +25,6 @@ use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::package::PackageLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
@@ -328,25 +327,14 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 for package_file_path in PackageFilePath::for_dir(self.0.as_cell_path()) {
-                    let file_name = package_file_path.file_name();
-                    let lower_case_file_name = file_name.as_str().to_lowercase();
-                    let directory_sublisting_output =
-                        DiceFileComputations::directory_sublisting_matching_any_case(
-                            ctx,
-                            self.0.as_cell_path(),
-                            FileName::unchecked_new(&lower_case_file_name),
-                        )
-                        .await?;
-
-                    let file_exists = directory_sublisting_output
-                        .included
-                        .iter()
-                        .any(|f| f.file_name == file_name);
-
-                    if !file_exists {
-                        continue;
+                    if DiceFileComputations::exists_matching_exact_case(
+                        ctx,
+                        package_file_path.path().as_ref(),
+                    )
+                    .await?
+                    {
+                        return Ok(Some(Arc::new(package_file_path)));
                     }
-                    return Ok(Some(Arc::new(package_file_path)));
                 }
                 Ok(None)
             }

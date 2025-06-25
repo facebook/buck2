@@ -99,11 +99,6 @@ impl ReadDirOutput {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Dupe, Allocative)]
-pub struct DirectorySubListingMatchingOutput {
-    pub included: Arc<[SimpleDirEntry]>,
-}
-
 #[derive(Allocative)]
 pub struct FileDigestKind {
     _private: (),
