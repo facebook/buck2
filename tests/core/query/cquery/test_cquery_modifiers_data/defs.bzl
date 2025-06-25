@@ -12,3 +12,8 @@ dummy = rule(
     attrs = {},
     impl = _impl,
 )
+
+attr_regex = rule(
+    attrs = {"attribute": attrs.string()},
+    impl = _impl,
+)

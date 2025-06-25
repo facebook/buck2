@@ -1,4 +1,4 @@
-load(":defs.bzl", "dummy")
+load(":defs.bzl", "attr_regex", "dummy")
 
 constraint_setting(
     name = "os",
@@ -40,4 +40,9 @@ dummy(
 
 dummy(
     name = "lib",
+)
+
+attr_regex(
+    name = "attr_regex",
+    attribute = "test_greedy",
 )

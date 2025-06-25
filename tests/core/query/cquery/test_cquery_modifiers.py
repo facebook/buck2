@@ -23,7 +23,7 @@ def _extract_configuration(s: str) -> List[str]:
 async def test_cquery_fails_with_modifier_syntax_in_query(buck: Buck) -> None:
     await expect_failure(
         buck.cquery("root//:target?modifier"),
-        stderr_regex=r"cquery does not support \?modifier syntax in the query expression",
+        stderr_regex=r"root//:target\?modifier\n\s*\^",
     )
 
 
@@ -129,6 +129,28 @@ async def test_cquery_order_of_modifiers(buck: Buck) -> None:
         "root//:target",
         "--target-universe",
         "root//:target?root//:linux+root//:macos",
+    )
+
+    [configuration] = _extract_configuration(result.stdout)
+
+    cfg = await buck.audit_configurations(configuration)
+    assert "root//:macos" in cfg.stdout
+
+
+# There should be an error thrown whenever ?modifier syntax is used outside of a target universe.
+# However, the ? character can still show up in regex expressions and those should still be considered valid queries.
+@buck_test()
+async def test_cquery_with_attrregexfilter(buck: Buck) -> None:
+    result = await buck.cquery(
+        "attrregexfilter(attribute, 'test_greedys?', root//:attr_regex)"
+    )
+
+    assert "root//:attr_regex" in result.stdout
+
+    result = await buck.cquery(
+        "attrregexfilter(attribute, 'test_greedys?', root//:attr_regex)",
+        "--target-universe",
+        "root//:attr_regex?root//:macos",
     )
 
     [configuration] = _extract_configuration(result.stdout)
