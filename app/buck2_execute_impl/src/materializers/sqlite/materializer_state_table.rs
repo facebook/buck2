@@ -60,10 +60,10 @@ enum ArtifactMetadataSqliteConversionError {
 /// rusqlite can only convert to Vec.
 type SqliteDigest = Vec<u8>;
 
-/// Sqlite representation of `ArtifactMetadata`. All datatypes used implement
-/// rusqlite's `FromSql` trait.
+/// Representation of row in sqlite table. All datatypes used implement rusqlite's `FromSql` trait.
 #[derive(Debug)]
-struct ArtifactMetadataSqliteEntry<'a> {
+struct SqliteEntry<'a> {
+    path: Cow<'a, str>,
     artifact_type: ArtifactType,
     entry_size: Option<u64>,
     entry_hash: Option<Cow<'a, [u8]>>,
@@ -71,10 +71,12 @@ struct ArtifactMetadataSqliteEntry<'a> {
     file_is_executable: Option<bool>,
     symlink_target: Option<Cow<'a, str>>,
     directory_size: Option<u64>,
+    last_access_time: i64,
 }
 
-impl<'a> ArtifactMetadataSqliteEntry<'a> {
+impl<'a> SqliteEntry<'a> {
     fn new(
+        path: String,
         artifact_type: ArtifactType,
         entry_size: Option<u64>,
         entry_hash: Option<SqliteDigest>,
@@ -82,8 +84,10 @@ impl<'a> ArtifactMetadataSqliteEntry<'a> {
         file_is_executable: Option<bool>,
         symlink_target: Option<String>,
         directory_size: Option<u64>,
+        last_access_time: i64,
     ) -> Self {
         Self {
+            path: Cow::Owned(path),
             artifact_type,
             entry_size,
             entry_hash: entry_hash.map(Cow::Owned),
@@ -91,88 +95,100 @@ impl<'a> ArtifactMetadataSqliteEntry<'a> {
             file_is_executable,
             symlink_target: symlink_target.map(Cow::Owned),
             directory_size,
+            last_access_time,
         }
     }
 }
 
-impl<'a> From<&'a ArtifactMetadata> for ArtifactMetadataSqliteEntry<'a> {
-    fn from(metadata: &'a ArtifactMetadata) -> Self {
-        fn digest_parts(digest: &TrackedFileDigest) -> (u64, &[u8], u8) {
-            (
-                digest.size(),
-                digest.raw_digest().as_bytes(),
-                digest.raw_digest().algorithm() as _,
+fn digest_parts(digest: &TrackedFileDigest) -> (u64, &[u8], u8) {
+    (
+        digest.size(),
+        digest.raw_digest().as_bytes(),
+        digest.raw_digest().algorithm() as _,
+    )
+}
+
+fn convert_artifact_metadata_to_sqlite_entry<'a>(
+    path: &'a ProjectRelativePath,
+    metadata: &'a ArtifactMetadata,
+    timestamp: &'_ DateTime<Utc>,
+) -> SqliteEntry<'a> {
+    let path = Cow::Borrowed(path.as_str());
+    let last_access_time = timestamp.timestamp();
+    match &metadata.0 {
+        DirectoryEntry::Dir(meta) => {
+            let (entry_size, entry_hash, entry_hash_kind) = digest_parts(&meta.fingerprint);
+            SqliteEntry {
+                path,
+                artifact_type: ArtifactType::Directory,
+                entry_size: Some(entry_size),
+                entry_hash: Some(Cow::Borrowed(entry_hash)),
+                entry_hash_kind: Some(entry_hash_kind),
+                file_is_executable: None,
+                symlink_target: None,
+                directory_size: Some(meta.total_size),
+                last_access_time,
+            }
+        }
+        DirectoryEntry::Leaf(action_directory_member) => {
+            convert_action_directory_member_to_sqlite_entry(
+                path,
+                action_directory_member,
+                last_access_time,
             )
         }
-
-        let (
-            artifact_type,
-            entry_size,
-            entry_hash,
-            entry_hash_kind,
-            file_is_executable,
-            symlink_target,
-            directory_size,
-        ) = match &metadata.0 {
-            DirectoryEntry::Dir(meta) => {
-                let (entry_size, entry_hash, entry_hash_kind) = digest_parts(&meta.fingerprint);
-                (
-                    ArtifactType::Directory,
-                    Some(entry_size),
-                    Some(Cow::Borrowed(entry_hash)),
-                    Some(entry_hash_kind),
-                    None,
-                    None,
-                    Some(meta.total_size),
-                )
-            }
-            DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
-                let (entry_size, entry_hash, entry_hash_kind) = digest_parts(&file_metadata.digest);
-                (
-                    ArtifactType::File,
-                    Some(entry_size),
-                    Some(Cow::Borrowed(entry_hash)),
-                    Some(entry_hash_kind),
-                    Some(file_metadata.is_executable),
-                    None,
-                    None,
-                )
-            }
-            DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink)) => (
-                ArtifactType::Symlink,
-                None,
-                None,
-                None,
-                None,
-                Some(Cow::Borrowed(symlink.target().as_str())),
-                None,
-            ),
-            DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => (
-                ArtifactType::ExternalSymlink,
-                None,
-                None,
-                None,
-                None,
-                Some(Cow::Borrowed(external_symlink.target_str())),
-                None,
-            ),
-        };
-        Self {
-            artifact_type,
-            entry_size,
-            entry_hash,
-            entry_hash_kind,
-            file_is_executable,
-            symlink_target,
-            directory_size,
-        }
     }
 }
 
-fn convert_artifact_metadata(
-    sqlite_entry: ArtifactMetadataSqliteEntry,
+fn convert_action_directory_member_to_sqlite_entry<'a>(
+    path: Cow<'a, str>,
+    action_directory_member: &'a ActionDirectoryMember,
+    last_access_time: i64,
+) -> SqliteEntry<'a> {
+    match action_directory_member {
+        ActionDirectoryMember::File(file_metadata) => {
+            let (entry_size, entry_hash, entry_hash_kind) = digest_parts(&file_metadata.digest);
+            SqliteEntry {
+                path,
+                artifact_type: ArtifactType::File,
+                entry_size: Some(entry_size),
+                entry_hash: Some(Cow::Borrowed(entry_hash)),
+                entry_hash_kind: Some(entry_hash_kind),
+                file_is_executable: Some(file_metadata.is_executable),
+                symlink_target: None,
+                directory_size: None,
+                last_access_time,
+            }
+        }
+        ActionDirectoryMember::Symlink(symlink) => SqliteEntry {
+            path,
+            artifact_type: ArtifactType::Symlink,
+            entry_size: None,
+            entry_hash: None,
+            entry_hash_kind: None,
+            file_is_executable: None,
+            symlink_target: Some(Cow::Borrowed(symlink.target().as_str())),
+            directory_size: None,
+            last_access_time,
+        },
+        ActionDirectoryMember::ExternalSymlink(external_symlink) => SqliteEntry {
+            path,
+            artifact_type: ArtifactType::ExternalSymlink,
+            entry_size: None,
+            entry_hash: None,
+            entry_hash_kind: None,
+            file_is_executable: None,
+            symlink_target: Some(Cow::Borrowed(external_symlink.target_str())),
+            directory_size: None,
+            last_access_time,
+        },
+    }
+}
+
+fn convert_sqlite_entry_to_materializer_state_entry(
+    sqlite_entry: SqliteEntry,
     digest_config: DigestConfig,
-) -> buck2_error::Result<ArtifactMetadata> {
+) -> buck2_error::Result<MaterializerStateEntry> {
     fn digest(
         size: Option<u64>,
         entry_hash: Option<&[u8]>,
@@ -209,7 +225,7 @@ fn convert_artifact_metadata(
         ))
     }
 
-    let metadata = match sqlite_entry.artifact_type {
+    let dir_entry = match sqlite_entry.artifact_type {
         ArtifactType::Directory => DirectoryEntry::Dir(DirectoryMetadata {
             fingerprint: digest(
                 sqlite_entry.entry_size,
@@ -267,8 +283,19 @@ fn convert_artifact_metadata(
             )))
         }
     };
+    let metadata = ArtifactMetadata(dir_entry);
 
-    Ok(ArtifactMetadata(metadata))
+    let path = ProjectRelativePathBuf::unchecked_new(sqlite_entry.path.into_owned());
+    let last_access_time = Utc
+        .timestamp_opt(sqlite_entry.last_access_time, 0)
+        .single()
+        .with_buck_error_context(|| "invalid timestamp")?;
+
+    Ok(MaterializerStateEntry {
+        path,
+        metadata,
+        last_access_time,
+    })
 }
 
 pub(crate) struct MaterializerStateSqliteTable {
@@ -313,7 +340,7 @@ impl MaterializerStateSqliteTable {
         metadata: &ArtifactMetadata,
         timestamp: DateTime<Utc>,
     ) -> buck2_error::Result<()> {
-        let entry: ArtifactMetadataSqliteEntry = metadata.into();
+        let entry = convert_artifact_metadata_to_sqlite_entry(path, metadata, &timestamp);
         static SQL: Lazy<String> = Lazy::new(|| {
             format!(
                 "INSERT INTO {} (path, artifact_type, digest_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, directory_size, last_access_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
@@ -326,7 +353,7 @@ impl MaterializerStateSqliteTable {
             .execute(
                 &SQL,
                 rusqlite::params![
-                    path.as_str(),
+                    entry.path,
                     entry.artifact_type,
                     entry.entry_size,
                     entry.entry_hash,
@@ -334,7 +361,7 @@ impl MaterializerStateSqliteTable {
                     entry.file_is_executable,
                     entry.symlink_target,
                     entry.directory_size,
-                    timestamp.timestamp(),
+                    entry.last_access_time,
                 ],
             )
             .with_buck_error_context(|| {
@@ -383,45 +410,28 @@ impl MaterializerStateSqliteTable {
         let connection = self.connection.lock();
         let mut stmt = connection.prepare(&SQL)?;
         let result = stmt
-            .query_map(
-                [],
-                |row| -> rusqlite::Result<(String, ArtifactMetadataSqliteEntry, i64)> {
-                    Ok((
-                        row.get(0)?,
-                        ArtifactMetadataSqliteEntry::new(
-                            row.get(1)?,
-                            row.get(2)?,
-                            row.get(3)?,
-                            row.get(4)?,
-                            row.get(5)?,
-                            row.get(6)?,
-                            row.get(7)?,
-                        ),
-                        row.get(8)?,
-                    ))
-                },
-            )?
+            .query_map([], |row| -> rusqlite::Result<SqliteEntry> {
+                Ok(SqliteEntry::new(
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                ))
+            })?
             .collect::<Result<Vec<_>, _>>()
             .with_buck_error_context(|| {
                 format!("reading from sqlite table {}", STATE_TABLE_NAME)
             })?;
 
         result
-            .into_try_map(
-                |(path, entry, last_access_time)| -> buck2_error::Result<MaterializerStateEntry> {
-                    let path = ProjectRelativePathBuf::unchecked_new(path);
-                    let metadata = convert_artifact_metadata(entry, digest_config)?;
-                    let timestamp = Utc
-                        .timestamp_opt(last_access_time, 0)
-                        .single()
-                        .with_buck_error_context(|| "invalid timestamp")?;
-                    Ok(MaterializerStateEntry {
-                        path,
-                        metadata,
-                        last_access_time: timestamp,
-                    })
-                },
-            )
+            .into_try_map(|entry| -> buck2_error::Result<MaterializerStateEntry> {
+                convert_sqlite_entry_to_materializer_state_entry(entry, digest_config)
+            })
             .with_buck_error_context(|| {
                 format!("error reading row of sqlite table {}", STATE_TABLE_NAME)
             })
@@ -476,11 +486,18 @@ mod tests {
             fingerprint: digest,
             total_size: 32,
         }));
-        let entry = ArtifactMetadataSqliteEntry::from(&metadata);
-        assert_eq!(
-            metadata,
-            convert_artifact_metadata(entry, digest_config).unwrap()
-        );
+        let path = ProjectRelativePath::new("foo/bar").unwrap();
+        let timestamp = DateTime::from_timestamp_nanos(0);
+
+        let entry = convert_artifact_metadata_to_sqlite_entry(path, &metadata, &timestamp);
+        let MaterializerStateEntry {
+            path: result_path,
+            metadata: result_metadata,
+            last_access_time: _,
+        } = convert_sqlite_entry_to_materializer_state_entry(entry, digest_config).unwrap();
+
+        assert_eq!(path, result_path);
+        assert_eq!(metadata, result_metadata);
     }
 
     #[test]
@@ -494,11 +511,18 @@ mod tests {
                 is_executable: false,
             },
         )));
-        let entry = ArtifactMetadataSqliteEntry::from(&metadata);
-        assert_eq!(
-            metadata,
-            convert_artifact_metadata(entry, digest_config).unwrap()
-        );
+        let path = ProjectRelativePath::new("foo/bar").unwrap();
+        let timestamp = DateTime::from_timestamp_nanos(0);
+
+        let entry = convert_artifact_metadata_to_sqlite_entry(path, &metadata, &timestamp);
+        let MaterializerStateEntry {
+            path: result_path,
+            metadata: result_metadata,
+            last_access_time: _,
+        } = convert_sqlite_entry_to_materializer_state_entry(entry, digest_config).unwrap();
+
+        assert_eq!(path, result_path);
+        assert_eq!(metadata, result_metadata);
     }
 
     #[test]
@@ -511,11 +535,18 @@ mod tests {
         assert_matches!(symlink, ActionDirectoryMember::Symlink(..));
 
         let metadata = ArtifactMetadata(DirectoryEntry::Leaf(symlink));
-        let entry = ArtifactMetadataSqliteEntry::from(&metadata);
-        assert_eq!(
-            metadata,
-            convert_artifact_metadata(entry, digest_config).unwrap()
-        );
+        let path = ProjectRelativePath::new("foo/bar").unwrap();
+        let timestamp = DateTime::from_timestamp_nanos(0);
+
+        let entry = convert_artifact_metadata_to_sqlite_entry(path, &metadata, &timestamp);
+        let MaterializerStateEntry {
+            path: result_path,
+            metadata: result_metadata,
+            last_access_time: _,
+        } = convert_sqlite_entry_to_materializer_state_entry(entry, digest_config).unwrap();
+
+        assert_eq!(path, result_path);
+        assert_eq!(metadata, result_metadata);
     }
 
     #[test]
@@ -534,10 +565,17 @@ mod tests {
         assert_matches!(external_symlink, ActionDirectoryMember::ExternalSymlink(..));
 
         let metadata = ArtifactMetadata(DirectoryEntry::Leaf(external_symlink));
-        let entry = ArtifactMetadataSqliteEntry::from(&metadata);
-        assert_eq!(
-            metadata,
-            convert_artifact_metadata(entry, digest_config).unwrap()
-        );
+        let path = ProjectRelativePath::new("foo/bar").unwrap();
+        let timestamp = DateTime::from_timestamp_nanos(0);
+
+        let entry = convert_artifact_metadata_to_sqlite_entry(path, &metadata, &timestamp);
+        let MaterializerStateEntry {
+            path: result_path,
+            metadata: result_metadata,
+            last_access_time: _,
+        } = convert_sqlite_entry_to_materializer_state_entry(entry, digest_config).unwrap();
+
+        assert_eq!(path, result_path);
+        assert_eq!(metadata, result_metadata);
     }
 }
