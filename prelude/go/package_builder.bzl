@@ -218,7 +218,7 @@ def _symabis(
         "-gensymabis",
         ["-o", symabis.as_output()],
         ["-I", cmd_args(fake_asmhdr, parent = 1)],
-        ["-I", cmd_args(h_files, parent = 1)] if h_files else [],
+        [cmd_args(h_files, parent = 1, prepend = "-I")] if h_files else [],
         ["-trimpath", "%cwd%"],
         s_files,
     ]
