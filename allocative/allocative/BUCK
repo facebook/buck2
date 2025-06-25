@@ -9,6 +9,7 @@ buck_filegroup(
         "src/**/*.svg",
         "src/**/*.src",
     ]),
+    copy = False,
 )
 
 rust_library(

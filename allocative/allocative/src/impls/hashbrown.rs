@@ -61,7 +61,9 @@ mod tests {
     fn test_hash_table() {
         let mut table = HashTable::with_capacity(100);
         for i in 0..100 {
-            table.insert_unique(hash(&i.to_string()), i.to_string(), hash);
+            let mut s = i.to_string();
+            s.shrink_to_fit(); // Make the string deterministically sized
+            table.insert_unique(hash(&s), s, hash);
         }
 
         golden_test!(&table);

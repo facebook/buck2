@@ -9,4 +9,3 @@ hashbrown::table::HashTable<alloc::string::String>;data;capacity 800
 hashbrown::table::HashTable<alloc::string::String>;data;capacity;alloc::string::String 1600
 hashbrown::table::HashTable<alloc::string::String>;data;capacity;alloc::string::String;ptr 800
 hashbrown::table::HashTable<alloc::string::String>;data;capacity;alloc::string::String;ptr;capacity;u8 190
-hashbrown::table::HashTable<alloc::string::String>;data;capacity;alloc::string::String;ptr;capacity;unused_capacity 610
