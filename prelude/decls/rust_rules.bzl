@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
+load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//rust:clippy_configuration.bzl", "ClippyConfiguration")
@@ -56,6 +57,7 @@ _RUST_EXECUTABLE_ATTRIBUTES = {
     "rpath": attrs.bool(default = False, doc = """
               Set the "rpath" in the executable when using a shared link style.
           """),
+    "_build_info": BUILD_INFO_ATTR,
 }
 
 rust_binary = prelude_rule(

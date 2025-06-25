@@ -40,6 +40,7 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@prelude//linking:stamp_build_info.bzl", "stamp_build_info")
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
@@ -462,7 +463,8 @@ def rust_compile(
         # output of the action is going to be depended on
         infallible_diagnostics: bool = False,
         rust_cxx_link_group_info: [RustCxxLinkGroupInfo, None] = None,
-        profile_mode: ProfileMode | None = None) -> RustcOutput:
+        profile_mode: ProfileMode | None = None,
+        is_executable: bool = False) -> RustcOutput:
     toolchain_info = compile_ctx.toolchain_info
 
     lints = _lint_flags(compile_ctx, infallible_diagnostics, emit == Emit("clippy"))
@@ -728,6 +730,9 @@ def rust_compile(
         )
     else:
         dwp_output = None
+
+    if is_executable:
+        filtered_output = stamp_build_info(ctx, filtered_output)
 
     stripped_output = strip_debug_info(
         ctx,

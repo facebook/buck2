@@ -193,6 +193,7 @@ def _rust_binary_common(
         allow_cache_upload = allow_cache_upload,
         rust_cxx_link_group_info = rust_cxx_link_group_info,
         incremental_enabled = ctx.attrs.incremental_enabled,
+        is_executable = True,
     )
 
     args = cmd_args(link.output, hidden = executable_args.runtime_files)
