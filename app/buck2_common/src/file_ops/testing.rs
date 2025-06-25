@@ -243,6 +243,7 @@ pub struct TestCellFileOps(CellName, TestFileOps);
 impl FileOpsDelegate for TestCellFileOps {
     async fn read_file_if_exists(
         &self,
+        _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<ReadFileProxy> {
         Ok(ReadFileProxy::new_with_captures(
@@ -270,6 +271,7 @@ impl FileOpsDelegate for TestCellFileOps {
 
     async fn read_path_metadata_if_exists(
         &self,
+        _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
         let path = CellPath::new(self.0, path.to_owned());

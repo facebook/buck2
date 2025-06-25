@@ -293,7 +293,7 @@ impl Key for ReadFileKey {
     ) -> Self::Value {
         get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No)
             .await?
-            .read_file_if_exists(self.0.path())
+            .read_file_if_exists(ctx, self.0.path())
             .await
     }
 
@@ -383,7 +383,7 @@ impl Key for PathMetadataKey {
     ) -> Self::Value {
         let res = get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No)
             .await?
-            .read_path_metadata_if_exists(self.0.as_ref().path())
+            .read_path_metadata_if_exists(ctx, self.0.as_ref().path())
             .await?;
 
         match res {

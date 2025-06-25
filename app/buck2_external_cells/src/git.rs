@@ -285,6 +285,7 @@ impl GitFileOpsDelegate {
 impl FileOpsDelegate for GitFileOpsDelegate {
     async fn read_file_if_exists(
         &self,
+        _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<ReadFileProxy> {
         Ok(ReadFileProxy::new_with_captures(
@@ -316,6 +317,7 @@ impl FileOpsDelegate for GitFileOpsDelegate {
 
     async fn read_path_metadata_if_exists(
         &self,
+        _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
         let project_path = self.resolve(path);

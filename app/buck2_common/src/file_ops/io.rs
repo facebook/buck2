@@ -25,11 +25,11 @@ use dice::DiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
 
+use crate::dice::data::HasIoProvider;
 use crate::file_ops::delegate::FileOpsDelegate;
 use crate::file_ops::dice::ReadFileProxy;
 use crate::file_ops::metadata::RawDirEntry;
 use crate::file_ops::metadata::RawPathMetadata;
-use crate::io::IoProvider;
 
 /// A `FileOpsDelegate` implementation that calls out to the `IoProvider` to read files.
 ///
@@ -37,9 +37,6 @@ use crate::io::IoProvider;
 #[derive(Clone, Dupe, Derivative, Allocative)]
 #[derivative(PartialEq)]
 pub(super) struct IoFileOpsDelegate {
-    // Safe to ignore because `io` does not change during the lifetime of the daemon.
-    #[derivative(PartialEq = "ignore")]
-    pub(super) io: Arc<dyn IoProvider>,
     pub(super) cells: CellResolver,
     pub(super) cell: CellName,
 }
@@ -53,20 +50,17 @@ impl IoFileOpsDelegate {
     fn get_cell_path(&self, path: &ProjectRelativePath) -> buck2_error::Result<CellPath> {
         self.cells.get_cell_path(path)
     }
-
-    fn io_provider(&self) -> &dyn IoProvider {
-        self.io.as_ref()
-    }
 }
 
 #[async_trait]
 impl FileOpsDelegate for IoFileOpsDelegate {
     async fn read_file_if_exists(
         &self,
+        ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<ReadFileProxy> {
         Ok(ReadFileProxy::new_with_captures(
-            (self.resolve(path), self.io.dupe()),
+            (self.resolve(path), ctx.global_data().get_io_provider()),
             |(project_path, io)| async move { io.read_file_if_exists(project_path).await },
         ))
     }
@@ -85,8 +79,9 @@ impl FileOpsDelegate for IoFileOpsDelegate {
         if let Some(cached) = read_dir_cache.0.get(&project_path) {
             return Ok(cached.clone());
         };
-        let mut entries = self
-            .io_provider()
+        let mut entries = ctx
+            .global_data()
+            .get_io_provider()
             .read_dir(project_path.clone())
             .await
             .with_buck_error_context(|| format!("Error listing dir `{}`", path))?;
@@ -100,12 +95,14 @@ impl FileOpsDelegate for IoFileOpsDelegate {
 
     async fn read_path_metadata_if_exists(
         &self,
+        ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
         let project_path = self.resolve(path);
 
-        let res = self
-            .io_provider()
+        let res = ctx
+            .global_data()
+            .get_io_provider()
             .read_path_metadata_if_exists(project_path)
             .await
             .with_buck_error_context(|| format!("Error accessing metadata for path `{}`", path))?;

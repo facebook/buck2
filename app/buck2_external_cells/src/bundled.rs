@@ -235,12 +235,26 @@ impl BundledFileOpsDelegate {
             None => Ok(None),
         }
     }
+
+    fn read_path_metadata_if_exists(
+        &self,
+        path: &CellRelativePath,
+    ) -> buck2_error::Result<Option<RawPathMetadata>> {
+        match self.get_entry_at_path_if_exists(path)? {
+            Some(DirectoryEntry::Leaf(leaf)) => {
+                Ok(Some(RawPathMetadata::File(leaf.metadata.clone())))
+            }
+            Some(DirectoryEntry::Dir(_)) => Ok(Some(RawPathMetadata::Directory)),
+            None => Ok(None),
+        }
+    }
 }
 
 #[async_trait::async_trait]
 impl FileOpsDelegate for BundledFileOpsDelegate {
     async fn read_file_if_exists(
         &self,
+        _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<ReadFileProxy> {
         let res = self.read_file_if_exists(path)?;
@@ -260,15 +274,10 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
 
     async fn read_path_metadata_if_exists(
         &self,
+        _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        match self.get_entry_at_path_if_exists(path)? {
-            Some(DirectoryEntry::Leaf(leaf)) => {
-                Ok(Some(RawPathMetadata::File(leaf.metadata.clone())))
-            }
-            Some(DirectoryEntry::Dir(_)) => Ok(Some(RawPathMetadata::Directory)),
-            None => Ok(None),
-        }
+        self.read_path_metadata_if_exists(path)
     }
 
     fn eq_token(&self) -> PartialEqAny {
@@ -437,7 +446,6 @@ mod tests {
         let ops = testing_ops();
         assert_matches!(
             ops.read_path_metadata_if_exists(&CellRelativePath::unchecked_new("dir/src.txt"))
-                .await
                 .unwrap()
                 .unwrap(),
             RawPathMetadata::File(FileMetadata {
@@ -447,7 +455,6 @@ mod tests {
         );
         assert_matches!(
             ops.read_path_metadata_if_exists(&CellRelativePath::unchecked_new("dir/src2.txt"))
-                .await
                 .unwrap()
                 .unwrap(),
             RawPathMetadata::File(FileMetadata {
@@ -462,11 +469,7 @@ mod tests {
         let ops = testing_ops();
 
         let root = CellRelativePath::unchecked_new("");
-        let root_metadata = ops
-            .read_path_metadata_if_exists(root)
-            .await
-            .unwrap()
-            .unwrap();
+        let root_metadata = ops.read_path_metadata_if_exists(root).unwrap().unwrap();
         assert_matches!(root_metadata, RawPathMetadata::Directory);
         let root_entries = ops.read_dir(root).await.unwrap();
         assert!(root_entries.is_sorted());
@@ -489,11 +492,7 @@ mod tests {
         );
 
         let dir = CellRelativePath::unchecked_new("dir");
-        let dir_metadata = ops
-            .read_path_metadata_if_exists(dir)
-            .await
-            .unwrap()
-            .unwrap();
+        let dir_metadata = ops.read_path_metadata_if_exists(dir).unwrap().unwrap();
         assert_matches!(dir_metadata, RawPathMetadata::Directory);
         let dir_entries = ops.read_dir(dir).await.unwrap();
         assert!(dir_entries.is_sorted());

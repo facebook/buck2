@@ -22,7 +22,6 @@ use dice::Key;
 use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
-use crate::dice::data::HasIoProvider;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::file_ops::delegate::keys::FileOpsKey;
 use crate::file_ops::delegate::keys::FileOpsValue;
@@ -63,6 +62,7 @@ mod keys {
 pub trait FileOpsDelegate: Send + Sync {
     async fn read_file_if_exists(
         &self,
+        ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<ReadFileProxy>;
 
@@ -75,6 +75,7 @@ pub trait FileOpsDelegate: Send + Sync {
 
     async fn read_path_metadata_if_exists(
         &self,
+        ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>>;
 
@@ -84,10 +85,10 @@ pub trait FileOpsDelegate: Send + Sync {
     /// case-sensitive - to the extent that that's not the case, this must be overridden.
     async fn exists_matching_exact_case(
         &self,
-        _ctx: &mut DiceComputations<'_>,
+        ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<bool> {
-        let metadata = self.read_path_metadata_if_exists(path).await?;
+        let metadata = self.read_path_metadata_if_exists(ctx, path).await?;
         Ok(metadata.is_some())
     }
 
@@ -116,9 +117,7 @@ impl Key for FileOpsKey {
                 .await?;
             FileOpsDelegateWithIgnores::new(ignores, delegate)
         } else {
-            let io = ctx.global_data().get_io_provider();
             let delegate = IoFileOpsDelegate {
-                io,
                 cells: cells.dupe(),
                 cell: self.cell,
             };
@@ -185,9 +184,10 @@ impl FileOpsDelegateWithIgnores {
 
     pub async fn read_file_if_exists(
         &self,
+        ctx: &mut DiceComputations<'_>,
         path: &CellRelativePath,
     ) -> buck2_error::Result<ReadFileProxy> {
-        self.delegate.read_file_if_exists(path).await
+        self.delegate.read_file_if_exists(ctx, path).await
     }
 
     /// Return the list of file outputs, sorted.
@@ -268,9 +268,10 @@ impl FileOpsDelegateWithIgnores {
 
     pub async fn read_path_metadata_if_exists(
         &self,
+        ctx: &mut DiceComputations<'_>,
         path: &CellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        self.delegate.read_path_metadata_if_exists(path).await
+        self.delegate.read_path_metadata_if_exists(ctx, path).await
     }
 
     pub async fn is_ignored(
