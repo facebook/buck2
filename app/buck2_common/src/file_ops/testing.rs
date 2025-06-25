@@ -19,6 +19,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use cmp_any::PartialEqAny;
+use dice::DiceComputations;
 use dice::testing::DiceBuilder;
 use dupe::Dupe;
 use itertools::Itertools;
@@ -139,7 +140,6 @@ impl TestFileOps {
 
     pub fn mock_in_cell(&self, cell: CellName, builder: DiceBuilder) -> DiceBuilder {
         let data = Ok(FileOpsValue(FileOpsDelegateWithIgnores::new(
-            cell,
             None,
             Arc::new(TestCellFileOps(
                 cell,
@@ -251,6 +251,7 @@ impl FileOpsDelegate for TestCellFileOps {
     /// Return the list of file outputs, sorted.
     async fn read_dir(
         &self,
+        _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Vec<RawDirEntry>> {
         let path = CellPath::new(self.0, path.to_owned());

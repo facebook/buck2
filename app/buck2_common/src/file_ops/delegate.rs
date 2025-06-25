@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
@@ -20,7 +19,6 @@ use buck2_futures::cancellation::CancellationContext;
 use cmp_any::PartialEqAny;
 use dice::DiceComputations;
 use dice::Key;
-use dice::UserComputationData;
 use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
@@ -29,7 +27,6 @@ use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::file_ops::delegate::keys::FileOpsKey;
 use crate::file_ops::delegate::keys::FileOpsValue;
 use crate::file_ops::dice::CheckIgnores;
-use crate::file_ops::io::HasReadDirCache;
 use crate::file_ops::io::IoFileOpsDelegate;
 use crate::file_ops::metadata::RawDirEntry;
 use crate::file_ops::metadata::RawPathMetadata;
@@ -71,6 +68,7 @@ pub trait FileOpsDelegate: Send + Sync {
     /// Return the list of file outputs, sorted.
     async fn read_dir(
         &self,
+        ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Vec<RawDirEntry>>;
 
@@ -102,7 +100,7 @@ impl Key for FileOpsKey {
                 .get()?
                 .get_file_ops_delegate(ctx, self.cell, origin.dupe())
                 .await?;
-            FileOpsDelegateWithIgnores::new(self.cell, ignores, delegate)
+            FileOpsDelegateWithIgnores::new(ignores, delegate)
         } else {
             let io = ctx.global_data().get_io_provider();
             let delegate = IoFileOpsDelegate {
@@ -110,7 +108,7 @@ impl Key for FileOpsKey {
                 cells: cells.dupe(),
                 cell: self.cell,
             };
-            FileOpsDelegateWithIgnores::new(self.cell, ignores, Arc::new(delegate))
+            FileOpsDelegateWithIgnores::new(ignores, Arc::new(delegate))
         };
 
         Ok(FileOpsValue(out))
@@ -144,7 +142,6 @@ pub(crate) async fn get_delegated_file_ops(
 
 #[derive(Clone, Dupe)]
 pub struct FileOpsDelegateWithIgnores {
-    cell: CellName,
     ignores: Option<Arc<CellFileIgnores>>,
     delegate: Arc<dyn FileOpsDelegate>,
 }
@@ -157,15 +154,10 @@ impl PartialEq for FileOpsDelegateWithIgnores {
 
 impl FileOpsDelegateWithIgnores {
     pub(crate) fn new(
-        cell: CellName,
         ignores: Option<Arc<CellFileIgnores>>,
         delegate: Arc<dyn FileOpsDelegate>,
     ) -> Self {
-        Self {
-            cell,
-            ignores,
-            delegate,
-        }
+        Self { ignores, delegate }
     }
 }
 
@@ -177,10 +169,6 @@ impl FileOpsDelegateWithIgnores {
         }
     }
 
-    fn resolve(&self, path: &CellRelativePath) -> CellPath {
-        CellPath::new(self.cell, path.to_owned())
-    }
-
     pub async fn read_file_if_exists(
         &self,
         path: &CellRelativePath,
@@ -189,20 +177,16 @@ impl FileOpsDelegateWithIgnores {
     }
 
     /// Return the list of file outputs, sorted.
-    pub async fn read_dir(
+    pub(crate) async fn read_dir(
         &self,
-        user_data: &UserComputationData,
+        ctx: &mut DiceComputations<'_>,
         path: &CellRelativePath,
     ) -> buck2_error::Result<ReadDirOutput> {
-        let cell_path = self.resolve(path);
-        if let Some(cached) = user_data.get_read_dir_cache().get(&cell_path) {
-            return Ok(cached);
-        };
         // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
         self.check_ignores(UncheckedCellRelativePath::new(path))
             .into_result()?;
 
-        let entries = self.delegate.read_dir(path).await?;
+        let entries = self.delegate.read_dir(ctx, path).await?;
 
         let is_ignored = |file_name: &str| {
             let mut cell_relative_path_buf;
@@ -250,7 +234,6 @@ impl FileOpsDelegateWithIgnores {
         let read_dir_output = ReadDirOutput {
             included: included_entries.into(),
         };
-        user_data.update_read_dir_cache(cell_path, &read_dir_output);
         Ok(read_dir_output)
     }
 
@@ -267,7 +250,7 @@ impl FileOpsDelegateWithIgnores {
         // FIXME(JakobDegen): Unwrap is ok because a parent exists, but there should be a better API
         // for this
         let entry = path.file_name().unwrap();
-        let dir = self.read_dir(dice.per_transaction_data(), dir).await?;
+        let dir = self.read_dir(dice, dir).await?;
         Ok(dir.included.iter().any(|f| &*f.file_name == entry))
     }
 

@@ -294,6 +294,7 @@ impl FileOpsDelegate for GitFileOpsDelegate {
 
     async fn read_dir(
         &self,
+        _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Vec<RawDirEntry>> {
         let project_path = self.resolve(path);

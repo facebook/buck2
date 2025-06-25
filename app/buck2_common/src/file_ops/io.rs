@@ -21,13 +21,13 @@ use buck2_error::BuckErrorContext;
 use cmp_any::PartialEqAny;
 use dashmap::DashMap;
 use derivative::Derivative;
+use dice::DiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
 
 use crate::file_ops::delegate::FileOpsDelegate;
 use crate::file_ops::metadata::RawDirEntry;
 use crate::file_ops::metadata::RawPathMetadata;
-use crate::file_ops::metadata::ReadDirOutput;
 use crate::io::IoProvider;
 
 /// A `FileOpsDelegate` implementation that calls out to the `IoProvider` to read files.
@@ -70,17 +70,27 @@ impl FileOpsDelegate for IoFileOpsDelegate {
 
     async fn read_dir(
         &self,
+        ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Vec<RawDirEntry>> {
         let project_path = self.resolve(path);
+        let read_dir_cache = ctx
+            .per_transaction_data()
+            .data
+            .get::<ReadDirCache>()
+            .expect("ReadDirCache is expected to be set.");
+        if let Some(cached) = read_dir_cache.0.get(&project_path) {
+            return Ok(cached.clone());
+        };
         let mut entries = self
             .io_provider()
-            .read_dir(project_path)
+            .read_dir(project_path.clone())
             .await
             .with_buck_error_context(|| format!("Error listing dir `{}`", path))?;
 
         // Make sure entries are deterministic, since read_dir isn't.
         entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
+        read_dir_cache.0.insert(project_path, entries.clone());
 
         Ok(entries)
     }
@@ -105,38 +115,14 @@ impl FileOpsDelegate for IoFileOpsDelegate {
     }
 }
 
-pub struct ReadDirCache(DashMap<CellPath, ReadDirOutput>);
-
-impl ReadDirCache {
-    pub fn get(&self, key: &CellPath) -> Option<ReadDirOutput> {
-        self.0.get(key).map(|entry| entry.clone())
-    }
-}
+pub struct ReadDirCache(DashMap<ProjectRelativePathBuf, Vec<RawDirEntry>>);
 
 pub trait HasReadDirCache {
-    fn set_read_dir_cache(&mut self, cache: DashMap<CellPath, ReadDirOutput>);
-
-    fn get_read_dir_cache(&self) -> &ReadDirCache;
-
-    fn update_read_dir_cache(&self, cell_path: CellPath, read_dir_output: &ReadDirOutput);
+    fn set_read_dir_cache(&mut self, cache: DashMap<ProjectRelativePathBuf, Vec<RawDirEntry>>);
 }
 
 impl HasReadDirCache for UserComputationData {
-    fn set_read_dir_cache(&mut self, cache: DashMap<CellPath, ReadDirOutput>) {
+    fn set_read_dir_cache(&mut self, cache: DashMap<ProjectRelativePathBuf, Vec<RawDirEntry>>) {
         self.data.set(ReadDirCache(cache));
-    }
-
-    fn get_read_dir_cache(&self) -> &ReadDirCache {
-        &self
-            .data
-            .get::<ReadDirCache>()
-            .expect("ReadDirCache is expected to be set.")
-    }
-
-    fn update_read_dir_cache(&self, cell_path: CellPath, read_dir_output: &ReadDirOutput) {
-        let updated_cache = self.get_read_dir_cache();
-        updated_cache
-            .0
-            .insert(cell_path.to_owned(), read_dir_output.clone());
     }
 }

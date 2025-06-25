@@ -290,9 +290,8 @@ impl Key for ReadDirKey {
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         let file_ops = get_delegated_file_ops(ctx, self.path.cell(), self.check_ignores).await?;
-        let user_data = ctx.per_transaction_data();
         file_ops
-            .read_dir(user_data, self.path.as_ref().path())
+            .read_dir(ctx, self.path.as_ref().path())
             .await
             .map_err(buck2_error::Error::from)
     }

@@ -198,6 +198,29 @@ impl BundledFileOpsDelegate {
         self.get_entry_at_path_if_exists(path)?
             .ok_or_else(|| BundledPathSearchError::MissingFile(path.to_owned()).into())
     }
+
+    /// Return the list of file outputs, sorted.
+    async fn read_dir(&self, path: &CellRelativePath) -> buck2_error::Result<Vec<RawDirEntry>> {
+        let dir = match self.get_entry_at_path(path)? {
+            DirectoryEntry::Dir(dir) => dir,
+            DirectoryEntry::Leaf(_) => {
+                return Err(BundledPathSearchError::ExpectedDirectory(path.to_string()).into());
+            }
+        };
+
+        let entries = dir
+            .entries()
+            .map(|(name, entry)| RawDirEntry {
+                file_name: name.to_owned().into_inner(),
+                file_type: match entry {
+                    DirectoryEntry::Leaf(_) => FileType::File,
+                    DirectoryEntry::Dir(_) => FileType::Directory,
+                },
+            })
+            .collect();
+
+        Ok(entries)
+    }
 }
 
 #[async_trait::async_trait]
@@ -220,27 +243,10 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
     /// Return the list of file outputs, sorted.
     async fn read_dir(
         &self,
+        _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Vec<RawDirEntry>> {
-        let dir = match self.get_entry_at_path(path)? {
-            DirectoryEntry::Dir(dir) => dir,
-            DirectoryEntry::Leaf(_) => {
-                return Err(BundledPathSearchError::ExpectedDirectory(path.to_string()).into());
-            }
-        };
-
-        let entries = dir
-            .entries()
-            .map(|(name, entry)| RawDirEntry {
-                file_name: name.to_owned().into_inner(),
-                file_type: match entry {
-                    DirectoryEntry::Leaf(_) => FileType::File,
-                    DirectoryEntry::Dir(_) => FileType::Directory,
-                },
-            })
-            .collect();
-
-        Ok(entries)
+        self.read_dir(path).await
     }
 
     async fn read_path_metadata_if_exists(
