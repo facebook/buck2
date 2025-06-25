@@ -577,4 +577,22 @@ mod tests {
         assert_eq!(path, result_path);
         assert_eq!(metadata, result_metadata);
     }
+
+    #[test]
+    fn test_delete_many() -> buck2_error::Result<()> {
+        let conn = Connection::open_in_memory()?;
+
+        let table = MaterializerStateSqliteTable::new(Arc::new(Mutex::new(conn)));
+        table.create_table()?;
+
+        // Sqlite has limits on how many variables you can use at once. Check we don't run into
+        // those.
+        let paths = (0..50000)
+            .map(|i| ProjectRelativePathBuf::unchecked_new(format!("foo/{}", i)))
+            .collect();
+
+        table.delete(paths)?;
+
+        Ok(())
+    }
 }
