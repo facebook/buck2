@@ -480,6 +480,21 @@ def _default_rust_edition():
 
     return read_config("rust", "default_edition")
 
+def thrift_library(
+        name,
+        thrift_srcs,
+        languages,
+        deps = [],
+        py_base_module = None,
+        rust_deps = [],
+        thrift_rust_options = [],
+        **kwargs):
+    for l in languages:
+        if False:
+            pass
+        else:
+            print("FIXME(buck2-shims-meta): unsupported thrift language: {}".format(l))
+
 # Do a nasty conversion of e.g. ("supercaml", None, "ocaml-dev") to
 # 'fbcode//third-party-buck/platform010/build/supercaml:ocaml-dev'
 # (which will then get mapped to `shim//third-party/ocaml:ocaml-dev`).
