@@ -25,6 +25,7 @@ use dice::DiceTransactionUpdater;
 use dice::InvalidationSourcePriority;
 use dice::Key;
 use dupe::Dupe;
+use futures::future::BoxFuture;
 
 use crate::buildfiles::HasBuildfiles;
 use crate::file_ops::delegate::get_delegated_file_ops;
@@ -90,12 +91,10 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> buck2_error::Result<Option<String>> {
-        let file_ops = get_delegated_file_ops(ctx, path.cell(), CheckIgnores::No).await?;
-        let () = ctx.compute(&ReadFileKey(Arc::new(path.to_owned()))).await?;
-        // FIXME(JakobDegen): We intentionally avoid storing the result of this function in dice.
-        // However, that also means that the `ReadFileKey` is not marked as transient if this
-        // returns an error, which is unfortunate.
-        file_ops.read_file_if_exists(path.path()).await
+        (ctx.compute(&ReadFileKey(Arc::new(path.to_owned())))
+            .await??
+            .0)()
+        .await
     }
 
     /// Does not check if the path is ignored
@@ -252,17 +251,50 @@ impl FileChangeTracker {
     }
 }
 
+/// The return value of a `ReadFileKey` computation.
+///
+/// Instead of the actual file contents, this is a closure that reads the actual file contents from
+/// disk when invoked. This is done to ensure that we don't store the file contents in memory.
+// FIXME(JakobDegen): `ReadFileKey` is not marked as transient if this returns an error, which is
+// unfortunate.
+#[derive(Clone, Dupe, Allocative)]
+pub struct ReadFileProxy(
+    #[allocative(skip)]
+    Arc<dyn Fn() -> BoxFuture<'static, buck2_error::Result<Option<String>>> + Send + Sync>,
+);
+
+impl ReadFileProxy {
+    /// This is a convenience method that avoids a little bit of boilerplate around boxing, and
+    /// cloning the captures
+    pub fn new_with_captures<D, F>(data: D, c: impl Fn(D) -> F + Send + Sync + 'static) -> Self
+    where
+        D: Clone + Send + Sync + 'static,
+        F: Future<Output = buck2_error::Result<Option<String>>> + Send + 'static,
+    {
+        use futures::FutureExt;
+
+        Self(Arc::new(move || {
+            let data = data.clone();
+            c(data).boxed()
+        }))
+    }
+}
+
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
 struct ReadFileKey(Arc<CellPath>);
 
 #[async_trait]
 impl Key for ReadFileKey {
-    type Value = ();
+    type Value = buck2_error::Result<ReadFileProxy>;
     async fn compute(
         &self,
-        _ctx: &mut DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
+        get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No)
+            .await?
+            .read_file_if_exists(self.0.path())
+            .await
     }
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
@@ -359,7 +391,7 @@ impl Key for PathMetadataKey {
                 at: ref path,
                 to: _,
             }) => {
-                ctx.compute(&ReadFileKey(path.dupe())).await?;
+                ctx.compute(&ReadFileKey(path.dupe())).await??;
             }
             _ => (),
         };

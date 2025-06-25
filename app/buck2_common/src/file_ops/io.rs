@@ -26,6 +26,7 @@ use dice::UserComputationData;
 use dupe::Dupe;
 
 use crate::file_ops::delegate::FileOpsDelegate;
+use crate::file_ops::dice::ReadFileProxy;
 use crate::file_ops::metadata::RawDirEntry;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::io::IoProvider;
@@ -63,9 +64,11 @@ impl FileOpsDelegate for IoFileOpsDelegate {
     async fn read_file_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Option<String>> {
-        let project_path = self.resolve(path);
-        self.io_provider().read_file_if_exists(project_path).await
+    ) -> buck2_error::Result<ReadFileProxy> {
+        Ok(ReadFileProxy::new_with_captures(
+            (self.resolve(path), self.io.dupe()),
+            |(project_path, io)| async move { io.read_file_if_exists(project_path).await },
+        ))
     }
 
     async fn read_dir(

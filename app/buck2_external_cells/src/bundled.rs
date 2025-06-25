@@ -15,6 +15,7 @@ use std::sync::OnceLock;
 
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_common::file_ops::delegate::FileOpsDelegate;
+use buck2_common::file_ops::dice::ReadFileProxy;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::FileType;
 use buck2_common::file_ops::metadata::RawDirEntry;
@@ -221,6 +222,19 @@ impl BundledFileOpsDelegate {
 
         Ok(entries)
     }
+
+    fn read_file_if_exists(
+        &self,
+        path: &CellRelativePath,
+    ) -> buck2_error::Result<Option<&'static str>> {
+        match self.get_entry_at_path_if_exists(path)? {
+            Some(DirectoryEntry::Leaf(leaf)) => Ok(Some(str::from_utf8(leaf.contents)?)),
+            Some(DirectoryEntry::Dir(_)) => {
+                Err(BundledPathSearchError::ExpectedFile(path.to_owned()).into())
+            }
+            None => Ok(None),
+        }
+    }
 }
 
 #[async_trait::async_trait]
@@ -228,16 +242,11 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
     async fn read_file_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Option<String>> {
-        match self.get_entry_at_path_if_exists(path)? {
-            Some(DirectoryEntry::Leaf(leaf)) => {
-                Ok(Some(String::from_utf8(leaf.contents.to_vec())?))
-            }
-            Some(DirectoryEntry::Dir(_)) => {
-                Err(BundledPathSearchError::ExpectedFile(path.to_owned()).into())
-            }
-            None => Ok(None),
-        }
+    ) -> buck2_error::Result<ReadFileProxy> {
+        let res = self.read_file_if_exists(path)?;
+        Ok(ReadFileProxy::new_with_captures(res, |res| async move {
+            Ok(res.map(|s| s.to_owned()))
+        }))
     }
 
     /// Return the list of file outputs, sorted.
@@ -406,7 +415,6 @@ mod tests {
         let ops = testing_ops();
         let content = ops
             .read_file_if_exists(&CellRelativePath::unchecked_new("dir/src.txt"))
-            .await
             .unwrap()
             .unwrap();
         let content = if cfg!(windows) {
@@ -414,12 +422,11 @@ mod tests {
             // We could configure git, but it's more reliable to handle it in the test.
             content.replace("\r\n", "\n")
         } else {
-            content
+            content.to_owned()
         };
         assert_eq!(content, "foobar\n");
         assert!(
             ops.read_file_if_exists(&CellRelativePath::unchecked_new("dir/does_not_exist.txt"))
-                .await
                 .unwrap()
                 .is_none()
         );

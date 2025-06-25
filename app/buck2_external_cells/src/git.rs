@@ -19,6 +19,7 @@ use std::sync::OnceLock;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::file_ops::delegate::FileOpsDelegate;
+use buck2_common::file_ops::dice::ReadFileProxy;
 use buck2_common::file_ops::metadata::FileDigestConfig;
 use buck2_common::file_ops::metadata::RawDirEntry;
 use buck2_common::file_ops::metadata::RawPathMetadata;
@@ -285,11 +286,15 @@ impl FileOpsDelegate for GitFileOpsDelegate {
     async fn read_file_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Option<String>> {
-        let project_path = self.resolve(path);
-        (&self.io as &dyn IoProvider)
-            .read_file_if_exists(project_path)
-            .await
+    ) -> buck2_error::Result<ReadFileProxy> {
+        Ok(ReadFileProxy::new_with_captures(
+            (self.resolve(path), self.io.dupe()),
+            |(project_path, io)| async move {
+                (&io as &dyn IoProvider)
+                    .read_file_if_exists(project_path)
+                    .await
+            },
+        ))
     }
 
     async fn read_dir(

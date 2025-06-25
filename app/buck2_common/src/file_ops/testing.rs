@@ -31,6 +31,7 @@ use crate::file_ops::delegate::FileOpsDelegateWithIgnores;
 use crate::file_ops::delegate::testing::FileOpsKey;
 use crate::file_ops::delegate::testing::FileOpsValue;
 use crate::file_ops::dice::CheckIgnores;
+use crate::file_ops::dice::ReadFileProxy;
 use crate::file_ops::metadata::FileMetadata;
 use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawDirEntry;
@@ -48,7 +49,7 @@ enum TestFileOpsEntry {
     Directory(BTreeSet<SimpleDirEntry>),
 }
 
-#[derive(Allocative)]
+#[derive(Allocative, Clone, Dupe)]
 pub struct TestFileOps {
     #[allocative(skip)]
     entries: Arc<BTreeMap<CellPath, TestFileOpsEntry>>,
@@ -243,9 +244,11 @@ impl FileOpsDelegate for TestCellFileOps {
     async fn read_file_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Option<String>> {
-        let path = CellPath::new(self.0, path.to_owned());
-        FileOps::read_file_if_exists(&self.1, path.as_ref()).await
+    ) -> buck2_error::Result<ReadFileProxy> {
+        Ok(ReadFileProxy::new_with_captures(
+            (CellPath::new(self.0, path.to_owned()), self.1.dupe()),
+            move |(path, ops)| async move { FileOps::read_file_if_exists(&ops, path.as_ref()).await },
+        ))
     }
 
     /// Return the list of file outputs, sorted.
