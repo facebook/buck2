@@ -110,6 +110,23 @@ impl FileOpsDelegate for IoFileOpsDelegate {
             .transpose()
     }
 
+    async fn exists_matching_exact_case(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+        path: &'async_trait CellRelativePath,
+    ) -> buck2_error::Result<bool> {
+        let Some(dir) = path.parent() else {
+            // FIXME(JakobDegen): Blindly assuming that cell roots exist isn't quite right, I'll fix
+            // this later in the stack
+            return Ok(true);
+        };
+        // FIXME(JakobDegen): Unwrap is ok because a parent exists, but there should be a better API
+        // for this
+        let entry = path.file_name().unwrap();
+        let dir = self.read_dir(ctx, dir).await?;
+        Ok(dir.iter().any(|f| &*f.file_name == entry))
+    }
+
     fn eq_token(&self) -> PartialEqAny {
         PartialEqAny::new(self)
     }

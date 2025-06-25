@@ -77,6 +77,19 @@ pub trait FileOpsDelegate: Send + Sync {
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>>;
 
+    /// Check if a path exists in the exact case given.
+    ///
+    /// The default implementation assumes that `read_path_metadata_if_exists` is already correctly
+    /// case-sensitive - to the extent that that's not the case, this must be overridden.
+    async fn exists_matching_exact_case(
+        &self,
+        _ctx: &mut DiceComputations<'_>,
+        path: &'async_trait CellRelativePath,
+    ) -> buck2_error::Result<bool> {
+        let metadata = self.read_path_metadata_if_exists(path).await?;
+        Ok(metadata.is_some())
+    }
+
     fn eq_token(&self) -> PartialEqAny;
 }
 
@@ -242,16 +255,14 @@ impl FileOpsDelegateWithIgnores {
         path: &CellRelativePath,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<bool> {
-        let Some(dir) = path.parent() else {
-            // FIXME(JakobDegen): Blindly assuming that cell roots exist isn't quite right, I'll fix
-            // this later in the stack
-            return Ok(true);
-        };
-        // FIXME(JakobDegen): Unwrap is ok because a parent exists, but there should be a better API
-        // for this
-        let entry = path.file_name().unwrap();
-        let dir = self.read_dir(dice, dir).await?;
-        Ok(dir.included.iter().any(|f| &*f.file_name == entry))
+        if self
+            .check_ignores(UncheckedCellRelativePath::new(path))
+            .is_ignored()
+        {
+            return Ok(false);
+        }
+
+        self.delegate.exists_matching_exact_case(dice, path).await
     }
 
     pub async fn read_path_metadata_if_exists(
