@@ -28,7 +28,7 @@ pub struct DirectoryData<D, L, H>
 where
     H: DirectoryDigest,
 {
-    /// SortedVectorMap is a more compact immutatable representation for directories.
+    /// SortedVectorMap is a more compact immutable representation for directories.
     /// Experimentally, it takes about 30% less space, while resulting in no runtime regression.
     pub entries: SortedVectorMap<FileNameBuf, DirectoryEntry<D, L>>,
 
