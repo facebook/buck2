@@ -233,6 +233,7 @@ def cpp_binary(
         name,
         deps = [],
         external_deps = [],
+        os_deps = [],
         visibility = ["PUBLIC"],
         dlopen_enabled = None,
         compiler_specific_flags = None,
@@ -241,6 +242,8 @@ def cpp_binary(
         modules = None,
         **kwargs):
     _unused = (dlopen_enabled, compiler_specific_flags, os_linker_flags, allocator, modules)  # @unused
+    if os_deps:
+        deps += _select_os_deps(_fix_dict_deps(os_deps))
     prelude.cxx_binary(
         name = name,
         deps = _fix_deps(deps + external_deps_to_targets(external_deps)),
