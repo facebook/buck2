@@ -135,14 +135,8 @@ impl FileOpsDelegate for IoFileOpsDelegate {
     }
 }
 
-pub struct ReadDirCache(DashMap<ProjectRelativePathBuf, Vec<RawDirEntry>>);
+struct ReadDirCache(DashMap<ProjectRelativePathBuf, Vec<RawDirEntry>>);
 
-pub trait HasReadDirCache {
-    fn set_read_dir_cache(&mut self, cache: DashMap<ProjectRelativePathBuf, Vec<RawDirEntry>>);
-}
-
-impl HasReadDirCache for UserComputationData {
-    fn set_read_dir_cache(&mut self, cache: DashMap<ProjectRelativePathBuf, Vec<RawDirEntry>>) {
-        self.data.set(ReadDirCache(cache));
-    }
+pub fn initialize_read_dir_cache(data: &mut UserComputationData) {
+    data.data.set(ReadDirCache(Default::default()));
 }
