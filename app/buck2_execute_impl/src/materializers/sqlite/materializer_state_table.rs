@@ -47,9 +47,9 @@ const STATE_TABLE_NAME: &str = "materializer_state";
 
 #[derive(buck2_error::Error, Debug, PartialEq, Eq)]
 #[buck2(tag = Tier0)]
-enum ArtifactMetadataSqliteConversionError {
+enum MaterializerStateTableError {
     #[error("Internal error: expected field `{}` to be not null for artifact type '{}'", .field, .artifact_type)]
-    ExpectedNotNull {
+    ExpectedFieldIsMissing {
         field: &'static str,
         artifact_type: ArtifactType,
     },
@@ -196,17 +196,16 @@ fn convert_sqlite_entry_to_materializer_state_entry(
         artifact_type: ArtifactType,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<TrackedFileDigest> {
-        let size = size.ok_or(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+        let size = size.ok_or(MaterializerStateTableError::ExpectedFieldIsMissing {
             field: "size",
             artifact_type,
         })?;
-        let entry_hash =
-            entry_hash.ok_or(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
-                field: "entry_hash",
-                artifact_type,
-            })?;
+        let entry_hash = entry_hash.ok_or(MaterializerStateTableError::ExpectedFieldIsMissing {
+            field: "entry_hash",
+            artifact_type,
+        })?;
         let entry_hash_kind = entry_hash_kind.ok_or({
-            ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+            MaterializerStateTableError::ExpectedFieldIsMissing {
                 field: "entry_hash_kind",
                 artifact_type,
             }
@@ -247,7 +246,7 @@ fn convert_sqlite_entry_to_materializer_state_entry(
                 digest_config,
             )?,
             is_executable: sqlite_entry.file_is_executable.ok_or({
-                ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+                MaterializerStateTableError::ExpectedFieldIsMissing {
                     field: "file_is_executable",
                     artifact_type: sqlite_entry.artifact_type,
                 }
@@ -257,7 +256,7 @@ fn convert_sqlite_entry_to_materializer_state_entry(
             let symlink = Symlink::new(
                 sqlite_entry
                     .symlink_target
-                    .ok_or(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+                    .ok_or(MaterializerStateTableError::ExpectedFieldIsMissing {
                         field: "symlink_target",
                         artifact_type: sqlite_entry.artifact_type,
                     })?
@@ -270,7 +269,7 @@ fn convert_sqlite_entry_to_materializer_state_entry(
             let external_symlink = ExternalSymlink::new(
                 sqlite_entry
                     .symlink_target
-                    .ok_or(ArtifactMetadataSqliteConversionError::ExpectedNotNull {
+                    .ok_or(MaterializerStateTableError::ExpectedFieldIsMissing {
                         field: "symlink_target",
                         artifact_type: sqlite_entry.artifact_type,
                     })?
