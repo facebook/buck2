@@ -32,7 +32,9 @@ use crate::external_symlink::ExternalSymlink;
 
 /// std::fs::FileType is an opaque type that isn't constructible. This is
 /// basically the equivalent.
-#[derive(Clone, Dupe, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative)]
+#[derive(
+    Copy, Clone, Dupe, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative
+)]
 pub enum FileType {
     Directory,
     File,

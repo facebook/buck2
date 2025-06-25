@@ -71,7 +71,7 @@ pub trait FileOpsDelegate: Send + Sync {
         &self,
         ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Vec<RawDirEntry>>;
+    ) -> buck2_error::Result<Arc<[RawDirEntry]>>;
 
     async fn read_path_metadata_if_exists(
         &self,
@@ -222,14 +222,14 @@ impl FileOpsDelegateWithIgnores {
 
         // Filter out any entries that are ignored.
         let mut included_entries = Vec::new();
-        for e in entries {
+        for e in entries.iter() {
             let RawDirEntry {
                 file_type,
                 file_name,
             } = e;
 
-            if !is_ignored(&file_name)? {
-                let file_name = match FileNameBuf::try_from_or_get_back(file_name) {
+            if !is_ignored(file_name)? {
+                let file_name = match FileNameBuf::try_from_or_get_back(file_name.to_owned()) {
                     Ok(file_name) => file_name,
                     Err(file_name) => {
                         console_message(format!(
@@ -241,7 +241,7 @@ impl FileOpsDelegateWithIgnores {
                 };
                 included_entries.push(SimpleDirEntry {
                     file_name,
-                    file_type,
+                    file_type: *file_type,
                 });
             }
         }

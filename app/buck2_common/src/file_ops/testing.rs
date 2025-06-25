@@ -257,14 +257,14 @@ impl FileOpsDelegate for TestCellFileOps {
         &self,
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<Arc<[RawDirEntry]>> {
         let path = CellPath::new(self.0, path.to_owned());
         let simple_entries = FileOps::read_dir(&self.1, path.as_ref()).await?.included;
         Ok(simple_entries
             .iter()
             .map(|e| RawDirEntry {
                 file_name: e.file_name.clone().into_inner(),
-                file_type: e.file_type.clone(),
+                file_type: e.file_type,
             })
             .collect())
     }

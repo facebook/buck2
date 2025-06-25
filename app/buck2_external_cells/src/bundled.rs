@@ -201,7 +201,7 @@ impl BundledFileOpsDelegate {
     }
 
     /// Return the list of file outputs, sorted.
-    async fn read_dir(&self, path: &CellRelativePath) -> buck2_error::Result<Vec<RawDirEntry>> {
+    async fn read_dir(&self, path: &CellRelativePath) -> buck2_error::Result<Arc<[RawDirEntry]>> {
         let dir = match self.get_entry_at_path(path)? {
             DirectoryEntry::Dir(dir) => dir,
             DirectoryEntry::Leaf(_) => {
@@ -268,7 +268,7 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
         &self,
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<Arc<[RawDirEntry]>> {
         self.read_dir(path).await
     }
 
@@ -474,7 +474,7 @@ mod tests {
         let root_entries = ops.read_dir(root).await.unwrap();
         assert!(root_entries.is_sorted());
         assert_eq!(
-            &root_entries,
+            &*root_entries,
             &[
                 RawDirEntry {
                     file_name: ".buckconfig".into(),

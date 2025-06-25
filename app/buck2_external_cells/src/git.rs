@@ -302,7 +302,7 @@ impl FileOpsDelegate for GitFileOpsDelegate {
         &self,
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<Arc<[RawDirEntry]>> {
         let project_path = self.resolve(path);
         let mut entries = (&self.io as &dyn IoProvider)
             .read_dir(project_path)
@@ -312,7 +312,7 @@ impl FileOpsDelegate for GitFileOpsDelegate {
         // Make sure entries are deterministic, since read_dir isn't.
         entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
 
-        Ok(entries)
+        Ok(entries.into())
     }
 
     async fn read_path_metadata_if_exists(

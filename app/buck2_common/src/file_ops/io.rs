@@ -69,7 +69,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
         &self,
         ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<Arc<[RawDirEntry]>> {
         let project_path = self.resolve(path);
         let read_dir_cache = ctx
             .per_transaction_data()
@@ -88,6 +88,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
 
         // Make sure entries are deterministic, since read_dir isn't.
         entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
+        let entries: Arc<[RawDirEntry]> = Arc::from(entries);
         read_dir_cache.0.insert(project_path, entries.clone());
 
         Ok(entries)
@@ -132,7 +133,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
     }
 }
 
-struct ReadDirCache(DashMap<ProjectRelativePathBuf, Vec<RawDirEntry>>);
+struct ReadDirCache(DashMap<ProjectRelativePathBuf, Arc<[RawDirEntry]>>);
 
 pub fn initialize_read_dir_cache(data: &mut UserComputationData) {
     data.data.set(ReadDirCache(Default::default()));
