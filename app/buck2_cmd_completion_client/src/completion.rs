@@ -33,9 +33,11 @@ enum Shell {
 #[clap(name = "completion", verbatim_doc_comment)]
 /// Print completion configuration for shell
 ///
-/// For a one-time setup, run one of the following commands:
-///     source <(buck2 completion bash)
-///     source <(buck2 completion zsh)
+/// For a one-time setup, run the one of the following commands appropriate for the shell you're
+/// using:
+/// - `source <(buck2 completion bash)`
+/// - `source <(buck2 completion zsh)`
+/// - `source (buck2 completion fish | psub)`
 pub struct CompletionCommand {
     #[clap(
         value_enum,
