@@ -55,6 +55,7 @@ use crate as buck2_build_api;
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueIsArtifactAnnotation;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
@@ -140,7 +141,7 @@ pub struct DefaultInfoGen<V: ValueLifetimeless> {
     /// A list of `Artifact`s that are built by default if this rule is requested
     /// explicitly (via CLI or `$(location)` etc), or depended on as as a "source"
     /// (i.e., `attrs.source()`).
-    default_outputs: ValueOfUncheckedGeneric<V, ListType<ValueAsArtifactLike<'static>>>,
+    default_outputs: ValueOfUncheckedGeneric<V, ListType<ValueIsArtifactAnnotation>>,
     /// A list of `ArtifactTraversable`. The underlying `Artifact`s they define will
     /// be built by default if this rule is requested (via CLI or `$(location)` etc),
     /// but _not_ when it's depended on as as a "source" (i.e., `attrs.source()`).
@@ -389,10 +390,10 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
     fn DefaultInfo<'v>(
         // TODO(nga): parameters must be named only.
         #[starlark(default = NoneOr::None)] default_output: NoneOr<
-            ValueOf<'v, ValueAsArtifactLike<'v>>,
+            ValueOf<'v, ValueIsArtifactAnnotation>,
         >,
         #[starlark(default = NoneOr::None)] default_outputs: NoneOr<
-            ValueOf<'v, UnpackList<UnpackAndDiscard<ValueAsArtifactLike<'v>>>>,
+            ValueOf<'v, UnpackList<UnpackAndDiscard<ValueIsArtifactAnnotation>>>,
         >,
         #[starlark(default = ValueOf { value: FrozenValue::new_empty_list().to_value(), typed: UnpackList::default()})]
         other_outputs: ValueOf<
@@ -408,7 +409,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
         let heap = eval.heap();
 
         // support both list and singular options for now until we migrate all the rules.
-        let valid_default_outputs: ValueOfUnchecked<ListType<ValueAsArtifactLike>> =
+        let valid_default_outputs: ValueOfUnchecked<ListType<ValueIsArtifactAnnotation>> =
             match (default_outputs.into_option(), default_output.into_option()) {
                 (Some(list), None) => list.as_unchecked().cast(),
                 (None, Some(default_output)) => {

@@ -158,6 +158,30 @@ impl<'v> UnpackValue<'v> for ValueAsArtifactLike<'v> {
     }
 }
 
+/// A helper type that is used in providers and function parameters to mark the type but not
+/// otherwise provide a useful unpack implementation.
+///
+/// This is useful because unlike `ValueAsArtifactLike`, it does not carry a lifetime. See <D?> for
+/// some more discussion of why this was necessary.
+pub struct ValueIsArtifactAnnotation;
+
+impl StarlarkTypeRepr for ValueIsArtifactAnnotation {
+    type Canonical = <ValueAsArtifactLikeUnpack<'static> as StarlarkTypeRepr>::Canonical;
+
+    fn starlark_type_repr() -> Ty {
+        ValueAsArtifactLikeUnpack::<'static>::starlark_type_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for ValueIsArtifactAnnotation {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        Ok(ValueAsArtifactLikeUnpack::<'v>::unpack_value_opt(value)
+            .map(|_| ValueIsArtifactAnnotation))
+    }
+}
+
 #[derive(PartialEq)]
 pub enum ArtifactFingerprint<'a> {
     Normal {

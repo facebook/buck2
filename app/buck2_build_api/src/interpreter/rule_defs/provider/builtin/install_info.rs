@@ -31,6 +31,7 @@ use starlark::values::dict::DictType;
 
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueIsArtifactAnnotation;
 
 // Provider that signals a rule is installable (ex. android_binary)
 
@@ -55,7 +56,7 @@ pub struct InstallInfoGen<V: ValueLifetimeless> {
     // Label for the installer
     installer: ValueOfUncheckedGeneric<V, StarlarkConfiguredProvidersLabel>,
     // list of files that need to be installed
-    files: ValueOfUncheckedGeneric<V, DictType<String, ValueAsArtifactLike<'static>>>,
+    files: ValueOfUncheckedGeneric<V, DictType<String, ValueIsArtifactAnnotation>>,
 }
 
 impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
@@ -113,7 +114,7 @@ impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
 fn install_info_creator(globals: &mut GlobalsBuilder) {
     fn InstallInfo<'v>(
         installer: ValueOf<'v, &'v StarlarkConfiguredProvidersLabel>,
-        files: ValueOf<'v, DictType<&'v str, ValueAsArtifactLike<'v>>>,
+        files: ValueOf<'v, DictType<&'v str, ValueIsArtifactAnnotation>>,
     ) -> starlark::Result<InstallInfo<'v>> {
         let info = InstallInfo {
             installer: installer.as_unchecked().cast(),
