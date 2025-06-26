@@ -23,15 +23,16 @@ with Buck2.
 
 ## Preqrequisites:
 
+For this tutorial, we will use Rust. You don't need to know how to write Rust.
+We will only use a few basic of Rust.
+
 <OssOnly>
-- Follow the previous section to [set up](../install)
-- [Setup rust](https://rustup.rs/)
+- [Follow the previous section to set up Buck2](../install)
+- [Set up Rust](https://rustup.rs/)
 </OssOnly>
 <FbInternalOnly>
-- Set up [`fbsource`](https://www.internalfb.com/wiki/Repositories/fbsource/#cloning) repo
+- Set up an [`fbsource`](https://www.internalfb.com/wiki/Repositories/fbsource/#cloning) repo, or [reserve an OnDemand](https://www.internalfb.com/intern/ondemand/) with `fbsource`
 </FbInternalOnly>
-- For this tutorial, we will use Rust. You don't need to know how to write Rust.
-  We will only use a few basic of Rust.
 
 ## Step 1: Create a New Project
 
