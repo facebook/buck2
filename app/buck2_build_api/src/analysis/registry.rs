@@ -187,13 +187,13 @@ impl<'v> AnalysisRegistry<'v> {
     ///  - `str`: A new file is declared with this name.
     ///  - `StarlarkOutputArtifact`: The original artifact is returned
     ///  - `StarlarkArtifact`/`StarlarkDeclaredArtifact`: If the artifact is already bound, an error is raised. Otherwise we proceed with the original artifact.
-    pub fn get_or_declare_output<'v2>(
+    pub fn get_or_declare_output(
         &mut self,
-        eval: &Evaluator<'v2, '_, '_>,
-        value: OutputArtifactArg<'v2>,
+        eval: &Evaluator<'v, '_, '_>,
+        value: OutputArtifactArg<'v>,
         output_type: OutputType,
         uses_experimental_content_based_path_hashing: Option<bool>,
-    ) -> buck2_error::Result<(ArtifactDeclaration<'v2>, OutputArtifact)> {
+    ) -> buck2_error::Result<(ArtifactDeclaration<'v>, OutputArtifact)> {
         let declaration_location = eval.call_stack_top_location();
         let heap = eval.heap();
         let declared_artifact = match value {
