@@ -862,6 +862,7 @@ windows_resource = prelude_rule(
         cxx_common.include_directories_arg() |
         {
             "labels": attrs.list(attrs.string(), default = []),
+            "deps": attrs.list(attrs.dep(), default = []),
         }
     ),
 )
