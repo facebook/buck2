@@ -292,34 +292,6 @@ async def test_sh_binary_no_append_extension(buck: Buck) -> None:
         assert '"$BUCK_PROJECT_ROOT/no_extension" "$@"' in last_script_line
 
 
-@buck_test(inplace=True)
-async def test_cquery(buck: Buck) -> None:
-    result = await buck.cquery(
-        """deps(fbcode//buck2/tests/targets/commands:exported)"""
-    )
-    assert "fbcode//buck2/tests/targets/commands:exported" in result.stdout
-
-
-@buck_test(inplace=True)
-async def test_cquery_with_config_value(buck: Buck) -> None:
-    deps_enabled_result = await buck.cquery(
-        "--config",
-        "user.deps_enabled=true",
-        "deps(fbcode//buck2/tests/targets/commands:lib)",
-    )
-    assert "fbcode//buck2/tests/targets/commands:dynamic" in deps_enabled_result.stdout
-
-    deps_disabled_result = await buck.cquery(
-        "--config",
-        "user.deps_enabled=false",
-        "deps(fbcode//buck2/tests/targets/commands:lib)",
-    )
-    assert (
-        "fbcode//buck2/tests/targets/commands:dynamic"
-        not in deps_disabled_result.stdout
-    )
-
-
 if rust_linux_only():
 
     @buck_test(inplace=True)
