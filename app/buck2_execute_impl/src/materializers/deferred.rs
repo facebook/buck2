@@ -481,7 +481,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
 
         let has_artifact = recv
             .await
-            .buck_error_context("Recv'ing match future from command thread.")?;
+            .buck_error_context("Receiving \"has artifact\" future from command thread.")?;
 
         Ok(has_artifact)
     }
