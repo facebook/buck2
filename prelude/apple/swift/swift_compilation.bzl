@@ -715,25 +715,34 @@ def _compile_index_store(
     # We need an output file map with index-unit-output-path entries to be able
     # to index all of the srcs in a single pass.
     output_file_map = {}
+    object_outputs = []
     for src in srcs:
+        # We have to declare outputs for all the srcs as the Swift driver will
+        # not allow us to share the same output path for multiple inputs. We
+        # don't care about the output, but there is no way to get an output
+        # path without declaring one.
+        obj_out = ctx.actions.declare_output("__indexstore__/" + src.file.basename + ".o")
+        object_outputs.append(obj_out.as_output())
         output_file_map[src.file] = {
-            "diagnostics": "/dev/null",
+            # Not declared as output, we have the path already so this can be
+            # thrown away.
+            "diagnostics": cmd_args(obj_out, format = "{}.dia", delimiter = ""),
             # The output here is only used for the identifier of the index unit file
             "index-unit-output-path": src.file,
-            "object": "/dev/null",
+            "object": cmd_args(obj_out, delimiter = ""),
         }
 
     index_store_output = ctx.actions.declare_output("__indexstore__/swift_{}".format(module_name), dir = True)
-    additional_flags = cmd_args([
+    additional_flags = cmd_args(
         "-index-ignore-system-modules",
         "-index-store-path",
         index_store_output.as_output(),
         "-c",
         "-disable-batch-mode",
-        "-disallow-use-new-driver",
         "-Xwrapper",
         "-ignore-errors",
-    ])
+        hidden = object_outputs,
+    )
 
     _compile_with_argsfile(
         ctx = ctx,
