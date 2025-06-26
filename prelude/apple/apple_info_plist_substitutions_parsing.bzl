@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//utils:selects.bzl", "selects")
+
 # `apple_bundle.info_plist_substitutions` might contain `CODE_SIGN_ENTITLEMENTS` key which (as per v1 documentation):
 #
 # > Code signing will embed entitlements pointed to by the entitlements_file arg in the bundle's apple_binary.
@@ -36,7 +38,7 @@ def _find_first_variable(string: str) -> [(str, (str, str)), None]:
     suffix = string[variable_end + 1:]
     return (variable, (prefix, suffix))
 
-def _expand_codesign_entitlements_path(info_plist_substitutions: dict[str, str], path: str) -> str:
+def _expand_codesign_entitlements_path(info_plist_substitutions: dict[str, str | Select], path: str) -> str:
     path = path.strip()
     for _ in range(100):
         if path.startswith(_SOURCE_ROOT_PREFIX):
@@ -51,10 +53,15 @@ def _expand_codesign_entitlements_path(info_plist_substitutions: dict[str, str],
         path = prefix + maybe_value + suffix
     fail("Too many iteration (loop might be present) to expand `{}` with substitutions `{}`".format(path, info_plist_substitutions))
 
-def parse_codesign_entitlements(info_plist_substitutions: [dict[str, str | Select], None]) -> [str, None]:
+def parse_codesign_entitlements(info_plist_substitutions: [dict | Select, None]) -> [str | Select, None]:
+    if not info_plist_substitutions:
+        return None
+    return selects.apply(info_plist_substitutions, _parse_codesign_entitlements)
+
+def _parse_codesign_entitlements(info_plist_substitutions: [dict, None]) -> [str | Select, None]:
     if not info_plist_substitutions:
         return None
     maybe_path = info_plist_substitutions.get(_CODE_SIGN_ENTITLEMENTS_KEY)
     if not maybe_path:
         return None
-    return _expand_codesign_entitlements_path(info_plist_substitutions, maybe_path)
+    return selects.apply(maybe_path, lambda maybe_path: _expand_codesign_entitlements_path(info_plist_substitutions, maybe_path))
