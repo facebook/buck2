@@ -537,7 +537,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
     }
 
-    fn try_freeze_static(&self) -> Option<FrozenValue> {
+    fn try_freeze_directly(&self, _freezer: &Freezer<'_>) -> Option<FreezeResult<FrozenValue>> {
         let StarlarkCommandLineData {
             items,
             hidden,
@@ -550,7 +550,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
                     hidden: ThinBoxSliceFrozenValue::empty(),
                     options: FrozenCommandLineOptions::empty(),
                 });
-            Some(EMPTY.unpack().to_frozen_value())
+            Some(Ok(EMPTY.unpack().to_frozen_value()))
         } else {
             None
         }

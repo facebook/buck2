@@ -575,18 +575,24 @@ impl<'v, T: Debug + 'static> AValue<'v> for AValueAnyArray<T> {
 
 /// If `A` provides a statically allocated frozen value,
 /// replace object with the forward to that frozen value instead of using default freeze.
-unsafe fn try_freeze_static<'v, A>(me: *mut AValueRepr<A::StarlarkValue>) -> Option<FrozenValue>
+unsafe fn try_freeze_directly<'v, A>(
+    me: *mut AValueRepr<A::StarlarkValue>,
+    freezer: &Freezer<'_>,
+) -> Option<FreezeResult<FrozenValue>>
 where
     A: AValue<'v>,
 {
     unsafe {
-        let f = (*me).payload.try_freeze_static()?;
+        let f = match (*me).payload.try_freeze_directly(freezer)? {
+            Ok(x) => x,
+            Err(e) => return Some(Err(e)),
+        };
 
         drop(AValueHeader::overwrite_with_forward::<A::StarlarkValue>(
             me,
             ForwardPtr::new_frozen(f),
         ));
-        Some(f)
+        Some(Ok(f))
     }
 }
 
@@ -630,8 +636,8 @@ impl<T: StarlarkValue<'static>> AValue<'static> for AValueSimple<T> {
         freezer: &Freezer,
     ) -> FreezeResult<FrozenValue> {
         unsafe {
-            if let Some(f) = try_freeze_static::<Self>(me) {
-                return Ok(f);
+            if let Some(f) = try_freeze_directly::<Self>(me, freezer) {
+                return f;
             }
 
             heap_freeze_simple_impl::<Self>(me, freezer)
@@ -692,8 +698,8 @@ where
         freezer: &Freezer,
     ) -> FreezeResult<FrozenValue> {
         unsafe {
-            if let Some(f) = try_freeze_static::<Self>(me) {
-                return Ok(f);
+            if let Some(f) = try_freeze_directly::<Self>(me, freezer) {
+                return f;
             }
 
             let (fv, r) = freezer.reserve::<AValueSimple<T::Frozen>>();
@@ -779,8 +785,8 @@ mod tests {
     }
 
     #[test]
-    fn test_try_freeze_static() {
-        // `try_freeze_static` is only implemented for `dict` at the moment of writing,
+    fn test_try_freeze_directly() {
+        // `try_freeze_directly` is only implemented for `dict` at the moment of writing,
         // so use it for the test.
 
         let module = Module::new();

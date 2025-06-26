@@ -53,6 +53,8 @@ use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
+use crate::values::Freezer;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -886,11 +888,24 @@ pub trait StarlarkValue<'v>:
         let _ = demand;
     }
 
-    /// When freezing, this function is called on mutable value to return
-    /// statically allocated singleton value if possible.
+    /// When freezing, this function is called on the value first and can return a `FrozenValue`
+    /// directly to bypass the freeze impl.
     ///
-    /// This function is used for optimization and rarely needed to be implemented.
-    fn try_freeze_static(&self) -> Option<FrozenValue> {
+    /// Most types, when being frozen, want to implement their `Freeze` by converting themselves to
+    /// a value of a new type that is then allocated in the frozen heap. In this case, the `Freeze`
+    /// trait should just be used.
+    ///
+    /// This function is needed in the rare case when that is not appropriate - most typically, when
+    /// freezing some values, it may be possible to return a statically allocated value instead of
+    /// allocating a new one. In such cases, this function can be implemented to enable that.
+    ///
+    /// FIXME(JakobDegen):
+    ///   1. This behavior really belongs on the freeze trait, not here
+    ///   2. We need to verify that the returned `FrozenValue`'s underlying type agrees with the
+    ///      type on the `Freeze` implementation
+    ///   3. We may want to make it possible to *only* implement this, thereby not allowing by-value
+    ///      freezes of the type.
+    fn try_freeze_directly(&self, _freezer: &Freezer<'_>) -> Option<FreezeResult<FrozenValue>> {
         None
     }
 }

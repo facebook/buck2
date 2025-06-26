@@ -519,9 +519,9 @@ where
         Ty::any_dict()
     }
 
-    fn try_freeze_static(&self) -> Option<FrozenValue> {
+    fn try_freeze_directly(&self, _freezer: &Freezer<'_>) -> Option<FreezeResult<FrozenValue>> {
         if self.0.content().is_empty() {
-            Some(FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_DICT))
+            Some(Ok(FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_DICT)))
         } else {
             None
         }
