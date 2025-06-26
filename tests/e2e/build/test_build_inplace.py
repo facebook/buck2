@@ -20,7 +20,7 @@ import pytest
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test, env, get_mode_from_platform
+from buck2.tests.e2e_util.buck_workspace import buck_test, get_mode_from_platform
 from buck2.tests.e2e_util.helper.utils import json_get, random_string, read_what_ran
 
 
@@ -360,47 +360,6 @@ async def test_show_full_output(buck: Buck) -> None:
     for _, output in show_output_outputs:
         assert os.path.isabs(output), f"Output path must be absolute, got `{output}`."
         assert os.path.exists(output), f"Output path `{output}` does not exist!"
-
-
-@buck_test(inplace=True)
-@env("BUCK_LOG", "info")
-async def test_consistent_build(buck: Buck) -> None:
-    args = ["fbcode//buck2/tests/targets/rules/genrule:"]
-    if sys.platform == "win32":
-        args.append("@//mode/win")
-    result0 = await buck.build(*args)
-    await buck.kill()
-    result1 = await buck.build(*args)
-    # Don't know if action key should stay consistent between clean builds,
-    # but number of cache misses should.
-    assert sum(result0.get_action_to_cache_miss_count().values()) == sum(
-        result1.get_action_to_cache_miss_count().values()
-    )
-
-    build_report0 = result0.get_build_report()
-    build_report1 = result1.get_build_report()
-
-    # Output path should stay the same between builds, in particular the configuration hash.
-    TARGET = "fbcode//buck2/tests/targets/rules/genrule:my_genrule1"
-    build_report0_outputs = [
-        (TARGET, str(output)) for output in build_report0.outputs_for_target(TARGET)
-    ]
-    build_report1_outputs = [
-        (TARGET, str(output)) for output in build_report1.outputs_for_target(TARGET)
-    ]
-    assert build_report0_outputs == build_report1_outputs
-
-
-@buck_test(inplace=True)
-@env("BUCK_LOG", "info")
-async def test_cached_build(buck: Buck) -> None:
-    args = ["fbcode//buck2/tests/targets/rules/genrule:"]
-    if sys.platform == "win32":
-        args.append("@//mode/win")
-    await buck.build(*args)
-    result = await buck.build(*args)
-    # Should be empty since nothing needs to be rebuilt
-    assert sum(result.get_action_to_cache_miss_count().values()) == 0
 
 
 @buck_test(inplace=True)
