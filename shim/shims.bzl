@@ -147,6 +147,8 @@ def cpp_library(
         headers = None,
         private_headers = None,
         propagated_pp_flags = (),
+        feature = None,
+        preferred_linkage = None,
         **kwargs):
     base_path = native.package_name()
     oss_depends_on_folly = read_bool("oss_depends_on", "folly", False)
@@ -154,7 +156,7 @@ def cpp_library(
     if oss_depends_on_folly and header_base_path.startswith("folly"):
         header_base_path = header_base_path.replace("folly/", "", 1)
 
-    _unused = (undefined_symbols, arch_preprocessor_flags, modular_headers, arch_compiler_flags, labels, propagated_pp_flags)  # @unused
+    _unused = (undefined_symbols, arch_preprocessor_flags, modular_headers, arch_compiler_flags, labels, propagated_pp_flags, feature, preferred_linkage)  # @unused
     if os_deps:
         deps += _select_os_deps(_fix_dict_deps(os_deps))
     if headers == None:
@@ -212,8 +214,9 @@ def cpp_unittest(
         default_strip_mode = None,
         resources = {},
         test_main = None,
+        versions = None,
         **kwargs):
-    _unused = (supports_static_listing, allocator, owner, labels, emails, extract_helper_lib, compiler_specific_flags, default_strip_mode)  # @unused
+    _unused = (supports_static_listing, allocator, owner, labels, emails, extract_helper_lib, compiler_specific_flags, default_strip_mode, versions)  # @unused
     if test_main != None:
         deps = deps + [test_main]
     elif read_bool("oss", "folly_cxx_tests", True):
@@ -264,9 +267,11 @@ def rust_library(
         autocargo = None,
         unittests = None,
         mapped_srcs = {},
+        cpp_deps = None,
+        cxx_bridge = None,
         visibility = ["PUBLIC"],
         **kwargs):
-    _unused = (test_deps, test_env, test_os_deps, named_deps, autocargo, unittests, visibility)  # @unused
+    _unused = (test_deps, test_env, test_os_deps, named_deps, autocargo, unittests, visibility, cpp_deps, cxx_bridge)  # @unused
     deps = _fix_deps(deps)
     mapped_srcs = _maybe_select_map(mapped_srcs, _fix_mapped_srcs)
     if os_deps:

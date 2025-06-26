@@ -6,3 +6,18 @@
 # of this source tree.
 
 DEVSERVER_PLATFORM_REGEX = "UNUSED"
+ANDROID = "Android"
+APPLE = "Apple"
+CXX = "Default"
+FBCODE = "Fbcode"
+IOS = "ios"
+MACOSX = "macosx"
+WATCHOS = "watchos"
+WINDOWS = "Windows"
+
+def get_available_platforms():
+    if native.host_info().os.is_macos:
+        return (CXX, ANDROID, APPLE)
+    if native.host_info().os.is_windows:
+        return (CXX, ANDROID, WINDOWS)
+    return (CXX, ANDROID)
