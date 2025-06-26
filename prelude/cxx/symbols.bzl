@@ -117,6 +117,7 @@ def _extract_symbol_names(
             ' | sed "/__gmon_start__/d"' +
             ' | sed "/_ITM_deregisterTMCloneTable/d"' +
             ' | sed "/_ITM_registerTMCloneTable/d"' +
+            ' | sed "/MallocExtension_Internal_GetNumericProperty/d"' +
             # Sort and dedup symbols.  Use the `C` locale and do it in-memory to
             # make it significantly faster. CAUTION: if ten of these processes
             # run in parallel, they'll have cumulative allocations larger than RAM.
