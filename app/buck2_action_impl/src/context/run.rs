@@ -383,7 +383,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let heap = eval.heap();
 
         for o in outputs_for_error_handler.items.iter() {
-            let to_materialize = o.artifact()?.as_output();
+            let to_materialize = o.artifact()?;
             if !artifacts.outputs.contains(&to_materialize) {
                 return Err(buck2_error::Error::from(
                     RunActionError::FailedActionArtifactNotDeclared {
