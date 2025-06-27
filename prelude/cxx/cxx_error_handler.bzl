@@ -148,6 +148,10 @@ CXX_GENERIC_ERROR_TYPES = [
         matcher = "no such file or directory",
         category_suffix = "no_such_file_or_directory",
     ),
+    make_error_type(
+        matcher = "Wpadded",
+        category_suffix = "padding_error",
+    ),
 
     # compiler errors matched by regex
     make_error_type(
