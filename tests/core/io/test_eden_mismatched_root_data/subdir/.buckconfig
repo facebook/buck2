@@ -1,0 +1,15 @@
+[cells]
+  root = .
+  nano_prelude = prelude
+
+[cell_aliases]
+  prelude = nano_prelude
+
+[external_cells]
+  nano_prelude = bundled
+
+[buck2]
+  allow_eden_io = true
+
+[buildfile]
+  name = TARGETS.fixture

@@ -614,9 +614,3 @@ if False:
             return entry["identity"]
 
         assert sorted(run1, key=key) == sorted(run2, key=key)
-
-
-@buck_test(inplace=True, allow_soft_errors=True)
-async def test_eden_io_with_mismatched_root(buck: Buck) -> None:
-    cwd = Path("buck2") / "tests" / "targets" / "eden_io"
-    await buck.build("//...", rel_cwd=cwd)
