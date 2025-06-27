@@ -496,7 +496,8 @@ impl fmt::Display for CasDownloadInfoOriginNotFound<'_> {
 }
 
 /// Information about a CAS download we might require when an artifact is not materialized.
-#[derive(Debug)]
+#[derive(Debug, Display)]
+#[display("{}, re_use_case = {}", self.origin, self.re_use_case)]
 pub struct CasDownloadInfo {
     pub origin: CasDownloadInfoOrigin,
     /// RE Use case to use when downloading this

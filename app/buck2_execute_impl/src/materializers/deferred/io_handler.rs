@@ -240,10 +240,7 @@ impl DefaultIoHandler {
                             })
                         }
                         _ => MaterializeEntryError::Error(e.context({
-                            format!(
-                                "Error materializing files declared by action: {}",
-                                info.origin
-                            )
+                            format!("Error materializing files declared by action: {}", info)
                         })),
                     }
                 })?;
