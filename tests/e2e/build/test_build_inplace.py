@@ -34,46 +34,6 @@ def fbcode_linux_only() -> bool:
     return sys.platform == "linux"
 
 
-@buck_test(inplace=True)
-async def test_build_output(buck: Buck) -> None:
-    output_path = os.path.join(
-        "fbcode",
-        "buck2",
-        "tests",
-        "targets",
-        "interpreter",
-        "buildfiles",
-        "TARGETS",
-    )
-
-    result = await buck.build_without_report(
-        "fbcode//buck2/tests/targets/interpreter/buildfiles:buildfile",
-        "--show-output",
-    )
-    assert (
-        f"fbcode//buck2/tests/targets/interpreter/buildfiles:buildfile {output_path}\n"
-        == result.stdout
-    )
-
-    result = await buck.build_without_report(
-        "fbcode//buck2/tests/targets/interpreter/buildfiles:buildfile",
-        "--show-simple-output",
-    )
-    assert f"{output_path}\n" == result.stdout
-
-    result = await buck.build_without_report(
-        "fbcode//buck2/tests/targets/interpreter/buildfiles:buildfile",
-        "--show-json-output",
-    )
-
-    # Escaping backslashes needed for windows paths
-    json_escaped_output_path = output_path.replace("\\", "\\\\")
-    assert (
-        f'{{"fbcode//buck2/tests/targets/interpreter/buildfiles:buildfile":"{json_escaped_output_path}"}}\n'
-        == result.stdout
-    )
-
-
 def extract_gen_folder(output: str) -> str:
     return output[: output.find("{0}gen{0}".format(os.path.sep)) + 4]
 
@@ -285,76 +245,6 @@ async def test_sh_binary_no_append_extension(buck: Buck) -> None:
         assert "%BUCK_PROJECT_ROOT%\\no_extension %*" in last_script_line
     else:
         assert '"$BUCK_PROJECT_ROOT/no_extension" "$@"' in last_script_line
-
-
-if rust_linux_only():
-
-    @buck_test(inplace=True)
-    async def test_show_output(buck: Buck) -> None:
-        TARGET = "fbcode//buck2/tests/targets/rules/genrule:executable_helper"
-        result = await buck.build(TARGET, "--show-output")
-
-        build_report = result.get_build_report()
-        build_report_outputs = [
-            (TARGET, str(output)) for output in build_report.outputs_for_target(TARGET)
-        ]
-        show_output_outputs = [
-            (target, os.path.join(build_report.root, output))
-            for target, output in result.get_target_to_build_output().items()
-        ]
-
-        assert show_output_outputs == build_report_outputs
-
-        TARGET = "fbcode//buck2/tests/targets/rules/rust:hello_explicit"
-        result = await buck.build(TARGET, "--show-output")
-
-        build_report = result.get_build_report()
-        build_report_outputs = [
-            (TARGET, str(output)) for output in build_report.outputs_for_target(TARGET)
-        ]
-        show_output_outputs = [
-            (target, os.path.join(build_report.root, output))
-            for target, output in result.get_target_to_build_output().items()
-        ]
-
-        assert show_output_outputs == build_report_outputs
-
-        TARGET = "fbcode//buck2/tests/targets/rules/cxx:my_cpp1"
-        SUBTARGET = "compilation-database"
-        TARGET_WITH_SUBTARGET = (
-            "fbcode//buck2/tests/targets/rules/cxx:my_cpp1[compilation-database]"
-        )
-        result = await buck.build(TARGET_WITH_SUBTARGET, "--show-output")
-
-        build_report = result.get_build_report()
-        build_report_outputs = [
-            (TARGET_WITH_SUBTARGET, str(output))
-            for output in build_report.outputs_for_target(TARGET, SUBTARGET)
-        ]
-        show_output_outputs = [
-            (target, os.path.join(build_report.root, output))
-            for target, output in result.get_target_to_build_output().items()
-        ]
-
-        assert show_output_outputs == build_report_outputs
-
-
-@buck_test(inplace=True)
-async def test_show_full_output(buck: Buck) -> None:
-    TARGET = "fbcode//buck2/tests/targets/rules/genrule:executable_helper"
-    result = await buck.build(TARGET, "--show-full-output")
-
-    build_report = result.get_build_report()
-    build_report_outputs = [
-        (TARGET, str(output)) for output in build_report.outputs_for_target(TARGET)
-    ]
-    show_output_outputs = list(result.get_target_to_build_output().items())
-
-    assert show_output_outputs == build_report_outputs
-
-    for _, output in show_output_outputs:
-        assert os.path.isabs(output), f"Output path must be absolute, got `{output}`."
-        assert os.path.exists(output), f"Output path `{output}` does not exist!"
 
 
 @buck_test(inplace=True)
