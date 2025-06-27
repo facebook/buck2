@@ -14,7 +14,7 @@ use std::sync::Mutex;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_common::file_ops::io::FileChangeTracker;
+use buck2_common::file_ops::dice::FileChangeTracker;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::cells::CellResolver;
