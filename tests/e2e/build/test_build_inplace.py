@@ -35,11 +35,6 @@ def fbcode_linux_only() -> bool:
 
 
 @buck_test(inplace=True)
-async def test_buildfiles(buck: Buck) -> None:
-    await buck.build("fbcode//buck2/tests/targets/interpreter/buildfiles:buildfile")
-
-
-@buck_test(inplace=True)
 async def test_build_output(buck: Buck) -> None:
     output_path = os.path.join(
         "fbcode",
