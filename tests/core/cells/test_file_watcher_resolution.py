@@ -9,7 +9,6 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
@@ -27,7 +26,13 @@ async def test_changing_cell_location_bug(buck: Buck) -> None:
 
     (buck.cwd / "foo" / "TARGETS.fixture").write_text("fail('error')")
 
-    await expect_failure(
-        buck.targets("foo//:", "bar//:"),
-        stderr_regex="fail: error",
-    )
+    # FIXME(JakobDegen): The change to the `TARGETS.fixture` file does not get picked up by buck.
+    # The cause is that the file watcher always invalidates injected keys computed from `CellPath`s,
+    # but the `CellResolver` that it uses to map `ProjectRelativePath`s to `CellPath`s is computed
+    # once at daemon startup and never updated. So concretely, the file update above results in the
+    # cell path `bar//TARGETS.fixture` being invalidated, which means the targets in `foo//:` are
+    # never recomputed.
+    #
+    # This is just one example, there's a thousand other ways that you can change the `CellResolver`
+    # to create similar bugs.
+    await buck.targets("foo//:", "bar//:")

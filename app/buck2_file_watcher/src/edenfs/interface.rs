@@ -472,39 +472,35 @@ impl EdenFsFileWatcher {
             // default to not ignoring the file in that case
             .is_some_and(|ignore| ignore.is_match(cell_path.path()));
 
-        info!("EdenFS: {:?} (ignore = {})", project_rel_path, ignore);
+        info!("EdenFS: {:?} (ignore = {})", cell_path, ignore);
 
         if ignore {
             stats.add_ignored(1);
         } else if processed_changes.insert(EdenFsEvent {
             event_type: event,
             event_kind: kind,
-            path: project_rel_path.to_string(),
+            path: cell_path.to_string(),
         }) {
             stats.add(cell_path.to_string(), event, kind);
 
             match (event, kind) {
-                (Type::Create, Kind::Directory) => {
-                    tracker.dir_added_or_removed(project_rel_path.to_buf())
-                }
+                (Type::Create, Kind::Directory) => tracker.dir_added_or_removed(cell_path),
                 (Type::Create, _) => {
                     if kind == Kind::Symlink {
                         debug!(
                             "New symlink detected (source symlinks are not supported): {}",
-                            project_rel_path
+                            cell_path
                         );
                     }
-                    tracker.file_added_or_removed(project_rel_path.to_buf())
+                    tracker.file_added_or_removed(cell_path)
                 }
                 (Type::Modify, Kind::Directory) => {
                     // FIXME(JakobDegen): This should not be needed
-                    tracker.dir_entries_changed_force_invalidate(project_rel_path.to_buf())
+                    tracker.dir_entries_changed_force_invalidate(cell_path)
                 }
-                (Type::Modify, _) => tracker.file_contents_changed(project_rel_path.to_buf()),
-                (Type::Delete, Kind::Directory) => {
-                    tracker.dir_added_or_removed(project_rel_path.to_buf())
-                }
-                (Type::Delete, _) => tracker.file_added_or_removed(project_rel_path.to_buf()),
+                (Type::Modify, _) => tracker.file_contents_changed(cell_path),
+                (Type::Delete, Kind::Directory) => tracker.dir_added_or_removed(cell_path),
+                (Type::Delete, _) => tracker.file_added_or_removed(cell_path),
             };
         }
 
