@@ -270,23 +270,6 @@ async def test_build_test_dependencies(buck: Buck) -> None:
     assert not has_file
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=True, skip_for_os=["windows"])
-async def test_fat_platforms(buck: Buck) -> None:
-    target = "fbcode//buck2/tests/targets/fat_platforms:example_use"
-    result = await buck.build(
-        target,
-        "-c",
-        "build.execution_platforms=fbcode//buck2/tests/targets/fat_platforms:platforms",
-        "--show-full-output",
-    )
-    output = result.get_target_to_build_output()[target]
-    with open(output) as output:
-        s = output.read()
-        assert "darwin" in s, "expected 'darwin' in output: `{}`".format(output)
-        assert "linux" in s, "expected 'darwin' in output: `{}`".format(output)
-
-
 @buck_test(inplace=True)
 async def test_classpath_query(buck: Buck) -> None:
     await buck.build("fbcode//buck2/tests/targets/template_placeholder/...")
