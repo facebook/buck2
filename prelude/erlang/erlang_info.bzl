@@ -118,11 +118,13 @@ ErlangToolchainInfo = provider(
         # build release_variables
         "release_variables_builder": provider_field(Tool),
         # copying erts
-        "include_erts": provider_field(Tool),
+        "extract_from_otp": provider_field(Tool),
         # beams we need for various reasons
         "utility_modules": provider_field(Artifact),
         # env to be set for toolchain invocations
         "env": provider_field(dict[str, str]),
+        # extracted erts from otp
+        "erts": provider_field(Artifact),
     },
 )
 

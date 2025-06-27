@@ -75,6 +75,10 @@ def _build_primary_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> li
 def _build_release(ctx: AnalysisContext, toolchain: Toolchain, apps: ErlAppDependencies) -> dict[str, Artifact]:
     # OTP base structure
     lib_dir = build_lib_dir(ctx, toolchain, apps)
+
+    # erts
+    maybe_erts = _build_erts(ctx, toolchain)
+
     boot_scripts = _build_boot_script(ctx, toolchain, lib_dir["lib"])
 
     # release specific variables in bin/release_variables
@@ -82,9 +86,6 @@ def _build_release(ctx: AnalysisContext, toolchain: Toolchain, apps: ErlAppDepen
 
     # Overlays
     overlays = _build_overlays(ctx)
-
-    # erts
-    maybe_erts = _build_erts(ctx, toolchain)
 
     # link output
     all_outputs = {}
@@ -109,10 +110,15 @@ def build_lib_dir(
     """
     build_dir = erlang_build.utils.build_dir(toolchain)
 
+    include_erts = False
+    if "include_erts" in dir(ctx.attrs):
+        include_erts = ctx.attrs.include_erts
+
     link_spec = {
-        _app_folder(toolchain, dep): dep[ErlangAppInfo].app_folders[toolchain.name]
+        dep[ErlangAppInfo].name: dep[ErlangAppInfo].app_folders[toolchain.name]
         for dep in all_apps.values()
-        if ErlangAppInfo in dep and not dep[ErlangAppInfo].virtual
+        if ErlangAppInfo in dep and
+           (include_erts or not dep[ErlangAppInfo].virtual)
     }
 
     lib_dir = ctx.actions.symlinked_dir(
@@ -241,30 +247,24 @@ def _build_release_variables(ctx: AnalysisContext, toolchain: Toolchain) -> dict
     )
     return {short_path: release_variables}
 
-def _build_erts(ctx: AnalysisContext, toolchain: Toolchain) -> dict[str, Artifact]:
+def _build_erts(
+        ctx: AnalysisContext,
+        toolchain: Toolchain) -> dict[str, Artifact]:
     if not ctx.attrs.include_erts:
         return {}
 
     release_name = _relname(ctx)
 
-    short_path = "erts"
-
-    erts_dir = paths.join(
-        erlang_build.utils.build_dir(toolchain),
-        release_name,
-        short_path,
+    erts_dir = ctx.actions.symlink_file(
+        paths.join(
+            erlang_build.utils.build_dir(toolchain),
+            release_name,
+            "erts",
+        ),
+        toolchain.erts,
     )
 
-    output_artifact = ctx.actions.declare_output(erts_dir)
-    erlang_build.utils.run_with_env(
-        ctx,
-        toolchain,
-        cmd_args(toolchain.include_erts, output_artifact.as_output()),
-        category = "include_erts",
-        identifier = action_identifier(toolchain, release_name),
-    )
-
-    return {short_path: output_artifact}
+    return {"erts": erts_dir}
 
 def _symlink_multi_toolchain_output(ctx: AnalysisContext, toolchain_artifacts: dict[str, dict[str, Artifact]]) -> Artifact:
     link_spec = {}
@@ -289,10 +289,6 @@ def _symlink_primary_toolchain_output(ctx: AnalysisContext, artifacts: dict[str,
 
 def _relname(ctx: AnalysisContext) -> str:
     return ctx.attrs.release_name if ctx.attrs.release_name else ctx.attrs.name
-
-def _app_folder(toolchain: Toolchain, dep: Dependency) -> str:
-    """Build folder names (i.e., name-version) from an Erlang Application dependency."""
-    return "%s-%s" % (dep[ErlangAppInfo].name, dep[ErlangAppInfo].version[toolchain.name])
 
 def _dependencies(ctx: AnalysisContext) -> list[Dependency]:
     """Extract dependencies from `applications` field, order preserving"""

@@ -5,7 +5,20 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
+load(
+    ":erlang_build.bzl",
+    "erlang_build",
+)
 load(":erlang_info.bzl", "ErlangAppInfo")
+load(
+    ":erlang_toolchain.bzl",
+    "select_toolchains",
+)
+load(
+    ":erlang_utils.bzl",
+    "action_identifier",
+)
 
 # This is a superset of all available OTP applications and needs to be manually updated
 # if new applications make it into OTP. New applications will not be available until
@@ -69,6 +82,31 @@ def normalize_application(name: str) -> str:
 def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
     """virtual OTP application for referencing only
     """
+
+    # extract the app folder from OTP
+    app_folders = {}
+    toolchains = select_toolchains(ctx)
+    for toolchain in toolchains.values():
+        wildcard = paths.join("lib", ctx.attrs.name + "-*")
+
+        app_dir = ctx.actions.declare_output(
+            paths.join(
+                erlang_build.utils.build_dir(toolchain),
+                "linked",
+                ctx.attrs.name,
+            ),
+            dir = True,
+        )
+
+        erlang_build.utils.run_with_env(
+            ctx,
+            toolchain,
+            cmd_args(toolchain.extract_from_otp, wildcard, app_dir.as_output()),
+            identifier = action_identifier(toolchain, ctx.attrs.name),
+            category = "extract_otp_app",
+        )
+        app_folders[toolchain.name] = app_dir
+
     return [
         DefaultInfo(),
         ErlangAppInfo(
@@ -80,7 +118,7 @@ def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
             start_dependencies = None,
             include_dir = None,
             virtual = True,
-            app_folder = None,
+            app_folders = app_folders,
         ),
     ]
 
@@ -88,5 +126,6 @@ _erlang_otp_application_rule = rule(
     impl = _erlang_otp_application_impl,
     attrs = {
         "version": attrs.string(),
+        "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
     },
 )

@@ -57,11 +57,11 @@ do(SpecFile, OutDir) ->
 
     RelName = binary_to_list(RelNameBin),
     RelVersion = binary_to_list(RelVersionBin),
-    build_start_boot(Apps, LibDirWildcard, RelName, RelVersion, OTPAppMapping).
+    build_start_boot(Apps, [LibDirWildcard], RelName, RelVersion, OTPAppMapping).
 
 build_start_boot(
     Apps,
-    LibDirWildcard,
+    PathOption,
     RelName,
     RelVersion,
     OTPAppMapping
@@ -95,7 +95,7 @@ build_start_boot(
         no_warn_sasl,
         no_dot_erlang,
         {script_name, "start"},
-        {path, [LibDirWildcard]}
+        {path, PathOption}
     ]).
 
 make_boot_script(RelName, RelFileContent, Options) ->

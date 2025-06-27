@@ -38,7 +38,7 @@ ToolchainUtillInfo = provider(
         "escript_trampoline": provider_field(Artifact),
         "escript_builder": provider_field(Artifact),
         "release_variables_builder": provider_field(Artifact),
-        "include_erts": provider_field(Artifact),
+        "extract_from_otp": provider_field(Artifact),
         "utility_modules": provider_field(list[Artifact]),
     },
 )
@@ -124,7 +124,16 @@ def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     dependency_finalizer = _gen_toolchain_script(ctx, utils.dependency_finalizer, otp_binaries)
     escript_builder = _gen_toolchain_script(ctx, utils.escript_builder, otp_binaries)
     release_variables_builder = _gen_toolchain_script(ctx, utils.release_variables_builder, otp_binaries)
-    include_erts = _gen_toolchain_script(ctx, utils.include_erts, otp_binaries)
+    extract_from_otp = _gen_toolchain_script(ctx, utils.extract_from_otp, otp_binaries)
+
+    # extract erts for late usage
+
+    erts = ctx.actions.declare_output("erts", dir = True)
+    ctx.actions.run(
+        cmd_args(extract_from_otp, "erts-*", erts.as_output()),
+        identifier = ctx.attrs.name,
+        category = "extract_erts",
+    )
 
     return [
         DefaultInfo(),
@@ -142,11 +151,12 @@ def _config_erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             escript_builder = escript_builder,
             otp_binaries = otp_binaries,
             release_variables_builder = release_variables_builder,
-            include_erts = include_erts,
+            extract_from_otp = extract_from_otp,
             core_parse_transforms = core_parse_transforms,
             parse_transforms = parse_transforms,
             parse_transforms_filters = ctx.attrs.parse_transforms_filters,
             utility_modules = utility_modules,
+            erts = erts,
         ),
     ]
 
@@ -326,7 +336,7 @@ def _toolchain_utils(ctx: AnalysisContext) -> list[Provider]:
             escript_trampoline = ctx.attrs.escript_trampoline,
             escript_builder = ctx.attrs.escript_builder,
             release_variables_builder = ctx.attrs.release_variables_builder,
-            include_erts = ctx.attrs.include_erts,
+            extract_from_otp = ctx.attrs.extract_from_otp,
             utility_modules = ctx.attrs.utility_modules,
         ),
     ]
@@ -342,7 +352,7 @@ toolchain_utilities = rule(
         "erlc_trampoline": attrs.source(),
         "escript_builder": attrs.source(),
         "escript_trampoline": attrs.source(),
-        "include_erts": attrs.source(),
+        "extract_from_otp": attrs.source(),
         "release_variables_builder": attrs.source(),
         "utility_modules": attrs.list(attrs.source()),
     },

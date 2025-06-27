@@ -32,7 +32,7 @@ toolchain_utilities(
     erlc_trampoline = "erlc_trampoline.sh",
     escript_builder = "escript_builder.erl",
     escript_trampoline = "escript_trampoline.sh",
-    include_erts = "include_erts.erl",
+    extract_from_otp = "extract_from_otp.erl",
     release_variables_builder = "release_variables_builder.erl",
     utility_modules = [],
     visibility = ["PUBLIC"],
