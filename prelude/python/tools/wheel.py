@@ -13,11 +13,26 @@ import contextlib
 import io
 import json
 import os
+import re
 import shutil
 import sys
 import zipfile
 from types import TracebackType
 from typing import cast, Dict, List, Optional, Set, Tuple, Type
+
+
+def normalize_name(name: str) -> str:
+    """
+    Per:
+      * https://packaging.python.org/en/latest/specifications/recording-installed-packages/#the-dist-info-directory
+      * https://packaging.python.org/en/latest/specifications/name-normalization/
+    Normalize package names according to PEP503 then replace "-" with "_" as to not conflict with the "-" separating
+    the name of the package with the version specification.
+
+    Example: "torch-nightly" normalizes to "torch_nightly.dist-info/" and "torch_nightly.data/"
+    """
+    pep503_normalized_name = re.sub(r"[-_.]+", "-", name).lower()
+    return pep503_normalized_name.replace("-", "_")
 
 
 # pyre-fixme[24]: Generic type `AbstractContextManager` expects 1 type parameter.
@@ -32,6 +47,13 @@ class WheelBuilder(contextlib.AbstractContextManager):
         metadata: Optional[List[Tuple[str, str]]] = None,
     ) -> None:
         self._name = name
+
+        self._normalized_name: str = normalize_name(name)
+
+        # TODO normalize version like we normalized name above
+        #  can follow pypi/packaging.utils.canonicalize_version (see: https://fburl.com/code/amuvl3d2)
+        #  punted for later since it was not a clean copy/paste and
+        #  taking a dep to tp from toolchains is not straightforward
         self._version = version
         self._record: list[str] = []
         self._outf = zipfile.ZipFile(output, mode="w")
@@ -43,10 +65,10 @@ class WheelBuilder(contextlib.AbstractContextManager):
             self._metadata.extend(metadata)
 
     def _dist_info(self, *path: str) -> str:
-        return os.path.join(f"{self._name}-{self._version}.dist-info", *path)
+        return os.path.join(f"{self._normalized_name}-{self._version}.dist-info", *path)
 
     def _data(self, *path: str) -> str:
-        return os.path.join(f"{self._name}-{self._version}.data", *path)
+        return os.path.join(f"{self._normalized_name}-{self._version}.data", *path)
 
     def write(self, dst: str, src: str) -> None:
         self._record.append(dst)
