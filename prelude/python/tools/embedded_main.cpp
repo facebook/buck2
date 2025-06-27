@@ -23,7 +23,6 @@ std::optional<int> MaybeGetExitCode(PyStatus* status, PyConfig* config) {
   }
   PyConfig_Clear(config);
   Py_ExitStatusException(*status);
-  return std::nullopt;
 }
 
 } // namespace
