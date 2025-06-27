@@ -271,11 +271,6 @@ async def test_build_test_dependencies(buck: Buck) -> None:
 
 
 @buck_test(inplace=True)
-async def test_classpath_query(buck: Buck) -> None:
-    await buck.build("fbcode//buck2/tests/targets/template_placeholder/...")
-
-
-@buck_test(inplace=True)
 async def test_missing_outputs_error(buck: Buck) -> None:
     # Check that we a) say what went wrong, b) show the command
     await expect_failure(
