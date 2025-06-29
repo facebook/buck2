@@ -40,6 +40,7 @@ use gazebo::prelude::SliceExt;
 use indexmap::IndexSet;
 use starlark::codemap::FileSpan;
 use starlark::collections::SmallMap;
+use starlark::collections::SmallSet;
 
 use crate::actions::ActionErrors;
 use crate::actions::ActionToBeRegistered;
@@ -53,7 +54,7 @@ use crate::deferred::calculation::ActionLookup;
 #[derive(Allocative)]
 pub struct ActionsRegistry {
     owner: DeferredHolderKey,
-    artifacts: IndexSet<DeclaredArtifact>,
+    artifacts: SmallSet<DeclaredArtifact>,
 
     // For a dynamic_output, maps the ActionKeys for the outputs that have been bound
     // to this dynamic_output to the DeclaredArtifact created in the dynamic_output.
@@ -287,7 +288,7 @@ impl ActionsRegistry {
         })
     }
 
-    pub fn testing_artifacts(&self) -> &IndexSet<DeclaredArtifact> {
+    pub fn testing_artifacts(&self) -> &SmallSet<DeclaredArtifact> {
         &self.artifacts
     }
 
