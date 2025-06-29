@@ -320,7 +320,7 @@ impl<'v> AnalysisRegistry<'v> {
         self,
         env: &'v Module,
     ) -> buck2_error::Result<
-        impl FnOnce(&FrozenModule) -> buck2_error::Result<RecordedAnalysisValues> + 'static + use<>,
+        impl FnOnce(&FrozenModule) -> buck2_error::Result<RecordedAnalysisValues> + use<>,
     > {
         let AnalysisRegistry {
             actions,
@@ -329,6 +329,8 @@ impl<'v> AnalysisRegistry<'v> {
             short_path_assertions: _,
         } = self;
 
+        let finalize_actions = actions.finalize()?;
+
         let self_key = analysis_value_storage.self_key.dupe();
         analysis_value_storage.write_to_module(env)?;
         Ok(move |frozen_env: &FrozenModule| {
@@ -336,7 +338,7 @@ impl<'v> AnalysisRegistry<'v> {
                 self_key,
                 frozen_module: Some(frozen_env.dupe()),
             };
-            let actions = actions.ensure_bound(&analysis_value_fetcher)?;
+            let actions = (finalize_actions)(&analysis_value_fetcher)?;
             let recorded_values = analysis_value_fetcher.get_recorded_values(actions)?;
 
             Ok(recorded_values)

@@ -221,10 +221,11 @@ impl ActionsRegistry {
 
     /// Consumes the registry so no more 'Action's can be registered. This returns
     /// an 'ActionAnalysisResult' that holds all the registered 'Action's
-    pub fn ensure_bound(
+    pub fn finalize(
         self,
-        analysis_value_fetcher: &AnalysisValueFetcher,
-    ) -> buck2_error::Result<RecordedActions> {
+    ) -> buck2_error::Result<
+        impl FnOnce(&AnalysisValueFetcher) -> buck2_error::Result<RecordedActions>,
+    > {
         for artifact in self.artifacts {
             artifact.ensure_bound()?;
         }
@@ -236,51 +237,54 @@ impl ActionsRegistry {
             actions.insert_dynamic_output(key, artifact.ensure_bound()?.action_key().dupe());
         }
 
-        // Buck2 has an invariant that pairs of categories and identifiers are unique throughout a build. That
-        // invariant is enforced here, using observed_names to keep track of the categories and identifiers that we've seen.
-        let mut observed_names: HashMap<Category, HashSet<String>> = HashMap::new();
-        for a in self.pending.into_iter() {
-            let key = a.key().dupe();
-            let (starlark_data, error_handler) = analysis_value_fetcher.get_action_data(&key)?;
-            let action = a.register(starlark_data, error_handler)?;
-            match (action.category(), action.identifier()) {
-                (category, Some(identifier)) => {
-                    let existing_identifiers = observed_names
-                        .entry(category.to_owned())
-                        .or_insert_with(HashSet::<String>::new);
-                    // false -> identifier was already present in the set
-                    if !existing_identifiers.insert(identifier.to_owned()) {
-                        return Err(ActionErrors::ActionCategoryIdentifierNotUnique(
-                            category.to_owned(),
-                            identifier.to_owned(),
-                        )
-                        .into());
+        Ok(move |analysis_value_fetcher: &AnalysisValueFetcher| {
+            // Buck2 has an invariant that pairs of categories and identifiers are unique throughout a build. That
+            // invariant is enforced here, using observed_names to keep track of the categories and identifiers that we've seen.
+            let mut observed_names: HashMap<Category, HashSet<String>> = HashMap::new();
+            for a in self.pending.into_iter() {
+                let key = a.key().dupe();
+                let (starlark_data, error_handler) =
+                    analysis_value_fetcher.get_action_data(&key)?;
+                let action = a.register(starlark_data, error_handler)?;
+                match (action.category(), action.identifier()) {
+                    (category, Some(identifier)) => {
+                        let existing_identifiers = observed_names
+                            .entry(category.to_owned())
+                            .or_insert_with(HashSet::<String>::new);
+                        // false -> identifier was already present in the set
+                        if !existing_identifiers.insert(identifier.to_owned()) {
+                            return Err(ActionErrors::ActionCategoryIdentifierNotUnique(
+                                category.to_owned(),
+                                identifier.to_owned(),
+                            )
+                            .into());
+                        }
+                    }
+                    (category, None) => {
+                        if observed_names
+                            .insert(category.to_owned(), HashSet::new())
+                            .is_some()
+                        {
+                            return Err(ActionErrors::ActionCategoryDuplicateSingleton(
+                                category.to_owned(),
+                            )
+                            .into());
+                        };
                     }
                 }
-                (category, None) => {
-                    if observed_names
-                        .insert(category.to_owned(), HashSet::new())
-                        .is_some()
-                    {
-                        return Err(ActionErrors::ActionCategoryDuplicateSingleton(
-                            category.to_owned(),
-                        )
-                        .into());
-                    };
-                }
+
+                actions.insert(
+                    key.dupe(),
+                    Arc::new(RegisteredAction::new(
+                        key,
+                        action,
+                        (*self.execution_platform.executor_config()?).dupe(),
+                    )),
+                );
             }
 
-            actions.insert(
-                key.dupe(),
-                Arc::new(RegisteredAction::new(
-                    key,
-                    action,
-                    (*self.execution_platform.executor_config()?).dupe(),
-                )),
-            );
-        }
-
-        Ok(actions)
+            Ok(actions)
+        })
     }
 
     pub fn testing_artifacts(&self) -> &IndexSet<DeclaredArtifact> {

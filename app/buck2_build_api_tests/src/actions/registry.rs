@@ -228,7 +228,7 @@ fn finalizing_actions() -> anyhow::Result<()> {
     let holder_key = DeferredHolderKey::Base(base.dupe());
     actions.register(&holder_key, inputs, outputs, unregistered_action)?;
 
-    let result = actions.ensure_bound(&AnalysisValueFetcher::testing_new(holder_key))?;
+    let result = (actions.finalize()?)(&AnalysisValueFetcher::testing_new(holder_key))?;
 
     assert_eq!(
         result
@@ -295,6 +295,6 @@ fn category_identifier_test(
         actions.register(&base, indexset![], indexset![], unregistered_action)?;
     }
 
-    actions.ensure_bound(&AnalysisValueFetcher::testing_new(base))?;
+    (actions.finalize()?)(&AnalysisValueFetcher::testing_new(base))?;
     Ok(())
 }
