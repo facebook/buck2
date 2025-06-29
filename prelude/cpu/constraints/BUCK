@@ -48,3 +48,10 @@ constraint_value(
     constraint_setting = ":cpu",
     visibility = ["PUBLIC"],
 )
+
+# RISC-V 64-bit support
+constraint_value(
+    name = "riscv64",
+    constraint_setting = ":cpu",
+    visibility = ["PUBLIC"],
+)
