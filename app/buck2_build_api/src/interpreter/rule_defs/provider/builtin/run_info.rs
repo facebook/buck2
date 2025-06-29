@@ -65,7 +65,7 @@ fn run_info_creator(globals: &mut GlobalsBuilder) {
     }
 }
 
-impl<'v, V: ValueLike<'v>> CommandLineArgLike for RunInfoGen<V> {
+impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for RunInfoGen<V> {
     fn register_me(&self) {
         command_line_arg_like_impl!(RunInfo::starlark_type_repr());
     }
@@ -85,7 +85,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for RunInfoGen<V> {
 
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         ValueAsCommandLineLike::unpack_value_err(self.args.get().to_value())
             .expect("a command line from construction")

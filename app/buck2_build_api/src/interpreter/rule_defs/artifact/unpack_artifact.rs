@@ -19,7 +19,7 @@ use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::Starlar
 #[derive(StarlarkTypeRepr, UnpackValue)]
 pub enum UnpackArtifactOrDeclaredArtifact<'v> {
     Artifact(&'v StarlarkArtifact),
-    DeclaredArtifact(&'v StarlarkDeclaredArtifact),
+    DeclaredArtifact(&'v StarlarkDeclaredArtifact<'v>),
 }
 
 impl<'v> UnpackArtifactOrDeclaredArtifact<'v> {

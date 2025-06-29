@@ -104,12 +104,12 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
     /// This function allows us to treat those two as the same.
     /// TODO(cjhopman): It may be better to wrap the list case in a new CommandLineArgLike impl when returned from
     /// the projection. Then we'd only have to verify the contents type once and it might be a bit simpler to use.
-    pub(super) fn as_command_line(v: V) -> buck2_error::Result<impl CommandLineArgLike + 'v> {
+    pub(super) fn as_command_line(v: V) -> buck2_error::Result<impl CommandLineArgLike<'v> + 'v> {
         enum Impl<'v> {
-            Item(&'v dyn CommandLineArgLike),
+            Item(&'v dyn CommandLineArgLike<'v>),
             List(&'v [Value<'v>]),
         }
-        impl<'v> CommandLineArgLike for Impl<'v> {
+        impl<'v> CommandLineArgLike<'v> for Impl<'v> {
             fn register_me(&self) {
                 // No need because this is not proper implementation.
             }
@@ -171,7 +171,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
 
             fn visit_artifacts(
                 &self,
-                visitor: &mut dyn CommandLineArtifactVisitor,
+                visitor: &mut dyn CommandLineArtifactVisitor<'v>,
             ) -> buck2_error::Result<()> {
                 match self {
                     Impl::Item(v) => v.visit_artifacts(visitor),
@@ -218,7 +218,7 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen<V> {
+impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for TransitiveSetArgsProjectionGen<V> {
     fn register_me(&self) {
         command_line_arg_like_impl!(TransitiveSetArgsProjection::starlark_type_repr());
     }
@@ -250,7 +250,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
 
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         let set = TransitiveSet::from_value(self.transitive_set.get().to_value())
             .buck_error_context("Invalid transitive_set")?;

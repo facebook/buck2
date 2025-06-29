@@ -83,13 +83,15 @@ impl Display for FrozenStarlarkOutputArtifact {
 }
 
 impl<'v> StarlarkOutputArtifact<'v> {
-    pub fn new(v: ValueTyped<'v, StarlarkDeclaredArtifact>) -> Self {
+    pub fn new(v: ValueTyped<'v, StarlarkDeclaredArtifact<'v>>) -> Self {
         Self {
             declared_artifact: v.to_value(),
         }
     }
 
-    pub(crate) fn inner(&self) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+    pub(crate) fn inner(
+        &self,
+    ) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>> {
         ValueTyped::new_err(self.declared_artifact).with_internal_error(|| {
             format!(
                 "Must be a declared artifact: `{}`",
@@ -98,7 +100,7 @@ impl<'v> StarlarkOutputArtifact<'v> {
         })
     }
 
-    pub fn artifact(&self) -> buck2_error::Result<OutputArtifact> {
+    pub fn artifact(&self) -> buck2_error::Result<OutputArtifact<'v>> {
         Ok(self.inner()?.output_artifact())
     }
 }
@@ -113,7 +115,7 @@ impl FrozenStarlarkOutputArtifact {
         })
     }
 
-    pub fn artifact(&self) -> buck2_error::Result<OutputArtifact> {
+    pub fn artifact<'v>(&self) -> buck2_error::Result<OutputArtifact<'v>> {
         let artifact = self.inner()?.artifact();
         artifact.as_output_artifact().with_internal_error(|| {
             format!("Expecting artifact to be output artifact, got {artifact}")
@@ -121,7 +123,7 @@ impl FrozenStarlarkOutputArtifact {
     }
 }
 
-impl<'v> CommandLineArgLike for StarlarkOutputArtifact<'v> {
+impl<'v> CommandLineArgLike<'v> for StarlarkOutputArtifact<'v> {
     fn register_me(&self) {
         command_line_arg_like_impl!(StarlarkOutputArtifact::starlark_type_repr());
     }
@@ -141,7 +143,7 @@ impl<'v> CommandLineArgLike for StarlarkOutputArtifact<'v> {
 
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         visitor.visit_output(self.artifact()?, None);
         Ok(())
@@ -163,14 +165,14 @@ impl<'v> CommandLineArgLike for StarlarkOutputArtifact<'v> {
 #[starlark_value(type = "OutputArtifact")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkOutputArtifactGen<V>
 where
-    Self: ProvidesStaticType<'v> + Display + CommandLineArgLike,
+    Self: ProvidesStaticType<'v> + Display + CommandLineArgLike<'v>,
 {
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
     }
 }
 
-impl CommandLineArgLike for FrozenStarlarkOutputArtifact {
+impl<'v> CommandLineArgLike<'v> for FrozenStarlarkOutputArtifact {
     fn register_me(&self) {
         command_line_arg_like_impl!(FrozenStarlarkOutputArtifact::starlark_type_repr());
     }

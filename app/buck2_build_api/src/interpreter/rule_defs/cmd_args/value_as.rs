@@ -26,7 +26,7 @@ use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command
 use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 
-pub struct ValueAsCommandLineLike<'v>(pub &'v dyn CommandLineArgLike);
+pub struct ValueAsCommandLineLike<'v>(pub &'v dyn CommandLineArgLike<'v>);
 
 impl<'v> StarlarkTypeRepr for ValueAsCommandLineLike<'v> {
     type Canonical = ValueAsCommandLineLike<'static>;

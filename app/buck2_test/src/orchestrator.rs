@@ -1765,6 +1765,32 @@ struct Execute2RequestExpander<'a> {
     env: Cow<'a, SortedVectorMap<String, ArgValue>>,
 }
 
+fn make_visit_arg_artifacts<'v>(
+    cli_args_for_interpolation: Vec<&'v dyn CommandLineArgLike<'v>>,
+    env_for_interpolation: HashMap<&'v str, &'v dyn CommandLineArgLike<'v>>,
+) -> impl for<'a> Fn(&'a mut dyn CommandLineArtifactVisitor<'v>, &'a ArgValue) -> anyhow::Result<()>
+{
+    move |artifact_visitor: &mut dyn CommandLineArtifactVisitor<'_>, value: &ArgValue| {
+        match &value.content {
+            ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::ArgHandle(h)) => {
+                let arg = cli_args_for_interpolation
+                    .get(h.0)
+                    .with_context(|| format!("Invalid ArgHandle: {:?}", h))?;
+                arg.visit_artifacts(artifact_visitor)?;
+            }
+            ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::EnvHandle(h)) => {
+                let arg = env_for_interpolation
+                    .get(h.0.as_str())
+                    .with_context(|| format!("Invalid EnvHandle: {:?}", h))?;
+                arg.visit_artifacts(artifact_visitor)?;
+            }
+            ArgValueContent::DeclaredOutput(_) | ArgValueContent::ExternalRunnerSpecValue(_) => {}
+        };
+
+        anyhow::Ok(())
+    }
+}
+
 impl<'a> Execute2RequestExpander<'a> {
     fn get_inputs(&self) -> anyhow::Result<IndexSet<ArtifactGroup>> {
         let Execute2RequestExpander {
@@ -1782,27 +1808,8 @@ impl<'a> Execute2RequestExpander<'a> {
             .collect::<Vec<_>>();
         let env_for_interpolation = test_info.env().collect::<HashMap<_, _>>();
 
-        let visit_arg_artifacts = |artifact_visitor: &mut dyn CommandLineArtifactVisitor,
-                                   value: &ArgValue| {
-            match &value.content {
-                ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::ArgHandle(h)) => {
-                    let arg = cli_args_for_interpolation
-                        .get(h.0)
-                        .with_context(|| format!("Invalid ArgHandle: {:?}", h))?;
-                    arg.visit_artifacts(artifact_visitor)?;
-                }
-                ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::EnvHandle(h)) => {
-                    let arg = env_for_interpolation
-                        .get(h.0.as_str())
-                        .with_context(|| format!("Invalid EnvHandle: {:?}", h))?;
-                    arg.visit_artifacts(artifact_visitor)?;
-                }
-                ArgValueContent::DeclaredOutput(_)
-                | ArgValueContent::ExternalRunnerSpecValue(_) => {}
-            };
-
-            anyhow::Ok(())
-        };
+        let visit_arg_artifacts =
+            make_visit_arg_artifacts(cli_args_for_interpolation, env_for_interpolation);
 
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
         for var in cmd.iter() {

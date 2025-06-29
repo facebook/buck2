@@ -16,7 +16,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 
-impl CommandLineArgLike for StarlarkCellPath {
+impl<'v> CommandLineArgLike<'v> for StarlarkCellPath {
     fn register_me(&self) {
         command_line_arg_like_impl!(StarlarkCellPath::starlark_type_repr());
     }

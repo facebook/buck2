@@ -26,6 +26,7 @@ use static_assertions::assert_eq_size;
     Clone,
     Dupe,
     derive_more::Display,
+    starlark::values::Trace,
     Allocative,
     strong_hash::StrongHash
 )]

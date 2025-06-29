@@ -330,12 +330,12 @@ impl FrozenDefaultInfo {
     ) -> buck2_error::Result<()> {
         struct Visitor<'x>(&'x mut dyn FnMut(ArtifactGroup));
 
-        impl CommandLineArtifactVisitor for Visitor<'_> {
+        impl<'v> CommandLineArtifactVisitor<'v> for Visitor<'_> {
             fn visit_input(&mut self, input: ArtifactGroup, _: Option<&ArtifactTag>) {
                 (self.0)(input);
             }
 
-            fn visit_output(&mut self, _artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {}
+            fn visit_output(&mut self, _artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {}
         }
 
         self.for_each_in_list(self.other_outputs.get(), |value| {

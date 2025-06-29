@@ -288,7 +288,7 @@ impl FrozenStarlarkRunActionValues {
 }
 
 struct UnpackedWorkerValues<'v> {
-    exe: &'v dyn CommandLineArgLike,
+    exe: &'v dyn CommandLineArgLike<'v>,
     id: WorkerId,
     concurrency: Option<usize>,
     streaming: bool,
@@ -296,9 +296,9 @@ struct UnpackedWorkerValues<'v> {
 }
 
 struct UnpackedRunActionValues<'v> {
-    exe: &'v dyn CommandLineArgLike,
-    args: &'v dyn CommandLineArgLike,
-    env: Vec<(&'v str, &'v dyn CommandLineArgLike)>,
+    exe: &'v dyn CommandLineArgLike<'v>,
+    args: &'v dyn CommandLineArgLike<'v>,
+    env: Vec<(&'v str, &'v dyn CommandLineArgLike<'v>)>,
     worker: Option<UnpackedWorkerValues<'v>>,
 }
 
@@ -334,9 +334,9 @@ impl ArtifactPathMapper for DepFilesPlaceholderArtifactPathMapper {
 type ExpandedCommandLineDigestForDepFiles = ExpandedCommandLineDigest;
 
 impl RunAction {
-    fn unpack(
-        values: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
-    ) -> buck2_error::Result<UnpackedRunActionValues> {
+    fn unpack<'v>(
+        values: &'v OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
+    ) -> buck2_error::Result<UnpackedRunActionValues<'v>> {
         let exe: &dyn CommandLineArgLike = &*values.exe;
         let args: &dyn CommandLineArgLike = &*values.args;
         let env = match values.env {
@@ -374,10 +374,10 @@ impl RunAction {
     }
 
     /// Get the command line expansion for this RunAction.
-    fn expand_command_line_and_worker(
-        &self,
+    fn expand_command_line_and_worker<'v>(
+        &'v self,
         action_execution_ctx: &dyn ActionExecutionCtx,
-        artifact_visitor: &mut impl CommandLineArtifactVisitor,
+        artifact_visitor: &mut impl CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<(
         ExpandedCommandLine,
         ExpandedCommandLineDigestForDepFiles,
@@ -524,9 +524,9 @@ impl RunAction {
         })
     }
 
-    fn prepare(
-        &self,
-        visitor: &mut impl RunActionVisitor,
+    fn prepare<'v>(
+        &'v self,
+        visitor: &mut impl RunActionVisitor<'v>,
         ctx: &mut dyn ActionExecutionCtx,
     ) -> buck2_error::Result<(
         PreparedRunAction,
@@ -880,7 +880,7 @@ impl PreparedRunAction {
     }
 }
 
-trait RunActionVisitor: CommandLineArtifactVisitor {
+trait RunActionVisitor<'v>: CommandLineArtifactVisitor<'v> {
     type Iter<'a>: Iterator<Item = &'a ArtifactGroup>
     where
         Self: 'a;
@@ -888,7 +888,7 @@ trait RunActionVisitor: CommandLineArtifactVisitor {
     fn inputs<'a>(&'a self) -> Self::Iter<'a>;
 }
 
-impl RunActionVisitor for SimpleCommandLineArtifactVisitor {
+impl<'v> RunActionVisitor<'v> for SimpleCommandLineArtifactVisitor<'v> {
     type Iter<'a>
         = impl Iterator<Item = &'a ArtifactGroup>
     where
@@ -899,7 +899,7 @@ impl RunActionVisitor for SimpleCommandLineArtifactVisitor {
     }
 }
 
-impl RunActionVisitor for DepFilesCommandLineVisitor<'_> {
+impl<'v> RunActionVisitor<'v> for DepFilesCommandLineVisitor<'_> {
     type Iter<'a>
         = impl Iterator<Item = &'a ArtifactGroup>
     where

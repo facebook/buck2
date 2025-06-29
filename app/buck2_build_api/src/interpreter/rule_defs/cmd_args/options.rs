@@ -313,7 +313,8 @@ impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions {
         for option in &*self.options {
             match option {
                 FrozenCommandLineOption::RelativeTo(value, parent) => {
-                    options.relative_to = Some((value.to_value(), *parent));
+                    let value = ValueOfUnchecked::new(value.get().to_value());
+                    options.relative_to = Some((value, *parent));
                 }
                 FrozenCommandLineOption::AbsolutePrefix(value) => {
                     options.absolute_prefix = Some(value.to_string_value());
@@ -385,8 +386,11 @@ impl<'v> Freeze for CommandLineOptions<'v> {
 
         let mut options = Vec::new();
         if let Some((relative_to, parent)) = relative_to {
-            let relative_to = relative_to.cast().freeze(freezer)?;
-            options.push(FrozenCommandLineOption::RelativeTo(relative_to, parent));
+            let relative_to = relative_to.get().freeze(freezer)?;
+            options.push(FrozenCommandLineOption::RelativeTo(
+                FrozenValueOfUnchecked::new(relative_to),
+                parent,
+            ));
         }
         if let Some(absolute_prefix) = absolute_prefix {
             let absolute_prefix = absolute_prefix.freeze(freezer)?;
@@ -444,7 +448,7 @@ where
 // because upcasting is not stable).
 #[derive(Display, StarlarkTypeRepr, UnpackValue)]
 pub(crate) enum RelativeOrigin<'v> {
-    Artifact(&'v dyn StarlarkArtifactLike),
+    Artifact(&'v dyn StarlarkArtifactLike<'v>),
     CellRoot(&'v CellRoot),
     /// Bit of a useless variant since this is simply the default, but we allow it for consistency.
     ProjectRoot(&'v StarlarkProjectRoot),

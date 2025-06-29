@@ -103,10 +103,10 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         Ok(StarlarkArtifact::new(artifact))
     }
 
-    fn declared_artifact(
+    fn declared_artifact<'v>(
         path: &str,
-        eval: &mut Evaluator,
-    ) -> anyhow::Result<StarlarkDeclaredArtifact> {
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> anyhow::Result<StarlarkDeclaredArtifact<'v>> {
         let target_label = get_label(eval, "//foo:bar")?;
         let mut registry = ActionsRegistry::new(
             DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label)),
@@ -126,11 +126,11 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         ))
     }
 
-    fn declared_bound_artifact(
+    fn declared_bound_artifact<'v>(
         target: &str,
         path: &str,
-        eval: &mut Evaluator,
-    ) -> anyhow::Result<StarlarkDeclaredArtifact> {
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> anyhow::Result<StarlarkDeclaredArtifact<'v>> {
         let target_label = get_label(eval, target)?;
         let mut registry = ActionsRegistry::new(
             DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label.dupe())),

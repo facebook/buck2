@@ -1459,12 +1459,12 @@ impl<'a> DepFilesCommandLineVisitor<'a> {
     }
 }
 
-impl CommandLineArtifactVisitor for DepFilesCommandLineVisitor<'_> {
+impl<'v> CommandLineArtifactVisitor<'v> for DepFilesCommandLineVisitor<'_> {
     fn visit_input(&mut self, input: ArtifactGroup, tag: Option<&ArtifactTag>) {
         self.inputs.visit_input(input, tag, self.dep_files);
     }
 
-    fn visit_output(&mut self, artifact: OutputArtifact, tag: Option<&ArtifactTag>) {
+    fn visit_output(&mut self, artifact: OutputArtifact<'v>, tag: Option<&ArtifactTag>) {
         match tag {
             Some(tag) => {
                 // NOTE: We have validated tags earlier, so we know that if a tag does not point to

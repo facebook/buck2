@@ -104,7 +104,7 @@ impl ResolvedQueryMacro {
 
     pub fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'_>,
     ) -> buck2_error::Result<()> {
         match self {
             Self::Outputs(list) => {

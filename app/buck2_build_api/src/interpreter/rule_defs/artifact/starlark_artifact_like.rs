@@ -51,7 +51,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 ///                For an artifact declared as `foo/bar`, this is `foo/bar`.
 /// This trait also has some common functionality for `StarlarkValue` that we want shared between
 /// `StarlarkArtifact` and `StarlarkDeclaredArtifact`
-pub trait StarlarkArtifactLike: Display {
+pub trait StarlarkArtifactLike<'v>: Display {
     /// Returns an apppropriate error for when this is used in a location that expects an output declaration.
     fn as_output_error(&self) -> buck2_error::Error;
 
@@ -64,14 +64,14 @@ pub trait StarlarkArtifactLike: Display {
     /// Return an interface for frozen and bound artifacts (`StarlarkArtifact`) to add to a CLI
     ///
     /// Returns None if this artifact isn't the correct type to be added to a CLI object
-    fn as_command_line_like(&self) -> &dyn CommandLineArgLike;
+    fn as_command_line_like(&self) -> &dyn CommandLineArgLike<'v>;
 
     /// It's very important that the Hash/Eq of the StarlarkArtifactLike things doesn't change
     /// during freezing, otherwise Starlark invariants are broken. Use the fingerprint
     /// as the inputs to Hash/Eq to ensure they are consistent
     fn fingerprint(&self) -> ArtifactFingerprint<'_>;
 
-    fn equals<'v>(&self, other: Value<'v>) -> starlark::Result<bool> {
+    fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
         Ok(ValueAsArtifactLike::unpack_value(other)?
             .is_some_and(|other| self.fingerprint() == other.0.fingerprint()))
     }
@@ -95,41 +95,41 @@ pub trait StarlarkArtifactLike: Display {
     /// Gets the artifact group.
     fn get_artifact_group(&self) -> buck2_error::Result<ArtifactGroup>;
 
-    fn basename<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
+    fn basename(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
 
-    fn extension<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
+    fn extension(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
 
-    fn is_source<'v>(&'v self) -> buck2_error::Result<bool>;
+    fn is_source(&'v self) -> buck2_error::Result<bool>;
 
-    fn owner<'v>(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>>;
+    fn owner(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>>;
 
-    fn short_path<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
+    fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
 
-    fn as_output<'v>(&'v self, this: Value<'v>) -> buck2_error::Result<StarlarkOutputArtifact<'v>>;
+    fn as_output(&'v self, this: Value<'v>) -> buck2_error::Result<StarlarkOutputArtifact<'v>>;
 
-    fn project<'v>(
+    fn project(
         &'v self,
         path: &ForwardRelativePath,
         hide_prefix: bool,
-    ) -> buck2_error::Result<EitherStarlarkArtifact>;
+    ) -> buck2_error::Result<EitherStarlarkArtifact<'v>>;
 
-    fn without_associated_artifacts<'v>(&'v self) -> buck2_error::Result<EitherStarlarkArtifact>;
+    fn without_associated_artifacts(&'v self) -> buck2_error::Result<EitherStarlarkArtifact<'v>>;
 
-    fn with_associated_artifacts<'v>(
+    fn with_associated_artifacts(
         &'v self,
         artifacts: UnpackList<ValueAsArtifactLike<'v>>,
-    ) -> buck2_error::Result<EitherStarlarkArtifact>;
+    ) -> buck2_error::Result<EitherStarlarkArtifact<'v>>;
 }
 
 /// Helper type to unpack artifacts.
 #[derive(StarlarkTypeRepr, UnpackValue)]
 pub enum ValueAsArtifactLikeUnpack<'v> {
     Artifact(&'v StarlarkArtifact),
-    DeclaredArtifact(&'v StarlarkDeclaredArtifact),
+    DeclaredArtifact(&'v StarlarkDeclaredArtifact<'v>),
     PromiseArtifact(&'v StarlarkPromiseArtifact),
 }
 
-pub struct ValueAsArtifactLike<'v>(pub &'v dyn StarlarkArtifactLike);
+pub struct ValueAsArtifactLike<'v>(pub &'v dyn StarlarkArtifactLike<'v>);
 
 impl<'v> StarlarkTypeRepr for ValueAsArtifactLike<'v> {
     type Canonical = <ValueAsArtifactLikeUnpack<'v> as StarlarkTypeRepr>::Canonical;

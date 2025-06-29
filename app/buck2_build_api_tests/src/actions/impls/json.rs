@@ -37,13 +37,13 @@ fn test_tagging() -> anyhow::Result<()> {
         artifact: Artifact,
     }
 
-    impl CommandLineArtifactVisitor for AssertVisitor {
+    impl<'v> CommandLineArtifactVisitor<'v> for AssertVisitor {
         fn visit_input(&mut self, input: ArtifactGroup, tag: Option<&ArtifactTag>) {
             assert_eq!(tag, Some(&self.tag));
             assert_eq!(input, ArtifactGroup::Artifact(self.artifact.dupe()));
         }
 
-        fn visit_output(&mut self, _artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {}
+        fn visit_output(&mut self, _artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {}
     }
 
     #[starlark_module]

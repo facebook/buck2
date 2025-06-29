@@ -91,7 +91,7 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 #[derivative(Debug)]
 pub struct AnalysisRegistry<'v> {
     #[derivative(Debug = "ignore")]
-    pub actions: ActionsRegistry,
+    pub actions: ActionsRegistry<'v>,
     pub anon_targets: Box<dyn AnonTargetsRegistryDyn<'v>>,
     pub analysis_value_storage: AnalysisValueStorage<'v>,
     pub short_path_assertions: HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
@@ -105,7 +105,7 @@ enum DeclaredArtifactError {
     #[error(
         "Artifact `{0}` was declared with `uses_experimental_content_based_path_hashing = {1}`, but is now being used with `uses_experimental_content_based_path_hashing = {2}`"
     )]
-    AlreadyDeclaredWithDifferentContentBasedPathHashing(OutputArtifact, bool, bool),
+    AlreadyDeclaredWithDifferentContentBasedPathHashing(String, bool, bool),
 }
 
 impl<'v> AnalysisRegistry<'v> {
@@ -143,7 +143,7 @@ impl<'v> AnalysisRegistry<'v> {
     pub fn declare_dynamic_output(
         &mut self,
         artifact: &BuildArtifact,
-    ) -> buck2_error::Result<DeclaredArtifact> {
+    ) -> buck2_error::Result<DeclaredArtifact<'v>> {
         self.actions.declare_dynamic_output(artifact)
     }
 
@@ -154,7 +154,7 @@ impl<'v> AnalysisRegistry<'v> {
         output_type: OutputType,
         declaration_location: Option<FileSpan>,
         path_resolution_method: BuckOutPathKind,
-    ) -> buck2_error::Result<DeclaredArtifact> {
+    ) -> buck2_error::Result<DeclaredArtifact<'v>> {
         // We don't allow declaring `` as an output, although technically there's nothing preventing
         // that
         if filename.is_empty() {
@@ -193,7 +193,7 @@ impl<'v> AnalysisRegistry<'v> {
         value: OutputArtifactArg<'v>,
         output_type: OutputType,
         uses_experimental_content_based_path_hashing: Option<bool>,
-    ) -> buck2_error::Result<(ArtifactDeclaration<'v>, OutputArtifact)> {
+    ) -> buck2_error::Result<(ArtifactDeclaration<'v>, OutputArtifact<'v>)> {
         let declaration_location = eval.call_stack_top_location();
         let heap = eval.heap();
         let declared_artifact = match value {
@@ -232,7 +232,7 @@ impl<'v> AnalysisRegistry<'v> {
             if uses_experimental_content_based_path_hashing != has_content_based_path {
                 return Err(
                     DeclaredArtifactError::AlreadyDeclaredWithDifferentContentBasedPathHashing(
-                        output,
+                        format!("{}", output),
                         has_content_based_path,
                         uses_experimental_content_based_path_hashing,
                     )
@@ -351,7 +351,7 @@ impl<'v> AnalysisRegistry<'v> {
 }
 
 pub struct ArtifactDeclaration<'v> {
-    artifact: ValueTyped<'v, StarlarkDeclaredArtifact>,
+    artifact: ValueTyped<'v, StarlarkDeclaredArtifact<'v>>,
     heap: &'v Heap,
 }
 
@@ -359,7 +359,7 @@ impl<'v> ArtifactDeclaration<'v> {
     pub fn into_declared_artifact(
         self,
         extra_associated_artifacts: AssociatedArtifacts,
-    ) -> ValueTyped<'v, StarlarkDeclaredArtifact> {
+    ) -> ValueTyped<'v, StarlarkDeclaredArtifact<'v>> {
         self.heap.alloc_typed(
             self.artifact
                 .with_extended_associated_artifacts(extra_associated_artifacts),

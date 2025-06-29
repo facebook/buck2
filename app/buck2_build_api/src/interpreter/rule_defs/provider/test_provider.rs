@@ -27,7 +27,7 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 pub trait TestProvider {
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'_>,
     ) -> buck2_error::Result<()>;
 
     fn labels(&self) -> Vec<&str>;
@@ -43,7 +43,7 @@ pub trait TestProvider {
 impl TestProvider for FrozenExternalRunnerTestInfo {
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'_>,
     ) -> buck2_error::Result<()> {
         FrozenExternalRunnerTestInfo::visit_artifacts(self, visitor)
     }

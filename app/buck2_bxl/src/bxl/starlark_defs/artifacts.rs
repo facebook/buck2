@@ -179,7 +179,7 @@ impl Eq for EnsuredArtifact {}
 #[derive(StarlarkTypeRepr, UnpackValue, Display)]
 pub(crate) enum ArtifactArg<'v> {
     Artifact(&'v StarlarkArtifact),
-    DeclaredArtifact(&'v StarlarkDeclaredArtifact),
+    DeclaredArtifact(&'v StarlarkDeclaredArtifact<'v>),
 }
 
 impl<'v> ArtifactArg<'v> {

@@ -426,7 +426,7 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
                                 &'a mut VecDeque<(ConfiguredTargetLabel, ArtifactGroup)>,
                                 ConfiguredTargetLabel,
                             );
-                            impl CommandLineArtifactVisitor for Visitor<'_> {
+                            impl<'v> CommandLineArtifactVisitor<'v> for Visitor<'_> {
                                 fn visit_input(
                                     &mut self,
                                     input: ArtifactGroup,

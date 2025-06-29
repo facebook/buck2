@@ -116,7 +116,7 @@ impl Serialize for StarlarkArtifact {
     }
 }
 
-impl StarlarkArtifactLike for StarlarkArtifact {
+impl<'v> StarlarkArtifactLike<'v> for StarlarkArtifact {
     fn as_output_error(&self) -> buck2_error::Error {
         match self.artifact.as_parts().0 {
             BaseArtifactKind::Source(_) => ArtifactError::SourceArtifactAsOutput {
@@ -139,7 +139,7 @@ impl StarlarkArtifactLike for StarlarkArtifact {
         Some(&self.associated_artifacts)
     }
 
-    fn as_command_line_like(&self) -> &dyn CommandLineArgLike {
+    fn as_command_line_like(&self) -> &dyn CommandLineArgLike<'v> {
         self
     }
 
@@ -158,30 +158,27 @@ impl StarlarkArtifactLike for StarlarkArtifact {
         Ok(ArtifactGroup::Artifact(self.get_bound_artifact()?))
     }
 
-    fn basename<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+    fn basename(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         StarlarkArtifactHelpers::basename(&self.artifact, heap)
     }
 
-    fn extension<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+    fn extension(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         StarlarkArtifactHelpers::extension(&self.artifact, heap)
     }
 
-    fn is_source<'v>(&'v self) -> buck2_error::Result<bool> {
+    fn is_source(&'v self) -> buck2_error::Result<bool> {
         Ok(self.artifact.is_source())
     }
 
-    fn owner<'v>(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>> {
+    fn owner(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>> {
         StarlarkArtifactHelpers::owner(&self.artifact)
     }
 
-    fn short_path<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+    fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         StarlarkArtifactHelpers::short_path(&self.artifact, heap)
     }
 
-    fn as_output<'v>(
-        &'v self,
-        _this: Value<'v>,
-    ) -> buck2_error::Result<StarlarkOutputArtifact<'v>> {
+    fn as_output(&'v self, _this: Value<'v>) -> buck2_error::Result<StarlarkOutputArtifact<'v>> {
         match self.artifact.as_parts().0 {
             BaseArtifactKind::Source(_) => Err(ArtifactError::SourceArtifactAsOutput {
                 repr: self.to_string(),
@@ -195,28 +192,28 @@ impl StarlarkArtifactLike for StarlarkArtifact {
         }
     }
 
-    fn project<'v>(
+    fn project(
         &'v self,
         path: &ForwardRelativePath,
         hide_prefix: bool,
-    ) -> buck2_error::Result<EitherStarlarkArtifact> {
+    ) -> buck2_error::Result<EitherStarlarkArtifact<'v>> {
         Ok(EitherStarlarkArtifact::Artifact(StarlarkArtifact {
             artifact: self.artifact.dupe().project(path, hide_prefix),
             associated_artifacts: self.associated_artifacts.dupe(),
         }))
     }
 
-    fn without_associated_artifacts<'v>(&'v self) -> buck2_error::Result<EitherStarlarkArtifact> {
+    fn without_associated_artifacts(&'v self) -> buck2_error::Result<EitherStarlarkArtifact<'v>> {
         Ok(EitherStarlarkArtifact::Artifact(StarlarkArtifact {
             artifact: self.artifact.dupe(),
             associated_artifacts: AssociatedArtifacts::new(),
         }))
     }
 
-    fn with_associated_artifacts<'v>(
+    fn with_associated_artifacts(
         &'v self,
         artifacts: UnpackList<ValueAsArtifactLike<'v>>,
-    ) -> buck2_error::Result<EitherStarlarkArtifact> {
+    ) -> buck2_error::Result<EitherStarlarkArtifact<'v>> {
         let artifacts = artifacts
             .items
             .iter()
@@ -232,7 +229,7 @@ impl StarlarkArtifactLike for StarlarkArtifact {
     }
 }
 
-impl CommandLineArgLike for StarlarkArtifact {
+impl<'v> CommandLineArgLike<'v> for StarlarkArtifact {
     fn register_me(&self) {
         command_line_arg_like_impl!(StarlarkArtifact::starlark_type_repr());
     }
@@ -249,7 +246,7 @@ impl CommandLineArgLike for StarlarkArtifact {
 
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         visitor.visit_input(ArtifactGroup::Artifact(self.artifact.dupe()), None);
         self.associated_artifacts

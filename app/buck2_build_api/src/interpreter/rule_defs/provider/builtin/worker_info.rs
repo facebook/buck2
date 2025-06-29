@@ -92,7 +92,7 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
 }
 
 impl<'v, V: ValueLike<'v>> WorkerInfoGen<V> {
-    pub fn exe_command_line(&self) -> &'v dyn CommandLineArgLike {
+    pub fn exe_command_line(&self) -> &'v dyn CommandLineArgLike<'v> {
         ValueAsCommandLineLike::unpack_value_err(self.exe.get().to_value())
             .expect("validated at construction")
             .0

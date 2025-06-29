@@ -82,7 +82,7 @@ pub enum DynamicLambdaArgs<'v> {
     OldPositional {
         ctx: Value<'v>,
         artifact_values: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
-        outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact>>,
+        outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact<'v>>>,
     },
     DynamicActionsNamed {
         actions: ValueTyped<'v, AnalysisActions<'v>>,
@@ -441,7 +441,7 @@ async fn resolve_dynamic_values(
 
 pub enum DynamicLambdaCtxDataSpec<'v> {
     Old {
-        outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact>>,
+        outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact<'v>>>,
         artifact_values: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
     },
     New {
@@ -493,8 +493,9 @@ fn outputs<'v>(
     outputs: &[BoundBuildArtifact],
     registry: &mut AnalysisRegistry<'v>,
     heap: &'v Heap,
-) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact>>>
-{
+) -> buck2_error::Result<
+    ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact<'v>>>,
+> {
     let mut outputs_dict = Vec::with_capacity(outputs.len());
     for x in outputs {
         let k = StarlarkArtifact::new(x.dupe().into_artifact());

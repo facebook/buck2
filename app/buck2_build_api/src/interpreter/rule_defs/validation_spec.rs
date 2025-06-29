@@ -87,7 +87,7 @@ impl<'v, V: ValueLike<'v>> StarlarkValidationSpecGen<V> {
             .expect("type checked during construction or freezing")
     }
 
-    pub fn validation_result(&self) -> &'v dyn StarlarkArtifactLike {
+    pub fn validation_result(&self) -> &'v dyn StarlarkArtifactLike<'v> {
         ValueAsArtifactLike::unpack_value_opt(self.validation_result.get().to_value())
             .expect("type checked during construction or freezing")
             .0

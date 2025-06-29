@@ -61,7 +61,7 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+    ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>> {
         let mut this = this.state()?;
         let (declaration, output_artifact) = this.get_or_declare_output(
             eval,
@@ -114,7 +114,7 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)]
         uses_experimental_content_based_path_hashing: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+    ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>> {
         let mut registry = this.state()?;
 
         let digest = CasDigest::parse_digest(digest, this.digest_config.cas_digest_config())

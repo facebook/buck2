@@ -41,6 +41,7 @@ use indexmap::IndexSet;
 use starlark::codemap::FileSpan;
 use starlark::collections::SmallMap;
 use starlark::collections::SmallSet;
+use starlark::values::Trace;
 
 use crate::actions::ActionErrors;
 use crate::actions::ActionToBeRegistered;
@@ -51,20 +52,20 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::calculation::ActionLookup;
 
 /// The actions registry for a particular analysis of a rule, dynamic actions, anon target, BXL.
-#[derive(Allocative)]
-pub struct ActionsRegistry {
+#[derive(Allocative, Trace)]
+pub struct ActionsRegistry<'v> {
     owner: DeferredHolderKey,
-    artifacts: SmallSet<DeclaredArtifact>,
+    artifacts: SmallSet<DeclaredArtifact<'v>>,
 
     // For a dynamic_output, maps the ActionKeys for the outputs that have been bound
     // to this dynamic_output to the DeclaredArtifact created in the dynamic_output.
-    declared_dynamic_outputs: SmallMap<ActionKey, DeclaredArtifact>,
+    declared_dynamic_outputs: SmallMap<ActionKey, DeclaredArtifact<'v>>,
     pending: Vec<ActionToBeRegistered>,
     pub execution_platform: ExecutionPlatformResolution,
     claimed_output_paths: DirectoryBuilder<Option<FileSpan>, NoDigest>,
 }
 
-impl ActionsRegistry {
+impl<'v> ActionsRegistry<'v> {
     pub fn new(owner: DeferredHolderKey, execution_platform: ExecutionPlatformResolution) -> Self {
         Self {
             owner,
@@ -79,7 +80,7 @@ impl ActionsRegistry {
     pub fn declare_dynamic_output(
         &mut self,
         artifact: &BuildArtifact,
-    ) -> buck2_error::Result<DeclaredArtifact> {
+    ) -> buck2_error::Result<DeclaredArtifact<'v>> {
         if !self.pending.is_empty() {
             return Err(internal_error!(
                 "output for dynamic_output/actions declared after actions: {}, {:?}",
@@ -170,7 +171,7 @@ impl ActionsRegistry {
         output_type: OutputType,
         declaration_location: Option<FileSpan>,
         path_resolution_method: BuckOutPathKind,
-    ) -> buck2_error::Result<DeclaredArtifact> {
+    ) -> buck2_error::Result<DeclaredArtifact<'v>> {
         let (path, hidden) = match prefix {
             None => (path, 0),
             Some(prefix) => (prefix.join(path), prefix.iter().count()),
@@ -225,7 +226,7 @@ impl ActionsRegistry {
     pub fn finalize(
         self,
     ) -> buck2_error::Result<
-        impl FnOnce(&AnalysisValueFetcher) -> buck2_error::Result<RecordedActions>,
+        impl FnOnce(&AnalysisValueFetcher) -> buck2_error::Result<RecordedActions> + use<>,
     > {
         for artifact in self.artifacts {
             artifact.ensure_bound()?;
@@ -288,7 +289,7 @@ impl ActionsRegistry {
         })
     }
 
-    pub fn testing_artifacts(&self) -> &SmallSet<DeclaredArtifact> {
+    pub fn testing_artifacts(&self) -> &SmallSet<DeclaredArtifact<'v>> {
         &self.artifacts
     }
 

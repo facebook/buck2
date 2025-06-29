@@ -152,7 +152,7 @@ impl<'a> Graph<'a> {
                     ))
                 }
                 struct Visitor<'a, 'b, F: FnMut(Key)>(F, &'a Graph<'b>, buck2_error::Result<()>);
-                impl<F: FnMut(Key)> CommandLineArtifactVisitor for Visitor<'_, '_, F> {
+                impl<'v, F: FnMut(Key)> CommandLineArtifactVisitor<'v> for Visitor<'_, '_, F> {
                     fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
                         if self.2.is_err() {
                             return;
@@ -171,7 +171,7 @@ impl<'a> Graph<'a> {
 
                     fn visit_output(
                         &mut self,
-                        _artifact: OutputArtifact,
+                        _artifact: OutputArtifact<'v>,
                         _tag: Option<&ArtifactTag>,
                     ) {
                         // nothing to do

@@ -86,11 +86,11 @@ impl<'v> UnpackValue<'v> for CommandLineArg<'v> {
 
 impl<'v> CommandLineArg<'v> {
     pub fn from_cmd_args(cmd_args: ValueTyped<'v, StarlarkCmdArgs<'v>>) -> Self {
-        let _no_check_needed: &dyn CommandLineArgLike = cmd_args.as_ref();
+        let _no_check_needed: &dyn CommandLineArgLike<'v> = cmd_args.as_ref();
         CommandLineArg(cmd_args.to_value())
     }
 
-    pub fn as_command_line_arg(self) -> &'v dyn CommandLineArgLike {
+    pub fn as_command_line_arg(self) -> &'v dyn CommandLineArgLike<'v> {
         ValueAsCommandLineLike::unpack_value_err(self.0)
             .expect("checked type in constructor")
             .0
@@ -122,7 +122,7 @@ impl FrozenCommandLineArg {
         Ok(FrozenCommandLineArg(value))
     }
 
-    pub fn as_command_line_arg<'v>(self) -> &'v dyn CommandLineArgLike {
+    pub fn as_command_line_arg<'v>(self) -> &'v dyn CommandLineArgLike<'v> {
         CommandLineArg(self.0.to_value()).as_command_line_arg()
     }
 

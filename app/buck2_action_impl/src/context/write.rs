@@ -79,7 +79,7 @@ impl CommandLineInputVisitor {
     }
 }
 
-impl CommandLineArtifactVisitor for CommandLineInputVisitor {
+impl<'v> CommandLineArtifactVisitor<'v> for CommandLineInputVisitor {
     fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
         if self.with_associated_artifacts {
             self.associated_artifacts.insert(input.dupe());
@@ -99,11 +99,11 @@ impl CommandLineArtifactVisitor for CommandLineInputVisitor {
         }
     }
 
-    fn visit_output(&mut self, _artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {}
+    fn visit_output(&mut self, _artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {}
 
     fn visit_declared_artifact(
         &mut self,
-        declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact,
+        declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
         tag: Option<&ArtifactTag>,
     ) -> buck2_error::Result<()> {
         if self.with_associated_artifacts || declared_artifact.has_content_based_path() {
@@ -212,10 +212,10 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<
         Either<
-            ValueTyped<'v, StarlarkDeclaredArtifact>,
+            ValueTyped<'v, StarlarkDeclaredArtifact<'v>>,
             (
-                ValueTyped<'v, StarlarkDeclaredArtifact>,
-                Vec<StarlarkDeclaredArtifact>,
+                ValueTyped<'v, StarlarkDeclaredArtifact<'v>>,
+                Vec<StarlarkDeclaredArtifact<'v>>,
             ),
         >,
     > {

@@ -71,16 +71,16 @@ use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command
 /// user's implementation function. This turns into a `StarlarkArtifact` when frozen, and
 /// /must/ have had `ensure_bound()` called on it successfully before freezing.
 #[derive(Clone, Debug, Dupe, NoSerialize, ProvidesStaticType, Trace, Allocative)]
-pub struct StarlarkDeclaredArtifact {
+pub struct StarlarkDeclaredArtifact<'v> {
     // FileSpan is not Hash, and the location is not really relevant for equality.
     // We also expect each artifact to be declared at one unique location anyway.
     pub(super) declaration_location: Option<FileSpan>,
-    pub(super) artifact: DeclaredArtifact,
+    pub(super) artifact: DeclaredArtifact<'v>,
     // A set of ArtifactGroups that should be materialized along with the main artifact
     pub(super) associated_artifacts: AssociatedArtifacts,
 }
 
-impl Display for StarlarkDeclaredArtifact {
+impl Display for StarlarkDeclaredArtifact<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<build artifact {}", self.artifact)?;
         if let Some(location) = &self.declaration_location {
@@ -93,10 +93,10 @@ impl Display for StarlarkDeclaredArtifact {
     }
 }
 
-impl StarlarkDeclaredArtifact {
+impl<'v> StarlarkDeclaredArtifact<'v> {
     pub fn new(
         declaration_location: Option<FileSpan>,
-        artifact: DeclaredArtifact,
+        artifact: DeclaredArtifact<'v>,
         associated_artifacts: AssociatedArtifacts,
     ) -> Self {
         StarlarkDeclaredArtifact {
@@ -106,7 +106,7 @@ impl StarlarkDeclaredArtifact {
         }
     }
 
-    pub fn output_artifact(&self) -> OutputArtifact {
+    pub fn output_artifact(&self) -> OutputArtifact<'v> {
         self.artifact.as_output()
     }
 
@@ -131,7 +131,7 @@ impl StarlarkDeclaredArtifact {
     }
 }
 
-impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
+impl<'v> StarlarkArtifactLike<'v> for StarlarkDeclaredArtifact<'v> {
     fn as_output_error(&self) -> buck2_error::Error {
         // This shouldn't ever be called for StarlarkDeclaredArtifact
         buck2_error!(
@@ -148,7 +148,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         Some(&self.associated_artifacts)
     }
 
-    fn as_command_line_like(&self) -> &dyn CommandLineArgLike {
+    fn as_command_line_like(&self) -> &dyn CommandLineArgLike<'v> {
         self
     }
 
@@ -167,13 +167,13 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         Ok(ArtifactGroup::Artifact(self.get_bound_artifact()?))
     }
 
-    fn basename<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+    fn basename(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         self.artifact
             .get_path()
             .with_filename(|filename| Ok(heap.alloc_str(filename?.as_str())))
     }
 
-    fn extension<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+    fn extension(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         self.artifact.get_path().with_filename(|filename| {
             Ok(StarlarkArtifactHelpers::alloc_extension(
                 filename?.extension(),
@@ -182,11 +182,11 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         })
     }
 
-    fn is_source<'v>(&'v self) -> buck2_error::Result<bool> {
+    fn is_source(&'v self) -> buck2_error::Result<bool> {
         Ok(false)
     }
 
-    fn owner<'v>(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>> {
+    fn owner(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>> {
         match self.artifact.owner() {
             None => Ok(None),
             Some(x) => Ok(match x {
@@ -198,24 +198,24 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         }
     }
 
-    fn short_path<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+    fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         self.artifact
             .get_path()
             .with_short_path(|short_path| Ok(heap.alloc_str(short_path.as_str())))
     }
 
-    fn as_output<'v>(&'v self, this: Value<'v>) -> buck2_error::Result<StarlarkOutputArtifact<'v>> {
+    fn as_output(&'v self, this: Value<'v>) -> buck2_error::Result<StarlarkOutputArtifact<'v>> {
         Ok(StarlarkOutputArtifact::new(
             ValueTyped::<StarlarkDeclaredArtifact>::new_err(this)
                 .internal_error("Type must have been checked earlier")?,
         ))
     }
 
-    fn project<'v>(
+    fn project(
         &'v self,
         path: &ForwardRelativePath,
         hide_prefix: bool,
-    ) -> buck2_error::Result<EitherStarlarkArtifact> {
+    ) -> buck2_error::Result<EitherStarlarkArtifact<'v>> {
         // Not sure if this.declaration_location is or the project() call is more appropriate here.
         Ok(EitherStarlarkArtifact::DeclaredArtifact(
             StarlarkDeclaredArtifact {
@@ -226,7 +226,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         ))
     }
 
-    fn without_associated_artifacts<'v>(&'v self) -> buck2_error::Result<EitherStarlarkArtifact> {
+    fn without_associated_artifacts(&'v self) -> buck2_error::Result<EitherStarlarkArtifact<'v>> {
         Ok(EitherStarlarkArtifact::DeclaredArtifact(
             StarlarkDeclaredArtifact {
                 declaration_location: self.declaration_location.dupe(),
@@ -236,10 +236,10 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         ))
     }
 
-    fn with_associated_artifacts<'v>(
+    fn with_associated_artifacts(
         &'v self,
         artifacts: UnpackList<ValueAsArtifactLike<'v>>,
-    ) -> buck2_error::Result<EitherStarlarkArtifact> {
+    ) -> buck2_error::Result<EitherStarlarkArtifact<'v>> {
         let artifacts = artifacts
             .items
             .iter()
@@ -258,7 +258,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
     }
 }
 
-impl CommandLineArgLike for StarlarkDeclaredArtifact {
+impl<'v> CommandLineArgLike<'v> for StarlarkDeclaredArtifact<'v> {
     fn register_me(&self) {
         command_line_arg_like_impl!(StarlarkDeclaredArtifact::starlark_type_repr());
     }
@@ -278,7 +278,7 @@ impl CommandLineArgLike for StarlarkDeclaredArtifact {
 
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         visitor.visit_declared_artifact(self.artifact.dupe(), None)?;
 
@@ -301,7 +301,7 @@ impl CommandLineArgLike for StarlarkDeclaredArtifact {
     }
 }
 
-impl Freeze for StarlarkDeclaredArtifact {
+impl Freeze for StarlarkDeclaredArtifact<'_> {
     type Frozen = StarlarkArtifact;
     fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         // ensure_bound() moves out of self and so we can't construct the error
@@ -327,14 +327,14 @@ impl Freeze for StarlarkDeclaredArtifact {
     }
 }
 
-impl<'v> AllocValue<'v> for StarlarkDeclaredArtifact {
+impl<'v> AllocValue<'v> for StarlarkDeclaredArtifact<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_complex(self)
     }
 }
 
 #[starlark_value(type = "Artifact", StarlarkTypeRepr, UnpackValue)]
-impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact {
+impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact<'v> {
     type Canonical = StarlarkArtifact;
 
     fn get_methods() -> Option<&'static Methods> {

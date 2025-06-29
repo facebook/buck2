@@ -154,7 +154,7 @@ impl StarlarkPromiseArtifact {
     }
 }
 
-impl StarlarkArtifactLike for StarlarkPromiseArtifact {
+impl<'v> StarlarkArtifactLike<'v> for StarlarkPromiseArtifact {
     fn get_bound_artifact(&self) -> buck2_error::Result<Artifact> {
         match self.artifact.get() {
             Some(v) => Ok(v.dupe()),
@@ -171,7 +171,7 @@ impl StarlarkArtifactLike for StarlarkPromiseArtifact {
         None
     }
 
-    fn as_command_line_like(&self) -> &dyn CommandLineArgLike {
+    fn as_command_line_like(&self) -> &dyn CommandLineArgLike<'v> {
         self
     }
 
@@ -193,14 +193,14 @@ impl StarlarkArtifactLike for StarlarkPromiseArtifact {
         Ok(self.as_artifact())
     }
 
-    fn basename<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+    fn basename(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         match self.artifact.get() {
             Some(v) => StarlarkArtifactHelpers::basename(v, heap),
             None => Ok(heap.alloc_str(self.file_name_err()?.as_str())),
         }
     }
 
-    fn extension<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+    fn extension(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         match self.artifact.get() {
             Some(v) => StarlarkArtifactHelpers::extension(v, heap),
             None => Ok(StarlarkArtifactHelpers::alloc_extension(
@@ -210,54 +210,51 @@ impl StarlarkArtifactLike for StarlarkPromiseArtifact {
         }
     }
 
-    fn is_source<'v>(&'v self) -> buck2_error::Result<bool> {
+    fn is_source(&'v self) -> buck2_error::Result<bool> {
         Ok(false)
     }
 
-    fn owner<'v>(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>> {
+    fn owner(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>> {
         match self.artifact.get() {
             Some(v) => StarlarkArtifactHelpers::owner(v),
             None => Err(PromiseArtifactError::MethodUnsupported(self.clone(), "owner").into()),
         }
     }
 
-    fn short_path<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
+    fn short_path(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         match self.artifact.get() {
             Some(v) => StarlarkArtifactHelpers::short_path(v, heap),
             None => Ok(heap.alloc_str(self.short_path_err()?.as_str())),
         }
     }
 
-    fn as_output<'v>(
-        &'v self,
-        _this: Value<'v>,
-    ) -> buck2_error::Result<StarlarkOutputArtifact<'v>> {
+    fn as_output(&'v self, _this: Value<'v>) -> buck2_error::Result<StarlarkOutputArtifact<'v>> {
         Err(self.as_output_error())
     }
 
-    fn project<'v>(
+    fn project(
         &'v self,
         path: &ForwardRelativePath,
         hide_prefix: bool,
-    ) -> buck2_error::Result<EitherStarlarkArtifact> {
+    ) -> buck2_error::Result<EitherStarlarkArtifact<'v>> {
         let _ = (path, hide_prefix);
         Err(PromiseArtifactError::CannotProject(self.clone()).into())
     }
 
-    fn without_associated_artifacts<'v>(&'v self) -> buck2_error::Result<EitherStarlarkArtifact> {
+    fn without_associated_artifacts(&'v self) -> buck2_error::Result<EitherStarlarkArtifact<'v>> {
         Ok(EitherStarlarkArtifact::PromiseArtifact(self.clone()))
     }
 
-    fn with_associated_artifacts<'v>(
+    fn with_associated_artifacts(
         &'v self,
         artifacts: UnpackList<ValueAsArtifactLike<'v>>,
-    ) -> buck2_error::Result<EitherStarlarkArtifact> {
+    ) -> buck2_error::Result<EitherStarlarkArtifact<'v>> {
         let _unused = artifacts;
         Err(PromiseArtifactError::CannotAddAssociatedArtifacts.into())
     }
 }
 
-impl CommandLineArgLike for StarlarkPromiseArtifact {
+impl<'v> CommandLineArgLike<'v> for StarlarkPromiseArtifact {
     fn register_me(&self) {
         command_line_arg_like_impl!(StarlarkPromiseArtifact::starlark_type_repr());
     }
@@ -279,7 +276,7 @@ impl CommandLineArgLike for StarlarkPromiseArtifact {
 
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         visitor.visit_input(self.as_artifact(), None);
         Ok(())

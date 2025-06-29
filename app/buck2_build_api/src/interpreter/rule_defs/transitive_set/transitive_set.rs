@@ -234,7 +234,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
 }
 
 impl FrozenTransitiveSet {
-    pub fn visit_projection_direct_inputs<V: CommandLineArtifactVisitor>(
+    pub fn visit_projection_direct_inputs<'v, V: CommandLineArtifactVisitor<'v>>(
         &self,
         projection: usize,
         visitor: &mut V,
@@ -494,7 +494,7 @@ impl<'v> TransitiveSet<'v> {
             }
         }
 
-        impl CommandLineArtifactVisitor for HasContentBasedInputVisitor {
+        impl<'v> CommandLineArtifactVisitor<'v> for HasContentBasedInputVisitor {
             fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
                 let is_content_based_input = match input {
                     ArtifactGroup::Artifact(a) => a.has_content_based_path(),
@@ -509,11 +509,11 @@ impl<'v> TransitiveSet<'v> {
                 }
             }
 
-            fn visit_output(&mut self, _artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {}
+            fn visit_output(&mut self, _artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {}
 
             fn visit_declared_artifact(
                 &mut self,
-                declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact,
+                declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
                 _tag: Option<&ArtifactTag>,
             ) -> buck2_error::Result<()> {
                 if declared_artifact.has_content_based_path() {

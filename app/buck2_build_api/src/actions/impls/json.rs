@@ -317,9 +317,9 @@ pub fn write_json(
     .buck_error_context("Error converting to JSON for `write_json`")
 }
 
-pub fn visit_json_artifacts(
-    v: Value,
-    visitor: &mut dyn CommandLineArtifactVisitor,
+pub fn visit_json_artifacts<'v>(
+    v: Value<'v>,
+    visitor: &mut dyn CommandLineArtifactVisitor<'v>,
 ) -> buck2_error::Result<()> {
     match JsonUnpack::unpack_value_err(v)? {
         JsonUnpack::None(_)

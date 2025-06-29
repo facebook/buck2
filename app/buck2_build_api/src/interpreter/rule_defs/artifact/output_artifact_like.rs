@@ -19,7 +19,7 @@ use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkO
 pub enum OutputArtifactArg<'v> {
     Str(&'v str),
     OutputArtifact(ValueTyped<'v, StarlarkOutputArtifact<'v>>),
-    DeclaredArtifact(ValueTyped<'v, StarlarkDeclaredArtifact>),
+    DeclaredArtifact(ValueTyped<'v, StarlarkDeclaredArtifact<'v>>),
     /// This for error reporting.
     WrongArtifact(ValueAsArtifactLike<'v>),
 }

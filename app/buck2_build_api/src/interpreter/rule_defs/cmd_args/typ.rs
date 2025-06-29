@@ -210,7 +210,7 @@ impl<'v, F: Fields<'v>> FieldsRef<'v, F> {
     }
 }
 
-impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
+impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
     fn register_me(&self) {
         command_line_arg_like_impl!(StarlarkCmdArgs::starlark_type_repr());
     }
@@ -252,7 +252,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
 
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         if !self.ignore_artifacts() {
             for item in self.0.items().iter().chain(self.0.hidden().iter()) {
@@ -273,7 +273,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
                 }
             }
 
-            impl CommandLineArtifactVisitor for IgnoredArtifactsVisitor {
+            impl<'v> CommandLineArtifactVisitor<'v> for IgnoredArtifactsVisitor {
                 fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
                     let is_content_based = match input {
                         ArtifactGroup::Artifact(ref x) => x.has_content_based_path(),
@@ -569,7 +569,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkCmdArgs {
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
-        demand.provide_value::<&dyn CommandLineArgLike>(self);
+        demand.provide_value::<&dyn CommandLineArgLike<'v>>(self);
     }
 }
 
@@ -579,7 +579,7 @@ impl<'v> AllocValue<'v> for StarlarkCmdArgs<'v> {
     }
 }
 
-impl<'v> CommandLineArgLike for StarlarkCmdArgs<'v> {
+impl<'v> CommandLineArgLike<'v> for StarlarkCmdArgs<'v> {
     fn register_me(&self) {
         command_line_arg_like_impl!(StarlarkCmdArgs::starlark_type_repr());
     }
@@ -599,7 +599,7 @@ impl<'v> CommandLineArgLike for StarlarkCmdArgs<'v> {
 
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         FieldsRef(self.0.borrow(), PhantomData).visit_artifacts(visitor)
     }
@@ -618,7 +618,7 @@ impl<'v> CommandLineArgLike for StarlarkCmdArgs<'v> {
     }
 }
 
-impl CommandLineArgLike for FrozenStarlarkCmdArgs {
+impl<'v> CommandLineArgLike<'v> for FrozenStarlarkCmdArgs {
     fn register_me(&self) {
         command_line_arg_like_impl!(FrozenStarlarkCmdArgs::starlark_type_repr());
     }
@@ -634,7 +634,7 @@ impl CommandLineArgLike for FrozenStarlarkCmdArgs {
 
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         FieldsRef(self, PhantomData).visit_artifacts(visitor)
     }

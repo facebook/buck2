@@ -140,7 +140,7 @@ impl<'v> ResolvedMacro<'v> {
 
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         match self {
             Self::Location(info) => {
@@ -224,7 +224,7 @@ impl ResolvedStringWithMacros {
     }
 }
 
-impl CommandLineArgLike for ResolvedStringWithMacros {
+impl<'v> CommandLineArgLike<'v> for ResolvedStringWithMacros {
     fn register_me(&self) {
         command_line_arg_like_impl!(ResolvedStringWithMacros::starlark_type_repr());
     }
@@ -279,7 +279,7 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
 
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         for part in &*self.parts {
             if let ResolvedStringWithMacrosPart::Macro(_, val) = part {

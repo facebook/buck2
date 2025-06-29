@@ -72,7 +72,7 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkTaggedCommandLineGen<V> {
+impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkTaggedCommandLineGen<V> {
     fn register_me(&self) {
         command_line_arg_like_impl!(StarlarkTaggedCommandLine::starlark_type_repr());
     }
@@ -90,7 +90,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for StarlarkTaggedCommandLineGen<V
 
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         let mut visitor = self.inner.wrap_visitor(visitor);
 

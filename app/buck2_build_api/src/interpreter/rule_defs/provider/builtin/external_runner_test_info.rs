@@ -115,11 +115,11 @@ impl FrozenExternalRunnerTestInfo {
         self.test_type.to_value().get().unpack_str().unwrap()
     }
 
-    pub fn command(&self) -> impl Iterator<Item = TestCommandMember<'_>> {
+    pub fn command<'v>(&self) -> impl Iterator<Item = TestCommandMember<'v>> {
         unwrap_all(iter_test_command(self.command.get().to_value()))
     }
 
-    pub fn env(&self) -> impl Iterator<Item = (&str, &dyn CommandLineArgLike)> {
+    pub fn env<'v>(&self) -> impl Iterator<Item = (&'v str, &'v dyn CommandLineArgLike<'v>)> {
         unwrap_all(iter_test_env(self.env.get().to_value()))
     }
 
@@ -190,7 +190,7 @@ impl FrozenExternalRunnerTestInfo {
 
     pub fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor,
+        visitor: &mut dyn CommandLineArtifactVisitor<'_>,
     ) -> buck2_error::Result<()> {
         for member in self.command() {
             match member {
@@ -213,7 +213,7 @@ impl FrozenExternalRunnerTestInfo {
 
 pub enum TestCommandMember<'v> {
     Literal(&'v str),
-    Arglike(&'v dyn CommandLineArgLike),
+    Arglike(&'v dyn CommandLineArgLike<'v>),
 }
 
 impl<'v> TestCommandMember<'v> {
@@ -276,7 +276,7 @@ fn iter_test_command<'v>(
 
 fn iter_test_env<'v>(
     env: Value<'v>,
-) -> impl Iterator<Item = buck2_error::Result<(&'v str, &'v dyn CommandLineArgLike)>> {
+) -> impl Iterator<Item = buck2_error::Result<(&'v str, &'v dyn CommandLineArgLike<'v>)>> {
     if env.is_none() {
         return Either::Left(Either::Left(empty()));
     }

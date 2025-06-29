@@ -40,10 +40,10 @@ use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 
-pub trait CommandLineArtifactVisitor {
+pub trait CommandLineArtifactVisitor<'v> {
     fn visit_input(&mut self, input: ArtifactGroup, tag: Option<&ArtifactTag>);
 
-    fn visit_output(&mut self, artifact: OutputArtifact, tag: Option<&ArtifactTag>);
+    fn visit_output(&mut self, artifact: OutputArtifact<'v>, tag: Option<&ArtifactTag>);
 
     /// Those two functions can be used to keep track of recursion when visiting artifacts.
     fn push_frame(&mut self) -> buck2_error::Result<()> {
@@ -54,7 +54,7 @@ pub trait CommandLineArtifactVisitor {
 
     fn visit_declared_artifact(
         &mut self,
-        declared_artifact: DeclaredArtifact,
+        declared_artifact: DeclaredArtifact<'v>,
         tag: Option<&ArtifactTag>,
     ) -> buck2_error::Result<()> {
         self.visit_input(
@@ -66,12 +66,12 @@ pub trait CommandLineArtifactVisitor {
 }
 
 /// A CommandLineArtifactVisitor that gathers inputs and outputs.
-pub struct SimpleCommandLineArtifactVisitor {
+pub struct SimpleCommandLineArtifactVisitor<'v> {
     pub inputs: IndexSet<ArtifactGroup>,
-    pub outputs: IndexSet<OutputArtifact>,
+    pub outputs: IndexSet<OutputArtifact<'v>>,
 }
 
-impl SimpleCommandLineArtifactVisitor {
+impl SimpleCommandLineArtifactVisitor<'_> {
     pub fn new() -> Self {
         Self {
             inputs: IndexSet::new(),
@@ -80,12 +80,12 @@ impl SimpleCommandLineArtifactVisitor {
     }
 }
 
-impl CommandLineArtifactVisitor for SimpleCommandLineArtifactVisitor {
+impl<'v> CommandLineArtifactVisitor<'v> for SimpleCommandLineArtifactVisitor<'v> {
     fn visit_input(&mut self, input: ArtifactGroup, _tag: Option<&ArtifactTag>) {
         self.inputs.insert(input);
     }
 
-    fn visit_output(&mut self, artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {
+    fn visit_output(&mut self, artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {
         self.outputs.insert(artifact);
     }
 }
@@ -150,7 +150,7 @@ impl ArtifactPathMapper for ArtifactPathMapperImpl<'_> {
 /// Implemented by anything that can show up in a command line. This method adds any args and env vars that are needed
 ///
 /// Certain operations on `CommandLineBuilder` can fail, so propagate those upward
-pub trait CommandLineArgLike {
+pub trait CommandLineArgLike<'v> {
     /// Call `command_line_arg_like_impl!` to register the type with the interpreter typechecker.
     fn register_me(&self);
 
@@ -163,7 +163,7 @@ pub trait CommandLineArgLike {
 
     fn visit_artifacts(
         &self,
-        _visitor: &mut dyn CommandLineArtifactVisitor,
+        _visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         Ok(())
     }
@@ -178,11 +178,11 @@ pub trait CommandLineArgLike {
     ) -> buck2_error::Result<()>;
 }
 
-unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn CommandLineArgLike {
-    type StaticType = &'static dyn CommandLineArgLike;
+unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn CommandLineArgLike<'v> {
+    type StaticType = &'static dyn CommandLineArgLike<'static>;
 }
 
-impl CommandLineArgLike for &str {
+impl<'v> CommandLineArgLike<'v> for &str {
     fn register_me(&self) {
         command_line_arg_like_impl!(Ty::string());
     }
@@ -210,7 +210,7 @@ impl CommandLineArgLike for &str {
     }
 }
 
-impl CommandLineArgLike for StarlarkStr {
+impl<'v> CommandLineArgLike<'v> for StarlarkStr {
     fn register_me(&self) {
         command_line_arg_like_impl!(StarlarkStr::starlark_type_repr());
     }
@@ -238,7 +238,7 @@ impl CommandLineArgLike for StarlarkStr {
     }
 }
 
-impl CommandLineArgLike for StarlarkTargetLabel {
+impl<'v> CommandLineArgLike<'v> for StarlarkTargetLabel {
     fn register_me(&self) {
         command_line_arg_like_impl!(StarlarkTargetLabel::starlark_type_repr());
     }
@@ -266,7 +266,7 @@ impl CommandLineArgLike for StarlarkTargetLabel {
     }
 }
 
-impl CommandLineArgLike for StarlarkConfiguredProvidersLabel {
+impl<'v> CommandLineArgLike<'v> for StarlarkConfiguredProvidersLabel {
     fn register_me(&self) {
         command_line_arg_like_impl!(StarlarkConfiguredProvidersLabel::starlark_type_repr());
     }
@@ -294,7 +294,7 @@ impl CommandLineArgLike for StarlarkConfiguredProvidersLabel {
     }
 }
 
-impl CommandLineArgLike for CellRoot {
+impl<'v> CommandLineArgLike<'v> for CellRoot {
     fn register_me(&self) {
         command_line_arg_like_impl!(CellRoot::starlark_type_repr());
     }
@@ -322,7 +322,7 @@ impl CommandLineArgLike for CellRoot {
     }
 }
 
-impl CommandLineArgLike for StarlarkProjectRoot {
+impl<'v> CommandLineArgLike<'v> for StarlarkProjectRoot {
     fn register_me(&self) {
         command_line_arg_like_impl!(StarlarkProjectRoot::starlark_type_repr());
     }

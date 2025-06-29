@@ -80,10 +80,10 @@ impl<V: ValueLifetimeless> StarlarkTaggedValueGen<V> {
         &self.inner
     }
 
-    pub fn wrap_visitor<'a, 'b>(
+    pub fn wrap_visitor<'a, 'b, 'v>(
         &'a self,
-        visitor: &'b mut dyn CommandLineArtifactVisitor,
-    ) -> TaggedVisitor<'a, 'b> {
+        visitor: &'b mut dyn CommandLineArtifactVisitor<'v>,
+    ) -> TaggedVisitor<'a, 'b, 'v> {
         TaggedVisitor::wrap(&self.tag, self.inputs_only, visitor)
     }
 }

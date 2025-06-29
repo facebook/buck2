@@ -221,13 +221,13 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         outputs_for_error_handler: UnpackListOrTuple<&'v StarlarkOutputArtifact<'v>>,
     ) -> starlark::Result<NoneType> {
-        struct RunCommandArtifactVisitor {
-            inner: SimpleCommandLineArtifactVisitor,
-            tagged_outputs: HashMap<ArtifactTag, Vec<OutputArtifact>>,
+        struct RunCommandArtifactVisitor<'v> {
+            inner: SimpleCommandLineArtifactVisitor<'v>,
+            tagged_outputs: HashMap<ArtifactTag, Vec<OutputArtifact<'v>>>,
             depth: u64,
         }
 
-        impl RunCommandArtifactVisitor {
+        impl RunCommandArtifactVisitor<'_> {
             fn new() -> Self {
                 Self {
                     inner: SimpleCommandLineArtifactVisitor::new(),
@@ -237,12 +237,12 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             }
         }
 
-        impl CommandLineArtifactVisitor for RunCommandArtifactVisitor {
+        impl<'v> CommandLineArtifactVisitor<'v> for RunCommandArtifactVisitor<'v> {
             fn visit_input(&mut self, input: ArtifactGroup, tag: Option<&ArtifactTag>) {
                 self.inner.visit_input(input, tag);
             }
 
-            fn visit_output(&mut self, artifact: OutputArtifact, tag: Option<&ArtifactTag>) {
+            fn visit_output(&mut self, artifact: OutputArtifact<'v>, tag: Option<&ArtifactTag>) {
                 match tag {
                     None => {}
                     Some(tag) => {

@@ -35,6 +35,8 @@ use derive_more::From;
 use dupe::Dupe;
 use either::Either;
 use gazebo::cell::ARef;
+use starlark::values::Trace;
+use starlark::values::Value;
 use starlark_map::Hashed;
 use static_assertions::assert_eq_size;
 
@@ -96,7 +98,7 @@ impl Artifact {
         }))
     }
 
-    pub fn as_output_artifact(&self) -> Option<OutputArtifact> {
+    pub fn as_output_artifact<'v>(&self) -> Option<OutputArtifact<'v>> {
         let key = self.0.data.key();
         match &key.base {
             BaseArtifactKind::Source(_) => None,
@@ -282,7 +284,7 @@ impl From<BuildArtifact> for Artifact {
 }
 
 /// An intermediate struct to respond to calls to `ensure_bound`.
-#[derive(Clone, Dupe, Debug, Display, Allocative, Hash, Eq, PartialEq)]
+#[derive(Clone, Dupe, Debug, Display, Allocative, Hash, Eq, PartialEq, Trace)]
 #[display("{}", self.get_path())]
 pub struct BoundBuildArtifact {
     artifact: BuildArtifact,
@@ -299,11 +301,12 @@ impl BoundBuildArtifact {
         )
     }
 
-    pub fn into_declared_artifact(self) -> DeclaredArtifact {
+    pub fn into_declared_artifact<'v>(self) -> DeclaredArtifact<'v> {
         DeclaredArtifact {
             artifact: Rc::new(RefCell::new(DeclaredArtifactKind::Bound(self.artifact))),
             projected_path: self.projected_path,
             hidden_components_count: self.hidden_components_count,
+            _phantom: std::marker::PhantomData,
         }
     }
 
@@ -334,27 +337,29 @@ impl BoundBuildArtifact {
 /// to it yet, in which case it is a 'UnboundArtifact' underneath.
 ///
 /// All 'DeclaredArtifact's are forced to be bound at the end of the analysis phase.
-#[derive(Clone, Debug, Dupe, Display, Allocative)]
+#[derive(Clone, Debug, Dupe, Display, Trace, Allocative)]
 #[display("{}", self.get_path())]
-pub struct DeclaredArtifact {
+pub struct DeclaredArtifact<'v> {
     /// `Rc` here is not optimization: `DeclaredArtifactKind` is a shared mutable state.
     artifact: Rc<RefCell<DeclaredArtifactKind>>,
     projected_path: ThinArcS<ForwardRelativePath>,
     hidden_components_count: usize,
+    _phantom: std::marker::PhantomData<Value<'v>>,
 }
 
-impl DeclaredArtifact {
+impl<'v> DeclaredArtifact<'v> {
     pub fn new(
         path: BuildArtifactPath,
         output_type: OutputType,
         hidden_components_count: usize,
-    ) -> DeclaredArtifact {
+    ) -> DeclaredArtifact<'v> {
         DeclaredArtifact {
             artifact: Rc::new(RefCell::new(DeclaredArtifactKind::Unbound(
                 UnboundArtifact(path, output_type),
             ))),
             projected_path: ThinArcS::from(ForwardRelativePath::empty()),
             hidden_components_count,
+            _phantom: std::marker::PhantomData,
         }
     }
 
@@ -374,10 +379,11 @@ impl DeclaredArtifact {
             artifact: self.artifact.dupe(),
             projected_path: ThinArcS::from(self.projected_path.join(path).as_ref()),
             hidden_components_count,
+            _phantom: std::marker::PhantomData,
         }
     }
 
-    pub fn as_output(&self) -> OutputArtifact {
+    pub fn as_output(&self) -> OutputArtifact<'v> {
         OutputArtifact(self.dupe())
     }
 
@@ -447,19 +453,19 @@ impl DeclaredArtifact {
     }
 }
 
-impl Hash for DeclaredArtifact {
+impl Hash for DeclaredArtifact<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.get_path().hash(state)
     }
 }
 
-impl PartialEq for DeclaredArtifact {
+impl PartialEq for DeclaredArtifact<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.get_path() == other.get_path()
     }
 }
 
-impl Eq for DeclaredArtifact {}
+impl Eq for DeclaredArtifact<'_> {}
 
 /// A 'DeclaredArtifact' can be either "bound" to an 'Action', or "unbound"
 #[derive(Debug, Display, Allocative)]
@@ -491,16 +497,16 @@ pub enum ArtifactErrors {
 }
 
 /// An artifact that is marked as the output of a particular 'Action'.
-#[derive(Clone, Debug, Display, Dupe, Hash, PartialEq, Eq, Allocative)]
-pub struct OutputArtifact(DeclaredArtifact);
+#[derive(Clone, Debug, Display, Dupe, Hash, PartialEq, Eq, Allocative, Trace)]
+pub struct OutputArtifact<'v>(DeclaredArtifact<'v>);
 
-impl From<DeclaredArtifact> for OutputArtifact {
-    fn from(artifact: DeclaredArtifact) -> Self {
+impl<'v> From<DeclaredArtifact<'v>> for OutputArtifact<'v> {
+    fn from(artifact: DeclaredArtifact<'v>) -> Self {
         Self(artifact)
     }
 }
 
-impl OutputArtifact {
+impl<'v> OutputArtifact<'v> {
     pub fn bind(&self, key: ActionKey) -> buck2_error::Result<BoundBuildArtifact> {
         match &mut *self.0.artifact.borrow_mut() {
             DeclaredArtifactKind::Bound(a) => {
@@ -546,8 +552,8 @@ impl OutputArtifact {
     }
 }
 
-impl Deref for OutputArtifact {
-    type Target = DeclaredArtifact;
+impl<'v> Deref for OutputArtifact<'v> {
+    type Target = DeclaredArtifact<'v>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -586,7 +592,7 @@ pub mod testing {
         fn testing_action_key(&self) -> Option<ActionKey>;
     }
 
-    impl ArtifactTestingExt for DeclaredArtifact {
+    impl ArtifactTestingExt for DeclaredArtifact<'_> {
         fn testing_is_bound(&self) -> bool {
             match &*self.artifact.borrow() {
                 DeclaredArtifactKind::Bound(_) => true,

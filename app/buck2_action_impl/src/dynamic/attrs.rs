@@ -69,14 +69,14 @@ pub(crate) enum DynamicAttrType {
 }
 
 #[derive(Debug, Trace, Allocative)]
-#[trace(bound = "V: Trace<'v>, O: 'static")]
+#[trace(bound = "V: Trace<'v>, O: Trace<'v>")]
 pub(crate) enum DynamicAttrValue<
     // Starlark value passed as is from dynamic actions creation site to impl.
     V: ValueLifetimeless,
     // `OutputArtifact` during creation, and `BoundBuildArtifact` after artifact is bound.
     O,
 > {
-    Output(#[trace(static)] O),
+    Output(O),
     ArtifactValue(Artifact),
     DynamicValue(DynamicValue),
     Value(V),
@@ -105,12 +105,14 @@ impl<V: ValueLifetimeless, O> Freeze for DynamicAttrValue<V, O> {
 }
 
 #[derive(Debug, Allocative)]
-pub struct DynamicAttrValues<V: ValueLifetimeless, O: 'static> {
+pub struct DynamicAttrValues<V: ValueLifetimeless, O> {
     /// Indexed by attrs definitions in `DynamicActionCallable`.
     pub(crate) values: Box<[DynamicAttrValue<V, O>]>,
 }
 
-unsafe impl<'v, V: ValueLifetimeless + Trace<'v>, O> Trace<'v> for DynamicAttrValues<V, O> {
+unsafe impl<'v, V: ValueLifetimeless + Trace<'v>, O: Trace<'v>> Trace<'v>
+    for DynamicAttrValues<V, O>
+{
     fn trace(&mut self, tracer: &Tracer<'v>) {
         let DynamicAttrValues { values } = self;
         values.trace(tracer);
@@ -159,7 +161,7 @@ impl<'v> DynamicAttrValue<Value<'v>, BoundBuildArtifact> {
     }
 }
 
-impl<'v> DynamicAttrValue<Value<'v>, OutputArtifact> {
+impl<'v> DynamicAttrValue<Value<'v>, OutputArtifact<'v>> {
     fn bind(
         self,
         bind: &mut DynamicActionsOutputArtifactBinder,
@@ -234,7 +236,7 @@ impl<'v> DynamicAttrValues<Value<'v>, BoundBuildArtifact> {
     }
 }
 
-impl<'v> DynamicAttrValues<Value<'v>, OutputArtifact> {
+impl<'v> DynamicAttrValues<Value<'v>, OutputArtifact<'v>> {
     pub(crate) fn bind(
         self,
         key: &DynamicLambdaResultsKey,
@@ -295,7 +297,7 @@ impl DynamicAttrType {
     pub(crate) fn coerce<'v>(
         &self,
         value: Value<'v>,
-    ) -> buck2_error::Result<DynamicAttrValue<Value<'v>, OutputArtifact>> {
+    ) -> buck2_error::Result<DynamicAttrValue<Value<'v>, OutputArtifact<'v>>> {
         match self {
             DynamicAttrType::Output => {
                 let artifact = <&StarlarkOutputArtifact>::unpack_value_err(value)?;
