@@ -934,7 +934,7 @@ fn get_artifacts_from_bxl_build_result(
                     artifacts
                         .values
                         .iter()
-                        .map(|(artifact, _)| EnsuredArtifact::Artifact {
+                        .map(|(artifact, _)| EnsuredArtifact {
                             artifact: StarlarkArtifact::new(artifact.dupe()),
                             abs: false,
                         })

@@ -53,15 +53,9 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 
 #[derive(Clone, Debug, Dupe, Trace, ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub(crate) enum EnsuredArtifact {
-    Artifact {
-        artifact: StarlarkArtifact,
-        abs: bool,
-    },
-    DeclaredArtifact {
-        artifact: StarlarkDeclaredArtifact,
-        abs: bool,
-    },
+pub(crate) struct EnsuredArtifact {
+    pub(crate) artifact: StarlarkArtifact,
+    pub(crate) abs: bool,
 }
 
 #[derive(Clone, Debug, Trace, ProvidesStaticType, Allocative)]
@@ -191,49 +185,29 @@ pub(crate) enum ArtifactArg<'v> {
 impl<'v> ArtifactArg<'v> {
     pub(crate) fn into_ensured_artifact(self) -> buck2_error::Result<EnsuredArtifact> {
         match self {
-            ArtifactArg::Artifact(artifact) => Ok(EnsuredArtifact::Artifact {
+            ArtifactArg::Artifact(artifact) => Ok(EnsuredArtifact {
                 artifact: artifact.dupe(),
                 abs: false,
             }),
-            ArtifactArg::DeclaredArtifact(artifact) => {
-                if let Err(e) = artifact.get_bound_artifact() {
-                    buck2_core::soft_error!(
-                        "bxl_ensured_artifact_not_bound",
-                        e,
-                        quiet: true
-                    )?;
-                }
-                Ok(EnsuredArtifact::DeclaredArtifact {
-                    artifact: artifact.dupe(),
-                    abs: false,
-                })
-            }
+            ArtifactArg::DeclaredArtifact(artifact) => Ok(EnsuredArtifact {
+                artifact: StarlarkArtifact::new(artifact.get_bound_artifact()?),
+                abs: false,
+            }),
         }
     }
 }
 
 impl EnsuredArtifact {
     pub(crate) fn as_artifact(&self) -> &dyn StarlarkArtifactLike {
-        match self {
-            EnsuredArtifact::Artifact { artifact, .. } => artifact as &dyn StarlarkArtifactLike,
-            EnsuredArtifact::DeclaredArtifact { artifact, .. } => {
-                artifact as &dyn StarlarkArtifactLike
-            }
-        }
+        &self.artifact as &dyn StarlarkArtifactLike
     }
 
     pub(crate) fn abs(&self) -> bool {
-        match self {
-            EnsuredArtifact::Artifact { abs, .. } => *abs,
-            EnsuredArtifact::DeclaredArtifact { abs, .. } => *abs,
-        }
+        self.abs
     }
 
     pub(crate) fn get_artifact_path(&self) -> ArtifactPath {
-        match self {
-            EnsuredArtifact::Artifact { artifact, .. } => artifact.get_artifact_path(),
-            EnsuredArtifact::DeclaredArtifact { artifact, .. } => artifact.get_artifact_path(),
-        }
+        self.artifact.get_artifact_path()
     }
 }
 
@@ -355,17 +329,9 @@ fn ensured_artifact_methods(builder: &mut MethodsBuilder) {
         if this.abs() {
             Ok(this)
         } else {
-            let artifact = match &*this {
-                EnsuredArtifact::Artifact { artifact, .. } => EnsuredArtifact::Artifact {
-                    artifact: artifact.dupe(),
-                    abs: true,
-                },
-                EnsuredArtifact::DeclaredArtifact { artifact, .. } => {
-                    EnsuredArtifact::DeclaredArtifact {
-                        artifact: artifact.dupe(),
-                        abs: true,
-                    }
-                }
+            let artifact = EnsuredArtifact {
+                artifact: this.artifact.dupe(),
+                abs: true,
             };
 
             Ok(heap.alloc_typed(artifact))
@@ -394,17 +360,9 @@ fn ensured_artifact_methods(builder: &mut MethodsBuilder) {
         if !this.abs() {
             Ok(this)
         } else {
-            let artifact = match &*this {
-                EnsuredArtifact::Artifact { artifact, .. } => EnsuredArtifact::Artifact {
-                    artifact: artifact.dupe(),
-                    abs: false,
-                },
-                EnsuredArtifact::DeclaredArtifact { artifact, .. } => {
-                    EnsuredArtifact::DeclaredArtifact {
-                        artifact: artifact.dupe(),
-                        abs: false,
-                    }
-                }
+            let artifact = EnsuredArtifact {
+                artifact: this.artifact.dupe(),
+                abs: false,
             };
 
             Ok(heap.alloc_typed(artifact))

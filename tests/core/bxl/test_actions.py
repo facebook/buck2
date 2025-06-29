@@ -11,6 +11,8 @@ import json
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
+
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
@@ -79,3 +81,13 @@ async def test_write_json_cell_path(buck: Buck) -> None:
     data = json.loads(content)
     expcted = {"root//resolve_test:buildable": ["root//resolve_test/foo.txt"]}
     assert data == expcted
+
+
+@buck_test()
+async def test_ensure_unbound_artifact(buck: Buck) -> None:
+    await expect_failure(
+        buck.bxl(
+            "//actions_test:ensure_unbound_artifact.bxl:ensure_unbound_artifact_test"
+        ),
+        stderr_regex="Artifact must be bound by now",
+    )
