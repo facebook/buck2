@@ -38,7 +38,7 @@ impl PatternParser {
     ) -> buck2_error::Result<Self> {
         let cell_resolver = ctx.get_cell_resolver().await?;
 
-        let cwd = cell_resolver.get_cell_path(&cwd)?;
+        let cwd = cell_resolver.get_cell_path(&cwd);
         let cell_name = cwd.cell();
 
         let target_alias_resolver = ctx.target_alias_resolver().await?;

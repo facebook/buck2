@@ -48,7 +48,7 @@ async fn starlark_file(
     io: &dyn IoProvider,
     files: &mut Vec<OwnedStarlarkPath>,
 ) -> buck2_error::Result<()> {
-    let cell_path = cell_resolver.get_cell_path(&proj_path)?;
+    let cell_path = cell_resolver.get_cell_path(&proj_path);
     if recursive.is_some()
         && DiceFileComputations::is_ignored(ctx, cell_path.as_ref())
             .await?

@@ -481,7 +481,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         };
 
         let cell_path = ctx.async_ctx.borrow_mut().via(|ctx| {
-            async move { ctx.get_cell_resolver().await?.get_cell_path(&path) }.boxed_local()
+            async move { Ok(ctx.get_cell_resolver().await?.get_cell_path(&path)) }.boxed_local()
         })?;
 
         struct SourceFinder {

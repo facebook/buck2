@@ -56,7 +56,7 @@ impl<'a> PackageCompleter<'a> {
         let cwd_cell_name = self
             .cell_configs
             .cell_resolver
-            .get_cell_path(&self.roots.cwd)?
+            .get_cell_path(&self.roots.cwd)
             .cell();
         let cwd_cell_root = self.cell_configs.cell_resolver.get(cwd_cell_name)?.path();
         let cwd_cell_root = self.roots.project_root.resolve(cwd_cell_root);

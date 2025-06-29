@@ -25,7 +25,7 @@ pub async fn global_cfg_options_from_client_context(
 ) -> buck2_error::Result<GlobalCfgOptions> {
     let cell_resolver: &CellResolver = &dice_ctx.get_cell_resolver().await?;
     let working_dir: &ProjectRelativePath = server_ctx.working_dir();
-    let cwd = cell_resolver.get_cell_path(working_dir)?;
+    let cwd = cell_resolver.get_cell_path(working_dir);
     let cell_alias_resolver = dice_ctx.get_cell_alias_resolver(cwd.cell()).await?;
     let target_platform = &target_cfg.target_platform;
     let target_platform_label = if !target_platform.is_empty() {

@@ -108,7 +108,7 @@ impl WatchmanQueryProcessor {
         handler: &mut FileChangeTracker,
         stats: &mut FileWatcherStats,
     ) -> buck2_error::Result<()> {
-        let cell_path = self.cells.get_cell_path(path)?;
+        let cell_path = self.cells.get_cell_path(path);
 
         let ignore = self
             .ignore_specs

@@ -194,7 +194,7 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
         let ConfigPath::Project(path) = path else {
             return self.io_ops.read_file_lines_if_exists(path).await;
         };
-        let path = self.cell_resolver.get_cell_path(path)?;
+        let path = self.cell_resolver.get_cell_path(path);
         let Some(data) = DiceFileComputations::read_file_if_exists(self.ctx, path.as_ref()).await?
         else {
             return Ok(None);
@@ -207,7 +207,7 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
         let ConfigPath::Project(path) = path else {
             return self.io_ops.read_dir(path).await;
         };
-        let path = self.cell_resolver.get_cell_path(path)?;
+        let path = self.cell_resolver.get_cell_path(path);
 
         // This trait expects some slightly non-standard behavior wrt errors, so make sure
         // to match what the `DefaultConfigParserFileOps` do

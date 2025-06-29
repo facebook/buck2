@@ -287,7 +287,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 Ok(SuperPackage::empty::<SuperPackageValuesImpl>()?)
             }
             Some(parent) => {
-                let parent_cell = cell_resolver.get_cell_path(parent)?;
+                let parent_cell = cell_resolver.get_cell_path(parent);
                 self.eval_package_file(PackageLabel::from_cell_path(parent_cell.as_ref())?)
                     .await
             }

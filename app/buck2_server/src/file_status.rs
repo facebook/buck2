@@ -174,7 +174,7 @@ async fn check_file_status(
 ) -> buck2_error::Result<()> {
     result.checking();
 
-    let cell_path = cell_resolver.get_cell_path(path)?;
+    let cell_path = cell_resolver.get_cell_path(path);
     if DiceFileComputations::is_ignored(ctx, cell_path.as_ref())
         .await?
         .is_ignored()

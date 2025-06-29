@@ -201,12 +201,12 @@ impl DiceQueryData {
         working_dir: &ProjectRelativePath,
         project_root: ProjectRoot,
         target_alias_resolver: BuckConfigTargetAliasResolver,
-    ) -> buck2_error::Result<Self> {
-        let cell_path = cell_resolver.get_cell_path(working_dir)?;
+    ) -> Self {
+        let cell_path = cell_resolver.get_cell_path(working_dir);
 
         let working_dir_abs = project_root.resolve(working_dir);
 
-        Ok(Self {
+        Self {
             literal_parser: LiteralParser {
                 working_dir_abs,
                 working_dir: cell_path,
@@ -216,7 +216,7 @@ impl DiceQueryData {
                 target_alias_resolver,
             },
             global_cfg_options,
-        })
+        }
     }
 
     pub(crate) fn literal_parser(&self) -> &LiteralParser {
@@ -411,6 +411,6 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
             working_dir,
             project_root,
             target_alias_resolver,
-        )?),
+        )),
     ))
 }

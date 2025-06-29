@@ -188,7 +188,7 @@ fn resolve_path(
     let abs_path = fs_util::canonicalize(path)?;
 
     let project_path = fs.relativize(&abs_path)?;
-    cells.get_cell_path(&project_path)
+    Ok(cells.get_cell_path(&project_path))
 }
 
 #[async_trait]

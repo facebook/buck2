@@ -94,7 +94,7 @@ impl NotifyFileData {
                 continue;
             }
 
-            let cell_path = cells.get_cell_path(&path)?;
+            let cell_path = cells.get_cell_path(&path);
             let ignore = ignore_specs
                 .get(&cell_path.cell())
                 // See the comment on the analogous code in `watchman/interface.rs`

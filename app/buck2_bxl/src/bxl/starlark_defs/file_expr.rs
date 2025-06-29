@@ -110,7 +110,7 @@ impl<'a> FileExpr<'a> {
                         } else {
                             Cow::Borrowed(<&ProjectRelativePath>::try_from(val)?)
                         };
-                        Ok(dice.get_cell_resolver().await?.get_cell_path(&rel)?)
+                        Ok(dice.get_cell_resolver().await?.get_cell_path(&rel))
                     }
                 }
             }

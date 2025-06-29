@@ -306,15 +306,15 @@ impl CellResolver {
             .unwrap()
     }
 
-    pub fn get_cell_path<P: AsRef<ProjectRelativePath> + ?Sized>(
-        &self,
-        path: &P,
-    ) -> buck2_error::Result<CellPath> {
+    pub fn get_cell_path<P: AsRef<ProjectRelativePath> + ?Sized>(&self, path: &P) -> CellPath {
         let path = path.as_ref();
         let cell = self.find(path);
-        let instance = self.get(cell)?;
-        let relative = path.strip_prefix(instance.path().as_project_relative_path())?;
-        Ok(CellPath::new(cell, relative.to_owned().into()))
+        // Both of these unwraps are ok by construction of the `CellResolver`
+        let instance = self.get(cell).unwrap();
+        let relative = path
+            .strip_prefix(instance.path().as_project_relative_path())
+            .unwrap();
+        CellPath::new(cell, relative.to_owned().into())
     }
 
     pub fn get_cell_path_from_abs_path(
@@ -322,7 +322,7 @@ impl CellResolver {
         path: &AbsPath,
         fs: &ProjectRoot,
     ) -> buck2_error::Result<CellPath> {
-        self.get_cell_path(&fs.relativize_any(path)?)
+        Ok(self.get_cell_path(&fs.relativize_any(path)?))
     }
 
     pub fn cells(&self) -> impl Iterator<Item = (CellName, &CellInstance)> {
@@ -539,7 +539,7 @@ mod tests {
         );
 
         assert_eq!(
-            cells.get_cell_path(cell1_path)?,
+            cells.get_cell_path(cell1_path),
             CellPath::new(
                 CellName::testing_new("cell1"),
                 ForwardRelativePathBuf::unchecked_new("".to_owned()).into()
@@ -547,7 +547,7 @@ mod tests {
         );
 
         assert_eq!(
-            cells.get_cell_path(cell2_path)?,
+            cells.get_cell_path(cell2_path),
             CellPath::new(
                 CellName::testing_new("cell2"),
                 ForwardRelativePathBuf::unchecked_new("".to_owned()).into()
@@ -559,7 +559,7 @@ mod tests {
                 &cell2_path
                     .as_project_relative_path()
                     .join(ForwardRelativePath::new("fake/cell3")?)
-            )?,
+            ),
             CellPath::new(
                 CellName::testing_new("cell2"),
                 ForwardRelativePathBuf::unchecked_new("fake/cell3".to_owned()).into()

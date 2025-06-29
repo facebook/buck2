@@ -459,10 +459,7 @@ impl EdenFsFileWatcher {
             // we ignore any changes that are not relative to the project root
             Err(_) => return Ok(()),
         };
-        let cell_path = self
-            .cells
-            .get_cell_path(project_rel_path)
-            .buck_error_context("Failed to convert path to cell.")?;
+        let cell_path = self.cells.get_cell_path(project_rel_path);
 
         let ignore = self
             .ignore_specs

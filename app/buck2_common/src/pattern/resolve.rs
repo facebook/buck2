@@ -187,8 +187,7 @@ mod tests {
                 .map(|p| {
                     (
                         resolver
-                            .get_cell_path(&ProjectRelativePathBuf::unchecked_new((*p).to_owned()))
-                            .unwrap(),
+                            .get_cell_path(&ProjectRelativePathBuf::unchecked_new((*p).to_owned())),
                         "".to_owned(),
                     )
                 })

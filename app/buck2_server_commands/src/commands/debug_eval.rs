@@ -35,7 +35,7 @@ pub(crate) async fn debug_eval_command(
     context
         .with_dice_ctx(|server_ctx, mut ctx| async move {
             let cell_resolver = ctx.get_cell_resolver().await?;
-            let current_cell_path = cell_resolver.get_cell_path(server_ctx.working_dir())?;
+            let current_cell_path = cell_resolver.get_cell_path(server_ctx.working_dir());
             let mut loads = Vec::new();
 
             let ctx = &ctx;
@@ -43,7 +43,7 @@ pub(crate) async fn debug_eval_command(
                 let path = AbsPathBuf::new(path)?;
                 let path = fs_util::canonicalize(&path)?;
                 let path = context.project_root().relativize(&path)?;
-                let path = cell_resolver.get_cell_path(&path)?;
+                let path = cell_resolver.get_cell_path(&path);
                 let import_path = if path.path().as_str().ends_with(".bzl") {
                     OwnedStarlarkModulePath::LoadFile(ImportPath::new_with_build_file_cells(
                         path,

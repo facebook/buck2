@@ -275,7 +275,7 @@ impl FsSnapshot {
 
             let disk_path = disk_path.join(filename);
             let rel_path = root.relativize(&disk_path)?;
-            let cell_path = cells.get_cell_path(&rel_path)?;
+            let cell_path = cells.get_cell_path(&rel_path);
 
             // We ignore buck-out and .hg dirs, as those are uninteresting events caused by us.
             if rel_path.starts_with(InvocationPaths::buck_out_dir_prefix())
@@ -351,7 +351,7 @@ mod tests {
 
         let get_path = |path| -> buck2_error::Result<(AbsPathBuf, CellPath)> {
             let path = ProjectRelativePath::new(path).unwrap();
-            let cell_path = cell_resolver.get_cell_path(path)?;
+            let cell_path = cell_resolver.get_cell_path(path);
             Ok((proj_root.resolve(path).into_abs_path_buf(), cell_path))
         };
         let dir1 = proj_root.resolve(ProjectRelativePath::new("dir1")?);

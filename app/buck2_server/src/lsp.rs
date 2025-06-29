@@ -358,7 +358,7 @@ impl<'a> BuckLspContext<'a> {
         let cell_resolver = self
             .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
             .await?;
-        let cell_path = cell_resolver.get_cell_path(&relative_path)?;
+        let cell_path = cell_resolver.get_cell_path(&relative_path);
 
         match path.extension() {
             Some(e) if e == "bxl" => Ok(OwnedStarlarkModulePath::BxlFile(BxlFilePath::new(
@@ -392,7 +392,7 @@ impl<'a> BuckLspContext<'a> {
 
         let cell_path = cell_resolver.get_cell_path(&ProjectRelativePath::new(
             path_str.strip_prefix('/').unwrap_or(path_str),
-        )?)?;
+        )?);
 
         match path.extension() {
             Some(e) if e == "bxl" => Ok(OwnedStarlarkModulePath::BxlFile(BxlFilePath::new(

@@ -220,7 +220,7 @@ impl LoadResolver for InterpreterLoadResolver {
             .config
             .global_state
             .cell_resolver
-            .get_cell_path(&project_path)?;
+            .get_cell_path(&project_path);
         if reformed_path.cell() != path.cell() {
             // We actually call resolve_load twice for each loadable - once with all load's up front,
             // then again on each one when we are loading. The second time we don't have a location,

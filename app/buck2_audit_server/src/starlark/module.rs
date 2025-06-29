@@ -33,7 +33,7 @@ pub(crate) async fn server_execute(
         .with_dice_ctx(|server_ctx, mut dice_ctx| async move {
             let cell_resolver = dice_ctx.get_cell_resolver().await?;
             let cwd = server_ctx.working_dir();
-            let current_cell_path = cell_resolver.get_cell_path(cwd)?;
+            let current_cell_path = cell_resolver.get_cell_path(cwd);
             let current_cell = BuildFileCell::new(current_cell_path.cell());
             let cell_alias_resolver = dice_ctx
                 .get_cell_alias_resolver(current_cell_path.cell())

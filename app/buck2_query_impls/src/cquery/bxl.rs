@@ -63,7 +63,7 @@ impl BxlCqueryFunctionsImpl {
             &self.working_dir,
             self.project_root.dupe(),
             target_alias_resolver,
-        )?);
+        ));
 
         Ok(DiceQueryDelegate::new(dice, query_data.dupe()))
     }
