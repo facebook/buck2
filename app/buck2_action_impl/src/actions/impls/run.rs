@@ -732,17 +732,18 @@ impl RunAction {
             .outputs_for_error_handler
             .iter()
             .map(|artifact| {
-                artifact.artifact().and_then(|a| {
-                    a.get_path().resolve(
-                        ctx.fs(),
-                        if a.has_content_based_path() {
-                            Some(ContentBasedPathHash::for_output_artifact())
-                        } else {
-                            None
-                        }
-                        .as_ref(),
-                    )
-                })
+                let a = artifact.inner().artifact();
+                a.get_path().resolve(
+                    ctx.fs(),
+                    // FIXME(JakobDegen): Is this correct? Are the outputs moved before or after the
+                    // error handler runs? Either way, this needs an explanatory comment
+                    if a.has_content_based_path() {
+                        Some(ContentBasedPathHash::for_output_artifact())
+                    } else {
+                        None
+                    }
+                    .as_ref(),
+                )
             })
             .collect::<buck2_error::Result<Vec<_>>>()?;
 
@@ -998,7 +999,7 @@ impl Action for RunAction {
             Vec::with_capacity(self.starlark_values.outputs_for_error_handler.len());
 
         for x in self.starlark_values.outputs_for_error_handler.iter() {
-            let artifact = (*x.artifact()?).dupe().ensure_bound()?.into_artifact();
+            let artifact = x.inner().artifact();
             let path = artifact.get_path().resolve(
                 artifact_fs,
                 if artifact.has_content_based_path() {
