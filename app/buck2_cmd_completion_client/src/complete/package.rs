@@ -34,7 +34,7 @@ impl<'a> PackageCompleter<'a> {
         let cell_configs =
             Arc::new(BuckConfigBasedCells::parse_with_config_args(&roots.project_root, &[]).await?);
 
-        let path_sanitizer = PathSanitizer::new(&cell_configs, cwd).await?;
+        let path_sanitizer = PathSanitizer::new(&cell_configs, cwd, roots).await?;
         let results = CompletionResults::new(roots, cell_configs.clone());
         CommandOutcome::Success(Self {
             cwd: cwd.to_owned(),

@@ -111,6 +111,7 @@ impl StreamingCommand for CompleteTargetCommand {
 }
 pub(crate) struct TargetCompleter<'a> {
     cwd: AbsWorkingDir,
+    roots: &'a InvocationRoots,
     cell_configs: Arc<BuckConfigBasedCells>,
     target_resolver: &'a mut dyn TargetResolver,
     results: CompletionResults<'a>,
@@ -126,6 +127,7 @@ impl<'a> TargetCompleter<'a> {
             Arc::new(BuckConfigBasedCells::parse_with_config_args(&roots.project_root, &[]).await?);
         Ok(Self {
             cwd: cwd.to_owned(),
+            roots,
             cell_configs: cell_configs.clone(),
             target_resolver,
             results: CompletionResults::new(roots, cell_configs.clone()),
@@ -141,7 +143,7 @@ impl<'a> TargetCompleter<'a> {
         given_package: &str,
         partial_target: &str,
     ) -> CommandOutcome<Vec<String>> {
-        let sanitizer = PathSanitizer::new(&self.cell_configs, &self.cwd).await?;
+        let sanitizer = PathSanitizer::new(&self.cell_configs, &self.cwd, &self.roots).await?;
         let path = sanitizer.sanitize(given_package)?;
         let completions = self
             .target_resolver
