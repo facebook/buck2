@@ -1,0 +1,45 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _ensure_build_result_impl(ctx):
+    build_result = ctx.build(ctx.cli_args.target)
+    dict_output = ctx.output.ensure_multiple(build_result)
+    ctx.output.print_json(dict_output)
+
+ensure_build_result_test = bxl_main(
+    impl = _ensure_build_result_impl,
+    cli_args = {
+        "target": cli_args.target_label(),
+    },
+)
+
+def _ensure_cmd_line(ctx):
+    target = ctx.configured_targets("root//kind:target_with_outputs")
+    result = ctx.analysis(target)
+    run_info = result.providers()[RunInfo]
+    ctx.output.print(ctx.output.ensure_multiple(run_info))
+
+    target = ctx.configured_targets("root//kind:target_with_tset")
+    result = ctx.analysis(target)
+    tset_projections = ctx.output.ensure_multiple(result.providers()[RunInfo])
+    ctx.output.print(tset_projections, sep = "\n")
+
+ensure_cmd_line_test = bxl_main(
+    impl = _ensure_cmd_line,
+    cli_args = {},
+)
+
+def _ensure_cmd_line_json_output(ctx):
+    target = ctx.configured_targets("root//kind:target_with_tset")
+    result = ctx.analysis(target)
+    tset_projections = ctx.output.ensure_multiple(result.providers()[RunInfo])
+    ctx.output.print_json(tset_projections)
+
+ensure_cmd_line_json_output = bxl_main(
+    impl = _ensure_cmd_line_json_output,
+    cli_args = {},
+)

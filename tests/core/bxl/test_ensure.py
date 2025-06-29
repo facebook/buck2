@@ -21,13 +21,10 @@ def _replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
-@buck_test(
-    inplace=False,
-    data_dir="no_materialization_bxl_build",
-)
+@buck_test()
 async def test_bxl_ensure_no_materialization(buck: Buck) -> None:
     result = await buck.bxl(
-        "//remote_text.bxl:ensure",
+        "//no_materialization_bxl_build/remote_text.bxl:ensure",
         "--materializations=none",
     )
 
@@ -35,38 +32,30 @@ async def test_bxl_ensure_no_materialization(buck: Buck) -> None:
     assert os.path.exists(buck.cwd / Path(output)) is False
 
     result = await buck.bxl(
-        "//remote_text.bxl:ensure",
+        "//no_materialization_bxl_build/remote_text.bxl:ensure",
     )
 
     [output] = result.stdout.splitlines()
     assert os.path.exists(buck.cwd / Path(output)) is True
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test()
 async def test_bxl_ensure(buck: Buck) -> None:
     result = await buck.bxl(
-        "//bxl/ensure.bxl:ensure_bxl_build_result_test",
-    )
-    first_output = result.stdout.splitlines()[0]
-    assert (buck.cwd / Path(first_output)).read_text() == "FOO"
-
-    result = await buck.bxl(
-        "//bxl/ensure.bxl:ensure_build_result_test",
+        "//ensure.bxl:ensure_build_result_test",
         "--",
         "--target",
         ":buildable",
     )
 
     outputs = json.loads(result.stdout)
-    [buck_out] = [
-        v
-        for (k, v) in outputs.items()
-        if k.startswith("root//:buildable (root//platforms:platform1#")
-    ][0]
-    assert (buck.cwd / Path(buck_out)).read_text() == "FOO"
+    [buck_out] = [v for (k, v) in outputs.items() if k.startswith("root//:buildable")][
+        0
+    ]
+    assert (buck.cwd / Path(buck_out)).read_text() == "abcd"
 
     result = await buck.bxl(
-        "//bxl/ensure.bxl:ensure_cmd_line_test",
+        "//ensure.bxl:ensure_cmd_line_test",
     )
 
     lines = sorted(result.stdout.splitlines())
@@ -77,7 +66,7 @@ async def test_bxl_ensure(buck: Buck) -> None:
     assert (buck.cwd / Path(lines[4])).read_text() == "tset3\n"
 
     result = await buck.bxl(
-        "//bxl/ensure.bxl:ensure_cmd_line_json_output",
+        "//ensure.bxl:ensure_cmd_line_json_output",
     )
 
     json_array = sorted(json.loads(result.stdout))
@@ -87,55 +76,41 @@ async def test_bxl_ensure(buck: Buck) -> None:
     assert "tset3" in json_array[3]
 
 
-@buck_test(inplace=True, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_bxl_artifact_path(buck: Buck) -> None:
     result = await buck.bxl(
-        "fbcode//buck2/tests/targets/bxl/simple/bxl/artifacts.bxl:artifact_path_test",
+        "//artifacts.bxl:artifact_path_test",
     )
 
     outputs = json.loads(result.stdout)
 
-    assert outputs["sources"] == ["<source buck2/tests/targets/rules/shell/DATA>"]
-
-    assert outputs["source_artifact"] == "<source buck2/tests/targets/rules/shell/DATA>"
+    assert outputs["source_artifact"] == "<source artifacts/DATA>"
     # The project relative path of the source artifact
-    assert (
-        outputs["source_artifact_project_rel_path"]
-        == "fbcode/buck2/tests/targets/rules/shell/DATA"
-    )
+    assert outputs["source_artifact_project_rel_path"] == "artifacts/DATA"
 
     # Abs path for the source artifact. The path should exist on the filesystem.
-    assert outputs["source_artifact_abs_path"] == str(
-        buck.cwd / Path("buck2/tests/targets/rules/shell/DATA")
-    )
+    assert outputs["source_artifact_abs_path"] == str(buck.cwd / Path("artifacts/DATA"))
     assert (
         os.path.exists((buck.cwd / Path(outputs["source_artifact_abs_path"]))) is True
     )
 
     assert (
-        "build artifact out/out.txt bound to fbcode//buck2/tests/targets/rules/shell:gen"
+        "build artifact foo.txt bound to root//artifacts:with_build_artifact"
         in outputs["build_artifact"]
     )
 
-    prefix = ""
-
-    if buck.isolation_prefix is None:
-        prefix = "buck-out/v2/gen/fbcode/"
-    else:
-        prefix = "buck-out/" + buck.isolation_prefix + "/gen/fbcode/"
+    prefix = "buck-out/v2/gen/root/"
 
     # The project relative path to the buck-out directory with the output
-    assert prefix in outputs["build_artifact_project_rel_path"]
+    assert outputs["build_artifact_project_rel_path"].startswith(prefix)
     assert (
-        "/buck2/tests/targets/rules/shell/__gen__/out/out.txt"
+        "/artifacts/__with_build_artifact__/foo.txt"
         in outputs["build_artifact_project_rel_path"]
     )
-    assert str(buck.cwd) not in outputs["build_artifact_project_rel_path"]
 
     # Abs path for the build artifact. Path should not exist on the filesystem since it's not materialized.
-    # Note the cwd is "fbcode", so the parent is "fbsource"
     assert outputs["build_artifact_abs_path"] == str(
-        buck.cwd.parent / Path(outputs["build_artifact_project_rel_path"])
+        buck.cwd / Path(outputs["build_artifact_project_rel_path"])
     )
 
     assert (
@@ -143,23 +118,23 @@ async def test_bxl_artifact_path(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="bxl/simple", skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_bxl_artifact_path_cmd_args(buck: Buck) -> None:
     result = await buck.bxl(
-        "//bxl/artifacts.bxl:cmd_args_artifact_path_test",
+        "//artifacts.bxl:cmd_args_artifact_path_test",
     )
 
     outputs = json.loads(result.stdout)
     _test_bxl_artifact_path_cmd_args_helper(
         buck,
-        "bin/kind/__target_with_outputs__/run_info_out",
+        "kind/__target_with_outputs__/run_info_out",
         outputs["target_with_outputs_rel_paths"][0],
         False,
     )
 
     _test_bxl_artifact_path_cmd_args_helper(
         buck,
-        "bin/kind/__target_with_outputs__/run_info_out",
+        "kind/__target_with_outputs__/run_info_out",
         outputs["target_with_outputs_abs_paths"][0],
         True,
     )
@@ -168,25 +143,25 @@ async def test_bxl_artifact_path_cmd_args(buck: Buck) -> None:
 
     _test_bxl_artifact_path_cmd_args_helper(
         buck,
-        "bin/kind/__target_with_tset__/out.txt",
+        "kind/__target_with_tset__/out.txt",
         outputs["target_with_tset_rel_paths"][0],
         False,
     )
     _test_bxl_artifact_path_cmd_args_helper(
         buck,
-        "bin/kind/__tset1__/out.txt",
+        "kind/__tset1__/out.txt",
         outputs["target_with_tset_rel_paths"][1],
         False,
     )
     _test_bxl_artifact_path_cmd_args_helper(
         buck,
-        "bin/kind/__tset2__/out.txt",
+        "kind/__tset2__/out.txt",
         outputs["target_with_tset_rel_paths"][2],
         False,
     )
     _test_bxl_artifact_path_cmd_args_helper(
         buck,
-        "bin/kind/__tset3__/out.txt",
+        "kind/__tset3__/out.txt",
         outputs["target_with_tset_rel_paths"][3],
         False,
     )
@@ -195,25 +170,25 @@ async def test_bxl_artifact_path_cmd_args(buck: Buck) -> None:
 
     _test_bxl_artifact_path_cmd_args_helper(
         buck,
-        "bin/kind/__target_with_tset__/out.txt",
+        "kind/__target_with_tset__/out.txt",
         outputs["target_with_tset_abs_paths"][0],
         True,
     )
     _test_bxl_artifact_path_cmd_args_helper(
         buck,
-        "bin/kind/__tset1__/out.txt",
+        "kind/__tset1__/out.txt",
         outputs["target_with_tset_abs_paths"][1],
         True,
     )
     _test_bxl_artifact_path_cmd_args_helper(
         buck,
-        "bin/kind/__tset2__/out.txt",
+        "kind/__tset2__/out.txt",
         outputs["target_with_tset_abs_paths"][2],
         True,
     )
     _test_bxl_artifact_path_cmd_args_helper(
         buck,
-        "bin/kind/__tset3__/out.txt",
+        "kind/__tset3__/out.txt",
         outputs["target_with_tset_abs_paths"][3],
         True,
     )

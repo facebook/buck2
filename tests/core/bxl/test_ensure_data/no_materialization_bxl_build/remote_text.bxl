@@ -1,0 +1,29 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _build_impl(ctx):
+    for value in ctx.build("//no_materialization_bxl_build:remote_text", materializations = ctx.cli_args.materializations).values():
+        for artifact in value.artifacts():
+            ctx.output.print(get_path_without_materialization(artifact, ctx))
+
+build = bxl_main(
+    impl = _build_impl,
+    cli_args = {
+        "materializations": cli_args.string(),
+    },
+)
+
+def _ensure_impl(ctx):
+    target = ctx.configured_targets("//no_materialization_bxl_build:remote_text")
+    for artifact in ctx.analysis(target).providers()[DefaultInfo].default_outputs:
+        ctx.output.print(ctx.output.ensure(artifact))
+
+ensure = bxl_main(
+    impl = _ensure_impl,
+    cli_args = {
+    },
+)
