@@ -35,6 +35,12 @@ def normalize_name(name: str) -> str:
     return pep503_normalized_name.replace("-", "_")
 
 
+def normalize_version(version: str) -> str:
+    # Simplified version normalization, based on PEP 440.
+    # This is not a complete implementation, but it handles common cases.
+    return re.sub(r"[-_.]+", ".", version).lower()
+
+
 # pyre-fixme[24]: Generic type `AbstractContextManager` expects 1 type parameter.
 class WheelBuilder(contextlib.AbstractContextManager):
     def __init__(
@@ -50,17 +56,13 @@ class WheelBuilder(contextlib.AbstractContextManager):
 
         self._normalized_name: str = normalize_name(name)
 
-        # TODO normalize version like we normalized name above
-        #  can follow pypi/packaging.utils.canonicalize_version (see: https://fburl.com/code/amuvl3d2)
-        #  punted for later since it was not a clean copy/paste and
-        #  taking a dep to tp from toolchains is not straightforward
-        self._version = version
+        self._version = normalize_version(version)
         self._record: list[str] = []
         self._outf = zipfile.ZipFile(output, mode="w")
         self._entry_points: Optional[Dict[str, str]] = entry_points
         self._metadata: List[Tuple[str, str]] = []
         self._metadata.append(("Name", name))
-        self._metadata.append(("Version", version))
+        self._metadata.append(("Version", self._version))
         if metadata is not None:
             self._metadata.extend(metadata)
 
