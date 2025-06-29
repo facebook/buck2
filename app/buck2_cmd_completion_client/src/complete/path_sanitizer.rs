@@ -53,12 +53,6 @@ impl SanitizedPath {
     }
 }
 
-impl std::fmt::Display for SanitizedPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(f, "{}", self.given)
-    }
-}
-
 pub(crate) struct PathSanitizer {
     cell_resolver: CellResolver,
     alias_resolver: CellAliasResolver,
@@ -305,7 +299,6 @@ mod tests {
             cell_name: $cell_name:literal,
             cell_path: $cell_path:literal,
             given: $given:literal,
-            display: $display:literal,
             to_string: $to_string:literal,
         }) => {
             paste! {
@@ -344,30 +337,6 @@ mod tests {
 
                     Ok(())
                 }
-
-                #[tokio::test]
-                async fn [<test_ $test_name _verify_display>]() -> buck2_error::Result<()> {
-                    let cwd = $in_dir;
-                    let uut = PathSanitizer::new(&cell_configs(&cwd)?, &cwd).await?;
-
-                    let actual = uut.sanitize($partial)?;
-
-                    assert_eq!(format!("{}", actual), $display);
-
-                    Ok(())
-                }
-
-                #[tokio::test]
-                async fn [<test_ $test_name _verify_to_string>]() -> buck2_error::Result<()> {
-                    let cwd = $in_dir;
-                    let uut = PathSanitizer::new(&cell_configs(&cwd)?, &cwd).await?;
-
-                    let actual = uut.sanitize($partial)?;
-
-                    assert_eq!(actual.to_string(), $to_string);
-
-                    Ok(())
-                }
             }
         };
     }
@@ -398,7 +367,6 @@ mod tests {
         cell_name: "root",
         cell_path: "baredir0/buckdir0a",
         given: "root//baredir0/buckdir0a",
-        display: "root//baredir0/buckdir0a",
         to_string: "root//baredir0/buckdir0a",
     });
 
@@ -408,7 +376,6 @@ mod tests {
         cell_name: "root",
         cell_path: "",
         given: "//",
-        display: "//",
         to_string: "//",
     });
 
@@ -418,7 +385,6 @@ mod tests {
         cell_name: "cell1",
         cell_path: "buck2",
         given: "cell1//buck2",
-        display: "cell1//buck2",
         to_string: "cell1//buck2",
     });
 
@@ -428,7 +394,6 @@ mod tests {
         cell_name: "root",
         cell_path: "baredir0/buckdir0a",
         given: "baredir0/buckdir0a",
-        display: "baredir0/buckdir0a",
         to_string: "baredir0/buckdir0a",
     });
 
@@ -438,7 +403,6 @@ mod tests {
         cell_name: "cell1",
         cell_path: "buck2",
         given: "cell1//buck2", // BuckPath is documented as correcting this to cell1//buck2
-        display: "cell1//buck2",
         to_string: "cell1//buck2",
     });
 
@@ -448,7 +412,6 @@ mod tests {
         cell_name: "cell1",
         cell_path: "buck2",
         given: "cell1//buck2",
-        display: "cell1//buck2",
         to_string: "cell1//buck2",
     });
 
@@ -516,7 +479,6 @@ mod tests {
         cell_name: "root",
         cell_path: "baredir0",
         given: "root//baredir0",
-        display: "root//baredir0",
         to_string: "root//baredir0",
     });
 
@@ -526,7 +488,6 @@ mod tests {
         cell_name: "cell1",
         cell_path: "buck2",
         given: "cell1//buck2",
-        display: "cell1//buck2",
         to_string: "cell1//buck2",
     });
 
@@ -536,7 +497,6 @@ mod tests {
         cell_name: "cell1",
         cell_path: "buck2",
         given: "cell1_alias//buck2",
-        display: "cell1_alias//buck2",
         to_string: "cell1_alias//buck2",
     });
 
