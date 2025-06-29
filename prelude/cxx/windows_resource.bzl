@@ -7,26 +7,32 @@
 
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
-load("@prelude//cxx:preprocessor.bzl", "cxx_merge_cpreprocessors", "cxx_private_preprocessor_info")
+load("@prelude//cxx:preprocessor.bzl", "cxx_merge_cpreprocessors", "cxx_private_preprocessor_info", "cxx_inherited_preprocessor_infos")
 load("@prelude//linking:link_groups.bzl", "LinkGroupLibInfo")
 load("@prelude//linking:link_info.bzl", "LibOutputStyle", "LinkInfo", "LinkInfos", "ObjectsLinkable", "create_merged_link_info")
 load("@prelude//linking:linkable_graph.bzl", "create_linkable_graph")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
+load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps")
 
 def windows_resource_impl(ctx: AnalysisContext) -> list[Provider]:
+
+    non_exported_deps = cxx_attr_deps(ctx)
+
     (own_non_exported_preprocessor_info, _) = cxx_private_preprocessor_info(
         ctx = ctx,
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         raw_headers = ctx.attrs.raw_headers,
         extra_preprocessors = [],
-        non_exported_deps = [],
+        non_exported_deps = non_exported_deps,
         is_test = False,
     )
+
+    inherited_non_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(non_exported_deps)
 
     preprocessor = cxx_merge_cpreprocessors(
         ctx,
         [own_non_exported_preprocessor_info],
-        [],
+        inherited_non_exported_preprocessor_infos,
     )
 
     headers_tag = ctx.actions.artifact_tag()
@@ -81,7 +87,7 @@ def windows_resource_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     providers = [
-        DefaultInfo(default_output = None),
+        DefaultInfo(default_output = rc_output),
         SharedLibraryInfo(set = None),
         LinkGroupLibInfo(libs = {}),
         create_linkable_graph(ctx),
