@@ -27,7 +27,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
-use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
@@ -60,7 +59,7 @@ use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command
 )]
 #[repr(C)]
 pub struct StarlarkOutputArtifactGen<V: ValueLifetimeless> {
-    pub(super) declared_artifact: ValueOfUncheckedGeneric<V, StarlarkDeclaredArtifact>,
+    pub(super) declared_artifact: V, // StarlarkDeclaredArtifact or FrozenStarlarkArtifact
 }
 
 starlark_complex_value!(pub StarlarkOutputArtifact);
@@ -86,15 +85,15 @@ impl Display for FrozenStarlarkOutputArtifact {
 impl<'v> StarlarkOutputArtifact<'v> {
     pub fn new(v: ValueTyped<'v, StarlarkDeclaredArtifact>) -> Self {
         Self {
-            declared_artifact: v.to_value_of_unchecked(),
+            declared_artifact: v.to_value(),
         }
     }
 
     pub(crate) fn inner(&self) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
-        ValueTyped::new_err(self.declared_artifact.get()).with_internal_error(|| {
+        ValueTyped::new_err(self.declared_artifact).with_internal_error(|| {
             format!(
                 "Must be a declared artifact: `{}`",
-                self.declared_artifact.get().to_string_for_type_error()
+                self.declared_artifact.to_value().to_string_for_type_error()
             )
         })
     }
@@ -106,13 +105,10 @@ impl<'v> StarlarkOutputArtifact<'v> {
 
 impl FrozenStarlarkOutputArtifact {
     pub(crate) fn inner(&self) -> buck2_error::Result<FrozenValueTyped<StarlarkArtifact>> {
-        FrozenValueTyped::new_err(self.declared_artifact.get()).with_internal_error(|| {
+        FrozenValueTyped::new_err(self.declared_artifact).with_internal_error(|| {
             format!(
                 "Must be a declared artifact: `{}`",
-                self.declared_artifact
-                    .get()
-                    .to_value()
-                    .to_string_for_type_error()
+                self.declared_artifact.to_value().to_string_for_type_error()
             )
         })
     }
