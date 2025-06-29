@@ -59,7 +59,7 @@ use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command
 )]
 #[repr(C)]
 pub struct StarlarkOutputArtifactGen<V: ValueLifetimeless> {
-    pub(super) declared_artifact: V, // StarlarkDeclaredArtifact or FrozenStarlarkArtifact
+    declared_artifact: V, // StarlarkDeclaredArtifact or FrozenStarlarkArtifact
 }
 
 starlark_complex_value!(pub StarlarkOutputArtifact);
@@ -75,10 +75,11 @@ impl<'v> Display for StarlarkOutputArtifact<'v> {
 
 impl Display for FrozenStarlarkOutputArtifact {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.inner() {
-            Ok(inner) => write!(f, "<output artifact for {}>", inner.get_artifact_path()),
-            Err(_) => write!(f, "<output artifact internal error>"),
-        }
+        write!(
+            f,
+            "<output artifact for {}>",
+            self.inner().get_artifact_path()
+        )
     }
 }
 
@@ -106,17 +107,17 @@ impl<'v> StarlarkOutputArtifact<'v> {
 }
 
 impl FrozenStarlarkOutputArtifact {
-    pub(crate) fn inner(&self) -> buck2_error::Result<FrozenValueTyped<StarlarkArtifact>> {
-        FrozenValueTyped::new_err(self.declared_artifact).with_internal_error(|| {
-            format!(
-                "Must be a declared artifact: `{}`",
-                self.declared_artifact.to_value().to_string_for_type_error()
-            )
-        })
+    pub fn inner(&self) -> FrozenValueTyped<StarlarkArtifact>
+    // Ensures that this stops compiling if this changes
+    where
+        for<'v> StarlarkDeclaredArtifact<'v>: Freeze<Frozen = StarlarkArtifact>,
+    {
+        // Unwrap justified by construction of the type and the where clause
+        FrozenValueTyped::new_err(self.declared_artifact).unwrap()
     }
 
     pub fn artifact<'v>(&self) -> buck2_error::Result<OutputArtifact<'v>> {
-        let artifact = self.inner()?.artifact();
+        let artifact = self.inner().artifact();
         artifact.as_output_artifact().with_internal_error(|| {
             format!("Expecting artifact to be output artifact, got {artifact}")
         })
