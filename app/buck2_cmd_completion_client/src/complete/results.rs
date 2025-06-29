@@ -16,6 +16,7 @@ use buck2_common::buildfiles::parse_buildfile_name;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::cells::name::CellName;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 
@@ -68,7 +69,7 @@ impl<'a> CompletionResults<'a> {
         nickname: &str,
     ) -> &mut Self {
         for f in self.buildfile_names(abs_dir).await.unwrap() {
-            if abs_dir.join(f).exists() {
+            if let Ok(true) = fs_util::try_exists(abs_dir.join(f)) {
                 self.insert(&format!("{}:", nickname));
                 break;
             }

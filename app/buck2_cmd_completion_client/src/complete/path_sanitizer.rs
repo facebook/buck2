@@ -17,6 +17,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -47,7 +48,8 @@ impl SanitizedPath {
 
     pub(crate) fn is_ready_for_next_dir(&self) -> bool {
         let is_root_dir = self.given == "";
-        let is_slash_terminated_dir = self.abs_path.is_dir() && self.given.ends_with('/');
+        let is_slash_terminated_dir = fs_util::metadata(&self.abs_path).is_ok_and(|m| m.is_dir())
+            && self.given.ends_with('/');
         is_root_dir || is_slash_terminated_dir
     }
 }
