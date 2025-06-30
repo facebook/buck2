@@ -254,6 +254,19 @@ def cpp_binary(
         **kwargs
     )
 
+def java_binary(
+        name,
+        jar_style = None,
+        runtime = None,
+        *args,
+        **kwargs):
+    _unused = (jar_style, runtime)  # @unused
+    return prelude.java_binary(
+        name = name,
+        *args,
+        **kwargs
+    )
+
 def rust_library(
         name,
         edition = None,
