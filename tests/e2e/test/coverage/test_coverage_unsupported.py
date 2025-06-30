@@ -14,7 +14,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
-from .test_test_coverage_utils import collect_coverage_for
+from .test_coverage_utils import collect_coverage_for
 
 
 @buck_test(inplace=True)
@@ -23,9 +23,9 @@ async def test_go_test_selective_coverage_doesnt_produce_coverage(buck: Buck) ->
         buck.test(
             *[
                 "--config",
-                "fbcode.coverage_selective=true",
+                "code_coverage.enable=filtered",
                 "--config",
-                "fbcode.cxx_coverage_only=testing_frameworks/code_coverage/go/add.go",
+                "code_coverage.file_path_filter=fbcode/testing_frameworks/code_coverage/go/add.go",
                 "fbcode//testing_frameworks/code_coverage/go:test",
                 "--",
                 "--collect-coverage",
@@ -45,7 +45,8 @@ async def test_junit_test_selective_coverage_doesnt_produce_coverage(
         buck,
         tmp_path,
         "fbcode//testing_frameworks/code_coverage/junit/com/facebook/testing_frameworks:test",
-        [
+        folder_filter=[],
+        file_filter=[
             "testing_frameworks/code_coverage/junit/com/facebook/testing_frameworks/AddTest.java"
         ],
     )

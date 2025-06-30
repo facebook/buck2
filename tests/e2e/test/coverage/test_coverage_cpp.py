@@ -14,7 +14,7 @@ from pathlib import Path
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
-from .test_test_coverage_utils import collect_coverage_for
+from .test_coverage_utils import collect_coverage_for
 
 
 @buck_test(inplace=True)
@@ -42,7 +42,11 @@ async def test_cpp_test_coverage_filter_by_path_outside_target(
     tmp_path: Path,
 ) -> None:
     paths = await collect_coverage_for(
-        buck, tmp_path, "fbcode//buck2/tests/targets/rules/cxx:cpp_test_pass", ["folly"]
+        buck,
+        tmp_path,
+        "fbcode//buck2/tests/targets/rules/cxx:cpp_test_pass",
+        folder_filter=["fbcode/folly"],
+        file_filter=[],
     )
 
     expected_paths = [p for p in paths if p.startswith("fbcode/folly")]
@@ -59,7 +63,8 @@ async def test_cpp_test_coverage_filter_by_path_of_target(
         buck,
         tmp_path,
         "fbcode//buck2/tests/targets/rules/cxx:cpp_test_pass",
-        ["buck2/tests"],
+        folder_filter=["fbcode/buck2/tests"],
+        file_filter=[],
     )
 
     expected_paths = [p for p in paths if p.startswith("fbcode/buck2/tests")]
@@ -78,7 +83,8 @@ async def test_cpp_test_coverage_filter_by_path_of_target_with_dev_lg(
         tmp_path,
         "fbcode//buck2/tests/targets/rules/cxx:cpp_test_pass",
         mode="@fbcode//mode/dev-lg",
-        filter=["buck2/tests"],
+        folder_filter=["fbcode/buck2/tests"],
+        file_filter=[],
     )
 
     expected_paths = [p for p in paths if p.startswith("fbcode/buck2/tests")]
@@ -97,7 +103,8 @@ async def test_cpp_test_coverage_filter_by_path_in_link_group_with_dev_lg(
         tmp_path,
         "fbcode//buck2/tests/targets/rules/cxx:cpp_test_pass",
         mode="@fbcode//mode/dev-lg",
-        filter=["folly"],
+        folder_filter=["fbcode/folly"],
+        file_filter=[],
     )
 
     expected_paths = [p for p in paths if p.startswith("fbcode/folly")]
@@ -111,19 +118,19 @@ async def test_cpp_test_coverage_filter_by_file_of_target_with_dev_lg(
     buck: Buck,
     tmp_path: Path,
 ) -> None:
-    source_name = "buck2/tests/targets/rules/cxx/cpp_test_pass.cpp"
+    source_name = "fbcode/buck2/tests/targets/rules/cxx/cpp_test_pass.cpp"
     paths = await collect_coverage_for(
         buck,
         tmp_path,
         "fbcode//buck2/tests/targets/rules/cxx:cpp_test_pass",
         mode="@fbcode//mode/dev-lg",
-        filter=[source_name],
+        folder_filter=[],
+        file_filter=[source_name],
     )
 
-    fbcode_source_name = f"fbcode/{source_name}"
-    expected_paths = [p for p in paths if p == fbcode_source_name]
+    expected_paths = [p for p in paths if p == source_name]
     assert len(expected_paths) > 0, str(paths)
-    unexpected_paths = [p for p in paths if p != fbcode_source_name]
+    unexpected_paths = [p for p in paths if p != source_name]
     assert len(unexpected_paths) == 0, str(paths)
 
 
@@ -132,20 +139,20 @@ async def test_cpp_test_coverage_filter_by_source_file_in_link_group_with_dev_lg
     buck: Buck,
     tmp_path: Path,
 ) -> None:
-    source_name = "folly/String.cpp"
+    source_name = "fbcode/folly/String.cpp"
     paths = await collect_coverage_for(
         buck,
         tmp_path,
         "fbcode//buck2/tests/targets/rules/cxx:cpp_test_pass",
         mode="@fbcode//mode/dev-lg",
-        filter=[source_name],
+        folder_filter=[],
+        file_filter=[source_name],
     )
 
-    fbcode_source_name = f"fbcode/{source_name}"
-    expected_paths = [p for p in paths if p == fbcode_source_name]
+    expected_paths = [p for p in paths if p == source_name]
     assert len(expected_paths) > 0, str(paths)
     unexpected_paths = [
-        p for p in paths if not p == fbcode_source_name and not p.endswith(".h")
+        p for p in paths if not p == source_name and not p.endswith(".h")
     ]
     assert len(unexpected_paths) == 0, str(paths)
 
@@ -155,13 +162,14 @@ async def test_cpp_test_coverage_filter_by_header_file_in_link_group_with_dev_lg
     buck: Buck,
     tmp_path: Path,
 ) -> None:
-    header_name = "testing_frameworks/code_coverage/playground/link_groups/LibraryRightRightOnlyUsedHere.h"
+    header_name = "fbcode/testing_frameworks/code_coverage/playground/link_groups/LibraryRightRightOnlyUsedHere.h"
     paths = await collect_coverage_for(
         buck,
         tmp_path,
         "fbcode//testing_frameworks/code_coverage/playground/link_groups:test_with_link_groups",
         mode="@fbcode//mode/dev-lg",
-        filter=[header_name],
+        folder_filter=[],
+        file_filter=[header_name],
     )
 
     assert len(paths) == 5, str(paths)
@@ -206,13 +214,14 @@ async def test_cpp_test_coverage_filter_by_header_file_defined_in_one_link_group
     buck: Buck,
     tmp_path: Path,
 ) -> None:
-    header_name = "testing_frameworks/code_coverage/playground/link_groups/LibraryRightLeftUsedInOtherLinkGroup.h"
+    header_name = "fbcode/testing_frameworks/code_coverage/playground/link_groups/LibraryRightLeftUsedInOtherLinkGroup.h"
     paths = await collect_coverage_for(
         buck,
         tmp_path,
         "fbcode//testing_frameworks/code_coverage/playground/link_groups:test_with_header_used_in_different_link_group",
         mode="@fbcode//mode/dev-lg",
-        filter=[header_name],
+        folder_filter=[],
+        file_filter=[header_name],
     )
 
     assert len(paths) == 5, str(paths)
@@ -246,13 +255,14 @@ async def test_cpp_test_coverage_filter_by_header_file_defined_in_one_link_group
     buck: Buck,
     tmp_path: Path,
 ) -> None:
-    header_name = "testing_frameworks/code_coverage/playground/link_groups/LibraryRightLeftUsedInOtherLinkGroup.h"
+    header_name = "fbcode/testing_frameworks/code_coverage/playground/link_groups/LibraryRightLeftUsedInOtherLinkGroup.h"
     paths = await collect_coverage_for(
         buck,
         tmp_path,
         "fbcode//testing_frameworks/code_coverage/playground/link_groups:test_with_header_used_in_different_link_group",
         mode="@fbcode//mode/dev-lg",
-        filter=[header_name],
+        folder_filter=[],
+        file_filter=[header_name],
     )
 
     assert len(paths) == 5, str(paths)
@@ -283,32 +293,33 @@ async def test_cpp_test_coverage_filter_by_header_file_defined_in_one_link_group
 
 @buck_test(inplace=True)
 async def test_cpp_test_coverage_filter_by_file(buck: Buck, tmp_path: Path) -> None:
-    source_name = "buck2/tests/targets/rules/cxx/cpp_test_pass.cpp"
+    source_name = "fbcode/buck2/tests/targets/rules/cxx/cpp_test_pass.cpp"
     paths = await collect_coverage_for(
         buck,
         tmp_path,
         "fbcode//buck2/tests/targets/rules/cxx:cpp_test_pass",
-        [source_name],
+        folder_filter=[],
+        file_filter=[source_name],
     )
 
     assert len(paths) == 1, str(paths)
-    assert paths[0] == f"fbcode/{source_name}"
+    assert paths[0] == source_name
 
 
 @buck_test(inplace=True)
 async def test_cpp_test_coverage_when_filter_by_test_binary_header_file(
     buck: Buck, tmp_path: Path
 ) -> None:
-    header_name = "testing_frameworks/code_coverage/playground/Test.h"
+    header_name = "fbcode/testing_frameworks/code_coverage/playground/Test.h"
     paths = await collect_coverage_for(
         buck,
         tmp_path,
         "fbcode//testing_frameworks/code_coverage/playground:test",
-        [header_name],
+        folder_filter=[],
+        file_filter=[header_name],
     )
 
     assert len(paths) == 2, str(paths)
-    header_name = f"fbcode/{header_name}"
     assert header_name in paths
     source_name = "fbcode/testing_frameworks/code_coverage/playground/Test.cpp"
     assert source_name in paths
@@ -318,12 +329,13 @@ async def test_cpp_test_coverage_when_filter_by_test_binary_header_file(
 async def test_cpp_test_coverage_when_filter_by_library_header_file(
     buck: Buck, tmp_path: Path
 ) -> None:
-    header_name = "testing_frameworks/code_coverage/playground/ThirdLevelDep.h"
+    header_name = "fbcode/testing_frameworks/code_coverage/playground/ThirdLevelDep.h"
     paths = await collect_coverage_for(
         buck,
         tmp_path,
         "fbcode//testing_frameworks/code_coverage/playground:test",
-        [header_name],
+        folder_filter=[],
+        file_filter=[header_name],
     )
 
     assert len(paths) == 9, str(paths)
@@ -373,17 +385,18 @@ async def test_cpp_test_coverage_when_filter_by_library_private_header_file(
     buck: Buck, tmp_path: Path
 ) -> None:
     private_header_name = (
-        "testing_frameworks/code_coverage/playground/ThirdLevelDepPrivate.h"
+        "fbcode/testing_frameworks/code_coverage/playground/ThirdLevelDepPrivate.h"
     )
     paths = await collect_coverage_for(
         buck,
         tmp_path,
         "fbcode//testing_frameworks/code_coverage/playground:test",
-        [private_header_name],
+        folder_filter=[],
+        file_filter=[private_header_name],
     )
 
     assert len(paths) == 3, str(paths)
-    assert f"fbcode/{private_header_name}" in paths
+    assert private_header_name in paths
     assert (
         "fbcode/testing_frameworks/code_coverage/playground/ThirdLevelDep.cpp" in paths
     )
@@ -397,16 +410,19 @@ async def test_cpp_test_coverage_when_filter_by_library_private_header_file(
 async def test_cpp_test_coverage_when_filter_by_header_file_in_headers_only_library(
     buck: Buck, tmp_path: Path
 ) -> None:
-    header_name = "testing_frameworks/code_coverage/playground/LibraryWithOnlyHeaders.h"
+    header_name = (
+        "fbcode/testing_frameworks/code_coverage/playground/LibraryWithOnlyHeaders.h"
+    )
     paths = await collect_coverage_for(
         buck,
         tmp_path,
         "fbcode//testing_frameworks/code_coverage/playground:test_with_dep_with_only_headers",
-        [header_name],
+        folder_filter=[],
+        file_filter=[header_name],
     )
 
     assert len(paths) == 3, str(paths)
-    assert f"fbcode/{header_name}" in paths
+    assert header_name in paths
     assert (
         "fbcode/testing_frameworks/code_coverage/playground/TestWithDepWithOnlyHeaders.cpp"
         in paths
@@ -422,40 +438,41 @@ async def test_cpp_test_coverage_filter_by_file_with_opt_mode(
     buck: Buck,
     tmp_path: Path,
 ) -> None:
-    source_name = "buck2/tests/targets/rules/cxx/cpp_test_pass.cpp"
+    source_name = "fbcode/buck2/tests/targets/rules/cxx/cpp_test_pass.cpp"
     paths = await collect_coverage_for(
         buck,
         tmp_path,
         target="fbcode//buck2/tests/targets/rules/cxx:cpp_test_pass",
-        filter=[source_name],
+        folder_filter=[],
+        file_filter=[source_name],
         mode="@fbcode//mode/opt",
     )
 
     assert len(paths) == 1, str(paths)
-    assert paths[0] == f"fbcode/{source_name}"
+    assert paths[0] == source_name
 
 
 @buck_test(inplace=True)
 async def test_cpp_test_coverage_filter_by_file_and_path(
     buck: Buck, tmp_path: Path
 ) -> None:
-    source_name = "buck2/tests/targets/rules/cxx/cpp_test_pass.cpp"
+    source_name = "fbcode/buck2/tests/targets/rules/cxx/cpp_test_pass.cpp"
     paths = await collect_coverage_for(
         buck,
         tmp_path,
         "fbcode//buck2/tests/targets/rules/cxx:cpp_test_pass",
-        [source_name, "folly"],
+        folder_filter=["folly"],
+        file_filter=[source_name],
     )
 
     folly_paths = [p for p in paths if p.startswith("fbcode/folly")]
     assert len(folly_paths) > 0, f"expected to find some folly sources in {paths}"
 
-    source_path = f"fbcode/{source_name}"
-    source_paths = [p for p in paths if p == source_path]
-    assert len(source_paths) == 1, f"expected to find {source_path} in {paths}"
+    source_paths = [p for p in paths if p == source_name]
+    assert len(source_paths) == 1, f"expected to find {source_name} in {paths}"
 
     unexpected_paths = [
-        p for p in paths if p != source_path and not p.startswith("fbcode/folly")
+        p for p in paths if p != source_name and not p.startswith("fbcode/folly")
     ]
     assert (
         len(unexpected_paths) == 0
@@ -472,7 +489,8 @@ async def test_cpp_test_coverage_xplat_filter_by_file_path(
         buck,
         tmp_path,
         "fbsource//xplat/testinfra/playground/cpp:example_testFbcode",
-        filter=[file_to_collect_coverage],
+        folder_filter=[],
+        file_filter=[file_to_collect_coverage],
     )
 
     assert (

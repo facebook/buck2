@@ -15,7 +15,7 @@ from pathlib import Path
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
-from .test_test_coverage_utils import collect_coverage_for
+from .test_coverage_utils import collect_coverage_for
 
 PYTHON_TEST_EXAMPLE_TARGET = "fbcode//buck2/tests/targets/rules/python/coverage:test"
 
