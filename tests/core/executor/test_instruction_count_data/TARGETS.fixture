@@ -1,0 +1,5 @@
+load(":defs.bzl", "three_billion_instructions")
+
+three_billion_instructions(
+    name = "three_billion_instructions",
+)

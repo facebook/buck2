@@ -17,6 +17,11 @@ buck2_core_tests(
                 "windows",
             ],
         },
+        "test_instruction_count": {
+            "env": {
+                "THREE_BILLION_INSTRUCTIONS_BIN": "$(location //buck2/shed/three_billion_instructions:three_billion_instructions-bin)",
+            },
+        },
         "test_outputs_ordering": {
             "env": {
                 "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",

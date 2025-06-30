@@ -21,7 +21,7 @@ import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, get_mode_from_platform
-from buck2.tests.e2e_util.helper.utils import json_get, random_string, read_what_ran
+from buck2.tests.e2e_util.helper.utils import json_get, read_what_ran
 
 
 # rust rule implementations hardcode invocation of `/bin/jq` which is not available on Mac RE workers (or mac laptops)
@@ -302,131 +302,6 @@ async def test_local_execution(buck: Buck) -> None:
     build_report = res.get_build_report()
     output = build_report.output_for_target(target)
     assert output.read_text().rstrip() == ""
-
-
-if fbcode_linux_only():  # noqa: C901
-
-    @buck_test(inplace=True)
-    async def test_instruction_count_disabled(buck: Buck) -> None:
-        package = "fbcode//buck2/tests/targets/rules/instruction_counts"
-        name = "three_billion_instructions"
-        # disable resource control as it uses miniperf to read cgroup's memory peak
-        env = {"BUCK2_TEST_RESOURCE_CONTROL_CONFIG": '{"status":"Off"}'}
-
-        await buck.build(
-            f"{package}:{name}",
-            "-c",
-            "buck2.miniperf2=false",
-            "--no-remote-cache",
-            "--local-only",
-            "-c",
-            f"test.cache_buster={random_string()}",
-            env=env,
-        )
-
-        log = (await buck.log("show")).stdout.strip().splitlines()
-        for line in log:
-            commands = json_get(
-                line, "Event", "data", "SpanEnd", "data", "ActionExecution", "commands"
-            )
-
-            for c in commands or []:
-                assert c["details"]["metadata"].get("execution_stats") is None
-
-    async def get_matching_details(
-        buck: Buck, package: str, name: str
-    ) -> Dict[str, Any]:
-        details = None
-        log = (await buck.log("show")).stdout.strip().splitlines()
-        for line in log:
-            action = json_get(
-                line,
-                "Event",
-                "data",
-                "SpanEnd",
-                "data",
-                "ActionExecution",
-            )
-
-            if action is None:
-                continue
-
-            if action["name"]["category"] != "genrule":
-                continue
-
-            label = action["key"]["owner"]["TargetLabel"]["label"]
-            if label["package"] != package:
-                continue
-            if label["name"] != name:
-                continue
-
-            details = action["commands"][-1]["details"]
-            return details
-
-        raise AssertionError("did not find the expected target")
-
-    @buck_test(inplace=True)
-    async def test_instruction_count_enabled(buck: Buck) -> None:
-        package = "fbcode//buck2/tests/targets/rules/instruction_counts"
-        name = "three_billion_instructions"
-        await buck.build(
-            f"{package}:{name}",
-            "-c",
-            "buck2.miniperf2=true",
-            "--no-remote-cache",
-            "--local-only",
-            "-c",
-            f"test.cache_buster={random_string()}",
-        )
-
-        details = await get_matching_details(buck, package, name)
-        assert "OmittedLocalCommand" in details["command_kind"]["command"]
-
-        # Check that we are within 10%
-        instruction_count = details["metadata"]["execution_stats"][
-            "cpu_instructions_user"
-        ]
-        assert instruction_count > 2850000000
-        assert instruction_count < 3150000000
-
-    @buck_test(inplace=True)
-    async def test_instruction_count_remote(buck: Buck) -> None:
-        package = "fbcode//buck2/tests/targets/rules/instruction_counts"
-        name = "three_billion_instructions"
-        await buck.build(
-            f"{package}:{name}",
-            "--no-remote-cache",
-            "--write-to-cache-anyway",
-            "--remote-only",
-        )
-
-        details = await get_matching_details(buck, package, name)
-        assert not details["command_kind"]["command"]["RemoteCommand"]["cache_hit"]
-
-        # Check that we are within 10%
-        instruction_count = details["metadata"]["execution_stats"][
-            "cpu_instructions_user"
-        ]
-        assert instruction_count > 2850000000
-        assert instruction_count < 3150000000
-
-        # Check we also get it on a cache hit.
-
-        await buck.kill()
-        await buck.build(
-            f"{package}:{name}",
-            "--remote-only",
-        )
-
-        details = await get_matching_details(buck, package, name)
-        assert details["command_kind"]["command"]["RemoteCommand"]["cache_hit"]
-
-        # Check that we are within 10%
-        instruction_count = details["metadata"]["execution_stats"][
-            "cpu_instructions_user"
-        ]
-        assert instruction_count > 2850000000
-        assert instruction_count < 3150000000
 
 
 # This test relies on `buck2-asic-devinfra` use-case and `asic-grid` platform.
