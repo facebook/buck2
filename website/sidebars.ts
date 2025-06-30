@@ -39,8 +39,6 @@ export const sidebars: SidebarsConfig = {
       items: [
         'about/why',
         'about/language_support',
-        // The getting_started page is for OSS only.
-        isInternal() ? null : 'about/getting_started',
         {
           type: 'category' as const,
           label: 'Benefits',

@@ -146,4 +146,4 @@ There are also some things that aren't quite yet finished:
 - Windows/Mac builds are still in progress; open-source code is mostly tested on
   Linux.
 
-If none of that puts you off, [give Buck2 a go](getting_started.md)!
+If none of that puts you off, [give Buck2 a go](../getting_started/index.md)!

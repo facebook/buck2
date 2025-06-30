@@ -33,7 +33,7 @@ your team.
 
 ### For end users
 
-- [Getting Started](about/getting_started.md) - how to get started with using
+- [Getting Started](getting_started/index.md) - how to get started with using
   Buck2.
 - [Benefits](about/benefits/compared_to_buck1.md) - the benefits of using Buck2.
 
