@@ -10,66 +10,34 @@
 
 load("@prelude//:prelude.bzl", "native")
 load("@prelude//utils:selects.bzl", "selects")
+load("@prelude//utils:type_defs.bzl", "is_dict", "is_list")
 
-DEFAULT_PLATFORM_TEMPLATES = {
-    "linux-arm64": select({
-        "DEFAULT": False,
-        "config//os:linux": select({
-            "DEFAULT": False,
-            "config//cpu:arm64": True,
-        }),
+DEFAULT_PLATFORM_TEMPLATES = select({
+    "DEFAULT": None,
+    "config//os:linux": select({
+        "DEFAULT": None,
+        "config//cpu:arm64": "linux-arm64",
+        "config//cpu:x86_64": "linux-x86_64",
     }),
-    "linux-x86_64": select({
-        "DEFAULT": False,
-        "config//os:linux": select({
-            "DEFAULT": False,
-            "config//cpu:x86_64": True,
-        }),
+    "config//os:macos": select({
+        "DEFAULT": None,
+        "config//cpu:arm64": "macos-arm64",
+        "config//cpu:x86_64": "macos-x86_64",
     }),
-    "macos-arm64": select({
-        "DEFAULT": False,
-        "config//os:macos": select({
-            "DEFAULT": False,
-            "config//cpu:arm64": True,
-        }),
+    "config//os:none": select({
+        "DEFAULT": None,
+        "config//cpu:wasm32": "wasm32",
     }),
-    "macos-x86_64": select({
-        "DEFAULT": False,
-        "config//os:macos": select({
-            "DEFAULT": False,
-            "config//cpu:x86_64": True,
-        }),
+    "config//os:wasi": select({
+        "DEFAULT": None,
+        "config//cpu:wasm32": "wasi",
     }),
-    "wasi": select({
-        "DEFAULT": False,
-        "config//os:wasi": select({
-            "DEFAULT": False,
-            "config//cpu:wasm32": True,
-        }),
+    "config//os:windows": select({
+        "DEFAULT": "windows-msvc",
+        "config//abi:gnu": "windows-gnu",
+        "config//abi:msvc": "windows-msvc",
     }),
-    "wasm32": select({
-        "DEFAULT": False,
-        "config//os:none": select({
-            "DEFAULT": False,
-            "config//cpu:wasm32": True,
-        }),
-    }),
-    "windows-gnu": select({
-        "DEFAULT": False,
-        "config//os:windows": select({
-            "DEFAULT": False,
-            "config//abi:gnu": True,
-        }),
-    }),
-    "windows-msvc": select({
-        "DEFAULT": False,
-        "config//os:windows": select({
-            "DEFAULT": True,
-            "config//abi:gnu": False,
-            "config//abi:msvc": True,
-        }),
-    }),
-}
+})
 
 def apply_platform_attrs(
         platform_attrs,
@@ -77,16 +45,53 @@ def apply_platform_attrs(
         templates = DEFAULT_PLATFORM_TEMPLATES):
     combined_attrs = dict(universal_attrs)
 
-    for platform, attrs in platform_attrs.items():
-        template = templates.get(platform, None)
-        if template:
+    if is_dict(templates):
+        # Deprecated format: {
+        #     "linux-arm64": select({
+        #         "DEFAULT": False,
+        #         "config//os:linux": select({
+        #             "DEFAULT": False,
+        #             "config//cpu:arm64": True,
+        #         }),
+        #     }),
+        #     ...
+        # }
+        for platform, attrs in platform_attrs.items():
+            template = templates.get(platform, None)
+            if template:
+                for attr, value in attrs.items():
+                    default_value = {} if type(value) == type({}) else [] if type(value) == type([]) else None
+                    conditional_value = selects.apply(template, lambda cond: value if cond else default_value)
+                    if attr in combined_attrs:
+                        combined_attrs[attr] = combined_attrs[attr] + conditional_value
+                    else:
+                        combined_attrs[attr] = conditional_value
+    else:
+        # Preferred format: select({
+        #     "config//os:linux": select({
+        #         "config//cpu:arm64": "linux-arm64",
+        #         ...
+        #     }),
+        #     ...
+        # })
+        platform_attr_defaults = {}
+        for attrs in platform_attrs.values():
             for attr, value in attrs.items():
-                default_value = {} if type(value) == type({}) else [] if type(value) == type([]) else None
-                conditional_value = selects.apply(template, lambda cond: value if cond else default_value)
-                if attr in combined_attrs:
-                    combined_attrs[attr] = combined_attrs[attr] + conditional_value
+                if native.select_test(value, is_list):
+                    platform_attr_defaults[attr] = []
+                elif native.select_test(value, is_dict):
+                    platform_attr_defaults[attr] = {}
                 else:
-                    combined_attrs[attr] = conditional_value
+                    platform_attr_defaults[attr] = None
+        for attr, default_value in platform_attr_defaults.items():
+            conditional_value = selects.apply(
+                templates,
+                lambda platform: platform_attrs.get(platform, {}).get(attr, default_value),
+            )
+            if attr in combined_attrs:
+                combined_attrs[attr] = combined_attrs[attr] + conditional_value
+            else:
+                combined_attrs[attr] = conditional_value
 
     return combined_attrs
 
