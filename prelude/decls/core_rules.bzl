@@ -474,6 +474,10 @@ filegroup = prelude_rule(
                 The set of files to include in this rule.
             """),
             "copy": attrs.bool(default = True),
+            "executable_bit_override": attrs.option(attrs.bool(), default = None, doc = """
+                Override the executable bit for every file in the filegroup. If not set, the executable bits are preserved.
+                Cannot be used if `copy` is set to false.
+            """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
