@@ -20,6 +20,8 @@ import zipfile
 from types import TracebackType
 from typing import cast, Dict, List, Optional, Set, Tuple, Type
 
+from packaging.version import Version as PEP440Version
+
 
 def normalize_name(name: str) -> str:
     """
@@ -35,10 +37,11 @@ def normalize_name(name: str) -> str:
     return pep503_normalized_name.replace("-", "_")
 
 
+from packaging.version import Version as PEP440Version
+
+
 def normalize_version(version: str) -> str:
-    # Simplified version normalization, based on PEP 440.
-    # This is not a complete implementation, but it handles common cases.
-    return re.sub(r"[-_.]+", ".", version).lower()
+    return str(PEP440Version(version))
 
 
 # pyre-fixme[24]: Generic type `AbstractContextManager` expects 1 type parameter.
