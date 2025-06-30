@@ -71,7 +71,6 @@ def _system_go_toolchain_impl(ctx):
         GoToolchainInfo(
             assembler = RunInfo(cmd_script(ctx, "asm", cmd_args(go, "tool", "asm"), script_language)),
             cgo = RunInfo(cmd_script(ctx, "cgo", cmd_args(go, "tool", "cgo"), script_language)),
-            cgo_wrapper = ctx.attrs.cgo_wrapper[RunInfo],
             concat_files = ctx.attrs.concat_files[RunInfo],
             compiler = RunInfo(cmd_script(ctx, "compile", cmd_args(go, "tool", "compile"), script_language)),
             cover = RunInfo(cmd_script(ctx, "cover", cmd_args(go, "tool", "cover"), script_language)),
@@ -98,7 +97,6 @@ system_go_toolchain = rule(
       visibility = ["PUBLIC"],
   )""",
     attrs = {
-        "cgo_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:cgo_wrapper")),
         "concat_files": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go_bootstrap/tools:go_concat_files")),
         "gen_stdlib_importcfg": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:gen_stdlib_importcfg")),
         "go_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go_bootstrap/tools:go_go_wrapper")),

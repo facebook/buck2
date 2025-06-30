@@ -67,9 +67,10 @@ def _cgo(
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
     cmd = cmd_args(
-        go_toolchain.cgo_wrapper,
-        cmd_args(go_toolchain.cgo, format = "--cgo={}"),
-        cmd_args(gen_dir.as_output(), format = "--output={}"),
+        go_toolchain.go_wrapper,
+        ["--go", go_toolchain.cgo],
+        "--",
+        cmd_args(gen_dir.as_output(), format = "-objdir={}"),
         "--",
         c_flags + cpp_flags,
         ctx.attrs.cxx_compiler_flags,
