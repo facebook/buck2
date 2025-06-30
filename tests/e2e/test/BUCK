@@ -1,6 +1,6 @@
 load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
 
-oncall("tcc")
+oncall("testing_frameworks")
 
 buck2_e2e_test(
     name = "test_test_inplace",
