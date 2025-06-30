@@ -4,26 +4,8 @@ oncall("build_infra")
 
 buck2_core_tests(
     target_extra_attrs = {
-        "test_cancellation": {
-            "skip_for_os": [
-                "windows",
-            ],
-        },
         "test_critical_path": {
             "use_compiled_buck2_client_and_tpx": True,
-        },
-        "test_hash_all_commands": {
-            # These tests heavily depend on watchman, which is flakey on
-            # non-Linux systems
-            "skip_for_os": [
-                "darwin",
-                "windows",
-            ],
-        },
-        "test_outputs_ordering": {
-            "env": {
-                "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",
-            },
         },
         "test_paranoid": {
             "data": "//buck2/tests/targets:isolated_targets",
