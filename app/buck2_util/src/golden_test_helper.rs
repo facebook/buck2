@@ -35,11 +35,11 @@ fn make_golden(output: &str) -> String {
 }
 
 /// Common code for golden tests.
-pub fn golden_test_template(golden_rel_path: &str, output: &str) {
+pub fn golden_test_template(golden_rel_path: &str, output: &str) -> buck2_error::Result<()> {
     assert!(golden_rel_path.contains(".golden"));
 
     let manifest_dir =
-        env::var("CARGO_MANIFEST_DIR").expect("`CARGO_MANIFEST_DIR` variable must be set");
+        env::var("CARGO_MANIFEST_DIR").with_context(|| "`CARGO_MANIFEST_DIR` variable must be set".to_owned())?;
     let golden_file_path = format!("{manifest_dir}/{golden_rel_path}");
     let output_with_prefix = make_golden(output);
 
@@ -61,6 +61,7 @@ pub fn golden_test_template(golden_rel_path: &str, output: &str) {
         };
         assert_eq!(expected, output_with_prefix);
     }
+    Ok(())
 }
 
 /// Duplicate of `starlark::tests::util::trim_rust_backtrace` to avoid exposing test internals.

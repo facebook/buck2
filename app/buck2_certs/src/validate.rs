@@ -161,8 +161,8 @@ mod tests {
     use crate::validate::verify;
 
     #[tokio::test]
-    async fn invalid_certs_test() {
-        let base_path = env::var("TEST_CERT_LOCATIONS").unwrap();
+    async fn invalid_certs_test() -> buck2_error::Result<()> {
+        let base_path = env::var("TEST_CERT_LOCATIONS").with_context(|| "TEST_CERT_LOCATIONS variable not set".to_owned())?;
 
         let empty_path = format!("{}/test_empty.pem", base_path);
         let empty_res = verify(&OsString::from(empty_path)).await;
@@ -197,15 +197,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn valid_cert_test() {
+    async fn valid_cert_test() -> buck2_error::Result<()> {
         // Self-signed cert for testing. Should expire in 100 years if this is around for that long!
         // Generated using:
         // 1. openssl genrsa -out mykey.pem 2048
         // 2. openssl req -new -key mykey.pem -out mycsr.csr
         // 3. openssl x509 -req -in mycsr.csr -signkey mykey.pem -out x509.crt -days 36500
         // Copy content in x509.crt
-        let base_path = env::var("TEST_CERT_LOCATIONS").unwrap();
+        let base_path = env::var("TEST_CERT_LOCATIONS").with_context(|| "TEST_CERT_LOCATIONS variable not set".to_owned())?;
         let valid_path = format!("{}/test_valid.pem", base_path);
         assert_eq!(true, verify(&OsString::from(valid_path)).await.is_ok());
+        Ok(())
     }
 }

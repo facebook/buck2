@@ -12,15 +12,15 @@ use std::fs;
 
 /// Returns the version of the rustc compiler.
 fn rustc_version() -> String {
-    let rustc = env::var("RUSTC").unwrap();
+    let rustc = env::var("RUSTC").expect("RUSTC environment variable not set");
     let version = std::process::Command::new(rustc)
         .arg("--version")
         .output()
-        .unwrap();
+        .expect("Failed to execute rustc command");
 
     assert!(version.status.success());
 
-    let stdout = String::from_utf8(version.stdout).unwrap();
+    let stdout = String::from_utf8(version.stdout).expect("rustc output is not valid UTF-8");
     stdout.trim().to_owned()
 }
 

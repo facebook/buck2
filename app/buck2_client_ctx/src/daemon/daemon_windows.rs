@@ -212,21 +212,22 @@ mod tests {
     use crate::daemon::daemon_windows::spawn_background_process_on_windows;
 
     #[test]
-    fn test_smoke() {
+    fn test_smoke() -> buck2_error::Result<()> {
         if !cfg!(windows) {
-            return;
+            return Ok(());
         }
 
         // We need absolute path to `cmd.exe`.
-        let cmd_exe_path = PathBuf::from(env::var("COMSPEC").expect("COMSPEC variable not set"));
+        let cmd_exe_path = PathBuf::from(env::var("COMSPEC").with_context(|| "COMSPEC variable not set".to_owned())?);
 
         // TODO(nga): check it actually spawns a process.
         spawn_background_process_on_windows(
-            &env::current_dir().unwrap(),
+            &env::current_dir().with_context(|| "Failed to get current directory".to_owned())?,
             &cmd_exe_path,
             ["/c", "echo test"],
             [].as_slice(),
         )
         .unwrap();
+        Ok(())
     }
 }
