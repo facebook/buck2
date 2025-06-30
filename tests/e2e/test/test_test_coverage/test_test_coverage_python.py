@@ -10,10 +10,14 @@
 
 import json
 import tempfile
-from typing import List, Optional
+from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
+
+from .test_test_coverage_utils import collect_coverage_for
+
+PYTHON_TEST_EXAMPLE_TARGET = "fbcode//buck2/tests/targets/rules/python/coverage:test"
 
 
 @buck_test(inplace=True)
@@ -21,7 +25,7 @@ async def test_python_coverage(buck: Buck) -> None:
     with tempfile.NamedTemporaryFile("w") as covfile:
         await buck.test(
             "@fbcode//mode/dbgo-cov",
-            "fbcode//buck2/tests/targets/rules/python/coverage:test",
+            PYTHON_TEST_EXAMPLE_TARGET,
             "--",
             "--collect-coverage",
             f"--coverage-output={covfile.name}",
@@ -41,7 +45,7 @@ async def test_python_coverage_filtering_by_folder(buck: Buck) -> None:
     with tempfile.NamedTemporaryFile("w") as covfile:
         await buck.test(
             "@fbcode//mode/dbgo-cov",
-            "fbcode//buck2/tests/targets/rules/python/coverage:test",
+            PYTHON_TEST_EXAMPLE_TARGET,
             "-c",
             f"code_coverage.folder_path_filter={folder_to_collect}",
             "--",
@@ -61,46 +65,15 @@ async def test_python_coverage_filtering_by_folder(buck: Buck) -> None:
     ), f"Only folder {folder_to_collect} should have coverage, instead got coverage for {str(paths)}"
 
 
-async def python_collect_coverage_for(
-    buck: Buck,
-    folder_filter: List[str],
-    file_filter: List[str],
-    target: str = "fbcode//buck2/tests/targets/rules/python/coverage:test",
-    mode: Optional[str] = None,
-) -> List[str]:
-    folder_filter_str = ":".join(folder_filter)
-    file_filter_str = ":".join(file_filter)
-    with tempfile.NamedTemporaryFile("w") as covfile:
-        buck_args = [mode] if mode else []
-        buck_args.extend(
-            [
-                "--config",
-                "code_coverage.enable=filtered",
-                "--config",
-                f"code_coverage.folder_path_filter={folder_filter_str}",
-                "--config",
-                f"code_coverage.file_path_filter={file_filter_str}",
-                target,
-                "fbcode//buck2/tests/targets/rules/python/coverage:test",
-                "--",
-                "--collect-coverage",
-                f"--coverage-output={covfile.name}",
-            ]
-        )
-        await buck.test(*buck_args)
-        paths = []
-        with open(covfile.name) as results:
-            for line in results:
-                paths.append(json.loads(line)["filepath"])
-
-        return paths
-
-
 @buck_test(inplace=True)
-async def test_python_coverage_filtering_by_file(buck: Buck) -> None:
+async def test_python_coverage_filtering_by_file(buck: Buck, tmp_path: Path) -> None:
     file_to_collect_coverage = "fbcode/buck2/tests/targets/rules/python/coverage/lib.py"
-    result = await python_collect_coverage_for(
-        buck, folder_filter=[], file_filter=[file_to_collect_coverage]
+    result = await collect_coverage_for(
+        buck,
+        tmp_path,
+        target=PYTHON_TEST_EXAMPLE_TARGET,
+        folder_filter=[],
+        file_filter=[file_to_collect_coverage],
     )
 
     assert (
@@ -110,11 +83,12 @@ async def test_python_coverage_filtering_by_file(buck: Buck) -> None:
 
 @buck_test(inplace=True)
 async def test_python_coverage_filtering_by_file_with_base_module_remap(
-    buck: Buck,
+    buck: Buck, tmp_path: Path
 ) -> None:
     file_to_collect_coverage = "fbcode/buck2/tests/targets/rules/python/coverage/lib.py"
-    result = await python_collect_coverage_for(
+    result = await collect_coverage_for(
         buck,
+        tmp_path,
         target="fbcode//buck2/tests/targets/rules/python/coverage:test_using_base_module_remapped_lib",
         folder_filter=[],
         file_filter=[file_to_collect_coverage],
@@ -126,12 +100,16 @@ async def test_python_coverage_filtering_by_file_with_base_module_remap(
 
 
 @buck_test(inplace=True)
-async def test_python_coverage_filtering_by_file_with_opt_mode(buck: Buck) -> None:
+async def test_python_coverage_filtering_by_file_with_opt_mode(
+    buck: Buck, tmp_path: Path
+) -> None:
     file_to_collect_coverage = "fbcode/buck2/tests/targets/rules/python/coverage/lib.py"
-    result = await python_collect_coverage_for(
+    result = await collect_coverage_for(
         buck,
+        tmp_path,
         folder_filter=[],
         file_filter=[file_to_collect_coverage],
+        target=PYTHON_TEST_EXAMPLE_TARGET,
         mode="@fbcode//mode/opt",
     )
 
@@ -141,12 +119,15 @@ async def test_python_coverage_filtering_by_file_with_opt_mode(buck: Buck) -> No
 
 
 @buck_test(inplace=True)
-async def test_python_standalone_xar_coverage_filtering_by_file(buck: Buck) -> None:
+async def test_python_standalone_xar_coverage_filtering_by_file(
+    buck: Buck, tmp_path: Path
+) -> None:
     file_to_collect_coverage = (
         "fbcode/testinfra/playground/python/simple/simple_test.py"
     )
-    result = await python_collect_coverage_for(
+    result = await collect_coverage_for(
         buck,
+        tmp_path,
         folder_filter=[],
         file_filter=[file_to_collect_coverage],
         target="fbcode//testinfra/playground/python/simple:simple_standalone_xar_test",
@@ -159,12 +140,15 @@ async def test_python_standalone_xar_coverage_filtering_by_file(buck: Buck) -> N
 
 
 @buck_test(inplace=True)
-async def test_python_standalone_zip_coverage_filtering_by_file(buck: Buck) -> None:
+async def test_python_standalone_zip_coverage_filtering_by_file(
+    buck: Buck, tmp_path: Path
+) -> None:
     file_to_collect_coverage = (
         "fbcode/testinfra/playground/python/simple/simple_test.py"
     )
-    result = await python_collect_coverage_for(
+    result = await collect_coverage_for(
         buck,
+        tmp_path,
         folder_filter=[],
         file_filter=[file_to_collect_coverage],
         target="fbcode//testinfra/playground/python/simple:simple_standalone_test",
@@ -177,12 +161,15 @@ async def test_python_standalone_zip_coverage_filtering_by_file(buck: Buck) -> N
 
 
 @buck_test(inplace=True)
-async def test_python_coverage_filtering_by_file_on_cinder_target(buck: Buck) -> None:
+async def test_python_coverage_filtering_by_file_on_cinder_target(
+    buck: Buck, tmp_path: Path
+) -> None:
     file_to_collect_coverage = (
         "fbcode/buck2/tests/targets/rules/python/coverage/test.py"
     )
-    result = await python_collect_coverage_for(
+    result = await collect_coverage_for(
         buck,
+        tmp_path,
         target="fbcode//buck2/tests/targets/rules/python/coverage:simple_cinder_unittest",
         folder_filter=[],
         file_filter=[file_to_collect_coverage],
@@ -194,12 +181,15 @@ async def test_python_coverage_filtering_by_file_on_cinder_target(buck: Buck) ->
 
 
 @buck_test(inplace=True)
-async def test_python_coverage_filtering_by_source_file_on_cpp_dep(buck: Buck) -> None:
+async def test_python_coverage_filtering_by_source_file_on_cpp_dep(
+    buck: Buck, tmp_path: Path
+) -> None:
     file_to_collect_coverage = (
         "fbcode/buck2/tests/targets/rules/python/coverage/cpp_lib.cpp"
     )
-    result = await python_collect_coverage_for(
+    result = await collect_coverage_for(
         buck,
+        tmp_path,
         target="fbcode//buck2/tests/targets/rules/python/coverage:test_with_cpp_dep",
         folder_filter=[],
         file_filter=[file_to_collect_coverage],
@@ -211,11 +201,14 @@ async def test_python_coverage_filtering_by_source_file_on_cpp_dep(buck: Buck) -
 
 
 @buck_test(inplace=True)
-async def test_python_coverage_filtering_by_header_file_on_cpp_dep(buck: Buck) -> None:
+async def test_python_coverage_filtering_by_header_file_on_cpp_dep(
+    buck: Buck, tmp_path: Path
+) -> None:
     header_file = "fbcode/buck2/tests/targets/rules/python/coverage/cpp_lib.h"
     source_file = header_file.replace(".h", ".cpp")
-    result = await python_collect_coverage_for(
+    result = await collect_coverage_for(
         buck,
+        tmp_path,
         target="fbcode//buck2/tests/targets/rules/python/coverage:test_with_cpp_dep",
         folder_filter=[],
         file_filter=[header_file],
@@ -227,12 +220,15 @@ async def test_python_coverage_filtering_by_header_file_on_cpp_dep(buck: Buck) -
 
 
 @buck_test(inplace=True)
-async def test_python_coverage_filtering_by_file_on_ligen_cpp_dep(buck: Buck) -> None:
+async def test_python_coverage_filtering_by_file_on_ligen_cpp_dep(
+    buck: Buck, tmp_path: Path
+) -> None:
     file_to_collect_coverage = (
         "fbcode/buck2/tests/targets/rules/python/coverage/adder_ligen.cpp"
     )
-    result = await python_collect_coverage_for(
+    result = await collect_coverage_for(
         buck,
+        tmp_path,
         target="fbcode//buck2/tests/targets/rules/python/coverage:test_with_ligen_cpp_dep",
         folder_filter=[],
         file_filter=[file_to_collect_coverage],
