@@ -31,7 +31,7 @@ def dbg_info_ref(target_label) -> list[str]:
 
 def get_info_ref(labels: list[str]) -> [str, None]:
     for label in labels:
-        result = _get_value_by_mark(DBG_INFO_REF, label)
+        result = get_value_by_mark(DBG_INFO_REF, label)
         if result:
             return result
     return None
@@ -42,7 +42,7 @@ def get_label_or_mark(label: str) -> str:
             return mark
     return label
 
-def _get_value_by_mark(mark: str, label: str) -> [str, None]:
+def get_value_by_mark(mark: str, label: str) -> [str, None]:
     if label.startswith(mark + "="):
         return label.removeprefix(mark + "=")
     return None
