@@ -302,7 +302,7 @@ impl DynamicAttrType {
         match self {
             DynamicAttrType::Output => {
                 let artifact = <&StarlarkOutputArtifact>::unpack_value_err(value)?;
-                Ok(DynamicAttrValue::Output(artifact.artifact()?))
+                Ok(DynamicAttrValue::Output(artifact.artifact()))
             }
             DynamicAttrType::ArtifactValue => {
                 let artifact = UnpackArtifactOrDeclaredArtifact::unpack_value_err(value)?;

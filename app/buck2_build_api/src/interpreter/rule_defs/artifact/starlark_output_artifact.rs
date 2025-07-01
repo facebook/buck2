@@ -14,7 +14,6 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
@@ -67,10 +66,11 @@ starlark_complex_value!(pub StarlarkOutputArtifact);
 
 impl<'v> Display for StarlarkOutputArtifact<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.inner() {
-            Ok(inner) => write!(f, "<output artifact for {}>", inner.get_artifact_path()),
-            Err(_) => write!(f, "<output artifact internal error>"),
-        }
+        write!(
+            f,
+            "<output artifact for {}>",
+            self.inner().get_artifact_path()
+        )
     }
 }
 
@@ -91,19 +91,12 @@ impl<'v> StarlarkOutputArtifact<'v> {
         }
     }
 
-    pub(crate) fn inner(
-        &self,
-    ) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>> {
-        ValueTyped::new_err(self.declared_artifact).with_internal_error(|| {
-            format!(
-                "Must be a declared artifact: `{}`",
-                self.declared_artifact.to_value().to_string_for_type_error()
-            )
-        })
+    pub(crate) fn inner(&self) -> ValueTyped<'v, StarlarkDeclaredArtifact<'v>> {
+        ValueTyped::new_err(self.declared_artifact).expect("Type checked at construction time")
     }
 
-    pub fn artifact(&self) -> buck2_error::Result<OutputArtifact<'v>> {
-        Ok(self.inner()?.output_artifact())
+    pub fn artifact(&self) -> OutputArtifact<'v> {
+        self.inner().output_artifact()
     }
 }
 
@@ -140,7 +133,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkOutputArtifact<'v> {
         &self,
         visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
-        visitor.visit_declared_output(self.artifact()?, None);
+        visitor.visit_declared_output(self.artifact(), None);
         Ok(())
     }
 
