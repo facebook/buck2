@@ -90,7 +90,7 @@ class BuildToolsKotlinc : Kotlinc {
   private fun ClassLoaderCache.getClassLoader(kotlinHomeLibraries: List<AbsPath>): ClassLoader {
     val classPathURLs = kotlinHomeLibraries.map { absPath -> absPath.path.toUri().toURL() }
     return getClassLoaderForClassPath(
-        SharedApiClassesClassLoaderProvider.sharedSynchronizedApiClassesClassLoader,
+        SharedApiClassesClassLoaderProvider.sharedApiClassesClassLoader,
         ImmutableList.copyOf(classPathURLs))
   }
 
