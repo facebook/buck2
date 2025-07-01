@@ -328,8 +328,33 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             ),
         )
 
+    def normalize_name(name):
+        # Normalize name part of the *.whl file per:
+        #  * https://packaging.python.org/en/latest/specifications/recording-installed-packages/#the-dist-info-directory
+        #  * https://packaging.python.org/en/latest/specifications/name-normalization/
+        #
+        # Equivalent to fbcode/buck2/prelude/python/tools/wheel.py#normalize_name()
+        # but need to do it here since we need to set output path
+
+        # PEP503 name normalization
+        #   1. Convert to lowercase
+        pep503_normalized = name.lower()
+
+        #   2. Replace all dots and underscores with hyphens
+        pep503_normalized = pep503_normalized.replace(".", "-")
+        pep503_normalized = pep503_normalized.replace("_", "-")
+
+        #   3. Collapse multiple consecutive hyphens into single hyphen
+        #      Since we don't have regex, we'll do multiple passes
+        for _ in range(pep503_normalized.count("--")):
+            pep503_normalized = pep503_normalized.replace("--", "-")
+
+        # Finally replace hyphens with underscores
+        return pep503_normalized.replace("-", "_")
+
     name_parts = [
-        dist,
+        # only normalize `dist` in the *.whl filename (NOT the dist name in dist-info/METADATA)
+        normalize_name(dist),
         ctx.attrs.version,
         ctx.attrs.python,
         ctx.attrs.abi,
