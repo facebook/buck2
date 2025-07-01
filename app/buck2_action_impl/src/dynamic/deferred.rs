@@ -500,7 +500,7 @@ fn outputs<'v>(
     let mut outputs_dict = Vec::with_capacity(outputs.len());
     for x in outputs {
         let k = StarlarkArtifact::new(x.dupe().into_artifact());
-        let declared = registry.declare_dynamic_output(x.as_base_artifact())?;
+        let declared = registry.declare_dynamic_output(x.as_base_artifact(), heap)?;
         let v = StarlarkDeclaredArtifact::new(None, declared, AssociatedArtifacts::new());
         outputs_dict.push((k, v));
     }
@@ -519,7 +519,8 @@ fn new_attr_value<'v>(
 ) -> buck2_error::Result<Value<'v>> {
     match value {
         DynamicAttrValue::Output(artifact) => {
-            let declared = registry.declare_dynamic_output(artifact.as_base_artifact())?;
+            let declared =
+                registry.declare_dynamic_output(artifact.as_base_artifact(), env.heap())?;
             let artifact = env.heap().alloc_typed(StarlarkDeclaredArtifact::new(
                 None,
                 declared,

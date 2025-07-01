@@ -33,11 +33,13 @@ use buck2_execute::execute::request::OutputType;
 use dupe::Dupe;
 use indexmap::indexset;
 use itertools::Itertools;
+use starlark::values::Heap;
 
 use crate::actions::testings::SimpleUnregisteredAction;
 
 #[test]
 fn declaring_artifacts() -> anyhow::Result<()> {
+    let heap = Heap::new();
     let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
@@ -54,6 +56,7 @@ fn declaring_artifacts() -> anyhow::Result<()> {
         OutputType::File,
         None,
         BuckOutPathKind::default(),
+        &heap,
     )?;
     declared1
         .get_path()
@@ -67,6 +70,7 @@ fn declaring_artifacts() -> anyhow::Result<()> {
         OutputType::File,
         None,
         BuckOutPathKind::default(),
+        &heap,
     )?;
     declared2
         .get_path()
@@ -79,6 +83,7 @@ fn declaring_artifacts() -> anyhow::Result<()> {
             OutputType::File,
             None,
             BuckOutPathKind::default(),
+            &heap,
         )
         .is_ok()
     {
@@ -140,6 +145,7 @@ fn claiming_conflicting_path() -> anyhow::Result<()> {
 
 #[test]
 fn register_actions() -> anyhow::Result<()> {
+    let heap = Heap::new();
     let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
@@ -155,6 +161,7 @@ fn register_actions() -> anyhow::Result<()> {
         OutputType::File,
         None,
         BuckOutPathKind::default(),
+        &heap,
     )?;
 
     let inputs = indexset![ArtifactGroup::Artifact(
@@ -188,6 +195,7 @@ fn register_actions() -> anyhow::Result<()> {
 
 #[test]
 fn finalizing_actions() -> anyhow::Result<()> {
+    let heap = Heap::new();
     let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
@@ -209,6 +217,7 @@ fn finalizing_actions() -> anyhow::Result<()> {
         OutputType::File,
         None,
         BuckOutPathKind::default(),
+        &heap,
     )?;
 
     let inputs = indexset![ArtifactGroup::Artifact(

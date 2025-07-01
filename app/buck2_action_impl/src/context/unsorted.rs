@@ -79,6 +79,7 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
             output_type,
             eval.call_stack_top_location(),
             path_resolution_method,
+            eval.heap(),
         )?;
 
         Ok(StarlarkDeclaredArtifact::new(

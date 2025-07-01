@@ -904,7 +904,7 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
             let declared = heap.alloc_typed(StarlarkDeclaredArtifact::new(
                 None,
                 (*out
-                    .allocate_new_output_artifact_for()
+                    .allocate_new_output_artifact_for(heap)
                     .with_internal_error(|| {
                         "Expecting artifact to be output artifact".to_owned()
                     })?)

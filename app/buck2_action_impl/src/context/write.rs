@@ -323,6 +323,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                     OutputType::File,
                     eval.call_stack_top_location(),
                     path_resolution_method,
+                    eval.heap(),
                 )?;
                 written_macro_files.insert(macro_file);
             }

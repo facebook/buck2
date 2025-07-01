@@ -15,7 +15,6 @@ use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::Deref;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -36,8 +35,11 @@ use derive_more::From;
 use dupe::Dupe;
 use either::Either;
 use gazebo::cell::ARef;
+use starlark::values::Heap;
+use starlark::values::ProvidesStaticType;
 use starlark::values::Trace;
-use starlark::values::Value;
+use starlark::values::ValueTyped;
+use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark_map::Hashed;
 use static_assertions::assert_eq_size;
 
@@ -105,19 +107,25 @@ impl Artifact {
     /// output artifact for them makes little sense.
     ///
     /// Returns `None` if this is not a build artifact
-    pub fn allocate_new_output_artifact_for<'v>(&self) -> Option<OutputArtifact<'v>> {
+    pub fn allocate_new_output_artifact_for<'v>(
+        &self,
+        heap: &'v Heap,
+    ) -> Option<OutputArtifact<'v>> {
         let key = self.0.data.key();
         match &key.base {
             BaseArtifactKind::Source(_) => None,
-            BaseArtifactKind::Build(artifact) => Some(
+            BaseArtifactKind::Build(artifact) => Some({
+                let artifact = StarlarkAnyComplex::new(RefCell::new(DeclaredArtifactKind::Bound(
+                    artifact.dupe(),
+                )));
                 DeclaredArtifact {
-                    artifact: Rc::new(RefCell::new(DeclaredArtifactKind::Bound(artifact.dupe()))),
+                    artifact: ValueTyped::new_err(heap.alloc_complex_no_freeze(artifact))
+                        .expect("Just allocated"),
                     projected_path: key.path.dupe(),
                     hidden_components_count: self.0.hidden_components_count,
-                    _phantom: std::marker::PhantomData,
                 }
-                .into(),
-            ),
+                .into()
+            }),
         }
     }
 
@@ -339,11 +347,10 @@ impl BoundBuildArtifact {
 #[derive(Clone, Debug, Dupe, Display, Trace, Allocative)]
 #[display("{}", self.get_path())]
 pub struct DeclaredArtifact<'v> {
-    /// `Rc` here is not optimization: `DeclaredArtifactKind` is a shared mutable state.
-    artifact: Rc<RefCell<DeclaredArtifactKind>>,
+    /// Allocation here is not optimization: `DeclaredArtifactKind` is a shared mutable state.
+    artifact: ValueTyped<'v, StarlarkAnyComplex<RefCell<DeclaredArtifactKind>>>,
     projected_path: ThinArcS<ForwardRelativePath>,
     hidden_components_count: usize,
-    _phantom: std::marker::PhantomData<Value<'v>>,
 }
 
 impl<'v> DeclaredArtifact<'v> {
@@ -351,15 +358,21 @@ impl<'v> DeclaredArtifact<'v> {
         path: BuildArtifactPath,
         output_type: OutputType,
         hidden_components_count: usize,
+        heap: &'v Heap,
     ) -> DeclaredArtifact<'v> {
+        let artifact = StarlarkAnyComplex::new(RefCell::new(DeclaredArtifactKind::Unbound(
+            UnboundArtifact(path, output_type),
+        )));
         DeclaredArtifact {
-            artifact: Rc::new(RefCell::new(DeclaredArtifactKind::Unbound(
-                UnboundArtifact(path, output_type),
-            ))),
+            artifact: ValueTyped::new_err(heap.alloc_complex_no_freeze(artifact))
+                .expect("Just allocated"),
             projected_path: ThinArcS::from(ForwardRelativePath::empty()),
             hidden_components_count,
-            _phantom: std::marker::PhantomData,
         }
+    }
+
+    fn artifact(&self) -> &'v RefCell<DeclaredArtifactKind> {
+        &self.artifact.as_ref().value
     }
 
     pub fn project(&self, path: &ForwardRelativePath, hide_prefix: bool) -> Self {
@@ -375,10 +388,9 @@ impl<'v> DeclaredArtifact<'v> {
             };
 
         Self {
-            artifact: self.artifact.dupe(),
+            artifact: self.artifact,
             projected_path: ThinArcS::from(self.projected_path.join(path).as_ref()),
             hidden_components_count,
-            _phantom: std::marker::PhantomData,
         }
     }
 
@@ -387,7 +399,7 @@ impl<'v> DeclaredArtifact<'v> {
     }
 
     pub fn get_path(&self) -> ArtifactPath<'_> {
-        let borrow = self.artifact.borrow();
+        let borrow = self.artifact().borrow();
 
         let projected_path = &self.projected_path;
 
@@ -404,7 +416,7 @@ impl<'v> DeclaredArtifact<'v> {
     }
 
     pub fn output_type(&self) -> OutputType {
-        match &*self.artifact.borrow() {
+        match &*self.artifact().borrow() {
             DeclaredArtifactKind::Bound(x) => x.output_type(),
             DeclaredArtifactKind::Unbound(x) => x.1,
         }
@@ -417,7 +429,7 @@ impl<'v> DeclaredArtifact<'v> {
     /// it to be valid. We have the `ensure_bound` method to make sure that we can return
     /// a friendlier message to users because `freeze()` does not return error messages
     pub fn ensure_bound(self) -> buck2_error::Result<BoundBuildArtifact> {
-        let borrow = self.artifact.borrow();
+        let borrow = self.artifact().borrow();
 
         let artifact = match &*borrow {
             DeclaredArtifactKind::Bound(built) => built.dupe(),
@@ -434,18 +446,18 @@ impl<'v> DeclaredArtifact<'v> {
     }
 
     pub fn is_bound(&self) -> bool {
-        self.artifact.borrow().is_bound()
+        self.artifact().borrow().is_bound()
     }
 
     pub fn owner(&self) -> Option<BaseDeferredKey> {
-        match &*self.artifact.borrow() {
+        match &*self.artifact().borrow() {
             DeclaredArtifactKind::Bound(b) => Some(b.get_path().owner().owner().dupe()),
             DeclaredArtifactKind::Unbound(_) => None,
         }
     }
 
     pub fn has_content_based_path(&self) -> bool {
-        match &*self.artifact.borrow() {
+        match &*self.artifact().borrow() {
             DeclaredArtifactKind::Bound(b) => b.get_path().is_content_based_path(),
             DeclaredArtifactKind::Unbound(b) => b.0.is_content_based_path(),
         }
@@ -467,7 +479,7 @@ impl PartialEq for DeclaredArtifact<'_> {
 impl Eq for DeclaredArtifact<'_> {}
 
 /// A 'DeclaredArtifact' can be either "bound" to an 'Action', or "unbound"
-#[derive(Debug, Display, Allocative)]
+#[derive(Debug, Display, Allocative, ProvidesStaticType, Trace)]
 enum DeclaredArtifactKind {
     Bound(BuildArtifact),
     Unbound(UnboundArtifact),
@@ -505,7 +517,7 @@ impl<'v> From<DeclaredArtifact<'v>> for OutputArtifact<'v> {
 
 impl<'v> OutputArtifact<'v> {
     pub fn bind(&self, key: ActionKey) -> buck2_error::Result<BoundBuildArtifact> {
-        match &mut *self.0.artifact.borrow_mut() {
+        match &mut *self.0.artifact().borrow_mut() {
             DeclaredArtifactKind::Bound(a) => {
                 // NOTE: If the artifact was already bound to the same action, we leave it alone.
                 // This can happen when we have projected artifacts used in a command: we'll visit
@@ -525,7 +537,7 @@ impl<'v> OutputArtifact<'v> {
             }),
         };
 
-        let artifact = match &*self.0.artifact.borrow() {
+        let artifact = match &*self.0.artifact().borrow() {
             DeclaredArtifactKind::Bound(b) => b.dupe(),
             _ => unreachable!("should already be bound"),
         };
@@ -542,7 +554,7 @@ impl<'v> OutputArtifact<'v> {
     }
 
     pub fn path_resolution_method(&self) -> BuckOutPathKind {
-        match &*self.0.artifact.borrow() {
+        match &*self.0.artifact().borrow() {
             DeclaredArtifactKind::Bound(b) => b.get_path().path_resolution_method(),
             DeclaredArtifactKind::Unbound(u) => u.0.path_resolution_method(),
         }
@@ -591,14 +603,14 @@ pub mod testing {
 
     impl ArtifactTestingExt for DeclaredArtifact<'_> {
         fn testing_is_bound(&self) -> bool {
-            match &*self.artifact.borrow() {
+            match &*self.artifact().borrow() {
                 DeclaredArtifactKind::Bound(_) => true,
                 DeclaredArtifactKind::Unbound(_) => false,
             }
         }
 
         fn testing_action_key(&self) -> Option<ActionKey> {
-            match &*self.artifact.borrow() {
+            match &*self.artifact().borrow() {
                 DeclaredArtifactKind::Bound(built) => Some(built.key().dupe()),
                 DeclaredArtifactKind::Unbound(_) => None,
             }
@@ -669,6 +681,7 @@ mod tests {
     use buck2_execute::execute::request::OutputType;
     use buck2_util::arc_str::ThinArcS;
     use dupe::Dupe;
+    use starlark::values::Heap;
 
     use crate::actions::key::ActionIndex;
     use crate::actions::key::ActionKey;
@@ -681,6 +694,7 @@ mod tests {
 
     #[test]
     fn artifact_binding() -> buck2_error::Result<()> {
+        let heap = Heap::new();
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
         let declared = DeclaredArtifact::new(
@@ -691,6 +705,7 @@ mod tests {
             ),
             OutputType::File,
             0,
+            &heap,
         );
         let key = ActionKey::new(
             DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target.dupe())),
@@ -703,7 +718,7 @@ mod tests {
         assert_eq!(*bound.as_base_artifact().key(), key);
         assert_eq!(bound.get_path(), declared.get_path());
 
-        match &*declared.artifact.borrow() {
+        match &*declared.artifact().borrow() {
             DeclaredArtifactKind::Bound(b) => {
                 assert_eq!(b, bound.as_base_artifact());
             }

@@ -42,6 +42,7 @@ use indexmap::IndexSet;
 use starlark::codemap::FileSpan;
 use starlark::collections::SmallMap;
 use starlark::collections::SmallSet;
+use starlark::values::Heap;
 use starlark::values::Trace;
 
 use crate::actions::ActionErrors;
@@ -81,6 +82,7 @@ impl<'v> ActionsRegistry<'v> {
     pub fn declare_dynamic_output(
         &mut self,
         artifact: &BuildArtifact,
+        heap: &'v Heap,
     ) -> buck2_error::Result<DeclaredArtifact<'v>> {
         if !self.pending.is_empty() {
             return Err(internal_error!(
@@ -96,7 +98,7 @@ impl<'v> ActionsRegistry<'v> {
         // never escape the dynamic lambda.
         // TODO(cjhopman): dynamic values mean this can escape. does this need to be updated for that?
         let new_artifact =
-            DeclaredArtifact::new(artifact.get_path().dupe(), artifact.output_type(), 0);
+            DeclaredArtifact::new(artifact.get_path().dupe(), artifact.output_type(), 0, heap);
 
         assert!(
             self.declared_dynamic_outputs
@@ -172,6 +174,7 @@ impl<'v> ActionsRegistry<'v> {
         output_type: OutputType,
         declaration_location: Option<FileSpan>,
         path_resolution_method: BuckOutPathKind,
+        heap: &'v Heap,
     ) -> buck2_error::Result<DeclaredArtifact<'v>> {
         let (path, hidden) = match prefix {
             None => (path, 0),
@@ -183,7 +186,7 @@ impl<'v> ActionsRegistry<'v> {
             path,
             path_resolution_method,
         );
-        let declared = DeclaredArtifact::new(out_path, output_type, hidden);
+        let declared = DeclaredArtifact::new(out_path, output_type, hidden, heap);
         if !self.artifacts.insert(declared.dupe()) {
             panic!("not expected duplicate artifact after output path was successfully claimed");
         }

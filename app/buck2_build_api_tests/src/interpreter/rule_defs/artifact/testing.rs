@@ -119,6 +119,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             OutputType::File,
             None,
             BuckOutPathKind::default(),
+            eval.heap(),
         )?;
         Ok(StarlarkDeclaredArtifact::new(
             None,
@@ -143,6 +144,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             OutputType::File,
             None,
             BuckOutPathKind::default(),
+            eval.heap(),
         )?;
         let outputs = indexset![artifact.as_output()];
         registry.register(
