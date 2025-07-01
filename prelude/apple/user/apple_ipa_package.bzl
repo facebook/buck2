@@ -14,14 +14,13 @@ load("@prelude//apple:apple_rules_impl_utility.bzl", "get_apple_bundle_toolchain
 load("@prelude//apple:apple_sdk.bzl", "get_apple_sdk_name")
 load("@prelude//apple:apple_swift_stdlib.bzl", "should_copy_swift_stdlib")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
-load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 
-def _apple_ipa_package_impl(ctx: AnalysisContext) -> list[Provider]:
+def apple_ipa_package_impl(ctx: AnalysisContext) -> list[Provider]:
     ipa_package = _get_ipa_contents(ctx)
     return [DefaultInfo(default_output = ipa_package)]
 
-def _apple_ipa_package_attribs():
+def apple_ipa_package_attribs():
     attribs = {
         "bundle": attrs.dep(providers = [AppleBundleInfo]),
         "ext": attrs.enum(ApplePackageExtension.values(), default = "ipa"),
@@ -32,12 +31,6 @@ def _apple_ipa_package_attribs():
     }
     attribs.update(apple_common.apple_tools_arg())
     return attribs
-
-registration_spec = RuleRegistrationSpec(
-    name = "apple_ipa_package",
-    impl = _apple_ipa_package_impl,
-    attrs = _apple_ipa_package_attribs(),
-)
 
 _IPA_PACKAGE_FORWARDED_FIELDS = [
     "bundle",

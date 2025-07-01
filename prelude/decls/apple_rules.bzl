@@ -19,6 +19,7 @@ load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executab
 load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/swift:swift_types.bzl", "SwiftMacroPlugin", "SwiftVersion")
+load("@prelude//apple/user:apple_ipa_package.bzl", "apple_ipa_package_attribs", "apple_ipa_package_impl")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:test_common.bzl", "test_common")
@@ -1160,12 +1161,19 @@ cxx_universal_executable = prelude_rule(
     attrs = _cxx_universal_executable_attrs(),
 )
 
+apple_ipa_package = prelude_rule(
+    name = "apple_ipa_package",
+    impl = apple_ipa_package_impl,
+    attrs = apple_ipa_package_attribs(),
+)
+
 ios_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
     apple_bundle = apple_bundle,
     apple_library = apple_library,
     apple_package = apple_package,
+    apple_ipa_package = apple_ipa_package,
     apple_resource = apple_resource,
     apple_test = apple_test,
     apple_toolchain = apple_toolchain,
