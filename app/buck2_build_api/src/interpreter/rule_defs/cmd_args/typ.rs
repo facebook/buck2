@@ -19,8 +19,10 @@ use std::fmt::Formatter;
 use std::marker::PhantomData;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_core::fs::paths::RelativePathBuf;
+use buck2_error::BuckErrorContext;
 use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
@@ -301,7 +303,15 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
                     Ok(())
                 }
 
-                fn visit_output(&mut self, _artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {}
+                fn visit_declared_output(
+                    &mut self,
+                    _artifact: OutputArtifact<'v>,
+                    _tag: Option<&ArtifactTag>,
+                ) {
+                }
+
+                fn visit_frozen_output(&mut self, _artifact: Artifact, _tag: Option<&ArtifactTag>) {
+                }
             }
             let mut ignored_artifacts_visitor = IgnoredArtifactsVisitor::new();
             for item in self.0.items().iter().chain(self.0.hidden().iter()) {
@@ -878,11 +888,25 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<Vec<StarlarkOutputArtifact<'v>>> {
         let mut visitor = SimpleCommandLineArtifactVisitor::new();
         cmd_args(this).visit_artifacts(&mut visitor)?;
-        let mut outputs = Vec::with_capacity(visitor.outputs.len());
-        for out in visitor.outputs {
+        let mut outputs =
+            Vec::with_capacity(visitor.declared_outputs.len() + visitor.frozen_outputs.len());
+        for out in visitor.declared_outputs {
             let declared = heap.alloc_typed(StarlarkDeclaredArtifact::new(
                 None,
                 (*out).dupe(),
+                AssociatedArtifacts::new(),
+            ));
+            outputs.push(StarlarkOutputArtifact::new(declared));
+        }
+        // FIXME(JakobDegen): We should probably not be allowing people to get an `OutputArtifact`
+        // for an artifact declared in a downstream action??
+        for out in visitor.frozen_outputs {
+            let declared = heap.alloc_typed(StarlarkDeclaredArtifact::new(
+                None,
+                (*out.as_output_artifact().with_internal_error(|| {
+                    "Expecting artifact to be output artifact".to_owned()
+                })?)
+                .dupe(),
                 AssociatedArtifacts::new(),
             ));
             outputs.push(StarlarkOutputArtifact::new(declared));

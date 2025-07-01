@@ -44,7 +44,9 @@ use crate::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 pub trait CommandLineArtifactVisitor<'v> {
     fn visit_input(&mut self, input: ArtifactGroup, tag: Option<&ArtifactTag>);
 
-    fn visit_output(&mut self, artifact: OutputArtifact<'v>, tag: Option<&ArtifactTag>);
+    fn visit_declared_output(&mut self, artifact: OutputArtifact<'v>, tag: Option<&ArtifactTag>);
+
+    fn visit_frozen_output(&mut self, artifact: Artifact, tag: Option<&ArtifactTag>);
 
     /// Those two functions can be used to keep track of recursion when visiting artifacts.
     fn push_frame(&mut self) -> buck2_error::Result<()> {
@@ -69,14 +71,16 @@ pub trait CommandLineArtifactVisitor<'v> {
 /// A CommandLineArtifactVisitor that gathers inputs and outputs.
 pub struct SimpleCommandLineArtifactVisitor<'v> {
     pub inputs: IndexSet<ArtifactGroup>,
-    pub outputs: IndexSet<OutputArtifact<'v>>,
+    pub declared_outputs: IndexSet<OutputArtifact<'v>>,
+    pub frozen_outputs: IndexSet<Artifact>,
 }
 
 impl SimpleCommandLineArtifactVisitor<'_> {
     pub fn new() -> Self {
         Self {
             inputs: IndexSet::new(),
-            outputs: IndexSet::new(),
+            declared_outputs: IndexSet::new(),
+            frozen_outputs: IndexSet::new(),
         }
     }
 }
@@ -86,8 +90,12 @@ impl<'v> CommandLineArtifactVisitor<'v> for SimpleCommandLineArtifactVisitor<'v>
         self.inputs.insert(input);
     }
 
-    fn visit_output(&mut self, artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {
-        self.outputs.insert(artifact);
+    fn visit_declared_output(&mut self, artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {
+        self.declared_outputs.insert(artifact);
+    }
+
+    fn visit_frozen_output(&mut self, artifact: Artifact, _tag: Option<&ArtifactTag>) {
+        self.frozen_outputs.insert(artifact);
     }
 }
 

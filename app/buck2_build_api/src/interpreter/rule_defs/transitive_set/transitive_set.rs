@@ -13,6 +13,7 @@ use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_error::BuckErrorContext;
 use display_container::display_pair;
@@ -510,7 +511,14 @@ impl<'v> TransitiveSet<'v> {
                 }
             }
 
-            fn visit_output(&mut self, _artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {}
+            fn visit_declared_output(
+                &mut self,
+                _artifact: OutputArtifact<'v>,
+                _tag: Option<&ArtifactTag>,
+            ) {
+            }
+
+            fn visit_frozen_output(&mut self, _artifact: Artifact, _tag: Option<&ArtifactTag>) {}
 
             fn visit_declared_artifact(
                 &mut self,

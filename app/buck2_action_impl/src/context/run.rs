@@ -11,6 +11,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::artifact_type::ArtifactErrors;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
@@ -243,7 +245,11 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                 self.inner.visit_input(input, tag);
             }
 
-            fn visit_output(&mut self, artifact: OutputArtifact<'v>, tag: Option<&ArtifactTag>) {
+            fn visit_declared_output(
+                &mut self,
+                artifact: OutputArtifact<'v>,
+                tag: Option<&ArtifactTag>,
+            ) {
                 match tag {
                     None => {}
                     Some(tag) => {
@@ -254,7 +260,11 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                     }
                 }
 
-                self.inner.visit_output(artifact, tag);
+                self.inner.visit_declared_output(artifact, tag);
+            }
+
+            fn visit_frozen_output(&mut self, artifact: Artifact, tag: Option<&ArtifactTag>) {
+                self.inner.visit_frozen_output(artifact, tag)
             }
 
             fn push_frame(&mut self) -> buck2_error::Result<()> {
@@ -333,6 +343,10 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             depth: _,
         } = artifact_visitor;
 
+        if let Some(frozen) = { artifacts.frozen_outputs }.pop() {
+            return Err(buck2_error::Error::from(ArtifactErrors::DuplicateBind(frozen)).into());
+        }
+
         let mut dep_files_configuration = RunActionDepFiles::new();
 
         if let Some(dep_files) = dep_files {
@@ -378,14 +392,14 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             (None, None) => Ok(None),
         }?;
 
-        if artifacts.outputs.is_empty() {
+        if artifacts.declared_outputs.is_empty() {
             return Err(buck2_error::Error::from(RunActionError::NoOutputsSpecified).into());
         }
         let heap = eval.heap();
 
         for o in outputs_for_error_handler.items.iter() {
             let to_materialize = o.artifact()?;
-            if !artifacts.outputs.contains(&to_materialize) {
+            if !artifacts.declared_outputs.contains(&to_materialize) {
                 return Err(buck2_error::Error::from(
                     RunActionError::FailedActionArtifactNotDeclared {
                         path: o.to_string(),
@@ -425,7 +439,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             parse_meta_internal_extra_params(meta_internal_extra_params.into_option())?;
 
         if no_outputs_cleanup {
-            for o in artifacts.outputs.iter() {
+            for o in artifacts.declared_outputs.iter() {
                 if o.has_content_based_path() {
                     return Err(buck2_error::Error::from(
                         RunActionError::NoOutputsCleanupWithContentBasedOutputs {
@@ -455,7 +469,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         };
         this.state()?.register_action(
             artifacts.inputs,
-            artifacts.outputs,
+            artifacts.declared_outputs,
             action,
             Some(starlark_values),
             error_handler.into_option(),

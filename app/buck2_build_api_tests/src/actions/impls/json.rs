@@ -44,7 +44,14 @@ fn test_tagging() -> anyhow::Result<()> {
             assert_eq!(input, ArtifactGroup::Artifact(self.artifact.dupe()));
         }
 
-        fn visit_output(&mut self, _artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {}
+        fn visit_declared_output(
+            &mut self,
+            _artifact: OutputArtifact<'v>,
+            _tag: Option<&ArtifactTag>,
+        ) {
+        }
+
+        fn visit_frozen_output(&mut self, _artifact: Artifact, _tag: Option<&ArtifactTag>) {}
     }
 
     #[starlark_module]

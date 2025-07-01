@@ -436,12 +436,18 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
                                     self.0.push_back((self.1.dupe(), input));
                                 }
 
-                                fn visit_output(
+                                fn visit_declared_output(
                                     &mut self,
-                                    _artifact: OutputArtifact,
+                                    _artifact: OutputArtifact<'v>,
                                     _tag: Option<&ArtifactTag>,
                                 ) {
-                                    // ignored
+                                }
+
+                                fn visit_frozen_output(
+                                    &mut self,
+                                    _artifact: Artifact,
+                                    _tag: Option<&ArtifactTag>,
+                                ) {
                                 }
                             }
                             ValueAsCommandLineLike::unpack_value_err(v)?

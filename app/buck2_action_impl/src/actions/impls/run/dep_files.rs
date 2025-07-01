@@ -1503,7 +1503,11 @@ impl<'v> CommandLineArtifactVisitor<'v> for DepFilesCommandLineVisitor<'_> {
         self.inputs.visit_input(input, tag, self.dep_files);
     }
 
-    fn visit_output(&mut self, artifact: OutputArtifact<'v>, tag: Option<&ArtifactTag>) {
+    fn visit_declared_output(&mut self, _artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {
+        unreachable!("Dep files visitors are run after freezing")
+    }
+
+    fn visit_frozen_output(&mut self, artifact: Artifact, tag: Option<&ArtifactTag>) {
         match tag {
             Some(tag) => {
                 // NOTE: We have validated tags earlier, so we know that if a tag does not point to
@@ -1511,7 +1515,7 @@ impl<'v> CommandLineArtifactVisitor<'v> for DepFilesCommandLineVisitor<'_> {
                 // dep file per tag.
                 if let Some((_label, output)) = self.tagged_outputs.get_mut(tag) {
                     // NOTE: analysis has been done so we know inputs are bound now.
-                    *output = Some((*artifact).dupe().ensure_bound().unwrap().into_artifact());
+                    *output = Some(artifact);
                 }
             }
             None => (),
@@ -1573,13 +1577,13 @@ mod tests {
         };
 
         let mut visitor = DepFilesCommandLineVisitor::new(&dep_files);
-        visitor.visit_output(artifact3.as_output_artifact().unwrap(), Some(&tag3));
-        visitor.visit_output(artifact2.as_output_artifact().unwrap(), Some(&tag2));
-        visitor.visit_output(artifact1.as_output_artifact().unwrap(), Some(&tag1));
+        visitor.visit_frozen_output(artifact3, Some(&tag3));
+        visitor.visit_frozen_output(artifact2, Some(&tag2));
+        visitor.visit_frozen_output(artifact1, Some(&tag1));
         // This should be ignored as it's not included in RunActionDepFiles
-        visitor.visit_output(artifact4.as_output_artifact().unwrap(), Some(&tag4));
+        visitor.visit_frozen_output(artifact4, Some(&tag4));
         // This should be ignored as it does not have a tag
-        visitor.visit_output(artifact5.as_output_artifact().unwrap(), None);
+        visitor.visit_frozen_output(artifact5, None);
 
         // Assert that the order is preserved between the two maps
         let x: Vec<_> = visitor.tagged_outputs.keys().collect();

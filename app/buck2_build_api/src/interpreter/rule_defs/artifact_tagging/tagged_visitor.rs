@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 
 use super::ArtifactTag;
@@ -42,13 +43,21 @@ impl<'a, 'b, 'v> CommandLineArtifactVisitor<'v> for TaggedVisitor<'a, 'b, 'v> {
         self.inner.visit_input(input, Some(self.tag))
     }
 
-    /// Same as above, no nesting here.
-    fn visit_output(&mut self, artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {
+    fn visit_declared_output(&mut self, artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {
         let tag = if self.inputs_only {
             None
         } else {
             Some(self.tag)
         };
-        self.inner.visit_output(artifact, tag)
+        self.inner.visit_declared_output(artifact, tag)
+    }
+
+    fn visit_frozen_output(&mut self, artifact: Artifact, _tag: Option<&ArtifactTag>) {
+        let tag = if self.inputs_only {
+            None
+        } else {
+            Some(self.tag)
+        };
+        self.inner.visit_frozen_output(artifact, tag)
     }
 }

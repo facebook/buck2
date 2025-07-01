@@ -147,7 +147,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkOutputArtifact<'v> {
         &self,
         visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
-        visitor.visit_output(self.artifact()?, None);
+        visitor.visit_declared_output(self.artifact()?, None);
         Ok(())
     }
 
@@ -195,7 +195,7 @@ impl<'v> CommandLineArgLike<'v> for FrozenStarlarkOutputArtifact {
         &self,
         visitor: &mut dyn CommandLineArtifactVisitor,
     ) -> buck2_error::Result<()> {
-        visitor.visit_output(self.artifact()?, None);
+        visitor.visit_frozen_output(self.inner().artifact(), None);
         Ok(())
     }
 

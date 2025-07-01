@@ -487,10 +487,8 @@ impl DeclaredArtifactKind {
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]
 pub enum ArtifactErrors {
-    #[error(
-        "Attempted to bind an artifact which was already bound\n  Artifact: {0}\n  Attempted to bind to an action: {1}"
-    )]
-    DuplicateBind(BuildArtifact, ActionKey),
+    #[error("Attempted to bind an artifact which was already bound\n  Artifact: {0}")]
+    DuplicateBind(Artifact),
     #[error(
         "Artifact must be bound by now. If you are intending to use this artifact as the output of `run`, are you missing an `.as_output()` call?\n  Artifact: {0}"
     )]
@@ -516,7 +514,7 @@ impl<'v> OutputArtifact<'v> {
                 // the projected artifacts and then try to bind each of them, but the same
                 // underlying artifact is the one that gets bound.
                 if *a.key() != key {
-                    return Err(ArtifactErrors::DuplicateBind(a.dupe(), key).into());
+                    return Err(ArtifactErrors::DuplicateBind(a.dupe().into()).into());
                 }
             }
             a => take_mut::take(a, |artifact| match artifact {

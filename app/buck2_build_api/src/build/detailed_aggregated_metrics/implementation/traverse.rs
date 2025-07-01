@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use buck2_artifact::actions::key::ActionKey;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -170,12 +171,18 @@ impl<'a> Graph<'a> {
                         }
                     }
 
-                    fn visit_output(
+                    fn visit_declared_output(
                         &mut self,
                         _artifact: OutputArtifact<'v>,
                         _tag: Option<&ArtifactTag>,
                     ) {
-                        // nothing to do
+                    }
+
+                    fn visit_frozen_output(
+                        &mut self,
+                        _artifact: Artifact,
+                        _tag: Option<&ArtifactTag>,
+                    ) {
                     }
                 }
                 let mut visitor = Visitor(&mut visit_dep, self, Ok(()));

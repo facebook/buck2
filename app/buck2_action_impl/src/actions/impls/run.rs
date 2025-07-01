@@ -415,7 +415,9 @@ impl RunAction {
             let worker_key = if worker.supports_bazel_remote_persistent_worker_protocol {
                 let mut worker_visitor = SimpleCommandLineArtifactVisitor::new();
                 worker.exe.visit_artifacts(&mut worker_visitor)?;
-                if !worker_visitor.outputs.is_empty() {
+                if !worker_visitor.declared_outputs.is_empty()
+                    && !worker_visitor.frozen_outputs.is_empty()
+                {
                     // TODO[AH] create appropriate error enum value.
                     return Err(buck2_error!(
                         buck2_error::ErrorTag::ActionMismatchedOutputs,

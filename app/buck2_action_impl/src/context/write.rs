@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::actions::impls::json::JsonUnpack;
 use buck2_build_api::artifact_groups::ArtifactGroup;
@@ -100,7 +101,10 @@ impl<'v> CommandLineArtifactVisitor<'v> for CommandLineInputVisitor {
         }
     }
 
-    fn visit_output(&mut self, _artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {}
+    fn visit_declared_output(&mut self, _artifact: OutputArtifact<'v>, _tag: Option<&ArtifactTag>) {
+    }
+
+    fn visit_frozen_output(&mut self, _artifact: Artifact, _tag: Option<&ArtifactTag>) {}
 
     fn visit_declared_artifact(
         &mut self,
