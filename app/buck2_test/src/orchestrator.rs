@@ -50,9 +50,6 @@ use buck2_build_api::keep_going::KeepGoing;
 use buck2_build_signals::env::NodeDuration;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::events::HasEvents;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -68,10 +65,7 @@ use buck2_core::fs::buck_out_path::BuckOutTestPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::pattern::pattern::ParsedPattern;
-use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::target::configured_or_unconfigured::ConfiguredOrUnconfiguredTargetLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::EndOfTestResults;
 use buck2_data::SetupLocalResourcesEnd;
@@ -611,13 +605,7 @@ async fn prepare_and_execute(
     liveliness_observer: Arc<dyn LivelinessObserver>,
 ) -> Result<ExecuteData, ExecuteError> {
     let execute_on_dice = match key.stage.as_ref() {
-        TestStage::Listing { cacheable, .. } => {
-            if *cacheable {
-                check_cache_listings_experiment(ctx, &key.test_target).await?
-            } else {
-                false
-            }
-        }
+        TestStage::Listing { cacheable, .. } => *cacheable,
         TestStage::Testing { .. } => false,
     };
     if execute_on_dice {
@@ -1074,10 +1062,7 @@ impl BuckTestOrchestrator<'_> {
                         ((result, cached), end)
                     })
                     .await;
-                if !cached
-                    && *cacheable
-                    && check_cache_listings_experiment(dice, &test_target_label).await?
-                {
+                if !cached && *cacheable {
                     let info = CacheUploadInfo {
                         target: &test_target as _,
                         digest_config,
@@ -2134,74 +2119,6 @@ impl CommandExecutionTarget for TestTarget<'_> {
             identifier: "".to_owned(),
         }
     }
-}
-
-/// Checks if test listings cache is enabled. Needed only for safe deployment and will be removed
-async fn check_cache_listings_experiment(
-    dice: &mut DiceComputations<'_>,
-    test_target: &ConfiguredProvidersLabel,
-) -> anyhow::Result<bool> {
-    #[derive(
-        Clone,
-        Dupe,
-        derive_more::Display,
-        Debug,
-        Eq,
-        Hash,
-        PartialEq,
-        Allocative
-    )]
-    struct CheckCacheListingsConfigKey;
-
-    #[async_trait]
-    impl Key for CheckCacheListingsConfigKey {
-        type Value = buck2_error::Result<Arc<Vec<ParsedPattern<TargetPatternExtra>>>>;
-
-        async fn compute(
-            &self,
-            mut dice: &mut DiceComputations,
-            _cancellation: &CancellationContext,
-        ) -> Self::Value {
-            let cell_resolver = dice.get_cell_resolver().await?;
-            let root_cell = cell_resolver.root_cell();
-            let alias_resolver = dice.get_cell_alias_resolver(root_cell).await?;
-            let root_conf = dice.get_legacy_root_config_on_dice().await?;
-            let patterns: Vec<String> = root_conf
-                .view(&mut dice)
-                .parse_list(BuckconfigKeyRef {
-                    section: "buck2",
-                    property: "cache_test_listings",
-                })?
-                .unwrap_or_default();
-
-            let mut result = Vec::new();
-            for pattern in patterns {
-                result.push(ParsedPattern::parse_precise(
-                    pattern.trim(),
-                    root_cell,
-                    &cell_resolver,
-                    &alias_resolver,
-                )?);
-            }
-            Ok(result.into())
-        }
-
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            match (x, y) {
-                (Ok(x), Ok(y)) => x == y,
-                _ => false,
-            }
-        }
-    }
-
-    let patterns = dice.compute(&CheckCacheListingsConfigKey).await??;
-    for pattern in patterns.iter() {
-        if pattern.matches(test_target.target().unconfigured_label()) {
-            return Ok(true);
-        }
-    }
-
-    Ok(false)
 }
 
 fn create_action_key_suffix(stage: &TestStage) -> String {
