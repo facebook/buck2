@@ -99,18 +99,25 @@ impl Artifact {
         }))
     }
 
-    pub fn as_output_artifact<'v>(&self) -> Option<OutputArtifact<'v>> {
+    /// Allocates a new `OutputArtifact` for the given artifact.
+    ///
+    /// This is almost always wrong to call - `Artifact`s are generally already bound, making an
+    /// output artifact for them makes little sense.
+    ///
+    /// Returns `None` if this is not a build artifact
+    pub fn allocate_new_output_artifact_for<'v>(&self) -> Option<OutputArtifact<'v>> {
         let key = self.0.data.key();
         match &key.base {
             BaseArtifactKind::Source(_) => None,
-            BaseArtifactKind::Build(artifact) => {
-                let bound = BoundBuildArtifact {
-                    artifact: artifact.dupe(),
+            BaseArtifactKind::Build(artifact) => Some(
+                DeclaredArtifact {
+                    artifact: Rc::new(RefCell::new(DeclaredArtifactKind::Bound(artifact.dupe()))),
                     projected_path: key.path.dupe(),
                     hidden_components_count: self.0.hidden_components_count,
-                };
-                Some(bound.into_declared_artifact().into())
-            }
+                    _phantom: std::marker::PhantomData,
+                }
+                .into(),
+            ),
         }
     }
 
@@ -300,15 +307,6 @@ impl BoundBuildArtifact {
             self.projected_path,
             self.hidden_components_count,
         )
-    }
-
-    pub fn into_declared_artifact<'v>(self) -> DeclaredArtifact<'v> {
-        DeclaredArtifact {
-            artifact: Rc::new(RefCell::new(DeclaredArtifactKind::Bound(self.artifact))),
-            projected_path: self.projected_path,
-            hidden_components_count: self.hidden_components_count,
-            _phantom: std::marker::PhantomData,
-        }
     }
 
     pub fn as_base_artifact(&self) -> &BuildArtifact {

@@ -903,9 +903,11 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
         for out in visitor.frozen_outputs {
             let declared = heap.alloc_typed(StarlarkDeclaredArtifact::new(
                 None,
-                (*out.as_output_artifact().with_internal_error(|| {
-                    "Expecting artifact to be output artifact".to_owned()
-                })?)
+                (*out
+                    .allocate_new_output_artifact_for()
+                    .with_internal_error(|| {
+                        "Expecting artifact to be output artifact".to_owned()
+                    })?)
                 .dupe(),
                 AssociatedArtifacts::new(),
             ));
