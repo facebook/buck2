@@ -46,9 +46,19 @@ async fn audit_dep_files(
     let state = get_dep_files(&key)
         .with_buck_error_context(|| format!("Failed to find dep files for key `{}`", key))?;
 
+    let declared_dep_files = match state.declared_dep_files() {
+        Some(declared_dep_files) => declared_dep_files,
+        None => {
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Trying to audit dep files for an action that doesn't declare any dep files!"
+            ));
+        }
+    };
+
     let dep_files = read_dep_files(
         state.has_signatures(),
-        state.declared_dep_files(),
+        declared_dep_files,
         state.result(),
         &ctx.clone().get_artifact_fs().await?,
         ctx.per_transaction_data().get_materializer().as_ref(),

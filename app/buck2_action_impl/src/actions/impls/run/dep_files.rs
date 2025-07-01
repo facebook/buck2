@@ -177,10 +177,12 @@ impl StoredFingerprints {
         let input_signatures = Mutex::new(DepFileStateInputSignatures::Computed(self));
         DepFileState {
             digests,
-            input_signatures,
-            declared_dep_files,
             result: result.dupe(),
             was_produced_locally,
+            has_declared_dep_files: Some(HasDeclaredDepFiles {
+                declared_dep_files,
+                input_signatures,
+            }),
         }
     }
 }
@@ -206,16 +208,21 @@ impl PartialEq<PartitionedInputs<ActionImmutableDirectory>> for StoredFingerprin
     }
 }
 
+#[derive(Allocative)]
+struct HasDeclaredDepFiles {
+    declared_dep_files: DeclaredDepFiles,
+    input_signatures: Mutex<DepFileStateInputSignatures>,
+}
+
 /// The state that resulted from the previous evaluation of a command that produced dep files. This
 /// contains everything we need to determine whether re-evaluation is necessary (and if it isn't,
 /// to return the previous value).
 #[derive(Allocative)]
 pub(crate) struct DepFileState {
     digests: CommandDigests,
-    input_signatures: Mutex<DepFileStateInputSignatures>,
-    declared_dep_files: DeclaredDepFiles,
     result: ActionOutputs,
     was_produced_locally: bool,
+    has_declared_dep_files: Option<HasDeclaredDepFiles>,
 }
 
 #[derive(Allocative)]
@@ -226,14 +233,22 @@ pub(crate) struct CommandDigests {
 
 impl DepFileState {
     pub(crate) fn has_signatures(&self) -> bool {
-        match *self.input_signatures.lock() {
-            DepFileStateInputSignatures::Computed(..) => true,
-            DepFileStateInputSignatures::Deferred(..) => false,
+        match self.has_declared_dep_files {
+            Some(ref has_declared_dep_files) => {
+                match *has_declared_dep_files.input_signatures.lock() {
+                    DepFileStateInputSignatures::Computed(..) => true,
+                    DepFileStateInputSignatures::Deferred(..) => false,
+                }
+            }
+            None => false,
         }
     }
 
-    pub(crate) fn declared_dep_files(&self) -> &DeclaredDepFiles {
-        &self.declared_dep_files
+    pub(crate) fn declared_dep_files(&self) -> Option<&DeclaredDepFiles> {
+        match &self.has_declared_dep_files {
+            Some(has_declared_dep_files) => Some(&has_declared_dep_files.declared_dep_files),
+            None => None,
+        }
     }
 
     pub(crate) fn result(&self) -> &ActionOutputs {
@@ -248,9 +263,15 @@ impl DepFileState {
         keep_directories: bool,
         digest_config: DigestConfig,
     ) -> MappedMutexGuard<'a, StoredFingerprints> {
+        let input_signatures = &self
+            .has_declared_dep_files
+            .as_ref()
+            .expect("No dep-files exist, shouldn't try to compute fingerprints!")
+            .input_signatures;
+
         // Now we need to know the signatures on the original action. Produce them if they're
         // missing. We're either storing input directories or outputs here.
-        let mut guard = self.input_signatures.lock();
+        let mut guard = input_signatures.lock();
 
         if let DepFileStateInputSignatures::Deferred(ref mut directories) = *guard {
             let fingerprints = compute_fingerprints(
@@ -828,7 +849,7 @@ fn check_action(
     declared_outputs: &[BuildArtifact],
     declared_dep_files: &DeclaredDepFiles,
 ) -> InitialDepFileLookupResult {
-    if !declared_dep_files.declares_same_dep_files(&previous_state.declared_dep_files) {
+    if !declared_dep_files.declares_same_dep_files(previous_state.declared_dep_files()) {
         // We first need to check if the same dep files existed before or not. If not, then we
         // can't assume they'll still be on disk, and we have to bail.
         tracing::trace!("Dep files miss: Dep files declaration has changed");
@@ -883,9 +904,16 @@ async fn dep_files_match(
         return Ok(false);
     }
 
+    let previous_declared_dep_files = match previous_state.has_declared_dep_files {
+        Some(ref has_declared_dep_files) => &has_declared_dep_files.declared_dep_files,
+        None => {
+            return Ok(false);
+        }
+    };
+
     let dep_files = read_dep_files(
         previous_state.has_signatures(),
-        previous_state.declared_dep_files(),
+        previous_declared_dep_files,
         previous_state.result(),
         ctx.fs(),
         ctx.materializer(),
@@ -1033,39 +1061,53 @@ pub(crate) async fn populate_dep_files(
         directory: input_directory_digest,
     };
 
-    let state = match filtered_input_fingerprints {
-        Some(fingerprints) => fingerprints.to_dep_file_state(
+    let state = if declared_dep_files.is_empty() {
+        DepFileState {
             digests,
-            declared_dep_files,
-            result,
+            has_declared_dep_files: None,
+            result: result.dupe(),
             was_produced_locally,
-        ),
-        None if should_compute_fingerprints => {
-            let fingerprints = eagerly_compute_fingerprints(
-                ctx.digest_config(),
-                ctx.fs(),
-                ctx.materializer(),
-                &shared_declared_inputs,
-                &declared_dep_files,
-                result,
-            )
-            .await?;
-            fingerprints.to_dep_file_state(
+        }
+    } else {
+        match filtered_input_fingerprints {
+            Some(fingerprints) => fingerprints.to_dep_file_state(
                 digests,
                 declared_dep_files,
                 result,
                 was_produced_locally,
-            )
+            ),
+            None => {
+                if should_compute_fingerprints {
+                    let fingerprints = eagerly_compute_fingerprints(
+                        ctx.digest_config(),
+                        ctx.fs(),
+                        ctx.materializer(),
+                        &shared_declared_inputs,
+                        &declared_dep_files,
+                        result,
+                    )
+                    .await?;
+                    fingerprints.to_dep_file_state(
+                        digests,
+                        declared_dep_files,
+                        result,
+                        was_produced_locally,
+                    )
+                } else {
+                    DepFileState {
+                        digests,
+                        result: result.dupe(),
+                        was_produced_locally,
+                        has_declared_dep_files: Some(HasDeclaredDepFiles {
+                            declared_dep_files,
+                            input_signatures: Mutex::new(DepFileStateInputSignatures::Deferred(
+                                Some(shared_declared_inputs),
+                            )),
+                        }),
+                    }
+                }
+            }
         }
-        None => DepFileState {
-            digests,
-            input_signatures: Mutex::new(DepFileStateInputSignatures::Deferred(Some(
-                shared_declared_inputs,
-            ))),
-            declared_dep_files,
-            result: result.dupe(),
-            was_produced_locally,
-        },
     };
 
     DEP_FILES.insert(dep_files_key, Arc::new(state));
@@ -1259,7 +1301,7 @@ pub(crate) struct DeclaredDepFiles {
 }
 
 impl DeclaredDepFiles {
-    fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.tagged.is_empty()
     }
 
@@ -1398,10 +1440,15 @@ impl DeclaredDepFiles {
     /// Returns whether two DeclaredDepFile instances have the same dep files. This ignores the tag
     /// identity, but it requires the same paths declared using the same name. This is a
     /// pre-requisite for being able to reuse dep files from a previous invocation.
-    fn declares_same_dep_files(&self, other: &Self) -> bool {
-        let this = self.tagged.values().collect::<HashSet<_>>();
-        let other = other.tagged.values().collect::<HashSet<_>>();
-        this == other
+    fn declares_same_dep_files(&self, other: Option<&Self>) -> bool {
+        match other {
+            None => self.tagged.is_empty(),
+            Some(other) => {
+                let this = self.tagged.values().collect::<HashSet<_>>();
+                let other = other.tagged.values().collect::<HashSet<_>>();
+                this == other
+            }
+        }
     }
 }
 
@@ -1600,9 +1647,9 @@ mod tests {
             tagged: OrderedMap::from_iter([(tag2.dupe(), depfile3.dupe())]),
         };
 
-        assert!(decl1.declares_same_dep_files(&decl1));
-        assert!(decl1.declares_same_dep_files(&decl2));
-        assert!(!decl2.declares_same_dep_files(&decl3));
-        assert!(!decl3.declares_same_dep_files(&decl4));
+        assert!(decl1.declares_same_dep_files(Some(&decl1)));
+        assert!(decl1.declares_same_dep_files(Some(&decl2)));
+        assert!(!decl2.declares_same_dep_files(Some(&decl3)));
+        assert!(!decl3.declares_same_dep_files(Some(&decl4)));
     }
 }
