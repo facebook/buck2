@@ -133,11 +133,9 @@ async def test_materialize_outputs_defined_by_run_action(buck: Buck) -> None:
         "materialized_outputs_for_failed_actions",
     )
 
-    found_action_error = False
-    if materialized:
-        found_action_error = True
-        assert len(materialized[0]) == 1
-        materialized[0][0].endswith("failed_action.json")
+    if not materialized:
+        raise AssertionError("No materialization for failed actions!")
 
-    if not found_action_error:
-        raise AssertionError("Did not find relevant ActionError")
+    assert len(materialized) == 1
+    assert len(materialized[0]) == 1
+    assert materialized[0][0].endswith("failed_action.json")
