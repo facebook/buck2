@@ -6,9 +6,8 @@
 # of this source tree.
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
-load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
-def _apple_tools_impl(ctx: AnalysisContext) -> list[Provider]:
+def apple_tools_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(),
         AppleToolsInfo(
@@ -27,26 +26,3 @@ def _apple_tools_impl(ctx: AnalysisContext) -> list[Provider]:
             spm_packager = ctx.attrs.spm_packager[RunInfo],
         ),
     ]
-
-# The `apple_tools` rule exposes a set of supplementary tools
-# required by the Apple rules _internally_. Such tools are not
-# toolchain/SDK specific, they're just internal helper tools.
-registration_spec = RuleRegistrationSpec(
-    name = "apple_tools",
-    impl = _apple_tools_impl,
-    attrs = {
-        "adhoc_codesign_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "assemble_bundle": attrs.exec_dep(providers = [RunInfo]),
-        "dry_codesign_tool": attrs.exec_dep(providers = [RunInfo]),
-        "framework_sanitizer": attrs.exec_dep(providers = [RunInfo]),
-        "info_plist_processor": attrs.exec_dep(providers = [RunInfo]),
-        "ipa_package_maker": attrs.exec_dep(providers = [RunInfo]),
-        "make_modulemap": attrs.exec_dep(providers = [RunInfo]),
-        "make_vfsoverlay": attrs.exec_dep(providers = [RunInfo]),
-        "selective_debugging_scrubber": attrs.exec_dep(providers = [RunInfo]),
-        "split_arch_combine_dsym_bundles_tool": attrs.exec_dep(providers = [RunInfo]),
-        "spm_packager": attrs.exec_dep(providers = [RunInfo]),
-        "static_archive_linker": attrs.exec_dep(providers = [RunInfo]),
-        "xcframework_maker": attrs.exec_dep(providers = [RunInfo]),
-    },
-)

@@ -14,6 +14,7 @@ load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_toolchain_attr")
 load("@prelude//apple:apple_simulators.bzl", "apple_simulators_impl")
 load("@prelude//apple:apple_test_host_app_transition.bzl", "apple_test_host_app_transition")
+load("@prelude//apple:apple_tools.bzl", "apple_tools_impl")
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
 load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
@@ -1085,6 +1086,33 @@ apple_simulators = prelude_rule(
     },
 )
 
+apple_tools = prelude_rule(
+    name = "apple_tools",
+    impl = apple_tools_impl,
+    docs = """
+        The `apple_tools` rule exposes a set of supplementary tools
+        required by the Apple rules _internally_. Such tools are not
+        toolchain/SDK specific, they're just internal helper tools.
+    """,
+    examples = None,
+    further = None,
+    attrs = {
+        "adhoc_codesign_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "assemble_bundle": attrs.exec_dep(providers = [RunInfo]),
+        "dry_codesign_tool": attrs.exec_dep(providers = [RunInfo]),
+        "framework_sanitizer": attrs.exec_dep(providers = [RunInfo]),
+        "info_plist_processor": attrs.exec_dep(providers = [RunInfo]),
+        "ipa_package_maker": attrs.exec_dep(providers = [RunInfo]),
+        "make_modulemap": attrs.exec_dep(providers = [RunInfo]),
+        "make_vfsoverlay": attrs.exec_dep(providers = [RunInfo]),
+        "selective_debugging_scrubber": attrs.exec_dep(providers = [RunInfo]),
+        "split_arch_combine_dsym_bundles_tool": attrs.exec_dep(providers = [RunInfo]),
+        "spm_packager": attrs.exec_dep(providers = [RunInfo]),
+        "static_archive_linker": attrs.exec_dep(providers = [RunInfo]),
+        "xcframework_maker": attrs.exec_dep(providers = [RunInfo]),
+    },
+)
+
 def _cxx_universal_executable_attrs():
     return {
         "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
@@ -1142,6 +1170,7 @@ ios_rules = struct(
     apple_test = apple_test,
     apple_toolchain = apple_toolchain,
     apple_toolchain_set = apple_toolchain_set,
+    apple_tools = apple_tools,
     apple_simulators = apple_simulators,
     apple_universal_executable = apple_universal_executable,
     core_data_model = core_data_model,
