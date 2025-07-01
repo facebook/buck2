@@ -235,7 +235,11 @@ impl CacheUploader {
                             self.materializer.as_ref(),
                             result,
                         )
-                        .await?;
+                        .await?
+                        .ok_or_else(|| {
+                            DepFileUploadNoDeclaredDepFiles(remote_dep_file_key.clone())
+                        })?;
+
                     let digest = remote_dep_file_action.action;
                     let dep_file_tany = TAny {
                         type_url: REMOTE_DEP_FILE_KEY.to_owned(),
@@ -549,6 +553,11 @@ enum CacheUploadRejectionReason {
 #[error("Missing action result for dep file key `{0}`")]
 #[buck2(tag = Tier0)]
 struct DepFileReActionResultMissingError(String);
+
+#[derive(Debug, buck2_error::Error)]
+#[error("No dep files were declared, nothing to upload for dep file key `{0}`")]
+#[buck2(tag = Input)]
+struct DepFileUploadNoDeclaredDepFiles(String);
 
 #[async_trait]
 impl UploadCache for CacheUploader {

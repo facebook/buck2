@@ -42,7 +42,7 @@ pub trait IntoRemoteDepFile: Send {
         fs: &ArtifactFs,
         materializer: &dyn Materializer,
         result: &CommandExecutionResult,
-    ) -> buck2_error::Result<RemoteDepFile>;
+    ) -> buck2_error::Result<Option<RemoteDepFile>>;
 }
 
 pub struct CacheUploadResult {
