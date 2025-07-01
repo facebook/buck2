@@ -466,7 +466,7 @@ pub trait CommandLineContext {
     /// not actually dependent upon the artifact's content.
     fn resolve_output_artifact(
         &self,
-        artifact: &OutputArtifact,
+        artifact: &Artifact,
     ) -> buck2_error::Result<CommandLineLocation> {
         self.resolve_project_path(artifact.get_path().resolve(
             self.fs().fs(),

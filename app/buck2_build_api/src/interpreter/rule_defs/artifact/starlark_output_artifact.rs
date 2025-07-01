@@ -116,13 +116,6 @@ impl FrozenStarlarkOutputArtifact {
         // Unwrap justified by construction of the type and the where clause
         FrozenValueTyped::new_err(self.declared_artifact).unwrap()
     }
-
-    pub fn artifact<'v>(&self) -> buck2_error::Result<OutputArtifact<'v>> {
-        let artifact = self.inner().artifact();
-        artifact.as_output_artifact().with_internal_error(|| {
-            format!("Expecting artifact to be output artifact, got {artifact}")
-        })
-    }
 }
 
 impl<'v> CommandLineArgLike<'v> for StarlarkOutputArtifact<'v> {
@@ -187,7 +180,7 @@ impl<'v> CommandLineArgLike<'v> for FrozenStarlarkOutputArtifact {
     ) -> buck2_error::Result<()> {
         // We do not need to use the ArtifactPathMapper here as output artifacts are always
         // resolved to a known path since their content hash is not yet available.
-        cli.push_location(ctx.resolve_output_artifact(&self.artifact()?)?);
+        cli.push_location(ctx.resolve_output_artifact(&self.inner().artifact())?);
         Ok(())
     }
 
