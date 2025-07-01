@@ -166,27 +166,6 @@ enum DepFileStateInputSignatures {
     Computed(StoredFingerprints),
 }
 
-impl StoredFingerprints {
-    fn to_dep_file_state(
-        self,
-        digests: CommandDigests,
-        declared_dep_files: DeclaredDepFiles,
-        result: &ActionOutputs,
-        was_produced_locally: bool,
-    ) -> DepFileState {
-        let input_signatures = Mutex::new(DepFileStateInputSignatures::Computed(self));
-        DepFileState {
-            digests,
-            result: result.dupe(),
-            was_produced_locally,
-            has_declared_dep_files: Some(HasDeclaredDepFiles {
-                declared_dep_files,
-                input_signatures,
-            }),
-        }
-    }
-}
-
 #[derive(Allocative)]
 pub(crate) enum StoredFingerprints {
     /// Store only digests. This is what we use in prod because it is small.
@@ -1070,14 +1049,19 @@ pub(crate) async fn populate_dep_files(
         }
     } else {
         match filtered_input_fingerprints {
-            Some(fingerprints) => fingerprints.to_dep_file_state(
+            Some(fingerprints) => DepFileState {
                 digests,
-                declared_dep_files,
-                result,
+                result: result.dupe(),
                 was_produced_locally,
-            ),
+                has_declared_dep_files: Some(HasDeclaredDepFiles {
+                    declared_dep_files,
+                    input_signatures: Mutex::new(DepFileStateInputSignatures::Computed(
+                        fingerprints,
+                    )),
+                }),
+            },
             None => {
-                if should_compute_fingerprints {
+                let input_signatures = if should_compute_fingerprints {
                     let fingerprints = eagerly_compute_fingerprints(
                         ctx.digest_config(),
                         ctx.fs(),
@@ -1087,24 +1071,19 @@ pub(crate) async fn populate_dep_files(
                         result,
                     )
                     .await?;
-                    fingerprints.to_dep_file_state(
-                        digests,
-                        declared_dep_files,
-                        result,
-                        was_produced_locally,
-                    )
+                    DepFileStateInputSignatures::Computed(fingerprints)
                 } else {
-                    DepFileState {
-                        digests,
-                        result: result.dupe(),
-                        was_produced_locally,
-                        has_declared_dep_files: Some(HasDeclaredDepFiles {
-                            declared_dep_files,
-                            input_signatures: Mutex::new(DepFileStateInputSignatures::Deferred(
-                                Some(shared_declared_inputs),
-                            )),
-                        }),
-                    }
+                    DepFileStateInputSignatures::Deferred(Some(shared_declared_inputs))
+                };
+
+                DepFileState {
+                    digests,
+                    result: result.dupe(),
+                    was_produced_locally,
+                    has_declared_dep_files: Some(HasDeclaredDepFiles {
+                        declared_dep_files,
+                        input_signatures: Mutex::new(input_signatures),
+                    }),
                 }
             }
         }
