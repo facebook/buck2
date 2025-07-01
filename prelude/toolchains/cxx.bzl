@@ -14,6 +14,7 @@ load(
     "CxxInternalTools",
     "CxxPlatformInfo",
     "CxxToolchainInfo",
+    "DepTrackingMode",
     "LinkerInfo",
     "LinkerType",
     "PicBehavior",
@@ -128,6 +129,15 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
     if hasattr(ctx.attrs, "supports_two_phase_compilation"):
         supports_two_phase_compilation = ctx.attrs.supports_two_phase_compilation
 
+    if cxx_tools_info.compiler_type == "clang" or cxx_tools_info.compiler_type == "clang_cl" or cxx_tools_info.compiler_type == "clang_windows":
+        cpp_dep_tracking_mode = DepTrackingMode("show_headers")
+    elif cxx_tools_info.compiler_type == "windows":
+        cpp_dep_tracking_mode = DepTrackingMode("show_includes")
+    elif cxx_tools_info.compiler_type == "gcc":
+        cpp_dep_tracking_mode = DepTrackingMode("makefile")
+    else:
+        cpp_dep_tracking_mode = DepTrackingMode("none")
+
     return [
         DefaultInfo(),
         CxxToolchainInfo(
@@ -207,9 +217,10 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
                 compiler_type = cxx_tools_info.compiler_type,
             ),
             header_mode = HeaderMode("symlink_tree_only"),
-            cpp_dep_tracking_mode = ctx.attrs.cpp_dep_tracking_mode,
+            cpp_dep_tracking_mode = cpp_dep_tracking_mode,
             pic_behavior = pic_behavior,
             llvm_link = llvm_link,
+            use_dep_files = True,
         ),
         CxxPlatformInfo(name = target_name),
     ]
