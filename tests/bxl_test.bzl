@@ -1,9 +1,10 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
-# This source code is licensed under both the MIT license found in the
-# LICENSE-MIT file in the root directory of this source tree and the Apache
+# This source code is dual-licensed under either the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree or the Apache
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-# of this source tree.
+# of this source tree. You may select, at your option, one of the
+# above-listed licenses.
 
 load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
 load("@fbcode_macros//build_defs:export_files.bzl", "export_file")

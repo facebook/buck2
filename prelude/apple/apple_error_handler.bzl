@@ -1,9 +1,10 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
-# This source code is licensed under both the MIT license found in the
-# LICENSE-MIT file in the root directory of this source tree and the Apache
+# This source code is dual-licensed under either the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree or the Apache
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-# of this source tree.
+# of this source tree. You may select, at your option, one of the
+# above-listed licenses.
 
 load("@prelude//apple:apple_error_handler_types.bzl", "AppleErrorCategory")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_CXX_FLAG_MESSAGES", "APPLE_CXX_STDERR_CATEGORIES", "APPLE_META_STDERR_ERROR_CATEGORIES", "SWIFT_STDERR_CATEGORIES")

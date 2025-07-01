@@ -1,9 +1,10 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
-# This source code is licensed under both the MIT license found in the
-# LICENSE-MIT file in the root directory of this source tree and the Apache
+# This source code is dual-licensed under either the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree or the Apache
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-# of this source tree.
+# of this source tree. You may select, at your option, one of the
+# above-listed licenses.
 
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
 load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")

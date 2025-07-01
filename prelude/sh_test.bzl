@@ -1,9 +1,10 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
-# This source code is licensed under both the MIT license found in the
-# LICENSE-MIT file in the root directory of this source tree and the Apache
+# This source code is dual-licensed under either the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree or the Apache
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
-# of this source tree.
+# of this source tree. You may select, at your option, one of the
+# above-listed licenses.
 
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load("@prelude//tests:re_utils.bzl", "get_re_executors_from_props")
