@@ -12,6 +12,7 @@
 
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_toolchain_attr")
+load("@prelude//apple:apple_simulators.bzl", "apple_simulators_impl")
 load("@prelude//apple:apple_test_host_app_transition.bzl", "apple_test_host_app_transition")
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
 load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
@@ -1069,6 +1070,21 @@ apple_universal_executable = prelude_rule(
     attrs = _apple_universal_executable_attrs(),
 )
 
+apple_simulators = prelude_rule(
+    name = "apple_simulators",
+    impl = apple_simulators_impl,
+    examples = None,
+    further = None,
+    attrs = {
+        "args": attrs.list(attrs.string(), default = []),
+        "broker": attrs.exec_dep(providers = [RunInfo]),
+        "idb_targets": attrs.exec_dep(providers = [RunInfo]),
+        "setup_timeout_seconds": attrs.option(attrs.int(), default = None),
+        "_simulator_device": attrs.default_only(attrs.string(default = read_root_config("apple", "simulator_device", ""))),
+        "_simulator_os_version": attrs.default_only(attrs.string(default = read_root_config("apple", "simulator_os_version", ""))),
+    },
+)
+
 def _cxx_universal_executable_attrs():
     return {
         "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
@@ -1126,6 +1142,7 @@ ios_rules = struct(
     apple_test = apple_test,
     apple_toolchain = apple_toolchain,
     apple_toolchain_set = apple_toolchain_set,
+    apple_simulators = apple_simulators,
     apple_universal_executable = apple_universal_executable,
     core_data_model = core_data_model,
     cxx_universal_executable = cxx_universal_executable,
