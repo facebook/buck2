@@ -22,7 +22,6 @@ GroupedSource = record(
 def _get_grouped_srcs(ctx: AnalysisContext) -> list[GroupedSource]:
     grouped_srcs = {}
     for src in ctx.attrs.srcs:
-        # TODO(ianc) also support sources with an "inner path".
         expect(
             isinstance(src, Artifact),
             "src {} is not an artifact, its type is: {}".format(src, type(src)),
