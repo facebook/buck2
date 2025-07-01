@@ -53,7 +53,7 @@ async def testname_formatting(
 #########
 
 
-def get_test_name_from_end_event(event: Any) -> List[str]:  # pyre-ignore[2]
+def get_test_name_from_end_event(event: Any) -> List[str]:
     return event["Event"]["data"]["SpanEnd"]["data"]["TestEnd"]["suite"]["test_names"]
 
 

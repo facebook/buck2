@@ -128,7 +128,6 @@ async def test_local_actions_throttled_when_limited_hybrid_given_memory_pressure
         ), f"Execution of action {lhs} is overlapping with {rhs}"
 
 
-# pyre-ignore[3]: Return type must be specified as type other than `Any`
 def _get(data: Dict[str, Any], *key: str) -> Any:
     for k in key:
         data = data.get(k)
