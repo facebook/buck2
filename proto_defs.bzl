@@ -34,12 +34,47 @@ def rust_protobuf_library(
         doctests,
         build_env,
         proto_srcs,
+        None,
     )
 
     # Set up an alias to the default version of prost to avoid breaking callers
     alias(
         name = name,
         actual = ":" + name + "_prost",
+    )
+
+def rust_protobuf_library_prost_0134(
+        name,
+        srcs,
+        build_script,
+        protos = None,  # Pass a list of files. Thye'll be placed in the cwd. Prefer using proto_srcs.
+        deps = None,
+        test_deps = None,
+        doctests = True,
+        build_env = None,
+        proto_srcs = None,  # Use a proto_srcs() target, path is exposed as BUCK_PROTO_SRCS.
+        crate_name = None):
+    _rust_protobuf_library(
+        name,
+        srcs,
+        build_script,
+        "buck2_protoc_dev-tonic-0-12-3",
+        "prost-0-13-4",
+        protos,
+        [
+            "fbsource//third-party/rust:tonic-0-12-3",
+        ] + (deps or []),
+        test_deps,
+        doctests,
+        build_env,
+        proto_srcs,
+        crate_name,
+    )
+
+    # Set up an alias to the default version of prost to avoid breaking callers
+    alias(
+        name = name,
+        actual = ":" + name + "_prost-0-13-4",
     )
 
 def _rust_protobuf_library(
@@ -53,7 +88,8 @@ def _rust_protobuf_library(
         test_deps,
         doctests,
         build_env,
-        proto_srcs):
+        proto_srcs,
+        crate_name):
     build_name = name + "-build" + "-" + versioned_prost_target
     proto_name = name + "-proto" + "-" + versioned_prost_target
 
@@ -88,7 +124,7 @@ def _rust_protobuf_library(
 
     rust_library(
         name = name + "_" + versioned_prost_target,
-        crate = name,
+        crate = crate_name or name,
         srcs = srcs,
         doctests = doctests,
         env = {
