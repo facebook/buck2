@@ -20,8 +20,6 @@ pub(crate) type ActionDirectoryFingerprint = TrackedFileDigest;
 #[display("DirectoryMetadata(digest:{},size:{})", fingerprint, total_size)]
 pub(crate) struct DirectoryMetadata {
     pub(crate) fingerprint: ActionDirectoryFingerprint,
-    /// Size on disk, if the artifact is a directory.
-    /// Storing separately from ArtifactMetadata to avoid calculating when
-    /// checking matching artifacts.
+    /// Size on disk
     pub(crate) total_size: u64,
 }
