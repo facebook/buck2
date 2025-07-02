@@ -161,6 +161,11 @@ impl Modifiers {
     }
 }
 
+pub struct ProvidersLabelWithModifiers {
+    pub providers_label: ProvidersLabel,
+    pub modifiers: Modifiers,
+}
+
 /// All possible labels.
 /// - target label
 /// - configured target label
@@ -181,6 +186,13 @@ impl TargetLabelWithExtra<TargetPatternExtra> {
 impl TargetLabelWithExtra<ProvidersPatternExtra> {
     pub fn into_providers_label(self) -> ProvidersLabel {
         ProvidersLabel::new(self.target_label, self.extra.providers)
+    }
+
+    pub fn into_providers_label_with_modifiers(self) -> ProvidersLabelWithModifiers {
+        ProvidersLabelWithModifiers {
+            providers_label: ProvidersLabel::new(self.target_label, self.extra.providers),
+            modifiers: self.modifiers,
+        }
     }
 }
 

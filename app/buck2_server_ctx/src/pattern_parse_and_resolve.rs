@@ -9,8 +9,10 @@
  */
 
 use buck2_common::pattern::parse_from_cli;
+use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern::Modifiers;
+use buck2_core::pattern::pattern::ProvidersLabelWithModifiers;
 use buck2_core::pattern::pattern::TargetLabelWithExtra;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
@@ -21,14 +23,10 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::prelude::VecExt;
 
-pub async fn parse_and_resolve_patterns_to_targets_from_cli_args<T: PatternType>(
+async fn resolve_patterns_to_targets<T: PatternType>(
     ctx: &mut DiceComputations<'_>,
-    target_patterns: &[String],
-    cwd: &ProjectRelativePath,
+    resolved_pattern: ResolvedPattern<T>,
 ) -> buck2_error::Result<Vec<TargetLabelWithExtra<T>>> {
-    let resolved_pattern =
-        parse_from_cli::parse_and_resolve_patterns_from_cli_args::<T>(ctx, target_patterns, cwd)
-            .await?;
     let mut result_targets = Vec::new();
     for (package, spec) in resolved_pattern.specs {
         match spec {
@@ -58,6 +56,32 @@ pub async fn parse_and_resolve_patterns_to_targets_from_cli_args<T: PatternType>
     Ok(result_targets)
 }
 
+pub async fn parse_and_resolve_patterns_to_targets_from_cli_args<T: PatternType>(
+    ctx: &mut DiceComputations<'_>,
+    target_patterns: &[String],
+    cwd: &ProjectRelativePath,
+) -> buck2_error::Result<Vec<TargetLabelWithExtra<T>>> {
+    let resolved_pattern =
+        parse_from_cli::parse_and_resolve_patterns_from_cli_args::<T>(ctx, target_patterns, cwd)
+            .await?;
+    resolve_patterns_to_targets(ctx, resolved_pattern).await
+}
+
+pub async fn parse_and_resolve_patterns_with_modifiers_to_targets_from_cli_args<T: PatternType>(
+    ctx: &mut DiceComputations<'_>,
+    target_patterns: &[String],
+    cwd: &ProjectRelativePath,
+) -> buck2_error::Result<Vec<TargetLabelWithExtra<T>>> {
+    let resolved_pattern =
+        parse_from_cli::parse_and_resolve_patterns_with_modifiers_from_cli_args::<T>(
+            ctx,
+            target_patterns,
+            cwd,
+        )
+        .await?;
+    resolve_patterns_to_targets(ctx, resolved_pattern).await
+}
+
 pub async fn parse_and_resolve_provider_labels_from_cli_args(
     ctx: &mut DiceComputations<'_>,
     target_patterns: &[String],
@@ -70,4 +94,17 @@ pub async fn parse_and_resolve_provider_labels_from_cli_args(
     )
     .await?;
     Ok(targets.into_map(|t| t.into_providers_label()))
+}
+
+pub async fn parse_and_resolve_provider_labels_with_modifiers_from_cli_args(
+    ctx: &mut DiceComputations<'_>,
+    target_patterns: &[String],
+    cwd: &ProjectRelativePath,
+) -> buck2_error::Result<Vec<ProvidersLabelWithModifiers>> {
+    let targets = parse_and_resolve_patterns_with_modifiers_to_targets_from_cli_args::<
+        ProvidersPatternExtra,
+    >(ctx, target_patterns, cwd)
+    .await?;
+
+    Ok(targets.into_map(|t| t.into_providers_label_with_modifiers()))
 }
