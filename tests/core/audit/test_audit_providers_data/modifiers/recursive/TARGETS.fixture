@@ -1,0 +1,9 @@
+load(":defs.bzl", "os_info_rule")
+
+os_info_rule(
+    name = "recursive",
+    os = select({
+        "DEFAULT": "default",
+        "root//:macos": "macos",
+    }),
+)
