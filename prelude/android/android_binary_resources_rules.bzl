@@ -486,13 +486,11 @@ def _get_module_manifests(
     if not apk_module_graph_file:
         return []
 
-    if not ctx.attrs.module_manifest_skeleton:
-        return []
-
-    if isinstance(ctx.attrs.module_manifest_skeleton, Dependency):
-        module_manifest_skeleton = ctx.attrs.module_manifest_skeleton[DefaultInfo].default_outputs[0]
-    else:
-        module_manifest_skeleton = ctx.attrs.module_manifest_skeleton
+    if not ctx.attrs.default_module_manifest_skeleton:
+        if use_proto_format:
+            fail("default_module_manifest_skeleton required for a voltron enabled build")
+        else:
+            return []  # non-AAB builds will continue to manage manifests on their own
 
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
 
@@ -505,11 +503,14 @@ def _get_module_manifests(
         for module_name in apk_module_graph_info.module_list:
             if is_root_module(module_name):
                 continue
+            module_manifest = ctx.attrs.module_manifest_skeleton[module_name] if not ctx.attrs.module_manifest_skeleton == None and module_name in ctx.attrs.module_manifest_skeleton else ctx.attrs.default_module_manifest_skeleton
 
+            if isinstance(module_manifest, Dependency):
+                module_manifest = module_manifest[DefaultInfo].default_outputs[0]
             merged_module_manifest, _ = generate_android_manifest(
                 ctx,
                 android_toolchain.generate_manifest[RunInfo],
-                module_manifest_skeleton,
+                module_manifest,
                 module_name,
                 # Note - the expectation of voltron modules is that the AndroidManifest entries are merged into the base APK's manifest.
                 None,
