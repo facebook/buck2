@@ -38,12 +38,16 @@ def _system_go_bootstrap_toolchain_impl(ctx):
     script_language = ScriptLanguage("bat" if go_os == "windows" else "sh")
     go = "go.exe" if go_os == "windows" else "go"
 
+    go_cmd = cmd_script(ctx, "go", cmd_args(go), script_language)
+
     return [
-        DefaultInfo(),
+        DefaultInfo(sub_targets = {"go": [
+            RunInfo(go_cmd),
+        ]}),
         GoBootstrapToolchainInfo(
             env_go_arch = go_arch,
             env_go_os = go_os,
-            go = RunInfo(cmd_script(ctx, "go", cmd_args(go), script_language)),
+            go = RunInfo(go_cmd),
             go_wrapper = ctx.attrs.go_wrapper[RunInfo],
         ),
     ]

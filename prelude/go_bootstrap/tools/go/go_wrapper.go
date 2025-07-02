@@ -141,6 +141,7 @@ func loadArgs(args []string) []string {
 func main() {
 	os.Args = loadArgs(os.Args)
 	var wrappedBinary = flag.String("go", "", "wrapped go binary")
+	var goRoot = flag.String("goroot", "", "go root")
 	var outputFile = flag.String("output", "", "file to redirect stdout to")
 	var workdir = flag.String("workdir", "", "directory to run the command in")
 	flag.Parse()
@@ -161,7 +162,12 @@ func main() {
 		envs[pair[0]] = pair[1]
 	}
 
-	if goroot, ok := envs["GOROOT"]; ok {
+	goroot := *goRoot
+	if goroot == "" {
+		goroot = envs["GOROOT"]
+	}
+
+	if goroot != "" {
 		absGoroot, err := filepath.Abs(goroot)
 		if err != nil {
 			log.Fatal("Failed to resolve GOROOT: %s", err)
