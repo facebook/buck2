@@ -87,7 +87,7 @@ def windows_resource_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     providers = [
-        DefaultInfo(default_output = rc_output),
+        DefaultInfo(default_output = None),
         SharedLibraryInfo(set = None),
         LinkGroupLibInfo(libs = {}),
         create_linkable_graph(ctx),
