@@ -120,3 +120,12 @@ pub async fn parse_and_resolve_patterns_from_cli_args<T: PatternType>(
     let patterns = parse_patterns_from_cli_args(ctx, target_patterns, cwd).await?;
     ResolveTargetPatterns::resolve(ctx, &patterns).await
 }
+
+pub async fn parse_and_resolve_patterns_with_modifiers_from_cli_args<T: PatternType>(
+    ctx: &mut DiceComputations<'_>,
+    target_patterns: &[String],
+    cwd: &ProjectRelativePath,
+) -> buck2_error::Result<ResolvedPattern<T>> {
+    let patterns = parse_patterns_with_modifiers_from_cli_args(ctx, target_patterns, cwd).await?;
+    ResolveTargetPatterns::resolve_with_modifiers(ctx, &patterns).await
+}

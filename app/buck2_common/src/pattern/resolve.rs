@@ -11,6 +11,7 @@
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern::display_precise_pattern;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::PatternType;
@@ -111,6 +112,17 @@ impl ResolveTargetPatterns {
         })
         .await
     }
+
+    /// Resolves a list of [ParsedPatternWithModifiers] to a [ResolvedPattern].
+    pub async fn resolve_with_modifiers<P: PatternType>(
+        ctx: &mut DiceComputations<'_>,
+        patterns: &[ParsedPatternWithModifiers<P>],
+    ) -> buck2_error::Result<ResolvedPattern<P>> {
+        ctx.with_linear_recompute(|ctx| async move {
+            resolve_target_patterns_with_modifiers_impl(patterns, &DiceFileOps(&ctx)).await
+        })
+        .await
+    }
 }
 
 async fn resolve_target_patterns_impl<P: PatternType>(
@@ -136,6 +148,39 @@ async fn resolve_target_patterns_impl<P: PatternType>(
             }
         }
     }
+    Ok(resolved)
+}
+
+async fn resolve_target_patterns_with_modifiers_impl<P: PatternType>(
+    patterns: &[ParsedPatternWithModifiers<P>],
+    file_ops: &dyn FileOps,
+) -> buck2_error::Result<ResolvedPattern<P>> {
+    let mut resolved = ResolvedPattern::new();
+
+    for pattern in patterns {
+        match &pattern.parsed_pattern {
+            ParsedPattern::Target(package, target_name, extra) => {
+                resolved.add_target(
+                    package.dupe(),
+                    target_name.clone(),
+                    extra.clone(),
+                    pattern.modifiers.clone(),
+                );
+            }
+            ParsedPattern::Package(package) => {
+                resolved.add_package(package.dupe(), pattern.modifiers.clone());
+            }
+            ParsedPattern::Recursive(cell_path) => {
+                let roots = find_package_roots(cell_path.clone(), file_ops)
+                    .await
+                    .buck_error_context("Error resolving recursive target pattern.")?;
+                for package in roots {
+                    resolved.add_package(package, pattern.modifiers.clone());
+                }
+            }
+        }
+    }
+
     Ok(resolved)
 }
 
