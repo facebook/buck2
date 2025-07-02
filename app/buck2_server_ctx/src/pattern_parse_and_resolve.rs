@@ -32,12 +32,14 @@ pub async fn parse_and_resolve_patterns_to_targets_from_cli_args<T: PatternType>
     for (package, spec) in resolved_pattern.specs {
         match spec {
             buck2_core::pattern::pattern::PackageSpec::Targets(targets) => {
-                result_targets.extend(targets.into_map(|(name, extra)| TargetLabelWithExtra {
-                    target_label: TargetLabel::new(package.dupe(), name.as_ref()),
-                    extra,
+                result_targets.extend(targets.into_map(|(name, extra, _modifiers)| {
+                    TargetLabelWithExtra {
+                        target_label: TargetLabel::new(package.dupe(), name.as_ref()),
+                        extra,
+                    }
                 }))
             }
-            buck2_core::pattern::pattern::PackageSpec::All => {
+            buck2_core::pattern::pattern::PackageSpec::All(_modifiers) => {
                 // Note this code is not parallel. Careful if used in performance sensitive code.
                 let interpreter_results = ctx.get_interpreter_results(package.dupe()).await?;
                 result_targets.extend(interpreter_results.targets().keys().map(|target| {

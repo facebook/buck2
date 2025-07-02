@@ -91,11 +91,11 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     for pattern in parsed_patterns {
         match pattern {
             ParsedPattern::Target(package, target_name, extra) => {
-                spec.add_target(package.dupe(), target_name, extra);
+                spec.add_target(package.dupe(), target_name, extra, None);
                 builder.load_package(package.dupe());
             }
             ParsedPattern::Package(package) => {
-                spec.add_package(package.dupe());
+                spec.add_package(package.dupe(), None);
                 builder.load_package(package.dupe());
             }
             ParsedPattern::Recursive(package) => {
@@ -106,7 +106,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
 
     collect_package_roots(&DiceFileOps(&ctx), recursive_packages, |package| {
         let package = package?;
-        spec.add_package(package.dupe());
+        spec.add_package(package.dupe(), None);
         builder.load_package(package);
         buck2_error::Ok(())
     })

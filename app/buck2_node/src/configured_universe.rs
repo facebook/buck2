@@ -184,7 +184,7 @@ impl CqueryUniverse {
     pub fn get_target_label(&self, label: &TargetLabel) -> Vec<ConfiguredTargetLabel> {
         self.get_from_package(
             label.pkg(),
-            &PackageSpec::Targets(vec![(label.name().to_owned(), TargetPatternExtra)]),
+            &PackageSpec::Targets(vec![(label.name().to_owned(), TargetPatternExtra, None)]),
         )
         .into_iter()
         .map(|(node, _extra)| node.label().dupe())
@@ -228,7 +228,7 @@ impl CqueryUniverse {
             .into_iter()
             .flat_map(move |package_universe| match spec {
                 PackageSpec::Targets(names) => {
-                    Either::Left(names.iter().flat_map(|(name, extra)| {
+                    Either::Left(names.iter().flat_map(|(name, extra, _modifiers)| {
                         package_universe
                             .get(name.as_ref())
                             .into_iter()
@@ -243,7 +243,7 @@ impl CqueryUniverse {
                             })
                     }))
                 }
-                PackageSpec::All => Either::Right(
+                PackageSpec::All(_modifiers) => Either::Right(
                     package_universe
                         .values()
                         .flatten()
@@ -324,6 +324,7 @@ mod tests {
                             providers: providers_name(),
                             cfg,
                         },
+                        None,
                     )])),
                 )]),
             }

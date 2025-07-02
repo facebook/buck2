@@ -576,7 +576,7 @@ async fn build_targets_for_spec(
 ) {
     let skippable = match spec {
         PackageSpec::Targets(..) => skip_incompatible_targets,
-        PackageSpec::All => true,
+        PackageSpec::All(_) => true,
     };
 
     let res = match ctx.get().get_interpreter_results(package.dupe()).await {
@@ -588,7 +588,7 @@ async fn build_targets_for_spec(
                 PackageSpec::Targets(targets) => Either::Left(
                     targets
                         .into_iter()
-                        .map(move |(t, providers)| {
+                        .map(move |(t, providers, _modifiers)| {
                             ProvidersLabel::new(
                                 TargetLabel::new(package.dupe(), t.as_ref()),
                                 providers.providers,
@@ -596,7 +596,7 @@ async fn build_targets_for_spec(
                         })
                         .map(Some),
                 ),
-                PackageSpec::All => Either::Right(std::iter::once(None)),
+                PackageSpec::All(_modifiers) => Either::Right(std::iter::once(None)),
             };
             for t in targets {
                 event_consumer.consume(BuildEvent::OtherError {

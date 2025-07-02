@@ -195,7 +195,7 @@ async fn retrieve_artifacts_for_spec(
     let available_targets = res.targets();
 
     let todo_targets: Vec<(ProvidersLabel, &GlobalCfgOptions)> = match spec {
-        PackageSpec::All => available_targets
+        PackageSpec::All(_modifiers) => available_targets
             .keys()
             .map(|t| {
                 (
@@ -205,10 +205,10 @@ async fn retrieve_artifacts_for_spec(
             })
             .collect(),
         PackageSpec::Targets(targets) => {
-            for (target_name, _) in &targets {
+            for (target_name, _, _modifiers) in &targets {
                 res.resolve_target(target_name)?;
             }
-            targets.into_map(|(target_name, providers)| {
+            targets.into_map(|(target_name, providers, _modifiers)| {
                 (
                     providers.into_providers_label(package.dupe(), target_name.as_ref()),
                     global_cfg_options,

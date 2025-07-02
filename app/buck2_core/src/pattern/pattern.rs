@@ -1207,10 +1207,12 @@ where
 #[derive(Debug, Eq, PartialEq)]
 pub enum PackageSpec<T: PatternType> {
     /// Given targets in a package.
-    Targets(Vec<(TargetName, T)>),
+    /// The `Option<Vec<String>>` represents modifiers from the `?modifier` sytnax.
+    Targets(Vec<(TargetName, T, Option<Vec<String>>)>),
     /// All targets in a package, without subpackages.
     /// Syntax for this variant is `foo:`.
-    All,
+    /// The `Option<Vec<String>>` represents modifiers from the `?modifier` sytnax.
+    All(Option<Vec<String>>),
 }
 
 #[cfg(test)]

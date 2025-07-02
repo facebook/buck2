@@ -49,19 +49,27 @@ where
         }
     }
 
-    pub fn add_package(&mut self, package: PackageLabel) {
-        self.specs.insert(package, PackageSpec::All);
+    pub fn add_package(&mut self, package: PackageLabel, modifiers: Option<Vec<String>>) {
+        self.specs.insert(package, PackageSpec::All(modifiers));
     }
 
-    pub fn add_target(&mut self, package: PackageLabel, target_name: TargetName, extra: T) {
+    pub fn add_target(
+        &mut self,
+        package: PackageLabel,
+        target_name: TargetName,
+        extra: T,
+        modifiers: Option<Vec<String>>,
+    ) {
         if let Some(s) = self.specs.get_mut(&package) {
             match s {
-                PackageSpec::Targets(t) => t.push((target_name, extra)),
-                PackageSpec::All => {}
+                PackageSpec::Targets(t) => t.push((target_name, extra, modifiers)),
+                PackageSpec::All(_modifiers) => {}
             }
         } else {
-            self.specs
-                .insert(package, PackageSpec::Targets(vec![(target_name, extra)]));
+            self.specs.insert(
+                package,
+                PackageSpec::Targets(vec![(target_name, extra, modifiers)]),
+            );
         }
     }
 }
@@ -71,18 +79,18 @@ impl ResolvedPattern<ConfiguredProvidersPatternExtra> {
         let mut specs = IndexMap::with_capacity(self.specs.len());
         for (package, spec) in self.specs {
             let spec = match spec {
-                PackageSpec::Targets(targets) => {
-                    PackageSpec::Targets(targets.into_try_map(|(target_name, extra)| {
+                PackageSpec::Targets(targets) => PackageSpec::Targets(targets.into_try_map(
+                    |(target_name, extra, modifiers)| {
                         let extra = U::from_configured_providers(extra.clone())
                             .buck_error_context(ResolvedPatternError::InvalidPattern(
                                 U::NAME,
                                 display_precise_pattern(&package, target_name.as_ref(), &extra)
                                     .to_string(),
                             ))?;
-                        buck2_error::Ok((target_name, extra))
-                    })?)
-                }
-                PackageSpec::All => PackageSpec::All,
+                        buck2_error::Ok((target_name, extra, modifiers))
+                    },
+                )?),
+                PackageSpec::All(modifiers) => PackageSpec::All(modifiers),
             };
             specs.insert(package, spec);
         }
@@ -113,17 +121,17 @@ async fn resolve_target_patterns_impl<P: PatternType>(
     for pattern in patterns {
         match pattern {
             ParsedPattern::Target(package, target_name, extra) => {
-                resolved.add_target(package.dupe(), target_name.clone(), extra.clone());
+                resolved.add_target(package.dupe(), target_name.clone(), extra.clone(), None);
             }
             ParsedPattern::Package(package) => {
-                resolved.add_package(package.dupe());
+                resolved.add_package(package.dupe(), None);
             }
             ParsedPattern::Recursive(cell_path) => {
                 let roots = find_package_roots(cell_path.clone(), file_ops)
                     .await
                     .buck_error_context("Error resolving recursive target pattern.")?;
                 for package in roots {
-                    resolved.add_package(package);
+                    resolved.add_package(package, None);
                 }
             }
         }
@@ -269,13 +277,17 @@ mod tests {
                 (
                     PackageLabel::testing_parse("root//some"),
                     PackageSpec::Targets(vec![
-                        (TargetName::testing_new("target"), TargetPatternExtra),
-                        (TargetName::testing_new("other_target"), TargetPatternExtra),
+                        (TargetName::testing_new("target"), TargetPatternExtra, None),
+                        (
+                            TargetName::testing_new("other_target"),
+                            TargetPatternExtra,
+                            None,
+                        ),
                     ]),
                 ),
                 (
                     PackageLabel::testing_parse("child//a/package"),
-                    PackageSpec::All,
+                    PackageSpec::All(None),
                 ),
             ]);
         Ok(())
@@ -304,6 +316,7 @@ mod tests {
                             ProvidersPatternExtra {
                                 providers: ProvidersName::Default,
                             },
+                            None,
                         ),
                         (
                             TargetName::testing_new("other_target"),
@@ -317,12 +330,13 @@ mod tests {
                                     ),
                                 )),
                             },
+                            None,
                         ),
                     ]),
                 ),
                 (
                     PackageLabel::testing_parse("child//a/package"),
-                    PackageSpec::All,
+                    PackageSpec::All(None),
                 ),
             ]);
         Ok(())
@@ -361,29 +375,38 @@ mod tests {
                 .await
                 .unwrap()
                 .assert_eq(&[
-                    (PackageLabel::testing_parse("root//other"), PackageSpec::All),
+                    (
+                        PackageLabel::testing_parse("root//other"),
+                        PackageSpec::All(None),
+                    ),
                     (
                         PackageLabel::testing_parse("root//other/a/bit/deeper"),
-                        PackageSpec::All,
+                        PackageSpec::All(None),
                     ),
                     (
                         PackageLabel::testing_parse("root//other/a/bit/deeper/and/deeper"),
-                        PackageSpec::All,
+                        PackageSpec::All(None),
                     ),
                     (
                         PackageLabel::testing_parse("root//some/thing/dir/a"),
-                        PackageSpec::All,
+                        PackageSpec::All(None),
                     ),
                     (
                         PackageLabel::testing_parse("root//some/thing/dir/a/b"),
-                        PackageSpec::All,
+                        PackageSpec::All(None),
                     ),
                     (
                         PackageLabel::testing_parse("root//some/thing/extra"),
-                        PackageSpec::All,
+                        PackageSpec::All(None),
                     ),
-                    (PackageLabel::testing_parse("child//"), PackageSpec::All),
-                    (PackageLabel::testing_parse("child//foo"), PackageSpec::All),
+                    (
+                        PackageLabel::testing_parse("child//"),
+                        PackageSpec::All(None),
+                    ),
+                    (
+                        PackageLabel::testing_parse("child//foo"),
+                        PackageSpec::All(None),
+                    ),
                 ]);
         })
     }

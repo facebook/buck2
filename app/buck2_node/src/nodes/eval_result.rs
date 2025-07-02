@@ -201,7 +201,7 @@ impl EvaluationResult {
         Option<MissingTargets>,
     ) {
         match spec {
-            PackageSpec::All => {
+            PackageSpec::All(_modifiers) => {
                 let mut label_to_node = BTreeMap::new();
                 for target_info in self.targets().values() {
                     label_to_node.insert(
@@ -214,7 +214,7 @@ impl EvaluationResult {
             PackageSpec::Targets(targets) => {
                 let mut label_to_node = BTreeMap::new();
                 let mut missing_targets = Vec::new();
-                for (target_name, extra) in targets {
+                for (target_name, extra, _modifiers) in targets {
                     let node = self.get_target(target_name.as_ref());
                     match node {
                         Some(node) => {

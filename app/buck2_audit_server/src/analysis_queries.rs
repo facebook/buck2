@@ -53,7 +53,7 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
                 for (package, spec) in resolved_pattern.specs {
                     match spec {
                         buck2_core::pattern::pattern::PackageSpec::Targets(targets) => {
-                            for (target, TargetPatternExtra) in targets {
+                            for (target, TargetPatternExtra, _modifiers) in targets {
                                 let label = TargetLabel::new(package.dupe(), target.as_ref());
                                 for configured_target in target_resolution_config
                                     .get_configured_target(&mut ctx, &label)
@@ -81,7 +81,7 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
                                 }
                             }
                         }
-                        buck2_core::pattern::pattern::PackageSpec::All => {
+                        buck2_core::pattern::pattern::PackageSpec::All(_modifiers) => {
                             return Err(buck2_error::buck2_error!(
                                 buck2_error::ErrorTag::Unimplemented,
                                 "PackageSpec::All not implemented"

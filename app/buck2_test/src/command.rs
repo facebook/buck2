@@ -976,7 +976,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                         // Try to associate the error to concrete targets, if possible
                         match spec {
                             PackageSpec::Targets(targets) => {
-                                for (target, providers) in targets {
+                                for (target, providers, _modifiers) in targets {
                                     let label = Some(ProvidersLabel::new(
                                         TargetLabel::new(package.dupe(), target.as_ref()),
                                         providers.providers,
@@ -988,7 +988,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                                     });
                                 }
                             }
-                            PackageSpec::All => events.push(BuildEvent::OtherError {
+                            PackageSpec::All(_modifiers) => events.push(BuildEvent::OtherError {
                                 label: None,
                                 err: e,
                             }),
@@ -1001,7 +1001,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 // Indicates whether this should be skipped if incompatible.
                 let skippable = match spec {
                     PackageSpec::Targets(..) => skip_incompatible_targets,
-                    PackageSpec::All => true,
+                    PackageSpec::All(..) => true,
                 };
 
                 let (targets, missing) = res.apply_spec(spec);

@@ -298,8 +298,11 @@ async fn collect_install_request_data<'a>(
     let mut installer_to_files_map = HashMap::new();
     for (package, spec) in resolved_pattern.specs {
         let targets: Vec<(TargetName, ProvidersPatternExtra)> = match spec {
-            PackageSpec::Targets(targets) => targets,
-            PackageSpec::All => {
+            PackageSpec::Targets(targets) => targets
+                .into_iter()
+                .map(|(name, providers_pattern_extra, _modifiers)| (name, providers_pattern_extra))
+                .collect(),
+            PackageSpec::All(_modifiers) => {
                 let interpreter_results = ctx.get_interpreter_results(package.dupe()).await?;
                 interpreter_results
                     .targets()
