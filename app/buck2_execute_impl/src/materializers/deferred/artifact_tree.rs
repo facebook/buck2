@@ -41,12 +41,13 @@ use crate::materializers::sqlite::MaterializerStateEntry;
 use crate::materializers::sqlite::MaterializerStateSqliteDb;
 
 /// A future that is materializing on a separate task spawned by the materializer
-pub type MaterializingFuture = Shared<BoxFuture<'static, Result<(), SharedMaterializingError>>>;
+pub(crate) type MaterializingFuture =
+    Shared<BoxFuture<'static, Result<(), SharedMaterializingError>>>;
 /// A future that is cleaning paths on a separate task spawned by the materializer
-pub type CleaningFuture = Shared<BoxFuture<'static, buck2_error::Result<()>>>;
+pub(crate) type CleaningFuture = Shared<BoxFuture<'static, buck2_error::Result<()>>>;
 
 #[derive(Clone)]
-pub enum ProcessingFuture {
+pub(crate) enum ProcessingFuture {
     Materializing(MaterializingFuture),
     Cleaning(CleaningFuture),
 }
@@ -54,7 +55,7 @@ pub enum ProcessingFuture {
 /// Tree that stores materialization data for each artifact. Used internally by
 /// the `DeferredMaterializer` to keep track of artifacts and how to
 /// materialize them.
-pub type ArtifactTree = FileTree<Box<ArtifactMaterializationData>>;
+pub(crate) type ArtifactTree = FileTree<Box<ArtifactMaterializationData>>;
 
 /// The Version of a processing future associated with an artifact. We use this to know if we can
 /// clear the processing field when a callback is received, or if more work is expected.
@@ -63,13 +64,13 @@ pub struct Version(pub u64);
 
 pub struct ArtifactMaterializationData {
     /// Taken from `deps` of `ArtifactValue`. Used to materialize deps of the artifact.
-    pub deps: Option<ActionSharedDirectory>,
-    pub stage: ArtifactMaterializationStage,
+    pub(crate) deps: Option<ActionSharedDirectory>,
+    pub(crate) stage: ArtifactMaterializationStage,
     /// An optional future that may be processing something at the current path
     /// (for example, materializing or deleting). Any other future that needs to process
     /// this path would need to wait on the existing future to finish.
     /// TODO(scottcao): Turn this into a queue of pending futures.
-    pub processing: Processing,
+    pub(crate) processing: Processing,
 }
 
 /// Represents a processing future + the version at which it was issued. When receiving
@@ -79,7 +80,7 @@ pub struct ArtifactMaterializationData {
 /// The version is an internal counter that is shared between the current processing_fut and
 /// this data. When multiple operations are queued on a ArtifactMaterializationData, this
 /// allows us to identify which one is current.
-pub enum Processing {
+pub(crate) enum Processing {
     Done(Version),
     Active {
         future: ProcessingFuture,
@@ -88,7 +89,7 @@ pub enum Processing {
 }
 
 impl Processing {
-    pub fn current_version(&self) -> Version {
+    pub(crate) fn current_version(&self) -> Version {
         match self {
             Self::Done(version) => *version,
             Self::Active { version, .. } => *version,
@@ -108,10 +109,13 @@ impl Processing {
 /// For everything else (files, symlinks, and external symlinks), we use `ActionDirectoryMember`
 /// as is because it already holds the metadata we need.
 #[derive(Clone, Dupe, Debug)]
-pub struct ArtifactMetadata(pub ActionDirectoryEntry<DirectoryMetadata>);
+pub struct ArtifactMetadata(pub(crate) ActionDirectoryEntry<DirectoryMetadata>);
 
 impl ArtifactMetadata {
-    pub fn matches_entry(&self, entry: &ActionDirectoryEntry<ActionSharedDirectory>) -> bool {
+    pub(crate) fn matches_entry(
+        &self,
+        entry: &ActionDirectoryEntry<ActionSharedDirectory>,
+    ) -> bool {
         match (&self.0, entry) {
             (
                 DirectoryEntry::Dir(DirectoryMetadata { fingerprint, .. }),
@@ -135,7 +139,7 @@ impl ArtifactMetadata {
         }
     }
 
-    pub fn new(entry: &ActionDirectoryEntry<ActionSharedDirectory>) -> Self {
+    pub(crate) fn new(entry: &ActionDirectoryEntry<ActionSharedDirectory>) -> Self {
         let new_entry = match entry {
             DirectoryEntry::Dir(dir) => DirectoryEntry::Dir(DirectoryMetadata {
                 fingerprint: dir.fingerprint().dupe(),
@@ -146,7 +150,7 @@ impl ArtifactMetadata {
         Self(new_entry)
     }
 
-    pub fn size(&self) -> u64 {
+    pub(crate) fn size(&self) -> u64 {
         match &self.0 {
             DirectoryEntry::Dir(dir) => dir.total_size,
             DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
@@ -238,7 +242,7 @@ impl MaterializationMethodToProto for ArtifactMaterializationMethod {
 }
 
 impl ArtifactTree {
-    pub fn initialize(sqlite_state: Option<MaterializerState>) -> Self {
+    pub(crate) fn initialize(sqlite_state: Option<MaterializerState>) -> Self {
         let mut tree = ArtifactTree::new();
         if let Some(sqlite_state) = sqlite_state {
             for entry in sqlite_state.into_iter() {
@@ -270,7 +274,7 @@ impl ArtifactTree {
     ///
     /// Note that the returned `contents_path` could be the same as `path`.
     #[instrument(level = "trace", skip(self), fields(path = %path))]
-    pub fn file_contents_path(
+    pub(crate) fn file_contents_path(
         &self,
         path: ProjectRelativePathBuf,
         digest_config: DigestConfig,
@@ -353,7 +357,7 @@ impl ArtifactTree {
     }
 
     #[instrument(level = "debug", skip(self, result), fields(path = %artifact_path))]
-    pub fn cleanup_finished(
+    pub(crate) fn cleanup_finished(
         &mut self,
         artifact_path: ProjectRelativePathBuf,
         version: Version,
@@ -387,7 +391,7 @@ impl ArtifactTree {
     /// Removes paths from tree and returns a pair of two vecs.
     /// First vec is a list of paths removed. Second vec is a list of
     /// pairs of removed paths to futures that haven't finished.
-    pub fn invalidate_paths_and_collect_futures(
+    pub(crate) fn invalidate_paths_and_collect_futures(
         &mut self,
         paths: Vec<ProjectRelativePathBuf>,
         sqlite_db: Option<&mut MaterializerStateSqliteDb>,
