@@ -8,7 +8,7 @@
 
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_binary.bzl", "get_binary_info")
-load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryResourcesInfo", "DexFilesInfo", "ExopackageInfo")
+load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryPrimaryPlatformInfo", "AndroidBinaryResourcesInfo", "DexFilesInfo", "ExopackageInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:class_to_srcs.bzl", "merge_class_to_source_map_from_jar")
 load("@prelude//java:java_providers.bzl", "KeystoreInfo")
@@ -84,6 +84,9 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             manifest = resources_info.manifest,
             materialized_artifacts = android_binary_info.materialized_artifacts,
             unstripped_shared_libraries = native_library_info.unstripped_shared_libraries,
+        ),
+        AndroidBinaryPrimaryPlatformInfo(
+            primary_platform = android_binary_info.primary_platform,
         ),
         AndroidApkUnderTestInfo(
             java_packaging_deps = set([dep.label.raw_target() for dep in java_packaging_deps]),

@@ -128,6 +128,12 @@ AndroidAabInfo = provider(
     },
 )
 
+AndroidBinaryPrimaryPlatformInfo = provider(
+    fields = {
+        "primary_platform": provider_field(typing.Any, default = None),  # str
+    },
+)
+
 AndroidApkUnderTestInfo = provider(
     # @unsorted-dict-items
     fields = {

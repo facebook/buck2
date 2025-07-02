@@ -8,7 +8,7 @@
 
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_binary.bzl", "get_binary_info")
-load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryResourcesInfo", "DexFilesInfo")
+load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryPrimaryPlatformInfo", "AndroidBinaryResourcesInfo", "DexFilesInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:bundletool_util.bzl", "derive_universal_apk")
 load("@prelude//java:java_providers.bzl", "KeystoreInfo")
@@ -50,6 +50,9 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(default_output = default_output, other_outputs = android_binary_info.materialized_artifacts, sub_targets = sub_targets),
         AndroidAabInfo(aab = output_bundle, manifest = android_binary_info.resources_info.manifest, materialized_artifacts = android_binary_info.materialized_artifacts),
+        AndroidBinaryPrimaryPlatformInfo(
+            primary_platform = android_binary_info.primary_platform,
+        ),
         TemplatePlaceholderInfo(
             keyed_variables = {
                 "classpath": cmd_args([dep.jar for dep in java_packaging_deps if dep.jar], delimiter = get_path_separator_for_exec_os(ctx)),
