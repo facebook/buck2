@@ -15,10 +15,11 @@ use buck2_audit::providers::AuditProvidersCommand;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_cli_proto::ClientContext;
+use buck2_core::pattern::pattern::ProvidersLabelWithModifiers;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_server_ctx::pattern_parse_and_resolve::parse_and_resolve_provider_labels_from_cli_args;
+use buck2_server_ctx::pattern_parse_and_resolve::parse_and_resolve_provider_labels_with_modifiers_from_cli_args;
 use buck2_util::indent::indent;
 use dice::DiceComputations;
 use dice::DiceTransaction;
@@ -27,7 +28,7 @@ use futures::StreamExt;
 use futures::stream::FuturesOrdered;
 
 use crate::ServerAuditSubcommand;
-use crate::common::target_resolution_config::audit_command_target_resolution_config;
+use crate::common::target_resolution_config::audit_command_target_resolution_config_with_modifiers;
 
 #[async_trait]
 impl ServerAuditSubcommand for AuditProvidersCommand {
@@ -58,26 +59,37 @@ async fn server_execute_with_dice(
     mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     mut ctx: DiceTransaction,
 ) -> buck2_error::Result<()> {
-    let target_resolution_config =
-        audit_command_target_resolution_config(&mut ctx, &command.target_cfg, server_ctx).await?;
-
-    let provider_labels = parse_and_resolve_provider_labels_from_cli_args(
-        &mut ctx,
-        &command.patterns,
-        server_ctx.working_dir(),
-    )
-    .await?;
+    let provider_labels_with_modifiers =
+        parse_and_resolve_provider_labels_with_modifiers_from_cli_args(
+            &mut ctx,
+            &command.patterns,
+            server_ctx.working_dir(),
+        )
+        .await?;
 
     let mut futs = Vec::new();
-    for label in provider_labels {
-        for providers_label in target_resolution_config
-            .get_configured_provider_label(&mut ctx, &label)
+    for label_with_modifiers in provider_labels_with_modifiers {
+        let ProvidersLabelWithModifiers {
+            providers_label,
+            modifiers,
+        } = label_with_modifiers;
+
+        let target_resolution_config = audit_command_target_resolution_config_with_modifiers(
+            &mut ctx,
+            &command.target_cfg,
+            server_ctx,
+            modifiers.as_slice(),
+        )
+        .await?;
+
+        for configured_providers_label in target_resolution_config
+            .get_configured_provider_label(&mut ctx, &providers_label)
             .await?
         {
             futs.push(DiceComputations::declare_closure(|ctx| {
                 async move {
-                    let result = ctx.get_providers(&providers_label).await;
-                    (providers_label, result)
+                    let result = ctx.get_providers(&configured_providers_label).await;
+                    (configured_providers_label, result)
                 }
                 .boxed()
             }));

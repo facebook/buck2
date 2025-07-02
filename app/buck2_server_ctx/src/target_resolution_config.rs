@@ -70,6 +70,32 @@ impl TargetResolutionConfig {
         }
     }
 
+    pub async fn from_args_with_modifiers(
+        ctx: &mut DiceComputations<'_>,
+        target_cfg: &TargetCfg,
+        server_ctx: &dyn ServerCommandContextTrait,
+        target_universe: &[String],
+        modifiers: Option<&[String]>,
+    ) -> buck2_error::Result<TargetResolutionConfig> {
+        let Some(modifiers) = modifiers else {
+            return Self::from_args(ctx, target_cfg, server_ctx, target_universe).await;
+        };
+
+        if !target_cfg.cli_modifiers.is_empty() {
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Cannot specify modifiers with ?modifier syntax when global CLI modifiers are set with --modifier flag"
+            ));
+        }
+
+        let mut target_cfg_with_modifiers = target_cfg.clone();
+        target_cfg_with_modifiers
+            .cli_modifiers
+            .extend_from_slice(modifiers);
+
+        Self::from_args(ctx, &target_cfg_with_modifiers, server_ctx, target_universe).await
+    }
+
     pub async fn get_configured_target(
         &self,
         ctx: &mut DiceComputations<'_>,
