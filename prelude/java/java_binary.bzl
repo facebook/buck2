@@ -8,7 +8,7 @@
 
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java:proguard.bzl", "get_proguard_output")
-load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info", "get_classpath_subtargets")
+load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info", "get_classpath_subtarget")
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibrary",  # @unused used as type
@@ -282,7 +282,7 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         ]))
         other_outputs = [classpath_file] + [packaging_jar_args] + _get_java_tool_artifacts(java_toolchain)
 
-    sub_targets = get_classpath_subtargets(ctx.actions, packaging_info)
+    sub_targets = get_classpath_subtarget(ctx.actions, packaging_info)
 
     class_to_src_map, _, _ = get_class_to_source_map_info(
         ctx,

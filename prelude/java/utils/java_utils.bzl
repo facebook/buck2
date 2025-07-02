@@ -97,7 +97,7 @@ def get_default_info(
         outputs: [JavaCompileOutputs, None],
         packaging_info: JavaPackagingInfo,
         extra_sub_targets: dict = {}) -> DefaultInfo:
-    sub_targets = get_classpath_subtargets(actions, packaging_info)
+    sub_targets = get_classpath_subtarget(actions, packaging_info)
     default_info = DefaultInfo()
     if outputs:
         abis = [
@@ -163,17 +163,10 @@ def get_class_to_source_map_info(
         sub_targets["debuginfo"] = [DefaultInfo(default_output = class_to_src_map_info.debuginfo)]
     return (class_to_src_map_info, sources_jar, sub_targets)
 
-def get_classpath_subtargets(actions: AnalysisActions, packaging_info: JavaPackagingInfo) -> dict[str, list[Provider]]:
+def get_classpath_subtarget(actions: AnalysisActions, packaging_info: JavaPackagingInfo) -> dict[str, list[Provider]]:
     proj = packaging_info.packaging_deps.project_as_args("full_jar_args")
     output = actions.write("classpath", proj)
-
-    classpath_targets_proj = packaging_info.packaging_deps.project_as_args("full_jar_owner_args")
-    classpath_targets_output = actions.write("classpath_targets", classpath_targets_proj)
-
-    return {
-        "classpath": [DefaultInfo(output, other_outputs = [proj])],
-        "classpath_targets": [DefaultInfo(classpath_targets_output)],
-    }
+    return {"classpath": [DefaultInfo(output, other_outputs = [proj])]}
 
 def build_bootclasspath(bootclasspath_entries: list[Artifact], source_level: int, java_toolchain: JavaToolchainInfo) -> list[Artifact]:
     bootclasspath_list = []
