@@ -9,6 +9,7 @@
 # pyre-strict
 
 
+import os
 import subprocess
 from pathlib import Path
 from typing import List
@@ -144,6 +145,13 @@ async def test_symlink_with_content_based_path(buck: Buck) -> None:
     await build_target_with_different_platforms_and_verify_output_paths_are_identical(
         buck, target
     )
+
+
+@buck_test()
+async def test_symlink_and_copy_with_content_based_path(buck: Buck) -> None:
+    target = "root//:symlink_and_copy_with_content_based_path"
+    # TODO(ianc) Fix symlinks to work correctly with content-based paths
+    await expect_failure(buck.build(target))
 
 
 @buck_test()

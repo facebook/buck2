@@ -12,6 +12,7 @@ load(
     "sets_inconsistent_params",
     "slow_running_local_action_with_content_based_path",
     "symlink",
+    "symlink_and_copy",
     "symlinked_dir",
     "use_projection_with_content_based_path",
     "uses_relative_to",
@@ -57,6 +58,10 @@ copy(
 symlink(
     name = "symlink_with_content_based_path",
     to_symlink = ":write_with_content_based_path",
+)
+
+symlink_and_copy(
+    name = "symlink_and_copy_with_content_based_path",
 )
 
 copied_dir(

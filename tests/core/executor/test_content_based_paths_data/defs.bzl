@@ -129,6 +129,32 @@ symlink = rule(
     },
 )
 
+def _symlink_and_copy_impl(ctx):
+    written = ctx.actions.write("written", "written", uses_experimental_content_based_path_hashing = True)
+    symlink = ctx.actions.symlink_file("symlink", written, uses_experimental_content_based_path_hashing = True)
+
+    script = ctx.actions.declare_output("script.py", uses_experimental_content_based_path_hashing = True)
+    script = ctx.actions.write(
+        script,
+        [
+            "import shutil",
+            "import sys",
+            "shutil.copyfile(sys.argv[1], sys.argv[2])",
+        ],
+    )
+
+    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    args = cmd_args(["python3", script, symlink, out.as_output()])
+
+    ctx.actions.run(args, category = "test_run")
+
+    return [DefaultInfo(default_output = out)]
+
+symlink_and_copy = rule(
+    impl = _symlink_and_copy_impl,
+    attrs = {},
+)
+
 def _copied_dir_impl(ctx):
     another_to_copy = ctx.actions.declare_output("another_to_copy", uses_experimental_content_based_path_hashing = True)
     ctx.actions.write(another_to_copy, "another_to_copy")
