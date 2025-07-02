@@ -42,7 +42,6 @@ load(
     "SharedLibLinkable",
     "create_merged_link_info",
     "get_lib_output_style",
-    "legacy_output_style_to_link_style",
     "set_link_info_link_whole",
 )
 load(
@@ -120,6 +119,21 @@ load(":targets.bzl", "targets")
 
 _DEFAULT_ROOTS = ["lib.rs"]
 
+# Add provider for default output, and for each lib output style...
+# FIXME(JakobDegen): C++ rules only provide some of the output styles,
+# determined by `get_output_styles_for_linkage` in `linking/link_info.bzl`.
+# Do we want to do the same?
+_SUB_TARGET_BUILD_PARAMS = {
+    "cdylib": (LinkageLang("native"), LibOutputStyle("shared_lib")),
+    "shared": (LinkageLang("rust"), LibOutputStyle("shared_lib")),
+    # FIXME(JakobDegen): Ideally we'd use the same
+    # `subtarget_for_output_style` as C++, but that uses `static-pic`
+    # instead of `static_pic`. Would be nice if that were consistent
+    "static": (LinkageLang("rust"), LibOutputStyle("archive")),
+    "static_pic": (LinkageLang("rust"), LibOutputStyle("pic_archive")),
+    "staticlib": (LinkageLang("native"), LibOutputStyle("archive")),
+}
+
 def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     compile_ctx = compile_context(ctx)
     toolchain_info = compile_ctx.toolchain_info
@@ -147,8 +161,8 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # parameters we need, populate maps to the linkable and metadata
     # artifacts by linkage lang.
     rust_param_artifact = {}
-    rust_param_subtargets = {}
     native_param_artifact = {}
+    param_subtargets = {}
     for params, langs in param_lang.items():
         link = rust_compile(
             ctx = ctx,
@@ -173,7 +187,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 MetadataKind("fast"): meta_fast,
             }
 
-            rust_param_subtargets[params] = {
+            param_subtargets[params] = {
                 "llvm-ir": rust_compile(
                     ctx = ctx,
                     compile_ctx = compile_ctx,
@@ -186,6 +200,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
         if LinkageLang("native") in langs or LinkageLang("native-unbundled") in langs:
             native_param_artifact[params] = link
+            param_subtargets[params] = {}
 
     rust_artifacts = _rust_artifacts(
         ctx = ctx,
@@ -363,8 +378,8 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers += _default_providers(
         lang_style_param = lang_style_param,
         rust_param_artifact = rust_param_artifact,
-        rust_param_subtargets = rust_param_subtargets,
         native_param_artifact = native_param_artifact,
+        param_subtargets = param_subtargets,
         rustdoc = rustdoc,
         rustdoc_test = rustdoc_test,
         doctests_enabled = doctests_enabled,
@@ -583,7 +598,7 @@ def _default_providers(
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
         rust_param_artifact: dict[BuildParams, dict[MetadataKind, RustcOutput]],
         native_param_artifact: dict[BuildParams, RustcOutput],
-        rust_param_subtargets: dict[BuildParams, dict[str, RustcOutput]],
+        param_subtargets: dict[BuildParams, dict[str, RustcOutput]],
         rustdoc: Artifact,
         rustdoc_test: cmd_args,
         doctests_enabled: bool,
@@ -607,38 +622,23 @@ def _default_providers(
     }
     sub_targets["profile"] = profiles
 
-    # Add provider for default output, and for each lib output style...
-    # FIXME(JakobDegen): C++ rules only provide some of the output styles,
-    # determined by `get_output_styles_for_linkage` in `linking/link_info.bzl`.
-    # Do we want to do the same?
-    for output_style in LibOutputStyle:
-        param = lang_style_param[(LinkageLang("rust"), output_style)]
-        link = rust_param_artifact[param][MetadataKind("link")]
-        nested_sub_targets = {k: [DefaultInfo(default_output = v.output)] for k, v in rust_param_subtargets[param].items()}
-        if link.pdb:
-            nested_sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = link.pdb, binary = link.output)
+    for name, params in _SUB_TARGET_BUILD_PARAMS.items():
+        if params not in lang_style_param:
+            continue
 
-        # FIXME(JakobDegen): Ideally we'd use the same
-        # `subtarget_for_output_style` as C++, but that uses `static-pic`
-        # instead of `static_pic`. Would be nice if that were consistent
-        name = legacy_output_style_to_link_style(output_style).value
+        param = lang_style_param[params]
+        if params[0] == LinkageLang("rust"):
+            artifact = rust_param_artifact[param][MetadataKind("link")]
+        else:
+            artifact = native_param_artifact[param]
+
+        nested_sub_targets = {k: [DefaultInfo(default_output = v.output)] for k, v in param_subtargets[param].items()}
+        if artifact.pdb:
+            nested_sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = artifact.pdb, binary = artifact.output)
+
         sub_targets[name] = [DefaultInfo(
-            default_output = link.output,
+            default_output = artifact.output,
             sub_targets = nested_sub_targets,
-        )]
-
-    lang_style_for_staticlib = (LinkageLang("native"), LibOutputStyle("archive"))
-    if lang_style_for_staticlib in lang_style_param:
-        artifact = native_param_artifact[lang_style_param[lang_style_for_staticlib]]
-        sub_targets["staticlib"] = [DefaultInfo(
-            default_output = artifact.output,
-        )]
-
-    lang_style_for_cdylib = (LinkageLang("native"), LibOutputStyle("shared_lib"))
-    if lang_style_for_cdylib in lang_style_param:
-        artifact = native_param_artifact[lang_style_param[lang_style_for_cdylib]]
-        sub_targets["cdylib"] = [DefaultInfo(
-            default_output = artifact.output,
         )]
 
     providers = []
