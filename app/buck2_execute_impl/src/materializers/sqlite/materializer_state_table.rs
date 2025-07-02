@@ -11,7 +11,6 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use buck2_common::directory_metadata::DirectoryMetadata;
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::FileMetadata;
@@ -36,6 +35,7 @@ use parking_lot::Mutex;
 use rusqlite::Connection;
 
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
+use crate::materializers::deferred::directory_metadata::DirectoryMetadata;
 use crate::materializers::sqlite::MaterializerState;
 use crate::materializers::sqlite::MaterializerStateEntry;
 use crate::materializers::sqlite::artifact_type::ARTIFACT_TYPE_DIRECTORY;

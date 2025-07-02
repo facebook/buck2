@@ -8,21 +8,20 @@
  * above-listed licenses.
  */
 
+use buck2_common::file_ops::metadata::TrackedFileDigest;
 use derive_more::Display;
 use dupe::Dupe;
 
-use crate::file_ops::metadata::TrackedFileDigest;
-
 /// Fingerprint used to identify `ActionSharedDirectory`. We give it an explicit
 /// alias because `TrackedFileDigest` can look confusing.
-pub type ActionDirectoryFingerprint = TrackedFileDigest;
+pub(crate) type ActionDirectoryFingerprint = TrackedFileDigest;
 
 #[derive(Clone, Dupe, Debug, Display)]
 #[display("DirectoryMetadata(digest:{},size:{})", fingerprint, total_size)]
-pub struct DirectoryMetadata {
-    pub fingerprint: ActionDirectoryFingerprint,
+pub(crate) struct DirectoryMetadata {
+    pub(crate) fingerprint: ActionDirectoryFingerprint,
     /// Size on disk, if the artifact is a directory.
     /// Storing separately from ArtifactMetadata to avoid calculating when
     /// checking matching artifacts.
-    pub total_size: u64,
+    pub(crate) total_size: u64,
 }

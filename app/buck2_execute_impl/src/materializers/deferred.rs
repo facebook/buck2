@@ -17,6 +17,7 @@ mod subscriptions;
 
 pub(crate) mod artifact_tree;
 mod command_processor;
+pub mod directory_metadata;
 pub(crate) mod file_tree;
 #[cfg(test)]
 mod tests;

@@ -319,7 +319,6 @@ pub(crate) fn testing_materializer_state_sqlite_db(
 mod tests {
 
     use assert_matches::assert_matches;
-    use buck2_common::directory_metadata::DirectoryMetadata;
     use buck2_common::file_ops::metadata::FileMetadata;
     use buck2_common::file_ops::metadata::TrackedFileDigest;
     use buck2_core::fs::project::ProjectRootTemp;
@@ -329,6 +328,7 @@ mod tests {
     use chrono::TimeZone;
 
     use super::*;
+    use crate::materializers::deferred::directory_metadata::DirectoryMetadata;
 
     fn now_seconds() -> DateTime<Utc> {
         Utc.timestamp_opt(Utc::now().timestamp(), 0)

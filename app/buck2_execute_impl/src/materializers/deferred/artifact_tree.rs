@@ -10,7 +10,6 @@
 
 use std::sync::Arc;
 
-use buck2_common::directory_metadata::DirectoryMetadata;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_directory::directory::directory_ref::DirectoryRef;
@@ -35,6 +34,7 @@ use tracing::instrument;
 
 use crate::materializers::deferred::SharedMaterializingError;
 use crate::materializers::deferred::WriteFile;
+use crate::materializers::deferred::directory_metadata::DirectoryMetadata;
 use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::sqlite::MaterializerState;
 use crate::materializers::sqlite::MaterializerStateEntry;
