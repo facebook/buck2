@@ -1057,7 +1057,8 @@ def _mk_argsfiles(
         ext: CxxExtension,
         headers_tag: ArtifactTag,
         is_xcode_argsfile: bool,
-        filename_prefix: str = "") -> CompileArgsfile:
+        filename_prefix: str = "",
+        uses_experimental_content_based_path_hashing: bool = False) -> CompileArgsfile:
     """
     Generate and return an {ext}.argsfile artifact and command args that utilize the argsfile.
     """
@@ -1075,7 +1076,12 @@ def _mk_argsfiles(
 
     def mk_argsfile(filename: str, args) -> Artifact:
         content = create_cmd_args(is_nasm, is_xcode_argsfile, args)
-        argsfile, _ = ctx.actions.write(filename, content, allow_args = True)
+        argsfile, _ = ctx.actions.write(
+            filename,
+            content,
+            allow_args = True,
+            uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+        )
         return argsfile
 
     def make_toolchain_argsfile():
@@ -1192,7 +1198,13 @@ def _mk_argsfiles(
     file_name = filename_prefix + "cxx_compile_argsfile"
 
     # For Xcode to parse argsfiles of argsfiles, the paths in the former must be absolute.
-    argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True, absolute = is_xcode_argsfile)
+    argsfile, _ = ctx.actions.write(
+        file_name,
+        file_args,
+        allow_args = True,
+        absolute = is_xcode_argsfile,
+        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+    )
 
     args = create_cmd_args(is_nasm, is_xcode_argsfile, args_list)
     input_args = [args, file_args]
@@ -1215,7 +1227,8 @@ def _mk_header_units_argsfile(
         compiler_info: typing.Any,
         preprocessor: CPreprocessorInfo,
         ext: CxxExtension,
-        filename_prefix: str) -> CompileArgsfile | None:
+        filename_prefix: str = "",
+        uses_experimental_content_based_path_hashing: bool = False) -> CompileArgsfile | None:
     """
     Generate and return an argsfile artifact containing all header unit options, and
     command args that utilize the argsfile.
@@ -1242,10 +1255,15 @@ def _mk_header_units_argsfile(
     ])
 
     # TODO(nml): Tag args with headers_tag.tag_artifacts() once -MD -MF reports correct
-    # usage of PCMs.
+    # usage of PCMs. See T225373444 and _mk_header_units_argsfile() below.
     args.add(preprocessor.set.project_as_args("header_units_args"))
     file_args = cmd_args(args, quote = "shell")
-    argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True)
+    argsfile, _ = ctx.actions.write(
+        file_name,
+        file_args,
+        allow_args = True,
+        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+    )
     cmd_form = cmd_args(argsfile, format = "@{}", hidden = file_args)
 
     return CompileArgsfile(
@@ -1269,7 +1287,8 @@ def _generate_base_compile_command(
         pre: CPreprocessorInfo,
         headers_tag: ArtifactTag,
         ext: CxxExtension,
-        filename_prefix: str = "") -> CxxCompileCommand:
+        filename_prefix: str = "",
+        uses_experimental_content_based_path_hashing: bool = False) -> CxxCompileCommand:
     """
     Generate a common part of a compile command that is shared by all sources
     with a given extension.
@@ -1292,9 +1311,9 @@ def _generate_base_compile_command(
                 dep_tracking_mode = tracking_mode,
             )
 
-    argsfile = _mk_argsfiles(ctx, impl_params, compiler_info, pre, ext, headers_tag, False, filename_prefix)
-    xcode_argsfile = _mk_argsfiles(ctx, impl_params, compiler_info, pre, ext, headers_tag, True, filename_prefix)
-    header_units_argsfile = _mk_header_units_argsfile(ctx, compiler_info, pre, ext, filename_prefix)
+    argsfile = _mk_argsfiles(ctx, impl_params, compiler_info, pre, ext, headers_tag, False, filename_prefix, uses_experimental_content_based_path_hashing)
+    xcode_argsfile = _mk_argsfiles(ctx, impl_params, compiler_info, pre, ext, headers_tag, True, filename_prefix, uses_experimental_content_based_path_hashing)
+    header_units_argsfile = _mk_header_units_argsfile(ctx, compiler_info, pre, ext, filename_prefix, uses_experimental_content_based_path_hashing)
 
     allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload)
     return CxxCompileCommand(
