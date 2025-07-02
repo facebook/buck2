@@ -12,6 +12,7 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//:attrs_validators.bzl", "validation_common")
+load("@prelude//android:configuration.bzl", "cpu_transition")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 load(":android_common.bzl", "android_common")
@@ -243,7 +244,7 @@ android_binary = prelude_rule(
             "manifest_skeleton": attrs.option(attrs.source(), default = None),
             "method_ref_count_buffer_space": attrs.int(default = 0),
             "minimize_primary_dex_size": attrs.bool(default = False),
-            "module_manifest_skeleton": attrs.dict(default = {}, key = attrs.string(), sorted = False, value = attrs.source()),
+            "module_manifest_skeleton": attrs.dict(default = {}, key = attrs.string(), sorted = False, value = attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source())),
             "native_library_bolt_args": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.arg())), default = None),
             "native_library_merge_code_generator": attrs.option(attrs.dep(), default = None),
             "native_library_merge_glue": attrs.option(attrs.dep(), default = None),
@@ -485,7 +486,7 @@ android_bundle = prelude_rule(
             "manifest_skeleton": attrs.option(attrs.source(), default = None),
             "method_ref_count_buffer_space": attrs.int(default = 0),
             "minimize_primary_dex_size": attrs.bool(default = False),
-            "module_manifest_skeleton": attrs.dict(default = {}, key = attrs.string(), sorted = False, value = attrs.dep()),
+            "module_manifest_skeleton": attrs.dict(default = {}, key = attrs.string(), sorted = False, value = attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source())),
             "native_library_bolt_args": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.arg())), default = None),
             "native_library_merge_code_generator": attrs.option(attrs.dep(), default = None),
             "native_library_merge_glue": attrs.option(attrs.dep(), default = None),
