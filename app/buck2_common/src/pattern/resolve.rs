@@ -198,6 +198,7 @@ mod tests {
     use buck2_core::package::PackageLabel;
     use buck2_core::pattern::pattern::PackageSpec;
     use buck2_core::pattern::pattern::ParsedPattern;
+    use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
     use buck2_core::pattern::pattern_type::PatternType;
     use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
     use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -213,6 +214,7 @@ mod tests {
     use crate::file_ops::trait_::FileOps;
     use crate::pattern::resolve::ResolvedPattern;
     use crate::pattern::resolve::resolve_target_patterns_impl;
+    use crate::pattern::resolve::resolve_target_patterns_with_modifiers_impl;
 
     #[derive(Clone)]
     struct TestPatternResolver {
@@ -266,6 +268,29 @@ mod tests {
             });
 
             resolve_target_patterns_impl(&patterns, &*self.file_ops).await
+        }
+
+        async fn resolve_with_modifiers<T>(
+            &self,
+            patterns: &[&str],
+        ) -> buck2_error::Result<ResolvedPattern<T>>
+        where
+            T: PatternType,
+        {
+            let patterns: Vec<_> = patterns
+                .iter()
+                .map(|pattern_str| {
+                    ParsedPatternWithModifiers::<T>::parse_precise(
+                        pattern_str,
+                        CellName::testing_new("root"),
+                        &self.resolver,
+                        &self.resolver.root_cell_cell_alias_resolver(),
+                    )
+                    .unwrap()
+                })
+                .collect();
+
+            resolve_target_patterns_with_modifiers_impl(&patterns, &*self.file_ops).await
         }
     }
 
@@ -451,6 +476,161 @@ mod tests {
                     (
                         PackageLabel::testing_parse("child//foo"),
                         PackageSpec::All(None),
+                    ),
+                ]);
+        })
+    }
+
+    #[tokio::test]
+    async fn test_simple_specs_targets_with_modifiers() -> buck2_error::Result<()> {
+        let tester = TestPatternResolver::new(&[("root", ""), ("child", "child/cell")], &[])?;
+
+        tester
+            .resolve_with_modifiers::<TargetPatternExtra>(&[])
+            .await?
+            .assert_eq(&[]);
+
+        tester
+            .resolve_with_modifiers::<TargetPatternExtra>(&[
+                "//some:target?modifier1",
+                "//some:other_target?modifier1+modifier2",
+                "//some:third_target",
+                "child//a/package:?package_modifier",
+            ])
+            .await?
+            .assert_eq(&[
+                (
+                    PackageLabel::testing_parse("root//some"),
+                    PackageSpec::Targets(vec![
+                        (
+                            TargetName::testing_new("target"),
+                            TargetPatternExtra,
+                            Some(vec!["modifier1".to_owned()]),
+                        ),
+                        (
+                            TargetName::testing_new("other_target"),
+                            TargetPatternExtra,
+                            Some(vec!["modifier1".to_owned(), "modifier2".to_owned()]),
+                        ),
+                        (
+                            TargetName::testing_new("third_target"),
+                            TargetPatternExtra,
+                            None,
+                        ),
+                    ]),
+                ),
+                (
+                    PackageLabel::testing_parse("child//a/package"),
+                    PackageSpec::All(Some(vec!["package_modifier".to_owned()])),
+                ),
+            ]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_simple_specs_providers_with_modifiers() -> buck2_error::Result<()> {
+        let tester = TestPatternResolver::new(&[("root", ""), ("child", "child/cell")], &[])?;
+
+        tester
+            .resolve_with_modifiers::<ProvidersPatternExtra>(&[
+                "//some:other_target[my-label]?modifier",
+            ])
+            .await?
+            .assert_eq(&[(
+                PackageLabel::testing_parse("root//some"),
+                PackageSpec::Targets(vec![(
+                    TargetName::testing_new("other_target"),
+                    ProvidersPatternExtra {
+                        providers: ProvidersName::NonDefault(triomphe::Arc::new(
+                            NonDefaultProvidersName::Named(buck2_util::arc_str::ArcSlice::new([
+                                ProviderName::new("my-label".to_owned()).unwrap(),
+                            ])),
+                        )),
+                    },
+                    Some(vec!["modifier".to_owned()]),
+                )]),
+            )]);
+        Ok(())
+    }
+
+    #[test_case(PhantomData::< TargetPatternExtra >; "parsing TargetPattern")]
+    #[test_case(PhantomData::< ProvidersPatternExtra >; "parsing ProvidersPattern")]
+    fn test_recursive_patterns_with_modifiers<T: PatternType>(_: PhantomData<T>) {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let tester = TestPatternResolver::new(
+                &[("root", ""), ("child", "child/cell")],
+                &[
+                    ("BUCK"),
+                    ("other/BUCK"),
+                    ("other/a/bit/deeper/BUCK"),
+                    ("other/a/bit/deeper/and/deeper/BUCK"),
+                    ("some/thing/dir/a/BUCK"),
+                    ("some/thing/dir/a/b/BUCK"),
+                    ("some/thing/extra/BUCK"),
+                    ("child/cell/BUCK"),
+                    ("child/cell/foo/BUCK"),
+                ],
+            )
+            .unwrap();
+
+            tester
+                .resolve_with_modifiers::<T>(&[
+                    "//other/...?recursive_mod",
+                    "//other:target_that_doesnt_matter",
+                    "//some/...?modifier1",
+                    "//some/thing/extra/...?modifier2",
+                    "//some/thing/extra/...",
+                    "child//...?cell_mod+another_mod",
+                ])
+                .await
+                .unwrap()
+                .assert_eq(&[
+                    (
+                        PackageLabel::testing_parse("root//other"),
+                        PackageSpec::All(Some(vec!["recursive_mod".to_owned()])),
+                    ),
+                    (
+                        PackageLabel::testing_parse("root//other/a/bit/deeper"),
+                        PackageSpec::All(Some(vec!["recursive_mod".to_owned()])),
+                    ),
+                    (
+                        PackageLabel::testing_parse("root//other/a/bit/deeper/and/deeper"),
+                        PackageSpec::All(Some(vec!["recursive_mod".to_owned()])),
+                    ),
+                    (
+                        PackageLabel::testing_parse("root//some/thing/dir/a"),
+                        PackageSpec::All(Some(vec!["modifier1".to_owned()])),
+                    ),
+                    (
+                        PackageLabel::testing_parse("root//some/thing/dir/a/b"),
+                        PackageSpec::All(Some(vec!["modifier1".to_owned()])),
+                    ),
+                    (
+                        PackageLabel::testing_parse("root//some/thing/extra"),
+                        PackageSpec::All(Some(vec!["modifier1".to_owned()])),
+                    ),
+                    (
+                        PackageLabel::testing_parse("root//some/thing/extra"),
+                        PackageSpec::All(Some(vec!["modifier2".to_owned()])),
+                    ),
+                    (
+                        PackageLabel::testing_parse("root//some/thing/extra"),
+                        PackageSpec::All(None),
+                    ),
+                    (
+                        PackageLabel::testing_parse("child//"),
+                        PackageSpec::All(Some(vec![
+                            "cell_mod".to_owned(),
+                            "another_mod".to_owned(),
+                        ])),
+                    ),
+                    (
+                        PackageLabel::testing_parse("child//foo"),
+                        PackageSpec::All(Some(vec![
+                            "cell_mod".to_owned(),
+                            "another_mod".to_owned(),
+                        ])),
                     ),
                 ]);
         })

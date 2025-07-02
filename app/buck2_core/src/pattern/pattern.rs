@@ -411,6 +411,30 @@ pub struct ParsedPatternWithModifiers<T: PatternType> {
 }
 
 impl<T: PatternType> ParsedPatternWithModifiers<T> {
+    pub fn parse_precise(
+        pattern: &str,
+        cell: CellName,
+        cell_resolver: &CellResolver,
+        cell_alias_resolver: &CellAliasResolver,
+    ) -> buck2_error::Result<Self> {
+        parse_target_pattern(
+            cell_resolver,
+            cell_alias_resolver,
+            TargetParsingOptions {
+                relative: TargetParsingRel::RequireAbsolute(cell),
+                infer_target: false,
+                strip_package_trailing_slash: false,
+            },
+            pattern,
+        )
+        .with_buck_error_context(|| {
+            format!(
+                "Invalid absolute target pattern `{}` is not allowed",
+                pattern
+            )
+        })
+    }
+
     pub fn parse_relaxed(
         target_alias_resolver: &dyn TargetAliasResolver,
         relative_dir: CellPathRef,
