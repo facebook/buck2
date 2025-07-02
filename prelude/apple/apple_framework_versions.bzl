@@ -998,6 +998,11 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (13, 0, 0),
     },
     "Tk": {"macosx": (10, 4, 0)},
+    "Translation": {
+        "iphoneos": (17, 4, 0),
+        "maccatalyst": (26, 0, 0),
+        "macosx": (14, 4, 0),
+    },
     "UIKit": {
         "appletvos": (9, 0, 0),
         "iphoneos": (2, 0, 0),
