@@ -99,11 +99,10 @@ async def test_local_execution(buck: Buck) -> None:
     assert output.read_text().rstrip() == ""
 
 
-# This test relies on `buck2-asic-devinfra` use-case and `asic-grid` platform.
 # In case of timeouts and failures, best would be to just disable this test.
 @buck_test(inplace=True, skip_for_os=["windows"])
 async def test_asic_platforms(buck: Buck) -> None:
-    target = "fbcode//buck2/tests/targets/asic_platforms:uses_asic_grid_tool"
+    target = "fbcode//buck2/tests/targets/asic_platforms:uses_asic_tool"
     result = await buck.build(
         target,
         "--show-full-output",
