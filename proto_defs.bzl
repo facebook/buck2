@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
-load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbcode_macros//build_defs:native_rules.bzl", "alias", "buck_genrule")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 
 def rust_protobuf_library(
@@ -20,15 +20,49 @@ def rust_protobuf_library(
         doctests = True,
         build_env = None,
         proto_srcs = None):  # Use a proto_srcs() target, path is exposed as BUCK_PROTO_SRCS.
-    build_name = name + "-build"
-    proto_name = name + "-proto"
+    _rust_protobuf_library(
+        name,
+        srcs,
+        build_script,
+        "buck2_protoc_dev",
+        "prost",
+        protos,
+        [
+            "fbsource//third-party/rust:tonic",
+        ] + (deps or []),
+        test_deps,
+        doctests,
+        build_env,
+        proto_srcs,
+    )
+
+    # Set up an alias to the default version of prost to avoid breaking callers
+    alias(
+        name = name,
+        actual = ":" + name + "_prost",
+    )
+
+def _rust_protobuf_library(
+        name,
+        srcs,
+        build_script,
+        buck2_protoc_dev,
+        versioned_prost_target,
+        protos,
+        deps,
+        test_deps,
+        doctests,
+        build_env,
+        proto_srcs):
+    build_name = name + "-build" + "-" + versioned_prost_target
+    proto_name = name + "-proto" + "-" + versioned_prost_target
 
     buck_rust_binary(
         name = build_name,
         srcs = [build_script],
         crate_root = build_script,
         deps = [
-            "fbcode//buck2/app/buck2_protoc_dev:buck2_protoc_dev",
+            "fbcode//buck2/app/buck2_protoc_dev:" + buck2_protoc_dev,
         ],
     )
 
@@ -50,8 +84,11 @@ def rust_protobuf_library(
         out = ".",
     )
 
+    new_deps = ["fbsource//third-party/rust:" + versioned_prost_target] + (deps or [])
+
     rust_library(
-        name = name,
+        name = name + "_" + versioned_prost_target,
+        crate = name,
         srcs = srcs,
         doctests = doctests,
         env = {
@@ -66,10 +103,7 @@ def rust_protobuf_library(
         labels = [
             "generated_protobuf_library_rust",
         ],
-        deps = [
-            "fbsource//third-party/rust:prost",
-            "fbsource//third-party/rust:tonic",
-        ] + (deps or []),
+        deps = new_deps,
         test_deps = test_deps,
     )
 
