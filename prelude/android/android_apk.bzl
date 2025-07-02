@@ -237,12 +237,8 @@ def get_install_config(apex_mode: bool) -> dict[str, typing.Any]:
     # TODO: read from toolchains
     install_config = {
         "adb_restart_on_failure": read_root_config("adb", "adb_restart_on_failure", "true"),
-        "agent_port_base": read_root_config("adb", "agent_port_base", "2828"),
         "apex_mode": apex_mode,
-        "is_zstd_compression_enabled": read_root_config("adb", "is_zstd_compression_enabled", "false"),
-        "max_retries": read_root_config("adb", "retries", "5"),
         "multi_install_mode": read_root_config("adb", "multi_install_mode", "false"),
-        "retry_delay_millis": read_root_config("adb", "retry_delay_millis", "500"),
         "skip_install_metadata": read_root_config("adb", "skip_install_metadata", "false"),
         "staged_install_mode": read_root_config("adb", "staged_install_mode", None),
     }

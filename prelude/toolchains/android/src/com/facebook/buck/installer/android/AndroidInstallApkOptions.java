@@ -34,10 +34,6 @@ public class AndroidInstallApkOptions {
   public final boolean restartAdbOnFailure;
   public final boolean stagedInstallMode;
   public final boolean skipInstallMetadata;
-  public final boolean isZstdCompressionEnabled;
-  public final int agentPortBase;
-  public final int adbMaxRetries;
-  public final long adbRetryDelayMs;
   public final boolean apexMode;
 
   AndroidInstallApkOptions(Path jsonArtifactPath, String adbExecutablePath)
@@ -50,10 +46,6 @@ public class AndroidInstallApkOptions {
     this.stagedInstallMode = readBoolean(jsonData, "staged_install_mode");
     this.apexMode = readBoolean(jsonData, "apex_mode");
     this.skipInstallMetadata = readBoolean(jsonData, "skip_install_metadata");
-    this.isZstdCompressionEnabled = readBoolean(jsonData, "is_zstd_compression_enabled");
-    this.agentPortBase = readInt(jsonData, "agent_port_base", 2828);
-    this.adbMaxRetries = readInt(jsonData, "max_retries", 5);
-    this.adbRetryDelayMs = readInt(jsonData, "retry_delay_millis", 500);
   }
 
   private boolean readBoolean(Map<String, String> jsonData, String name) {
@@ -113,14 +105,6 @@ public class AndroidInstallApkOptions {
         + stagedInstallMode
         + ", skipInstallMetadata="
         + skipInstallMetadata
-        + ", isZstdCompressionEnabled="
-        + isZstdCompressionEnabled
-        + ", agentPortBase="
-        + agentPortBase
-        + ", adbMaxRetries="
-        + adbMaxRetries
-        + ", adbRetryDelayMs="
-        + adbRetryDelayMs
         + ", apexMode="
         + apexMode
         + '}';
