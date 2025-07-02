@@ -13,6 +13,7 @@ use std::fmt::Write;
 use buck2_client_ctx::exit_result::ExitResult;
 use clap::Command;
 use clap::builder::PossibleValue;
+use regex::Regex;
 
 #[derive(Debug, clap::Parser)]
 #[clap(
@@ -272,7 +273,86 @@ fn write_arg_markdown(buffer: &mut String, arg: &clap::Arg) -> std::fmt::Result 
 }
 
 /// Escapes angle brackets in the given string to avoid breaking the MDX parser.
-/// Specifically, it replaces all `<` with `&lt;` and all `>` with `&gt;`.
+///
+/// Specifically, it replaces all `<` with `&lt;` and all `>` with `&gt;`
+/// except when they appear inside inline or block code spans.
 fn escape_angle_brackets_for_mdx(input: &str) -> String {
-    input.replace('<', "&lt;").replace('>', "&gt;")
+    // Build a regex that matches either:
+    // 1. A backtick-enclosed inline code: `...` or a fenced code block: ```...```
+    // 2. A single `<` or `>` character
+    let re = Regex::new(r"(?s)(`[^`]*`|```.*?```)|(<|>)").unwrap();
+
+    // Perform the replacement for all captured groups
+    re.replace_all(input, |caps: &regex::Captures| {
+        if caps.get(2).is_some() {
+            if &caps[2] == "<" {
+                "&lt;".to_owned()
+            } else {
+                "&gt;".to_owned()
+            }
+        } else {
+            // Otherwise, it was a code span; leave it unchanged
+            caps[0].to_string()
+        }
+    })
+    .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::escape_angle_brackets_for_mdx;
+
+    #[test]
+    fn test_simple_escape() {
+        let input = "This <string> should be escaped.";
+        let expected = "This &lt;string&gt; should be escaped.";
+        assert_eq!(escape_angle_brackets_for_mdx(input), expected);
+    }
+
+    #[test]
+    fn test_no_escape_in_single_backticks() {
+        let input = "Do not escape `<p>code</p>` here.";
+        let expected = "Do not escape `<p>code</p>` here.";
+        assert_eq!(escape_angle_brackets_for_mdx(input), expected);
+    }
+
+    #[test]
+    fn test_no_escape_in_triple_backticks() {
+        let input = "```\nlet x = 5 < 10;\n```";
+        let expected = "```\nlet x = 5 < 10;\n```";
+        assert_eq!(escape_angle_brackets_for_mdx(input), expected);
+    }
+
+    #[test]
+    fn test_multiline_triple_backticks() {
+        let input = r#"
+```html
+<div>
+  <p>Hello World</p>
+</div>
+```
+"#;
+        let expected = r#"
+```html
+<div>
+  <p>Hello World</p>
+</div>
+```
+"#;
+        assert_eq!(escape_angle_brackets_for_mdx(input), expected);
+    }
+
+    #[test]
+    fn test_mixed_content() {
+        let input = "Escape <this>, but not `this <one>` or ```\nthis <one> either\n```. But escape <this> again.";
+        let expected = "Escape &lt;this&gt;, but not `this <one>` or ```\nthis <one> either\n```. But escape &lt;this&gt; again.";
+        assert_eq!(escape_angle_brackets_for_mdx(input), expected);
+    }
+
+    #[test]
+    fn test_adjacent_to_code_blocks() {
+        let input = "<tag>`code<code>`</tag>";
+        let expected = "&lt;tag&gt;`code<code>`&lt;/tag&gt;";
+        assert_eq!(escape_angle_brackets_for_mdx(input), expected);
+    }
 }
