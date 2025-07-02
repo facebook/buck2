@@ -18,6 +18,7 @@ load(
 )
 load(
     "@prelude//cxx:linker.bzl",
+    "IMPORT_LIBRARY_SUB_TARGET",
     "PDB_SUB_TARGET",
     "get_pdb_providers",
 )
@@ -506,6 +507,7 @@ def _link_infos(
             children = lib.extra_external_debug_info,
         )
         if output_style == LibOutputStyle("shared_lib"):
+            # TODO(pickett): Link against import library for windows
             link_infos[output_style] = LinkInfos(
                 default = LinkInfo(
                     linkables = [SharedLibLinkable(lib = lib.output)],
@@ -635,6 +637,8 @@ def _default_providers(
         nested_sub_targets = {k: [DefaultInfo(default_output = v.output)] for k, v in param_subtargets[param].items()}
         if artifact.pdb:
             nested_sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = artifact.pdb, binary = artifact.output)
+        if artifact.import_library:
+            nested_sub_targets[IMPORT_LIBRARY_SUB_TARGET] = [DefaultInfo(default_output = artifact.import_library)]
 
         sub_targets[name] = [DefaultInfo(
             default_output = artifact.output,
@@ -737,6 +741,7 @@ def _advanced_unstable_link_providers(
             output = shared_lib_output,
             unstripped_output = shared_lib_output,
             external_debug_info = link_infos[LibOutputStyle("shared_lib")].default.external_debug_info,
+            import_library = build_params.import_library,
             dwp = build_params.dwp_output,
         )
 

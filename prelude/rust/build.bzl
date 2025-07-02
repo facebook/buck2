@@ -25,6 +25,7 @@ load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:dwp.bzl", "dwp", "dwp_available")
 load(
     "@prelude//cxx:linker.bzl",
+    "get_import_library",
     "get_shared_library_name_linker_flags",
 )
 load(
@@ -589,6 +590,7 @@ def rust_compile(
             )
             emit_op.env["CLIPPY_CONF_DIR"] = clippy_conf_dir
 
+    import_library = None
     pdb_artifact = None
     dwp_inputs = []
     if crate_type_linked(params.crate_type) and common_args.emit_requires_linking:
@@ -613,6 +615,15 @@ def rust_compile(
                 params.dep_link_strategy,
             )
 
+        if params.crate_type in (CrateType("cdylib"), CrateType("dylib")):
+            (import_library, import_library_args) = get_import_library(
+                ctx = ctx,
+                linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
+                output_short_path = emit_op.output.short_path,
+            )
+        else:
+            import_library_args = []
+
         link_args_output = make_link_args(
             ctx,
             ctx.actions,
@@ -620,6 +631,7 @@ def rust_compile(
             [
                 LinkArgs(flags = extra_link_args),
                 inherited_link_args,
+                LinkArgs(flags = import_library_args),
             ],
             output_short_path = emit_op.output.short_path,
         )
@@ -750,6 +762,7 @@ def rust_compile(
         stripped_output = stripped_output,
         diag_txt = invoke.diag_txt,
         diag_json = invoke.diag_json,
+        import_library = import_library,
         pdb = pdb_artifact,
         dwp_output = dwp_output,
         dwo_output_directory = dwo_output_directory,

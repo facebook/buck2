@@ -65,6 +65,7 @@ LINKERS = {
     ),
 }
 
+IMPORT_LIBRARY_SUB_TARGET = "implib"
 PDB_SUB_TARGET = "pdb"
 
 def _sanitize(s: str) -> str:

@@ -141,6 +141,7 @@ load(
 load(
     ":linker.bzl",
     "DUMPBIN_SUB_TARGET",
+    "IMPORT_LIBRARY_SUB_TARGET",
     "PDB_SUB_TARGET",
     "get_dumpbin_providers",
     "get_link_whole_args",
@@ -188,7 +189,7 @@ def _get_shared_link_style_sub_targets_and_providers(
     if output.linker_map != None:
         sub_targets["linker-map"] = [DefaultInfo(default_output = output.linker_map.map, other_outputs = [output.linker_map.binary])]
     if output.implib != None:
-        sub_targets["implib"] = [DefaultInfo(default_output = output.implib)]
+        sub_targets[IMPORT_LIBRARY_SUB_TARGET] = [DefaultInfo(default_output = output.implib)]
     return (sub_targets, providers)
 
 def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:

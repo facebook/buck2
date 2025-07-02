@@ -16,6 +16,8 @@ RustcOutput = record(
     stripped_output = field(Artifact),
     diag_txt = field(Artifact),
     diag_json = field(Artifact),
+    # Windows .lib artifact for linking against .dll
+    import_library = field(Artifact | None),
     pdb = field(Artifact | None),
     dwp_output = field(Artifact | None),
     # Zero or more Split DWARF debug info files are emitted into this directory
