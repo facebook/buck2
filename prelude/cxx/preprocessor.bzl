@@ -194,7 +194,7 @@ def format_system_include_arg(path: cmd_args, compiler_type: str) -> list[cmd_ar
     else:
         return [cmd_args("-isystem"), path]
 
-def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHeadersLayout, extra_preprocessors: list[CPreprocessor] = []) -> CPreprocessor:
+def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHeadersLayout, extra_preprocessors: list[CPreprocessor] = [], uses_experimental_content_based_path_hashing: bool = False) -> CPreprocessor:
     """
     This rule's preprocessor info which is both applied to the compilation of
     its source and propagated to the compilation of dependent's sources.
@@ -253,7 +253,7 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
         include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_include_directories])
         system_include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_system_include_directories])
 
-    args = _get_exported_preprocessor_args(ctx, exported_header_map, style, compiler_type, raw_headers, extra_preprocessors)
+    args = _get_exported_preprocessor_args(ctx, exported_header_map, style, compiler_type, raw_headers, extra_preprocessors, uses_experimental_content_based_path_hashing)
 
     modular_args = []
     for pre in extra_preprocessors:
@@ -273,8 +273,8 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
         header_units = header_units,
     )
 
-def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor]) -> CPreprocessorArgs:
-    header_root = prepare_headers(ctx, headers, "buck-headers")
+def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor], uses_experimental_content_based_path_hashing: bool) -> CPreprocessorArgs:
+    header_root = prepare_headers(ctx, headers, "buck-headers", uses_experimental_content_based_path_hashing)
 
     # Process args to handle the `$(cxx-header-tree)` macro.
     args = []

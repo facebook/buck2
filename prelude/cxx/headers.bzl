@@ -228,7 +228,7 @@ def _header_mode(ctx: AnalysisContext) -> HeaderMode:
 
     return toolchain_header_mode
 
-def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str) -> [Headers, None]:
+def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str, uses_experimental_content_based_path_hashing: bool = False) -> [Headers, None]:
     """
     Prepare all the headers we want to use, depending on the header_mode
     set on the target's toolchain.
@@ -254,16 +254,20 @@ def prepare_headers(ctx: AnalysisContext, srcs: dict[str, Artifact], name: str) 
 
     if header_mode == HeaderMode("header_map_only"):
         headers = {h: (a, "{}") for h, a in srcs.items()}
-        hmap = _mk_hmap(ctx, output_name, headers)
+        hmap = _mk_hmap(ctx, output_name, headers, uses_experimental_content_based_path_hashing)
         return Headers(
             include_path = cmd_args(hmap, hidden = srcs.values()),
         )
-    symlink_dir = ctx.actions.symlinked_dir(output_name, _normalize_header_srcs(srcs))
+    symlink_dir = ctx.actions.symlinked_dir(
+        output_name,
+        _normalize_header_srcs(srcs),
+        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+    )
     if header_mode == HeaderMode("symlink_tree_only"):
         return Headers(include_path = cmd_args(symlink_dir), symlink_tree = symlink_dir)
     if header_mode == HeaderMode("symlink_tree_with_header_map"):
         headers = {h: (symlink_dir, "{}/" + h) for h in srcs}
-        hmap = _mk_hmap(ctx, output_name, headers)
+        hmap = _mk_hmap(ctx, output_name, headers, uses_experimental_content_based_path_hashing)
         file_prefix_args = _get_debug_prefix_args(ctx, symlink_dir)
         return Headers(
             include_path = cmd_args(hmap, hidden = symlink_dir),
@@ -387,15 +391,22 @@ def _get_debug_prefix_args(ctx: AnalysisContext, header_dir: Artifact) -> [cmd_a
         cmd_args(header_dir, format = fmt),
     )
 
-def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)]) -> Artifact:
-    output = ctx.actions.declare_output(name + ".hmap")
+def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)], uses_experimental_content_based_path_hashing: bool = False) -> Artifact:
+    output = ctx.actions.declare_output(
+        name + ".hmap",
+        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+    )
 
     header_args = cmd_args()
     for n, (path, fmt) in headers.items():
         header_args.add(n)
         header_args.add(cmd_args(path, format = fmt))
 
-    hmap_args_file = ctx.actions.write(output.basename + ".cxx_hmap_argsfile", cmd_args(header_args, quote = "shell"))
+    hmap_args_file = ctx.actions.write(
+        output.basename + ".cxx_hmap_argsfile",
+        cmd_args(header_args, quote = "shell"),
+        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+    )
 
     cmd = cmd_args(
         [get_cxx_toolchain_info(ctx).internal_tools.hmap_wrapper] +
