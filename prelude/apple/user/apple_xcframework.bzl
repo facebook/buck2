@@ -7,9 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleInfo")
-load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
-load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
 # Metadata about XCFramework
 XCFrameworkInfo = provider(
@@ -37,7 +35,7 @@ def _get_framework_name(ctx: AnalysisContext) -> str:
         return framework[AppleBundleInfo].binary_name
     fail("Cannot find framework name")
 
-def _apple_xcframework_impl(ctx: AnalysisContext) -> list[Provider]:
+def apple_xcframework_impl(ctx: AnalysisContext) -> list[Provider]:
     apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
     framework_name = _get_framework_name(ctx)
 
@@ -195,16 +193,4 @@ framework_split_transition = transition(
         "platforms",
     ],
     split = True,
-)
-
-registration_spec = RuleRegistrationSpec(
-    name = "apple_xcframework",
-    impl = _apple_xcframework_impl,
-    attrs = {
-        "framework": attrs.split_transition_dep(cfg = framework_split_transition),
-        "framework_name": attrs.option(attrs.string(), default = None),
-        "framework_name_from_product_name": attrs.bool(default = False),
-        "include_dsym": attrs.option(attrs.bool(), default = None),
-        "platforms": attrs.list(attrs.string(), default = []),
-    } | apple_common.apple_tools_arg(),
 )

@@ -21,6 +21,7 @@ load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_i
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/swift:swift_types.bzl", "SwiftMacroPlugin", "SwiftVersion")
 load("@prelude//apple/user:apple_ipa_package.bzl", "apple_ipa_package_attribs", "apple_ipa_package_impl")
+load("@prelude//apple/user:apple_xcframework.bzl", "apple_xcframework_impl", "framework_split_transition")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:test_common.bzl", "test_common")
@@ -1168,6 +1169,18 @@ apple_ipa_package = prelude_rule(
     attrs = apple_ipa_package_attribs(),
 )
 
+apple_xcframework = prelude_rule(
+    name = "apple_xcframework",
+    impl = apple_xcframework_impl,
+    attrs = {
+        "framework": attrs.split_transition_dep(cfg = framework_split_transition),
+        "framework_name": attrs.option(attrs.string(), default = None),
+        "framework_name_from_product_name": attrs.bool(default = False),
+        "include_dsym": attrs.option(attrs.bool(), default = None),
+        "platforms": attrs.list(attrs.string(), default = []),
+    } | apple_common.apple_tools_arg(),
+)
+
 ios_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
@@ -1182,6 +1195,7 @@ ios_rules = struct(
     apple_tools = apple_tools,
     apple_simulators = apple_simulators,
     apple_universal_executable = apple_universal_executable,
+    apple_xcframework = apple_xcframework,
     core_data_model = core_data_model,
     cxx_universal_executable = cxx_universal_executable,
     prebuilt_apple_framework = prebuilt_apple_framework,
