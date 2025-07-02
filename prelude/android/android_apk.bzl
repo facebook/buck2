@@ -77,6 +77,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
 
     classpath = [dep.jar for dep in java_packaging_deps if dep.jar]
     sub_targets["classpath"] = [DefaultInfo(default_output = ctx.actions.write("classpath.txt", classpath), other_outputs = classpath)]
+    sub_targets["classpath_targets"] = [DefaultInfo(default_output = ctx.actions.write("classpath_targets.txt", list(set([jar.owner.raw_target() for jar in classpath]))))]
 
     return [
         AndroidApkInfo(
