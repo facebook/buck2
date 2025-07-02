@@ -148,6 +148,11 @@ def _full_jar_args(dep: JavaPackagingDep):
         return cmd_args(dep.jar)
     return cmd_args()
 
+def _full_jar_owner_args(dep: JavaPackagingDep):
+    if dep.jar:
+        return cmd_args(dep.jar.owner.raw_target())
+    return cmd_args()
+
 def _args_for_classpath_macro(dep: JavaPackagingDep):
     return dep.output_for_classpath_macro
 
@@ -158,6 +163,7 @@ JavaPackagingDepTSet = transitive_set(
     args_projections = {
         "args_for_classpath_macro": _args_for_classpath_macro,
         "full_jar_args": _full_jar_args,
+        "full_jar_owner_args": _full_jar_owner_args,
     },
     json_projections = {
         "javacd_json": _packaging_dep_javacd_json,
