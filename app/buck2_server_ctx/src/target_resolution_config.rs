@@ -108,6 +108,7 @@ impl TargetResolutionConfig {
         let TargetLabelWithExtra {
             target_label,
             extra,
+            modifiers: _,
         } = &label;
         match &extra.cfg {
             ConfigurationPredicate::Any => self.get_configured_target(ctx, &target_label).await,

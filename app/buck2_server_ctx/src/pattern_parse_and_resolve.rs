@@ -10,6 +10,7 @@
 
 use buck2_common::pattern::parse_from_cli;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::pattern::pattern::TargetLabelWithExtra;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
@@ -32,20 +33,23 @@ pub async fn parse_and_resolve_patterns_to_targets_from_cli_args<T: PatternType>
     for (package, spec) in resolved_pattern.specs {
         match spec {
             buck2_core::pattern::pattern::PackageSpec::Targets(targets) => {
-                result_targets.extend(targets.into_map(|(name, extra, _modifiers)| {
+                result_targets.extend(targets.into_map(|(name, extra, modifiers)| {
                     TargetLabelWithExtra {
                         target_label: TargetLabel::new(package.dupe(), name.as_ref()),
                         extra,
+                        modifiers: Modifiers::new(modifiers),
                     }
                 }))
             }
-            buck2_core::pattern::pattern::PackageSpec::All(_modifiers) => {
+            buck2_core::pattern::pattern::PackageSpec::All(modifiers) => {
                 // Note this code is not parallel. Careful if used in performance sensitive code.
                 let interpreter_results = ctx.get_interpreter_results(package.dupe()).await?;
+                let modifiers = Modifiers::new(modifiers);
                 result_targets.extend(interpreter_results.targets().keys().map(|target| {
                     TargetLabelWithExtra {
                         target_label: TargetLabel::new(package.dupe(), target),
                         extra: T::default(),
+                        modifiers: modifiers.dupe(),
                     }
                 }));
             }

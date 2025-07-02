@@ -10,6 +10,7 @@
 
 use std::fmt;
 use std::fmt::Display;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
@@ -147,6 +148,19 @@ pub(crate) fn split_providers_name(s: &str) -> buck2_error::Result<(&str, Provid
     }
 }
 
+#[derive(Dupe, Clone)]
+pub struct Modifiers(Option<Arc<[String]>>);
+
+impl Modifiers {
+    pub fn new(modifiers: Option<Vec<String>>) -> Self {
+        Self(modifiers.map(|m| m.into()))
+    }
+
+    pub fn as_slice(&self) -> Option<&[String]> {
+        self.0.as_deref()
+    }
+}
+
 /// All possible labels.
 /// - target label
 /// - configured target label
@@ -155,6 +169,7 @@ pub(crate) fn split_providers_name(s: &str) -> buck2_error::Result<(&str, Provid
 pub struct TargetLabelWithExtra<T: PatternType> {
     pub target_label: TargetLabel,
     pub extra: T,
+    pub modifiers: Modifiers,
 }
 
 impl TargetLabelWithExtra<TargetPatternExtra> {
