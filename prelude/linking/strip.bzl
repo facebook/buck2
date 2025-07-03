@@ -75,7 +75,7 @@ def strip_debug_info(
             obj = obj,
         )
 
-def strip_object(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, unstripped: Artifact, strip_flags: cmd_args, category_suffix: [str, None] = None, output_path: [str, None] = None) -> Artifact:
+def strip_object(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, unstripped: Artifact, strip_flags: cmd_args, category_suffix: [str, None] = None, output_path: [str, None] = None, allow_cache_upload: bool = False) -> Artifact:
     """
     Strip unneeded information from binaries / shared libs.
     """
@@ -96,7 +96,7 @@ def strip_object(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, unstripp
     effective_category_suffix = category_suffix if category_suffix else "shared_lib"
     category = "strip_{}".format(effective_category_suffix)
 
-    ctx.actions.run(cmd, category = category, identifier = output_path)
+    ctx.actions.run(cmd, category = category, identifier = output_path, allow_cache_upload = allow_cache_upload)
 
     return stripped_lib
 

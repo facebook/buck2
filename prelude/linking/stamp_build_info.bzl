@@ -9,11 +9,14 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 
+def cxx_stamp_build_info(ctx: AnalysisContext) -> bool:
+    return hasattr(ctx.attrs, "_build_info") and bool(ctx.attrs._build_info)
+
 def stamp_build_info(ctx: AnalysisContext, obj: Artifact) -> Artifact:
     """
     If necessary, add fb_build_info section to binary via late-stamping
     """
-    if hasattr(ctx.attrs, "_build_info") and ctx.attrs._build_info:
+    if cxx_stamp_build_info(ctx):
         ctx.attrs._build_info["late_stamping"] = True
         build_info_json = ctx.actions.write_json(obj.short_path + "-build-info.json", ctx.attrs._build_info)
         stem, ext = paths.split_extension(obj.short_path)

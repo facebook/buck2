@@ -46,7 +46,7 @@ load(
     "LtoMode",
     "get_split_debug_lto_info",
 )
-load("@prelude//linking:stamp_build_info.bzl", "stamp_build_info")
+load("@prelude//linking:stamp_build_info.bzl", "cxx_stamp_build_info", "stamp_build_info")
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:expect.bzl", "expect")
 load(
@@ -300,6 +300,8 @@ def cxx_link_into(
         opts.link_execution_preference,
     )
 
+    enable_late_build_info_stamping = is_result_executable and cxx_stamp_build_info(ctx)
+
     ctx.actions.run(
         command,
         prefer_local = action_execution_properties.prefer_local,
@@ -309,17 +311,17 @@ def cxx_link_into(
         category = category,
         identifier = opts.identifier,
         force_full_hybrid_if_capable = action_execution_properties.full_hybrid,
-        allow_cache_upload = opts.allow_cache_upload,
+        allow_cache_upload = opts.allow_cache_upload or enable_late_build_info_stamping,
         error_handler = opts.error_handler,
     )
     unstripped_output = output
     if opts.strip:
         strip_args = opts.strip_args_factory(ctx) if opts.strip_args_factory else cmd_args()
-        output = strip_object(ctx, cxx_toolchain_info, output, strip_args, opts.category_suffix)
+        output = strip_object(ctx, cxx_toolchain_info, output, strip_args, opts.category_suffix, allow_cache_upload = enable_late_build_info_stamping)
 
-    use_bolt = (is_result_executable and cxx_use_bolt(ctx))
+    use_bolt = is_result_executable and cxx_use_bolt(ctx)
     if use_bolt:
-        bolt_output = bolt(ctx, output, external_debug_info, opts.identifier, dwp_tool_available)
+        bolt_output = bolt(ctx, output, external_debug_info, opts.identifier, dwp_tool_available, allow_cache_upload = enable_late_build_info_stamping)
         output = bolt_output.output
         split_debug_output = bolt_output.dwo_output
 

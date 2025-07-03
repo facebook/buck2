@@ -25,7 +25,7 @@ def cxx_use_bolt(ctx: AnalysisContext) -> bool:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     return cxx_toolchain_info.bolt_enabled and ctx.attrs.bolt_profile != None
 
-def bolt(ctx: AnalysisContext, prebolt_output: Artifact, external_debug_info: ArtifactTSet, identifier: [str, None], generate_dwp: bool) -> CxxBoltOutput:
+def bolt(ctx: AnalysisContext, prebolt_output: Artifact, external_debug_info: ArtifactTSet, identifier: [str, None], generate_dwp: bool, allow_cache_upload: bool = False) -> CxxBoltOutput:
     output_name = prebolt_output.short_path.removesuffix("-wrapper")
     postbolt_output = ctx.actions.declare_output(output_name)
     dwo_output = None
@@ -59,16 +59,18 @@ def bolt(ctx: AnalysisContext, prebolt_output: Artifact, external_debug_info: Ar
             args,
         )
 
+    strip_stapsdt = hasattr(ctx.attrs, "strip_stapsdt") and ctx.attrs.strip_stapsdt
     ctx.actions.run(
         args,
         category = "bolt",
         identifier = identifier,
         local_only = get_cxx_toolchain_info(ctx).linker_info.link_binaries_locally,
+        allow_cache_upload = allow_cache_upload and not strip_stapsdt,
     )
 
     output = postbolt_output
 
-    if hasattr(ctx.attrs, "strip_stapsdt") and ctx.attrs.strip_stapsdt:
+    if strip_stapsdt:
         stripped_postbolt_output = ctx.actions.declare_output(output_name + "-nostapsdt")
         ctx.actions.run(
             # We --rename-section instead of --remove-section because objcopy's processing
@@ -85,6 +87,7 @@ def bolt(ctx: AnalysisContext, prebolt_output: Artifact, external_debug_info: Ar
             # This can execute in RE, but is cheaper to do locally especially for large binaries that
             # are already locally materialized
             prefer_local = True,
+            allow_cache_upload = allow_cache_upload,
         )
         output = stripped_postbolt_output
 
