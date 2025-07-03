@@ -947,6 +947,13 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (11, 0, 0),
         "watchos": (7, 4, 0),
     },
+    "SwiftData": {
+        "appletvos": (17, 0, 0),
+        "iphoneos": (17, 0, 0),
+        "maccatalyst": (17, 0, 0),
+        "macosx": (14, 0, 0),
+        "watchos": (10, 0, 0),
+    },
     "SwiftUI": {
         "appletvos": (13, 0, 0),
         "iphoneos": (13, 0, 0),
