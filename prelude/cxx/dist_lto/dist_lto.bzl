@@ -42,7 +42,7 @@ load(
     "map_to_link_infos",
     "unpack_external_debug_info",
 )
-load("@prelude//linking:stamp_build_info.bzl", "stamp_build_info")
+load("@prelude//linking:stamp_build_info.bzl", "cxx_stamp_build_info", "stamp_build_info")
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:lazy.bzl", "lazy")
@@ -117,6 +117,9 @@ def cxx_gnu_dist_link(
     # An identifier that will uniquely name this link action in the context of a category. Useful for
     # differentiating multiple link actions in the same rule.
     identifier = opts.identifier
+
+    enable_late_build_info_stamping = executable_link and cxx_stamp_build_info(ctx)
+    enable_bolt = executable_link and cxx_use_bolt(ctx)
 
     def make_cat(c: str) -> str:
         """ Used to make sure categories for our actions include the provided suffix """
@@ -617,7 +620,7 @@ def cxx_gnu_dist_link(
         link_cmd.add(link_cmd_parts.post_linker_flags)
         link_cmd.add(cmd_args(hidden = link_cmd_hidden))
 
-        ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, local_only = True)
+        ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, local_only = True, allow_cache_upload = enable_late_build_info_stamping)
 
     final_link_inputs = [link_plan_out, final_link_index] + archive_opt_manifests
     ctx.actions.dynamic_output(
@@ -637,8 +640,8 @@ def cxx_gnu_dist_link(
         ],
     )
 
-    if (executable_link and cxx_use_bolt(ctx)):
-        bolt_output = bolt(ctx, output, external_debug_info, identifier, dwp_tool_available)
+    if enable_bolt:
+        bolt_output = bolt(ctx, output, external_debug_info, identifier, dwp_tool_available, allow_cache_upload = enable_late_build_info_stamping)
         final_output = bolt_output.output
         split_debug_output = bolt_output.dwo_output
     else:
@@ -669,7 +672,7 @@ def cxx_gnu_dist_link(
     unstripped_output = final_output
     if opts.strip:
         strip_args = opts.strip_args_factory(ctx) if opts.strip_args_factory else cmd_args()
-        final_output = strip_object(ctx, cxx_toolchain, final_output, strip_args, category_suffix)
+        final_output = strip_object(ctx, cxx_toolchain, final_output, strip_args, category_suffix, allow_cache_upload = enable_late_build_info_stamping)
 
     final_output = stamp_build_info(ctx, final_output) if executable_link else final_output
 
