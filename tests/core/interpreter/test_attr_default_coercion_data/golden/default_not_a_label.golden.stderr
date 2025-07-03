@@ -10,13 +10,13 @@ Caused by:
     0: From load at TARGETS.fixture:1
     1: Error evaluating module: `root//error_rule.bzl`
     2: Traceback (most recent call last):
-         * error_rule.bzl:22, in <module>
+         * error_rule.bzl:23, in <module>
              "someattr": attrs.transition_dep(default = "notaproperlabel", cfg = _transiti...
        
        error: Error coercing "notaproperlabel"
-         --> error_rule.bzl:22:21
+         --> error_rule.bzl:23:21
           |
-       22 |         "someattr": attrs.transition_dep(default = "notaproperlabel", cfg = _transition),
+       23 |         "someattr": attrs.transition_dep(default = "notaproperlabel", cfg = _transition),
           |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
           |
     3: Invalid target pattern `notaproperlabel` is not allowed

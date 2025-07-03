@@ -3,13 +3,13 @@
 Command failed: 
 Traceback (most recent call last):
   File <builtin>, in <module>
-  * fail_no_stacktrace.bxl:9, in _fail_no_stacktrace_impl
+  * fail_no_stacktrace.bxl:10, in _fail_no_stacktrace_impl
       fail_no_stacktrace("failing with no stacktrace")
 error: fail: failing with no stacktrace
- --> fail_no_stacktrace.bxl:9:5
-  |
-9 |     fail_no_stacktrace("failing with no stacktrace")
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  |
+  --> fail_no_stacktrace.bxl:10:5
+   |
+10 |     fail_no_stacktrace("failing with no stacktrace")
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
 
 BXL FAILED

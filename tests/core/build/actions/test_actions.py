@@ -432,9 +432,9 @@ async def test_local_action_has_input_size(buck: Buck) -> None:
     assert input_size
 
     if platform.system() == "Windows":
-        assert input_size[0] == 370
+        assert input_size[0] == 448
     else:
-        assert input_size[0] == 342
+        assert input_size[0] == 416
 
 
 @buck_test(data_dir="actions")
@@ -453,9 +453,9 @@ async def test_remote_action_has_input_size(buck: Buck) -> None:
     assert input_size
 
     if platform.system() == "Windows":
-        assert input_size[0] == 370
+        assert input_size[0] == 448
     else:
-        assert input_size[0] == 342
+        assert input_size[0] == 416
 
 
 @buck_test(data_dir="actions")

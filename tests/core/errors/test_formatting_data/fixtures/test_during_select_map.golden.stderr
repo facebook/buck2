@@ -7,16 +7,16 @@ Caused by:
     Traceback (most recent call last):
       * during_select/TARGETS.fixture:3, in <module>
           map()
-      * during_select/select.bzl:13, in map
+      * during_select/select.bzl:14, in map
           select_map(str_select, _fail)
       File <builtin>, in select_map
       File <builtin>, in None
-      * during_select/select.bzl:9, in _fail
+      * during_select/select.bzl:10, in _fail
           fail("unused")
     error: fail: unused
-     --> during_select/select.bzl:9:5
-      |
-    9 |     fail("unused")
-      |     ^^^^^^^^^^^^^^
-      |
+      --> during_select/select.bzl:10:5
+       |
+    10 |     fail("unused")
+       |     ^^^^^^^^^^^^^^
+       |
     

@@ -3,15 +3,15 @@
 Command failed: 
 Traceback (most recent call last):
   File <builtin>, in <module>
-  * fail_attr_coercion.bxl:9, in _int_rule
+  * fail_attr_coercion.bxl:10, in _int_rule
       ctx.unconfigured_targets("//attr_coercion:int_rule")
 
 error: Error loading targets in package `root//attr_coercion` for target `root//attr_coercion:int_rule`
- --> fail_attr_coercion.bxl:9:5
-  |
-9 |     ctx.unconfigured_targets("//attr_coercion:int_rule")
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  |
+  --> fail_attr_coercion.bxl:10:5
+   |
+10 |     ctx.unconfigured_targets("//attr_coercion:int_rule")
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
 
 Caused by:
     0: Error evaluating build file: `root//attr_coercion:TARGETS.fixture`

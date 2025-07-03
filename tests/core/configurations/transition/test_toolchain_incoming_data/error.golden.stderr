@@ -6,18 +6,18 @@ From load at TARGETS.fixture:1
 Caused by:
     0: Error evaluating module: `root//defs.bzl`
     1: Traceback (most recent call last):
-         * defs.bzl:25, in <module>
+         * defs.bzl:26, in <module>
              toolchain_with_incoming_transition = rule(
        
        error: Toolchain rules do not support incoming transitions
-         --> defs.bzl:25:38
+         --> defs.bzl:26:38
           |
-       25 |   toolchain_with_incoming_transition = rule(
+       26 |   toolchain_with_incoming_transition = rule(
           |  ______________________________________^
-       26 | |     impl = _impl2,
-       27 | |     attrs = {},
-       28 | |     is_toolchain_rule = True,
-       29 | |     supports_incoming_transition = True,
-       30 | | )
+       27 | |     impl = _impl2,
+       28 | |     attrs = {},
+       29 | |     is_toolchain_rule = True,
+       30 | |     supports_incoming_transition = True,
+       31 | | )
           | |_^
           |
