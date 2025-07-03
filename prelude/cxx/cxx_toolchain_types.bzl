@@ -157,6 +157,7 @@ DistLtoToolsInfo = provider(fields = dict(
     prepare = dict[LinkerType, RunInfo],
     copy = RunInfo,
     archive_mapper = RunInfo,
+    compiler_stats_merger = RunInfo,
 ))
 
 CxxInternalTools = provider(fields = dict(

@@ -12,6 +12,7 @@ def _impl(ctx):
     return [
         DefaultInfo(),
         DistLtoToolsInfo(
+            compiler_stats_merger = ctx.attrs.compiler_stats_merger[RunInfo],
             planner = {
                 LinkerType(linker_type): planner[RunInfo]
                 for linker_type, planner in ctx.attrs.planner.items()
@@ -33,6 +34,7 @@ dist_lto_tools = rule(
     impl = _impl,
     attrs = {
         "archive_mapper": attrs.dep(providers = [RunInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_archive_mapper"),
+        "compiler_stats_merger": attrs.dep(providers = [RunInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_compiler_stats_merger"),
         "copy": attrs.dep(providers = [RunInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_copy"),
         "opt": attrs.dict(
             key = attrs.enum(LinkerType.values()),
