@@ -63,8 +63,17 @@ def build_package(
     def f(ctx: AnalysisContext, artifacts, outputs, go_list_out = go_list_out):
         go_list = parse_go_list_out(srcs, package_root, artifacts[go_list_out])
 
+        # A go package can can contain CGo or Go ASM files, but not both.
+        # If CGo and ASM files are present, we process ASM files together with C files with CxxToolchain.
+        # The `go build` command does additional check here and throws an error if both CGo and Go-ASM files are present.
+        c_files = go_list.c_files + go_list.cxx_files
+        s_files = go_list.s_files
+        if len(go_list.cgo_files) > 0:
+            c_files += s_files
+            s_files = []
+
         # Generate CGO and C sources.
-        cgo_go_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(ctx, go_list.cgo_files, go_list.h_files, go_list.c_files + go_list.cxx_files, go_list.cgo_cflags, go_list.cgo_cppflags, anon_targets_allowed = False)
+        cgo_go_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(ctx, go_list.cgo_files, go_list.h_files, c_files, go_list.cgo_cflags, go_list.cgo_cppflags, anon_targets_allowed = False)
         ctx.actions.copy_dir(outputs[cgo_gen_dir], cgo_gen_tmp_dir)
 
         is_x_test_pkg = len(go_list.x_test_go_files) > 0
@@ -78,10 +87,10 @@ def build_package(
         covered_go_files, coverage_vars_out, coveragecfg = cover_srcs(ctx, go_list_pkg_name, pkg_name, go_files_to_cover, coverage_mode)
         ctx.actions.write(outputs[coverage_vars_argsfile], coverage_vars_out)
 
-        symabis = _symabis(ctx, pkg_name, main, go_list.s_files, go_list.h_files, assembler_flags)
+        symabis = _symabis(ctx, pkg_name, main, s_files, go_list.h_files, assembler_flags)
 
         # Use -complete flag when compiling Go code only
-        complete_flag = len(go_list.cgo_files) + len(go_list.s_files) == 0
+        complete_flag = len(go_list.cgo_files) + len(s_files) + len(c_files) == 0
 
         def build_variant(shared: bool) -> Artifact:
             suffix = ",shared" if shared else ",non-shared"  # suffix to make artifacts unique
@@ -103,10 +112,10 @@ def build_package(
                 embedcfg = embedcfg,
                 embed_files = go_list.embed_files,
                 symabis = symabis,
-                gen_asmhdr = len(go_list.s_files) > 0,
+                gen_asmhdr = len(s_files) > 0,
             )
 
-            asm_o_files = _asssembly(ctx, pkg_name, main, go_list.s_files, go_list.h_files, asmhdr, assembler_flags, shared, suffix)
+            asm_o_files = _asssembly(ctx, pkg_name, main, s_files, go_list.h_files, asmhdr, assembler_flags, shared, suffix)
 
             return _pack(ctx, pkg_name, go_a_file, cgo_o_files + asm_o_files, suffix)
 
@@ -260,7 +269,7 @@ def _asssembly(
             _asm_args(ctx, pkg_name, main, shared),
             ["-o", o_file.as_output()],
             ["-I", cmd_args(asmhdr, parent = 1)] if asmhdr else [],  # can it actually be None?
-            ["-I", cmd_args(h_files, parent = 1)] if h_files else [],
+            [cmd_args(h_files, parent = 1, prepend = "-I")] if h_files else [],
             ["-trimpath", "%cwd%"],
             s_file,
         ]
