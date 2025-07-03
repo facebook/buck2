@@ -7,18 +7,15 @@
 # above-listed licenses.
 
 load("@prelude//:artifact_tset.bzl", "make_artifact_tset")
-load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_DEPS_ATTR_TYPE", "get_validation_deps_outputs")
-load("@prelude//apple:apple_common.bzl", "apple_common")
+load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_library.bzl", "AppleLibraryForDistributionInfo")
 load("@prelude//apple:apple_library_types.bzl", "AppleLibraryInfo")
-load("@prelude//apple:apple_rules_impl_utility.bzl", "get_apple_toolchain_attr")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@prelude//linking:link_info.bzl", "LinkStrategy", "get_link_args_for_strategy", "unpack_link_args")
 load("@prelude//linking:linkables.bzl", "linkables")
-load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 
-def _apple_static_archive_impl(ctx: AnalysisContext) -> list[Provider]:
+def apple_static_archive_impl(ctx: AnalysisContext) -> list[Provider]:
     libtool = ctx.attrs._apple_toolchain[AppleToolchainInfo].libtool
     static_archive_linker = ctx.attrs._apple_tools[AppleToolsInfo].static_archive_linker
     archive_name = ctx.attrs.name if ctx.attrs.archive_name == None else ctx.attrs.archive_name
@@ -106,17 +103,3 @@ def _get_static_link_args(ctx: AnalysisContext) -> list[ArgLike]:
     args.append(unpack_link_args(transitive_link_args))
 
     return args
-
-registration_spec = RuleRegistrationSpec(
-    name = "apple_static_archive",
-    impl = _apple_static_archive_impl,
-    attrs = {
-        "archive_name": attrs.option(attrs.string(), default = None),
-        "deps": attrs.list(attrs.dep(), default = []),
-        "distribution_flat_dep": attrs.option(attrs.dep(), default = None),
-        "flat_deps": attrs.list(attrs.dep(), default = []),
-        "labels": attrs.list(attrs.string(), default = []),
-        VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
-        "_apple_toolchain": get_apple_toolchain_attr(),
-    } | apple_common.apple_tools_arg(),
-)

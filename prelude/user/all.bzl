@@ -8,7 +8,6 @@
 
 load("@prelude//android/user:android_emulators.bzl", _android_emulators_spec = "registration_spec")
 load("@prelude//apple:apple_resource_dedupe_alias.bzl", _apple_resource_dedupe_alias_spec = "registration_spec")
-load("@prelude//apple:apple_static_archive.bzl", _apple_static_archive_spec = "registration_spec")
 load("@prelude//apple/mockingbird:mockingbird_mock.bzl", _mockingbird_mock_spec = "registration_spec")
 load("@prelude//apple/user:apple_macos_bundle.bzl", _apple_macos_bundle_spec = "registration_spec")
 load("@prelude//apple/user:apple_resource_bundle.bzl", _apple_resource_bundle_spec = "registration_spec")
@@ -27,7 +26,6 @@ _all_specs = [
     _extract_archive_spec,
     _android_emulators_spec,
     _apple_selective_debugging_spec,
-    _apple_static_archive_spec,
     _apple_resource_bundle_spec,
     _apple_resource_dedupe_alias_spec,
     _link_group_map_spec,

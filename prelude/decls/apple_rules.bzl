@@ -11,9 +11,11 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_DEPS_ATTR_TYPE")
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_toolchain_attr")
 load("@prelude//apple:apple_simulators.bzl", "apple_simulators_impl")
+load("@prelude//apple:apple_static_archive.bzl", "apple_static_archive_impl")
 load("@prelude//apple:apple_test_host_app_transition.bzl", "apple_test_host_app_transition")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//apple:apple_tools.bzl", "apple_tools_impl")
@@ -1193,6 +1195,20 @@ apple_spm_package = prelude_rule(
     },
 )
 
+apple_static_archive = prelude_rule(
+    name = "apple_static_archive",
+    impl = apple_static_archive_impl,
+    attrs = {
+        "archive_name": attrs.option(attrs.string(), default = None),
+        "deps": attrs.list(attrs.dep(), default = []),
+        "distribution_flat_dep": attrs.option(attrs.dep(), default = None),
+        "flat_deps": attrs.list(attrs.dep(), default = []),
+        "labels": attrs.list(attrs.string(), default = []),
+        VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
+        "_apple_toolchain": get_apple_toolchain_attr(),
+    } | apple_common.apple_tools_arg(),
+)
+
 ios_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
@@ -1207,6 +1223,7 @@ ios_rules = struct(
     apple_tools = apple_tools,
     apple_simulators = apple_simulators,
     apple_spm_package = apple_spm_package,
+    apple_static_archive = apple_static_archive,
     apple_universal_executable = apple_universal_executable,
     apple_xcframework = apple_xcframework,
     core_data_model = core_data_model,
