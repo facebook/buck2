@@ -9,6 +9,9 @@ cxx_binary(
     srcs = [
         "dist_lto_planner.cpp",
     ],
+    compiler_flags = [
+        "-Wno-deprecated-declarations",
+    ],
     linker_flags = [
         "-lc",
     ],
