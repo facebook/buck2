@@ -8,10 +8,9 @@
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//apple/user:apple_xcframework.bzl", "XCFrameworkInfo")
-load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//utils:utils.bzl", "flatten")
 
-def _apple_spm_package_impl(ctx: AnalysisContext) -> list[Provider]:
+def apple_spm_package_impl(ctx: AnalysisContext) -> list[Provider]:
     apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
 
     spm_packager = apple_tools.spm_packager
@@ -34,16 +33,6 @@ def _apple_spm_package_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(default_output = output_dir),
     ]
-
-registration_spec = RuleRegistrationSpec(
-    name = "apple_spm_package",
-    impl = _apple_spm_package_impl,
-    attrs = {
-        "deps": attrs.list(attrs.dep(), default = []),
-        "package_name": attrs.string(),
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
-    },
-)
 
 def apple_spm_package_extra_attrs():
     attribs = {

@@ -13,7 +13,6 @@ load("@prelude//apple/mockingbird:mockingbird_mock.bzl", _mockingbird_mock_spec 
 load("@prelude//apple/user:apple_macos_bundle.bzl", _apple_macos_bundle_spec = "registration_spec")
 load("@prelude//apple/user:apple_resource_bundle.bzl", _apple_resource_bundle_spec = "registration_spec")
 load("@prelude//apple/user:apple_selective_debugging.bzl", _apple_selective_debugging_spec = "registration_spec")
-load("@prelude//apple/user:apple_spm_package.bzl", _apple_spm_package_spec = "registration_spec")
 load("@prelude//apple/user:apple_toolchain_override.bzl", _apple_toolchain_override_spec = "registration_spec")
 load("@prelude//apple/user:apple_watchos_bundle.bzl", _apple_watchos_bundle_spec = "registration_spec")
 load("@prelude//apple/user:resource_group_map.bzl", _resource_group_map_spec = "registration_spec")
@@ -31,7 +30,6 @@ _all_specs = [
     _apple_static_archive_spec,
     _apple_resource_bundle_spec,
     _apple_resource_dedupe_alias_spec,
-    _apple_spm_package_spec,
     _link_group_map_spec,
     _resource_group_map_spec,
     _apple_watchos_bundle_spec,

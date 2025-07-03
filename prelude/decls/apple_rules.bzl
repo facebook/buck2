@@ -15,12 +15,14 @@ load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_toolchain_attr")
 load("@prelude//apple:apple_simulators.bzl", "apple_simulators_impl")
 load("@prelude//apple:apple_test_host_app_transition.bzl", "apple_test_host_app_transition")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//apple:apple_tools.bzl", "apple_tools_impl")
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
 load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/swift:swift_types.bzl", "SwiftMacroPlugin", "SwiftVersion")
 load("@prelude//apple/user:apple_ipa_package.bzl", "apple_ipa_package_attribs", "apple_ipa_package_impl")
+load("@prelude//apple/user:apple_spm_package.bzl", "apple_spm_package_impl")
 load("@prelude//apple/user:apple_xcframework.bzl", "apple_xcframework_impl", "framework_split_transition")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
@@ -1181,6 +1183,16 @@ apple_xcframework = prelude_rule(
     } | apple_common.apple_tools_arg(),
 )
 
+apple_spm_package = prelude_rule(
+    name = "apple_spm_package",
+    impl = apple_spm_package_impl,
+    attrs = {
+        "deps": attrs.list(attrs.dep(), default = []),
+        "package_name": attrs.string(),
+        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
+    },
+)
+
 ios_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
@@ -1194,6 +1206,7 @@ ios_rules = struct(
     apple_toolchain_set = apple_toolchain_set,
     apple_tools = apple_tools,
     apple_simulators = apple_simulators,
+    apple_spm_package = apple_spm_package,
     apple_universal_executable = apple_universal_executable,
     apple_xcframework = apple_xcframework,
     core_data_model = core_data_model,
