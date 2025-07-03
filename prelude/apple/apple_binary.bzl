@@ -11,7 +11,7 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load("@prelude//apple:apple_utility.bzl", "get_module_name")
-# @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "get_extra_linker_output_flags", "get_extra_linker_outputs")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "extra_distributed_thin_lto_opt_outputs_merger", "get_extra_linker_output_flags", "get_extra_linker_outputs")
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
     "compile_swift",
@@ -49,6 +49,7 @@ load(
     "@prelude//cxx:link_groups.bzl",
     "get_link_group_info",
 )
+load("@prelude//cxx:link_types.bzl", "ExtraLinkerOutputCategory")
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
@@ -178,6 +179,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             executable_name = ctx.attrs.executable_name,
             extra_linker_outputs_factory = _get_extra_linker_outputs,
             extra_linker_outputs_flags_factory = _get_extra_linker_outputs_flags,
+            extra_distributed_thin_lto_opt_outputs_merger = _extra_distributed_thin_lto_opt_outputs_merger,
         )
         cxx_output = cxx_executable(ctx, constructor_params)
 
@@ -255,15 +257,19 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
     else:
         return get_apple_binary_providers([])
 
-def _get_extra_linker_outputs(ctx: AnalysisContext) -> ExtraLinkerOutputs:
+def _get_extra_linker_outputs(ctx: AnalysisContext, extra_linker_output_category: ExtraLinkerOutputCategory = ExtraLinkerOutputCategory("produced-during-local-link")) -> ExtraLinkerOutputs:
     _ = ctx  # buildifier: disable=unused-variable
-    # @oss-disable[end= ]: return get_extra_linker_outputs(ctx)
+    # @oss-disable[end= ]: return get_extra_linker_outputs(ctx, extra_linker_output_category)
     return ExtraLinkerOutputs() # @oss-enable
 
-def _get_extra_linker_outputs_flags(ctx: AnalysisContext, outputs: dict[str, Artifact]) -> list[ArgLike]:
+def _get_extra_linker_outputs_flags(ctx: AnalysisContext, outputs: dict[str, Artifact], extra_linker_output_category: ExtraLinkerOutputCategory = ExtraLinkerOutputCategory("produced-during-local-link")) -> list[ArgLike]:
     _ = ctx  # buildifier: disable=unused-variable
-    # @oss-disable[end= ]: return get_extra_linker_output_flags(ctx, outputs)
+    # @oss-disable[end= ]: return get_extra_linker_output_flags(ctx, outputs, extra_linker_output_category)
     return [] # @oss-enable
+
+def _extra_distributed_thin_lto_opt_outputs_merger(ctx: AnalysisContext, outputs_to_bind: dict[str, Artifact], outputs_to_merge: list[dict[str, Artifact]]):
+    # @oss-disable[end= ]: return extra_distributed_thin_lto_opt_outputs_merger(ctx, outputs_to_bind, outputs_to_merge)
+    return # @oss-enable
 
 def _filter_swift_srcs(ctx: AnalysisContext) -> (list[CxxSrcWithFlags], list[CxxSrcWithFlags]):
     cxx_srcs = []

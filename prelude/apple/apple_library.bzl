@@ -17,7 +17,7 @@ load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_library_meta_validation.bzl", "apple_library_validate_for_meta_restrictions")
-# @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "get_extra_linker_output_flags", "get_extra_linker_outputs")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "extra_distributed_thin_lto_opt_outputs_merger", "get_extra_linker_output_flags", "get_extra_linker_outputs")
 load("@prelude//apple/mockingbird:mockingbird_types.bzl", "MockingbirdLibraryInfo", "MockingbirdLibraryInfoTSet", "MockingbirdLibraryRecord", "MockingbirdSourcesInfo", "MockingbirdTargetType")
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
@@ -70,6 +70,7 @@ load(
     "CxxRuleSubTargetParams",
 )
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers", "cxx_attr_headers", "cxx_attr_headers_list")
+load("@prelude//cxx:link_types.bzl", "ExtraLinkerOutputCategory")
 load(
     "@prelude//cxx:linker.bzl",
     "LINKERS",
@@ -530,6 +531,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         link_groups_force_static_follows_dependents = False,
         extra_linker_outputs_factory = _get_extra_linker_outputs,
         extra_linker_outputs_flags_factory = _get_extra_linker_outputs_flags,
+        extra_distributed_thin_lto_opt_outputs_merger = _extra_distributed_thin_lto_opt_outputs_merger,
         swiftmodule_linkable = get_swiftmodule_linkable(swift_compile),
         extra_shared_library_interfaces = [swift_compile.exported_symbols] if (swift_compile and swift_compile.exported_symbols) else None,
         compiler_flags = ctx.attrs.compiler_flags,
@@ -546,15 +548,19 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         index_stores = [swift_compile.index_store] if swift_compile else None,
     )
 
-def _get_extra_linker_outputs(ctx: AnalysisContext) -> ExtraLinkerOutputs:
+def _get_extra_linker_outputs(ctx: AnalysisContext, extra_linker_output_category: ExtraLinkerOutputCategory = ExtraLinkerOutputCategory("produced-during-local-link")) -> ExtraLinkerOutputs:
     _ = ctx  # buildifier: disable=unused-variable
-    # @oss-disable[end= ]: return get_extra_linker_outputs(ctx)
+    # @oss-disable[end= ]: return get_extra_linker_outputs(ctx, extra_linker_output_category)
     return ExtraLinkerOutputs() # @oss-enable
 
-def _get_extra_linker_outputs_flags(ctx: AnalysisContext, outputs: dict[str, Artifact]) -> list[ArgLike]:
+def _get_extra_linker_outputs_flags(ctx: AnalysisContext, outputs: dict[str, Artifact], extra_linker_output_category: ExtraLinkerOutputCategory = ExtraLinkerOutputCategory("produced-during-local-link")) -> list[ArgLike]:
     _ = ctx  # buildifier: disable=unused-variable
-    # @oss-disable[end= ]: return get_extra_linker_output_flags(ctx, outputs)
+    # @oss-disable[end= ]: return get_extra_linker_output_flags(ctx, outputs, extra_linker_output_category)
     return [] # @oss-enable
+
+def _extra_distributed_thin_lto_opt_outputs_merger(ctx: AnalysisContext, outputs_to_bind: dict[str, Artifact], outputs_to_merge: list[dict[str, Artifact]]):
+    # @oss-disable[end= ]: return extra_distributed_thin_lto_opt_outputs_merger(ctx, outputs_to_bind, outputs_to_merge)
+    return # @oss-enable
 
 def _filter_swift_srcs(ctx: AnalysisContext, additional_srcs: list = []) -> (list[CxxSrcWithFlags], list[CxxSrcWithFlags]):
     cxx_srcs = []

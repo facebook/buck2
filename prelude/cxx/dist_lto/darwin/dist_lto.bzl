@@ -20,7 +20,7 @@ load(
     "linker_map_args",
 )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerType")
-load("@prelude//cxx:link_types.bzl", "LinkOptions")
+load("@prelude//cxx:link_types.bzl", "ExtraLinkerOutputCategory", "LinkOptions")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load(
     "@prelude//linking:link_info.bzl",
@@ -91,7 +91,8 @@ def complete_distributed_link_with_expanded_archive_link_data(
         double_codegen_enabled: bool,
         executable_link: bool,
         external_debug_info_container_directory: Artifact,
-        extra_outputs,
+        extra_lto_outputs: dict[str, Artifact],
+        extra_native_link_outputs: dict[str, Artifact],
         final_binary_out: Artifact,
         index_argsfile_out: Artifact,
         link_infos: list[LinkInfo],
@@ -150,6 +151,12 @@ def complete_distributed_link_with_expanded_archive_link_data(
     debug_info_symlink_map = {}
     deps_linker_flags = cmd_args()
 
+    def declare_extra_opt_outputs(name: str) -> dict[str, Artifact]:
+        result = {}
+        for output_type_str in extra_lto_outputs.keys():
+            result[output_type_str] = ctx.actions.declare_output(name + "." + output_type_str)
+        return result
+
     for link in link_infos:
         link_name = name_for_link(link)
 
@@ -179,6 +186,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
                             output_final_native_object_file = final_native_object_file_output,
                             output_first_codegen_round_native_object_file = output_first_codegen_round_native_object_file,
                             merged_bc = merged_bc_output,
+                            extra_outputs = declare_extra_opt_outputs(name),
                         ),
                     )
                     raw_link_data.append(data)
@@ -210,6 +218,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
                             merged_bc = merged_bc_output,
                             archive_start = archive_start,
                             archive_end = archive_end,
+                            extra_outputs = declare_extra_opt_outputs(name),
                         ),
                     )
                     raw_link_data.append(data)
@@ -247,6 +256,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
                             merged_bc = merged_bc_output,
                             archive_start = archive_start,
                             archive_end = archive_end,
+                            extra_outputs = declare_extra_opt_outputs(name),
                         ),
                     ))
                     archive_contents_mapper_cmd.add("--object_to_map", object_basename, input_object_file.as_output())
@@ -321,6 +331,10 @@ def complete_distributed_link_with_expanded_archive_link_data(
         # there is no point optimizing it.
         if not optimization_plan.loaded_by_linker or not optimization_plan.is_bitcode or optimization_plan.merge_state == BitcodeMergeState("ABSORBED").value:
             ctx.actions.write(outputs[output_native_object_file].as_output(), "")
+            if double_codegen_state == DoubleCodegenState("disabled") or double_codegen_state == DoubleCodegenState("second_round"):
+                mapped_extra_outputs = {output_type: outputs[artifact] for output_type, artifact in bitcode_link_data.extra_outputs.items()}
+                for extra_output_artifact in mapped_extra_outputs.values():
+                    ctx.actions.write(extra_output_artifact.as_output(), "")
             return
 
         opt_cmd = cmd_args(lto_opt)
@@ -337,7 +351,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
         opt_cmd.add("--index", output_index_shard_file)
 
         opt_cmd.add(cmd_args(hidden = common_opt_cmd))
-        opt_cmd.add("--args", opt_argsfile)
+        opt_cmd.add("--shared-args", opt_argsfile)
         opt_cmd.add("--compiler", cxx_toolchain.cxx_compiler_info.compiler)
         if double_codegen_state == DoubleCodegenState("first_round"):
             opt_cmd.add("--generate-cgdata")
@@ -362,6 +376,19 @@ def complete_distributed_link_with_expanded_archive_link_data(
 
         # We have to add outputs after wrapping the cmd_args in a projection
         projected_opt_cmd.add("--out", outputs[output_native_object_file].as_output())
+        if (
+            link_options.extra_linker_outputs_flags_factory and
+            (double_codegen_state == DoubleCodegenState("disabled") or double_codegen_state == DoubleCodegenState("second_round"))
+        ):
+            mapped_extra_outputs = {output_type: outputs[artifact] for output_type, artifact in bitcode_link_data.extra_outputs.items()}
+            extra_outputs_args = cmd_args(
+                link_options.extra_linker_outputs_flags_factory(
+                    ctx,
+                    mapped_extra_outputs,
+                    ExtraLinkerOutputCategory("produced-during-distributed-thin-lto-opt"),
+                ),
+            )
+            projected_opt_cmd.add("--", extra_outputs_args)
         ctx.actions.run(projected_opt_cmd, category = make_cat(category_string), identifier = name)
 
     def dynamic_optimize(bitcode_link_data, double_codegen_state: DoubleCodegenState, merged_cgdata: Artifact | None = None):
@@ -371,6 +398,10 @@ def complete_distributed_link_with_expanded_archive_link_data(
             ]
         else:
             optimize_object_outputs = [bitcode_link_data.output_final_native_object_file.as_output()]
+
+            # Only add extra linker outputs in second round if double codegen is enabled
+            optimize_object_outputs += [artifact.as_output() for artifact in bitcode_link_data.extra_outputs.values()]
+
         ctx.actions.dynamic_output(
             dynamic = [bitcode_link_data.plan],
             inputs = [],
@@ -396,7 +427,9 @@ def complete_distributed_link_with_expanded_archive_link_data(
         for artifact in sorted_index_link_data:
             if artifact.data_type == LinkDataType("eager_bitcode") or artifact.data_type == LinkDataType("lazy_bitcode"):
                 optimization_plan = ObjectFileOptimizationPlan(**artifacts[artifact.link_data.plan].read_json())
-                if not optimization_plan.loaded_by_linker or not optimization_plan.is_bitcode or optimization_plan.merge_state == BitcodeMergeState("ABSORBED").value:
+                if (not optimization_plan.loaded_by_linker or
+                    not optimization_plan.is_bitcode or
+                    optimization_plan.merge_state == BitcodeMergeState("ABSORBED").value):
                     continue
 
                 # Some targets have spaces in them, we wrap in single quotes to make sure they are treated as single files
@@ -430,6 +463,30 @@ def complete_distributed_link_with_expanded_archive_link_data(
 
     ctx.actions.symlinked_dir(outputs[external_debug_info_container_directory], debug_info_symlink_map)
 
+    # merge extra outputs produced by opt actions
+    def merge_extra_opt_outputs(ctx: AnalysisContext, artifacts, outputs, lto_outputs):
+        opt_outputs_to_merge = []
+        for artifact in sorted_index_link_data:
+            if artifact.data_type == LinkDataType("eager_bitcode") or artifact.data_type == LinkDataType("lazy_bitcode"):
+                optimization_plan = ObjectFileOptimizationPlan(**artifacts[artifact.link_data.plan].read_json())
+                if not optimization_plan.loaded_by_linker or not optimization_plan.is_bitcode or optimization_plan.merge_state == BitcodeMergeState("ABSORBED").value:
+                    continue
+
+                opt_outputs_to_merge.append(artifact.link_data.extra_outputs)
+
+        mapped_lto_outputs = {output_type: outputs[artifact] for output_type, artifact in lto_outputs.items()}
+        link_options.extra_distributed_thin_lto_opt_outputs_merger(ctx, mapped_lto_outputs, opt_outputs_to_merge)
+
+    if link_options.extra_distributed_thin_lto_opt_outputs_merger:
+        if extra_lto_outputs:
+            mapped_lto_outputs = {output_type: outputs[artifact] for output_type, artifact in extra_lto_outputs.items()}
+            ctx.actions.dynamic_output(
+                dynamic = [artifact.link_data.plan for artifact in sorted_index_link_data if artifact.data_type == LinkDataType("lazy_bitcode") or artifact.data_type == LinkDataType("eager_bitcode")],
+                inputs = [],
+                outputs = [outputs[artifact].as_output() for artifact in extra_lto_outputs.values()],
+                f = lambda ctx, artifacts, outputs: merge_extra_opt_outputs(ctx, artifacts, outputs, mapped_lto_outputs),
+            )
+
     def thin_lto_final_link(ctx: AnalysisContext, artifacts, outputs):
         plan = artifacts[link_plan_out].read_json()
         link_args = cmd_args()
@@ -455,8 +512,11 @@ def complete_distributed_link_with_expanded_archive_link_data(
 
         if link_options.extra_linker_outputs_flags_factory != None:
             # We need the inner artifacts here
-            mapped_outputs = {output_type: outputs[artifact] for output_type, artifact in extra_outputs.artifacts.items()}
-            link_args.add(link_options.extra_linker_outputs_flags_factory(ctx, mapped_outputs))
+            mapped_outputs = {
+                output_type: outputs[artifact]
+                for output_type, artifact in extra_native_link_outputs.items()
+            }
+            link_args.add(link_options.extra_linker_outputs_flags_factory(ctx, mapped_outputs, ExtraLinkerOutputCategory("produced-during-distributed-thin-lto-native-link")))
 
         link_args.add("-o", outputs[final_binary_out].as_output())
         if linker_map_out:
@@ -480,7 +540,12 @@ def complete_distributed_link_with_expanded_archive_link_data(
     final_link_outputs = [outputs[final_binary_out].as_output(), outputs[linker_argsfile_out].as_output()]
     if linker_map_out:
         final_link_outputs.append(outputs[linker_map_out].as_output())
-    final_link_outputs += [outputs[o].as_output() for o in extra_outputs.artifacts.values()]
+
+    # Add outputs produced by native link only
+    final_link_outputs += [
+        outputs[output_artifact].as_output()
+        for output_artifact in extra_native_link_outputs.values()
+    ]
 
     ctx.actions.dynamic_output(
         dynamic = [link_plan_out, final_link_index],
@@ -598,19 +663,25 @@ def cxx_darwin_dist_link(
         ],
     )
 
-    # Declare any extra outputs here so we can look them up in the final_link closure
-    extra_outputs = opts.extra_linker_outputs_factory(ctx) if opts.extra_linker_outputs_factory else ExtraLinkerOutputs()
+    extra_linker_outputs_factory = opts.extra_linker_outputs_factory
+    link_outputs = [output.as_output(), index_argsfile_out.as_output(), linker_argsfile_out.as_output(), external_debug_info_container_directory.as_output()]
 
-    final_link_outputs = [output.as_output(), index_argsfile_out.as_output(), linker_argsfile_out.as_output(), external_debug_info_container_directory.as_output()]
+    lto_outputs = ExtraLinkerOutputs()
+    native_link_outputs = ExtraLinkerOutputs()
+    if extra_linker_outputs_factory:
+        lto_outputs = extra_linker_outputs_factory(ctx, ExtraLinkerOutputCategory("produced-during-distributed-thin-lto-opt"))
+        native_link_outputs = extra_linker_outputs_factory(ctx, ExtraLinkerOutputCategory("produced-during-distributed-thin-lto-native-link"))
+
+    link_outputs.extend([lto_output.as_output() for lto_output in lto_outputs.artifacts.values()])
+    link_outputs.extend([native_link_output.as_output() for native_link_output in native_link_outputs.artifacts.values()])
+
     if linker_map:
-        final_link_outputs.append(linker_map.as_output())
-
-    final_link_outputs += [o.as_output() for o in extra_outputs.artifacts.values()]
+        link_outputs.append(linker_map.as_output())
 
     ctx.actions.dynamic_output(
         dynamic = archive_manifests,
         inputs = [],
-        outputs = final_link_outputs,
+        outputs = link_outputs,
         f = lambda ctx, artifacts, outputs: complete_distributed_link_with_expanded_archive_link_data(
             ctx,
             artifacts,
@@ -618,7 +689,8 @@ def cxx_darwin_dist_link(
             common_opt_cmd = common_opt_cmd,
             executable_link = executable_link,
             external_debug_info_container_directory = external_debug_info_container_directory,
-            extra_outputs = extra_outputs,
+            extra_lto_outputs = lto_outputs.artifacts,
+            extra_native_link_outputs = native_link_outputs.artifacts,
             final_binary_out = output,
             index_argsfile_out = index_argsfile_out,
             link_infos = link_infos,
@@ -648,4 +720,4 @@ def cxx_darwin_dist_link(
         linker_argsfile = linker_argsfile_out,
         linker_command = None,  # There is no notion of a single linker command for DistLTO
         index_argsfile = index_argsfile_out,
-    ), extra_outputs.providers
+    ), (lto_outputs.providers | native_link_outputs.providers)

@@ -19,6 +19,7 @@ EagerBitcodeLinkData = record(
     output_first_codegen_round_native_object_file = field([Artifact, None]),
     output_final_native_object_file = Artifact,
     merged_bc = field([Artifact, None]),
+    extra_outputs = field(dict[str, Artifact]),
 )
 
 LazyBitcodeLinkData = record(
@@ -31,6 +32,7 @@ LazyBitcodeLinkData = record(
     merged_bc = field([Artifact, None]),
     archive_start = bool,
     archive_end = bool,
+    extra_outputs = field(dict[str, Artifact]),
 )
 
 DynamicLibraryLinkData = record(

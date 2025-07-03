@@ -29,7 +29,12 @@ def main(argv: List[str]) -> int:
     parser.add_argument("--input", help="The input bitcode object file.")
     parser.add_argument("--index", help="The thinlto index file.")
     parser.add_argument(
-        "--args", help="The argsfile containing unfiltered and unprocessed flags."
+        "--shared-args",
+        help="The argsfile containing unfiltered and unprocessed flags, common to all opt actions in this link.",
+    )
+    parser.add_argument(
+        "--extra-outputs-args",
+        help="The argsfile containing unfiltered and unprocessed flags, specifying extra outputs produced by this opt action.",
     )
     parser.add_argument("--compiler", help="The path to the Clang compiler binary.")
     parser.add_argument(
@@ -43,11 +48,15 @@ def main(argv: List[str]) -> int:
         action="store_true",
     )
     parser.add_argument("--read-cgdata", help="Read cgdata from the provided file")
+    parser.add_argument("additional_opt_args", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv[1:])
 
-    clang_invocation = [args.compiler, f"@{args.args}"]
-    clang_invocation.extend(
+    clang_invocation = (
         [
+            args.compiler,
+            f"@{args.shared_args}",
+        ]
+        + [
             "-o",
             args.out,
             "-x",
@@ -60,6 +69,7 @@ def main(argv: List[str]) -> int:
             "-fno-lto",
             "-Werror=unused-command-line-argument",
         ]
+        + args.additional_opt_args[1:]
     )
 
     if args.generate_cgdata:

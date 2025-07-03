@@ -213,12 +213,21 @@ CxxRuleConstructorParams = record(
     # "follow" their dependents across link group boundaries.
     link_groups_force_static_follows_dependents = field(bool, True),
     # A factory function to produce extra artifacts and output providers for a rule
-    # with signature: f(ctx) -> ExtraLinkerOutputs
+    # with signature: f(ctx, ExtraLinkerOutputsCategory) -> ExtraLinkerOutputs
     extra_linker_outputs_factory = field(typing.Callable | None, None),
     # A factory function to produce linker flags for the extra linker outputs
     # returned from the extra_linker_outputs_factory. It should have the signature
-    # f(ctx, dict[str, Artifact]) -> list[ArgLike]
+    # f(ctx, ExtraLinkerOutputCategory, dict[str, Artifact]) -> list[ArgLike]
     extra_linker_outputs_flags_factory = field(typing.Callable | None, None),
+    # A function to consume extra outputs produced by distributed thin-lto opt actions
+    # and merge them together, as if they were produced by a local thin-lto link.
+    # The signature should be:
+    # f(ctx, dict[str, Artifact], list[dict[str, Artifact]])
+    # The second parameter should be the artifacts field of a call to
+    # extra_linker_outputs_factory(ctx, ExtraLinkerOutputsCategory("produced-during-distributed-thin-lto-opt")),
+    # and the last parameter a list of matching dictionaries representing all the opt outputs
+    # to be merged to bind the final outputs.
+    extra_distributed_thin_lto_opt_outputs_merger = field(typing.Callable | None, None),
     # Whether to allow cache uploads for locally-linked executables.
     exe_allow_cache_upload = field(bool, False),
     # Extra shared library interfaces to propagate, eg from mixed Swift libraries.

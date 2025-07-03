@@ -19,6 +19,12 @@ CxxLinkResultType = enum(
     "shared_library",
 )
 
+ExtraLinkerOutputCategory = enum(
+    "produced-during-local-link",
+    "produced-during-distributed-thin-lto-native-link",
+    "produced-during-distributed-thin-lto-opt",
+)
+
 LinkOptions = record(
     links = list[LinkArgs],
     link_execution_preference = LinkExecutionPreference,
@@ -39,9 +45,11 @@ LinkOptions = record(
     # Force callers to use link_options() or merge_link_options() to create.
     __private_use_link_options_function_to_construct = None,
     error_handler = [typing.Callable, None],
-    # Factory methods used to provide extra linker outputs and flags.
+    # Factory methods used to provide extra linker outputs and flags, to
+    # both local and distributed links.
     extra_linker_outputs_factory = field(typing.Callable | None, None),
     extra_linker_outputs_flags_factory = field(typing.Callable | None, None),
+    extra_distributed_thin_lto_opt_outputs_merger = field(typing.Callable | None, None),
 )
 
 def link_options(
@@ -58,8 +66,9 @@ def link_options(
         allow_cache_upload: bool = False,
         cxx_toolchain: [CxxToolchainInfo, None] = None,
         error_handler: [typing.Callable, None] = None,
-        extra_linker_outputs_factory: [typing.Callable, None] = None,
-        extra_linker_outputs_flags_factory: [typing.Callable, None] = None) -> LinkOptions:
+        extra_linker_outputs_factory: typing.Callable | None = None,
+        extra_linker_outputs_flags_factory: typing.Callable | None = None,
+        extra_distributed_thin_lto_opt_outputs_merger: typing.Callable | None = None) -> LinkOptions:
     """
     A type-checked constructor for LinkOptions because by default record
     constructors aren't typed.
@@ -81,6 +90,7 @@ def link_options(
         error_handler = error_handler,
         extra_linker_outputs_factory = extra_linker_outputs_factory,
         extra_linker_outputs_flags_factory = extra_linker_outputs_flags_factory,
+        extra_distributed_thin_lto_opt_outputs_merger = extra_distributed_thin_lto_opt_outputs_merger,
     )
 
 # A marker instance to differentiate explicitly-passed None and a field that
@@ -124,4 +134,5 @@ def merge_link_options(
         error_handler = base.error_handler,
         extra_linker_outputs_factory = base.extra_linker_outputs_factory,
         extra_linker_outputs_flags_factory = base.extra_linker_outputs_flags_factory,
+        extra_distributed_thin_lto_opt_outputs_merger = base.extra_distributed_thin_lto_opt_outputs_merger,
     )
