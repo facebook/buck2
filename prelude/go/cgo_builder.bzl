@@ -72,6 +72,7 @@ def _cgo(
         ["--go", go_toolchain.cgo],
         "--",
         cmd_args(gen_dir.as_output(), format = "-objdir={}"),
+        ["-trimpath", "%cwd%"],
         "--",
         c_flags + cpp_flags,
         ctx.attrs.cxx_compiler_flags,
