@@ -152,10 +152,13 @@ def main(argv: List[str]) -> None:
     pkgs_with_init = set()
 
     def _add_pkg(pkg: str) -> None:
+        # root (of 'site-packages/') should not be considered a pkg
+        if not pkg:
+            return
+
         pkgs.add(pkg)
         parent = os.path.dirname(pkg)
-        if parent:
-            _add_pkg(parent)
+        _add_pkg(parent)
 
     with WheelBuilder(
         name=args.name,
