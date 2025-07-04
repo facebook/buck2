@@ -1,0 +1,312 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("golang")
+
+source_listing()
+
+prelude = native
+
+prelude.http_archive(
+    name = "golang.org/x/tools__srcs",
+    sha1 = "e11c0f5a96ff80c5dcf09bcaf35bf04c286ebf15",
+    strip_prefix = "golang.org/x/tools@v0.34.0",
+    sub_targets = {
+        "go/gcexportdata": [
+            "go/gcexportdata/gcexportdata.go",
+            "go/gcexportdata/importer.go",
+            "go/gcexportdata/main.go",
+        ],
+        "go/packages": [
+            "go/packages/doc.go",
+            "go/packages/external.go",
+            "go/packages/golist_overlay.go",
+            "go/packages/golist.go",
+            "go/packages/loadmode_string.go",
+            "go/packages/packages.go",
+            "go/packages/visit.go",
+        ],
+        "go/types/objectpath": [
+            "go/types/objectpath/objectpath.go",
+        ],
+        "go/types/typeutil": [
+            "go/types/typeutil/callee.go",
+            "go/types/typeutil/imports.go",
+            "go/types/typeutil/map.go",
+            "go/types/typeutil/methodsetcache.go",
+            "go/types/typeutil/ui.go",
+        ],
+        "internal/aliases": [
+            "internal/aliases/aliases.go",
+            "internal/aliases/aliases_go122.go",
+        ],
+        "internal/event": [
+            "internal/event/doc.go",
+            "internal/event/event.go",
+        ],
+        "internal/event/core": [
+            "internal/event/core/event.go",
+            "internal/event/core/export.go",
+            "internal/event/core/fast.go",
+        ],
+        "internal/event/keys": [
+            "internal/event/keys/keys.go",
+            "internal/event/keys/standard.go",
+            "internal/event/keys/util.go",
+        ],
+        "internal/event/label": [
+            "internal/event/label/label.go",
+        ],
+        "internal/gcimporter": [
+            "internal/gcimporter/bimport.go",
+            "internal/gcimporter/exportdata.go",
+            "internal/gcimporter/gcimporter.go",
+            "internal/gcimporter/iexport.go",
+            "internal/gcimporter/iimport_go122.go",
+            "internal/gcimporter/iimport.go",
+            "internal/gcimporter/main.go",
+            "internal/gcimporter/predeclared.go",
+            "internal/gcimporter/support.go",
+            "internal/gcimporter/ureader_yes.go",
+        ],
+        "internal/gocommand": [
+            "internal/gocommand/invoke_notunix.go",
+            "internal/gocommand/invoke_unix.go",
+            "internal/gocommand/invoke.go",
+            "internal/gocommand/vendor.go",
+            "internal/gocommand/version.go",
+        ],
+        "internal/packagesinternal": [
+            "internal/packagesinternal/packages.go",
+        ],
+        "internal/pkgbits": [
+            "internal/pkgbits/codes.go",
+            "internal/pkgbits/decoder.go",
+            "internal/pkgbits/doc.go",
+            "internal/pkgbits/encoder.go",
+            "internal/pkgbits/flags.go",
+            "internal/pkgbits/reloc.go",
+            "internal/pkgbits/support.go",
+            "internal/pkgbits/sync.go",
+            "internal/pkgbits/syncmarker_string.go",
+            "internal/pkgbits/version.go",
+        ],
+        "internal/stdlib": [
+            "internal/stdlib/deps.go",
+            "internal/stdlib/generate.go",
+            "internal/stdlib/import.go",
+            "internal/stdlib/manifest.go",
+            "internal/stdlib/stdlib.go",
+        ],
+        "internal/typeparams": [
+            "internal/typeparams/common.go",
+            "internal/typeparams/copytermlist.go",
+            "internal/typeparams/coretype.go",
+            "internal/typeparams/free.go",
+            "internal/typeparams/normalize.go",
+            "internal/typeparams/termlist.go",
+            "internal/typeparams/typeterm.go",
+        ],
+        "internal/typesinternal": [
+            "internal/typesinternal/classify_call.go",
+            "internal/typesinternal/element.go",
+            "internal/typesinternal/errorcode_string.go",
+            "internal/typesinternal/errorcode.go",
+            "internal/typesinternal/qualifier.go",
+            "internal/typesinternal/recv.go",
+            "internal/typesinternal/toonew.go",
+            "internal/typesinternal/typeindex",
+            "internal/typesinternal/types.go",
+            "internal/typesinternal/varkind.go",
+            "internal/typesinternal/zerovalue.go",
+        ],
+        "internal/versions": [
+            "internal/versions/features.go",
+            "internal/versions/gover.go",
+            "internal/versions/types.go",
+            "internal/versions/versions.go",
+        ],
+    },
+    urls = ["https://proxy.golang.org/golang.org/x/tools/@v/v0.34.0.zip"],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/go/packages",
+    package_name = "golang.org/x/tools/go/packages",
+    srcs = [":golang.org/x/tools__srcs[go/packages]"],
+    deps = [
+        ":golang.org/x/sync/errgroup",
+        ":golang.org/x/tools/go/gcexportdata",
+        ":golang.org/x/tools/internal/gocommand",
+        ":golang.org/x/tools/internal/packagesinternal",
+        ":golang.org/x/tools/internal/typesinternal",
+    ],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/internal/gocommand",
+    package_name = "golang.org/x/tools/internal/gocommand",
+    srcs = [":golang.org/x/tools__srcs[internal/gocommand]"],
+    deps = [
+        ":golang.org/x/mod/semver",
+        ":golang.org/x/tools/internal/event",
+        ":golang.org/x/tools/internal/event/keys",
+        ":golang.org/x/tools/internal/event/label",
+    ],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/internal/event",
+    package_name = "golang.org/x/tools/internal/event",
+    srcs = [":golang.org/x/tools__srcs[internal/event]"],
+    deps = [
+        ":golang.org/x/tools/internal/event/core",
+        ":golang.org/x/tools/internal/event/keys",
+        ":golang.org/x/tools/internal/event/label",
+    ],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/internal/event/core",
+    package_name = "golang.org/x/tools/internal/event/core",
+    srcs = [":golang.org/x/tools__srcs[internal/event/core]"],
+    deps = [
+        ":golang.org/x/tools/internal/event/keys",
+        ":golang.org/x/tools/internal/event/label",
+    ],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/internal/event/keys",
+    package_name = "golang.org/x/tools/internal/event/keys",
+    srcs = [":golang.org/x/tools__srcs[internal/event/keys]"],
+    deps = [":golang.org/x/tools/internal/event/label"],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/internal/event/label",
+    package_name = "golang.org/x/tools/internal/event/label",
+    srcs = [":golang.org/x/tools__srcs[internal/event/label]"],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/internal/packagesinternal",
+    package_name = "golang.org/x/tools/internal/packagesinternal",
+    srcs = [":golang.org/x/tools__srcs[internal/packagesinternal]"],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/go/gcexportdata",
+    package_name = "golang.org/x/tools/go/gcexportdata",
+    srcs = [":golang.org/x/tools__srcs[go/gcexportdata]"],
+    deps = [
+        ":golang.org/x/tools/internal/gcimporter",
+    ],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/internal/gcimporter",
+    package_name = "golang.org/x/tools/internal/gcimporter",
+    srcs = [":golang.org/x/tools__srcs[internal/gcimporter]"],
+    deps = [
+        ":golang.org/x/tools/go/types/objectpath",
+        ":golang.org/x/tools/internal/aliases",
+        ":golang.org/x/tools/internal/pkgbits",
+        ":golang.org/x/tools/internal/typesinternal",
+    ],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/go/types/objectpath",
+    package_name = "golang.org/x/tools/go/types/objectpath",
+    srcs = [":golang.org/x/tools__srcs[go/types/objectpath]"],
+    deps = [
+        ":golang.org/x/tools/internal/aliases",
+        ":golang.org/x/tools/internal/typesinternal",
+    ],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/internal/aliases",
+    package_name = "golang.org/x/tools/internal/aliases",
+    srcs = [":golang.org/x/tools__srcs[internal/aliases]"],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/internal/typesinternal",
+    package_name = "golang.org/x/tools/internal/typesinternal",
+    srcs = [":golang.org/x/tools__srcs[internal/typesinternal]"],
+    deps = [
+        ":golang.org/x/tools/go/types/typeutil",
+        ":golang.org/x/tools/internal/aliases",
+        ":golang.org/x/tools/internal/stdlib",
+        ":golang.org/x/tools/internal/versions",
+    ],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/go/types/typeutil",
+    package_name = "golang.org/x/tools/go/types/typeutil",
+    srcs = [":golang.org/x/tools__srcs[go/types/typeutil]"],
+    deps = [":golang.org/x/tools/internal/typeparams"],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/internal/typeparams",
+    package_name = "golang.org/x/tools/internal/typeparams",
+    srcs = [":golang.org/x/tools__srcs[internal/typeparams]"],
+    deps = [":golang.org/x/tools/internal/aliases"],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/internal/stdlib",
+    package_name = "golang.org/x/tools/internal/stdlib",
+    srcs = [":golang.org/x/tools__srcs[internal/stdlib]"],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/internal/versions",
+    package_name = "golang.org/x/tools/internal/versions",
+    srcs = [":golang.org/x/tools__srcs[internal/versions]"],
+)
+
+prelude.go_library(
+    name = "golang.org/x/tools/internal/pkgbits",
+    package_name = "golang.org/x/tools/internal/pkgbits",
+    srcs = [":golang.org/x/tools__srcs[internal/pkgbits]"],
+)
+
+prelude.http_archive(
+    name = "golang.org/x/mod__srcs",
+    sha1 = "d51ef52b9d2d7c76b23c12ab0839aa86b170fd67",
+    strip_prefix = "golang.org/x/mod@v0.25.0",
+    sub_targets = {
+        "semver": [
+            "semver/semver.go",
+        ],
+    },
+    urls = ["https://proxy.golang.org/golang.org/x/mod/@v/v0.25.0.zip"],
+)
+
+prelude.go_library(
+    name = "golang.org/x/mod/semver",
+    package_name = "golang.org/x/mod/semver",
+    srcs = [":golang.org/x/mod__srcs[semver]"],
+)
+
+prelude.http_archive(
+    name = "golang.org/x/sync__srcs",
+    sha1 = "ee6b73cda3ce9a52bcc8d54088fc5d0773356dd1",
+    strip_prefix = "golang.org/x/sync@v0.15.0",
+    sub_targets = {
+        "errgroup": [
+            "errgroup/errgroup.go",
+        ],
+    },
+    urls = ["https://proxy.golang.org/golang.org/x/sync/@v/v0.15.0.zip"],
+)
+
+prelude.go_library(
+    name = "golang.org/x/sync/errgroup",
+    package_name = "golang.org/x/sync/errgroup",
+    srcs = [":golang.org/x/sync__srcs[errgroup]"],
+)
