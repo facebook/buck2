@@ -16,7 +16,6 @@ import com.facebook.buck.jvm.cd.CompilerDaemonRunner;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.logging.Level;
-import org.kohsuke.args4j.CmdLineException;
 
 /**
  * KotlinCD main class.
@@ -37,9 +36,12 @@ public class KotlinCDMain {
       System.setErr(new KotlinStdErrInterceptor());
       CompilerDaemonRunner.run(command);
       command.postExecute();
-    } catch (CmdLineException e) {
-      System.exit(1);
+      System.err.println("KotlinCDWorkerTool succeeded!");
+      System.exit(0);
+    } catch (Exception e) {
+      System.err.println("KotlinCDWorkerTool failed: " + e.getMessage());
+      e.printStackTrace(System.err);
     }
-    System.exit(0);
+    System.exit(2);
   }
 }

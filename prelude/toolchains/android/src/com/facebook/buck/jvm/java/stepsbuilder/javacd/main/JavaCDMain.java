@@ -16,7 +16,6 @@ import com.facebook.buck.jvm.cd.CompilerDaemonRunner;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.logging.Level;
-import org.kohsuke.args4j.CmdLineException;
 
 /**
  * JavaCD main class.
@@ -39,9 +38,12 @@ public class JavaCDMain {
       command.maybeWriteAbiDir();
       command.maybeWriteDepFile();
       command.maybeWriteUsedJarsFile();
-    } catch (CmdLineException e) {
-      System.exit(1);
+      System.err.println("JavaCDWorkerTool succeeded!");
+      System.exit(0);
+    } catch (Exception e) {
+      System.err.println("JavaCDWorkerTool failed: " + e.getMessage());
+      e.printStackTrace(System.err);
     }
-    System.exit(0);
+    System.exit(2);
   }
 }
