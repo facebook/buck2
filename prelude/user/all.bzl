@@ -9,7 +9,6 @@
 load("@prelude//android/user:android_emulators.bzl", _android_emulators_spec = "registration_spec")
 load("@prelude//apple:apple_resource_dedupe_alias.bzl", _apple_resource_dedupe_alias_spec = "registration_spec")
 load("@prelude//apple/mockingbird:mockingbird_mock.bzl", _mockingbird_mock_spec = "registration_spec")
-load("@prelude//apple/user:apple_macos_bundle.bzl", _apple_macos_bundle_spec = "registration_spec")
 load("@prelude//apple/user:apple_resource_bundle.bzl", _apple_resource_bundle_spec = "registration_spec")
 load("@prelude//apple/user:apple_toolchain_override.bzl", _apple_toolchain_override_spec = "registration_spec")
 load("@prelude//apple/user:apple_watchos_bundle.bzl", _apple_watchos_bundle_spec = "registration_spec")
@@ -29,7 +28,6 @@ _all_specs = [
     _link_group_map_spec,
     _resource_group_map_spec,
     _apple_watchos_bundle_spec,
-    _apple_macos_bundle_spec,
     _apple_toolchain_override_spec,
     _cxx_headers_bundle_spec,
     _cxx_toolchain_override_spec,
